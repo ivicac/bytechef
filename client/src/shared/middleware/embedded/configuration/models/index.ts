@@ -19,6 +19,7 @@ export * from './IntegrationVersionModel';
 export * from './PageModel';
 export * from './PublishIntegrationRequestModel';
 export * from './TagModel';
+export * from './UnifiedIntegrationModel';
 export * from './UpdateTagsRequestModel';
 export * from './Workflow1Model';
 export * from './WorkflowBasic1Model';

@@ -20,6 +20,7 @@ import IntegrationInstanceConfigurations from '@/pages/embedded/integration-inst
 import Integration from '@/pages/embedded/integration/Integration';
 import EmbeddedIPaaSIntegrations from '@/pages/embedded/integrations/EmbeddedIPaaSIntegrations';
 import Integrations from '@/pages/embedded/integrations/Integrations';
+import UnifiedAPIIntegrations from '@/pages/embedded/integrations/UnifiedAPIIntegrations';
 import {WorkflowExecutions as EmbeddedIntegrationWorkflowExecutions} from '@/pages/embedded/workflow-executions/WorkflowExecutions';
 import Home from '@/pages/home/Home';
 import OAuthPopup from '@/pages/platform/connection/components/oauth2/OAuthPopup';
@@ -249,6 +250,10 @@ export const getRouter = (queryClient: QueryClient) =>
                                         </PrivateRoute>
                                     ),
                                     index: true,
+                                },
+                                {
+                                    element: <UnifiedAPIIntegrations />,
+                                    path: 'unified',
                                 },
                             ],
                             element: <Integrations />,

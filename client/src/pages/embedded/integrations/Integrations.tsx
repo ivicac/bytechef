@@ -10,6 +10,7 @@ import {Outlet, useLocation, useSearchParams} from 'react-router-dom';
 export enum Type {
     Category,
     Tag,
+    UnifiedAPI,
 }
 
 const Integrations = () => {
@@ -24,7 +25,7 @@ const Integrations = () => {
               : searchParams.get('tagId')
                 ? parseInt(searchParams.get('tagId')!)
                 : undefined,
-        type: searchParams.get('tagId') ? Type.Tag : Type.Category,
+        type: pathname.includes('unified') ? Type.UnifiedAPI : searchParams.get('tagId') ? Type.Tag : Type.Category,
     };
 
     const [filterData, setFilterData] = useState<{id?: number | string; type: Type}>(defaultCurrentState);
@@ -37,7 +38,9 @@ const Integrations = () => {
         <LayoutContainer
             leftSidebarBody={
                 <>
-                    <div className="pl-0">
+                    <h3 className="px-4 py-2 font-semibold">Embedded iPaaS</h3>
+
+                    <div className="pl-2">
                         <LeftSidebarNav
                             body={
                                 <>
@@ -108,6 +111,63 @@ const Integrations = () => {
                                 </>
                             }
                             title="Tags"
+                        />
+                    </div>
+
+                    <h3 className="px-4 py-2 pt-6 font-semibold">Unified API</h3>
+
+                    <div className="pl-2">
+                        <LeftSidebarNav
+                            body={
+                                <>
+                                    <LeftSidebarNavItem
+                                        item={{
+                                            current:
+                                                filterData?.id === 'accounting' && filterData.type === Type.UnifiedAPI,
+                                            id: 'accounting',
+                                            name: 'Accounting',
+                                            onItemClick: (id?: number | string) => {
+                                                setFilterData({
+                                                    id: id as number,
+                                                    type: Type.UnifiedAPI,
+                                                });
+                                            },
+                                        }}
+                                        toLink="unified?categoryId=accounting"
+                                    />
+
+                                    <LeftSidebarNavItem
+                                        item={{
+                                            current:
+                                                filterData?.id === 'commerce' && filterData.type === Type.UnifiedAPI,
+                                            id: 'commerce',
+                                            name: 'Commerce',
+                                            onItemClick: (id?: number | string) => {
+                                                setFilterData({
+                                                    id: id as number,
+                                                    type: Type.UnifiedAPI,
+                                                });
+                                            },
+                                        }}
+                                        toLink="unified?categoryId=commerce"
+                                    />
+
+                                    <LeftSidebarNavItem
+                                        item={{
+                                            current: filterData?.id === 'crm' && filterData.type === Type.UnifiedAPI,
+                                            id: 'crm',
+                                            name: 'CRM',
+                                            onItemClick: (id?: number | string) => {
+                                                setFilterData({
+                                                    id: id as string,
+                                                    type: Type.UnifiedAPI,
+                                                });
+                                            },
+                                        }}
+                                        toLink="unified?categoryId=crm"
+                                    />
+                                </>
+                            }
                         />
                     </div>
                 </>

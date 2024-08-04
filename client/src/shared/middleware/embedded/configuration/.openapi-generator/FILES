@@ -5,6 +5,7 @@ apis/IntegrationInstanceApi.ts
 apis/IntegrationInstanceConfigurationApi.ts
 apis/IntegrationInstanceConfigurationTagApi.ts
 apis/IntegrationTagApi.ts
+apis/UnifiedIntegrationApi.ts
 apis/WorkflowApi.ts
 apis/index.ts
 index.ts
@@ -27,6 +28,7 @@ models/IntegrationVersionModel.ts
 models/PageModel.ts
 models/PublishIntegrationRequestModel.ts
 models/TagModel.ts
+models/UnifiedIntegrationModel.ts
 models/UpdateTagsRequestModel.ts
 models/Workflow1Model.ts
 models/WorkflowBasic1Model.ts

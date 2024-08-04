@@ -7,4 +7,5 @@ export * from './IntegrationInstanceApi';
 export * from './IntegrationInstanceConfigurationApi';
 export * from './IntegrationInstanceConfigurationTagApi';
 export * from './IntegrationTagApi';
+export * from './UnifiedIntegrationApi';
 export * from './WorkflowApi';
