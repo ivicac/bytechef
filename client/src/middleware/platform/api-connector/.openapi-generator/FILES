@@ -1,0 +1,12 @@
+.openapi-generator-ignore
+apis/ApiConnectorApi.ts
+apis/index.ts
+index.ts
+models/ApiConnectorEndpointModel.ts
+models/ApiConnectorModel.ts
+models/HttpMethodModel.ts
+models/ImportOpenApiSpecificationRequestModel.ts
+models/TagModel.ts
+models/UpdateTagsRequestModel.ts
+models/index.ts
+runtime.ts

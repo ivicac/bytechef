@@ -33,6 +33,7 @@ public class ApplicationProperties {
         CE, EE
     }
 
+    private ApiConnector apiConnector = new ApiConnector();
     private Cache cache;
     private Cloud cloud = new Cloud();
     private Component component = new Component();
@@ -54,6 +55,10 @@ public class ApplicationProperties {
     private String webhookUrl;
     private Worker worker = new Worker();
     private Workflow workflow;
+
+    public ApiConnector getApiConnector() {
+        return apiConnector;
+    }
 
     public Cache getCache() {
         return cache;
@@ -139,6 +144,10 @@ public class ApplicationProperties {
         return workflow;
     }
 
+    public void setApiConnector(ApiConnector apiConnector) {
+        this.apiConnector = apiConnector;
+    }
+
     public void setCache(Cache cache) {
         this.cache = cache;
     }
@@ -221,6 +230,36 @@ public class ApplicationProperties {
 
     public void setWorkflow(Workflow workflow) {
         this.workflow = workflow;
+    }
+
+    public static class ApiConnector {
+
+        private FileStorage fileStorage = new FileStorage();
+
+        public FileStorage getFileStorage() {
+            return fileStorage;
+        }
+
+        public void setFileStorage(FileStorage fileStorage) {
+            this.fileStorage = fileStorage;
+        }
+
+        public static class FileStorage {
+
+            public enum Provider {
+                AWS, FILESYSTEM
+            }
+
+            private Provider provider;
+
+            public Provider getProvider() {
+                return provider;
+            }
+
+            public void setProvider(Provider provider) {
+                this.provider = provider;
+            }
+        }
     }
 
     public static class Cache {
