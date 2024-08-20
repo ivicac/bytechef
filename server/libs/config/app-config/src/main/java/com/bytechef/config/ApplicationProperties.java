@@ -38,6 +38,7 @@ public class ApplicationProperties {
     private Cloud cloud = new Cloud();
     private Component component = new Component();
     private Coordinator coordinator = new Coordinator();
+    private CustomComponent customComponent = new CustomComponent();
     private Datasource datasource;
     private DataStorage dataStorage;
     private DiscoveryService discoveryService;
@@ -74,6 +75,10 @@ public class ApplicationProperties {
 
     public Coordinator getCoordinator() {
         return coordinator;
+    }
+
+    public CustomComponent getCustomComponent() {
+        return customComponent;
     }
 
     public Datasource getDatasource() {
@@ -162,6 +167,10 @@ public class ApplicationProperties {
 
     public void setCoordinator(Coordinator coordinator) {
         this.coordinator = coordinator;
+    }
+
+    public void setCustomComponent(CustomComponent customComponent) {
+        this.customComponent = customComponent;
     }
 
     public void setDatasource(Datasource datasource) {
@@ -531,6 +540,36 @@ public class ApplicationProperties {
                 public void setTriggerWebhookEvents(int triggerWebhookEvents) {
                     this.triggerWebhookEvents = triggerWebhookEvents;
                 }
+            }
+        }
+    }
+
+    public static class CustomComponent {
+
+        private FileStorage fileStorage = new FileStorage();
+
+        public FileStorage getFileStorage() {
+            return fileStorage;
+        }
+
+        public void setFileStorage(FileStorage fileStorage) {
+            this.fileStorage = fileStorage;
+        }
+
+        public static class FileStorage {
+
+            public enum Provider {
+                AWS, FILESYSTEM
+            }
+
+            private Provider provider;
+
+            public Provider getProvider() {
+                return provider;
+            }
+
+            public void setProvider(Provider provider) {
+                this.provider = provider;
             }
         }
     }

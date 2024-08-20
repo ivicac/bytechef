@@ -30,6 +30,7 @@ import AdminApiKeys from '@/pages/platform/settings/admin-api-keys/AdminApiKeys'
 import Workspaces from '@/pages/settings/automation/workspaces/Workspaces';
 import ApiKeys from '@/pages/settings/embedded/api-keys/ApiKeys';
 import SigningKeys from '@/pages/settings/embedded/signing-keys/SigningKeys';
+import CustomComponents from '@/pages/settings/platform/custom-components/CustomComponents';
 import PrivateRoute from '@/shared/auth/PrivateRoute';
 import {AUTHORITIES} from '@/shared/constants';
 import EEVersion from '@/shared/edition/EEVersion';
@@ -85,6 +86,14 @@ const platformSettingsRoutes = {
         {
             element: (
                 <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                    <CustomComponents />
+                </PrivateRoute>
+            ),
+            path: 'custom-components',
+        },
+        {
+            element: (
+                <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                     <EEVersion>
                         <ApiConnectors />
                     </EEVersion>
@@ -100,6 +109,10 @@ const platformSettingsRoutes = {
     navItems: [
         {
             title: 'Organization',
+        },
+        {
+            href: 'custom-components',
+            title: 'Custom Components',
         },
         {
             href: `api-connectors`,
