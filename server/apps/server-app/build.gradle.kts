@@ -112,6 +112,7 @@ dependencies {
     implementation(project(":server:libs:modules:components:affinity"))
     implementation(project(":server:libs:modules:components:airtable"))
     implementation(project(":server:libs:modules:components:aitable"))
+    implementation(project(":server:libs:modules:components:api-platform"))
     implementation(project(":server:libs:modules:components:asana"))
     implementation(project(":server:libs:modules:components:aws:aws-s3"))
     implementation(project(":server:libs:modules:components:bash"))
@@ -208,6 +209,10 @@ dependencies {
 
     implementation(project(":server:ee:libs:atlas:atlas-configuration:atlas-configuration-repository:atlas-configuration-repository-git"))
     implementation(project(":server:ee:libs:automation:automation-configuration:automation-configuration-rest"))
+    implementation(project(":server:ee:libs:automation:automation-api-platform:automation-api-platform-configuration:automation-api-platform-configuration-rest"))
+    implementation(project(":server:ee:libs:automation:automation-api-platform:automation-api-platform-configuration:automation-api-platform-configuration-service"))
+    implementation(project(":server:ee:libs:automation:automation-api-platform:automation-api-platform-handler:automation-api-platform-handler-rest"))
+    implementation(project(":server:ee:libs:automation:automation-api-platform:automation-api-platform-handler:automation-api-platform-handler-impl"))
     implementation(project(":server:ee:libs:config:tenant-multi-data-config"))
     implementation(project(":server:ee:libs:config:tenant-multi-message-event-config"))
     implementation(project(":server:ee:libs:config:tenant-multi-security-config"))
