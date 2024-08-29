@@ -1,0 +1,8 @@
+README.md
+pom.xml
+src/main/java/com/bytechef/platform/datasync/configuration/web/rest/ApiUtil.java
+src/main/java/com/bytechef/platform/datasync/configuration/web/rest/DataSyncApi.java
+src/main/java/com/bytechef/platform/datasync/configuration/web/rest/DataSyncTagApi.java
+src/main/java/com/bytechef/platform/datasync/configuration/web/rest/model/DataSyncModel.java
+src/main/java/com/bytechef/platform/datasync/configuration/web/rest/model/TagModel.java
+src/main/java/com/bytechef/platform/datasync/configuration/web/rest/model/UpdateTagsRequestModel.java

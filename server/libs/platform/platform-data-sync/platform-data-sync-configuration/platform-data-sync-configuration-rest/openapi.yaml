@@ -1,0 +1,240 @@
+---
+openapi: "3.0.1"
+info:
+  title: "The Platform Data Sync Internal API"
+  version: "1"
+servers:
+- url: "/api/platform/internal"
+tags:
+  - name: "data-sync"
+    description: "The Platform Data Sync Internal API"
+  - name: "data-sync-tag"
+    description: "The Automation Data Sync Tag Internal API"
+paths:
+  /data-syncs:
+    get:
+      description: "Get data syncs."
+      summary: "Get data syncs"
+      tags:
+        - "data-sync"
+      operationId: "getDataSyncs"
+      responses:
+        "200":
+          description: "A list of data syncs."
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/DataSync"
+    post:
+      description: "Create a new data sync."
+      summary: "Create a new data sync"
+      tags:
+        - "data-sync"
+      operationId: "createDataSync"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DataSync"
+        required: true
+      responses:
+        "200":
+          description: "The data sync object."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataSync"
+  /api-conectors/tags:
+    get:
+      description: "Get data sync tags."
+      summary: "Get data sync tags"
+      tags:
+        - "data-sync-tag"
+      operationId: "getDataSyncTags"
+      responses:
+        "200":
+          description: "The list of data sync tags."
+          content:
+            application/json:
+              schema:
+                description: "The response object that contains the array of tags."
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/Tag"
+  /data-syncs/{id}:
+    delete:
+      description: "Delete an data sync."
+      summary: "Delete an data sync"
+      tags:
+        - "data-sync"
+      operationId: "deleteDataSync"
+      parameters:
+        - name: "id"
+          description: "The id of an data sync."
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+            format: "int64"
+      responses:
+        "200":
+          description: "Successful operation."
+    get:
+      description: "Get an data sync by id."
+      summary: "Get an data sync by id"
+      tags:
+        - "data-sync"
+      operationId: "getDataSync"
+      parameters:
+        - name: "id"
+          description: "The id of an data sync."
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+            format: "int64"
+      responses:
+        "200":
+          description: "The data sync object."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataSync"
+    put:
+      description: "Update an existing data sync."
+      summary: "Update an existing data sync"
+      tags:
+        - "data-sync"
+      operationId: "updateDataSync"
+      parameters:
+        - name: "id"
+          description: "The id of an data sync."
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+            format: "int64"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DataSync"
+        required: true
+      responses:
+        "200":
+          description: "The updated data sync object."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataSync"
+  /data-syncs/{id}/tags:
+    put:
+      description: "Updates tags of an existing data syncs."
+      summary: "Updates tags of an existing data syncs"
+      tags:
+        - "data-sync-tag"
+      operationId: "updateApiConnectionTags"
+      parameters:
+        - name: "id"
+          description: "The id of an data syncs."
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+            format: "int64"
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTagsRequest"
+        required: true
+      responses:
+        "200":
+          description: "Successful operation."
+components:
+  schemas:
+    DataSync:
+      description: "An data sync."
+      required:
+        - "name"
+        - "schema"
+      properties:
+        createdBy:
+          description: "The created by."
+          type: "string"
+          readOnly: true
+        createdDate:
+          description: "The created date."
+          type: "string"
+          format: "date-time"
+          readOnly: true
+        description:
+          description: "The description of an data sync."
+          type: "string"
+        icon:
+          description: "The icon of an data sync."
+          type: "string"
+        id:
+          description: "The id of an data sync."
+          type: "integer"
+          format: "int64"
+        name:
+          description: "The name of an data sync."
+          type: "string"
+        lastModifiedBy:
+          description: "The last modified by."
+          type: "string"
+          readOnly: true
+        lastModifiedDate:
+          description: "The last modified date."
+          type: "string"
+          format: "date-time"
+          readOnly: true
+        title:
+          description: "The title of an data sync."
+          type: "string"
+        __version:
+          type: "integer"
+          format: "int32"
+    Tag:
+      description: "A tag."
+      required:
+        - "name"
+      properties:
+        createdBy:
+          description: "The created by."
+          type: "string"
+          readOnly: true
+        createdDate:
+          description: "The created date."
+          type: "string"
+          format: "date-time"
+          readOnly: true
+        id:
+          description: "The id of the tag."
+          type: "integer"
+          format: "int64"
+        lastModifiedBy:
+          description: "The last modified by."
+          type: "string"
+          readOnly: true
+        lastModifiedDate:
+          description: "The last modified date."
+          type: "string"
+          format: "date-time"
+          readOnly: true
+        name:
+          description: "The name of the tag."
+          type: "string"
+        __version:
+          type: "integer"
+    UpdateTagsRequest:
+      description: "The request object that contains the array of tags."
+      type: "object"
+      properties:
+        tags:
+          type: "array"
+          items:
+            $ref: "#/components/schemas/Tag"
