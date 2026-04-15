@@ -33,7 +33,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "connection_base", description = "Contains all required information to open a connection to a service defined by componentName parameter.")
 @JsonTypeName("connection_base")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-04-28T12:44:14.962329259+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-04-28T17:56:04.093602+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
 public class ConnectionBaseModel {
 
   private @Nullable Boolean active;
@@ -74,7 +74,90 @@ public class ConnectionBaseModel {
   private Map<String, Object> parameters = new HashMap<>();
 
   @Valid
+  private List<Long> sharedProjectIds = new ArrayList<>();
+
+  @Valid
   private List<@Valid TagModel> tags = new ArrayList<>();
+
+  /**
+   * Lifecycle state of the connection. ACTIVE is the normal operating state. PENDING_REASSIGNMENT indicates the owner was removed from the workspace and the connection awaits reassignment. REVOKED is terminal and cannot transition back.
+   */
+  public enum StatusEnum {
+    ACTIVE("ACTIVE"),
+    
+    PENDING_REASSIGNMENT("PENDING_REASSIGNMENT"),
+    
+    REVOKED("REVOKED");
+
+    private final String value;
+
+    StatusEnum(String value) {
+      this.value = value;
+    }
+
+    @JsonValue
+    public String getValue() {
+      return value;
+    }
+
+    @Override
+    public String toString() {
+      return String.valueOf(value);
+    }
+
+    @JsonCreator
+    public static StatusEnum fromValue(String value) {
+      for (StatusEnum b : StatusEnum.values()) {
+        if (b.value.equals(value)) {
+          return b;
+        }
+      }
+      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+    }
+  }
+
+  private @Nullable StatusEnum status;
+
+  /**
+   * Visibility scope controlling which users can see and use a connection. Accepted on create: PRIVATE (default) or WORKSPACE — setting WORKSPACE requires ROLE_ADMIN. PROJECT and ORGANIZATION are assigned by share / organization flows, not by direct client request. On CE or embedded surfaces the server always forces PRIVATE regardless of the request body.
+   */
+  public enum VisibilityEnum {
+    PRIVATE("PRIVATE"),
+    
+    PROJECT("PROJECT"),
+    
+    WORKSPACE("WORKSPACE"),
+    
+    ORGANIZATION("ORGANIZATION");
+
+    private final String value;
+
+    VisibilityEnum(String value) {
+      this.value = value;
+    }
+
+    @JsonValue
+    public String getValue() {
+      return value;
+    }
+
+    @Override
+    public String toString() {
+      return String.valueOf(value);
+    }
+
+    @JsonCreator
+    public static VisibilityEnum fromValue(String value) {
+      for (VisibilityEnum b : VisibilityEnum.values()) {
+        if (b.value.equals(value)) {
+          return b;
+        }
+      }
+      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+    }
+  }
+
+  private @Nullable VisibilityEnum visibility;
 
   private @Nullable Integer version;
 
@@ -452,6 +535,35 @@ public class ConnectionBaseModel {
     this.parameters = parameters;
   }
 
+  public ConnectionBaseModel sharedProjectIds(List<Long> sharedProjectIds) {
+    this.sharedProjectIds = sharedProjectIds;
+    return this;
+  }
+
+  public ConnectionBaseModel addSharedProjectIdsItem(Long sharedProjectIdsItem) {
+    if (this.sharedProjectIds == null) {
+      this.sharedProjectIds = new ArrayList<>();
+    }
+    this.sharedProjectIds.add(sharedProjectIdsItem);
+    return this;
+  }
+
+  /**
+   * IDs of projects this connection is shared with. Typically populated when visibility is PROJECT.
+   * @return sharedProjectIds
+   */
+  
+  @Schema(name = "sharedProjectIds", accessMode = Schema.AccessMode.READ_ONLY, description = "IDs of projects this connection is shared with. Typically populated when visibility is PROJECT.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("sharedProjectIds")
+  public List<Long> getSharedProjectIds() {
+    return sharedProjectIds;
+  }
+
+  @JsonProperty("sharedProjectIds")
+  public void setSharedProjectIds(List<Long> sharedProjectIds) {
+    this.sharedProjectIds = sharedProjectIds;
+  }
+
   public ConnectionBaseModel tags(List<@Valid TagModel> tags) {
     this.tags = tags;
     return this;
@@ -479,6 +591,48 @@ public class ConnectionBaseModel {
   @JsonProperty("tags")
   public void setTags(List<@Valid TagModel> tags) {
     this.tags = tags;
+  }
+
+  public ConnectionBaseModel status(@Nullable StatusEnum status) {
+    this.status = status;
+    return this;
+  }
+
+  /**
+   * Lifecycle state of the connection. ACTIVE is the normal operating state. PENDING_REASSIGNMENT indicates the owner was removed from the workspace and the connection awaits reassignment. REVOKED is terminal and cannot transition back.
+   * @return status
+   */
+  
+  @Schema(name = "status", accessMode = Schema.AccessMode.READ_ONLY, description = "Lifecycle state of the connection. ACTIVE is the normal operating state. PENDING_REASSIGNMENT indicates the owner was removed from the workspace and the connection awaits reassignment. REVOKED is terminal and cannot transition back.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("status")
+  public @Nullable StatusEnum getStatus() {
+    return status;
+  }
+
+  @JsonProperty("status")
+  public void setStatus(@Nullable StatusEnum status) {
+    this.status = status;
+  }
+
+  public ConnectionBaseModel visibility(@Nullable VisibilityEnum visibility) {
+    this.visibility = visibility;
+    return this;
+  }
+
+  /**
+   * Visibility scope controlling which users can see and use a connection. Accepted on create: PRIVATE (default) or WORKSPACE — setting WORKSPACE requires ROLE_ADMIN. PROJECT and ORGANIZATION are assigned by share / organization flows, not by direct client request. On CE or embedded surfaces the server always forces PRIVATE regardless of the request body.
+   * @return visibility
+   */
+  
+  @Schema(name = "visibility", description = "Visibility scope controlling which users can see and use a connection. Accepted on create: PRIVATE (default) or WORKSPACE — setting WORKSPACE requires ROLE_ADMIN. PROJECT and ORGANIZATION are assigned by share / organization flows, not by direct client request. On CE or embedded surfaces the server always forces PRIVATE regardless of the request body.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("visibility")
+  public @Nullable VisibilityEnum getVisibility() {
+    return visibility;
+  }
+
+  @JsonProperty("visibility")
+  public void setVisibility(@Nullable VisibilityEnum visibility) {
+    this.visibility = visibility;
   }
 
   public ConnectionBaseModel version(@Nullable Integer version) {
@@ -527,13 +681,16 @@ public class ConnectionBaseModel {
         Objects.equals(this.lastModifiedDate, connectionBase.lastModifiedDate) &&
         Objects.equals(this.name, connectionBase.name) &&
         Objects.equals(this.parameters, connectionBase.parameters) &&
+        Objects.equals(this.sharedProjectIds, connectionBase.sharedProjectIds) &&
         Objects.equals(this.tags, connectionBase.tags) &&
+        Objects.equals(this.status, connectionBase.status) &&
+        Objects.equals(this.visibility, connectionBase.visibility) &&
         Objects.equals(this.version, connectionBase.version);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(active, authorizationType, authorizationParameters, baseUri, componentName, connectionParameters, connectionVersion, createdBy, createdDate, credentialStatus, environmentId, id, lastModifiedBy, lastModifiedDate, name, parameters, tags, version);
+    return Objects.hash(active, authorizationType, authorizationParameters, baseUri, componentName, connectionParameters, connectionVersion, createdBy, createdDate, credentialStatus, environmentId, id, lastModifiedBy, lastModifiedDate, name, parameters, sharedProjectIds, tags, status, visibility, version);
   }
 
   @Override
@@ -556,7 +713,10 @@ public class ConnectionBaseModel {
     sb.append("    lastModifiedDate: ").append(toIndentedString(lastModifiedDate)).append("\n");
     sb.append("    name: ").append(toIndentedString(name)).append("\n");
     sb.append("    parameters: ").append(toIndentedString(parameters)).append("\n");
+    sb.append("    sharedProjectIds: ").append(toIndentedString(sharedProjectIds)).append("\n");
     sb.append("    tags: ").append(toIndentedString(tags)).append("\n");
+    sb.append("    status: ").append(toIndentedString(status)).append("\n");
+    sb.append("    visibility: ").append(toIndentedString(visibility)).append("\n");
     sb.append("    version: ").append(toIndentedString(version)).append("\n");
     sb.append("}");
     return sb.toString();
