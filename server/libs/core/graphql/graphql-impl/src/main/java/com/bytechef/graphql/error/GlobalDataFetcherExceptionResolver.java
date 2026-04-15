@@ -64,6 +64,10 @@ class GlobalDataFetcherExceptionResolver extends DataFetcherExceptionResolverAda
 
     private static final Logger log = LoggerFactory.getLogger(GlobalDataFetcherExceptionResolver.class);
 
+    // Allowlist of exception types whose getMessage() is safe to forward to clients. Driver and infrastructure
+    // exception messages often contain SQL state, bind parameters, schema/table names, JDBC URLs, or fully
+    // qualified class paths that leak implementation detail. Anything not on this list is surfaced as the
+    // outer AbstractException message only — callers who need driver detail can grep server logs by request id.
     private static final Set<String> SAFE_MESSAGE_FQCNS = Set.of(
         "com.bytechef.exception.AbstractException",
         "com.bytechef.exception.ConfigurationException",
@@ -135,6 +139,10 @@ class GlobalDataFetcherExceptionResolver extends DataFetcherExceptionResolverAda
                 .build();
         }
 
+        // Unmapped throwable: let Spring GraphQL apply the default INTERNAL_ERROR response, but leave a
+        // server-side breadcrumb so operators can correlate a generic client error with the real cause.
+        // Without this log, NullPointerException or uncaught RuntimeException inside a data fetcher would
+        // surface to the client as an opaque "INTERNAL_ERROR" with no pointer to the failing exception type.
         log.warn(
             "Unmapped throwable from data fetcher ({}): {}",
             throwable.getClass()

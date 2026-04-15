@@ -54,6 +54,7 @@ import org.springframework.security.test.context.support.WithMockUser;
     PostgreSQLContainerConfiguration.class, ConnectionServiceIntTest.AfterSaveListenerConfiguration.class
 })
 @ConnectionIntTestConfigurationSharedMocks
+@WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
 class ConnectionServiceIntTest {
 
     @Autowired

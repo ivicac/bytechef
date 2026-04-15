@@ -41,6 +41,12 @@ public interface ConnectionFacade {
         String componentName, Integer connectionVersion, List<Long> connectionIds, Long tagId, Long environmentId,
         PlatformType type);
 
+    /**
+     * Materialize already-fetched {@link Connection} entities into {@link ConnectionDTO}s with tag batching and
+     * {@code isUsed} resolution. Use this overload when a caller has already queried the entities by a specialized
+     * predicate (e.g. visibility + environment) to avoid a redundant second-round-trip through
+     * {@link #getConnections(List, PlatformType)}.
+     */
     List<ConnectionDTO> toConnectionDTOs(List<Connection> connections);
 
     List<Tag> getConnectionTags(PlatformType type);

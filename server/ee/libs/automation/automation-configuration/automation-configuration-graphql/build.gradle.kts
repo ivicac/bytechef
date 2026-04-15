@@ -10,4 +10,16 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
     testImplementation("org.springframework.boot:spring-boot-starter-graphql-test")
     testImplementation(project(":server:libs:test:test-int-support"))
+    implementation("org.springframework.security:spring-security-core")
+    implementation(project(":server:libs:core:graphql:graphql-api"))
+    implementation(project(":server:libs:platform:platform-connection:platform-connection-api"))
+    implementation(project(":server:libs:platform:platform-user:platform-user-api"))
+
+    implementation(project(":server:ee:libs:automation:automation-configuration:automation-configuration-api"))
+
+    testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.graphql:spring-graphql-test")
+    testImplementation("org.springframework.security:spring-security-config")
+    testImplementation("org.springframework.security:spring-security-test")
+    testImplementation(project(":server:libs:automation:automation-configuration:automation-configuration-service"))
 }

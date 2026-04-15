@@ -353,31 +353,59 @@ public class ExampleComponentHandler implements ComponentHandler {
 - Empty blocks are forbidden — a comment alone doesn't satisfy the `EmptyBlock` rule; add an executable statement
 - `TODO:` comments are forbidden (`TodoComment` rule) — rewrite as plain comments describing intent, or implement the work
 
-### Agent HITL approvals (chat cards + tool gate)
+### Resource Visibility & Sharing
 
-Two separate primitives: **Approval** (a decision with a boolean `approved`; a comment is valid on BOTH outcomes) and
-**AskUserQuestion** (clarification for the LLM). Typing in chat NEVER resolves an approval. Delivery goes out
-best-effort over 15 `APPROVAL_CHANNELS` elements: chat, Slack, Discord, Telegram, Mattermost, Rocket.Chat, Gmail,
-Outlook 365, SMTP email, WhatsApp via Meta/Twilio/Infobip, SMS via Twilio/Infobip, and approval task. The step fails
-only when every configured channel fails. Besides the chat card, five resolve in place through a signed interactivity
-callback: Slack, Discord, Telegram, WhatsApp (Meta) and Mattermost.
+Connections carry a `visibility` column typed `ResourceVisibility` (`PRIVATE < WORKSPACE <
+ORGANIZATION`, in `platform-api`). Every resource is created **WORKSPACE-visible** — shared with its
+workspace unless its owner withholds it. The model is resource-agnostic; connections are the only
+resource wired to it so far.
 
-The gate is the `aiAgentUtils/v1/approvalGate` cluster element. It wraps every tool nested in it in
-`ApprovalGateToolCallback`, which suspends via the sentinel protocol. On resume, an approved call runs the original
-arguments, and any calls the suspend deferred are issued again (`DeferredToolCallReplay`). A gate inside a gate,
-`requestApproval` inside a gate, and either of them under a subagent are rejected both by `WorkflowValidator` and at
-run time.
+- **CE**: `ConnectionFacadeImpl.create()` force-writes `WORKSPACE`. No picker, no grants — CE has no
+  authorization boundary between workspace members, so everything is workspace-public.
+- **EE**: the picker offers Shared with workspace / Private / Specific people. No `ROLE_ADMIN` gate on
+  `WORKSPACE` — it is the default, so gating it would fail every ordinary create. `ORGANIZATION` is
+  **not** offered here: it is reached through `createOrganizationConnection`, and
+  `setConnectionVisibility` rejects it. (`ConnectionVisibilityPicker` can render an Organization
+  option behind `showOrganizationOption`, but no caller passes it today.)
+- **Embedded**: force-written `PRIVATE`, unchanged. An embedded connection belongs to a connected user,
+  not a workspace member, so workspace reach would be wrong in a way that crosses customers.
 
-The resume contract:
-- An approval resumes only with a signed token and a boolean `approved`.
-- A GET of an approval resume link, or a HEAD of any resume link, answers 405.
-- Restarting a run that waits on an approval answers 409, and stop cancels the approval.
+**What sharing exposes.** `WORKSPACE` grants *use plus existence*, not *read plus write*: both REST
+controllers obfuscate `authorizationParameters` and null `parameters`, and no `ConnectionFacade` method
+mutates authorization parameters after creation. A member can run a workflow against a colleague's
+account; they cannot extract or repoint the credential.
 
-An expired approval FAILS the run, and its links answer 410. A synchronous run cannot pause: a workflow with a
-step that could pause it, an approval gate included, is rejected before it starts. Expiry runs a 15-minute
-platform-coordinator sweep, acting only on approval suspends. There are no approval reminders or escalation.
+**"Specific people"** is not a fourth stored value — it is `PRIVATE` plus rows in `resource_grant`
+(EE, `platform-resource-grant`). A grant conveys visibility only; what the recipient may then do is
+decided by the usual `PermissionScope`/`WorkspaceRole` machinery. Grants survive promotion so demoting
+restores the previous audience, and are deleted with the connection because `resource_id` is
+polymorphic and has no foreign key.
 
-Never add notification logic under `server/libs/atlas/`. See `.agents/hitl-approvals.md`.
+**Visibility is a precondition of `hasResourceScope`**, in both editions — not a filter running beside
+it. Without that, a member holding `CONNECTION_EDIT` would pass the by-id check for a connection the
+list correctly hides. In CE this replaces owner-isolation *only* for resource types that registered a
+`ResourceVisibilityProvider`; API keys and other user-owned resources keep it.
+`PermissionServiceVisibilityTest` is the regression guard.
+
+**GraphQL mutations** (owner-or-admin, annotated on the facade so they protect every caller):
+- `setConnectionVisibility(workspaceId, connectionId, visibility)` — rejects `ORGANIZATION` (set
+  through `createOrganizationConnection`) and refuses to narrow to `PRIVATE` while an active
+  deployment uses the connection.
+- `grantConnectionAccess` / `revokeConnectionAccess(workspaceId, connectionId, userId)` — grantee must
+  be a member of the owning workspace; rejection reuses the unknown-connection error so user ids
+  cannot be enumerated. Grant is idempotent via `ON CONFLICT DO NOTHING`, not a caught
+  `DuplicateKeyException` — PostgreSQL aborts the transaction on a constraint violation, so catching it
+  still fails at commit.
+- `connectionGrants(workspaceId, connectionId)` — owner-or-admin; a plain viewer must not learn who
+  else a connection was handed to.
+
+**Audit**: `CONNECTION_VISIBILITY_CHANGED`, `CONNECTION_ACCESS_GRANTED`, `CONNECTION_ACCESS_REVOKED`.
+The first and last are `strictAudit` — both can remove access.
+
+**Metrics**: `bytechef_connection_create` (Counter), tagged
+`visibility=PRIVATE|WORKSPACE|ORGANIZATION`, wired via `ObjectProvider<MeterRegistry>` so lightweight
+app variants without actuator start cleanly.
+
 
 ### Spring Boot Project Conventions
 
@@ -392,7 +420,7 @@ Never add notification logic under `server/libs/atlas/`. See `.agents/hitl-appro
   `bytechef.worker.task.subscriptions.default`), `syncWorkerExecutor` (the API-Platform sync path and the editor's
   Test button, limit `bytechef.worker.task.sync-concurrency-limit`), `messageEventExecutor` (Spring-event→broker
   bridge, unbounded) and `webhookDeliveryExecutor` (outbound webhook POSTs: job status and task started webhooks,
-  notification webhooks, Slack; unbounded). The sync lane is a bulkhead, not extra capacity:
+  notification webhooks, Slack, approval reminders; unbounded). The sync lane is a bulkhead, not extra capacity:
   without it a burst of scheduled runs saturates the worker lane and an interactive caller blocks on a permit while
   holding a request thread.
   All are queue-less `SimpleAsyncTaskExecutor`s: a submitter waits for a permit. Anything that runs component code

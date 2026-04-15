@@ -37,11 +37,14 @@ import com.bytechef.platform.domain.BaseProperty;
 import com.bytechef.platform.oauth2.service.OAuth2Service;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.security.util.SecurityUtils;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.platform.tag.domain.Tag;
 import com.bytechef.platform.tag.service.TagService;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessor;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessorRegistry;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.HashMap;
@@ -54,6 +57,8 @@ import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -68,28 +73,82 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
 
     private final ConnectionDefinitionService connectionDefinitionService;
     private final ConnectionService connectionService;
+    private final boolean eeEdition;
     private final JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry;
+    private final MeterRegistry meterRegistry;
     private final OAuth2Service oAuth2Service;
     private final TagService tagService;
     private final WorkflowTestConfigurationService workflowTestConfigurationService;
 
-    @SuppressFBWarnings("EI2")
+    @SuppressFBWarnings({
+        "CT_CONSTRUCTOR_THROW", "EI2"
+    })
     public ConnectionFacadeImpl(
         ConnectionDefinitionService connectionDefinitionService, ConnectionService connectionService,
+        @Value("${bytechef.edition:CE}") String edition,
         JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry, OAuth2Service oAuth2Service, TagService tagService,
-        WorkflowTestConfigurationService workflowTestConfigurationService) {
+        WorkflowTestConfigurationService workflowTestConfigurationService,
+        ObjectProvider<MeterRegistry> meterRegistryProvider) {
 
         this.connectionDefinitionService = connectionDefinitionService;
         this.connectionService = connectionService;
+        validateEdition(edition);
+        this.eeEdition = "EE".equalsIgnoreCase(edition);
         this.jobPrincipalAccessorRegistry = jobPrincipalAccessorRegistry;
+        this.meterRegistry = meterRegistryProvider.getIfAvailable();
         this.oAuth2Service = oAuth2Service;
         this.tagService = tagService;
         this.workflowTestConfigurationService = workflowTestConfigurationService;
     }
 
+    /**
+     * Overwrite the requested visibility, logging when the two differ so the divergence from the request body shows up
+     * in audit/ops review rather than being silent.
+     */
+    private void forceVisibility(Connection connection, ResourceVisibility forced, PlatformType type) {
+        ResourceVisibility requested = connection.getVisibility();
+
+        if (requested != forced && log.isInfoEnabled()) {
+            log.info(
+                "Forcing {} visibility for connection (requested={}, platformType={}, eeEdition={})",
+                forced, requested, type, eeEdition);
+        }
+
+        connection.setVisibility(forced);
+    }
+
+    /**
+     * Fail loud at startup when {@code bytechef.edition} is set to an unknown value so an accidental misconfiguration
+     * (e.g. {@code Enterprise}, {@code ee }, a typo) does not silently disable EE features by falling through the
+     * {@code "EE".equalsIgnoreCase(edition)} check.
+     */
+    private static void validateEdition(String edition) {
+        if (edition == null
+            || !("CE".equalsIgnoreCase(edition) || "EE".equalsIgnoreCase(edition))) {
+            throw new IllegalStateException(
+                "bytechef.edition must be CE or EE (case-insensitive); got '" + edition + "'");
+        }
+    }
+
     @Override
     public long create(ConnectionDTO connectionDTO, PlatformType type) {
         Connection connection = connectionDTO.toConnection();
+
+        // Two overrides that ignore the request body entirely. The UI gates these surfaces too, but only a
+        // facade-level override stops a hand-crafted request.
+        //
+        // EMBEDDED: a connection belongs to a connected user — an end user of a customer's product — not to a
+        // workspace member, so "visible to the whole workspace" has no meaning and WORKSPACE would be wrong in a
+        // way that crosses customers. PRIVATE is the value that cannot widen anything if a query reaches the row
+        // by another path.
+        //
+        // CE: there is no authorization boundary between workspace members and no visibility picker, so every
+        // connection is workspace-visible.
+        if (type == PlatformType.EMBEDDED) {
+            forceVisibility(connection, ResourceVisibility.PRIVATE, type);
+        } else if (!eeEdition) {
+            forceVisibility(connection, ResourceVisibility.WORKSPACE, type);
+        }
 
         resolveOAuth2AuthorizationCode(connection);
 
@@ -384,13 +443,39 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
                             connectionId, connection.getComponentName());
                     }
 
+                    if (meterRegistry != null) {
+                        Counter.builder("bytechef_connection_list_dto_failed")
+                            .description("Number of connections returned as degraded placeholders from list "
+                                + "responses due to DTO mapping errors")
+                            .tag("componentName", String.valueOf(connection.getComponentName()))
+                            .register(meterRegistry)
+                            .increment();
+                    }
+
                     return buildDegradedConnectionDTO(connection, filterTags(tags, connection), exception);
                 }
             })
             .toList();
     }
 
+    /**
+     * Builds a best-effort placeholder DTO when {@link #toConnectionDTO} throws. The previous behavior — returning
+     * {@code null} and filtering it out — made failing rows invisible to admins; they could not tell a mapping failure
+     * from a missing connection. A degraded DTO surfaces the row with {@code active=false}, an empty authorization
+     * payload, and {@code baseUri=null}, so the UI can render the connection with enough context (id, name,
+     * componentName, credentialStatus, status, visibility, tags) for an operator to investigate or delete it.
+     *
+     * <p>
+     * Derived fields that depend on the component registry ({@code authorizationType}, {@code authorizationParameters},
+     * {@code connectionParameters}, {@code baseUri}) are intentionally zeroed — the throw that brought us here proves
+     * we cannot resolve them. Parameters are wiped rather than passed through so a corrupted row cannot leak raw
+     * credential material to a list surface that normally filters it through the component definition.
+     */
     private static ConnectionDTO buildDegradedConnectionDTO(Connection connection, List<Tag> tags, Throwable cause) {
+        // The Builder hardcodes authorizationParameters and connectionParameters to Map.of() in its
+        // build() step, which is exactly what we want here — a corrupted row must not leak raw
+        // credential material to a list surface that normally filters it through the component
+        // definition. `parameters` is also left null (the Builder's default) for the same reason.
         return ConnectionDTO.builder()
             .active(false)
             .authorizationType(null)
@@ -408,6 +493,7 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
             .status(connection.getStatus())
             .tags(tags)
             .version(connection.getVersion())
+            .visibility(connection.getVisibility())
             .build();
     }
 
