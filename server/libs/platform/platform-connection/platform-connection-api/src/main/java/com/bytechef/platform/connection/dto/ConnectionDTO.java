@@ -20,6 +20,7 @@ import com.bytechef.component.definition.Authorization.AuthorizationType;
 import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.domain.Connection.CredentialStatus;
 import com.bytechef.platform.connection.domain.ConnectionStatus;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.platform.tag.domain.Tag;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
@@ -37,9 +38,11 @@ public record ConnectionDTO(
     String baseUri, String componentName, Map<String, ?> connectionParameters, int connectionVersion, String createdBy,
     Instant createdDate, CredentialStatus credentialStatus, int environmentId, Long id, String lastModifiedBy,
     Instant lastModifiedDate, String name, Map<String, ?> parameters, ConnectionStatus status, List<Tag> tags,
-    int version) {
+    int version, ResourceVisibility visibility) {
+
     public ConnectionDTO {
         Objects.requireNonNull(status, "status");
+        Objects.requireNonNull(visibility, "visibility");
     }
 
     public ConnectionDTO(
@@ -51,7 +54,7 @@ public record ConnectionDTO(
             connection.getCreatedDate(), connection.getCredentialStatus(), connection.getEnvironmentId(),
             connection.getId(), connection.getLastModifiedBy(),
             connection.getLastModifiedDate(), connection.getName(), connection.getParameters(),
-            connection.getStatus(), tags, connection.getVersion());
+            connection.getStatus(), tags, connection.getVersion(), connection.getVisibility());
     }
 
     public Connection toConnection() {
@@ -68,6 +71,7 @@ public record ConnectionDTO(
         connection.setStatus(status);
         connection.setTags(tags);
         connection.setVersion(version);
+        connection.setVisibility(visibility);
 
         return connection;
     }
@@ -122,6 +126,7 @@ public record ConnectionDTO(
         private ConnectionStatus status = ConnectionStatus.ACTIVE;
         private List<Tag> tags;
         private int version;
+        private ResourceVisibility visibility = ResourceVisibility.PRIVATE;
 
         private Builder() {
         }
@@ -240,11 +245,17 @@ public record ConnectionDTO(
             return this;
         }
 
+        public Builder visibility(ResourceVisibility visibility) {
+            this.visibility = visibility;
+
+            return this;
+        }
+
         public ConnectionDTO build() {
             return new ConnectionDTO(
                 active, authorizationType, authorizationParameters, baseUri, componentName, connectionParameters,
                 connectionVersion, createdBy, createdDate, credentialStatus, environmentId, id, lastModifiedBy,
-                lastModifiedDate, name, parameters, status, tags, version);
+                lastModifiedDate, name, parameters, status, tags, version, visibility);
         }
     }
 }

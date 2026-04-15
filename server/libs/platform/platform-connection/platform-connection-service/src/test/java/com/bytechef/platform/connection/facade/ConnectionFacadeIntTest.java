@@ -276,6 +276,11 @@ class ConnectionFacadeIntTest {
 
         connectionDTOs = connectionFacade.getConnections(null, null, List.of(), null, null, PlatformType.AUTOMATION);
 
+        // ConnectionFacadeImpl#getConnections now returns a degraded placeholder DTO for connections whose
+        // component definition cannot be resolved (see buildDegradedConnectionDTO). Previously these rows were
+        // filtered out via `filter(Objects::nonNull)`, which made failing rows invisible to admins — they
+        // could not tell a mapping failure from a missing connection. The second row therefore surfaces with
+        // active=false, componentName preserved, and a suffixed name like "[unavailable: IllegalArgumentException]".
         Assertions.assertThat(connectionDTOs)
             .hasSize(2);
 
@@ -459,6 +464,10 @@ class ConnectionFacadeIntTest {
                 @Override
                 public String getWorkflowUuid(String workflowId) {
                     return "";
+                }
+
+                @Override
+                public void validateConnectionsForJob(long jobPrincipalId, String workflowUuid) {
                 }
             };
         }
