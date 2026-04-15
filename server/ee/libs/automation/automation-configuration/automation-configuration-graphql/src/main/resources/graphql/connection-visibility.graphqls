@@ -1,0 +1,27 @@
+"""Outcome of a bulk visibility-change operation. Invariant: promoted + skipped + failed == attempted. (EE only)"""
+type BulkPromoteResult {
+    """Candidate rows considered in this call (pre-filter size)."""
+    attempted: Int!
+    promoted: Int!
+    """Rows that were already at the target visibility at promote time (benign concurrent races)."""
+    skipped: Int!
+    failed: Int!
+    failures: [BulkPromoteFailure!]!
+}
+
+type BulkPromoteFailure {
+    connectionId: ID!
+    "Stable classifier the client can key on for localized rendering — either a ConnectionErrorType key or UNEXPECTED."
+    errorCode: String!
+    "Human-readable fallback. Sanitized server-side so SQL/JDBC detail never reaches the admin UI."
+    message: String!
+}
+
+extend type Mutation {
+    """Promote a connection to WORKSPACE visibility, making it visible to all workspace members. (admin only, EE only)"""
+    promoteConnectionToWorkspace(workspaceId: ID!, connectionId: ID!): Boolean!
+    """Demote a connection to PRIVATE visibility. Authorized for workspace administrators OR the connection creator (orphan-recovery path when no admins remain). Fails if the connection is used by active deployments. (EE only)"""
+    demoteConnectionToPrivate(workspaceId: ID!, connectionId: ID!): Boolean!
+    """Promote every PRIVATE connection in the workspace to WORKSPACE visibility. Returns per-row outcome so partial failures can surface. Intended for CE→EE migration. (admin only, EE only)"""
+    promoteAllPrivateConnectionsToWorkspace(workspaceId: ID!): BulkPromoteResult!
+}
