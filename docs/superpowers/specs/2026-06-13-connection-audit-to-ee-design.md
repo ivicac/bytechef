@@ -65,10 +65,30 @@ CE-origin events (create/delete/workflow-paused) become after-commit (or synchro
 
 ## Implementation slices (each its own plan → impl, in order)
 
-- **F1. Generic primitives → EE platform-audit** + rehome AiHub imports. Smallest; unblocks the rest.
-- **F2. Connection-specific audit → new EE `platform-connection-audit` module**; update the EE facades' imports (Org/Reassignment/WorkspaceConnection EE). After this, the only CE audit references are the 3 call sites.
-- **F3. CE create/delete → domain events** + EE listener (after-commit).
-- **F4. Project-deployment workflow-paused → domain events** + EE listener (sync or after-commit per tx context). After F4, `grep` confirms zero `connection.audit` references in `server/libs` (CE).
+**Ordering constraint (load-bearing):** the audit contract can only move to EE *after* every CE
+reference to it is gone. The CE call sites (create/delete, project-deployment) reference the contract,
+so they must be severed FIRST; the contract+aspect relocate LAST. (The aspect is the last CE user of
+the generic primitives once the call sites are severed.) During the sever phase the new EE listeners
+call the still-CE `ConnectionAuditPublisher` (EE→CE is fine); the relocate phase repoints them.
+
+- **F1. Sever CE create/delete → domain events.** Add CE `ConnectionCreatedEvent`/`ConnectionDeletedEvent`
+  (plain records, `platform-connection-api` `event` package). `WorkspaceConnectionFacadeImpl.create/delete`
+  drop `@AuditConnection` and instead `applicationEventPublisher.publishEvent(...)`. Add an EE
+  `@TransactionalEventListener(AFTER_COMMIT)` listener (temporary home: EE automation-configuration-service
+  alongside the other EE listeners) that maps the events → `connectionAuditPublisher.publish(...)` using the
+  still-CE publisher.
+- **F2. Sever project-deployment WORKFLOW_PAUSED → domain events.** Add CE `ConnectionWorkflowPausedEvent`;
+  `ProjectDeploymentFacadeImpl` + `ProjectDeploymentJobPrincipalAccessor` drop the injected
+  `ConnectionAuditPublisher` and publish the event; EE listener handles it (verify tx context → choose
+  `@TransactionalEventListener` vs plain `@EventListener`). After F2, CE has NO `@AuditConnection` and NO
+  direct publisher usage — the only CE audit code left is the contract + aspect (used solely by EE facades
+  + EE listeners now).
+- **F3. Relocate the audit contract+aspect+primitives to EE.** Move generic `AuditCorrelation` +
+  `AuditCaptureFailedException` → EE `platform-audit`; move connection-specific `@AuditConnection`,
+  `ConnectionAuditEvent`, `ConnectionAuditPublisher`, `ConnectionAuditPayload`, `ConnectionAuditAspect` →
+  new EE `platform-connection-audit` module. Repoint the EE facades (Org/Reassignment/WorkspaceConnection
+  EE), the EE listeners from F1/F2, and AiHub's generic-primitive imports. After F3, `grep` confirms zero
+  `connection.audit` / `@AuditConnection` references in CE production code.
 
 ## Testing
 
