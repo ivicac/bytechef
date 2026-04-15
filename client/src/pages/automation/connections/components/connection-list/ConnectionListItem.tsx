@@ -20,8 +20,14 @@ import {
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
+import VisibilityMenuItems from '@/pages/automation/connections/components/VisibilityMenuItems';
+import {useVisibilityFeatureEnabled} from '@/pages/automation/connections/hooks/useVisibilityFeatureEnabled';
 import ConnectionDialog from '@/shared/components/connection/ConnectionDialog';
 import {Connection, Tag} from '@/shared/middleware/automation/configuration';
+import {
+    useDemoteConnectionToPrivateMutation,
+    usePromoteConnectionToWorkspaceMutation,
+} from '@/shared/middleware/graphql';
 import {ComponentDefinitionBasic} from '@/shared/middleware/platform/configuration';
 import {useUpdateConnectionTagsMutation} from '@/shared/mutations/automation/connectionTags.mutations';
 import {
@@ -37,6 +43,7 @@ import {memo, useMemo, useState} from 'react';
 import {toast} from 'sonner';
 
 import TagList from '../../../../../shared/components/TagList';
+import ConnectionScopeBadge from '../ConnectionScopeBadge';
 
 interface ConnectionListItemProps {
     componentDefinitions: ComponentDefinitionBasic[];
@@ -49,7 +56,28 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showDisconnectDialog, setShowDisconnectDialog] = useState(false);
 
+    const {enabled: visibilityFeatureEnabled, workspaceId: currentWorkspaceId} = useVisibilityFeatureEnabled();
+
     const queryClient = useQueryClient();
+
+    const invalidateConnections = () => {
+        queryClient.invalidateQueries({queryKey: ConnectionKeys.connections});
+        queryClient.invalidateQueries({queryKey: ComponentDefinitionKeys.componentDefinitions});
+    };
+
+    const promoteConnectionToWorkspaceMutation = usePromoteConnectionToWorkspaceMutation({
+        onSuccess: () => {
+            invalidateConnections();
+            toast(`"${connection.name}" is now shared with the workspace.`);
+        },
+    });
+
+    const demoteConnectionToPrivateMutation = useDemoteConnectionToPrivateMutation({
+        onSuccess: () => {
+            invalidateConnections();
+            toast(`"${connection.name}" is now private.`);
+        },
+    });
 
     const deleteConnectionMutation = useDeleteConnectionMutation({
         onSuccess: () => {
@@ -127,6 +155,31 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
         }
     };
 
+    const renderVisibilityMenu = () => {
+        if (!visibilityFeatureEnabled || !connection.id || !currentWorkspaceId) {
+            return null;
+        }
+
+        const connectionIdStr = String(connection.id);
+        const workspaceIdStr = String(currentWorkspaceId);
+        const visibility = connection.visibility || 'PRIVATE';
+
+        return (
+            <VisibilityMenuItems
+                connectionId={connectionIdStr}
+                onDemoteRequest={() => {
+                    demoteConnectionToPrivateMutation.mutate({
+                        connectionId: connectionIdStr,
+                        workspaceId: workspaceIdStr,
+                    });
+                }}
+                onPromoteToWorkspace={(variables) => promoteConnectionToWorkspaceMutation.mutate(variables)}
+                visibility={visibility}
+                workspaceId={workspaceIdStr}
+            />
+        );
+    };
+
     return (
         <li className="mb-2 rounded border border-border/50" key={connection.id}>
             <>
@@ -146,6 +199,30 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                                     )}
 
                                     <span className="text-base font-semibold">{connection.name}</span>
+
+                                    {visibilityFeatureEnabled && connection.id && currentWorkspaceId ? (
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <button
+                                                    aria-label="Change visibility"
+                                                    className="cursor-pointer rounded-sm hover:bg-gray-100"
+                                                    type="button"
+                                                >
+                                                    <ConnectionScopeBadge
+                                                        visibility={connection.visibility || 'PRIVATE'}
+                                                    />
+                                                </button>
+                                            </DropdownMenuTrigger>
+
+                                            <DropdownMenuContent align="start" className="p-0">
+                                                {renderVisibilityMenu()}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    ) : (
+                                        visibilityFeatureEnabled && (
+                                            <ConnectionScopeBadge visibility={connection.visibility || 'PRIVATE'} />
+                                        )
+                                    )}
                                 </div>
                             </div>
 
@@ -212,6 +289,8 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                                     >
                                         <EditIcon /> Edit
                                     </DropdownMenuItem>
+
+                                    {renderVisibilityMenu()}
 
                                     <DropdownMenuSeparator className="m-0" />
 

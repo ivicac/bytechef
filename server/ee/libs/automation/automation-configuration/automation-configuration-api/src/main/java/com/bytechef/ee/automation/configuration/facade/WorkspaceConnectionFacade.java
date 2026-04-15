@@ -19,9 +19,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
  *
  * <p>
  * <b>Authorization model:</b> most mutations require {@code ROLE_ADMIN} (enforced by {@code @PreAuthorize} on the
- * facade implementation). The exception is {@link #demoteToPrivate(long, long)} — an admin OR the connection creator may
- * call it, to support the "all admins lost role" orphan-recovery path. The creator-as-fallback check is enforced inside
- * the facade (no {@code @PreAuthorize} on that mutation).
+ * facade implementation). The exception is {@link #demoteToPrivate(long, long)} — an admin OR the connection creator
+ * may call it, to support the "all admins lost role" orphan-recovery path. The creator-as-fallback check is enforced
+ * inside the facade (no {@code @PreAuthorize} on that mutation).
  *
  * <p>
  * <b>Bulk-operation semantics:</b> {@link #promoteAllPrivateToWorkspace(long)} returns a {@link BulkPromoteResultDTO}
