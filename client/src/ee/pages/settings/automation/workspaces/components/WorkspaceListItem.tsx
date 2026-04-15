@@ -10,8 +10,12 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import WorkspaceDialog from '@/ee/pages/settings/automation/workspaces/components/WorkspaceDialog';
+import WorkspaceUsersDialog from '@/ee/pages/settings/automation/workspaces/components/WorkspaceUsersDialog';
 import {useDeleteWorkspaceMutation} from '@/ee/shared/mutations/automation/workspaces.mutations';
+import {useHasWorkspaceRole} from '@/shared/hooks/useHasWorkspaceRole';
+import {useLoadWorkspacePermissions} from '@/shared/hooks/useLoadWorkspacePermissions';
 import {Workspace} from '@/shared/middleware/automation/configuration';
+import {WorkspaceRole} from '@/shared/middleware/graphql';
 import {WorkspaceKeys} from '@/shared/queries/automation/workspaces.queries';
 import {useAuthenticationStore} from '@/shared/stores/useAuthenticationStore';
 import {useQueryClient} from '@tanstack/react-query';
@@ -27,8 +31,16 @@ interface WorkspaceListItemProps {
 const WorkspaceListItem = ({isCurrentWorkspace, onOpen, workspace}: WorkspaceListItemProps) => {
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [showWorkspaceUsersDialog, setShowWorkspaceUsersDialog] = useState(false);
 
     const account = useAuthenticationStore((state) => state.account);
+
+    // Prime the permission store so useHasWorkspaceRole below has a populated role for this workspace. The hook is
+    // idempotent — multiple WorkspaceListItems calling it in parallel share the same query.
+    useLoadWorkspacePermissions(workspace.id);
+
+    const canManageMembers = useHasWorkspaceRole(workspace.id, WorkspaceRole.Admin);
+    const canViewMembers = useHasWorkspaceRole(workspace.id, WorkspaceRole.Viewer);
 
     const queryClient = useQueryClient();
 
@@ -47,7 +59,7 @@ const WorkspaceListItem = ({isCurrentWorkspace, onOpen, workspace}: WorkspaceLis
     });
 
     const handleAlertDeleteDialogClick = () => {
-        if (workspace.id) {
+        if (canManageMembers && workspace.id) {
             deleteWorkspaceMutation.mutate(workspace.id);
 
             setShowDeleteDialog(false);
@@ -100,26 +112,49 @@ const WorkspaceListItem = ({isCurrentWorkspace, onOpen, workspace}: WorkspaceLis
                         </DropdownMenuTrigger>
 
                         <DropdownMenuContent align="end">
-                            <DropdownMenuItem onClick={() => setShowEditDialog(true)}>Edit</DropdownMenuItem>
+                            {canManageMembers && (
+                                <DropdownMenuItem onClick={() => setShowEditDialog(true)}>Edit</DropdownMenuItem>
+                            )}
 
-                            <DropdownMenuSeparator />
+                            {canViewMembers && (
+                                <DropdownMenuItem onClick={() => setShowWorkspaceUsersDialog(true)}>
+                                    Members
+                                </DropdownMenuItem>
+                            )}
 
-                            <DropdownMenuItem className="text-destructive" onClick={() => setShowDeleteDialog(true)}>
-                                Delete
-                            </DropdownMenuItem>
+                            {canManageMembers && <DropdownMenuSeparator />}
+
+                            {canManageMembers && (
+                                <DropdownMenuItem
+                                    className="text-destructive"
+                                    onClick={() => setShowDeleteDialog(true)}
+                                >
+                                    Delete
+                                </DropdownMenuItem>
+                            )}
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
             </div>
 
-            <AlertDialog
-                description="This action cannot be undone. This will permanently delete the workspace."
-                onCancel={() => setShowDeleteDialog(false)}
-                onConfirm={handleAlertDeleteDialogClick}
-                open={showDeleteDialog}
-            />
+            {canManageMembers && (
+                <AlertDialog
+                    description="This action cannot be undone. This will permanently delete the workspace."
+                    onCancel={() => setShowDeleteDialog(false)}
+                    onConfirm={handleAlertDeleteDialogClick}
+                    open={showDeleteDialog}
+                />
+            )}
 
             {showEditDialog && <WorkspaceDialog onClose={() => setShowEditDialog(false)} workspace={workspace} />}
+
+            {showWorkspaceUsersDialog && (
+                <WorkspaceUsersDialog
+                    onClose={() => setShowWorkspaceUsersDialog(false)}
+                    open={showWorkspaceUsersDialog}
+                    workspaceId={workspace.id!}
+                />
+            )}
         </li>
     );
 };

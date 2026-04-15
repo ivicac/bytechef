@@ -167,7 +167,7 @@ describe('ProjectTabButtons Export Functionality', () => {
     it('should not show Git-related buttons when feature flag is disabled', () => {
         renderProjectTabButtons();
 
-        // These buttons should not be visible when ff_1039 is disabled
+        // These buttons should not be visible when gitIntegrationEnabled (ff-1039) is disabled
         expect(screen.queryByText('Pull Project from Git')).not.toBeInTheDocument();
         expect(screen.queryByText('Git Configuration')).not.toBeInTheDocument();
     });
