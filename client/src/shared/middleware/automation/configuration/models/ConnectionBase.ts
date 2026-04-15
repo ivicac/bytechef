@@ -106,15 +106,54 @@ export interface ConnectionBase {
      */
     parameters: { [key: string]: any; };
     /**
+     * IDs of projects this connection is shared with. Typically populated when visibility is PROJECT.
+     * @type {Array<number>}
+     * @memberof ConnectionBase
+     */
+    readonly sharedProjectIds?: Array<number>;
+    /**
      * 
      */
     tags?: Array<Tag>;
+    /**
+     * Lifecycle state of the connection. ACTIVE is the normal operating state. PENDING_REASSIGNMENT indicates the owner was removed from the workspace and the connection awaits reassignment. REVOKED is terminal and cannot transition back.
+     * @type {ConnectionBaseStatusEnum}
+     * @memberof ConnectionBase
+     */
+    readonly status?: ConnectionBaseStatusEnum;
+    /**
+     * Visibility scope controlling which users can see and use a connection. Accepted on create: PRIVATE (default) or WORKSPACE — setting WORKSPACE requires ROLE_ADMIN. PROJECT and ORGANIZATION are assigned by share / organization flows, not by direct client request. On CE or embedded surfaces the server always forces PRIVATE regardless of the request body.
+     * @type {ConnectionBaseVisibilityEnum}
+     * @memberof ConnectionBase
+     */
+    visibility?: ConnectionBaseVisibilityEnum;
     /**
      * 
      */
     version?: number;
 }
 
+
+/**
+ * @export
+ */
+export const ConnectionBaseStatusEnum = {
+    Active: 'ACTIVE',
+    PendingReassignment: 'PENDING_REASSIGNMENT',
+    Revoked: 'REVOKED'
+} as const;
+export type ConnectionBaseStatusEnum = typeof ConnectionBaseStatusEnum[keyof typeof ConnectionBaseStatusEnum];
+
+/**
+ * @export
+ */
+export const ConnectionBaseVisibilityEnum = {
+    Private: 'PRIVATE',
+    Project: 'PROJECT',
+    Workspace: 'WORKSPACE',
+    Organization: 'ORGANIZATION'
+} as const;
+export type ConnectionBaseVisibilityEnum = typeof ConnectionBaseVisibilityEnum[keyof typeof ConnectionBaseVisibilityEnum];
 
 
 /**
@@ -154,7 +193,10 @@ export function ConnectionBaseFromJSONTyped(json: any, ignoreDiscriminator: bool
         'lastModifiedDate': json['lastModifiedDate'] == null ? undefined : (parseDateTime(json['lastModifiedDate'])),
         'name': json['name'],
         'parameters': json['parameters'],
+        'sharedProjectIds': json['sharedProjectIds'] == null ? undefined : json['sharedProjectIds'],
         'tags': json['tags'] == null ? undefined : ((json['tags'] as Array<any>).map(TagFromJSON)),
+        'status': json['status'] == null ? undefined : json['status'],
+        'visibility': json['visibility'] == null ? undefined : json['visibility'],
         'version': json['__version'] == null ? undefined : json['__version'],
     };
 }
@@ -163,7 +205,7 @@ export function ConnectionBaseToJSON(json: any): ConnectionBase {
     return ConnectionBaseToJSONTyped(json, false);
 }
 
-export function ConnectionBaseToJSONTyped(value?: Omit<ConnectionBase, 'active'|'authorizationParameters'|'connectionParameters'|'createdBy'|'createdDate'|'id'|'lastModifiedBy'|'lastModifiedDate'> | null, ignoreDiscriminator: boolean = false): any {
+export function ConnectionBaseToJSONTyped(value?: Omit<ConnectionBase, 'active'|'authorizationParameters'|'connectionParameters'|'createdBy'|'createdDate'|'id'|'lastModifiedBy'|'lastModifiedDate'|'sharedProjectIds'|'status'> | null, ignoreDiscriminator: boolean = false): any {
     if (value == null) {
         return value;
     }
@@ -179,6 +221,7 @@ export function ConnectionBaseToJSONTyped(value?: Omit<ConnectionBase, 'active'|
         'name': value['name'],
         'parameters': value['parameters'],
         'tags': value['tags'] == null ? undefined : ((value['tags'] as Array<any>).map(TagToJSON)),
+        'visibility': value['visibility'],
         '__version': value['version'],
     };
 }
