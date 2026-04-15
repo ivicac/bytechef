@@ -139,6 +139,9 @@ include("server:libs:core:rest:rest-impl")
 include("server:libs:core:tenant:tenant-api")
 include("server:libs:core:tenant:tenant-single-service")
 
+include("server:libs:licence:licence-api")
+include("server:libs:licence:licence-impl")
+
 include("server:libs:platform:platform-ai:platform-ai-api")
 include("server:libs:platform:platform-api")
 include("server:libs:platform:platform-security:platform-security-api")
@@ -614,6 +617,8 @@ include("server:ee:libs:embedded:embedded-workflow:embedded-workflow-coordinator
 include("server:ee:libs:embedded:embedded-workflow:embedded-workflow-execution:embedded-workflow-execution-api")
 include("server:ee:libs:embedded:embedded-workflow:embedded-workflow-execution:embedded-workflow-execution-rest")
 include("server:ee:libs:embedded:embedded-workflow:embedded-workflow-execution:embedded-workflow-execution-service")
+
+include("server:ee:libs:licence:licence-impl")
 
 include("server:ee:libs:platform:platform-ai:platform-ai-agent:platform-ai-agent-eval:platform-ai-agent-eval-api")
 include("server:ee:libs:platform:platform-ai:platform-ai-agent:platform-ai-agent-eval:platform-ai-agent-eval-file-storage:platform-ai-agent-eval-file-storage-api")
