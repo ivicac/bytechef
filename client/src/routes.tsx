@@ -126,6 +126,9 @@ const License = lazy(() => import('@/ee/pages/settings/platform/license/License'
 const SigningKeys = lazy(() => import('@/ee/pages/settings/embedded/signing-keys/SigningKeys'));
 const WorkspaceApiKeys = lazy(() => import('@/pages/settings/automation/workspace-api-keys/WorkspaceApiKeys'));
 const Workspaces = lazy(() => import('@/ee/pages/settings/automation/workspaces/Workspaces'));
+const OrganizationConnections = lazy(
+    () => import('@/pages/settings/platform/organization-connections/OrganizationConnections')
+);
 const UsersPage = lazy(() => import('@/pages/settings/platform/users/UsersPage'));
 
 const getAccountRoutes = (path: string) => ({
@@ -250,6 +253,18 @@ const platformSettingsRoutes = {
                 </PrivateRoute>
             ),
             path: 'users',
+        },
+        {
+            element: (
+                <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN]}>
+                    <EEVersion>
+                        <LazyLoadWrapper>
+                            <OrganizationConnections />
+                        </LazyLoadWrapper>
+                    </EEVersion>
+                </PrivateRoute>
+            ),
+            path: 'connections',
         },
         {
             element: (
@@ -441,6 +456,10 @@ const platformSettingsRoutes = {
         {
             href: 'users',
             title: 'Users',
+        },
+        {
+            href: 'connections',
+            title: 'Connections',
         },
         {
             href: 'billing',

@@ -22,7 +22,10 @@ Name | Type
 `lastModifiedDate` | Date
 `name` | string
 `parameters` | { [key: string]: any; }
+`sharedProjectIds` | Array&lt;number&gt;
 `tags` | [Array&lt;Tag&gt;](Tag.md)
+`status` | string
+`visibility` | string
 `version` | number
 `shared` | boolean
 `status` | string
@@ -50,7 +53,10 @@ const example = {
   "lastModifiedDate": null,
   "name": null,
   "parameters": null,
+  "sharedProjectIds": null,
   "tags": null,
+  "status": null,
+  "visibility": null,
   "version": null,
   "shared": null,
   "status": null,
