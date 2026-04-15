@@ -13,6 +13,7 @@ import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.domain.ConnectionStatus;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
@@ -63,6 +64,8 @@ public class RemoteConnectionServiceClient implements ConnectionService {
 
     @Override
     public Optional<Connection> fetchConnection(long id) {
+        // The remote endpoint has no not-found variant, so absence cannot be distinguished here. Callers on this
+        // path address ids the coordinator already resolved.
         return Optional.ofNullable(getConnection(id));
     }
 
@@ -74,6 +77,11 @@ public class RemoteConnectionServiceClient implements ConnectionService {
                 .path("/remote/connection-service/get-connections")
                 .build(),
             new ParameterizedTypeReference<>() {});
+    }
+
+    @Override
+    public List<Connection> getConnectionsByVisibility(ResourceVisibility visibility, PlatformType type) {
+        throw new UnsupportedOperationException();
     }
 
     @Override
@@ -113,7 +121,27 @@ public class RemoteConnectionServiceClient implements ConnectionService {
     }
 
     @Override
+    public Connection updateCreatedBy(long id, String newCreatedBy) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Connection updateConnectionParameters(long connectionId, Map<String, ?> parameters) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Connection updateVisibility(long id, ResourceVisibility visibility) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<Connection> getInactiveConnections(List<Long> connectionIds) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void validateConnectionsActive(List<Long> connectionIds) {
         throw new UnsupportedOperationException();
     }
 
