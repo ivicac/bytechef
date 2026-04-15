@@ -19,6 +19,7 @@ package com.bytechef.component.ai.agent.utils;
 import static com.bytechef.component.definition.ComponentDsl.component;
 
 import com.bytechef.component.ComponentHandler;
+import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsAskUserQuestionTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsBraveWebSearchTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsFileSystemTools;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsGlobTool;
@@ -54,6 +55,7 @@ public class AiAgentUtilsComponentHandler implements ComponentHandler {
             .icon("path:assets/agent-utils.svg")
             .categories(ComponentCategory.ARTIFICIAL_INTELLIGENCE)
             .clusterElements(
+                AiAgentUtilsAskUserQuestionTool.CLUSTER_ELEMENT_DEFINITION,
                 AiAgentUtilsFileSystemTools.CLUSTER_ELEMENT_DEFINITION,
                 AiAgentUtilsShellTools.CLUSTER_ELEMENT_DEFINITION,
                 AiAgentUtilsGrepTool.CLUSTER_ELEMENT_DEFINITION,
