@@ -45,9 +45,9 @@ const ProjectTabButtons = ({
     onImportWorkflowClick: () => void;
     onNewWorkflowClick: () => void;
     onNewWorkflowFromTemplateClick: () => void;
+    onPullProjectFromGitClick: () => void;
     onShareProject: () => void;
     onShowEditProjectDialogClick: () => void;
-    onPullProjectFromGitClick: () => void;
     onShowProjectGitConfigurationDialog: () => void;
     onShowProjectVersionHistorySheet: () => void;
     projectGitConfigurationEnabled: boolean;
@@ -55,7 +55,7 @@ const ProjectTabButtons = ({
 }) => {
     const templatesSubmissionForm = useApplicationInfoStore((state) => state.templatesSubmissionForm.projects);
 
-    const ff_1039 = useFeatureFlagsStore()('ff-1039');
+    const gitIntegrationEnabled = useFeatureFlagsStore()('ff-1039');
 
     const handleButtonClick = (event: MouseEvent<HTMLDivElement>) => {
         if ((event.target as HTMLElement).tagName === 'BUTTON') {
@@ -163,7 +163,7 @@ const ProjectTabButtons = ({
 
             <Separator />
 
-            {ff_1039 && (
+            {gitIntegrationEnabled && (
                 <EEVersion hidden={true}>
                     <Button
                         aria-label="Pull Project from Git"

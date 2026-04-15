@@ -3,7 +3,23 @@ import {useIsTenantAdmin} from '@/shared/hooks/useIsTenantAdmin';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {usePermissionStore} from '@/shared/stores/usePermissionStore';
 
-export type WorkspaceScopeType = 'API_KEY_CREATE' | 'API_KEY_DELETE' | 'API_KEY_VIEW';
+export type WorkspaceScopeType =
+    | 'API_KEY_CREATE'
+    | 'API_KEY_DELETE'
+    | 'API_KEY_VIEW'
+    | 'CONNECTION_DELETE'
+    | 'CONNECTION_EDIT'
+    | 'CONNECTION_USE'
+    | 'CONNECTION_VIEW'
+    | 'DEPLOYMENT_PULL'
+    | 'DEPLOYMENT_PUSH'
+    | 'EXECUTION_VIEW'
+    | 'PROJECT_DELETE'
+    | 'PROJECT_SETTINGS'
+    | 'WORKFLOW_CREATE'
+    | 'WORKFLOW_DELETE'
+    | 'WORKFLOW_EDIT'
+    | 'WORKFLOW_VIEW';
 
 export const useHasWorkspaceScope = (
     workspaceId: number | undefined,

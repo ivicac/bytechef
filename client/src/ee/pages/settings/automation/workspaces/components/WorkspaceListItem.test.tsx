@@ -10,6 +10,14 @@ vi.mock('@/ee/shared/mutations/automation/workspaces.mutations', () => ({
     useUpdateWorkspaceMutation: () => ({mutate: vi.fn()}),
 }));
 
+vi.mock('@/shared/hooks/useHasWorkspaceRole', () => ({
+    useHasWorkspaceRole: () => true,
+}));
+
+vi.mock('@/shared/hooks/useLoadWorkspacePermissions', () => ({
+    useLoadWorkspacePermissions: vi.fn(),
+}));
+
 vi.mock('@/shared/stores/useAuthenticationStore', () => ({
     useAuthenticationStore: vi.fn((selector: (state: {account: {id: number}}) => unknown) =>
         selector({account: {id: 1}})
