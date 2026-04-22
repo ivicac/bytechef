@@ -20,6 +20,16 @@ ByteChef can be configured using environment variables. This page documents all 
 | `BYTECHEF_AI_FIRECRAWL_BASEURL` | Firecrawl API base URL | `https://api.firecrawl.dev/v2` |
 | `BYTECHEF_AI_FIRECRAWL_ENABLED` | Enable or disable Firecrawl | `false` |
 
+## AI Gateway Configuration
+
+| Environment Variable | Description | Default Value |
+|---|---|---|
+| `BYTECHEF_AI_GATEWAY_ENABLED` | Enable or disable the AI Gateway | `false` |
+| `BYTECHEF_AI_GATEWAY_OTLP_MAX_SPANS_PER_REQUEST` | Maximum spans accepted in a single OTLP request body. Requests exceeding this return HTTP 413. | `1000` |
+| `BYTECHEF_AI_GATEWAY_RATE_LIMITING_ENABLED` | Enable or disable AI Gateway rate limiting | `false` |
+| `BYTECHEF_AI_GATEWAY_RATE_LIMITING_PROVIDER` | Rate limiting provider | - |
+| `BYTECHEF_AI_GATEWAY_EXTERNAL_SCORES_MAX_BATCH_SIZE` | Maximum scores accepted in a single batch POST. Requests exceeding this return HTTP 413. | `1000` |
+
 ## AI Knowledge Base Configuration
 
 | Environment Variable | Description | Default Value |
