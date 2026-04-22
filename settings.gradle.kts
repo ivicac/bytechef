@@ -591,6 +591,7 @@ include("server:ee:libs:platform:platform-ai:platform-ai-gateway-otlp:platform-a
 include("server:ee:libs:automation:automation-ai:automation-ai-gateway:automation-ai-gateway-service")
 include("server:ee:libs:automation:automation-code-workflow-loader")
 include("server:ee:libs:automation:automation-configuration:automation-configuration-api")
+include("server:ee:libs:automation:automation-configuration:automation-configuration-graphql")
 include("server:ee:libs:automation:automation-configuration:automation-configuration-public-rest")
 include("server:ee:libs:automation:automation-configuration:automation-configuration-remote-client")
 include("server:ee:libs:automation:automation-configuration:automation-configuration-remote-rest")
