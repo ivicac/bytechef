@@ -59,4 +59,24 @@
                 GREATEST((SELECT COALESCE(MAX(id), 0) FROM workspace_user), 1));
         </sql>
     </changeSet>
+
+    <!--
+        Where the production custom_role table and its workspace_user foreign key exist, seed the custom role ids the
+        permission IntTests assign (5 in WorkspaceUserAuditMapperIntTest, 900 as
+        WorkspacePermissionIntTestConfiguration.CUSTOM_ROLE_ID), so a membership saved under them satisfies
+        fk_workspace_user_custom_role.
+    -->
+    <changeSet id="202604061200041-5" author="Ivica Cardic">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="custom_role"/>
+        </preConditions>
+
+        <sql>
+            INSERT INTO custom_role (id, name, created_date, created_by, last_modified_date, last_modified_by, version)
+            VALUES
+                (5, 'Test Custom Role 5', NOW(), 'system', NOW(), 'system', 0),
+                (900, 'Test Custom Role 900', NOW(), 'system', NOW(), 'system', 0)
+            ON CONFLICT (id) DO NOTHING;
+        </sql>
+    </changeSet>
 </databaseChangeLog>
