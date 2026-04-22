@@ -93,14 +93,16 @@ real resolution) from signals already on the request:
 
 | Signal             | Source                                   | Normalization              | Weight |
 |--------------------|------------------------------------------|----------------------------|--------|
-| Prompt size        | Σ message content chars ÷ 4 (token est.) | `min(tokens / 2000, 1)`    | 0.35   |
+| Prompt size        | Σ message content chars ÷ 4 (token est.) | `min(tokens / 2000, 1)`    | 0.40   |
 | Tool count         | `request.tools().size()`                 | `min(tools / 8, 1)`        | 0.25   |
-| Structured content | code fences / high brace-bracket density | present → 1, else 0        | 0.20   |
+| Structured content | code fences / high brace-bracket density | present → 1, else 0        | 0.15   |
 | Conversation turns | `request.messages().size()`              | `min((n − 1) / 19, 1)`     | 0.10   |
 | Requested output   | `request.maxTokens()`                    | `min(maxTokens / 4000, 1)` | 0.10   |
 
 `score = clamp(Σ weightᵢ · signalᵢ, 0, 1)`. Null/missing signal contributes 0. Weights and
-ceilings are named constants.
+ceilings are named constants. (Prompt-size / structured weights were tuned to 0.40 / 0.15 — from an
+initial 0.35 / 0.20, sum unchanged at 1.0 — so a large multi-tool request without structured
+content still crosses the "complex" routing threshold.)
 
 `AiGatewayFacadeImpl` calls the injected `PromptComplexityScorer` instead of the inline
 `estimatePromptComplexity`, which is deleted. The interface is the seam for a future
