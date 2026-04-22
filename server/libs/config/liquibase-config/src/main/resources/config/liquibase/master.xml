@@ -122,6 +122,7 @@
     <includeAll path="classpath:config/liquibase/changelog/automation/data_table/" relativeToChangelogFile="false" errorIfMissingOrEmpty="false" contextFilter="mono or execution or multitenant" />
     <includeAll path="classpath:config/liquibase/changelog/platform/knowledge_base/" relativeToChangelogFile="false" errorIfMissingOrEmpty="false" contextFilter="mono or execution or multitenant" />
     <includeAll path="classpath:config/liquibase/changelog/automation/knowledge_base/" relativeToChangelogFile="false" errorIfMissingOrEmpty="false" contextFilter="mono or execution or multitenant" />
+    <includeAll path="classpath:config/liquibase/changelog/automation/asset_file/" relativeToChangelogFile="false" errorIfMissingOrEmpty="false" contextFilter="mono or execution or multitenant" />
 
     <!--
         platform/ai/tool/usage holds the shared ai_tool_usage table used by every agent surface for tool-call
