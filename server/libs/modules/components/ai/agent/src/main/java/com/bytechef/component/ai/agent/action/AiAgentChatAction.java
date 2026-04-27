@@ -45,6 +45,7 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ChatClient.ChatClientRequestSpec;
+import org.springframework.ai.model.tool.ToolCallingManager;
 
 /**
  * @author Ivica Cardic
@@ -52,14 +53,17 @@ import org.springframework.ai.chat.client.ChatClient.ChatClientRequestSpec;
 public class AiAgentChatAction extends AbstractAiAgentChatAction {
 
     public static ChatActionDefinitionWrapper of(
-        ClusterElementDefinitionService clusterElementDefinitionService, AiAgentToolFacade aiAgentToolFacade) {
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        ToolCallingManager toolCallingManager) {
 
-        return new AiAgentChatAction(clusterElementDefinitionService, aiAgentToolFacade).build();
+        return new AiAgentChatAction(clusterElementDefinitionService, aiAgentToolFacade, toolCallingManager).build();
     }
 
-    private AiAgentChatAction(ClusterElementDefinitionService clusterElementDefinitionService,
-        AiAgentToolFacade aiAgentToolFacade) {
-        super(clusterElementDefinitionService, aiAgentToolFacade);
+    private AiAgentChatAction(
+        ClusterElementDefinitionService clusterElementDefinitionService, AiAgentToolFacade aiAgentToolFacade,
+        ToolCallingManager toolCallingManager) {
+
+        super(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
     }
 
     private ChatActionDefinitionWrapper build() {

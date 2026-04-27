@@ -52,6 +52,7 @@ import org.springframework.ai.chat.client.ChatClient.ChatClientRequestSpec;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.model.tool.ToolCallingManager;
 import reactor.core.publisher.Flux;
 
 /**
@@ -60,15 +61,18 @@ import reactor.core.publisher.Flux;
 public class AiAgentStreamChatAction extends AbstractAiAgentChatAction {
 
     public static ActionDefinition of(
-        ClusterElementDefinitionService clusterElementDefinitionService, AiAgentToolFacade aiAgentToolFacade) {
+        ClusterElementDefinitionService clusterElementDefinitionService, AiAgentToolFacade aiAgentToolFacade,
+        ToolCallingManager toolCallingManager) {
 
-        return new AiAgentStreamChatAction(clusterElementDefinitionService, aiAgentToolFacade).build();
+        return new AiAgentStreamChatAction(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager)
+            .build();
     }
 
     private AiAgentStreamChatAction(
-        ClusterElementDefinitionService clusterElementDefinitionService, AiAgentToolFacade aiAgentToolFacade) {
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        ToolCallingManager toolCallingManager) {
 
-        super(clusterElementDefinitionService, aiAgentToolFacade);
+        super(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
     }
 
     private ChatActionDefinitionWrapper build() {
