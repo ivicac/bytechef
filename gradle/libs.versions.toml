@@ -18,6 +18,7 @@ spring-boot = "4.0.6"
 spring-cloud-aws = "4.0.2"
 spring-cloud-dependencies = "2025.1.1"
 spring-shell = "4.0.1"
+springaicommunity-agent-claude = "0.16.0"
 springaicommunity-agent-judge = "0.9.1"
 springaicommunity-agent-utils = "0.8.0"
 # Note: tool-search-tool and tool-searcher-vectorstore are temporarily vendored
@@ -58,6 +59,8 @@ org-mapstruct-extensions-spring-mapstruct-spring-annotations = { module = "org.m
 org-mapstruct-extensions-spring-mapstruct-spring-extensions = { module = "org.mapstruct.extensions.spring:mapstruct-spring-extensions", version.ref = "org-mapstruct-extensions-spring" }
 org-mapstruct-mapstruct-processor = { module = "org.mapstruct:mapstruct-processor", version.ref = "org-mapstruct" }
 org-openapitools-jackson-databind-nullable = "org.openapitools:jackson-databind-nullable:0.2.10"
+org-springaicommunity-agents-agent-claude = { module = "org.springaicommunity.agents:agent-claude", version.ref = "springaicommunity-agent-claude" }
+org-springaicommunity-agents-agent-client-core = { module = "org.springaicommunity.agents:agent-client-core", version.ref = "springaicommunity-agent-claude" }
 org-springaicommunity-agent-judge-core = { module = "org.springaicommunity:agent-judge-core", version.ref = "springaicommunity-agent-judge" }
 org-springaicommunity-agent-judge-llm = { module = "org.springaicommunity:agent-judge-llm", version.ref = "springaicommunity-agent-judge" }
 org-springaicommunity-spring-ai-agent-utils = { module = "org.springaicommunity:spring-ai-agent-utils", version.ref = "springaicommunity-agent-utils" }
