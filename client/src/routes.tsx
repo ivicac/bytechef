@@ -33,6 +33,7 @@ import {createBrowserRouter, redirect} from 'react-router-dom';
 
 const App = lazy(() => import('@/App'));
 const AccountProfile = lazy(() => import('@/pages/account/settings/AccountProfile'));
+const AiGateway = lazy(() => import('@/pages/automation/ai/gateway/AiGateway'));
 const AiSkills = lazy(() => import('@/pages/automation/ai/skills/AiSkills'));
 const Appearance = lazy(() => import('@/pages/account/settings/Appearance'));
 const AutomationConnections = lazy(() =>
@@ -834,6 +835,18 @@ export const getRouter = (queryClient: QueryClient) =>
                                     loader: async ({params}) =>
                                         redirect(`/automation/settings/ai/skills/${params.skillId}`),
                                     path: 'ai/skills/:skillId',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <AiGateway />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'ai/gateway',
                                 },
                                 {
                                     children: [
