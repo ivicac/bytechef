@@ -20,6 +20,7 @@ describe('applicationInfoStore', () => {
             const {ai} = applicationInfoStore.getState();
 
             expect(ai.copilot.enabled).toBe(false);
+            expect(ai.gateway.enabled).toBe(false);
             expect(ai.knowledgeBase.enabled).toBe(false);
         });
 
