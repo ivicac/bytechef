@@ -293,3 +293,55 @@ Wired via `ObjectProvider<MeterRegistry>` so lightweight EE app variants without
 2. **Effects-preview cost.** Walking every workflow in the workspace on policy edit could be expensive in workspaces with thousands of workflows. Proposal: cap preview at 200 workflows, expose count of "additional workflows not shown" — defer full enumeration to the Phase 2 approval-queue work.
 3. **Rule reason maximum length.** UI shows reason on block in the workflow editor — bound at 280 chars to keep tooltips readable.
 4. **Cross-edition publish path.** When a workflow saved in EE (with policy enforcement) is later loaded in a CE deployment, how should references to currently-blocked components render? Proposal: CE ignores policy entirely (it's an EE table); workflows continue to load. Document as "policies don't travel".
+
+---
+
+## 14. Authoring Policies via Copilot
+
+Admins should be able to read, write, and preview the policy through the existing Copilot, not only through the Settings UI. This piggybacks on ByteChef's Spring AI tool-callback pattern (same shape as `CreateWorkspaceFileToolCallback` and the personal-agent overlay) so Copilot-driven changes flow through the same service, role check, and audit pipeline as UI/GraphQL edits.
+
+### 14.1 Module placement
+New EE module: `server/ee/libs/automation/automation-component-policy/automation-component-policy-ai-service`. Houses the tool callbacks. The agent registration itself stays in `ai-copilot-app` alongside the other agents (Files, Workflow, Personal). CE builds omit the AI module entirely — Copilot-authored policies are EE-only.
+
+### 14.2 Tool surface
+
+| Tool | Kind | Purpose |
+|---|---|---|
+| `ListComponentsForPolicyTool` | read | Search components by name/category — grounds the LLM with valid `componentName` values before any write. |
+| `ListComponentOperationsTool` | read | Enumerate actions/triggers for a component+version, filtered by `scope`. |
+| `GetComponentPolicyTool` | read | Return current policy + rules for the active workspace. |
+| `AddComponentPolicyRuleTool` | write | Append a rule. |
+| `UpdateComponentPolicyRuleTool` | write | Change `decision`/`reason` of an existing rule. |
+| `RemoveComponentPolicyRuleTool` | write | Delete a rule. |
+| `SetComponentPolicyDefaultTool` | write | Flip `defaultDecision` or toggle `enabled`. |
+| `PreviewComponentPolicyEffectsTool` | read | Run §6 effects-preview against current workflows; returns the same capped result the UI shows (≤200 entries + overflow count). |
+
+All tools delegate to `ComponentPolicyService`/`ComponentPolicyEvaluator` from §4 — no parallel write path. The admin `@PreAuthorize` check fires in the service; tool callbacks do not bypass it. Optimistic locking via `version` is honored; conflicts surface as a structured tool-result error the LLM can describe.
+
+### 14.3 Routing & visibility
+
+**Option chosen:** dynamic toolset inclusion in `CommandCenterRoutingAgent` based on caller role. The policy tools are registered to the routing agent but the agent's tool-resolution step omits them when the caller lacks `ROLE_ADMIN`. This keeps non-admins from seeing or attempting policy writes (they get an LLM "I can't do that here" response rather than an exception trace), while admins can author policies from the standard Copilot panel without switching to a dedicated agent.
+
+Rejected alternative: a built-in "Policies" personal agent. Cleaner isolation, but forces admins through an extra navigation step and complicates the workspace-overlay surface.
+
+### 14.4 Confirmation pattern for writes
+Write tools (`Add`/`Update`/`Remove`/`SetDefault`) follow the same human-in-the-loop pattern guardrails already use: the LLM is instructed (in the routing-agent system prompt addition) to **always** call `PreviewComponentPolicyEffectsTool` first when the proposed change could affect saved workflows, summarize the impact, and explicitly ask the admin to confirm before invoking the write tool. The tools themselves don't enforce this (the LLM does), but the audit log + metric `source=COPILOT` tag makes any "did Copilot skip the confirm" question forensically answerable.
+
+### 14.5 Audit & metrics
+- Reuse the §7 audit events. Copilot-driven writes emit identical `COMPONENT_POLICY_*` events; the actor is the human admin (the agent runs under their session), so `created_by` / `last_modified_by` reflect that admin.
+- Extend §8 metrics with a `source` tag on `bytechef_component_policy_decision_change` (a new sibling counter incremented on rule mutations): `source=UI|GRAPHQL|COPILOT`. Lets ops compare adoption of the Copilot path over time without leaking it into the high-volume per-decision counter.
+
+### 14.6 Test plan additions
+- **Tool unit** — each tool callback with a mocked `ComponentPolicyService`. Verifies role check propagation, optimistic-locking error mapping, structured result schema.
+- **Routing-agent integration** — `@SpringBootTest` with a stub `LLM` that programmatically calls each tool; verifies admin-only inclusion (non-admin caller does not see the tools in the prompt's tool list) by snapshotting the resolved toolset.
+- **Audit equivalence** — same workflow change applied via UI, GraphQL, and Copilot tool path; assert the resulting `audit_event` rows are identical except for `source` and `actor_session_id`.
+- **EE-only wiring** — `@ConditionalOnEEVersion` on the AI module; CE integration test asserts the tool beans are absent and routing agent's toolset omits them.
+
+### 14.7 Edge cases specific to this surface
+- **Unknown componentName from LLM hallucination.** All write tools validate `componentName` against the live component definition catalog before persisting; unknown names produce a structured error the LLM can recover from rather than writing a rule that will silently never match.
+- **Stale rule ID.** `UpdateComponentPolicyRuleTool` and `RemoveComponentPolicyRuleTool` accept rule IDs the LLM read in a prior tool call. If the rule was deleted concurrently, the service returns 404 → tool returns a structured "rule no longer exists" error.
+- **Bulk requests.** "Block all HIGH-risk components" type requests defer to Phase 2 (risk classification doesn't exist yet). Until then, the LLM expands such requests into individual `AddComponentPolicyRuleTool` calls with admin confirmation before each batch.
+- **Cross-workspace requests.** Tools resolve the workspace from the active session — they do not accept a `workspaceId` argument. An admin asking "do this for workspace X" is told to switch sessions; prevents an admin from accidentally editing the wrong workspace because the LLM misinterpreted scope.
+
+### 14.8 Open question
+Auto-confirm threshold for trivially-safe writes — e.g. `SetComponentPolicyDefaultTool` to *match the current value* (no-op), or removing a rule that affects zero saved workflows according to the preview. Proposal: never auto-confirm writes in Phase 1; revisit once Copilot usage data shows admins are routinely re-confirming obviously-safe operations. Aligns with "do not let speed of authoring erode the audit trail's value".
