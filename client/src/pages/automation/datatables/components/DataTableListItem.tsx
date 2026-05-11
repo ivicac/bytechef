@@ -1,4 +1,4 @@
-import DataTableListItemDropdownMenu from '@/pages/automation/datatables/components/DataTableListItemDropdownMenu';
+import DataTableDropdownMenu from '@/pages/automation/datatables/components/DataTableDropdownMenu';
 import DataTableListItemTagList from '@/pages/automation/datatables/components/DataTableListItemTagList';
 import DataTableListItemTooltip from '@/pages/automation/datatables/components/DataTableListItemTooltip';
 import useDataTableListItem from '@/pages/automation/datatables/components/hooks/useDataTableListItem';
@@ -43,7 +43,7 @@ const DataTableListItem = ({remainingTags, table, tags}: DataTableListItemProps)
                     <DataTableListItemTooltip lastModifiedDate={table.lastModifiedDate} />
 
                     <div onClick={handleDataTableListItemTagListClick}>
-                        <DataTableListItemDropdownMenu baseName={table.baseName} dataTableId={table.id} />
+                        <DataTableDropdownMenu baseName={table.baseName} dataTableId={table.id} />
                     </div>
                 </div>
             </div>

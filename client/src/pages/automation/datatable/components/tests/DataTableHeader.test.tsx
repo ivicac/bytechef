@@ -1,17 +1,23 @@
+import {TooltipProvider} from '@/components/ui/tooltip';
 import {render, resetAll, screen, userEvent, windowResizeObserver} from '@/shared/util/test-utils';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import DataTableHeader from '../DataTableHeader';
 
+// The sidebar toggle in the title renders a Tooltip, which throws outside a provider.
+const renderHeader = () =>
+    render(
+        <TooltipProvider>
+            <DataTableHeader />
+        </TooltipProvider>
+    );
+
 const hoisted = vi.hoisted(() => {
     return {
-        mockHandleExportCsv: vi.fn(),
-        mockHandleOpenDeleteDialog: vi.fn(),
         mockHandleOpenDeleteRowsDialog: vi.fn(),
         mockHandleOpenImportCsvDialog: vi.fn(),
-        mockHandleOpenRenameDialog: vi.fn(),
         storeState: {
-            dataTable: {baseName: 'TestTable', id: 'table-123'},
+            dataTable: {baseName: 'TestTable', id: 'table-123'} as {baseName: string; id: string} | null,
             selectedRowsCount: 0,
         },
     };
@@ -24,12 +30,9 @@ vi.mock('../../hooks/useDataTableHeader', () => ({
     }),
 }));
 
-vi.mock('../../hooks/useDataTableActionsMenu', () => ({
+vi.mock('../../hooks/useImportDataTableCsvDialog', () => ({
     default: () => ({
-        handleExportCsv: hoisted.mockHandleExportCsv,
-        handleOpenDeleteDialog: hoisted.mockHandleOpenDeleteDialog,
-        handleOpenImportCsvDialog: hoisted.mockHandleOpenImportCsvDialog,
-        handleOpenRenameDialog: hoisted.mockHandleOpenRenameDialog,
+        handleOpen: hoisted.mockHandleOpenImportCsvDialog,
     }),
 }));
 
@@ -39,38 +42,24 @@ vi.mock('../../stores/useCurrentDataTableStore', () => ({
     }),
 }));
 
-vi.mock('../DataTableActionsMenu', () => ({
+vi.mock('@/pages/automation/datatables/components/DataTableDropdownMenu', () => ({
     default: ({
-        onDeleteTable,
-        onExportCsv,
+        baseName,
+        dataTableId,
         onImportCsv,
-        onRenameTable,
-        tableId,
     }: {
-        onDeleteTable: () => void;
-        onExportCsv: () => void;
-        onImportCsv: () => void;
-        onRenameTable: () => void;
-        tableId?: string;
+        baseName: string;
+        dataTableId: string;
+        onImportCsv?: () => void;
     }) => (
         <div data-testid="actions-menu">
             <button data-testid="import-btn" onClick={onImportCsv}>
-                Import Table
+                Import CSV
             </button>
 
-            <button data-testid="export-btn" onClick={onExportCsv}>
-                Export Table
-            </button>
+            <span data-testid="table-id">{dataTableId}</span>
 
-            <button data-testid="rename-btn" onClick={onRenameTable}>
-                Rename Table
-            </button>
-
-            <button data-testid="delete-table-btn" onClick={onDeleteTable}>
-                Delete Table
-            </button>
-
-            <span data-testid="table-id">{tableId}</span>
+            <span data-testid="table-base-name">{baseName}</span>
         </div>
     ),
 }));
@@ -89,21 +78,30 @@ afterEach(() => {
 describe('DataTableHeader', () => {
     describe('rendering', () => {
         it('should render the table name', () => {
-            render(<DataTableHeader />);
+            renderHeader();
 
-            expect(screen.getByText('TestTable')).toBeInTheDocument();
+            expect(screen.getAllByText('TestTable')[0]).toBeInTheDocument();
         });
 
         it('should render the actions menu', () => {
-            render(<DataTableHeader />);
+            renderHeader();
 
             expect(screen.getByTestId('actions-menu')).toBeInTheDocument();
         });
 
-        it('should pass correct tableId to actions menu', () => {
-            render(<DataTableHeader />);
+        it('should pass the current table to the actions menu', () => {
+            renderHeader();
 
             expect(screen.getByTestId('table-id')).toHaveTextContent('table-123');
+            expect(screen.getByTestId('table-base-name')).toHaveTextContent('TestTable');
+        });
+
+        it('should not render the actions menu when no table is loaded', () => {
+            hoisted.storeState.dataTable = null;
+
+            renderHeader();
+
+            expect(screen.queryByTestId('actions-menu')).not.toBeInTheDocument();
         });
     });
 
@@ -111,17 +109,15 @@ describe('DataTableHeader', () => {
         it('should not render delete rows button when no rows are selected', () => {
             hoisted.storeState.selectedRowsCount = 0;
 
-            render(<DataTableHeader />);
+            renderHeader();
 
-            // The delete rows button should not be present when no rows are selected
-            // We check that no button with "Delete (" pattern exists (the rows delete button)
             expect(screen.queryByRole('button', {name: /Delete \(/i})).not.toBeInTheDocument();
         });
 
         it('should render delete rows button when rows are selected', () => {
             hoisted.storeState.selectedRowsCount = 5;
 
-            render(<DataTableHeader />);
+            renderHeader();
 
             expect(screen.getByRole('button', {name: /Delete \(5\)/i})).toBeInTheDocument();
         });
@@ -129,7 +125,7 @@ describe('DataTableHeader', () => {
         it('should show correct count in delete button', () => {
             hoisted.storeState.selectedRowsCount = 10;
 
-            render(<DataTableHeader />);
+            renderHeader();
 
             expect(screen.getByText(/Delete \(10\)/i)).toBeInTheDocument();
         });
@@ -138,7 +134,7 @@ describe('DataTableHeader', () => {
             const user = userEvent.setup();
             hoisted.storeState.selectedRowsCount = 3;
 
-            render(<DataTableHeader />);
+            renderHeader();
 
             const deleteButton = screen.getByRole('button', {name: /Delete \(3\)/i});
 
@@ -149,52 +145,14 @@ describe('DataTableHeader', () => {
     });
 
     describe('actions menu handlers', () => {
-        it('should call handleOpenImportCsvDialog when import is clicked', async () => {
+        it('should open the import CSV dialog when import is clicked', async () => {
             const user = userEvent.setup();
 
-            render(<DataTableHeader />);
+            renderHeader();
 
-            const importBtn = screen.getByTestId('import-btn');
-
-            await user.click(importBtn);
+            await user.click(screen.getByTestId('import-btn'));
 
             expect(hoisted.mockHandleOpenImportCsvDialog).toHaveBeenCalledTimes(1);
-        });
-
-        it('should call handleExportCsv when export is clicked', async () => {
-            const user = userEvent.setup();
-
-            render(<DataTableHeader />);
-
-            const exportBtn = screen.getByTestId('export-btn');
-
-            await user.click(exportBtn);
-
-            expect(hoisted.mockHandleExportCsv).toHaveBeenCalledTimes(1);
-        });
-
-        it('should call handleOpenRenameDialog when rename is clicked', async () => {
-            const user = userEvent.setup();
-
-            render(<DataTableHeader />);
-
-            const renameBtn = screen.getByTestId('rename-btn');
-
-            await user.click(renameBtn);
-
-            expect(hoisted.mockHandleOpenRenameDialog).toHaveBeenCalledTimes(1);
-        });
-
-        it('should call handleOpenDeleteDialog when delete table is clicked', async () => {
-            const user = userEvent.setup();
-
-            render(<DataTableHeader />);
-
-            const deleteBtn = screen.getByTestId('delete-table-btn');
-
-            await user.click(deleteBtn);
-
-            expect(hoisted.mockHandleOpenDeleteDialog).toHaveBeenCalledTimes(1);
         });
     });
 });

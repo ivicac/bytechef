@@ -8,17 +8,43 @@ import DataTablesFilterTitle from '@/pages/automation/datatables/components/Data
 import DataTablesLeftSidebarNav from '@/pages/automation/datatables/components/DataTablesLeftSidebarNav';
 import useDataTables from '@/pages/automation/datatables/components/hooks/useDataTables';
 import {DATA_TABLES_DOCUMENTATION_URL} from '@/pages/automation/journey/automationJourneySteps';
+import StorageUsageBanner from '@/shared/components/StorageUsageBanner';
+import CopilotButton from '@/shared/components/copilot/CopilotButton';
+import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
+import {Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import {useInitialLoadComplete} from '@/shared/hooks/useInitialLoadComplete';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
+import {useDataTableStorageUsageQuery} from '@/shared/middleware/graphql';
+import {useQueryClient} from '@tanstack/react-query';
 import {Table2Icon} from 'lucide-react';
+import {useEffect} from 'react';
 
 const DataTables = () => {
     const {allTags, error, filteredTables, isLoading, tables, tagId, tagsByTableData} = useDataTables();
 
+    const registerPostTurn = useCopilotPostTurnRegistry((state) => state.register);
+
+    const {data: storageUsageData} = useDataTableStorageUsageQuery();
+
+    const queryClient = useQueryClient();
+
     const initialLoadComplete = useInitialLoadComplete(isLoading);
 
+    const storageUsage = storageUsageData?.dataTableStorageUsage;
+
     const isFirstRun = !isLoading && !tagId && tables.length === 0;
+
+    // Refresh the list and the tag sidebar after a BUILD-mode copilot turn creates or retags a table, so the page
+    // reflects the change without a manual reload.
+    useEffect(() => {
+        return registerPostTurn(Source.DATA_TABLE, () => {
+            queryClient.invalidateQueries({queryKey: ['dataTables']});
+            queryClient.invalidateQueries({queryKey: ['dataTableTags']});
+            queryClient.invalidateQueries({queryKey: ['dataTableTagsByTable']});
+            queryClient.invalidateQueries({queryKey: ['DataTableStorageUsage']});
+        });
+    }, [queryClient, registerPostTurn]);
 
     return (
         <LayoutContainer
@@ -26,7 +52,21 @@ const DataTables = () => {
                 <Header
                     centerTitle={true}
                     position="main"
-                    right={tables.length > 0 && <CreateDataTableDialog trigger={<Button>New Table</Button>} />}
+                    right={
+                        (tables.length > 0 || !isLoading) && (
+                            <div className="flex items-center gap-1">
+                                <CopilotButton source={Source.DATA_TABLE} />
+
+                                {tables.length > 0 && (
+                                    // This is the "Create data table" command's target.
+                                    <CreateDataTableDialog
+                                        claimsCreateIntent={true}
+                                        trigger={<Button>New Table</Button>}
+                                    />
+                                )}
+                            </div>
+                        )
+                    }
                     title={
                         tables.length > 0 ? (
                             <DataTablesFilterTitle allTags={allTags} tagsByTableData={tagsByTableData} />
@@ -42,6 +82,16 @@ const DataTables = () => {
             leftSidebarWidth="64"
         >
             <PageLoader errors={[error]} loading={isLoading}>
+                {storageUsage && (
+                    <StorageUsageBanner
+                        label="Data table"
+                        limitBytes={storageUsage.limitBytes}
+                        percentage={storageUsage.percentage}
+                        unlimited={storageUsage.unlimited}
+                        usedBytes={storageUsage.usedBytes}
+                    />
+                )}
+
                 {filteredTables.length > 0 ? (
                     <DataTableList allTags={allTags} dataTables={filteredTables} tagsByTableData={tagsByTableData} />
                 ) : tagId ? (
@@ -52,7 +102,9 @@ const DataTables = () => {
                     />
                 ) : (
                     <EmptyState
-                        actions={<CreateDataTableDialog trigger={<Button>Create Table</Button>} />}
+                        actions={
+                            <CreateDataTableDialog claimsCreateIntent={true} trigger={<Button>Create Table</Button>} />
+                        }
                         description="A data table stores structured rows inside ByteChef, like lookup values, settings or records your workflows have already handled. Workflows can read and write it with no external database to set up."
                         docsLink={{href: DATA_TABLES_DOCUMENTATION_URL, label: 'How data tables work'}}
                         icon={<Table2Icon />}
