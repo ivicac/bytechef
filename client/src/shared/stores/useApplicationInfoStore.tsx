@@ -37,6 +37,9 @@ export interface ApplicationInfoI {
         customerPortalUrl: string | undefined;
         enabled: boolean;
     };
+    contextStore: {
+        enabled: boolean;
+    };
     embedded: {
         allowedParentOrigins: string[];
     } | null;
@@ -106,6 +109,9 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                     customerPortalUrl: undefined,
                     enabled: false,
                 },
+                contextStore: {
+                    enabled: false,
+                },
                 embedded: null,
                 featureFlags: {},
 
@@ -162,6 +168,9 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                             billing: {
                                 customerPortalUrl: json.billing?.customerPortalUrl || undefined,
                                 enabled: json.billing?.enabled === 'true',
+                            },
+                            contextStore: {
+                                enabled: json.contextStore?.enabled === 'true',
                             },
                             embedded: {
                                 allowedParentOrigins: toAllowedParentOrigins(json.embedded?.allowedParentOrigins),
