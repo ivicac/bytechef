@@ -1,0 +1,1557 @@
+openapi: 3.0.1
+info:
+  title: The Automation Data Table Public V1 API
+  version: "1"
+servers:
+- url: /api/automation/v1
+tags:
+- description: Data table and column definitions.
+  name: data-table
+- description: Data table rows.
+  name: data-table-row
+paths:
+  /workspaces/{workspaceId}/data-tables:
+    get:
+      description: List the data tables of a workspace that exist in the requested
+        environment.
+      operationId: listDataTables
+      parameters:
+      - description: The id of a workspace.
+        explode: false
+        in: path
+        name: workspaceId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      - description: Return only tables carrying this tag.
+        explode: true
+        in: query
+        name: tag
+        required: false
+        schema:
+          type: string
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/DataTable"
+                type: array
+          description: The data tables.
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: List data tables
+      tags:
+      - data-table
+      x-accepts:
+      - application/json
+      - application/problem+json
+    post:
+      description: Create a data table in the requested environment. The same name
+        may exist in several environments; it is one logical table with one physical
+        table per environment.
+      operationId: createDataTable
+      parameters:
+      - description: The id of a workspace.
+        explode: false
+        in: path
+        name: workspaceId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDataTableRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataTable"
+          description: The created data table.
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "403":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Create a data table
+      tags:
+      - data-table
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+      - application/problem+json
+  /data-tables/{name}:
+    delete:
+      description: "Drop the table in the requested environment, with all of its rows.\
+        \ The logical table is removed once its last environment is dropped. Irreversible."
+      operationId: deleteDataTable
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      responses:
+        "204":
+          description: Deleted.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Delete a data table
+      tags:
+      - data-table
+      x-accepts:
+      - application/problem+json
+    get:
+      description: Get a data table as it exists in the requested environment.
+      operationId: getDataTable
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataTable"
+          description: The data table.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Get a data table
+      tags:
+      - data-table
+      x-accepts:
+      - application/json
+      - application/problem+json
+    patch:
+      description: Update the description and/or tags. Both are properties of the
+        logical table and apply to every environment. Omitted fields are left untouched.
+      operationId: updateDataTable
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateDataTableRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataTable"
+          description: The updated data table.
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Update a data table
+      tags:
+      - data-table
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+      - application/problem+json
+  /data-tables/{name}/columns:
+    post:
+      description: Add a column.
+      operationId: createColumn
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateColumnRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataTable"
+          description: The data table with the new column.
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Add a column
+      tags:
+      - data-table
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+      - application/problem+json
+  /data-tables/{name}/columns/{column}:
+    delete:
+      description: Drop a column and every value stored in it. Irreversible.
+      operationId: deleteColumn
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The column name.
+        explode: false
+        in: path
+        name: column
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      responses:
+        "204":
+          description: Deleted.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Delete a column
+      tags:
+      - data-table
+      x-accepts:
+      - application/problem+json
+  /data-tables/{name}/columns/{column}/rename:
+    post:
+      description: Rename a column. Workflows and filters that name the old column
+        stop matching.
+      operationId: renameColumn
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The column name.
+        explode: false
+        in: path
+        name: column
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RenameColumnRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataTable"
+          description: The data table with the renamed column.
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Rename a column
+      tags:
+      - data-table
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+      - application/problem+json
+  /data-tables/{name}/rows:
+    delete:
+      description: Delete rows by id. `ids` is required; to empty a table use the
+        clear operation.
+      operationId: deleteRows
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      - description: Comma-separated row ids; at most 1000.
+        explode: false
+        in: query
+        name: ids
+        required: true
+        schema:
+          items:
+            format: int64
+            type: integer
+          type: array
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeleteRowsResponse"
+          description: What was deleted.
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Delete rows
+      tags:
+      - data-table-row
+      x-accepts:
+      - application/json
+      - application/problem+json
+    get:
+      description: "Query rows. Filters are ANDed; each is `column:OPERATOR:value`\
+        \ with OPERATOR one of EQ, NEQ, IN, CONTAINS, STARTS_WITH, GT, GTE, LT, LTE,\
+        \ BETWEEN. IN and BETWEEN take comma-separated values. `id` and `externalId`\
+        \ may be filtered and sorted like any column. The `where` parameter is reserved\
+        \ for a future expression filter and must not be sent."
+      operationId: listRows
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      - description: A `column:OPERATOR:value` condition. Repeat the parameter to
+          add conditions.
+        explode: true
+        in: query
+        name: filter
+        required: false
+        schema:
+          items:
+            type: string
+          type: array
+        style: form
+      - description: A `column:ASC` or `column:DESC` ordering. Repeat to add tie-breakers;
+          `id:ASC` is always last.
+        explode: true
+        in: query
+        name: sort
+        required: false
+        schema:
+          items:
+            type: string
+          type: array
+        style: form
+      - description: The zero-based page to return.
+        explode: true
+        in: query
+        name: pageNumber
+        required: false
+        schema:
+          default: 0
+          format: int32
+          type: integer
+        style: form
+      - description: Rows per page; at most 500.
+        explode: true
+        in: query
+        name: pageSize
+        required: false
+        schema:
+          default: 50
+          format: int32
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page"
+          description: The page of rows.
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Query rows
+      tags:
+      - data-table-row
+      x-accepts:
+      - application/json
+      - application/problem+json
+    post:
+      description: Insert one row.
+      operationId: createRow
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateRowRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataTableRow"
+          description: The inserted row.
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "507":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Insert a row
+      tags:
+      - data-table-row
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+      - application/problem+json
+  /data-tables/{name}/rows/{id}:
+    delete:
+      operationId: deleteRow
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The row id.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      responses:
+        "204":
+          description: Deleted.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Delete a row
+      tags:
+      - data-table-row
+      x-accepts:
+      - application/problem+json
+    get:
+      operationId: getRow
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The row id.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataTableRow"
+          description: The row.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Get a row
+      tags:
+      - data-table-row
+      x-accepts:
+      - application/json
+      - application/problem+json
+    patch:
+      description: Merge values into a row. Omitted columns are untouched; a null
+        value clears a column. `externalId` may be set or cleared.
+      operationId: updateRow
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The row id.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateRowRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataTableRow"
+          description: The updated row.
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Update a row
+      tags:
+      - data-table-row
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+      - application/problem+json
+  /data-tables/{name}/rows/by-external-id/{externalId}:
+    delete:
+      operationId: deleteRowByExternalId
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The caller-supplied row key.
+        explode: false
+        in: path
+        name: externalId
+        required: true
+        schema:
+          maxLength: 255
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      responses:
+        "204":
+          description: Deleted.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Delete a row by external id
+      tags:
+      - data-table-row
+      x-accepts:
+      - application/problem+json
+    get:
+      operationId: getRowByExternalId
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The caller-supplied row key.
+        explode: false
+        in: path
+        name: externalId
+        required: true
+        schema:
+          maxLength: 255
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataTableRow"
+          description: The row.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Get a row by external id
+      tags:
+      - data-table-row
+      x-accepts:
+      - application/json
+      - application/problem+json
+    put:
+      description: "Upsert: insert the row under this external id, or merge the values\
+        \ into the row that already carries it. Idempotent."
+      operationId: upsertRowByExternalId
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The caller-supplied row key.
+        explode: false
+        in: path
+        name: externalId
+        required: true
+        schema:
+          maxLength: 255
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpsertRowRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataTableRow"
+          description: The row existed and was updated.
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DataTableRow"
+          description: The row was created.
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "507":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Upsert a row by external id
+      tags:
+      - data-table-row
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+      - application/problem+json
+  /data-tables/{name}/rows/batch:
+    post:
+      description: Insert or upsert up to 1000 rows in one transaction; one failure
+        rolls back all of them. Under UPSERT every row must carry an externalId.
+      operationId: batchRows
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BatchRowsRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BatchRowsResponse"
+          description: The rows as stored.
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "507":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Batch insert or upsert rows
+      tags:
+      - data-table-row
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+      - application/problem+json
+  /data-tables/{name}/rows/clear:
+    post:
+      description: Delete every row. Irreversible.
+      operationId: clearRows
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClearRowsResponse"
+          description: How many rows were deleted.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Clear a table
+      tags:
+      - data-table-row
+      x-accepts:
+      - application/json
+      - application/problem+json
+  /data-tables/{name}/rows/import:
+    post:
+      description: Insert rows from CSV. The header names existing columns; an optional
+        `external_id` column sets each row's external id. Empty fields are null.
+      operationId: importRows
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      requestBody:
+        content:
+          text/csv:
+            schema:
+              type: string
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ImportRowsResponse"
+          description: How many rows were inserted.
+        "400":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "409":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+        "507":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Import rows from CSV
+      tags:
+      - data-table-row
+      x-content-type: text/csv
+      x-accepts:
+      - application/json
+      - application/problem+json
+  /data-tables/{name}/rows/export:
+    get:
+      description: Export every row as CSV. `external_id` is the first column; `id`
+        is not included.
+      operationId: exportRows
+      parameters:
+      - description: The table name.
+        explode: false
+        in: path
+        name: name
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The environment whose physical table is addressed. PRODUCTION
+          when omitted.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      responses:
+        "200":
+          content:
+            text/csv:
+              schema:
+                type: string
+          description: The CSV document.
+        "404":
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The problem.
+      summary: Export rows as CSV
+      tags:
+      - data-table-row
+      x-accepts:
+      - application/problem+json
+      - text/csv
+components:
+  parameters:
+    WorkspaceId:
+      description: The id of a workspace.
+      explode: false
+      in: path
+      name: workspaceId
+      required: true
+      schema:
+        format: int64
+        type: integer
+      style: simple
+    TableName:
+      description: The table name.
+      explode: false
+      in: path
+      name: name
+      required: true
+      schema:
+        type: string
+      style: simple
+    ColumnName:
+      description: The column name.
+      explode: false
+      in: path
+      name: column
+      required: true
+      schema:
+        type: string
+      style: simple
+    RowId:
+      description: The row id.
+      explode: false
+      in: path
+      name: id
+      required: true
+      schema:
+        format: int64
+        type: integer
+      style: simple
+    ExternalId:
+      description: The caller-supplied row key.
+      explode: false
+      in: path
+      name: externalId
+      required: true
+      schema:
+        maxLength: 255
+        type: string
+      style: simple
+    XEnvironment:
+      description: The environment whose physical table is addressed. PRODUCTION when
+        omitted.
+      explode: false
+      in: header
+      name: X-Environment
+      required: false
+      schema:
+        $ref: "#/components/schemas/Environment"
+      style: simple
+  responses:
+    Error:
+      content:
+        application/problem+json:
+          schema:
+            $ref: "#/components/schemas/Error"
+      description: The problem.
+  schemas:
+    Environment:
+      description: The environment.
+      enum:
+      - DEVELOPMENT
+      - STAGING
+      - PRODUCTION
+      type: string
+    ColumnType:
+      description: The type of a column.
+      enum:
+      - STRING
+      - NUMBER
+      - INTEGER
+      - DATE
+      - DATE_TIME
+      - BOOLEAN
+      type: string
+    CreateStrategy:
+      description: How a batch treats each row.
+      enum:
+      - INSERT
+      - UPSERT
+      type: string
+    Error:
+      description: "An RFC 7807 problem detail. Branch on errorKey, never on detail."
+      properties:
+        type:
+          description: A URI identifying the problem type.
+          type: string
+        title:
+          type: string
+        status:
+          type: integer
+        detail:
+          description: A human-readable explanation of this occurrence.
+          type: string
+        errorKey:
+          description: "The stable machine-readable key. 100 DATA_TABLE_NOT_FOUND,\
+            \ 103 DATA_TABLE_NAME_INVALID, 104 DATA_TABLE_ALREADY_EXISTS, 105 COLUMN_NOT_FOUND,\
+            \ 106 COLUMN_ALREADY_EXISTS, 107 COLUMN_NAME_INVALID, 108 ROW_NOT_FOUND,\
+            \ 109 ROW_VALUE_INVALID, 110 ROW_EXTERNAL_ID_CONFLICT, 111 ROW_EXTERNAL_ID_REQUIRED,\
+            \ 112 FILTER_INVALID, 113 SORT_INVALID, 114 BATCH_TOO_LARGE, 115 CSV_INVALID,\
+            \ 116 STORAGE_LIMIT_EXCEEDED. Absent on schema-validation failures."
+          type: integer
+        entityClass:
+          type: string
+      type: object
+    DataTableColumn:
+      example:
+        name: name
+        type: STRING
+      properties:
+        name:
+          type: string
+        type:
+          $ref: "#/components/schemas/ColumnType"
+      required:
+      - name
+      - type
+      type: object
+    DataTable:
+      example:
+        name: name
+        description: description
+        columns:
+        - name: name
+          type: STRING
+        - name: name
+          type: STRING
+        tags:
+        - tags
+        - tags
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+      properties:
+        name:
+          description: The table name; its identity.
+          type: string
+        description:
+          type: string
+        columns:
+          items:
+            $ref: "#/components/schemas/DataTableColumn"
+          type: array
+        tags:
+          items:
+            type: string
+          type: array
+        lastModifiedDate:
+          format: date-time
+          type: string
+      type: object
+    CreateDataTableRequest:
+      properties:
+        name:
+          description: "Lower-case letters, digits and underscores, not starting with\
+            \ a digit or `dt_`."
+          pattern: "^[a-z_][a-z0-9_]*$"
+          type: string
+        description:
+          type: string
+        columns:
+          items:
+            $ref: "#/components/schemas/DataTableColumn"
+          minItems: 1
+          type: array
+        tags:
+          items:
+            type: string
+          type: array
+      required:
+      - columns
+      - name
+      type: object
+    UpdateDataTableRequest:
+      properties:
+        description:
+          type: string
+        tags:
+          items:
+            type: string
+          type: array
+      type: object
+    CreateColumnRequest:
+      properties:
+        name:
+          pattern: "^[a-z_][a-z0-9_]*$"
+          type: string
+        type:
+          $ref: "#/components/schemas/ColumnType"
+      required:
+      - name
+      - type
+      type: object
+    RenameColumnRequest:
+      properties:
+        newName:
+          pattern: "^[a-z_][a-z0-9_]*$"
+          type: string
+      required:
+      - newName
+      type: object
+    DataTableRow:
+      example:
+        id: 2
+        externalId: externalId
+        values:
+          key: ""
+      properties:
+        id:
+          format: int64
+          type: integer
+        externalId:
+          description: "The caller-supplied key, or null."
+          type: string
+        values:
+          additionalProperties: true
+          description: "Column name to value. STRING→string, NUMBER→number, INTEGER→\
+            integer, BOOLEAN→boolean, DATE→YYYY-MM-DD, DATE_TIME→ISO-8601 UTC."
+          type: object
+      type: object
+    CreateRowRequest:
+      properties:
+        values:
+          additionalProperties: true
+          description: Column name to value. Each value may also be given as a string
+            in the column's format.
+          type: object
+        externalId:
+          maxLength: 255
+          type: string
+      required:
+      - values
+      type: object
+    UpdateRowRequest:
+      properties:
+        values:
+          additionalProperties: true
+          type: object
+        externalId:
+          description: Set the key; send null to clear it; omit to leave it.
+          maxLength: 255
+          nullable: true
+          type: string
+      type: object
+    UpsertRowRequest:
+      properties:
+        values:
+          additionalProperties: true
+          type: object
+      required:
+      - values
+      type: object
+    BatchRow:
+      properties:
+        values:
+          additionalProperties: true
+          type: object
+        externalId:
+          maxLength: 255
+          type: string
+      required:
+      - values
+      type: object
+    BatchRowsRequest:
+      properties:
+        rows:
+          items:
+            $ref: "#/components/schemas/BatchRow"
+          maxItems: 1000
+          minItems: 1
+          type: array
+        createStrategy:
+          $ref: "#/components/schemas/CreateStrategy"
+      required:
+      - rows
+      type: object
+    BatchRowsResponse:
+      example:
+        rows:
+        - id: 2
+          externalId: externalId
+          values:
+            key: ""
+        - id: 2
+          externalId: externalId
+          values:
+            key: ""
+      properties:
+        rows:
+          items:
+            $ref: "#/components/schemas/DataTableRow"
+          type: array
+      type: object
+    DeleteRowsResponse:
+      example:
+        deletedCount: 0
+        deletedIds:
+        - 6
+        - 6
+      properties:
+        deletedCount:
+          type: integer
+        deletedIds:
+          items:
+            format: int64
+            type: integer
+          type: array
+      type: object
+    ClearRowsResponse:
+      example:
+        deletedCount: 0
+      properties:
+        deletedCount:
+          format: int64
+          type: integer
+      type: object
+    ImportRowsResponse:
+      example:
+        importedCount: 0
+      properties:
+        importedCount:
+          type: integer
+      type: object
+    Page:
+      description: A page of rows.
+      example:
+        number: 0
+        size: 6
+        numberOfElements: 1
+        totalPages: 5
+        totalElements: 5
+        content:
+        - id: 2
+          externalId: externalId
+          values:
+            key: ""
+        - id: 2
+          externalId: externalId
+          values:
+            key: ""
+      properties:
+        number:
+          type: integer
+        size:
+          type: integer
+        numberOfElements:
+          type: integer
+        totalPages:
+          type: integer
+        totalElements:
+          type: integer
+        content:
+          items:
+            $ref: "#/components/schemas/DataTableRow"
+          type: array
+      type: object
+
