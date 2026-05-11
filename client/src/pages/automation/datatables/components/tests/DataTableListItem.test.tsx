@@ -19,7 +19,7 @@ vi.mock('react-router-dom', async () => {
     };
 });
 
-vi.mock('../DataTableListItemDropdownMenu', () => ({
+vi.mock('../DataTableDropdownMenu', () => ({
     default: ({dataTableId}: {baseName: string; dataTableId: string}) => (
         <div data-testid={`dropdown-menu-${dataTableId}`}>Menu</div>
     ),
