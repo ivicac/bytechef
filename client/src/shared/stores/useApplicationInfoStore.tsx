@@ -30,6 +30,9 @@ export interface ApplicationInfoI {
     application: {
         edition: EditionType;
     } | null;
+    contextStore: {
+        enabled: boolean;
+    };
     featureFlags: Record<string, boolean>;
     helpHub: {
         commandBar: {
@@ -86,6 +89,9 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                     },
                 },
                 application: null,
+                contextStore: {
+                    enabled: false,
+                },
                 featureFlags: {},
 
                 getApplicationInfo: async () => {
@@ -135,6 +141,9 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                                 postHog: json.analytics.postHog,
                             },
                             application: json.application,
+                            contextStore: {
+                                enabled: json.contextStore?.enabled === 'true',
+                            },
                             featureFlags: json.featureFlags,
                             helpHub: {
                                 commandBar: json.helpHub.commandBar,
