@@ -23,7 +23,7 @@ const DataTablesLeftSidebarNav = () => {
                             />
                         ))
                     ) : (
-                        <span className="px-3 text-xs">No defined tags.</span>
+                        <span className="px-2 text-xs">No defined tags.</span>
                     )}
                 </>
             }
