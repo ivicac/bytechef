@@ -208,7 +208,7 @@ describe('DataTableLeftSidebar', () => {
             expect(menuButtons).toHaveLength(3);
         });
 
-        it('should show rename and delete options in menu', async () => {
+        it('should show the table actions in menu', async () => {
             const user = userEvent.setup();
 
             renderWithProviders(<DataTableLeftSidebar />);
@@ -218,7 +218,10 @@ describe('DataTableLeftSidebar', () => {
             await user.click(menuButtons[0]);
 
             expect(screen.getByText('Rename')).toBeInTheDocument();
+            expect(screen.getByText('Duplicate')).toBeInTheDocument();
+            expect(screen.getByText('Export CSV')).toBeInTheDocument();
             expect(screen.getByText('Delete')).toBeInTheDocument();
+            expect(screen.queryByText('Import CSV')).not.toBeInTheDocument();
         });
     });
 

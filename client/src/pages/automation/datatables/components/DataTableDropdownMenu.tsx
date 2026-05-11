@@ -6,25 +6,41 @@ import {
     DropdownMenuSeparator,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import useDataTableListItemDropdownMenu from '@/pages/automation/datatables/components/hooks/useDataTableListItemDropdownMenu';
-import {CopyIcon, DownloadIcon, EditIcon, EllipsisVerticalIcon, Trash2Icon} from 'lucide-react';
+import useDataTableDropdownMenu from '@/pages/automation/datatables/components/hooks/useDataTableDropdownMenu';
+import {CopyIcon, DownloadIcon, EditIcon, EllipsisVerticalIcon, Trash2Icon, UploadIcon} from 'lucide-react';
 
-interface DataTableListItemDropdownMenuProps {
+interface DataTableDropdownMenuProps {
     baseName: string;
     dataTableId: string;
+    onImportCsv?: () => void;
+    triggerClassName?: string;
+    triggerSize?: 'icon' | 'iconSm';
 }
 
-const DataTableListItemDropdownMenu = ({baseName, dataTableId}: DataTableListItemDropdownMenuProps) => {
-    const {handleDeleteClick, handleDuplicateClick, handleExportCsvClick, handleRenameClick} =
-        useDataTableListItemDropdownMenu({
+const DataTableDropdownMenu = ({
+    baseName,
+    dataTableId,
+    onImportCsv,
+    triggerClassName,
+    triggerSize = 'icon',
+}: DataTableDropdownMenuProps) => {
+    const {handleDeleteClick, handleDuplicateClick, handleExportCsvClick, handleRenameClick} = useDataTableDropdownMenu(
+        {
             baseName,
             dataTableId,
-        });
+        }
+    );
 
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
-                <Button aria-label="Table menu" icon={<EllipsisVerticalIcon />} size="icon" variant="ghost" />
+                <Button
+                    aria-label="Table menu"
+                    className={triggerClassName}
+                    icon={<EllipsisVerticalIcon />}
+                    size={triggerSize}
+                    variant="ghost"
+                />
             </DropdownMenuTrigger>
 
             <DropdownMenuContent align="end">
@@ -35,6 +51,12 @@ const DataTableListItemDropdownMenu = ({baseName, dataTableId}: DataTableListIte
                 <DropdownMenuItem className="dropdown-menu-item" onClick={handleDuplicateClick}>
                     <CopyIcon /> Duplicate
                 </DropdownMenuItem>
+
+                {onImportCsv && (
+                    <DropdownMenuItem className="dropdown-menu-item" onClick={onImportCsv}>
+                        <UploadIcon /> Import CSV
+                    </DropdownMenuItem>
+                )}
 
                 <DropdownMenuItem className="dropdown-menu-item" onClick={handleExportCsvClick}>
                     <DownloadIcon /> Export CSV
@@ -54,4 +76,4 @@ const DataTableListItemDropdownMenu = ({baseName, dataTableId}: DataTableListIte
     );
 };
 
-export default DataTableListItemDropdownMenu;
+export default DataTableDropdownMenu;

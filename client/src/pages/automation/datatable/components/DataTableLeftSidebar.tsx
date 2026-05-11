@@ -1,9 +1,10 @@
 import {Input} from '@/components/Input/Input';
 import PageLoader from '@/components/PageLoader';
+import DataTableDropdownMenu from '@/pages/automation/datatables/components/DataTableDropdownMenu';
+import DuplicateDataTableDialog from '@/pages/automation/datatables/components/DuplicateDataTableDialog';
 import {LeftSidebarNav, LeftSidebarNavItem} from '@/shared/layout/LeftSidebarNav';
 
 import useDataTableLeftSidebar from '../hooks/useDataTableLeftSidebar';
-import DataTableLeftSidebarDropdownMenu from './DataTableLeftSidebarDropdownMenu';
 import DeleteDataTableAlertDialog from './DeleteDataTableAlertDialog';
 import RenameDataTableDialog from './RenameDataTableDialog';
 
@@ -16,7 +17,7 @@ const DataTableLeftSidebar = ({currentId}: Props) => {
 
     return (
         <div className="flex h-full flex-col">
-            <div className="space-y-2 pt-0.5 pb-3">
+            <div className="space-y-2 px-2 pt-0.5 pb-3">
                 <Input
                     onChange={(event) => handleSearchChange(event.target.value)}
                     placeholder="Search tables..."
@@ -40,9 +41,11 @@ const DataTableLeftSidebar = ({currentId}: Props) => {
                                             />
 
                                             <div className="absolute top-1/2 right-2 z-10 -translate-y-1/2">
-                                                <DataTableLeftSidebarDropdownMenu
-                                                    tableId={table.id}
-                                                    tableName={table.baseName}
+                                                <DataTableDropdownMenu
+                                                    baseName={table.baseName}
+                                                    dataTableId={table.id}
+                                                    triggerClassName="w-6 opacity-0 transition-opacity group-hover:opacity-100 data-[state=open]:opacity-100"
+                                                    triggerSize="iconSm"
                                                 />
                                             </div>
                                         </div>
@@ -60,6 +63,8 @@ const DataTableLeftSidebar = ({currentId}: Props) => {
             </div>
 
             <DeleteDataTableAlertDialog />
+
+            <DuplicateDataTableDialog />
 
             <RenameDataTableDialog />
         </div>

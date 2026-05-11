@@ -6,12 +6,38 @@ import DataTableList from '@/pages/automation/datatables/components/DataTableLis
 import DataTablesFilterTitle from '@/pages/automation/datatables/components/DataTablesFilterTitle';
 import DataTablesLeftSidebarNav from '@/pages/automation/datatables/components/DataTablesLeftSidebarNav';
 import useDataTables from '@/pages/automation/datatables/components/hooks/useDataTables';
+import StorageUsageBanner from '@/shared/components/StorageUsageBanner';
+import CopilotButton from '@/shared/components/copilot/CopilotButton';
+import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
+import {Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
+import {useDataTableStorageUsageQuery} from '@/shared/middleware/graphql';
+import {useQueryClient} from '@tanstack/react-query';
 import {Table2Icon} from 'lucide-react';
+import {useEffect} from 'react';
 
 const DataTables = () => {
     const {allTags, error, filteredTables, isLoading, tables, tagId, tagsByTableData} = useDataTables();
+
+    const {data: storageUsageData} = useDataTableStorageUsageQuery();
+
+    const storageUsage = storageUsageData?.dataTableStorageUsage;
+
+    const registerPostTurn = useCopilotPostTurnRegistry((state) => state.register);
+
+    const queryClient = useQueryClient();
+
+    // Refresh the list and the tag sidebar after a BUILD-mode copilot turn creates or retags a table, so the page
+    // reflects the change without a manual reload.
+    useEffect(() => {
+        return registerPostTurn(Source.DATA_TABLE, () => {
+            queryClient.invalidateQueries({queryKey: ['dataTables']});
+            queryClient.invalidateQueries({queryKey: ['dataTableTags']});
+            queryClient.invalidateQueries({queryKey: ['dataTableTagsByTable']});
+            queryClient.invalidateQueries({queryKey: ['DataTableStorageUsage']});
+        });
+    }, [queryClient, registerPostTurn]);
 
     return (
         <LayoutContainer
@@ -19,7 +45,21 @@ const DataTables = () => {
                 <Header
                     centerTitle={true}
                     position="main"
-                    right={tables.length > 0 && <CreateDataTableDialog trigger={<Button>New Table</Button>} />}
+                    right={
+                        (tables.length > 0 || !isLoading) && (
+                            <div className="flex items-center gap-1">
+                                <CopilotButton source={Source.DATA_TABLE} />
+
+                                {tables.length > 0 && (
+                                    // This is the "Create data table" command's target.
+                                    <CreateDataTableDialog
+                                        claimsCreateIntent={true}
+                                        trigger={<Button>New Table</Button>}
+                                    />
+                                )}
+                            </div>
+                        )
+                    }
                     title={
                         tables.length > 0 ? (
                             <DataTablesFilterTitle allTags={allTags} tagsByTableData={tagsByTableData} />
@@ -34,12 +74,25 @@ const DataTables = () => {
             leftSidebarWidth="64"
         >
             <PageLoader errors={[error]} loading={isLoading}>
+                {storageUsage && (
+                    <StorageUsageBanner
+                        label="Data table"
+                        limitBytes={storageUsage.limitBytes}
+                        percentage={storageUsage.percentage}
+                        unlimited={storageUsage.unlimited}
+                        usedBytes={storageUsage.usedBytes}
+                    />
+                )}
+
                 {filteredTables.length > 0 ? (
                     <DataTableList allTags={allTags} dataTables={filteredTables} tagsByTableData={tagsByTableData} />
                 ) : (
                     <EmptyList
-                        button={<CreateDataTableDialog trigger={<Button>Create Table</Button>} />}
-                        icon={<Table2Icon className="size-24 text-gray-300" />}
+                        button={
+                            // This is the "Create data table" command's target.
+                            <CreateDataTableDialog claimsCreateIntent={true} trigger={<Button>Create Table</Button>} />
+                        }
+                        icon={<Table2Icon className="size-24 text-stroke-neutral-tertiary" />}
                         message={
                             tagId
                                 ? 'No data tables match the selected tag.'
