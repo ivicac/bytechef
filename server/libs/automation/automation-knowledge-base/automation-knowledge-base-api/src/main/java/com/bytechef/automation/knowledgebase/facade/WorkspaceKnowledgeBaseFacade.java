@@ -17,6 +17,9 @@
 package com.bytechef.automation.knowledgebase.facade;
 
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
+import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocumentChunk;
+import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseStorageUsage;
+import com.bytechef.platform.tag.domain.Tag;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -38,6 +41,29 @@ public interface WorkspaceKnowledgeBaseFacade {
      * @return a list of {@code KnowledgeBase} objects associated with the workspace and environment
      */
     List<KnowledgeBase> getWorkspaceKnowledgeBases(Long workspaceId, long environmentId);
+
+    /**
+     * Retrieves the distinct tags assigned to the knowledge bases of the given workspace.
+     *
+     * @param workspaceId the id of the workspace whose knowledge base tags are to be retrieved
+     * @return a list of {@code Tag} objects assigned to the workspace's knowledge bases
+     */
+    List<Tag> getKnowledgeBaseTags(long workspaceId);
+
+    /**
+     * Retrieves a single knowledge base by id, authorized against the caller's role in the owning workspace.
+     */
+    KnowledgeBase getKnowledgeBase(Long knowledgeBaseId);
+
+    /**
+     * Updates a knowledge base, authorized against the caller's role in the owning workspace.
+     */
+    KnowledgeBase updateKnowledgeBase(Long knowledgeBaseId, KnowledgeBase knowledgeBase);
+
+    /**
+     * Semantic search within a knowledge base, authorized against the caller's role in the owning workspace.
+     */
+    List<KnowledgeBaseDocumentChunk> searchKnowledgeBase(Long knowledgeBaseId, String query, String metadataFilters);
 
     /**
      * Creates a new knowledge base and assigns it to the specified workspace.
@@ -78,4 +104,12 @@ public interface WorkspaceKnowledgeBaseFacade {
      */
     KnowledgeBase cloneWorkspaceKnowledgeBase(
         Long knowledgeBaseId, Long workspaceId, long targetEnvironmentId, @Nullable String newName);
+
+    /**
+     * Retrieves the current knowledge base storage usage for the caller's tenant.
+     *
+     * @return the {@code KnowledgeBaseStorageUsage} aggregate describing used bytes, limit bytes, percentage, and
+     *         whether the limit is unlimited
+     */
+    KnowledgeBaseStorageUsage getStorageUsage();
 }

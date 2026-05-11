@@ -122,11 +122,13 @@ public class MistralOcrService implements OcrService {
             .retrieve()
             .toEntity(FileUploadResponse.class);
 
-        if (response.getBody() == null) {
+        FileUploadResponse fileUploadResponse = response.getBody();
+
+        if (fileUploadResponse == null) {
             throw new RuntimeException("Failed to upload file: empty response");
         }
 
-        return response.getBody();
+        return fileUploadResponse;
     }
 
     private SignedUrlResponse getSignedUrl(String fileId) {
