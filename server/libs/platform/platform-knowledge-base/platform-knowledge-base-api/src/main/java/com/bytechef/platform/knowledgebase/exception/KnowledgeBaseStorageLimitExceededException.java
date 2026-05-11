@@ -14,24 +14,16 @@
  * limitations under the License.
  */
 
-package com.bytechef.platform.knowledgebase.search;
-
-import com.bytechef.automation.search.SearchAssetType;
-import com.bytechef.automation.search.SearchResult;
+package com.bytechef.platform.knowledgebase.exception;
 
 /**
  * @author Ivica Cardic
  */
-public record KnowledgeBaseDocumentSearchResult(Long id, long knowledgeBaseId, String name)
-    implements SearchResult<Long> {
+public class KnowledgeBaseStorageLimitExceededException extends RuntimeException {
 
-    @Override
-    public String description() {
-        return null;
-    }
-
-    @Override
-    public SearchAssetType type() {
-        return SearchAssetType.KNOWLEDGE_BASE_DOCUMENT;
+    public KnowledgeBaseStorageLimitExceededException(long usedBytes, long limitBytes) {
+        super(
+            "Knowledge base storage limit reached (" + (usedBytes / 1_048_576) + " MB of " + (limitBytes / 1_048_576) +
+                " MB used). Delete documents or increase bytechef.ai.knowledge-base.max-size-bytes.");
     }
 }
