@@ -25,6 +25,7 @@ import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 import static com.bytechef.component.definition.ComponentDsl.string;
 
 import com.bytechef.component.datatable.util.DataTableUtils;
+import com.bytechef.component.datatable.util.DataTableUtils.ResolvedDataTable;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.definition.BaseProperty.ResourceType;
@@ -55,7 +56,9 @@ public class DataTableClearTableAction {
         return new DataTableClearTableAction(dataTableService, dataTableRowService).build();
     }
 
-    private DataTableClearTableAction(DataTableService dataTableService, DataTableRowService dataTableRowService) {
+    private DataTableClearTableAction(
+        DataTableService dataTableService, DataTableRowService dataTableRowService) {
+
         this.dataTableService = dataTableService;
         this.dataTableRowService = dataTableRowService;
     }
@@ -88,7 +91,10 @@ public class DataTableClearTableAction {
 
         long environmentId = Objects.requireNonNull(actionContextAware.getEnvironmentId());
 
-        List<DataTableRow> deletedDataTableRows = dataTableRowService.deleteAllRows(baseName, environmentId);
+        ResolvedDataTable resolvedDataTable = DataTableUtils.resolveDataTable(
+            dataTableService, baseName, environmentId);
+
+        List<DataTableRow> deletedDataTableRows = dataTableRowService.deleteAllRows(resolvedDataTable.dataTableRef());
 
         Map<String, Object> result = new HashMap<>();
 

@@ -17,6 +17,7 @@
 package com.bytechef.platform.data.table.execution.event;
 
 import com.bytechef.platform.data.table.configuration.domain.DataTableWebhookType;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Collection;
@@ -32,20 +33,24 @@ import org.springframework.context.ApplicationEvent;
  * Application event published when a data table change should trigger webhooks. One write publishes one event holding
  * every row it changed.
  *
+ * <p>
+ * Carries the table the row was written into rather than the base name it is known by, so the listener resolves the
+ * same registry row that registration hung off.
+ *
  * @author Ivica Cardic
  */
 public final class DataTableWebhookEvent extends ApplicationEvent {
 
-    private final String baseName;
-    private final long environmentId;
+    @SuppressFBWarnings(value = "SE_BAD_FIELD", justification = "Published in-process only, never serialized")
+    private final DataTableRef dataTableRef;
     @SuppressFBWarnings(value = "SE_BAD_FIELD", justification = "Published in-process only, never serialized")
     private final List<DataTableRow> rows;
     private final DataTableWebhookType type;
 
     public DataTableWebhookEvent(
-        String baseName, DataTableWebhookType type, List<DataTableRow> rows, long environmentId) {
+        DataTableRef dataTableRef, DataTableWebhookType type, List<DataTableRow> rows) {
 
-        super(Objects.requireNonNull(baseName, "baseName must not be null"));
+        super(Objects.requireNonNull(dataTableRef, "dataTableRef must not be null"));
 
         Objects.requireNonNull(rows, "rows must not be null");
 
@@ -53,25 +58,25 @@ public final class DataTableWebhookEvent extends ApplicationEvent {
             throw new IllegalArgumentException("rows must not be empty");
         }
 
-        this.baseName = baseName;
-        this.environmentId = environmentId;
+        this.dataTableRef = dataTableRef;
         this.type = Objects.requireNonNull(type, "type must not be null");
         this.rows = rows.stream()
             .map(row -> {
                 Objects.requireNonNull(row, "row must not be null");
 
                 return new DataTableRow(
-                    row.id(), copy(Objects.requireNonNull(row.values(), "row values must not be null")));
+                    row.id(), row.externalId(),
+                    copy(Objects.requireNonNull(row.values(), "row values must not be null")));
             })
             .toList();
     }
 
-    public String getBaseName() {
-        return baseName;
-    }
-
-    public long getEnvironmentId() {
-        return environmentId;
+    /**
+     * The table the changed row lives in, as resolution settled it: environment, base name and the owner whose copy it
+     * is. The listener looks registrations up by it, so an event reaches only the registrations of that very table.
+     */
+    public DataTableRef getDataTableRef() {
+        return dataTableRef;
     }
 
     public DataTableWebhookType getType() {
@@ -86,8 +91,7 @@ public final class DataTableWebhookEvent extends ApplicationEvent {
     @Override
     public String toString() {
         return "DataTableWebhookEvent{" +
-            "baseName='" + baseName + '\'' +
-            ", environmentId=" + environmentId +
+            "dataTableRef=" + dataTableRef +
             ", rowCount=" + rows.size() +
             ", type=" + type +
             "} " + super.toString();

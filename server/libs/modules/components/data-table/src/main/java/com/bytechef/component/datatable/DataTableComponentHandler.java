@@ -69,7 +69,9 @@ public class DataTableComponentHandler implements ComponentHandler {
             DataTableService dataTableService, DataTableRowService dataTableRowService,
             DataTableWebhookService dataTableWebhookService) {
 
-            super(buildDefinition(dataTableService, dataTableRowService, dataTableWebhookService));
+            super(
+                buildDefinition(
+                    dataTableService, dataTableRowService, dataTableWebhookService));
         }
 
         private static ComponentDefinition buildDefinition(
@@ -109,9 +111,12 @@ public class DataTableComponentHandler implements ComponentHandler {
                     tool(findRecordsAction),
                     tool(clearTableAction))
                 .triggers(
-                    DataTableRecordCreatedTrigger.of(dataTableRowService, dataTableService, dataTableWebhookService),
-                    DataTableRecordUpdatedTrigger.of(dataTableRowService, dataTableService, dataTableWebhookService),
-                    DataTableRecordDeletedTrigger.of(dataTableRowService, dataTableService, dataTableWebhookService));
+                    DataTableRecordCreatedTrigger.of(
+                        dataTableRowService, dataTableService, dataTableWebhookService),
+                    DataTableRecordUpdatedTrigger.of(
+                        dataTableRowService, dataTableService, dataTableWebhookService),
+                    DataTableRecordDeletedTrigger.of(
+                        dataTableRowService, dataTableService, dataTableWebhookService));
         }
     }
 }

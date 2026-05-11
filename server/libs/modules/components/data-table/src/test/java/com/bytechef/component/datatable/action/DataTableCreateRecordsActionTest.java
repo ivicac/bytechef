@@ -20,13 +20,14 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyList;
-import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import java.util.List;
 import java.util.Map;
@@ -39,9 +40,11 @@ class DataTableCreateRecordsActionTest extends AbstractDataTableActionTest {
 
     @Test
     void testPerformInsertsEveryRecordInOneStepAndEmitsFlatRows() throws Exception {
+        DataTableRef dataTableRef = stubResolvedDataTable();
+
         List<Map<String, Object>> records = List.of(Map.of("status", "BOT"), Map.of("status", "HUMAN"));
 
-        when(dataTableRowService.insertRows("conversations", records, 1L))
+        when(dataTableRowService.insertRows(dataTableRef, records))
             .thenReturn(
                 List.of(new DataTableRow(1, Map.of("status", "BOT")), new DataTableRow(2, Map.of("status", "HUMAN"))));
 
@@ -50,10 +53,10 @@ class DataTableCreateRecordsActionTest extends AbstractDataTableActionTest {
 
         assertEquals(
             List.of(Map.of("id", 1L, "status", "BOT"), Map.of("id", 2L, "status", "HUMAN")),
-            perform(actionDefinition, Map.of("table", "conversations", "records", Map.of("values", records))));
+            perform(actionDefinition, Map.of("table", BASE_NAME, "records", Map.of("values", records))));
 
-        verify(dataTableRowService, times(1)).insertRows("conversations", records, 1L);
-        verify(dataTableRowService, never()).insertRow(any(), any(), anyLong());
+        verify(dataTableRowService, times(1)).insertRows(dataTableRef, records);
+        verify(dataTableRowService, never()).insertRow(any(DataTableRef.class), anyMap());
     }
 
     @Test
@@ -66,14 +69,14 @@ class DataTableCreateRecordsActionTest extends AbstractDataTableActionTest {
             () -> perform(
                 actionDefinition,
                 Map.of(
-                    "table", "conversations", "records",
+                    "table", BASE_NAME, "records",
                     Map.of("values", List.of(Map.of("status", "BOT"), "status=HUMAN")))));
 
         assertEquals(
             "Record 2 must be an object of column values; no record was inserted",
             illegalArgumentException.getMessage());
 
-        verify(dataTableRowService, never()).insertRows(any(), anyList(), anyLong());
+        verify(dataTableRowService, never()).insertRows(any(DataTableRef.class), anyList());
     }
 
     @Test
@@ -85,12 +88,12 @@ class DataTableCreateRecordsActionTest extends AbstractDataTableActionTest {
             IllegalArgumentException.class,
             () -> perform(
                 actionDefinition,
-                Map.of("table", "conversations", "records", Map.of("values", "[{\"status\": \"BOT\"}]"))));
+                Map.of("table", BASE_NAME, "records", Map.of("values", "[{\"status\": \"BOT\"}]"))));
 
         assertEquals(
             "Records must be a list of records; no record was inserted", illegalArgumentException.getMessage());
 
-        verify(dataTableRowService, never()).insertRows(any(), anyList(), anyLong());
+        verify(dataTableRowService, never()).insertRows(any(DataTableRef.class), anyList());
     }
 
     @Test
@@ -100,11 +103,11 @@ class DataTableCreateRecordsActionTest extends AbstractDataTableActionTest {
 
         IllegalArgumentException illegalArgumentException = assertThrows(
             IllegalArgumentException.class,
-            () -> perform(actionDefinition, Map.of("table", "conversations", "records", Map.of())));
+            () -> perform(actionDefinition, Map.of("table", BASE_NAME, "records", Map.of())));
 
         assertEquals(
             "Records must be a list of records; no record was inserted", illegalArgumentException.getMessage());
 
-        verify(dataTableRowService, never()).insertRows(any(), anyList(), anyLong());
+        verify(dataTableRowService, never()).insertRows(any(DataTableRef.class), anyList());
     }
 }

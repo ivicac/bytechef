@@ -24,6 +24,7 @@ import com.bytechef.platform.component.trigger.WebhookRequest.WebhookBodyImpl;
 import com.bytechef.platform.configuration.facade.WorkflowNodeTestOutputFacade;
 import com.bytechef.platform.data.table.configuration.domain.DataTableWebhookType;
 import com.bytechef.platform.data.table.configuration.service.DataTableWebhookService;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.event.DataTableWebhookEvent;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
@@ -94,15 +95,17 @@ public class DataTableWebhookEventListener {
 
     @EventListener
     public void onDataTableWebhookEvent(DataTableWebhookEvent event) {
-        String baseName = event.getBaseName();
-        long environmentId = event.getEnvironmentId();
+        DataTableRef dataTableRef = event.getDataTableRef();
+
+        String baseName = dataTableRef.baseName();
+        long environmentId = dataTableRef.environmentId();
         List<DataTableRow> rows = event.getRows();
         DataTableWebhookType type = event.getType();
 
         List<DataTableWebhookService.Webhook> hooks;
 
         try {
-            hooks = lookupTransactionTemplate.execute(status -> listWebhooks(baseName, environmentId, type));
+            hooks = lookupTransactionTemplate.execute(status -> listWebhooks(dataTableRef, type));
         } catch (RuntimeException runtimeException) {
             log.error(
                 "Data table webhooks for {} on table '{}' in environment {} could not be listed; {} rows were not sent",
@@ -207,10 +210,8 @@ public class DataTableWebhookEventListener {
         }
     }
 
-    private List<DataTableWebhookService.Webhook> listWebhooks(
-        String baseName, long environmentId, DataTableWebhookType type) {
-
-        return dataTableWebhookService.listWebhooks(baseName, environmentId)
+    private List<DataTableWebhookService.Webhook> listWebhooks(DataTableRef dataTableRef, DataTableWebhookType type) {
+        return dataTableWebhookService.listWebhooks(dataTableRef)
             .stream()
             .filter(webhook -> webhook.type() == type)
             .toList();

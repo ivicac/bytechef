@@ -21,14 +21,13 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.domain.DataTableRowConditions;
 import com.bytechef.platform.data.table.execution.domain.DataTableRowFilter;
@@ -54,7 +53,9 @@ class DataTableFindRecordsActionTest extends AbstractDataTableActionTest {
 
     @Test
     void testPerformEmitsFlatRows() throws Exception {
-        when(dataTableRowService.findRows(anyString(), any(), any(), anyInt(), anyInt(), anyLong()))
+        DataTableRef dataTableRef = stubResolvedDataTable();
+
+        when(dataTableRowService.findRows(any(DataTableRef.class), any(), any(), anyInt(), anyInt()))
             .thenReturn(
                 List.of(
                     new DataTableRow(1, Map.of("status", "BOT")), new DataTableRow(2, Map.of("status", "CLOSED"))));
@@ -64,11 +65,10 @@ class DataTableFindRecordsActionTest extends AbstractDataTableActionTest {
 
         assertEquals(
             List.of(Map.of("id", 1L, "status", "BOT"), Map.of("id", 2L, "status", "CLOSED")),
-            perform(actionDefinition, Map.of("table", "conversations")));
+            perform(actionDefinition, Map.of("table", BASE_NAME)));
 
         verify(dataTableRowService).findRows(
-            eq("conversations"), conditionsArgumentCaptor.capture(), sortArgumentCaptor.capture(), eq(100), eq(0),
-            eq(1L));
+            eq(dataTableRef), conditionsArgumentCaptor.capture(), sortArgumentCaptor.capture(), eq(100), eq(0));
 
         assertEquals(DataTableRowConditions.matchAll(), conditionsArgumentCaptor.getValue());
         assertNull(sortArgumentCaptor.getValue());
@@ -76,13 +76,15 @@ class DataTableFindRecordsActionTest extends AbstractDataTableActionTest {
 
     @Test
     void testPerformPassesConditionsSortAndPagination() throws Exception {
+        DataTableRef dataTableRef = stubResolvedDataTable();
+
         ModifiableActionDefinition actionDefinition = DataTableFindRecordsAction.of(
             dataTableService, dataTableRowService);
 
         perform(
             actionDefinition,
             Map.of(
-                "table", "conversations",
+                "table", BASE_NAME,
                 "conditions", List.of(
                     List.of(
                         Map.of("column", "status", "value", "BOT"),
@@ -97,8 +99,7 @@ class DataTableFindRecordsActionTest extends AbstractDataTableActionTest {
                 "offset", 20));
 
         verify(dataTableRowService).findRows(
-            eq("conversations"), conditionsArgumentCaptor.capture(), sortArgumentCaptor.capture(), eq(10), eq(20),
-            eq(1L));
+            eq(dataTableRef), conditionsArgumentCaptor.capture(), sortArgumentCaptor.capture(), eq(10), eq(20));
 
         assertEquals(
             DataTableRowConditions.anyOf(
@@ -116,29 +117,31 @@ class DataTableFindRecordsActionTest extends AbstractDataTableActionTest {
 
     @Test
     void testPerformAcceptsSortDirectionInAnyCase() throws Exception {
+        DataTableRef dataTableRef = stubResolvedDataTable();
+
         ModifiableActionDefinition actionDefinition = DataTableFindRecordsAction.of(
             dataTableService, dataTableRowService);
 
         perform(
-            actionDefinition, Map.of("table", "conversations", "sortColumn", "score", "sortDirection", "desc"));
+            actionDefinition, Map.of("table", BASE_NAME, "sortColumn", "score", "sortDirection", "desc"));
 
         verify(dataTableRowService).findRows(
-            eq("conversations"), conditionsArgumentCaptor.capture(), sortArgumentCaptor.capture(), eq(100), eq(0),
-            eq(1L));
+            eq(dataTableRef), conditionsArgumentCaptor.capture(), sortArgumentCaptor.capture(), eq(100), eq(0));
 
         assertEquals(new DataTableRowSort("score", Direction.DESC), sortArgumentCaptor.getValue());
     }
 
     @Test
     void testPerformIgnoresSortDirectionWithoutSortColumn() throws Exception {
+        DataTableRef dataTableRef = stubResolvedDataTable();
+
         ModifiableActionDefinition actionDefinition = DataTableFindRecordsAction.of(
             dataTableService, dataTableRowService);
 
-        perform(actionDefinition, Map.of("table", "conversations", "sortDirection", "DECENDING"));
+        perform(actionDefinition, Map.of("table", BASE_NAME, "sortDirection", "DECENDING"));
 
         verify(dataTableRowService).findRows(
-            eq("conversations"), conditionsArgumentCaptor.capture(), sortArgumentCaptor.capture(), eq(100), eq(0),
-            eq(1L));
+            eq(dataTableRef), conditionsArgumentCaptor.capture(), sortArgumentCaptor.capture(), eq(100), eq(0));
 
         assertNull(sortArgumentCaptor.getValue());
     }
@@ -152,7 +155,7 @@ class DataTableFindRecordsActionTest extends AbstractDataTableActionTest {
             IllegalArgumentException.class,
             () -> perform(
                 actionDefinition,
-                Map.of("table", "conversations", "sortColumn", "score", "sortDirection", "UP")));
+                Map.of("table", BASE_NAME, "sortColumn", "score", "sortDirection", "UP")));
 
         assertEquals(
             "Unknown Sort Direction 'UP'; expected one of ASC, DESC", illegalArgumentException.getMessage());
@@ -163,13 +166,13 @@ class DataTableFindRecordsActionTest extends AbstractDataTableActionTest {
 
         IllegalArgumentException negativeLimitException = assertThrows(
             IllegalArgumentException.class,
-            () -> perform(actionDefinition, Map.of("table", "conversations", "limit", -1)));
+            () -> perform(actionDefinition, Map.of("table", BASE_NAME, "limit", -1)));
 
         assertEquals("Limit and Offset must not be negative", negativeLimitException.getMessage());
 
         IllegalArgumentException negativeOffsetException = assertThrows(
             IllegalArgumentException.class,
-            () -> perform(actionDefinition, Map.of("table", "conversations", "offset", -5)));
+            () -> perform(actionDefinition, Map.of("table", BASE_NAME, "offset", -5)));
 
         assertEquals("Limit and Offset must not be negative", negativeOffsetException.getMessage());
 

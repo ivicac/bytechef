@@ -30,6 +30,7 @@ import com.bytechef.ee.platform.audit.domain.AuditEventFilter;
 import com.bytechef.ee.platform.audit.domain.PersistentAuditEvent;
 import com.bytechef.ee.platform.audit.repository.PersistenceAuditEventRepository;
 import com.bytechef.ee.platform.audit.service.AuditEventService;
+import com.bytechef.exception.ExecutionException;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.audit.DataTableAuditEvents;
 import com.bytechef.platform.data.table.audit.DataTableAuditMapper;
@@ -48,7 +49,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.jdbc.BadSqlGrammarException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -120,14 +120,14 @@ class DataTableServiceAuditIntTest {
         ColumnSpec columnSpec = new ColumnSpec("amount", ColumnType.NUMBER);
 
         assertThatThrownBy(() -> dataTableService.addColumn("missing", columnSpec, ENVIRONMENT_ID))
-            .isInstanceOf(BadSqlGrammarException.class);
+            .isInstanceOf(ExecutionException.class);
 
         PersistentAuditEvent persistentAuditEvent = findSingleEvent(DataTableAuditEvents.DATA_TABLE_COLUMN_ADDED);
 
         assertThat(persistentAuditEvent.getPlatform()).isEqualTo(PlatformType.AUTOMATION);
         assertThat(persistentAuditEvent.getData())
             .containsEntry("result", "ERROR")
-            .containsEntry("errorClass", BadSqlGrammarException.class.getName())
+            .containsEntry("errorClass", ExecutionException.class.getName())
             .containsEntry("baseName", "missing")
             .containsEntry("columnName", "amount")
             .containsEntry("columnType", ColumnType.NUMBER.name())
@@ -207,13 +207,13 @@ class DataTableServiceAuditIntTest {
     @Test
     void testRenameOfAnUnknownTableRecordsAnError() {
         assertThatThrownBy(() -> dataTableService.renameTable("missing", "audited_renamed", ENVIRONMENT_ID))
-            .isInstanceOf(BadSqlGrammarException.class);
+            .isInstanceOf(ExecutionException.class);
 
         PersistentAuditEvent persistentAuditEvent = findSingleEvent(DataTableAuditEvents.DATA_TABLE_RENAMED);
 
         assertThat(persistentAuditEvent.getData())
             .containsEntry("result", "ERROR")
-            .containsEntry("errorClass", BadSqlGrammarException.class.getName())
+            .containsEntry("errorClass", ExecutionException.class.getName())
             .containsEntry("fromBaseName", "missing")
             .containsEntry("toBaseName", "audited_renamed")
             .containsEntry("environmentId", String.valueOf(ENVIRONMENT_ID));

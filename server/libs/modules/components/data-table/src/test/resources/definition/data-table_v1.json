@@ -64,6 +64,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create Record(s)",
     "workflowNodeDescription": null
   }, {
@@ -604,6 +605,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete Record(s)",
     "workflowNodeDescription": null
   }, {
@@ -690,6 +692,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Record",
     "workflowNodeDescription": null
   }, {
@@ -1013,6 +1016,7 @@
       "type": "DYNAMIC_PROPERTIES"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update Records",
     "workflowNodeDescription": null
   }, {
@@ -1084,6 +1088,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Get Record",
     "workflowNodeDescription": null
   }, {
@@ -1485,6 +1490,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Find Records",
     "workflowNodeDescription": null
   }, {
@@ -1619,6 +1625,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Clear Table",
     "workflowNodeDescription": null
   } ],
@@ -1677,6 +1684,7 @@
       "required": true,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Create Record(s)",
     "type": {
       "name": "TOOLS",
@@ -2214,6 +2222,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Delete Record(s)",
     "type": {
       "name": "TOOLS",
@@ -2297,6 +2306,7 @@
       "required": true,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Update Record",
     "type": {
       "name": "TOOLS",
@@ -2617,6 +2627,7 @@
       "required": true,
       "type": "DYNAMIC_PROPERTIES"
     } ],
+    "riskLevel": null,
     "title": "Update Records",
     "type": {
       "name": "TOOLS",
@@ -2685,6 +2696,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Get Record",
     "type": {
       "name": "TOOLS",
@@ -3083,6 +3095,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Find Records",
     "type": {
       "name": "TOOLS",
@@ -3214,6 +3227,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Clear Table",
     "type": {
       "name": "TOOLS",

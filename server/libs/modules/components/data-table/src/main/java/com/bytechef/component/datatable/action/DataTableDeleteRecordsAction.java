@@ -30,6 +30,7 @@ import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 import static com.bytechef.component.definition.ComponentDsl.string;
 
 import com.bytechef.component.datatable.util.DataTableUtils;
+import com.bytechef.component.datatable.util.DataTableUtils.ResolvedDataTable;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.definition.BaseProperty.ResourceType;
@@ -66,7 +67,9 @@ public class DataTableDeleteRecordsAction {
         return new DataTableDeleteRecordsAction(dataTableService, dataTableRowService).build();
     }
 
-    private DataTableDeleteRecordsAction(DataTableService dataTableService, DataTableRowService dataTableRowService) {
+    private DataTableDeleteRecordsAction(
+        DataTableService dataTableService, DataTableRowService dataTableRowService) {
+
         this.dataTableService = dataTableService;
         this.dataTableRowService = dataTableRowService;
     }
@@ -154,7 +157,10 @@ public class DataTableDeleteRecordsAction {
     }
 
     private Map<String, Object> deleteRows(String baseName, DataTableRowConditions conditions, long environmentId) {
-        List<Long> deletedIds = dataTableRowService.deleteRows(baseName, conditions, environmentId)
+        ResolvedDataTable resolvedDataTable = DataTableUtils.resolveDataTable(
+            dataTableService, baseName, environmentId);
+
+        List<Long> deletedIds = dataTableRowService.deleteRows(resolvedDataTable.dataTableRef(), conditions)
             .stream()
             .map(DataTableRow::id)
             .toList();
