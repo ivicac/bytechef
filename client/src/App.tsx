@@ -16,6 +16,7 @@ import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {useQueryClient} from '@tanstack/react-query';
 import {
     ActivityIcon,
+    BoxesIcon,
     CircleIcon,
     FileTextIcon,
     FolderIcon,
@@ -74,6 +75,11 @@ const automationNavigation: NavigationType[] = [
         href: '/automation/mcp-servers',
         icon: ServerIcon,
         name: 'MCP Servers',
+    },
+    {
+        href: '/automation/context-stores',
+        icon: BoxesIcon,
+        name: 'Context Store',
     },
     {
         href: '/automation/executions',
@@ -141,9 +147,10 @@ const platformNavigation = [
 function App() {
     const [searchOpen, setSearchOpen] = useState(false);
 
-    const {ai, edition} = useApplicationInfoStore(
+    const {ai, contextStoreEnabled, edition} = useApplicationInfoStore(
         useShallow((state) => ({
             ai: state.ai,
+            contextStoreEnabled: state.contextStore.enabled,
             edition: state.application?.edition,
         }))
     );
@@ -182,6 +189,7 @@ function App() {
     const ff_2396 = useFeatureFlagsStore()('ff-2396');
     const ff_2894 = useFeatureFlagsStore()('ff-2894');
     const ff_3955 = useFeatureFlagsStore()('ff-3955');
+    const ff_4855 = useFeatureFlagsStore()('ff-4855');
 
     const filteredAutomationNavigation = automationNavigation.filter((navItem) => {
         if (
@@ -206,6 +214,10 @@ function App() {
 
         if (navItem.href === '/automation/knowledge-bases') {
             return ai.knowledgeBase.enabled;
+        }
+
+        if (navItem.href === '/automation/context-stores') {
+            return ff_4855 && edition === EditionType.EE && contextStoreEnabled;
         }
 
         if (navItem.href === '/automation/ai-hub') {
