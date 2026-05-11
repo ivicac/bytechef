@@ -1,4 +1,4 @@
-import DataTableListItemDropdownMenu from '@/pages/automation/datatables/components/DataTableListItemDropdownMenu';
+import DataTableDropdownMenu from '@/pages/automation/datatables/components/DataTableDropdownMenu';
 import DataTableListItemTagList from '@/pages/automation/datatables/components/DataTableListItemTagList';
 import DataTableListItemTooltip from '@/pages/automation/datatables/components/DataTableListItemTooltip';
 import useDataTableListItem from '@/pages/automation/datatables/components/hooks/useDataTableListItem';
@@ -15,7 +15,7 @@ const DataTableListItem = ({remainingTags, table, tags}: DataTableListItemProps)
 
     return (
         <div
-            className="group mb-2 flex w-full cursor-pointer items-center justify-between rounded border border-border/50 px-3 hover:bg-destructive-foreground"
+            className="group mb-2 flex w-full cursor-pointer items-center justify-between rounded border border-border/50 px-3 hover:bg-surface-neutral-primary-hover"
             onClick={handleRowClick}
         >
             <div className="flex flex-1 items-center py-3">
@@ -43,7 +43,7 @@ const DataTableListItem = ({remainingTags, table, tags}: DataTableListItemProps)
                     <DataTableListItemTooltip lastModifiedDate={table.lastModifiedDate} />
 
                     <div onClick={handleDataTableListItemTagListClick}>
-                        <DataTableListItemDropdownMenu baseName={table.baseName} dataTableId={table.id} />
+                        <DataTableDropdownMenu baseName={table.baseName} dataTableId={table.id} />
                     </div>
                 </div>
             </div>
