@@ -13,16 +13,27 @@ import {
 import {Label} from '@/components/ui/label';
 import {Textarea} from '@/components/ui/textarea';
 import useCreateKnowledgeBaseDialog from '@/pages/automation/knowledge-bases/components/hooks/useCreateKnowledgeBaseDialog';
+import {useCommandIntent} from '@/shared/command-bar/useCommandIntent';
 import {cn} from '@/shared/util/cn-utils';
 import {Loader2, X} from 'lucide-react';
 import {ReactNode} from 'react';
 
 interface CreateKnowledgeBaseDialogProps {
+    /**
+     * Opts this instance into claiming the `knowledgeBase.create` command intent on mount. Only the list page the
+     * "Create knowledge base" command navigates to should pass `true` -- every other call site (e.g. a single
+     * knowledge base's own page) must leave this `false`, or it becomes an eligible claimant for a stale intent too.
+     */
+    claimsCreateIntent?: boolean;
     trigger?: ReactNode;
     workspaceId: string;
 }
 
-const CreateKnowledgeBaseDialog = ({trigger, workspaceId}: CreateKnowledgeBaseDialogProps) => {
+const CreateKnowledgeBaseDialog = ({
+    claimsCreateIntent = false,
+    trigger,
+    workspaceId,
+}: CreateKnowledgeBaseDialogProps) => {
     const {
         canSubmit,
         createMutation,
@@ -46,6 +57,8 @@ const CreateKnowledgeBaseDialog = ({trigger, workspaceId}: CreateKnowledgeBaseDi
         setOverlapSize,
         uploading,
     } = useCreateKnowledgeBaseDialog({workspaceId});
+
+    useCommandIntent('knowledgeBase.create', () => setOpen(true), claimsCreateIntent);
 
     return (
         <Dialog onOpenChange={handleOpenChange} open={open}>
@@ -132,14 +145,16 @@ const CreateKnowledgeBaseDialog = ({trigger, workspaceId}: CreateKnowledgeBaseDi
 
                         <div
                             className={cn(
-                                'flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-300 p-6',
-                                uploading ? 'cursor-not-allowed opacity-50' : 'cursor-pointer hover:bg-gray-50'
+                                'flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-stroke-neutral-tertiary p-6',
+                                uploading
+                                    ? 'cursor-not-allowed opacity-50'
+                                    : 'cursor-pointer hover:bg-surface-neutral-primary-hover'
                             )}
                             onClick={() => !uploading && document.getElementById('file-upload')?.click()}
                         >
-                            <p className="text-sm text-gray-600">Drop files here or click to browse</p>
+                            <p className="text-sm text-content-neutral-secondary">Drop files here or click to browse</p>
 
-                            <p className="mt-1 text-xs text-gray-400">
+                            <p className="mt-1 text-xs text-content-neutral-tertiary">
                                 Supported: PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML
                             </p>
 
@@ -162,13 +177,13 @@ const CreateKnowledgeBaseDialog = ({trigger, workspaceId}: CreateKnowledgeBaseDi
                             <div className="max-h-[200px] space-y-2 overflow-y-auto">
                                 {selectedFiles.map((file, idx) => (
                                     <div
-                                        className="flex items-center justify-between rounded-md border border-gray-200 bg-gray-50 p-2 px-3"
+                                        className="flex items-center justify-between rounded-md border border-stroke-neutral-secondary bg-surface-neutral-secondary p-2 px-3"
                                         key={idx}
                                     >
                                         <div className="flex flex-1 items-center space-x-2 overflow-hidden">
                                             <span className="truncate text-sm font-medium">{file.file.name}</span>
 
-                                            <span className="text-xs text-gray-400">
+                                            <span className="text-xs text-content-neutral-tertiary">
                                                 {formatFileSize(file.file.size)}
                                             </span>
                                         </div>
@@ -176,18 +191,18 @@ const CreateKnowledgeBaseDialog = ({trigger, workspaceId}: CreateKnowledgeBaseDi
                                         <div className="ml-2 flex items-center space-x-2">
                                             {(file.status === 'uploading' || file.status === 'processing') && (
                                                 <div className="flex items-center space-x-2">
-                                                    <span className="text-xs text-gray-400">
+                                                    <span className="text-xs text-content-neutral-tertiary">
                                                         {file.status === 'uploading' ? 'Uploading...' : 'Processing...'}
                                                     </span>
 
-                                                    <Loader2 className="h-4 w-4 animate-spin text-gray-400" />
+                                                    <Loader2 className="h-4 w-4 animate-spin text-content-neutral-tertiary" />
                                                 </div>
                                             )}
 
                                             {file.status === 'completed' && (
                                                 <div className="flex h-4 w-4 items-center justify-center rounded-full bg-green-500">
                                                     <svg
-                                                        className="h-3 w-3 text-white"
+                                                        className="h-3 w-3 text-content-onsurface-primary"
                                                         fill="none"
                                                         stroke="currentColor"
                                                         viewBox="0 0 24 24"
@@ -204,7 +219,7 @@ const CreateKnowledgeBaseDialog = ({trigger, workspaceId}: CreateKnowledgeBaseDi
 
                                             {file.status === 'error' && (
                                                 <div className="flex items-center space-x-2">
-                                                    <span className="text-xs text-red-500">
+                                                    <span className="text-xs text-content-destructive">
                                                         {file.statusMessage || 'Error'}
                                                     </span>
                                                 </div>
@@ -212,7 +227,7 @@ const CreateKnowledgeBaseDialog = ({trigger, workspaceId}: CreateKnowledgeBaseDi
 
                                             {!uploading && (
                                                 <button
-                                                    className="rounded-full p-1 hover:bg-gray-200"
+                                                    className="rounded-full p-1 hover:bg-surface-neutral-secondary-hover"
                                                     onClick={() => removeFile(idx)}
                                                 >
                                                     <X className="h-4 w-4 text-content-neutral-secondary" />
