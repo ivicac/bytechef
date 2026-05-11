@@ -1,10 +1,14 @@
-import {render, resetAll, screen, windowResizeObserver} from '@/shared/util/test-utils';
+import {MODE, Source} from '@/shared/components/copilot/stores/useCopilotStore';
+import {render, resetAll, screen, userEvent, windowResizeObserver} from '@/shared/util/test-utils';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import KnowledgeBase from '../KnowledgeBase';
 
 const hoisted = vi.hoisted(() => {
     return {
+        mockRegisterPostTurn: vi.fn(),
+        mockSetContext: vi.fn(),
+        mockSetCopilotPanelOpen: vi.fn(),
         mockUseKnowledgeBase: vi.fn(),
         mockUseKnowledgeBaseEmbeddingActive: vi.fn(),
     };
@@ -16,6 +20,33 @@ vi.mock('../hooks/useKnowledgeBase', () => ({
 
 vi.mock('@/pages/automation/knowledge-bases/components/hooks/useKnowledgeBaseEmbeddingActive', () => ({
     default: hoisted.mockUseKnowledgeBaseEmbeddingActive,
+}));
+
+vi.mock('@/shared/components/copilot/stores/useCopilotStore', async () => {
+    const actual = await vi.importActual<typeof import('@/shared/components/copilot/stores/useCopilotStore')>(
+        '@/shared/components/copilot/stores/useCopilotStore'
+    );
+
+    return {
+        ...actual,
+        useCopilotStore: (selector: (state: {setContext: typeof hoisted.mockSetContext}) => unknown) =>
+            selector({setContext: hoisted.mockSetContext}),
+    };
+});
+
+vi.mock('@/shared/components/copilot/stores/useCopilotPanelStore', () => ({
+    default: (selector: (state: {setCopilotPanelOpen: typeof hoisted.mockSetCopilotPanelOpen}) => unknown) =>
+        selector({setCopilotPanelOpen: hoisted.mockSetCopilotPanelOpen}),
+}));
+
+vi.mock('@/shared/components/copilot/stores/useCopilotPostTurnRegistry', () => ({
+    default: (selector: (state: {register: typeof hoisted.mockRegisterPostTurn}) => unknown) =>
+        selector({register: hoisted.mockRegisterPostTurn}),
+}));
+
+vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
+    useApplicationInfoStore: (selector: (state: {ai: {copilot: {enabled: boolean}}}) => unknown) =>
+        selector({ai: {copilot: {enabled: true}}}),
 }));
 
 vi.mock('@/components/PageLoader', () => ({
@@ -30,14 +61,35 @@ vi.mock('@/components/PageLoader', () => ({
 }));
 
 vi.mock('../components/KnowledgeBaseHeader', () => ({
-    default: ({knowledgeBaseName}: {knowledgeBaseName?: string; onBackClick: () => void}) => (
-        <header data-testid="knowledge-base-header">{knowledgeBaseName || 'Loading...'}</header>
+    default: ({
+        knowledgeBaseName,
+        right,
+    }: {
+        knowledgeBaseName?: string;
+        onBackClick: () => void;
+        right?: React.ReactNode;
+    }) => (
+        <header data-testid="knowledge-base-header">
+            {knowledgeBaseName || 'Loading...'}
+
+            {right}
+        </header>
     ),
 }));
 
 vi.mock('../components/KnowledgeBaseInfoCard', () => ({
-    default: ({knowledgeBase}: {knowledgeBase: {name: string}}) => (
-        <div data-testid="knowledge-base-info-card">{knowledgeBase.name}</div>
+    default: ({knowledgeBase, showDropdownMenu}: {knowledgeBase: {name: string}; showDropdownMenu?: boolean}) => (
+        <div data-testid="knowledge-base-info-card">
+            {knowledgeBase.name}
+
+            <span data-testid="info-card-show-dropdown-menu">{String(showDropdownMenu)}</span>
+        </div>
+    ),
+}));
+
+vi.mock('../components/KnowledgeBaseDropdownMenu', () => ({
+    default: ({knowledgeBase}: {knowledgeBase: {id: string}}) => (
+        <div data-testid={`knowledge-base-dropdown-menu-${knowledgeBase.id}`}>Dropdown</div>
     ),
 }));
 
@@ -190,6 +242,41 @@ describe('KnowledgeBase', () => {
 
         expect(screen.queryByTestId('knowledge-base-info-card')).not.toBeInTheDocument();
         expect(screen.queryByTestId('knowledge-base-tabs')).not.toBeInTheDocument();
+    });
+
+    it('renders the actions menu in the header rather than the info card', () => {
+        render(<KnowledgeBase />);
+
+        expect(screen.getByTestId('knowledge-base-header')).toContainElement(
+            screen.getByTestId('knowledge-base-dropdown-menu-kb-1')
+        );
+        expect(screen.getByTestId('info-card-show-dropdown-menu')).toHaveTextContent('false');
+    });
+
+    it('does not render the actions menu before the knowledge base loads', () => {
+        hoisted.mockUseKnowledgeBase.mockReturnValue({
+            ...defaultMockReturn,
+            knowledgeBase: undefined,
+        });
+
+        render(<KnowledgeBase />);
+
+        expect(screen.queryByTestId('knowledge-base-dropdown-menu-kb-1')).not.toBeInTheDocument();
+    });
+
+    it('opens copilot scoped to the current knowledge base', async () => {
+        render(<KnowledgeBase />);
+
+        await userEvent.click(screen.getByRole('button', {name: /ask copilot/i}));
+
+        expect(hoisted.mockSetContext).toHaveBeenCalledWith(
+            expect.objectContaining({
+                mode: MODE.ASK,
+                parameters: expect.objectContaining({knowledgeBaseId: 'kb-1'}),
+                source: Source.KNOWLEDGE_BASE,
+            })
+        );
+        expect(hoisted.mockSetCopilotPanelOpen).toHaveBeenCalledWith(true);
     });
 });
 
