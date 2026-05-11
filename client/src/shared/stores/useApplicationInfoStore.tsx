@@ -37,6 +37,9 @@ export interface ApplicationInfoI {
         customerPortalUrl: string | undefined;
         enabled: boolean;
     };
+    contextStore: {
+        enabled: boolean;
+    };
     featureFlags: Record<string, boolean>;
     helpHub: {
         commandBar: {
@@ -100,6 +103,9 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                     customerPortalUrl: undefined,
                     enabled: false,
                 },
+                contextStore: {
+                    enabled: false,
+                },
                 featureFlags: {},
 
                 getApplicationInfo: async () => {
@@ -155,6 +161,9 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                             billing: {
                                 customerPortalUrl: json.billing?.customerPortalUrl || undefined,
                                 enabled: json.billing?.enabled === 'true',
+                            },
+                            contextStore: {
+                                enabled: json.contextStore?.enabled === 'true',
                             },
                             featureFlags: json.featureFlags,
                             helpHub: {
