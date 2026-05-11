@@ -13,10 +13,12 @@ import {KnowledgeBase} from '@/shared/middleware/graphql';
 import {EditIcon, EllipsisVerticalIcon, Trash2Icon} from 'lucide-react';
 
 interface KnowledgeBaseDropdownMenuProps {
+    /** Extra classes for the trigger. The sidebar passes the hover-reveal the list rows do not want. */
+    className?: string;
     knowledgeBase: KnowledgeBase;
 }
 
-const KnowledgeBaseDropdownMenu = ({knowledgeBase}: KnowledgeBaseDropdownMenuProps) => {
+const KnowledgeBaseDropdownMenu = ({className, knowledgeBase}: KnowledgeBaseDropdownMenuProps) => {
     const {
         handleCloseDeleteDialog,
         handleCloseEditDialog,
@@ -32,6 +34,7 @@ const KnowledgeBaseDropdownMenu = ({knowledgeBase}: KnowledgeBaseDropdownMenuPro
                 <DropdownMenuTrigger asChild>
                     <Button
                         aria-label="More Knowledge Base Actions"
+                        className={className}
                         icon={<EllipsisVerticalIcon />}
                         size="icon"
                         variant="ghost"
