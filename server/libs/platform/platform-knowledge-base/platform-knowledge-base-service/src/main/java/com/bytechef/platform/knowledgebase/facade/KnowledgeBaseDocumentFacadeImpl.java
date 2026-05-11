@@ -41,6 +41,7 @@ import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -153,6 +154,65 @@ class KnowledgeBaseDocumentFacadeImpl implements KnowledgeBaseDocumentFacade {
         knowledgeBaseFileStorage.deleteDocument(knowledgeBaseDocument.getDocument());
 
         knowledgeBaseDocumentService.delete(id);
+    }
+
+    @Override
+    @PreAuthorize("isAuthenticated()")
+    @Transactional(readOnly = true)
+    public KnowledgeBaseDocument getKnowledgeBaseDocument(long id) {
+        return knowledgeBaseDocumentService.getKnowledgeBaseDocument(id);
+    }
+
+    @Override
+    public int sweepTombstonedDocumentChunks(long sourceId) {
+        List<KnowledgeBaseDocument> tombstonedDocuments = knowledgeBaseDocumentService.getTombstonedDocuments(sourceId);
+
+        if (tombstonedDocuments.isEmpty()) {
+            return 0;
+        }
+
+        List<Long> documentIds = tombstonedDocuments.stream()
+            .map(KnowledgeBaseDocument::getId)
+            .toList();
+
+        List<KnowledgeBaseDocumentChunk> knowledgeBaseDocumentChunks =
+            knowledgeBaseDocumentChunkService.getKnowledgeBaseDocumentChunksByDocumentIds(documentIds);
+
+        if (knowledgeBaseDocumentChunks.isEmpty()) {
+            return 0;
+        }
+
+        List<String> vectorStoreIds = knowledgeBaseDocumentChunks.stream()
+            .map(KnowledgeBaseDocumentChunk::getVectorStoreId)
+            .filter(vectorStoreId -> vectorStoreId != null)
+            .toList();
+
+        if (!vectorStoreIds.isEmpty()) {
+            KnowledgeBaseDocument firstDocument = tombstonedDocuments.get(0);
+
+            KnowledgeBase knowledgeBase = knowledgeBaseService.getKnowledgeBase(firstDocument.getKnowledgeBaseId());
+            Environment environment = knowledgeBase.getEnvironment();
+
+            EnvironmentContext.set(environment);
+
+            try {
+                vectorStore.delete(vectorStoreIds);
+            } finally {
+                EnvironmentContext.clear();
+            }
+        }
+
+        for (KnowledgeBaseDocumentChunk chunk : knowledgeBaseDocumentChunks) {
+            FileEntry contentFileEntry = chunk.getContent();
+
+            if (contentFileEntry != null) {
+                knowledgeBaseFileStorage.deleteChunkContent(contentFileEntry);
+            }
+        }
+
+        knowledgeBaseDocumentChunkService.deleteKnowledgeBaseDocumentChunks(knowledgeBaseDocumentChunks);
+
+        return knowledgeBaseDocumentChunks.size();
     }
 
     @Override

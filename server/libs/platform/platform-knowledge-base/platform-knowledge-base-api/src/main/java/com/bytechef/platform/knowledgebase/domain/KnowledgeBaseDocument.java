@@ -23,12 +23,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.annotation.LastModifiedBy;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.annotation.Version;
+import org.springframework.data.jdbc.core.mapping.AggregateReference;
+import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.MappedCollection;
 import org.springframework.data.relational.core.mapping.Table;
 
@@ -49,7 +52,23 @@ public class KnowledgeBaseDocument {
 
     private int status;
 
+    @Column("document_size")
     private Long documentSize;
+
+    @Column("source_id")
+    private AggregateReference<KnowledgeBaseSource, Long> sourceId;
+
+    @Column("source_record_id")
+    private String sourceRecordId;
+
+    @Column("synced_payload_hash")
+    private String syncedPayloadHash;
+
+    @Column("last_seen_at")
+    private Instant lastSeenAt;
+
+    @Column("deleted_at")
+    private Instant deletedAt;
 
     @MappedCollection(idColumn = "knowledge_base_document_id")
     private Set<KnowledgeBaseDocumentTag> knowledgeBaseDocumentTags = new HashSet<>();
@@ -123,6 +142,46 @@ public class KnowledgeBaseDocument {
 
     public void setDocumentSize(Long documentSize) {
         this.documentSize = documentSize;
+    }
+
+    public Long getSourceId() {
+        return sourceId == null ? null : sourceId.getId();
+    }
+
+    public void setSourceId(@Nullable Long sourceId) {
+        this.sourceId = sourceId == null ? null : AggregateReference.to(sourceId);
+    }
+
+    public String getSourceRecordId() {
+        return sourceRecordId;
+    }
+
+    public void setSourceRecordId(@Nullable String sourceRecordId) {
+        this.sourceRecordId = sourceRecordId;
+    }
+
+    public String getSyncedPayloadHash() {
+        return syncedPayloadHash;
+    }
+
+    public void setSyncedPayloadHash(@Nullable String syncedPayloadHash) {
+        this.syncedPayloadHash = syncedPayloadHash;
+    }
+
+    public Instant getLastSeenAt() {
+        return lastSeenAt;
+    }
+
+    public void setLastSeenAt(@Nullable Instant lastSeenAt) {
+        this.lastSeenAt = lastSeenAt;
+    }
+
+    public Instant getDeletedAt() {
+        return deletedAt;
+    }
+
+    public void setDeletedAt(@Nullable Instant deletedAt) {
+        this.deletedAt = deletedAt;
     }
 
     public Instant getCreatedDate() {
@@ -209,6 +268,11 @@ public class KnowledgeBaseDocument {
             ", document=" + document +
             ", status=" + status +
             ", documentSize=" + documentSize +
+            ", sourceId=" + sourceId +
+            ", sourceRecordId='" + sourceRecordId + '\'' +
+            ", syncedPayloadHash='" + syncedPayloadHash + '\'' +
+            ", lastSeenAt=" + lastSeenAt +
+            ", deletedAt=" + deletedAt +
             ", knowledgeBaseDocumentTags=" + knowledgeBaseDocumentTags +
             ", createdDate=" + createdDate +
             ", createdBy='" + createdBy + '\'' +

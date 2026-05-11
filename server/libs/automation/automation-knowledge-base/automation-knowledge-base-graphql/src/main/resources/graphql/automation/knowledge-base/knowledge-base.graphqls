@@ -3,7 +3,7 @@ extend type Query {
     knowledgeBase(id: ID!): KnowledgeBase
     knowledgeBaseEmbeddingActive(environment: Int!): Boolean!
     knowledgeBaseStorageUsage: KnowledgeBaseStorageUsage!
-    knowledgeBaseTags: [Tag!]
+    knowledgeBaseTags(workspaceId: ID!): [Tag!]
     knowledgeBaseTagsByKnowledgeBase: [KnowledgeBaseTagsEntry!]
     searchKnowledgeBase(id: ID!, query: String!, metadataFilters: String): [KnowledgeBaseDocumentChunk]
 }

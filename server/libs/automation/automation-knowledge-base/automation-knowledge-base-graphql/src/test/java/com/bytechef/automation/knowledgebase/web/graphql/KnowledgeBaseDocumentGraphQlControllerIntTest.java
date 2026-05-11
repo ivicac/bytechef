@@ -19,15 +19,13 @@ package com.bytechef.automation.knowledgebase.web.graphql;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.automation.knowledgebase.facade.KnowledgeBaseDocumentApiFacade;
 import com.bytechef.automation.knowledgebase.web.graphql.config.AutomationKnowledgeBaseGraphQlConfigurationSharedMocks;
 import com.bytechef.automation.knowledgebase.web.graphql.config.AutomationKnowledgeBaseGraphQlTestConfiguration;
 import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocument;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocumentChunk;
 import com.bytechef.platform.knowledgebase.dto.DocumentStatusUpdate;
-import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentChunkFacade;
-import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
-import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,20 +56,14 @@ class KnowledgeBaseDocumentGraphQlControllerIntTest {
     private GraphQlTester graphQlTester;
 
     @Autowired
-    private KnowledgeBaseDocumentChunkFacade knowledgeBaseDocumentChunkFacade;
-
-    @Autowired
-    private KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade;
-
-    @Autowired
-    private KnowledgeBaseDocumentService knowledgeBaseDocumentService;
+    private KnowledgeBaseDocumentApiFacade knowledgeBaseDocumentApiFacade;
 
     @Test
     void testGetKnowledgeBaseDocument() {
         Long documentId = 1L;
         KnowledgeBaseDocument mockDocument = createMockDocument(documentId, "Test Document");
 
-        when(knowledgeBaseDocumentService.getKnowledgeBaseDocument(documentId)).thenReturn(mockDocument);
+        when(knowledgeBaseDocumentApiFacade.getKnowledgeBaseDocument(documentId)).thenReturn(mockDocument);
 
         this.graphQlTester
             .document("""
@@ -98,8 +90,8 @@ class KnowledgeBaseDocumentGraphQlControllerIntTest {
             createMockChunk(1L),
             createMockChunk(2L));
 
-        when(knowledgeBaseDocumentService.getKnowledgeBaseDocument(documentId)).thenReturn(mockDocument);
-        when(knowledgeBaseDocumentChunkFacade.getKnowledgeBaseDocumentChunksByDocumentIdWithoutContent(documentId))
+        when(knowledgeBaseDocumentApiFacade.getKnowledgeBaseDocument(documentId)).thenReturn(mockDocument);
+        when(knowledgeBaseDocumentApiFacade.getKnowledgeBaseDocumentChunksByDocumentIdWithoutContent(documentId))
             .thenReturn(mockChunks);
 
         this.graphQlTester
@@ -118,7 +110,7 @@ class KnowledgeBaseDocumentGraphQlControllerIntTest {
             .entityList(Object.class)
             .hasSize(2);
 
-        verify(knowledgeBaseDocumentChunkFacade).getKnowledgeBaseDocumentChunksByDocumentIdWithoutContent(documentId);
+        verify(knowledgeBaseDocumentApiFacade).getKnowledgeBaseDocumentChunksByDocumentIdWithoutContent(documentId);
     }
 
     @Test
@@ -129,7 +121,7 @@ class KnowledgeBaseDocumentGraphQlControllerIntTest {
             createMockChunk(1L),
             createMockChunk(2L));
 
-        when(knowledgeBaseDocumentChunkFacade.getKnowledgeBaseDocumentChunksByDocumentId(documentId))
+        when(knowledgeBaseDocumentApiFacade.getKnowledgeBaseDocumentChunksByDocumentId(documentId))
             .thenReturn(mockChunks);
 
         this.graphQlTester
@@ -146,7 +138,7 @@ class KnowledgeBaseDocumentGraphQlControllerIntTest {
             .entityList(Object.class)
             .hasSize(2);
 
-        verify(knowledgeBaseDocumentChunkFacade).getKnowledgeBaseDocumentChunksByDocumentId(documentId);
+        verify(knowledgeBaseDocumentApiFacade).getKnowledgeBaseDocumentChunksByDocumentId(documentId);
     }
 
     @Test
@@ -156,7 +148,7 @@ class KnowledgeBaseDocumentGraphQlControllerIntTest {
 
         mockDocument.setTagNames(List.of("Tag 1", "Tag 2"));
 
-        when(knowledgeBaseDocumentService.getKnowledgeBaseDocument(documentId)).thenReturn(mockDocument);
+        when(knowledgeBaseDocumentApiFacade.getKnowledgeBaseDocument(documentId)).thenReturn(mockDocument);
 
         this.graphQlTester
             .document("""
@@ -180,7 +172,7 @@ class KnowledgeBaseDocumentGraphQlControllerIntTest {
 
         mockDocument.setTagNames(List.of());
 
-        when(knowledgeBaseDocumentService.getKnowledgeBaseDocument(documentId)).thenReturn(mockDocument);
+        when(knowledgeBaseDocumentApiFacade.getKnowledgeBaseDocument(documentId)).thenReturn(mockDocument);
 
         this.graphQlTester
             .document("""
@@ -212,7 +204,7 @@ class KnowledgeBaseDocumentGraphQlControllerIntTest {
             .entity(Boolean.class)
             .isEqualTo(true);
 
-        verify(knowledgeBaseDocumentFacade).deleteKnowledgeBaseDocument(documentId);
+        verify(knowledgeBaseDocumentApiFacade).deleteKnowledgeBaseDocument(documentId);
     }
 
     @Test
@@ -220,7 +212,7 @@ class KnowledgeBaseDocumentGraphQlControllerIntTest {
         Long documentId = 1L;
         DocumentStatusUpdate statusUpdate = new DocumentStatusUpdate(documentId, 2, System.currentTimeMillis(), null);
 
-        when(knowledgeBaseDocumentService.getKnowledgeBaseDocumentStatus(documentId)).thenReturn(statusUpdate);
+        when(knowledgeBaseDocumentApiFacade.getKnowledgeBaseDocumentStatus(documentId)).thenReturn(statusUpdate);
 
         this.graphQlTester
             .document("""
