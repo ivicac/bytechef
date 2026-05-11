@@ -11,11 +11,16 @@ import useKnowledgeBases from '@/pages/automation/knowledge-bases/components/hoo
 import KnowledgeBaseList from '@/pages/automation/knowledge-bases/components/knowledge-base-list/KnowledgeBaseList';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import StorageUsageBanner from '@/shared/components/StorageUsageBanner';
+import CopilotButton from '@/shared/components/copilot/CopilotButton';
+import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
+import {Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import {useInitialLoadComplete} from '@/shared/hooks/useInitialLoadComplete';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {useKnowledgeBaseStorageUsageQuery} from '@/shared/middleware/graphql';
+import {useQueryClient} from '@tanstack/react-query';
 import {DatabaseIcon} from 'lucide-react';
+import {useEffect} from 'react';
 
 const KnowledgeBases = () => {
     const currentWorkspaceId = String(useWorkspaceStore((state) => state.currentWorkspaceId));
@@ -23,11 +28,17 @@ const KnowledgeBases = () => {
     const {allTags, error, filteredKnowledgeBases, isLoading, knowledgeBases, tagId, tagsByKnowledgeBaseData} =
         useKnowledgeBases();
 
+    const registerPostTurn = useCopilotPostTurnRegistry((state) => state.register);
+
     const {embeddingActive, isLoading: embeddingActiveLoading} = useKnowledgeBaseEmbeddingActive();
 
     const {data: storageUsageData} = useKnowledgeBaseStorageUsageQuery();
 
+    const queryClient = useQueryClient();
+
     const initialLoadComplete = useInitialLoadComplete(isLoading || embeddingActiveLoading);
+
+    const storageUsage = storageUsageData?.knowledgeBaseStorageUsage;
 
     const showKnowledgeBases = embeddingActive && knowledgeBases.length > 0;
 
@@ -37,7 +48,15 @@ const KnowledgeBases = () => {
 
     const leftSidebarHidden = isFirstRun || (isLoaded && !embeddingActive);
 
-    const storageUsage = storageUsageData?.knowledgeBaseStorageUsage;
+    // Refresh the list and the tag sidebar after a BUILD-mode copilot turn creates or retags a knowledge base.
+    useEffect(() => {
+        return registerPostTurn(Source.KNOWLEDGE_BASE, () => {
+            queryClient.invalidateQueries({queryKey: ['knowledgeBases']});
+            queryClient.invalidateQueries({queryKey: ['knowledgeBaseTags']});
+            queryClient.invalidateQueries({queryKey: ['knowledgeBaseTagsByKnowledgeBase']});
+            queryClient.invalidateQueries({queryKey: ['KnowledgeBaseStorageUsage']});
+        });
+    }, [queryClient, registerPostTurn]);
 
     return (
         <LayoutContainer
@@ -46,11 +65,19 @@ const KnowledgeBases = () => {
                     centerTitle={true}
                     position="main"
                     right={
-                        showKnowledgeBases && (
-                            <CreateKnowledgeBaseDialog
-                                trigger={<Button>New Knowledge Base</Button>}
-                                workspaceId={currentWorkspaceId}
-                            />
+                        embeddingActive &&
+                        (knowledgeBases.length > 0 || !isLoading) && (
+                            <div className="flex items-center gap-1">
+                                <CopilotButton source={Source.KNOWLEDGE_BASE} />
+
+                                {showKnowledgeBases && (
+                                    <CreateKnowledgeBaseDialog
+                                        claimsCreateIntent={true}
+                                        trigger={<Button>New Knowledge Base</Button>}
+                                        workspaceId={currentWorkspaceId}
+                                    />
+                                )}
+                            </div>
                         )
                     }
                     title={

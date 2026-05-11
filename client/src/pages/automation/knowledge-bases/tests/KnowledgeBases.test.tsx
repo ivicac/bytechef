@@ -1,4 +1,6 @@
-import {render, resetAll, screen, userEvent, windowResizeObserver} from '@/shared/util/test-utils';
+import {TooltipProvider} from '@/components/ui/tooltip';
+import {applicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
+import {render, resetAll, screen, userEvent, windowResizeObserver, within} from '@/shared/util/test-utils';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import KnowledgeBases from '../KnowledgeBases';
@@ -81,8 +83,18 @@ vi.mock('@/components/EmptyList', () => ({
 }));
 
 vi.mock('@/components/Button/Button', () => ({
-    default: ({children, label, onClick}: {children?: React.ReactNode; label?: string; onClick?: () => void}) => (
-        <button data-testid="button" onClick={onClick}>
+    default: ({
+        'aria-label': ariaLabel,
+        children,
+        label,
+        onClick,
+    }: {
+        'aria-label'?: string;
+        children?: React.ReactNode;
+        label?: string;
+        onClick?: () => void;
+    }) => (
+        <button aria-label={ariaLabel} data-testid="button" onClick={onClick}>
             {children || label}
         </button>
     ),
@@ -389,6 +401,69 @@ describe('KnowledgeBases embedding gate', () => {
         expect(screen.getByText('Turn on an embedding model').closest('li')).toHaveAttribute('aria-current', 'step');
         expect(screen.getByText('Go to AI Providers')).toBeInTheDocument();
         expect(screen.queryByText('Create Knowledge Base')).not.toBeInTheDocument();
+    });
+});
+
+describe('KnowledgeBases Ask Copilot button', () => {
+    // The Header mock (see above) stamps a `header-right` testid on every Header instance, and this
+    // page renders two (main + sidebar), so `header-right` alone is ambiguous. Scope through the
+    // `layout-header` wrapper, which only ever wraps the main header, to reach the right one.
+    const getMainHeaderRight = () => within(screen.getByTestId('layout-header')).getByTestId('header-right');
+
+    beforeEach(() => {
+        windowResizeObserver();
+        hoisted.mockUseKnowledgeBases.mockReturnValue({...defaultMockReturn});
+        hoisted.mockUseKnowledgeBaseEmbeddingActiveQuery.mockReturnValue({
+            data: {knowledgeBaseEmbeddingActive: true},
+        });
+    });
+
+    afterEach(() => {
+        applicationInfoStore.setState((state) => ({...state, ai: {...state.ai, copilot: {enabled: false}}}));
+        resetAll();
+        vi.clearAllMocks();
+    });
+
+    it('shows the Ask Copilot button in the header when knowledge bases exist', () => {
+        applicationInfoStore.setState((state) => ({...state, ai: {...state.ai, copilot: {enabled: true}}}));
+
+        render(
+            <TooltipProvider>
+                <KnowledgeBases />
+            </TooltipProvider>
+        );
+
+        expect(within(getMainHeaderRight()).getByLabelText('Ask Copilot')).toBeInTheDocument();
+    });
+
+    it('still shows the Ask Copilot button when there are no knowledge bases', () => {
+        applicationInfoStore.setState((state) => ({...state, ai: {...state.ai, copilot: {enabled: true}}}));
+
+        hoisted.mockUseKnowledgeBases.mockReturnValue({
+            ...defaultMockReturn,
+            filteredKnowledgeBases: [],
+            knowledgeBases: [],
+        });
+
+        render(
+            <TooltipProvider>
+                <KnowledgeBases />
+            </TooltipProvider>
+        );
+
+        expect(within(getMainHeaderRight()).getByLabelText('Ask Copilot')).toBeInTheDocument();
+    });
+
+    it('hides the Ask Copilot button when copilot is disabled', () => {
+        applicationInfoStore.setState((state) => ({...state, ai: {...state.ai, copilot: {enabled: false}}}));
+
+        render(
+            <TooltipProvider>
+                <KnowledgeBases />
+            </TooltipProvider>
+        );
+
+        expect(within(getMainHeaderRight()).queryByLabelText('Ask Copilot')).not.toBeInTheDocument();
     });
 });
 

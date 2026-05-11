@@ -38,6 +38,7 @@ const KnowledgeBasesEmptyState = ({embeddingActive, workspaceId}: KnowledgeBases
                 ...(embeddingActive && {
                     action: (
                         <CreateKnowledgeBaseDialog
+                            claimsCreateIntent={true}
                             trigger={<Button label="Create Knowledge Base" size="sm" />}
                             workspaceId={workspaceId}
                         />
