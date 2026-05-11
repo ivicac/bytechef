@@ -1,7 +1,16 @@
+import {TooltipProvider} from '@/components/ui/tooltip';
 import {render, resetAll, screen, windowResizeObserver} from '@/shared/util/test-utils';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import DataTables from '../DataTables';
+
+// The shared header renders a sidebar toggle whose tooltip needs a provider.
+const renderDataTables = () =>
+    render(
+        <TooltipProvider>
+            <DataTables />
+        </TooltipProvider>
+    );
 
 const hoisted = vi.hoisted(() => {
     return {
@@ -14,7 +23,13 @@ vi.mock('@/pages/automation/datatables/components/hooks/useDataTables', () => ({
 }));
 
 vi.mock('@/pages/automation/datatables/components/CreateDataTableDialog', () => ({
-    default: () => <button data-testid="create-dialog-trigger">New Table</button>,
+    // Exposes claimsCreateIntent on the rendered node so a test can prove the list page actually opts this
+    // instance into claiming the dataTable.create command intent, rather than merely asserting it renders.
+    default: ({claimsCreateIntent}: {claimsCreateIntent?: boolean}) => (
+        <button data-claims-create-intent={String(claimsCreateIntent)} data-testid="create-dialog-trigger">
+            New Table
+        </button>
+    ),
 }));
 
 vi.mock('@/pages/automation/datatables/components/DataTableList', () => ({
@@ -71,7 +86,7 @@ describe('DataTables', () => {
                 tables: [],
             });
 
-            render(<DataTables />);
+            renderDataTables();
 
             expect(screen.queryByTestId('data-table-list')).not.toBeInTheDocument();
         });
@@ -84,7 +99,7 @@ describe('DataTables', () => {
                 error: new Error('Failed to fetch tables'),
             });
 
-            render(<DataTables />);
+            renderDataTables();
 
             expect(screen.getByText('Some error occurred.')).toBeInTheDocument();
         });
@@ -92,32 +107,38 @@ describe('DataTables', () => {
 
     describe('data table list', () => {
         it('should render page title', () => {
-            render(<DataTables />);
+            renderDataTables();
 
             expect(screen.getByText('Data Tables')).toBeInTheDocument();
         });
 
         it('should render DataTableList component', () => {
-            render(<DataTables />);
+            renderDataTables();
 
             expect(screen.getByTestId('data-table-list')).toBeInTheDocument();
         });
 
         it('should render tables', () => {
-            render(<DataTables />);
+            renderDataTables();
 
             expect(screen.getByText('Table1')).toBeInTheDocument();
             expect(screen.getByText('Table2')).toBeInTheDocument();
         });
 
         it('should render CreateDataTableDialog trigger', () => {
-            render(<DataTables />);
+            renderDataTables();
 
             expect(screen.getByTestId('create-dialog-trigger')).toBeInTheDocument();
         });
 
+        it('should opt the header CreateDataTableDialog instance into claiming dataTable.create', () => {
+            renderDataTables();
+
+            expect(screen.getByTestId('create-dialog-trigger')).toHaveAttribute('data-claims-create-intent', 'true');
+        });
+
         it('should render left sidebar nav', () => {
-            render(<DataTables />);
+            renderDataTables();
 
             expect(screen.getByTestId('left-sidebar-nav')).toBeInTheDocument();
         });
@@ -127,16 +148,24 @@ describe('DataTables', () => {
         it('should render empty state when no tables', () => {
             hoisted.mockUseDataTables.mockReturnValue({...defaultMockReturn, filteredTables: [], tables: []});
 
-            render(<DataTables />);
+            renderDataTables();
 
             expect(screen.getByText('No Data Tables')).toBeInTheDocument();
             expect(screen.getByText('Get started by creating a new data table.')).toBeInTheDocument();
         });
 
+        it('should opt the empty-state CreateDataTableDialog instance into claiming dataTable.create', () => {
+            hoisted.mockUseDataTables.mockReturnValue({...defaultMockReturn, filteredTables: [], tables: []});
+
+            renderDataTables();
+
+            expect(screen.getByTestId('create-dialog-trigger')).toHaveAttribute('data-claims-create-intent', 'true');
+        });
+
         it('should render empty state with tag filter message', () => {
             hoisted.mockUseDataTables.mockReturnValue({...defaultMockReturn, filteredTables: [], tagId: 1});
 
-            render(<DataTables />);
+            renderDataTables();
 
             expect(screen.getByText('No Matching Tables')).toBeInTheDocument();
             expect(screen.getByText('No data tables match the selected tag.')).toBeInTheDocument();

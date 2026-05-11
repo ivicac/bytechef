@@ -1,30 +1,30 @@
 import useDeleteDataTableAlertDialog from '@/pages/automation/datatable/hooks/useDeleteDataTableAlertDialog';
+import useRenameDataTableDialog from '@/pages/automation/datatable/hooks/useRenameDataTableDialog';
 import useDuplicateDataTableDialog from '@/pages/automation/datatables/components/hooks/useDuplicateDataTableDialog';
-import useRenameDataTableDialog from '@/pages/automation/datatables/components/hooks/useRenameDataTableDialog';
 import {useExportDataTableCsvQuery} from '@/shared/middleware/graphql';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {MouseEvent, useCallback} from 'react';
 import {toast} from 'sonner';
 
-interface UseDataTableListItemDropdownMenuProps {
-    dataTableId: string;
+interface UseDataTableDropdownMenuProps {
     baseName: string;
+    dataTableId: string;
 }
 
-interface UseDataTableListItemDropdownMenuI {
+interface UseDataTableDropdownMenuI {
     handleDeleteClick: (event: MouseEvent) => void;
     handleDuplicateClick: (event: MouseEvent) => void;
     handleExportCsvClick: (event: MouseEvent) => void;
     handleRenameClick: (event: MouseEvent) => void;
 }
 
-export default function useDataTableListItemDropdownMenu({
+export default function useDataTableDropdownMenu({
     baseName,
     dataTableId,
-}: UseDataTableListItemDropdownMenuProps): UseDataTableListItemDropdownMenuI {
+}: UseDataTableDropdownMenuProps): UseDataTableDropdownMenuI {
     const environmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
 
-    const {handleOpen: handleOpenDeleteDataTableAlertDialog} = useDeleteDataTableAlertDialog();
+    const {handleOpen: handleDeleteDialogOpen} = useDeleteDataTableAlertDialog();
     const {handleOpen: handleDuplicateDialogOpen} = useDuplicateDataTableDialog();
     const {handleOpen: handleRenameDialogOpen} = useRenameDataTableDialog();
 
@@ -61,15 +61,25 @@ export default function useDataTableListItemDropdownMenu({
             try {
                 const {data} = await refetchExportCsv();
 
-                if (!data?.exportDataTableCsv) return;
+                if (!data?.exportDataTableCsv) {
+                    return;
+                }
 
                 const blob = new Blob([data.exportDataTableCsv], {type: 'text/csv;charset=utf-8;'});
-                const url = window.URL.createObjectURL(blob);
+
+                const url = URL.createObjectURL(blob);
+
                 const anchor = document.createElement('a');
+
                 anchor.href = url;
                 anchor.download = `${baseName}.csv`;
+
+                document.body.appendChild(anchor);
+
                 anchor.click();
-                window.URL.revokeObjectURL(url);
+                anchor.remove();
+
+                URL.revokeObjectURL(url);
             } catch (error) {
                 console.error('Failed to export CSV:', error);
 
@@ -84,9 +94,9 @@ export default function useDataTableListItemDropdownMenu({
             event.preventDefault();
             event.stopPropagation();
 
-            handleOpenDeleteDataTableAlertDialog(dataTableId, baseName);
+            handleDeleteDialogOpen(dataTableId, baseName);
         },
-        [baseName, dataTableId, handleOpenDeleteDataTableAlertDialog]
+        [baseName, dataTableId, handleDeleteDialogOpen]
     );
 
     return {
