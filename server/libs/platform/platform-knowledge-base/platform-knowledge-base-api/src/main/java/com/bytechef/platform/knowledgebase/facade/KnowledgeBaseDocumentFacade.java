@@ -33,11 +33,12 @@ public interface KnowledgeBaseDocumentFacade {
      * @param knowledgeBaseId the ID of the knowledge base to add the document to
      * @param filename        the name of the file
      * @param contentType     the content type of the file
+     * @param size            the size of the file content, in bytes
      * @param inputStream     the input stream of the file content
      * @return the created knowledge base document
      */
     KnowledgeBaseDocument createKnowledgeBaseDocument(
-        Long knowledgeBaseId, String filename, String contentType, InputStream inputStream);
+        Long knowledgeBaseId, String filename, String contentType, long size, InputStream inputStream);
 
     /**
      * Deletes a knowledge base document including its stored file.
@@ -47,10 +48,31 @@ public interface KnowledgeBaseDocumentFacade {
     void deleteKnowledgeBaseDocument(Long id);
 
     /**
+     * Returns a knowledge base document.
+     *
+     * @param id the ID of the document
+     * @return the knowledge base document
+     */
+    KnowledgeBaseDocument getKnowledgeBaseDocument(long id);
+
+    /**
      * Updates the tag names for a knowledge base document in both the relational database and the vector store.
      *
      * @param knowledgeBaseDocumentId the ID of the document whose tags are to be updated
      * @param tagNames                the new list of tag name strings
      */
     void updateKnowledgeBaseDocumentTags(long knowledgeBaseDocumentId, List<String> tagNames);
+
+    /**
+     * Evicts the derived resources of every tombstoned document tied to the given source: vector-store rows, chunk
+     * content files, and chunk rows. The document rows themselves stay tombstoned — they are the resurrect anchor for
+     * records that reappear upstream ({@code replaceSyncedDocument} clears {@code deleted_at} and re-runs the chunker).
+     * Without this sweep, semantic search keeps serving chunks of documents that no longer exist upstream. Idempotent:
+     * documents whose chunks were already evicted contribute nothing, so sweeping all tombstoned documents of a source
+     * on every FULL_REPLACE run also self-heals rows tombstoned before a previously failed sweep.
+     *
+     * @param sourceId the knowledge base source whose tombstoned documents should be swept
+     * @return the number of chunks removed
+     */
+    int sweepTombstonedDocumentChunks(long sourceId);
 }
