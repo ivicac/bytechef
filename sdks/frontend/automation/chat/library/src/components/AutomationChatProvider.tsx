@@ -19,8 +19,51 @@ import {useAutomationChatVoiceSession} from '@/hooks/useAutomationChatVoiceSessi
 import {checkVoiceSupport} from '@/lib/BrowserVoiceSession';
 import {createWebhookVoiceAdapter} from '@/lib/ByteChefRealtimeVoiceAdapter';
 import {extractStreamChunk} from '@/utils/stream-utils';
+import {drainSseResponse} from '@/utils/sse-parser';
 import {AutomationChatContext} from '@/hooks/useAutomationChatConfig';
 import type {AutomationChatConfig} from '@/types';
+
+// Mirrors `AskUserQuestionEventI` in client/src/shared/util/assistant-message-utils.ts. The widget
+// cannot import from @/shared (it ships as an external npm package consumed by customer sites), so the
+// shape is duplicated here; the formatter below matches `formatAskUserQuestionMessage` in that file
+// byte-for-byte so questions render identically across the editor panel, AI Hub, and this widget.
+interface AskUserQuestionOptionI {
+    description: string;
+    label: string;
+}
+
+interface AskUserQuestionI {
+    header: string;
+    multiSelect: boolean;
+    options: AskUserQuestionOptionI[];
+    question: string;
+}
+
+interface AskUserQuestionEventI {
+    questions: AskUserQuestionI[];
+    resumeUrl?: string;
+}
+
+function formatAskUserQuestion(event: AskUserQuestionEventI): string {
+    if (!Array.isArray(event.questions) || event.questions.length === 0) {
+        return '';
+    }
+
+    return event.questions
+        .map((question) => {
+            const options = Array.isArray(question.options) ? question.options : [];
+            const optionLines = options
+                .map((option, index) => `  ${index + 1}. **${option.label}** — ${option.description}`)
+                .join('\n');
+
+            const header = question.header ?? '';
+            const text = question.question ?? '';
+            const headerSegment = header ? `**${header}**: ` : '';
+
+            return optionLines ? `${headerSegment}${text}\n${optionLines}` : `${headerSegment}${text}`;
+        })
+        .join('\n\n');
+}
 
 const convertMessage = (message: ThreadMessageLike): ThreadMessageLike => {
     return message;
@@ -85,14 +128,16 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
         init?: RequestInit;
     } | null>(null);
 
-    const {appendToLastAssistantMessage, messages, setLastAssistantMessageContent, setMessage} = useChatStore(
-        useShallow((state) => ({
-            appendToLastAssistantMessage: state.appendToLastAssistantMessage,
-            messages: state.messages,
-            setLastAssistantMessageContent: state.setLastAssistantMessageContent,
-            setMessage: state.setMessage,
-        }))
-    );
+    const {appendToLastAssistantMessage, messages, setLastAssistantMessageContent, setMessage, setResumeUrl} =
+        useChatStore(
+            useShallow((state) => ({
+                appendToLastAssistantMessage: state.appendToLastAssistantMessage,
+                messages: state.messages,
+                setLastAssistantMessageContent: state.setLastAssistantMessageContent,
+                setMessage: state.setMessage,
+                setResumeUrl: state.setResumeUrl,
+            }))
+        );
 
     const voice = useAutomationChatVoiceSession({
         onEvent: (event) => {
@@ -186,14 +231,35 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
         [appendToLastAssistantMessage]
     );
 
+    const handleAskUserQuestion = useCallback(
+        (data: unknown) => {
+            if (!data || typeof data !== 'object') {
+                return;
+            }
+
+            const event = data as AskUserQuestionEventI;
+            const formatted = formatAskUserQuestion(event);
+
+            if (formatted) {
+                setLastAssistantMessageContent(formatted);
+            }
+
+            setResumeUrl(event.resumeUrl ?? null);
+            setIsRunning(false);
+            setStreamRequest(null);
+        },
+        [setLastAssistantMessageContent, setResumeUrl]
+    );
+
     const eventHandlers = useMemo(
         () => ({
+            ask_user_question: handleAskUserQuestion,
             error: handleError,
             result: handleResult,
             stream: handleStream,
             message: handleResult, // Handle default SSE 'message' events as results
         }),
-        [handleError, handleResult, handleStream]
+        [handleAskUserQuestion, handleError, handleResult, handleStream]
     );
 
     const onNew = useCallback(
@@ -203,6 +269,51 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
             }
 
             const input = message.content[0].text;
+
+            const currentResumeUrl = useChatStore.getState().resumeUrl;
+
+            if (currentResumeUrl) {
+                useChatStore.getState().setResumeUrl(null);
+
+                setMessage({attachments: [...(message.attachments ?? [])], content: input, role: 'user'});
+                setIsRunning(true);
+
+                try {
+                    const response = await fetch(currentResumeUrl, {
+                        body: JSON.stringify({message: input}),
+                        headers: {'Content-Type': 'application/json'},
+                        method: 'POST',
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Resume request failed with status ${response.status}`);
+                    }
+
+                    const contentType = response.headers.get('content-type') ?? '';
+
+                    if (contentType.includes('text/event-stream')) {
+                        setMessage({content: '', role: 'assistant'});
+
+                        await drainSseResponse(response, eventHandlers);
+                    } else {
+                        const result = (await response.json().catch(() => null)) as {message?: string} | null;
+                        const responseText = result?.message ?? 'Answer submitted. The workflow will resume.';
+
+                        setMessage({content: responseText, role: 'assistant'});
+                    }
+                } catch (error) {
+                    console.error('Failed to submit answer to resume URL:', error);
+
+                    setMessage({
+                        content: 'Failed to submit your answer. Please try again.',
+                        role: 'assistant',
+                    });
+                } finally {
+                    setIsRunning(false);
+                }
+
+                return;
+            }
 
             setMessage({attachments: [...(message.attachments ?? [])], content: input, role: 'user'});
             setIsRunning(true);
@@ -265,7 +376,7 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
                 setIsRunning(false);
             }
         },
-        [setMessage, sseEnabled, webhookUrl]
+        [eventHandlers, setMessage, sseEnabled, webhookUrl]
     );
 
     const runtime = useExternalStoreRuntime(
