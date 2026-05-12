@@ -1,0 +1,95 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the ByteChef Enterprise license (the "Enterprise License");
+ * you may not use this file except in compliance with the Enterprise License.
+ */
+
+package com.bytechef.ee.platform.aihub.tool;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import com.bytechef.platform.component.domain.ComponentDefinition;
+import com.bytechef.platform.component.service.ComponentDefinitionService;
+import java.util.Optional;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.ai.tool.definition.ToolDefinition;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.json.JsonMapper;
+
+/**
+ * @version ee
+ *
+ * @author Ivica Cardic
+ */
+class RequestConnectionToolCallbackTest {
+
+    private final JsonMapper jsonMapper = new JsonMapper();
+    private ComponentDefinitionService componentDefinitionService;
+    private RequestConnectionToolCallback callback;
+
+    @BeforeEach
+    void setUp() {
+        componentDefinitionService = mock(ComponentDefinitionService.class);
+        callback = new RequestConnectionToolCallback(componentDefinitionService, jsonMapper);
+    }
+
+    @Test
+    void testToolDefinitionExposesRequestConnectionName() {
+        ToolDefinition definition = callback.getToolDefinition();
+
+        assertThat(definition.name()).isEqualTo("requestConnection");
+        assertThat(definition.description()).isNotBlank();
+        assertThat(definition.inputSchema()).contains("componentName");
+    }
+
+    @Test
+    void testCallHappyPathResolvesComponentLabel() throws Exception {
+        ComponentDefinition componentDefinition = mock(ComponentDefinition.class);
+
+        when(componentDefinition.getTitle()).thenReturn("Slack");
+        when(componentDefinitionService.fetchComponentDefinition(eq("slack"), any()))
+            .thenReturn(Optional.of(componentDefinition));
+
+        String result = callback.call("{\"componentName\":\"slack\"}");
+
+        JsonNode node = jsonMapper.readTree(result);
+
+        assertThat(node.get("kind")
+            .asText()).isEqualTo("request-connection");
+        assertThat(node.get("componentName")
+            .asText()).isEqualTo("slack");
+        assertThat(node.get("componentLabel")
+            .asText()).isEqualTo("Slack");
+        assertThat(node.has("suggestedName")).isFalse();
+    }
+
+    @Test
+    void testCallUnknownComponentFallsBackToComponentName() throws Exception {
+        when(componentDefinitionService.fetchComponentDefinition(eq("unknown-component"), any()))
+            .thenReturn(Optional.empty());
+
+        String result = callback.call("{\"componentName\":\"unknown-component\"}");
+
+        JsonNode node = jsonMapper.readTree(result);
+
+        assertThat(node.get("kind")
+            .asText()).isEqualTo("request-connection");
+        assertThat(node.get("componentLabel")
+            .asText()).isEqualTo("unknown-component");
+    }
+
+    @Test
+    void testCallBlankComponentNameReturnsError() throws Exception {
+        String result = callback.call("{\"componentName\":\"\"}");
+
+        JsonNode node = jsonMapper.readTree(result);
+
+        assertThat(node.has("error")).isTrue();
+    }
+}

@@ -145,13 +145,8 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
             for (Object triggerOutputValue : triggerOutputValues) {
                 AtomicReference<Object> collectedWebhookResponse = new AtomicReference<>();
 
-                Job job = jobSyncExecutor.execute(
-                    createJobParameters(workflowExecutionId, workflowId, inputMap, triggerOutputValue),
-                    jobParameters -> principalJobFacade.createSyncJob(
-                        jobParameters, workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getType()),
-                    true,
-                    taskExecutionCompleteEvent -> collectWebhookResponse(
-                        taskExecutionCompleteEvent, collectedWebhookResponse));
+                Job job = executeSyncJob(
+                    workflowExecutionId, workflowId, inputMap, triggerOutputValue, collectedWebhookResponse);
 
                 Object webhookResponse = collectedWebhookResponse.get();
 
@@ -170,13 +165,8 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
         } else {
             AtomicReference<@Nullable Object> collectedWebhookResponse = new AtomicReference<>();
 
-            Job job = jobSyncExecutor.execute(
-                createJobParameters(workflowExecutionId, workflowId, inputMap, triggerOutput.value()),
-                jobParameters -> principalJobFacade.createSyncJob(
-                    jobParameters, workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getType()),
-                true,
-                taskExecutionCompleteEvent -> collectWebhookResponse(
-                    taskExecutionCompleteEvent, collectedWebhookResponse));
+            Job job = executeSyncJob(
+                workflowExecutionId, workflowId, inputMap, triggerOutput.value(), collectedWebhookResponse);
 
             Object webhookResponse = collectedWebhookResponse.get();
 
@@ -194,6 +184,34 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
         }
 
         return outputs;
+    }
+
+    /**
+     * Runs a single sync job and, if a stream bridge is supplied, registers it with {@link JobSyncExecutor}'s SSE
+     * bridge cache as part of the job-creation step so streaming task outputs (e.g. {@code openAi/v1/streamAsk}'s
+     * per-token Flux chunks) flow to the bridge while the job runs. Without this registration, the in-process
+     * {@code SseStreamTaskExecutionPostOutputProcessor} sees no listener and the streamed events are silently dropped —
+     * the user sees an empty assistant reply for any sync chat workflow whose AI agent uses the streaming variant.
+     *
+     * <p>
+     * Bridge registration happens inside the {@code JobFactoryFunction} wrapper rather than after
+     * {@code jobSyncExecutor.execute} returns, because by the time {@code execute} returns the job has already finished
+     * — too late for tasks to find a registered bridge. Wrapping the factory inserts the registration at the only
+     * window between "jobId exists" and "first task starts": after {@code createSyncJob} returns the id, before
+     * {@code awaitJob} dispatches tasks. Tested by the bridge agent's E2E test suite.
+     * </p>
+     */
+    private Job executeSyncJob(
+        WorkflowExecutionId workflowExecutionId, String workflowId, Map<String, ?> inputMap, Object triggerOutputValue,
+        AtomicReference<Object> collectedWebhookResponse) {
+
+        return jobSyncExecutor.execute(
+            createJobParameters(workflowExecutionId, workflowId, inputMap, triggerOutputValue),
+            jobParameters -> principalJobFacade.createSyncJob(
+                jobParameters, workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getType()),
+            true,
+            taskExecutionCompleteEvent -> collectWebhookResponse(
+                taskExecutionCompleteEvent, collectedWebhookResponse));
     }
 
     @Override

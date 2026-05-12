@@ -18,9 +18,12 @@ package com.bytechef.platform.security.util;
 
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContext;
@@ -106,6 +109,38 @@ public final class SecurityUtils {
      */
     public static boolean hasCurrentUserThisAuthority(String authority) {
         return hasCurrentUserAnyOfAuthorities(authority);
+    }
+
+    /**
+     * Executes the supplied {@code supplier} with a temporary {@link SecurityContext} populated from {@code login} +
+     * {@code authorities}, restoring the original context on completion. Use when a background flow (e.g. a Spring AI
+     * tool callback running on a Reactor scheduler thread) must invoke code that calls {@link #getCurrentUserLogin()}
+     * or {@link #hasCurrentUserThisAuthority(String)} but the original HTTP request's security context did not
+     * propagate to the executing thread.
+     *
+     * <p>
+     * The context restoration in the {@code finally} block is critical: thread pools recycle threads across requests,
+     * so leaving an arbitrary user's context behind would leak permissions to the next caller on the same thread. The
+     * empty-context branch is intentional — if the caller had no authentication to begin with, the restore is a no-op
+     * equivalent to clearing.
+     * </p>
+     */
+    public static <T> T runAs(
+        String login, Collection<? extends GrantedAuthority> authorities, Supplier<T> supplier) {
+
+        SecurityContext originalContext = SecurityContextHolder.getContext();
+
+        try {
+            SecurityContext newContext = SecurityContextHolder.createEmptyContext();
+
+            newContext.setAuthentication(new UsernamePasswordAuthenticationToken(login, "", authorities));
+
+            SecurityContextHolder.setContext(newContext);
+
+            return supplier.get();
+        } finally {
+            SecurityContextHolder.setContext(originalContext);
+        }
     }
 
     private static String extractPrincipal(Authentication authentication) {

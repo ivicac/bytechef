@@ -17,6 +17,9 @@
     "...deploy",
     "---Monitor Executions---",
     "monitor/index",
-    "...monitor"
+    "...monitor",
+    "---AI Hub---",
+    "personal-agents",
+    "workflow-chats"
   ]
 }

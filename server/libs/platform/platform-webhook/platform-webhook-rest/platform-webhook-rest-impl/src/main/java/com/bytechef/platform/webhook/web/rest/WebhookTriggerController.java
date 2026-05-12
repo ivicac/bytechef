@@ -42,7 +42,6 @@ import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
@@ -125,10 +124,17 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
             ResponseEntity<?> responseEntity;
 
             boolean head = Objects.equals(httpServletRequest.getMethod(), RequestMethod.HEAD.name());
-            boolean disabled = isWorkflowDisabled(workflowExecutionId);
+            // Route through the facade so the controller and AG-UI bridge share one implementation of
+            // isWorkflowDisabled (rather than each calling AbstractWebhookTriggerController's inherited helper
+            // independently). Same call path internally, but the indirection means a future change to the
+            // disabled-check semantics — e.g. introducing a "soft disabled" status — only needs touching the
+            // facade and both consumers pick it up. doProcessTrigger stays inline because it returns
+            // ResponseEntity<Object> with rich HTTP-shaped responses (validateOnEnable mapping, error shapes)
+            // that the facade's typed WebhookExecutionResult envelope deliberately excludes.
+            boolean disabled = webhookFacade.isWorkflowDisabled(workflowExecutionId);
 
             if (head || disabled) {
-                WebhookTriggerFlags webhookTriggerFlags = getWebhookTriggerFlags(workflowExecutionId);
+                WebhookTriggerFlags webhookTriggerFlags = webhookFacade.getWebhookTriggerFlags(workflowExecutionId);
 
                 WebhookRequest webhookRequest = getWebhookRequest(httpServletRequest, webhookTriggerFlags);
 
@@ -178,25 +184,19 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
         return TenantContext.callWithTenantId(workflowExecutionId.getTenantId(), () -> {
             WebhookSseStreamBridge bridge = new WebhookSseStreamBridge(emitter);
 
-            if (isWorkflowDisabled(workflowExecutionId)) {
-                bridge.onError(new IllegalStateException("Workflow is disabled."));
-
-                return emitter;
-            }
-
+            // Delegate to the facade so the disabled-check + executor dispatch + whenComplete chain stay in
+            // exactly one place. The non-streaming HEAD/GET/POST endpoint above still calls into
+            // AbstractWebhookTriggerController for its (more involved) sync orchestration — refactoring that
+            // path through the facade is a follow-up; the streaming method is the cleanest no-behaviour-change
+            // win because it only consults the disabled-check, builds a WebhookRequest, and dispatches.
+            //
+            // We still need the trigger flags here (not used by the facade for the streaming path) to drive
+            // getWebhookRequest, which inspects flags.webhookRawBody to decide whether to capture the raw
+            // request body.
             WebhookTriggerFlags webhookTriggerFlags = getWebhookTriggerFlags(workflowExecutionId);
             WebhookRequest webhookRequest = getWebhookRequest(httpServletRequest, webhookTriggerFlags);
 
-            CompletableFuture<Void> future = webhookWorkflowExecutor.executeAsync(
-                workflowExecutionId, webhookRequest, bridge);
-
-            future.whenComplete((unused, throwable) -> {
-                if (throwable != null) {
-                    bridge.onError(throwable);
-                } else {
-                    bridge.onComplete();
-                }
-            });
+            webhookFacade.executeStreaming(workflowExecutionId, webhookRequest, bridge);
 
             return emitter;
         });

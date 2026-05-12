@@ -117,6 +117,51 @@ class SecurityUtilsTest {
     }
 
     @Test
+    void testRunAsTemporarilyOverridesContextAndRestores() {
+        SecurityContext originalContext = SecurityContextHolder.createEmptyContext();
+
+        originalContext.setAuthentication(new UsernamePasswordAuthenticationToken("original-user", ""));
+
+        SecurityContextHolder.setContext(originalContext);
+
+        Collection<GrantedAuthority> overrideAuthorities = new ArrayList<>();
+
+        overrideAuthorities.add(new SimpleGrantedAuthority(AuthorityConstants.ADMIN));
+
+        String result = SecurityUtils.runAs("override-user", overrideAuthorities, () -> {
+            assertThat(SecurityUtils.getCurrentUserLogin()).isEqualTo("override-user");
+            assertThat(SecurityUtils.hasCurrentUserThisAuthority(AuthorityConstants.ADMIN)).isTrue();
+
+            return "ran-with-override";
+        });
+
+        assertThat(result).isEqualTo("ran-with-override");
+        // The original context must be restored once runAs returns — otherwise a thread-pool reuse would
+        // leak the override user's authorities to whoever runs on this thread next.
+        assertThat(SecurityUtils.getCurrentUserLogin()).isEqualTo("original-user");
+        assertThat(SecurityUtils.hasCurrentUserThisAuthority(AuthorityConstants.ADMIN)).isFalse();
+    }
+
+    @Test
+    void testRunAsRestoresContextEvenWhenSupplierThrows() {
+        SecurityContext originalContext = SecurityContextHolder.createEmptyContext();
+
+        originalContext.setAuthentication(new UsernamePasswordAuthenticationToken("original-user", ""));
+
+        SecurityContextHolder.setContext(originalContext);
+
+        try {
+            SecurityUtils.runAs("override-user", new ArrayList<>(), () -> {
+                throw new RuntimeException("supplier failure");
+            });
+        } catch (RuntimeException ignored) {
+            // expected
+        }
+
+        assertThat(SecurityUtils.getCurrentUserLogin()).isEqualTo("original-user");
+    }
+
+    @Test
     void testHasCurrentUserNoneOfAuthorities() {
         SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
         Collection<GrantedAuthority> authorities = new ArrayList<>();

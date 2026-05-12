@@ -64,6 +64,7 @@ import com.bytechef.platform.component.definition.SuspendAwareSseEmitterHandler;
 import com.bytechef.platform.component.definition.SuspendUtils;
 import com.bytechef.platform.component.domain.ActionDefinition;
 import com.bytechef.platform.component.domain.Option;
+import com.bytechef.platform.component.domain.OptionsDataSourceAware;
 import com.bytechef.platform.component.domain.Property;
 import com.bytechef.platform.component.exception.ActionDefinitionErrorType;
 import com.bytechef.platform.constant.PlatformType;
@@ -360,6 +361,72 @@ public class ActionDefinitionServiceImpl implements ActionDefinitionService {
         ActionDefinition actionDefinition = getActionDefinition(componentName, componentVersion, actionName);
 
         return actionDefinition.isOutputFunctionDefined();
+    }
+
+    @Override
+    public boolean actionDefinesConnection(String componentName, int componentVersion, String actionName) {
+        if (!componentDefinitionRegistry.hasComponentDefinition(componentName, componentVersion)) {
+            return false;
+        }
+
+        ComponentDefinition componentDefinition = componentDefinitionRegistry.getComponentDefinition(
+            componentName, componentVersion);
+
+        return componentDefinition.getConnection()
+            .isPresent();
+    }
+
+    @Override
+    public List<String> getPropertyLookupDependsOn(
+        String componentName, int componentVersion, String actionName, String propertyName) {
+
+        if (!componentDefinitionRegistry.hasComponentDefinition(componentName, componentVersion)) {
+            return List.of();
+        }
+
+        Property property = findActionProperty(componentName, componentVersion, actionName, propertyName);
+
+        if (!(property instanceof OptionsDataSourceAware optionsDataSourceAware)) {
+            return List.of();
+        }
+
+        com.bytechef.platform.component.domain.OptionsDataSource optionsDataSource =
+            optionsDataSourceAware.getOptionsDataSource();
+
+        if (optionsDataSource == null) {
+            return List.of();
+        }
+
+        return optionsDataSource.getOptionsLookupDependsOn();
+    }
+
+    @Override
+    public boolean propertyHasOptionsDataSource(
+        String componentName, int componentVersion, String actionName, String propertyName) {
+
+        if (!componentDefinitionRegistry.hasComponentDefinition(componentName, componentVersion)) {
+            return false;
+        }
+
+        Property property = findActionProperty(componentName, componentVersion, actionName, propertyName);
+
+        if (!(property instanceof OptionsDataSourceAware optionsDataSourceAware)) {
+            return false;
+        }
+
+        return optionsDataSourceAware.getOptionsDataSource() != null;
+    }
+
+    private @Nullable Property findActionProperty(
+        String componentName, int componentVersion, String actionName, String propertyName) {
+
+        if (!componentDefinitionRegistry.hasComponentDefinition(componentName, componentVersion)) {
+            return null;
+        }
+
+        ActionDefinition actionDefinition = getActionDefinition(componentName, componentVersion, actionName);
+
+        return PropertyPathResolver.findPropertyByPath(actionDefinition.getProperties(), propertyName);
     }
 
     private static ConvertResult convert(

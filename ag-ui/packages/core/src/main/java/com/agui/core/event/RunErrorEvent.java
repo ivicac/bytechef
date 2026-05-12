@@ -14,6 +14,18 @@ import com.agui.core.type.EventType;
  * provides a field to store the error message or description.
  * </p>
  *
+ * <p>
+ * <strong>Wire-format note:</strong> the AG-UI protocol (the TypeScript core's
+ * {@code RunErrorEventSchema}) names this field {@code message}, not {@code error}.
+ * The on-the-wire rename is applied via {@link com.agui.json.mixins.RunErrorEventMixin}
+ * in the {@code ag-ui/utils/json} module so this {@code core} module stays free of any
+ * Jackson dependency. Without the rename the Java server emits
+ * {@code {"type":"RUN_ERROR","error":"…"}} and the browser-side Zod validator rejects
+ * the event with a ZodError ({@code path: ["message"], message: "Required"}) the
+ * moment any agent run fails — masking the real failure with a meta-failure to
+ * deserialize the failure event.
+ * </p>
+ *
  * @see BaseEvent
  * @see EventType#RUN_ERROR
  *

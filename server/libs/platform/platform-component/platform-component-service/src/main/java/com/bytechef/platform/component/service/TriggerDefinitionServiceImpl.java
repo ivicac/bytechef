@@ -54,6 +54,7 @@ import com.bytechef.platform.component.definition.HttpParametersImpl;
 import com.bytechef.platform.component.definition.ParametersFactory;
 import com.bytechef.platform.component.definition.PropertyFactory;
 import com.bytechef.platform.component.domain.Option;
+import com.bytechef.platform.component.domain.OptionsDataSourceAware;
 import com.bytechef.platform.component.domain.Property;
 import com.bytechef.platform.component.domain.TriggerDefinition;
 import com.bytechef.platform.component.domain.ValueProperty;
@@ -379,6 +380,72 @@ public class TriggerDefinitionServiceImpl implements TriggerDefinitionService {
         TriggerDefinition triggerDefinition = getTriggerDefinition(componentName, componentVersion, actionName);
 
         return triggerDefinition.isOutputFunctionDefined();
+    }
+
+    @Override
+    public boolean triggerDefinesConnection(String componentName, int componentVersion, String triggerName) {
+        if (!componentDefinitionRegistry.hasComponentDefinition(componentName, componentVersion)) {
+            return false;
+        }
+
+        ComponentDefinition componentDefinition = componentDefinitionRegistry.getComponentDefinition(
+            componentName, componentVersion);
+
+        return componentDefinition.getConnection()
+            .isPresent();
+    }
+
+    @Override
+    public List<String> getPropertyLookupDependsOn(
+        String componentName, int componentVersion, String triggerName, String propertyName) {
+
+        if (!componentDefinitionRegistry.hasComponentDefinition(componentName, componentVersion)) {
+            return List.of();
+        }
+
+        Property property = findTriggerProperty(componentName, componentVersion, triggerName, propertyName);
+
+        if (!(property instanceof OptionsDataSourceAware optionsDataSourceAware)) {
+            return List.of();
+        }
+
+        com.bytechef.platform.component.domain.OptionsDataSource optionsDataSource =
+            optionsDataSourceAware.getOptionsDataSource();
+
+        if (optionsDataSource == null) {
+            return List.of();
+        }
+
+        return optionsDataSource.getOptionsLookupDependsOn();
+    }
+
+    @Override
+    public boolean propertyHasOptionsDataSource(
+        String componentName, int componentVersion, String triggerName, String propertyName) {
+
+        if (!componentDefinitionRegistry.hasComponentDefinition(componentName, componentVersion)) {
+            return false;
+        }
+
+        Property property = findTriggerProperty(componentName, componentVersion, triggerName, propertyName);
+
+        if (!(property instanceof OptionsDataSourceAware optionsDataSourceAware)) {
+            return false;
+        }
+
+        return optionsDataSourceAware.getOptionsDataSource() != null;
+    }
+
+    private @Nullable Property findTriggerProperty(
+        String componentName, int componentVersion, String triggerName, String propertyName) {
+
+        if (!componentDefinitionRegistry.hasComponentDefinition(componentName, componentVersion)) {
+            return null;
+        }
+
+        TriggerDefinition triggerDefinition = getTriggerDefinition(componentName, componentVersion, triggerName);
+
+        return PropertyPathResolver.findPropertyByPath(triggerDefinition.getProperties(), propertyName);
     }
 
     private List<Option> doExecuteOptions(

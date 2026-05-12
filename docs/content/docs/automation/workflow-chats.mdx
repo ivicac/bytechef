@@ -1,0 +1,187 @@
+---
+title: Workflow Chats
+description: Chat-based interaction with workflow runs through the AI Hub.
+---
+
+A **workflow chat** lets users invoke a workflow conversationally — typing a message into the
+AI Hub sends that text to the workflow's webhook trigger, the workflow runs, and the
+reply renders inline in the chat thread.
+
+## When to use a workflow chat
+
+Workflow chats fit any workflow that takes free-form text input and returns a structured reply:
+
+- Customer support assistants that look up orders and draft responses.
+- Internal "ask the docs" bots that pull from the knowledge base and answer.
+- Approval workflows where the user confirms a structured action through a question.
+
+Workflow chats live alongside copilot conversations in the AI Hub sidebar and use the
+same conversation infrastructure (titles, archiving, attached tools, message history).
+
+## Enabling a workflow for chat
+
+A workflow becomes chat-enabled when it has a **New Chat Request** trigger. This is the canonical
+chat trigger and accepts a JSON body shaped like
+`{ message, conversationId, attachments }`.
+
+1. Open the workflow in the Workflow Editor.
+2. Replace or add the trigger — pick **New Chat Request** from the trigger palette.
+3. Configure the trigger:
+    - **Mode** — choose "Hosted Chat" if you want the chat to surface in the AI Hub
+      sidebar; "Embedded Chat" if you'll invoke the workflow from your own UI.
+4. Save and deploy. The workflow now appears in the **Workflow Chats** section of the
+   AI Hub sidebar for everyone in the workspace.
+
+### Other webhook triggers
+
+The workflow-chat bridge is **calibrated** for the New Chat Request trigger — its body shape is
+specifically `{ message, conversationId, attachments }`. A workflow that uses a different
+webhook trigger (a generic Webhook trigger, a Slack trigger, etc.) **can** be wired to a
+workflow chat, but the trigger needs to either accept the same body shape or read from
+the parameters map (which the bridge populates with the same `message`/`conversationId` keys).
+
+If you wire a non-standard trigger and the workflow doesn't see the user's message, check:
+
+1. The trigger reads from `body.content` AND/OR the `parameters` map.
+2. The body shape matches what the trigger expects.
+3. The Copilot service logs include a `Workflow-chat conversation runs against non-chat
+   trigger` debug entry — that's the bridge telling you it's running against a non-chat
+   trigger.
+
+We may add a per-trigger adapter registry in a future release; for now, sticking to the New
+Chat Request trigger is the path that's been tested end-to-end.
+
+### Workflows with multiple triggers
+
+A workflow can have several triggers (e.g. New Chat Request + a Slack trigger that listens to a
+specific channel). When the user clicks the workflow in the **Workflow Chats** sidebar, the
+conversation is bound to the **chat trigger** specifically — its `workflowExecutionId` is
+captured at creation time. Subsequent turns route through that same trigger; other triggers on
+the workflow continue to fire independently from their own sources.
+
+## What happens on each turn
+
+When the user sends a message:
+
+1. The AI Hub server-side bridge translates the message into a webhook request.
+2. The workflow runs against the New Chat Request trigger with the user's text in
+   `body.content.message`.
+3. Attachments uploaded by the user become first-class workspace asset files (browsable
+   in the Files panel) and arrive at the trigger as `body.content.attachments` — a list
+   of `FileEntry` objects.
+4. The workflow's reply (from the result map's `message` field) streams back to the chat
+   as the assistant message.
+5. If the workflow paused with `ask_user_question`, the question renders inline and the
+   sidebar shows a "needs your answer" indicator. The next user message resumes the
+   paused run via the workflow's resume URL — no fresh execution needed.
+
+## Lifecycle
+
+Workflow chat conversations follow the same lifecycle as copilot conversations:
+
+- **Active** — visible in the conversations sidebar, message history accessible.
+- **Archived** — hidden from the active sidebar. Past conversations can be reopened from the
+  conversations list; clicking the workflow row in the sidebar always starts a fresh
+  conversation rather than restoring an archived one (always-new semantics, May 2026).
+- **Deleted** — hard-deleted along with the chat-memory rows. Cannot be restored.
+
+If the workflow itself is deleted (or its deployment removed) while a conversation exists,
+the next user message surfaces a "this workflow chat can no longer be reached" error. The
+conversation row stays in the sidebar so the user can archive it manually; clicking it
+displays the error inline rather than starting a fresh run against the missing workflow.
+
+## Cancelling a turn
+
+Workflow runs can take seconds to minutes. The Stop button in the composer (visible while
+a turn is in flight) cancels the running workflow execution server-side as well as closing
+the SSE stream client-side. After cancel, the user can send a new message — it starts a
+fresh execution.
+
+### Auto-cancel on disconnect
+
+If a user closes the tab, navigates away, or loses network mid-turn, the workflow keeps
+running on the worker — until the bridge sees the SSE stream error out. At that point the
+bridge fires `JobFacade.stopJob(jobId)` to release worker capacity rather than letting the
+workflow run to completion for output nobody will see. This is best-effort: a workflow that
+finishes between the disconnect and the cancel call simply finishes normally, and the
+cancel call is a no-op.
+
+## Edit and resend
+
+Hover over any of your previous user messages and a pencil icon appears. Clicking it swaps
+the message bubble for an inline textarea pre-filled with the original text. Edit, click
+**Save and resend**, and:
+
+1. The chat-memory history is truncated at that message (everything from this message
+   onward is deleted).
+2. The edited text is sent as a fresh user turn.
+3. The agent sees `history-up-to-edit-point + edited message` and replies with a new
+   branch from the edit point.
+
+Cancelling discards the typed-but-unsaved text without touching the server.
+
+## Streaming resume
+
+When a workflow pauses with `ask_user_question`, the bridge captures the resume URL and
+the user's next message gets POSTed to that URL. If the resume endpoint emits
+`text/event-stream`, the bridge forwards each event to the client as it arrives — the
+user sees the assistant's reply chunk-by-chunk rather than as a single blob after the
+workflow completes.
+
+For non-streaming resumes the bridge falls back to the legacy single-blob handler, so
+existing workflows continue to work without changes.
+
+## Bulk-archive
+
+The Workflow Chats sidebar header has an Archive icon (visible on hover) that archives **all**
+active workflow-chat conversations in the current environment. Confirms via dialog. Useful
+when the conversations sidebar fills up with stale chats — past conversations remain in the
+conversations list and can be reopened from there.
+
+## Limitations and known constraints
+
+These are documented in this section so you know what behaviours to expect:
+
+- **Sync vs. streaming triggers**: New Chat Request is sync by default — the bridge waits
+  for the workflow to complete before rendering the reply. If you mark the trigger
+  `workflowSyncExecution = false`, the bridge uses the streaming executor and intermediate
+  task events flow through the SSE stream. Today the client doesn't render those
+  intermediate events as tool-call cards (they're filtered server-side to stop them
+  rendering as raw numbers in chat); rich step rendering is a future enhancement.
+- **Per-workflow access control**: any workspace member sees all chat-enabled workflows.
+  There's no per-workflow ACL; if a workflow shouldn't be conversationally invokable by
+  some workspace members, control access at the project / workspace level.
+- **Cross-environment isolation**: each `(workspace, environment, workflow)` is a
+  separate conversation. Chatting with the same workflow in DEV and PROD produces two
+  unrelated threads — by design, since environment-scoped conversation history matches
+  the rest of the AI Hub surface.
+- **Rate limiting**: there's no per-conversation rate limit. Workflows that hit paid APIs
+  (LLM, external services) should implement their own internal rate limiting at the
+  workflow level until platform-level rate limiting lands.
+
+## Architecture overview
+
+For developers extending the workflow-chat surface:
+
+- The bridge lives at `WebhookBridgeAgent` (`server/ee/libs/ai/ai-copilot/ai-copilot-service`).
+- The router that picks bridge vs. LLM agent is `AiHubRoutingAgent`.
+- Resume URL persistence (across pauses): `WebhookResumeRegistry` (Spring Cache backed,
+  Redis in EE microservice deployments).
+- In-flight job id tracking (for cancel): `WorkflowChatJobRegistry` (also Spring Cache).
+- Conversation persistence: `ai_hub_conversation` table with
+  `kind = WORKFLOW_CHAT` discriminator + `workflow_execution_id` foreign-shape pointer.
+
+## Telemetry
+
+Several Prometheus counters surface bridge health:
+
+- `bytechef_workflow_chat_turn{outcome}` — per-turn dispatch. Outcomes: `sync`, `streaming`,
+  `resume`, `rate_limited` (admission gate refused, cooldown window), `concurrency_blocked`
+  (admission gate refused, previous turn still in flight).
+- `bytechef_workflow_chat_turn_by_workspace{outcome,workspace}` — same as above, with a
+  per-workspace tag for deployments that need per-tenant attribution.
+- `bytechef_workflow_chat_resume{result}` — resume HTTP outcome (`success`, `http_error`,
+  `transport_error`).
+- `bytechef_workflow_chat_unreachable{reason}` — workflows that couldn't be reached
+  (`disabled`, `deleted`).
+- `bytechef_workflow_chat_attachment_failure{reason}` — attachment promotion failures.

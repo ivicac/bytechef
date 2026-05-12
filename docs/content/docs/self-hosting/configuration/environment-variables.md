@@ -30,6 +30,12 @@ ByteChef can be configured using environment variables. This page documents all 
 | `BYTECHEF_AI_GATEWAY_RATE_LIMITING_PROVIDER` | Rate limiting provider | - |
 | `BYTECHEF_AI_GATEWAY_EXTERNAL_SCORES_MAX_BATCH_SIZE` | Maximum scores accepted in a single batch POST. Requests exceeding this return HTTP 413. | `1000` |
 
+## AI Hub Configuration
+
+| Environment Variable | Description | Default Value |
+|---|---|---|
+| `BYTECHEF_AI_HUB_ENABLED` | Enable or disable the AI Hub surface (REST/GraphQL controllers, JDBC repositories, service beans) | `false` |
+
 ## AI Knowledge Base Configuration
 
 | Environment Variable | Description | Default Value |

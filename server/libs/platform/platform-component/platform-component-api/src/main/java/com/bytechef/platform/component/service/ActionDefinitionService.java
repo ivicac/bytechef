@@ -205,4 +205,39 @@ public interface ActionDefinitionService extends OperationDefinitionService {
      * @return true if a dynamic output is defined, false otherwise
      */
     boolean isDynamicOutputDefined(String componentName, int componentVersion, String actionName);
+
+    /**
+     * Returns {@code true} when the action's owning component declares a connection definition. Used by AI Hub tooling
+     * (e.g., the {@code lookupActionPropertyOptions} tool callback) to decide whether a property-options lookup must
+     * carry a {@code connectionId} — when the underlying component has no connection, the lookup can proceed without
+     * one and the {@code connection_required} precondition envelope is skipped.
+     *
+     * @param componentName    the name of the component
+     * @param componentVersion the version of the component
+     * @param actionName       the name of the action (accepted for symmetry with sibling methods; the connection
+     *                         requirement is currently a component-level concern)
+     * @return {@code true} when the component declares a {@code ConnectionDefinition}, {@code false} otherwise
+     */
+    boolean actionDefinesConnection(String componentName, int componentVersion, String actionName);
+
+    /**
+     * Returns the lookup-depends-on paths for a property's OptionsDataSource, or an empty list when the property has no
+     * dynamic options OR cannot be resolved. Used by AI Hub tooling to enforce dependency ordering before fetching
+     * options. {@code propertyName} accepts dotted paths: {@code parent.child} descends into an ObjectProperty's
+     * children, {@code arrayProp[].child} is explicit descent into an ArrayProperty's first item type, and
+     * {@code arrayProp.child} is implicit descent when the array has a single object item type. Plain names match at
+     * the top level.
+     */
+    List<String> getPropertyLookupDependsOn(
+        String componentName, int componentVersion, String actionName, String propertyName);
+
+    /**
+     * Returns true when the named property has a dynamic OptionsDataSource. Used by AI Hub tooling to short-circuit
+     * lookup calls that the LLM made for properties without dynamic options. {@code propertyName} accepts dotted paths
+     * (see {@link #getPropertyLookupDependsOn} for the supported conventions). The "not found" and "found but no data
+     * source" cases are intentionally indistinguishable: both yield the safest fallback (the lookup gate emits
+     * {@code no_options_for_property}).
+     */
+    boolean propertyHasOptionsDataSource(
+        String componentName, int componentVersion, String actionName, String propertyName);
 }

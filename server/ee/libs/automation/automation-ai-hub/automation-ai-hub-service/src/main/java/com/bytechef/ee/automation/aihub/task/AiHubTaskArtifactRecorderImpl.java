@@ -1,0 +1,92 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the ByteChef Enterprise license (the "Enterprise License");
+ * you may not use this file except in compliance with the Enterprise License.
+ */
+
+package com.bytechef.ee.automation.aihub.task;
+
+import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactKind;
+import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactService;
+import com.bytechef.ee.platform.aihub.tool.AiHubTaskArtifactRecorder;
+import com.bytechef.ee.platform.aihub.util.LogSanitizer;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.stereotype.Component;
+
+/**
+ * @version ee
+ *
+ * @author Ivica Cardic
+ */
+@Component
+@ConditionalOnProperty(prefix = "bytechef.ai.hub", name = "enabled", havingValue = "true")
+public class AiHubTaskArtifactRecorderImpl implements AiHubTaskArtifactRecorder {
+
+    private static final Logger log = LoggerFactory.getLogger(AiHubTaskArtifactRecorderImpl.class);
+
+    private final AiHubTaskArtifactService taskArtifactService;
+    private final @Nullable Counter missingUserIdCounter;
+
+    @SuppressFBWarnings({
+        "EI_EXPOSE_REP2", "CT_CONSTRUCTOR_THROW"
+    })
+    public AiHubTaskArtifactRecorderImpl(
+        AiHubTaskArtifactService taskArtifactService,
+        ObjectProvider<MeterRegistry> meterRegistryProvider) {
+
+        this.taskArtifactService = taskArtifactService;
+
+        MeterRegistry meterRegistry = meterRegistryProvider.getIfAvailable();
+
+        this.missingUserIdCounter = meterRegistry == null ? null : Counter
+            .builder("bytechef.artifact.record.missing_userid_total")
+            .description(
+                "Number of artifact recordings skipped because the bound userId was null. Non-zero values mean a "
+                    + "destructive mutation committed without an undo audit row — the user has no path to reverse it.")
+            .register(meterRegistry);
+    }
+
+    @Override
+    public void record(
+        String threadId, Long userId, String artifactKind, String artifactId, String artifactName) {
+
+        if (userId == null) {
+            if (missingUserIdCounter != null) {
+                missingUserIdCounter.increment();
+            }
+
+            log.warn(
+                "AiHubTaskArtifactRecorder.record called without a bound userId — skipping artifact record"
+                    +
+                    " (threadId={}, kind={}, artifactId={}, artifactName={}). The mutation has already committed; " +
+                    "ensure the tool context carries a threadId before invoking the tool.",
+                LogSanitizer.sanitizeForLog(threadId), LogSanitizer.sanitizeForLog(artifactKind),
+                LogSanitizer.sanitizeForLog(artifactId), LogSanitizer.sanitizeForLog(artifactName));
+
+            return;
+        }
+
+        AiHubTaskArtifactKind kind;
+
+        try {
+            kind = AiHubTaskArtifactKind.valueOf(artifactKind);
+        } catch (IllegalArgumentException exception) {
+            throw new IllegalStateException(
+                "Unknown AiHubTaskArtifactKind '" + LogSanitizer.sanitizeForLog(artifactKind)
+                    + "' from tool callback (threadId=" + LogSanitizer.sanitizeForLog(threadId)
+                    + ", artifactId=" + LogSanitizer.sanitizeForLog(artifactId)
+                    + ", artifactName=" + LogSanitizer.sanitizeForLog(artifactName) + ")",
+                exception);
+        }
+
+        taskArtifactService.record(threadId, userId, kind, artifactId, artifactName, null);
+    }
+}

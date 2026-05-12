@@ -138,4 +138,23 @@ public class RemoteActionDefinitionServiceClient extends AbstractWorkerClient im
     public boolean isDynamicOutputDefined(String componentName, int componentVersion, String actionName) {
         throw new UnsupportedOperationException();
     }
+
+    @Override
+    public boolean actionDefinesConnection(String componentName, int componentVersion, String actionName) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<String> getPropertyLookupDependsOn(
+        String componentName, int componentVersion, String actionName, String propertyName) {
+
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean propertyHasOptionsDataSource(
+        String componentName, int componentVersion, String actionName, String propertyName) {
+
+        throw new UnsupportedOperationException();
+    }
 }

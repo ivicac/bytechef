@@ -181,6 +181,25 @@ public class RemoteTriggerDefinitionServiceClient extends AbstractWorkerClient i
     }
 
     @Override
+    public boolean triggerDefinesConnection(String componentName, int componentVersion, String triggerName) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public List<String> getPropertyLookupDependsOn(
+        String componentName, int componentVersion, String triggerName, String propertyName) {
+
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public boolean propertyHasOptionsDataSource(
+        String componentName, int componentVersion, String triggerName, String propertyName) {
+
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public ProviderException executeProcessErrorResponse(
         String componentName, int componentVersion, int connectionVersion, String componentOperationName,
         int statusCode, Object body, Map<String, List<String>> headers) {

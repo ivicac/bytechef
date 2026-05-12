@@ -610,6 +610,7 @@ public class ApplicationProperties {
         private Copilot copilot = new Copilot();
         private Firecrawl firecrawl = new Firecrawl();
         private Gateway gateway = new Gateway();
+        private Hub hub = new Hub();
         private KnowledgeBase knowledgeBase = new KnowledgeBase();
         private Mcp mcp = new Mcp();
         private Memory memory = new Memory();
@@ -627,6 +628,10 @@ public class ApplicationProperties {
 
         public Gateway getGateway() {
             return gateway;
+        }
+
+        public Hub getHub() {
+            return hub;
         }
 
         public KnowledgeBase getKnowledgeBase() {
@@ -665,6 +670,10 @@ public class ApplicationProperties {
             this.gateway = gateway;
         }
 
+        public void setHub(Hub hub) {
+            this.hub = hub;
+        }
+
         public void setKnowledgeBase(KnowledgeBase knowledgeBase) {
             this.knowledgeBase = knowledgeBase;
         }
@@ -690,8 +699,8 @@ public class ApplicationProperties {
         }
 
         /**
-         * AI memory configuration. Cross-cutting concern shared by copilot and agents — not owned by any single product
-         * surface. Stores conversation history for chat-style interactions.
+         * AI memory configuration. Cross-cutting concern shared by copilot, agents, and hub surfaces — not owned by any
+         * single product surface. Stores conversation history for chat-style interactions.
          */
         public static class Memory {
 
