@@ -22,6 +22,7 @@ vi.mock('@assistant-ui/react', () => ({
     SimpleImageAttachmentAdapter: vi.fn(),
     SimpleTextAttachmentAdapter: vi.fn(),
     Suggestions: vi.fn(),
+    WebSpeechDictationAdapter: vi.fn(),
     useAui: vi.fn(() => ({})),
     useExternalStoreRuntime: vi.fn(() => ({})),
 }));

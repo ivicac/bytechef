@@ -13,12 +13,10 @@ export interface PendingApprovalI {
 interface ChatState {
     conversationId: string;
     messages: ThreadMessageLike[];
-    pendingApproval: PendingApprovalI | null;
     resumeUrl: string | null;
     setMessage: (message: ThreadMessageLike) => void;
     appendToLastAssistantMessage: (delta: string) => void;
     setLastAssistantMessageContent: (content: string) => void;
-    setPendingApproval: (pendingApproval: PendingApprovalI | null) => void;
     setResumeUrl: (resumeUrl: string | null) => void;
     resetMessages: () => void;
     reset: () => void;
@@ -33,7 +31,6 @@ const generateId = () =>
 const initialState = {
     conversationId: generateId(),
     messages: [] as ThreadMessageLike[],
-    pendingApproval: null as PendingApprovalI | null,
     resumeUrl: null as string | null,
 };
 
@@ -84,8 +81,7 @@ export const useChatStore = create<ChatState>((set) => ({
                 messages: [...messages, {content, role: 'assistant'} as ThreadMessageLike],
             };
         }),
-    setPendingApproval: (pendingApproval) => set({pendingApproval}),
     setResumeUrl: (resumeUrl) => set({resumeUrl}),
-    resetMessages: () => set({messages: [], pendingApproval: null, resumeUrl: null}),
+    resetMessages: () => set({messages: [], resumeUrl: null}),
     reset: () => set({...initialState, conversationId: generateId()}),
 }));
