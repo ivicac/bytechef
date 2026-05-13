@@ -643,6 +643,7 @@ const Property = ({
                                         optionsDataSource={optionsDataSource}
                                         optionsLoadedDynamically={optionsLoadedDynamically}
                                         path={calculatedPath}
+                                        propertyName={name}
                                         required={required}
                                         showInputTypeSwitchButton={isToolsClusterElement}
                                         value={fieldValue !== undefined ? fieldValue : selectValue}
@@ -835,6 +836,7 @@ const Property = ({
                             optionsDataSource={optionsDataSource}
                             optionsLoadedDynamically={optionsLoadedDynamically}
                             path={calculatedPath}
+                            propertyName={name}
                             required={required}
                             showInputTypeSwitchButton={showInputTypeSwitchButton}
                             value={selectValue}

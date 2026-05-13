@@ -61,6 +61,14 @@ interface PropertyComboBoxProps {
     optionsLoadedDynamically?: boolean;
     path?: string;
     placeholder?: string;
+    /**
+     * Leaf component-property name used by the cluster-element options query, distinct from {@link path} (form binding
+     * path) and {@link name} (form Controller name). Required when the form's {@code controlPath} includes prefixes
+     * that aren't part of the component's property tree — e.g. {@code "entityParameters.0"} in
+     * {@code AddContextSourceDialog}. Without this, the server's {@code getClusterElementProperty} lookup receives the
+     * full form path and fails with {@code No value present}.
+     */
+    propertyName?: string;
     required?: boolean;
     showInputTypeSwitchButton?: boolean;
     /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -87,6 +95,7 @@ const PropertyComboBox = ({
     optionsLoadedDynamically,
     path: initialPath,
     placeholder = 'Select...',
+    propertyName,
     required,
     showInputTypeSwitchButton,
     value: initialValue,
@@ -281,6 +290,11 @@ const PropertyComboBox = ({
         optionsDataSource,
     ]);
 
+    // propertyName for the server query is the cluster-element property's leaf name. Fall back to path/name only when
+    // an explicit propertyName isn't provided — those are form-binding paths, which can include controlPath prefixes
+    // (e.g. "entityParameters.0.baseId") that the server's getClusterElementProperty lookup rejects.
+    const clusterElementPropertyName = propertyName ?? path ?? name ?? '';
+
     const {data: clusterElementOptions, isLoading: isClusterElementOptionsLoading} = useClusterElementOptionsQuery(
         {
             clusterElementName: clusterElementContext?.clusterElementName || '',
@@ -289,7 +303,7 @@ const PropertyComboBox = ({
             connectionId: clusterElementContext?.connectionId,
             inputParameters: clusterElementInputParameters,
             lookupDependsOnPaths: lookupDependsOnPaths || [],
-            propertyName: path || name || '',
+            propertyName: clusterElementPropertyName,
         },
         {
             enabled: clusterElementContextQueryEnabled,
@@ -301,7 +315,7 @@ const PropertyComboBox = ({
                     componentVersion: clusterElementContext?.componentVersion,
                     connectionId: clusterElementContext?.connectionId,
                     lookupDependsOnValues: clusterElementLookupDependsOnValues,
-                    propertyName: path || name,
+                    propertyName: clusterElementPropertyName,
                 },
             ],
         }
