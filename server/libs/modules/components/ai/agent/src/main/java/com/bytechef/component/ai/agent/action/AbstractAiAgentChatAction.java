@@ -267,7 +267,7 @@ public abstract class AbstractAiAgentChatAction {
 
         ToolCallAdvisor.Builder<?> toolCallAdvisorBuilder = ToolCallAdvisor.builder()
             .toolCallingManager(new SuspendableToolCallingManager(toolCallingManager, (ActionContextAware) context))
-            .advisorOrder(BaseAdvisor.HIGHEST_PRECEDENCE + 300);
+            .advisorOrder(BaseAdvisor.DEFAULT_CHAT_MEMORY_PRECEDENCE_ORDER + 100);
 
         // memory
 
