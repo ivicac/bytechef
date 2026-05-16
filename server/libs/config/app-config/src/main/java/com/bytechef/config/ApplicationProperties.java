@@ -614,6 +614,7 @@ public class ApplicationProperties {
         private Mcp mcp = new Mcp();
         private Memory memory = new Memory();
         private Provider provider = new Provider();
+        private Stt stt = new Stt();
         private Vectorstore vectorstore = new Vectorstore();
 
         public Copilot getCopilot() {
@@ -642,6 +643,10 @@ public class ApplicationProperties {
 
         public Provider getProvider() {
             return provider;
+        }
+
+        public Stt getStt() {
+            return stt;
         }
 
         public Vectorstore getVectorstore() {
@@ -674,6 +679,10 @@ public class ApplicationProperties {
 
         public void setProvider(Provider provider) {
             this.provider = provider;
+        }
+
+        public void setStt(Stt stt) {
+            this.stt = stt;
         }
 
         public void setVectorstore(Vectorstore vectorstore) {
@@ -784,6 +793,113 @@ public class ApplicationProperties {
 
             public void setProvider(Provider provider) {
                 this.provider = provider;
+            }
+        }
+
+        /**
+         * Speech-to-text (STT) configuration. Selects the active transcription provider and holds per-provider endpoint
+         * overrides. Provider API keys are supplied per workflow connection, not here.
+         */
+        public static class Stt {
+
+            /**
+             * Active STT provider key, matched against {@code SttProvider.getKey()}.
+             */
+            private String provider = "OPENAI_GPT_4O_MINI_TRANSCRIBE";
+
+            private Openai openai = new Openai();
+
+            private Deepgram deepgram = new Deepgram();
+
+            private Elevenlabs elevenlabs = new Elevenlabs();
+
+            public String getProvider() {
+                return provider;
+            }
+
+            public void setProvider(String provider) {
+                this.provider = provider;
+            }
+
+            public Openai getOpenai() {
+                return openai;
+            }
+
+            public void setOpenai(Openai openai) {
+                this.openai = openai;
+            }
+
+            public Deepgram getDeepgram() {
+                return deepgram;
+            }
+
+            public void setDeepgram(Deepgram deepgram) {
+                this.deepgram = deepgram;
+            }
+
+            public Elevenlabs getElevenlabs() {
+                return elevenlabs;
+            }
+
+            public void setElevenlabs(Elevenlabs elevenlabs) {
+                this.elevenlabs = elevenlabs;
+            }
+
+            /**
+             * OpenAI STT endpoint configuration.
+             */
+            public static class Openai {
+
+                /**
+                 * OpenAI STT API base URL
+                 */
+                private String baseUrl = "https://api.openai.com";
+
+                public String getBaseUrl() {
+                    return baseUrl;
+                }
+
+                public void setBaseUrl(String baseUrl) {
+                    this.baseUrl = baseUrl;
+                }
+            }
+
+            /**
+             * Deepgram STT endpoint configuration.
+             */
+            public static class Deepgram {
+
+                /**
+                 * Deepgram STT API base URL
+                 */
+                private String baseUrl = "https://api.deepgram.com";
+
+                public String getBaseUrl() {
+                    return baseUrl;
+                }
+
+                public void setBaseUrl(String baseUrl) {
+                    this.baseUrl = baseUrl;
+                }
+            }
+
+            /**
+             * ElevenLabs STT endpoint configuration.
+             */
+            public static class Elevenlabs {
+
+                /**
+                 * ElevenLabs STT API base URL
+                 */
+                private String baseUrl = "https://api.elevenlabs.io";
+
+                public String getBaseUrl() {
+                    return baseUrl;
+                }
+
+                public void setBaseUrl(String baseUrl) {
+                    this.baseUrl = baseUrl;
+                }
             }
         }
 

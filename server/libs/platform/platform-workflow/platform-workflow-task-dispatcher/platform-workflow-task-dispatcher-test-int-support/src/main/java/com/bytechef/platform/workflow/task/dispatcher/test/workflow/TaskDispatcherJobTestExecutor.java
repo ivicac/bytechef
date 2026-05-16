@@ -106,7 +106,7 @@ public class TaskDispatcherJobTestExecutor {
             taskDispatcherResolverFactoriesFunction.apply(
                 createEventPublisher(asyncMessageBroker), contextService, counterService, taskExecutionService),
             taskExecutionService, taskExecutor, taskHandlerMapSupplier.get()::get, taskFileStorage, -1,
-            workflowService);
+            new com.bytechef.platform.job.sync.executor.WebSocketEmitterRegistry(), workflowService);
 
         Job job = jobSyncExecutor.execute(new JobParametersDTO(workflowId, inputs), true);
 

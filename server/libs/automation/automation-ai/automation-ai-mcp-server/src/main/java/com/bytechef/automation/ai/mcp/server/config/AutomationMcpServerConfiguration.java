@@ -131,6 +131,7 @@ public class AutomationMcpServerConfiguration {
         PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
         SubflowResolver subflowResolver, List<TaskDispatcherPreSendProcessor> taskDispatcherPreSendProcessors,
         TaskExecutionService taskExecutionService, TaskExecutor taskExecutor, TaskHandlerRegistry taskHandlerRegistry,
+        com.bytechef.platform.job.sync.executor.WebSocketEmitterRegistry webSocketEmitterRegistry,
         WorkflowService workflowService) {
 
         AsyncMessageBroker asyncMessageBroker = new AsyncMessageBroker(environment);
@@ -149,7 +150,8 @@ public class AutomationMcpServerConfiguration {
             getTaskDispatcherResolverFactories(
                 childJobPrincipalFactory, contextService, counterService, coordinatorEventPublisher, evaluator,
                 jobService, subflowResolver, taskExecutionService, taskFileStorage),
-            taskExecutionService, taskExecutor, taskHandlerRegistry, taskFileStorage, 300, workflowService);
+            taskExecutionService, taskExecutor, taskHandlerRegistry, taskFileStorage, 300,
+            webSocketEmitterRegistry, workflowService);
 
         return new AutomationMcpToolFacade(
             clusterElementDefinitionFacade, clusterElementDefinitionService, evaluator, jobSyncExecutor,

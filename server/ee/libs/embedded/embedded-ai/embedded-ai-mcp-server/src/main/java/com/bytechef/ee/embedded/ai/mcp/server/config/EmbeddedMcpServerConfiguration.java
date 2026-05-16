@@ -157,6 +157,7 @@ public class EmbeddedMcpServerConfiguration {
         PrincipalJobFacade principalJobFacade, SubflowResolver subflowResolver,
         List<TaskDispatcherPreSendProcessor> taskDispatcherPreSendProcessors,
         TaskExecutionService taskExecutionService, TaskExecutor taskExecutor, TaskHandlerRegistry taskHandlerRegistry,
+        com.bytechef.platform.job.sync.executor.WebSocketEmitterRegistry webSocketEmitterRegistry,
         WorkflowService workflowService) {
 
         AsyncMessageBroker asyncMessageBroker = new AsyncMessageBroker(environment);
@@ -175,7 +176,8 @@ public class EmbeddedMcpServerConfiguration {
             getTaskDispatcherResolverFactories(
                 childJobPrincipalFactory, contextService, counterService, coordinatorEventPublisher, evaluator,
                 jobService, subflowResolver, taskExecutionService, taskFileStorage),
-            taskExecutionService, taskExecutor, taskHandlerRegistry, taskFileStorage, TIMEOUT, workflowService);
+            taskExecutionService, taskExecutor, taskHandlerRegistry, taskFileStorage, TIMEOUT,
+            webSocketEmitterRegistry, workflowService);
 
         return new EmbeddedMcpToolFacade(
             clusterElementDefinitionFacade, clusterElementDefinitionService, connectedUserService,

@@ -27,6 +27,9 @@ bytechef:
         openai:
           options:
             model: text-embedding-3-small
+    stt:
+      # Speech-to-text provider. Per-provider base-url overrides via env, e.g. BYTECHEF_AI_STT_OPENAI_BASE_URL
+      provider: OPENAI_GPT_4O_MINI_TRANSCRIBE
     vectorstore:
       provider: pgvector
   analytics:

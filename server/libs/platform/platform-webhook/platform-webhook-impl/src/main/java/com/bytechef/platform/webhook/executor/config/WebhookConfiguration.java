@@ -96,6 +96,7 @@ public class WebhookConfiguration {
         SseStreamBridgeRegistry sseStreamBridgeRegistry, SubflowResolver subflowResolver,
         TaskExecutionService taskExecutionService, @Qualifier("taskExecutor") TaskExecutor taskExecutor,
         TaskHandlerRegistry taskHandlerRegistry,
+        com.bytechef.platform.job.sync.executor.WebSocketEmitterRegistry webSocketEmitterRegistry,
         WebhookWorkflowSyncExecutor triggerSyncExecutor, WorkflowService workflowService) {
 
         AsyncMessageBroker asyncMessageBroker = new AsyncMessageBroker(environment);
@@ -115,7 +116,8 @@ public class WebhookConfiguration {
                 getTaskDispatcherResolverFactories(
                     childJobPrincipalFactory, contextService, counterService, coordinatorEventPublisher, evaluator,
                     jobService, subflowResolver, taskExecutionService, taskFileStorage),
-                taskExecutionService, taskExecutor, taskHandlerRegistry, taskFileStorage, 300, workflowService),
+                taskExecutionService, taskExecutor, taskHandlerRegistry, taskFileStorage, 300,
+                webSocketEmitterRegistry, workflowService),
             principalJobFacade, sseStreamBridgeRegistry, triggerSyncExecutor, taskFileStorage);
     }
 

@@ -94,6 +94,7 @@ public class WorkflowSubflowSyncExecutorConfiguration {
         TaskFileStorage durableTaskFileStorage, Environment environment, Evaluator evaluator, JobService jobService,
         SubflowResolver subflowResolver, List<TaskDispatcherPreSendProcessor> taskDispatcherPreSendProcessors,
         TaskExecutionService taskExecutionService, TaskHandlerRegistry taskHandlerRegistry,
+        com.bytechef.platform.job.sync.executor.WebSocketEmitterRegistry webSocketEmitterRegistry,
         WorkflowService workflowService) {
 
         AsyncMessageBroker asyncMessageBroker = new AsyncMessageBroker(environment);
@@ -114,7 +115,8 @@ public class WorkflowSubflowSyncExecutorConfiguration {
             getTaskDispatcherResolverFactories(
                 childJobPrincipalFactory, contextService, counterService, coordinatorEventPublisher, evaluator,
                 jobService, subflowResolver, taskExecutionService, taskFileStorage),
-            taskExecutionService, taskExecutor, taskHandlerRegistry, taskFileStorage, 300, workflowService);
+            taskExecutionService, taskExecutor, taskHandlerRegistry, taskFileStorage, 300,
+            webSocketEmitterRegistry, workflowService);
 
         return (workflowUuid, triggerName, inputs, editorEnvironment) -> {
             Subflow subflow = subflowResolver.resolveSubflow(workflowUuid, triggerName, editorEnvironment);

@@ -117,7 +117,9 @@ public class WorkflowTestConfiguration {
         ComponentDefinitionService componentDefinitionService, Environment environment, Evaluator evaluator,
         ObjectMapper objectMapper, SubflowResolver subflowResolver,
         TaskDispatcherDefinitionService taskDispatcherDefinitionService, TaskExecutor taskExecutor,
-        TaskHandlerRegistry taskHandlerRegistry, WorkflowNodeOutputFacade workflowNodeOutputFacade,
+        TaskHandlerRegistry taskHandlerRegistry,
+        com.bytechef.platform.job.sync.executor.WebSocketEmitterRegistry webSocketEmitterRegistry,
+        WorkflowNodeOutputFacade workflowNodeOutputFacade,
         WorkflowService workflowService, WorkflowTestConfigurationService workflowTestConfigurationService) {
 
         ContextService contextService = new ContextServiceImpl(new InMemoryContextRepository());
@@ -149,7 +151,8 @@ public class WorkflowTestConfiguration {
                 getTaskDispatcherResolverFactories(
                     contextService, counterService, evaluator, coordinatorEventPublisher, jobService,
                     subflowResolver, taskExecutionService, taskFileStorage, workflowService),
-                taskExecutionService, taskExecutor, taskHandlerRegistry, taskFileStorage, 300, workflowService),
+                taskExecutionService, taskExecutor, taskHandlerRegistry, taskFileStorage, 300,
+                webSocketEmitterRegistry, workflowService),
             taskDispatcherDefinitionService, taskExecutionService, taskFileStorage, workflowService,
             workflowNodeOutputFacade, workflowTestConfigurationService);
     }
