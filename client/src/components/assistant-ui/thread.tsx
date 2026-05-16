@@ -41,6 +41,7 @@ import {
   ChevronRightIcon,
   CopyIcon,
   DownloadIcon,
+  MicOffIcon,
   MoreHorizontalIcon,
   PencilIcon,
   RefreshCwIcon,
@@ -54,16 +55,29 @@ export interface ThreadSuggestionI {
   title: string;
 }
 
+export interface ThreadVoiceStateI {
+  isAssistantSpeaking: boolean;
+  status: "idle" | "connecting" | "active" | "error";
+  stop: () => void;
+}
+
 interface ThreadPropsI {
   composerActions?: ReactNode;
   leadingComposerActions?: ReactNode;
   suggestions?: ThreadSuggestionI[];
+  /**
+   * When provided and `status` is "active" or "connecting", the composer is replaced by an inline
+   * voice status banner with a Stop button. The transport is owned by the caller — Thread does not
+   * start or wire any voice session itself.
+   */
+  voice?: ThreadVoiceStateI;
 }
 
 export const Thread: FC<ThreadPropsI> = ({
   composerActions,
   leadingComposerActions,
   suggestions,
+  voice,
 }) => {
   return (
     <ThreadPrimitive.Root
@@ -98,6 +112,7 @@ export const Thread: FC<ThreadPropsI> = ({
             <Composer
               composerActions={composerActions}
               leadingComposerActions={leadingComposerActions}
+              voice={voice}
             />
           </ThreadPrimitive.ViewportFooter>
         </div>
@@ -212,12 +227,18 @@ const ThreadSuggestionItem: FC = () => {
 interface ComposerPropsI {
   composerActions?: ReactNode;
   leadingComposerActions?: ReactNode;
+  voice?: ThreadVoiceStateI;
 }
 
 const Composer: FC<ComposerPropsI> = ({
   composerActions,
   leadingComposerActions,
+  voice,
 }) => {
+  if (voice && (voice.status === "active" || voice.status === "connecting")) {
+    return <VoiceComposer voice={voice} />;
+  }
+
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
       <ComposerPrimitive.AttachmentDropzone asChild>
@@ -240,6 +261,40 @@ const Composer: FC<ComposerPropsI> = ({
         </div>
       </ComposerPrimitive.AttachmentDropzone>
     </ComposerPrimitive.Root>
+  );
+};
+
+interface VoiceComposerPropsI {
+  voice: ThreadVoiceStateI;
+}
+
+const VoiceComposer: FC<VoiceComposerPropsI> = ({ voice }) => {
+  const status =
+    voice.status === "connecting"
+      ? "Connecting microphone…"
+      : voice.isAssistantSpeaking
+        ? "🔊 Assistant is speaking…"
+        : "🎙 Listening… click stop to end.";
+
+  return (
+    <div className="aui-voice-composer flex items-center justify-between gap-3 rounded-3xl border border-border bg-muted px-4 py-3 shadow-[0_9px_9px_0px_rgba(0,0,0,0.01),0_2px_5px_0px_rgba(0,0,0,0.06)] dark:border-muted-foreground/15">
+      <span className="aui-voice-composer-status text-sm text-muted-foreground">
+        {status}
+      </span>
+
+      <TooltipIconButton
+        tooltip="End voice session"
+        side="top"
+        type="button"
+        variant="default"
+        size="icon"
+        className="aui-voice-composer-stop size-8 rounded-full"
+        aria-label="End voice session"
+        onClick={voice.stop}
+      >
+        <MicOffIcon className="size-4" />
+      </TooltipIconButton>
+    </div>
   );
 };
 

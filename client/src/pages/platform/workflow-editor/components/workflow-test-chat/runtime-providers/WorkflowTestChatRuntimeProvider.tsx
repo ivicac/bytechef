@@ -8,6 +8,7 @@ import {
     AppendMessage,
     AssistantRuntimeProvider,
     CompositeAttachmentAdapter,
+    RealtimeVoiceAdapter,
     SimpleImageAttachmentAdapter,
     SimpleTextAttachmentAdapter,
     ThreadMessageLike,
@@ -22,8 +23,10 @@ const convertMessage = (message: ThreadMessageLike): ThreadMessageLike => {
 
 export function WorkflowTestChatRuntimeProvider({
     children,
+    voiceAdapter,
 }: Readonly<{
     children: ReactNode;
+    voiceAdapter?: RealtimeVoiceAdapter;
 }>) {
     const [isRunning, setIsRunning] = useState(false);
 
@@ -123,6 +126,7 @@ export function WorkflowTestChatRuntimeProvider({
                 new SimpleImageAttachmentAdapter(),
                 new SimpleTextAttachmentAdapter(),
             ]),
+            ...(voiceAdapter ? {voice: voiceAdapter} : {}),
         },
         convertMessage,
         isRunning,

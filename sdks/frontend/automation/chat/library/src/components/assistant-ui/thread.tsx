@@ -19,6 +19,7 @@ import {
 import { ToolFallback } from "@/components/assistant-ui/tool-fallback";
 import { TooltipIconButton } from "@/components/assistant-ui/tooltip-icon-button";
 import { Button } from "@/components/ui/button";
+import { useAutomationChatConfig } from "@/hooks/useAutomationChatConfig";
 import { cn } from "@/utils/cn";
 import {
   ActionBarMorePrimitive,
@@ -32,10 +33,12 @@ import {
   SuggestionPrimitive,
   ThreadPrimitive,
   useAuiState,
+  useComposerRuntime,
 } from "@assistant-ui/react";
 import {
   ArrowDownIcon,
   ArrowUpIcon,
+  AudioLinesIcon,
   CheckIcon,
   ChevronLeftIcon,
   ChevronRightIcon,
@@ -47,6 +50,9 @@ import {
   SquareIcon,
 } from "lucide-react";
 import type { FC } from "react";
+
+import { MicButton } from "../../lib/MicButton";
+import { usePushToTalk } from "../../lib/usePushToTalk";
 
 export const Thread: FC = () => {
   return (
@@ -178,9 +184,69 @@ const Composer: FC = () => {
 };
 
 const ComposerAction: FC = () => {
+  const { voice, voiceEnabled, webhookUrl } = useAutomationChatConfig();
+  const composerRuntime = useComposerRuntime();
+
+  const { start, status, stop } = usePushToTalk({
+    onTranscript: (text) => {
+      composerRuntime.setText(text);
+      composerRuntime.send();
+    },
+    transcribeUrl: `${webhookUrl}/transcribe`,
+  });
+
+  const handleMicClick = () => {
+    if (status === "recording") {
+      void stop();
+    } else {
+      void start();
+    }
+  };
+
   return (
     <div className="aui-composer-action-wrapper relative flex items-center justify-between">
-      <ComposerAddAttachment />
+      <div className="flex items-center gap-1">
+        <ComposerAddAttachment />
+
+        <MicButton
+          className="aui-composer-push-to-talk size-8 rounded-full"
+          onClick={handleMicClick}
+          status={status}
+        />
+
+        {voiceEnabled && voice && (
+          <TooltipIconButton
+            tooltip={
+              voice.status === "active" || voice.status === "connecting"
+                ? "Stop voice session"
+                : "Start voice session"
+            }
+            side="top"
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="aui-composer-voice size-8 rounded-full"
+            aria-label={
+              voice.status === "active" || voice.status === "connecting"
+                ? "Stop voice session"
+                : "Start voice session"
+            }
+            onClick={() => {
+              if (voice.status === "active" || voice.status === "connecting") {
+                voice.stop();
+              } else {
+                void voice.start();
+              }
+            }}
+          >
+            {voice.status === "active" || voice.status === "connecting" ? (
+              <SquareIcon className="size-4 fill-red-500 text-red-500" />
+            ) : (
+              <AudioLinesIcon className="size-4" />
+            )}
+          </TooltipIconButton>
+        )}
+      </div>
       <AuiIf condition={(s) => !s.thread.isRunning}>
         <ComposerPrimitive.Send asChild>
           <TooltipIconButton

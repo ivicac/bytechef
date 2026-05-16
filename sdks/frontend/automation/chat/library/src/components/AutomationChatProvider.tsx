@@ -12,6 +12,9 @@ import {useShallow} from 'zustand/shallow';
 
 import {useChatStore} from '@/stores/useChatStore';
 import {useSSE} from '@/hooks/useSSE';
+import {useAutomationChatVoiceSession} from '@/hooks/useAutomationChatVoiceSession';
+import {checkVoiceSupport} from '@/lib/BrowserVoiceSession';
+import {createWebhookVoiceAdapter} from '@/lib/ByteChefRealtimeVoiceAdapter';
 import {extractStreamChunk} from '@/utils/stream-utils';
 import {AutomationChatContext} from '@/hooks/useAutomationChatConfig';
 import type {AutomationChatConfig} from '@/types';
@@ -34,16 +37,36 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
     children,
     config,
 }: AutomationChatProviderProps) {
-    const {webhookUrl, title = 'Hello there!', description = 'How can I help you today?', suggestions} = config;
+    const {
+        chatMode = false,
+        description = 'How can I help you today?',
+        suggestions,
+        title = 'Hello there!',
+        voiceMode = false,
+        voiceWebhookUrl,
+        webhookUrl,
+    } = config;
 
-    const contextValue = useMemo(
-        () => ({
-            title,
-            description,
-            suggestions,
-        }),
-        [title, description, suggestions]
+    // checkVoiceSupport returns null when the browser meets every voice requirement (AudioContext,
+    // AudioWorklet, getUserMedia, WebSocket, secure context). When it returns a reason string we disable
+    // voice everywhere — the mic button hides, the voice context shape becomes undefined for the Thread.
+    // Customer pages embedding the widget on an unsupported browser get a clean text-only experience
+    // instead of a silent failure at first-click time.
+    const voiceUnsupportedReason = useMemo(() => checkVoiceSupport(), []);
+    const browserSupportsVoice = voiceUnsupportedReason === null;
+
+    const voiceEnabled = Boolean(voiceWebhookUrl) && browserSupportsVoice;
+
+    // When the workflow's trigger is `browser/v1/voiceSession`, the host app passes `config.voiceMode = true`.
+    // In that case we install the RealtimeVoiceAdapter on the runtime (deriving the token endpoint from
+    // webhookUrl) so that `VoiceModeLayout` can call `useVoiceControls` / `useVoiceState` inside the
+    // AssistantRuntimeProvider tree.
+    const realtimeVoiceAdapter = useMemo(
+        () => (voiceMode ? createWebhookVoiceAdapter(webhookUrl) : undefined),
+        [voiceMode, webhookUrl]
     );
+
+    // contextValue is built after the voice hook below so it can include the live voice controls
 
     // Automatically detect SSE mode based on URL ending
     const sseEnabled = webhookUrl.endsWith('/sse');
@@ -61,6 +84,45 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
             setLastAssistantMessageContent: state.setLastAssistantMessageContent,
             setMessage: state.setMessage,
         }))
+    );
+
+    const voice = useAutomationChatVoiceSession({
+        onEvent: (event) => {
+            if (event.type === 'transcript_final' && typeof event.text === 'string' && event.text.length > 0) {
+                setMessage({content: event.text, role: 'user'});
+            } else if (event.type === 'assistant_text' && typeof event.text === 'string') {
+                if (event.done) {
+                    return;
+                }
+
+                appendToLastAssistantMessage(event.text);
+            }
+        },
+        voiceWebhookUrl: voiceWebhookUrl ?? '',
+    });
+
+    // C3: cancel any in-flight SSE stream when voice goes active so the two transports cannot interleave
+    // assistant text into the same message. The SSE side is single-tracked via streamRequest — clearing
+    // it propagates through useSSE's effect cleanup.
+    useEffect(() => {
+        if (voice.status === 'active' || voice.status === 'connecting') {
+            setStreamRequest(null);
+            setIsRunning(false);
+        }
+    }, [voice.status]);
+
+    const contextValue = useMemo(
+        () => ({
+            chatMode,
+            description,
+            suggestions,
+            title,
+            voice: voiceEnabled ? voice : undefined,
+            voiceEnabled,
+            voiceMode,
+            webhookUrl,
+        }),
+        [chatMode, description, suggestions, title, voice, voiceEnabled, voiceMode, webhookUrl]
     );
 
     const handleError = useCallback(() => {
@@ -203,13 +265,14 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
             () => ({
                 adapters: {
                     attachments: attachmentAdapter,
+                    ...(realtimeVoiceAdapter ? {voice: realtimeVoiceAdapter} : {}),
                 },
                 convertMessage,
                 isRunning,
                 messages,
                 onNew,
             }),
-            [isRunning, messages, onNew]
+            [isRunning, messages, onNew, realtimeVoiceAdapter]
         )
     );
 
