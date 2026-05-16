@@ -8,11 +8,13 @@ import {
     AppendMessage,
     AssistantRuntimeProvider,
     CompositeAttachmentAdapter,
+    RealtimeVoiceAdapter,
     SimpleImageAttachmentAdapter,
     SimpleTextAttachmentAdapter,
     type SuggestionConfig,
     Suggestions,
     ThreadMessageLike,
+    WebSpeechDictationAdapter,
     useAui,
     useExternalStoreRuntime,
 } from '@assistant-ui/react';
@@ -32,8 +34,10 @@ const WORKFLOW_TEST_CHAT_SUGGESTIONS: SuggestionConfig[] = [
 
 export function WorkflowTestChatRuntimeProvider({
     children,
+    voiceAdapter,
 }: Readonly<{
     children: ReactNode;
+    voiceAdapter?: RealtimeVoiceAdapter;
 }>) {
     const [isRunning, setIsRunning] = useState(false);
 
@@ -133,6 +137,9 @@ export function WorkflowTestChatRuntimeProvider({
                 new SimpleImageAttachmentAdapter(),
                 new SimpleTextAttachmentAdapter(),
             ]),
+            // Browser-native dictation (Web Speech API); replaces the former push-to-talk /transcribe call.
+            dictation: new WebSpeechDictationAdapter(),
+            ...(voiceAdapter ? {voice: voiceAdapter} : {}),
         },
         convertMessage,
         isRunning,
