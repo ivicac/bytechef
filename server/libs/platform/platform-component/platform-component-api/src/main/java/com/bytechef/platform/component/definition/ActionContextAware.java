@@ -20,6 +20,7 @@ import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ClusterElementContext;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.constant.PlatformType;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -105,6 +106,21 @@ public interface ActionContextAware extends ActionContext, JobContextAware {
      */
     @Nullable
     Long getJobId();
+
+    /**
+     * Retrieves the parent Atlas Job's static metadata map. Phase 17b: surfaces the workflow-level metadata so actions
+     * can read platform-injected, trigger-time {@code JobParameter} overrides stored under the reserved
+     * {@code __jobParameters} key. The dataStream task action uses this to fold {@code datastream.mode} /
+     * {@code datastream.since} entries into Spring Batch's {@code JobParameters} at perform-time.
+     *
+     * <p>
+     * Returns an empty map (never null) when the parent job has no metadata, when the lookup is skipped (e.g.
+     * editor-environment runs with no persisted job), or when the action has no associated {@code jobId}.
+     * Implementations may load the job lazily — caching the map across calls within a single action invocation is
+     * permitted but not required.
+     * </p>
+     */
+    Map<String, Object> getJobMetadata();
 
     /**
      * Retrieves the platform type for the current context.

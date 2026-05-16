@@ -44,11 +44,14 @@ class WebSocketStreamTaskExecutionPostOutputProcessor implements TaskExecutionPo
         LoggerFactory.getLogger(WebSocketStreamTaskExecutionPostOutputProcessor.class);
 
     private final Cache<String, CopyOnWriteArrayList<SseStreamBridge>> sseStreamBridges;
+    private final WebSocketEmitterRegistry webSocketEmitterRegistry;
 
     WebSocketStreamTaskExecutionPostOutputProcessor(
-        Cache<String, CopyOnWriteArrayList<SseStreamBridge>> sseStreamBridges) {
+        Cache<String, CopyOnWriteArrayList<SseStreamBridge>> sseStreamBridges,
+        WebSocketEmitterRegistry webSocketEmitterRegistry) {
 
         this.sseStreamBridges = sseStreamBridges;
+        this.webSocketEmitterRegistry = webSocketEmitterRegistry;
     }
 
     @Override
@@ -58,10 +61,13 @@ class WebSocketStreamTaskExecutionPostOutputProcessor implements TaskExecutionPo
         }
 
         long jobId = Validate.notNull(taskExecution.getJobId(), "jobId");
+        String taskName = taskExecution.getName();
 
         String key = TenantCacheKeyUtils.getKey(jobId);
 
         WebSocketEmitter emitter = new WebSocketEmitter();
+
+        webSocketEmitterRegistry.register(jobId, taskName, emitter);
 
         emitter.addOutboundListener(payload -> {
             var bridges = sseStreamBridges.getIfPresent(key);
@@ -82,6 +88,12 @@ class WebSocketStreamTaskExecutionPostOutputProcessor implements TaskExecutionPo
         CountDownLatch latch = new CountDownLatch(1);
 
         emitter.addCompletionListener(() -> {
+            // Each task has its own emitter entry; unregisterAll fires when the LAST task in the chain
+            // completes. For Tier 1 we accept that one task completing tears down the whole job's chain —
+            // sub-workflows with multiple WS tasks are expected to complete together (their lifecycles are
+            // tied to the WS session). Per-task unregister would orphan downstream entries on early exit.
+            webSocketEmitterRegistry.unregisterAll(jobId);
+
             var bridges = sseStreamBridges.getIfPresent(key);
 
             if (bridges != null) {

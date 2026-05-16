@@ -33,7 +33,7 @@ import org.slf4j.LoggerFactory;
  * @author Ivica Cardic
  */
 @SuppressFBWarnings("EI_EXPOSE_REP2")
-class WebSocketEmitter implements WebSocketHandler.WebSocketEmitter {
+public class WebSocketEmitter implements WebSocketHandler.WebSocketEmitter {
 
     private static final Logger log = LoggerFactory.getLogger(WebSocketEmitter.class);
 
@@ -44,6 +44,8 @@ class WebSocketEmitter implements WebSocketHandler.WebSocketEmitter {
     private final CopyOnWriteArrayList<Consumer<Object>> messageListeners = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<Consumer<Object>> outboundListeners = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<Consumer<byte[]>> outboundBinaryListeners = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<Consumer<String>> outboundTurnCancelListeners = new CopyOnWriteArrayList<>();
+    private final CopyOnWriteArrayList<Consumer<String>> turnCancelListeners = new CopyOnWriteArrayList<>();
     private final CopyOnWriteArrayList<Runnable> timeoutListeners = new CopyOnWriteArrayList<>();
     private final @Nullable Long timeout;
 
@@ -51,11 +53,11 @@ class WebSocketEmitter implements WebSocketHandler.WebSocketEmitter {
     private volatile boolean errored;
     private volatile @Nullable Throwable lastError;
 
-    WebSocketEmitter() {
+    public WebSocketEmitter() {
         this.timeout = null;
     }
 
-    WebSocketEmitter(Long timeoutMillis) {
+    public WebSocketEmitter(Long timeoutMillis) {
         this.timeout = timeoutMillis;
     }
 
@@ -134,6 +136,20 @@ class WebSocketEmitter implements WebSocketHandler.WebSocketEmitter {
         }
 
         timeoutListeners.add(listener);
+    }
+
+    @Override
+    public void addTurnCancelListener(Consumer<String> turnCancelListener) {
+        turnCancelListeners.add(turnCancelListener);
+    }
+
+    /**
+     * Registers a listener for OUTBOUND turn-cancel propagation. The platform's WS handler chain wiring uses this to
+     * forward {@code cancelTurn} across emitter boundaries (so a cancel fired on one chain node propagates to the next
+     * node and back to the WS session).
+     */
+    public void addOutboundTurnCancelListener(Consumer<String> listener) {
+        outboundTurnCancelListeners.add(listener);
     }
 
     @Override
@@ -239,6 +255,32 @@ class WebSocketEmitter implements WebSocketHandler.WebSocketEmitter {
         for (var listener : outboundBinaryListeners) {
             try {
                 listener.accept(data);
+            } catch (Exception exception) {
+                if (log.isTraceEnabled()) {
+                    log.trace(exception.getMessage(), exception);
+                }
+            }
+        }
+    }
+
+    @Override
+    public void cancelTurn(String turnId) {
+        // First fire inbound listeners (the component running on this emitter, e.g. the streaming agent,
+        // aborts its in-flight work). Then fire outbound listeners (the platform chain wiring propagates
+        // the cancel to adjacent emitters and the WS session).
+        for (var listener : turnCancelListeners) {
+            try {
+                listener.accept(turnId);
+            } catch (Exception exception) {
+                if (log.isTraceEnabled()) {
+                    log.trace(exception.getMessage(), exception);
+                }
+            }
+        }
+
+        for (var listener : outboundTurnCancelListeners) {
+            try {
+                listener.accept(turnId);
             } catch (Exception exception) {
                 if (log.isTraceEnabled()) {
                     log.trace(exception.getMessage(), exception);

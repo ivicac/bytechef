@@ -21,6 +21,8 @@ import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.component.definition.TriggerDefinition.WebhookValidateResponse;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.constant.AiAgentSseEventType;
+import com.bytechef.platform.ai.stt.SttProvider.TranscriptResult;
+import com.bytechef.platform.ai.stt.service.TranscribeService;
 import com.bytechef.platform.component.domain.WebhookTriggerFlags;
 import com.bytechef.platform.component.trigger.WebhookRequest;
 import com.bytechef.platform.file.storage.TempFileStorage;
@@ -32,6 +34,7 @@ import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
@@ -46,9 +49,13 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMapAdapter;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
@@ -63,15 +70,17 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
 
     private static final Logger log = LoggerFactory.getLogger(WebhookTriggerController.class);
 
+    private final TranscribeService transcribeService;
     private final WebhookWorkflowExecutor webhookWorkflowExecutor;
 
     @SuppressFBWarnings("EI")
     public WebhookTriggerController(
         ApplicationProperties applicationProperties, TempFileStorage tempFileStorage,
-        WebhookWorkflowExecutor webhookWorkflowExecutor) {
+        TranscribeService transcribeService, WebhookWorkflowExecutor webhookWorkflowExecutor) {
 
         super(applicationProperties.getPublicUrl(), tempFileStorage, webhookWorkflowExecutor);
 
+        this.transcribeService = transcribeService;
         this.webhookWorkflowExecutor = webhookWorkflowExecutor;
     }
 
@@ -165,6 +174,51 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
             webhookWorkflowExecutor.stream(workflowExecutionId, webhookRequest, bridge);
 
             return emitter;
+        });
+    }
+
+    /**
+     * Transcribes audio uploaded via multipart/form-data. The webhookId is the same base64-encoded
+     * {@link WorkflowExecutionId} used by the other routes on this controller.
+     *
+     * @param webhookId the base64-encoded workflow execution identifier.
+     * @param audio     the audio part (max 25 MB).
+     * @param locale    optional BCP-47 locale hint (e.g. {@code "en"}).
+     * @return a {@link TranscribeResponse} with the transcript text, audio duration, and detected locale.
+     */
+    @SuppressFBWarnings("SPRING_CSRF_UNRESTRICTED_REQUEST_MAPPING")
+    @PostMapping("/webhooks/{webhookId}/transcribe")
+    public ResponseEntity<TranscribeResponse> transcribe(
+        @PathVariable String webhookId,
+        @RequestPart("audio") MultipartFile audio,
+        @RequestParam(name = "locale", required = false) String locale) throws IOException {
+
+        validateWebhookExists(webhookId);
+
+        if (audio.getSize() > 25 * 1024 * 1024) {
+            return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .build();
+        }
+
+        TranscriptResult result = transcribeService.transcribe(
+            audio.getInputStream(),
+            audio.getContentType() == null ? "audio/webm" : audio.getContentType(),
+            locale,
+            Map.of());
+
+        return ResponseEntity.ok(new TranscribeResponse(result.text(), result.durationMs(), result.detectedLocale()));
+    }
+
+    public record TranscribeResponse(String text, long durationMs, String locale) {
+    }
+
+    private void validateWebhookExists(String webhookId) {
+        WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.parse(webhookId);
+
+        TenantContext.runWithTenantId(workflowExecutionId.getTenantId(), () -> {
+            if (webhookWorkflowExecutor.isWorkflowDisabled(workflowExecutionId)) {
+                throw new IllegalStateException("Workflow is disabled.");
+            }
         });
     }
 

@@ -377,6 +377,33 @@ public interface ActionDefinition {
             void addTimeoutListener(Runnable timeoutListener);
 
             /**
+             * Registers a listener for turn-cancel events. Fires when {@link #cancelTurn(String)} is called or when the
+             * platform's WS handler propagates a cancellation from an adjacent chain node. Components are expected to
+             * abort in-flight work for the given turnId — close provider WS connections, drop queued audio/text, stop
+             * ongoing LLM streams.
+             *
+             * <p>
+             * Default implementation is a no-op so existing components keep compiling. Components that should
+             * participate in barge-in coordination (streaming agents, TTS) override and wire cancellation here.
+             *
+             * @param turnCancelListener consumer invoked with the cancelled turnId
+             */
+            default void addTurnCancelListener(Consumer<String> turnCancelListener) {
+            }
+
+            /**
+             * Signals that a turn was cancelled (typically due to user barge-in). The runtime propagates this across
+             * all emitters in the chain plus the WS session itself (which flushes any queued outbound audio bytes).
+             *
+             * <p>
+             * Default implementation is a no-op so emitter consumers that don't need cancellation keep compiling.
+             *
+             * @param turnId the turn to cancel
+             */
+            default void cancelTurn(String turnId) {
+            }
+
+            /**
              * Marks the WebSocket communication as completed.
              */
             void complete();
