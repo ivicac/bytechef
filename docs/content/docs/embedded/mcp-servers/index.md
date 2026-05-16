@@ -56,4 +56,4 @@ Use the left sidebar to filter the server list:
 
 ### Environment Selection
 
-Use the environment selector in the header to switch between environments. MCP server configurations are scoped per environment.
+Use the environment selector at the top of the page (or the global one in the left sidebar) to switch between environments. MCP server configurations are scoped per environment.

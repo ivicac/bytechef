@@ -7,6 +7,8 @@
     "---Getting Started---",
     "index",
     "quickstart",
+    "sample-app/index",
+    "...sample-app",
     "integrations/index",
     "...integrations",
     "configurations/index",
@@ -22,6 +24,8 @@
     "executions/index",
     "...executions",
     "connections/index",
-    "...connections"
+    "...connections",
+    "settings/index",
+    "...settings"
   ]
 }
