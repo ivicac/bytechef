@@ -1,0 +1,13 @@
+{
+  "pages": [
+    "flexible-deployment",
+    "rbac",
+    "sso",
+    "audit-log",
+    "data-retention",
+    "encrypted-credentials",
+    "connection-visibility",
+    "observability",
+    "license-gated-distribution"
+  ]
+}

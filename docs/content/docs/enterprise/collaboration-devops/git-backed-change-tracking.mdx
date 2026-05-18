@@ -1,0 +1,108 @@
+---
+title: "Git-Backed Change Tracking"
+description: "Workflows and code workflows live as files. Diff in pull requests, review in your existing PR process, roll back with git revert."
+---
+
+import {Callout} from "fumadocs-ui/components/callout";
+
+ByteChef workflows have a canonical file representation — JSON for visual workflows, source files for [code workflows](#code-workflows-coming-soon). That means everything you already do for software — branches, pull requests, code review, blame, revert — applies directly to your automation.
+
+## Workflows as files
+
+A visual workflow exports as a single JSON document. The JSON captures:
+
+- Tasks, their ordering, and their parameters.
+- Trigger configuration.
+- Connection references (by name, not by secret).
+- Input and output schemas.
+
+This file is the source of truth — the visual editor renders from it, and exporting from the editor produces it byte-for-byte. Two engineers building the same workflow in two different visual sessions produce identical JSON.
+
+## What Git gives you
+
+| Git operation | What it lets your team do |
+|---|---|
+| **Branch** | Work on a workflow change in isolation. |
+| **Pull request** | Review the workflow JSON diff in your normal PR tool. |
+| **Code review** | Engineers and PMs read the change side-by-side; comments, approvals, the works. |
+| **CI checks** | Lint the JSON, run validation tests, smoke-test the workflow in an ephemeral env. |
+| **Merge** | One source of truth lands on `main`. |
+| **`git revert`** | Roll the file back. Promote the resulting build to undo a deployment. |
+| **`git blame`** | See who introduced a specific task or expression and when. |
+| **`git log`** | Full history of the workflow's evolution. |
+
+## The promotion bridge
+
+Git becomes the source of truth; the ByteChef versioning model is the deployment mechanism:
+
+```
+Engineer edits in branch
+        │
+        ▼
+PR opened (diff reviewed)
+        │
+        ▼
+PR merged to main
+        │
+        ▼  (CI/CD)
+ByteChef import + publish → new version cut
+        │
+        ▼
+Promote to STAGING, then PRODUCTION
+```
+
+The CI step uses ByteChef's [embedded configuration API](/enterprise/embedded-ipaas/configuration-api) (also available for non-embedded deployments) to import the JSON, publish a version, and trigger promotion.
+
+## Two-way sync
+
+You can drive workflow evolution from either side:
+
+- **UI → Git.** Edit visually, export the JSON, commit. Best for prototyping and for teams whose primary builders are not developers.
+- **Git → UI.** Edit the JSON in your IDE, push, CI imports. Best for advanced changes, refactors, and when your CI policy requires a PR.
+
+In practice, most teams do both — prototypes in the UI, hardening in Git.
+
+## Code workflows (coming soon)
+
+<Callout type="info">
+  **Status: Coming soon.** Code workflows are on the near-term roadmap. The shape described here is the planned implementation.
+</Callout>
+
+The visual editor is the right tool for most workflows — explicit, reviewable, accessible to non-engineers. But there are cases where code is just *better*: the workflow is mostly data manipulation (the visual nodes would be a chain of `Map → Filter → Map → Filter`); a library you want already exists in Python or JavaScript and the visual nodes can't import it; the team owning the workflow lives in code and reviews everything via PRs anyway; the workflow is generated programmatically (templates, codegen).
+
+Code workflows are Python or JavaScript files that live in Git natively. There's no JSON intermediate — the file *is* the workflow.
+
+```
+my-project/
+├── workflows/
+│   ├── invoice-import.py        # Python workflow
+│   └── slack-digest.js          # JS workflow
+├── connections.yaml             # Declarative connection references
+└── README.md
+```
+
+Both languages run via [GraalVM polyglot](/enterprise/extensibility/polyglot-scripting), so they have access to the same connection types, helpers, and runtime context as visual workflows.
+
+**Lifecycle parity.** Code workflows participate in the same lifecycle as visual workflows: they publish into immutable [versions](/enterprise/collaboration-devops/workflow-versioning), promote across [environments](/enterprise/collaboration-devops/environments), generate [execution records](/enterprise/collaboration-devops/workflow-executions), appear in the [audit log](/enterprise/governance-security/audit-log), and can be exposed as [MCP tools](/enterprise/extensibility/mcp-integration). The difference is purely "where the source lives" — JSON in a database vs. files in a repo.
+
+**The Git-native loop.** Because the workflow *is* a file:
+
+```
+edit locally → commit → PR → review → merge → CI publishes new version → promote
+```
+
+There's no export/import step. The repository is the source of truth.
+
+**Mixing with visual workflows.** Code workflows and visual workflows coexist in the same project. A code workflow can call a visual workflow as a subflow and vice versa. Teams typically pick the medium per workflow, not per project.
+
+**When *not* to use code workflows.** The workflow needs frequent edits by non-engineers; the team values the visual explainability of the workflow for a less technical audience; the work is genuinely simple visual orchestration (don't reach for code if four visual nodes do the job).
+
+## Beyond rollback
+
+Once your workflows are in Git, you get a lot for free:
+
+- **`git bisect`** to find the change that introduced a regression.
+- **CODEOWNERS** to require a specific team's review for sensitive workflows.
+- **Required reviewers** for PRODUCTION-facing workflow changes.
+- **Cross-repo refactors** when a connection rename should propagate everywhere.
+- **Synced documentation** — keep workflow READMEs next to the JSON.

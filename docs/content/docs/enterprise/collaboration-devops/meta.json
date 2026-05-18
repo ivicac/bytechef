@@ -1,0 +1,10 @@
+{
+  "pages": [
+    "workspaces-projects",
+    "environments",
+    "workflow-versioning",
+    "build-once-deploy-many",
+    "workflow-executions",
+    "git-backed-change-tracking"
+  ]
+}

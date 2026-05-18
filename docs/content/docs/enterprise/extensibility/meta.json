@@ -1,0 +1,8 @@
+{
+  "pages": [
+    "custom-components",
+    "polyglot-scripting",
+    "built-in-components",
+    "mcp-integration"
+  ]
+}

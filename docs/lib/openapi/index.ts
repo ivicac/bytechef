@@ -1,8 +1,9 @@
 import { createOpenAPI } from 'fumadocs-openapi/server';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const SPECS_ROOT = path.resolve(
-  import.meta.dirname,
+  path.dirname(fileURLToPath(import.meta.url)),
   '../../../server/ee/libs',
 );
 

@@ -1,0 +1,9 @@
+{
+  "pages": [
+    "white-label-execution",
+    "configuration-api",
+    "permission-expressions",
+    "tenant-isolated-security",
+    "embedded-mcp"
+  ]
+}

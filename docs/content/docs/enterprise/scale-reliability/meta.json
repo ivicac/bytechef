@@ -1,0 +1,9 @@
+{
+  "pages": [
+    "distributed-scheduler",
+    "message-brokers",
+    "cloud-native-storage",
+    "multi-tenant-isolation",
+    "horizontal-scaling"
+  ]
+}
