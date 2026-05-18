@@ -2,6 +2,8 @@ import Button from '@/components/Button/Button';
 import {Thread} from '@/components/assistant-ui/thread';
 import {ToggleGroup, ToggleGroupItem} from '@/components/ui/toggle-group';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
+import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
+import ModelPicker from '@/shared/components/ai/model-picker/ModelPicker';
 import CopilotPanelBoundary from '@/shared/components/copilot/CopilotPanelBoundary';
 import {CopilotRuntimeProvider} from '@/shared/components/copilot/runtime-providers/CopilotRuntimeProvider';
 import useCopilotPanelStore from '@/shared/components/copilot/stores/useCopilotPanelStore';
@@ -23,14 +25,26 @@ interface CopilotPanelProps {
 }
 
 const CopilotPanelContent = ({className, headerClassName, onClose, source}: Omit<CopilotPanelProps, 'open'>) => {
-    const {context, generateConversationId, resetMessages, setContext} = useCopilotStore(
+    const {
+        context,
+        generateConversationId,
+        resetMessages,
+        selectedLlmModel,
+        selectedLlmProvider,
+        setContext,
+        setSelectedLlm,
+    } = useCopilotStore(
         useShallow((state) => ({
             context: state.context,
             generateConversationId: state.generateConversationId,
             resetMessages: state.resetMessages,
+            selectedLlmModel: state.selectedLlmModel,
+            selectedLlmProvider: state.selectedLlmProvider,
             setContext: state.setContext,
+            setSelectedLlm: state.setSelectedLlm,
         }))
     );
+    const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const setCopilotPanelOpen = useCopilotPanelStore((state) => state.setCopilotPanelOpen);
     const location = useLocation();
 
@@ -121,7 +135,28 @@ const CopilotPanelContent = ({className, headerClassName, onClose, source}: Omit
 
             <div className="absolute inset-x-0 top-16 bottom-0 -mx-1">
                 <CopilotRuntimeProvider source={source}>
-                    <Thread />
+                    {/*
+                     * Per-conversation LLM picker. Selection persists across messages in the same
+                     * conversation, resets when generateConversationId() fires (clean-messages or new
+                     * conversation). Hidden when no workspace is resolved yet — the picker's GraphQL
+                     * queries are workspace-scoped, so showing it before currentWorkspaceId is known
+                     * would render an empty list. Rendered inside Thread's composer footer (left of the
+                     * built-in attachment button) so the user picks a model at send time, not in the
+                     * panel header.
+                     */}
+
+                    <Thread
+                        leadingComposerActions={
+                            currentWorkspaceId != null ? (
+                                <ModelPicker
+                                    onChange={setSelectedLlm}
+                                    selectedModel={selectedLlmModel}
+                                    selectedProvider={selectedLlmProvider}
+                                    workspaceId={currentWorkspaceId}
+                                />
+                            ) : null
+                        }
+                    />
                 </CopilotRuntimeProvider>
             </div>
         </div>

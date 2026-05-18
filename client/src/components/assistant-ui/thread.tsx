@@ -63,6 +63,11 @@ export interface ThreadVoiceStateI {
 
 interface ThreadPropsI {
   composerActions?: ReactNode;
+  /**
+   * Controls rendered on the LEFT of the composer footer, before the built-in attachment button.
+   * Used by callers to surface inline message-scoped controls (e.g. the LLM provider/model picker
+   * that lives in the composer footer rather than the panel header).
+   */
   leadingComposerActions?: ReactNode;
   suggestions?: ThreadSuggestionI[];
   /**
