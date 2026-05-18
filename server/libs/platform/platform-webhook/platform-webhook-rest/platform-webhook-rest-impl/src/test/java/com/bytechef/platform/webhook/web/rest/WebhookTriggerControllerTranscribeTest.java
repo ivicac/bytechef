@@ -27,6 +27,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.file.storage.token.FileEntryTokens;
 import com.bytechef.platform.ai.stt.SttProvider.TranscriptResult;
 import com.bytechef.platform.ai.stt.service.TranscribeService;
 import com.bytechef.platform.component.service.TriggerDefinitionService;
@@ -55,6 +56,7 @@ class WebhookTriggerControllerTranscribeTest {
     @BeforeEach
     void setUp() {
         ApplicationProperties applicationProperties = mock(ApplicationProperties.class);
+        FileEntryTokens fileEntryTokens = mock(FileEntryTokens.class);
         JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry = mock(JobPrincipalAccessorRegistry.class);
         TempFileStorage tempFileStorage = mock(TempFileStorage.class);
         TriggerDefinitionService triggerDefinitionService = mock(TriggerDefinitionService.class);
@@ -68,7 +70,7 @@ class WebhookTriggerControllerTranscribeTest {
         when(jobPrincipalAccessor.isWorkflowEnabled(anyLong(), anyString())).thenReturn(true);
 
         WebhookTriggerController controller = new WebhookTriggerController(
-            applicationProperties, jobPrincipalAccessorRegistry, tempFileStorage, transcribeService,
+            applicationProperties, fileEntryTokens, jobPrincipalAccessorRegistry, tempFileStorage, transcribeService,
             triggerDefinitionService, webhookFacade, webhookWorkflowExecutor,
             mock(com.bytechef.atlas.configuration.service.WorkflowService.class));
 

@@ -22,6 +22,7 @@ import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollection
 import com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollectionEndpoint.HttpMethod;
 import com.bytechef.ee.automation.apiplatform.configuration.service.ApiCollectionEndpointService;
 import com.bytechef.ee.automation.apiplatform.configuration.service.ApiCollectionService;
+import com.bytechef.file.storage.token.FileEntryTokens;
 import com.bytechef.platform.component.domain.WebhookTriggerFlags;
 import com.bytechef.platform.component.service.TriggerDefinitionService;
 import com.bytechef.platform.component.trigger.WebhookRequest;
@@ -83,7 +84,8 @@ public class ApiPlatformHandlerController extends AbstractWebhookTriggerControll
     @SuppressFBWarnings("EI")
     public ApiPlatformHandlerController(
         ApiCollectionService apiCollectionService, ApiCollectionEndpointService apiCollectionEndpointService,
-        ApplicationProperties applicationProperties, JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry,
+        ApplicationProperties applicationProperties, FileEntryTokens fileEntryTokens,
+        JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry,
         ProjectDeploymentService projectDeploymentService,
         ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
         ProjectWorkflowService projectWorkflowService, TempFileStorage tempFileStorage,
@@ -91,7 +93,7 @@ public class ApiPlatformHandlerController extends AbstractWebhookTriggerControll
         WorkflowService workflowService) {
 
         super(
-            jobPrincipalAccessorRegistry, applicationProperties.getPublicUrl(), tempFileStorage,
+            fileEntryTokens, jobPrincipalAccessorRegistry, applicationProperties.getPublicUrl(), tempFileStorage,
             triggerDefinitionService, webhookWorkflowExecutor, workflowService);
 
         this.apiCollectionService = apiCollectionService;

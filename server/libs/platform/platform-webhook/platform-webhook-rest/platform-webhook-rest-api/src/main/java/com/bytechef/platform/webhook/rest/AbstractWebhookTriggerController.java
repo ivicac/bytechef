@@ -22,6 +22,7 @@ import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.definition.ActionDefinition.WebhookResponse;
 import com.bytechef.component.definition.TriggerDefinition;
 import com.bytechef.file.storage.domain.FileEntry;
+import com.bytechef.file.storage.token.FileEntryTokens;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.domain.WebhookTriggerFlags;
 import com.bytechef.platform.component.service.TriggerDefinitionService;
@@ -67,6 +68,7 @@ public abstract class AbstractWebhookTriggerController {
 
     private static final Logger log = LoggerFactory.getLogger(AbstractWebhookTriggerController.class);
 
+    private final FileEntryTokens fileEntryTokens;
     private final JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry;
     private String publicUrl;
     private final TempFileStorage tempFileStorage;
@@ -75,9 +77,11 @@ public abstract class AbstractWebhookTriggerController {
     private final WorkflowService workflowService;
 
     protected AbstractWebhookTriggerController(
-        JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry, TempFileStorage tempFileStorage,
-        TriggerDefinitionService triggerDefinitionService, WorkflowService workflowService) {
+        FileEntryTokens fileEntryTokens, JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry,
+        TempFileStorage tempFileStorage, TriggerDefinitionService triggerDefinitionService,
+        WorkflowService workflowService) {
 
+        this.fileEntryTokens = fileEntryTokens;
         this.jobPrincipalAccessorRegistry = jobPrincipalAccessorRegistry;
         this.tempFileStorage = tempFileStorage;
         this.triggerDefinitionService = triggerDefinitionService;
@@ -85,10 +89,11 @@ public abstract class AbstractWebhookTriggerController {
     }
 
     protected AbstractWebhookTriggerController(
-        JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry, String publicUrl, TempFileStorage tempFileStorage,
-        TriggerDefinitionService triggerDefinitionService, WebhookWorkflowExecutor webhookWorkflowExecutor,
-        WorkflowService workflowService) {
+        FileEntryTokens fileEntryTokens, JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry, String publicUrl,
+        TempFileStorage tempFileStorage, TriggerDefinitionService triggerDefinitionService,
+        WebhookWorkflowExecutor webhookWorkflowExecutor, WorkflowService workflowService) {
 
+        this.fileEntryTokens = fileEntryTokens;
         this.jobPrincipalAccessorRegistry = jobPrincipalAccessorRegistry;
         this.publicUrl = publicUrl;
         this.tempFileStorage = tempFileStorage;
@@ -174,10 +179,12 @@ public abstract class AbstractWebhookTriggerController {
     }
 
     @SuppressWarnings("unchecked")
-    private String convertToFileEntryUrl(Map<?, ?> map) {
+    String convertToFileEntryUrl(Map<?, ?> map) {
         FileEntry fileEntry = new FileEntry((Map<String, ?>) map);
+        String tokenOrId = fileEntryTokens.toSignedTokenIfConfigured(fileEntry)
+            .orElseGet(fileEntry::toId);
 
-        return publicUrl + "/file-entries/%s/content".formatted(fileEntry.toId());
+        return publicUrl + "/file-entries/%s/content".formatted(tokenOrId);
     }
 
     private WorkflowNodeType getComponentOperation(WorkflowExecutionId workflowExecutionId) {

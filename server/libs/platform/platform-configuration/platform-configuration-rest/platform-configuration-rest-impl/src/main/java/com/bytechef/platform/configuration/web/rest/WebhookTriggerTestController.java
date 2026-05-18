@@ -19,6 +19,7 @@ package com.bytechef.platform.configuration.web.rest;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.component.definition.TriggerDefinition.WebhookValidateResponse;
+import com.bytechef.file.storage.token.FileEntryTokens;
 import com.bytechef.platform.component.domain.WebhookTriggerFlags;
 import com.bytechef.platform.component.service.TriggerDefinitionService;
 import com.bytechef.platform.component.trigger.WebhookRequest;
@@ -57,11 +58,13 @@ public class WebhookTriggerTestController extends AbstractWebhookTriggerControll
     private final WorkflowNodeTestOutputFacade workflowNodeTestOutputFacade;
 
     public WebhookTriggerTestController(
-        TriggerDefinitionService triggerDefinitionService, JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry,
+        FileEntryTokens fileEntryTokens, TriggerDefinitionService triggerDefinitionService,
+        JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry,
         WebhookTriggerTestFacade webhookTriggerTestFacade, WorkflowNodeTestOutputFacade workflowNodeTestOutputFacade,
         WorkflowService workflowService) {
 
-        super(jobPrincipalAccessorRegistry, new TempFileStorageImpl(), triggerDefinitionService, workflowService);
+        super(fileEntryTokens, jobPrincipalAccessorRegistry, new TempFileStorageImpl(), triggerDefinitionService,
+            workflowService);
 
         this.webhookTriggerTestFacade = webhookTriggerTestFacade;
         this.workflowNodeTestOutputFacade = workflowNodeTestOutputFacade;

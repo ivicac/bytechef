@@ -21,6 +21,7 @@ import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.component.definition.TriggerDefinition.WebhookValidateResponse;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.file.storage.token.FileEntryTokens;
 import com.bytechef.platform.ai.constant.AiAgentSseEventType;
 import com.bytechef.platform.ai.stt.SttProvider.TranscriptResult;
 import com.bytechef.platform.ai.stt.service.TranscribeService;
@@ -80,14 +81,14 @@ public class WebhookTriggerController extends AbstractWebhookTriggerController {
 
     @SuppressFBWarnings("EI")
     public WebhookTriggerController(
-        ApplicationProperties applicationProperties, JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry,
-        TempFileStorage tempFileStorage, TranscribeService transcribeService,
-        TriggerDefinitionService triggerDefinitionService,
+        ApplicationProperties applicationProperties, FileEntryTokens fileEntryTokens,
+        JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry, TempFileStorage tempFileStorage,
+        TranscribeService transcribeService, TriggerDefinitionService triggerDefinitionService,
         WebhookWorkflowExecutionFacade webhookFacade, WebhookWorkflowExecutor webhookWorkflowExecutor,
         WorkflowService workflowService) {
 
         super(
-            jobPrincipalAccessorRegistry, applicationProperties.getPublicUrl(), tempFileStorage,
+            fileEntryTokens, jobPrincipalAccessorRegistry, applicationProperties.getPublicUrl(), tempFileStorage,
             triggerDefinitionService, webhookWorkflowExecutor, workflowService);
 
         this.transcribeService = transcribeService;
