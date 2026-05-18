@@ -24,6 +24,7 @@ import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.ee.embedded.webhook.public_.web.rest.converter.CaseInsensitiveEnumPropertyEditorSupport;
 import com.bytechef.ee.embedded.webhook.public_.web.rest.model.EnvironmentModel;
+import com.bytechef.file.storage.token.FileEntryTokens;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
@@ -84,14 +85,14 @@ public class RequestTriggerApiController extends AbstractWebhookTriggerControlle
         ApplicationProperties applicationProperties,
         ConnectedUserWorkflowReferenceFacade connectedUserWorkflowReferenceFacade,
         ConnectedUserService connectedUserService,
-        EnvironmentService environmentService,
+        EnvironmentService environmentService, FileEntryTokens fileEntryTokens,
         HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse,
         ProjectDeploymentService projectDeploymentService, TempFileStorage tempFileStorage,
         WebhookWorkflowExecutor webhookWorkflowExecutor, IntegrationInstanceService integrationInstanceService,
         IntegrationWorkflowService integrationWorkflowService, ProjectWorkflowService projectWorkflowService,
         WorkflowService workflowService) {
 
-        super(applicationProperties.getPublicUrl(), tempFileStorage, webhookWorkflowExecutor);
+        super(fileEntryTokens, applicationProperties.getPublicUrl(), tempFileStorage, webhookWorkflowExecutor);
 
         this.connectedUserWorkflowReferenceFacade = connectedUserWorkflowReferenceFacade;
         this.connectedUserService = connectedUserService;
