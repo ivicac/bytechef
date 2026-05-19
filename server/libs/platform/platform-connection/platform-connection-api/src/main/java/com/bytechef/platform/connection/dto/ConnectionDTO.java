@@ -17,9 +17,10 @@
 package com.bytechef.platform.connection.dto;
 
 import com.bytechef.component.definition.Authorization.AuthorizationType;
-import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.domain.Connection.CredentialStatus;
+import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.domain.ConnectionStatus;
+import com.bytechef.platform.credential.store.CredentialStoreType;
 import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.platform.tag.domain.Tag;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -36,9 +37,9 @@ import org.jspecify.annotations.Nullable;
 public record ConnectionDTO(
     boolean active, @Nullable AuthorizationType authorizationType, Map<String, ?> authorizationParameters,
     String baseUri, String componentName, Map<String, ?> connectionParameters, int connectionVersion, String createdBy,
-    Instant createdDate, CredentialStatus credentialStatus, int environmentId, Long id, String lastModifiedBy,
-    Instant lastModifiedDate, String name, Map<String, ?> parameters, ConnectionStatus status, List<Tag> tags,
-    int version, ResourceVisibility visibility) {
+    Instant createdDate, CredentialStatus credentialStatus, @Nullable CredentialStoreType credentialStoreType,
+    int environmentId, Long id, String lastModifiedBy, Instant lastModifiedDate, String name, Map<String, ?> parameters,
+    ConnectionStatus status, List<Tag> tags, int version, ResourceVisibility visibility) {
 
     public ConnectionDTO {
         Objects.requireNonNull(status, "status");
@@ -51,8 +52,8 @@ public record ConnectionDTO(
         this(
             active, connection.getAuthorizationType(), authorizationParameters, baseUri, connection.getComponentName(),
             connectionParameters, connection.getConnectionVersion(), connection.getCreatedBy(),
-            connection.getCreatedDate(), connection.getCredentialStatus(), connection.getEnvironmentId(),
-            connection.getId(), connection.getLastModifiedBy(),
+            connection.getCreatedDate(), connection.getCredentialStatus(), connection.getCredentialStoreType(),
+            connection.getEnvironmentId(), connection.getId(), connection.getLastModifiedBy(),
             connection.getLastModifiedDate(), connection.getName(), connection.getParameters(),
             connection.getStatus(), tags, connection.getVersion(), connection.getVisibility());
     }
@@ -63,6 +64,10 @@ public record ConnectionDTO(
         connection.setAuthorizationType(authorizationType);
         connection.setComponentName(componentName);
         connection.setConnectionVersion(connectionVersion);
+
+        if (credentialStoreType != null) {
+            connection.setCredentialStoreType(credentialStoreType);
+        }
 
         connection.setEnvironmentId(environmentId);
         connection.setId(id);
@@ -117,6 +122,7 @@ public record ConnectionDTO(
         private String createdBy;
         private Instant createdDate;
         private CredentialStatus credentialStatus;
+        private CredentialStoreType credentialStoreType;
         private int environmentId;
         private Long id;
         private String lastModifiedBy;
@@ -191,6 +197,12 @@ public record ConnectionDTO(
             return this;
         }
 
+        public Builder credentialStoreType(CredentialStoreType credentialStoreType) {
+            this.credentialStoreType = credentialStoreType;
+
+            return this;
+        }
+
         public Builder environmentId(int environmentId) {
             this.environmentId = environmentId;
 
@@ -254,8 +266,8 @@ public record ConnectionDTO(
         public ConnectionDTO build() {
             return new ConnectionDTO(
                 active, authorizationType, authorizationParameters, baseUri, componentName, connectionParameters,
-                connectionVersion, createdBy, createdDate, credentialStatus, environmentId, id, lastModifiedBy,
-                lastModifiedDate, name, parameters, status, tags, version, visibility);
+                connectionVersion, createdBy, createdDate, credentialStatus, credentialStoreType, environmentId, id,
+                lastModifiedBy, lastModifiedDate, name, parameters, status, tags, version, visibility);
         }
     }
 }
