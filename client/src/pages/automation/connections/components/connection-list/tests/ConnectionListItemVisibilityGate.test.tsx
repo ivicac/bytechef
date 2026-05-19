@@ -26,10 +26,18 @@ vi.mock('@/shared/mutations/automation/connectionTags.mutations', () => ({
     useUpdateConnectionTagsMutation: () => ({mutate: vi.fn()}),
 }));
 
-vi.mock('@/shared/middleware/graphql', () => ({
-    useDemoteConnectionToPrivateMutation: () => ({isPending: false, mutate: vi.fn()}),
-    usePromoteConnectionToWorkspaceMutation: () => ({mutate: vi.fn()}),
-}));
+// Partial mock: ConnectionListItem transitively imports connectionCredentialStoreLabels, which reads the real
+// ConnectionCredentialStoreType enum at module-load time. importOriginal keeps that enum while we override the
+// two mutation hooks the gate test exercises.
+vi.mock('@/shared/middleware/graphql', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@/shared/middleware/graphql')>();
+
+    return {
+        ...actual,
+        useDemoteConnectionToPrivateMutation: () => ({isPending: false, mutate: vi.fn()}),
+        usePromoteConnectionToWorkspaceMutation: () => ({mutate: vi.fn()}),
+    };
+});
 
 vi.mock('@/shared/queries/automation/connections.queries', () => ({
     ConnectionKeys: {connectionTags: ['connection-tags'], connections: ['connections']},
