@@ -31,5 +31,6 @@ public interface ConnectionMapper extends Converter<ConnectionDTO, ConnectionMod
     @InheritInverseConfiguration
     @DelegatingConverter
     @Mapping(target = "status", ignore = true)
+    @Mapping(target = "visibility", ignore = true)
     ConnectionDTO invertConvert(ConnectionModel connectionModel);
 }

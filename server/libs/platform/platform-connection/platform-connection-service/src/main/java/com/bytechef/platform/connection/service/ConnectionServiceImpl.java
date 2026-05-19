@@ -27,9 +27,13 @@ import com.bytechef.platform.connection.domain.ConnectionStatus;
 import com.bytechef.platform.connection.exception.ConnectionErrorType;
 import com.bytechef.platform.connection.repository.ConnectionRepository;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.credential.store.CredentialStore;
+import com.bytechef.platform.credential.store.CredentialStoreType;
+import com.bytechef.platform.credential.store.exception.ReadOnlyCredentialStoreException;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.platform.security.util.SecurityUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -53,9 +57,12 @@ import org.springframework.util.Assert;
 public class ConnectionServiceImpl implements ConnectionService {
     private static final Logger log = LoggerFactory.getLogger(ConnectionServiceImpl.class);
 
+    private final List<CredentialStore> credentialStores;
     private final ConnectionRepository connectionRepository;
 
-    public ConnectionServiceImpl(ConnectionRepository connectionRepository) {
+    @SuppressFBWarnings("EI2")
+    public ConnectionServiceImpl(List<CredentialStore> credentialStores, ConnectionRepository connectionRepository) {
+        this.credentialStores = credentialStores;
         this.connectionRepository = connectionRepository;
     }
 
@@ -66,7 +73,19 @@ public class ConnectionServiceImpl implements ConnectionService {
         Assert.hasText(connection.getName(), "'name' must not be empty");
         Assert.isTrue(connection.getId() == null, "'id' must be null");
 
-        return connectionRepository.save(connection);
+        CredentialStore store = getStore(connection.getCredentialStoreType());
+
+        if (store.isReadOnly()) {
+            throw new ReadOnlyCredentialStoreException(store.getType());
+        }
+
+        Map<String, ?> parameters = connection.getParameters();
+
+        store.storeSecret(connection, parameters);
+
+        Connection saved = connectionRepository.save(connection);
+
+        return populateParameters(saved);
     }
 
     @Override
@@ -102,13 +121,22 @@ public class ConnectionServiceImpl implements ConnectionService {
 
         validateOwnerOrAdmin(connection);
 
+        CredentialStore store = getStore(connection.getCredentialStoreType());
+
+        if (!store.isReadOnly()) {
+            store.deleteSecret(connection);
+        }
+        // When the active store is read-only, the connection row is deleted but the external secret is left intact.
+        // The operator owns the vault lifecycle; documented behavior.
+
         connectionRepository.delete(connection);
     }
 
     @Override
     @Transactional(readOnly = true)
     public Connection getConnection(long id) {
-        return OptionalUtils.get(connectionRepository.findById(id), "Connection does not exist for id=" + id);
+        return populateParameters(
+            OptionalUtils.get(connectionRepository.findById(id), "Connection does not exist for id=" + id));
     }
 
     @Override
@@ -127,8 +155,9 @@ public class ConnectionServiceImpl implements ConnectionService {
     @Override
     @Transactional(readOnly = true)
     public List<Connection> getConnections(PlatformType type) {
-        return CollectionUtils.filter(
-            connectionRepository.findAll(Sort.by("name", "id")), connection -> connection.getType() == type);
+        return populateAll(
+            CollectionUtils.filter(
+                connectionRepository.findAll(Sort.by("name", "id")), connection -> connection.getType() == type));
     }
 
     @Override
@@ -140,8 +169,9 @@ public class ConnectionServiceImpl implements ConnectionService {
     @Override
     @Transactional(readOnly = true)
     public List<Connection> getConnections(String componentName, int version, PlatformType type) {
-        return connectionRepository.findAllByComponentNameAndConnectionVersionAndTypeOrderByName(
-            componentName, version, type.ordinal());
+        return populateAll(
+            connectionRepository.findAllByComponentNameAndConnectionVersionAndTypeOrderByName(
+                componentName, version, type.ordinal()));
     }
 
     @Override
@@ -178,12 +208,33 @@ public class ConnectionServiceImpl implements ConnectionService {
                 .toList();
         }
 
-        return CollectionUtils.toList(connections);
+        return populateAll(CollectionUtils.toList(connections));
     }
 
     @Override
     public List<Connection> getConnections(List<Long> connectionIds) {
-        return connectionRepository.findAllByIdIn(connectionIds);
+        return populateAll(connectionRepository.findAllByIdIn(connectionIds));
+    }
+
+    @Override
+    public Connection registerExisting(
+        Connection connection, CredentialStoreType storeType, String credentialRef) {
+
+        Assert.notNull(connection, "'connection' must not be null");
+        Assert.notNull(storeType, "'storeType' must not be null");
+        Assert.isTrue(storeType != CredentialStoreType.DATABASE, "registerExisting requires an external store");
+        Assert.hasText(credentialRef, "'credentialRef' must not be empty");
+
+        CredentialStore store = getStore(storeType);
+
+        connection.setCredentialStoreType(storeType);
+        connection.setCredentialRef(credentialRef);
+        connection.setParameters(Map.of());
+
+        // Probe existence — fail-fast if the secret doesn't actually exist in the external store.
+        store.getSecret(connection);
+
+        return connectionRepository.save(connection);
     }
 
     @Override
@@ -194,7 +245,13 @@ public class ConnectionServiceImpl implements ConnectionService {
 
         connection.setTagIds(tagIds);
 
-        return connectionRepository.save(connection);
+        // Clear the in-memory populated parameters before saving so that external-store rows
+        // (credentialStoreType != DATABASE) do not write the secret back into the inline column.
+        if (connection.getCredentialStoreType() != CredentialStoreType.DATABASE) {
+            connection.setParameters(Map.of());
+        }
+
+        return populateParameters(connectionRepository.save(connection));
     }
 
     @Override
@@ -213,7 +270,13 @@ public class ConnectionServiceImpl implements ConnectionService {
 
         curConnection.setVersion(version);
 
-        return connectionRepository.save(curConnection);
+        // Clear the in-memory populated parameters before saving so that external-store rows
+        // (credentialStoreType != DATABASE) do not write the secret back into the inline column.
+        if (curConnection.getCredentialStoreType() != CredentialStoreType.DATABASE) {
+            curConnection.setParameters(Map.of());
+        }
+
+        return populateParameters(connectionRepository.save(curConnection));
     }
 
     @Override
@@ -226,11 +289,17 @@ public class ConnectionServiceImpl implements ConnectionService {
 
         connection.setCredentialStatus(status);
 
+        // Clear the in-memory populated parameters before saving so that external-store rows
+        // (credentialStoreType != DATABASE) do not write the secret back into the inline column.
+        if (connection.getCredentialStoreType() != CredentialStoreType.DATABASE) {
+            connection.setParameters(Map.of());
+        }
+
         Connection updatedConnection = connectionRepository.save(connection);
 
         updatedConnection.setCredentialsStatusUpdated();
 
-        return updatedConnection;
+        return populateParameters(updatedConnection);
     }
 
     @Override
@@ -285,6 +354,11 @@ public class ConnectionServiceImpl implements ConnectionService {
         Assert.notNull(parameters, "'parameters' must not be null");
 
         Connection connection = getConnection(connectionId);
+        CredentialStore store = getStore(connection.getCredentialStoreType());
+
+        if (store.isReadOnly()) {
+            throw new ReadOnlyCredentialStoreException(store.getType());
+        }
 
         validateOwnerOrAdmin(connection);
 
@@ -292,7 +366,7 @@ public class ConnectionServiceImpl implements ConnectionService {
             log.trace("New....: {}", FormatUtils.toString(parameters));
         }
 
-        Map<String, Object> curParameters = new HashMap<>(connection.getParameters());
+        Map<String, Object> curParameters = new HashMap<>(store.getSecret(connection));
 
         if (log.isTraceEnabled()) {
             log.trace("Current: {}", FormatUtils.toString(curParameters));
@@ -300,13 +374,13 @@ public class ConnectionServiceImpl implements ConnectionService {
 
         curParameters.putAll(parameters);
 
-        connection.setParameters(curParameters);
+        store.storeSecret(connection, curParameters);
 
         if (log.isTraceEnabled()) {
             log.trace("Saved..: {}", FormatUtils.toString(curParameters));
         }
 
-        return connectionRepository.save(connection);
+        return populateParameters(connectionRepository.save(connection));
     }
 
     @Override
@@ -355,6 +429,29 @@ public class ConnectionServiceImpl implements ConnectionService {
             "Workflow execution blocked: %d non-ACTIVE connection(s): %s. Reassign or reactivate to resume."
                 .formatted(inactive.size(), detail),
             ConnectionErrorType.CONNECTION_NOT_ACTIVE);
+    }
+
+    private CredentialStore getStore(CredentialStoreType type) {
+        return credentialStores.stream()
+            .filter(store -> store.getType() == type)
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException(
+                ("No CredentialStore registered for type %s. Configure bytechef.credential-store.external.provider" +
+                    " or migrate this row to DATABASE.").formatted(type)));
+    }
+
+    private Connection populateParameters(Connection connection) {
+        CredentialStore store = getStore(connection.getCredentialStoreType());
+
+        connection.setParameters(store.getSecret(connection));
+
+        return connection;
+    }
+
+    private List<Connection> populateAll(List<Connection> connections) {
+        connections.forEach(this::populateParameters);
+
+        return connections;
     }
 
     private void validateOwnerOrAdmin(Connection connection) {

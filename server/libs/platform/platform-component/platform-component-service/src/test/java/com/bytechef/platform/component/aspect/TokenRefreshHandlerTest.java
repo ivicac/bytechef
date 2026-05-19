@@ -38,6 +38,9 @@ import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.repository.ConnectionRepository;
 import com.bytechef.platform.connection.service.ConnectionServiceImpl;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.credential.store.CredentialSecret;
+import com.bytechef.platform.credential.store.CredentialStore;
+import com.bytechef.platform.credential.store.CredentialStoreType;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +50,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.springframework.security.core.context.SecurityContextHolder;
 
@@ -66,9 +70,11 @@ class TokenRefreshHandlerTest {
     void beforeEach() {
         SecurityContextHolder.clearContext();
 
+        List<CredentialStore> credentialStores = List.of(new DatabaseCredentialStore());
+
         tokenRefreshHandler = new TokenRefreshHandler(
-            new ConcurrentMapCacheManager(), connectionDefinitionService,
-            new ConnectionServiceImpl(connectionRepository));
+            new ConcurrentMapCacheManager(), connectionDefinitionService, credentialStores,
+            new ConnectionServiceImpl(credentialStores, connectionRepository, mock(ObjectProvider.class)));
 
         Logger logger = (Logger) LoggerFactory.getLogger(TokenRefreshHandler.class);
 
@@ -184,5 +190,33 @@ class TokenRefreshHandlerTest {
             .filter(loggingEvent -> loggingEvent.getLevel() == Level.ERROR)
             .map(ILoggingEvent::getFormattedMessage)
             .toList();
+    }
+
+    private static final class DatabaseCredentialStore implements CredentialStore {
+
+        @Override
+        public CredentialStoreType getType() {
+            return CredentialStoreType.DATABASE;
+        }
+
+        @Override
+        public boolean isReadOnly() {
+            return false;
+        }
+
+        @Override
+        public Map<String, ?> getSecret(CredentialSecret secret) {
+            return secret.getPayload();
+        }
+
+        @Override
+        public void storeSecret(CredentialSecret secret, Map<String, ?> payload) {
+            secret.setPayload(payload);
+        }
+
+        @Override
+        public void deleteSecret(CredentialSecret secret) {
+            secret.setPayload(Map.of());
+        }
     }
 }
