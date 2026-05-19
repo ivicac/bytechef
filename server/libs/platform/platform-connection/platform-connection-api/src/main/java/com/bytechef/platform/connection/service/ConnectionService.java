@@ -55,6 +55,15 @@ public interface ConnectionService {
 
     Connection update(long id, String name, List<Long> tagIds, int version);
 
+    /**
+     * Register a connection whose credential payload already exists in an external store. Used in read-only deployments
+     * where the operator provisioned the secret out-of-band. The credential payload is NOT written via the credential
+     * store — the caller asserts a secret already exists at the path derivable from {@code credentialRef}. Throws if
+     * {@code storeType} is {@link ConnectionCredentialStoreType#DATABASE}.
+     */
+    Connection registerExisting(
+        Connection connection, ConnectionCredentialStoreType storeType, String credentialRef);
+
     Connection updateConnectionCredentialStatus(long connectionId, Connection.CredentialStatus status);
 
     Connection updateConnectionStatus(long connectionId, ConnectionStatus status);

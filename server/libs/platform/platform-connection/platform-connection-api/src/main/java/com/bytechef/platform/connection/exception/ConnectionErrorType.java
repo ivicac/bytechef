@@ -48,6 +48,7 @@ public class ConnectionErrorType extends AbstractErrorType {
     public static final ConnectionErrorType CONNECTION_NOT_ACTIVE = new ConnectionErrorType(103);
     public static final ConnectionErrorType INVALID_CONNECTION = new ConnectionErrorType(101);
     public static final ConnectionErrorType INVALID_CONNECTION_COMPONENT_NAME = new ConnectionErrorType(102);
+    public static final ConnectionErrorType READ_ONLY_CREDENTIAL_STORE = new ConnectionErrorType(103);
 
     private ConnectionErrorType(int errorKey) {
         super(Connection.class, errorKey);

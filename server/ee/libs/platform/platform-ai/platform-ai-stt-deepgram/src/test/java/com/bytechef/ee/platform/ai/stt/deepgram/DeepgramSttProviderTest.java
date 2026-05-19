@@ -9,6 +9,7 @@ package com.bytechef.ee.platform.ai.stt.deepgram;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.stt.SttProvider.TranscribeRequest;
 import com.bytechef.platform.ai.stt.SttProvider.TranscriptResult;
 import java.io.ByteArrayInputStream;
@@ -50,11 +51,21 @@ class DeepgramSttProviderTest {
                 {"results":{"channels":[{"alternatives":[{"transcript":"deep voice"}]}]},
                  "metadata":{"duration":2.5}}"""));
 
+        ApplicationProperties applicationProperties = new ApplicationProperties();
+
+        applicationProperties.getAi()
+            .getProvider()
+            .getStt()
+            .getDeepgram()
+            .getOptions()
+            .setModel("nova-3");
+
         DeepgramSttProvider provider = new DeepgramSttProvider(
             RestClient.builder()
                 .baseUrl(mockWebServer.url("/")
                     .toString())
-                .build());
+                .build(),
+            applicationProperties);
 
         TranscriptResult result = provider.transcribe(new TranscribeRequest(
             new ByteArrayInputStream(new byte[] {
@@ -77,7 +88,7 @@ class DeepgramSttProviderTest {
     @Test
     void testGetKey() {
         assertThat(new DeepgramSttProvider(RestClient.builder()
-            .build()).getKey())
-                .isEqualTo("DEEPGRAM_NOVA_3");
+            .build(), new ApplicationProperties()).getKey())
+                .isEqualTo("deepgram");
     }
 }

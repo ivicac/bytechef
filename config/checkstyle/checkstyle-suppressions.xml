@@ -31,4 +31,7 @@
     <suppress message="Missing a Javadoc comment"/>
 
     <suppress files="[/\\]generated[/\\]" checks=".*" />
+
+    <!-- ApplicationProperties is a config-aggregator class that legitimately grows past the generic file-length cap. -->
+    <suppress files="ApplicationProperties\.java" checks="FileLength"/>
 </suppressions>

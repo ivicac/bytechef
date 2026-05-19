@@ -38,6 +38,7 @@ subprojects {
             dependency("org.testcontainers:junit-jupiter:${rootProject.libs.versions.testcontainers.get()}")
             dependency("org.testcontainers:localstack:${rootProject.libs.versions.testcontainers.get()}")
             dependency("org.testcontainers:postgresql:${rootProject.libs.versions.testcontainers.get()}")
+            dependency("org.testcontainers:vault:${rootProject.libs.versions.testcontainers.get()}")
         }
     }
 }

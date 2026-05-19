@@ -7,9 +7,12 @@
 
 package com.bytechef.ee.platform.ai.stt.elevenlabs;
 
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.stt.SttProvider;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -23,16 +26,24 @@ import org.springframework.web.client.RestClient;
  * @author Ivica Cardic
  */
 @Component
+@ConditionalOnProperty(prefix = "bytechef.ai.stt", name = "provider", havingValue = "elevenlabs")
 public class ElevenLabsSttProvider implements SttProvider {
 
-    public static final String KEY = "ELEVENLABS_SCRIBE";
-
-    private static final String MODEL = "scribe_v1";
+    public static final String KEY = "elevenlabs";
 
     private final RestClient restClient;
 
-    public ElevenLabsSttProvider(RestClient elevenLabsSttRestClient) {
+    private final String model;
+
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
+    public ElevenLabsSttProvider(RestClient elevenLabsSttRestClient, ApplicationProperties applicationProperties) {
         this.restClient = elevenLabsSttRestClient;
+        this.model = applicationProperties.getAi()
+            .getProvider()
+            .getStt()
+            .getElevenlabs()
+            .getOptions()
+            .getModel();
     }
 
     @Override
@@ -58,7 +69,7 @@ public class ElevenLabsSttProvider implements SttProvider {
                 return -1;
             }
         });
-        body.add("model_id", MODEL);
+        body.add("model_id", model);
 
         ElevenLabsResponse response = restClient.post()
             .uri("/v1/speech-to-text")

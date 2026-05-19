@@ -27,9 +27,19 @@ bytechef:
         openai:
           options:
             model: text-embedding-3-small
+      stt:
+        deepgram:
+          options:
+            model: nova-3
+        elevenlabs:
+          options:
+            model: scribe_v1
+        openai:
+          options:
+            model: gpt-4o-mini-transcribe
     stt:
-      # Speech-to-text provider. Per-provider base-url overrides via env, e.g. BYTECHEF_AI_STT_OPENAI_BASE_URL
-      provider: OPENAI_GPT_4O_MINI_TRANSCRIBE
+      # Active speech-to-text provider (openai | deepgram | elevenlabs)
+      provider: openai
     vectorstore:
       provider: pgvector
   analytics:

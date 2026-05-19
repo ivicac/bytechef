@@ -1,6 +1,7 @@
 dependencies {
     api(project(":server:libs:platform:platform-ai:platform-ai-stt-api"))
 
+    implementation(project(":server:libs:config:app-config"))
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("org.springframework:spring-context")
     implementation("org.springframework.boot:spring-boot")

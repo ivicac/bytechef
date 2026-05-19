@@ -26,6 +26,8 @@ import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.service.ConnectionDefinitionService;
 import com.bytechef.platform.component.util.RefreshCredentialsUtils;
 import com.bytechef.platform.connection.domain.Connection;
+import com.bytechef.platform.connection.service.ConnectionCredentialStore;
+import com.bytechef.platform.connection.service.ConnectionCredentialStoreType;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.tenant.util.TenantCacheKeyUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -33,6 +35,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.locks.ReentrantLock;
 import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
@@ -56,15 +59,17 @@ public class TokenRefreshHandler {
 
     private final CacheManager cacheManager;
     private final ConnectionDefinitionService connectionDefinitionService;
+    private final List<ConnectionCredentialStore> connectionCredentialStores;
     private final ConnectionService connectionService;
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public TokenRefreshHandler(
         CacheManager cacheManager, ConnectionDefinitionService connectionDefinitionService,
-        ConnectionService connectionService) {
+        List<ConnectionCredentialStore> connectionCredentialStores, ConnectionService connectionService) {
 
         this.cacheManager = cacheManager;
         this.connectionDefinitionService = connectionDefinitionService;
+        this.connectionCredentialStores = connectionCredentialStores;
         this.connectionService = connectionService;
     }
 
@@ -150,6 +155,27 @@ public class TokenRefreshHandler {
 
             if (log.isTraceEnabled()) {
                 log.trace("Credential refresh completed");
+            }
+
+            Connection fetchedConnection = connectionService.getConnection(componentConnection.connectionId());
+            ConnectionCredentialStoreType storeType = fetchedConnection.getCredentialStoreType();
+            Optional<ConnectionCredentialStore> store = connectionCredentialStores.stream()
+                .filter(curStore -> curStore.getType() == storeType)
+                .findFirst();
+
+            if (store.map(ConnectionCredentialStore::isReadOnly)
+                .orElse(false)) {
+                log.warn(
+                    "Cannot refresh token for connection {} — credential store {} is read-only",
+                    componentConnection.connectionId(), storeType);
+
+                connectionService.updateConnectionCredentialStatus(
+                    componentConnection.connectionId(), Connection.CredentialStatus.INVALID);
+
+                return new ComponentConnection(
+                    componentConnection.componentName(), fetchedConnection.getConnectionVersion(),
+                    componentConnection.connectionId(), fetchedConnection.getParameters(),
+                    fetchedConnection.getAuthorizationType());
             }
 
             Cache cache = Objects.requireNonNull(cacheManager.getCache(CACHE));

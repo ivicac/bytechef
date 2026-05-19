@@ -40,10 +40,12 @@ import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.connection.audit.AuditConnection;
 import com.bytechef.platform.connection.audit.AuditConnection.AuditData;
+import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.domain.ConnectionVisibility;
 import com.bytechef.platform.connection.dto.ConnectionDTO;
 import com.bytechef.platform.connection.exception.ConnectionErrorType;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
+import com.bytechef.platform.connection.service.ConnectionCredentialStoreType;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.security.constant.AuthorityConstants;
@@ -196,6 +198,21 @@ public class WorkspaceConnectionFacadeImpl implements WorkspaceConnectionFacade 
         incrementCreateCounter(connection.visibility());
 
         return connectionId;
+    }
+
+    @Override
+    public long registerExisting(
+        long workspaceId, ConnectionDTO connectionDTO, ConnectionCredentialStoreType storeType, String credentialRef) {
+
+        Connection connection = connectionDTO.toConnection();
+
+        connection.setType(PlatformType.AUTOMATION);
+
+        Connection registered = connectionService.registerExisting(connection, storeType, credentialRef);
+
+        workspaceConnectionService.create(registered.getId(), workspaceId);
+
+        return registered.getId();
     }
 
     @Override

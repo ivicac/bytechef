@@ -54,6 +54,8 @@ type BulkPromoteFailure {
 extend type Mutation {
     """Unlink a connection from all deployed workflows and test configurations, without deleting the connection itself."""
     disconnectConnection(connectionId: ID!): Boolean!
+    """Register an existing connection backed by an externally-provisioned credential (e.g. AWS Secrets Manager)."""
+    registerExistingConnection(input: RegisterExistingConnectionInput!): Long!
     """Share a connection with a specific project, setting visibility to PROJECT."""
     shareConnectionToProject(workspaceId: ID!, connectionId: ID!, projectId: ID!): Boolean!
     """Revoke a connection from a project. Auto-demotes to PRIVATE when no projects remain."""
@@ -66,4 +68,14 @@ extend type Mutation {
     promoteAllPrivateConnectionsToWorkspace(workspaceId: ID!): BulkPromoteResult!
     """Replace the set of projects a connection is shared with. Server diffs against current shares and applies share/revoke as needed in one round-trip."""
     setConnectionProjects(workspaceId: ID!, connectionId: ID!, projectIds: [ID!]!): Boolean!
+}
+
+input RegisterExistingConnectionInput {
+    componentName: String!
+    connectionVersion: Int!
+    credentialRef: String!
+    credentialStoreType: ConnectionCredentialStoreType!
+    environmentId: ID!
+    name: String!
+    workspaceId: ID!
 }

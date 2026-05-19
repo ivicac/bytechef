@@ -16,13 +16,13 @@
 
 package com.bytechef.platform.ai.stt.service;
 
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.stt.SttProvider;
 import com.bytechef.platform.ai.stt.SttProvider.TranscribeRequest;
 import com.bytechef.platform.ai.stt.SttProvider.TranscriptResult;
 import java.io.InputStream;
 import java.util.Map;
 import java.util.Set;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -35,12 +35,13 @@ public class TranscribeService {
 
     private final String providerKey;
 
-    public TranscribeService(
-        Map<String, SttProvider> providers,
-        @Value("${bytechef.ai.stt.provider:OPENAI_GPT_4O_MINI_TRANSCRIBE}") String providerKey) {
-
-        this.providers = providers;
-        this.providerKey = providerKey;
+    public TranscribeService(Map<String, SttProvider> providers, ApplicationProperties applicationProperties) {
+        this.providers = Map.copyOf(providers);
+        this.providerKey = applicationProperties.getAi()
+            .getStt()
+            .getProvider()
+            .name()
+            .toLowerCase();
     }
 
     public TranscriptResult transcribe(

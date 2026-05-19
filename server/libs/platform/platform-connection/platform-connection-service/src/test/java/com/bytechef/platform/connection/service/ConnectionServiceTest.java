@@ -58,7 +58,7 @@ class ConnectionServiceTest {
 
     @BeforeEach
     void setUp() {
-        connectionService = new ConnectionServiceImpl(connectionRepository);
+        connectionService = new ConnectionServiceImpl(List.of(), connectionRepository);
 
         SecurityContextHolder.getContext()
             .setAuthentication(new UsernamePasswordAuthenticationToken(

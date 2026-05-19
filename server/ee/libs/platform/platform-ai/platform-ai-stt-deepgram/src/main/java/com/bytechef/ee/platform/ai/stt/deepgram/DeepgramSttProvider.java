@@ -7,8 +7,11 @@
 
 package com.bytechef.ee.platform.ai.stt.deepgram;
 
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.stt.SttProvider;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Component;
@@ -21,14 +24,24 @@ import org.springframework.web.util.UriComponentsBuilder;
  * @author Ivica Cardic
  */
 @Component
+@ConditionalOnProperty(prefix = "bytechef.ai.stt", name = "provider", havingValue = "deepgram")
 public class DeepgramSttProvider implements SttProvider {
 
-    public static final String KEY = "DEEPGRAM_NOVA_3";
+    public static final String KEY = "deepgram";
 
     private final RestClient restClient;
 
-    public DeepgramSttProvider(RestClient deepgramSttRestClient) {
+    private final String model;
+
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
+    public DeepgramSttProvider(RestClient deepgramSttRestClient, ApplicationProperties applicationProperties) {
         this.restClient = deepgramSttRestClient;
+        this.model = applicationProperties.getAi()
+            .getProvider()
+            .getStt()
+            .getDeepgram()
+            .getOptions()
+            .getModel();
     }
 
     @Override
@@ -42,7 +55,7 @@ public class DeepgramSttProvider implements SttProvider {
             .getOrDefault("apiKey", "");
 
         String uri = UriComponentsBuilder.fromPath("/v1/listen")
-            .queryParam("model", "nova-3")
+            .queryParam("model", model)
             .queryParam("language", request.locale() == null ? "en" : request.locale())
             .queryParam("smart_format", "true")
             .build()
@@ -72,6 +85,7 @@ public class DeepgramSttProvider implements SttProvider {
     }
 
     @SuppressWarnings("PMD")
+    @SuppressFBWarnings("UWF_UNWRITTEN_PUBLIC_OR_PROTECTED_FIELD")
     private static final class DeepgramResponse {
         public Results results;
         public Metadata metadata;

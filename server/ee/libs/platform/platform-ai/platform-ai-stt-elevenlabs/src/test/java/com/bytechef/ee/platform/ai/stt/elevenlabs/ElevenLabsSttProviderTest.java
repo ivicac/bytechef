@@ -9,6 +9,7 @@ package com.bytechef.ee.platform.ai.stt.elevenlabs;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.stt.SttProvider.TranscribeRequest;
 import com.bytechef.platform.ai.stt.SttProvider.TranscriptResult;
 import java.io.ByteArrayInputStream;
@@ -46,11 +47,21 @@ class ElevenLabsSttProviderTest {
             .setHeader("Content-Type", "application/json")
             .setBody("{\"text\":\"voice text\",\"language_code\":\"en\"}"));
 
+        ApplicationProperties applicationProperties = new ApplicationProperties();
+
+        applicationProperties.getAi()
+            .getProvider()
+            .getStt()
+            .getElevenlabs()
+            .getOptions()
+            .setModel("scribe_v1");
+
         ElevenLabsSttProvider provider = new ElevenLabsSttProvider(
             RestClient.builder()
                 .baseUrl(mockWebServer.url("/")
                     .toString())
-                .build());
+                .build(),
+            applicationProperties);
 
         TranscriptResult result = provider.transcribe(new TranscribeRequest(
             new ByteArrayInputStream(new byte[] {
@@ -72,7 +83,7 @@ class ElevenLabsSttProviderTest {
     @Test
     void testGetKey() {
         assertThat(new ElevenLabsSttProvider(RestClient.builder()
-            .build()).getKey())
-                .isEqualTo("ELEVENLABS_SCRIBE");
+            .build(), new ApplicationProperties()).getKey())
+                .isEqualTo("elevenlabs");
     }
 }

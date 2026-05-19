@@ -18,6 +18,7 @@ package com.bytechef.config;
 
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -71,6 +72,11 @@ public class ApplicationProperties {
      * Component registry configuration
      */
     private Component component = new Component();
+
+    /**
+     * Connection credential-store configuration
+     */
+    private Connection connection = new Connection();
 
     /**
      * Context Store configuration
@@ -233,6 +239,10 @@ public class ApplicationProperties {
         return component;
     }
 
+    public Connection getConnection() {
+        return connection;
+    }
+
     public ContextStore getContextStore() {
         return contextStore;
     }
@@ -367,6 +377,10 @@ public class ApplicationProperties {
 
     public void setComponent(Component component) {
         this.component = component;
+    }
+
+    public void setConnection(Connection connection) {
+        this.connection = connection;
     }
 
     public void setContextStore(ContextStore contextStore) {
@@ -825,9 +839,27 @@ public class ApplicationProperties {
         public static class Stt {
 
             /**
-             * Active STT provider key, matched against {@code SttProvider.getKey()}.
+             * STT provider type.
              */
-            private String provider = "OPENAI_GPT_4O_MINI_TRANSCRIBE";
+            public enum Provider {
+                /**
+                 * OpenAI transcription provider
+                 */
+                OPENAI,
+                /**
+                 * Deepgram transcription provider
+                 */
+                DEEPGRAM,
+                /**
+                 * ElevenLabs transcription provider
+                 */
+                ELEVENLABS
+            }
+
+            /**
+             * Active STT provider
+             */
+            private Provider provider = Provider.OPENAI;
 
             private Openai openai = new Openai();
 
@@ -835,11 +867,11 @@ public class ApplicationProperties {
 
             private Elevenlabs elevenlabs = new Elevenlabs();
 
-            public String getProvider() {
+            public Provider getProvider() {
                 return provider;
             }
 
-            public void setProvider(String provider) {
+            public void setProvider(Provider provider) {
                 this.provider = provider;
             }
 
@@ -1333,6 +1365,11 @@ public class ApplicationProperties {
             private Stability stability = new Stability();
 
             /**
+             * Speech-to-text model configuration grouped by provider
+             */
+            private Stt stt = new Stt();
+
+            /**
              * Google Vertex AI Gemini configuration
              */
             private VertexGemini vertexGemini = new VertexGemini();
@@ -1405,6 +1442,10 @@ public class ApplicationProperties {
                 return stability;
             }
 
+            public Stt getStt() {
+                return stt;
+            }
+
             public VertexGemini getVertexGemini() {
                 return vertexGemini;
             }
@@ -1475,6 +1516,10 @@ public class ApplicationProperties {
 
             public void setStability(Stability stability) {
                 this.stability = stability;
+            }
+
+            public void setStt(Stt stt) {
+                this.stt = stt;
             }
 
             public void setVertexGemini(VertexGemini vertexGemini) {
@@ -1986,6 +2031,165 @@ public class ApplicationProperties {
                     }
                 }
             }
+
+            /**
+             * Speech-to-text (STT) model configuration grouped by provider.
+             */
+            public static class Stt {
+
+                /**
+                 * Deepgram STT model configuration
+                 */
+                private Deepgram deepgram = new Deepgram();
+
+                /**
+                 * ElevenLabs STT model configuration
+                 */
+                private Elevenlabs elevenlabs = new Elevenlabs();
+
+                /**
+                 * OpenAI STT model configuration
+                 */
+                private OpenAi openAi = new OpenAi();
+
+                public Deepgram getDeepgram() {
+                    return deepgram;
+                }
+
+                public void setDeepgram(Deepgram deepgram) {
+                    this.deepgram = deepgram;
+                }
+
+                public Elevenlabs getElevenlabs() {
+                    return elevenlabs;
+                }
+
+                public void setElevenlabs(Elevenlabs elevenlabs) {
+                    this.elevenlabs = elevenlabs;
+                }
+
+                public OpenAi getOpenAi() {
+                    return openAi;
+                }
+
+                public void setOpenAi(OpenAi openAi) {
+                    this.openAi = openAi;
+                }
+
+                /**
+                 * Deepgram STT model configuration.
+                 */
+                public static class Deepgram {
+
+                    /**
+                     * STT model options
+                     */
+                    private Options options = new Options();
+
+                    public Options getOptions() {
+                        return options;
+                    }
+
+                    public void setOptions(Options options) {
+                        this.options = options;
+                    }
+
+                    /**
+                     * Deepgram STT model options.
+                     */
+                    public static class Options {
+
+                        /**
+                         * STT model name (e.g., nova-3)
+                         */
+                        private String model;
+
+                        public String getModel() {
+                            return model;
+                        }
+
+                        public void setModel(String model) {
+                            this.model = model;
+                        }
+                    }
+                }
+
+                /**
+                 * ElevenLabs STT model configuration.
+                 */
+                public static class Elevenlabs {
+
+                    /**
+                     * STT model options
+                     */
+                    private Options options = new Options();
+
+                    public Options getOptions() {
+                        return options;
+                    }
+
+                    public void setOptions(Options options) {
+                        this.options = options;
+                    }
+
+                    /**
+                     * ElevenLabs STT model options.
+                     */
+                    public static class Options {
+
+                        /**
+                         * STT model name (e.g., scribe_v1)
+                         */
+                        private String model;
+
+                        public String getModel() {
+                            return model;
+                        }
+
+                        public void setModel(String model) {
+                            this.model = model;
+                        }
+                    }
+                }
+
+                /**
+                 * OpenAI STT model configuration.
+                 */
+                public static class OpenAi {
+
+                    /**
+                     * STT model options
+                     */
+                    private Options options = new Options();
+
+                    public Options getOptions() {
+                        return options;
+                    }
+
+                    public void setOptions(Options options) {
+                        this.options = options;
+                    }
+
+                    /**
+                     * OpenAI STT model options.
+                     */
+                    public static class Options {
+
+                        /**
+                         * STT model name (e.g., gpt-4o-mini-transcribe)
+                         */
+                        private String model;
+
+                        public String getModel() {
+                            return model;
+                        }
+
+                        public void setModel(String model) {
+                            this.model = model;
+                        }
+                    }
+                }
+            }
         }
 
         /**
@@ -2266,6 +2470,203 @@ public class ApplicationProperties {
 
             public void setExclude(List<String> exclude) {
                 this.exclude = exclude;
+            }
+        }
+    }
+
+    /**
+     * Connection credential-store configuration.
+     */
+    public static class Connection {
+
+        private CredentialStore credentialStore = new CredentialStore();
+
+        public CredentialStore getCredentialStore() {
+            return credentialStore;
+        }
+
+        public void setCredentialStore(CredentialStore credentialStore) {
+            this.credentialStore = credentialStore;
+        }
+
+        public static class CredentialStore {
+
+            private AwsSecretsManager awsSecretsManager = new AwsSecretsManager();
+            private Cache cache = new Cache();
+            private External external = new External();
+            private HashiCorpVault hashicorpVault = new HashiCorpVault();
+            private String pathTemplate;
+
+            public AwsSecretsManager getAwsSecretsManager() {
+                return awsSecretsManager;
+            }
+
+            public void setAwsSecretsManager(AwsSecretsManager awsSecretsManager) {
+                this.awsSecretsManager = awsSecretsManager;
+            }
+
+            public Cache getCache() {
+                return cache;
+            }
+
+            public void setCache(Cache cache) {
+                this.cache = cache;
+            }
+
+            public External getExternal() {
+                return external;
+            }
+
+            public void setExternal(External external) {
+                this.external = external;
+            }
+
+            public HashiCorpVault getHashicorpVault() {
+                return hashicorpVault;
+            }
+
+            public void setHashicorpVault(HashiCorpVault hashicorpVault) {
+                this.hashicorpVault = hashicorpVault;
+            }
+
+            public String getPathTemplate() {
+                return pathTemplate;
+            }
+
+            public void setPathTemplate(String pathTemplate) {
+                this.pathTemplate = pathTemplate;
+            }
+
+            public static class AwsSecretsManager {
+
+                /** When true, refuses write operations (operator IAM policy enforcement). */
+                private boolean readOnly;
+
+                public boolean isReadOnly() {
+                    return readOnly;
+                }
+
+                public void setReadOnly(boolean readOnly) {
+                    this.readOnly = readOnly;
+                }
+            }
+
+            public static class Cache {
+
+                /** Per-adapter read-path cache TTL. Default 5 minutes. */
+                private Duration ttl = Duration.ofMinutes(5);
+
+                public Duration getTtl() {
+                    return ttl;
+                }
+
+                public void setTtl(Duration ttl) {
+                    this.ttl = ttl;
+                }
+            }
+
+            public static class External {
+
+                /** Active external store provider. Unset = database only. */
+                private String provider;
+
+                public String getProvider() {
+                    return provider;
+                }
+
+                public void setProvider(String provider) {
+                    this.provider = provider;
+                }
+            }
+
+            public static class HashiCorpVault {
+
+                /** When true, refuses write operations. */
+                private boolean readOnly;
+
+                /** Vault HTTP endpoint, e.g. "http://vault:8200". */
+                private String uri;
+
+                /** Authentication method: "token" or "approle". */
+                private String authentication = "token";
+
+                /** Bearer token when authentication=token. */
+                private String token;
+
+                private AppRole approle = new AppRole();
+
+                /** KV v2 mount path. Default "secret". */
+                private String kvMount = "secret";
+
+                public boolean isReadOnly() {
+                    return readOnly;
+                }
+
+                public void setReadOnly(boolean readOnly) {
+                    this.readOnly = readOnly;
+                }
+
+                public String getUri() {
+                    return uri;
+                }
+
+                public void setUri(String uri) {
+                    this.uri = uri;
+                }
+
+                public String getAuthentication() {
+                    return authentication;
+                }
+
+                public void setAuthentication(String authentication) {
+                    this.authentication = authentication;
+                }
+
+                public String getToken() {
+                    return token;
+                }
+
+                public void setToken(String token) {
+                    this.token = token;
+                }
+
+                public AppRole getApprole() {
+                    return approle;
+                }
+
+                public void setApprole(AppRole approle) {
+                    this.approle = approle;
+                }
+
+                public String getKvMount() {
+                    return kvMount;
+                }
+
+                public void setKvMount(String kvMount) {
+                    this.kvMount = kvMount;
+                }
+
+                public static class AppRole {
+
+                    private String roleId;
+                    private String secretId;
+
+                    public String getRoleId() {
+                        return roleId;
+                    }
+
+                    public void setRoleId(String roleId) {
+                        this.roleId = roleId;
+                    }
+
+                    public String getSecretId() {
+                        return secretId;
+                    }
+
+                    public void setSecretId(String secretId) {
+                        this.secretId = secretId;
+                    }
+                }
             }
         }
     }
@@ -2873,8 +3274,18 @@ public class ApplicationProperties {
             /**
              * Property-based key storage
              */
-            PROPERTY;
+            PROPERTY,
+
+            /**
+             * AWS KMS-based key storage
+             */
+            AWS_KMS;
         }
+
+        /**
+         * AWS KMS encryption configuration
+         */
+        private AwsKms awsKms = new AwsKms();
 
         /**
          * Encryption provider
@@ -2886,6 +3297,10 @@ public class ApplicationProperties {
          */
         private Property property = new Property();
 
+        public AwsKms getAwsKms() {
+            return awsKms;
+        }
+
         public Provider getProvider() {
             return provider;
         }
@@ -2894,12 +3309,58 @@ public class ApplicationProperties {
             return property;
         }
 
+        public void setAwsKms(AwsKms awsKms) {
+            this.awsKms = awsKms;
+        }
+
         public void setProvider(Provider provider) {
             this.provider = provider;
         }
 
         public void setProperty(Property property) {
             this.property = property;
+        }
+
+        /**
+         * AWS KMS encryption key configuration.
+         */
+        public static class AwsKms {
+
+            /** Path where the ciphertext of the data key is persisted. Default ~/.bytechef/aws-kms-data-key. */
+            private String dataKeyPath = System.getProperty("user.home") + "/.bytechef/aws-kms-data-key";
+
+            /**
+             * Optional KMS endpoint override, e.g. "http://localhost:4566" for LocalStack. When null the SDK uses the
+             * default regional endpoint.
+             */
+            private String endpoint;
+
+            /** KMS key ARN or alias used to wrap the data key. */
+            private String keyId;
+
+            public String getDataKeyPath() {
+                return dataKeyPath;
+            }
+
+            public String getEndpoint() {
+                return endpoint;
+            }
+
+            public String getKeyId() {
+                return keyId;
+            }
+
+            public void setDataKeyPath(String dataKeyPath) {
+                this.dataKeyPath = dataKeyPath;
+            }
+
+            public void setEndpoint(String endpoint) {
+                this.endpoint = endpoint;
+            }
+
+            public void setKeyId(String keyId) {
+                this.keyId = keyId;
+            }
         }
 
         /**

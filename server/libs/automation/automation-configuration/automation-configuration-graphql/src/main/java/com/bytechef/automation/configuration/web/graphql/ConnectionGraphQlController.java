@@ -20,6 +20,8 @@ import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.automation.configuration.dto.BulkPromoteResultDTO;
 import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
 import com.bytechef.graphql.error.GraphQlBadRequestException;
+import com.bytechef.platform.connection.dto.ConnectionDTO;
+import com.bytechef.platform.connection.service.ConnectionCredentialStoreType;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
@@ -48,6 +50,20 @@ public class ConnectionGraphQlController {
         workspaceConnectionFacade.disconnectConnection(connectionId);
 
         return true;
+    }
+
+    @MutationMapping(name = "registerExistingConnection")
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    public Long registerExistingConnection(@Argument RegisterExistingConnectionInput input) {
+        ConnectionDTO connectionDTO = ConnectionDTO.builder()
+            .componentName(input.componentName())
+            .connectionVersion(input.connectionVersion())
+            .environmentId((int) input.environmentId())
+            .name(input.name())
+            .build();
+
+        return workspaceConnectionFacade.registerExisting(
+            input.workspaceId(), connectionDTO, input.credentialStoreType(), input.credentialRef());
     }
 
     @MutationMapping(name = "shareConnectionToProject")
@@ -119,5 +135,15 @@ public class ConnectionGraphQlController {
         workspaceConnectionFacade.demoteToPrivate(workspaceId, connectionId);
 
         return true;
+    }
+
+    public record RegisterExistingConnectionInput(
+        String componentName,
+        int connectionVersion,
+        String credentialRef,
+        ConnectionCredentialStoreType credentialStoreType,
+        long environmentId,
+        String name,
+        long workspaceId) {
     }
 }

@@ -1,0 +1,2 @@
+org.springframework.boot.EnvironmentPostProcessor=\
+com.bytechef.ee.platform.connection.credential.store.hashicorp.vault.boot.HashiCorpVaultCredentialStoreEnvironmentPostProcessor

@@ -16,8 +16,11 @@
 
 package com.bytechef.platform.ai.stt.openai;
 
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.stt.SttProvider;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.io.InputStreamResource;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
@@ -27,16 +30,24 @@ import org.springframework.util.MultiValueMap;
 import org.springframework.web.client.RestClient;
 
 @Component
+@ConditionalOnProperty(prefix = "bytechef.ai.stt", name = "provider", havingValue = "openai", matchIfMissing = true)
 public class OpenAiSttProvider implements SttProvider {
 
-    public static final String KEY = "OPENAI_GPT_4O_MINI_TRANSCRIBE";
-
-    private static final String MODEL = "gpt-4o-mini-transcribe";
+    public static final String KEY = "openai";
 
     private final RestClient restClient;
 
-    public OpenAiSttProvider(RestClient openAiSttRestClient) {
+    private final String model;
+
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
+    public OpenAiSttProvider(RestClient openAiSttRestClient, ApplicationProperties applicationProperties) {
         this.restClient = openAiSttRestClient;
+        this.model = applicationProperties.getAi()
+            .getProvider()
+            .getStt()
+            .getOpenAi()
+            .getOptions()
+            .getModel();
     }
 
     @Override
@@ -62,7 +73,7 @@ public class OpenAiSttProvider implements SttProvider {
                 return -1;
             }
         });
-        body.add("model", MODEL);
+        body.add("model", model);
 
         if (request.locale() != null && !request.locale()
             .isBlank()) {

@@ -20,6 +20,7 @@ import com.bytechef.commons.data.jdbc.wrapper.EncryptedMapWrapper;
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.definition.Authorization.AuthorizationType;
+import com.bytechef.platform.connection.service.ConnectionCredentialStoreType;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.tag.domain.Tag;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -66,6 +67,13 @@ public final class Connection {
 
     @MappedCollection(idColumn = "connection_id")
     private Set<ConnectionTag> connectionTags = new HashSet<>();
+
+    @Column("credential_ref")
+    @Nullable
+    private String credentialRef;
+
+    @Column("credential_store_type")
+    private int credentialStoreType;
 
     @Column("credential_status")
     private int credentialStatus = 1;
@@ -297,6 +305,23 @@ public final class Connection {
         this.credentialStatus = credentialStatus.ordinal();
     }
 
+    @Nullable
+    public String getCredentialRef() {
+        return credentialRef;
+    }
+
+    public void setCredentialRef(@Nullable String credentialRef) {
+        this.credentialRef = credentialRef;
+    }
+
+    public ConnectionCredentialStoreType getCredentialStoreType() {
+        return ConnectionCredentialStoreType.values()[credentialStoreType];
+    }
+
+    public void setCredentialStoreType(ConnectionCredentialStoreType credentialStoreType) {
+        this.credentialStoreType = credentialStoreType.ordinal();
+    }
+
     public void setStatus(ConnectionStatus status) {
         Objects.requireNonNull(status, "status");
 
@@ -331,9 +356,11 @@ public final class Connection {
     }
 
     public void setParameters(Map<String, ?> parameters) {
-        if (!MapUtils.isEmpty(parameters)) {
-            this.parameters = new EncryptedMapWrapper(parameters);
+        if (parameters == null) {
+            return;
         }
+
+        this.parameters = new EncryptedMapWrapper(parameters);
     }
 
     public void setType(PlatformType type) {
@@ -406,6 +433,8 @@ public final class Connection {
             ", status=" + status +
             ", type=" + type +
             ", visibility=" + visibility +
+            ", credentialStoreType=" + credentialStoreType +
+            ", credentialRef='" + credentialRef + '\'' +
             ", parameters=" + parameters +
             ", createdBy='" + createdBy + '\'' +
             ", createdDate=" + createdDate +

@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.stt.SttProvider;
 import com.bytechef.platform.ai.stt.SttProvider.TranscribeRequest;
 import com.bytechef.platform.ai.stt.SttProvider.TranscriptResult;
@@ -35,12 +36,12 @@ class TranscribeServiceTest {
     void testTranscribeDelegatesToConfiguredProvider() {
         SttProvider provider = mock(SttProvider.class);
 
-        when(provider.getKey()).thenReturn("FAKE");
+        when(provider.getKey()).thenReturn("openai");
         when(provider.transcribe(any(TranscribeRequest.class)))
             .thenReturn(new TranscriptResult("hello world", 1200L, "en-US"));
 
         TranscribeService transcribeService = new TranscribeService(
-            Map.of("FAKE", provider), "FAKE");
+            Map.of("openai", provider), new ApplicationProperties());
 
         TranscriptResult result = transcribeService.transcribe(
             new ByteArrayInputStream(new byte[] {
@@ -53,7 +54,7 @@ class TranscribeServiceTest {
 
     @Test
     void testTranscribeRejectsUnsupportedMimeType() {
-        TranscribeService transcribeService = new TranscribeService(Map.of(), "FAKE");
+        TranscribeService transcribeService = new TranscribeService(Map.of(), new ApplicationProperties());
 
         assertThatThrownBy(() -> transcribeService.transcribe(
             new ByteArrayInputStream(new byte[] {
@@ -65,13 +66,13 @@ class TranscribeServiceTest {
 
     @Test
     void testTranscribeFailsWhenProviderMissing() {
-        TranscribeService transcribeService = new TranscribeService(Map.of(), "MISSING");
+        TranscribeService transcribeService = new TranscribeService(Map.of(), new ApplicationProperties());
 
         assertThatThrownBy(() -> transcribeService.transcribe(
             new ByteArrayInputStream(new byte[] {
                 1
             }), "audio/webm", null, Map.of()))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("MISSING");
+                .hasMessageContaining("openai");
     }
 }

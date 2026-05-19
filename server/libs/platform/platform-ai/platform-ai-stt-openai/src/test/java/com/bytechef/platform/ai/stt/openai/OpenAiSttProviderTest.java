@@ -18,6 +18,7 @@ package com.bytechef.platform.ai.stt.openai;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.stt.SttProvider.TranscribeRequest;
 import com.bytechef.platform.ai.stt.SttProvider.TranscriptResult;
 import java.io.ByteArrayInputStream;
@@ -52,11 +53,21 @@ class OpenAiSttProviderTest {
             .setHeader("Content-Type", "application/json")
             .setBody("{\"text\":\"hello world\",\"language\":\"english\",\"duration\":1.234}"));
 
+        ApplicationProperties applicationProperties = new ApplicationProperties();
+
+        applicationProperties.getAi()
+            .getProvider()
+            .getStt()
+            .getOpenAi()
+            .getOptions()
+            .setModel("gpt-4o-mini-transcribe");
+
         OpenAiSttProvider provider = new OpenAiSttProvider(
             RestClient.builder()
                 .baseUrl(mockWebServer.url("/")
                     .toString())
-                .build());
+                .build(),
+            applicationProperties);
 
         TranscriptResult result = provider.transcribe(new TranscribeRequest(
             new ByteArrayInputStream(new byte[] {
@@ -79,9 +90,11 @@ class OpenAiSttProviderTest {
 
     @Test
     void testGetKeyReturnsExpected() {
-        OpenAiSttProvider provider = new OpenAiSttProvider(RestClient.builder()
-            .build());
+        OpenAiSttProvider provider = new OpenAiSttProvider(
+            RestClient.builder()
+                .build(),
+            new ApplicationProperties());
 
-        assertThat(provider.getKey()).isEqualTo("OPENAI_GPT_4O_MINI_TRANSCRIBE");
+        assertThat(provider.getKey()).isEqualTo("openai");
     }
 }

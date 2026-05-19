@@ -18,6 +18,7 @@ spring-boot = "4.0.6"
 spring-cloud-aws = "4.0.2"
 spring-cloud-dependencies = "2025.1.1"
 spring-shell = "4.0.1"
+spring-vault = "4.0.2"
 springaicommunity-agent-claude = "0.16.0"
 springaicommunity-agent-judge = "0.9.1"
 springaicommunity-agent-utils = "0.8.0"
@@ -66,6 +67,7 @@ org-springaicommunity-agent-judge-llm = { module = "org.springaicommunity:agent-
 org-springaicommunity-spring-ai-agent-utils = { module = "org.springaicommunity:spring-ai-agent-utils", version.ref = "springaicommunity-agent-utils" }
 org-springdoc-springdoc-openapi-starter-common = { module = "org.springdoc:springdoc-openapi-starter-common", version.ref = "org-springdoc" }
 org-springdoc-springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "org-springdoc" }
+org-springframework-vault-spring-vault-core = { module = "org.springframework.vault:spring-vault-core", version.ref = "spring-vault" }
 org-wiremock-wiremock = "org.wiremock:wiremock-standalone:3.13.2"
 org-zeroturnaround-zt-exec = "org.zeroturnaround:zt-exec:1.12"
 

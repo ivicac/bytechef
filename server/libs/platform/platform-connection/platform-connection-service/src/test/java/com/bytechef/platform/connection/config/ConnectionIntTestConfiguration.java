@@ -32,6 +32,7 @@ import com.bytechef.encryption.Encryption;
 import com.bytechef.encryption.EncryptionKey;
 import com.bytechef.jackson.config.JacksonConfiguration;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
+import com.bytechef.platform.connection.service.TestExternalConnectionCredentialStore;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessor;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessorRegistry;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
@@ -146,6 +147,11 @@ public class ConnectionIntTestConfiguration {
                 return 1;
             }
         };
+    }
+
+    @Bean
+    TestExternalConnectionCredentialStore testExternalConnectionCredentialStore() {
+        return new TestExternalConnectionCredentialStore();
     }
 
     @Bean
