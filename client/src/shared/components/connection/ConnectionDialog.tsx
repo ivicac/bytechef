@@ -25,6 +25,7 @@ import EnvironmentBadge from '@/shared/components/EnvironmentBadge';
 import ConnectionParameters from '@/shared/components/connection/ConnectionParameters';
 import ConnectionVisibilityPicker from '@/shared/components/connection/ConnectionVisibilityPicker';
 import {CodePayloadI, TokenPayloadI} from '@/shared/components/connection/oauth2/useOAuth2';
+import {ConnectionCredentialStoreType, useConnectionCredentialStoresQuery} from '@/shared/middleware/graphql';
 import {
     Authorization,
     AuthorizationType,
@@ -32,6 +33,7 @@ import {
     ComponentDefinitionBasic,
     Tag,
 } from '@/shared/middleware/platform/configuration';
+import {useRegisterExistingConnectionMutation} from '@/shared/mutations/automation/connections.mutations';
 import {ComponentDefinitionKeys} from '@/shared/queries/platform/componentDefinitions.queries';
 import {
     useGetConnectionDefinitionQuery,
@@ -54,14 +56,18 @@ import {twMerge} from 'tailwind-merge';
 import ComponentSelectionInput from './ComponentSelectionInput';
 import OAuth2Button from './OAuth2Button';
 import Scopes from './Scopes';
+import {connectionCredentialStoreLabels} from './connectionCredentialStoreLabels';
 
 export interface ConnectionDialogFormProps {
     authorizationType: string;
     componentName: string;
+    credentialRef?: string;
+    credentialStoreType?: ConnectionCredentialStoreType;
     environmentId: number;
     id?: number;
     name: string;
     parameters: {[key: string]: object};
+    registeringExisting?: boolean;
     selectedScopes?: {[key: string]: boolean};
     shared: boolean;
     tags: Array<Tag | {label: string; value: string}>;
@@ -142,9 +148,12 @@ const ConnectionDialog = ({
         defaultValues: {
             authorizationType: undefined,
             componentName: componentDefinition?.name,
+            credentialRef: '',
+            credentialStoreType: ConnectionCredentialStoreType.Database,
             environmentId: connection?.environmentId || currentEnvironmentId,
             id: connection?.id,
             name: connection?.name || componentDefinition?.title || '',
+            registeringExisting: false,
             shared: connection?.shared ?? false,
             tags:
                 connection?.tags?.map((tag) => ({
@@ -192,6 +201,9 @@ const ConnectionDialog = ({
 
     const queryClient = useQueryClient();
 
+    const {data: storesData} = useConnectionCredentialStoresQuery();
+    const stores = storesData?.connectionCredentialStores ?? [];
+    const showPicker = stores.length > 1;
     const isEdit = !!connection?.id;
 
     const canUpdateCredentials = isEdit && !!useUpdateConnectionCredentialsMutation && !connection?.managed;
@@ -232,6 +244,10 @@ const ConnectionDialog = ({
 
             handleConnectionSuccess();
         },
+    });
+
+    const registerExistingMutation = useRegisterExistingConnectionMutation({
+        onSuccess: handleConnectionSuccess,
     });
 
     const authorizationsExists = connectionDefinition && !!connectionDefinition?.authorizations?.length;
@@ -306,6 +322,7 @@ const ConnectionDialog = ({
             }
 
             connectionMutation.reset();
+            registerExistingMutation.reset();
 
             if (onClose) {
                 onClose();
@@ -428,6 +445,23 @@ const ConnectionDialog = ({
                 ...(showSharedOption ? {shared} : {}),
             } as ConnectionI);
         } else {
+            const {componentName, credentialRef, credentialStoreType, registeringExisting} = getValues();
+
+            if (
+                registeringExisting &&
+                credentialStoreType &&
+                credentialStoreType !== ConnectionCredentialStoreType.Database
+            ) {
+                return registerExistingMutation.mutateAsync({
+                    componentName: componentName!,
+                    connectionVersion,
+                    credentialRef: credentialRef!,
+                    credentialStoreType,
+                    environmentId: String(currentEnvironmentId),
+                    name: getValues('name')!,
+                });
+            }
+
             return connectionMutation.mutateAsync(getNewConnection(additionalParameters));
         }
     }
@@ -636,6 +670,118 @@ const ConnectionDialog = ({
                                         rules={{required: true}}
                                     />
 
+                                    {showPicker && !isEdit && (
+                                        <FormField
+                                            control={form.control}
+                                            name="credentialStoreType"
+                                            render={({field}) => (
+                                                <FormItem>
+                                                    <FormLabel>Credential storage</FormLabel>
+
+                                                    <Select
+                                                        onValueChange={(value) => {
+                                                            field.onChange(value);
+
+                                                            const selected = stores.find(
+                                                                (store) => store.type === value
+                                                            );
+
+                                                            if (selected?.readOnly) {
+                                                                form.setValue('registeringExisting', true);
+                                                            } else if (
+                                                                value === ConnectionCredentialStoreType.Database
+                                                            ) {
+                                                                form.setValue('registeringExisting', false);
+                                                            }
+                                                        }}
+                                                        value={field.value}
+                                                    >
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+
+                                                        <SelectContent>
+                                                            {stores.map((store) => (
+                                                                <SelectItem key={store.type} value={store.type}>
+                                                                    {connectionCredentialStoreLabels[store.type]}
+                                                                </SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                    )}
+
+                                    {showPicker && isEdit && (
+                                        <FormItem>
+                                            <FormLabel>Credential storage</FormLabel>
+
+                                            <Input
+                                                disabled
+                                                value={
+                                                    connectionCredentialStoreLabels[
+                                                        form.watch('credentialStoreType') ??
+                                                            ConnectionCredentialStoreType.Database
+                                                    ]
+                                                }
+                                            />
+
+                                            <p className="text-xs text-muted-foreground">
+                                                Credential storage cannot be changed after creation.
+                                            </p>
+                                        </FormItem>
+                                    )}
+
+                                    {showPicker &&
+                                        !isEdit &&
+                                        form.watch('credentialStoreType') !==
+                                            ConnectionCredentialStoreType.Database && (
+                                            <>
+                                                {stores.find(
+                                                    (store) => store.type === form.watch('credentialStoreType')
+                                                )?.readOnly && (
+                                                    <Alert>
+                                                        <AlertDescription>
+                                                            This credential store is configured read-only by your
+                                                            administrator. Provision the secret externally, then
+                                                            reference it here.
+                                                        </AlertDescription>
+                                                    </Alert>
+                                                )}
+
+                                                <FormField
+                                                    control={form.control}
+                                                    name="registeringExisting"
+                                                    render={({field}) => (
+                                                        <FormItem className="flex items-center gap-2">
+                                                            <FormControl>
+                                                                <Switch
+                                                                    checked={field.value}
+                                                                    disabled={
+                                                                        stores.find(
+                                                                            (store) =>
+                                                                                store.type ===
+                                                                                form.watch('credentialStoreType')
+                                                                        )?.readOnly
+                                                                    }
+                                                                    onCheckedChange={field.onChange}
+                                                                />
+                                                            </FormControl>
+
+                                                            <FormLabel className="!mt-0">
+                                                                Register existing credential
+                                                            </FormLabel>
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </>
+                                        )}
+
                                     <FormField
                                         control={control}
                                         name="environmentId"
@@ -678,121 +824,148 @@ const ConnectionDialog = ({
                                         />
                                     )}
 
-                                    {!connection?.id && visibilityFeatureEnabled && (
+                                    {form.watch('registeringExisting') ? (
                                         <FormField
-                                            control={control}
-                                            name="visibility"
+                                            control={form.control}
+                                            name="credentialRef"
                                             render={({field}) => (
                                                 <FormItem>
+                                                    <FormLabel>Credential reference</FormLabel>
+
+                                                    <FormControl>
+                                                        <Input {...field} placeholder="bytechef/connections/..." />
+                                                    </FormControl>
+
+                                                    <p className="text-xs text-muted-foreground">
+                                                        The path or UUID where your secret lives in the external store.
+                                                        Format depends on your operator&apos;s path template
+                                                        configuration.
+                                                    </p>
+
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                            rules={{required: true}}
+                                        />
+                                    ) : (
+                                        <>
+                                            {!connection?.id && visibilityFeatureEnabled && (
+                                                <FormField
+                                                    control={control}
+                                                    name="visibility"
+                                                    render={({field}) => (
+                                                        <FormItem>
+                                                            <FormLabel>Visibility</FormLabel>
+
+                                                            <FormControl>
+                                                                {/* Grants cannot be written before the connection has
+                                                                    an id, so creation offers reach only; the list-page
+                                                                    picker adds people afterwards. */}
+
+                                                                <ConnectionVisibilityPicker
+                                                                    grantedUserIds={[]}
+                                                                    onGrantedUserIdsChange={() => undefined}
+                                                                    onVisibilityChange={field.onChange}
+                                                                    visibility={field.value}
+                                                                />
+                                                            </FormControl>
+
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            )}
+
+                                            {connection?.id && visibilityFeatureEnabled && connection.visibility && (
+                                                <FormItem className="space-x-2">
                                                     <FormLabel>Visibility</FormLabel>
 
                                                     <FormControl>
-                                                        {/* Grants cannot be written before the connection has
-                                                            an id, so creation offers reach only; the list-page
-                                                            picker adds people afterwards. */}
-
-                                                        <ConnectionVisibilityPicker
-                                                            grantedUserIds={[]}
-                                                            onGrantedUserIdsChange={() => undefined}
-                                                            onVisibilityChange={field.onChange}
-                                                            visibility={field.value}
-                                                        />
+                                                        <ConnectionScopeBadge visibility={connection.visibility} />
                                                     </FormControl>
 
-                                                    <FormMessage />
+                                                    <p className="text-xs text-muted-foreground">
+                                                        Change visibility and sharing from the connection list.
+                                                    </p>
                                                 </FormItem>
                                             )}
-                                        />
-                                    )}
 
-                                    {connection?.id && visibilityFeatureEnabled && connection.visibility && (
-                                        <FormItem className="space-x-2">
-                                            <FormLabel>Visibility</FormLabel>
+                                            {!connection?.id &&
+                                                showConnectionProperties &&
+                                                !!connectionDefinition.properties && (
+                                                    <WorkflowMockProvider>
+                                                        <Properties
+                                                            control={control}
+                                                            formState={formState}
+                                                            hideFromAi={true}
+                                                            properties={connectionDefinition?.properties}
+                                                        />
+                                                    </WorkflowMockProvider>
+                                                )}
 
-                                            <FormControl>
-                                                <ConnectionScopeBadge visibility={connection.visibility} />
-                                            </FormControl>
-
-                                            <p className="text-xs text-muted-foreground">
-                                                Change visibility and sharing from the connection list.
-                                            </p>
-                                        </FormItem>
-                                    )}
-
-                                    {!connection?.id &&
-                                        showConnectionProperties &&
-                                        !!connectionDefinition.properties && (
-                                            <WorkflowMockProvider>
-                                                <Properties
+                                            {!connection?.id && showAuthorizations && (
+                                                <FormField
                                                     control={control}
-                                                    formState={formState}
-                                                    hideFromAi={true}
-                                                    properties={connectionDefinition?.properties}
+                                                    name="authorizationType"
+                                                    render={({field}) => (
+                                                        <FormItem>
+                                                            <FormLabel>Authorization</FormLabel>
+
+                                                            <Select
+                                                                onValueChange={(value) => {
+                                                                    setAuthorizationType(value);
+                                                                    setUsePredefinedOAuthApp(false);
+                                                                    setValue('authorizationType', value);
+                                                                }}
+                                                                {...field}
+                                                            >
+                                                                <SelectTrigger className="mt-1">
+                                                                    <FormControl>
+                                                                        <SelectValue placeholder="Select..." />
+                                                                    </FormControl>
+                                                                </SelectTrigger>
+
+                                                                <SelectContent>
+                                                                    {authorizationOptions.map((authorizationOption) => (
+                                                                        <SelectItem
+                                                                            key={authorizationOption.value!}
+                                                                            value={authorizationOption.value!}
+                                                                        >
+                                                                            {authorizationOption.label!}
+                                                                        </SelectItem>
+                                                                    ))}
+                                                                </SelectContent>
+                                                            </Select>
+
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
                                                 />
-                                            </WorkflowMockProvider>
-                                        )}
-
-                                    {!connection?.id && showAuthorizations && (
-                                        <FormField
-                                            control={control}
-                                            name="authorizationType"
-                                            render={({field}) => (
-                                                <FormItem>
-                                                    <FormLabel>Authorization</FormLabel>
-
-                                                    <Select
-                                                        onValueChange={(value) => {
-                                                            setAuthorizationType(value);
-                                                            setUsePredefinedOAuthApp(false);
-                                                            setValue('authorizationType', value);
-                                                        }}
-                                                        {...field}
-                                                    >
-                                                        <SelectTrigger className="mt-1">
-                                                            <FormControl>
-                                                                <SelectValue placeholder="Select..." />
-                                                            </FormControl>
-                                                        </SelectTrigger>
-
-                                                        <SelectContent>
-                                                            {authorizationOptions.map((authorizationOption) => (
-                                                                <SelectItem
-                                                                    key={authorizationOption.value!}
-                                                                    value={authorizationOption.value!}
-                                                                >
-                                                                    {authorizationOption.label!}
-                                                                </SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-
-                                                    <FormMessage />
-                                                </FormItem>
                                             )}
-                                        />
+
+                                            {showRedirectUriInput && oAuth2Properties?.redirectUri && (
+                                                <div>
+                                                    <Label>Redirect URI</Label>
+
+                                                    <RedirectUriInput redirectUri={oAuth2Properties.redirectUri} />
+                                                </div>
+                                            )}
+
+                                            {(!connection?.id || isUpdatingCredentials) &&
+                                                showAuthorizationProperties &&
+                                                !!authorizations?.length &&
+                                                authorizations[0]?.properties && (
+                                                    <WorkflowMockProvider>
+                                                        <Properties
+                                                            control={control}
+                                                            formState={formState}
+                                                            hideFromAi={true}
+                                                            properties={authorizations[0]?.properties}
+                                                        />
+                                                    </WorkflowMockProvider>
+                                                )}
+                                        </>
                                     )}
-
-                                    {showRedirectUriInput && oAuth2Properties?.redirectUri && (
-                                        <div>
-                                            <Label>Redirect URI</Label>
-
-                                            <RedirectUriInput redirectUri={oAuth2Properties.redirectUri} />
-                                        </div>
-                                    )}
-
-                                    {(!connection?.id || isUpdatingCredentials) &&
-                                        showAuthorizationProperties &&
-                                        !!authorizations?.length &&
-                                        authorizations[0]?.properties && (
-                                            <WorkflowMockProvider>
-                                                <Properties
-                                                    control={control}
-                                                    formState={formState}
-                                                    hideFromAi={true}
-                                                    properties={authorizations[0]?.properties}
-                                                />
-                                            </WorkflowMockProvider>
-                                        )}
 
                                     {showOAuth2AppPredefined && (
                                         <div>

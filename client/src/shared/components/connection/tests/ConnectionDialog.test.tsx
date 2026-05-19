@@ -6,6 +6,15 @@ import {ComponentProps, ReactNode} from 'react';
 import {MemoryRouter} from 'react-router-dom';
 import {beforeAll, beforeEach, describe, expect, it, vi} from 'vitest';
 
+vi.mock('@/shared/middleware/graphql', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/shared/middleware/graphql')>()),
+    useConnectionCredentialStoresQuery: vi.fn(() => ({data: undefined})),
+}));
+
+vi.mock('@/shared/mutations/automation/connections.mutations', () => ({
+    useRegisterExistingConnectionMutation: vi.fn(() => ({reset: vi.fn()})),
+}));
+
 vi.mock('@/shared/queries/platform/connectionDefinitions.queries', () => ({
     useGetConnectionDefinitionQuery: vi.fn(() => ({data: undefined, error: null, isLoading: false})),
     useGetConnectionDefinitionsQuery: vi.fn(() => ({data: undefined})),
