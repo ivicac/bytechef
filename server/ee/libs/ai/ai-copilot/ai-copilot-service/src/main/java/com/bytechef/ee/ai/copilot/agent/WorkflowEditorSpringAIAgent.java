@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.ai.copilot.agent;
 
+import com.agui.core.agent.RunAgentInput;
 import com.agui.core.context.Context;
 import com.agui.core.exception.AGUIException;
 import com.agui.core.message.BaseMessage;
@@ -23,6 +24,10 @@ import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
@@ -35,6 +40,8 @@ import org.springframework.ai.tool.ToolCallback;
  */
 public class WorkflowEditorSpringAIAgent extends SpringAIAgent {
 
+    private static final Logger logger = LoggerFactory.getLogger(WorkflowEditorSpringAIAgent.class);
+
     private static final String ADDITIONAL_RULES =
         """
             ## Additional Rules
@@ -46,6 +53,7 @@ public class WorkflowEditorSpringAIAgent extends SpringAIAgent {
 
     private final WorkflowService workflowService;
     private final WorkflowNodeOutputFacade workflowNodeOutputFacade;
+    private final @Nullable OverrideChatClientResolver overrideChatClientResolver;
 
     protected WorkflowEditorSpringAIAgent(final Builder builder, final WorkflowService workflowService,
         final WorkflowNodeOutputFacade workflowNodeOutputFacade)
@@ -55,10 +63,40 @@ public class WorkflowEditorSpringAIAgent extends SpringAIAgent {
 
         this.workflowService = workflowService;
         this.workflowNodeOutputFacade = workflowNodeOutputFacade;
+        this.overrideChatClientResolver = builder.overrideChatClientResolver;
     }
 
     public static Builder builder() {
         return new Builder();
+    }
+
+    /**
+     * Returns the per-request {@link ChatClient}. Consults the override resolver first (for the user-selected
+     * (provider, model) supplied via AG-UI state); falls back to the builder-time default whenever the resolver is
+     * absent, returns {@code null}, or throws. Mirrors the same hook on {@code AiHubSpringAIAgent.resolveChatClient}.
+     */
+    @Override
+    protected ChatClient resolveChatClient(RunAgentInput input) {
+        if (overrideChatClientResolver == null) {
+            return super.resolveChatClient(input);
+        }
+
+        try {
+            ChatClient override = overrideChatClientResolver.resolve(input.state());
+
+            if (override != null) {
+                return override;
+            }
+        } catch (RuntimeException exception) {
+            // The override path is best-effort: any failure (missing provider, factory throw, malformed state) must
+            // fall back to the workspace default rather than failing the turn. Absence of an override simply means
+            // "use the configured default."
+            logger.warn(
+                "WorkflowEditorSpringAIAgent: override ChatClient resolver threw; falling back to default. {}",
+                exception.getMessage());
+        }
+
+        return super.resolveChatClient(input);
     }
 
     @Override
@@ -109,6 +147,13 @@ public class WorkflowEditorSpringAIAgent extends SpringAIAgent {
 
         private WorkflowService workflowService;
         private WorkflowNodeOutputFacade workflowNodeOutputFacade;
+        private @Nullable OverrideChatClientResolver overrideChatClientResolver;
+
+        public Builder overrideChatClientResolver(@Nullable OverrideChatClientResolver overrideChatClientResolver) {
+            this.overrideChatClientResolver = overrideChatClientResolver;
+
+            return this;
+        }
 
         public Builder chatModel(ChatModel chatModel) {
             super.chatModel(chatModel);

@@ -25,6 +25,7 @@ import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.ee.ai.copilot.agent.ClusterElementSpringAIAgent;
 import com.bytechef.ee.ai.copilot.agent.CodeEditorSpringAIAgent;
 import com.bytechef.ee.ai.copilot.agent.ConverterSpringAIAgent;
+import com.bytechef.ee.ai.copilot.agent.CopilotChatClientResolver;
 import com.bytechef.ee.ai.copilot.agent.SkillsSpringAIAgent;
 import com.bytechef.ee.ai.copilot.agent.WorkflowEditorSpringAIAgent;
 import com.bytechef.ee.ai.copilot.agent.WorkflowExecutionSpringAIAgent;
@@ -43,6 +44,7 @@ import org.springframework.ai.chat.client.advisor.vectorstore.QuestionAnswerAdvi
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -101,7 +103,8 @@ public class CopilotConfiguration {
     @Bean
     CodeEditorSpringAIAgent codeEditorAskSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, ReadProjectWorkflowTools readProjectWorkflowTools,
-        ComponentTools componentTools, Optional<FirecrawlTools> firecrawlTools) throws AGUIException {
+        ComponentTools componentTools, Optional<FirecrawlTools> firecrawlTools,
+        ObjectProvider<CopilotChatClientResolver> overrideChatClientResolverProvider) throws AGUIException {
         String name = Source.CODE_EDITOR.name() + "_" + Mode.ASK.name();
 
         List<Object> tools = new ArrayList<>(List.of(readProjectWorkflowTools, componentTools));
@@ -115,14 +118,15 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptCodeEditorAskResource))
             .tools(tools)
             .state(state)
+            .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
 
     @Bean
     CodeEditorSpringAIAgent codeEditorBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, ScriptTools scriptTools,
-        ReadProjectWorkflowTools readProjectWorkflowTools,
-        ComponentTools componentTools)
+        ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools,
+        ObjectProvider<CopilotChatClientResolver> overrideChatClientResolverProvider)
         throws AGUIException {
 
         String name = Source.CODE_EDITOR.name() + "_" + Mode.BUILD.name();
@@ -134,13 +138,15 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptCodeEditorBuildResource))
             .tools(List.of(readProjectWorkflowTools, scriptTools, componentTools))
             .state(state)
+            .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
 
     @Bean
     ClusterElementSpringAIAgent clusterElementAskSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, ReadProjectWorkflowTools readProjectWorkflowTools,
-        ComponentTools componentTools, TaskTools taskTools) throws AGUIException {
+        ComponentTools componentTools, TaskTools taskTools,
+        ObjectProvider<CopilotChatClientResolver> overrideChatClientResolverProvider) throws AGUIException {
 
         String name = Source.CLUSTER_ELEMENT.name() + "_" + Mode.ASK.name();
 
@@ -151,13 +157,15 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptClusterElementAskResource))
             .tools(List.of(readProjectWorkflowTools, componentTools, taskTools))
             .state(state)
+            .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
 
     @Bean
     ClusterElementSpringAIAgent clusterElementBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, ClusterElementTools clusterElementTools,
-        ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools, TaskTools taskTools)
+        ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools, TaskTools taskTools,
+        ObjectProvider<CopilotChatClientResolver> overrideChatClientResolverProvider)
         throws AGUIException {
 
         String name = Source.CLUSTER_ELEMENT.name() + "_" + Mode.BUILD.name();
@@ -169,6 +177,7 @@ public class CopilotConfiguration {
             .systemMessage(getSystemPrompt(promptClusterElementBuildResource))
             .tools(List.of(readProjectWorkflowTools, clusterElementTools, componentTools, taskTools))
             .state(state)
+            .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
 
@@ -183,7 +192,8 @@ public class CopilotConfiguration {
         ChatMemory chatMemory, ChatModel chatModel, ReadProjectTools readProjectTools,
         ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools, TaskTools taskTools,
         Optional<FirecrawlTools> firecrawlTools, WorkflowService workflowService,
-        WorkflowNodeOutputFacade workflowNodeOutputFacade, QuestionAnswerAdvisor questionAnswerAdvisor)
+        WorkflowNodeOutputFacade workflowNodeOutputFacade, QuestionAnswerAdvisor questionAnswerAdvisor,
+        ObjectProvider<CopilotChatClientResolver> overrideChatClientResolverProvider)
         throws AGUIException {
 
         String name = Source.WORKFLOW_EDITOR.name() + "_" + Mode.ASK.name();
@@ -203,6 +213,7 @@ public class CopilotConfiguration {
             .advisor(questionAnswerAdvisor)
             .workflowService(workflowService)
             .workflowNodeOutputFacade(workflowNodeOutputFacade)
+            .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
 
@@ -210,7 +221,8 @@ public class CopilotConfiguration {
     WorkflowEditorSpringAIAgent workflowEditorBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, ProjectTools projectTools,
         ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools, ScriptTools scriptTools,
-        WorkflowService workflowService, WorkflowNodeOutputFacade workflowNodeOutputFacade)
+        WorkflowService workflowService, WorkflowNodeOutputFacade workflowNodeOutputFacade,
+        ObjectProvider<CopilotChatClientResolver> overrideChatClientResolverProvider)
         throws AGUIException {
 
         String name = Source.WORKFLOW_EDITOR.name() + "_" + Mode.BUILD.name();
@@ -224,6 +236,7 @@ public class CopilotConfiguration {
             .tools(List.of(projectTools, projectWorkflowTools, taskTools, scriptTools))
             .workflowService(workflowService)
             .workflowNodeOutputFacade(workflowNodeOutputFacade)
+            .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
     }
 
