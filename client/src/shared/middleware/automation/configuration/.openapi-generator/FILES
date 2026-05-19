@@ -38,6 +38,7 @@ docs/ProjectStatus.md
 docs/ProjectTagApi.md
 docs/ProjectVersion.md
 docs/PublishProjectRequest.md
+docs/RegisterExistingConnectionRequest.md
 docs/StartWebhookTriggerTest200Response.md
 docs/Tag.md
 docs/UpdateConnectionRequest.md
@@ -76,6 +77,7 @@ models/ProjectDeploymentWorkflowConnection.ts
 models/ProjectStatus.ts
 models/ProjectVersion.ts
 models/PublishProjectRequest.ts
+models/RegisterExistingConnectionRequest.ts
 models/StartWebhookTriggerTest200Response.ts
 models/Tag.ts
 models/UpdateConnectionRequest.ts

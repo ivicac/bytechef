@@ -16,11 +16,14 @@
 import * as runtime from '../runtime';
 import type {
   Connection,
+  RegisterExistingConnectionRequest,
   UpdateConnectionRequest,
 } from '../models/index';
 import {
     ConnectionFromJSON,
     ConnectionToJSON,
+    RegisterExistingConnectionRequestFromJSON,
+    RegisterExistingConnectionRequestToJSON,
     UpdateConnectionRequestFromJSON,
     UpdateConnectionRequestToJSON,
 } from '../models/index';
@@ -43,6 +46,10 @@ export interface GetWorkspaceConnectionsRequest {
     connectionVersion?: number;
     environmentId?: number;
     tagId?: number;
+}
+
+export interface RegisterExistingConnectionOperationRequest {
+    registerExistingConnectionRequest: RegisterExistingConnectionRequest;
 }
 
 export interface UpdateConnectionOperationRequest {
@@ -261,6 +268,59 @@ export class ConnectionApi extends runtime.BaseAPI {
      */
     async getWorkspaceConnections(requestParameters: GetWorkspaceConnectionsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<Array<Connection>> {
         const response = await this.getWorkspaceConnectionsRaw(requestParameters, initOverrides);
+        return await response.value();
+    }
+
+    /**
+     * Creates request options for registerExistingConnection without sending the request
+     */
+    async registerExistingConnectionRequestOpts(requestParameters: RegisterExistingConnectionOperationRequest): Promise<runtime.RequestOpts> {
+        if (requestParameters['registerExistingConnectionRequest'] == null) {
+            throw new runtime.RequiredError(
+                'registerExistingConnectionRequest',
+                'Required parameter "registerExistingConnectionRequest" was null or undefined when calling registerExistingConnection().'
+            );
+        }
+
+        const queryParameters: any = {};
+
+        const headerParameters: runtime.HTTPHeaders = {};
+
+        headerParameters['Content-Type'] = 'application/json';
+
+
+        let urlPath = `/connections/register-existing`;
+
+        return {
+            path: urlPath,
+            method: 'POST',
+            headers: headerParameters,
+            query: queryParameters,
+            body: RegisterExistingConnectionRequestToJSON(requestParameters['registerExistingConnectionRequest']),
+        };
+    }
+
+    /**
+     * Register a connection backed by an externally-provisioned credential.
+     * Register a connection backed by an externally-provisioned credential
+     */
+    async registerExistingConnectionRaw(requestParameters: RegisterExistingConnectionOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<number>> {
+        const requestOptions = await this.registerExistingConnectionRequestOpts(requestParameters);
+        const response = await this.request(requestOptions, initOverrides);
+
+        if (this.isJsonMime(response.headers.get('content-type'))) {
+            return new runtime.JSONApiResponse<number>(response);
+        } else {
+            return new runtime.TextApiResponse(response) as any;
+        }
+    }
+
+    /**
+     * Register a connection backed by an externally-provisioned credential.
+     * Register a connection backed by an externally-provisioned credential
+     */
+    async registerExistingConnection(requestParameters: RegisterExistingConnectionOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<number> {
+        const response = await this.registerExistingConnectionRaw(requestParameters, initOverrides);
         return await response.value();
     }
 
