@@ -39,6 +39,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.TestInstance;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.junit.jupiter.SpringJUnitConfig;
 import org.testcontainers.containers.Container.ExecResult;
 import org.testcontainers.containers.ContainerLaunchException;
@@ -52,6 +53,12 @@ import org.testcontainers.containers.GenericContainer;
  */
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
 @SpringJUnitConfig(BaseFtpActionIntTest.TestConfig.class)
+@TestPropertySource(
+    properties = {
+        "bytechef.test.ftp.username=bytechef",
+        "bytechef.test.ftp.password=byteChefFtpPass123",
+        "bytechef.test.ftp.host.ip=127.0.0.1"
+    })
 public class BaseFtpActionIntTest {
 
     protected static class TestContextImpl implements ActionContext {
