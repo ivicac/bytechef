@@ -105,6 +105,16 @@ ByteChef can be configured using environment variables. This page documents all 
 |---|---|---|
 | `BYTECHEF_ANALYTICS_ENABLED` | Enable or disable analytics | `false` |
 
+## Context Store Configuration
+
+The Context Store sync engine writes records to Postgres by default (the same database used for the rest of ByteChef). Setting a `CLICKHOUSE_URL` opts the deployment into an alternative ClickHouse backend for record storage; each Context Store source then picks `POSTGRES` or `CLICKHOUSE` at create time. Postgres-backed sources are unaffected by these variables — they continue to use the primary application database.
+
+| Environment Variable | Description | Default Value |
+|---|---|---|
+| `BYTECHEF_CONTEXT_STORE_CLICKHOUSE_URL` | JDBC URL for the optional ClickHouse server (e.g. `jdbc:clickhouse://host:8123/database`). When unset, the ClickHouse backend is unreachable and the UI hides the backend selector. | - |
+| `BYTECHEF_CONTEXT_STORE_CLICKHOUSE_USERNAME` | ClickHouse username (sensitive) | - |
+| `BYTECHEF_CONTEXT_STORE_CLICKHOUSE_PASSWORD` | ClickHouse password (sensitive) | - |
+
 ## Cache Configuration
 
 | Environment Variable | Description | Default Value |

@@ -21,6 +21,7 @@ import com.bytechef.component.definition.ClusterElementDefinition.ClusterElement
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.datastream.ClusterElementResolverFunction;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
+import com.bytechef.platform.component.domain.Field;
 import com.bytechef.platform.component.domain.Option;
 import com.bytechef.platform.component.domain.Property;
 import com.bytechef.platform.domain.OutputResponse;
@@ -48,6 +49,15 @@ public interface ClusterElementDefinitionService extends OperationDefinitionServ
         String componentName, int componentVersion, String actionName, String propertyName,
         Map<String, ?> inputParameters, List<String> lookupDependsOnPaths, String searchText,
         @Nullable ComponentConnection componentConnection, ClusterElementResolverFunction clusterElementResolver);
+
+    /**
+     * Workflow-less variant of {@link com.bytechef.component.definition.datastream.FieldsProvider#getFields} surfaced
+     * for the Add Context Source wizard. Returns an empty list when the cluster element does not implement
+     * {@code FieldsProvider} (the wizard then falls back to a free-text input).
+     */
+    List<Field> executeFields(
+        String componentName, int componentVersion, String clusterElementName, Map<String, ?> inputParameters,
+        @Nullable ComponentConnection componentConnection);
 
     @Nullable
     OutputResponse executeOutput(
