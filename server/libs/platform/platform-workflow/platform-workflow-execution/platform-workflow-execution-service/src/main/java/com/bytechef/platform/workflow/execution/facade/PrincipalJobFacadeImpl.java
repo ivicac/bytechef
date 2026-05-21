@@ -93,9 +93,11 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
     public long createPrincipalLinkedJob(
         long referenceJobId, JobParametersDTO jobParametersDTO, PlatformType platformType) {
 
-        Validate.isTrue(
-            jobParametersDTO.getParentTaskExecutionId() == null,
-            "A principal-linked job is a top-level job; use createChildJob for a sub-workflow");
+        // The contract of this method is "linked to the same principal instance as referenceJobId." If we cannot
+        // establish the linkage, refusing to create the job is strictly safer than silently creating an orphan
+        // (no tenant attribution, no billing, invisible to workspace-scoped lookups). The caller is the agent-tool
+        // sub-workflow bridge; failing here surfaces as a coordinator-level error rather than a silent multi-tenant
+        // leak. See review finding C3.
 
         long principalId = principalJobService.fetchJobPrincipalId(referenceJobId, platformType)
             .orElseThrow(() -> new IllegalStateException(

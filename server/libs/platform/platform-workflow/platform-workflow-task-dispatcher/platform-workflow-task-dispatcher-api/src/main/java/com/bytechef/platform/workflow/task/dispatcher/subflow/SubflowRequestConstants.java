@@ -16,25 +16,21 @@
 
 package com.bytechef.platform.workflow.task.dispatcher.subflow;
 
-import java.util.List;
-
 /**
+ * Keys for the agent-tool durable sub-workflow bridge.
+ *
  * @author Ivica Cardic
  */
 public final class SubflowRequestConstants {
 
-    public static final String PENDING_SUBFLOW = "__BYTECHEF_PENDING_SUBFLOW__";
+    /** Key in the agent's {@code Suspend.continueParameters} holding a {@link PendingSubflowRequest}. */
+    public static final String PENDING_SUBFLOW = "__bytechef_pending_subflow__";
 
-    public static final String AGENT_JOB_ID = "__BYTECHEF_AGENT_JOB_ID__";
+    /** Key in the sub-workflow job's metadata holding the agent job id (a {@code Long}). */
+    public static final String AGENT_JOB_ID = "__bytechef_agent_job_id__";
 
-    public static final String AGENT_JOB_RESUME_ID = "__BYTECHEF_AGENT_JOB_RESUME_ID__";
-
-    public static final String LAUNCHED_SUBFLOW_RESUME_ID = "__BYTECHEF_LAUNCHED_SUBFLOW_RESUME_ID__";
-
-    public static final String SUBFLOW_DEPTH = "__BYTECHEF_SUBFLOW_DEPTH__";
-
-    public static final List<String> AGENT_LINK_KEYS = List.of(
-        AGENT_JOB_ID, AGENT_JOB_RESUME_ID, LAUNCHED_SUBFLOW_RESUME_ID);
+    /** Key in the agent job's metadata holding the launched sub-workflow job id (idempotency guard). */
+    public static final String LAUNCHED_SUBFLOW_JOB_ID = "__bytechef_launched_subflow_job_id__";
 
     private SubflowRequestConstants() {
     }

@@ -24,7 +24,6 @@ import com.bytechef.component.definition.ComponentCategory;
 import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.component.workflow.action.WorkflowResponseToWorkflowCallAction;
 import com.bytechef.component.workflow.cluster.WorkflowCallWorkflowTool;
-import com.bytechef.component.workflow.subflow.sync.SubflowSyncExecutor;
 import com.bytechef.component.workflow.trigger.WorkflowNewWorkflowCallTrigger;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.SubflowDataSource;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.SubflowResolver;
@@ -38,10 +37,7 @@ public class WorkflowComponentHandler implements ComponentHandler {
 
     private final ComponentDefinition componentDefinition;
 
-    public WorkflowComponentHandler(
-        SubflowDataSource subflowDataSource, SubflowResolver subflowResolver,
-        SubflowSyncExecutor subflowSyncExecutor) {
-
+    public WorkflowComponentHandler(SubflowDataSource subflowDataSource, SubflowResolver subflowResolver) {
         this.componentDefinition = component(WORKFLOW)
             .title("Workflow")
             .description("Triggers and actions for workflow-to-workflow communication.")
@@ -49,7 +45,7 @@ public class WorkflowComponentHandler implements ComponentHandler {
             .categories(ComponentCategory.HELPERS)
             .triggers(WorkflowNewWorkflowCallTrigger.TRIGGER_DEFINITION)
             .actions(WorkflowResponseToWorkflowCallAction.ACTION_DEFINITION)
-            .clusterElements(WorkflowCallWorkflowTool.of(subflowDataSource, subflowResolver, subflowSyncExecutor));
+            .clusterElements(WorkflowCallWorkflowTool.of(subflowDataSource, subflowResolver));
     }
 
     @Override

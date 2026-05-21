@@ -122,7 +122,8 @@ class ActionContextImplTest {
     void testGetApprovalLinksIsNullWithoutAPublicUrl() {
         ActionContextImpl actionContext = ActionContextImpl.builder(
             "approval", 1, "requestApproval", false, mock(CacheManager.class), mock(DataStorage.class),
-            mock(ApplicationEventPublisher.class), mock(HttpClientExecutor.class), mock(TempFileStorage.class), null)
+            mock(ApplicationEventPublisher.class), mock(HttpClientExecutor.class), mock(TempFileStorage.class), null,
+            null)
             .jobId(200L)
             .build();
 
@@ -136,7 +137,7 @@ class ActionContextImplTest {
     private static ActionContextImpl createActionContext(@Nullable ApprovalTokens approvalTokens) {
         return ActionContextImpl.builder(
             "approval", 1, "requestApproval", false, mock(CacheManager.class), mock(DataStorage.class),
-            mock(ApplicationEventPublisher.class), mock(HttpClientExecutor.class), mock(TempFileStorage.class),
+            mock(ApplicationEventPublisher.class), mock(HttpClientExecutor.class), mock(TempFileStorage.class), null,
             approvalTokens)
             .jobId(200L)
             .publicUrl("https://example.com")

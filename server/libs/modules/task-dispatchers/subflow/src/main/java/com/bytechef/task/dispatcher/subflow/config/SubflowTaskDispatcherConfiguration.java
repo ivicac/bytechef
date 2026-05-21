@@ -68,20 +68,14 @@ public class SubflowTaskDispatcherConfiguration {
 
     @Configuration
     @ConditionalOnCoordinator
-    @ConditionalOnClass(name = "com.bytechef.task.dispatcher.suspend.completion.SuspendTaskCompletionHandler")
     public static class AgentSubflowBridgeConfiguration {
 
         @Bean
         AgentSubflowLauncher agentSubflowLauncher(
-            ApplicationProperties applicationProperties, ChildJobPrincipalFactory childJobPrincipalFactory,
-            JobFacade jobFacade, JobService jobService, TaskStateFacade taskStateFacade) {
+            ChildJobPrincipalFactory childJobPrincipalFactory, JobService jobService,
+            TaskExecutionService taskExecutionService) {
 
-            ApplicationProperties.Workflow workflow = applicationProperties.getWorkflow();
-            ApplicationProperties.Workflow.Execution execution = workflow.getExecution();
-            ApplicationProperties.Workflow.Execution.Agent agent = execution.getAgent();
-
-            return new AgentSubflowLauncher(
-                childJobPrincipalFactory, jobFacade, jobService, agent.getMaxSubflowDepth(), taskStateFacade);
+            return new AgentSubflowLauncher(childJobPrincipalFactory, jobService, taskExecutionService);
         }
 
         @Bean
