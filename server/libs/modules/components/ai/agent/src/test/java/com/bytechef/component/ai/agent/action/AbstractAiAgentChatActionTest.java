@@ -32,10 +32,10 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.component.ai.agent.facade.AiAgentToolFacade;
 import com.bytechef.component.ai.llm.util.ModelUtils;
-import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.test.definition.MockParametersFactory;
 import com.bytechef.platform.component.ComponentConnection;
+import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ai.agent.ChatMemoryFunction;
 import com.bytechef.platform.component.definition.ai.agent.ModelFunction;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
@@ -114,7 +114,7 @@ class AbstractAiAgentChatActionTest {
 
         Map<String, ComponentConnection> connectionParameters = Map.of("model_1", componentConnection);
 
-        ActionContext actionContext = mock(ActionContext.class);
+        ActionContextAware actionContext = mock(ActionContextAware.class);
 
         TestAiAgentChatAction action = new TestAiAgentChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
@@ -150,7 +150,7 @@ class AbstractAiAgentChatActionTest {
         ComponentConnection componentConnection = new ComponentConnection(
             "testComponent", 1, 1L, Map.of(), null);
         Map<String, ComponentConnection> connectionParameters = Map.of("model_1", componentConnection);
-        ActionContext actionContext = mock(ActionContext.class);
+        ActionContextAware actionContext = mock(ActionContextAware.class);
 
         TestAiAgentChatAction action = new TestAiAgentChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
@@ -188,7 +188,7 @@ class AbstractAiAgentChatActionTest {
         ComponentConnection componentConnection = new ComponentConnection(
             "testComponent", 1, 1L, Map.of(), null);
         Map<String, ComponentConnection> connectionParameters = Map.of("model_1", componentConnection);
-        ActionContext actionContext = mock(ActionContext.class);
+        ActionContextAware actionContext = mock(ActionContextAware.class);
 
         TestAiAgentChatAction action = new TestAiAgentChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
@@ -252,7 +252,7 @@ class AbstractAiAgentChatActionTest {
         connectionParameters.put("checkForViolations_1", componentConnection);
         connectionParameters.put("sanitizeText_1", componentConnection);
 
-        ActionContext actionContext = mock(ActionContext.class);
+        ActionContextAware actionContext = mock(ActionContextAware.class);
 
         TestAiAgentChatAction action = new TestAiAgentChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
@@ -305,7 +305,7 @@ class AbstractAiAgentChatActionTest {
         connectionParameters.put("model_1", componentConnection);
         connectionParameters.put("checkForViolations_1", componentConnection);
 
-        ActionContext actionContext = mock(ActionContext.class);
+        ActionContextAware actionContext = mock(ActionContextAware.class);
 
         TestAiAgentChatAction action = new TestAiAgentChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
@@ -342,7 +342,7 @@ class AbstractAiAgentChatActionTest {
 
         connectionParameters.put("model_1", componentConnection);
 
-        ActionContext actionContext = mock(ActionContext.class);
+        ActionContextAware actionContext = mock(ActionContextAware.class);
 
         TestAiAgentChatAction action = new TestAiAgentChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);

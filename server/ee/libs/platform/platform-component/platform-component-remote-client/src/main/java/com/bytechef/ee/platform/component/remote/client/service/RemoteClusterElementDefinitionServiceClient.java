@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.platform.component.remote.client.service;
 
+import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType;
 import com.bytechef.component.exception.ProviderException;
 import com.bytechef.platform.component.ComponentConnection;
@@ -84,7 +85,25 @@ public class RemoteClusterElementDefinitionServiceClient implements ClusterEleme
     @Override
     public Object executeTool(
         String componentName, int componentVersion, String clusterElementName, Map<String, ?> inputParameters,
+        @Nullable ComponentConnection componentConnection, boolean editorEnvironment,
+        @Nullable ActionContext agentActionContext) {
+
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Object executeTool(
+        String componentName, int componentVersion, String clusterElementName, Map<String, ?> inputParameters,
         Map<String, ?> extensions, Map<String, ComponentConnection> componentConnections, boolean editorEnvironment) {
+
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Object executeTool(
+        String componentName, int componentVersion, String clusterElementName, Map<String, ?> inputParameters,
+        Map<String, ?> extensions, Map<String, ComponentConnection> componentConnections, boolean editorEnvironment,
+        @Nullable ActionContext agentActionContext) {
 
         throw new UnsupportedOperationException();
     }

@@ -27,6 +27,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Map;
+import java.util.function.LongConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.ApplicationEventPublisher;
@@ -56,8 +57,23 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
     }
 
     @Override
-    @SuppressFBWarnings("CRLF_INJECTION_LOGS")
     public JobResumeOutcome resumeJob(String id, Map<String, Object> data) {
+        return doResumeJob(id, data, jobId -> {});
+    }
+
+    @Override
+    public JobResumeOutcome resumeJobStreaming(String id, Map<String, Object> data, LongConsumer jobIdConsumer) {
+        return doResumeJob(id, data, jobIdConsumer);
+    }
+
+    /**
+     * Shared resume path. Parses and validates the resume token, then — only when validation passes and immediately
+     * before {@link JobFacade#resumeJob} is invoked — calls {@code jobIdConsumer} with the resolved numeric job id. The
+     * streaming caller uses that window to register an SSE stream sink so it captures the resumed turn's events from
+     * the first delta; the non-streaming caller passes a no-op consumer.
+     */
+    @SuppressFBWarnings("CRLF_INJECTION_LOGS")
+    private JobResumeOutcome doResumeJob(String id, Map<String, Object> data, LongConsumer jobIdConsumer) {
         JobResumeId jobResumeId;
 
         try {
@@ -84,6 +100,10 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
 
                 return JobResumeOutcome.INVALID_ID;
             }
+
+            // Register the stream sink before the resume is triggered so the first streamed delta of the resumed
+            // turn is not lost in the window between resume dispatch and sink registration.
+            jobIdConsumer.accept(jobResumeId.getJobId());
 
             jobFacade.resumeJob(jobResumeId.getJobId(), data);
 

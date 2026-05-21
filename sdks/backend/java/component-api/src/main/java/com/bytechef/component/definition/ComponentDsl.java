@@ -306,7 +306,7 @@ public final class ComponentDsl {
         private BasePerformFunction performFunction;
         private ProcessErrorResponseFunction processErrorResponseFunction;
         private List<? extends Property> properties;
-        private ResumePerformFunction resumePerformFunction;
+        private BaseResumePerformFunction resumePerformFunction;
         private String title;
         private WorkflowNodeDescriptionFunction workflowNodeDescriptionFunction;
 
@@ -485,6 +485,12 @@ public final class ComponentDsl {
             return this;
         }
 
+        public ModifiableActionDefinition resumePerform(BaseResumePerformFunction resumePerform) {
+            this.resumePerformFunction = resumePerform;
+
+            return this;
+        }
+
         public ModifiableActionDefinition resumePerform(ResumePerformFunction resumePerform) {
             this.resumePerformFunction = resumePerform;
 
@@ -596,7 +602,7 @@ public final class ComponentDsl {
         }
 
         @Override
-        public Optional<ResumePerformFunction> getResumePerform() {
+        public Optional<? extends BaseResumePerformFunction> getResumePerform() {
             return Optional.ofNullable(resumePerformFunction);
         }
 
