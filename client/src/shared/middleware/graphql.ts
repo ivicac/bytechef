@@ -1,14 +1,5 @@
-/** Internal type. DO NOT USE DIRECTLY. */
-type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
-/** Internal type. DO NOT USE DIRECTLY. */
-export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
-import type * as Types from './graphql-types';
-
 import { useQuery, useMutation, UseQueryOptions, UseMutationOptions } from '@tanstack/react-query';
 import { fetcher } from './graphqlFetcher';
-export * from './graphql-types';
-import type {KnowledgeBaseDocument as KnowledgeBaseDocumentSchemaType} from './graphql-types';
-export type KnowledgeBaseDocument = KnowledgeBaseDocumentSchemaType;
 export class TypedDocumentString<TResult, TVariables> extends String {
   __apiType?: { result: TResult; variables: TVariables };
   __meta__?: Record<string, unknown>;
@@ -22,1729 +13,10710 @@ export class TypedDocumentString<TResult, TVariables> extends String {
     return this.value;
   }
 }
+export type Maybe<T> = T | null;
+export type InputMaybe<T> = Maybe<T>;
+export type Exact<T extends { [key: string]: unknown }> = { [K in keyof T]: T[K] };
+export type MakeOptional<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]?: Maybe<T[SubKey]> };
+export type MakeMaybe<T, K extends keyof T> = Omit<T, K> & { [SubKey in K]: Maybe<T[SubKey]> };
+export type MakeEmpty<T extends { [key: string]: unknown }, K extends keyof T> = { [_ in K]?: never };
+export type Incremental<T> = T | { [P in keyof T]?: P extends ' $fragmentName' | '__typename' ? T[P] : never };
+/** All built-in and custom scalars, mapped to their actual values */
+export type Scalars = {
+  ID: { input: string; output: string; }
+  String: { input: string; output: string; }
+  Boolean: { input: boolean; output: boolean; }
+  Int: { input: number; output: number; }
+  Float: { input: number; output: number; }
+  Any: { input: any; output: any; }
+  Long: { input: any; output: any; }
+  Map: { input: any; output: any; }
+};
+
+export type ActionDefinition = {
+  __typename?: 'ActionDefinition';
+  componentName: Scalars['String']['output'];
+  componentVersion: Scalars['Int']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  help?: Maybe<Help>;
+  name: Scalars['String']['output'];
+  outputDefined: Scalars['Boolean']['output'];
+  outputFunctionDefined: Scalars['Boolean']['output'];
+  outputSchemaDefined?: Maybe<Scalars['Boolean']['output']>;
+  properties: Array<Property>;
+  resumePerformFunctionDefined?: Maybe<Scalars['Boolean']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
+  workflowNodeDescriptionDefined?: Maybe<Scalars['Boolean']['output']>;
+};
+
+export type AddAiHubPersonalAgentResourceInput = {
+  aiHubPersonalAgentId: Scalars['ID']['input'];
+  kind: AiHubPersonalAgentResourceKind;
+  /** The referenced entity's id (a workflow id, file id, …) — NOT the personal-agent-resource row id. */
+  resourceId: Scalars['String']['input'];
+  resourceName: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type AddAiHubPersonalAgentToolInput = {
+  aiHubPersonalAgentId: Scalars['ID']['input'];
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+  operationName: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type AddColumnInput = {
+  column: ColumnInput;
+  environmentId: Scalars['ID']['input'];
+  tableId: Scalars['ID']['input'];
+};
+
+export type AdminUser = {
+  __typename?: 'AdminUser';
+  activated?: Maybe<Scalars['Boolean']['output']>;
+  authorities?: Maybe<Array<Maybe<Scalars['String']['output']>>>;
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  email?: Maybe<Scalars['String']['output']>;
+  firstName?: Maybe<Scalars['String']['output']>;
+  id?: Maybe<Scalars['ID']['output']>;
+  imageUrl?: Maybe<Scalars['String']['output']>;
+  langKey?: Maybe<Scalars['String']['output']>;
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  lastName?: Maybe<Scalars['String']['output']>;
+  login?: Maybe<Scalars['String']['output']>;
+  uuid?: Maybe<Scalars['String']['output']>;
+};
+
+export type AdminUserPage = {
+  __typename?: 'AdminUserPage';
+  content: Array<Maybe<AdminUser>>;
+  number: Scalars['Int']['output'];
+  size: Scalars['Int']['output'];
+  totalElements: Scalars['Int']['output'];
+  totalPages: Scalars['Int']['output'];
+};
+
+/** A workflow affected by connection reassignment. */
+export type AffectedWorkflow = {
+  __typename?: 'AffectedWorkflow';
+  connectionIds: Array<Scalars['ID']['output']>;
+  workflowId: Scalars['String']['output'];
+  workflowName: Scalars['String']['output'];
+};
+
+export type AggregateScoreDelta = {
+  __typename?: 'AggregateScoreDelta';
+  deltas: Array<ExperimentScoreAverage>;
+  scoreName: Scalars['String']['output'];
+};
+
+export type AiAgentEvalResult = {
+  __typename?: 'AiAgentEvalResult';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  inputTokens?: Maybe<Scalars['Int']['output']>;
+  outputTokens?: Maybe<Scalars['Int']['output']>;
+  runIndex?: Maybe<Scalars['Int']['output']>;
+  scenario: AiAgentEvalScenario;
+  score?: Maybe<Scalars['Float']['output']>;
+  status: AiAgentEvalResultStatus;
+  transcriptFile?: Maybe<Scalars['String']['output']>;
+  verdicts: Array<AiAgentJudgeVerdict>;
+};
+
+export enum AiAgentEvalResultStatus {
+  Completed = 'COMPLETED',
+  Failed = 'FAILED',
+  Pending = 'PENDING',
+  Running = 'RUNNING'
+}
+
+export type AiAgentEvalRun = {
+  __typename?: 'AiAgentEvalRun';
+  agentVersion?: Maybe<Scalars['String']['output']>;
+  averageScore?: Maybe<Scalars['Float']['output']>;
+  completedDate?: Maybe<Scalars['Long']['output']>;
+  completedScenarios: Scalars['Int']['output'];
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  results: Array<AiAgentEvalResult>;
+  startedDate?: Maybe<Scalars['Long']['output']>;
+  status: AiAgentEvalRunStatus;
+  totalInputTokens?: Maybe<Scalars['Int']['output']>;
+  totalOutputTokens?: Maybe<Scalars['Int']['output']>;
+  totalScenarios: Scalars['Int']['output'];
+};
+
+export enum AiAgentEvalRunStatus {
+  Completed = 'COMPLETED',
+  Failed = 'FAILED',
+  Pending = 'PENDING',
+  Running = 'RUNNING'
+}
+
+export type AiAgentEvalScenario = {
+  __typename?: 'AiAgentEvalScenario';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  expectedOutput?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  judges: Array<AiAgentScenarioJudge>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  maxTurns?: Maybe<Scalars['Int']['output']>;
+  name: Scalars['String']['output'];
+  numberOfRuns?: Maybe<Scalars['Int']['output']>;
+  personaPrompt?: Maybe<Scalars['String']['output']>;
+  toolSimulations: Array<AiAgentScenarioToolSimulation>;
+  type: AiAgentScenarioType;
+  userMessage?: Maybe<Scalars['String']['output']>;
+};
+
+export type AiAgentEvalTest = {
+  __typename?: 'AiAgentEvalTest';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  scenarios: Array<AiAgentEvalScenario>;
+};
+
+export type AiAgentJudge = {
+  __typename?: 'AiAgentJudge';
+  configuration: Scalars['Map']['output'];
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  type: AiAgentJudgeType;
+};
+
+export enum AiAgentJudgeScope {
+  Agent = 'AGENT',
+  Scenario = 'SCENARIO'
+}
+
+export enum AiAgentJudgeType {
+  ContainsText = 'CONTAINS_TEXT',
+  JsonSchema = 'JSON_SCHEMA',
+  LlmRule = 'LLM_RULE',
+  RegexMatch = 'REGEX_MATCH',
+  ResponseLength = 'RESPONSE_LENGTH',
+  Similarity = 'SIMILARITY',
+  StringEquals = 'STRING_EQUALS',
+  ToolUsage = 'TOOL_USAGE'
+}
+
+export type AiAgentJudgeVerdict = {
+  __typename?: 'AiAgentJudgeVerdict';
+  explanation: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  judgeName: Scalars['String']['output'];
+  judgeScope: AiAgentJudgeScope;
+  judgeType: AiAgentJudgeType;
+  passed: Scalars['Boolean']['output'];
+  score: Scalars['Float']['output'];
+};
+
+export type AiAgentScenarioJudge = {
+  __typename?: 'AiAgentScenarioJudge';
+  configuration: Scalars['Map']['output'];
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  type: AiAgentJudgeType;
+};
+
+export type AiAgentScenarioToolSimulation = {
+  __typename?: 'AiAgentScenarioToolSimulation';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  responsePrompt: Scalars['String']['output'];
+  simulationModel?: Maybe<Scalars['String']['output']>;
+  toolName: Scalars['String']['output'];
+};
+
+export enum AiAgentScenarioType {
+  MultiTurn = 'MULTI_TURN',
+  SingleTurn = 'SINGLE_TURN'
+}
+
+export type AiAutoMemory = {
+  __typename?: 'AiAutoMemory';
+  content: Scalars['String']['output'];
+  createdAt?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  environmentId: Scalars['Long']['output'];
+  id: Scalars['ID']['output'];
+  memoryType: AiAutoMemoryType;
+  name: Scalars['String']['output'];
+  title: Scalars['String']['output'];
+  updatedAt?: Maybe<Scalars['Long']['output']>;
+  userId: Scalars['Long']['output'];
+  workspaceId: Scalars['Long']['output'];
+};
+
+export enum AiAutoMemoryType {
+  Feedback = 'FEEDBACK',
+  Project = 'PROJECT',
+  Reference = 'REFERENCE',
+  User = 'USER'
+}
+
+export type AiEvalDatasetItemView = {
+  __typename?: 'AiEvalDatasetItemView';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  datasetVersionId: Scalars['ID']['output'];
+  expectedOutput?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  input: Scalars['String']['output'];
+  metadata?: Maybe<Scalars['String']['output']>;
+  sourceTraceId?: Maybe<Scalars['ID']['output']>;
+};
+
+export type AiEvalDatasetVersionView = {
+  __typename?: 'AiEvalDatasetVersionView';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  datasetId: Scalars['ID']['output'];
+  frozen: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  itemCount: Scalars['Int']['output'];
+  label?: Maybe<Scalars['String']['output']>;
+};
+
+export type AiEvalDatasetView = {
+  __typename?: 'AiEvalDatasetView';
+  archivedDate?: Maybe<Scalars['Long']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  tags?: Maybe<Scalars['String']['output']>;
+  workspaceId: Scalars['ID']['output'];
+};
+
+export type AiEvalExecution = {
+  __typename?: 'AiEvalExecution';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  evalRuleId: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  scoreId?: Maybe<Scalars['ID']['output']>;
+  status: AiEvalExecutionStatus;
+  traceId: Scalars['ID']['output'];
+};
+
+export enum AiEvalExecutionStatus {
+  Completed = 'COMPLETED',
+  Error = 'ERROR',
+  Pending = 'PENDING'
+}
+
+export type AiEvalExperimentRunView = {
+  __typename?: 'AiEvalExperimentRunView';
+  cost?: Maybe<Scalars['Float']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  datasetItemId: Scalars['ID']['output'];
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  experimentId: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  latencyMs?: Maybe<Scalars['Int']['output']>;
+  status: Scalars['String']['output'];
+  traceId?: Maybe<Scalars['ID']['output']>;
+};
+
+export type AiEvalExperimentView = {
+  __typename?: 'AiEvalExperimentView';
+  completedDate?: Maybe<Scalars['Long']['output']>;
+  completedRuns: Scalars['Int']['output'];
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  datasetVersionId: Scalars['ID']['output'];
+  failedRuns: Scalars['Int']['output'];
+  id: Scalars['ID']['output'];
+  metadata?: Maybe<Scalars['String']['output']>;
+  model?: Maybe<Scalars['String']['output']>;
+  promptVersionId?: Maybe<Scalars['ID']['output']>;
+  startedDate?: Maybe<Scalars['Long']['output']>;
+  status: Scalars['String']['output'];
+  stopRequested: Scalars['Boolean']['output'];
+  totalRuns: Scalars['Int']['output'];
+};
+
+export type AiEvalRule = {
+  __typename?: 'AiEvalRule';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  delaySeconds?: Maybe<Scalars['Int']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  filters?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  model: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  projectId?: Maybe<Scalars['ID']['output']>;
+  promptTemplate: Scalars['String']['output'];
+  samplingRate: Scalars['Float']['output'];
+  scoreConfigId: Scalars['ID']['output'];
+  version?: Maybe<Scalars['Int']['output']>;
+  workspaceId: Scalars['ID']['output'];
+};
+
+export type AiEvalScore = {
+  __typename?: 'AiEvalScore';
+  comment?: Maybe<Scalars['String']['output']>;
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  dataType?: Maybe<AiEvalScoreDataType>;
+  evalRuleId?: Maybe<Scalars['ID']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  source: AiEvalScoreSource;
+  spanId?: Maybe<Scalars['ID']['output']>;
+  stringValue?: Maybe<Scalars['String']['output']>;
+  traceId: Scalars['ID']['output'];
+  value?: Maybe<Scalars['Float']['output']>;
+  workspaceId: Scalars['ID']['output'];
+};
+
+export type AiEvalScoreAnalytics = {
+  __typename?: 'AiEvalScoreAnalytics';
+  average?: Maybe<Scalars['Float']['output']>;
+  count?: Maybe<Scalars['Int']['output']>;
+  dataType?: Maybe<AiEvalScoreDataType>;
+  distribution?: Maybe<Array<Maybe<AiEvalScoreDistributionEntry>>>;
+  max?: Maybe<Scalars['Float']['output']>;
+  min?: Maybe<Scalars['Float']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+};
+
+export type AiEvalScoreConfig = {
+  __typename?: 'AiEvalScoreConfig';
+  categories?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  dataType?: Maybe<AiEvalScoreDataType>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  maxValue?: Maybe<Scalars['Float']['output']>;
+  minValue?: Maybe<Scalars['Float']['output']>;
+  name: Scalars['String']['output'];
+  version?: Maybe<Scalars['Int']['output']>;
+  workspaceId: Scalars['ID']['output'];
+};
+
+export enum AiEvalScoreDataType {
+  Boolean = 'BOOLEAN',
+  Categorical = 'CATEGORICAL',
+  Numeric = 'NUMERIC'
+}
+
+export type AiEvalScoreDistributionEntry = {
+  __typename?: 'AiEvalScoreDistributionEntry';
+  count?: Maybe<Scalars['Int']['output']>;
+  value?: Maybe<Scalars['String']['output']>;
+};
+
+export enum AiEvalScoreSource {
+  Api = 'API',
+  LlmJudge = 'LLM_JUDGE',
+  Manual = 'MANUAL'
+}
+
+export type AiEvalScoreTrendPoint = {
+  __typename?: 'AiEvalScoreTrendPoint';
+  average?: Maybe<Scalars['Float']['output']>;
+  count: Scalars['Int']['output'];
+  day: Scalars['Long']['output'];
+};
+
+export type AiGatewayBudget = {
+  __typename?: 'AiGatewayBudget';
+  alertThreshold: Scalars['Int']['output'];
+  amount: Scalars['String']['output'];
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  enforcementMode: AiGatewayBudgetEnforcementMode;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  period: AiGatewayBudgetPeriod;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export enum AiGatewayBudgetEnforcementMode {
+  Hard = 'HARD',
+  Soft = 'SOFT'
+}
+
+export enum AiGatewayBudgetPeriod {
+  Daily = 'DAILY',
+  Monthly = 'MONTHLY',
+  Quarterly = 'QUARTERLY',
+  Weekly = 'WEEKLY',
+  Yearly = 'YEARLY'
+}
+
+export type AiGatewayModel = {
+  __typename?: 'AiGatewayModel';
+  alias?: Maybe<Scalars['String']['output']>;
+  capabilities?: Maybe<Scalars['String']['output']>;
+  contextWindow?: Maybe<Scalars['Int']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  defaultRoutingPolicyId?: Maybe<Scalars['ID']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  inputCostPerMTokens?: Maybe<Scalars['Float']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  outputCostPerMTokens?: Maybe<Scalars['Float']['output']>;
+  providerId: Scalars['ID']['output'];
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type AiGatewayModelDeployment = {
+  __typename?: 'AiGatewayModelDeployment';
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  maxRpm?: Maybe<Scalars['Int']['output']>;
+  maxTpm?: Maybe<Scalars['Int']['output']>;
+  modelId: Scalars['ID']['output'];
+  priorityOrder: Scalars['Int']['output'];
+  routingPolicyId: Scalars['ID']['output'];
+  weight: Scalars['Int']['output'];
+};
+
+export type AiGatewayProject = {
+  __typename?: 'AiGatewayProject';
+  cacheTtlMinutes?: Maybe<Scalars['Int']['output']>;
+  cachingEnabled?: Maybe<Scalars['Boolean']['output']>;
+  compressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  logRetentionDays?: Maybe<Scalars['Int']['output']>;
+  name: Scalars['String']['output'];
+  retryMaxAttempts?: Maybe<Scalars['Int']['output']>;
+  routingPolicyId?: Maybe<Scalars['ID']['output']>;
+  slug: Scalars['String']['output'];
+  timeoutSeconds?: Maybe<Scalars['Int']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type AiGatewayProvider = {
+  __typename?: 'AiGatewayProvider';
+  baseUrl?: Maybe<Scalars['String']['output']>;
+  config?: Maybe<Scalars['String']['output']>;
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  type: AiGatewayProviderType;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export enum AiGatewayProviderType {
+  Anthropic = 'ANTHROPIC',
+  AzureOpenai = 'AZURE_OPENAI',
+  Cohere = 'COHERE',
+  Deepseek = 'DEEPSEEK',
+  GoogleGemini = 'GOOGLE_GEMINI',
+  Groq = 'GROQ',
+  Mistral = 'MISTRAL',
+  Openai = 'OPENAI'
+}
+
+export type AiGatewayRateLimit = {
+  __typename?: 'AiGatewayRateLimit';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  limitType: AiGatewayRateLimitType;
+  limitValue: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  projectId?: Maybe<Scalars['ID']['output']>;
+  propertyKey?: Maybe<Scalars['String']['output']>;
+  scope: AiGatewayRateLimitScope;
+  version?: Maybe<Scalars['Int']['output']>;
+  windowSeconds: Scalars['Int']['output'];
+};
+
+export enum AiGatewayRateLimitScope {
+  Global = 'GLOBAL',
+  PerProperty = 'PER_PROPERTY',
+  PerUser = 'PER_USER'
+}
+
+export enum AiGatewayRateLimitType {
+  Cost = 'COST',
+  Requests = 'REQUESTS',
+  Tokens = 'TOKENS'
+}
+
+export type AiGatewayRequestLog = {
+  __typename?: 'AiGatewayRequestLog';
+  apiKeyId?: Maybe<Scalars['ID']['output']>;
+  cacheHit?: Maybe<Scalars['Boolean']['output']>;
+  cost?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  inputTokens?: Maybe<Scalars['Int']['output']>;
+  latencyMs?: Maybe<Scalars['Int']['output']>;
+  outputTokens?: Maybe<Scalars['Int']['output']>;
+  requestId: Scalars['String']['output'];
+  requestedModel?: Maybe<Scalars['String']['output']>;
+  routedModel?: Maybe<Scalars['String']['output']>;
+  routedProvider?: Maybe<Scalars['String']['output']>;
+  routingPolicyId?: Maybe<Scalars['ID']['output']>;
+  routingStrategy?: Maybe<Scalars['String']['output']>;
+  status?: Maybe<Scalars['Int']['output']>;
+};
+
+export type AiGatewayRoutingPolicy = {
+  __typename?: 'AiGatewayRoutingPolicy';
+  config?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  deployments?: Maybe<Array<Maybe<AiGatewayModelDeployment>>>;
+  enabled: Scalars['Boolean']['output'];
+  fallbackModel?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  strategy: AiGatewayRoutingStrategyType;
+  tagIds?: Maybe<Array<Scalars['ID']['output']>>;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export enum AiGatewayRoutingStrategyType {
+  CostOptimized = 'COST_OPTIMIZED',
+  IntelligentBalanced = 'INTELLIGENT_BALANCED',
+  IntelligentCost = 'INTELLIGENT_COST',
+  IntelligentQuality = 'INTELLIGENT_QUALITY',
+  LatencyOptimized = 'LATENCY_OPTIMIZED',
+  PriorityFallback = 'PRIORITY_FALLBACK',
+  Simple = 'SIMPLE',
+  TagBased = 'TAG_BASED',
+  WeightedRandom = 'WEIGHTED_RANDOM'
+}
+
+export type AiGatewaySpendSummary = {
+  __typename?: 'AiGatewaySpendSummary';
+  apiKeyId?: Maybe<Scalars['ID']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  model?: Maybe<Scalars['String']['output']>;
+  periodEnd?: Maybe<Scalars['Long']['output']>;
+  periodStart?: Maybe<Scalars['Long']['output']>;
+  provider?: Maybe<Scalars['String']['output']>;
+  requestCount?: Maybe<Scalars['Int']['output']>;
+  totalCost?: Maybe<Scalars['String']['output']>;
+  totalInputTokens?: Maybe<Scalars['Long']['output']>;
+  totalOutputTokens?: Maybe<Scalars['Long']['output']>;
+};
+
+export type AiGatewayWorkspaceSettings = {
+  __typename?: 'AiGatewayWorkspaceSettings';
+  cacheEnabled?: Maybe<Scalars['Boolean']['output']>;
+  cacheTtlSeconds?: Maybe<Scalars['Int']['output']>;
+  defaultRoutingPolicyId?: Maybe<Scalars['ID']['output']>;
+  logRetentionDays?: Maybe<Scalars['Int']['output']>;
+  redactPii?: Maybe<Scalars['Boolean']['output']>;
+  retryCount?: Maybe<Scalars['Int']['output']>;
+  softBudgetWarningPct?: Maybe<Scalars['Int']['output']>;
+  timeoutMs?: Maybe<Scalars['Int']['output']>;
+  workspaceId: Scalars['ID']['output'];
+};
+
+export type AiGatewayWorkspaceSettingsInput = {
+  cacheEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+  cacheTtlSeconds?: InputMaybe<Scalars['Int']['input']>;
+  defaultRoutingPolicyId?: InputMaybe<Scalars['ID']['input']>;
+  logRetentionDays?: InputMaybe<Scalars['Int']['input']>;
+  redactPii?: InputMaybe<Scalars['Boolean']['input']>;
+  retryCount?: InputMaybe<Scalars['Int']['input']>;
+  softBudgetWarningPct?: InputMaybe<Scalars['Int']['input']>;
+  timeoutMs?: InputMaybe<Scalars['Int']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type AiHubPersonalAgent = {
+  __typename?: 'AiHubPersonalAgent';
+  createdAt?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  environmentId: Scalars['Long']['output'];
+  id: Scalars['ID']['output'];
+  instructions?: Maybe<Scalars['String']['output']>;
+  /**
+   * Optional per-agent LLM model id (provider-specific, e.g. "gpt-4o-mini", "claude-3-5-sonnet-20241022"). Paired
+   * with llmProvider. The (provider, model) pair must resolve to a workspace-enabled provider at run time; otherwise
+   * the agent falls back to the workspace default with a warn log.
+   */
+  llmModel?: Maybe<Scalars['String']['output']>;
+  /**
+   * Optional per-agent LLM provider override (e.g. "openai", "anthropic"). Both llmProvider and llmModel must be
+   * set together or both null. Null/null means "use workspace default LLM." Service validation rejects half-set.
+   */
+  llmProvider?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  /**
+   * The agent's resource template. Each entry is a (kind, resourceId, resourceName) reference. When a task is
+   * created against this agent, these are copied into ai_hub_task_artifact as *_REFERENCED artifacts.
+   */
+  resources: Array<AiHubPersonalAgentResource>;
+  /**
+   * Optional one-to-one schedule. Null when the user has not enabled scheduling for this agent.
+   * Read-only here — mutate via setAiHubPersonalAgentSchedule.
+   */
+  schedule?: Maybe<AiHubPersonalAgentSchedule>;
+  title?: Maybe<Scalars['String']['output']>;
+  /**
+   * The agent's tool template. Each entry is a (componentName, componentVersion, operationName) triple the
+   * agent declares as available. When a task is created against this agent, these tools are auto-attached
+   * to the ai_hub_task_tool table so the LLM sees them on the very first turn — same UX as AI Agent simple mode.
+   */
+  tools: Array<AiHubPersonalAgentTool>;
+  updatedAt?: Maybe<Scalars['Long']['output']>;
+  userId: Scalars['Long']['output'];
+  workspaceId: Scalars['Long']['output'];
+};
+
+export type AiHubPersonalAgentResource = {
+  __typename?: 'AiHubPersonalAgentResource';
+  aiHubPersonalAgentId: Scalars['Long']['output'];
+  createdAt?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  kind: AiHubPersonalAgentResourceKind;
+  /**
+   * The referenced entity's id (a workflow id, file id, …). String because composer resource ids are strings and
+   * workflow ids are non-numeric.
+   */
+  resourceId: Scalars['String']['output'];
+  resourceName: Scalars['String']['output'];
+};
+
+export enum AiHubPersonalAgentResourceKind {
+  ApiCollection = 'API_COLLECTION',
+  DataTable = 'DATA_TABLE',
+  File = 'FILE',
+  KnowledgeBase = 'KNOWLEDGE_BASE',
+  McpServer = 'MCP_SERVER',
+  Task = 'TASK',
+  Workflow = 'WORKFLOW',
+  WorkflowExecution = 'WORKFLOW_EXECUTION'
+}
+
+/** Scheduled run configuration for a personal agent. At most one row per agent. */
+export type AiHubPersonalAgentSchedule = {
+  __typename?: 'AiHubPersonalAgentSchedule';
+  aiHubPersonalAgentId: Scalars['ID']['output'];
+  cronExpression?: Maybe<Scalars['String']['output']>;
+  dayOfMonth?: Maybe<Scalars['Int']['output']>;
+  dayOfWeek?: Maybe<Scalars['Int']['output']>;
+  effectiveCronExpression: Scalars['String']['output'];
+  enabled: Scalars['Boolean']['output'];
+  frequencyKind: ScheduleFrequencyKind;
+  id: Scalars['ID']['output'];
+  intervalMinutes?: Maybe<Scalars['Int']['output']>;
+  lastRunAt?: Maybe<Scalars['String']['output']>;
+  lifecycleKind: ScheduleLifecycleKind;
+  maxRuns?: Maybe<Scalars['Int']['output']>;
+  minuteOfHour?: Maybe<Scalars['Int']['output']>;
+  nextRunAt?: Maybe<Scalars['String']['output']>;
+  prompt: Scalars['String']['output'];
+  remainingRuns?: Maybe<Scalars['Int']['output']>;
+  startDate?: Maybe<Scalars['String']['output']>;
+  timeOfDay?: Maybe<Scalars['String']['output']>;
+  title: Scalars['String']['output'];
+  zoneId: Scalars['String']['output'];
+};
+
+export type AiHubPersonalAgentScheduleInput = {
+  cronExpression?: InputMaybe<Scalars['String']['input']>;
+  dayOfMonth?: InputMaybe<Scalars['Int']['input']>;
+  dayOfWeek?: InputMaybe<Scalars['Int']['input']>;
+  enabled: Scalars['Boolean']['input'];
+  frequencyKind: ScheduleFrequencyKind;
+  intervalMinutes?: InputMaybe<Scalars['Int']['input']>;
+  lifecycleKind: ScheduleLifecycleKind;
+  maxRuns?: InputMaybe<Scalars['Int']['input']>;
+  minuteOfHour?: InputMaybe<Scalars['Int']['input']>;
+  prompt: Scalars['String']['input'];
+  startDate?: InputMaybe<Scalars['String']['input']>;
+  timeOfDay?: InputMaybe<Scalars['String']['input']>;
+  title: Scalars['String']['input'];
+  zoneId: Scalars['String']['input'];
+};
+
+export type AiHubPersonalAgentTool = {
+  __typename?: 'AiHubPersonalAgentTool';
+  aiHubPersonalAgentId: Scalars['Long']['output'];
+  componentName: Scalars['String']['output'];
+  componentVersion: Scalars['Int']['output'];
+  /**
+   * Optional pinned connection. When set, aiHubTasks spawned from this agent attach the tool's component to
+   * this specific connection so the LLM doesn't have to re-pick at first invocation. Null when the agent's
+   * template leaves connection picking to the user (matches pre-config behaviour).
+   */
+  connectionId?: Maybe<Scalars['Long']['output']>;
+  createdAt?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  operationName: Scalars['String']['output'];
+  /**
+   * Pre-set invocation parameters. Merged with LLM-supplied call arguments at dispatch time (LLM args win on
+   * conflict). Empty map when the agent's template doesn't pre-bind any defaults.
+   */
+  parameters?: Maybe<Scalars['Any']['output']>;
+};
+
+/**
+ * AI Hub task metadata. {@code threadId} is client-generated and keys Spring AI's chat-memory
+ * table; the (workspace, user, environment, threadId) tuple uniquely identifies the chat thread.
+ */
+export type AiHubTask = {
+  __typename?: 'AiHubTask';
+  /**
+   * Owning personal-agent id. Non-null when {@code kind = PERSONAL_AGENT}; null for STANDARD and WORKFLOW_CHAT.
+   * The client uses this id to resolve the agent's display title for sidebar grouping and to navigate to the
+   * agent's detail view.
+   */
+  aiHubPersonalAgentId?: Maybe<Scalars['Long']['output']>;
+  /**
+   * Whether the title was set automatically (creation-time auto-label or LLM regeneration) and remains eligible
+   * for further LLM regeneration. Flips to false when the LLM regenerates a title or the user renames the
+   * task, so the regen loop fires once and then stops. The client uses this flag to decide whether to
+   * invoke generateAiHubTaskTitle on each turn.
+   */
+  autoTitled: Scalars['Boolean']['output'];
+  createdAt?: Maybe<Scalars['Long']['output']>;
+  environmentId: Scalars['Long']['output'];
+  id: Scalars['ID']['output'];
+  /**
+   * Discriminator for the task flavour. STANDARD (default) talks to the LLM agent; WORKFLOW_CHAT
+   * binds the task to a specific workflow execution and the client picks ChatRuntimeProvider
+   * instead of AiHubRuntimeProvider for those rows.
+   */
+  kind: AiHubTaskKind;
+  lastPreview?: Maybe<Scalars['String']['output']>;
+  messageCount: Scalars['Int']['output'];
+  /**
+   * Parent project-deployment id for the workflow execution. Used by the sidebar to group workflow chats by project.
+   * Non-null when {@code kind = WORKFLOW_CHAT}.
+   */
+  projectDeploymentId?: Maybe<Scalars['Long']['output']>;
+  status: AiHubTaskStatus;
+  threadId: Scalars['String']['output'];
+  title?: Maybe<Scalars['String']['output']>;
+  updatedAt?: Maybe<Scalars['Long']['output']>;
+  userId: Scalars['Long']['output'];
+  /** Composite WorkflowExecutionId string the task chats with. Non-null when {@code kind = WORKFLOW_CHAT}. */
+  workflowExecutionId?: Maybe<Scalars['String']['output']>;
+  workspaceId: Scalars['Long']['output'];
+};
+
+/**
+ * Audit/undo log row for a AI Hub mutation. Mirrors {@link AiHubTaskArtifact}: id is the primary
+ * key, taskId pins the row to a task, kind/status are ordinal-pinned enums, environmentId is
+ * denormalised from the parent task at write time so analytics queries do not need a join.
+ */
+export type AiHubTaskArtifact = {
+  __typename?: 'AiHubTaskArtifact';
+  artifactId: Scalars['String']['output'];
+  artifactName: Scalars['String']['output'];
+  createdAt?: Maybe<Scalars['Long']['output']>;
+  environmentId: Scalars['Long']['output'];
+  id: Scalars['ID']['output'];
+  kind: AiHubTaskArtifactKind;
+  metadataJson?: Maybe<Scalars['String']['output']>;
+  status: AiHubTaskArtifactStatus;
+  statusChangedAt?: Maybe<Scalars['Long']['output']>;
+  taskId: Scalars['ID']['output'];
+};
+
+export enum AiHubTaskArtifactKind {
+  BinaryFileCreated = 'BINARY_FILE_CREATED',
+  DataTableColumnAdded = 'DATA_TABLE_COLUMN_ADDED',
+  DataTableReferenced = 'DATA_TABLE_REFERENCED',
+  DataTableRowAdded = 'DATA_TABLE_ROW_ADDED',
+  DataTableRowDeleted = 'DATA_TABLE_ROW_DELETED',
+  DataTableRowUpdated = 'DATA_TABLE_ROW_UPDATED',
+  FileCreated = 'FILE_CREATED',
+  FileReferenced = 'FILE_REFERENCED',
+  KbDocumentAdded = 'KB_DOCUMENT_ADDED',
+  KbDocumentDeleted = 'KB_DOCUMENT_DELETED',
+  KbReferenced = 'KB_REFERENCED',
+  MemoryCreated = 'MEMORY_CREATED',
+  MemoryDeleted = 'MEMORY_DELETED',
+  MemoryRenamed = 'MEMORY_RENAMED',
+  MemoryUpdated = 'MEMORY_UPDATED',
+  WorkflowCreated = 'WORKFLOW_CREATED',
+  WorkflowExecutionStarted = 'WORKFLOW_EXECUTION_STARTED',
+  WorkflowReferenced = 'WORKFLOW_REFERENCED',
+  WorkflowUpdated = 'WORKFLOW_UPDATED'
+}
+
+/**
+ * Paginated artifact listing. {@code totalCount} is the total across all pages so the UI can render an
+ * accurate "showing N of M" hint; {@code hasMore} is a derived convenience for pagination controls so the
+ * client does not have to compute it from page+size.
+ */
+export type AiHubTaskArtifactPage = {
+  __typename?: 'AiHubTaskArtifactPage';
+  hasMore: Scalars['Boolean']['output'];
+  items: Array<AiHubTaskArtifact>;
+  pageClamped: Scalars['Boolean']['output'];
+  sizeClamped: Scalars['Boolean']['output'];
+  totalCount: Scalars['Long']['output'];
+};
+
+export enum AiHubTaskArtifactStatus {
+  Applied = 'APPLIED',
+  Expired = 'EXPIRED',
+  Irreversible = 'IRREVERSIBLE',
+  Reversed = 'REVERSED'
+}
+
+export enum AiHubTaskKind {
+  PersonalAgent = 'PERSONAL_AGENT',
+  Standard = 'STANDARD',
+  WorkflowChat = 'WORKFLOW_CHAT'
+}
+
+/**
+ * Single chat message in a task. {@code role} is one of {@code user}/{@code assistant}/{@code system};
+ * {@code timestamp} is the message's epoch-milli arrival time.
+ */
+export type AiHubTaskMessage = {
+  __typename?: 'AiHubTaskMessage';
+  content: Scalars['String']['output'];
+  role: Scalars['String']['output'];
+  timestamp: Scalars['Long']['output'];
+};
+
+export type AiHubTaskPatchInput = {
+  id: Scalars['ID']['input'];
+  lastPreview?: InputMaybe<Scalars['String']['input']>;
+  messageCount?: InputMaybe<Scalars['Int']['input']>;
+  status?: InputMaybe<AiHubTaskStatus>;
+  title?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export enum AiHubTaskStatus {
+  Active = 'ACTIVE',
+  Archived = 'ARCHIVED',
+  Deleted = 'DELETED'
+}
+
+export type AiHubTaskToolBinding = {
+  __typename?: 'AiHubTaskToolBinding';
+  clusterElementName: Scalars['String']['output'];
+  componentName: Scalars['String']['output'];
+  componentVersion: Scalars['Int']['output'];
+  connectionId?: Maybe<Scalars['ID']['output']>;
+  environment: Scalars['Int']['output'];
+  parameters: Scalars['Any']['output'];
+  taskComponentId: Scalars['ID']['output'];
+  taskId: Scalars['ID']['output'];
+  taskToolId: Scalars['ID']['output'];
+};
+
+export type AiHubWorkspaceSettings = {
+  __typename?: 'AiHubWorkspaceSettings';
+  voiceWebhookUrl?: Maybe<Scalars['String']['output']>;
+  workspaceId: Scalars['ID']['output'];
+};
+
+export enum AiObservabilityAlertCondition {
+  Equals = 'EQUALS',
+  GreaterThan = 'GREATER_THAN',
+  LessThan = 'LESS_THAN'
+}
+
+export type AiObservabilityAlertEvent = {
+  __typename?: 'AiObservabilityAlertEvent';
+  alertRuleId: Scalars['ID']['output'];
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  message?: Maybe<Scalars['String']['output']>;
+  status: AiObservabilityAlertEventStatus;
+  triggeredValue?: Maybe<Scalars['Float']['output']>;
+};
+
+export enum AiObservabilityAlertEventStatus {
+  Acknowledged = 'ACKNOWLEDGED',
+  Resolved = 'RESOLVED',
+  Triggered = 'TRIGGERED'
+}
+
+export enum AiObservabilityAlertMetric {
+  Cost = 'COST',
+  ErrorRate = 'ERROR_RATE',
+  LatencyP95 = 'LATENCY_P95',
+  RequestVolume = 'REQUEST_VOLUME',
+  TokenUsage = 'TOKEN_USAGE'
+}
+
+export type AiObservabilityAlertRule = {
+  __typename?: 'AiObservabilityAlertRule';
+  channelIds?: Maybe<Array<Maybe<Scalars['ID']['output']>>>;
+  condition: AiObservabilityAlertCondition;
+  cooldownMinutes: Scalars['Int']['output'];
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  filters?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  metric: AiObservabilityAlertMetric;
+  name: Scalars['String']['output'];
+  projectId?: Maybe<Scalars['ID']['output']>;
+  snoozedUntil?: Maybe<Scalars['Long']['output']>;
+  threshold: Scalars['Float']['output'];
+  version?: Maybe<Scalars['Int']['output']>;
+  windowMinutes: Scalars['Int']['output'];
+};
+
+export type AiObservabilityAlertRuleInput = {
+  channelIds?: InputMaybe<Array<InputMaybe<Scalars['ID']['input']>>>;
+  condition: AiObservabilityAlertCondition;
+  cooldownMinutes: Scalars['Int']['input'];
+  enabled: Scalars['Boolean']['input'];
+  filters?: InputMaybe<Scalars['String']['input']>;
+  metric: AiObservabilityAlertMetric;
+  name: Scalars['String']['input'];
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  threshold: Scalars['Float']['input'];
+  windowMinutes: Scalars['Int']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+export enum AiObservabilityExportFormat {
+  Csv = 'CSV',
+  Json = 'JSON',
+  Jsonl = 'JSONL'
+}
+
+export type AiObservabilityExportJob = {
+  __typename?: 'AiObservabilityExportJob';
+  createdBy: Scalars['String']['output'];
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  cronExpression?: Maybe<Scalars['String']['output']>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  filePath?: Maybe<Scalars['String']['output']>;
+  filters?: Maybe<Scalars['String']['output']>;
+  format: AiObservabilityExportFormat;
+  id: Scalars['ID']['output'];
+  projectId?: Maybe<Scalars['ID']['output']>;
+  recordCount?: Maybe<Scalars['Int']['output']>;
+  scope: AiObservabilityExportScope;
+  status: AiObservabilityExportJobStatus;
+  type: AiObservabilityExportJobType;
+};
+
+export enum AiObservabilityExportJobStatus {
+  Cancelled = 'CANCELLED',
+  Completed = 'COMPLETED',
+  Failed = 'FAILED',
+  Pending = 'PENDING',
+  Processing = 'PROCESSING'
+}
+
+export enum AiObservabilityExportJobType {
+  OnDemand = 'ON_DEMAND',
+  Scheduled = 'SCHEDULED'
+}
+
+export enum AiObservabilityExportScope {
+  Prompts = 'PROMPTS',
+  RequestLogs = 'REQUEST_LOGS',
+  Sessions = 'SESSIONS',
+  Traces = 'TRACES'
+}
+
+export type AiObservabilityNotificationChannel = {
+  __typename?: 'AiObservabilityNotificationChannel';
+  config: Scalars['String']['output'];
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  type: AiObservabilityNotificationChannelType;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type AiObservabilityNotificationChannelInput = {
+  config: Scalars['String']['input'];
+  enabled: Scalars['Boolean']['input'];
+  name: Scalars['String']['input'];
+  type: AiObservabilityNotificationChannelType;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export enum AiObservabilityNotificationChannelType {
+  Email = 'EMAIL',
+  Slack = 'SLACK',
+  Webhook = 'WEBHOOK'
+}
+
+export type AiObservabilitySession = {
+  __typename?: 'AiObservabilitySession';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  projectId?: Maybe<Scalars['ID']['output']>;
+  traceCount?: Maybe<Scalars['Int']['output']>;
+  traces?: Maybe<Array<Maybe<AiObservabilityTrace>>>;
+  userId?: Maybe<Scalars['String']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+  workspaceId: Scalars['ID']['output'];
+};
+
+export type AiObservabilitySpan = {
+  __typename?: 'AiObservabilitySpan';
+  cost?: Maybe<Scalars['Float']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  endTime?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  input?: Maybe<Scalars['String']['output']>;
+  inputTokens?: Maybe<Scalars['Int']['output']>;
+  latencyMs?: Maybe<Scalars['Int']['output']>;
+  level: AiObservabilitySpanLevel;
+  metadata?: Maybe<Scalars['String']['output']>;
+  model?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  output?: Maybe<Scalars['String']['output']>;
+  outputTokens?: Maybe<Scalars['Int']['output']>;
+  parentSpanId?: Maybe<Scalars['ID']['output']>;
+  promptId?: Maybe<Scalars['ID']['output']>;
+  promptVersionId?: Maybe<Scalars['ID']['output']>;
+  provider?: Maybe<Scalars['String']['output']>;
+  startTime?: Maybe<Scalars['Long']['output']>;
+  status: AiObservabilitySpanStatus;
+  traceId: Scalars['ID']['output'];
+  type: AiObservabilitySpanType;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export enum AiObservabilitySpanLevel {
+  Debug = 'DEBUG',
+  Default = 'DEFAULT',
+  Error = 'ERROR',
+  Warning = 'WARNING'
+}
+
+export enum AiObservabilitySpanStatus {
+  Active = 'ACTIVE',
+  Completed = 'COMPLETED',
+  Error = 'ERROR'
+}
+
+export enum AiObservabilitySpanType {
+  Event = 'EVENT',
+  Generation = 'GENERATION',
+  Span = 'SPAN',
+  ToolCall = 'TOOL_CALL'
+}
+
+export type AiObservabilityTrace = {
+  __typename?: 'AiObservabilityTrace';
+  apiKeyId?: Maybe<Scalars['ID']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  input?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  metadata?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  output?: Maybe<Scalars['String']['output']>;
+  projectId?: Maybe<Scalars['ID']['output']>;
+  sessionId?: Maybe<Scalars['ID']['output']>;
+  source: AiObservabilityTraceSource;
+  spans?: Maybe<Array<Maybe<AiObservabilitySpan>>>;
+  status: AiObservabilityTraceStatus;
+  tagIds?: Maybe<Array<Scalars['ID']['output']>>;
+  totalCost?: Maybe<Scalars['Float']['output']>;
+  totalInputTokens?: Maybe<Scalars['Int']['output']>;
+  totalLatencyMs?: Maybe<Scalars['Int']['output']>;
+  totalOutputTokens?: Maybe<Scalars['Int']['output']>;
+  userId?: Maybe<Scalars['String']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+  workspaceId: Scalars['ID']['output'];
+};
+
+export enum AiObservabilityTraceSource {
+  Api = 'API',
+  Experiment = 'EXPERIMENT',
+  Otlp = 'OTLP',
+  Playground = 'PLAYGROUND'
+}
+
+export enum AiObservabilityTraceStatus {
+  Active = 'ACTIVE',
+  Completed = 'COMPLETED',
+  Error = 'ERROR'
+}
+
+export type AiObservabilityWebhookDelivery = {
+  __typename?: 'AiObservabilityWebhookDelivery';
+  attemptCount: Scalars['Int']['output'];
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  deliveredDate?: Maybe<Scalars['Long']['output']>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  eventType?: Maybe<Scalars['String']['output']>;
+  httpStatus?: Maybe<Scalars['Int']['output']>;
+  id: Scalars['ID']['output'];
+  payload?: Maybe<Scalars['String']['output']>;
+  status: AiObservabilityWebhookDeliveryStatus;
+  subscriptionId: Scalars['ID']['output'];
+};
+
+export enum AiObservabilityWebhookDeliveryStatus {
+  Failed = 'FAILED',
+  Pending = 'PENDING',
+  Retrying = 'RETRYING',
+  Success = 'SUCCESS'
+}
+
+export type AiObservabilityWebhookSubscription = {
+  __typename?: 'AiObservabilityWebhookSubscription';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  events: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  lastTriggeredDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  projectId?: Maybe<Scalars['ID']['output']>;
+  url: Scalars['String']['output'];
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type AiPrompt = {
+  __typename?: 'AiPrompt';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  projectId?: Maybe<Scalars['ID']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+  versions?: Maybe<Array<Maybe<AiPromptVersion>>>;
+};
+
+export type AiPromptVersion = {
+  __typename?: 'AiPromptVersion';
+  active: Scalars['Boolean']['output'];
+  commitMessage?: Maybe<Scalars['String']['output']>;
+  content: Scalars['String']['output'];
+  createdBy: Scalars['String']['output'];
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  environment?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  metrics?: Maybe<AiPromptVersionMetrics>;
+  promptId: Scalars['ID']['output'];
+  type: AiPromptVersionType;
+  variables?: Maybe<Scalars['String']['output']>;
+  versionNumber: Scalars['Int']['output'];
+};
+
+export type AiPromptVersionMetrics = {
+  __typename?: 'AiPromptVersionMetrics';
+  avgCostUsd?: Maybe<Scalars['Float']['output']>;
+  avgLatencyMs?: Maybe<Scalars['Float']['output']>;
+  errorRate?: Maybe<Scalars['Float']['output']>;
+  invocationCount: Scalars['Int']['output'];
+};
+
+export enum AiPromptVersionType {
+  Chat = 'CHAT',
+  Text = 'TEXT'
+}
+
+export type AiSkill = {
+  __typename?: 'AiSkill';
+  /** Epoch milliseconds (UTC) */
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  /** Epoch milliseconds (UTC) */
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+};
+
+export type ApiCollectionSearchResult = SearchResult & {
+  __typename?: 'ApiCollectionSearchResult';
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  type: SearchAssetType;
+};
+
+export type ApiConnector = {
+  __typename?: 'ApiConnector';
+  connectorVersion: Scalars['Int']['output'];
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  definition?: Maybe<Scalars['String']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  enabled?: Maybe<Scalars['Boolean']['output']>;
+  endpoints?: Maybe<Array<ApiConnectorEndpoint>>;
+  icon?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  specification?: Maybe<Scalars['String']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type ApiConnectorEndpoint = {
+  __typename?: 'ApiConnectorEndpoint';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  httpMethod?: Maybe<HttpMethod>;
+  id: Scalars['ID']['output'];
+  lastExecutionDate?: Maybe<Scalars['Long']['output']>;
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  path?: Maybe<Scalars['String']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type ApiEndpointSearchResult = SearchResult & {
+  __typename?: 'ApiEndpointSearchResult';
+  collectionId: Scalars['ID']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  path?: Maybe<Scalars['String']['output']>;
+  type: SearchAssetType;
+};
+
+export type ApiKey = {
+  __typename?: 'ApiKey';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id?: Maybe<Scalars['ID']['output']>;
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  lastUsedDate?: Maybe<Scalars['Long']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  secretKey?: Maybe<Scalars['String']['output']>;
+};
+
+export type ApprovalTask = {
+  __typename?: 'ApprovalTask';
+  assigneeId?: Maybe<Scalars['ID']['output']>;
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['String']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  dueDate?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  jobResumeId?: Maybe<Scalars['String']['output']>;
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  priority: ApprovalTaskPriority;
+  status: ApprovalTaskStatus;
+  version: Scalars['Int']['output'];
+};
+
+export type ApprovalTaskInput = {
+  assigneeId?: InputMaybe<Scalars['ID']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  dueDate?: InputMaybe<Scalars['String']['input']>;
+  id?: InputMaybe<Scalars['ID']['input']>;
+  name: Scalars['String']['input'];
+  priority?: InputMaybe<ApprovalTaskPriority>;
+  status?: InputMaybe<ApprovalTaskStatus>;
+  version?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export enum ApprovalTaskPriority {
+  High = 'HIGH',
+  Low = 'LOW',
+  Medium = 'MEDIUM'
+}
+
+export enum ApprovalTaskStatus {
+  Completed = 'COMPLETED',
+  InProgress = 'IN_PROGRESS',
+  Open = 'OPEN'
+}
+
+export type ArrayProperty = Property & {
+  __typename?: 'ArrayProperty';
+  advancedOption?: Maybe<Scalars['Boolean']['output']>;
+  controlType: ControlType;
+  defaultValue?: Maybe<Array<Maybe<Scalars['Map']['output']>>>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayCondition?: Maybe<Scalars['String']['output']>;
+  exampleValue?: Maybe<Array<Maybe<Scalars['Map']['output']>>>;
+  expressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  hidden?: Maybe<Scalars['Boolean']['output']>;
+  items?: Maybe<Array<Property>>;
+  label?: Maybe<Scalars['String']['output']>;
+  maxItems?: Maybe<Scalars['Long']['output']>;
+  minItems?: Maybe<Scalars['Long']['output']>;
+  multipleValues?: Maybe<Scalars['Boolean']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  options?: Maybe<Array<Option>>;
+  optionsDataSource?: Maybe<OptionsDataSource>;
+  placeholder?: Maybe<Scalars['String']['output']>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+  type: PropertyType;
+};
+
+export type AssetFile = {
+  __typename?: 'AssetFile';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  downloadUrl: Scalars['String']['output'];
+  environmentId: Scalars['Long']['output'];
+  format?: Maybe<Scalars['String']['output']>;
+  generatedByAgentSource?: Maybe<Scalars['Int']['output']>;
+  generatedFromPrompt?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  metadataJson?: Maybe<Scalars['String']['output']>;
+  mimeType: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  sizeBytes: Scalars['Long']['output'];
+  source: AssetFileSource;
+  tags: Array<Tag>;
+};
+
+export enum AssetFileSource {
+  AiGenerated = 'AI_GENERATED',
+  UserUpload = 'USER_UPLOAD'
+}
+
+export type AttachAiHubTaskToolInput = {
+  clusterElementName: Scalars['String']['input'];
+  componentName: Scalars['String']['input'];
+  componentVersion?: InputMaybe<Scalars['Int']['input']>;
+  connectionId?: InputMaybe<Scalars['ID']['input']>;
+  environment: Scalars['Int']['input'];
+  parameters?: InputMaybe<Scalars['Any']['input']>;
+  taskId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type AuditEventDataEntryType = {
+  __typename?: 'AuditEventDataEntryType';
+  key: Scalars['String']['output'];
+  value: Scalars['String']['output'];
+};
+
+export type AuditEventPageType = {
+  __typename?: 'AuditEventPageType';
+  content: Array<AuditEventType>;
+  number: Scalars['Int']['output'];
+  size: Scalars['Int']['output'];
+  totalElements: Scalars['Int']['output'];
+  totalPages: Scalars['Int']['output'];
+};
+
+export type AuditEventType = {
+  __typename?: 'AuditEventType';
+  data: Array<AuditEventDataEntryType>;
+  eventDate: Scalars['Long']['output'];
+  eventType: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  principal?: Maybe<Scalars['String']['output']>;
+};
+
+export type Authorization = {
+  __typename?: 'Authorization';
+  description?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  properties?: Maybe<Array<Property>>;
+  title?: Maybe<Scalars['String']['output']>;
+  type?: Maybe<AuthorizationType>;
+};
+
+export enum AuthorizationType {
+  ApiKey = 'API_KEY',
+  BasicAuth = 'BASIC_AUTH',
+  BearerToken = 'BEARER_TOKEN',
+  Custom = 'CUSTOM',
+  DigestAuth = 'DIGEST_AUTH',
+  Oauth2AuthorizationCode = 'OAUTH2_AUTHORIZATION_CODE',
+  Oauth2AuthorizationCodePkce = 'OAUTH2_AUTHORIZATION_CODE_PKCE',
+  Oauth2ClientCredentials = 'OAUTH2_CLIENT_CREDENTIALS',
+  Oauth2ImplicitCode = 'OAUTH2_IMPLICIT_CODE',
+  Oauth2ResourceOwnerPassword = 'OAUTH2_RESOURCE_OWNER_PASSWORD'
+}
+
+export type AutomationWorkflowProject = {
+  __typename?: 'AutomationWorkflowProject';
+  categoryId?: Maybe<Scalars['ID']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastPublishedVersion?: Maybe<Scalars['Int']['output']>;
+  name: Scalars['String']['output'];
+  published: Scalars['Boolean']['output'];
+  tagIds: Array<Scalars['ID']['output']>;
+  version: Scalars['Int']['output'];
+  workflowTemplates: Array<AutomationWorkflowProjectWorkflowTemplate>;
+};
+
+export type AutomationWorkflowProjectCategory = {
+  __typename?: 'AutomationWorkflowProjectCategory';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type AutomationWorkflowProjectComponent = {
+  __typename?: 'AutomationWorkflowProjectComponent';
+  icon?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  title?: Maybe<Scalars['String']['output']>;
+};
+
+export type AutomationWorkflowProjectTag = {
+  __typename?: 'AutomationWorkflowProjectTag';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type AutomationWorkflowProjectVersion = {
+  __typename?: 'AutomationWorkflowProjectVersion';
+  publishedDate?: Maybe<Scalars['String']['output']>;
+  status: Scalars['String']['output'];
+  version: Scalars['Int']['output'];
+};
+
+export type AutomationWorkflowProjectWorkflowTemplate = {
+  __typename?: 'AutomationWorkflowProjectWorkflowTemplate';
+  components: Array<AutomationWorkflowProjectComponent>;
+  description?: Maybe<Scalars['String']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  triggers: Array<AutomationWorkflowProjectComponent>;
+  workflowUuid: Scalars['ID']['output'];
+};
+
+export type BooleanProperty = Property & {
+  __typename?: 'BooleanProperty';
+  advancedOption?: Maybe<Scalars['Boolean']['output']>;
+  controlType: ControlType;
+  defaultValue?: Maybe<Scalars['Boolean']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayCondition?: Maybe<Scalars['String']['output']>;
+  exampleValue?: Maybe<Scalars['Boolean']['output']>;
+  expressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  hidden?: Maybe<Scalars['Boolean']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  placeholder?: Maybe<Scalars['String']['output']>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+  type: PropertyType;
+};
+
+export type BulkPromoteFailure = {
+  __typename?: 'BulkPromoteFailure';
+  connectionId: Scalars['ID']['output'];
+  /** Stable classifier the client can key on for localized rendering — either a ConnectionErrorType key or UNEXPECTED. */
+  errorCode: Scalars['String']['output'];
+  /** Human-readable fallback. Sanitized server-side so SQL/JDBC detail never reaches the admin UI. */
+  message: Scalars['String']['output'];
+};
+
+/** Outcome of a bulk visibility-change operation. Invariant: promoted + skipped + failed == attempted. */
+export type BulkPromoteResult = {
+  __typename?: 'BulkPromoteResult';
+  /** Candidate rows considered in this call (pre-filter size). */
+  attempted: Scalars['Int']['output'];
+  failed: Scalars['Int']['output'];
+  failures: Array<BulkPromoteFailure>;
+  promoted: Scalars['Int']['output'];
+  /** Rows that were already at the target visibility at promote time (benign concurrent races). */
+  skipped: Scalars['Int']['output'];
+};
+
+export type BulkReassignFailure = {
+  __typename?: 'BulkReassignFailure';
+  connectionId: Scalars['ID']['output'];
+  /** Stable classifier the client can key on for localized rendering — either a ConnectionErrorType key or UNEXPECTED. */
+  errorCode: Scalars['String']['output'];
+  /** Human-readable fallback. Sanitized server-side so SQL/JDBC detail never reaches the admin UI. */
+  message: Scalars['String']['output'];
+};
+
+/** Outcome of a bulk connection reassignment / mark-pending operation. Mirrors BulkPromoteResult. */
+export type BulkReassignResult = {
+  __typename?: 'BulkReassignResult';
+  failed: Scalars['Int']['output'];
+  failures: Array<BulkReassignFailure>;
+  /** Rows in a terminal state (e.g. REVOKED) that could not legally transition — counted separately from failed so a silent no-op does not look like an error. */
+  skipped: Scalars['Int']['output'];
+  /** Rows considered by the operation (pre-filter size of the candidate set). */
+  total: Scalars['Int']['output'];
+  /** Rows whose state was successfully advanced in this call. */
+  updated: Scalars['Int']['output'];
+};
+
+export type Category = {
+  __typename?: 'Category';
+  id?: Maybe<Scalars['ID']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+};
+
+export type ChatWorkflow = {
+  __typename?: 'ChatWorkflow';
+  projectDeploymentId: Scalars['ID']['output'];
+  projectId: Scalars['ID']['output'];
+  projectName: Scalars['String']['output'];
+  workflowExecutionId: Scalars['String']['output'];
+  workflowLabel: Scalars['String']['output'];
+};
+
+export type ClusterElementDefinition = {
+  __typename?: 'ClusterElementDefinition';
+  componentName?: Maybe<Scalars['String']['output']>;
+  componentVersion?: Maybe<Scalars['Int']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  help?: Maybe<Help>;
+  icon?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  outputDefined: Scalars['Boolean']['output'];
+  outputFunctionDefined: Scalars['Boolean']['output'];
+  outputSchemaDefined?: Maybe<Scalars['Boolean']['output']>;
+  properties: Array<Property>;
+  title?: Maybe<Scalars['String']['output']>;
+  type?: Maybe<ClusterElementType>;
+};
+
+export type ClusterElementType = {
+  __typename?: 'ClusterElementType';
+  key?: Maybe<Scalars['String']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  multipleElements?: Maybe<Scalars['Boolean']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+};
+
+export type ColumnInput = {
+  name: Scalars['String']['input'];
+  type: ColumnType;
+};
+
+export enum ColumnType {
+  Boolean = 'BOOLEAN',
+  Date = 'DATE',
+  DateTime = 'DATE_TIME',
+  Integer = 'INTEGER',
+  Number = 'NUMBER',
+  String = 'STRING'
+}
+
+export type ComponentCategory = {
+  __typename?: 'ComponentCategory';
+  label?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+};
+
+export type ComponentConnection = {
+  __typename?: 'ComponentConnection';
+  componentName: Scalars['String']['output'];
+  componentVersion: Scalars['Int']['output'];
+  key: Scalars['String']['output'];
+  required: Scalars['Boolean']['output'];
+  workflowNodeName: Scalars['String']['output'];
+};
+
+export type ComponentDefinition = {
+  __typename?: 'ComponentDefinition';
+  actionClusterElementTypes?: Maybe<Scalars['Map']['output']>;
+  actions?: Maybe<Array<ActionDefinition>>;
+  actionsCount?: Maybe<Scalars['Int']['output']>;
+  clusterElement?: Maybe<Scalars['Boolean']['output']>;
+  clusterElementClusterElementTypes?: Maybe<Scalars['Map']['output']>;
+  clusterElementTypes?: Maybe<Array<ClusterElementType>>;
+  clusterElements?: Maybe<Array<ClusterElementDefinition>>;
+  clusterElementsCount?: Maybe<Scalars['Map']['output']>;
+  clusterRoot?: Maybe<Scalars['Boolean']['output']>;
+  componentCategories?: Maybe<Array<ComponentCategory>>;
+  connection?: Maybe<ConnectionDefinition>;
+  connectionRequired?: Maybe<Scalars['Boolean']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  icon?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  resources?: Maybe<Resources>;
+  tags?: Maybe<Array<Scalars['String']['output']>>;
+  title?: Maybe<Scalars['String']['output']>;
+  triggers?: Maybe<Array<TriggerDefinition>>;
+  triggersCount?: Maybe<Scalars['Int']['output']>;
+  unifiedApiCategory?: Maybe<UnifiedApiCategory>;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type ComponentDefinitionTuple = {
+  __typename?: 'ComponentDefinitionTuple';
+  key?: Maybe<Scalars['String']['output']>;
+  value: Array<Maybe<ComponentDefinition>>;
+};
+
+export type ConnectedUser = {
+  __typename?: 'ConnectedUser';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['String']['output']>;
+  environmentId: Scalars['ID']['output'];
+  externalId: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type ConnectedUserMcpServer = {
+  __typename?: 'ConnectedUserMcpServer';
+  enabled: Scalars['Boolean']['output'];
+  environmentId: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  tools: Array<ConnectedUserMcpServerTool>;
+};
+
+export type ConnectedUserMcpServerTool = {
+  __typename?: 'ConnectedUserMcpServerTool';
+  componentName: Scalars['String']['output'];
+  componentVersion: Scalars['Int']['output'];
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  integrationInstanceId: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type ConnectedUserPage = {
+  __typename?: 'ConnectedUserPage';
+  content: Array<Maybe<ConnectedUser>>;
+  number: Scalars['Int']['output'];
+  size: Scalars['Int']['output'];
+  totalElements: Scalars['Int']['output'];
+  totalPages: Scalars['Int']['output'];
+};
+
+export type ConnectedUserProject = {
+  __typename?: 'ConnectedUserProject';
+  connectedUser: ConnectedUser;
+  connectedUserProjectWorkflows: Array<ConnectedUserProjectWorkflow>;
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['String']['output']>;
+  environmentId: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  lastExecutionDate?: Maybe<Scalars['String']['output']>;
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  projectId: Scalars['ID']['output'];
+  projectVersion?: Maybe<Scalars['Int']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type ConnectedUserProjectWorkflow = {
+  __typename?: 'ConnectedUserProjectWorkflow';
+  connectedUserId: Scalars['ID']['output'];
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  lastExecutionDate?: Maybe<Scalars['String']['output']>;
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  projectId: Scalars['ID']['output'];
+  version?: Maybe<Scalars['Int']['output']>;
+  workflow: Workflow;
+  workflowUuid: Scalars['ID']['output'];
+  workflowVersion?: Maybe<Scalars['Int']['output']>;
+};
+
+export type ConnectionCredentialStoreInfo = {
+  __typename?: 'ConnectionCredentialStoreInfo';
+  readOnly: Scalars['Boolean']['output'];
+  type: ConnectionCredentialStoreType;
+};
+
+export enum ConnectionCredentialStoreType {
+  AwsSecretsManager = 'AWS_SECRETS_MANAGER',
+  Database = 'DATABASE',
+  HashicorpVault = 'HASHICORP_VAULT'
+}
+
+export type ConnectionDefinition = {
+  __typename?: 'ConnectionDefinition';
+  authorizationRequired: Scalars['Boolean']['output'];
+  authorizations?: Maybe<Array<Authorization>>;
+  baseUri?: Maybe<Scalars['String']['output']>;
+  componentDescription?: Maybe<Scalars['String']['output']>;
+  componentName: Scalars['String']['output'];
+  componentTitle?: Maybe<Scalars['String']['output']>;
+  properties?: Maybe<Array<Property>>;
+  version: Scalars['Int']['output'];
+};
+
+/** A connection that needs reassignment, with metadata about its usage. */
+export type ConnectionReassignmentItem = {
+  __typename?: 'ConnectionReassignmentItem';
+  connectionId: Scalars['ID']['output'];
+  connectionName: Scalars['String']['output'];
+  dependentWorkflowCount: Scalars['Int']['output'];
+  environmentId: Scalars['Int']['output'];
+  visibility: ConnectionVisibility;
+};
+
+export type ConnectionSearchResult = SearchResult & {
+  __typename?: 'ConnectionSearchResult';
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  type: SearchAssetType;
+};
+
+/** Connection status indicating the lifecycle state of a connection. */
+export enum ConnectionStatus {
+  Active = 'ACTIVE',
+  PendingReassignment = 'PENDING_REASSIGNMENT',
+  Revoked = 'REVOKED'
+}
+
+/** Visibility scope controlling which users can see and use a connection. */
+export enum ConnectionVisibility {
+  Organization = 'ORGANIZATION',
+  Private = 'PRIVATE',
+  Project = 'PROJECT',
+  Workspace = 'WORKSPACE'
+}
+
+/** Parent Context Store entity. Env-stamped at creation; sources hang off this via contextStoreId. */
+export type ContextStore = {
+  __typename?: 'ContextStore';
+  description?: Maybe<Scalars['String']['output']>;
+  environment: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  tagIds: Array<Scalars['ID']['output']>;
+  /**
+   * Full Tag objects (id + name) resolved from the store's tagIds. Use {@code tags} when rendering the
+   * TagList picker; use {@code tagIds} when you just need the ID list (e.g. for filter set membership).
+   */
+  tags: Array<Tag>;
+  version: Scalars['Int']['output'];
+};
+
+/**
+ * A Context Store source binds a workspace, a source component (with its ItemReader cluster element and
+ * optional connection), and a record-shape definition to a periodic sync cadence. Source is 1:1 with its
+ * record shape — {@code entityName}, {@code idField}, {@code indexedFields}, etc. live directly on the source
+ * row.
+ */
+export type ContextStoreSource = {
+  __typename?: 'ContextStoreSource';
+  cadence: Scalars['String']['output'];
+  connectionId?: Maybe<Scalars['ID']['output']>;
+  /**
+   * FK to the parent ContextStore. Environment is inherited via this relationship — there is no
+   * environment column on the source itself.
+   */
+  contextStoreId: Scalars['ID']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  /**
+   * Stable wire identifier for the source's records (independent of the display {@code name}). Used by
+   * the destination component handler and ClickHouse table naming.
+   */
+  entityName: Scalars['String']['output'];
+  /**
+   * Phase 17b: optional rare full-replace cadence paired with the regular incremental cadence.
+   * Null = single-trigger MVP behavior.
+   */
+  fullReplaceCadence?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  idField: Scalars['String']['output'];
+  indexedFields: Scalars['Map']['output'];
+  lastSyncJobExecutionId?: Maybe<Scalars['ID']['output']>;
+  lastSyncRunAt?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  parameters?: Maybe<Scalars['Map']['output']>;
+  semanticIndexFields?: Maybe<Scalars['Map']['output']>;
+  sourceClusterElementName?: Maybe<Scalars['String']['output']>;
+  sourceComponentName: Scalars['String']['output'];
+  sourceComponentVersion: Scalars['Int']['output'];
+  status: ContextStoreSourceStatus;
+  storedFields?: Maybe<Scalars['Map']['output']>;
+  /** Phase 17b: tombstone-derivation strategy. */
+  tombstoneStrategy: ContextStoreTombstoneStrategy;
+  workflowId?: Maybe<Scalars['ID']['output']>;
+  workspaceId?: Maybe<Scalars['ID']['output']>;
+};
+
+export type ContextStoreSourceFilter = {
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+export enum ContextStoreSourceStatus {
+  BuildingPreview = 'BUILDING_PREVIEW',
+  Disabled = 'DISABLED',
+  Failed = 'FAILED',
+  Preview = 'PREVIEW',
+  Ready = 'READY'
+}
+
+export enum ContextStoreTombstoneStrategy {
+  None = 'NONE',
+  PeriodicFullReplace = 'PERIODIC_FULL_REPLACE',
+  UpstreamChangeFeed = 'UPSTREAM_CHANGE_FEED'
+}
+
+export enum ControlType {
+  ArrayBuilder = 'ARRAY_BUILDER',
+  CodeEditor = 'CODE_EDITOR',
+  Date = 'DATE',
+  DateTime = 'DATE_TIME',
+  Email = 'EMAIL',
+  FileEntry = 'FILE_ENTRY',
+  Integer = 'INTEGER',
+  JsonSchemaBuilder = 'JSON_SCHEMA_BUILDER',
+  MultiSelect = 'MULTI_SELECT',
+  Null = 'NULL',
+  Number = 'NUMBER',
+  ObjectBuilder = 'OBJECT_BUILDER',
+  Password = 'PASSWORD',
+  Phone = 'PHONE',
+  RichText = 'RICH_TEXT',
+  Select = 'SELECT',
+  Text = 'TEXT',
+  TextArea = 'TEXT_AREA',
+  Time = 'TIME',
+  Url = 'URL'
+}
+
+export type CreateAiGatewayBudgetInput = {
+  alertThreshold?: InputMaybe<Scalars['Int']['input']>;
+  amount: Scalars['String']['input'];
+  enforcementMode: AiGatewayBudgetEnforcementMode;
+  period: AiGatewayBudgetPeriod;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CreateAiGatewayModelInput = {
+  alias?: InputMaybe<Scalars['String']['input']>;
+  capabilities?: InputMaybe<Scalars['String']['input']>;
+  contextWindow?: InputMaybe<Scalars['Int']['input']>;
+  defaultRoutingPolicyId?: InputMaybe<Scalars['ID']['input']>;
+  inputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
+  name: Scalars['String']['input'];
+  outputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
+  providerId: Scalars['ID']['input'];
+};
+
+export type CreateAiGatewayProjectInput = {
+  cacheTtlMinutes?: InputMaybe<Scalars['Int']['input']>;
+  cachingEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+  compressionEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  logRetentionDays?: InputMaybe<Scalars['Int']['input']>;
+  name: Scalars['String']['input'];
+  retryMaxAttempts?: InputMaybe<Scalars['Int']['input']>;
+  routingPolicyId?: InputMaybe<Scalars['ID']['input']>;
+  slug: Scalars['String']['input'];
+  timeoutSeconds?: InputMaybe<Scalars['Int']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CreateAiGatewayProviderInput = {
+  apiKey: Scalars['String']['input'];
+  baseUrl?: InputMaybe<Scalars['String']['input']>;
+  config?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  type: AiGatewayProviderType;
+};
+
+export type CreateAiGatewayRateLimitInput = {
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  limitType: AiGatewayRateLimitType;
+  limitValue: Scalars['Int']['input'];
+  name: Scalars['String']['input'];
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  propertyKey?: InputMaybe<Scalars['String']['input']>;
+  scope: AiGatewayRateLimitScope;
+  windowSeconds: Scalars['Int']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CreateAiGatewayRoutingPolicyInput = {
+  config?: InputMaybe<Scalars['String']['input']>;
+  fallbackModel?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  strategy: AiGatewayRoutingStrategyType;
+  tagIds?: InputMaybe<Array<Scalars['ID']['input']>>;
+};
+
+export type CreateAiHubPersonalAgentInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  environment: Scalars['Int']['input'];
+  instructions?: InputMaybe<Scalars['String']['input']>;
+  /** Optional per-agent LLM model id. See llmProvider docs. */
+  llmModel?: InputMaybe<Scalars['String']['input']>;
+  /**
+   * Optional per-agent LLM provider override. Must be paired with llmModel; setting only one throws a typed
+   * validation error. Null/null = use workspace default LLM.
+   */
+  llmProvider?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CreateAiHubPersonalAgentTaskInput = {
+  aiHubPersonalAgentId: Scalars['ID']['input'];
+  environment: Scalars['Int']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CreateAiPromptInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CreateAiPromptVersionInput = {
+  active?: InputMaybe<Scalars['Boolean']['input']>;
+  commitMessage?: InputMaybe<Scalars['String']['input']>;
+  content: Scalars['String']['input'];
+  environment?: InputMaybe<Scalars['String']['input']>;
+  promptId: Scalars['ID']['input'];
+  type: AiPromptVersionType;
+  variables?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type CreateApiConnectorInput = {
+  connectorVersion: Scalars['Int']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  icon?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type CreateContextStoreInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  tagIds?: InputMaybe<Array<Scalars['ID']['input']>>;
+};
+
+export type CreateContextStoreSourceInput = {
+  cadence: Scalars['String']['input'];
+  connectionId?: InputMaybe<Scalars['ID']['input']>;
+  /**
+   * Parent Context Store ID. Required — sources must hang off an existing ContextStore in the
+   * same workspace. Defense in depth: the facade verifies the store belongs to workspaceId.
+   */
+  contextStoreId: Scalars['ID']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  /**
+   * Stable wire identifier for the source's records. Used by the destination component handler and
+   * ClickHouse table naming; independent of the display {@code name} (which can be renamed without
+   * invalidating already-synced records).
+   */
+  entityName: Scalars['String']['input'];
+  environmentId?: InputMaybe<Scalars['ID']['input']>;
+  /**
+   * Phase 17b: optional rare full-replace cadence paired with the regular incremental cadence
+   * (e.g., '@daily' alongside an '@hourly' cadence). Null = single-trigger MVP.
+   */
+  fullReplaceCadence?: InputMaybe<Scalars['String']['input']>;
+  idField: Scalars['String']['input'];
+  indexedFields: Scalars['Map']['input'];
+  name: Scalars['String']['input'];
+  parameters?: InputMaybe<Scalars['Map']['input']>;
+  semanticIndexFields?: InputMaybe<Scalars['Map']['input']>;
+  /**
+   * Optional. When omitted, the server picks the first ItemReader cluster element on the
+   * source component. Supply a name only when the component defines more than one ItemReader.
+   */
+  sourceClusterElementName?: InputMaybe<Scalars['String']['input']>;
+  sourceComponentName: Scalars['String']['input'];
+  sourceComponentVersion: Scalars['Int']['input'];
+  storedFields?: InputMaybe<Scalars['Map']['input']>;
+  /** Phase 17b: tombstone-derivation strategy. Defaults to PERIODIC_FULL_REPLACE when omitted. */
+  tombstoneStrategy?: InputMaybe<ContextStoreTombstoneStrategy>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CreateCustomRoleInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  /** Permission scope names to grant (must be valid PermissionScope enum values) */
+  scopes: Array<Scalars['String']['input']>;
+};
+
+export type CreateDataTableInput = {
+  baseName: Scalars['String']['input'];
+  columns: Array<ColumnInput>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  environmentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CreateEmbeddedMcpServerInput = {
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  environmentId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+};
+
+export type CreateKnowledgeBaseSourceInput = {
+  cadence: Scalars['String']['input'];
+  connectionId?: InputMaybe<Scalars['ID']['input']>;
+  environmentId?: InputMaybe<Scalars['ID']['input']>;
+  /**
+   * Phase 17b: optional rare full-replace cadence paired with the regular incremental cadence
+   * (e.g., '@daily' alongside an '@hourly' cadence). Null = single-trigger MVP.
+   */
+  fullReplaceCadence?: InputMaybe<Scalars['String']['input']>;
+  knowledgeBaseId: Scalars['ID']['input'];
+  /**
+   * Optional metadata-tag whitelist shaped as {fields: ["fieldA", "fieldB"]}. Narrows which
+   * incoming metadata keys become KB document tags at sync time. Omit (or null) to keep MVP
+   * behavior — every field becomes a tag.
+   */
+  metadataFields?: InputMaybe<Scalars['Map']['input']>;
+  name: Scalars['String']['input'];
+  /**
+   * Optional. Input parameters for the SOURCE cluster element captured by the create wizard
+   * (e.g., Airtable BASE_ID/TABLE_ID, HubSpot OBJECT_TYPE). Threaded through to the auto-generated
+   * workflow's SOURCE cluster element. Omit for readers with no input properties.
+   */
+  parameters?: InputMaybe<Scalars['Map']['input']>;
+  /**
+   * Optional. When omitted, the server picks the first ItemReader cluster element on the
+   * source component. Supply a name only when the component defines more than one ItemReader.
+   */
+  sourceClusterElementName?: InputMaybe<Scalars['String']['input']>;
+  sourceComponentName: Scalars['String']['input'];
+  sourceComponentVersion: Scalars['Int']['input'];
+  /** Phase 17b: tombstone-derivation strategy. Defaults to PERIODIC_FULL_REPLACE when omitted. */
+  tombstoneStrategy?: InputMaybe<TombstoneStrategy>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CreateMcpIntegrationInstanceConfigurationInput = {
+  integrationInstanceConfigurationId: Scalars['ID']['input'];
+  mcpServerId: Scalars['ID']['input'];
+  selectedWorkflowIds: Array<Scalars['String']['input']>;
+};
+
+export type CreateMcpProjectInput = {
+  mcpServerId: Scalars['ID']['input'];
+  projectId: Scalars['ID']['input'];
+  projectVersion: Scalars['Int']['input'];
+  selectedWorkflowIds: Array<Scalars['String']['input']>;
+};
+
+/** Input for creating a new organization connection. */
+export type CreateOrganizationConnectionInput = {
+  componentName: Scalars['String']['input'];
+  connectionVersion: Scalars['Int']['input'];
+  environmentId: Scalars['Int']['input'];
+  name: Scalars['String']['input'];
+  parameters: Scalars['Map']['input'];
+};
+
+export type CreateWorkspaceAiGatewayModelInput = {
+  alias?: InputMaybe<Scalars['String']['input']>;
+  capabilities?: InputMaybe<Scalars['String']['input']>;
+  contextWindow?: InputMaybe<Scalars['Int']['input']>;
+  defaultRoutingPolicyId?: InputMaybe<Scalars['ID']['input']>;
+  inputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
+  name: Scalars['String']['input'];
+  outputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
+  providerId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CreateWorkspaceAiGatewayProviderInput = {
+  apiKey: Scalars['String']['input'];
+  baseUrl?: InputMaybe<Scalars['String']['input']>;
+  config?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  type: AiGatewayProviderType;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CreateWorkspaceAiGatewayRoutingPolicyInput = {
+  config?: InputMaybe<Scalars['String']['input']>;
+  fallbackModel?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  strategy: AiGatewayRoutingStrategyType;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CreateWorkspaceMcpServerInput = {
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  environmentId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  type: PlatformType;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CustomComponent = {
+  __typename?: 'CustomComponent';
+  componentVersion?: Maybe<Scalars['Int']['output']>;
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  enabled?: Maybe<Scalars['Boolean']['output']>;
+  icon?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  language?: Maybe<CustomComponentLanguage>;
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  title?: Maybe<Scalars['String']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type CustomComponentActionDefinition = {
+  __typename?: 'CustomComponentActionDefinition';
+  description?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  title?: Maybe<Scalars['String']['output']>;
+};
+
+export type CustomComponentDefinition = {
+  __typename?: 'CustomComponentDefinition';
+  actions: Array<CustomComponentActionDefinition>;
+  triggers: Array<CustomComponentTriggerDefinition>;
+};
+
+export enum CustomComponentLanguage {
+  Java = 'JAVA',
+  Javascript = 'JAVASCRIPT',
+  Python = 'PYTHON',
+  Ruby = 'RUBY'
+}
+
+export type CustomComponentTriggerDefinition = {
+  __typename?: 'CustomComponentTriggerDefinition';
+  description?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  title?: Maybe<Scalars['String']['output']>;
+};
+
+/** A custom permission role (EE) with a user-defined set of permission scopes */
+export type CustomRole = {
+  __typename?: 'CustomRole';
+  createdDate?: Maybe<Scalars['String']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  /** Permission scope names granted by this role (e.g., WORKFLOW_VIEW, EXECUTION_DATA) */
+  scopes: Array<Scalars['String']['output']>;
+};
+
+/**
+ * Slim DTO returned by dataStreamCompatibleConnections so the connection picker can render
+ * without coupling to the full Connection type.
+ */
+export type DataStreamCompatibleConnection = {
+  __typename?: 'DataStreamCompatibleConnection';
+  /**
+   * Component name, resolved via connectionDefinition.componentName (NOT
+   * componentConnection.componentVersion — the two often differ; use the connection definition
+   * as the authoritative source).
+   */
+  componentName: Scalars['String']['output'];
+  componentVersion: Scalars['Int']['output'];
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type DataTable = {
+  __typename?: 'DataTable';
+  baseName: Scalars['String']['output'];
+  columns: Array<DataTableColumn>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+};
+
+export type DataTableColumn = {
+  __typename?: 'DataTableColumn';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  type: ColumnType;
+};
+
+export type DataTableRow = {
+  __typename?: 'DataTableRow';
+  id: Scalars['ID']['output'];
+  values: Scalars['Map']['output'];
+};
+
+export type DataTableRowPage = {
+  __typename?: 'DataTableRowPage';
+  hasMore: Scalars['Boolean']['output'];
+  items: Array<DataTableRow>;
+  nextOffset?: Maybe<Scalars['Int']['output']>;
+};
+
+export type DataTableSearchResult = SearchResult & {
+  __typename?: 'DataTableSearchResult';
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  type: SearchAssetType;
+};
+
+export type DataTableTagsEntry = {
+  __typename?: 'DataTableTagsEntry';
+  tableId: Scalars['ID']['output'];
+  tags: Array<Tag>;
+};
+
+export type DataTableWebhook = {
+  __typename?: 'DataTableWebhook';
+  environmentId: Scalars['Long']['output'];
+  id: Scalars['ID']['output'];
+  type: DataTableWebhookType;
+  url: Scalars['String']['output'];
+};
+
+export enum DataTableWebhookType {
+  RecordCreated = 'RECORD_CREATED',
+  RecordDeleted = 'RECORD_DELETED',
+  RecordUpdated = 'RECORD_UPDATED'
+}
+
+export type DateProperty = Property & {
+  __typename?: 'DateProperty';
+  advancedOption?: Maybe<Scalars['Boolean']['output']>;
+  controlType: ControlType;
+  defaultValue?: Maybe<Scalars['String']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayCondition?: Maybe<Scalars['String']['output']>;
+  exampleValue?: Maybe<Scalars['String']['output']>;
+  expressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  hidden?: Maybe<Scalars['Boolean']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  placeholder?: Maybe<Scalars['String']['output']>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+  type: PropertyType;
+};
+
+export type DateTimeProperty = Property & {
+  __typename?: 'DateTimeProperty';
+  advancedOption?: Maybe<Scalars['Boolean']['output']>;
+  controlType: ControlType;
+  defaultValue?: Maybe<Scalars['String']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayCondition?: Maybe<Scalars['String']['output']>;
+  exampleValue?: Maybe<Scalars['String']['output']>;
+  expressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  hidden?: Maybe<Scalars['Boolean']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  placeholder?: Maybe<Scalars['String']['output']>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+  type: PropertyType;
+};
+
+export type DeleteAiHubTaskArtifactInput = {
+  artifactId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type DeleteRowInput = {
+  environmentId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+  tableId: Scalars['ID']['input'];
+};
+
+export type DiscoverEndpointsInput = {
+  documentationUrl: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  userPrompt?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type DiscoveredEndpoint = {
+  __typename?: 'DiscoveredEndpoint';
+  id: Scalars['ID']['output'];
+  method: Scalars['String']['output'];
+  path: Scalars['String']['output'];
+  resource?: Maybe<Scalars['String']['output']>;
+  summary?: Maybe<Scalars['String']['output']>;
+};
+
+export type DocumentStatusUpdate = {
+  __typename?: 'DocumentStatusUpdate';
+  documentId: Scalars['ID']['output'];
+  message?: Maybe<Scalars['String']['output']>;
+  status: Scalars['Int']['output'];
+  timestamp: Scalars['Long']['output'];
+};
+
+export type DuplicateDataTableInput = {
+  environmentId: Scalars['ID']['input'];
+  newBaseName: Scalars['String']['input'];
+  tableId: Scalars['ID']['input'];
+};
+
+export type DynamicPropertiesProperty = Property & {
+  __typename?: 'DynamicPropertiesProperty';
+  advancedOption?: Maybe<Scalars['Boolean']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayCondition?: Maybe<Scalars['String']['output']>;
+  expressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  header?: Maybe<Scalars['String']['output']>;
+  hidden?: Maybe<Scalars['Boolean']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  propertiesDataSource?: Maybe<PropertiesDataSource>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+  type: PropertyType;
+};
+
+export type EndpointDefinitionInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  httpMethod: HttpMethod;
+  operationId: Scalars['String']['input'];
+  parameters?: InputMaybe<Array<ParameterDefinitionInput>>;
+  path: Scalars['String']['input'];
+  requestBody?: InputMaybe<RequestBodyDefinitionInput>;
+  responses?: InputMaybe<Array<ResponseDefinitionInput>>;
+  summary?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type EndpointDiscoveryResult = {
+  __typename?: 'EndpointDiscoveryResult';
+  endpoints?: Maybe<Array<DiscoveredEndpoint>>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  jobId: Scalars['String']['output'];
+  status: GenerationJobStatusEnum;
+};
+
+export type Environment = {
+  __typename?: 'Environment';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
+export enum EnvironmentEnum {
+  Development = 'DEVELOPMENT',
+  Production = 'PRODUCTION',
+  Staging = 'STAGING'
+}
+
+export enum EvaluatorFunctionCategory {
+  Collection = 'COLLECTION',
+  DateTime = 'DATE_TIME',
+  Map = 'MAP',
+  String = 'STRING',
+  Type = 'TYPE',
+  Utility = 'UTILITY'
+}
+
+export type EvaluatorFunctionDefinition = {
+  __typename?: 'EvaluatorFunctionDefinition';
+  category: EvaluatorFunctionCategory;
+  description: Scalars['String']['output'];
+  example: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  parameters: Array<EvaluatorFunctionParameter>;
+  returnType: EvaluatorFunctionType;
+  title: Scalars['String']['output'];
+};
+
+export type EvaluatorFunctionParameter = {
+  __typename?: 'EvaluatorFunctionParameter';
+  description: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  required: Scalars['Boolean']['output'];
+  type: EvaluatorFunctionType;
+};
+
+export enum EvaluatorFunctionType {
+  Boolean = 'BOOLEAN',
+  Byte = 'BYTE',
+  Character = 'CHARACTER',
+  Datetime = 'DATETIME',
+  Double = 'DOUBLE',
+  Float = 'FLOAT',
+  Integer = 'INTEGER',
+  List = 'LIST',
+  Long = 'LONG',
+  Map = 'MAP',
+  Number = 'NUMBER',
+  Short = 'SHORT',
+  String = 'STRING'
+}
+
+export type ExecutionError = {
+  __typename?: 'ExecutionError';
+  message?: Maybe<Scalars['String']['output']>;
+  stackTrace?: Maybe<Array<Maybe<Scalars['String']['output']>>>;
+};
+
+export type ExperimentComparisonRow = {
+  __typename?: 'ExperimentComparisonRow';
+  datasetItemId: Scalars['ID']['output'];
+  runsByExperiment: Array<ExperimentRunPoint>;
+};
+
+export type ExperimentComparisonView = {
+  __typename?: 'ExperimentComparisonView';
+  aggregateScoreDeltas: Array<AggregateScoreDelta>;
+  experiments: Array<ExperimentSummary>;
+  rows: Array<ExperimentComparisonRow>;
+};
+
+export type ExperimentRunPoint = {
+  __typename?: 'ExperimentRunPoint';
+  cost?: Maybe<Scalars['Float']['output']>;
+  experimentId: Scalars['ID']['output'];
+  latencyMs?: Maybe<Scalars['Int']['output']>;
+  runId: Scalars['ID']['output'];
+  scores: Array<ScorePoint>;
+  status: Scalars['String']['output'];
+  traceId?: Maybe<Scalars['ID']['output']>;
+};
+
+export type ExperimentScoreAverage = {
+  __typename?: 'ExperimentScoreAverage';
+  average?: Maybe<Scalars['Float']['output']>;
+  count: Scalars['Int']['output'];
+  experimentId: Scalars['ID']['output'];
+};
+
+export type ExperimentSummary = {
+  __typename?: 'ExperimentSummary';
+  averageLatencyMs?: Maybe<Scalars['Int']['output']>;
+  completedRuns: Scalars['Int']['output'];
+  failedRuns: Scalars['Int']['output'];
+  id: Scalars['ID']['output'];
+  model?: Maybe<Scalars['String']['output']>;
+  totalCost?: Maybe<Scalars['Float']['output']>;
+  totalRuns: Scalars['Int']['output'];
+};
+
+export type Field = {
+  __typename?: 'Field';
+  label?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  /**
+   * Java class simple name of the field's type, e.g. String, Long, Instant. Used by the wizard to
+   * auto-prefill the indexed-field-type selector (String → TEXT, Long/Integer/Double/Float → NUMERIC,
+   * Instant/LocalDateTime/LocalDate → TIMESTAMP, anything else → TEXT). User can override.
+   */
+  type?: Maybe<Scalars['String']['output']>;
+};
+
+export type FileEntry = {
+  __typename?: 'FileEntry';
+  extension?: Maybe<Scalars['String']['output']>;
+  mimeType?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  url: Scalars['String']['output'];
+};
+
+export type FileEntryProperty = Property & {
+  __typename?: 'FileEntryProperty';
+  advancedOption?: Maybe<Scalars['Boolean']['output']>;
+  controlType: ControlType;
+  defaultValue?: Maybe<Scalars['Map']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayCondition?: Maybe<Scalars['String']['output']>;
+  exampleValue?: Maybe<Scalars['Map']['output']>;
+  expressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  hidden?: Maybe<Scalars['Boolean']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  placeholder?: Maybe<Scalars['String']['output']>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+  type: PropertyType;
+};
+
+export type GenerateForEndpointsInput = {
+  documentationUrl: Scalars['String']['input'];
+  icon?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  selectedEndpoints: Array<SelectedEndpointInput>;
+};
+
+export type GenerateFromDocumentationInput = {
+  documentationUrl: Scalars['String']['input'];
+  icon?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  userPrompt?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type GenerateSpecificationInput = {
+  baseUrl?: InputMaybe<Scalars['String']['input']>;
+  endpoints: Array<EndpointDefinitionInput>;
+  name: Scalars['String']['input'];
+};
+
+export type GenerateSpecificationResponse = {
+  __typename?: 'GenerateSpecificationResponse';
+  specification?: Maybe<Scalars['String']['output']>;
+};
+
+export type GenerationJobStatus = {
+  __typename?: 'GenerationJobStatus';
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  jobId: Scalars['String']['output'];
+  specification?: Maybe<Scalars['String']['output']>;
+  status: GenerationJobStatusEnum;
+};
+
+export enum GenerationJobStatusEnum {
+  Cancelled = 'CANCELLED',
+  Completed = 'COMPLETED',
+  Failed = 'FAILED',
+  Pending = 'PENDING',
+  Processing = 'PROCESSING'
+}
+
+export type Help = {
+  __typename?: 'Help';
+  description?: Maybe<Scalars['String']['output']>;
+  documentationUrl?: Maybe<Scalars['String']['output']>;
+};
+
+export enum HttpMethod {
+  Delete = 'DELETE',
+  Get = 'GET',
+  Patch = 'PATCH',
+  Post = 'POST',
+  Put = 'PUT'
+}
+
+export type IdentityProviderInput = {
+  autoProvision?: InputMaybe<Scalars['Boolean']['input']>;
+  clientId?: InputMaybe<Scalars['String']['input']>;
+  clientSecret?: InputMaybe<Scalars['String']['input']>;
+  defaultAuthority?: InputMaybe<Scalars['String']['input']>;
+  domains: Array<Scalars['String']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  enforced?: InputMaybe<Scalars['Boolean']['input']>;
+  issuerUri?: InputMaybe<Scalars['String']['input']>;
+  metadataUri?: InputMaybe<Scalars['String']['input']>;
+  mfaMethod?: InputMaybe<Scalars['String']['input']>;
+  mfaRequired?: InputMaybe<Scalars['Boolean']['input']>;
+  name: Scalars['String']['input'];
+  nameIdFormat?: InputMaybe<Scalars['String']['input']>;
+  scopes?: InputMaybe<Scalars['String']['input']>;
+  signingCertificate?: InputMaybe<Scalars['String']['input']>;
+  type?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type IdentityProviderType = {
+  __typename?: 'IdentityProviderType';
+  autoProvision: Scalars['Boolean']['output'];
+  clientId?: Maybe<Scalars['String']['output']>;
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  defaultAuthority: Scalars['String']['output'];
+  domains: Array<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  enforced: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  issuerUri?: Maybe<Scalars['String']['output']>;
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  metadataUri?: Maybe<Scalars['String']['output']>;
+  mfaMethod?: Maybe<Scalars['String']['output']>;
+  mfaRequired: Scalars['Boolean']['output'];
+  name: Scalars['String']['output'];
+  nameIdFormat?: Maybe<Scalars['String']['output']>;
+  scopes?: Maybe<Scalars['String']['output']>;
+  signingCertificate?: Maybe<Scalars['String']['output']>;
+  type: Scalars['String']['output'];
+};
+
+export type ImportCsvInput = {
+  csv: Scalars['String']['input'];
+  environmentId: Scalars['ID']['input'];
+  tableId: Scalars['ID']['input'];
+};
+
+export type ImportOpenApiSpecificationInput = {
+  icon?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  specification: Scalars['String']['input'];
+};
+
+export type InsertRowInput = {
+  environmentId: Scalars['ID']['input'];
+  tableId: Scalars['ID']['input'];
+  values: Scalars['Map']['input'];
+};
+
+export type IntegerProperty = Property & {
+  __typename?: 'IntegerProperty';
+  advancedOption?: Maybe<Scalars['Boolean']['output']>;
+  controlType: ControlType;
+  defaultValue?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayCondition?: Maybe<Scalars['String']['output']>;
+  exampleValue?: Maybe<Scalars['Long']['output']>;
+  expressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  hidden?: Maybe<Scalars['Boolean']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  maxValue?: Maybe<Scalars['Long']['output']>;
+  minValue?: Maybe<Scalars['Long']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  options?: Maybe<Array<Option>>;
+  optionsDataSource?: Maybe<OptionsDataSource>;
+  placeholder?: Maybe<Scalars['String']['output']>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+  type: PropertyType;
+};
+
+export type Integration = {
+  __typename?: 'Integration';
+  componentName: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type IntegrationInstanceConfigurationWorkflow = {
+  __typename?: 'IntegrationInstanceConfigurationWorkflow';
+  connections: Array<IntegrationInstanceConfigurationWorkflowConnection>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  inputs?: Maybe<Scalars['Map']['output']>;
+  integrationInstanceConfigurationId: Scalars['ID']['output'];
+  version: Scalars['Int']['output'];
+  workflowId: Scalars['String']['output'];
+};
+
+export type IntegrationInstanceConfigurationWorkflowConnection = {
+  __typename?: 'IntegrationInstanceConfigurationWorkflowConnection';
+  connectionId?: Maybe<Scalars['ID']['output']>;
+  workflowConnectionKey: Scalars['String']['output'];
+  workflowNodeName: Scalars['String']['output'];
+};
+
+export type IntegrationWorkflow = {
+  __typename?: 'IntegrationWorkflow';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  integrationWorkflowId: Scalars['ID']['output'];
+  label: Scalars['String']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  workflowTaskComponentNames: Array<Scalars['String']['output']>;
+  workflowTriggerComponentNames: Array<Scalars['String']['output']>;
+  workflowUuid?: Maybe<Scalars['String']['output']>;
+};
+
+export type KnowledgeBase = {
+  __typename?: 'KnowledgeBase';
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  documents?: Maybe<Array<Maybe<KnowledgeBaseDocument>>>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  maxChunkSize?: Maybe<Scalars['Int']['output']>;
+  minChunkSizeChars?: Maybe<Scalars['Int']['output']>;
+  name: Scalars['String']['output'];
+  overlap?: Maybe<Scalars['Int']['output']>;
+};
+
+export type KnowledgeBaseDocument = {
+  __typename?: 'KnowledgeBaseDocument';
+  chunks?: Maybe<Array<Maybe<KnowledgeBaseDocumentChunk>>>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  deletedAt?: Maybe<Scalars['Long']['output']>;
+  document?: Maybe<FileEntry>;
+  id: Scalars['ID']['output'];
+  lastSeenAt?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  sourceId?: Maybe<Scalars['ID']['output']>;
+  sourceRecordId?: Maybe<Scalars['String']['output']>;
+  status: Scalars['Int']['output'];
+  tags?: Maybe<Array<Scalars['String']['output']>>;
+};
+
+export type KnowledgeBaseDocumentChunk = {
+  __typename?: 'KnowledgeBaseDocumentChunk';
+  content?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  knowledgeBaseDocumentId: Scalars['ID']['output'];
+  metadata?: Maybe<Scalars['Map']['output']>;
+  score?: Maybe<Scalars['Float']['output']>;
+};
+
+export type KnowledgeBaseDocumentChunkInput = {
+  content: Scalars['String']['input'];
+};
+
+export type KnowledgeBaseDocumentSearchResult = SearchResult & {
+  __typename?: 'KnowledgeBaseDocumentSearchResult';
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  knowledgeBaseId: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  type: SearchAssetType;
+};
+
+export type KnowledgeBaseDocumentTagsEntry = {
+  __typename?: 'KnowledgeBaseDocumentTagsEntry';
+  knowledgeBaseDocumentId: Scalars['ID']['output'];
+  tags: Array<Scalars['String']['output']>;
+};
+
+export type KnowledgeBaseInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  maxChunkSize?: InputMaybe<Scalars['Int']['input']>;
+  minChunkSizeChars?: InputMaybe<Scalars['Int']['input']>;
+  name: Scalars['String']['input'];
+  overlap?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type KnowledgeBaseSearchResult = SearchResult & {
+  __typename?: 'KnowledgeBaseSearchResult';
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  type: SearchAssetType;
+};
+
+export type KnowledgeBaseSource = {
+  __typename?: 'KnowledgeBaseSource';
+  cadence: Scalars['String']['output'];
+  connectionId?: Maybe<Scalars['ID']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  /**
+   * Phase 17b: optional rare full-replace cadence paired with the regular incremental cadence.
+   * Null = single-trigger MVP behavior.
+   */
+  fullReplaceCadence?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  knowledgeBaseId: Scalars['ID']['output'];
+  lastSyncJobExecutionId?: Maybe<Scalars['ID']['output']>;
+  lastSyncRunAt?: Maybe<Scalars['Long']['output']>;
+  /**
+   * Optional metadata-tag whitelist controlling which incoming metadata fields are flattened
+   * into KB document tags. {fields: [...]} narrows; null preserves MVP behavior (every field
+   * becomes a tag). Mirrors ContextStoreEntity.storedFields.
+   */
+  metadataFields?: Maybe<Scalars['Map']['output']>;
+  name: Scalars['String']['output'];
+  sourceClusterElementName?: Maybe<Scalars['String']['output']>;
+  sourceComponentName: Scalars['String']['output'];
+  sourceComponentVersion: Scalars['Int']['output'];
+  status: KnowledgeBaseSourceStatus;
+  /**
+   * Phase 17b: tombstone-derivation strategy. PERIODIC_FULL_REPLACE pairs with fullReplaceCadence,
+   * UPSTREAM_CHANGE_FEED is reserved for components that emit deletion events, NONE makes the source
+   * append-only.
+   */
+  tombstoneStrategy: TombstoneStrategy;
+  workflowId?: Maybe<Scalars['String']['output']>;
+  workspaceId?: Maybe<Scalars['ID']['output']>;
+};
+
+export type KnowledgeBaseSourceFilter = {
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+export enum KnowledgeBaseSourceStatus {
+  BuildingPreview = 'BUILDING_PREVIEW',
+  Disabled = 'DISABLED',
+  Failed = 'FAILED',
+  Preview = 'PREVIEW',
+  Ready = 'READY'
+}
+
+export type KnowledgeBaseTagsEntry = {
+  __typename?: 'KnowledgeBaseTagsEntry';
+  knowledgeBaseId: Scalars['ID']['output'];
+  tags: Array<Tag>;
+};
+
+export type LogEntry = {
+  __typename?: 'LogEntry';
+  componentName: Scalars['String']['output'];
+  componentOperationName?: Maybe<Scalars['String']['output']>;
+  exceptionMessage?: Maybe<Scalars['String']['output']>;
+  exceptionType?: Maybe<Scalars['String']['output']>;
+  level: LogLevel;
+  message: Scalars['String']['output'];
+  stackTrace?: Maybe<Scalars['String']['output']>;
+  taskExecutionId: Scalars['ID']['output'];
+  timestamp: Scalars['String']['output'];
+};
+
+export type LogFilterInput = {
+  componentName?: InputMaybe<Scalars['String']['input']>;
+  fromTimestamp?: InputMaybe<Scalars['String']['input']>;
+  minLevel?: InputMaybe<LogLevel>;
+  searchText?: InputMaybe<Scalars['String']['input']>;
+  taskExecutionId?: InputMaybe<Scalars['ID']['input']>;
+  toTimestamp?: InputMaybe<Scalars['String']['input']>;
+};
+
+export enum LogLevel {
+  Debug = 'DEBUG',
+  Error = 'ERROR',
+  Info = 'INFO',
+  Trace = 'TRACE',
+  Warn = 'WARN'
+}
+
+export type LogPage = {
+  __typename?: 'LogPage';
+  content: Array<LogEntry>;
+  hasNext: Scalars['Boolean']['output'];
+  hasPrevious: Scalars['Boolean']['output'];
+  pageNumber: Scalars['Int']['output'];
+  pageSize: Scalars['Int']['output'];
+  totalElements: Scalars['Int']['output'];
+  totalPages: Scalars['Int']['output'];
+};
+
+export type McpComponent = {
+  __typename?: 'McpComponent';
+  componentName: Scalars['String']['output'];
+  componentVersion: Scalars['Int']['output'];
+  connectionId?: Maybe<Scalars['ID']['output']>;
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  mcpServerId: Scalars['ID']['output'];
+  mcpTools?: Maybe<Array<Maybe<McpTool>>>;
+  title?: Maybe<Scalars['String']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type McpComponentInput = {
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+  connectionId?: InputMaybe<Scalars['ID']['input']>;
+  mcpServerId: Scalars['ID']['input'];
+};
+
+export type McpComponentWithToolsInput = {
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+  connectionId?: InputMaybe<Scalars['ID']['input']>;
+  mcpServerId: Scalars['ID']['input'];
+  tools: Array<McpToolInputForComponent>;
+  version?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type McpIntegrationInstanceConfiguration = {
+  __typename?: 'McpIntegrationInstanceConfiguration';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  integration?: Maybe<Integration>;
+  integrationInstanceConfigurationId: Scalars['ID']['output'];
+  integrationInstanceConfigurationName?: Maybe<Scalars['String']['output']>;
+  integrationVersion?: Maybe<Scalars['Int']['output']>;
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  mcpIntegrationInstanceConfigurationWorkflows?: Maybe<Array<Maybe<McpIntegrationInstanceConfigurationWorkflow>>>;
+  mcpServerId: Scalars['ID']['output'];
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type McpIntegrationInstanceConfigurationWorkflow = {
+  __typename?: 'McpIntegrationInstanceConfigurationWorkflow';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  integrationInstanceConfigurationWorkflow?: Maybe<IntegrationInstanceConfigurationWorkflow>;
+  integrationInstanceConfigurationWorkflowId: Scalars['Long']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  mcpIntegrationInstanceConfigurationId: Scalars['Long']['output'];
+  parameters?: Maybe<Scalars['Map']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+  workflow?: Maybe<Workflow>;
+};
+
+export type McpIntegrationInstanceConfigurationWorkflowInput = {
+  integrationInstanceConfigurationWorkflowId: Scalars['Long']['input'];
+  mcpIntegrationInstanceConfigurationId: Scalars['Long']['input'];
+};
+
+export type McpIntegrationInstanceConfigurationWorkflowUpdateInput = {
+  integrationInstanceConfigurationWorkflowId?: InputMaybe<Scalars['Long']['input']>;
+  mcpIntegrationInstanceConfigurationId?: InputMaybe<Scalars['Long']['input']>;
+  parameters?: InputMaybe<Scalars['Map']['input']>;
+};
+
+export type McpProject = {
+  __typename?: 'McpProject';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  mcpProjectWorkflows?: Maybe<Array<Maybe<McpProjectWorkflow>>>;
+  mcpServerId: Scalars['ID']['output'];
+  project?: Maybe<Project>;
+  projectDeploymentId: Scalars['ID']['output'];
+  projectVersion?: Maybe<Scalars['Int']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type McpProjectWorkflow = {
+  __typename?: 'McpProjectWorkflow';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  mcpProjectId: Scalars['Long']['output'];
+  parameters?: Maybe<Scalars['Map']['output']>;
+  projectDeploymentWorkflow?: Maybe<ProjectDeploymentWorkflow>;
+  projectDeploymentWorkflowId: Scalars['Long']['output'];
+  version?: Maybe<Scalars['Int']['output']>;
+  workflow?: Maybe<Workflow>;
+};
+
+export type McpProjectWorkflowInput = {
+  mcpProjectId: Scalars['Long']['input'];
+  projectDeploymentWorkflowId: Scalars['Long']['input'];
+};
+
+export type McpProjectWorkflowUpdateInput = {
+  mcpProjectId?: InputMaybe<Scalars['Long']['input']>;
+  parameters?: InputMaybe<Scalars['Map']['input']>;
+  projectDeploymentWorkflowId?: InputMaybe<Scalars['Long']['input']>;
+};
+
+export type McpServer = {
+  __typename?: 'McpServer';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  environmentId: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  mcpComponents?: Maybe<Array<Maybe<McpComponent>>>;
+  name: Scalars['String']['output'];
+  secretKey: Scalars['String']['output'];
+  tags?: Maybe<Array<Maybe<Tag>>>;
+  type: PlatformType;
+  url: Scalars['String']['output'];
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type McpServerInput = {
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  environmentId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  type: PlatformType;
+};
+
+export enum McpServerOrderBy {
+  CreatedDateAsc = 'CREATED_DATE_ASC',
+  CreatedDateDesc = 'CREATED_DATE_DESC',
+  LastModifiedDateAsc = 'LAST_MODIFIED_DATE_ASC',
+  LastModifiedDateDesc = 'LAST_MODIFIED_DATE_DESC',
+  NameAsc = 'NAME_ASC',
+  NameDesc = 'NAME_DESC'
+}
+
+export type McpServerUpdateInput = {
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type McpTool = {
+  __typename?: 'McpTool';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  mcpComponentId: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  parameters?: Maybe<Scalars['Map']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type McpToolInput = {
+  mcpComponentId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  parameters?: InputMaybe<Scalars['Map']['input']>;
+  version?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type McpToolInputForComponent = {
+  name: Scalars['String']['input'];
+  parameters?: InputMaybe<Scalars['Map']['input']>;
+};
+
+export type Mutation = {
+  __typename?: 'Mutation';
+  _placeholder?: Maybe<Scalars['Boolean']['output']>;
+  acknowledgeAiObservabilityAlertEvent?: Maybe<AiObservabilityAlertEvent>;
+  /**
+   * Adds a (kind, resourceId) reference to the agent's resource template. Idempotent — adding the same resource
+   * twice returns the existing row. Future tasks spawned from this agent start with this resource attached.
+   */
+  addAiHubPersonalAgentResource: AiHubPersonalAgentResource;
+  /**
+   * Adds a (componentName, componentVersion, operationName) triple to the agent's tool template. Idempotent — adding
+   * the same tool twice returns the existing row rather than producing a duplicate. Future aiHubTasks spawned
+   * from this agent will start with this tool attached.
+   */
+  addAiHubPersonalAgentTool: AiHubPersonalAgentTool;
+  addDataTableColumn: Scalars['Boolean']['output'];
+  /** Add a user to a project. Requires PROJECT_MANAGE_USERS scope. */
+  addProjectUser: ProjectUser;
+  /** Add a user to a workspace. Requires ADMIN workspace role. */
+  addWorkspaceUser: WorkspaceUser;
+  /**
+   * Attach a tool to a task. Idempotent — re-attaching the same (component, action, connection)
+   * upserts the tool's parameters in place. Returns the persisted ids so the client can immediately
+   * address the row in subsequent updates / removes.
+   */
+  attachAiHubTaskTool: AiHubTaskToolBinding;
+  /**
+   * Bulk-archives workflow-chat aiHubTasks for the given workspace. Returns the number of rows that flipped
+   * to ARCHIVED. Tasks already ARCHIVED are skipped (idempotent); aiHubTasks the caller doesn't own
+   * are silently filtered (the service-layer ownership check rejects them per row, but we don't surface
+   * individual failures — the caller asked to archive everything, partial successes are acceptable).
+   *
+   * Designed for the "I have 30 workflow chats clogging my sidebar" cleanup case. The caller passes the kind
+   * discriminator so this can later be extended to bulk-archive standard aiHubTasks too without overloading
+   * the same mutation; for now only WORKFLOW_CHAT is supported.
+   */
+  bulkArchiveWorkflowChatAiHubTasks: Scalars['Int']['output'];
+  cancelAiAgentEvalRun: AiAgentEvalRun;
+  /**
+   * Cancels an in-flight LLM agent run for a STANDARD or PERSONAL_AGENT task. Companion to
+   * {@code cancelWorkflowChatTurn}, which targets workflow-chat tasks bound to a workflow execution.
+   * The server marks the run terminated in the in-flight registry and emits a complete signal to any
+   * SSE subscribers; a subsequent mount-time probe sees the task as not-in-flight so the client stops
+   * showing the streaming UI.
+   *
+   * Returns {@code true} when a non-terminated run was cancelled, {@code false} when none was in flight
+   * (idempotent — the user may click stop after the run finished, and we want the client to disambiguate
+   * that from a successful cancel without complex error handling). Throws Forbidden when the caller does
+   * not own the task.
+   *
+   * The optional runId is the AG-UI runId of the turn being stopped; when supplied the server
+   * tombstones it so a Stop that reaches the server before the agent run registers still sticks.
+   */
+  cancelAiHubRun: Scalars['Boolean']['output'];
+  cancelAiObservabilityExportJob?: Maybe<AiObservabilityExportJob>;
+  cancelGenerationJob: Scalars['Boolean']['output'];
+  /**
+   * Cancels the in-flight workflow-chat turn for the given task. Returns {@code true} if a job was
+   * cancelled, {@code false} when the task has no running turn (idempotent — the user may click stop
+   * after the workflow already completed, and we want the client to be able to disambiguate that from a
+   * successful cancel without complex error handling).
+   *
+   * Resolves through the per-task jobId registry that AgUiStreamBridge populates from the executor's
+   * start event. Throws Forbidden when the caller doesn't own the task.
+   */
+  cancelWorkflowChatTurn: Scalars['Boolean']['output'];
+  createAiAgentEvalScenario: AiAgentEvalScenario;
+  createAiAgentEvalTest: AiAgentEvalTest;
+  createAiAgentJudge: AiAgentJudge;
+  createAiAgentScenarioJudge: AiAgentScenarioJudge;
+  createAiAgentScenarioToolSimulation: AiAgentScenarioToolSimulation;
+  createAiEvalRule?: Maybe<AiEvalRule>;
+  createAiEvalScore?: Maybe<AiEvalScore>;
+  createAiEvalScoreConfig?: Maybe<AiEvalScoreConfig>;
+  createAiGatewayBudget?: Maybe<AiGatewayBudget>;
+  createAiGatewayModel?: Maybe<AiGatewayModel>;
+  createAiGatewayProject?: Maybe<AiGatewayProject>;
+  createAiGatewayProvider?: Maybe<AiGatewayProvider>;
+  createAiGatewayRateLimit?: Maybe<AiGatewayRateLimit>;
+  createAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
+  /**
+   * Creates a new personal agent. The name field is auto-slugified server-side; pass the user's free text and
+   * let the service produce the canonical slug. Conflict on a duplicate slug throws a typed error so the client
+   * can prompt the user for a different name.
+   */
+  createAiHubPersonalAgent: AiHubPersonalAgent;
+  /**
+   * Creates a fresh personal-agent task row for the current user (always-new semantics, May 2026). Past
+   * aiHubTasks bound to the same agent remain reachable through the aiHubTasks list. Returns the new row
+   * along with any tool template rows auto-attached from the agent's `tools` list.
+   */
+  createAiHubPersonalAgentTask: AiHubTask;
+  /**
+   * Creates a new task, or returns the existing one if the same {@code threadId} is reused. Idempotent
+   * on (workspace, user, environment, threadId).
+   */
+  createAiHubTask: AiHubTask;
+  createAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
+  createAiObservabilityExportJob?: Maybe<AiObservabilityExportJob>;
+  createAiObservabilityNotificationChannel?: Maybe<AiObservabilityNotificationChannel>;
+  createAiObservabilityWebhookSubscription?: Maybe<AiObservabilityWebhookSubscription>;
+  createAiPrompt?: Maybe<AiPrompt>;
+  createAiPromptVersion?: Maybe<AiPromptVersion>;
+  createAiSkill: AiSkill;
+  createAiSkillFromInstructions: AiSkill;
+  createApiConnector: ApiConnector;
+  createApiKey: Scalars['String']['output'];
+  createApprovalTask?: Maybe<ApprovalTask>;
+  createAutomationWorkflowProject: Scalars['ID']['output'];
+  createAutomationWorkflowProjectWorkflow: Scalars['ID']['output'];
+  createContextStore: ContextStore;
+  createContextStoreSource: ContextStoreSource;
+  /** Create a new custom role with the given scopes. Requires tenant admin. */
+  createCustomRole: CustomRole;
+  createDataTable: Scalars['Boolean']['output'];
+  createEmbeddedMcpServer?: Maybe<McpServer>;
+  createIdentityProvider: IdentityProviderType;
+  createKnowledgeBase?: Maybe<KnowledgeBase>;
+  createKnowledgeBaseSource: KnowledgeBaseSource;
+  createMcpComponent?: Maybe<McpComponent>;
+  createMcpComponentWithTools?: Maybe<McpComponent>;
+  createMcpIntegrationInstanceConfiguration?: Maybe<McpIntegrationInstanceConfiguration>;
+  createMcpIntegrationInstanceConfigurationWorkflow?: Maybe<McpIntegrationInstanceConfigurationWorkflow>;
+  createMcpProject?: Maybe<McpProject>;
+  createMcpProjectWorkflow?: Maybe<McpProjectWorkflow>;
+  createMcpServer?: Maybe<McpServer>;
+  createMcpTool?: Maybe<McpTool>;
+  /** Create a new connection with ORGANIZATION visibility. (admin only, EE only) */
+  createOrganizationConnection: Scalars['ID']['output'];
+  /**
+   * Creates (or returns the existing) workflow-chat task bound to the given workflow execution. Idempotent
+   * on (workspace, user, environment, workflowExecutionId): re-clicking the same workflow-chat sidebar row restores
+   * the existing thread instead of creating a duplicate. Returns a row with {@code kind = WORKFLOW_CHAT}.
+   *
+   * Optional {@code title} is persisted on first creation (when the row doesn't yet exist) so workflow-chat
+   * aiHubTasks get a meaningful sidebar label without waiting for the LLM-driven title generation that the
+   * bridge bypasses. Pass e.g. "{projectName} — {workflowLabel}" from the client. The title is NOT overwritten on
+   * the idempotency path — once a row has been named, that name sticks.
+   */
+  createWorkflowChatAiHubTask: AiHubTask;
+  createWorkspaceAiGatewayModel?: Maybe<AiGatewayModel>;
+  createWorkspaceAiGatewayProvider?: Maybe<AiGatewayProvider>;
+  createWorkspaceAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
+  createWorkspaceApiKey: Scalars['String']['output'];
+  createWorkspaceMcpServer?: Maybe<McpServer>;
+  deleteAiAgentEvalScenario: Scalars['Boolean']['output'];
+  deleteAiAgentEvalTest: Scalars['Boolean']['output'];
+  deleteAiAgentJudge: Scalars['Boolean']['output'];
+  deleteAiAgentScenarioJudge: Scalars['Boolean']['output'];
+  deleteAiAgentScenarioToolSimulation: Scalars['Boolean']['output'];
+  /**
+   * Deletes a memory by primary key. Returns true on success; throws NotFound when the row does not exist or
+   * Forbidden when the row belongs to another user.
+   */
+  deleteAiAutoMemory: Scalars['Boolean']['output'];
+  deleteAiEvalRule?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiEvalScore?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiEvalScoreConfig?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiGatewayBudget?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiGatewayModel?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiGatewayProject?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiGatewayProvider?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiGatewayRateLimit?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiGatewayRoutingPolicy?: Maybe<Scalars['Boolean']['output']>;
+  /**
+   * Deletes a personal agent. Tasks bound to the agent are NOT cascaded — past chat history remains
+   * accessible, but new turns degrade to plain ai-hub behaviour. Returns true on success; throws when the
+   * agent does not exist or is owned by another user.
+   */
+  deleteAiHubPersonalAgent: Scalars['Boolean']['output'];
+  /**
+   * Hard-deletes a task and removes its messages from the chat-memory table. Associated artifacts
+   * cascade via the database FK. Returns true on success; throws Forbidden when the caller is not the
+   * task's owner.
+   */
+  deleteAiHubTask: Scalars['Boolean']['output'];
+  /**
+   * Removes a user-attached reference artifact (FILE_REFERENCED / WORKFLOW_REFERENCED /
+   * DATA_TABLE_REFERENCED / KB_REFERENCED) from a task. Returns `true` on success or when the row was
+   * already gone (idempotent). Throws on ownership / workspace mismatch and on any non-reference kind —
+   * those are agent-driven audit rows that the user cannot delete via this surface.
+   */
+  deleteAiHubTaskArtifact: Scalars['Boolean']['output'];
+  deleteAiObservabilityAlertRule?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiObservabilityNotificationChannel?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiObservabilityWebhookSubscription?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiPrompt?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiSkill: Scalars['Boolean']['output'];
+  deleteApiConnector: Scalars['Boolean']['output'];
+  deleteApiKey: Scalars['Boolean']['output'];
+  deleteApprovalTask?: Maybe<Scalars['Boolean']['output']>;
+  deleteAssetFile: Scalars['Boolean']['output'];
+  deleteAutomationWorkflowProject: Scalars['Boolean']['output'];
+  deleteAutomationWorkflowProjectWorkflow: Scalars['Boolean']['output'];
+  deleteConnectedUserMcpServer?: Maybe<Scalars['Boolean']['output']>;
+  deleteConnectedUserProjectWorkflow?: Maybe<Scalars['Boolean']['output']>;
+  deleteContextStore: Scalars['Boolean']['output'];
+  deleteContextStoreSource: Scalars['Boolean']['output'];
+  deleteCustomComponent: Scalars['Boolean']['output'];
+  /** Delete a custom role. Fails if the role is in use by any project member. Requires tenant admin. */
+  deleteCustomRole: Scalars['Boolean']['output'];
+  deleteDataTableRow: Scalars['Boolean']['output'];
+  deleteEmbeddedMcpServer?: Maybe<Scalars['Boolean']['output']>;
+  deleteIdentityProvider: Scalars['Boolean']['output'];
+  deleteJobFileLogs: Scalars['Boolean']['output'];
+  deleteKnowledgeBase?: Maybe<Scalars['Boolean']['output']>;
+  deleteKnowledgeBaseDocument?: Maybe<Scalars['Boolean']['output']>;
+  deleteKnowledgeBaseDocumentChunk?: Maybe<Scalars['Boolean']['output']>;
+  deleteKnowledgeBaseSource: Scalars['Boolean']['output'];
+  deleteMcpComponent?: Maybe<Scalars['Boolean']['output']>;
+  deleteMcpIntegrationInstanceConfiguration?: Maybe<Scalars['Boolean']['output']>;
+  deleteMcpIntegrationInstanceConfigurationWorkflow?: Maybe<Scalars['Boolean']['output']>;
+  deleteMcpProject?: Maybe<Scalars['Boolean']['output']>;
+  deleteMcpProjectWorkflow?: Maybe<Scalars['Boolean']['output']>;
+  deleteMcpServer?: Maybe<Scalars['Boolean']['output']>;
+  deleteMcpTool?: Maybe<Scalars['Boolean']['output']>;
+  /** Delete an organization connection. Fails if the connection is not ORGANIZATION-scoped. (admin only, EE only) */
+  deleteOrganizationConnection: Scalars['Boolean']['output'];
+  deleteSharedProject: Scalars['Boolean']['output'];
+  deleteSharedWorkflow: Scalars['Boolean']['output'];
+  deleteUser: Scalars['Boolean']['output'];
+  deleteWorkspaceAiGatewayModel?: Maybe<Scalars['Boolean']['output']>;
+  deleteWorkspaceAiGatewayProvider?: Maybe<Scalars['Boolean']['output']>;
+  deleteWorkspaceAiGatewayRoutingPolicy?: Maybe<Scalars['Boolean']['output']>;
+  deleteWorkspaceApiKey: Scalars['Boolean']['output'];
+  deleteWorkspaceMcpServer?: Maybe<Scalars['Boolean']['output']>;
+  /** Demote a connection to PRIVATE visibility, removing all project associations. Authorized for workspace administrators OR the connection creator (orphan-recovery path when no admins remain). Fails if the connection is used by active deployments. */
+  demoteConnectionToPrivate: Scalars['Boolean']['output'];
+  /**
+   * Detach a whole component binding (cascades to all its tools via the FK). Use when the user wants to
+   * remove all of e.g. Slack's tools at once instead of one at a time.
+   */
+  detachAiHubTaskComponent: Scalars['Boolean']['output'];
+  /** Unlink a connection from all deployed workflows and test configurations, without deleting the connection itself. */
+  disconnectConnection: Scalars['Boolean']['output'];
+  dropDataTable: Scalars['Boolean']['output'];
+  duplicateAutomationWorkflowProject: Scalars['ID']['output'];
+  duplicateAutomationWorkflowProjectWorkflow: Scalars['ID']['output'];
+  duplicateDataTable: Scalars['Boolean']['output'];
+  enableApiConnector: Scalars['Boolean']['output'];
+  enableConnectedUserMcpServer?: Maybe<Scalars['Boolean']['output']>;
+  enableConnectedUserMcpTool?: Maybe<Scalars['Boolean']['output']>;
+  enableConnectedUserProjectWorkflow?: Maybe<Scalars['Boolean']['output']>;
+  enableCustomComponent: Scalars['Boolean']['output'];
+  exportSharedProject?: Maybe<Scalars['Boolean']['output']>;
+  exportSharedWorkflow: Scalars['Boolean']['output'];
+  /**
+   * Generates a title for a task using the AI title-generation service, then saves it. Idempotent —
+   * if the task already has a non-blank title, returns the current state without calling the LLM.
+   * Throws when the upstream model is unavailable so the client can surface a retryable error.
+   */
+  generateAiHubTaskTitle: AiHubTask;
+  generateFromDocumentation: ApiConnector;
+  generateSpecification: GenerateSpecificationResponse;
+  importDataTableCsv: Scalars['Boolean']['output'];
+  importOpenApiSpecification: ApiConnector;
+  importProjectTemplate: Scalars['ID']['output'];
+  importWorkflowTemplate: Scalars['ID']['output'];
+  insertDataTableRow: DataTableRow;
+  inviteUser: Scalars['Boolean']['output'];
+  /** Mark all of a user's connections as pending reassignment. Returns per-row outcome so partial failures surface; a silent no-op batch does not look like an error. (admin only) */
+  markConnectionsPendingReassignment: BulkReassignResult;
+  playgroundChatCompletion?: Maybe<PlaygroundChatCompletionResponse>;
+  /** Promote every PRIVATE connection in the workspace to WORKSPACE visibility. Returns per-row outcome so partial failures can surface. Intended for CE→EE migration. */
+  promoteAllPrivateConnectionsToWorkspace: BulkPromoteResult;
+  /** Promote a connection to WORKSPACE visibility, making it visible to all workspace members. */
+  promoteConnectionToWorkspace: Scalars['Boolean']['output'];
+  publishAutomationWorkflowProject: Scalars['Boolean']['output'];
+  /** Reassign all of a user's unresolved connections to a new owner. (admin only) */
+  reassignAllConnections: Scalars['Boolean']['output'];
+  /** Reassign a single connection to a new owner. Resets status to ACTIVE if pending. (admin only) */
+  reassignConnection: Scalars['Boolean']['output'];
+  /**
+   * Records a user-attached reference (file / workflow / data table / knowledge base) as a task
+   * artifact so it appears in the sidebar artifact list. Idempotent — re-attaching the same resource hits
+   * the existing row instead of creating a duplicate. Used by the composer plus-button menu when the user
+   * references an artifact in a task.
+   */
+  recordReferencedAiHubTaskArtifact: AiHubTaskArtifact;
+  refreshContextStoreSource: Scalars['ID']['output'];
+  refreshKnowledgeBaseSource: Scalars['ID']['output'];
+  /** Register an existing connection backed by an externally-provisioned credential (e.g. AWS Secrets Manager). */
+  registerExistingConnection: Scalars['Long']['output'];
+  /**
+   * Removes a resource from the agent's template by row id. Already-spawned tasks keep their copied artifact rows;
+   * only future tasks are affected. Idempotent — removing a non-existent id is a no-op.
+   */
+  removeAiHubPersonalAgentResource: Scalars['Boolean']['output'];
+  /**
+   * Removes a tool from the agent's template by id. Already-attached aiHubTasks keep their copied tool rows;
+   * only future aiHubTasks are affected. Idempotent — removing a non-existent id is a no-op.
+   */
+  removeAiHubPersonalAgentTool: Scalars['Boolean']['output'];
+  /** Detach a single tool. Returns true on success; false when the id was not found (idempotent). */
+  removeAiHubTaskTool: Scalars['Boolean']['output'];
+  removeDataTableColumn: Scalars['Boolean']['output'];
+  /** Remove a user from a project. Requires PROJECT_MANAGE_USERS scope. */
+  removeProjectUser: Scalars['Boolean']['output'];
+  /** Remove a user from a workspace. Requires ADMIN workspace role. */
+  removeWorkspaceUser: Scalars['Boolean']['output'];
+  renameDataTable: Scalars['Boolean']['output'];
+  renameDataTableColumn: Scalars['Boolean']['output'];
+  /** Revoke a connection from a project. Auto-demotes to PRIVATE when no projects remain. */
+  revokeConnectionFromProject: Scalars['Boolean']['output'];
+  runAiEvalRuleOnHistoricalTraces?: Maybe<Scalars['Int']['output']>;
+  saveClusterElementTestConfigurationConnection?: Maybe<Scalars['Boolean']['output']>;
+  saveClusterElementTestOutput?: Maybe<WorkflowNodeTestOutputResult>;
+  saveWorkflowTestConfigurationConnection?: Maybe<Scalars['Boolean']['output']>;
+  setActiveAiPromptVersion?: Maybe<Scalars['Boolean']['output']>;
+  /**
+   * Upserts or deletes the agent's single schedule.
+   * - input.schedule != null  → upsert (insert if absent, update if present).
+   * - input.schedule == null  → delete any existing schedule + cancel Quartz.
+   * Returns the agent with its (possibly null) schedule field populated.
+   */
+  setAiHubPersonalAgentSchedule: AiHubPersonalAgent;
+  setAiObservabilityTraceTags?: Maybe<AiObservabilityTrace>;
+  /** Replace the set of projects a connection is shared with. Server diffs against current shares and applies share/revoke as needed in one round-trip. */
+  setConnectionProjects: Scalars['Boolean']['output'];
+  setContextStoreSourceEnabled: ContextStoreSource;
+  setKnowledgeBaseSourceEnabled: KnowledgeBaseSource;
+  /** Share a connection with a specific project, setting visibility to PROJECT. */
+  shareConnectionToProject: Scalars['Boolean']['output'];
+  snoozeAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
+  startAiAgentEvalRun: AiAgentEvalRun;
+  startDiscoverEndpoints: EndpointDiscoveryResult;
+  startGenerateForEndpoints: GenerationJobStatus;
+  startGenerateFromDocumentationPreview: GenerationJobStatus;
+  testAiObservabilityAlertRule?: Maybe<Scalars['Float']['output']>;
+  testAiObservabilityNotificationChannel?: Maybe<Scalars['Boolean']['output']>;
+  testAiObservabilityWebhookSubscription?: Maybe<Scalars['Boolean']['output']>;
+  testClusterElementScript: ScriptTestExecution;
+  testWorkflowNodeScript: ScriptTestExecution;
+  testWorkspaceAiGatewayProviderConnection?: Maybe<ProviderConnectionResult>;
+  /**
+   * Truncates the chat-memory history for a task, deleting the message at {@code fromMessageIndex} and
+   * every message after it. Used by the edit-and-resend UX: the user clicks edit on a previous user message,
+   * the client truncates here, and the next runAgent call re-runs from the edited message.
+   *
+   * Returns the number of messages deleted. Idempotent — calling with an index past the end deletes zero.
+   * Throws Forbidden when the caller does not own the task.
+   */
+  truncateAiHubTaskMessages: Scalars['Int']['output'];
+  unsnoozeAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
+  updateAiAgentEvalScenario: AiAgentEvalScenario;
+  updateAiAgentEvalTest: AiAgentEvalTest;
+  updateAiAgentJudge: AiAgentJudge;
+  updateAiAgentScenarioJudge: AiAgentScenarioJudge;
+  updateAiAgentScenarioToolSimulation: AiAgentScenarioToolSimulation;
+  /**
+   * Partial update of a memory by primary key, scoped to (workspaceId, currentUserId). The memory's environment
+   * is immutable post-create so it does not appear in the patch input — environments do not move.
+   */
+  updateAiAutoMemory: AiAutoMemory;
+  updateAiEvalRule?: Maybe<AiEvalRule>;
+  updateAiEvalScoreConfig?: Maybe<AiEvalScoreConfig>;
+  updateAiGatewayBudget?: Maybe<AiGatewayBudget>;
+  updateAiGatewayModel?: Maybe<AiGatewayModel>;
+  updateAiGatewayProject?: Maybe<AiGatewayProject>;
+  updateAiGatewayProvider?: Maybe<AiGatewayProvider>;
+  updateAiGatewayRateLimit?: Maybe<AiGatewayRateLimit>;
+  updateAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
+  updateAiGatewayWorkspaceSettings?: Maybe<AiGatewayWorkspaceSettings>;
+  /**
+   * Partial update of an existing personal agent's editable fields (title, description, instructions). The
+   * name is intentionally NOT mutable — chat URLs and tool references key off it; renames need a dedicated
+   * operation that doesn't yet exist.
+   */
+  updateAiHubPersonalAgent: AiHubPersonalAgent;
+  /**
+   * Updates the per-tool config (pinned connection + pre-set parameters) on an existing tool template row.
+   * Tasks already spawned from this agent keep their copied config — only future aiHubTasks pick up
+   * the new values. Both fields are independently nullable in the input: omit `connectionId` to clear the pin;
+   * omit `parameters` to preserve the existing map (pass an explicit empty map to reset).
+   */
+  updateAiHubPersonalAgentToolConfig: AiHubPersonalAgentTool;
+  /**
+   * Partial update of a task by primary key. At least one of {@code title}, {@code lastPreview},
+   * {@code messageCount}, {@code status} must be non-null — an all-null patch is rejected with an error.
+   */
+  updateAiHubTask: AiHubTask;
+  /**
+   * Update only the parameters of a previously attached tool (e.g. user adjusts the default channel
+   * after attach). Other fields on the binding (component, action, connection) are immutable post-attach;
+   * if the user wants to switch connection they should detach + reattach instead.
+   */
+  updateAiHubTaskToolParameters: AiHubTaskToolBinding;
+  updateAiHubVoiceWebhookUrl?: Maybe<AiHubWorkspaceSettings>;
+  updateAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
+  updateAiObservabilityNotificationChannel?: Maybe<AiObservabilityNotificationChannel>;
+  updateAiObservabilityWebhookSubscription?: Maybe<AiObservabilityWebhookSubscription>;
+  updateAiPrompt?: Maybe<AiPrompt>;
+  updateAiSkill: AiSkill;
+  updateAiSkillContent: AiSkill;
+  updateApiConnector: ApiConnector;
+  updateApiKey: Scalars['Boolean']['output'];
+  updateApprovalTask?: Maybe<ApprovalTask>;
+  updateAssetFile: AssetFile;
+  updateAssetFileTags: AssetFile;
+  updateAssetFileTextContent: AssetFile;
+  updateAutomationWorkflowProject: Scalars['Boolean']['output'];
+  updateContextStore: ContextStore;
+  updateContextStoreSource: ContextStoreSource;
+  /**
+   * Replace the tag list on a Context Store. Existing tags whose name matches an entry in {@code tags} are
+   * re-used; names not yet in the tag table are created on the fly via TagService.save. Returns the updated tags
+   * so the client can refresh its remainingTags cache.
+   */
+  updateContextStoreTags: Array<Tag>;
+  /** Update an existing custom role. Requires tenant admin. */
+  updateCustomRole: CustomRole;
+  updateDataTableRow: DataTableRow;
+  updateDataTableTags: Scalars['Boolean']['output'];
+  updateIdentityProvider: IdentityProviderType;
+  updateKnowledgeBase?: Maybe<KnowledgeBase>;
+  updateKnowledgeBaseDocumentChunk?: Maybe<KnowledgeBaseDocumentChunk>;
+  updateKnowledgeBaseDocumentTags: Scalars['Boolean']['output'];
+  updateKnowledgeBaseSource: KnowledgeBaseSource;
+  updateKnowledgeBaseTags: Scalars['Boolean']['output'];
+  updateManagementMcpServerUrl: Scalars['String']['output'];
+  updateMcpComponentWithTools?: Maybe<McpComponent>;
+  updateMcpIntegrationInstanceConfiguration?: Maybe<McpIntegrationInstanceConfiguration>;
+  updateMcpIntegrationInstanceConfigurationVersion?: Maybe<Scalars['Boolean']['output']>;
+  updateMcpIntegrationInstanceConfigurationWorkflow?: Maybe<McpIntegrationInstanceConfigurationWorkflow>;
+  updateMcpProject?: Maybe<McpProject>;
+  updateMcpProjectWorkflow?: Maybe<McpProjectWorkflow>;
+  updateMcpServer?: Maybe<McpServer>;
+  updateMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
+  updateMcpServerUrl: Scalars['String']['output'];
+  updateMcpTool?: Maybe<McpTool>;
+  /** Update an organization connection's name and tags. (admin only, EE only) */
+  updateOrganizationConnection: Scalars['Boolean']['output'];
+  /** Update a project user's role. Requires PROJECT_MANAGE_USERS scope. */
+  updateProjectUserRole: ProjectUser;
+  updateUser: AdminUser;
+  updateWorkspaceAiGatewayModel?: Maybe<AiGatewayModel>;
+  updateWorkspaceAiGatewayProvider?: Maybe<AiGatewayProvider>;
+  updateWorkspaceAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
+  updateWorkspaceApiKey: Scalars['Boolean']['output'];
+  /** Update a workspace user's role. Requires ADMIN workspace role. */
+  updateWorkspaceUserRole: WorkspaceUser;
+};
+
+
+export type MutationAcknowledgeAiObservabilityAlertEventArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationAddAiHubPersonalAgentResourceArgs = {
+  input: AddAiHubPersonalAgentResourceInput;
+};
+
+
+export type MutationAddAiHubPersonalAgentToolArgs = {
+  input: AddAiHubPersonalAgentToolInput;
+};
+
+
+export type MutationAddDataTableColumnArgs = {
+  input: AddColumnInput;
+};
+
+
+export type MutationAddProjectUserArgs = {
+  projectId: Scalars['ID']['input'];
+  role: ProjectRole;
+  userId: Scalars['ID']['input'];
+};
+
+
+export type MutationAddWorkspaceUserArgs = {
+  role: WorkspaceRole;
+  userId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationAttachAiHubTaskToolArgs = {
+  input: AttachAiHubTaskToolInput;
+};
+
+
+export type MutationBulkArchiveWorkflowChatAiHubTasksArgs = {
+  environment: Scalars['Int']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCancelAiAgentEvalRunArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationCancelAiHubRunArgs = {
+  id: Scalars['ID']['input'];
+  runId?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCancelAiObservabilityExportJobArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationCancelGenerationJobArgs = {
+  jobId: Scalars['String']['input'];
+};
+
+
+export type MutationCancelWorkflowChatTurnArgs = {
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateAiAgentEvalScenarioArgs = {
+  agentEvalTestId: Scalars['ID']['input'];
+  expectedOutput?: InputMaybe<Scalars['String']['input']>;
+  maxTurns?: InputMaybe<Scalars['Int']['input']>;
+  name: Scalars['String']['input'];
+  numberOfRuns?: InputMaybe<Scalars['Int']['input']>;
+  personaPrompt?: InputMaybe<Scalars['String']['input']>;
+  type: AiAgentScenarioType;
+  userMessage?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationCreateAiAgentEvalTestArgs = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type MutationCreateAiAgentJudgeArgs = {
+  configuration: Scalars['Map']['input'];
+  name: Scalars['String']['input'];
+  type: AiAgentJudgeType;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type MutationCreateAiAgentScenarioJudgeArgs = {
+  agentEvalScenarioId: Scalars['ID']['input'];
+  configuration: Scalars['Map']['input'];
+  name: Scalars['String']['input'];
+  type: AiAgentJudgeType;
+};
+
+
+export type MutationCreateAiAgentScenarioToolSimulationArgs = {
+  agentEvalScenarioId: Scalars['ID']['input'];
+  responsePrompt: Scalars['String']['input'];
+  simulationModel?: InputMaybe<Scalars['String']['input']>;
+  toolName: Scalars['String']['input'];
+};
+
+
+export type MutationCreateAiEvalRuleArgs = {
+  delaySeconds?: InputMaybe<Scalars['Int']['input']>;
+  enabled: Scalars['Boolean']['input'];
+  filters?: InputMaybe<Scalars['String']['input']>;
+  model: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  promptTemplate: Scalars['String']['input'];
+  samplingRate: Scalars['Float']['input'];
+  scoreConfigId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateAiEvalScoreArgs = {
+  comment?: InputMaybe<Scalars['String']['input']>;
+  dataType: AiEvalScoreDataType;
+  name: Scalars['String']['input'];
+  source: AiEvalScoreSource;
+  spanId?: InputMaybe<Scalars['ID']['input']>;
+  stringValue?: InputMaybe<Scalars['String']['input']>;
+  traceId: Scalars['ID']['input'];
+  value?: InputMaybe<Scalars['Float']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateAiEvalScoreConfigArgs = {
+  categories?: InputMaybe<Scalars['String']['input']>;
+  dataType?: InputMaybe<AiEvalScoreDataType>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  maxValue?: InputMaybe<Scalars['Float']['input']>;
+  minValue?: InputMaybe<Scalars['Float']['input']>;
+  name: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateAiGatewayBudgetArgs = {
+  input: CreateAiGatewayBudgetInput;
+};
+
+
+export type MutationCreateAiGatewayModelArgs = {
+  input: CreateAiGatewayModelInput;
+};
+
+
+export type MutationCreateAiGatewayProjectArgs = {
+  input: CreateAiGatewayProjectInput;
+};
+
+
+export type MutationCreateAiGatewayProviderArgs = {
+  input: CreateAiGatewayProviderInput;
+};
+
+
+export type MutationCreateAiGatewayRateLimitArgs = {
+  input: CreateAiGatewayRateLimitInput;
+};
+
+
+export type MutationCreateAiGatewayRoutingPolicyArgs = {
+  input: CreateAiGatewayRoutingPolicyInput;
+};
+
+
+export type MutationCreateAiHubPersonalAgentArgs = {
+  input: CreateAiHubPersonalAgentInput;
+};
+
+
+export type MutationCreateAiHubPersonalAgentTaskArgs = {
+  input: CreateAiHubPersonalAgentTaskInput;
+};
+
+
+export type MutationCreateAiHubTaskArgs = {
+  environment: Scalars['Int']['input'];
+  threadId: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateAiObservabilityAlertRuleArgs = {
+  input: AiObservabilityAlertRuleInput;
+};
+
+
+export type MutationCreateAiObservabilityExportJobArgs = {
+  cronExpression?: InputMaybe<Scalars['String']['input']>;
+  filters?: InputMaybe<Scalars['String']['input']>;
+  format: AiObservabilityExportFormat;
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  scope: AiObservabilityExportScope;
+  type?: InputMaybe<AiObservabilityExportJobType>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateAiObservabilityNotificationChannelArgs = {
+  input: AiObservabilityNotificationChannelInput;
+};
+
+
+export type MutationCreateAiObservabilityWebhookSubscriptionArgs = {
+  enabled: Scalars['Boolean']['input'];
+  events: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  secret?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateAiPromptArgs = {
+  input: CreateAiPromptInput;
+};
+
+
+export type MutationCreateAiPromptVersionArgs = {
+  input: CreateAiPromptVersionInput;
+};
+
+
+export type MutationCreateAiSkillArgs = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  fileBytes: Scalars['String']['input'];
+  filename: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+};
+
+
+export type MutationCreateAiSkillFromInstructionsArgs = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  instructions: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+};
+
+
+export type MutationCreateApiConnectorArgs = {
+  input: CreateApiConnectorInput;
+};
+
+
+export type MutationCreateApiKeyArgs = {
+  environmentId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  type?: InputMaybe<PlatformType>;
+};
+
+
+export type MutationCreateApprovalTaskArgs = {
+  approvalTask: ApprovalTaskInput;
+};
+
+
+export type MutationCreateAutomationWorkflowProjectArgs = {
+  category?: InputMaybe<Scalars['String']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  tags?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+
+export type MutationCreateAutomationWorkflowProjectWorkflowArgs = {
+  definition?: InputMaybe<Scalars['String']['input']>;
+  projectId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateContextStoreArgs = {
+  environmentId: Scalars['ID']['input'];
+  input: CreateContextStoreInput;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateContextStoreSourceArgs = {
+  input: CreateContextStoreSourceInput;
+};
+
+
+export type MutationCreateCustomRoleArgs = {
+  input: CreateCustomRoleInput;
+};
+
+
+export type MutationCreateDataTableArgs = {
+  input: CreateDataTableInput;
+};
+
+
+export type MutationCreateEmbeddedMcpServerArgs = {
+  input: CreateEmbeddedMcpServerInput;
+};
+
+
+export type MutationCreateIdentityProviderArgs = {
+  input: IdentityProviderInput;
+};
+
+
+export type MutationCreateKnowledgeBaseArgs = {
+  environmentId: Scalars['ID']['input'];
+  knowledgeBase: KnowledgeBaseInput;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateKnowledgeBaseSourceArgs = {
+  input: CreateKnowledgeBaseSourceInput;
+};
+
+
+export type MutationCreateMcpComponentArgs = {
+  input: McpComponentInput;
+};
+
+
+export type MutationCreateMcpComponentWithToolsArgs = {
+  input: McpComponentWithToolsInput;
+};
+
+
+export type MutationCreateMcpIntegrationInstanceConfigurationArgs = {
+  input: CreateMcpIntegrationInstanceConfigurationInput;
+};
+
+
+export type MutationCreateMcpIntegrationInstanceConfigurationWorkflowArgs = {
+  input: McpIntegrationInstanceConfigurationWorkflowInput;
+};
+
+
+export type MutationCreateMcpProjectArgs = {
+  input: CreateMcpProjectInput;
+};
+
+
+export type MutationCreateMcpProjectWorkflowArgs = {
+  input: McpProjectWorkflowInput;
+};
+
+
+export type MutationCreateMcpServerArgs = {
+  input: McpServerInput;
+};
+
+
+export type MutationCreateMcpToolArgs = {
+  input: McpToolInput;
+};
+
+
+export type MutationCreateOrganizationConnectionArgs = {
+  input: CreateOrganizationConnectionInput;
+};
+
+
+export type MutationCreateWorkflowChatAiHubTaskArgs = {
+  environment: Scalars['Int']['input'];
+  projectDeploymentId: Scalars['ID']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+  workflowExecutionId: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateWorkspaceAiGatewayModelArgs = {
+  input: CreateWorkspaceAiGatewayModelInput;
+};
+
+
+export type MutationCreateWorkspaceAiGatewayProviderArgs = {
+  input: CreateWorkspaceAiGatewayProviderInput;
+};
+
+
+export type MutationCreateWorkspaceAiGatewayRoutingPolicyArgs = {
+  input: CreateWorkspaceAiGatewayRoutingPolicyInput;
+};
+
+
+export type MutationCreateWorkspaceApiKeyArgs = {
+  environmentId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateWorkspaceMcpServerArgs = {
+  input: CreateWorkspaceMcpServerInput;
+};
+
+
+export type MutationDeleteAiAgentEvalScenarioArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiAgentEvalTestArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiAgentJudgeArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiAgentScenarioJudgeArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiAgentScenarioToolSimulationArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiAutoMemoryArgs = {
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiEvalRuleArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiEvalScoreArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiEvalScoreConfigArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiGatewayBudgetArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiGatewayModelArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiGatewayProjectArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiGatewayProviderArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiGatewayRateLimitArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiGatewayRoutingPolicyArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiHubPersonalAgentArgs = {
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiHubTaskArgs = {
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiHubTaskArtifactArgs = {
+  input: DeleteAiHubTaskArtifactInput;
+};
+
+
+export type MutationDeleteAiObservabilityAlertRuleArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiObservabilityNotificationChannelArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiObservabilityWebhookSubscriptionArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiPromptArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiSkillArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteApiConnectorArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteApiKeyArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteApprovalTaskArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAssetFileArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAutomationWorkflowProjectArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAutomationWorkflowProjectWorkflowArgs = {
+  workflowUuid: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteConnectedUserMcpServerArgs = {
+  connectedUserId: Scalars['ID']['input'];
+  mcpServerId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteConnectedUserProjectWorkflowArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteContextStoreArgs = {
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteContextStoreSourceArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteCustomComponentArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteCustomRoleArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteDataTableRowArgs = {
+  input: DeleteRowInput;
+};
+
+
+export type MutationDeleteEmbeddedMcpServerArgs = {
+  mcpServerId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteIdentityProviderArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteJobFileLogsArgs = {
+  jobId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteKnowledgeBaseArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteKnowledgeBaseDocumentArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteKnowledgeBaseDocumentChunkArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteKnowledgeBaseSourceArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteMcpComponentArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteMcpIntegrationInstanceConfigurationArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteMcpIntegrationInstanceConfigurationWorkflowArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteMcpProjectArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteMcpProjectWorkflowArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteMcpServerArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteMcpToolArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteOrganizationConnectionArgs = {
+  connectionId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteSharedProjectArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteSharedWorkflowArgs = {
+  workflowId: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteUserArgs = {
+  login: Scalars['String']['input'];
+};
+
+
+export type MutationDeleteWorkspaceAiGatewayModelArgs = {
+  modelId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteWorkspaceAiGatewayProviderArgs = {
+  providerId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteWorkspaceAiGatewayRoutingPolicyArgs = {
+  routingPolicyId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteWorkspaceApiKeyArgs = {
+  apiKeyId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteWorkspaceMcpServerArgs = {
+  mcpServerId: Scalars['ID']['input'];
+};
+
+
+export type MutationDemoteConnectionToPrivateArgs = {
+  connectionId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationDetachAiHubTaskComponentArgs = {
+  taskComponentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationDisconnectConnectionArgs = {
+  connectionId: Scalars['ID']['input'];
+};
+
+
+export type MutationDropDataTableArgs = {
+  input: RemoveTableInput;
+};
+
+
+export type MutationDuplicateAutomationWorkflowProjectArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDuplicateAutomationWorkflowProjectWorkflowArgs = {
+  workflowUuid: Scalars['ID']['input'];
+};
+
+
+export type MutationDuplicateDataTableArgs = {
+  input: DuplicateDataTableInput;
+};
+
+
+export type MutationEnableApiConnectorArgs = {
+  enable: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationEnableConnectedUserMcpServerArgs = {
+  connectedUserId: Scalars['ID']['input'];
+  enable: Scalars['Boolean']['input'];
+  mcpServerId: Scalars['ID']['input'];
+};
+
+
+export type MutationEnableConnectedUserMcpToolArgs = {
+  enable: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationEnableConnectedUserProjectWorkflowArgs = {
+  enable: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationEnableCustomComponentArgs = {
+  enable: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationExportSharedProjectArgs = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationExportSharedWorkflowArgs = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  workflowId: Scalars['String']['input'];
+};
+
+
+export type MutationGenerateAiHubTaskTitleArgs = {
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationGenerateFromDocumentationArgs = {
+  input: GenerateFromDocumentationInput;
+};
+
+
+export type MutationGenerateSpecificationArgs = {
+  input: GenerateSpecificationInput;
+};
+
+
+export type MutationImportDataTableCsvArgs = {
+  input: ImportCsvInput;
+};
+
+
+export type MutationImportOpenApiSpecificationArgs = {
+  input: ImportOpenApiSpecificationInput;
+};
+
+
+export type MutationImportProjectTemplateArgs = {
+  id: Scalars['String']['input'];
+  sharedProject: Scalars['Boolean']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationImportWorkflowTemplateArgs = {
+  id: Scalars['String']['input'];
+  projectId: Scalars['ID']['input'];
+  sharedWorkflow: Scalars['Boolean']['input'];
+};
+
+
+export type MutationInsertDataTableRowArgs = {
+  input: InsertRowInput;
+};
+
+
+export type MutationInviteUserArgs = {
+  email: Scalars['String']['input'];
+  password: Scalars['String']['input'];
+  role: Scalars['String']['input'];
+};
+
+
+export type MutationMarkConnectionsPendingReassignmentArgs = {
+  userLogin: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationPlaygroundChatCompletionArgs = {
+  input: PlaygroundChatCompletionInput;
+};
+
+
+export type MutationPromoteAllPrivateConnectionsToWorkspaceArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationPromoteConnectionToWorkspaceArgs = {
+  connectionId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationPublishAutomationWorkflowProjectArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationReassignAllConnectionsArgs = {
+  newOwnerLogin: Scalars['String']['input'];
+  userLogin: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationReassignConnectionArgs = {
+  connectionId: Scalars['ID']['input'];
+  newOwnerLogin: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationRecordReferencedAiHubTaskArtifactArgs = {
+  input: RecordReferencedAiHubTaskArtifactInput;
+};
+
+
+export type MutationRefreshContextStoreSourceArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationRefreshKnowledgeBaseSourceArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationRegisterExistingConnectionArgs = {
+  input: RegisterExistingConnectionInput;
+};
+
+
+export type MutationRemoveAiHubPersonalAgentResourceArgs = {
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationRemoveAiHubPersonalAgentToolArgs = {
+  toolId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationRemoveAiHubTaskToolArgs = {
+  taskToolId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationRemoveDataTableColumnArgs = {
+  input: RemoveColumnInput;
+};
+
+
+export type MutationRemoveProjectUserArgs = {
+  projectId: Scalars['ID']['input'];
+  userId: Scalars['ID']['input'];
+};
+
+
+export type MutationRemoveWorkspaceUserArgs = {
+  userId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationRenameDataTableArgs = {
+  input: RenameDataTableInput;
+};
+
+
+export type MutationRenameDataTableColumnArgs = {
+  input: RenameColumnInput;
+};
+
+
+export type MutationRevokeConnectionFromProjectArgs = {
+  connectionId: Scalars['ID']['input'];
+  projectId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationRunAiEvalRuleOnHistoricalTracesArgs = {
+  endDate: Scalars['Long']['input'];
+  ruleId: Scalars['ID']['input'];
+  startDate: Scalars['Long']['input'];
+};
+
+
+export type MutationSaveClusterElementTestConfigurationConnectionArgs = {
+  clusterElementType: Scalars['String']['input'];
+  clusterElementWorkflowNodeName: Scalars['String']['input'];
+  connectionId: Scalars['Long']['input'];
+  environmentId: Scalars['Long']['input'];
+  workflowConnectionKey: Scalars['String']['input'];
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type MutationSaveClusterElementTestOutputArgs = {
+  clusterElementType: Scalars['String']['input'];
+  clusterElementWorkflowNodeName: Scalars['String']['input'];
+  environmentId: Scalars['Long']['input'];
+  inputParameters?: InputMaybe<Scalars['Map']['input']>;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type MutationSaveWorkflowTestConfigurationConnectionArgs = {
+  connectionId: Scalars['Long']['input'];
+  environmentId: Scalars['Long']['input'];
+  workflowConnectionKey: Scalars['String']['input'];
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type MutationSetActiveAiPromptVersionArgs = {
+  environment: Scalars['String']['input'];
+  promptVersionId: Scalars['ID']['input'];
+};
+
+
+export type MutationSetAiHubPersonalAgentScheduleArgs = {
+  input: SetAiHubPersonalAgentScheduleInput;
+};
+
+
+export type MutationSetAiObservabilityTraceTagsArgs = {
+  tagIds: Array<Scalars['ID']['input']>;
+  traceId: Scalars['ID']['input'];
+};
+
+
+export type MutationSetConnectionProjectsArgs = {
+  connectionId: Scalars['ID']['input'];
+  projectIds: Array<Scalars['ID']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationSetContextStoreSourceEnabledArgs = {
+  enabled: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationSetKnowledgeBaseSourceEnabledArgs = {
+  enabled: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationShareConnectionToProjectArgs = {
+  connectionId: Scalars['ID']['input'];
+  projectId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationSnoozeAiObservabilityAlertRuleArgs = {
+  id: Scalars['ID']['input'];
+  until: Scalars['Long']['input'];
+};
+
+
+export type MutationStartAiAgentEvalRunArgs = {
+  agentEvalTestId: Scalars['ID']['input'];
+  aiAgentJudgeIds?: InputMaybe<Array<Scalars['ID']['input']>>;
+  environmentId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  scenarioIds?: InputMaybe<Array<Scalars['ID']['input']>>;
+};
+
+
+export type MutationStartDiscoverEndpointsArgs = {
+  input: DiscoverEndpointsInput;
+};
+
+
+export type MutationStartGenerateForEndpointsArgs = {
+  input: GenerateForEndpointsInput;
+};
+
+
+export type MutationStartGenerateFromDocumentationPreviewArgs = {
+  input: GenerateFromDocumentationInput;
+};
+
+
+export type MutationTestAiObservabilityAlertRuleArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationTestAiObservabilityNotificationChannelArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationTestAiObservabilityWebhookSubscriptionArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationTestClusterElementScriptArgs = {
+  clusterElementType: Scalars['String']['input'];
+  clusterElementWorkflowNodeName: Scalars['String']['input'];
+  environmentId: Scalars['Long']['input'];
+  inputParameters?: InputMaybe<Scalars['Map']['input']>;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type MutationTestWorkflowNodeScriptArgs = {
+  environmentId: Scalars['Long']['input'];
+  inputParameters?: InputMaybe<Scalars['Map']['input']>;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type MutationTestWorkspaceAiGatewayProviderConnectionArgs = {
+  providerId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationTruncateAiHubTaskMessagesArgs = {
+  fromMessageIndex: Scalars['Int']['input'];
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationUnsnoozeAiObservabilityAlertRuleArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateAiAgentEvalScenarioArgs = {
+  expectedOutput?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  maxTurns?: InputMaybe<Scalars['Int']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  numberOfRuns?: InputMaybe<Scalars['Int']['input']>;
+  personaPrompt?: InputMaybe<Scalars['String']['input']>;
+  userMessage?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationUpdateAiAgentEvalTestArgs = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationUpdateAiAgentJudgeArgs = {
+  configuration?: InputMaybe<Scalars['Map']['input']>;
+  id: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationUpdateAiAgentScenarioJudgeArgs = {
+  configuration?: InputMaybe<Scalars['Map']['input']>;
+  id: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationUpdateAiAgentScenarioToolSimulationArgs = {
+  id: Scalars['ID']['input'];
+  responsePrompt?: InputMaybe<Scalars['String']['input']>;
+  simulationModel?: InputMaybe<Scalars['String']['input']>;
+  toolName?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationUpdateAiAutoMemoryArgs = {
+  input: UpdateAiAutoMemoryInput;
+};
+
+
+export type MutationUpdateAiEvalRuleArgs = {
+  delaySeconds?: InputMaybe<Scalars['Int']['input']>;
+  enabled: Scalars['Boolean']['input'];
+  filters?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  model: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  promptTemplate: Scalars['String']['input'];
+  samplingRate: Scalars['Float']['input'];
+  scoreConfigId: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateAiEvalScoreConfigArgs = {
+  categories?: InputMaybe<Scalars['String']['input']>;
+  dataType?: InputMaybe<AiEvalScoreDataType>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  maxValue?: InputMaybe<Scalars['Float']['input']>;
+  minValue?: InputMaybe<Scalars['Float']['input']>;
+  name: Scalars['String']['input'];
+};
+
+
+export type MutationUpdateAiGatewayBudgetArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayBudgetInput;
+};
+
+
+export type MutationUpdateAiGatewayModelArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayModelInput;
+};
+
+
+export type MutationUpdateAiGatewayProjectArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayProjectInput;
+};
+
+
+export type MutationUpdateAiGatewayProviderArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayProviderInput;
+};
+
+
+export type MutationUpdateAiGatewayRateLimitArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayRateLimitInput;
+};
+
+
+export type MutationUpdateAiGatewayRoutingPolicyArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayRoutingPolicyInput;
+};
+
+
+export type MutationUpdateAiGatewayWorkspaceSettingsArgs = {
+  input: AiGatewayWorkspaceSettingsInput;
+};
+
+
+export type MutationUpdateAiHubPersonalAgentArgs = {
+  input: UpdateAiHubPersonalAgentInput;
+};
+
+
+export type MutationUpdateAiHubPersonalAgentToolConfigArgs = {
+  input: UpdateAiHubPersonalAgentToolConfigInput;
+};
+
+
+export type MutationUpdateAiHubTaskArgs = {
+  input: AiHubTaskPatchInput;
+};
+
+
+export type MutationUpdateAiHubTaskToolParametersArgs = {
+  parameters: Scalars['Any']['input'];
+  taskToolId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateAiHubVoiceWebhookUrlArgs = {
+  input: UpdateAiHubVoiceWebhookUrlInput;
+};
+
+
+export type MutationUpdateAiObservabilityAlertRuleArgs = {
+  id: Scalars['ID']['input'];
+  input: AiObservabilityAlertRuleInput;
+};
+
+
+export type MutationUpdateAiObservabilityNotificationChannelArgs = {
+  id: Scalars['ID']['input'];
+  input: AiObservabilityNotificationChannelInput;
+};
+
+
+export type MutationUpdateAiObservabilityWebhookSubscriptionArgs = {
+  enabled: Scalars['Boolean']['input'];
+  events: Scalars['String']['input'];
+  id: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  secret?: InputMaybe<Scalars['String']['input']>;
+  url: Scalars['String']['input'];
+};
+
+
+export type MutationUpdateAiPromptArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateAiPromptInput;
+};
+
+
+export type MutationUpdateAiSkillArgs = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+};
+
+
+export type MutationUpdateAiSkillContentArgs = {
+  content: Scalars['String']['input'];
+  id: Scalars['ID']['input'];
+  path?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationUpdateApiConnectorArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateApiConnectorInput;
+};
+
+
+export type MutationUpdateApiKeyArgs = {
+  id: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+};
+
+
+export type MutationUpdateApprovalTaskArgs = {
+  approvalTask: ApprovalTaskInput;
+};
+
+
+export type MutationUpdateAssetFileArgs = {
+  input: UpdateAssetFileInput;
+};
+
+
+export type MutationUpdateAssetFileTagsArgs = {
+  input: UpdateAssetFileTagsInput;
+};
+
+
+export type MutationUpdateAssetFileTextContentArgs = {
+  content: Scalars['String']['input'];
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateAutomationWorkflowProjectArgs = {
+  category?: InputMaybe<Scalars['String']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  tags?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+
+export type MutationUpdateContextStoreArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateContextStoreInput;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateContextStoreSourceArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateContextStoreSourceInput;
+};
+
+
+export type MutationUpdateContextStoreTagsArgs = {
+  id: Scalars['ID']['input'];
+  tags: Array<TagInput>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateCustomRoleArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateCustomRoleInput;
+};
+
+
+export type MutationUpdateDataTableRowArgs = {
+  input: UpdateRowInput;
+};
+
+
+export type MutationUpdateDataTableTagsArgs = {
+  input: UpdateDataTableTagsInput;
+};
+
+
+export type MutationUpdateIdentityProviderArgs = {
+  id: Scalars['ID']['input'];
+  input: IdentityProviderInput;
+};
+
+
+export type MutationUpdateKnowledgeBaseArgs = {
+  id: Scalars['ID']['input'];
+  knowledgeBase: KnowledgeBaseInput;
+};
+
+
+export type MutationUpdateKnowledgeBaseDocumentChunkArgs = {
+  id: Scalars['ID']['input'];
+  knowledgeBaseDocumentChunk: KnowledgeBaseDocumentChunkInput;
+};
+
+
+export type MutationUpdateKnowledgeBaseDocumentTagsArgs = {
+  input: UpdateKnowledgeBaseDocumentTagsInput;
+};
+
+
+export type MutationUpdateKnowledgeBaseSourceArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateKnowledgeBaseSourceInput;
+};
+
+
+export type MutationUpdateKnowledgeBaseTagsArgs = {
+  input: UpdateKnowledgeBaseTagsInput;
+};
+
+
+export type MutationUpdateMcpComponentWithToolsArgs = {
+  id: Scalars['ID']['input'];
+  input: McpComponentWithToolsInput;
+};
+
+
+export type MutationUpdateMcpIntegrationInstanceConfigurationArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateMcpIntegrationInstanceConfigurationInput;
+};
+
+
+export type MutationUpdateMcpIntegrationInstanceConfigurationVersionArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateMcpIntegrationInstanceConfigurationVersionInput;
+};
+
+
+export type MutationUpdateMcpIntegrationInstanceConfigurationWorkflowArgs = {
+  id: Scalars['ID']['input'];
+  input: McpIntegrationInstanceConfigurationWorkflowUpdateInput;
+};
+
+
+export type MutationUpdateMcpProjectArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateMcpProjectInput;
+};
+
+
+export type MutationUpdateMcpProjectWorkflowArgs = {
+  id: Scalars['ID']['input'];
+  input: McpProjectWorkflowUpdateInput;
+};
+
+
+export type MutationUpdateMcpServerArgs = {
+  id: Scalars['ID']['input'];
+  input: McpServerUpdateInput;
+};
+
+
+export type MutationUpdateMcpServerTagsArgs = {
+  id: Scalars['ID']['input'];
+  tags: Array<TagInput>;
+};
+
+
+export type MutationUpdateMcpServerUrlArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateMcpToolArgs = {
+  id: Scalars['ID']['input'];
+  input: McpToolInput;
+};
+
+
+export type MutationUpdateOrganizationConnectionArgs = {
+  connectionId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  tagIds?: InputMaybe<Array<Scalars['ID']['input']>>;
+  version: Scalars['Int']['input'];
+};
+
+
+export type MutationUpdateProjectUserRoleArgs = {
+  projectId: Scalars['ID']['input'];
+  role: ProjectRole;
+  userId: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateUserArgs = {
+  login: Scalars['String']['input'];
+  role: Scalars['String']['input'];
+};
+
+
+export type MutationUpdateWorkspaceAiGatewayModelArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayModelInput;
+};
+
+
+export type MutationUpdateWorkspaceAiGatewayProviderArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayProviderInput;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateWorkspaceAiGatewayRoutingPolicyArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayRoutingPolicyInput;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateWorkspaceApiKeyArgs = {
+  apiKeyId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+};
+
+
+export type MutationUpdateWorkspaceUserRoleArgs = {
+  role: WorkspaceRole;
+  userId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type NullProperty = Property & {
+  __typename?: 'NullProperty';
+  advancedOption?: Maybe<Scalars['Boolean']['output']>;
+  controlType: ControlType;
+  description?: Maybe<Scalars['String']['output']>;
+  displayCondition?: Maybe<Scalars['String']['output']>;
+  expressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  hidden?: Maybe<Scalars['Boolean']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  placeholder?: Maybe<Scalars['String']['output']>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+  type: PropertyType;
+};
+
+export type NumberProperty = Property & {
+  __typename?: 'NumberProperty';
+  advancedOption?: Maybe<Scalars['Boolean']['output']>;
+  controlType: ControlType;
+  defaultValue?: Maybe<Scalars['Float']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayCondition?: Maybe<Scalars['String']['output']>;
+  exampleValue?: Maybe<Scalars['Float']['output']>;
+  expressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  hidden?: Maybe<Scalars['Boolean']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  maxValue?: Maybe<Scalars['Float']['output']>;
+  minValue?: Maybe<Scalars['Float']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  options?: Maybe<Array<Option>>;
+  optionsDataSource?: Maybe<OptionsDataSource>;
+  placeholder?: Maybe<Scalars['String']['output']>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+  type: PropertyType;
+};
+
+export type ObjectProperty = Property & {
+  __typename?: 'ObjectProperty';
+  additionalProperties?: Maybe<Array<Property>>;
+  advancedOption?: Maybe<Scalars['Boolean']['output']>;
+  controlType: ControlType;
+  defaultValue?: Maybe<Scalars['Map']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayCondition?: Maybe<Scalars['String']['output']>;
+  exampleValue?: Maybe<Scalars['Map']['output']>;
+  expressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  hidden?: Maybe<Scalars['Boolean']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  multipleValues?: Maybe<Scalars['Boolean']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  options?: Maybe<Array<Option>>;
+  optionsDataSource?: Maybe<OptionsDataSource>;
+  placeholder?: Maybe<Scalars['String']['output']>;
+  properties?: Maybe<Array<Property>>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+  type: PropertyType;
+};
+
+export type Option = {
+  __typename?: 'Option';
+  description?: Maybe<Scalars['String']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  value?: Maybe<Scalars['Any']['output']>;
+};
+
+export type OptionsDataSource = {
+  __typename?: 'OptionsDataSource';
+  optionsLookupDependsOn?: Maybe<Array<Scalars['String']['output']>>;
+};
+
+/** An organization-scoped connection visible to all members across all workspaces. */
+export type OrganizationConnection = {
+  __typename?: 'OrganizationConnection';
+  componentName: Scalars['String']['output'];
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['String']['output']>;
+  environmentId: Scalars['Int']['output'];
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  visibility: ConnectionVisibility;
+};
+
+export type ParameterDefinitionInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  example?: InputMaybe<Scalars['String']['input']>;
+  location: ParameterLocation;
+  name: Scalars['String']['input'];
+  required?: InputMaybe<Scalars['Boolean']['input']>;
+  type: ParameterType;
+};
+
+export enum ParameterLocation {
+  Header = 'HEADER',
+  Path = 'PATH',
+  Query = 'QUERY'
+}
+
+export enum ParameterType {
+  Array = 'ARRAY',
+  Boolean = 'BOOLEAN',
+  Integer = 'INTEGER',
+  Number = 'NUMBER',
+  Object = 'OBJECT',
+  String = 'STRING'
+}
+
+export enum PlatformType {
+  Automation = 'AUTOMATION',
+  Embedded = 'EMBEDDED'
+}
+
+export type PlaygroundChatCompletionInput = {
+  maxTokens?: InputMaybe<Scalars['Int']['input']>;
+  messages: Array<PlaygroundChatMessageInput>;
+  model: Scalars['String']['input'];
+  promptId?: InputMaybe<Scalars['ID']['input']>;
+  promptVariables?: InputMaybe<Scalars['String']['input']>;
+  temperature?: InputMaybe<Scalars['Float']['input']>;
+  topP?: InputMaybe<Scalars['Float']['input']>;
+};
+
+export type PlaygroundChatCompletionResponse = {
+  __typename?: 'PlaygroundChatCompletionResponse';
+  completionTokens?: Maybe<Scalars['Int']['output']>;
+  content?: Maybe<Scalars['String']['output']>;
+  cost?: Maybe<Scalars['Float']['output']>;
+  finishReason?: Maybe<Scalars['String']['output']>;
+  latencyMs?: Maybe<Scalars['Int']['output']>;
+  model?: Maybe<Scalars['String']['output']>;
+  promptTokens?: Maybe<Scalars['Int']['output']>;
+  totalTokens?: Maybe<Scalars['Int']['output']>;
+  traceId?: Maybe<Scalars['ID']['output']>;
+};
+
+export type PlaygroundChatMessageInput = {
+  content: Scalars['String']['input'];
+  role: PlaygroundChatRole;
+};
+
+export enum PlaygroundChatRole {
+  Assistant = 'ASSISTANT',
+  System = 'SYSTEM',
+  User = 'USER'
+}
+
+export type Project = {
+  __typename?: 'Project';
+  category?: Maybe<Category>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  tags?: Maybe<Array<Maybe<Tag>>>;
+};
+
+export type ProjectDeployment = {
+  __typename?: 'ProjectDeployment';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['String']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  environment: Environment;
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  project: Project;
+  projectDeploymentWorkflows: Array<ProjectDeploymentWorkflow>;
+  projectId: Scalars['ID']['output'];
+  projectVersion: Scalars['Int']['output'];
+  tags?: Maybe<Array<Maybe<Tag>>>;
+  version: Scalars['Int']['output'];
+};
+
+export type ProjectDeploymentSearchResult = SearchResult & {
+  __typename?: 'ProjectDeploymentSearchResult';
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  projectName: Scalars['String']['output'];
+  type: SearchAssetType;
+};
+
+export type ProjectDeploymentWorkflow = {
+  __typename?: 'ProjectDeploymentWorkflow';
+  connections: Array<ProjectDeploymentWorkflowConnection>;
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  inputs?: Maybe<Scalars['Map']['output']>;
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  projectDeploymentId: Scalars['ID']['output'];
+  projectWorkflow: ProjectWorkflow;
+  staticWebhookUrl?: Maybe<Scalars['String']['output']>;
+  version: Scalars['Int']['output'];
+  workflowExecutionId?: Maybe<Scalars['String']['output']>;
+  workflowId: Scalars['String']['output'];
+};
+
+export type ProjectDeploymentWorkflowConnection = {
+  __typename?: 'ProjectDeploymentWorkflowConnection';
+  connectionId?: Maybe<Scalars['ID']['output']>;
+  workflowConnectionKey: Scalars['String']['output'];
+  workflowNodeName: Scalars['String']['output'];
+};
+
+export type ProjectInfo = {
+  __typename?: 'ProjectInfo';
+  description?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+};
+
+/** Project-level roles ordered from most to least privileged */
+export enum ProjectRole {
+  Admin = 'ADMIN',
+  Editor = 'EDITOR',
+  Operator = 'OPERATOR',
+  Viewer = 'VIEWER'
+}
+
+export type ProjectSearchResult = SearchResult & {
+  __typename?: 'ProjectSearchResult';
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  type: SearchAssetType;
+};
+
+export type ProjectTemplate = {
+  __typename?: 'ProjectTemplate';
+  authorEmail?: Maybe<Scalars['String']['output']>;
+  authorName?: Maybe<Scalars['String']['output']>;
+  authorRole?: Maybe<Scalars['String']['output']>;
+  authorSocialLinks: Array<Maybe<Scalars['String']['output']>>;
+  categories: Array<Scalars['String']['output']>;
+  components: Array<ComponentDefinitionTuple>;
+  description?: Maybe<Scalars['String']['output']>;
+  id?: Maybe<Scalars['ID']['output']>;
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  project?: Maybe<ProjectInfo>;
+  projectVersion?: Maybe<Scalars['Int']['output']>;
+  publicUrl?: Maybe<Scalars['String']['output']>;
+  workflows: Array<WorkflowInfo>;
+};
+
+/** A project user with an assigned role controlling their permissions within the project */
+export type ProjectUser = {
+  __typename?: 'ProjectUser';
+  createdDate?: Maybe<Scalars['String']['output']>;
+  /** Custom role ID (EE only), null if using a built-in role */
+  customRoleId?: Maybe<Scalars['ID']['output']>;
+  id: Scalars['ID']['output'];
+  projectId: Scalars['ID']['output'];
+  /** Built-in project role, null if using a custom role */
+  projectRole?: Maybe<ProjectRole>;
+  user?: Maybe<ProjectUserInfo>;
+  userId: Scalars['ID']['output'];
+};
+
+export type ProjectUserInfo = {
+  __typename?: 'ProjectUserInfo';
+  email: Scalars['String']['output'];
+  firstName?: Maybe<Scalars['String']['output']>;
+  lastName?: Maybe<Scalars['String']['output']>;
+};
+
+export type ProjectWorkflow = {
+  __typename?: 'ProjectWorkflow';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  projectId: Scalars['ID']['output'];
+  projectVersion: Scalars['Int']['output'];
+  sseStreamResponse: Scalars['Boolean']['output'];
+  uuid?: Maybe<Scalars['String']['output']>;
+  version: Scalars['Int']['output'];
+  workflow: Workflow;
+  workflowId: Scalars['String']['output'];
+};
+
+export type PropertiesDataSource = {
+  __typename?: 'PropertiesDataSource';
+  propertiesLookupDependsOn?: Maybe<Array<Scalars['String']['output']>>;
+};
+
+export type Property = {
+  advancedOption?: Maybe<Scalars['Boolean']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayCondition?: Maybe<Scalars['String']['output']>;
+  expressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  hidden?: Maybe<Scalars['Boolean']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+  type: PropertyType;
+};
+
+export enum PropertyType {
+  Array = 'ARRAY',
+  Boolean = 'BOOLEAN',
+  Date = 'DATE',
+  DateTime = 'DATE_TIME',
+  DynamicProperties = 'DYNAMIC_PROPERTIES',
+  FileEntry = 'FILE_ENTRY',
+  Integer = 'INTEGER',
+  Null = 'NULL',
+  Number = 'NUMBER',
+  Object = 'OBJECT',
+  String = 'STRING',
+  Task = 'TASK',
+  Time = 'TIME'
+}
+
+export type ProviderConnectionResult = {
+  __typename?: 'ProviderConnectionResult';
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  latencyMs?: Maybe<Scalars['Int']['output']>;
+  ok: Scalars['Boolean']['output'];
+};
+
+export type Query = {
+  __typename?: 'Query';
+  _placeholder?: Maybe<Scalars['Boolean']['output']>;
+  actionDefinition: ActionDefinition;
+  actionDefinitions: Array<ActionDefinition>;
+  adminApiKeys?: Maybe<Array<Maybe<ApiKey>>>;
+  /** Get workflows that would be affected by reassigning a user's connections. (admin only) */
+  affectedWorkflows: Array<AffectedWorkflow>;
+  aiAgentEvalResult?: Maybe<AiAgentEvalResult>;
+  aiAgentEvalResultTranscript?: Maybe<Scalars['String']['output']>;
+  aiAgentEvalRun?: Maybe<AiAgentEvalRun>;
+  aiAgentEvalRuns: Array<AiAgentEvalRun>;
+  aiAgentEvalTest?: Maybe<AiAgentEvalTest>;
+  aiAgentEvalTests: Array<AiAgentEvalTest>;
+  aiAgentJudges: Array<AiAgentJudge>;
+  /**
+   * Lists the current user's memories in the workspace, scoped to the supplied environment so DEVELOPMENT
+   * preferences do not bleed into PRODUCTION sessions and vice versa. The optional memoryType filter narrows
+   * results to a single category. Ordered by updatedAt DESC.
+   */
+  aiAutoMemories: Array<AiAutoMemory>;
+  /**
+   * Returns a single memory by id, verifying ownership against (workspaceId, currentUserId). Returns null when
+   * missing or owned by another user — the same shape on both errors so a probe cannot enumerate ids across
+   * workspaces.
+   */
+  aiAutoMemory?: Maybe<AiAutoMemory>;
+  aiEvalDatasetItems: Array<AiEvalDatasetItemView>;
+  aiEvalDatasetVersions: Array<AiEvalDatasetVersionView>;
+  aiEvalDatasets: Array<AiEvalDatasetView>;
+  aiEvalExecutions?: Maybe<Array<Maybe<AiEvalExecution>>>;
+  aiEvalExecutionsByTrace?: Maybe<Array<Maybe<AiEvalExecution>>>;
+  aiEvalExperimentRunByTraceId?: Maybe<AiEvalExperimentRunView>;
+  aiEvalExperimentRuns: Array<AiEvalExperimentRunView>;
+  aiEvalExperiments: Array<AiEvalExperimentView>;
+  aiEvalRule?: Maybe<AiEvalRule>;
+  aiEvalRules?: Maybe<Array<Maybe<AiEvalRule>>>;
+  aiEvalScoreAnalytics?: Maybe<Array<Maybe<AiEvalScoreAnalytics>>>;
+  aiEvalScoreConfig?: Maybe<AiEvalScoreConfig>;
+  aiEvalScoreConfigs?: Maybe<Array<Maybe<AiEvalScoreConfig>>>;
+  aiEvalScoreTrend?: Maybe<Array<Maybe<AiEvalScoreTrendPoint>>>;
+  aiEvalScores?: Maybe<Array<Maybe<AiEvalScore>>>;
+  aiEvalScoresByTrace?: Maybe<Array<Maybe<AiEvalScore>>>;
+  aiGatewayBudget?: Maybe<AiGatewayBudget>;
+  aiGatewayModel?: Maybe<AiGatewayModel>;
+  aiGatewayModels?: Maybe<Array<Maybe<AiGatewayModel>>>;
+  aiGatewayModelsByProvider?: Maybe<Array<Maybe<AiGatewayModel>>>;
+  aiGatewayProject?: Maybe<AiGatewayProject>;
+  aiGatewayProjects: Array<AiGatewayProject>;
+  aiGatewayProvider?: Maybe<AiGatewayProvider>;
+  aiGatewayProviders?: Maybe<Array<Maybe<AiGatewayProvider>>>;
+  aiGatewayRateLimits: Array<AiGatewayRateLimit>;
+  aiGatewayRequestLogs?: Maybe<Array<Maybe<AiGatewayRequestLog>>>;
+  aiGatewayRoutingPolicies?: Maybe<Array<Maybe<AiGatewayRoutingPolicy>>>;
+  aiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
+  aiGatewaySpendSummaries?: Maybe<Array<Maybe<AiGatewaySpendSummary>>>;
+  aiGatewayWorkspaceSettings?: Maybe<AiGatewayWorkspaceSettings>;
+  /**
+   * Returns a single personal agent by id, verifying ownership against (workspaceId, currentUserId). Returns
+   * null when missing or owned by another user — uniform shape so probing cannot enumerate ids.
+   */
+  aiHubPersonalAgent?: Maybe<AiHubPersonalAgent>;
+  /**
+   * Lists the current user's personal agents in the workspace, scoped to the supplied environment so
+   * DEVELOPMENT-only agents do not appear in PRODUCTION sessions. Ordered by updatedAt DESC.
+   */
+  aiHubPersonalAgents: Array<AiHubPersonalAgent>;
+  /**
+   * Paginated, filtered audit listing across all aiHubTasks in the workspace. Admin-only — gated by
+   * {@code @PreAuthorize("hasAuthority(ADMIN)")} on the resolver. {@code page} and {@code size} are silently
+   * clamped to internal bounds (10_000 and 500 respectively); {@code pageClamped}/{@code sizeClamped} on the
+   * response surface the silent truncation so dashboards/tests can detect a mismatch between requested and
+   * served values. Negative {@code page} or {@code size < 1} are hard errors — those are malformed, not just
+   * out-of-range.
+   */
+  aiHubTaskArtifacts: AiHubTaskArtifactPage;
+  /**
+   * Returns the artifact log for a task, ordered newest-first. Ownership is verified by the service
+   * layer. Distinct from the workspace-wide {@code aiHubTaskArtifacts} admin query — this is the
+   * per-task read used by the sidebar.
+   */
+  aiHubTaskArtifactsByAiHubTask: Array<AiHubTaskArtifact>;
+  /**
+   * Returns the message history for a task. Ownership is verified at the service layer — a caller who
+   * is not the task's owner gets a 403-equivalent error.
+   */
+  aiHubTaskMessages: Array<AiHubTaskMessage>;
+  /**
+   * Lists components that publish at least one tool-typed cluster element, with each component's tool
+   * catalog. Powers the composer plus-button menu's Tools section so users can browse the catalog
+   * without going through chat.
+   */
+  aiHubTaskToolableComponents: Array<ToolableComponent>;
+  /**
+   * Lists every tool attached to the supplied task, joined with its parent component-binding
+   * context. Used by the task attached-tools chip list in the composer.
+   */
+  aiHubTaskTools: Array<AiHubTaskToolBinding>;
+  /**
+   * Lists aiHubTasks for the current user in the given workspace, scoped to the supplied environment so
+   * DEVELOPMENT chat history does not bleed into a PRODUCTION session view. Filtered by lifecycle status
+   * (default {@code ACTIVE}).
+   */
+  aiHubTasks: Array<AiHubTask>;
+  aiHubWorkspaceSettings?: Maybe<AiHubWorkspaceSettings>;
+  aiObservabilityAlertEvents?: Maybe<Array<Maybe<AiObservabilityAlertEvent>>>;
+  aiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
+  aiObservabilityAlertRules?: Maybe<Array<Maybe<AiObservabilityAlertRule>>>;
+  aiObservabilityExportJob?: Maybe<AiObservabilityExportJob>;
+  aiObservabilityExportJobs?: Maybe<Array<Maybe<AiObservabilityExportJob>>>;
+  aiObservabilityNotificationChannel?: Maybe<AiObservabilityNotificationChannel>;
+  aiObservabilityNotificationChannels?: Maybe<Array<Maybe<AiObservabilityNotificationChannel>>>;
+  aiObservabilitySession?: Maybe<AiObservabilitySession>;
+  aiObservabilitySessions?: Maybe<Array<Maybe<AiObservabilitySession>>>;
+  aiObservabilityTrace?: Maybe<AiObservabilityTrace>;
+  aiObservabilityTraces?: Maybe<Array<Maybe<AiObservabilityTrace>>>;
+  aiObservabilityWebhookDeliveries?: Maybe<Array<Maybe<AiObservabilityWebhookDelivery>>>;
+  aiObservabilityWebhookSubscription?: Maybe<AiObservabilityWebhookSubscription>;
+  aiObservabilityWebhookSubscriptions?: Maybe<Array<Maybe<AiObservabilityWebhookSubscription>>>;
+  aiPrompt?: Maybe<AiPrompt>;
+  aiPromptVersions?: Maybe<Array<Maybe<AiPromptVersion>>>;
+  aiPrompts?: Maybe<Array<Maybe<AiPrompt>>>;
+  aiSkill: AiSkill;
+  aiSkillFileContent: Scalars['String']['output'];
+  aiSkillFilePaths: Array<Scalars['String']['output']>;
+  aiSkills: Array<AiSkill>;
+  apiConnector?: Maybe<ApiConnector>;
+  apiConnectors: Array<ApiConnector>;
+  apiKey?: Maybe<ApiKey>;
+  apiKeys?: Maybe<Array<Maybe<ApiKey>>>;
+  approvalTask?: Maybe<ApprovalTask>;
+  approvalTasks?: Maybe<Array<Maybe<ApprovalTask>>>;
+  approvalTasksByIds?: Maybe<Array<Maybe<ApprovalTask>>>;
+  assetFile?: Maybe<AssetFile>;
+  assetFileTags: Array<Tag>;
+  assetFileTextContent?: Maybe<Scalars['String']['output']>;
+  assetFiles: Array<AssetFile>;
+  auditEventTypes: Array<Scalars['String']['output']>;
+  auditEvents: AuditEventPageType;
+  authorities: Array<Scalars['String']['output']>;
+  automationSearch: Array<SearchResult>;
+  automationWorkflowProjectCategories: Array<AutomationWorkflowProjectCategory>;
+  automationWorkflowProjectTags: Array<AutomationWorkflowProjectTag>;
+  automationWorkflowProjectVersions: Array<AutomationWorkflowProjectVersion>;
+  automationWorkflowProjects: Array<AutomationWorkflowProject>;
+  clusterElementComponentConnections: Array<ComponentConnection>;
+  clusterElementDefinition: ClusterElementDefinition;
+  clusterElementDefinitions: Array<ClusterElementDefinition>;
+  clusterElementDynamicProperties: Array<Property>;
+  /**
+   * Workflow-less variant of FieldsProvider.getFields() — used by the Add Context Source wizard to
+   * populate ID Field and Indexed Fields name dropdowns. Returns an empty list when the cluster element
+   * does not implement FieldsProvider (the wizard then falls back to free-text input).
+   */
+  clusterElementFields: Array<Field>;
+  clusterElementMissingRequiredProperties: Array<Scalars['String']['output']>;
+  clusterElementOptions: Array<Option>;
+  clusterElementScriptInput?: Maybe<Scalars['Map']['output']>;
+  componentDefinition: ComponentDefinition;
+  componentDefinitionSearch: Array<ComponentDefinition>;
+  componentDefinitionVersions: Array<ComponentDefinition>;
+  componentDefinitions: Array<ComponentDefinition>;
+  connectedUser?: Maybe<ConnectedUser>;
+  connectedUserMcpServers: Array<ConnectedUserMcpServer>;
+  connectedUserProjects: Array<ConnectedUserProject>;
+  connectedUsers?: Maybe<ConnectedUserPage>;
+  connectionComponentDefinition: ComponentDefinition;
+  connectionCredentialStores: Array<ConnectionCredentialStoreInfo>;
+  connectionDefinition: ConnectionDefinition;
+  connectionDefinitions: Array<ConnectionDefinition>;
+  contextStore?: Maybe<ContextStore>;
+  /**
+   * Resolve a (workspace, name, environment) triple to a Context Store id. Building block for env-aware
+   * workflows that target a store by stable name across DEVELOPMENT / STAGING / PRODUCTION instead of a
+   * hardcoded id. Returns null when no store matches in the given environment.
+   */
+  contextStoreIdByName?: Maybe<Scalars['ID']['output']>;
+  contextStoreSource?: Maybe<ContextStoreSource>;
+  contextStoreSources: Array<ContextStoreSource>;
+  /**
+   * All tags used across Context Stores in this workspace. Drives the TagList autocomplete (remainingTags)
+   * on the management page.
+   */
+  contextStoreTags: Array<Tag>;
+  /**
+   * Returns the parent Context Stores in the workspace, filtered by environment. Each Context Store is
+   * env-stamped at creation; sources, records, and ClickHouse projection tables hang off context_store_id and
+   * inherit env transitively.
+   */
+  contextStores: Array<ContextStore>;
+  customComponent?: Maybe<CustomComponent>;
+  customComponentDefinition?: Maybe<CustomComponentDefinition>;
+  customComponents: Array<CustomComponent>;
+  /** Get a custom role by ID. Requires tenant admin. */
+  customRole: CustomRole;
+  /** List all custom roles. Requires tenant admin. */
+  customRoles: Array<CustomRole>;
+  /**
+   * Workspace connections whose component exposes at least one ItemReader cluster element.
+   * Used by Context Store and Knowledge Base Source create-source dialogs to filter the
+   * connection picker.
+   */
+  dataStreamCompatibleConnections: Array<DataStreamCompatibleConnection>;
+  dataTableRows: Array<DataTableRow>;
+  dataTableRowsPage: DataTableRowPage;
+  dataTableTags: Array<Tag>;
+  dataTableTagsByTable: Array<DataTableTagsEntry>;
+  dataTableWebhooks: Array<DataTableWebhook>;
+  dataTables: Array<DataTable>;
+  editorJobFileLogs: LogPage;
+  editorJobFileLogsExist: Scalars['Boolean']['output'];
+  editorTaskExecutionFileLogs: Array<LogEntry>;
+  embeddedMcpServers?: Maybe<Array<Maybe<McpServer>>>;
+  endpointDiscoveryStatus?: Maybe<EndpointDiscoveryResult>;
+  environments?: Maybe<Array<Maybe<Environment>>>;
+  evaluatorFunctionDefinition: EvaluatorFunctionDefinition;
+  evaluatorFunctionDefinitions: Array<EvaluatorFunctionDefinition>;
+  experimentComparison?: Maybe<ExperimentComparisonView>;
+  exportDataTableCsv: Scalars['String']['output'];
+  generationJobStatus?: Maybe<GenerationJobStatus>;
+  identityProvider?: Maybe<IdentityProviderType>;
+  identityProviders: Array<Maybe<IdentityProviderType>>;
+  integration?: Maybe<Integration>;
+  integrationWorkflows: Array<IntegrationWorkflow>;
+  integrationWorkflowsByIntegrationId: Array<IntegrationWorkflow>;
+  jobFileLogs: LogPage;
+  jobFileLogsExist: Scalars['Boolean']['output'];
+  knowledgeBase?: Maybe<KnowledgeBase>;
+  knowledgeBaseDocument?: Maybe<KnowledgeBaseDocument>;
+  knowledgeBaseDocumentStatus?: Maybe<DocumentStatusUpdate>;
+  knowledgeBaseDocumentTags?: Maybe<Array<Scalars['String']['output']>>;
+  knowledgeBaseDocumentTagsByDocument?: Maybe<Array<KnowledgeBaseDocumentTagsEntry>>;
+  knowledgeBaseSource?: Maybe<KnowledgeBaseSource>;
+  knowledgeBaseSources: Array<KnowledgeBaseSource>;
+  knowledgeBaseTags?: Maybe<Array<Tag>>;
+  knowledgeBaseTagsByKnowledgeBase?: Maybe<Array<KnowledgeBaseTagsEntry>>;
+  knowledgeBases?: Maybe<Array<Maybe<KnowledgeBase>>>;
+  managementMcpServerUrl?: Maybe<Scalars['String']['output']>;
+  mcpComponent?: Maybe<McpComponent>;
+  mcpComponentDefinitions: Array<ComponentDefinition>;
+  mcpComponents?: Maybe<Array<Maybe<McpComponent>>>;
+  mcpComponentsByServerId?: Maybe<Array<Maybe<McpComponent>>>;
+  mcpIntegrationInstanceConfiguration?: Maybe<McpIntegrationInstanceConfiguration>;
+  mcpIntegrationInstanceConfigurationWorkflow?: Maybe<McpIntegrationInstanceConfigurationWorkflow>;
+  mcpIntegrationInstanceConfigurationWorkflowProperties?: Maybe<Array<Maybe<Property>>>;
+  mcpIntegrationInstanceConfigurationWorkflows?: Maybe<Array<Maybe<McpIntegrationInstanceConfigurationWorkflow>>>;
+  mcpIntegrationInstanceConfigurationWorkflowsByMcpIntegrationInstanceConfigurationId?: Maybe<Array<Maybe<McpIntegrationInstanceConfigurationWorkflow>>>;
+  mcpIntegrationInstanceConfigurations?: Maybe<Array<Maybe<McpIntegrationInstanceConfiguration>>>;
+  mcpIntegrationInstanceConfigurationsByServerId?: Maybe<Array<Maybe<McpIntegrationInstanceConfiguration>>>;
+  mcpProject?: Maybe<McpProject>;
+  mcpProjectWorkflow?: Maybe<McpProjectWorkflow>;
+  mcpProjectWorkflowProperties?: Maybe<Array<Maybe<Property>>>;
+  mcpProjectWorkflows?: Maybe<Array<Maybe<McpProjectWorkflow>>>;
+  mcpProjectWorkflowsByMcpProjectId?: Maybe<Array<Maybe<McpProjectWorkflow>>>;
+  mcpProjectWorkflowsByProjectDeploymentWorkflowId?: Maybe<Array<Maybe<McpProjectWorkflow>>>;
+  mcpProjects?: Maybe<Array<Maybe<McpProject>>>;
+  mcpProjectsByServerId?: Maybe<Array<Maybe<McpProject>>>;
+  mcpServer?: Maybe<McpServer>;
+  mcpServerTags?: Maybe<Array<Maybe<Tag>>>;
+  mcpServers?: Maybe<Array<Maybe<McpServer>>>;
+  mcpTool?: Maybe<McpTool>;
+  mcpTools?: Maybe<Array<Maybe<McpTool>>>;
+  mcpToolsByComponentId?: Maybe<Array<Maybe<McpTool>>>;
+  /** Returns the permission scope names the current user has for the given project */
+  myProjectScopes: Array<Scalars['String']['output']>;
+  /** Returns the workspace role name for the current user in the given workspace */
+  myWorkspaceRole?: Maybe<Scalars['String']['output']>;
+  /** Get all organization-level connections, optionally filtered by environment. (admin only, EE only) */
+  organizationConnections: Array<OrganizationConnection>;
+  preBuiltProjectTemplates: Array<ProjectTemplate>;
+  preBuiltWorkflowTemplates: Array<WorkflowTemplate>;
+  project?: Maybe<Project>;
+  projectDeploymentWorkflow?: Maybe<ProjectDeploymentWorkflow>;
+  projectTemplate?: Maybe<ProjectTemplate>;
+  /** List all users of a project. Requires PROJECT_VIEW_USERS scope. */
+  projectUsers: Array<ProjectUser>;
+  projects?: Maybe<Array<Maybe<Project>>>;
+  searchKnowledgeBase?: Maybe<Array<Maybe<KnowledgeBaseDocumentChunk>>>;
+  sharedProject?: Maybe<SharedProject>;
+  sharedWorkflow?: Maybe<SharedWorkflow>;
+  taskDispatcherDefinition: TaskDispatcherDefinition;
+  taskDispatcherDefinitionVersions: Array<TaskDispatcherDefinition>;
+  taskDispatcherDefinitions: Array<TaskDispatcherDefinition>;
+  taskExecutionFileLogs: Array<LogEntry>;
+  toolEligibleIntegrationInstanceConfigurationWorkflows: Array<IntegrationWorkflow>;
+  toolEligibleIntegrationVersionWorkflows: Array<IntegrationWorkflow>;
+  toolEligibleProjectVersionWorkflows: Array<ProjectWorkflow>;
+  triggerDefinition: TriggerDefinition;
+  triggerDefinitions: Array<TriggerDefinition>;
+  unifiedApiComponentDefinitions: Array<ComponentDefinition>;
+  /** Get all connections owned by a user within a workspace, with metadata about how many workflows depend on each. (admin only) */
+  unresolvedConnections: Array<ConnectionReassignmentItem>;
+  user?: Maybe<AdminUser>;
+  users?: Maybe<AdminUserPage>;
+  validateWorkflow: WorkflowValidationResult;
+  validateWorkflowById: WorkflowValidationResult;
+  workflowNodeComponentConnections: Array<ComponentConnection>;
+  workflowNodeMissingRequiredProperties: Array<Scalars['String']['output']>;
+  workflowNodeScriptInput?: Maybe<Scalars['Map']['output']>;
+  workflowTemplate?: Maybe<WorkflowTemplate>;
+  workspaceAiGatewayModels?: Maybe<Array<Maybe<AiGatewayModel>>>;
+  workspaceAiGatewayProviders?: Maybe<Array<Maybe<AiGatewayProvider>>>;
+  workspaceAiGatewayRequestLogs?: Maybe<Array<Maybe<AiGatewayRequestLog>>>;
+  workspaceAiGatewayRoutingPolicies?: Maybe<Array<Maybe<AiGatewayRoutingPolicy>>>;
+  workspaceApiKeys: Array<ApiKey>;
+  workspaceChatWorkflows: Array<ChatWorkflow>;
+  workspaceMcpServers?: Maybe<Array<Maybe<McpServer>>>;
+  workspaceProjectDeployments: Array<ProjectDeployment>;
+  /** List all users of a workspace. Requires at least VIEWER workspace role. */
+  workspaceUsers: Array<WorkspaceUser>;
+};
+
+
+export type QueryActionDefinitionArgs = {
+  actionName: Scalars['String']['input'];
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+};
+
+
+export type QueryActionDefinitionsArgs = {
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+};
+
+
+export type QueryAdminApiKeysArgs = {
+  environmentId: Scalars['ID']['input'];
+};
+
+
+export type QueryAffectedWorkflowsArgs = {
+  userLogin: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiAgentEvalResultArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiAgentEvalResultTranscriptArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiAgentEvalRunArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiAgentEvalRunsArgs = {
+  agentEvalTestId: Scalars['ID']['input'];
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryAiAgentEvalTestArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiAgentEvalTestsArgs = {
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type QueryAiAgentJudgesArgs = {
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type QueryAiAutoMemoriesArgs = {
+  environment: Scalars['Int']['input'];
+  memoryType?: InputMaybe<AiAutoMemoryType>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiAutoMemoryArgs = {
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalDatasetItemsArgs = {
+  versionId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalDatasetVersionsArgs = {
+  datasetId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalDatasetsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalExecutionsArgs = {
+  evalRuleId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalExecutionsByTraceArgs = {
+  traceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalExperimentRunByTraceIdArgs = {
+  traceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalExperimentRunsArgs = {
+  experimentId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalExperimentsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalRuleArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalRulesArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalScoreAnalyticsArgs = {
+  endDate: Scalars['Long']['input'];
+  startDate: Scalars['Long']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalScoreConfigArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalScoreConfigsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalScoreTrendArgs = {
+  endDate: Scalars['Long']['input'];
+  name: Scalars['String']['input'];
+  startDate: Scalars['Long']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalScoresArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiEvalScoresByTraceArgs = {
+  traceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiGatewayBudgetArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiGatewayModelArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiGatewayModelsByProviderArgs = {
+  providerId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiGatewayProjectArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiGatewayProjectsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiGatewayProviderArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiGatewayRateLimitsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiGatewayRequestLogsArgs = {
+  endDate: Scalars['Long']['input'];
+  startDate: Scalars['Long']['input'];
+};
+
+
+export type QueryAiGatewayRoutingPolicyArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiGatewaySpendSummariesArgs = {
+  endDate: Scalars['Long']['input'];
+  startDate: Scalars['Long']['input'];
+};
+
+
+export type QueryAiGatewayWorkspaceSettingsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiHubPersonalAgentArgs = {
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiHubPersonalAgentsArgs = {
+  environment: Scalars['Int']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiHubTaskArtifactsArgs = {
+  environment?: InputMaybe<Scalars['Int']['input']>;
+  from?: InputMaybe<Scalars['Long']['input']>;
+  kind?: InputMaybe<AiHubTaskArtifactKind>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  size?: InputMaybe<Scalars['Int']['input']>;
+  to?: InputMaybe<Scalars['Long']['input']>;
+  userId?: InputMaybe<Scalars['ID']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiHubTaskArtifactsByAiHubTaskArgs = {
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiHubTaskMessagesArgs = {
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiHubTaskToolableComponentsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiHubTaskToolsArgs = {
+  taskId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiHubTasksArgs = {
+  environment: Scalars['Int']['input'];
+  status?: InputMaybe<AiHubTaskStatus>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiHubWorkspaceSettingsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilityAlertEventsArgs = {
+  alertRuleId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilityAlertRuleArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilityAlertRulesArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilityExportJobArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilityExportJobsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilityNotificationChannelArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilityNotificationChannelsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilitySessionArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilitySessionsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilityTraceArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilityTracesArgs = {
+  endDate: Scalars['Long']['input'];
+  model?: InputMaybe<Scalars['String']['input']>;
+  source?: InputMaybe<AiObservabilityTraceSource>;
+  startDate: Scalars['Long']['input'];
+  status?: InputMaybe<AiObservabilityTraceStatus>;
+  tagId?: InputMaybe<Scalars['ID']['input']>;
+  userId?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilityWebhookDeliveriesArgs = {
+  subscriptionId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilityWebhookSubscriptionArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiObservabilityWebhookSubscriptionsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiPromptArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiPromptVersionsArgs = {
+  promptId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiPromptsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiSkillArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiSkillFileContentArgs = {
+  id: Scalars['ID']['input'];
+  path: Scalars['String']['input'];
+};
+
+
+export type QueryAiSkillFilePathsArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryApiConnectorArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryApiKeyArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryApiKeysArgs = {
+  environmentId: Scalars['ID']['input'];
+  type: PlatformType;
+};
+
+
+export type QueryApprovalTaskArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryApprovalTasksArgs = {
+  environmentId?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryApprovalTasksByIdsArgs = {
+  ids: Array<Scalars['ID']['input']>;
+};
+
+
+export type QueryAssetFileArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAssetFileTagsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAssetFileTextContentArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAssetFilesArgs = {
+  environment?: InputMaybe<Scalars['Int']['input']>;
+  mimeTypePrefix?: InputMaybe<Scalars['String']['input']>;
+  tagIds?: InputMaybe<Array<Scalars['ID']['input']>>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAuditEventsArgs = {
+  dataSearch?: InputMaybe<Scalars['String']['input']>;
+  eventType?: InputMaybe<Scalars['String']['input']>;
+  fromDate?: InputMaybe<Scalars['Long']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  principal?: InputMaybe<Scalars['String']['input']>;
+  size?: InputMaybe<Scalars['Int']['input']>;
+  toDate?: InputMaybe<Scalars['Long']['input']>;
+};
+
+
+export type QueryAutomationSearchArgs = {
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  query: Scalars['String']['input'];
+};
+
+
+export type QueryAutomationWorkflowProjectVersionsArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryClusterElementComponentConnectionsArgs = {
+  clusterElementType: Scalars['String']['input'];
+  clusterElementWorkflowNodeName: Scalars['String']['input'];
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type QueryClusterElementDefinitionArgs = {
+  clusterElementName: Scalars['String']['input'];
+  clusterElementType?: InputMaybe<Scalars['String']['input']>;
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+};
+
+
+export type QueryClusterElementDefinitionsArgs = {
+  clusterElementType: Scalars['String']['input'];
+  rootComponentName: Scalars['String']['input'];
+  rootComponentVersion: Scalars['Int']['input'];
+};
+
+
+export type QueryClusterElementDynamicPropertiesArgs = {
+  clusterElementName: Scalars['String']['input'];
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+  connectionId?: InputMaybe<Scalars['Long']['input']>;
+  inputParameters?: InputMaybe<Scalars['Map']['input']>;
+  lookupDependsOnPaths?: InputMaybe<Array<Scalars['String']['input']>>;
+  propertyName: Scalars['String']['input'];
+};
+
+
+export type QueryClusterElementFieldsArgs = {
+  clusterElementName: Scalars['String']['input'];
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+  connectionId?: InputMaybe<Scalars['Long']['input']>;
+  inputParameters?: InputMaybe<Scalars['Map']['input']>;
+};
+
+
+export type QueryClusterElementMissingRequiredPropertiesArgs = {
+  clusterElementType: Scalars['String']['input'];
+  clusterElementWorkflowNodeName: Scalars['String']['input'];
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type QueryClusterElementOptionsArgs = {
+  clusterElementName: Scalars['String']['input'];
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+  connectionId?: InputMaybe<Scalars['Long']['input']>;
+  inputParameters?: InputMaybe<Scalars['Map']['input']>;
+  lookupDependsOnPaths?: InputMaybe<Array<Scalars['String']['input']>>;
+  propertyName: Scalars['String']['input'];
+};
+
+
+export type QueryClusterElementScriptInputArgs = {
+  clusterElementType: Scalars['String']['input'];
+  clusterElementWorkflowNodeName: Scalars['String']['input'];
+  environmentId: Scalars['Long']['input'];
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type QueryComponentDefinitionArgs = {
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+};
+
+
+export type QueryComponentDefinitionSearchArgs = {
+  query: Scalars['String']['input'];
+};
+
+
+export type QueryComponentDefinitionVersionsArgs = {
+  componentName: Scalars['String']['input'];
+};
+
+
+export type QueryComponentDefinitionsArgs = {
+  actionDefinitions?: InputMaybe<Scalars['Boolean']['input']>;
+  clusterElementDefinitions?: InputMaybe<Scalars['Boolean']['input']>;
+  connectionDefinitions?: InputMaybe<Scalars['Boolean']['input']>;
+  include?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
+  triggerDefinitions?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
+export type QueryConnectedUserArgs = {
+  id?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryConnectedUserMcpServersArgs = {
+  connectedUserId: Scalars['ID']['input'];
+};
+
+
+export type QueryConnectedUserProjectsArgs = {
+  connectedUserId?: InputMaybe<Scalars['ID']['input']>;
+  environmentId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryConnectedUsersArgs = {
+  createDateFrom?: InputMaybe<Scalars['String']['input']>;
+  createDateTo?: InputMaybe<Scalars['String']['input']>;
+  environmentId?: InputMaybe<Scalars['ID']['input']>;
+  integrationId?: InputMaybe<Scalars['ID']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  pageNumber?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryConnectionComponentDefinitionArgs = {
+  componentName: Scalars['String']['input'];
+  connectionVersion: Scalars['Int']['input'];
+};
+
+
+export type QueryConnectionDefinitionArgs = {
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+};
+
+
+export type QueryConnectionDefinitionsArgs = {
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+};
+
+
+export type QueryContextStoreArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryContextStoreIdByNameArgs = {
+  environmentId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryContextStoreSourceArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryContextStoreSourcesArgs = {
+  environmentId: Scalars['ID']['input'];
+  filter?: InputMaybe<ContextStoreSourceFilter>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryContextStoreTagsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryContextStoresArgs = {
+  environmentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryCustomComponentArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryCustomComponentDefinitionArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryCustomRoleArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryDataStreamCompatibleConnectionsArgs = {
+  environmentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryDataTableRowsArgs = {
+  environmentId: Scalars['ID']['input'];
+  tableId: Scalars['ID']['input'];
+};
+
+
+export type QueryDataTableRowsPageArgs = {
+  environmentId: Scalars['ID']['input'];
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
+  tableId: Scalars['ID']['input'];
+};
+
+
+export type QueryDataTableWebhooksArgs = {
+  environmentId: Scalars['ID']['input'];
+  tableId: Scalars['ID']['input'];
+};
+
+
+export type QueryDataTablesArgs = {
+  environmentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryEditorJobFileLogsArgs = {
+  filter?: InputMaybe<LogFilterInput>;
+  jobId: Scalars['ID']['input'];
+  page?: InputMaybe<Scalars['Int']['input']>;
+  size?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryEditorJobFileLogsExistArgs = {
+  jobId: Scalars['ID']['input'];
+};
+
+
+export type QueryEditorTaskExecutionFileLogsArgs = {
+  jobId: Scalars['ID']['input'];
+  taskExecutionId: Scalars['ID']['input'];
+};
+
+
+export type QueryEndpointDiscoveryStatusArgs = {
+  jobId: Scalars['String']['input'];
+};
+
+
+export type QueryEvaluatorFunctionDefinitionArgs = {
+  name: Scalars['String']['input'];
+};
+
+
+export type QueryEvaluatorFunctionDefinitionsArgs = {
+  name?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QueryExperimentComparisonArgs = {
+  experimentIds: Array<Scalars['ID']['input']>;
+};
+
+
+export type QueryExportDataTableCsvArgs = {
+  environmentId: Scalars['ID']['input'];
+  tableId: Scalars['ID']['input'];
+};
+
+
+export type QueryGenerationJobStatusArgs = {
+  jobId: Scalars['String']['input'];
+};
+
+
+export type QueryIdentityProviderArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryIntegrationArgs = {
+  id?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryIntegrationWorkflowsByIntegrationIdArgs = {
+  integrationId: Scalars['ID']['input'];
+};
+
+
+export type QueryJobFileLogsArgs = {
+  filter?: InputMaybe<LogFilterInput>;
+  jobId: Scalars['ID']['input'];
+  page?: InputMaybe<Scalars['Int']['input']>;
+  size?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryJobFileLogsExistArgs = {
+  jobId: Scalars['ID']['input'];
+};
+
+
+export type QueryKnowledgeBaseArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryKnowledgeBaseDocumentArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryKnowledgeBaseDocumentStatusArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryKnowledgeBaseSourceArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryKnowledgeBaseSourcesArgs = {
+  environmentId: Scalars['ID']['input'];
+  filter?: InputMaybe<KnowledgeBaseSourceFilter>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryKnowledgeBasesArgs = {
+  environmentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryMcpComponentArgs = {
+  id?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMcpComponentsByServerIdArgs = {
+  mcpServerId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMcpIntegrationInstanceConfigurationArgs = {
+  id?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMcpIntegrationInstanceConfigurationWorkflowArgs = {
+  id?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMcpIntegrationInstanceConfigurationWorkflowPropertiesArgs = {
+  mcpIntegrationInstanceConfigurationWorkflowId: Scalars['ID']['input'];
+};
+
+
+export type QueryMcpIntegrationInstanceConfigurationWorkflowsByMcpIntegrationInstanceConfigurationIdArgs = {
+  mcpIntegrationInstanceConfigurationId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMcpIntegrationInstanceConfigurationsByServerIdArgs = {
+  mcpServerId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMcpProjectArgs = {
+  id?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMcpProjectWorkflowArgs = {
+  id?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMcpProjectWorkflowPropertiesArgs = {
+  mcpProjectWorkflowId: Scalars['ID']['input'];
+};
+
+
+export type QueryMcpProjectWorkflowsByMcpProjectIdArgs = {
+  mcpProjectId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMcpProjectWorkflowsByProjectDeploymentWorkflowIdArgs = {
+  projectDeploymentWorkflowId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMcpProjectsByServerIdArgs = {
+  mcpServerId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMcpServerArgs = {
+  id?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMcpServerTagsArgs = {
+  type: PlatformType;
+};
+
+
+export type QueryMcpServersArgs = {
+  orderBy?: InputMaybe<McpServerOrderBy>;
+  type: PlatformType;
+};
+
+
+export type QueryMcpToolArgs = {
+  id?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMcpToolsByComponentIdArgs = {
+  mcpComponentId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryMyProjectScopesArgs = {
+  projectId: Scalars['ID']['input'];
+};
+
+
+export type QueryMyWorkspaceRoleArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryOrganizationConnectionsArgs = {
+  environmentId?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryPreBuiltProjectTemplatesArgs = {
+  category?: InputMaybe<Scalars['String']['input']>;
+  query?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QueryPreBuiltWorkflowTemplatesArgs = {
+  category?: InputMaybe<Scalars['String']['input']>;
+  query?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type QueryProjectArgs = {
+  id?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryProjectDeploymentWorkflowArgs = {
+  id: Scalars['String']['input'];
+};
+
+
+export type QueryProjectTemplateArgs = {
+  id: Scalars['String']['input'];
+  sharedProject: Scalars['Boolean']['input'];
+};
+
+
+export type QueryProjectUsersArgs = {
+  projectId: Scalars['ID']['input'];
+};
+
+
+export type QuerySearchKnowledgeBaseArgs = {
+  id: Scalars['ID']['input'];
+  metadataFilters?: InputMaybe<Scalars['String']['input']>;
+  query: Scalars['String']['input'];
+};
+
+
+export type QuerySharedProjectArgs = {
+  projectUuid: Scalars['String']['input'];
+};
+
+
+export type QuerySharedWorkflowArgs = {
+  workflowUuid: Scalars['String']['input'];
+};
+
+
+export type QueryTaskDispatcherDefinitionArgs = {
+  name: Scalars['String']['input'];
+  version: Scalars['Int']['input'];
+};
+
+
+export type QueryTaskDispatcherDefinitionVersionsArgs = {
+  name: Scalars['String']['input'];
+};
+
+
+export type QueryTaskExecutionFileLogsArgs = {
+  jobId: Scalars['ID']['input'];
+  taskExecutionId: Scalars['ID']['input'];
+};
+
+
+export type QueryToolEligibleIntegrationInstanceConfigurationWorkflowsArgs = {
+  integrationInstanceConfigurationId: Scalars['ID']['input'];
+};
+
+
+export type QueryToolEligibleIntegrationVersionWorkflowsArgs = {
+  integrationId: Scalars['ID']['input'];
+  integrationVersion: Scalars['Int']['input'];
+};
+
+
+export type QueryToolEligibleProjectVersionWorkflowsArgs = {
+  projectId: Scalars['ID']['input'];
+  projectVersion: Scalars['Int']['input'];
+};
+
+
+export type QueryTriggerDefinitionArgs = {
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+  triggerName: Scalars['String']['input'];
+};
+
+
+export type QueryTriggerDefinitionsArgs = {
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+};
+
+
+export type QueryUnifiedApiComponentDefinitionsArgs = {
+  category: UnifiedApiCategory;
+};
+
+
+export type QueryUnresolvedConnectionsArgs = {
+  userLogin: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryUserArgs = {
+  login: Scalars['String']['input'];
+};
+
+
+export type QueryUsersArgs = {
+  pageNumber?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
+export type QueryValidateWorkflowArgs = {
+  workflow: Scalars['String']['input'];
+};
+
+
+export type QueryValidateWorkflowByIdArgs = {
+  workflowId: Scalars['String']['input'];
+};
+
+
+export type QueryWorkflowNodeComponentConnectionsArgs = {
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type QueryWorkflowNodeMissingRequiredPropertiesArgs = {
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type QueryWorkflowNodeScriptInputArgs = {
+  environmentId: Scalars['Long']['input'];
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type QueryWorkflowTemplateArgs = {
+  id: Scalars['String']['input'];
+  sharedWorkflow: Scalars['Boolean']['input'];
+};
+
+
+export type QueryWorkspaceAiGatewayModelsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkspaceAiGatewayProvidersArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkspaceAiGatewayRequestLogsArgs = {
+  endDate: Scalars['Long']['input'];
+  startDate: Scalars['Long']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkspaceAiGatewayRoutingPoliciesArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkspaceApiKeysArgs = {
+  environmentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkspaceChatWorkflowsArgs = {
+  environmentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkspaceMcpServersArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkspaceProjectDeploymentsArgs = {
+  environmentId: Scalars['ID']['input'];
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  tagId?: InputMaybe<Scalars['ID']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkspaceUsersArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type RecordReferencedAiHubTaskArtifactInput = {
+  artifactId: Scalars['String']['input'];
+  artifactName: Scalars['String']['input'];
+  kind: AiHubTaskArtifactKind;
+  /**
+   * Optional JSON map of side-channel context the artifact needs to be quick-openable from the sidebar.
+   * For WORKFLOW_REFERENCED this carries `projectId` and `projectWorkflowId` so the sidebar row can open
+   * the workflow tab (which routes by parent project); for other kinds it's currently unused but
+   * schema-symmetric with the agent-driven `record(...)` path. Persisted as-is in `metadata_json`.
+   */
+  metadataJson?: InputMaybe<Scalars['String']['input']>;
+  taskId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type RegisterExistingConnectionInput = {
+  componentName: Scalars['String']['input'];
+  connectionVersion: Scalars['Int']['input'];
+  credentialRef: Scalars['String']['input'];
+  credentialStoreType: ConnectionCredentialStoreType;
+  environmentId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type RemoveColumnInput = {
+  columnId: Scalars['ID']['input'];
+  environmentId: Scalars['ID']['input'];
+  tableId: Scalars['ID']['input'];
+};
+
+export type RemoveTableInput = {
+  environmentId: Scalars['ID']['input'];
+  tableId: Scalars['ID']['input'];
+};
+
+export type RenameColumnInput = {
+  columnId: Scalars['ID']['input'];
+  environmentId: Scalars['ID']['input'];
+  newName: Scalars['String']['input'];
+  tableId: Scalars['ID']['input'];
+};
+
+export type RenameDataTableInput = {
+  environmentId: Scalars['ID']['input'];
+  newBaseName: Scalars['String']['input'];
+  tableId: Scalars['ID']['input'];
+};
+
+export type RequestBodyDefinitionInput = {
+  contentType: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  required?: InputMaybe<Scalars['Boolean']['input']>;
+  schema: Scalars['String']['input'];
+};
+
+export type Resources = {
+  __typename?: 'Resources';
+  documentationUrl?: Maybe<Scalars['String']['output']>;
+};
+
+export type ResponseDefinitionInput = {
+  contentType?: InputMaybe<Scalars['String']['input']>;
+  description: Scalars['String']['input'];
+  schema?: InputMaybe<Scalars['String']['input']>;
+  statusCode: Scalars['String']['input'];
+};
+
+export enum ScheduleFrequencyKind {
+  CustomCron = 'CUSTOM_CRON',
+  Daily = 'DAILY',
+  EveryXMinutes = 'EVERY_X_MINUTES',
+  Hourly = 'HOURLY',
+  Monthly = 'MONTHLY',
+  Weekly = 'WEEKLY'
+}
+
+export enum ScheduleLifecycleKind {
+  NumberOfRuns = 'NUMBER_OF_RUNS',
+  Recurring = 'RECURRING'
+}
+
+export type ScorePoint = {
+  __typename?: 'ScorePoint';
+  dataType: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  stringValue?: Maybe<Scalars['String']['output']>;
+  value?: Maybe<Scalars['Float']['output']>;
+};
+
+export type ScriptTestExecution = {
+  __typename?: 'ScriptTestExecution';
+  error?: Maybe<ExecutionError>;
+  output?: Maybe<Scalars['Map']['output']>;
+};
+
+export enum SearchAssetType {
+  ApiCollection = 'API_COLLECTION',
+  ApiEndpoint = 'API_ENDPOINT',
+  Connection = 'CONNECTION',
+  DataTable = 'DATA_TABLE',
+  Deployment = 'DEPLOYMENT',
+  KnowledgeBase = 'KNOWLEDGE_BASE',
+  KnowledgeBaseDocument = 'KNOWLEDGE_BASE_DOCUMENT',
+  Project = 'PROJECT',
+  Workflow = 'WORKFLOW'
+}
+
+export type SearchResult = {
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  type: SearchAssetType;
+};
+
+export type SelectedEndpointInput = {
+  method: Scalars['String']['input'];
+  path: Scalars['String']['input'];
+};
+
+export type SetAiHubPersonalAgentScheduleInput = {
+  aiHubPersonalAgentId: Scalars['ID']['input'];
+  /** Null clears the schedule. Non-null upserts. */
+  schedule?: InputMaybe<AiHubPersonalAgentScheduleInput>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type SharedProject = {
+  __typename?: 'SharedProject';
+  description?: Maybe<Scalars['String']['output']>;
+  exported: Scalars['Boolean']['output'];
+  projectVersion?: Maybe<Scalars['Int']['output']>;
+  publicUrl?: Maybe<Scalars['String']['output']>;
+};
+
+export type SharedWorkflow = {
+  __typename?: 'SharedWorkflow';
+  description?: Maybe<Scalars['String']['output']>;
+  exported: Scalars['Boolean']['output'];
+  projectVersion?: Maybe<Scalars['Int']['output']>;
+  publicUrl?: Maybe<Scalars['String']['output']>;
+};
+
+export type SharedWorkflowInfo = {
+  __typename?: 'SharedWorkflowInfo';
+  description?: Maybe<Scalars['String']['output']>;
+  label: Scalars['String']['output'];
+};
+
+export type StringProperty = Property & {
+  __typename?: 'StringProperty';
+  advancedOption?: Maybe<Scalars['Boolean']['output']>;
+  controlType: ControlType;
+  defaultValue?: Maybe<Scalars['String']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayCondition?: Maybe<Scalars['String']['output']>;
+  exampleValue?: Maybe<Scalars['String']['output']>;
+  expressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  hidden?: Maybe<Scalars['Boolean']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  languageId?: Maybe<Scalars['String']['output']>;
+  maxLength?: Maybe<Scalars['Int']['output']>;
+  minLength?: Maybe<Scalars['Int']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  options?: Maybe<Array<Option>>;
+  optionsDataSource?: Maybe<OptionsDataSource>;
+  optionsLoadedDynamically?: Maybe<Scalars['Boolean']['output']>;
+  placeholder?: Maybe<Scalars['String']['output']>;
+  regex?: Maybe<Scalars['String']['output']>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+  type: PropertyType;
+};
+
+export type Tag = {
+  __typename?: 'Tag';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+};
+
+export type TagInput = {
+  id?: InputMaybe<Scalars['ID']['input']>;
+  name: Scalars['String']['input'];
+};
+
+export type TaskDispatcherDefinition = {
+  __typename?: 'TaskDispatcherDefinition';
+  description?: Maybe<Scalars['String']['output']>;
+  icon?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  outputDefined: Scalars['Boolean']['output'];
+  outputFunctionDefined?: Maybe<Scalars['Boolean']['output']>;
+  outputSchemaDefined?: Maybe<Scalars['Boolean']['output']>;
+  properties: Array<Property>;
+  resources?: Maybe<Resources>;
+  taskProperties: Array<Property>;
+  title?: Maybe<Scalars['String']['output']>;
+  variablePropertiesDefined?: Maybe<Scalars['Boolean']['output']>;
+  version: Scalars['Int']['output'];
+};
+
+export type TimeProperty = Property & {
+  __typename?: 'TimeProperty';
+  advancedOption?: Maybe<Scalars['Boolean']['output']>;
+  controlType: ControlType;
+  defaultValue?: Maybe<Scalars['String']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  displayCondition?: Maybe<Scalars['String']['output']>;
+  exampleValue?: Maybe<Scalars['String']['output']>;
+  expressionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  hidden?: Maybe<Scalars['Boolean']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  name?: Maybe<Scalars['String']['output']>;
+  placeholder?: Maybe<Scalars['String']['output']>;
+  required?: Maybe<Scalars['Boolean']['output']>;
+  type: PropertyType;
+};
+
+export enum TombstoneStrategy {
+  None = 'NONE',
+  PeriodicFullReplace = 'PERIODIC_FULL_REPLACE',
+  UpstreamChangeFeed = 'UPSTREAM_CHANGE_FEED'
+}
+
+export type ToolableClusterElement = {
+  __typename?: 'ToolableClusterElement';
+  description?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  title?: Maybe<Scalars['String']['output']>;
+};
+
+export type ToolableComponent = {
+  __typename?: 'ToolableComponent';
+  componentName: Scalars['String']['output'];
+  componentVersion: Scalars['Int']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  icon?: Maybe<Scalars['String']['output']>;
+  title?: Maybe<Scalars['String']['output']>;
+  tools: Array<ToolableClusterElement>;
+};
+
+export type TriggerDefinition = {
+  __typename?: 'TriggerDefinition';
+  componentName?: Maybe<Scalars['String']['output']>;
+  componentVersion?: Maybe<Scalars['Int']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  help?: Maybe<Help>;
+  name: Scalars['String']['output'];
+  outputDefined: Scalars['Boolean']['output'];
+  outputFunctionDefined: Scalars['Boolean']['output'];
+  outputSchemaDefined?: Maybe<Scalars['Boolean']['output']>;
+  properties: Array<Property>;
+  title?: Maybe<Scalars['String']['output']>;
+  type: TriggerType;
+  workflowNodeDescriptionDefined?: Maybe<Scalars['Boolean']['output']>;
+};
+
+export enum TriggerType {
+  Callable = 'CALLABLE',
+  DynamicWebhook = 'DYNAMIC_WEBHOOK',
+  Hybrid = 'HYBRID',
+  Listener = 'LISTENER',
+  Polling = 'POLLING',
+  StaticWebhook = 'STATIC_WEBHOOK'
+}
+
+export enum UnifiedApiCategory {
+  Accounting = 'ACCOUNTING',
+  Ats = 'ATS',
+  Crm = 'CRM',
+  ECommerce = 'E_COMMERCE',
+  FileStorage = 'FILE_STORAGE',
+  Hris = 'HRIS',
+  MarketingAutomation = 'MARKETING_AUTOMATION',
+  Ticketing = 'TICKETING'
+}
+
+export type UpdateAiAutoMemoryInput = {
+  content?: InputMaybe<Scalars['String']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  memoryType?: InputMaybe<AiAutoMemoryType>;
+  title?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type UpdateAiGatewayBudgetInput = {
+  alertThreshold?: InputMaybe<Scalars['Int']['input']>;
+  amount?: InputMaybe<Scalars['String']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  enforcementMode?: InputMaybe<AiGatewayBudgetEnforcementMode>;
+  period?: InputMaybe<AiGatewayBudgetPeriod>;
+};
+
+export type UpdateAiGatewayModelInput = {
+  alias?: InputMaybe<Scalars['String']['input']>;
+  capabilities?: InputMaybe<Scalars['String']['input']>;
+  contextWindow?: InputMaybe<Scalars['Int']['input']>;
+  defaultRoutingPolicyId?: InputMaybe<Scalars['ID']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  inputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  outputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
+};
+
+export type UpdateAiGatewayProjectInput = {
+  cacheTtlMinutes?: InputMaybe<Scalars['Int']['input']>;
+  cachingEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+  compressionEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  logRetentionDays?: InputMaybe<Scalars['Int']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  retryMaxAttempts?: InputMaybe<Scalars['Int']['input']>;
+  routingPolicyId?: InputMaybe<Scalars['ID']['input']>;
+  slug?: InputMaybe<Scalars['String']['input']>;
+  timeoutSeconds?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type UpdateAiGatewayProviderInput = {
+  apiKey?: InputMaybe<Scalars['String']['input']>;
+  baseUrl?: InputMaybe<Scalars['String']['input']>;
+  config?: InputMaybe<Scalars['String']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  name: Scalars['String']['input'];
+  type: AiGatewayProviderType;
+};
+
+export type UpdateAiGatewayRateLimitInput = {
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  limitType?: InputMaybe<AiGatewayRateLimitType>;
+  limitValue?: InputMaybe<Scalars['Int']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  propertyKey?: InputMaybe<Scalars['String']['input']>;
+  scope?: InputMaybe<AiGatewayRateLimitScope>;
+  windowSeconds?: InputMaybe<Scalars['Int']['input']>;
+};
+
+export type UpdateAiGatewayRoutingPolicyInput = {
+  config?: InputMaybe<Scalars['String']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  fallbackModel?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  strategy?: InputMaybe<AiGatewayRoutingStrategyType>;
+  tagIds?: InputMaybe<Array<Scalars['ID']['input']>>;
+};
+
+export type UpdateAiHubPersonalAgentInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  instructions?: InputMaybe<Scalars['String']['input']>;
+  llmModel?: InputMaybe<Scalars['String']['input']>;
+  /**
+   * Tri-state on the (llmProvider, llmModel) pair:
+   * - both null on the input: leave the existing override untouched.
+   * - both empty strings: clear the override (revert to workspace default).
+   * - both non-empty: apply the new override after the both-set-or-both-null guard.
+   * - only one set: typed validation error.
+   */
+  llmProvider?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type UpdateAiHubPersonalAgentToolConfigInput = {
+  /**
+   * Pinned connection id. Null clears the existing pin so subsequent aiHubTasks let the user pick at
+   * first invocation.
+   */
+  connectionId?: InputMaybe<Scalars['Long']['input']>;
+  /**
+   * Pre-set parameters map. Null preserves the existing map; pass an empty object to reset. Stored verbatim
+   * — no shape validation against the action's input schema, since LLM-supplied invocation args still merge
+   * on top at dispatch.
+   */
+  parameters?: InputMaybe<Scalars['Any']['input']>;
+  toolId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type UpdateAiHubVoiceWebhookUrlInput = {
+  voiceWebhookUrl?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type UpdateAiPromptInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateApiConnectorInput = {
+  connectorVersion?: InputMaybe<Scalars['Int']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  icon?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateAssetFileInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+};
+
+export type UpdateAssetFileTagsInput = {
+  id: Scalars['ID']['input'];
+  tags: Array<TagInput>;
+};
+
+export type UpdateContextStoreInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  tagIds?: InputMaybe<Array<Scalars['ID']['input']>>;
+  version: Scalars['Int']['input'];
+};
+
+export type UpdateContextStoreSourceInput = {
+  cadence?: InputMaybe<Scalars['String']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  /**
+   * Phase 17b: optional full-replace cadence update. Null leaves the current value unchanged.
+   * Empty string \"\" clears it (drops back to single-trigger). Any other value replaces it.
+   */
+  fullReplaceCadence?: InputMaybe<Scalars['String']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  /** Phase 17b: optional tombstone strategy update. Null leaves the current value unchanged. */
+  tombstoneStrategy?: InputMaybe<ContextStoreTombstoneStrategy>;
+};
+
+export type UpdateCustomRoleInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  name: Scalars['String']['input'];
+  /** Permission scope names to grant (must be valid PermissionScope enum values) */
+  scopes: Array<Scalars['String']['input']>;
+};
+
+export type UpdateDataTableTagsInput = {
+  tableId: Scalars['ID']['input'];
+  tags?: InputMaybe<Array<TagInput>>;
+};
+
+export type UpdateKnowledgeBaseDocumentTagsInput = {
+  knowledgeBaseDocumentId: Scalars['ID']['input'];
+  tags?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+export type UpdateKnowledgeBaseSourceInput = {
+  cadence?: InputMaybe<Scalars['String']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  /**
+   * Phase 17b: optional full-replace cadence update. Null leaves the current value unchanged.
+   * Empty string \"\" clears it (drops back to single-trigger). Any other value replaces it.
+   */
+  fullReplaceCadence?: InputMaybe<Scalars['String']['input']>;
+  /**
+   * Optional metadata-tag whitelist update. Null leaves the current whitelist unchanged;
+   * {} clears it (revert to full-flatten); {fields: [...]} replaces it.
+   */
+  metadataFields?: InputMaybe<Scalars['Map']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  /** Phase 17b: optional tombstone strategy update. Null leaves the current value unchanged. */
+  tombstoneStrategy?: InputMaybe<TombstoneStrategy>;
+};
+
+export type UpdateKnowledgeBaseTagsInput = {
+  knowledgeBaseId: Scalars['ID']['input'];
+  tags?: InputMaybe<Array<TagInput>>;
+};
+
+export type UpdateMcpIntegrationInstanceConfigurationInput = {
+  selectedWorkflowIds: Array<Scalars['String']['input']>;
+};
+
+export type UpdateMcpIntegrationInstanceConfigurationVersionInput = {
+  integrationVersion: Scalars['Int']['input'];
+  workflowUuids: Array<Scalars['String']['input']>;
+};
+
+export type UpdateMcpProjectInput = {
+  selectedWorkflowIds: Array<Scalars['String']['input']>;
+};
+
+export type UpdateRowInput = {
+  environmentId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+  tableId: Scalars['ID']['input'];
+  values: Scalars['Map']['input'];
+};
+
+export type Workflow = {
+  __typename?: 'Workflow';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  label: Scalars['String']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  triggers: Array<WorkflowTrigger>;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type WorkflowInfo = {
+  __typename?: 'WorkflowInfo';
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['String']['output'];
+  label: Scalars['String']['output'];
+};
+
+export type WorkflowNodeTestOutputResult = {
+  __typename?: 'WorkflowNodeTestOutputResult';
+  id: Scalars['Long']['output'];
+  workflowId: Scalars['String']['output'];
+  workflowNodeName: Scalars['String']['output'];
+};
+
+export type WorkflowSearchResult = SearchResult & {
+  __typename?: 'WorkflowSearchResult';
+  description?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  label: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+  projectId: Scalars['ID']['output'];
+  type: SearchAssetType;
+};
+
+export type WorkflowTemplate = {
+  __typename?: 'WorkflowTemplate';
+  authorEmail?: Maybe<Scalars['String']['output']>;
+  authorName?: Maybe<Scalars['String']['output']>;
+  authorRole?: Maybe<Scalars['String']['output']>;
+  authorSocialLinks: Array<Maybe<Scalars['String']['output']>>;
+  categories: Array<Scalars['String']['output']>;
+  components: Array<ComponentDefinition>;
+  description?: Maybe<Scalars['String']['output']>;
+  id?: Maybe<Scalars['ID']['output']>;
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  projectVersion?: Maybe<Scalars['Int']['output']>;
+  publicUrl?: Maybe<Scalars['String']['output']>;
+  workflow: SharedWorkflowInfo;
+};
+
+export type WorkflowTrigger = {
+  __typename?: 'WorkflowTrigger';
+  description?: Maybe<Scalars['String']['output']>;
+  label?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  parameters?: Maybe<Scalars['Map']['output']>;
+  type: Scalars['String']['output'];
+};
+
+export type WorkflowValidationResult = {
+  __typename?: 'WorkflowValidationResult';
+  errors: Array<Scalars['String']['output']>;
+  warnings: Array<Scalars['String']['output']>;
+};
+
+export enum WorkspaceRole {
+  Admin = 'ADMIN',
+  Editor = 'EDITOR',
+  Viewer = 'VIEWER'
+}
+
+export type WorkspaceUser = {
+  __typename?: 'WorkspaceUser';
+  createdDate?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  user?: Maybe<WorkspaceUserInfo>;
+  userId: Scalars['ID']['output'];
+  workspaceId: Scalars['ID']['output'];
+  workspaceRole?: Maybe<WorkspaceRole>;
+};
+
+export type WorkspaceUserInfo = {
+  __typename?: 'WorkspaceUserInfo';
+  email: Scalars['String']['output'];
+  firstName?: Maybe<Scalars['String']['output']>;
+  lastName?: Maybe<Scalars['String']['output']>;
+};
+
 export type AiAgentEvalResultQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type AiAgentEvalResultQuery = { aiAgentEvalResult: { id: string, status: Types.AiAgentEvalResultStatus, score: number | null, errorMessage: string | null, transcriptFile: string | null, createdDate: any, scenario: { id: string, name: string, type: Types.AiAgentScenarioType, userMessage: string | null, expectedOutput: string | null, personaPrompt: string | null, maxTurns: number | null, createdDate: any, lastModifiedDate: any, judges: Array<{ id: string, name: string, type: Types.AiAgentJudgeType, configuration: any, createdDate: any, lastModifiedDate: any }> }, verdicts: Array<{ id: string, judgeName: string, judgeType: Types.AiAgentJudgeType, judgeScope: Types.AiAgentJudgeScope, passed: boolean, score: number, explanation: string }> } | null };
+export type AiAgentEvalResultQuery = { __typename?: 'Query', aiAgentEvalResult?: { __typename?: 'AiAgentEvalResult', id: string, status: AiAgentEvalResultStatus, score?: number | null, errorMessage?: string | null, transcriptFile?: string | null, createdDate?: any | null, scenario: { __typename?: 'AiAgentEvalScenario', id: string, name: string, type: AiAgentScenarioType, userMessage?: string | null, expectedOutput?: string | null, personaPrompt?: string | null, maxTurns?: number | null, createdDate?: any | null, lastModifiedDate?: any | null, judges: Array<{ __typename?: 'AiAgentScenarioJudge', id: string, name: string, type: AiAgentJudgeType, configuration: any, createdDate?: any | null, lastModifiedDate?: any | null }> }, verdicts: Array<{ __typename?: 'AiAgentJudgeVerdict', id: string, judgeName: string, judgeType: AiAgentJudgeType, judgeScope: AiAgentJudgeScope, passed: boolean, score: number, explanation: string }> } | null };
 
 export type AiAgentEvalResultTranscriptQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type AiAgentEvalResultTranscriptQuery = { aiAgentEvalResultTranscript: string | null };
+export type AiAgentEvalResultTranscriptQuery = { __typename?: 'Query', aiAgentEvalResultTranscript?: string | null };
 
 export type AiAgentEvalRunQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type AiAgentEvalRunQuery = { aiAgentEvalRun: { id: string, name: string, status: Types.AiAgentEvalRunStatus, averageScore: number | null, totalScenarios: number, completedScenarios: number, agentVersion: string | null, totalInputTokens: number | null, totalOutputTokens: number | null, startedDate: any, completedDate: any, createdDate: any, results: Array<{ id: string, status: Types.AiAgentEvalResultStatus, score: number | null, errorMessage: string | null, transcriptFile: string | null, inputTokens: number | null, outputTokens: number | null, runIndex: number | null, createdDate: any, scenario: { id: string, name: string, type: Types.AiAgentScenarioType, userMessage: string | null, expectedOutput: string | null, personaPrompt: string | null, maxTurns: number | null, createdDate: any, lastModifiedDate: any, judges: Array<{ id: string, name: string, type: Types.AiAgentJudgeType, configuration: any, createdDate: any, lastModifiedDate: any }> }, verdicts: Array<{ id: string, judgeName: string, judgeType: Types.AiAgentJudgeType, judgeScope: Types.AiAgentJudgeScope, passed: boolean, score: number, explanation: string }> }> } | null };
+export type AiAgentEvalRunQuery = { __typename?: 'Query', aiAgentEvalRun?: { __typename?: 'AiAgentEvalRun', id: string, name: string, status: AiAgentEvalRunStatus, averageScore?: number | null, totalScenarios: number, completedScenarios: number, agentVersion?: string | null, totalInputTokens?: number | null, totalOutputTokens?: number | null, startedDate?: any | null, completedDate?: any | null, createdDate?: any | null, results: Array<{ __typename?: 'AiAgentEvalResult', id: string, status: AiAgentEvalResultStatus, score?: number | null, errorMessage?: string | null, transcriptFile?: string | null, inputTokens?: number | null, outputTokens?: number | null, runIndex?: number | null, createdDate?: any | null, scenario: { __typename?: 'AiAgentEvalScenario', id: string, name: string, type: AiAgentScenarioType, userMessage?: string | null, expectedOutput?: string | null, personaPrompt?: string | null, maxTurns?: number | null, createdDate?: any | null, lastModifiedDate?: any | null, judges: Array<{ __typename?: 'AiAgentScenarioJudge', id: string, name: string, type: AiAgentJudgeType, configuration: any, createdDate?: any | null, lastModifiedDate?: any | null }> }, verdicts: Array<{ __typename?: 'AiAgentJudgeVerdict', id: string, judgeName: string, judgeType: AiAgentJudgeType, judgeScope: AiAgentJudgeScope, passed: boolean, score: number, explanation: string }> }> } | null };
 
 export type AiAgentEvalRunsQueryVariables = Exact<{
-  agentEvalTestId: string | number;
-  limit?: number | null | undefined;
-  offset?: number | null | undefined;
+  agentEvalTestId: Scalars['ID']['input'];
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type AiAgentEvalRunsQuery = { aiAgentEvalRuns: Array<{ id: string, name: string, status: Types.AiAgentEvalRunStatus, averageScore: number | null, totalScenarios: number, completedScenarios: number, startedDate: any, completedDate: any, createdDate: any }> };
+export type AiAgentEvalRunsQuery = { __typename?: 'Query', aiAgentEvalRuns: Array<{ __typename?: 'AiAgentEvalRun', id: string, name: string, status: AiAgentEvalRunStatus, averageScore?: number | null, totalScenarios: number, completedScenarios: number, startedDate?: any | null, completedDate?: any | null, createdDate?: any | null }> };
 
 export type AiAgentEvalTestQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type AiAgentEvalTestQuery = { aiAgentEvalTest: { id: string, name: string, description: string | null, createdDate: any, lastModifiedDate: any, scenarios: Array<{ id: string, name: string, type: Types.AiAgentScenarioType, userMessage: string | null, expectedOutput: string | null, personaPrompt: string | null, maxTurns: number | null, numberOfRuns: number | null, createdDate: any, lastModifiedDate: any, judges: Array<{ id: string, name: string, type: Types.AiAgentJudgeType, configuration: any, createdDate: any, lastModifiedDate: any }>, toolSimulations: Array<{ id: string, responsePrompt: string, simulationModel: string | null, toolName: string, createdDate: any, lastModifiedDate: any }> }> } | null };
+export type AiAgentEvalTestQuery = { __typename?: 'Query', aiAgentEvalTest?: { __typename?: 'AiAgentEvalTest', id: string, name: string, description?: string | null, createdDate?: any | null, lastModifiedDate?: any | null, scenarios: Array<{ __typename?: 'AiAgentEvalScenario', id: string, name: string, type: AiAgentScenarioType, userMessage?: string | null, expectedOutput?: string | null, personaPrompt?: string | null, maxTurns?: number | null, numberOfRuns?: number | null, createdDate?: any | null, lastModifiedDate?: any | null, judges: Array<{ __typename?: 'AiAgentScenarioJudge', id: string, name: string, type: AiAgentJudgeType, configuration: any, createdDate?: any | null, lastModifiedDate?: any | null }>, toolSimulations: Array<{ __typename?: 'AiAgentScenarioToolSimulation', id: string, responsePrompt: string, simulationModel?: string | null, toolName: string, createdDate?: any | null, lastModifiedDate?: any | null }> }> } | null };
 
 export type AiAgentEvalTestsQueryVariables = Exact<{
-  workflowId: string;
-  workflowNodeName: string;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
 }>;
 
 
-export type AiAgentEvalTestsQuery = { aiAgentEvalTests: Array<{ id: string, name: string, description: string | null, createdDate: any, lastModifiedDate: any, scenarios: Array<{ id: string, name: string, type: Types.AiAgentScenarioType, userMessage: string | null, expectedOutput: string | null, personaPrompt: string | null, maxTurns: number | null, numberOfRuns: number | null, createdDate: any, lastModifiedDate: any, toolSimulations: Array<{ id: string, toolName: string, responsePrompt: string, simulationModel: string | null }>, judges: Array<{ id: string, name: string, type: Types.AiAgentJudgeType, configuration: any, createdDate: any, lastModifiedDate: any }> }> }> };
+export type AiAgentEvalTestsQuery = { __typename?: 'Query', aiAgentEvalTests: Array<{ __typename?: 'AiAgentEvalTest', id: string, name: string, description?: string | null, createdDate?: any | null, lastModifiedDate?: any | null, scenarios: Array<{ __typename?: 'AiAgentEvalScenario', id: string, name: string, type: AiAgentScenarioType, userMessage?: string | null, expectedOutput?: string | null, personaPrompt?: string | null, maxTurns?: number | null, numberOfRuns?: number | null, createdDate?: any | null, lastModifiedDate?: any | null, toolSimulations: Array<{ __typename?: 'AiAgentScenarioToolSimulation', id: string, toolName: string, responsePrompt: string, simulationModel?: string | null }>, judges: Array<{ __typename?: 'AiAgentScenarioJudge', id: string, name: string, type: AiAgentJudgeType, configuration: any, createdDate?: any | null, lastModifiedDate?: any | null }> }> }> };
 
 export type AiAgentJudgesQueryVariables = Exact<{
-  workflowId: string;
-  workflowNodeName: string;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
 }>;
 
 
-export type AiAgentJudgesQuery = { aiAgentJudges: Array<{ id: string, name: string, type: Types.AiAgentJudgeType, configuration: any, createdDate: any, lastModifiedDate: any }> };
+export type AiAgentJudgesQuery = { __typename?: 'Query', aiAgentJudges: Array<{ __typename?: 'AiAgentJudge', id: string, name: string, type: AiAgentJudgeType, configuration: any, createdDate?: any | null, lastModifiedDate?: any | null }> };
 
 export type CancelAiAgentEvalRunMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type CancelAiAgentEvalRunMutation = { cancelAiAgentEvalRun: { id: string, status: Types.AiAgentEvalRunStatus } };
+export type CancelAiAgentEvalRunMutation = { __typename?: 'Mutation', cancelAiAgentEvalRun: { __typename?: 'AiAgentEvalRun', id: string, status: AiAgentEvalRunStatus } };
 
 export type CreateAiAgentEvalScenarioMutationVariables = Exact<{
-  agentEvalTestId: string | number;
-  name: string;
-  type: Types.AiAgentScenarioType;
-  userMessage?: string | null | undefined;
-  expectedOutput?: string | null | undefined;
-  personaPrompt?: string | null | undefined;
-  maxTurns?: number | null | undefined;
-  numberOfRuns?: number | null | undefined;
+  agentEvalTestId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  type: AiAgentScenarioType;
+  userMessage?: InputMaybe<Scalars['String']['input']>;
+  expectedOutput?: InputMaybe<Scalars['String']['input']>;
+  personaPrompt?: InputMaybe<Scalars['String']['input']>;
+  maxTurns?: InputMaybe<Scalars['Int']['input']>;
+  numberOfRuns?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type CreateAiAgentEvalScenarioMutation = { createAiAgentEvalScenario: { id: string, name: string, type: Types.AiAgentScenarioType, userMessage: string | null, expectedOutput: string | null, personaPrompt: string | null, maxTurns: number | null, numberOfRuns: number | null, createdDate: any, lastModifiedDate: any, judges: Array<{ id: string, name: string, type: Types.AiAgentJudgeType, configuration: any, createdDate: any, lastModifiedDate: any }> } };
+export type CreateAiAgentEvalScenarioMutation = { __typename?: 'Mutation', createAiAgentEvalScenario: { __typename?: 'AiAgentEvalScenario', id: string, name: string, type: AiAgentScenarioType, userMessage?: string | null, expectedOutput?: string | null, personaPrompt?: string | null, maxTurns?: number | null, numberOfRuns?: number | null, createdDate?: any | null, lastModifiedDate?: any | null, judges: Array<{ __typename?: 'AiAgentScenarioJudge', id: string, name: string, type: AiAgentJudgeType, configuration: any, createdDate?: any | null, lastModifiedDate?: any | null }> } };
 
 export type CreateAiAgentEvalTestMutationVariables = Exact<{
-  workflowId: string;
-  workflowNodeName: string;
-  name: string;
-  description?: string | null | undefined;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type CreateAiAgentEvalTestMutation = { createAiAgentEvalTest: { id: string, name: string, description: string | null, createdDate: any, lastModifiedDate: any } };
+export type CreateAiAgentEvalTestMutation = { __typename?: 'Mutation', createAiAgentEvalTest: { __typename?: 'AiAgentEvalTest', id: string, name: string, description?: string | null, createdDate?: any | null, lastModifiedDate?: any | null } };
 
 export type CreateAiAgentJudgeMutationVariables = Exact<{
-  workflowId: string;
-  workflowNodeName: string;
-  name: string;
-  type: Types.AiAgentJudgeType;
-  configuration: any;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  type: AiAgentJudgeType;
+  configuration: Scalars['Map']['input'];
 }>;
 
 
-export type CreateAiAgentJudgeMutation = { createAiAgentJudge: { id: string, name: string, type: Types.AiAgentJudgeType, configuration: any, createdDate: any, lastModifiedDate: any } };
+export type CreateAiAgentJudgeMutation = { __typename?: 'Mutation', createAiAgentJudge: { __typename?: 'AiAgentJudge', id: string, name: string, type: AiAgentJudgeType, configuration: any, createdDate?: any | null, lastModifiedDate?: any | null } };
 
 export type CreateAiAgentScenarioJudgeMutationVariables = Exact<{
-  agentEvalScenarioId: string | number;
-  name: string;
-  type: Types.AiAgentJudgeType;
-  configuration: any;
+  agentEvalScenarioId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  type: AiAgentJudgeType;
+  configuration: Scalars['Map']['input'];
 }>;
 
 
-export type CreateAiAgentScenarioJudgeMutation = { createAiAgentScenarioJudge: { id: string, name: string, type: Types.AiAgentJudgeType, configuration: any, createdDate: any, lastModifiedDate: any } };
+export type CreateAiAgentScenarioJudgeMutation = { __typename?: 'Mutation', createAiAgentScenarioJudge: { __typename?: 'AiAgentScenarioJudge', id: string, name: string, type: AiAgentJudgeType, configuration: any, createdDate?: any | null, lastModifiedDate?: any | null } };
 
 export type CreateAiAgentScenarioToolSimulationMutationVariables = Exact<{
-  agentEvalScenarioId: string | number;
-  toolName: string;
-  responsePrompt: string;
-  simulationModel?: string | null | undefined;
+  agentEvalScenarioId: Scalars['ID']['input'];
+  toolName: Scalars['String']['input'];
+  responsePrompt: Scalars['String']['input'];
+  simulationModel?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type CreateAiAgentScenarioToolSimulationMutation = { createAiAgentScenarioToolSimulation: { id: string, toolName: string, responsePrompt: string, simulationModel: string | null } };
+export type CreateAiAgentScenarioToolSimulationMutation = { __typename?: 'Mutation', createAiAgentScenarioToolSimulation: { __typename?: 'AiAgentScenarioToolSimulation', id: string, toolName: string, responsePrompt: string, simulationModel?: string | null } };
 
 export type DeleteAiAgentEvalScenarioMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteAiAgentEvalScenarioMutation = { deleteAiAgentEvalScenario: boolean };
+export type DeleteAiAgentEvalScenarioMutation = { __typename?: 'Mutation', deleteAiAgentEvalScenario: boolean };
 
 export type DeleteAiAgentEvalTestMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteAiAgentEvalTestMutation = { deleteAiAgentEvalTest: boolean };
+export type DeleteAiAgentEvalTestMutation = { __typename?: 'Mutation', deleteAiAgentEvalTest: boolean };
 
 export type DeleteAiAgentJudgeMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteAiAgentJudgeMutation = { deleteAiAgentJudge: boolean };
+export type DeleteAiAgentJudgeMutation = { __typename?: 'Mutation', deleteAiAgentJudge: boolean };
 
 export type DeleteAiAgentScenarioJudgeMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteAiAgentScenarioJudgeMutation = { deleteAiAgentScenarioJudge: boolean };
+export type DeleteAiAgentScenarioJudgeMutation = { __typename?: 'Mutation', deleteAiAgentScenarioJudge: boolean };
 
 export type DeleteAiAgentScenarioToolSimulationMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteAiAgentScenarioToolSimulationMutation = { deleteAiAgentScenarioToolSimulation: boolean };
+export type DeleteAiAgentScenarioToolSimulationMutation = { __typename?: 'Mutation', deleteAiAgentScenarioToolSimulation: boolean };
 
 export type StartAiAgentEvalRunMutationVariables = Exact<{
-  agentEvalTestId: string | number;
-  name: string;
-  environmentId: string | number;
-  scenarioIds?: Array<string | number> | string | number | null | undefined;
-  aiAgentJudgeIds?: Array<string | number> | string | number | null | undefined;
+  agentEvalTestId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  environmentId: Scalars['ID']['input'];
+  scenarioIds?: InputMaybe<Array<Scalars['ID']['input']> | Scalars['ID']['input']>;
+  aiAgentJudgeIds?: InputMaybe<Array<Scalars['ID']['input']> | Scalars['ID']['input']>;
 }>;
 
 
-export type StartAiAgentEvalRunMutation = { startAiAgentEvalRun: { id: string, name: string, status: Types.AiAgentEvalRunStatus, totalScenarios: number, completedScenarios: number, agentVersion: string | null, createdDate: any } };
+export type StartAiAgentEvalRunMutation = { __typename?: 'Mutation', startAiAgentEvalRun: { __typename?: 'AiAgentEvalRun', id: string, name: string, status: AiAgentEvalRunStatus, totalScenarios: number, completedScenarios: number, agentVersion?: string | null, createdDate?: any | null } };
 
 export type UpdateAiAgentEvalScenarioMutationVariables = Exact<{
-  id: string | number;
-  name?: string | null | undefined;
-  userMessage?: string | null | undefined;
-  expectedOutput?: string | null | undefined;
-  personaPrompt?: string | null | undefined;
-  maxTurns?: number | null | undefined;
-  numberOfRuns?: number | null | undefined;
+  id: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  userMessage?: InputMaybe<Scalars['String']['input']>;
+  expectedOutput?: InputMaybe<Scalars['String']['input']>;
+  personaPrompt?: InputMaybe<Scalars['String']['input']>;
+  maxTurns?: InputMaybe<Scalars['Int']['input']>;
+  numberOfRuns?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type UpdateAiAgentEvalScenarioMutation = { updateAiAgentEvalScenario: { id: string, name: string, type: Types.AiAgentScenarioType, userMessage: string | null, expectedOutput: string | null, personaPrompt: string | null, maxTurns: number | null, numberOfRuns: number | null, createdDate: any, lastModifiedDate: any, judges: Array<{ id: string, name: string, type: Types.AiAgentJudgeType, configuration: any, createdDate: any, lastModifiedDate: any }> } };
+export type UpdateAiAgentEvalScenarioMutation = { __typename?: 'Mutation', updateAiAgentEvalScenario: { __typename?: 'AiAgentEvalScenario', id: string, name: string, type: AiAgentScenarioType, userMessage?: string | null, expectedOutput?: string | null, personaPrompt?: string | null, maxTurns?: number | null, numberOfRuns?: number | null, createdDate?: any | null, lastModifiedDate?: any | null, judges: Array<{ __typename?: 'AiAgentScenarioJudge', id: string, name: string, type: AiAgentJudgeType, configuration: any, createdDate?: any | null, lastModifiedDate?: any | null }> } };
 
 export type UpdateAiAgentEvalTestMutationVariables = Exact<{
-  id: string | number;
-  name?: string | null | undefined;
-  description?: string | null | undefined;
+  id: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type UpdateAiAgentEvalTestMutation = { updateAiAgentEvalTest: { id: string, name: string, description: string | null, createdDate: any, lastModifiedDate: any } };
+export type UpdateAiAgentEvalTestMutation = { __typename?: 'Mutation', updateAiAgentEvalTest: { __typename?: 'AiAgentEvalTest', id: string, name: string, description?: string | null, createdDate?: any | null, lastModifiedDate?: any | null } };
 
 export type UpdateAiAgentJudgeMutationVariables = Exact<{
-  id: string | number;
-  name?: string | null | undefined;
-  configuration?: any;
+  id: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  configuration?: InputMaybe<Scalars['Map']['input']>;
 }>;
 
 
-export type UpdateAiAgentJudgeMutation = { updateAiAgentJudge: { id: string, name: string, type: Types.AiAgentJudgeType, configuration: any, createdDate: any, lastModifiedDate: any } };
+export type UpdateAiAgentJudgeMutation = { __typename?: 'Mutation', updateAiAgentJudge: { __typename?: 'AiAgentJudge', id: string, name: string, type: AiAgentJudgeType, configuration: any, createdDate?: any | null, lastModifiedDate?: any | null } };
 
 export type UpdateAiAgentScenarioJudgeMutationVariables = Exact<{
-  id: string | number;
-  name?: string | null | undefined;
-  configuration?: any;
+  id: Scalars['ID']['input'];
+  name?: InputMaybe<Scalars['String']['input']>;
+  configuration?: InputMaybe<Scalars['Map']['input']>;
 }>;
 
 
-export type UpdateAiAgentScenarioJudgeMutation = { updateAiAgentScenarioJudge: { id: string, name: string, type: Types.AiAgentJudgeType, configuration: any, createdDate: any, lastModifiedDate: any } };
+export type UpdateAiAgentScenarioJudgeMutation = { __typename?: 'Mutation', updateAiAgentScenarioJudge: { __typename?: 'AiAgentScenarioJudge', id: string, name: string, type: AiAgentJudgeType, configuration: any, createdDate?: any | null, lastModifiedDate?: any | null } };
 
 export type UpdateAiAgentScenarioToolSimulationMutationVariables = Exact<{
-  id: string | number;
-  toolName?: string | null | undefined;
-  responsePrompt?: string | null | undefined;
-  simulationModel?: string | null | undefined;
+  id: Scalars['ID']['input'];
+  toolName?: InputMaybe<Scalars['String']['input']>;
+  responsePrompt?: InputMaybe<Scalars['String']['input']>;
+  simulationModel?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type UpdateAiAgentScenarioToolSimulationMutation = { updateAiAgentScenarioToolSimulation: { id: string, toolName: string, responsePrompt: string, simulationModel: string | null } };
+export type UpdateAiAgentScenarioToolSimulationMutation = { __typename?: 'Mutation', updateAiAgentScenarioToolSimulation: { __typename?: 'AiAgentScenarioToolSimulation', id: string, toolName: string, responsePrompt: string, simulationModel?: string | null } };
+
+export type AiHubTaskArtifactsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  environment?: InputMaybe<Scalars['Int']['input']>;
+  userId?: InputMaybe<Scalars['ID']['input']>;
+  kind?: InputMaybe<AiHubTaskArtifactKind>;
+  from?: InputMaybe<Scalars['Long']['input']>;
+  to?: InputMaybe<Scalars['Long']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  size?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type AiHubTaskArtifactsQuery = { __typename?: 'Query', aiHubTaskArtifacts: { __typename?: 'AiHubTaskArtifactPage', totalCount: any, hasMore: boolean, pageClamped: boolean, sizeClamped: boolean, items: Array<{ __typename?: 'AiHubTaskArtifact', id: string, taskId: string, kind: AiHubTaskArtifactKind, status: AiHubTaskArtifactStatus, artifactId: string, artifactName: string, metadataJson?: string | null, environmentId: any, createdAt?: any | null, statusChangedAt?: any | null }> } };
+
+export type DeleteAiHubTaskArtifactMutationVariables = Exact<{
+  input: DeleteAiHubTaskArtifactInput;
+}>;
+
+
+export type DeleteAiHubTaskArtifactMutation = { __typename?: 'Mutation', deleteAiHubTaskArtifact: boolean };
+
+export type RecordReferencedAiHubTaskArtifactMutationVariables = Exact<{
+  input: RecordReferencedAiHubTaskArtifactInput;
+}>;
+
+
+export type RecordReferencedAiHubTaskArtifactMutation = { __typename?: 'Mutation', recordReferencedAiHubTaskArtifact: { __typename?: 'AiHubTaskArtifact', id: string, taskId: string, kind: AiHubTaskArtifactKind, status: AiHubTaskArtifactStatus, artifactId: string, artifactName: string, environmentId: any, createdAt?: any | null } };
+
+export type AddAiHubPersonalAgentResourceMutationVariables = Exact<{
+  input: AddAiHubPersonalAgentResourceInput;
+}>;
+
+
+export type AddAiHubPersonalAgentResourceMutation = { __typename?: 'Mutation', addAiHubPersonalAgentResource: { __typename?: 'AiHubPersonalAgentResource', id: string, aiHubPersonalAgentId: any, kind: AiHubPersonalAgentResourceKind, resourceId: string, resourceName: string, createdAt?: any | null } };
+
+export type AddAiHubPersonalAgentToolMutationVariables = Exact<{
+  input: AddAiHubPersonalAgentToolInput;
+}>;
+
+
+export type AddAiHubPersonalAgentToolMutation = { __typename?: 'Mutation', addAiHubPersonalAgentTool: { __typename?: 'AiHubPersonalAgentTool', id: string, aiHubPersonalAgentId: any, componentName: string, componentVersion: number, operationName: string, connectionId?: any | null, parameters?: any | null, createdAt?: any | null } };
+
+export type AiHubPersonalAgentQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AiHubPersonalAgentQuery = { __typename?: 'Query', aiHubPersonalAgent?: { __typename?: 'AiHubPersonalAgent', id: string, workspaceId: any, userId: any, name: string, title?: string | null, description?: string | null, instructions?: string | null, environmentId: any, llmProvider?: string | null, llmModel?: string | null, createdAt?: any | null, updatedAt?: any | null, tools: Array<{ __typename?: 'AiHubPersonalAgentTool', id: string, aiHubPersonalAgentId: any, componentName: string, componentVersion: number, operationName: string, connectionId?: any | null, parameters?: any | null, createdAt?: any | null }>, resources: Array<{ __typename?: 'AiHubPersonalAgentResource', id: string, aiHubPersonalAgentId: any, kind: AiHubPersonalAgentResourceKind, resourceId: string, resourceName: string, createdAt?: any | null }>, schedule?: { __typename?: 'AiHubPersonalAgentSchedule', id: string, aiHubPersonalAgentId: string, title: string, prompt: string, frequencyKind: ScheduleFrequencyKind, intervalMinutes?: number | null, minuteOfHour?: number | null, timeOfDay?: string | null, dayOfWeek?: number | null, dayOfMonth?: number | null, cronExpression?: string | null, effectiveCronExpression: string, zoneId: string, startDate?: string | null, lifecycleKind: ScheduleLifecycleKind, maxRuns?: number | null, remainingRuns?: number | null, enabled: boolean, lastRunAt?: string | null, nextRunAt?: string | null } | null } | null };
+
+export type AiHubPersonalAgentScheduleFieldsFragment = { __typename?: 'AiHubPersonalAgentSchedule', id: string, aiHubPersonalAgentId: string, title: string, prompt: string, frequencyKind: ScheduleFrequencyKind, intervalMinutes?: number | null, minuteOfHour?: number | null, timeOfDay?: string | null, dayOfWeek?: number | null, dayOfMonth?: number | null, cronExpression?: string | null, effectiveCronExpression: string, zoneId: string, startDate?: string | null, lifecycleKind: ScheduleLifecycleKind, maxRuns?: number | null, remainingRuns?: number | null, enabled: boolean, lastRunAt?: string | null, nextRunAt?: string | null };
+
+export type AiHubPersonalAgentsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  environment: Scalars['Int']['input'];
+}>;
+
+
+export type AiHubPersonalAgentsQuery = { __typename?: 'Query', aiHubPersonalAgents: Array<{ __typename?: 'AiHubPersonalAgent', id: string, workspaceId: any, userId: any, name: string, title?: string | null, description?: string | null, instructions?: string | null, environmentId: any, llmProvider?: string | null, llmModel?: string | null, createdAt?: any | null, updatedAt?: any | null, tools: Array<{ __typename?: 'AiHubPersonalAgentTool', id: string, aiHubPersonalAgentId: any, componentName: string, componentVersion: number, operationName: string, createdAt?: any | null }> }> };
+
+export type CreateAiHubPersonalAgentMutationVariables = Exact<{
+  input: CreateAiHubPersonalAgentInput;
+}>;
+
+
+export type CreateAiHubPersonalAgentMutation = { __typename?: 'Mutation', createAiHubPersonalAgent: { __typename?: 'AiHubPersonalAgent', id: string, workspaceId: any, userId: any, name: string, title?: string | null, description?: string | null, instructions?: string | null, environmentId: any, llmProvider?: string | null, llmModel?: string | null, createdAt?: any | null, updatedAt?: any | null } };
+
+export type CreateAiHubPersonalAgentTaskMutationVariables = Exact<{
+  input: CreateAiHubPersonalAgentTaskInput;
+}>;
+
+
+export type CreateAiHubPersonalAgentTaskMutation = { __typename?: 'Mutation', createAiHubPersonalAgentTask: { __typename?: 'AiHubTask', id: string, workspaceId: any, userId: any, threadId: string, title?: string | null, lastPreview?: string | null, messageCount: number, status: AiHubTaskStatus, environmentId: any, createdAt?: any | null, updatedAt?: any | null, kind: AiHubTaskKind, workflowExecutionId?: string | null, projectDeploymentId?: any | null, aiHubPersonalAgentId?: any | null, autoTitled: boolean } };
+
+export type DeleteAiHubPersonalAgentMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiHubPersonalAgentMutation = { __typename?: 'Mutation', deleteAiHubPersonalAgent: boolean };
+
+export type RemoveAiHubPersonalAgentResourceMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type RemoveAiHubPersonalAgentResourceMutation = { __typename?: 'Mutation', removeAiHubPersonalAgentResource: boolean };
+
+export type RemoveAiHubPersonalAgentToolMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  toolId: Scalars['ID']['input'];
+}>;
+
+
+export type RemoveAiHubPersonalAgentToolMutation = { __typename?: 'Mutation', removeAiHubPersonalAgentTool: boolean };
+
+export type SetAiHubPersonalAgentScheduleMutationVariables = Exact<{
+  input: SetAiHubPersonalAgentScheduleInput;
+}>;
+
+
+export type SetAiHubPersonalAgentScheduleMutation = { __typename?: 'Mutation', setAiHubPersonalAgentSchedule: { __typename?: 'AiHubPersonalAgent', id: string, schedule?: { __typename?: 'AiHubPersonalAgentSchedule', id: string, aiHubPersonalAgentId: string, title: string, prompt: string, frequencyKind: ScheduleFrequencyKind, intervalMinutes?: number | null, minuteOfHour?: number | null, timeOfDay?: string | null, dayOfWeek?: number | null, dayOfMonth?: number | null, cronExpression?: string | null, effectiveCronExpression: string, zoneId: string, startDate?: string | null, lifecycleKind: ScheduleLifecycleKind, maxRuns?: number | null, remainingRuns?: number | null, enabled: boolean, lastRunAt?: string | null, nextRunAt?: string | null } | null } };
+
+export type UpdateAiHubPersonalAgentMutationVariables = Exact<{
+  input: UpdateAiHubPersonalAgentInput;
+}>;
+
+
+export type UpdateAiHubPersonalAgentMutation = { __typename?: 'Mutation', updateAiHubPersonalAgent: { __typename?: 'AiHubPersonalAgent', id: string, workspaceId: any, userId: any, name: string, title?: string | null, description?: string | null, instructions?: string | null, environmentId: any, llmProvider?: string | null, llmModel?: string | null, createdAt?: any | null, updatedAt?: any | null } };
+
+export type UpdateAiHubPersonalAgentToolConfigMutationVariables = Exact<{
+  input: UpdateAiHubPersonalAgentToolConfigInput;
+}>;
+
+
+export type UpdateAiHubPersonalAgentToolConfigMutation = { __typename?: 'Mutation', updateAiHubPersonalAgentToolConfig: { __typename?: 'AiHubPersonalAgentTool', id: string, aiHubPersonalAgentId: any, componentName: string, componentVersion: number, operationName: string, connectionId?: any | null, parameters?: any | null, createdAt?: any | null } };
+
+export type AiHubTaskToolableComponentsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiHubTaskToolableComponentsQuery = { __typename?: 'Query', aiHubTaskToolableComponents: Array<{ __typename?: 'ToolableComponent', componentName: string, componentVersion: number, description?: string | null, icon?: string | null, title?: string | null, tools: Array<{ __typename?: 'ToolableClusterElement', description?: string | null, name: string, title?: string | null }> }> };
+
+export type AiHubTaskToolsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  taskId: Scalars['ID']['input'];
+}>;
+
+
+export type AiHubTaskToolsQuery = { __typename?: 'Query', aiHubTaskTools: Array<{ __typename?: 'AiHubTaskToolBinding', clusterElementName: string, componentName: string, componentVersion: number, connectionId?: string | null, taskComponentId: string, taskId: string, taskToolId: string, environment: number, parameters: any }> };
+
+export type AttachAiHubTaskToolMutationVariables = Exact<{
+  input: AttachAiHubTaskToolInput;
+}>;
+
+
+export type AttachAiHubTaskToolMutation = { __typename?: 'Mutation', attachAiHubTaskTool: { __typename?: 'AiHubTaskToolBinding', clusterElementName: string, componentName: string, componentVersion: number, connectionId?: string | null, taskComponentId: string, taskId: string, taskToolId: string, environment: number, parameters: any } };
+
+export type DetachAiHubTaskComponentMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  taskComponentId: Scalars['ID']['input'];
+}>;
+
+
+export type DetachAiHubTaskComponentMutation = { __typename?: 'Mutation', detachAiHubTaskComponent: boolean };
+
+export type RemoveAiHubTaskToolMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  taskToolId: Scalars['ID']['input'];
+}>;
+
+
+export type RemoveAiHubTaskToolMutation = { __typename?: 'Mutation', removeAiHubTaskTool: boolean };
+
+export type UpdateAiHubTaskToolParametersMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  taskToolId: Scalars['ID']['input'];
+  parameters: Scalars['Any']['input'];
+}>;
+
+
+export type UpdateAiHubTaskToolParametersMutation = { __typename?: 'Mutation', updateAiHubTaskToolParameters: { __typename?: 'AiHubTaskToolBinding', clusterElementName: string, componentName: string, componentVersion: number, connectionId?: string | null, taskComponentId: string, taskId: string, taskToolId: string, environment: number, parameters: any } };
+
+export type AiHubTaskArtifactsByAiHubTaskQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AiHubTaskArtifactsByAiHubTaskQuery = { __typename?: 'Query', aiHubTaskArtifactsByAiHubTask: Array<{ __typename?: 'AiHubTaskArtifact', id: string, taskId: string, kind: AiHubTaskArtifactKind, status: AiHubTaskArtifactStatus, artifactId: string, artifactName: string, metadataJson?: string | null, environmentId: any, createdAt?: any | null, statusChangedAt?: any | null }> };
+
+export type AiHubTaskMessagesQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AiHubTaskMessagesQuery = { __typename?: 'Query', aiHubTaskMessages: Array<{ __typename?: 'AiHubTaskMessage', role: string, content: string, timestamp: any }> };
+
+export type AiHubTasksQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  environment: Scalars['Int']['input'];
+  status?: InputMaybe<AiHubTaskStatus>;
+}>;
+
+
+export type AiHubTasksQuery = { __typename?: 'Query', aiHubTasks: Array<{ __typename?: 'AiHubTask', id: string, workspaceId: any, userId: any, threadId: string, title?: string | null, lastPreview?: string | null, messageCount: number, status: AiHubTaskStatus, environmentId: any, createdAt?: any | null, updatedAt?: any | null, kind: AiHubTaskKind, workflowExecutionId?: string | null, projectDeploymentId?: any | null, aiHubPersonalAgentId?: any | null, autoTitled: boolean }> };
+
+export type BulkArchiveWorkflowChatAiHubTasksMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  environment: Scalars['Int']['input'];
+}>;
+
+
+export type BulkArchiveWorkflowChatAiHubTasksMutation = { __typename?: 'Mutation', bulkArchiveWorkflowChatAiHubTasks: number };
+
+export type CancelAiHubRunMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+  runId?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type CancelAiHubRunMutation = { __typename?: 'Mutation', cancelAiHubRun: boolean };
+
+export type CancelWorkflowChatTurnMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type CancelWorkflowChatTurnMutation = { __typename?: 'Mutation', cancelWorkflowChatTurn: boolean };
+
+export type CreateAiHubTaskMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  environment: Scalars['Int']['input'];
+  threadId: Scalars['String']['input'];
+}>;
+
+
+export type CreateAiHubTaskMutation = { __typename?: 'Mutation', createAiHubTask: { __typename?: 'AiHubTask', id: string, workspaceId: any, userId: any, threadId: string, title?: string | null, lastPreview?: string | null, messageCount: number, status: AiHubTaskStatus, environmentId: any, createdAt?: any | null, updatedAt?: any | null, kind: AiHubTaskKind, workflowExecutionId?: string | null, projectDeploymentId?: any | null, aiHubPersonalAgentId?: any | null, autoTitled: boolean } };
+
+export type CreateWorkflowChatAiHubTaskMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  environment: Scalars['Int']['input'];
+  workflowExecutionId: Scalars['String']['input'];
+  projectDeploymentId: Scalars['ID']['input'];
+  title?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type CreateWorkflowChatAiHubTaskMutation = { __typename?: 'Mutation', createWorkflowChatAiHubTask: { __typename?: 'AiHubTask', id: string, workspaceId: any, userId: any, threadId: string, title?: string | null, lastPreview?: string | null, messageCount: number, status: AiHubTaskStatus, environmentId: any, createdAt?: any | null, updatedAt?: any | null, kind: AiHubTaskKind, workflowExecutionId?: string | null, projectDeploymentId?: any | null, aiHubPersonalAgentId?: any | null, autoTitled: boolean } };
+
+export type DeleteAiHubTaskMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiHubTaskMutation = { __typename?: 'Mutation', deleteAiHubTask: boolean };
+
+export type GenerateAiHubTaskTitleMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type GenerateAiHubTaskTitleMutation = { __typename?: 'Mutation', generateAiHubTaskTitle: { __typename?: 'AiHubTask', id: string, workspaceId: any, userId: any, threadId: string, title?: string | null, lastPreview?: string | null, messageCount: number, status: AiHubTaskStatus, environmentId: any, createdAt?: any | null, updatedAt?: any | null, kind: AiHubTaskKind, workflowExecutionId?: string | null, projectDeploymentId?: any | null, aiHubPersonalAgentId?: any | null, autoTitled: boolean } };
+
+export type TruncateAiHubTaskMessagesMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+  fromMessageIndex: Scalars['Int']['input'];
+}>;
+
+
+export type TruncateAiHubTaskMessagesMutation = { __typename?: 'Mutation', truncateAiHubTaskMessages: number };
+
+export type UpdateAiHubTaskMutationVariables = Exact<{
+  input: AiHubTaskPatchInput;
+}>;
+
+
+export type UpdateAiHubTaskMutation = { __typename?: 'Mutation', updateAiHubTask: { __typename?: 'AiHubTask', id: string, workspaceId: any, userId: any, threadId: string, title?: string | null, lastPreview?: string | null, messageCount: number, status: AiHubTaskStatus, environmentId: any, createdAt?: any | null, updatedAt?: any | null, kind: AiHubTaskKind, workflowExecutionId?: string | null, projectDeploymentId?: any | null, aiHubPersonalAgentId?: any | null, autoTitled: boolean } };
+
+export type AiHubWorkspaceSettingsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiHubWorkspaceSettingsQuery = { __typename?: 'Query', aiHubWorkspaceSettings?: { __typename?: 'AiHubWorkspaceSettings', workspaceId: string, voiceWebhookUrl?: string | null } | null };
+
+export type UpdateAiHubVoiceWebhookUrlMutationVariables = Exact<{
+  input: UpdateAiHubVoiceWebhookUrlInput;
+}>;
+
+
+export type UpdateAiHubVoiceWebhookUrlMutation = { __typename?: 'Mutation', updateAiHubVoiceWebhookUrl?: { __typename?: 'AiHubWorkspaceSettings', workspaceId: string, voiceWebhookUrl?: string | null } | null };
+
+export type AiAutoMemoriesQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  environment: Scalars['Int']['input'];
+  memoryType?: InputMaybe<AiAutoMemoryType>;
+}>;
+
+
+export type AiAutoMemoriesQuery = { __typename?: 'Query', aiAutoMemories: Array<{ __typename?: 'AiAutoMemory', id: string, workspaceId: any, userId: any, name: string, title: string, description?: string | null, memoryType: AiAutoMemoryType, content: string, environmentId: any, createdAt?: any | null, updatedAt?: any | null }> };
+
+export type AiAutoMemoryQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AiAutoMemoryQuery = { __typename?: 'Query', aiAutoMemory?: { __typename?: 'AiAutoMemory', id: string, workspaceId: any, userId: any, name: string, title: string, description?: string | null, memoryType: AiAutoMemoryType, content: string, environmentId: any, createdAt?: any | null, updatedAt?: any | null } | null };
+
+export type DeleteAiAutoMemoryMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiAutoMemoryMutation = { __typename?: 'Mutation', deleteAiAutoMemory: boolean };
+
+export type UpdateAiAutoMemoryMutationVariables = Exact<{
+  input: UpdateAiAutoMemoryInput;
+}>;
+
+
+export type UpdateAiAutoMemoryMutation = { __typename?: 'Mutation', updateAiAutoMemory: { __typename?: 'AiAutoMemory', id: string, workspaceId: any, userId: any, name: string, title: string, description?: string | null, memoryType: AiAutoMemoryType, content: string, environmentId: any, createdAt?: any | null, updatedAt?: any | null } };
 
 export type AiSkillQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type AiSkillQuery = { aiSkill: { id: string, name: string, description: string | null, createdDate: any, lastModifiedDate: any } };
+export type AiSkillQuery = { __typename?: 'Query', aiSkill: { __typename?: 'AiSkill', id: string, name: string, description?: string | null, createdDate?: any | null, lastModifiedDate?: any | null } };
 
 export type AiSkillFileContentQueryVariables = Exact<{
-  id: string | number;
-  path: string;
+  id: Scalars['ID']['input'];
+  path: Scalars['String']['input'];
 }>;
 
 
-export type AiSkillFileContentQuery = { aiSkillFileContent: string };
+export type AiSkillFileContentQuery = { __typename?: 'Query', aiSkillFileContent: string };
 
 export type AiSkillFilePathsQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type AiSkillFilePathsQuery = { aiSkillFilePaths: Array<string> };
+export type AiSkillFilePathsQuery = { __typename?: 'Query', aiSkillFilePaths: Array<string> };
 
 export type AiSkillsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type AiSkillsQuery = { aiSkills: Array<{ id: string, name: string, description: string | null, createdDate: any, lastModifiedDate: any }> };
+export type AiSkillsQuery = { __typename?: 'Query', aiSkills: Array<{ __typename?: 'AiSkill', id: string, name: string, description?: string | null, createdDate?: any | null, lastModifiedDate?: any | null }> };
 
 export type CreateAiSkillMutationVariables = Exact<{
-  name: string;
-  description?: string | null | undefined;
-  filename: string;
-  fileBytes: string;
+  name: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  filename: Scalars['String']['input'];
+  fileBytes: Scalars['String']['input'];
 }>;
 
 
-export type CreateAiSkillMutation = { createAiSkill: { id: string, name: string, description: string | null, createdDate: any, lastModifiedDate: any } };
+export type CreateAiSkillMutation = { __typename?: 'Mutation', createAiSkill: { __typename?: 'AiSkill', id: string, name: string, description?: string | null, createdDate?: any | null, lastModifiedDate?: any | null } };
 
 export type CreateAiSkillFromInstructionsMutationVariables = Exact<{
-  name: string;
-  description?: string | null | undefined;
-  instructions: string;
+  name: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  instructions: Scalars['String']['input'];
 }>;
 
 
-export type CreateAiSkillFromInstructionsMutation = { createAiSkillFromInstructions: { id: string, name: string, description: string | null, createdDate: any, lastModifiedDate: any } };
+export type CreateAiSkillFromInstructionsMutation = { __typename?: 'Mutation', createAiSkillFromInstructions: { __typename?: 'AiSkill', id: string, name: string, description?: string | null, createdDate?: any | null, lastModifiedDate?: any | null } };
 
 export type DeleteAiSkillMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteAiSkillMutation = { deleteAiSkill: boolean };
+export type DeleteAiSkillMutation = { __typename?: 'Mutation', deleteAiSkill: boolean };
 
 export type UpdateAiSkillMutationVariables = Exact<{
-  id: string | number;
-  name: string;
-  description?: string | null | undefined;
+  id: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type UpdateAiSkillMutation = { updateAiSkill: { id: string, name: string, description: string | null, createdDate: any, lastModifiedDate: any } };
+export type UpdateAiSkillMutation = { __typename?: 'Mutation', updateAiSkill: { __typename?: 'AiSkill', id: string, name: string, description?: string | null, createdDate?: any | null, lastModifiedDate?: any | null } };
 
 export type UpdateAiSkillContentMutationVariables = Exact<{
-  id: string | number;
-  path?: string | null | undefined;
-  content: string;
+  id: Scalars['ID']['input'];
+  path?: InputMaybe<Scalars['String']['input']>;
+  content: Scalars['String']['input'];
 }>;
 
 
-export type UpdateAiSkillContentMutation = { updateAiSkillContent: { description: string | null, id: string, lastModifiedDate: any, name: string } };
+export type UpdateAiSkillContentMutation = { __typename?: 'Mutation', updateAiSkillContent: { __typename?: 'AiSkill', description?: string | null, id: string, lastModifiedDate?: any | null, name: string } };
+
+export type AuditEventsQueryVariables = Exact<{
+  principal?: InputMaybe<Scalars['String']['input']>;
+  eventType?: InputMaybe<Scalars['String']['input']>;
+  fromDate?: InputMaybe<Scalars['Long']['input']>;
+  toDate?: InputMaybe<Scalars['Long']['input']>;
+  dataSearch?: InputMaybe<Scalars['String']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  size?: InputMaybe<Scalars['Int']['input']>;
+}>;
+
+
+export type AuditEventsQuery = { __typename?: 'Query', auditEvents: { __typename?: 'AuditEventPageType', number: number, size: number, totalElements: number, totalPages: number, content: Array<{ __typename?: 'AuditEventType', eventDate: any, eventType: string, id: string, principal?: string | null, data: Array<{ __typename?: 'AuditEventDataEntryType', key: string, value: string }> }> } };
+
+export type AuditEventTypesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type AuditEventTypesQuery = { __typename?: 'Query', auditEventTypes: Array<string> };
+
+export type AiDatasetsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiDatasetsQuery = { __typename?: 'Query', aiDatasets: Array<{ __typename?: 'AiEvalDatasetView', archivedDate?: any | null, createdDate?: any | null, description?: string | null, id: string, name: string, tags?: string | null, workspaceId: string }> };
+
+export type AiDatasetVersionsQueryVariables = Exact<{
+  datasetId: Scalars['ID']['input'];
+}>;
+
+
+export type AiDatasetVersionsQuery = { __typename?: 'Query', aiDatasetVersions: Array<{ __typename?: 'AiEvalDatasetVersionView', createdDate?: any | null, datasetId: string, frozen: boolean, id: string, itemCount: number, label?: string | null }> };
+
+export type AiDatasetItemsQueryVariables = Exact<{
+  versionId: Scalars['ID']['input'];
+}>;
+
+
+export type AiDatasetItemsQuery = { __typename?: 'Query', aiDatasetItems: Array<{ __typename?: 'AiEvalDatasetItemView', createdDate?: any | null, datasetVersionId: string, expectedOutput?: string | null, id: string, input: string, metadata?: string | null, sourceTraceId?: string | null }> };
+
+export type AiEvalRulesQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiEvalRulesQuery = { __typename?: 'Query', aiEvalRules?: Array<{ __typename?: 'AiEvalRule', createdDate?: any | null, delaySeconds?: number | null, enabled: boolean, filters?: string | null, id: string, lastModifiedDate?: any | null, model: string, name: string, projectId?: string | null, promptTemplate: string, samplingRate: number, scoreConfigId: string, version?: number | null, workspaceId: string } | null> | null };
+
+export type AiEvalRuleQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AiEvalRuleQuery = { __typename?: 'Query', aiEvalRule?: { __typename?: 'AiEvalRule', createdDate?: any | null, delaySeconds?: number | null, enabled: boolean, filters?: string | null, id: string, lastModifiedDate?: any | null, model: string, name: string, projectId?: string | null, promptTemplate: string, samplingRate: number, scoreConfigId: string, version?: number | null, workspaceId: string } | null };
+
+export type AiEvalExecutionsQueryVariables = Exact<{
+  evalRuleId: Scalars['ID']['input'];
+}>;
+
+
+export type AiEvalExecutionsQuery = { __typename?: 'Query', aiEvalExecutions?: Array<{ __typename?: 'AiEvalExecution', createdDate?: any | null, errorMessage?: string | null, evalRuleId: string, id: string, scoreId?: string | null, status: AiEvalExecutionStatus, traceId: string } | null> | null };
+
+export type CreateAiEvalRuleMutationVariables = Exact<{
+  delaySeconds?: InputMaybe<Scalars['Int']['input']>;
+  enabled: Scalars['Boolean']['input'];
+  filters?: InputMaybe<Scalars['String']['input']>;
+  model: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  promptTemplate: Scalars['String']['input'];
+  samplingRate: Scalars['Float']['input'];
+  scoreConfigId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type CreateAiEvalRuleMutation = { __typename?: 'Mutation', createAiEvalRule?: { __typename?: 'AiEvalRule', id: string, name: string } | null };
+
+export type DeleteAiEvalRuleMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiEvalRuleMutation = { __typename?: 'Mutation', deleteAiEvalRule?: boolean | null };
+
+export type RunAiEvalRuleOnHistoricalTracesMutationVariables = Exact<{
+  ruleId: Scalars['ID']['input'];
+  startDate: Scalars['Long']['input'];
+  endDate: Scalars['Long']['input'];
+}>;
+
+
+export type RunAiEvalRuleOnHistoricalTracesMutation = { __typename?: 'Mutation', runAiEvalRuleOnHistoricalTraces?: number | null };
+
+export type UpdateAiEvalRuleMutationVariables = Exact<{
+  delaySeconds?: InputMaybe<Scalars['Int']['input']>;
+  enabled: Scalars['Boolean']['input'];
+  filters?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  model: Scalars['String']['input'];
+  name: Scalars['String']['input'];
+  promptTemplate: Scalars['String']['input'];
+  samplingRate: Scalars['Float']['input'];
+  scoreConfigId: Scalars['ID']['input'];
+}>;
+
+
+export type UpdateAiEvalRuleMutation = { __typename?: 'Mutation', updateAiEvalRule?: { __typename?: 'AiEvalRule', id: string, name: string } | null };
+
+export type AiEvalScoreConfigsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiEvalScoreConfigsQuery = { __typename?: 'Query', aiEvalScoreConfigs?: Array<{ __typename?: 'AiEvalScoreConfig', categories?: string | null, createdDate?: any | null, dataType?: AiEvalScoreDataType | null, description?: string | null, id: string, lastModifiedDate?: any | null, maxValue?: number | null, minValue?: number | null, name: string, version?: number | null, workspaceId: string } | null> | null };
+
+export type AiEvalScoreConfigQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AiEvalScoreConfigQuery = { __typename?: 'Query', aiEvalScoreConfig?: { __typename?: 'AiEvalScoreConfig', categories?: string | null, createdDate?: any | null, dataType?: AiEvalScoreDataType | null, description?: string | null, id: string, lastModifiedDate?: any | null, maxValue?: number | null, minValue?: number | null, name: string, version?: number | null, workspaceId: string } | null };
+
+export type CreateAiEvalScoreConfigMutationVariables = Exact<{
+  categories?: InputMaybe<Scalars['String']['input']>;
+  dataType?: InputMaybe<AiEvalScoreDataType>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  maxValue?: InputMaybe<Scalars['Float']['input']>;
+  minValue?: InputMaybe<Scalars['Float']['input']>;
+  name: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type CreateAiEvalScoreConfigMutation = { __typename?: 'Mutation', createAiEvalScoreConfig?: { __typename?: 'AiEvalScoreConfig', id: string, name: string } | null };
+
+export type DeleteAiEvalScoreConfigMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiEvalScoreConfigMutation = { __typename?: 'Mutation', deleteAiEvalScoreConfig?: boolean | null };
+
+export type UpdateAiEvalScoreConfigMutationVariables = Exact<{
+  categories?: InputMaybe<Scalars['String']['input']>;
+  dataType?: InputMaybe<AiEvalScoreDataType>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  maxValue?: InputMaybe<Scalars['Float']['input']>;
+  minValue?: InputMaybe<Scalars['Float']['input']>;
+  name: Scalars['String']['input'];
+}>;
+
+
+export type UpdateAiEvalScoreConfigMutation = { __typename?: 'Mutation', updateAiEvalScoreConfig?: { __typename?: 'AiEvalScoreConfig', id: string, name: string } | null };
+
+export type AiEvalScoresQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiEvalScoresQuery = { __typename?: 'Query', aiEvalScores?: Array<{ __typename?: 'AiEvalScore', comment?: string | null, createdBy?: string | null, createdDate?: any | null, dataType?: AiEvalScoreDataType | null, evalRuleId?: string | null, id: string, name: string, source: AiEvalScoreSource, spanId?: string | null, stringValue?: string | null, traceId: string, value?: number | null, workspaceId: string } | null> | null };
+
+export type AiEvalScoresByTraceQueryVariables = Exact<{
+  traceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiEvalScoresByTraceQuery = { __typename?: 'Query', aiEvalScoresByTrace?: Array<{ __typename?: 'AiEvalScore', comment?: string | null, createdBy?: string | null, createdDate?: any | null, dataType?: AiEvalScoreDataType | null, evalRuleId?: string | null, id: string, name: string, source: AiEvalScoreSource, spanId?: string | null, stringValue?: string | null, traceId: string, value?: number | null, workspaceId: string } | null> | null };
+
+export type CreateAiEvalScoreMutationVariables = Exact<{
+  comment?: InputMaybe<Scalars['String']['input']>;
+  dataType: AiEvalScoreDataType;
+  name: Scalars['String']['input'];
+  source: AiEvalScoreSource;
+  spanId?: InputMaybe<Scalars['ID']['input']>;
+  stringValue?: InputMaybe<Scalars['String']['input']>;
+  traceId: Scalars['ID']['input'];
+  value?: InputMaybe<Scalars['Float']['input']>;
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type CreateAiEvalScoreMutation = { __typename?: 'Mutation', createAiEvalScore?: { __typename?: 'AiEvalScore', id: string, name: string } | null };
+
+export type DeleteAiEvalScoreMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiEvalScoreMutation = { __typename?: 'Mutation', deleteAiEvalScore?: boolean | null };
+
+export type AiEvalScoreAnalyticsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  startDate: Scalars['Long']['input'];
+  endDate: Scalars['Long']['input'];
+}>;
+
+
+export type AiEvalScoreAnalyticsQuery = { __typename?: 'Query', aiEvalScoreAnalytics?: Array<{ __typename?: 'AiEvalScoreAnalytics', average?: number | null, count?: number | null, dataType?: AiEvalScoreDataType | null, max?: number | null, min?: number | null, name?: string | null, distribution?: Array<{ __typename?: 'AiEvalScoreDistributionEntry', count?: number | null, value?: string | null } | null> | null } | null> | null };
+
+export type AiEvalScoreTrendQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  startDate: Scalars['Long']['input'];
+  endDate: Scalars['Long']['input'];
+}>;
+
+
+export type AiEvalScoreTrendQuery = { __typename?: 'Query', aiEvalScoreTrend?: Array<{ __typename?: 'AiEvalScoreTrendPoint', average?: number | null, count: number, day: any } | null> | null };
+
+export type AiExperimentComparisonQueryVariables = Exact<{
+  experimentIds: Array<Scalars['ID']['input']> | Scalars['ID']['input'];
+}>;
+
+
+export type AiExperimentComparisonQuery = { __typename?: 'Query', experimentComparison?: { __typename?: 'ExperimentComparisonView', aggregateScoreDeltas: Array<{ __typename?: 'AggregateScoreDelta', scoreName: string, deltas: Array<{ __typename?: 'ExperimentScoreAverage', average?: number | null, count: number, experimentId: string }> }>, experiments: Array<{ __typename?: 'ExperimentSummary', averageLatencyMs?: number | null, completedRuns: number, failedRuns: number, id: string, model?: string | null, totalCost?: number | null, totalRuns: number }>, rows: Array<{ __typename?: 'ExperimentComparisonRow', datasetItemId: string, runsByExperiment: Array<{ __typename?: 'ExperimentRunPoint', cost?: number | null, experimentId: string, latencyMs?: number | null, runId: string, status: string, traceId?: string | null, scores: Array<{ __typename?: 'ScorePoint', dataType: string, name: string, stringValue?: string | null, value?: number | null }> }> }> } | null };
+
+export type AiExperimentsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiExperimentsQuery = { __typename?: 'Query', aiExperiments: Array<{ __typename?: 'AiEvalExperimentView', completedDate?: any | null, completedRuns: number, createdDate?: any | null, datasetVersionId: string, failedRuns: number, id: string, metadata?: string | null, model?: string | null, promptVersionId?: string | null, startedDate?: any | null, status: string, stopRequested: boolean, totalRuns: number }> };
+
+export type AiExperimentRunsQueryVariables = Exact<{
+  experimentId: Scalars['ID']['input'];
+}>;
+
+
+export type AiExperimentRunsQuery = { __typename?: 'Query', aiExperimentRuns: Array<{ __typename?: 'AiEvalExperimentRunView', cost?: number | null, createdDate?: any | null, datasetItemId: string, errorMessage?: string | null, experimentId: string, id: string, latencyMs?: number | null, status: string, traceId?: string | null }> };
+
+export type AiExperimentRunByTraceIdQueryVariables = Exact<{
+  traceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiExperimentRunByTraceIdQuery = { __typename?: 'Query', aiExperimentRunByTraceId?: { __typename?: 'AiEvalExperimentRunView', cost?: number | null, createdDate?: any | null, datasetItemId: string, errorMessage?: string | null, experimentId: string, id: string, latencyMs?: number | null, status: string, traceId?: string | null } | null };
+
+export type AiGatewayBudgetQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiGatewayBudgetQuery = { __typename?: 'Query', aiGatewayBudget?: { __typename?: 'AiGatewayBudget', alertThreshold: number, amount: string, createdDate?: any | null, enabled: boolean, enforcementMode: AiGatewayBudgetEnforcementMode, id: string, lastModifiedDate?: any | null, period: AiGatewayBudgetPeriod, version?: number | null } | null };
+
+export type CreateAiGatewayBudgetMutationVariables = Exact<{
+  input: CreateAiGatewayBudgetInput;
+}>;
+
+
+export type CreateAiGatewayBudgetMutation = { __typename?: 'Mutation', createAiGatewayBudget?: { __typename?: 'AiGatewayBudget', alertThreshold: number, amount: string, createdDate?: any | null, enabled: boolean, enforcementMode: AiGatewayBudgetEnforcementMode, id: string, lastModifiedDate?: any | null, period: AiGatewayBudgetPeriod, version?: number | null } | null };
+
+export type UpdateAiGatewayBudgetMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayBudgetInput;
+}>;
+
+
+export type UpdateAiGatewayBudgetMutation = { __typename?: 'Mutation', updateAiGatewayBudget?: { __typename?: 'AiGatewayBudget', alertThreshold: number, amount: string, createdDate?: any | null, enabled: boolean, enforcementMode: AiGatewayBudgetEnforcementMode, id: string, lastModifiedDate?: any | null, period: AiGatewayBudgetPeriod, version?: number | null } | null };
+
+export type DeleteAiGatewayBudgetMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiGatewayBudgetMutation = { __typename?: 'Mutation', deleteAiGatewayBudget?: boolean | null };
+
+export type AiGatewayModelsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type AiGatewayModelsQuery = { __typename?: 'Query', aiGatewayModels?: Array<{ __typename?: 'AiGatewayModel', alias?: string | null, capabilities?: string | null, contextWindow?: number | null, createdDate?: any | null, enabled: boolean, id: string, inputCostPerMTokens?: number | null, lastModifiedDate?: any | null, name: string, outputCostPerMTokens?: number | null, providerId: string, version?: number | null } | null> | null };
+
+export type AiGatewayModelsByProviderQueryVariables = Exact<{
+  providerId: Scalars['ID']['input'];
+}>;
+
+
+export type AiGatewayModelsByProviderQuery = { __typename?: 'Query', aiGatewayModelsByProvider?: Array<{ __typename?: 'AiGatewayModel', alias?: string | null, capabilities?: string | null, contextWindow?: number | null, createdDate?: any | null, enabled: boolean, id: string, inputCostPerMTokens?: number | null, lastModifiedDate?: any | null, name: string, outputCostPerMTokens?: number | null, providerId: string, version?: number | null } | null> | null };
+
+export type CreateAiGatewayModelMutationVariables = Exact<{
+  input: CreateAiGatewayModelInput;
+}>;
+
+
+export type CreateAiGatewayModelMutation = { __typename?: 'Mutation', createAiGatewayModel?: { __typename?: 'AiGatewayModel', alias?: string | null, capabilities?: string | null, contextWindow?: number | null, createdDate?: any | null, enabled: boolean, id: string, inputCostPerMTokens?: number | null, lastModifiedDate?: any | null, name: string, outputCostPerMTokens?: number | null, providerId: string, version?: number | null } | null };
+
+export type UpdateAiGatewayModelMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayModelInput;
+}>;
+
+
+export type UpdateAiGatewayModelMutation = { __typename?: 'Mutation', updateAiGatewayModel?: { __typename?: 'AiGatewayModel', alias?: string | null, capabilities?: string | null, contextWindow?: number | null, createdDate?: any | null, enabled: boolean, id: string, inputCostPerMTokens?: number | null, lastModifiedDate?: any | null, name: string, outputCostPerMTokens?: number | null, providerId: string, version?: number | null } | null };
+
+export type DeleteAiGatewayModelMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiGatewayModelMutation = { __typename?: 'Mutation', deleteAiGatewayModel?: boolean | null };
+
+export type PlaygroundChatCompletionMutationVariables = Exact<{
+  input: PlaygroundChatCompletionInput;
+}>;
+
+
+export type PlaygroundChatCompletionMutation = { __typename?: 'Mutation', playgroundChatCompletion?: { __typename?: 'PlaygroundChatCompletionResponse', completionTokens?: number | null, content?: string | null, cost?: number | null, finishReason?: string | null, latencyMs?: number | null, model?: string | null, promptTokens?: number | null, totalTokens?: number | null, traceId?: string | null } | null };
+
+export type AiGatewayProjectsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiGatewayProjectsQuery = { __typename?: 'Query', aiGatewayProjects: Array<{ __typename?: 'AiGatewayProject', cachingEnabled?: boolean | null, cacheTtlMinutes?: number | null, compressionEnabled?: boolean | null, createdDate?: any | null, description?: string | null, id: string, lastModifiedDate?: any | null, logRetentionDays?: number | null, name: string, retryMaxAttempts?: number | null, routingPolicyId?: string | null, slug: string, timeoutSeconds?: number | null, version?: number | null }> };
+
+export type CreateAiGatewayProjectMutationVariables = Exact<{
+  input: CreateAiGatewayProjectInput;
+}>;
+
+
+export type CreateAiGatewayProjectMutation = { __typename?: 'Mutation', createAiGatewayProject?: { __typename?: 'AiGatewayProject', id: string, name: string, slug: string } | null };
+
+export type UpdateAiGatewayProjectMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayProjectInput;
+}>;
+
+
+export type UpdateAiGatewayProjectMutation = { __typename?: 'Mutation', updateAiGatewayProject?: { __typename?: 'AiGatewayProject', id: string, name: string, slug: string } | null };
+
+export type DeleteAiGatewayProjectMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiGatewayProjectMutation = { __typename?: 'Mutation', deleteAiGatewayProject?: boolean | null };
+
+export type AiGatewayProvidersQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type AiGatewayProvidersQuery = { __typename?: 'Query', aiGatewayProviders?: Array<{ __typename?: 'AiGatewayProvider', baseUrl?: string | null, config?: string | null, createdBy?: string | null, createdDate?: any | null, enabled: boolean, id: string, lastModifiedBy?: string | null, lastModifiedDate?: any | null, name: string, type: AiGatewayProviderType, version?: number | null } | null> | null };
+
+export type AiGatewayProviderQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AiGatewayProviderQuery = { __typename?: 'Query', aiGatewayProvider?: { __typename?: 'AiGatewayProvider', baseUrl?: string | null, config?: string | null, createdBy?: string | null, createdDate?: any | null, enabled: boolean, id: string, lastModifiedBy?: string | null, lastModifiedDate?: any | null, name: string, type: AiGatewayProviderType, version?: number | null } | null };
+
+export type CreateAiGatewayProviderMutationVariables = Exact<{
+  input: CreateAiGatewayProviderInput;
+}>;
+
+
+export type CreateAiGatewayProviderMutation = { __typename?: 'Mutation', createAiGatewayProvider?: { __typename?: 'AiGatewayProvider', baseUrl?: string | null, config?: string | null, createdBy?: string | null, createdDate?: any | null, enabled: boolean, id: string, lastModifiedBy?: string | null, lastModifiedDate?: any | null, name: string, type: AiGatewayProviderType, version?: number | null } | null };
+
+export type UpdateAiGatewayProviderMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayProviderInput;
+}>;
+
+
+export type UpdateAiGatewayProviderMutation = { __typename?: 'Mutation', updateAiGatewayProvider?: { __typename?: 'AiGatewayProvider', baseUrl?: string | null, config?: string | null, createdBy?: string | null, createdDate?: any | null, enabled: boolean, id: string, lastModifiedBy?: string | null, lastModifiedDate?: any | null, name: string, type: AiGatewayProviderType, version?: number | null } | null };
+
+export type DeleteAiGatewayProviderMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiGatewayProviderMutation = { __typename?: 'Mutation', deleteAiGatewayProvider?: boolean | null };
+
+export type AiGatewayRateLimitsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiGatewayRateLimitsQuery = { __typename?: 'Query', aiGatewayRateLimits: Array<{ __typename?: 'AiGatewayRateLimit', createdDate?: any | null, enabled: boolean, id: string, lastModifiedDate?: any | null, limitType: AiGatewayRateLimitType, limitValue: number, name: string, projectId?: string | null, propertyKey?: string | null, scope: AiGatewayRateLimitScope, version?: number | null, windowSeconds: number }> };
+
+export type CreateAiGatewayRateLimitMutationVariables = Exact<{
+  input: CreateAiGatewayRateLimitInput;
+}>;
+
+
+export type CreateAiGatewayRateLimitMutation = { __typename?: 'Mutation', createAiGatewayRateLimit?: { __typename?: 'AiGatewayRateLimit', createdDate?: any | null, enabled: boolean, id: string, lastModifiedDate?: any | null, limitType: AiGatewayRateLimitType, limitValue: number, name: string, projectId?: string | null, propertyKey?: string | null, scope: AiGatewayRateLimitScope, version?: number | null, windowSeconds: number } | null };
+
+export type UpdateAiGatewayRateLimitMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayRateLimitInput;
+}>;
+
+
+export type UpdateAiGatewayRateLimitMutation = { __typename?: 'Mutation', updateAiGatewayRateLimit?: { __typename?: 'AiGatewayRateLimit', createdDate?: any | null, enabled: boolean, id: string, lastModifiedDate?: any | null, limitType: AiGatewayRateLimitType, limitValue: number, name: string, projectId?: string | null, propertyKey?: string | null, scope: AiGatewayRateLimitScope, version?: number | null, windowSeconds: number } | null };
+
+export type DeleteAiGatewayRateLimitMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiGatewayRateLimitMutation = { __typename?: 'Mutation', deleteAiGatewayRateLimit?: boolean | null };
+
+export type AiGatewayRequestLogsQueryVariables = Exact<{
+  startDate: Scalars['Long']['input'];
+  endDate: Scalars['Long']['input'];
+}>;
+
+
+export type AiGatewayRequestLogsQuery = { __typename?: 'Query', aiGatewayRequestLogs?: Array<{ __typename?: 'AiGatewayRequestLog', apiKeyId?: string | null, cacheHit?: boolean | null, cost?: string | null, createdDate?: any | null, errorMessage?: string | null, id: string, inputTokens?: number | null, latencyMs?: number | null, outputTokens?: number | null, requestId: string, requestedModel?: string | null, routedModel?: string | null, routedProvider?: string | null, routingPolicyId?: string | null, routingStrategy?: string | null, status?: number | null } | null> | null };
+
+export type AiGatewayRoutingPoliciesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type AiGatewayRoutingPoliciesQuery = { __typename?: 'Query', aiGatewayRoutingPolicies?: Array<{ __typename?: 'AiGatewayRoutingPolicy', config?: string | null, createdDate?: any | null, enabled: boolean, fallbackModel?: string | null, id: string, lastModifiedDate?: any | null, name: string, strategy: AiGatewayRoutingStrategyType, version?: number | null, deployments?: Array<{ __typename?: 'AiGatewayModelDeployment', enabled: boolean, id: string, maxRpm?: number | null, maxTpm?: number | null, modelId: string, priorityOrder: number, routingPolicyId: string, weight: number } | null> | null } | null> | null };
+
+export type CreateAiGatewayRoutingPolicyMutationVariables = Exact<{
+  input: CreateAiGatewayRoutingPolicyInput;
+}>;
+
+
+export type CreateAiGatewayRoutingPolicyMutation = { __typename?: 'Mutation', createAiGatewayRoutingPolicy?: { __typename?: 'AiGatewayRoutingPolicy', config?: string | null, createdDate?: any | null, enabled: boolean, fallbackModel?: string | null, id: string, lastModifiedDate?: any | null, name: string, strategy: AiGatewayRoutingStrategyType, version?: number | null } | null };
+
+export type UpdateAiGatewayRoutingPolicyMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayRoutingPolicyInput;
+}>;
+
+
+export type UpdateAiGatewayRoutingPolicyMutation = { __typename?: 'Mutation', updateAiGatewayRoutingPolicy?: { __typename?: 'AiGatewayRoutingPolicy', config?: string | null, createdDate?: any | null, enabled: boolean, fallbackModel?: string | null, id: string, lastModifiedDate?: any | null, name: string, strategy: AiGatewayRoutingStrategyType, version?: number | null } | null };
+
+export type DeleteAiGatewayRoutingPolicyMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiGatewayRoutingPolicyMutation = { __typename?: 'Mutation', deleteAiGatewayRoutingPolicy?: boolean | null };
+
+export type AiGatewaySpendSummariesQueryVariables = Exact<{
+  startDate: Scalars['Long']['input'];
+  endDate: Scalars['Long']['input'];
+}>;
+
+
+export type AiGatewaySpendSummariesQuery = { __typename?: 'Query', aiGatewaySpendSummaries?: Array<{ __typename?: 'AiGatewaySpendSummary', apiKeyId?: string | null, createdDate?: any | null, id: string, model?: string | null, periodEnd?: any | null, periodStart?: any | null, provider?: string | null, requestCount?: number | null, totalCost?: string | null, totalInputTokens?: any | null, totalOutputTokens?: any | null } | null> | null };
+
+export type AiGatewayWorkspaceSettingsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiGatewayWorkspaceSettingsQuery = { __typename?: 'Query', aiGatewayWorkspaceSettings?: { __typename?: 'AiGatewayWorkspaceSettings', cacheEnabled?: boolean | null, cacheTtlSeconds?: number | null, defaultRoutingPolicyId?: string | null, logRetentionDays?: number | null, redactPii?: boolean | null, retryCount?: number | null, softBudgetWarningPct?: number | null, timeoutMs?: number | null, workspaceId: string } | null };
+
+export type UpdateAiGatewayWorkspaceSettingsMutationVariables = Exact<{
+  input: AiGatewayWorkspaceSettingsInput;
+}>;
+
+
+export type UpdateAiGatewayWorkspaceSettingsMutation = { __typename?: 'Mutation', updateAiGatewayWorkspaceSettings?: { __typename?: 'AiGatewayWorkspaceSettings', cacheEnabled?: boolean | null, cacheTtlSeconds?: number | null, defaultRoutingPolicyId?: string | null, logRetentionDays?: number | null, redactPii?: boolean | null, retryCount?: number | null, softBudgetWarningPct?: number | null, timeoutMs?: number | null, workspaceId: string } | null };
+
+export type AiObservabilityAlertEventsQueryVariables = Exact<{
+  alertRuleId: Scalars['ID']['input'];
+}>;
+
+
+export type AiObservabilityAlertEventsQuery = { __typename?: 'Query', aiObservabilityAlertEvents?: Array<{ __typename?: 'AiObservabilityAlertEvent', alertRuleId: string, createdDate?: any | null, id: string, message?: string | null, status: AiObservabilityAlertEventStatus, triggeredValue?: number | null } | null> | null };
+
+export type AcknowledgeAiObservabilityAlertEventMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AcknowledgeAiObservabilityAlertEventMutation = { __typename?: 'Mutation', acknowledgeAiObservabilityAlertEvent?: { __typename?: 'AiObservabilityAlertEvent', alertRuleId: string, createdDate?: any | null, id: string, message?: string | null, status: AiObservabilityAlertEventStatus, triggeredValue?: number | null } | null };
+
+export type AiObservabilityAlertRulesQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiObservabilityAlertRulesQuery = { __typename?: 'Query', aiObservabilityAlertRules?: Array<{ __typename?: 'AiObservabilityAlertRule', channelIds?: Array<string | null> | null, condition: AiObservabilityAlertCondition, cooldownMinutes: number, createdDate?: any | null, enabled: boolean, filters?: string | null, id: string, lastModifiedDate?: any | null, metric: AiObservabilityAlertMetric, name: string, projectId?: string | null, snoozedUntil?: any | null, threshold: number, version?: number | null, windowMinutes: number } | null> | null };
+
+export type AiObservabilityAlertRuleQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AiObservabilityAlertRuleQuery = { __typename?: 'Query', aiObservabilityAlertRule?: { __typename?: 'AiObservabilityAlertRule', channelIds?: Array<string | null> | null, condition: AiObservabilityAlertCondition, cooldownMinutes: number, createdDate?: any | null, enabled: boolean, filters?: string | null, id: string, lastModifiedDate?: any | null, metric: AiObservabilityAlertMetric, name: string, projectId?: string | null, snoozedUntil?: any | null, threshold: number, version?: number | null, windowMinutes: number } | null };
+
+export type CreateAiObservabilityAlertRuleMutationVariables = Exact<{
+  input: AiObservabilityAlertRuleInput;
+}>;
+
+
+export type CreateAiObservabilityAlertRuleMutation = { __typename?: 'Mutation', createAiObservabilityAlertRule?: { __typename?: 'AiObservabilityAlertRule', channelIds?: Array<string | null> | null, condition: AiObservabilityAlertCondition, cooldownMinutes: number, createdDate?: any | null, enabled: boolean, filters?: string | null, id: string, lastModifiedDate?: any | null, metric: AiObservabilityAlertMetric, name: string, projectId?: string | null, threshold: number, version?: number | null, windowMinutes: number } | null };
+
+export type UpdateAiObservabilityAlertRuleMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: AiObservabilityAlertRuleInput;
+}>;
+
+
+export type UpdateAiObservabilityAlertRuleMutation = { __typename?: 'Mutation', updateAiObservabilityAlertRule?: { __typename?: 'AiObservabilityAlertRule', channelIds?: Array<string | null> | null, condition: AiObservabilityAlertCondition, cooldownMinutes: number, createdDate?: any | null, enabled: boolean, filters?: string | null, id: string, lastModifiedDate?: any | null, metric: AiObservabilityAlertMetric, name: string, projectId?: string | null, threshold: number, version?: number | null, windowMinutes: number } | null };
+
+export type DeleteAiObservabilityAlertRuleMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiObservabilityAlertRuleMutation = { __typename?: 'Mutation', deleteAiObservabilityAlertRule?: boolean | null };
+
+export type TestAiObservabilityAlertRuleMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type TestAiObservabilityAlertRuleMutation = { __typename?: 'Mutation', testAiObservabilityAlertRule?: number | null };
+
+export type SnoozeAiObservabilityAlertRuleMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  until: Scalars['Long']['input'];
+}>;
+
+
+export type SnoozeAiObservabilityAlertRuleMutation = { __typename?: 'Mutation', snoozeAiObservabilityAlertRule?: { __typename?: 'AiObservabilityAlertRule', id: string, snoozedUntil?: any | null } | null };
+
+export type UnsnoozeAiObservabilityAlertRuleMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type UnsnoozeAiObservabilityAlertRuleMutation = { __typename?: 'Mutation', unsnoozeAiObservabilityAlertRule?: { __typename?: 'AiObservabilityAlertRule', id: string, snoozedUntil?: any | null } | null };
+
+export type AiObservabilityExportJobsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiObservabilityExportJobsQuery = { __typename?: 'Query', aiObservabilityExportJobs?: Array<{ __typename?: 'AiObservabilityExportJob', createdBy: string, createdDate?: any | null, errorMessage?: string | null, filePath?: string | null, filters?: string | null, format: AiObservabilityExportFormat, id: string, projectId?: string | null, recordCount?: number | null, scope: AiObservabilityExportScope, status: AiObservabilityExportJobStatus, type: AiObservabilityExportJobType } | null> | null };
+
+export type AiObservabilityExportJobQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AiObservabilityExportJobQuery = { __typename?: 'Query', aiObservabilityExportJob?: { __typename?: 'AiObservabilityExportJob', createdBy: string, createdDate?: any | null, errorMessage?: string | null, filePath?: string | null, filters?: string | null, format: AiObservabilityExportFormat, id: string, projectId?: string | null, recordCount?: number | null, scope: AiObservabilityExportScope, status: AiObservabilityExportJobStatus, type: AiObservabilityExportJobType } | null };
+
+export type CreateAiObservabilityExportJobMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  format: AiObservabilityExportFormat;
+  scope: AiObservabilityExportScope;
+  filters?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type CreateAiObservabilityExportJobMutation = { __typename?: 'Mutation', createAiObservabilityExportJob?: { __typename?: 'AiObservabilityExportJob', createdBy: string, createdDate?: any | null, format: AiObservabilityExportFormat, id: string, scope: AiObservabilityExportScope, status: AiObservabilityExportJobStatus, type: AiObservabilityExportJobType } | null };
+
+export type CancelAiObservabilityExportJobMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type CancelAiObservabilityExportJobMutation = { __typename?: 'Mutation', cancelAiObservabilityExportJob?: { __typename?: 'AiObservabilityExportJob', id: string, status: AiObservabilityExportJobStatus } | null };
+
+export type AiObservabilityNotificationChannelsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiObservabilityNotificationChannelsQuery = { __typename?: 'Query', aiObservabilityNotificationChannels?: Array<{ __typename?: 'AiObservabilityNotificationChannel', config: string, createdDate?: any | null, enabled: boolean, id: string, lastModifiedDate?: any | null, name: string, type: AiObservabilityNotificationChannelType, version?: number | null } | null> | null };
+
+export type CreateAiObservabilityNotificationChannelMutationVariables = Exact<{
+  input: AiObservabilityNotificationChannelInput;
+}>;
+
+
+export type CreateAiObservabilityNotificationChannelMutation = { __typename?: 'Mutation', createAiObservabilityNotificationChannel?: { __typename?: 'AiObservabilityNotificationChannel', config: string, createdDate?: any | null, enabled: boolean, id: string, lastModifiedDate?: any | null, name: string, type: AiObservabilityNotificationChannelType, version?: number | null } | null };
+
+export type UpdateAiObservabilityNotificationChannelMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: AiObservabilityNotificationChannelInput;
+}>;
+
+
+export type UpdateAiObservabilityNotificationChannelMutation = { __typename?: 'Mutation', updateAiObservabilityNotificationChannel?: { __typename?: 'AiObservabilityNotificationChannel', config: string, createdDate?: any | null, enabled: boolean, id: string, lastModifiedDate?: any | null, name: string, type: AiObservabilityNotificationChannelType, version?: number | null } | null };
+
+export type DeleteAiObservabilityNotificationChannelMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiObservabilityNotificationChannelMutation = { __typename?: 'Mutation', deleteAiObservabilityNotificationChannel?: boolean | null };
+
+export type TestAiObservabilityNotificationChannelMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type TestAiObservabilityNotificationChannelMutation = { __typename?: 'Mutation', testAiObservabilityNotificationChannel?: boolean | null };
+
+export type AiObservabilitySessionsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiObservabilitySessionsQuery = { __typename?: 'Query', aiObservabilitySessions?: Array<{ __typename?: 'AiObservabilitySession', createdDate?: any | null, id: string, lastModifiedDate?: any | null, name?: string | null, projectId?: string | null, traceCount?: number | null, userId?: string | null, version?: number | null, workspaceId: string } | null> | null };
+
+export type AiObservabilitySessionQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AiObservabilitySessionQuery = { __typename?: 'Query', aiObservabilitySession?: { __typename?: 'AiObservabilitySession', createdDate?: any | null, id: string, lastModifiedDate?: any | null, name?: string | null, projectId?: string | null, userId?: string | null, version?: number | null, workspaceId: string, traces?: Array<{ __typename?: 'AiObservabilityTrace', createdDate?: any | null, id: string, name?: string | null, source: AiObservabilityTraceSource, status: AiObservabilityTraceStatus, totalCost?: number | null, totalInputTokens?: number | null, totalLatencyMs?: number | null, totalOutputTokens?: number | null, userId?: string | null } | null> | null } | null };
+
+export type AiObservabilityTracesQueryVariables = Exact<{
+  endDate: Scalars['Long']['input'];
+  model?: InputMaybe<Scalars['String']['input']>;
+  source?: InputMaybe<AiObservabilityTraceSource>;
+  startDate: Scalars['Long']['input'];
+  status?: InputMaybe<AiObservabilityTraceStatus>;
+  tagId?: InputMaybe<Scalars['ID']['input']>;
+  userId?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiObservabilityTracesQuery = { __typename?: 'Query', aiObservabilityTraces?: Array<{ __typename?: 'AiObservabilityTrace', createdDate?: any | null, id: string, input?: string | null, lastModifiedDate?: any | null, metadata?: string | null, name?: string | null, output?: string | null, projectId?: string | null, sessionId?: string | null, source: AiObservabilityTraceSource, status: AiObservabilityTraceStatus, totalCost?: number | null, totalInputTokens?: number | null, totalLatencyMs?: number | null, totalOutputTokens?: number | null, userId?: string | null, version?: number | null, workspaceId: string } | null> | null };
+
+export type AiObservabilityTraceQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AiObservabilityTraceQuery = { __typename?: 'Query', aiObservabilityTrace?: { __typename?: 'AiObservabilityTrace', createdDate?: any | null, id: string, input?: string | null, lastModifiedDate?: any | null, metadata?: string | null, name?: string | null, output?: string | null, projectId?: string | null, sessionId?: string | null, source: AiObservabilityTraceSource, status: AiObservabilityTraceStatus, tagIds?: Array<string> | null, totalCost?: number | null, totalInputTokens?: number | null, totalLatencyMs?: number | null, totalOutputTokens?: number | null, userId?: string | null, version?: number | null, workspaceId: string, spans?: Array<{ __typename?: 'AiObservabilitySpan', cost?: number | null, createdDate?: any | null, endTime?: any | null, id: string, input?: string | null, inputTokens?: number | null, latencyMs?: number | null, level: AiObservabilitySpanLevel, metadata?: string | null, model?: string | null, name?: string | null, output?: string | null, outputTokens?: number | null, parentSpanId?: string | null, provider?: string | null, startTime?: any | null, status: AiObservabilitySpanStatus, traceId: string, type: AiObservabilitySpanType, version?: number | null } | null> | null } | null };
+
+export type SetAiObservabilityTraceTagsMutationVariables = Exact<{
+  traceId: Scalars['ID']['input'];
+  tagIds: Array<Scalars['ID']['input']> | Scalars['ID']['input'];
+}>;
+
+
+export type SetAiObservabilityTraceTagsMutation = { __typename?: 'Mutation', setAiObservabilityTraceTags?: { __typename?: 'AiObservabilityTrace', id: string, tagIds?: Array<string> | null } | null };
+
+export type AiObservabilityWebhookDeliveriesQueryVariables = Exact<{
+  subscriptionId: Scalars['ID']['input'];
+}>;
+
+
+export type AiObservabilityWebhookDeliveriesQuery = { __typename?: 'Query', aiObservabilityWebhookDeliveries?: Array<{ __typename?: 'AiObservabilityWebhookDelivery', attemptCount: number, createdDate?: any | null, deliveredDate?: any | null, errorMessage?: string | null, eventType?: string | null, httpStatus?: number | null, id: string, status: AiObservabilityWebhookDeliveryStatus, subscriptionId: string } | null> | null };
+
+export type AiObservabilityWebhookSubscriptionsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiObservabilityWebhookSubscriptionsQuery = { __typename?: 'Query', aiObservabilityWebhookSubscriptions?: Array<{ __typename?: 'AiObservabilityWebhookSubscription', createdDate?: any | null, enabled: boolean, events: string, id: string, lastModifiedDate?: any | null, lastTriggeredDate?: any | null, name: string, projectId?: string | null, url: string, version?: number | null } | null> | null };
+
+export type AiObservabilityWebhookSubscriptionQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AiObservabilityWebhookSubscriptionQuery = { __typename?: 'Query', aiObservabilityWebhookSubscription?: { __typename?: 'AiObservabilityWebhookSubscription', createdDate?: any | null, enabled: boolean, events: string, id: string, lastModifiedDate?: any | null, lastTriggeredDate?: any | null, name: string, projectId?: string | null, url: string, version?: number | null } | null };
+
+export type CreateAiObservabilityWebhookSubscriptionMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  name: Scalars['String']['input'];
+  url: Scalars['String']['input'];
+  secret?: InputMaybe<Scalars['String']['input']>;
+  events: Scalars['String']['input'];
+  enabled: Scalars['Boolean']['input'];
+}>;
+
+
+export type CreateAiObservabilityWebhookSubscriptionMutation = { __typename?: 'Mutation', createAiObservabilityWebhookSubscription?: { __typename?: 'AiObservabilityWebhookSubscription', createdDate?: any | null, enabled: boolean, events: string, id: string, name: string, url: string, version?: number | null } | null };
+
+export type UpdateAiObservabilityWebhookSubscriptionMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  url: Scalars['String']['input'];
+  secret?: InputMaybe<Scalars['String']['input']>;
+  events: Scalars['String']['input'];
+  enabled: Scalars['Boolean']['input'];
+}>;
+
+
+export type UpdateAiObservabilityWebhookSubscriptionMutation = { __typename?: 'Mutation', updateAiObservabilityWebhookSubscription?: { __typename?: 'AiObservabilityWebhookSubscription', createdDate?: any | null, enabled: boolean, events: string, id: string, name: string, url: string, version?: number | null } | null };
+
+export type DeleteAiObservabilityWebhookSubscriptionMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiObservabilityWebhookSubscriptionMutation = { __typename?: 'Mutation', deleteAiObservabilityWebhookSubscription?: boolean | null };
+
+export type TestAiObservabilityWebhookSubscriptionMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type TestAiObservabilityWebhookSubscriptionMutation = { __typename?: 'Mutation', testAiObservabilityWebhookSubscription?: boolean | null };
+
+export type AiPromptsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type AiPromptsQuery = { __typename?: 'Query', aiPrompts?: Array<{ __typename?: 'AiPrompt', createdDate?: any | null, description?: string | null, id: string, lastModifiedDate?: any | null, name: string, projectId?: string | null, version?: number | null, versions?: Array<{ __typename?: 'AiPromptVersion', active: boolean, commitMessage?: string | null, content: string, createdBy: string, createdDate?: any | null, environment?: string | null, id: string, promptId: string, type: AiPromptVersionType, variables?: string | null, versionNumber: number, metrics?: { __typename?: 'AiPromptVersionMetrics', avgCostUsd?: number | null, avgLatencyMs?: number | null, errorRate?: number | null, invocationCount: number } | null } | null> | null } | null> | null };
+
+export type AiPromptQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type AiPromptQuery = { __typename?: 'Query', aiPrompt?: { __typename?: 'AiPrompt', createdDate?: any | null, description?: string | null, id: string, lastModifiedDate?: any | null, name: string, projectId?: string | null, version?: number | null, versions?: Array<{ __typename?: 'AiPromptVersion', active: boolean, commitMessage?: string | null, content: string, createdBy: string, createdDate?: any | null, environment?: string | null, id: string, promptId: string, type: AiPromptVersionType, variables?: string | null, versionNumber: number, metrics?: { __typename?: 'AiPromptVersionMetrics', avgCostUsd?: number | null, avgLatencyMs?: number | null, errorRate?: number | null, invocationCount: number } | null } | null> | null } | null };
+
+export type CreateAiPromptMutationVariables = Exact<{
+  input: CreateAiPromptInput;
+}>;
+
+
+export type CreateAiPromptMutation = { __typename?: 'Mutation', createAiPrompt?: { __typename?: 'AiPrompt', createdDate?: any | null, description?: string | null, id: string, lastModifiedDate?: any | null, name: string, projectId?: string | null, version?: number | null } | null };
+
+export type UpdateAiPromptMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateAiPromptInput;
+}>;
+
+
+export type UpdateAiPromptMutation = { __typename?: 'Mutation', updateAiPrompt?: { __typename?: 'AiPrompt', createdDate?: any | null, description?: string | null, id: string, lastModifiedDate?: any | null, name: string, projectId?: string | null, version?: number | null } | null };
+
+export type DeleteAiPromptMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAiPromptMutation = { __typename?: 'Mutation', deleteAiPrompt?: boolean | null };
+
+export type CreateAiPromptVersionMutationVariables = Exact<{
+  input: CreateAiPromptVersionInput;
+}>;
+
+
+export type CreateAiPromptVersionMutation = { __typename?: 'Mutation', createAiPromptVersion?: { __typename?: 'AiPromptVersion', active: boolean, commitMessage?: string | null, content: string, createdBy: string, createdDate?: any | null, environment?: string | null, id: string, promptId: string, type: AiPromptVersionType, variables?: string | null, versionNumber: number } | null };
+
+export type SetActiveAiPromptVersionMutationVariables = Exact<{
+  promptVersionId: Scalars['ID']['input'];
+  environment: Scalars['String']['input'];
+}>;
+
+
+export type SetActiveAiPromptVersionMutation = { __typename?: 'Mutation', setActiveAiPromptVersion?: boolean | null };
+
+export type WorkspaceAiGatewayModelsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type WorkspaceAiGatewayModelsQuery = { __typename?: 'Query', workspaceAiGatewayModels?: Array<{ __typename?: 'AiGatewayModel', alias?: string | null, capabilities?: string | null, contextWindow?: number | null, defaultRoutingPolicyId?: string | null, createdDate?: any | null, enabled: boolean, id: string, inputCostPerMTokens?: number | null, lastModifiedDate?: any | null, name: string, outputCostPerMTokens?: number | null, providerId: string, version?: number | null } | null> | null };
+
+export type CreateWorkspaceAiGatewayModelMutationVariables = Exact<{
+  input: CreateWorkspaceAiGatewayModelInput;
+}>;
+
+
+export type CreateWorkspaceAiGatewayModelMutation = { __typename?: 'Mutation', createWorkspaceAiGatewayModel?: { __typename?: 'AiGatewayModel', alias?: string | null, capabilities?: string | null, contextWindow?: number | null, defaultRoutingPolicyId?: string | null, createdDate?: any | null, enabled: boolean, id: string, inputCostPerMTokens?: number | null, lastModifiedDate?: any | null, name: string, outputCostPerMTokens?: number | null, providerId: string, version?: number | null } | null };
+
+export type DeleteWorkspaceAiGatewayModelMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  modelId: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteWorkspaceAiGatewayModelMutation = { __typename?: 'Mutation', deleteWorkspaceAiGatewayModel?: boolean | null };
+
+export type UpdateWorkspaceAiGatewayModelMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayModelInput;
+}>;
+
+
+export type UpdateWorkspaceAiGatewayModelMutation = { __typename?: 'Mutation', updateWorkspaceAiGatewayModel?: { __typename?: 'AiGatewayModel', alias?: string | null, capabilities?: string | null, contextWindow?: number | null, defaultRoutingPolicyId?: string | null, createdDate?: any | null, enabled: boolean, id: string, inputCostPerMTokens?: number | null, lastModifiedDate?: any | null, name: string, outputCostPerMTokens?: number | null, providerId: string, version?: number | null } | null };
+
+export type WorkspaceAiGatewayProvidersQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type WorkspaceAiGatewayProvidersQuery = { __typename?: 'Query', workspaceAiGatewayProviders?: Array<{ __typename?: 'AiGatewayProvider', baseUrl?: string | null, config?: string | null, createdBy?: string | null, createdDate?: any | null, enabled: boolean, id: string, lastModifiedBy?: string | null, lastModifiedDate?: any | null, name: string, type: AiGatewayProviderType, version?: number | null } | null> | null };
+
+export type CreateWorkspaceAiGatewayProviderMutationVariables = Exact<{
+  input: CreateWorkspaceAiGatewayProviderInput;
+}>;
+
+
+export type CreateWorkspaceAiGatewayProviderMutation = { __typename?: 'Mutation', createWorkspaceAiGatewayProvider?: { __typename?: 'AiGatewayProvider', baseUrl?: string | null, config?: string | null, createdBy?: string | null, createdDate?: any | null, enabled: boolean, id: string, lastModifiedBy?: string | null, lastModifiedDate?: any | null, name: string, type: AiGatewayProviderType, version?: number | null } | null };
+
+export type DeleteWorkspaceAiGatewayProviderMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  providerId: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteWorkspaceAiGatewayProviderMutation = { __typename?: 'Mutation', deleteWorkspaceAiGatewayProvider?: boolean | null };
+
+export type UpdateWorkspaceAiGatewayProviderMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayProviderInput;
+}>;
+
+
+export type UpdateWorkspaceAiGatewayProviderMutation = { __typename?: 'Mutation', updateWorkspaceAiGatewayProvider?: { __typename?: 'AiGatewayProvider', baseUrl?: string | null, config?: string | null, createdBy?: string | null, createdDate?: any | null, enabled: boolean, id: string, lastModifiedBy?: string | null, lastModifiedDate?: any | null, name: string, type: AiGatewayProviderType, version?: number | null } | null };
+
+export type TestWorkspaceAiGatewayProviderConnectionMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  providerId: Scalars['ID']['input'];
+}>;
+
+
+export type TestWorkspaceAiGatewayProviderConnectionMutation = { __typename?: 'Mutation', testWorkspaceAiGatewayProviderConnection?: { __typename?: 'ProviderConnectionResult', errorMessage?: string | null, latencyMs?: number | null, ok: boolean } | null };
+
+export type WorkspaceAiGatewayRequestLogsQueryVariables = Exact<{
+  endDate: Scalars['Long']['input'];
+  startDate: Scalars['Long']['input'];
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type WorkspaceAiGatewayRequestLogsQuery = { __typename?: 'Query', workspaceAiGatewayRequestLogs?: Array<{ __typename?: 'AiGatewayRequestLog', apiKeyId?: string | null, cacheHit?: boolean | null, cost?: string | null, createdDate?: any | null, errorMessage?: string | null, id: string, inputTokens?: number | null, latencyMs?: number | null, outputTokens?: number | null, requestId: string, requestedModel?: string | null, routedModel?: string | null, routedProvider?: string | null, routingPolicyId?: string | null, routingStrategy?: string | null, status?: number | null } | null> | null };
+
+export type WorkspaceAiGatewayRoutingPoliciesQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type WorkspaceAiGatewayRoutingPoliciesQuery = { __typename?: 'Query', workspaceAiGatewayRoutingPolicies?: Array<{ __typename?: 'AiGatewayRoutingPolicy', config?: string | null, createdDate?: any | null, enabled: boolean, fallbackModel?: string | null, id: string, lastModifiedDate?: any | null, name: string, strategy: AiGatewayRoutingStrategyType, version?: number | null, deployments?: Array<{ __typename?: 'AiGatewayModelDeployment', enabled: boolean, id: string, maxRpm?: number | null, maxTpm?: number | null, modelId: string, priorityOrder: number, routingPolicyId: string, weight: number } | null> | null } | null> | null };
+
+export type CreateWorkspaceAiGatewayRoutingPolicyMutationVariables = Exact<{
+  input: CreateWorkspaceAiGatewayRoutingPolicyInput;
+}>;
+
+
+export type CreateWorkspaceAiGatewayRoutingPolicyMutation = { __typename?: 'Mutation', createWorkspaceAiGatewayRoutingPolicy?: { __typename?: 'AiGatewayRoutingPolicy', config?: string | null, createdDate?: any | null, enabled: boolean, fallbackModel?: string | null, id: string, lastModifiedDate?: any | null, name: string, strategy: AiGatewayRoutingStrategyType, version?: number | null } | null };
+
+export type DeleteWorkspaceAiGatewayRoutingPolicyMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  routingPolicyId: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteWorkspaceAiGatewayRoutingPolicyMutation = { __typename?: 'Mutation', deleteWorkspaceAiGatewayRoutingPolicy?: boolean | null };
+
+export type UpdateWorkspaceAiGatewayRoutingPolicyMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+  input: UpdateAiGatewayRoutingPolicyInput;
+}>;
+
+
+export type UpdateWorkspaceAiGatewayRoutingPolicyMutation = { __typename?: 'Mutation', updateWorkspaceAiGatewayRoutingPolicy?: { __typename?: 'AiGatewayRoutingPolicy', config?: string | null, createdDate?: any | null, enabled: boolean, fallbackModel?: string | null, id: string, lastModifiedDate?: any | null, name: string, strategy: AiGatewayRoutingStrategyType, version?: number | null } | null };
 
 export type ApprovalTaskQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type ApprovalTaskQuery = { approvalTask: { assigneeId: string | null, createdBy: string | null, createdDate: string | null, description: string | null, dueDate: string | null, id: string, jobResumeId: string | null, lastModifiedBy: string | null, lastModifiedDate: string | null, name: string, priority: Types.ApprovalTaskPriority, status: Types.ApprovalTaskStatus, version: number } | null };
+export type ApprovalTaskQuery = { __typename?: 'Query', approvalTask?: { __typename?: 'ApprovalTask', assigneeId?: string | null, createdBy?: string | null, createdDate?: string | null, description?: string | null, dueDate?: string | null, id: string, jobResumeId?: string | null, lastModifiedBy?: string | null, lastModifiedDate?: string | null, name: string, priority: ApprovalTaskPriority, status: ApprovalTaskStatus, version: number } | null };
 
 export type ApprovalTasksQueryVariables = Exact<{
-  environmentId?: number | null | undefined;
+  environmentId?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type ApprovalTasksQuery = { approvalTasks: Array<{ assigneeId: string | null, createdBy: string | null, createdDate: string | null, description: string | null, dueDate: string | null, id: string, jobResumeId: string | null, lastModifiedBy: string | null, lastModifiedDate: string | null, name: string, priority: Types.ApprovalTaskPriority, status: Types.ApprovalTaskStatus, version: number } | null> | null };
+export type ApprovalTasksQuery = { __typename?: 'Query', approvalTasks?: Array<{ __typename?: 'ApprovalTask', assigneeId?: string | null, createdBy?: string | null, createdDate?: string | null, description?: string | null, dueDate?: string | null, id: string, jobResumeId?: string | null, lastModifiedBy?: string | null, lastModifiedDate?: string | null, name: string, priority: ApprovalTaskPriority, status: ApprovalTaskStatus, version: number } | null> | null };
 
 export type CreateApprovalTaskMutationVariables = Exact<{
-  approvalTask: Types.ApprovalTaskInput;
+  approvalTask: ApprovalTaskInput;
 }>;
 
 
-export type CreateApprovalTaskMutation = { createApprovalTask: { assigneeId: string | null, description: string | null, id: string, name: string, priority: Types.ApprovalTaskPriority, status: Types.ApprovalTaskStatus } | null };
+export type CreateApprovalTaskMutation = { __typename?: 'Mutation', createApprovalTask?: { __typename?: 'ApprovalTask', assigneeId?: string | null, description?: string | null, id: string, name: string, priority: ApprovalTaskPriority, status: ApprovalTaskStatus } | null };
 
 export type DeleteApprovalTaskMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteApprovalTaskMutation = { deleteApprovalTask: boolean | null };
+export type DeleteApprovalTaskMutation = { __typename?: 'Mutation', deleteApprovalTask?: boolean | null };
 
 export type UpdateApprovalTaskMutationVariables = Exact<{
-  approvalTask: Types.ApprovalTaskInput;
+  approvalTask: ApprovalTaskInput;
 }>;
 
 
-export type UpdateApprovalTaskMutation = { updateApprovalTask: { assigneeId: string | null, description: string | null, dueDate: string | null, id: string, name: string, priority: Types.ApprovalTaskPriority, status: Types.ApprovalTaskStatus, version: number } | null };
+export type UpdateApprovalTaskMutation = { __typename?: 'Mutation', updateApprovalTask?: { __typename?: 'ApprovalTask', assigneeId?: string | null, description?: string | null, dueDate?: string | null, id: string, name: string, priority: ApprovalTaskPriority, status: ApprovalTaskStatus, version: number } | null };
+
+export type DeleteAssetFileMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteAssetFileMutation = { __typename?: 'Mutation', deleteAssetFile: boolean };
+
+export type GetAssetFileQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type GetAssetFileQuery = { __typename?: 'Query', assetFile?: { __typename?: 'AssetFile', createdBy?: string | null, createdDate?: any | null, description?: string | null, downloadUrl: string, environmentId: any, format?: string | null, generatedByAgentSource?: number | null, generatedFromPrompt?: string | null, id: string, lastModifiedBy?: string | null, lastModifiedDate?: any | null, metadataJson?: string | null, mimeType: string, name: string, sizeBytes: any, source: AssetFileSource, tags: Array<{ __typename?: 'Tag', id: string, name: string }> } | null };
+
+export type GetAssetFileTagsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type GetAssetFileTagsQuery = { __typename?: 'Query', assetFileTags: Array<{ __typename?: 'Tag', id: string, name: string }> };
+
+export type GetAssetFileTextContentQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type GetAssetFileTextContentQuery = { __typename?: 'Query', assetFileTextContent?: string | null };
+
+export type GetAssetFilesQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  environment?: InputMaybe<Scalars['Int']['input']>;
+  tagIds?: InputMaybe<Array<Scalars['ID']['input']> | Scalars['ID']['input']>;
+  mimeTypePrefix?: InputMaybe<Scalars['String']['input']>;
+}>;
+
+
+export type GetAssetFilesQuery = { __typename?: 'Query', assetFiles: Array<{ __typename?: 'AssetFile', createdBy?: string | null, createdDate?: any | null, description?: string | null, downloadUrl: string, environmentId: any, format?: string | null, generatedByAgentSource?: number | null, generatedFromPrompt?: string | null, id: string, lastModifiedBy?: string | null, lastModifiedDate?: any | null, metadataJson?: string | null, mimeType: string, name: string, sizeBytes: any, source: AssetFileSource, tags: Array<{ __typename?: 'Tag', id: string, name: string }> }> };
+
+export type UpdateAssetFileMutationVariables = Exact<{
+  input: UpdateAssetFileInput;
+}>;
+
+
+export type UpdateAssetFileMutation = { __typename?: 'Mutation', updateAssetFile: { __typename?: 'AssetFile', createdBy?: string | null, createdDate?: any | null, description?: string | null, downloadUrl: string, id: string, lastModifiedBy?: string | null, lastModifiedDate?: any | null, mimeType: string, name: string, sizeBytes: any, source: AssetFileSource } };
+
+export type UpdateAssetFileTagsMutationVariables = Exact<{
+  input: UpdateAssetFileTagsInput;
+}>;
+
+
+export type UpdateAssetFileTagsMutation = { __typename?: 'Mutation', updateAssetFileTags: { __typename?: 'AssetFile', id: string, tags: Array<{ __typename?: 'Tag', id: string, name: string }> } };
+
+export type UpdateAssetFileTextContentMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  content: Scalars['String']['input'];
+}>;
+
+
+export type UpdateAssetFileTextContentMutation = { __typename?: 'Mutation', updateAssetFileTextContent: { __typename?: 'AssetFile', id: string, lastModifiedDate?: any | null, sizeBytes: any } };
+
+export type AddProjectUserMutationVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+  userId: Scalars['ID']['input'];
+  role: ProjectRole;
+}>;
+
+
+export type AddProjectUserMutation = { __typename?: 'Mutation', addProjectUser: { __typename?: 'ProjectUser', id: string, projectId: string, userId: string, projectRole?: ProjectRole | null, user?: { __typename?: 'ProjectUserInfo', email: string, firstName?: string | null, lastName?: string | null } | null } };
+
+export type AddWorkspaceUserMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  userId: Scalars['ID']['input'];
+  role: WorkspaceRole;
+}>;
+
+
+export type AddWorkspaceUserMutation = { __typename?: 'Mutation', addWorkspaceUser: { __typename?: 'WorkspaceUser', id: string, workspaceId: string, userId: string, workspaceRole?: WorkspaceRole | null, user?: { __typename?: 'WorkspaceUserInfo', email: string, firstName?: string | null, lastName?: string | null } | null } };
+
+export type AffectedWorkflowsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  userLogin: Scalars['String']['input'];
+}>;
+
+
+export type AffectedWorkflowsQuery = { __typename?: 'Query', affectedWorkflows: Array<{ __typename?: 'AffectedWorkflow', workflowId: string, workflowName: string, connectionIds: Array<string> }> };
 
 export type CreateMcpProjectMutationVariables = Exact<{
-  input: Types.CreateMcpProjectInput;
+  input: CreateMcpProjectInput;
 }>;
 
 
-export type CreateMcpProjectMutation = { createMcpProject: { id: string, mcpServerId: string, projectDeploymentId: string, projectVersion: number | null } | null };
+export type CreateMcpProjectMutation = { __typename?: 'Mutation', createMcpProject?: { __typename?: 'McpProject', id: string, mcpServerId: string, projectDeploymentId: string, projectVersion?: number | null } | null };
+
+export type CreateOrganizationConnectionMutationVariables = Exact<{
+  input: CreateOrganizationConnectionInput;
+}>;
+
+
+export type CreateOrganizationConnectionMutation = { __typename?: 'Mutation', createOrganizationConnection: string };
 
 export type CreateWorkspaceApiKeyMutationVariables = Exact<{
-  workspaceId: string | number;
-  name: string;
-  environmentId: string | number;
+  workspaceId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  environmentId: Scalars['ID']['input'];
 }>;
 
 
-export type CreateWorkspaceApiKeyMutation = { createWorkspaceApiKey: string };
+export type CreateWorkspaceApiKeyMutation = { __typename?: 'Mutation', createWorkspaceApiKey: string };
 
 export type CreateMcpServerMutationVariables = Exact<{
-  input: Types.CreateWorkspaceMcpServerInput;
+  input: CreateWorkspaceMcpServerInput;
 }>;
 
 
-export type CreateMcpServerMutation = { createWorkspaceMcpServer: { id: string, name: string, type: Types.PlatformType, environmentId: string, enabled: boolean } | null };
+export type CreateMcpServerMutation = { __typename?: 'Mutation', createWorkspaceMcpServer?: { __typename?: 'McpServer', id: string, name: string, type: PlatformType, environmentId: string, enabled: boolean } | null };
+
+export type DataStreamCompatibleConnectionsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  environmentId: Scalars['ID']['input'];
+}>;
+
+
+export type DataStreamCompatibleConnectionsQuery = { __typename?: 'Query', dataStreamCompatibleConnections: Array<{ __typename?: 'DataStreamCompatibleConnection', id: string, name: string, componentName: string, componentVersion: number }> };
 
 export type DeleteMcpProjectMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteMcpProjectMutation = { deleteMcpProject: boolean | null };
+export type DeleteMcpProjectMutation = { __typename?: 'Mutation', deleteMcpProject?: boolean | null };
 
 export type DeleteMcpProjectWorkflowMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteMcpProjectWorkflowMutation = { deleteMcpProjectWorkflow: boolean | null };
+export type DeleteMcpProjectWorkflowMutation = { __typename?: 'Mutation', deleteMcpProjectWorkflow?: boolean | null };
+
+export type DeleteOrganizationConnectionMutationVariables = Exact<{
+  connectionId: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteOrganizationConnectionMutation = { __typename?: 'Mutation', deleteOrganizationConnection: boolean };
 
 export type DeleteSharedProjectMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteSharedProjectMutation = { deleteSharedProject: boolean };
+export type DeleteSharedProjectMutation = { __typename?: 'Mutation', deleteSharedProject: boolean };
 
 export type DeleteSharedWorkflowMutationVariables = Exact<{
-  workflowId: string;
+  workflowId: Scalars['String']['input'];
 }>;
 
 
-export type DeleteSharedWorkflowMutation = { deleteSharedWorkflow: boolean };
+export type DeleteSharedWorkflowMutation = { __typename?: 'Mutation', deleteSharedWorkflow: boolean };
 
 export type DeleteWorkspaceApiKeyMutationVariables = Exact<{
-  apiKeyId: string | number;
+  apiKeyId: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteWorkspaceApiKeyMutation = { deleteWorkspaceApiKey: boolean };
+export type DeleteWorkspaceApiKeyMutation = { __typename?: 'Mutation', deleteWorkspaceApiKey: boolean };
 
 export type DeleteWorkspaceMcpServerMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteWorkspaceMcpServerMutation = { deleteWorkspaceMcpServer: boolean | null };
+export type DeleteWorkspaceMcpServerMutation = { __typename?: 'Mutation', deleteWorkspaceMcpServer?: boolean | null };
+
+export type DemoteConnectionToPrivateMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  connectionId: Scalars['ID']['input'];
+}>;
+
+
+export type DemoteConnectionToPrivateMutation = { __typename?: 'Mutation', demoteConnectionToPrivate: boolean };
 
 export type DisconnectConnectionMutationVariables = Exact<{
-  connectionId: string | number;
+  connectionId: Scalars['ID']['input'];
 }>;
 
 
-export type DisconnectConnectionMutation = { disconnectConnection: boolean };
+export type DisconnectConnectionMutation = { __typename?: 'Mutation', disconnectConnection: boolean };
 
 export type ExportSharedProjectMutationVariables = Exact<{
-  id: string | number;
-  description?: string | null | undefined;
+  id: Scalars['ID']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type ExportSharedProjectMutation = { exportSharedProject: boolean | null };
+export type ExportSharedProjectMutation = { __typename?: 'Mutation', exportSharedProject?: boolean | null };
 
 export type ExportSharedWorkflowMutationVariables = Exact<{
-  workflowId: string;
-  description?: string | null | undefined;
+  workflowId: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type ExportSharedWorkflowMutation = { exportSharedWorkflow: boolean };
+export type ExportSharedWorkflowMutation = { __typename?: 'Mutation', exportSharedWorkflow: boolean };
 
 export type ImportProjectTemplateMutationVariables = Exact<{
-  id: string;
-  workspaceId: string | number;
-  sharedProject: boolean;
+  id: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+  sharedProject: Scalars['Boolean']['input'];
 }>;
 
 
-export type ImportProjectTemplateMutation = { importProjectTemplate: string };
+export type ImportProjectTemplateMutation = { __typename?: 'Mutation', importProjectTemplate: string };
 
 export type ImportWorkflowTemplateMutationVariables = Exact<{
-  workflowUuid: string;
-  projectId: string | number;
-  sharedWorkflow: boolean;
+  workflowUuid: Scalars['String']['input'];
+  projectId: Scalars['ID']['input'];
+  sharedWorkflow: Scalars['Boolean']['input'];
 }>;
 
 
-export type ImportWorkflowTemplateMutation = { importWorkflowTemplate: string };
+export type ImportWorkflowTemplateMutation = { __typename?: 'Mutation', importWorkflowTemplate: string };
 
 export type McpProjectWorkflowPropertiesQueryVariables = Exact<{
-  mcpProjectWorkflowId: string | number;
+  mcpProjectWorkflowId: Scalars['ID']['input'];
 }>;
 
 
-export type McpProjectWorkflowPropertiesQuery = { mcpProjectWorkflowProperties: Array<
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, arrayDefaultValue: Array<any> | null }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, booleanDefaultValue: boolean | null }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, integerDefaultValue: any }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, numberDefaultValue: number | null }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, objectDefaultValue: any }
-    | { controlType: Types.ControlType, defaultValue: string | null, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
+export type McpProjectWorkflowPropertiesQuery = { __typename?: 'Query', mcpProjectWorkflowProperties?: Array<
+    | { __typename?: 'ArrayProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, arrayDefaultValue?: Array<any | null> | null }
+    | { __typename?: 'BooleanProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, booleanDefaultValue?: boolean | null }
+    | { __typename?: 'DateProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'DateTimeProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'DynamicPropertiesProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'FileEntryProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'IntegerProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, integerDefaultValue?: any | null }
+    | { __typename?: 'NullProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'NumberProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, numberDefaultValue?: number | null }
+    | { __typename?: 'ObjectProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, objectDefaultValue?: any | null }
+    | { __typename?: 'StringProperty', controlType: ControlType, defaultValue?: string | null, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'TimeProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
    | null> | null };
 
 export type McpProjectsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type McpProjectsQuery = { mcpProjects: Array<{ id: string, mcpServerId: string, project: { id: string, name: string } | null } | null> | null };
+export type McpProjectsQuery = { __typename?: 'Query', mcpProjects?: Array<{ __typename?: 'McpProject', id: string, mcpServerId: string, project?: { __typename?: 'Project', id: string, name: string } | null } | null> | null };
 
 export type McpProjectsByServerIdQueryVariables = Exact<{
-  mcpServerId: string | number;
+  mcpServerId: Scalars['ID']['input'];
 }>;
 
 
-export type McpProjectsByServerIdQuery = { mcpProjectsByServerId: Array<{ id: string, projectDeploymentId: string, mcpServerId: string, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any, version: number | null, projectVersion: number | null, project: { id: string, name: string, category: { id: string | null, name: string | null } | null, tags: Array<{ id: string, name: string } | null> | null } | null, mcpProjectWorkflows: Array<{ id: string, mcpProjectId: any, projectDeploymentWorkflowId: any, parameters: any, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any, version: number | null, projectDeploymentWorkflow: { id: string, enabled: boolean, inputs: any, projectDeploymentId: string, version: number, workflowId: string, connections: Array<{ connectionId: string | null, workflowConnectionKey: string, workflowNodeName: string }> } | null, workflow: { id: string, label: string } | null } | null> | null } | null> | null };
+export type McpProjectsByServerIdQuery = { __typename?: 'Query', mcpProjectsByServerId?: Array<{ __typename?: 'McpProject', id: string, projectDeploymentId: string, mcpServerId: string, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, version?: number | null, projectVersion?: number | null, project?: { __typename?: 'Project', id: string, name: string, category?: { __typename?: 'Category', id?: string | null, name?: string | null } | null, tags?: Array<{ __typename?: 'Tag', id: string, name: string } | null> | null } | null, mcpProjectWorkflows?: Array<{ __typename?: 'McpProjectWorkflow', id: string, mcpProjectId: any, projectDeploymentWorkflowId: any, parameters?: any | null, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, version?: number | null, projectDeploymentWorkflow?: { __typename?: 'ProjectDeploymentWorkflow', id: string, enabled: boolean, inputs?: any | null, projectDeploymentId: string, version: number, workflowId: string, connections: Array<{ __typename?: 'ProjectDeploymentWorkflowConnection', connectionId?: string | null, workflowConnectionKey: string, workflowNodeName: string }> } | null, workflow?: { __typename?: 'Workflow', id: string, label: string } | null } | null> | null } | null> | null };
+
+export type MyProjectScopesQueryVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+}>;
+
+
+export type MyProjectScopesQuery = { __typename?: 'Query', myProjectScopes: Array<string> };
+
+export type MyWorkspaceRoleQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type MyWorkspaceRoleQuery = { __typename?: 'Query', myWorkspaceRole?: string | null };
+
+export type OrganizationConnectionsQueryVariables = Exact<{
+  environmentId?: InputMaybe<Scalars['ID']['input']>;
+}>;
+
+
+export type OrganizationConnectionsQuery = { __typename?: 'Query', organizationConnections: Array<{ __typename?: 'OrganizationConnection', id: string, name: string, componentName: string, environmentId: number, visibility: ConnectionVisibility, createdBy?: string | null, createdDate?: string | null, lastModifiedDate?: string | null }> };
 
 export type PreBuiltProjectTemplatesQueryVariables = Exact<{
-  query?: string | null | undefined;
-  category?: string | null | undefined;
+  query?: InputMaybe<Scalars['String']['input']>;
+  category?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type PreBuiltProjectTemplatesQuery = { preBuiltProjectTemplates: Array<{ authorName: string | null, categories: Array<string>, description: string | null, id: string | null, projectVersion: number | null, publicUrl: string | null, components: Array<{ key: string | null, value: Array<{ icon: string | null, name: string, title: string | null, version: number | null, connection: { version: number } | null } | null> }>, project: { name: string, description: string | null } | null, workflows: Array<{ id: string, label: string }> }> };
+export type PreBuiltProjectTemplatesQuery = { __typename?: 'Query', preBuiltProjectTemplates: Array<{ __typename?: 'ProjectTemplate', authorName?: string | null, categories: Array<string>, description?: string | null, id?: string | null, projectVersion?: number | null, publicUrl?: string | null, components: Array<{ __typename?: 'ComponentDefinitionTuple', key?: string | null, value: Array<{ __typename?: 'ComponentDefinition', icon?: string | null, name: string, title?: string | null, version?: number | null, connection?: { __typename?: 'ConnectionDefinition', version: number } | null } | null> }>, project?: { __typename?: 'ProjectInfo', name: string, description?: string | null } | null, workflows: Array<{ __typename?: 'WorkflowInfo', id: string, label: string }> }> };
 
 export type PreBuiltWorkflowTemplatesQueryVariables = Exact<{
-  query?: string | null | undefined;
-  category?: string | null | undefined;
+  query?: InputMaybe<Scalars['String']['input']>;
+  category?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type PreBuiltWorkflowTemplatesQuery = { preBuiltWorkflowTemplates: Array<{ authorName: string | null, categories: Array<string>, description: string | null, id: string | null, projectVersion: number | null, publicUrl: string | null, components: Array<{ icon: string | null, name: string, title: string | null, version: number | null, connection: { version: number } | null }>, workflow: { label: string, description: string | null } }> };
+export type PreBuiltWorkflowTemplatesQuery = { __typename?: 'Query', preBuiltWorkflowTemplates: Array<{ __typename?: 'WorkflowTemplate', authorName?: string | null, categories: Array<string>, description?: string | null, id?: string | null, projectVersion?: number | null, publicUrl?: string | null, components: Array<{ __typename?: 'ComponentDefinition', icon?: string | null, name: string, title?: string | null, version?: number | null, connection?: { __typename?: 'ConnectionDefinition', version: number } | null }>, workflow: { __typename?: 'SharedWorkflowInfo', label: string, description?: string | null } }> };
 
 export type ProjectByIdQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type ProjectByIdQuery = { project: { id: string, name: string } | null };
+export type ProjectByIdQuery = { __typename?: 'Query', project?: { __typename?: 'Project', id: string, name: string } | null };
 
 export type ProjectTemplateQueryVariables = Exact<{
-  id: string;
-  sharedProject: boolean;
+  id: Scalars['String']['input'];
+  sharedProject: Scalars['Boolean']['input'];
 }>;
 
 
-export type ProjectTemplateQuery = { projectTemplate: { description: string | null, projectVersion: number | null, publicUrl: string | null, components: Array<{ key: string | null, value: Array<{ icon: string | null, name: string, title: string | null, version: number | null, connection: { componentName: string, version: number } | null } | null> }>, project: { name: string } | null, workflows: Array<{ id: string, label: string }> } | null };
+export type ProjectTemplateQuery = { __typename?: 'Query', projectTemplate?: { __typename?: 'ProjectTemplate', description?: string | null, projectVersion?: number | null, publicUrl?: string | null, components: Array<{ __typename?: 'ComponentDefinitionTuple', key?: string | null, value: Array<{ __typename?: 'ComponentDefinition', icon?: string | null, name: string, title?: string | null, version?: number | null, connection?: { __typename?: 'ConnectionDefinition', componentName: string, version: number } | null } | null> }>, project?: { __typename?: 'ProjectInfo', name: string } | null, workflows: Array<{ __typename?: 'WorkflowInfo', id: string, label: string }> } | null };
+
+export type ProjectUsersQueryVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+}>;
+
+
+export type ProjectUsersQuery = { __typename?: 'Query', projectUsers: Array<{ __typename?: 'ProjectUser', id: string, projectId: string, userId: string, projectRole?: ProjectRole | null, createdDate?: string | null, user?: { __typename?: 'ProjectUserInfo', email: string, firstName?: string | null, lastName?: string | null } | null }> };
+
+export type PromoteAllPrivateConnectionsToWorkspaceMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type PromoteAllPrivateConnectionsToWorkspaceMutation = { __typename?: 'Mutation', promoteAllPrivateConnectionsToWorkspace: { __typename?: 'BulkPromoteResult', attempted: number, promoted: number, skipped: number, failed: number, failures: Array<{ __typename?: 'BulkPromoteFailure', connectionId: string, errorCode: string, message: string }> } };
+
+export type PromoteConnectionToWorkspaceMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  connectionId: Scalars['ID']['input'];
+}>;
+
+
+export type PromoteConnectionToWorkspaceMutation = { __typename?: 'Mutation', promoteConnectionToWorkspace: boolean };
+
+export type ReassignAllConnectionsMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  userLogin: Scalars['String']['input'];
+  newOwnerLogin: Scalars['String']['input'];
+}>;
+
+
+export type ReassignAllConnectionsMutation = { __typename?: 'Mutation', reassignAllConnections: boolean };
+
+export type RemoveProjectUserMutationVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+  userId: Scalars['ID']['input'];
+}>;
+
+
+export type RemoveProjectUserMutation = { __typename?: 'Mutation', removeProjectUser: boolean };
+
+export type RemoveWorkspaceUserMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  userId: Scalars['ID']['input'];
+}>;
+
+
+export type RemoveWorkspaceUserMutation = { __typename?: 'Mutation', removeWorkspaceUser: boolean };
+
+export type RevokeConnectionFromProjectMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  connectionId: Scalars['ID']['input'];
+  projectId: Scalars['ID']['input'];
+}>;
+
+
+export type RevokeConnectionFromProjectMutation = { __typename?: 'Mutation', revokeConnectionFromProject: boolean };
+
+export type SetConnectionProjectsMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  connectionId: Scalars['ID']['input'];
+  projectIds: Array<Scalars['ID']['input']> | Scalars['ID']['input'];
+}>;
+
+
+export type SetConnectionProjectsMutation = { __typename?: 'Mutation', setConnectionProjects: boolean };
+
+export type ShareConnectionToProjectMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  connectionId: Scalars['ID']['input'];
+  projectId: Scalars['ID']['input'];
+}>;
+
+
+export type ShareConnectionToProjectMutation = { __typename?: 'Mutation', shareConnectionToProject: boolean };
 
 export type SharedProjectQueryVariables = Exact<{
-  projectUuid: string;
+  projectUuid: Scalars['String']['input'];
 }>;
 
 
-export type SharedProjectQuery = { sharedProject: { description: string | null, exported: boolean, projectVersion: number | null, publicUrl: string | null } | null };
+export type SharedProjectQuery = { __typename?: 'Query', sharedProject?: { __typename?: 'SharedProject', description?: string | null, exported: boolean, projectVersion?: number | null, publicUrl?: string | null } | null };
 
 export type SharedWorkflowQueryVariables = Exact<{
-  workflowUuid: string;
+  workflowUuid: Scalars['String']['input'];
 }>;
 
 
-export type SharedWorkflowQuery = { sharedWorkflow: { description: string | null, exported: boolean, projectVersion: number | null, publicUrl: string | null } | null };
+export type SharedWorkflowQuery = { __typename?: 'Query', sharedWorkflow?: { __typename?: 'SharedWorkflow', description?: string | null, exported: boolean, projectVersion?: number | null, publicUrl?: string | null } | null };
 
 export type ToolEligibleProjectVersionWorkflowsQueryVariables = Exact<{
-  projectId: string | number;
-  projectVersion: number;
+  projectId: Scalars['ID']['input'];
+  projectVersion: Scalars['Int']['input'];
 }>;
 
 
-export type ToolEligibleProjectVersionWorkflowsQuery = { toolEligibleProjectVersionWorkflows: Array<{ id: string, workflow: { id: string, label: string } }> };
+export type ToolEligibleProjectVersionWorkflowsQuery = { __typename?: 'Query', toolEligibleProjectVersionWorkflows: Array<{ __typename?: 'ProjectWorkflow', id: string, workflow: { __typename?: 'Workflow', id: string, label: string } }> };
+
+export type UnresolvedConnectionsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  userLogin: Scalars['String']['input'];
+}>;
+
+
+export type UnresolvedConnectionsQuery = { __typename?: 'Query', unresolvedConnections: Array<{ __typename?: 'ConnectionReassignmentItem', connectionId: string, connectionName: string, visibility: ConnectionVisibility, environmentId: number, dependentWorkflowCount: number }> };
 
 export type UpdateMcpProjectMutationVariables = Exact<{
-  id: string | number;
-  input: Types.UpdateMcpProjectInput;
+  id: Scalars['ID']['input'];
+  input: UpdateMcpProjectInput;
 }>;
 
 
-export type UpdateMcpProjectMutation = { updateMcpProject: { id: string, mcpServerId: string, projectDeploymentId: string, projectVersion: number | null } | null };
+export type UpdateMcpProjectMutation = { __typename?: 'Mutation', updateMcpProject?: { __typename?: 'McpProject', id: string, mcpServerId: string, projectDeploymentId: string, projectVersion?: number | null } | null };
 
 export type UpdateMcpProjectWorkflowMutationVariables = Exact<{
-  id: string | number;
-  input: Types.McpProjectWorkflowUpdateInput;
+  id: Scalars['ID']['input'];
+  input: McpProjectWorkflowUpdateInput;
 }>;
 
 
-export type UpdateMcpProjectWorkflowMutation = { updateMcpProjectWorkflow: { id: string, mcpProjectId: any, projectDeploymentWorkflowId: any, parameters: any } | null };
+export type UpdateMcpProjectWorkflowMutation = { __typename?: 'Mutation', updateMcpProjectWorkflow?: { __typename?: 'McpProjectWorkflow', id: string, mcpProjectId: any, projectDeploymentWorkflowId: any, parameters?: any | null } | null };
 
 export type UpdateMcpServerMutationVariables = Exact<{
-  id: string | number;
-  input: Types.McpServerUpdateInput;
+  id: Scalars['ID']['input'];
+  input: McpServerUpdateInput;
 }>;
 
 
-export type UpdateMcpServerMutation = { updateMcpServer: { id: string, name: string, enabled: boolean } | null };
+export type UpdateMcpServerMutation = { __typename?: 'Mutation', updateMcpServer?: { __typename?: 'McpServer', id: string, name: string, enabled: boolean } | null };
 
 export type UpdateMcpServerTagsMutationVariables = Exact<{
-  id: string | number;
-  tags: Array<Types.TagInput> | Types.TagInput;
+  id: Scalars['ID']['input'];
+  tags: Array<TagInput> | TagInput;
 }>;
 
 
-export type UpdateMcpServerTagsMutation = { updateMcpServerTags: Array<{ id: string } | null> | null };
+export type UpdateMcpServerTagsMutation = { __typename?: 'Mutation', updateMcpServerTags?: Array<{ __typename?: 'Tag', id: string } | null> | null };
+
+export type UpdateOrganizationConnectionMutationVariables = Exact<{
+  connectionId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  tagIds?: InputMaybe<Array<Scalars['ID']['input']> | Scalars['ID']['input']>;
+  version: Scalars['Int']['input'];
+}>;
+
+
+export type UpdateOrganizationConnectionMutation = { __typename?: 'Mutation', updateOrganizationConnection: boolean };
+
+export type UpdateProjectUserRoleMutationVariables = Exact<{
+  projectId: Scalars['ID']['input'];
+  userId: Scalars['ID']['input'];
+  role: ProjectRole;
+}>;
+
+
+export type UpdateProjectUserRoleMutation = { __typename?: 'Mutation', updateProjectUserRole: { __typename?: 'ProjectUser', id: string, projectRole?: ProjectRole | null } };
 
 export type UpdateWorkspaceApiKeyMutationVariables = Exact<{
-  apiKeyId: string | number;
-  name: string;
+  apiKeyId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
 }>;
 
 
-export type UpdateWorkspaceApiKeyMutation = { updateWorkspaceApiKey: boolean };
+export type UpdateWorkspaceApiKeyMutation = { __typename?: 'Mutation', updateWorkspaceApiKey: boolean };
+
+export type UpdateWorkspaceUserRoleMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  userId: Scalars['ID']['input'];
+  role: WorkspaceRole;
+}>;
+
+
+export type UpdateWorkspaceUserRoleMutation = { __typename?: 'Mutation', updateWorkspaceUserRole: { __typename?: 'WorkspaceUser', id: string, workspaceRole?: WorkspaceRole | null } };
 
 export type WorkflowChatProjectDeploymentWorkflowQueryVariables = Exact<{
-  id: string;
+  id: Scalars['String']['input'];
 }>;
 
 
-export type WorkflowChatProjectDeploymentWorkflowQuery = { projectDeploymentWorkflow: { projectWorkflow: { sseStreamResponse: boolean, workflow: { label: string } } } | null };
+export type WorkflowChatProjectDeploymentWorkflowQuery = { __typename?: 'Query', projectDeploymentWorkflow?: { __typename?: 'ProjectDeploymentWorkflow', projectWorkflow: { __typename?: 'ProjectWorkflow', sseStreamResponse: boolean, workflow: { __typename?: 'Workflow', label: string } } } | null };
 
 export type WorkflowTemplateQueryVariables = Exact<{
-  id: string;
-  sharedWorkflow: boolean;
+  id: Scalars['String']['input'];
+  sharedWorkflow: Scalars['Boolean']['input'];
 }>;
 
 
-export type WorkflowTemplateQuery = { workflowTemplate: { description: string | null, projectVersion: number | null, publicUrl: string | null, workflow: { label: string }, components: Array<{ icon: string | null, name: string, title: string | null, version: number | null, connection: { componentName: string, version: number } | null }> } | null };
+export type WorkflowTemplateQuery = { __typename?: 'Query', workflowTemplate?: { __typename?: 'WorkflowTemplate', description?: string | null, projectVersion?: number | null, publicUrl?: string | null, workflow: { __typename?: 'SharedWorkflowInfo', label: string }, components: Array<{ __typename?: 'ComponentDefinition', icon?: string | null, name: string, title?: string | null, version?: number | null, connection?: { __typename?: 'ConnectionDefinition', componentName: string, version: number } | null }> } | null };
 
 export type WorkspaceApiKeysQueryVariables = Exact<{
-  workspaceId: string | number;
-  environmentId: string | number;
+  workspaceId: Scalars['ID']['input'];
+  environmentId: Scalars['ID']['input'];
 }>;
 
 
-export type WorkspaceApiKeysQuery = { workspaceApiKeys: Array<{ id: string | null, name: string | null, secretKey: string | null, lastUsedDate: any, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any }> };
+export type WorkspaceApiKeysQuery = { __typename?: 'Query', workspaceApiKeys: Array<{ __typename?: 'ApiKey', id?: string | null, name?: string | null, secretKey?: string | null, lastUsedDate?: any | null, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null }> };
 
 export type WorkspaceChatWorkflowsQueryVariables = Exact<{
-  workspaceId: string | number;
-  environmentId: string | number;
+  workspaceId: Scalars['ID']['input'];
+  environmentId: Scalars['ID']['input'];
 }>;
 
 
-export type WorkspaceChatWorkflowsQuery = { workspaceChatWorkflows: Array<{ projectDeploymentId: string, projectId: string, projectName: string, workflowExecutionId: string, workflowLabel: string }> };
+export type WorkspaceChatWorkflowsQuery = { __typename?: 'Query', workspaceChatWorkflows: Array<{ __typename?: 'ChatWorkflow', projectDeploymentId: string, projectId: string, projectName: string, workflowExecutionId: string, workflowLabel: string }> };
 
 export type WorkspaceMcpServersQueryVariables = Exact<{
-  workspaceId: string | number;
+  workspaceId: Scalars['ID']['input'];
 }>;
 
 
-export type WorkspaceMcpServersQuery = { workspaceMcpServers: Array<{ id: string, name: string, type: Types.PlatformType, environmentId: string, enabled: boolean, url: string, lastModifiedDate: any, mcpComponents: Array<{ id: string, mcpServerId: string, componentName: string, componentVersion: number, title: string | null } | null> | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
+export type WorkspaceMcpServersQuery = { __typename?: 'Query', workspaceMcpServers?: Array<{ __typename?: 'McpServer', id: string, name: string, type: PlatformType, environmentId: string, enabled: boolean, url: string, lastModifiedDate?: any | null, mcpComponents?: Array<{ __typename?: 'McpComponent', id: string, mcpServerId: string, componentName: string, componentVersion: number, title?: string | null } | null> | null, tags?: Array<{ __typename?: 'Tag', id: string, name: string } | null> | null } | null> | null };
+
+export type WorkspaceUsersQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type WorkspaceUsersQuery = { __typename?: 'Query', workspaceUsers: Array<{ __typename?: 'WorkspaceUser', id: string, workspaceId: string, userId: string, workspaceRole?: WorkspaceRole | null, createdDate?: string | null, user?: { __typename?: 'WorkspaceUserInfo', email: string, firstName?: string | null, lastName?: string | null } | null }> };
+
+export type ContextStoreSourceQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type ContextStoreSourceQuery = { __typename?: 'Query', contextStoreSource?: { __typename?: 'ContextStoreSource', id: string, name: string, entityName: string, description?: string | null, idField: string, storedFields?: any | null, indexedFields: any, semanticIndexFields?: any | null, parameters?: any | null, sourceComponentName: string, sourceComponentVersion: number, sourceClusterElementName?: string | null, connectionId?: string | null, cadence: string, status: ContextStoreSourceStatus, enabled: boolean, lastSyncRunAt?: any | null, lastSyncJobExecutionId?: string | null, workflowId?: string | null, fullReplaceCadence?: string | null, tombstoneStrategy: ContextStoreTombstoneStrategy } | null };
+
+export type ContextStoreSourcesQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  environmentId: Scalars['ID']['input'];
+  filter?: InputMaybe<ContextStoreSourceFilter>;
+}>;
+
+
+export type ContextStoreSourcesQuery = { __typename?: 'Query', contextStoreSources: Array<{ __typename?: 'ContextStoreSource', id: string, contextStoreId: string, name: string, entityName: string, description?: string | null, idField: string, indexedFields: any, sourceComponentName: string, sourceComponentVersion: number, sourceClusterElementName?: string | null, connectionId?: string | null, cadence: string, status: ContextStoreSourceStatus, enabled: boolean, lastSyncRunAt?: any | null, lastSyncJobExecutionId?: string | null, workflowId?: string | null }> };
+
+export type ContextStoreTagsQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+}>;
+
+
+export type ContextStoreTagsQuery = { __typename?: 'Query', contextStoreTags: Array<{ __typename?: 'Tag', id: string, name: string }> };
+
+export type ContextStoresQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  environmentId: Scalars['ID']['input'];
+}>;
+
+
+export type ContextStoresQuery = { __typename?: 'Query', contextStores: Array<{ __typename?: 'ContextStore', id: string, name: string, description?: string | null, environment: string, tagIds: Array<string>, version: number, tags: Array<{ __typename?: 'Tag', id: string, name: string }> }> };
+
+export type CreateContextStoreMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  environmentId: Scalars['ID']['input'];
+  input: CreateContextStoreInput;
+}>;
+
+
+export type CreateContextStoreMutation = { __typename?: 'Mutation', createContextStore: { __typename?: 'ContextStore', id: string, name: string, description?: string | null, environment: string, tagIds: Array<string>, version: number } };
+
+export type CreateContextStoreSourceMutationVariables = Exact<{
+  input: CreateContextStoreSourceInput;
+}>;
+
+
+export type CreateContextStoreSourceMutation = { __typename?: 'Mutation', createContextStoreSource: { __typename?: 'ContextStoreSource', id: string, name: string, status: ContextStoreSourceStatus, enabled: boolean, cadence: string } };
+
+export type DeleteContextStoreMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteContextStoreMutation = { __typename?: 'Mutation', deleteContextStore: boolean };
+
+export type DeleteContextStoreSourceMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteContextStoreSourceMutation = { __typename?: 'Mutation', deleteContextStoreSource: boolean };
+
+export type RefreshContextStoreSourceMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type RefreshContextStoreSourceMutation = { __typename?: 'Mutation', refreshContextStoreSource: string };
+
+export type SetContextStoreSourceEnabledMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  enabled: Scalars['Boolean']['input'];
+}>;
+
+
+export type SetContextStoreSourceEnabledMutation = { __typename?: 'Mutation', setContextStoreSourceEnabled: { __typename?: 'ContextStoreSource', id: string, enabled: boolean, status: ContextStoreSourceStatus } };
+
+export type UpdateContextStoreMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+  input: UpdateContextStoreInput;
+}>;
+
+
+export type UpdateContextStoreMutation = { __typename?: 'Mutation', updateContextStore: { __typename?: 'ContextStore', id: string, name: string, description?: string | null, environment: string, tagIds: Array<string>, version: number } };
+
+export type UpdateContextStoreSourceMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateContextStoreSourceInput;
+}>;
+
+
+export type UpdateContextStoreSourceMutation = { __typename?: 'Mutation', updateContextStoreSource: { __typename?: 'ContextStoreSource', id: string, name: string, cadence: string, enabled: boolean, status: ContextStoreSourceStatus } };
+
+export type UpdateContextStoreTagsMutationVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+  tags: Array<TagInput> | TagInput;
+}>;
+
+
+export type UpdateContextStoreTagsMutation = { __typename?: 'Mutation', updateContextStoreTags: Array<{ __typename?: 'Tag', id: string, name: string }> };
 
 export type AddDataTableColumnMutationVariables = Exact<{
-  input: Types.AddColumnInput;
+  input: AddColumnInput;
 }>;
 
 
-export type AddDataTableColumnMutation = { addDataTableColumn: boolean };
+export type AddDataTableColumnMutation = { __typename?: 'Mutation', addDataTableColumn: boolean };
 
 export type CreateDataTableMutationVariables = Exact<{
-  input: Types.CreateDataTableInput;
+  input: CreateDataTableInput;
 }>;
 
 
-export type CreateDataTableMutation = { createDataTable: boolean };
+export type CreateDataTableMutation = { __typename?: 'Mutation', createDataTable: boolean };
 
 export type DataTableRowsQueryVariables = Exact<{
-  environmentId: string | number;
-  tableId: string | number;
+  environmentId: Scalars['ID']['input'];
+  tableId: Scalars['ID']['input'];
 }>;
 
 
-export type DataTableRowsQuery = { dataTableRows: Array<{ id: string, values: any }> };
+export type DataTableRowsQuery = { __typename?: 'Query', dataTableRows: Array<{ __typename?: 'DataTableRow', id: string, values: any }> };
 
 export type DataTableRowsPageQueryVariables = Exact<{
-  environmentId: string | number;
-  tableId: string | number;
-  limit?: number | null | undefined;
-  offset?: number | null | undefined;
+  environmentId: Scalars['ID']['input'];
+  tableId: Scalars['ID']['input'];
+  limit?: InputMaybe<Scalars['Int']['input']>;
+  offset?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type DataTableRowsPageQuery = { dataTableRowsPage: { hasMore: boolean, nextOffset: number | null, items: Array<{ id: string, values: any }> } };
+export type DataTableRowsPageQuery = { __typename?: 'Query', dataTableRowsPage: { __typename?: 'DataTableRowPage', hasMore: boolean, nextOffset?: number | null, items: Array<{ __typename?: 'DataTableRow', id: string, values: any }> } };
 
 export type DataTableTagsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type DataTableTagsQuery = { dataTableTags: Array<{ id: string, name: string }> };
+export type DataTableTagsQuery = { __typename?: 'Query', dataTableTags: Array<{ __typename?: 'Tag', id: string, name: string }> };
 
 export type DataTableTagsByTableQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type DataTableTagsByTableQuery = { dataTableTagsByTable: Array<{ tableId: string, tags: Array<{ id: string, name: string }> }> };
+export type DataTableTagsByTableQuery = { __typename?: 'Query', dataTableTagsByTable: Array<{ __typename?: 'DataTableTagsEntry', tableId: string, tags: Array<{ __typename?: 'Tag', id: string, name: string }> }> };
 
 export type DataTablesQueryVariables = Exact<{
-  environmentId: string | number;
-  workspaceId: string | number;
+  environmentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
 }>;
 
 
-export type DataTablesQuery = { dataTables: Array<{ id: string, baseName: string, lastModifiedDate: any, columns: Array<{ id: string, name: string, type: Types.ColumnType }> }> };
+export type DataTablesQuery = { __typename?: 'Query', dataTables: Array<{ __typename?: 'DataTable', id: string, baseName: string, lastModifiedDate?: any | null, columns: Array<{ __typename?: 'DataTableColumn', id: string, name: string, type: ColumnType }> }> };
 
 export type DeleteDataTableRowMutationVariables = Exact<{
-  input: Types.DeleteRowInput;
+  input: DeleteRowInput;
 }>;
 
 
-export type DeleteDataTableRowMutation = { deleteDataTableRow: boolean };
+export type DeleteDataTableRowMutation = { __typename?: 'Mutation', deleteDataTableRow: boolean };
 
 export type DropDataTableMutationVariables = Exact<{
-  input: Types.RemoveTableInput;
+  input: RemoveTableInput;
 }>;
 
 
-export type DropDataTableMutation = { dropDataTable: boolean };
+export type DropDataTableMutation = { __typename?: 'Mutation', dropDataTable: boolean };
 
 export type DuplicateDataTableMutationVariables = Exact<{
-  input: Types.DuplicateDataTableInput;
+  input: DuplicateDataTableInput;
 }>;
 
 
-export type DuplicateDataTableMutation = { duplicateDataTable: boolean };
+export type DuplicateDataTableMutation = { __typename?: 'Mutation', duplicateDataTable: boolean };
 
 export type ExportDataTableCsvQueryVariables = Exact<{
-  environmentId: string | number;
-  tableId: string | number;
+  environmentId: Scalars['ID']['input'];
+  tableId: Scalars['ID']['input'];
 }>;
 
 
-export type ExportDataTableCsvQuery = { exportDataTableCsv: string };
+export type ExportDataTableCsvQuery = { __typename?: 'Query', exportDataTableCsv: string };
 
 export type ImportDataTableCsvMutationVariables = Exact<{
-  input: Types.ImportCsvInput;
+  input: ImportCsvInput;
 }>;
 
 
-export type ImportDataTableCsvMutation = { importDataTableCsv: boolean };
+export type ImportDataTableCsvMutation = { __typename?: 'Mutation', importDataTableCsv: boolean };
 
 export type InsertDataTableRowMutationVariables = Exact<{
-  input: Types.InsertRowInput;
+  input: InsertRowInput;
 }>;
 
 
-export type InsertDataTableRowMutation = { insertDataTableRow: { id: string, values: any } };
+export type InsertDataTableRowMutation = { __typename?: 'Mutation', insertDataTableRow: { __typename?: 'DataTableRow', id: string, values: any } };
 
 export type RemoveDataTableColumnMutationVariables = Exact<{
-  input: Types.RemoveColumnInput;
+  input: RemoveColumnInput;
 }>;
 
 
-export type RemoveDataTableColumnMutation = { removeDataTableColumn: boolean };
+export type RemoveDataTableColumnMutation = { __typename?: 'Mutation', removeDataTableColumn: boolean };
 
 export type RenameDataTableMutationVariables = Exact<{
-  input: Types.RenameDataTableInput;
+  input: RenameDataTableInput;
 }>;
 
 
-export type RenameDataTableMutation = { renameDataTable: boolean };
+export type RenameDataTableMutation = { __typename?: 'Mutation', renameDataTable: boolean };
 
 export type RenameDataTableColumnMutationVariables = Exact<{
-  input: Types.RenameColumnInput;
+  input: RenameColumnInput;
 }>;
 
 
-export type RenameDataTableColumnMutation = { renameDataTableColumn: boolean };
+export type RenameDataTableColumnMutation = { __typename?: 'Mutation', renameDataTableColumn: boolean };
 
 export type UpdateDataTableRowMutationVariables = Exact<{
-  input: Types.UpdateRowInput;
+  input: UpdateRowInput;
 }>;
 
 
-export type UpdateDataTableRowMutation = { updateDataTableRow: { id: string, values: any } };
+export type UpdateDataTableRowMutation = { __typename?: 'Mutation', updateDataTableRow: { __typename?: 'DataTableRow', id: string, values: any } };
 
 export type UpdateDataTableTagsMutationVariables = Exact<{
-  input: Types.UpdateDataTableTagsInput;
+  input: UpdateDataTableTagsInput;
 }>;
 
 
-export type UpdateDataTableTagsMutation = { updateDataTableTags: boolean };
+export type UpdateDataTableTagsMutation = { __typename?: 'Mutation', updateDataTableTags: boolean };
 
 export type CreateKnowledgeBaseMutationVariables = Exact<{
-  knowledgeBase: Types.KnowledgeBaseInput;
-  environmentId: string | number;
-  workspaceId: string | number;
+  knowledgeBase: KnowledgeBaseInput;
+  environmentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
 }>;
 
 
-export type CreateKnowledgeBaseMutation = { createKnowledgeBase: { id: string, name: string } | null };
+export type CreateKnowledgeBaseMutation = { __typename?: 'Mutation', createKnowledgeBase?: { __typename?: 'KnowledgeBase', id: string, name: string } | null };
+
+export type CreateKnowledgeBaseSourceMutationVariables = Exact<{
+  input: CreateKnowledgeBaseSourceInput;
+}>;
+
+
+export type CreateKnowledgeBaseSourceMutation = { __typename?: 'Mutation', createKnowledgeBaseSource: { __typename?: 'KnowledgeBaseSource', id: string, name: string, status: KnowledgeBaseSourceStatus, enabled: boolean, cadence: string } };
 
 export type DeleteKnowledgeBaseMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteKnowledgeBaseMutation = { deleteKnowledgeBase: boolean | null };
+export type DeleteKnowledgeBaseMutation = { __typename?: 'Mutation', deleteKnowledgeBase?: boolean | null };
 
 export type DeleteKnowledgeBaseDocumentMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteKnowledgeBaseDocumentMutation = { deleteKnowledgeBaseDocument: boolean | null };
+export type DeleteKnowledgeBaseDocumentMutation = { __typename?: 'Mutation', deleteKnowledgeBaseDocument?: boolean | null };
 
 export type DeleteKnowledgeBaseDocumentChunkMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteKnowledgeBaseDocumentChunkMutation = { deleteKnowledgeBaseDocumentChunk: boolean | null };
+export type DeleteKnowledgeBaseDocumentChunkMutation = { __typename?: 'Mutation', deleteKnowledgeBaseDocumentChunk?: boolean | null };
+
+export type DeleteKnowledgeBaseSourceMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type DeleteKnowledgeBaseSourceMutation = { __typename?: 'Mutation', deleteKnowledgeBaseSource: boolean };
 
 export type KnowledgeBaseQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type KnowledgeBaseQuery = { knowledgeBase: { id: string, name: string, description: string | null, maxChunkSize: number | null, minChunkSizeChars: number | null, overlap: number | null, createdDate: any, lastModifiedDate: any, documents: Array<{ id: string, name: string, status: number, tags: Array<string> | null, createdDate: any, document: { name: string, extension: string | null, mimeType: string | null, url: string } | null, chunks: Array<{ id: string, knowledgeBaseDocumentId: string, content: string | null, metadata: any } | null> | null } | null> | null } | null };
+export type KnowledgeBaseQuery = { __typename?: 'Query', knowledgeBase?: { __typename?: 'KnowledgeBase', id: string, name: string, description?: string | null, maxChunkSize?: number | null, minChunkSizeChars?: number | null, overlap?: number | null, createdDate?: any | null, lastModifiedDate?: any | null, documents?: Array<{ __typename?: 'KnowledgeBaseDocument', id: string, name: string, status: number, tags?: Array<string> | null, createdDate?: any | null, sourceId?: string | null, sourceRecordId?: string | null, document?: { __typename?: 'FileEntry', name: string, extension?: string | null, mimeType?: string | null, url: string } | null, chunks?: Array<{ __typename?: 'KnowledgeBaseDocumentChunk', id: string, knowledgeBaseDocumentId: string, content?: string | null, metadata?: any | null } | null> | null } | null> | null } | null };
 
 export type KnowledgeBaseDocumentStatusQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type KnowledgeBaseDocumentStatusQuery = { knowledgeBaseDocumentStatus: { documentId: string, status: number, timestamp: any, message: string | null } | null };
+export type KnowledgeBaseDocumentStatusQuery = { __typename?: 'Query', knowledgeBaseDocumentStatus?: { __typename?: 'DocumentStatusUpdate', documentId: string, status: number, timestamp: any, message?: string | null } | null };
 
 export type KnowledgeBaseDocumentTagsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type KnowledgeBaseDocumentTagsQuery = { knowledgeBaseDocumentTags: Array<string> | null };
+export type KnowledgeBaseDocumentTagsQuery = { __typename?: 'Query', knowledgeBaseDocumentTags?: Array<string> | null };
 
 export type KnowledgeBaseDocumentTagsByDocumentQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type KnowledgeBaseDocumentTagsByDocumentQuery = { knowledgeBaseDocumentTagsByDocument: Array<{ knowledgeBaseDocumentId: string, tags: Array<string> }> | null };
+export type KnowledgeBaseDocumentTagsByDocumentQuery = { __typename?: 'Query', knowledgeBaseDocumentTagsByDocument?: Array<{ __typename?: 'KnowledgeBaseDocumentTagsEntry', knowledgeBaseDocumentId: string, tags: Array<string> }> | null };
+
+export type KnowledgeBaseSourceQueryVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type KnowledgeBaseSourceQuery = { __typename?: 'Query', knowledgeBaseSource?: { __typename?: 'KnowledgeBaseSource', id: string, name: string, knowledgeBaseId: string, sourceComponentName: string, sourceComponentVersion: number, sourceClusterElementName?: string | null, connectionId?: string | null, cadence: string, status: KnowledgeBaseSourceStatus, enabled: boolean, lastSyncRunAt?: any | null, lastSyncJobExecutionId?: string | null, workflowId?: string | null } | null };
+
+export type KnowledgeBaseSourcesQueryVariables = Exact<{
+  workspaceId: Scalars['ID']['input'];
+  environmentId: Scalars['ID']['input'];
+  filter?: InputMaybe<KnowledgeBaseSourceFilter>;
+}>;
+
+
+export type KnowledgeBaseSourcesQuery = { __typename?: 'Query', knowledgeBaseSources: Array<{ __typename?: 'KnowledgeBaseSource', id: string, name: string, knowledgeBaseId: string, sourceComponentName: string, sourceComponentVersion: number, sourceClusterElementName?: string | null, connectionId?: string | null, cadence: string, status: KnowledgeBaseSourceStatus, enabled: boolean, lastSyncRunAt?: any | null, lastSyncJobExecutionId?: string | null, workflowId?: string | null }> };
 
 export type KnowledgeBaseTagsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type KnowledgeBaseTagsQuery = { knowledgeBaseTags: Array<{ id: string, name: string }> | null };
+export type KnowledgeBaseTagsQuery = { __typename?: 'Query', knowledgeBaseTags?: Array<{ __typename?: 'Tag', id: string, name: string }> | null };
 
 export type KnowledgeBaseTagsByKnowledgeBaseQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type KnowledgeBaseTagsByKnowledgeBaseQuery = { knowledgeBaseTagsByKnowledgeBase: Array<{ knowledgeBaseId: string, tags: Array<{ id: string, name: string }> }> | null };
+export type KnowledgeBaseTagsByKnowledgeBaseQuery = { __typename?: 'Query', knowledgeBaseTagsByKnowledgeBase?: Array<{ __typename?: 'KnowledgeBaseTagsEntry', knowledgeBaseId: string, tags: Array<{ __typename?: 'Tag', id: string, name: string }> }> | null };
 
 export type KnowledgeBasesQueryVariables = Exact<{
-  environmentId: string | number;
-  workspaceId: string | number;
+  environmentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
 }>;
 
 
-export type KnowledgeBasesQuery = { knowledgeBases: Array<{ id: string, name: string, description: string | null, maxChunkSize: number | null, minChunkSizeChars: number | null, overlap: number | null, createdDate: any, lastModifiedDate: any } | null> | null };
+export type KnowledgeBasesQuery = { __typename?: 'Query', knowledgeBases?: Array<{ __typename?: 'KnowledgeBase', id: string, name: string, description?: string | null, maxChunkSize?: number | null, minChunkSizeChars?: number | null, overlap?: number | null, createdDate?: any | null, lastModifiedDate?: any | null } | null> | null };
+
+export type RefreshKnowledgeBaseSourceMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+}>;
+
+
+export type RefreshKnowledgeBaseSourceMutation = { __typename?: 'Mutation', refreshKnowledgeBaseSource: string };
 
 export type SearchKnowledgeBaseQueryVariables = Exact<{
-  id: string | number;
-  query: string;
-  metadataFilters?: string | null | undefined;
+  id: Scalars['ID']['input'];
+  query: Scalars['String']['input'];
+  metadataFilters?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type SearchKnowledgeBaseQuery = { searchKnowledgeBase: Array<{ id: string, knowledgeBaseDocumentId: string, content: string | null, metadata: any, score: number | null } | null> | null };
+export type SearchKnowledgeBaseQuery = { __typename?: 'Query', searchKnowledgeBase?: Array<{ __typename?: 'KnowledgeBaseDocumentChunk', id: string, knowledgeBaseDocumentId: string, content?: string | null, metadata?: any | null, score?: number | null } | null> | null };
+
+export type SetKnowledgeBaseSourceEnabledMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  enabled: Scalars['Boolean']['input'];
+}>;
+
+
+export type SetKnowledgeBaseSourceEnabledMutation = { __typename?: 'Mutation', setKnowledgeBaseSourceEnabled: { __typename?: 'KnowledgeBaseSource', id: string, enabled: boolean, status: KnowledgeBaseSourceStatus } };
 
 export type UpdateKnowledgeBaseMutationVariables = Exact<{
-  id: string | number;
-  knowledgeBase: Types.KnowledgeBaseInput;
+  id: Scalars['ID']['input'];
+  knowledgeBase: KnowledgeBaseInput;
 }>;
 
 
-export type UpdateKnowledgeBaseMutation = { updateKnowledgeBase: { id: string, name: string, description: string | null, maxChunkSize: number | null, minChunkSizeChars: number | null, overlap: number | null } | null };
+export type UpdateKnowledgeBaseMutation = { __typename?: 'Mutation', updateKnowledgeBase?: { __typename?: 'KnowledgeBase', id: string, name: string, description?: string | null, maxChunkSize?: number | null, minChunkSizeChars?: number | null, overlap?: number | null } | null };
 
 export type UpdateKnowledgeBaseDocumentChunkMutationVariables = Exact<{
-  id: string | number;
-  knowledgeBaseDocumentChunk: Types.KnowledgeBaseDocumentChunkInput;
+  id: Scalars['ID']['input'];
+  knowledgeBaseDocumentChunk: KnowledgeBaseDocumentChunkInput;
 }>;
 
 
-export type UpdateKnowledgeBaseDocumentChunkMutation = { updateKnowledgeBaseDocumentChunk: { id: string, knowledgeBaseDocumentId: string, content: string | null, metadata: any } | null };
+export type UpdateKnowledgeBaseDocumentChunkMutation = { __typename?: 'Mutation', updateKnowledgeBaseDocumentChunk?: { __typename?: 'KnowledgeBaseDocumentChunk', id: string, knowledgeBaseDocumentId: string, content?: string | null, metadata?: any | null } | null };
 
 export type UpdateKnowledgeBaseDocumentTagsMutationVariables = Exact<{
-  input: Types.UpdateKnowledgeBaseDocumentTagsInput;
+  input: UpdateKnowledgeBaseDocumentTagsInput;
 }>;
 
 
-export type UpdateKnowledgeBaseDocumentTagsMutation = { updateKnowledgeBaseDocumentTags: boolean };
+export type UpdateKnowledgeBaseDocumentTagsMutation = { __typename?: 'Mutation', updateKnowledgeBaseDocumentTags: boolean };
+
+export type UpdateKnowledgeBaseSourceMutationVariables = Exact<{
+  id: Scalars['ID']['input'];
+  input: UpdateKnowledgeBaseSourceInput;
+}>;
+
+
+export type UpdateKnowledgeBaseSourceMutation = { __typename?: 'Mutation', updateKnowledgeBaseSource: { __typename?: 'KnowledgeBaseSource', id: string, name: string, cadence: string, enabled: boolean, status: KnowledgeBaseSourceStatus } };
 
 export type UpdateKnowledgeBaseTagsMutationVariables = Exact<{
-  input: Types.UpdateKnowledgeBaseTagsInput;
+  input: UpdateKnowledgeBaseTagsInput;
 }>;
 
 
-export type UpdateKnowledgeBaseTagsMutation = { updateKnowledgeBaseTags: boolean };
+export type UpdateKnowledgeBaseTagsMutation = { __typename?: 'Mutation', updateKnowledgeBaseTags: boolean };
 
 export type AutomationSearchQueryVariables = Exact<{
-  query: string;
-  limit?: number | null | undefined;
+  query: Scalars['String']['input'];
+  limit?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type AutomationSearchQuery = { automationSearch: Array<
-    | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
-    | { collectionId: string, path: string | null, id: string, name: string, description: string | null, type: Types.SearchAssetType }
-    | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
-    | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
-    | { knowledgeBaseId: string, id: string, name: string, description: string | null, type: Types.SearchAssetType }
-    | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
-    | { projectName: string, id: string, name: string, description: string | null, type: Types.SearchAssetType }
-    | { id: string, name: string, description: string | null, type: Types.SearchAssetType }
-    | { projectId: string, label: string, id: string, name: string, description: string | null, type: Types.SearchAssetType }
+export type AutomationSearchQuery = { __typename?: 'Query', automationSearch: Array<
+    | { __typename?: 'ApiCollectionSearchResult', id: string, name: string, description?: string | null, type: SearchAssetType }
+    | { __typename?: 'ApiEndpointSearchResult', collectionId: string, path?: string | null, id: string, name: string, description?: string | null, type: SearchAssetType }
+    | { __typename?: 'ConnectionSearchResult', id: string, name: string, description?: string | null, type: SearchAssetType }
+    | { __typename?: 'DataTableSearchResult', id: string, name: string, description?: string | null, type: SearchAssetType }
+    | { __typename?: 'KnowledgeBaseDocumentSearchResult', knowledgeBaseId: string, id: string, name: string, description?: string | null, type: SearchAssetType }
+    | { __typename?: 'KnowledgeBaseSearchResult', id: string, name: string, description?: string | null, type: SearchAssetType }
+    | { __typename?: 'ProjectDeploymentSearchResult', projectName: string, id: string, name: string, description?: string | null, type: SearchAssetType }
+    | { __typename?: 'ProjectSearchResult', id: string, name: string, description?: string | null, type: SearchAssetType }
+    | { __typename?: 'WorkflowSearchResult', projectId: string, label: string, id: string, name: string, description?: string | null, type: SearchAssetType }
   > };
 
 export type AutomationWorkflowProjectCategoriesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type AutomationWorkflowProjectCategoriesQuery = { automationWorkflowProjectCategories: Array<{ id: string, name: string }> };
+export type AutomationWorkflowProjectCategoriesQuery = { __typename?: 'Query', automationWorkflowProjectCategories: Array<{ __typename?: 'AutomationWorkflowProjectCategory', id: string, name: string }> };
 
 export type AutomationWorkflowProjectTagsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type AutomationWorkflowProjectTagsQuery = { automationWorkflowProjectTags: Array<{ id: string, name: string }> };
+export type AutomationWorkflowProjectTagsQuery = { __typename?: 'Query', automationWorkflowProjectTags: Array<{ __typename?: 'AutomationWorkflowProjectTag', id: string, name: string }> };
 
 export type AutomationWorkflowProjectVersionsQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type AutomationWorkflowProjectVersionsQuery = { automationWorkflowProjectVersions: Array<{ version: number, status: string, publishedDate: string | null }> };
+export type AutomationWorkflowProjectVersionsQuery = { __typename?: 'Query', automationWorkflowProjectVersions: Array<{ __typename?: 'AutomationWorkflowProjectVersion', version: number, status: string, publishedDate?: string | null }> };
 
 export type AutomationWorkflowProjectsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type AutomationWorkflowProjectsQuery = { automationWorkflowProjects: Array<{ id: string, name: string, description: string | null, categoryId: string | null, tagIds: Array<string>, published: boolean, version: number, lastPublishedVersion: number | null, workflowTemplates: Array<{ workflowUuid: string, label: string | null, description: string | null, lastModifiedDate: string | null, triggers: Array<{ name: string, title: string | null, icon: string | null }>, components: Array<{ name: string, title: string | null, icon: string | null }> }> }> };
+export type AutomationWorkflowProjectsQuery = { __typename?: 'Query', automationWorkflowProjects: Array<{ __typename?: 'AutomationWorkflowProject', id: string, name: string, description?: string | null, categoryId?: string | null, tagIds: Array<string>, published: boolean, version: number, lastPublishedVersion?: number | null, workflowTemplates: Array<{ __typename?: 'AutomationWorkflowProjectWorkflowTemplate', workflowUuid: string, label?: string | null, description?: string | null, lastModifiedDate?: string | null, triggers: Array<{ __typename?: 'AutomationWorkflowProjectComponent', name: string, title?: string | null, icon?: string | null }>, components: Array<{ __typename?: 'AutomationWorkflowProjectComponent', name: string, title?: string | null, icon?: string | null }> }> }> };
 
 export type CreateAutomationWorkflowProjectMutationVariables = Exact<{
-  name: string;
-  description?: string | null | undefined;
-  category?: string | null | undefined;
-  tags?: Array<string> | string | null | undefined;
+  name: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  category?: InputMaybe<Scalars['String']['input']>;
+  tags?: InputMaybe<Array<Scalars['String']['input']> | Scalars['String']['input']>;
 }>;
 
 
-export type CreateAutomationWorkflowProjectMutation = { createAutomationWorkflowProject: string };
+export type CreateAutomationWorkflowProjectMutation = { __typename?: 'Mutation', createAutomationWorkflowProject: string };
 
 export type UpdateAutomationWorkflowProjectMutationVariables = Exact<{
-  id: string | number;
-  name: string;
-  description?: string | null | undefined;
-  category?: string | null | undefined;
-  tags?: Array<string> | string | null | undefined;
+  id: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
+  category?: InputMaybe<Scalars['String']['input']>;
+  tags?: InputMaybe<Array<Scalars['String']['input']> | Scalars['String']['input']>;
 }>;
 
 
-export type UpdateAutomationWorkflowProjectMutation = { updateAutomationWorkflowProject: boolean };
+export type UpdateAutomationWorkflowProjectMutation = { __typename?: 'Mutation', updateAutomationWorkflowProject: boolean };
 
 export type DeleteAutomationWorkflowProjectMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteAutomationWorkflowProjectMutation = { deleteAutomationWorkflowProject: boolean };
+export type DeleteAutomationWorkflowProjectMutation = { __typename?: 'Mutation', deleteAutomationWorkflowProject: boolean };
 
 export type CreateAutomationWorkflowProjectWorkflowMutationVariables = Exact<{
-  projectId: string | number;
-  definition?: string | null | undefined;
+  projectId: Scalars['ID']['input'];
+  definition?: InputMaybe<Scalars['String']['input']>;
 }>;
 
 
-export type CreateAutomationWorkflowProjectWorkflowMutation = { createAutomationWorkflowProjectWorkflow: string };
+export type CreateAutomationWorkflowProjectWorkflowMutation = { __typename?: 'Mutation', createAutomationWorkflowProjectWorkflow: string };
 
 export type DeleteAutomationWorkflowProjectWorkflowMutationVariables = Exact<{
-  workflowUuid: string | number;
+  workflowUuid: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteAutomationWorkflowProjectWorkflowMutation = { deleteAutomationWorkflowProjectWorkflow: boolean };
+export type DeleteAutomationWorkflowProjectWorkflowMutation = { __typename?: 'Mutation', deleteAutomationWorkflowProjectWorkflow: boolean };
 
 export type PublishAutomationWorkflowProjectMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type PublishAutomationWorkflowProjectMutation = { publishAutomationWorkflowProject: boolean };
+export type PublishAutomationWorkflowProjectMutation = { __typename?: 'Mutation', publishAutomationWorkflowProject: boolean };
 
 export type ConnectedUserMcpServersQueryVariables = Exact<{
-  connectedUserId: string | number;
+  connectedUserId: Scalars['ID']['input'];
 }>;
 
 
-export type ConnectedUserMcpServersQuery = { connectedUserMcpServers: Array<{ id: string, name: string, enabled: boolean, environmentId: string, lastModifiedDate: string | null, tools: Array<{ id: string, componentName: string, componentVersion: number, integrationInstanceId: string, name: string, enabled: boolean }> }> };
+export type ConnectedUserMcpServersQuery = { __typename?: 'Query', connectedUserMcpServers: Array<{ __typename?: 'ConnectedUserMcpServer', id: string, name: string, enabled: boolean, environmentId: string, lastModifiedDate?: string | null, tools: Array<{ __typename?: 'ConnectedUserMcpServerTool', id: string, componentName: string, componentVersion: number, integrationInstanceId: string, name: string, enabled: boolean }> }> };
 
 export type ConnectedUserProjectsQueryVariables = Exact<{
-  connectedUserId?: string | number | null | undefined;
-  environmentId?: string | number | null | undefined;
+  connectedUserId?: InputMaybe<Scalars['ID']['input']>;
+  environmentId?: InputMaybe<Scalars['ID']['input']>;
 }>;
 
 
-export type ConnectedUserProjectsQuery = { connectedUserProjects: Array<{ id: string, environmentId: string, lastExecutionDate: string | null, projectId: string, projectVersion: number | null, connectedUser: { id: string, environmentId: string, externalId: string }, connectedUserProjectWorkflows: Array<{ id: string, connectedUserId: string, enabled: boolean, lastExecutionDate: string | null, projectId: string, workflowUuid: string, workflowVersion: number | null, workflow: { id: string, label: string, triggers: Array<{ name: string, type: string, parameters: any }> } }> }> };
+export type ConnectedUserProjectsQuery = { __typename?: 'Query', connectedUserProjects: Array<{ __typename?: 'ConnectedUserProject', id: string, environmentId: string, lastExecutionDate?: string | null, projectId: string, projectVersion?: number | null, connectedUser: { __typename?: 'ConnectedUser', id: string, environmentId: string, externalId: string }, connectedUserProjectWorkflows: Array<{ __typename?: 'ConnectedUserProjectWorkflow', id: string, connectedUserId: string, enabled: boolean, lastExecutionDate?: string | null, projectId: string, workflowUuid: string, workflowVersion?: number | null, workflow: { __typename?: 'Workflow', id: string, label: string, triggers: Array<{ __typename?: 'WorkflowTrigger', name: string, type: string, parameters?: any | null }> } }> }> };
 
 export type CreateEmbeddedMcpServerMutationVariables = Exact<{
-  input: Types.CreateEmbeddedMcpServerInput;
+  input: CreateEmbeddedMcpServerInput;
 }>;
 
 
-export type CreateEmbeddedMcpServerMutation = { createEmbeddedMcpServer: { enabled: boolean, environmentId: string, id: string, name: string, type: Types.PlatformType } | null };
+export type CreateEmbeddedMcpServerMutation = { __typename?: 'Mutation', createEmbeddedMcpServer?: { __typename?: 'McpServer', enabled: boolean, environmentId: string, id: string, name: string, type: PlatformType } | null };
 
 export type CreateMcpIntegrationInstanceConfigurationMutationVariables = Exact<{
-  input: Types.CreateMcpIntegrationInstanceConfigurationInput;
+  input: CreateMcpIntegrationInstanceConfigurationInput;
 }>;
 
 
-export type CreateMcpIntegrationInstanceConfigurationMutation = { createMcpIntegrationInstanceConfiguration: { id: string, integrationInstanceConfigurationId: string, mcpServerId: string } | null };
+export type CreateMcpIntegrationInstanceConfigurationMutation = { __typename?: 'Mutation', createMcpIntegrationInstanceConfiguration?: { __typename?: 'McpIntegrationInstanceConfiguration', id: string, integrationInstanceConfigurationId: string, mcpServerId: string } | null };
 
 export type DeleteConnectedUserMcpServerMutationVariables = Exact<{
-  connectedUserId: string | number;
-  mcpServerId: string | number;
+  connectedUserId: Scalars['ID']['input'];
+  mcpServerId: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteConnectedUserMcpServerMutation = { deleteConnectedUserMcpServer: boolean | null };
+export type DeleteConnectedUserMcpServerMutation = { __typename?: 'Mutation', deleteConnectedUserMcpServer?: boolean | null };
 
 export type DeleteConnectedUserProjectWorkflowMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteConnectedUserProjectWorkflowMutation = { deleteConnectedUserProjectWorkflow: boolean | null };
+export type DeleteConnectedUserProjectWorkflowMutation = { __typename?: 'Mutation', deleteConnectedUserProjectWorkflow?: boolean | null };
 
 export type DeleteEmbeddedMcpServerMutationVariables = Exact<{
-  mcpServerId: string | number;
+  mcpServerId: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteEmbeddedMcpServerMutation = { deleteEmbeddedMcpServer: boolean | null };
+export type DeleteEmbeddedMcpServerMutation = { __typename?: 'Mutation', deleteEmbeddedMcpServer?: boolean | null };
 
 export type DeleteMcpIntegrationInstanceConfigurationMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteMcpIntegrationInstanceConfigurationMutation = { deleteMcpIntegrationInstanceConfiguration: boolean | null };
+export type DeleteMcpIntegrationInstanceConfigurationMutation = { __typename?: 'Mutation', deleteMcpIntegrationInstanceConfiguration?: boolean | null };
 
 export type DeleteMcpIntegrationInstanceConfigurationWorkflowMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteMcpIntegrationInstanceConfigurationWorkflowMutation = { deleteMcpIntegrationInstanceConfigurationWorkflow: boolean | null };
+export type DeleteMcpIntegrationInstanceConfigurationWorkflowMutation = { __typename?: 'Mutation', deleteMcpIntegrationInstanceConfigurationWorkflow?: boolean | null };
 
 export type DuplicateAutomationWorkflowProjectMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DuplicateAutomationWorkflowProjectMutation = { duplicateAutomationWorkflowProject: string };
+export type DuplicateAutomationWorkflowProjectMutation = { __typename?: 'Mutation', duplicateAutomationWorkflowProject: string };
 
 export type DuplicateAutomationWorkflowProjectWorkflowMutationVariables = Exact<{
-  workflowUuid: string | number;
+  workflowUuid: Scalars['ID']['input'];
 }>;
 
 
-export type DuplicateAutomationWorkflowProjectWorkflowMutation = { duplicateAutomationWorkflowProjectWorkflow: string };
+export type DuplicateAutomationWorkflowProjectWorkflowMutation = { __typename?: 'Mutation', duplicateAutomationWorkflowProjectWorkflow: string };
 
 export type EmbeddedMcpServersQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type EmbeddedMcpServersQuery = { embeddedMcpServers: Array<{ id: string, enabled: boolean, environmentId: string, lastModifiedDate: any, name: string, type: Types.PlatformType, url: string, mcpComponents: Array<{ componentName: string, componentVersion: number, connectionId: string | null, id: string, lastModifiedDate: any, mcpServerId: string, title: string | null, mcpTools: Array<{ id: string, mcpComponentId: string, name: string, title: string | null, parameters: any } | null> | null } | null> | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
+export type EmbeddedMcpServersQuery = { __typename?: 'Query', embeddedMcpServers?: Array<{ __typename?: 'McpServer', id: string, enabled: boolean, environmentId: string, lastModifiedDate?: any | null, name: string, type: PlatformType, url: string, mcpComponents?: Array<{ __typename?: 'McpComponent', componentName: string, componentVersion: number, connectionId?: string | null, id: string, lastModifiedDate?: any | null, mcpServerId: string, title?: string | null, mcpTools?: Array<{ __typename?: 'McpTool', id: string, mcpComponentId: string, name: string, title?: string | null, parameters?: any | null } | null> | null } | null> | null, tags?: Array<{ __typename?: 'Tag', id: string, name: string } | null> | null } | null> | null };
 
 export type EnableConnectedUserMcpServerMutationVariables = Exact<{
-  connectedUserId: string | number;
-  mcpServerId: string | number;
-  enable: boolean;
+  connectedUserId: Scalars['ID']['input'];
+  mcpServerId: Scalars['ID']['input'];
+  enable: Scalars['Boolean']['input'];
 }>;
 
 
-export type EnableConnectedUserMcpServerMutation = { enableConnectedUserMcpServer: boolean | null };
+export type EnableConnectedUserMcpServerMutation = { __typename?: 'Mutation', enableConnectedUserMcpServer?: boolean | null };
 
 export type EnableConnectedUserMcpToolMutationVariables = Exact<{
-  id: string | number;
-  enable: boolean;
+  id: Scalars['ID']['input'];
+  enable: Scalars['Boolean']['input'];
 }>;
 
 
-export type EnableConnectedUserMcpToolMutation = { enableConnectedUserMcpTool: boolean | null };
+export type EnableConnectedUserMcpToolMutation = { __typename?: 'Mutation', enableConnectedUserMcpTool?: boolean | null };
 
 export type EnableConnectedUserProjectWorkflowMutationVariables = Exact<{
-  id: string | number;
-  enable: boolean;
+  id: Scalars['ID']['input'];
+  enable: Scalars['Boolean']['input'];
 }>;
 
 
-export type EnableConnectedUserProjectWorkflowMutation = { enableConnectedUserProjectWorkflow: boolean | null };
+export type EnableConnectedUserProjectWorkflowMutation = { __typename?: 'Mutation', enableConnectedUserProjectWorkflow?: boolean | null };
 
 export type IntegrationByIdQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type IntegrationByIdQuery = { integration: { id: string, name: string } | null };
+export type IntegrationByIdQuery = { __typename?: 'Query', integration?: { __typename?: 'Integration', id: string, name: string } | null };
 
 export type IntegrationWorkflowsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type IntegrationWorkflowsQuery = { integrationWorkflows: Array<{ id: string, label: string, description: string | null, integrationWorkflowId: string, workflowUuid: string | null, workflowTaskComponentNames: Array<string>, workflowTriggerComponentNames: Array<string>, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any }> };
+export type IntegrationWorkflowsQuery = { __typename?: 'Query', integrationWorkflows: Array<{ __typename?: 'IntegrationWorkflow', id: string, label: string, description?: string | null, integrationWorkflowId: string, workflowUuid?: string | null, workflowTaskComponentNames: Array<string>, workflowTriggerComponentNames: Array<string>, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null }> };
 
 export type IntegrationWorkflowsByIntegrationIdQueryVariables = Exact<{
-  integrationId: string | number;
+  integrationId: Scalars['ID']['input'];
 }>;
 
 
-export type IntegrationWorkflowsByIntegrationIdQuery = { integrationWorkflowsByIntegrationId: Array<{ id: string, label: string, description: string | null, integrationWorkflowId: string, workflowUuid: string | null, workflowTaskComponentNames: Array<string>, workflowTriggerComponentNames: Array<string>, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any }> };
+export type IntegrationWorkflowsByIntegrationIdQuery = { __typename?: 'Query', integrationWorkflowsByIntegrationId: Array<{ __typename?: 'IntegrationWorkflow', id: string, label: string, description?: string | null, integrationWorkflowId: string, workflowUuid?: string | null, workflowTaskComponentNames: Array<string>, workflowTriggerComponentNames: Array<string>, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null }> };
 
 export type McpComponentDefinitionsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type McpComponentDefinitionsQuery = { mcpComponentDefinitions: Array<{ clusterElementsCount: any, description: string | null, icon: string | null, name: string, title: string | null, version: number | null }> };
+export type McpComponentDefinitionsQuery = { __typename?: 'Query', mcpComponentDefinitions: Array<{ __typename?: 'ComponentDefinition', clusterElementsCount?: any | null, description?: string | null, icon?: string | null, name: string, title?: string | null, version?: number | null }> };
 
 export type McpIntegrationInstanceConfigurationWorkflowPropertiesQueryVariables = Exact<{
-  mcpIntegrationInstanceConfigurationWorkflowId: string | number;
+  mcpIntegrationInstanceConfigurationWorkflowId: Scalars['ID']['input'];
 }>;
 
 
-export type McpIntegrationInstanceConfigurationWorkflowPropertiesQuery = { mcpIntegrationInstanceConfigurationWorkflowProperties: Array<
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, arrayDefaultValue: Array<any> | null }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, booleanDefaultValue: boolean | null }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, integerDefaultValue: any }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, numberDefaultValue: number | null }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, objectDefaultValue: any }
-    | { controlType: Types.ControlType, defaultValue: string | null, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
+export type McpIntegrationInstanceConfigurationWorkflowPropertiesQuery = { __typename?: 'Query', mcpIntegrationInstanceConfigurationWorkflowProperties?: Array<
+    | { __typename?: 'ArrayProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, arrayDefaultValue?: Array<any | null> | null }
+    | { __typename?: 'BooleanProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, booleanDefaultValue?: boolean | null }
+    | { __typename?: 'DateProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'DateTimeProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'DynamicPropertiesProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'FileEntryProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'IntegerProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, integerDefaultValue?: any | null }
+    | { __typename?: 'NullProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'NumberProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, numberDefaultValue?: number | null }
+    | { __typename?: 'ObjectProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, objectDefaultValue?: any | null }
+    | { __typename?: 'StringProperty', controlType: ControlType, defaultValue?: string | null, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'TimeProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
    | null> | null };
 
 export type McpIntegrationInstanceConfigurationsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type McpIntegrationInstanceConfigurationsQuery = { mcpIntegrationInstanceConfigurations: Array<{ id: string, integrationInstanceConfigurationId: string, mcpServerId: string, integration: { id: string, name: string } | null, mcpIntegrationInstanceConfigurationWorkflows: Array<{ integrationInstanceConfigurationWorkflow: { workflowId: string } | null } | null> | null } | null> | null };
+export type McpIntegrationInstanceConfigurationsQuery = { __typename?: 'Query', mcpIntegrationInstanceConfigurations?: Array<{ __typename?: 'McpIntegrationInstanceConfiguration', id: string, integrationInstanceConfigurationId: string, mcpServerId: string, integration?: { __typename?: 'Integration', id: string, name: string } | null, mcpIntegrationInstanceConfigurationWorkflows?: Array<{ __typename?: 'McpIntegrationInstanceConfigurationWorkflow', integrationInstanceConfigurationWorkflow?: { __typename?: 'IntegrationInstanceConfigurationWorkflow', workflowId: string } | null } | null> | null } | null> | null };
 
 export type McpIntegrationInstanceConfigurationsByServerIdQueryVariables = Exact<{
-  mcpServerId?: string | number | null | undefined;
+  mcpServerId?: InputMaybe<Scalars['ID']['input']>;
 }>;
 
 
-export type McpIntegrationInstanceConfigurationsByServerIdQuery = { mcpIntegrationInstanceConfigurationsByServerId: Array<{ id: string, integrationInstanceConfigurationId: string, integrationInstanceConfigurationName: string | null, integrationVersion: number | null, lastModifiedDate: any, mcpServerId: string, integration: { componentName: string, id: string, name: string } | null, mcpIntegrationInstanceConfigurationWorkflows: Array<{ id: string, integrationInstanceConfigurationWorkflowId: any, mcpIntegrationInstanceConfigurationId: any, parameters: any, integrationInstanceConfigurationWorkflow: { id: string, enabled: boolean, inputs: any, integrationInstanceConfigurationId: string, version: number, workflowId: string, connections: Array<{ connectionId: string | null, workflowConnectionKey: string, workflowNodeName: string }> } | null, workflow: { id: string, label: string } | null } | null> | null } | null> | null };
+export type McpIntegrationInstanceConfigurationsByServerIdQuery = { __typename?: 'Query', mcpIntegrationInstanceConfigurationsByServerId?: Array<{ __typename?: 'McpIntegrationInstanceConfiguration', id: string, integrationInstanceConfigurationId: string, integrationInstanceConfigurationName?: string | null, integrationVersion?: number | null, mcpServerId: string, integration?: { __typename?: 'Integration', componentName: string, id: string, name: string } | null, mcpIntegrationInstanceConfigurationWorkflows?: Array<{ __typename?: 'McpIntegrationInstanceConfigurationWorkflow', id: string, integrationInstanceConfigurationWorkflowId: any, mcpIntegrationInstanceConfigurationId: any, parameters?: any | null, integrationInstanceConfigurationWorkflow?: { __typename?: 'IntegrationInstanceConfigurationWorkflow', id: string, enabled: boolean, inputs?: any | null, integrationInstanceConfigurationId: string, version: number, workflowId: string, connections: Array<{ __typename?: 'IntegrationInstanceConfigurationWorkflowConnection', connectionId?: string | null, workflowConnectionKey: string, workflowNodeName: string }> } | null, workflow?: { __typename?: 'Workflow', id: string, label: string } | null } | null> | null } | null> | null };
 
 export type ToolEligibleIntegrationInstanceConfigurationWorkflowsQueryVariables = Exact<{
-  integrationInstanceConfigurationId: string | number;
+  integrationInstanceConfigurationId: Scalars['ID']['input'];
 }>;
 
 
-export type ToolEligibleIntegrationInstanceConfigurationWorkflowsQuery = { toolEligibleIntegrationInstanceConfigurationWorkflows: Array<{ id: string, integrationWorkflowId: string, label: string }> };
+export type ToolEligibleIntegrationInstanceConfigurationWorkflowsQuery = { __typename?: 'Query', toolEligibleIntegrationInstanceConfigurationWorkflows: Array<{ __typename?: 'IntegrationWorkflow', id: string, integrationWorkflowId: string, label: string }> };
 
 export type ToolEligibleIntegrationVersionWorkflowsQueryVariables = Exact<{
-  integrationId: string | number;
-  integrationVersion: number;
+  integrationId: Scalars['ID']['input'];
+  integrationVersion: Scalars['Int']['input'];
 }>;
 
 
-export type ToolEligibleIntegrationVersionWorkflowsQuery = { toolEligibleIntegrationVersionWorkflows: Array<{ id: string, integrationWorkflowId: string, label: string }> };
+export type ToolEligibleIntegrationVersionWorkflowsQuery = { __typename?: 'Query', toolEligibleIntegrationVersionWorkflows: Array<{ __typename?: 'IntegrationWorkflow', id: string, integrationWorkflowId: string, label: string }> };
 
 export type UpdateMcpIntegrationInstanceConfigurationMutationVariables = Exact<{
-  id: string | number;
-  input: Types.UpdateMcpIntegrationInstanceConfigurationInput;
+  id: Scalars['ID']['input'];
+  input: UpdateMcpIntegrationInstanceConfigurationInput;
 }>;
 
 
-export type UpdateMcpIntegrationInstanceConfigurationMutation = { updateMcpIntegrationInstanceConfiguration: { id: string, integrationInstanceConfigurationId: string, mcpServerId: string } | null };
+export type UpdateMcpIntegrationInstanceConfigurationMutation = { __typename?: 'Mutation', updateMcpIntegrationInstanceConfiguration?: { __typename?: 'McpIntegrationInstanceConfiguration', id: string, integrationInstanceConfigurationId: string, mcpServerId: string } | null };
 
 export type UpdateMcpIntegrationInstanceConfigurationVersionMutationVariables = Exact<{
-  id: string | number;
-  input: Types.UpdateMcpIntegrationInstanceConfigurationVersionInput;
+  id: Scalars['ID']['input'];
+  input: UpdateMcpIntegrationInstanceConfigurationVersionInput;
 }>;
 
 
-export type UpdateMcpIntegrationInstanceConfigurationVersionMutation = { updateMcpIntegrationInstanceConfigurationVersion: boolean | null };
+export type UpdateMcpIntegrationInstanceConfigurationVersionMutation = { __typename?: 'Mutation', updateMcpIntegrationInstanceConfigurationVersion?: boolean | null };
 
 export type UpdateMcpIntegrationInstanceConfigurationWorkflowMutationVariables = Exact<{
-  id: string | number;
-  input: Types.McpIntegrationInstanceConfigurationWorkflowUpdateInput;
+  id: Scalars['ID']['input'];
+  input: McpIntegrationInstanceConfigurationWorkflowUpdateInput;
 }>;
 
 
-export type UpdateMcpIntegrationInstanceConfigurationWorkflowMutation = { updateMcpIntegrationInstanceConfigurationWorkflow: { id: string, mcpIntegrationInstanceConfigurationId: any, integrationInstanceConfigurationWorkflowId: any, parameters: any } | null };
+export type UpdateMcpIntegrationInstanceConfigurationWorkflowMutation = { __typename?: 'Mutation', updateMcpIntegrationInstanceConfigurationWorkflow?: { __typename?: 'McpIntegrationInstanceConfigurationWorkflow', id: string, mcpIntegrationInstanceConfigurationId: any, integrationInstanceConfigurationWorkflowId: any, parameters?: any | null } | null };
 
 export type ApiConnectorQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type ApiConnectorQuery = { apiConnector: { id: string, name: string, title: string | null, description: string | null, icon: string | null, connectorVersion: number, enabled: boolean | null, specification: string | null, definition: string | null, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any, version: number | null, endpoints: Array<{ id: string, name: string, description: string | null, path: string | null, httpMethod: Types.HttpMethod | null }> | null } | null };
+export type ApiConnectorQuery = { __typename?: 'Query', apiConnector?: { __typename?: 'ApiConnector', id: string, name: string, title?: string | null, description?: string | null, icon?: string | null, connectorVersion: number, enabled?: boolean | null, specification?: string | null, definition?: string | null, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, version?: number | null, endpoints?: Array<{ __typename?: 'ApiConnectorEndpoint', id: string, name: string, description?: string | null, path?: string | null, httpMethod?: HttpMethod | null }> | null } | null };
 
 export type ApiConnectorsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type ApiConnectorsQuery = { apiConnectors: Array<{ id: string, name: string, title: string | null, description: string | null, icon: string | null, connectorVersion: number, enabled: boolean | null, specification: string | null, definition: string | null, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any, version: number | null, endpoints: Array<{ id: string, name: string, description: string | null, path: string | null, httpMethod: Types.HttpMethod | null }> | null }> };
+export type ApiConnectorsQuery = { __typename?: 'Query', apiConnectors: Array<{ __typename?: 'ApiConnector', id: string, name: string, title?: string | null, description?: string | null, icon?: string | null, connectorVersion: number, enabled?: boolean | null, specification?: string | null, definition?: string | null, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, version?: number | null, endpoints?: Array<{ __typename?: 'ApiConnectorEndpoint', id: string, name: string, description?: string | null, path?: string | null, httpMethod?: HttpMethod | null }> | null }> };
 
 export type CancelGenerationJobMutationVariables = Exact<{
-  jobId: string;
+  jobId: Scalars['String']['input'];
 }>;
 
 
-export type CancelGenerationJobMutation = { cancelGenerationJob: boolean };
+export type CancelGenerationJobMutation = { __typename?: 'Mutation', cancelGenerationJob: boolean };
 
 export type CreateApiConnectorMutationVariables = Exact<{
-  input: Types.CreateApiConnectorInput;
+  input: CreateApiConnectorInput;
 }>;
 
 
-export type CreateApiConnectorMutation = { createApiConnector: { id: string, name: string, title: string | null, description: string | null, icon: string | null, connectorVersion: number, enabled: boolean | null, specification: string | null, definition: string | null, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any, version: number | null, endpoints: Array<{ id: string, name: string, description: string | null, path: string | null, httpMethod: Types.HttpMethod | null }> | null } };
+export type CreateApiConnectorMutation = { __typename?: 'Mutation', createApiConnector: { __typename?: 'ApiConnector', id: string, name: string, title?: string | null, description?: string | null, icon?: string | null, connectorVersion: number, enabled?: boolean | null, specification?: string | null, definition?: string | null, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, version?: number | null, endpoints?: Array<{ __typename?: 'ApiConnectorEndpoint', id: string, name: string, description?: string | null, path?: string | null, httpMethod?: HttpMethod | null }> | null } };
 
 export type DeleteApiConnectorMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteApiConnectorMutation = { deleteApiConnector: boolean };
+export type DeleteApiConnectorMutation = { __typename?: 'Mutation', deleteApiConnector: boolean };
 
 export type EnableApiConnectorMutationVariables = Exact<{
-  id: string | number;
-  enable: boolean;
+  id: Scalars['ID']['input'];
+  enable: Scalars['Boolean']['input'];
 }>;
 
 
-export type EnableApiConnectorMutation = { enableApiConnector: boolean };
+export type EnableApiConnectorMutation = { __typename?: 'Mutation', enableApiConnector: boolean };
 
 export type GenerateSpecificationMutationVariables = Exact<{
-  input: Types.GenerateSpecificationInput;
+  input: GenerateSpecificationInput;
 }>;
 
 
-export type GenerateSpecificationMutation = { generateSpecification: { specification: string | null } };
+export type GenerateSpecificationMutation = { __typename?: 'Mutation', generateSpecification: { __typename?: 'GenerateSpecificationResponse', specification?: string | null } };
 
 export type GenerationJobStatusQueryVariables = Exact<{
-  jobId: string;
+  jobId: Scalars['String']['input'];
 }>;
 
 
-export type GenerationJobStatusQuery = { generationJobStatus: { jobId: string, status: Types.GenerationJobStatusEnum, specification: string | null, errorMessage: string | null } | null };
+export type GenerationJobStatusQuery = { __typename?: 'Query', generationJobStatus?: { __typename?: 'GenerationJobStatus', jobId: string, status: GenerationJobStatusEnum, specification?: string | null, errorMessage?: string | null } | null };
 
 export type ImportOpenApiSpecificationMutationVariables = Exact<{
-  input: Types.ImportOpenApiSpecificationInput;
+  input: ImportOpenApiSpecificationInput;
 }>;
 
 
-export type ImportOpenApiSpecificationMutation = { importOpenApiSpecification: { id: string, name: string, title: string | null, description: string | null, icon: string | null, connectorVersion: number, enabled: boolean | null, specification: string | null, definition: string | null, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any, version: number | null, endpoints: Array<{ id: string, name: string, description: string | null, path: string | null, httpMethod: Types.HttpMethod | null }> | null } };
+export type ImportOpenApiSpecificationMutation = { __typename?: 'Mutation', importOpenApiSpecification: { __typename?: 'ApiConnector', id: string, name: string, title?: string | null, description?: string | null, icon?: string | null, connectorVersion: number, enabled?: boolean | null, specification?: string | null, definition?: string | null, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, version?: number | null, endpoints?: Array<{ __typename?: 'ApiConnectorEndpoint', id: string, name: string, description?: string | null, path?: string | null, httpMethod?: HttpMethod | null }> | null } };
 
 export type StartGenerateFromDocumentationPreviewMutationVariables = Exact<{
-  input: Types.GenerateFromDocumentationInput;
+  input: GenerateFromDocumentationInput;
 }>;
 
 
-export type StartGenerateFromDocumentationPreviewMutation = { startGenerateFromDocumentationPreview: { jobId: string, status: Types.GenerationJobStatusEnum, specification: string | null, errorMessage: string | null } };
+export type StartGenerateFromDocumentationPreviewMutation = { __typename?: 'Mutation', startGenerateFromDocumentationPreview: { __typename?: 'GenerationJobStatus', jobId: string, status: GenerationJobStatusEnum, specification?: string | null, errorMessage?: string | null } };
 
 export type UpdateApiConnectorMutationVariables = Exact<{
-  id: string | number;
-  input: Types.UpdateApiConnectorInput;
+  id: Scalars['ID']['input'];
+  input: UpdateApiConnectorInput;
 }>;
 
 
-export type UpdateApiConnectorMutation = { updateApiConnector: { id: string, name: string, title: string | null, description: string | null, icon: string | null, connectorVersion: number, enabled: boolean | null, specification: string | null, definition: string | null, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any, version: number | null, endpoints: Array<{ id: string, name: string, description: string | null, path: string | null, httpMethod: Types.HttpMethod | null }> | null } };
+export type UpdateApiConnectorMutation = { __typename?: 'Mutation', updateApiConnector: { __typename?: 'ApiConnector', id: string, name: string, title?: string | null, description?: string | null, icon?: string | null, connectorVersion: number, enabled?: boolean | null, specification?: string | null, definition?: string | null, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, version?: number | null, endpoints?: Array<{ __typename?: 'ApiConnectorEndpoint', id: string, name: string, description?: string | null, path?: string | null, httpMethod?: HttpMethod | null }> | null } };
 
 export type EditorJobFileLogsQueryVariables = Exact<{
-  jobId: string | number;
-  filter?: Types.LogFilterInput | null | undefined;
-  page?: number | null | undefined;
-  size?: number | null | undefined;
+  jobId: Scalars['ID']['input'];
+  filter?: InputMaybe<LogFilterInput>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  size?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type EditorJobFileLogsQuery = { editorJobFileLogs: { totalElements: number, totalPages: number, pageNumber: number, pageSize: number, hasNext: boolean, hasPrevious: boolean, content: Array<{ timestamp: string, level: Types.LogLevel, componentName: string, componentOperationName: string | null, taskExecutionId: string, message: string, exceptionType: string | null, exceptionMessage: string | null, stackTrace: string | null }> } };
+export type EditorJobFileLogsQuery = { __typename?: 'Query', editorJobFileLogs: { __typename?: 'LogPage', totalElements: number, totalPages: number, pageNumber: number, pageSize: number, hasNext: boolean, hasPrevious: boolean, content: Array<{ __typename?: 'LogEntry', timestamp: string, level: LogLevel, componentName: string, componentOperationName?: string | null, taskExecutionId: string, message: string, exceptionType?: string | null, exceptionMessage?: string | null, stackTrace?: string | null }> } };
 
 export type EditorJobFileLogsExistQueryVariables = Exact<{
-  jobId: string | number;
+  jobId: Scalars['ID']['input'];
 }>;
 
 
-export type EditorJobFileLogsExistQuery = { editorJobFileLogsExist: boolean };
+export type EditorJobFileLogsExistQuery = { __typename?: 'Query', editorJobFileLogsExist: boolean };
 
 export type EditorTaskExecutionFileLogsQueryVariables = Exact<{
-  jobId: string | number;
-  taskExecutionId: string | number;
+  jobId: Scalars['ID']['input'];
+  taskExecutionId: Scalars['ID']['input'];
 }>;
 
 
-export type EditorTaskExecutionFileLogsQuery = { editorTaskExecutionFileLogs: Array<{ timestamp: string, level: Types.LogLevel, componentName: string, componentOperationName: string | null, taskExecutionId: string, message: string, exceptionType: string | null, exceptionMessage: string | null, stackTrace: string | null }> };
+export type EditorTaskExecutionFileLogsQuery = { __typename?: 'Query', editorTaskExecutionFileLogs: Array<{ __typename?: 'LogEntry', timestamp: string, level: LogLevel, componentName: string, componentOperationName?: string | null, taskExecutionId: string, message: string, exceptionType?: string | null, exceptionMessage?: string | null, stackTrace?: string | null }> };
 
 export type JobFileLogsQueryVariables = Exact<{
-  jobId: string | number;
-  filter?: Types.LogFilterInput | null | undefined;
-  page?: number | null | undefined;
-  size?: number | null | undefined;
+  jobId: Scalars['ID']['input'];
+  filter?: InputMaybe<LogFilterInput>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  size?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type JobFileLogsQuery = { jobFileLogs: { totalElements: number, totalPages: number, pageNumber: number, pageSize: number, hasNext: boolean, hasPrevious: boolean, content: Array<{ timestamp: string, level: Types.LogLevel, componentName: string, componentOperationName: string | null, taskExecutionId: string, message: string, exceptionType: string | null, exceptionMessage: string | null, stackTrace: string | null }> } };
+export type JobFileLogsQuery = { __typename?: 'Query', jobFileLogs: { __typename?: 'LogPage', totalElements: number, totalPages: number, pageNumber: number, pageSize: number, hasNext: boolean, hasPrevious: boolean, content: Array<{ __typename?: 'LogEntry', timestamp: string, level: LogLevel, componentName: string, componentOperationName?: string | null, taskExecutionId: string, message: string, exceptionType?: string | null, exceptionMessage?: string | null, stackTrace?: string | null }> } };
 
 export type JobFileLogsExistQueryVariables = Exact<{
-  jobId: string | number;
+  jobId: Scalars['ID']['input'];
 }>;
 
 
-export type JobFileLogsExistQuery = { jobFileLogsExist: boolean };
+export type JobFileLogsExistQuery = { __typename?: 'Query', jobFileLogsExist: boolean };
 
 export type TaskExecutionFileLogsQueryVariables = Exact<{
-  jobId: string | number;
-  taskExecutionId: string | number;
+  jobId: Scalars['ID']['input'];
+  taskExecutionId: Scalars['ID']['input'];
 }>;
 
 
-export type TaskExecutionFileLogsQuery = { taskExecutionFileLogs: Array<{ timestamp: string, level: Types.LogLevel, componentName: string, componentOperationName: string | null, taskExecutionId: string, message: string, exceptionType: string | null, exceptionMessage: string | null, stackTrace: string | null }> };
+export type TaskExecutionFileLogsQuery = { __typename?: 'Query', taskExecutionFileLogs: Array<{ __typename?: 'LogEntry', timestamp: string, level: LogLevel, componentName: string, componentOperationName?: string | null, taskExecutionId: string, message: string, exceptionType?: string | null, exceptionMessage?: string | null, stackTrace?: string | null }> };
 
 export type AdminApiKeysQueryVariables = Exact<{
-  environmentId: string | number;
+  environmentId: Scalars['ID']['input'];
 }>;
 
 
-export type AdminApiKeysQuery = { adminApiKeys: Array<{ id: string | null, name: string | null, secretKey: string | null, lastUsedDate: any, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any } | null> | null };
+export type AdminApiKeysQuery = { __typename?: 'Query', adminApiKeys?: Array<{ __typename?: 'ApiKey', id?: string | null, name?: string | null, secretKey?: string | null, lastUsedDate?: any | null, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null } | null> | null };
 
 export type ApiKeysQueryVariables = Exact<{
-  environmentId: string | number;
-  type: Types.PlatformType;
+  environmentId: Scalars['ID']['input'];
+  type: PlatformType;
 }>;
 
 
-export type ApiKeysQuery = { apiKeys: Array<{ id: string | null, name: string | null, secretKey: string | null, lastUsedDate: any, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any } | null> | null };
+export type ApiKeysQuery = { __typename?: 'Query', apiKeys?: Array<{ __typename?: 'ApiKey', id?: string | null, name?: string | null, secretKey?: string | null, lastUsedDate?: any | null, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null } | null> | null };
 
 export type ClusterElementComponentConnectionsQueryVariables = Exact<{
-  workflowId: string;
-  workflowNodeName: string;
-  clusterElementType: string;
-  clusterElementWorkflowNodeName: string;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+  clusterElementType: Scalars['String']['input'];
+  clusterElementWorkflowNodeName: Scalars['String']['input'];
 }>;
 
 
-export type ClusterElementComponentConnectionsQuery = { clusterElementComponentConnections: Array<{ componentName: string, componentVersion: number, key: string, required: boolean, workflowNodeName: string }> };
+export type ClusterElementComponentConnectionsQuery = { __typename?: 'Query', clusterElementComponentConnections: Array<{ __typename?: 'ComponentConnection', componentName: string, componentVersion: number, key: string, required: boolean, workflowNodeName: string }> };
 
 export type ClusterElementDefinitionQueryVariables = Exact<{
-  componentName: string;
-  componentVersion: number;
-  clusterElementName: string;
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+  clusterElementName: Scalars['String']['input'];
 }>;
 
 
-export type ClusterElementDefinitionQuery = { clusterElementDefinition: { componentName: string | null, componentVersion: number | null, description: string | null, name: string, title: string | null, properties: Array<
-      | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, arrayDefaultValue: Array<any> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null, items: Array<
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, arrayDefaultValue: Array<any> | null }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, booleanDefaultValue: boolean | null }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, dateDefaultValue: string | null }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, dateTimeDefaultValue: string | null }
-          | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, propertiesDataSource: { propertiesLookupDependsOn: Array<string> | null } | null }
-          | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, integerDefaultValue: any, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, numberDefaultValue: number | null, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, objectDefaultValue: any }
-          | { controlType: Types.ControlType, defaultValue: string | null, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, timeDefaultValue: string | null }
+export type ClusterElementDefinitionQuery = { __typename?: 'Query', clusterElementDefinition: { __typename?: 'ClusterElementDefinition', componentName?: string | null, componentVersion?: number | null, description?: string | null, name: string, title?: string | null, properties: Array<
+      | { __typename?: 'ArrayProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, arrayDefaultValue?: Array<any | null> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null, items?: Array<
+          | { __typename?: 'ArrayProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, arrayDefaultValue?: Array<any | null> | null }
+          | { __typename?: 'BooleanProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, booleanDefaultValue?: boolean | null }
+          | { __typename?: 'DateProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, dateDefaultValue?: string | null }
+          | { __typename?: 'DateTimeProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, dateTimeDefaultValue?: string | null }
+          | { __typename?: 'DynamicPropertiesProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, propertiesDataSource?: { __typename?: 'PropertiesDataSource', propertiesLookupDependsOn?: Array<string> | null } | null }
+          | { __typename?: 'FileEntryProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+          | { __typename?: 'IntegerProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, integerDefaultValue?: any | null, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+          | { __typename?: 'NullProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+          | { __typename?: 'NumberProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, numberDefaultValue?: number | null, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+          | { __typename?: 'ObjectProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, objectDefaultValue?: any | null }
+          | { __typename?: 'StringProperty', controlType: ControlType, defaultValue?: string | null, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+          | { __typename?: 'TimeProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, timeDefaultValue?: string | null }
         > | null }
-      | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, booleanDefaultValue: boolean | null }
-      | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, dateDefaultValue: string | null }
-      | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, dateTimeDefaultValue: string | null }
-      | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, propertiesDataSource: { propertiesLookupDependsOn: Array<string> | null } | null }
-      | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-      | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, integerDefaultValue: any, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-      | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-      | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, numberDefaultValue: number | null, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-      | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, objectDefaultValue: any, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null, properties: Array<
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, arrayDefaultValue: Array<any> | null }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, booleanDefaultValue: boolean | null }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, dateDefaultValue: string | null }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, dateTimeDefaultValue: string | null }
-          | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, propertiesDataSource: { propertiesLookupDependsOn: Array<string> | null } | null }
-          | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, integerDefaultValue: any, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, numberDefaultValue: number | null, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, objectDefaultValue: any }
-          | { controlType: Types.ControlType, defaultValue: string | null, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-          | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, timeDefaultValue: string | null }
+      | { __typename?: 'BooleanProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, booleanDefaultValue?: boolean | null }
+      | { __typename?: 'DateProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, dateDefaultValue?: string | null }
+      | { __typename?: 'DateTimeProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, dateTimeDefaultValue?: string | null }
+      | { __typename?: 'DynamicPropertiesProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, propertiesDataSource?: { __typename?: 'PropertiesDataSource', propertiesLookupDependsOn?: Array<string> | null } | null }
+      | { __typename?: 'FileEntryProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+      | { __typename?: 'IntegerProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, integerDefaultValue?: any | null, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+      | { __typename?: 'NullProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+      | { __typename?: 'NumberProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, numberDefaultValue?: number | null, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+      | { __typename?: 'ObjectProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, objectDefaultValue?: any | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null, properties?: Array<
+          | { __typename?: 'ArrayProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, arrayDefaultValue?: Array<any | null> | null }
+          | { __typename?: 'BooleanProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, booleanDefaultValue?: boolean | null }
+          | { __typename?: 'DateProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, dateDefaultValue?: string | null }
+          | { __typename?: 'DateTimeProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, dateTimeDefaultValue?: string | null }
+          | { __typename?: 'DynamicPropertiesProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, propertiesDataSource?: { __typename?: 'PropertiesDataSource', propertiesLookupDependsOn?: Array<string> | null } | null }
+          | { __typename?: 'FileEntryProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+          | { __typename?: 'IntegerProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, integerDefaultValue?: any | null, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+          | { __typename?: 'NullProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+          | { __typename?: 'NumberProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, numberDefaultValue?: number | null, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+          | { __typename?: 'ObjectProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, objectDefaultValue?: any | null }
+          | { __typename?: 'StringProperty', controlType: ControlType, defaultValue?: string | null, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+          | { __typename?: 'TimeProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, timeDefaultValue?: string | null }
         > | null }
-      | { controlType: Types.ControlType, defaultValue: string | null, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-      | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, timeDefaultValue: string | null }
+      | { __typename?: 'StringProperty', controlType: ControlType, defaultValue?: string | null, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+      | { __typename?: 'TimeProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, timeDefaultValue?: string | null }
     > } };
 
-export type ClusterElementDynamicPropertiesQueryVariables = Exact<{
-  componentName: string;
-  componentVersion: number;
-  clusterElementName: string;
-  propertyName: string;
-  connectionId?: any;
-  inputParameters?: any;
-  lookupDependsOnPaths?: Array<string> | string | null | undefined;
+export type ClusterElementFieldsQueryVariables = Exact<{
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+  clusterElementName: Scalars['String']['input'];
+  connectionId?: InputMaybe<Scalars['Long']['input']>;
+  inputParameters?: InputMaybe<Scalars['Map']['input']>;
 }>;
 
 
-export type ClusterElementDynamicPropertiesQuery = { clusterElementDynamicProperties: Array<
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null, items: Array<
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, propertiesDataSource: { propertiesLookupDependsOn: Array<string> | null } | null }
-        | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
+export type ClusterElementFieldsQuery = { __typename?: 'Query', clusterElementFields: Array<{ __typename?: 'Field', name: string, label?: string | null, type?: string | null }> };
+
+export type ClusterElementDynamicPropertiesQueryVariables = Exact<{
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+  clusterElementName: Scalars['String']['input'];
+  propertyName: Scalars['String']['input'];
+  connectionId?: InputMaybe<Scalars['Long']['input']>;
+  inputParameters?: InputMaybe<Scalars['Map']['input']>;
+  lookupDependsOnPaths?: InputMaybe<Array<Scalars['String']['input']> | Scalars['String']['input']>;
+}>;
+
+
+export type ClusterElementDynamicPropertiesQuery = { __typename?: 'Query', clusterElementDynamicProperties: Array<
+    | { __typename?: 'ArrayProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null, items?: Array<
+        | { __typename?: 'ArrayProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'BooleanProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'DateProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'DateTimeProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'DynamicPropertiesProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, propertiesDataSource?: { __typename?: 'PropertiesDataSource', propertiesLookupDependsOn?: Array<string> | null } | null }
+        | { __typename?: 'FileEntryProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'IntegerProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+        | { __typename?: 'NullProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'NumberProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+        | { __typename?: 'ObjectProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'StringProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+        | { __typename?: 'TimeProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
       > | null }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, propertiesDataSource: { propertiesLookupDependsOn: Array<string> | null } | null }
-    | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null, properties: Array<
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, propertiesDataSource: { propertiesLookupDependsOn: Array<string> | null } | null }
-        | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-        | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
+    | { __typename?: 'BooleanProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'DateProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'DateTimeProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'DynamicPropertiesProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, propertiesDataSource?: { __typename?: 'PropertiesDataSource', propertiesLookupDependsOn?: Array<string> | null } | null }
+    | { __typename?: 'FileEntryProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'IntegerProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+    | { __typename?: 'NullProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+    | { __typename?: 'NumberProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+    | { __typename?: 'ObjectProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null, properties?: Array<
+        | { __typename?: 'ArrayProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'BooleanProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'DateProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'DateTimeProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'DynamicPropertiesProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, propertiesDataSource?: { __typename?: 'PropertiesDataSource', propertiesLookupDependsOn?: Array<string> | null } | null }
+        | { __typename?: 'FileEntryProperty', advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'IntegerProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+        | { __typename?: 'NullProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'NumberProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+        | { __typename?: 'ObjectProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
+        | { __typename?: 'StringProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+        | { __typename?: 'TimeProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
       > | null }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, options: Array<{ description: string | null, label: string | null, value: any }> | null, optionsDataSource: { optionsLookupDependsOn: Array<string> | null } | null }
-    | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
+    | { __typename?: 'StringProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType, options?: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> | null, optionsDataSource?: { __typename?: 'OptionsDataSource', optionsLookupDependsOn?: Array<string> | null } | null }
+    | { __typename?: 'TimeProperty', controlType: ControlType, label?: string | null, placeholder?: string | null, advancedOption?: boolean | null, description?: string | null, displayCondition?: string | null, expressionEnabled?: boolean | null, hidden?: boolean | null, name?: string | null, required?: boolean | null, type: PropertyType }
   > };
 
 export type ClusterElementOptionsQueryVariables = Exact<{
-  componentName: string;
-  componentVersion: number;
-  clusterElementName: string;
-  propertyName: string;
-  connectionId?: any;
-  inputParameters?: any;
-  lookupDependsOnPaths?: Array<string> | string | null | undefined;
+  componentName: Scalars['String']['input'];
+  componentVersion: Scalars['Int']['input'];
+  clusterElementName: Scalars['String']['input'];
+  propertyName: Scalars['String']['input'];
+  connectionId?: InputMaybe<Scalars['Long']['input']>;
+  inputParameters?: InputMaybe<Scalars['Map']['input']>;
+  lookupDependsOnPaths?: InputMaybe<Array<Scalars['String']['input']> | Scalars['String']['input']>;
 }>;
 
 
-export type ClusterElementOptionsQuery = { clusterElementOptions: Array<{ description: string | null, label: string | null, value: any }> };
+export type ClusterElementOptionsQuery = { __typename?: 'Query', clusterElementOptions: Array<{ __typename?: 'Option', description?: string | null, label?: string | null, value?: any | null }> };
 
 export type ClusterElementScriptInputQueryVariables = Exact<{
-  workflowId: string;
-  workflowNodeName: string;
-  clusterElementType: string;
-  clusterElementWorkflowNodeName: string;
-  environmentId: any;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+  clusterElementType: Scalars['String']['input'];
+  clusterElementWorkflowNodeName: Scalars['String']['input'];
+  environmentId: Scalars['Long']['input'];
 }>;
 
 
-export type ClusterElementScriptInputQuery = { clusterElementScriptInput: any };
+export type ClusterElementScriptInputQuery = { __typename?: 'Query', clusterElementScriptInput?: any | null };
 
 export type ComponentDefinitionSearchQueryVariables = Exact<{
-  query: string;
+  query: Scalars['String']['input'];
 }>;
 
 
-export type ComponentDefinitionSearchQuery = { componentDefinitionSearch: Array<{ name: string, title: string | null, icon: string | null, description: string | null, version: number | null, actionsCount: number | null, triggersCount: number | null, clusterElementsCount: any, componentCategories: Array<{ name: string, label: string | null }> | null, actions: Array<{ name: string, title: string | null, description: string | null }> | null, triggers: Array<{ name: string, title: string | null, description: string | null }> | null, clusterElements: Array<{ type: { name: string | null, label: string | null } | null }> | null }> };
+export type ComponentDefinitionSearchQuery = { __typename?: 'Query', componentDefinitionSearch: Array<{ __typename?: 'ComponentDefinition', name: string, title?: string | null, icon?: string | null, description?: string | null, version?: number | null, actionsCount?: number | null, triggersCount?: number | null, clusterElementsCount?: any | null, componentCategories?: Array<{ __typename?: 'ComponentCategory', name: string, label?: string | null }> | null, actions?: Array<{ __typename?: 'ActionDefinition', name: string, title?: string | null, description?: string | null }> | null, triggers?: Array<{ __typename?: 'TriggerDefinition', name: string, title?: string | null, description?: string | null }> | null, clusterElements?: Array<{ __typename?: 'ClusterElementDefinition', type?: { __typename?: 'ClusterElementType', name?: string | null, label?: string | null } | null }> | null }> };
 
 export type CreateApiKeyMutationVariables = Exact<{
-  name: string;
-  environmentId: string | number;
-  type?: Types.PlatformType | null | undefined;
+  name: Scalars['String']['input'];
+  environmentId: Scalars['ID']['input'];
+  type?: InputMaybe<PlatformType>;
 }>;
 
 
-export type CreateApiKeyMutation = { createApiKey: string };
+export type CreateApiKeyMutation = { __typename?: 'Mutation', createApiKey: string };
 
 export type CreateMcpComponentMutationVariables = Exact<{
-  input: Types.McpComponentInput;
+  input: McpComponentInput;
 }>;
 
 
-export type CreateMcpComponentMutation = { createMcpComponent: { id: string, componentName: string, componentVersion: number, title: string | null, mcpServerId: string, connectionId: string | null } | null };
+export type CreateMcpComponentMutation = { __typename?: 'Mutation', createMcpComponent?: { __typename?: 'McpComponent', id: string, componentName: string, componentVersion: number, title?: string | null, mcpServerId: string, connectionId?: string | null } | null };
 
 export type CreateMcpComponentWithToolsMutationVariables = Exact<{
-  input: Types.McpComponentWithToolsInput;
+  input: McpComponentWithToolsInput;
 }>;
 
 
-export type CreateMcpComponentWithToolsMutation = { createMcpComponentWithTools: { id: string, componentName: string, componentVersion: number, title: string | null, mcpServerId: string, connectionId: string | null, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any, version: number | null } | null };
+export type CreateMcpComponentWithToolsMutation = { __typename?: 'Mutation', createMcpComponentWithTools?: { __typename?: 'McpComponent', id: string, componentName: string, componentVersion: number, title?: string | null, mcpServerId: string, connectionId?: string | null, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, version?: number | null } | null };
 
 export type CreateMcpToolMutationVariables = Exact<{
-  input: Types.McpToolInput;
+  input: McpToolInput;
 }>;
 
 
-export type CreateMcpToolMutation = { createMcpTool: { id: string, name: string, mcpComponentId: string, parameters: any } | null };
+export type CreateMcpToolMutation = { __typename?: 'Mutation', createMcpTool?: { __typename?: 'McpTool', id: string, name: string, mcpComponentId: string, parameters?: any | null } | null };
 
 export type DeleteApiKeyMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteApiKeyMutation = { deleteApiKey: boolean };
+export type DeleteApiKeyMutation = { __typename?: 'Mutation', deleteApiKey: boolean };
 
 export type DeleteMcpComponentMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteMcpComponentMutation = { deleteMcpComponent: boolean | null };
+export type DeleteMcpComponentMutation = { __typename?: 'Mutation', deleteMcpComponent?: boolean | null };
 
 export type DeleteMcpToolMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteMcpToolMutation = { deleteMcpTool: boolean | null };
+export type DeleteMcpToolMutation = { __typename?: 'Mutation', deleteMcpTool?: boolean | null };
 
 export type EnvironmentsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type EnvironmentsQuery = { environments: Array<{ id: string, name: string } | null> | null };
+export type EnvironmentsQuery = { __typename?: 'Query', environments?: Array<{ __typename?: 'Environment', id: string, name: string } | null> | null };
 
 export type ManagementMcpServerUrlQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type ManagementMcpServerUrlQuery = { managementMcpServerUrl: string | null };
+export type ManagementMcpServerUrlQuery = { __typename?: 'Query', managementMcpServerUrl?: string | null };
 
 export type McpComponentsByServerIdQueryVariables = Exact<{
-  mcpServerId: string | number;
+  mcpServerId: Scalars['ID']['input'];
 }>;
 
 
-export type McpComponentsByServerIdQuery = { mcpComponentsByServerId: Array<{ id: string, componentName: string, componentVersion: number, title: string | null, connectionId: string | null, lastModifiedDate: any, mcpServerId: string, version: number | null, mcpTools: Array<{ id: string, mcpComponentId: string, name: string, parameters: any, title: string | null, version: number | null } | null> | null } | null> | null };
+export type McpComponentsByServerIdQuery = { __typename?: 'Query', mcpComponentsByServerId?: Array<{ __typename?: 'McpComponent', id: string, componentName: string, componentVersion: number, title?: string | null, connectionId?: string | null, lastModifiedDate?: any | null, mcpServerId: string, version?: number | null, mcpTools?: Array<{ __typename?: 'McpTool', id: string, mcpComponentId: string, name: string, parameters?: any | null, title?: string | null, version?: number | null } | null> | null } | null> | null };
 
 export type McpServerTagsQueryVariables = Exact<{
-  type: Types.PlatformType;
+  type: PlatformType;
 }>;
 
 
-export type McpServerTagsQuery = { mcpServerTags: Array<{ id: string, name: string } | null> | null };
+export type McpServerTagsQuery = { __typename?: 'Query', mcpServerTags?: Array<{ __typename?: 'Tag', id: string, name: string } | null> | null };
 
 export type McpServersQueryVariables = Exact<{
-  type: Types.PlatformType;
+  type: PlatformType;
 }>;
 
 
-export type McpServersQuery = { mcpServers: Array<{ id: string, name: string, type: Types.PlatformType, environmentId: string, enabled: boolean, secretKey: string, lastModifiedDate: any, mcpComponents: Array<{ id: string, mcpServerId: string, componentName: string, componentVersion: number, title: string | null } | null> | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
+export type McpServersQuery = { __typename?: 'Query', mcpServers?: Array<{ __typename?: 'McpServer', id: string, name: string, type: PlatformType, environmentId: string, enabled: boolean, secretKey: string, lastModifiedDate?: any | null, mcpComponents?: Array<{ __typename?: 'McpComponent', id: string, mcpServerId: string, componentName: string, componentVersion: number, title?: string | null } | null> | null, tags?: Array<{ __typename?: 'Tag', id: string, name: string } | null> | null } | null> | null };
 
 export type McpToolsByComponentIdQueryVariables = Exact<{
-  mcpComponentId: string | number;
+  mcpComponentId: Scalars['ID']['input'];
 }>;
 
 
-export type McpToolsByComponentIdQuery = { mcpToolsByComponentId: Array<{ id: string, name: string, title: string | null, mcpComponentId: string, parameters: any, version: number | null } | null> | null };
+export type McpToolsByComponentIdQuery = { __typename?: 'Query', mcpToolsByComponentId?: Array<{ __typename?: 'McpTool', id: string, name: string, title?: string | null, mcpComponentId: string, parameters?: any | null, version?: number | null } | null> | null };
 
 export type SaveClusterElementTestConfigurationConnectionMutationVariables = Exact<{
-  workflowId: string;
-  workflowNodeName: string;
-  clusterElementType: string;
-  clusterElementWorkflowNodeName: string;
-  workflowConnectionKey: string;
-  connectionId: any;
-  environmentId: any;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+  clusterElementType: Scalars['String']['input'];
+  clusterElementWorkflowNodeName: Scalars['String']['input'];
+  workflowConnectionKey: Scalars['String']['input'];
+  connectionId: Scalars['Long']['input'];
+  environmentId: Scalars['Long']['input'];
 }>;
 
 
-export type SaveClusterElementTestConfigurationConnectionMutation = { saveClusterElementTestConfigurationConnection: boolean | null };
+export type SaveClusterElementTestConfigurationConnectionMutation = { __typename?: 'Mutation', saveClusterElementTestConfigurationConnection?: boolean | null };
 
 export type SaveClusterElementTestOutputMutationVariables = Exact<{
-  workflowId: string;
-  workflowNodeName: string;
-  clusterElementType: string;
-  clusterElementWorkflowNodeName: string;
-  environmentId: any;
-  inputParameters?: any;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+  clusterElementType: Scalars['String']['input'];
+  clusterElementWorkflowNodeName: Scalars['String']['input'];
+  environmentId: Scalars['Long']['input'];
+  inputParameters?: InputMaybe<Scalars['Map']['input']>;
 }>;
 
 
-export type SaveClusterElementTestOutputMutation = { saveClusterElementTestOutput: { id: any, workflowId: string, workflowNodeName: string } | null };
+export type SaveClusterElementTestOutputMutation = { __typename?: 'Mutation', saveClusterElementTestOutput?: { __typename?: 'WorkflowNodeTestOutputResult', id: any, workflowId: string, workflowNodeName: string } | null };
 
 export type SaveWorkflowTestConfigurationConnectionMutationVariables = Exact<{
-  workflowId: string;
-  workflowNodeName: string;
-  workflowConnectionKey: string;
-  connectionId: any;
-  environmentId: any;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+  workflowConnectionKey: Scalars['String']['input'];
+  connectionId: Scalars['Long']['input'];
+  environmentId: Scalars['Long']['input'];
 }>;
 
 
-export type SaveWorkflowTestConfigurationConnectionMutation = { saveWorkflowTestConfigurationConnection: boolean | null };
+export type SaveWorkflowTestConfigurationConnectionMutation = { __typename?: 'Mutation', saveWorkflowTestConfigurationConnection?: boolean | null };
 
 export type TestClusterElementScriptMutationVariables = Exact<{
-  workflowId: string;
-  workflowNodeName: string;
-  clusterElementType: string;
-  clusterElementWorkflowNodeName: string;
-  environmentId: any;
-  inputParameters?: any;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+  clusterElementType: Scalars['String']['input'];
+  clusterElementWorkflowNodeName: Scalars['String']['input'];
+  environmentId: Scalars['Long']['input'];
+  inputParameters?: InputMaybe<Scalars['Map']['input']>;
 }>;
 
 
-export type TestClusterElementScriptMutation = { testClusterElementScript: { output: any, error: { message: string | null, stackTrace: Array<string | null> | null } | null } };
+export type TestClusterElementScriptMutation = { __typename?: 'Mutation', testClusterElementScript: { __typename?: 'ScriptTestExecution', output?: any | null, error?: { __typename?: 'ExecutionError', message?: string | null, stackTrace?: Array<string | null> | null } | null } };
 
 export type TestWorkflowNodeScriptMutationVariables = Exact<{
-  workflowId: string;
-  workflowNodeName: string;
-  environmentId: any;
-  inputParameters?: any;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+  environmentId: Scalars['Long']['input'];
+  inputParameters?: InputMaybe<Scalars['Map']['input']>;
 }>;
 
 
-export type TestWorkflowNodeScriptMutation = { testWorkflowNodeScript: { output: any, error: { message: string | null, stackTrace: Array<string | null> | null } | null } };
+export type TestWorkflowNodeScriptMutation = { __typename?: 'Mutation', testWorkflowNodeScript: { __typename?: 'ScriptTestExecution', output?: any | null, error?: { __typename?: 'ExecutionError', message?: string | null, stackTrace?: Array<string | null> | null } | null } };
 
 export type UpdateApiKeyMutationVariables = Exact<{
-  id: string | number;
-  name: string;
+  id: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
 }>;
 
 
-export type UpdateApiKeyMutation = { updateApiKey: boolean };
+export type UpdateApiKeyMutation = { __typename?: 'Mutation', updateApiKey: boolean };
 
 export type UpdateManagementMcpServerUrlMutationVariables = Exact<{ [key: string]: never; }>;
 
 
-export type UpdateManagementMcpServerUrlMutation = { updateManagementMcpServerUrl: string };
+export type UpdateManagementMcpServerUrlMutation = { __typename?: 'Mutation', updateManagementMcpServerUrl: string };
 
 export type UpdateMcpComponentWithToolsMutationVariables = Exact<{
-  id: string | number;
-  input: Types.McpComponentWithToolsInput;
+  id: Scalars['ID']['input'];
+  input: McpComponentWithToolsInput;
 }>;
 
 
-export type UpdateMcpComponentWithToolsMutation = { updateMcpComponentWithTools: { id: string, componentName: string, componentVersion: number, title: string | null, mcpServerId: string, connectionId: string | null, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any, version: number | null } | null };
+export type UpdateMcpComponentWithToolsMutation = { __typename?: 'Mutation', updateMcpComponentWithTools?: { __typename?: 'McpComponent', id: string, componentName: string, componentVersion: number, title?: string | null, mcpServerId: string, connectionId?: string | null, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, version?: number | null } | null };
 
 export type UpdateMcpServerUrlMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type UpdateMcpServerUrlMutation = { updateMcpServerUrl: string };
+export type UpdateMcpServerUrlMutation = { __typename?: 'Mutation', updateMcpServerUrl: string };
 
 export type UpdateMcpToolMutationVariables = Exact<{
-  id: string | number;
-  input: Types.McpToolInput;
+  id: Scalars['ID']['input'];
+  input: McpToolInput;
 }>;
 
 
-export type UpdateMcpToolMutation = { updateMcpTool: { id: string, name: string, mcpComponentId: string, parameters: any, version: number | null } | null };
+export type UpdateMcpToolMutation = { __typename?: 'Mutation', updateMcpTool?: { __typename?: 'McpTool', id: string, name: string, mcpComponentId: string, parameters?: any | null, version?: number | null } | null };
 
 export type ValidateWorkflowQueryVariables = Exact<{
-  workflowDefinition: string;
+  workflowDefinition: Scalars['String']['input'];
 }>;
 
 
-export type ValidateWorkflowQuery = { validateWorkflow: { errors: Array<string>, warnings: Array<string> } };
+export type ValidateWorkflowQuery = { __typename?: 'Query', validateWorkflow: { __typename?: 'WorkflowValidationResult', errors: Array<string>, warnings: Array<string> } };
 
 export type ValidateWorkflowByIdQueryVariables = Exact<{
-  workflowId: string;
+  workflowId: Scalars['String']['input'];
 }>;
 
 
-export type ValidateWorkflowByIdQuery = { validateWorkflowById: { errors: Array<string>, warnings: Array<string> } };
+export type ValidateWorkflowByIdQuery = { __typename?: 'Query', validateWorkflowById: { __typename?: 'WorkflowValidationResult', errors: Array<string>, warnings: Array<string> } };
 
 export type WorkflowNodeComponentConnectionsQueryVariables = Exact<{
-  workflowId: string;
-  workflowNodeName: string;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
 }>;
 
 
-export type WorkflowNodeComponentConnectionsQuery = { workflowNodeComponentConnections: Array<{ componentName: string, componentVersion: number, key: string, required: boolean, workflowNodeName: string }> };
+export type WorkflowNodeComponentConnectionsQuery = { __typename?: 'Query', workflowNodeComponentConnections: Array<{ __typename?: 'ComponentConnection', componentName: string, componentVersion: number, key: string, required: boolean, workflowNodeName: string }> };
 
 export type WorkflowNodeScriptInputQueryVariables = Exact<{
-  workflowId: string;
-  workflowNodeName: string;
-  environmentId: any;
+  workflowId: Scalars['String']['input'];
+  workflowNodeName: Scalars['String']['input'];
+  environmentId: Scalars['Long']['input'];
 }>;
 
 
-export type WorkflowNodeScriptInputQuery = { workflowNodeScriptInput: any };
+export type WorkflowNodeScriptInputQuery = { __typename?: 'Query', workflowNodeScriptInput?: any | null };
+
+export type ConnectionCredentialStoresQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ConnectionCredentialStoresQuery = { __typename?: 'Query', connectionCredentialStores: Array<{ __typename?: 'ConnectionCredentialStoreInfo', type: ConnectionCredentialStoreType, readOnly: boolean }> };
+
+export type RegisterExistingConnectionMutationVariables = Exact<{
+  input: RegisterExistingConnectionInput;
+}>;
+
+
+export type RegisterExistingConnectionMutation = { __typename?: 'Mutation', registerExistingConnection: any };
 
 export type CustomComponentQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type CustomComponentQuery = { customComponent: { id: string, name: string, title: string | null, description: string | null, icon: string | null, componentVersion: number | null, enabled: boolean | null, language: Types.CustomComponentLanguage | null, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any, version: number | null } | null };
+export type CustomComponentQuery = { __typename?: 'Query', customComponent?: { __typename?: 'CustomComponent', id: string, name: string, title?: string | null, description?: string | null, icon?: string | null, componentVersion?: number | null, enabled?: boolean | null, language?: CustomComponentLanguage | null, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, version?: number | null } | null };
 
 export type CustomComponentDefinitionQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type CustomComponentDefinitionQuery = { customComponentDefinition: { actions: Array<{ name: string, title: string | null, description: string | null }>, triggers: Array<{ name: string, title: string | null, description: string | null }> } | null };
+export type CustomComponentDefinitionQuery = { __typename?: 'Query', customComponentDefinition?: { __typename?: 'CustomComponentDefinition', actions: Array<{ __typename?: 'CustomComponentActionDefinition', name: string, title?: string | null, description?: string | null }>, triggers: Array<{ __typename?: 'CustomComponentTriggerDefinition', name: string, title?: string | null, description?: string | null }> } | null };
 
 export type CustomComponentsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type CustomComponentsQuery = { customComponents: Array<{ id: string, name: string, title: string | null, description: string | null, icon: string | null, componentVersion: number | null, enabled: boolean | null, language: Types.CustomComponentLanguage | null, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any, version: number | null }> };
+export type CustomComponentsQuery = { __typename?: 'Query', customComponents: Array<{ __typename?: 'CustomComponent', id: string, name: string, title?: string | null, description?: string | null, icon?: string | null, componentVersion?: number | null, enabled?: boolean | null, language?: CustomComponentLanguage | null, createdBy?: string | null, createdDate?: any | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, version?: number | null }> };
 
 export type DeleteCustomComponentMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteCustomComponentMutation = { deleteCustomComponent: boolean };
+export type DeleteCustomComponentMutation = { __typename?: 'Mutation', deleteCustomComponent: boolean };
 
 export type EnableCustomComponentMutationVariables = Exact<{
-  id: string | number;
-  enable: boolean;
+  id: Scalars['ID']['input'];
+  enable: Scalars['Boolean']['input'];
 }>;
 
 
-export type EnableCustomComponentMutation = { enableCustomComponent: boolean };
+export type EnableCustomComponentMutation = { __typename?: 'Mutation', enableCustomComponent: boolean };
 
 export type AuthoritiesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type AuthoritiesQuery = { authorities: Array<string> };
+export type AuthoritiesQuery = { __typename?: 'Query', authorities: Array<string> };
 
 export type CreateIdentityProviderMutationVariables = Exact<{
-  input: Types.IdentityProviderInput;
+  input: IdentityProviderInput;
 }>;
 
 
-export type CreateIdentityProviderMutation = { createIdentityProvider: { autoProvision: boolean, clientId: string | null, createdBy: string | null, createdDate: any, defaultAuthority: string, domains: Array<string>, enabled: boolean, enforced: boolean, id: string, issuerUri: string | null, lastModifiedBy: string | null, lastModifiedDate: any, metadataUri: string | null, mfaMethod: string | null, mfaRequired: boolean, name: string, nameIdFormat: string | null, scopes: string | null, signingCertificate: string | null, type: string } };
+export type CreateIdentityProviderMutation = { __typename?: 'Mutation', createIdentityProvider: { __typename?: 'IdentityProviderType', autoProvision: boolean, clientId?: string | null, createdBy?: string | null, createdDate?: any | null, defaultAuthority: string, domains: Array<string>, enabled: boolean, enforced: boolean, id: string, issuerUri?: string | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, metadataUri?: string | null, mfaMethod?: string | null, mfaRequired: boolean, name: string, nameIdFormat?: string | null, scopes?: string | null, signingCertificate?: string | null, type: string } };
 
 export type DeleteIdentityProviderMutationVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type DeleteIdentityProviderMutation = { deleteIdentityProvider: boolean };
+export type DeleteIdentityProviderMutation = { __typename?: 'Mutation', deleteIdentityProvider: boolean };
 
 export type DeleteUserMutationVariables = Exact<{
-  login: string;
+  login: Scalars['String']['input'];
 }>;
 
 
-export type DeleteUserMutation = { deleteUser: boolean };
+export type DeleteUserMutation = { __typename?: 'Mutation', deleteUser: boolean };
 
 export type IdentityProviderQueryVariables = Exact<{
-  id: string | number;
+  id: Scalars['ID']['input'];
 }>;
 
 
-export type IdentityProviderQuery = { identityProvider: { autoProvision: boolean, clientId: string | null, createdBy: string | null, createdDate: any, defaultAuthority: string, domains: Array<string>, enabled: boolean, enforced: boolean, id: string, issuerUri: string | null, lastModifiedBy: string | null, lastModifiedDate: any, metadataUri: string | null, mfaMethod: string | null, mfaRequired: boolean, name: string, nameIdFormat: string | null, scopes: string | null, signingCertificate: string | null, type: string } | null };
+export type IdentityProviderQuery = { __typename?: 'Query', identityProvider?: { __typename?: 'IdentityProviderType', autoProvision: boolean, clientId?: string | null, createdBy?: string | null, createdDate?: any | null, defaultAuthority: string, domains: Array<string>, enabled: boolean, enforced: boolean, id: string, issuerUri?: string | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, metadataUri?: string | null, mfaMethod?: string | null, mfaRequired: boolean, name: string, nameIdFormat?: string | null, scopes?: string | null, signingCertificate?: string | null, type: string } | null };
 
 export type IdentityProvidersQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type IdentityProvidersQuery = { identityProviders: Array<{ autoProvision: boolean, clientId: string | null, createdBy: string | null, createdDate: any, defaultAuthority: string, domains: Array<string>, enabled: boolean, enforced: boolean, id: string, issuerUri: string | null, lastModifiedBy: string | null, lastModifiedDate: any, metadataUri: string | null, mfaMethod: string | null, mfaRequired: boolean, name: string, nameIdFormat: string | null, scopes: string | null, signingCertificate: string | null, type: string } | null> };
+export type IdentityProvidersQuery = { __typename?: 'Query', identityProviders: Array<{ __typename?: 'IdentityProviderType', autoProvision: boolean, clientId?: string | null, createdBy?: string | null, createdDate?: any | null, defaultAuthority: string, domains: Array<string>, enabled: boolean, enforced: boolean, id: string, issuerUri?: string | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, metadataUri?: string | null, mfaMethod?: string | null, mfaRequired: boolean, name: string, nameIdFormat?: string | null, scopes?: string | null, signingCertificate?: string | null, type: string } | null> };
 
 export type InviteUserMutationVariables = Exact<{
-  email: string;
-  password: string;
-  role: string;
+  email: Scalars['String']['input'];
+  password: Scalars['String']['input'];
+  role: Scalars['String']['input'];
 }>;
 
 
-export type InviteUserMutation = { inviteUser: boolean };
+export type InviteUserMutation = { __typename?: 'Mutation', inviteUser: boolean };
 
 export type UpdateIdentityProviderMutationVariables = Exact<{
-  id: string | number;
-  input: Types.IdentityProviderInput;
+  id: Scalars['ID']['input'];
+  input: IdentityProviderInput;
 }>;
 
 
-export type UpdateIdentityProviderMutation = { updateIdentityProvider: { autoProvision: boolean, clientId: string | null, createdBy: string | null, createdDate: any, defaultAuthority: string, domains: Array<string>, enabled: boolean, enforced: boolean, id: string, issuerUri: string | null, lastModifiedBy: string | null, lastModifiedDate: any, metadataUri: string | null, mfaMethod: string | null, mfaRequired: boolean, name: string, nameIdFormat: string | null, scopes: string | null, signingCertificate: string | null, type: string } };
+export type UpdateIdentityProviderMutation = { __typename?: 'Mutation', updateIdentityProvider: { __typename?: 'IdentityProviderType', autoProvision: boolean, clientId?: string | null, createdBy?: string | null, createdDate?: any | null, defaultAuthority: string, domains: Array<string>, enabled: boolean, enforced: boolean, id: string, issuerUri?: string | null, lastModifiedBy?: string | null, lastModifiedDate?: any | null, metadataUri?: string | null, mfaMethod?: string | null, mfaRequired: boolean, name: string, nameIdFormat?: string | null, scopes?: string | null, signingCertificate?: string | null, type: string } };
 
 export type UpdateUserMutationVariables = Exact<{
-  login: string;
-  role: string;
+  login: Scalars['String']['input'];
+  role: Scalars['String']['input'];
 }>;
 
 
-export type UpdateUserMutation = { updateUser: { id: string | null, login: string | null, email: string | null, firstName: string | null, lastName: string | null, activated: boolean | null, authorities: Array<string | null> | null } };
+export type UpdateUserMutation = { __typename?: 'Mutation', updateUser: { __typename?: 'AdminUser', id?: string | null, login?: string | null, email?: string | null, firstName?: string | null, lastName?: string | null, activated?: boolean | null, authorities?: Array<string | null> | null } };
 
 export type UsersQueryVariables = Exact<{
-  pageNumber?: number | null | undefined;
-  pageSize?: number | null | undefined;
+  pageNumber?: InputMaybe<Scalars['Int']['input']>;
+  pageSize?: InputMaybe<Scalars['Int']['input']>;
 }>;
 
 
-export type UsersQuery = { users: { number: number, size: number, totalElements: number, totalPages: number, content: Array<{ id: string | null, login: string | null, email: string | null, firstName: string | null, lastName: string | null, activated: boolean | null, authorities: Array<string | null> | null } | null> } | null };
+export type UsersQuery = { __typename?: 'Query', users?: { __typename?: 'AdminUserPage', number: number, size: number, totalElements: number, totalPages: number, content: Array<{ __typename?: 'AdminUser', id?: string | null, login?: string | null, email?: string | null, firstName?: string | null, lastName?: string | null, activated?: boolean | null, authorities?: Array<string | null> | null } | null> } | null };
 
 
-
+export const AiHubPersonalAgentScheduleFieldsFragmentDoc = new TypedDocumentString(`
+    fragment AiHubPersonalAgentScheduleFields on AiHubPersonalAgentSchedule {
+  id
+  aiHubPersonalAgentId
+  title
+  prompt
+  frequencyKind
+  intervalMinutes
+  minuteOfHour
+  timeOfDay
+  dayOfWeek
+  dayOfMonth
+  cronExpression
+  effectiveCronExpression
+  zoneId
+  startDate
+  lifecycleKind
+  maxRuns
+  remainingRuns
+  enabled
+  lastRunAt
+  nextRunAt
+}
+    `, {"fragmentName":"AiHubPersonalAgentScheduleFields"});
 export const AiAgentEvalResultDocument = new TypedDocumentString(`
     query aiAgentEvalResult($id: ID!) {
   aiAgentEvalResult(id: $id) {
@@ -2544,6 +11516,1200 @@ export const useUpdateAiAgentScenarioToolSimulationMutation = <
   }
     )};
 
+export const AiHubTaskArtifactsDocument = new TypedDocumentString(`
+    query aiHubTaskArtifacts($workspaceId: ID!, $environment: Int, $userId: ID, $kind: AiHubTaskArtifactKind, $from: Long, $to: Long, $page: Int, $size: Int) {
+  aiHubTaskArtifacts(
+    workspaceId: $workspaceId
+    environment: $environment
+    userId: $userId
+    kind: $kind
+    from: $from
+    to: $to
+    page: $page
+    size: $size
+  ) {
+    items {
+      id
+      taskId
+      kind
+      status
+      artifactId
+      artifactName
+      metadataJson
+      environmentId
+      createdAt
+      statusChangedAt
+    }
+    totalCount
+    hasMore
+    pageClamped
+    sizeClamped
+  }
+}
+    `);
+
+export const useAiHubTaskArtifactsQuery = <
+      TData = AiHubTaskArtifactsQuery,
+      TError = unknown
+    >(
+      variables: AiHubTaskArtifactsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubTaskArtifactsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubTaskArtifactsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubTaskArtifactsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubTaskArtifacts', variables],
+    queryFn: fetcher<AiHubTaskArtifactsQuery, AiHubTaskArtifactsQueryVariables>(AiHubTaskArtifactsDocument, variables),
+    ...options
+  }
+    )};
+
+export const DeleteAiHubTaskArtifactDocument = new TypedDocumentString(`
+    mutation deleteAiHubTaskArtifact($input: DeleteAiHubTaskArtifactInput!) {
+  deleteAiHubTaskArtifact(input: $input)
+}
+    `);
+
+export const useDeleteAiHubTaskArtifactMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiHubTaskArtifactMutation, TError, DeleteAiHubTaskArtifactMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiHubTaskArtifactMutation, TError, DeleteAiHubTaskArtifactMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiHubTaskArtifact'],
+    mutationFn: (variables?: DeleteAiHubTaskArtifactMutationVariables) => fetcher<DeleteAiHubTaskArtifactMutation, DeleteAiHubTaskArtifactMutationVariables>(DeleteAiHubTaskArtifactDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RecordReferencedAiHubTaskArtifactDocument = new TypedDocumentString(`
+    mutation recordReferencedAiHubTaskArtifact($input: RecordReferencedAiHubTaskArtifactInput!) {
+  recordReferencedAiHubTaskArtifact(input: $input) {
+    id
+    taskId
+    kind
+    status
+    artifactId
+    artifactName
+    environmentId
+    createdAt
+  }
+}
+    `);
+
+export const useRecordReferencedAiHubTaskArtifactMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RecordReferencedAiHubTaskArtifactMutation, TError, RecordReferencedAiHubTaskArtifactMutationVariables, TContext>) => {
+    
+    return useMutation<RecordReferencedAiHubTaskArtifactMutation, TError, RecordReferencedAiHubTaskArtifactMutationVariables, TContext>(
+      {
+    mutationKey: ['recordReferencedAiHubTaskArtifact'],
+    mutationFn: (variables?: RecordReferencedAiHubTaskArtifactMutationVariables) => fetcher<RecordReferencedAiHubTaskArtifactMutation, RecordReferencedAiHubTaskArtifactMutationVariables>(RecordReferencedAiHubTaskArtifactDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AddAiHubPersonalAgentResourceDocument = new TypedDocumentString(`
+    mutation addAiHubPersonalAgentResource($input: AddAiHubPersonalAgentResourceInput!) {
+  addAiHubPersonalAgentResource(input: $input) {
+    id
+    aiHubPersonalAgentId
+    kind
+    resourceId
+    resourceName
+    createdAt
+  }
+}
+    `);
+
+export const useAddAiHubPersonalAgentResourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AddAiHubPersonalAgentResourceMutation, TError, AddAiHubPersonalAgentResourceMutationVariables, TContext>) => {
+    
+    return useMutation<AddAiHubPersonalAgentResourceMutation, TError, AddAiHubPersonalAgentResourceMutationVariables, TContext>(
+      {
+    mutationKey: ['addAiHubPersonalAgentResource'],
+    mutationFn: (variables?: AddAiHubPersonalAgentResourceMutationVariables) => fetcher<AddAiHubPersonalAgentResourceMutation, AddAiHubPersonalAgentResourceMutationVariables>(AddAiHubPersonalAgentResourceDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AddAiHubPersonalAgentToolDocument = new TypedDocumentString(`
+    mutation addAiHubPersonalAgentTool($input: AddAiHubPersonalAgentToolInput!) {
+  addAiHubPersonalAgentTool(input: $input) {
+    id
+    aiHubPersonalAgentId
+    componentName
+    componentVersion
+    operationName
+    connectionId
+    parameters
+    createdAt
+  }
+}
+    `);
+
+export const useAddAiHubPersonalAgentToolMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AddAiHubPersonalAgentToolMutation, TError, AddAiHubPersonalAgentToolMutationVariables, TContext>) => {
+    
+    return useMutation<AddAiHubPersonalAgentToolMutation, TError, AddAiHubPersonalAgentToolMutationVariables, TContext>(
+      {
+    mutationKey: ['addAiHubPersonalAgentTool'],
+    mutationFn: (variables?: AddAiHubPersonalAgentToolMutationVariables) => fetcher<AddAiHubPersonalAgentToolMutation, AddAiHubPersonalAgentToolMutationVariables>(AddAiHubPersonalAgentToolDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiHubPersonalAgentDocument = new TypedDocumentString(`
+    query aiHubPersonalAgent($workspaceId: ID!, $id: ID!) {
+  aiHubPersonalAgent(workspaceId: $workspaceId, id: $id) {
+    id
+    workspaceId
+    userId
+    name
+    title
+    description
+    instructions
+    environmentId
+    llmProvider
+    llmModel
+    tools {
+      id
+      aiHubPersonalAgentId
+      componentName
+      componentVersion
+      operationName
+      connectionId
+      parameters
+      createdAt
+    }
+    resources {
+      id
+      aiHubPersonalAgentId
+      kind
+      resourceId
+      resourceName
+      createdAt
+    }
+    schedule {
+      ...AiHubPersonalAgentScheduleFields
+    }
+    createdAt
+    updatedAt
+  }
+}
+    fragment AiHubPersonalAgentScheduleFields on AiHubPersonalAgentSchedule {
+  id
+  aiHubPersonalAgentId
+  title
+  prompt
+  frequencyKind
+  intervalMinutes
+  minuteOfHour
+  timeOfDay
+  dayOfWeek
+  dayOfMonth
+  cronExpression
+  effectiveCronExpression
+  zoneId
+  startDate
+  lifecycleKind
+  maxRuns
+  remainingRuns
+  enabled
+  lastRunAt
+  nextRunAt
+}`);
+
+export const useAiHubPersonalAgentQuery = <
+      TData = AiHubPersonalAgentQuery,
+      TError = unknown
+    >(
+      variables: AiHubPersonalAgentQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubPersonalAgentQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubPersonalAgentQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubPersonalAgentQuery, TError, TData>(
+      {
+    queryKey: ['aiHubPersonalAgent', variables],
+    queryFn: fetcher<AiHubPersonalAgentQuery, AiHubPersonalAgentQueryVariables>(AiHubPersonalAgentDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiHubPersonalAgentsDocument = new TypedDocumentString(`
+    query aiHubPersonalAgents($workspaceId: ID!, $environment: Int!) {
+  aiHubPersonalAgents(workspaceId: $workspaceId, environment: $environment) {
+    id
+    workspaceId
+    userId
+    name
+    title
+    description
+    instructions
+    environmentId
+    llmProvider
+    llmModel
+    tools {
+      id
+      aiHubPersonalAgentId
+      componentName
+      componentVersion
+      operationName
+      createdAt
+    }
+    createdAt
+    updatedAt
+  }
+}
+    `);
+
+export const useAiHubPersonalAgentsQuery = <
+      TData = AiHubPersonalAgentsQuery,
+      TError = unknown
+    >(
+      variables: AiHubPersonalAgentsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubPersonalAgentsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubPersonalAgentsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubPersonalAgentsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubPersonalAgents', variables],
+    queryFn: fetcher<AiHubPersonalAgentsQuery, AiHubPersonalAgentsQueryVariables>(AiHubPersonalAgentsDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiHubPersonalAgentDocument = new TypedDocumentString(`
+    mutation createAiHubPersonalAgent($input: CreateAiHubPersonalAgentInput!) {
+  createAiHubPersonalAgent(input: $input) {
+    id
+    workspaceId
+    userId
+    name
+    title
+    description
+    instructions
+    environmentId
+    llmProvider
+    llmModel
+    createdAt
+    updatedAt
+  }
+}
+    `);
+
+export const useCreateAiHubPersonalAgentMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiHubPersonalAgentMutation, TError, CreateAiHubPersonalAgentMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiHubPersonalAgentMutation, TError, CreateAiHubPersonalAgentMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiHubPersonalAgent'],
+    mutationFn: (variables?: CreateAiHubPersonalAgentMutationVariables) => fetcher<CreateAiHubPersonalAgentMutation, CreateAiHubPersonalAgentMutationVariables>(CreateAiHubPersonalAgentDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateAiHubPersonalAgentTaskDocument = new TypedDocumentString(`
+    mutation createAiHubPersonalAgentTask($input: CreateAiHubPersonalAgentTaskInput!) {
+  createAiHubPersonalAgentTask(input: $input) {
+    id
+    workspaceId
+    userId
+    threadId
+    title
+    lastPreview
+    messageCount
+    status
+    environmentId
+    createdAt
+    updatedAt
+    kind
+    workflowExecutionId
+    projectDeploymentId
+    aiHubPersonalAgentId
+    autoTitled
+  }
+}
+    `);
+
+export const useCreateAiHubPersonalAgentTaskMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiHubPersonalAgentTaskMutation, TError, CreateAiHubPersonalAgentTaskMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiHubPersonalAgentTaskMutation, TError, CreateAiHubPersonalAgentTaskMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiHubPersonalAgentTask'],
+    mutationFn: (variables?: CreateAiHubPersonalAgentTaskMutationVariables) => fetcher<CreateAiHubPersonalAgentTaskMutation, CreateAiHubPersonalAgentTaskMutationVariables>(CreateAiHubPersonalAgentTaskDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiHubPersonalAgentDocument = new TypedDocumentString(`
+    mutation deleteAiHubPersonalAgent($workspaceId: ID!, $id: ID!) {
+  deleteAiHubPersonalAgent(workspaceId: $workspaceId, id: $id)
+}
+    `);
+
+export const useDeleteAiHubPersonalAgentMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiHubPersonalAgentMutation, TError, DeleteAiHubPersonalAgentMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiHubPersonalAgentMutation, TError, DeleteAiHubPersonalAgentMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiHubPersonalAgent'],
+    mutationFn: (variables?: DeleteAiHubPersonalAgentMutationVariables) => fetcher<DeleteAiHubPersonalAgentMutation, DeleteAiHubPersonalAgentMutationVariables>(DeleteAiHubPersonalAgentDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RemoveAiHubPersonalAgentResourceDocument = new TypedDocumentString(`
+    mutation removeAiHubPersonalAgentResource($workspaceId: ID!, $id: ID!) {
+  removeAiHubPersonalAgentResource(workspaceId: $workspaceId, id: $id)
+}
+    `);
+
+export const useRemoveAiHubPersonalAgentResourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RemoveAiHubPersonalAgentResourceMutation, TError, RemoveAiHubPersonalAgentResourceMutationVariables, TContext>) => {
+    
+    return useMutation<RemoveAiHubPersonalAgentResourceMutation, TError, RemoveAiHubPersonalAgentResourceMutationVariables, TContext>(
+      {
+    mutationKey: ['removeAiHubPersonalAgentResource'],
+    mutationFn: (variables?: RemoveAiHubPersonalAgentResourceMutationVariables) => fetcher<RemoveAiHubPersonalAgentResourceMutation, RemoveAiHubPersonalAgentResourceMutationVariables>(RemoveAiHubPersonalAgentResourceDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RemoveAiHubPersonalAgentToolDocument = new TypedDocumentString(`
+    mutation removeAiHubPersonalAgentTool($workspaceId: ID!, $toolId: ID!) {
+  removeAiHubPersonalAgentTool(workspaceId: $workspaceId, toolId: $toolId)
+}
+    `);
+
+export const useRemoveAiHubPersonalAgentToolMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RemoveAiHubPersonalAgentToolMutation, TError, RemoveAiHubPersonalAgentToolMutationVariables, TContext>) => {
+    
+    return useMutation<RemoveAiHubPersonalAgentToolMutation, TError, RemoveAiHubPersonalAgentToolMutationVariables, TContext>(
+      {
+    mutationKey: ['removeAiHubPersonalAgentTool'],
+    mutationFn: (variables?: RemoveAiHubPersonalAgentToolMutationVariables) => fetcher<RemoveAiHubPersonalAgentToolMutation, RemoveAiHubPersonalAgentToolMutationVariables>(RemoveAiHubPersonalAgentToolDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetAiHubPersonalAgentScheduleDocument = new TypedDocumentString(`
+    mutation setAiHubPersonalAgentSchedule($input: SetAiHubPersonalAgentScheduleInput!) {
+  setAiHubPersonalAgentSchedule(input: $input) {
+    id
+    schedule {
+      ...AiHubPersonalAgentScheduleFields
+    }
+  }
+}
+    fragment AiHubPersonalAgentScheduleFields on AiHubPersonalAgentSchedule {
+  id
+  aiHubPersonalAgentId
+  title
+  prompt
+  frequencyKind
+  intervalMinutes
+  minuteOfHour
+  timeOfDay
+  dayOfWeek
+  dayOfMonth
+  cronExpression
+  effectiveCronExpression
+  zoneId
+  startDate
+  lifecycleKind
+  maxRuns
+  remainingRuns
+  enabled
+  lastRunAt
+  nextRunAt
+}`);
+
+export const useSetAiHubPersonalAgentScheduleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetAiHubPersonalAgentScheduleMutation, TError, SetAiHubPersonalAgentScheduleMutationVariables, TContext>) => {
+    
+    return useMutation<SetAiHubPersonalAgentScheduleMutation, TError, SetAiHubPersonalAgentScheduleMutationVariables, TContext>(
+      {
+    mutationKey: ['setAiHubPersonalAgentSchedule'],
+    mutationFn: (variables?: SetAiHubPersonalAgentScheduleMutationVariables) => fetcher<SetAiHubPersonalAgentScheduleMutation, SetAiHubPersonalAgentScheduleMutationVariables>(SetAiHubPersonalAgentScheduleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiHubPersonalAgentDocument = new TypedDocumentString(`
+    mutation updateAiHubPersonalAgent($input: UpdateAiHubPersonalAgentInput!) {
+  updateAiHubPersonalAgent(input: $input) {
+    id
+    workspaceId
+    userId
+    name
+    title
+    description
+    instructions
+    environmentId
+    llmProvider
+    llmModel
+    createdAt
+    updatedAt
+  }
+}
+    `);
+
+export const useUpdateAiHubPersonalAgentMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiHubPersonalAgentMutation, TError, UpdateAiHubPersonalAgentMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiHubPersonalAgentMutation, TError, UpdateAiHubPersonalAgentMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiHubPersonalAgent'],
+    mutationFn: (variables?: UpdateAiHubPersonalAgentMutationVariables) => fetcher<UpdateAiHubPersonalAgentMutation, UpdateAiHubPersonalAgentMutationVariables>(UpdateAiHubPersonalAgentDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiHubPersonalAgentToolConfigDocument = new TypedDocumentString(`
+    mutation updateAiHubPersonalAgentToolConfig($input: UpdateAiHubPersonalAgentToolConfigInput!) {
+  updateAiHubPersonalAgentToolConfig(input: $input) {
+    id
+    aiHubPersonalAgentId
+    componentName
+    componentVersion
+    operationName
+    connectionId
+    parameters
+    createdAt
+  }
+}
+    `);
+
+export const useUpdateAiHubPersonalAgentToolConfigMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiHubPersonalAgentToolConfigMutation, TError, UpdateAiHubPersonalAgentToolConfigMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiHubPersonalAgentToolConfigMutation, TError, UpdateAiHubPersonalAgentToolConfigMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiHubPersonalAgentToolConfig'],
+    mutationFn: (variables?: UpdateAiHubPersonalAgentToolConfigMutationVariables) => fetcher<UpdateAiHubPersonalAgentToolConfigMutation, UpdateAiHubPersonalAgentToolConfigMutationVariables>(UpdateAiHubPersonalAgentToolConfigDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiHubTaskToolableComponentsDocument = new TypedDocumentString(`
+    query aiHubTaskToolableComponents($workspaceId: ID!) {
+  aiHubTaskToolableComponents(workspaceId: $workspaceId) {
+    componentName
+    componentVersion
+    description
+    icon
+    title
+    tools {
+      description
+      name
+      title
+    }
+  }
+}
+    `);
+
+export const useAiHubTaskToolableComponentsQuery = <
+      TData = AiHubTaskToolableComponentsQuery,
+      TError = unknown
+    >(
+      variables: AiHubTaskToolableComponentsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubTaskToolableComponentsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubTaskToolableComponentsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubTaskToolableComponentsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubTaskToolableComponents', variables],
+    queryFn: fetcher<AiHubTaskToolableComponentsQuery, AiHubTaskToolableComponentsQueryVariables>(AiHubTaskToolableComponentsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiHubTaskToolsDocument = new TypedDocumentString(`
+    query aiHubTaskTools($workspaceId: ID!, $taskId: ID!) {
+  aiHubTaskTools(workspaceId: $workspaceId, taskId: $taskId) {
+    clusterElementName
+    componentName
+    componentVersion
+    connectionId
+    taskComponentId
+    taskId
+    taskToolId
+    environment
+    parameters
+  }
+}
+    `);
+
+export const useAiHubTaskToolsQuery = <
+      TData = AiHubTaskToolsQuery,
+      TError = unknown
+    >(
+      variables: AiHubTaskToolsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubTaskToolsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubTaskToolsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubTaskToolsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubTaskTools', variables],
+    queryFn: fetcher<AiHubTaskToolsQuery, AiHubTaskToolsQueryVariables>(AiHubTaskToolsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AttachAiHubTaskToolDocument = new TypedDocumentString(`
+    mutation attachAiHubTaskTool($input: AttachAiHubTaskToolInput!) {
+  attachAiHubTaskTool(input: $input) {
+    clusterElementName
+    componentName
+    componentVersion
+    connectionId
+    taskComponentId
+    taskId
+    taskToolId
+    environment
+    parameters
+  }
+}
+    `);
+
+export const useAttachAiHubTaskToolMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AttachAiHubTaskToolMutation, TError, AttachAiHubTaskToolMutationVariables, TContext>) => {
+    
+    return useMutation<AttachAiHubTaskToolMutation, TError, AttachAiHubTaskToolMutationVariables, TContext>(
+      {
+    mutationKey: ['attachAiHubTaskTool'],
+    mutationFn: (variables?: AttachAiHubTaskToolMutationVariables) => fetcher<AttachAiHubTaskToolMutation, AttachAiHubTaskToolMutationVariables>(AttachAiHubTaskToolDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DetachAiHubTaskComponentDocument = new TypedDocumentString(`
+    mutation detachAiHubTaskComponent($workspaceId: ID!, $taskComponentId: ID!) {
+  detachAiHubTaskComponent(
+    workspaceId: $workspaceId
+    taskComponentId: $taskComponentId
+  )
+}
+    `);
+
+export const useDetachAiHubTaskComponentMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DetachAiHubTaskComponentMutation, TError, DetachAiHubTaskComponentMutationVariables, TContext>) => {
+    
+    return useMutation<DetachAiHubTaskComponentMutation, TError, DetachAiHubTaskComponentMutationVariables, TContext>(
+      {
+    mutationKey: ['detachAiHubTaskComponent'],
+    mutationFn: (variables?: DetachAiHubTaskComponentMutationVariables) => fetcher<DetachAiHubTaskComponentMutation, DetachAiHubTaskComponentMutationVariables>(DetachAiHubTaskComponentDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RemoveAiHubTaskToolDocument = new TypedDocumentString(`
+    mutation removeAiHubTaskTool($workspaceId: ID!, $taskToolId: ID!) {
+  removeAiHubTaskTool(workspaceId: $workspaceId, taskToolId: $taskToolId)
+}
+    `);
+
+export const useRemoveAiHubTaskToolMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RemoveAiHubTaskToolMutation, TError, RemoveAiHubTaskToolMutationVariables, TContext>) => {
+    
+    return useMutation<RemoveAiHubTaskToolMutation, TError, RemoveAiHubTaskToolMutationVariables, TContext>(
+      {
+    mutationKey: ['removeAiHubTaskTool'],
+    mutationFn: (variables?: RemoveAiHubTaskToolMutationVariables) => fetcher<RemoveAiHubTaskToolMutation, RemoveAiHubTaskToolMutationVariables>(RemoveAiHubTaskToolDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiHubTaskToolParametersDocument = new TypedDocumentString(`
+    mutation updateAiHubTaskToolParameters($workspaceId: ID!, $taskToolId: ID!, $parameters: Any!) {
+  updateAiHubTaskToolParameters(
+    workspaceId: $workspaceId
+    taskToolId: $taskToolId
+    parameters: $parameters
+  ) {
+    clusterElementName
+    componentName
+    componentVersion
+    connectionId
+    taskComponentId
+    taskId
+    taskToolId
+    environment
+    parameters
+  }
+}
+    `);
+
+export const useUpdateAiHubTaskToolParametersMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiHubTaskToolParametersMutation, TError, UpdateAiHubTaskToolParametersMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiHubTaskToolParametersMutation, TError, UpdateAiHubTaskToolParametersMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiHubTaskToolParameters'],
+    mutationFn: (variables?: UpdateAiHubTaskToolParametersMutationVariables) => fetcher<UpdateAiHubTaskToolParametersMutation, UpdateAiHubTaskToolParametersMutationVariables>(UpdateAiHubTaskToolParametersDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiHubTaskArtifactsByAiHubTaskDocument = new TypedDocumentString(`
+    query aiHubTaskArtifactsByAiHubTask($workspaceId: ID!, $id: ID!) {
+  aiHubTaskArtifactsByAiHubTask(workspaceId: $workspaceId, id: $id) {
+    id
+    taskId
+    kind
+    status
+    artifactId
+    artifactName
+    metadataJson
+    environmentId
+    createdAt
+    statusChangedAt
+  }
+}
+    `);
+
+export const useAiHubTaskArtifactsByAiHubTaskQuery = <
+      TData = AiHubTaskArtifactsByAiHubTaskQuery,
+      TError = unknown
+    >(
+      variables: AiHubTaskArtifactsByAiHubTaskQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubTaskArtifactsByAiHubTaskQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubTaskArtifactsByAiHubTaskQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubTaskArtifactsByAiHubTaskQuery, TError, TData>(
+      {
+    queryKey: ['aiHubTaskArtifactsByAiHubTask', variables],
+    queryFn: fetcher<AiHubTaskArtifactsByAiHubTaskQuery, AiHubTaskArtifactsByAiHubTaskQueryVariables>(AiHubTaskArtifactsByAiHubTaskDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiHubTaskMessagesDocument = new TypedDocumentString(`
+    query aiHubTaskMessages($workspaceId: ID!, $id: ID!) {
+  aiHubTaskMessages(workspaceId: $workspaceId, id: $id) {
+    role
+    content
+    timestamp
+  }
+}
+    `);
+
+export const useAiHubTaskMessagesQuery = <
+      TData = AiHubTaskMessagesQuery,
+      TError = unknown
+    >(
+      variables: AiHubTaskMessagesQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubTaskMessagesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubTaskMessagesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubTaskMessagesQuery, TError, TData>(
+      {
+    queryKey: ['aiHubTaskMessages', variables],
+    queryFn: fetcher<AiHubTaskMessagesQuery, AiHubTaskMessagesQueryVariables>(AiHubTaskMessagesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiHubTasksDocument = new TypedDocumentString(`
+    query aiHubTasks($workspaceId: ID!, $environment: Int!, $status: AiHubTaskStatus) {
+  aiHubTasks(
+    workspaceId: $workspaceId
+    environment: $environment
+    status: $status
+  ) {
+    id
+    workspaceId
+    userId
+    threadId
+    title
+    lastPreview
+    messageCount
+    status
+    environmentId
+    createdAt
+    updatedAt
+    kind
+    workflowExecutionId
+    projectDeploymentId
+    aiHubPersonalAgentId
+    autoTitled
+  }
+}
+    `);
+
+export const useAiHubTasksQuery = <
+      TData = AiHubTasksQuery,
+      TError = unknown
+    >(
+      variables: AiHubTasksQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubTasksQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubTasksQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubTasksQuery, TError, TData>(
+      {
+    queryKey: ['aiHubTasks', variables],
+    queryFn: fetcher<AiHubTasksQuery, AiHubTasksQueryVariables>(AiHubTasksDocument, variables),
+    ...options
+  }
+    )};
+
+export const BulkArchiveWorkflowChatAiHubTasksDocument = new TypedDocumentString(`
+    mutation bulkArchiveWorkflowChatAiHubTasks($workspaceId: ID!, $environment: Int!) {
+  bulkArchiveWorkflowChatAiHubTasks(
+    workspaceId: $workspaceId
+    environment: $environment
+  )
+}
+    `);
+
+export const useBulkArchiveWorkflowChatAiHubTasksMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<BulkArchiveWorkflowChatAiHubTasksMutation, TError, BulkArchiveWorkflowChatAiHubTasksMutationVariables, TContext>) => {
+    
+    return useMutation<BulkArchiveWorkflowChatAiHubTasksMutation, TError, BulkArchiveWorkflowChatAiHubTasksMutationVariables, TContext>(
+      {
+    mutationKey: ['bulkArchiveWorkflowChatAiHubTasks'],
+    mutationFn: (variables?: BulkArchiveWorkflowChatAiHubTasksMutationVariables) => fetcher<BulkArchiveWorkflowChatAiHubTasksMutation, BulkArchiveWorkflowChatAiHubTasksMutationVariables>(BulkArchiveWorkflowChatAiHubTasksDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CancelAiHubRunDocument = new TypedDocumentString(`
+    mutation cancelAiHubRun($workspaceId: ID!, $id: ID!, $runId: String) {
+  cancelAiHubRun(workspaceId: $workspaceId, id: $id, runId: $runId)
+}
+    `);
+
+export const useCancelAiHubRunMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CancelAiHubRunMutation, TError, CancelAiHubRunMutationVariables, TContext>) => {
+    
+    return useMutation<CancelAiHubRunMutation, TError, CancelAiHubRunMutationVariables, TContext>(
+      {
+    mutationKey: ['cancelAiHubRun'],
+    mutationFn: (variables?: CancelAiHubRunMutationVariables) => fetcher<CancelAiHubRunMutation, CancelAiHubRunMutationVariables>(CancelAiHubRunDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CancelWorkflowChatTurnDocument = new TypedDocumentString(`
+    mutation cancelWorkflowChatTurn($workspaceId: ID!, $id: ID!) {
+  cancelWorkflowChatTurn(workspaceId: $workspaceId, id: $id)
+}
+    `);
+
+export const useCancelWorkflowChatTurnMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CancelWorkflowChatTurnMutation, TError, CancelWorkflowChatTurnMutationVariables, TContext>) => {
+    
+    return useMutation<CancelWorkflowChatTurnMutation, TError, CancelWorkflowChatTurnMutationVariables, TContext>(
+      {
+    mutationKey: ['cancelWorkflowChatTurn'],
+    mutationFn: (variables?: CancelWorkflowChatTurnMutationVariables) => fetcher<CancelWorkflowChatTurnMutation, CancelWorkflowChatTurnMutationVariables>(CancelWorkflowChatTurnDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateAiHubTaskDocument = new TypedDocumentString(`
+    mutation createAiHubTask($workspaceId: ID!, $environment: Int!, $threadId: String!) {
+  createAiHubTask(
+    workspaceId: $workspaceId
+    environment: $environment
+    threadId: $threadId
+  ) {
+    id
+    workspaceId
+    userId
+    threadId
+    title
+    lastPreview
+    messageCount
+    status
+    environmentId
+    createdAt
+    updatedAt
+    kind
+    workflowExecutionId
+    projectDeploymentId
+    aiHubPersonalAgentId
+    autoTitled
+  }
+}
+    `);
+
+export const useCreateAiHubTaskMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiHubTaskMutation, TError, CreateAiHubTaskMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiHubTaskMutation, TError, CreateAiHubTaskMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiHubTask'],
+    mutationFn: (variables?: CreateAiHubTaskMutationVariables) => fetcher<CreateAiHubTaskMutation, CreateAiHubTaskMutationVariables>(CreateAiHubTaskDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateWorkflowChatAiHubTaskDocument = new TypedDocumentString(`
+    mutation createWorkflowChatAiHubTask($workspaceId: ID!, $environment: Int!, $workflowExecutionId: String!, $projectDeploymentId: ID!, $title: String) {
+  createWorkflowChatAiHubTask(
+    workspaceId: $workspaceId
+    environment: $environment
+    workflowExecutionId: $workflowExecutionId
+    projectDeploymentId: $projectDeploymentId
+    title: $title
+  ) {
+    id
+    workspaceId
+    userId
+    threadId
+    title
+    lastPreview
+    messageCount
+    status
+    environmentId
+    createdAt
+    updatedAt
+    kind
+    workflowExecutionId
+    projectDeploymentId
+    aiHubPersonalAgentId
+    autoTitled
+  }
+}
+    `);
+
+export const useCreateWorkflowChatAiHubTaskMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateWorkflowChatAiHubTaskMutation, TError, CreateWorkflowChatAiHubTaskMutationVariables, TContext>) => {
+    
+    return useMutation<CreateWorkflowChatAiHubTaskMutation, TError, CreateWorkflowChatAiHubTaskMutationVariables, TContext>(
+      {
+    mutationKey: ['createWorkflowChatAiHubTask'],
+    mutationFn: (variables?: CreateWorkflowChatAiHubTaskMutationVariables) => fetcher<CreateWorkflowChatAiHubTaskMutation, CreateWorkflowChatAiHubTaskMutationVariables>(CreateWorkflowChatAiHubTaskDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiHubTaskDocument = new TypedDocumentString(`
+    mutation deleteAiHubTask($workspaceId: ID!, $id: ID!) {
+  deleteAiHubTask(workspaceId: $workspaceId, id: $id)
+}
+    `);
+
+export const useDeleteAiHubTaskMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiHubTaskMutation, TError, DeleteAiHubTaskMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiHubTaskMutation, TError, DeleteAiHubTaskMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiHubTask'],
+    mutationFn: (variables?: DeleteAiHubTaskMutationVariables) => fetcher<DeleteAiHubTaskMutation, DeleteAiHubTaskMutationVariables>(DeleteAiHubTaskDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const GenerateAiHubTaskTitleDocument = new TypedDocumentString(`
+    mutation generateAiHubTaskTitle($workspaceId: ID!, $id: ID!) {
+  generateAiHubTaskTitle(workspaceId: $workspaceId, id: $id) {
+    id
+    workspaceId
+    userId
+    threadId
+    title
+    lastPreview
+    messageCount
+    status
+    environmentId
+    createdAt
+    updatedAt
+    kind
+    workflowExecutionId
+    projectDeploymentId
+    aiHubPersonalAgentId
+    autoTitled
+  }
+}
+    `);
+
+export const useGenerateAiHubTaskTitleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<GenerateAiHubTaskTitleMutation, TError, GenerateAiHubTaskTitleMutationVariables, TContext>) => {
+    
+    return useMutation<GenerateAiHubTaskTitleMutation, TError, GenerateAiHubTaskTitleMutationVariables, TContext>(
+      {
+    mutationKey: ['generateAiHubTaskTitle'],
+    mutationFn: (variables?: GenerateAiHubTaskTitleMutationVariables) => fetcher<GenerateAiHubTaskTitleMutation, GenerateAiHubTaskTitleMutationVariables>(GenerateAiHubTaskTitleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const TruncateAiHubTaskMessagesDocument = new TypedDocumentString(`
+    mutation truncateAiHubTaskMessages($workspaceId: ID!, $id: ID!, $fromMessageIndex: Int!) {
+  truncateAiHubTaskMessages(
+    workspaceId: $workspaceId
+    id: $id
+    fromMessageIndex: $fromMessageIndex
+  )
+}
+    `);
+
+export const useTruncateAiHubTaskMessagesMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<TruncateAiHubTaskMessagesMutation, TError, TruncateAiHubTaskMessagesMutationVariables, TContext>) => {
+    
+    return useMutation<TruncateAiHubTaskMessagesMutation, TError, TruncateAiHubTaskMessagesMutationVariables, TContext>(
+      {
+    mutationKey: ['truncateAiHubTaskMessages'],
+    mutationFn: (variables?: TruncateAiHubTaskMessagesMutationVariables) => fetcher<TruncateAiHubTaskMessagesMutation, TruncateAiHubTaskMessagesMutationVariables>(TruncateAiHubTaskMessagesDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiHubTaskDocument = new TypedDocumentString(`
+    mutation updateAiHubTask($input: AiHubTaskPatchInput!) {
+  updateAiHubTask(input: $input) {
+    id
+    workspaceId
+    userId
+    threadId
+    title
+    lastPreview
+    messageCount
+    status
+    environmentId
+    createdAt
+    updatedAt
+    kind
+    workflowExecutionId
+    projectDeploymentId
+    aiHubPersonalAgentId
+    autoTitled
+  }
+}
+    `);
+
+export const useUpdateAiHubTaskMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiHubTaskMutation, TError, UpdateAiHubTaskMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiHubTaskMutation, TError, UpdateAiHubTaskMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiHubTask'],
+    mutationFn: (variables?: UpdateAiHubTaskMutationVariables) => fetcher<UpdateAiHubTaskMutation, UpdateAiHubTaskMutationVariables>(UpdateAiHubTaskDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiHubWorkspaceSettingsDocument = new TypedDocumentString(`
+    query aiHubWorkspaceSettings($workspaceId: ID!) {
+  aiHubWorkspaceSettings(workspaceId: $workspaceId) {
+    workspaceId
+    voiceWebhookUrl
+  }
+}
+    `);
+
+export const useAiHubWorkspaceSettingsQuery = <
+      TData = AiHubWorkspaceSettingsQuery,
+      TError = unknown
+    >(
+      variables: AiHubWorkspaceSettingsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubWorkspaceSettingsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubWorkspaceSettingsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubWorkspaceSettingsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubWorkspaceSettings', variables],
+    queryFn: fetcher<AiHubWorkspaceSettingsQuery, AiHubWorkspaceSettingsQueryVariables>(AiHubWorkspaceSettingsDocument, variables),
+    ...options
+  }
+    )};
+
+export const UpdateAiHubVoiceWebhookUrlDocument = new TypedDocumentString(`
+    mutation updateAiHubVoiceWebhookUrl($input: UpdateAiHubVoiceWebhookUrlInput!) {
+  updateAiHubVoiceWebhookUrl(input: $input) {
+    workspaceId
+    voiceWebhookUrl
+  }
+}
+    `);
+
+export const useUpdateAiHubVoiceWebhookUrlMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiHubVoiceWebhookUrlMutation, TError, UpdateAiHubVoiceWebhookUrlMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiHubVoiceWebhookUrlMutation, TError, UpdateAiHubVoiceWebhookUrlMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiHubVoiceWebhookUrl'],
+    mutationFn: (variables?: UpdateAiHubVoiceWebhookUrlMutationVariables) => fetcher<UpdateAiHubVoiceWebhookUrlMutation, UpdateAiHubVoiceWebhookUrlMutationVariables>(UpdateAiHubVoiceWebhookUrlDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiAutoMemoriesDocument = new TypedDocumentString(`
+    query aiAutoMemories($workspaceId: ID!, $environment: Int!, $memoryType: AiAutoMemoryType) {
+  aiAutoMemories(
+    workspaceId: $workspaceId
+    environment: $environment
+    memoryType: $memoryType
+  ) {
+    id
+    workspaceId
+    userId
+    name
+    title
+    description
+    memoryType
+    content
+    environmentId
+    createdAt
+    updatedAt
+  }
+}
+    `);
+
+export const useAiAutoMemoriesQuery = <
+      TData = AiAutoMemoriesQuery,
+      TError = unknown
+    >(
+      variables: AiAutoMemoriesQueryVariables,
+      options?: Omit<UseQueryOptions<AiAutoMemoriesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiAutoMemoriesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiAutoMemoriesQuery, TError, TData>(
+      {
+    queryKey: ['aiAutoMemories', variables],
+    queryFn: fetcher<AiAutoMemoriesQuery, AiAutoMemoriesQueryVariables>(AiAutoMemoriesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiAutoMemoryDocument = new TypedDocumentString(`
+    query aiAutoMemory($workspaceId: ID!, $id: ID!) {
+  aiAutoMemory(workspaceId: $workspaceId, id: $id) {
+    id
+    workspaceId
+    userId
+    name
+    title
+    description
+    memoryType
+    content
+    environmentId
+    createdAt
+    updatedAt
+  }
+}
+    `);
+
+export const useAiAutoMemoryQuery = <
+      TData = AiAutoMemoryQuery,
+      TError = unknown
+    >(
+      variables: AiAutoMemoryQueryVariables,
+      options?: Omit<UseQueryOptions<AiAutoMemoryQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiAutoMemoryQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiAutoMemoryQuery, TError, TData>(
+      {
+    queryKey: ['aiAutoMemory', variables],
+    queryFn: fetcher<AiAutoMemoryQuery, AiAutoMemoryQueryVariables>(AiAutoMemoryDocument, variables),
+    ...options
+  }
+    )};
+
+export const DeleteAiAutoMemoryDocument = new TypedDocumentString(`
+    mutation deleteAiAutoMemory($workspaceId: ID!, $id: ID!) {
+  deleteAiAutoMemory(workspaceId: $workspaceId, id: $id)
+}
+    `);
+
+export const useDeleteAiAutoMemoryMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiAutoMemoryMutation, TError, DeleteAiAutoMemoryMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiAutoMemoryMutation, TError, DeleteAiAutoMemoryMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiAutoMemory'],
+    mutationFn: (variables?: DeleteAiAutoMemoryMutationVariables) => fetcher<DeleteAiAutoMemoryMutation, DeleteAiAutoMemoryMutationVariables>(DeleteAiAutoMemoryDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiAutoMemoryDocument = new TypedDocumentString(`
+    mutation updateAiAutoMemory($input: UpdateAiAutoMemoryInput!) {
+  updateAiAutoMemory(input: $input) {
+    id
+    workspaceId
+    userId
+    name
+    title
+    description
+    memoryType
+    content
+    environmentId
+    createdAt
+    updatedAt
+  }
+}
+    `);
+
+export const useUpdateAiAutoMemoryMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiAutoMemoryMutation, TError, UpdateAiAutoMemoryMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiAutoMemoryMutation, TError, UpdateAiAutoMemoryMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiAutoMemory'],
+    mutationFn: (variables?: UpdateAiAutoMemoryMutationVariables) => fetcher<UpdateAiAutoMemoryMutation, UpdateAiAutoMemoryMutationVariables>(UpdateAiAutoMemoryDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const AiSkillDocument = new TypedDocumentString(`
     query aiSkill($id: ID!) {
   aiSkill(id: $id) {
@@ -2771,6 +12937,3390 @@ export const useUpdateAiSkillContentMutation = <
   }
     )};
 
+export const AuditEventsDocument = new TypedDocumentString(`
+    query AuditEvents($principal: String, $eventType: String, $fromDate: Long, $toDate: Long, $dataSearch: String, $page: Int, $size: Int) {
+  auditEvents(
+    principal: $principal
+    eventType: $eventType
+    fromDate: $fromDate
+    toDate: $toDate
+    dataSearch: $dataSearch
+    page: $page
+    size: $size
+  ) {
+    content {
+      data {
+        key
+        value
+      }
+      eventDate
+      eventType
+      id
+      principal
+    }
+    number
+    size
+    totalElements
+    totalPages
+  }
+}
+    `);
+
+export const useAuditEventsQuery = <
+      TData = AuditEventsQuery,
+      TError = unknown
+    >(
+      variables?: AuditEventsQueryVariables,
+      options?: Omit<UseQueryOptions<AuditEventsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AuditEventsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AuditEventsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['AuditEvents'] : ['AuditEvents', variables],
+    queryFn: fetcher<AuditEventsQuery, AuditEventsQueryVariables>(AuditEventsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AuditEventTypesDocument = new TypedDocumentString(`
+    query AuditEventTypes {
+  auditEventTypes
+}
+    `);
+
+export const useAuditEventTypesQuery = <
+      TData = AuditEventTypesQuery,
+      TError = unknown
+    >(
+      variables?: AuditEventTypesQueryVariables,
+      options?: Omit<UseQueryOptions<AuditEventTypesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AuditEventTypesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AuditEventTypesQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['AuditEventTypes'] : ['AuditEventTypes', variables],
+    queryFn: fetcher<AuditEventTypesQuery, AuditEventTypesQueryVariables>(AuditEventTypesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiDatasetsDocument = new TypedDocumentString(`
+    query aiDatasets($workspaceId: ID!) {
+  aiDatasets: aiEvalDatasets(workspaceId: $workspaceId) {
+    archivedDate
+    createdDate
+    description
+    id
+    name
+    tags
+    workspaceId
+  }
+}
+    `);
+
+export const useAiDatasetsQuery = <
+      TData = AiDatasetsQuery,
+      TError = unknown
+    >(
+      variables: AiDatasetsQueryVariables,
+      options?: Omit<UseQueryOptions<AiDatasetsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiDatasetsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiDatasetsQuery, TError, TData>(
+      {
+    queryKey: ['aiDatasets', variables],
+    queryFn: fetcher<AiDatasetsQuery, AiDatasetsQueryVariables>(AiDatasetsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiDatasetVersionsDocument = new TypedDocumentString(`
+    query aiDatasetVersions($datasetId: ID!) {
+  aiDatasetVersions: aiEvalDatasetVersions(datasetId: $datasetId) {
+    createdDate
+    datasetId
+    frozen
+    id
+    itemCount
+    label
+  }
+}
+    `);
+
+export const useAiDatasetVersionsQuery = <
+      TData = AiDatasetVersionsQuery,
+      TError = unknown
+    >(
+      variables: AiDatasetVersionsQueryVariables,
+      options?: Omit<UseQueryOptions<AiDatasetVersionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiDatasetVersionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiDatasetVersionsQuery, TError, TData>(
+      {
+    queryKey: ['aiDatasetVersions', variables],
+    queryFn: fetcher<AiDatasetVersionsQuery, AiDatasetVersionsQueryVariables>(AiDatasetVersionsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiDatasetItemsDocument = new TypedDocumentString(`
+    query aiDatasetItems($versionId: ID!) {
+  aiDatasetItems: aiEvalDatasetItems(versionId: $versionId) {
+    createdDate
+    datasetVersionId
+    expectedOutput
+    id
+    input
+    metadata
+    sourceTraceId
+  }
+}
+    `);
+
+export const useAiDatasetItemsQuery = <
+      TData = AiDatasetItemsQuery,
+      TError = unknown
+    >(
+      variables: AiDatasetItemsQueryVariables,
+      options?: Omit<UseQueryOptions<AiDatasetItemsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiDatasetItemsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiDatasetItemsQuery, TError, TData>(
+      {
+    queryKey: ['aiDatasetItems', variables],
+    queryFn: fetcher<AiDatasetItemsQuery, AiDatasetItemsQueryVariables>(AiDatasetItemsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiEvalRulesDocument = new TypedDocumentString(`
+    query aiEvalRules($workspaceId: ID!) {
+  aiEvalRules(workspaceId: $workspaceId) {
+    createdDate
+    delaySeconds
+    enabled
+    filters
+    id
+    lastModifiedDate
+    model
+    name
+    projectId
+    promptTemplate
+    samplingRate
+    scoreConfigId
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiEvalRulesQuery = <
+      TData = AiEvalRulesQuery,
+      TError = unknown
+    >(
+      variables: AiEvalRulesQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalRulesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalRulesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalRulesQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalRules', variables],
+    queryFn: fetcher<AiEvalRulesQuery, AiEvalRulesQueryVariables>(AiEvalRulesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiEvalRuleDocument = new TypedDocumentString(`
+    query aiEvalRule($id: ID!) {
+  aiEvalRule(id: $id) {
+    createdDate
+    delaySeconds
+    enabled
+    filters
+    id
+    lastModifiedDate
+    model
+    name
+    projectId
+    promptTemplate
+    samplingRate
+    scoreConfigId
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiEvalRuleQuery = <
+      TData = AiEvalRuleQuery,
+      TError = unknown
+    >(
+      variables: AiEvalRuleQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalRuleQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalRuleQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalRuleQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalRule', variables],
+    queryFn: fetcher<AiEvalRuleQuery, AiEvalRuleQueryVariables>(AiEvalRuleDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiEvalExecutionsDocument = new TypedDocumentString(`
+    query aiEvalExecutions($evalRuleId: ID!) {
+  aiEvalExecutions(evalRuleId: $evalRuleId) {
+    createdDate
+    errorMessage
+    evalRuleId
+    id
+    scoreId
+    status
+    traceId
+  }
+}
+    `);
+
+export const useAiEvalExecutionsQuery = <
+      TData = AiEvalExecutionsQuery,
+      TError = unknown
+    >(
+      variables: AiEvalExecutionsQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalExecutionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalExecutionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalExecutionsQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalExecutions', variables],
+    queryFn: fetcher<AiEvalExecutionsQuery, AiEvalExecutionsQueryVariables>(AiEvalExecutionsDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiEvalRuleDocument = new TypedDocumentString(`
+    mutation createAiEvalRule($delaySeconds: Int, $enabled: Boolean!, $filters: String, $model: String!, $name: String!, $projectId: ID, $promptTemplate: String!, $samplingRate: Float!, $scoreConfigId: ID!, $workspaceId: ID!) {
+  createAiEvalRule(
+    delaySeconds: $delaySeconds
+    enabled: $enabled
+    filters: $filters
+    model: $model
+    name: $name
+    projectId: $projectId
+    promptTemplate: $promptTemplate
+    samplingRate: $samplingRate
+    scoreConfigId: $scoreConfigId
+    workspaceId: $workspaceId
+  ) {
+    id
+    name
+  }
+}
+    `);
+
+export const useCreateAiEvalRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiEvalRuleMutation, TError, CreateAiEvalRuleMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiEvalRuleMutation, TError, CreateAiEvalRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiEvalRule'],
+    mutationFn: (variables?: CreateAiEvalRuleMutationVariables) => fetcher<CreateAiEvalRuleMutation, CreateAiEvalRuleMutationVariables>(CreateAiEvalRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiEvalRuleDocument = new TypedDocumentString(`
+    mutation deleteAiEvalRule($id: ID!) {
+  deleteAiEvalRule(id: $id)
+}
+    `);
+
+export const useDeleteAiEvalRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiEvalRuleMutation, TError, DeleteAiEvalRuleMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiEvalRuleMutation, TError, DeleteAiEvalRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiEvalRule'],
+    mutationFn: (variables?: DeleteAiEvalRuleMutationVariables) => fetcher<DeleteAiEvalRuleMutation, DeleteAiEvalRuleMutationVariables>(DeleteAiEvalRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RunAiEvalRuleOnHistoricalTracesDocument = new TypedDocumentString(`
+    mutation runAiEvalRuleOnHistoricalTraces($ruleId: ID!, $startDate: Long!, $endDate: Long!) {
+  runAiEvalRuleOnHistoricalTraces(
+    ruleId: $ruleId
+    startDate: $startDate
+    endDate: $endDate
+  )
+}
+    `);
+
+export const useRunAiEvalRuleOnHistoricalTracesMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RunAiEvalRuleOnHistoricalTracesMutation, TError, RunAiEvalRuleOnHistoricalTracesMutationVariables, TContext>) => {
+    
+    return useMutation<RunAiEvalRuleOnHistoricalTracesMutation, TError, RunAiEvalRuleOnHistoricalTracesMutationVariables, TContext>(
+      {
+    mutationKey: ['runAiEvalRuleOnHistoricalTraces'],
+    mutationFn: (variables?: RunAiEvalRuleOnHistoricalTracesMutationVariables) => fetcher<RunAiEvalRuleOnHistoricalTracesMutation, RunAiEvalRuleOnHistoricalTracesMutationVariables>(RunAiEvalRuleOnHistoricalTracesDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiEvalRuleDocument = new TypedDocumentString(`
+    mutation updateAiEvalRule($delaySeconds: Int, $enabled: Boolean!, $filters: String, $id: ID!, $model: String!, $name: String!, $promptTemplate: String!, $samplingRate: Float!, $scoreConfigId: ID!) {
+  updateAiEvalRule(
+    delaySeconds: $delaySeconds
+    enabled: $enabled
+    filters: $filters
+    id: $id
+    model: $model
+    name: $name
+    promptTemplate: $promptTemplate
+    samplingRate: $samplingRate
+    scoreConfigId: $scoreConfigId
+  ) {
+    id
+    name
+  }
+}
+    `);
+
+export const useUpdateAiEvalRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiEvalRuleMutation, TError, UpdateAiEvalRuleMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiEvalRuleMutation, TError, UpdateAiEvalRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiEvalRule'],
+    mutationFn: (variables?: UpdateAiEvalRuleMutationVariables) => fetcher<UpdateAiEvalRuleMutation, UpdateAiEvalRuleMutationVariables>(UpdateAiEvalRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiEvalScoreConfigsDocument = new TypedDocumentString(`
+    query aiEvalScoreConfigs($workspaceId: ID!) {
+  aiEvalScoreConfigs(workspaceId: $workspaceId) {
+    categories
+    createdDate
+    dataType
+    description
+    id
+    lastModifiedDate
+    maxValue
+    minValue
+    name
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiEvalScoreConfigsQuery = <
+      TData = AiEvalScoreConfigsQuery,
+      TError = unknown
+    >(
+      variables: AiEvalScoreConfigsQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalScoreConfigsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalScoreConfigsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalScoreConfigsQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalScoreConfigs', variables],
+    queryFn: fetcher<AiEvalScoreConfigsQuery, AiEvalScoreConfigsQueryVariables>(AiEvalScoreConfigsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiEvalScoreConfigDocument = new TypedDocumentString(`
+    query aiEvalScoreConfig($id: ID!) {
+  aiEvalScoreConfig(id: $id) {
+    categories
+    createdDate
+    dataType
+    description
+    id
+    lastModifiedDate
+    maxValue
+    minValue
+    name
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiEvalScoreConfigQuery = <
+      TData = AiEvalScoreConfigQuery,
+      TError = unknown
+    >(
+      variables: AiEvalScoreConfigQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalScoreConfigQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalScoreConfigQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalScoreConfigQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalScoreConfig', variables],
+    queryFn: fetcher<AiEvalScoreConfigQuery, AiEvalScoreConfigQueryVariables>(AiEvalScoreConfigDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiEvalScoreConfigDocument = new TypedDocumentString(`
+    mutation createAiEvalScoreConfig($categories: String, $dataType: AiEvalScoreDataType, $description: String, $maxValue: Float, $minValue: Float, $name: String!, $workspaceId: ID!) {
+  createAiEvalScoreConfig(
+    categories: $categories
+    dataType: $dataType
+    description: $description
+    maxValue: $maxValue
+    minValue: $minValue
+    name: $name
+    workspaceId: $workspaceId
+  ) {
+    id
+    name
+  }
+}
+    `);
+
+export const useCreateAiEvalScoreConfigMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiEvalScoreConfigMutation, TError, CreateAiEvalScoreConfigMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiEvalScoreConfigMutation, TError, CreateAiEvalScoreConfigMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiEvalScoreConfig'],
+    mutationFn: (variables?: CreateAiEvalScoreConfigMutationVariables) => fetcher<CreateAiEvalScoreConfigMutation, CreateAiEvalScoreConfigMutationVariables>(CreateAiEvalScoreConfigDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiEvalScoreConfigDocument = new TypedDocumentString(`
+    mutation deleteAiEvalScoreConfig($id: ID!) {
+  deleteAiEvalScoreConfig(id: $id)
+}
+    `);
+
+export const useDeleteAiEvalScoreConfigMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiEvalScoreConfigMutation, TError, DeleteAiEvalScoreConfigMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiEvalScoreConfigMutation, TError, DeleteAiEvalScoreConfigMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiEvalScoreConfig'],
+    mutationFn: (variables?: DeleteAiEvalScoreConfigMutationVariables) => fetcher<DeleteAiEvalScoreConfigMutation, DeleteAiEvalScoreConfigMutationVariables>(DeleteAiEvalScoreConfigDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiEvalScoreConfigDocument = new TypedDocumentString(`
+    mutation updateAiEvalScoreConfig($categories: String, $dataType: AiEvalScoreDataType, $description: String, $id: ID!, $maxValue: Float, $minValue: Float, $name: String!) {
+  updateAiEvalScoreConfig(
+    categories: $categories
+    dataType: $dataType
+    description: $description
+    id: $id
+    maxValue: $maxValue
+    minValue: $minValue
+    name: $name
+  ) {
+    id
+    name
+  }
+}
+    `);
+
+export const useUpdateAiEvalScoreConfigMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiEvalScoreConfigMutation, TError, UpdateAiEvalScoreConfigMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiEvalScoreConfigMutation, TError, UpdateAiEvalScoreConfigMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiEvalScoreConfig'],
+    mutationFn: (variables?: UpdateAiEvalScoreConfigMutationVariables) => fetcher<UpdateAiEvalScoreConfigMutation, UpdateAiEvalScoreConfigMutationVariables>(UpdateAiEvalScoreConfigDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiEvalScoresDocument = new TypedDocumentString(`
+    query aiEvalScores($workspaceId: ID!) {
+  aiEvalScores(workspaceId: $workspaceId) {
+    comment
+    createdBy
+    createdDate
+    dataType
+    evalRuleId
+    id
+    name
+    source
+    spanId
+    stringValue
+    traceId
+    value
+    workspaceId
+  }
+}
+    `);
+
+export const useAiEvalScoresQuery = <
+      TData = AiEvalScoresQuery,
+      TError = unknown
+    >(
+      variables: AiEvalScoresQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalScoresQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalScoresQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalScoresQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalScores', variables],
+    queryFn: fetcher<AiEvalScoresQuery, AiEvalScoresQueryVariables>(AiEvalScoresDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiEvalScoresByTraceDocument = new TypedDocumentString(`
+    query aiEvalScoresByTrace($traceId: ID!) {
+  aiEvalScoresByTrace(traceId: $traceId) {
+    comment
+    createdBy
+    createdDate
+    dataType
+    evalRuleId
+    id
+    name
+    source
+    spanId
+    stringValue
+    traceId
+    value
+    workspaceId
+  }
+}
+    `);
+
+export const useAiEvalScoresByTraceQuery = <
+      TData = AiEvalScoresByTraceQuery,
+      TError = unknown
+    >(
+      variables: AiEvalScoresByTraceQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalScoresByTraceQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalScoresByTraceQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalScoresByTraceQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalScoresByTrace', variables],
+    queryFn: fetcher<AiEvalScoresByTraceQuery, AiEvalScoresByTraceQueryVariables>(AiEvalScoresByTraceDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiEvalScoreDocument = new TypedDocumentString(`
+    mutation createAiEvalScore($comment: String, $dataType: AiEvalScoreDataType!, $name: String!, $source: AiEvalScoreSource!, $spanId: ID, $stringValue: String, $traceId: ID!, $value: Float, $workspaceId: ID!) {
+  createAiEvalScore(
+    comment: $comment
+    dataType: $dataType
+    name: $name
+    source: $source
+    spanId: $spanId
+    stringValue: $stringValue
+    traceId: $traceId
+    value: $value
+    workspaceId: $workspaceId
+  ) {
+    id
+    name
+  }
+}
+    `);
+
+export const useCreateAiEvalScoreMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiEvalScoreMutation, TError, CreateAiEvalScoreMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiEvalScoreMutation, TError, CreateAiEvalScoreMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiEvalScore'],
+    mutationFn: (variables?: CreateAiEvalScoreMutationVariables) => fetcher<CreateAiEvalScoreMutation, CreateAiEvalScoreMutationVariables>(CreateAiEvalScoreDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiEvalScoreDocument = new TypedDocumentString(`
+    mutation deleteAiEvalScore($id: ID!) {
+  deleteAiEvalScore(id: $id)
+}
+    `);
+
+export const useDeleteAiEvalScoreMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiEvalScoreMutation, TError, DeleteAiEvalScoreMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiEvalScoreMutation, TError, DeleteAiEvalScoreMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiEvalScore'],
+    mutationFn: (variables?: DeleteAiEvalScoreMutationVariables) => fetcher<DeleteAiEvalScoreMutation, DeleteAiEvalScoreMutationVariables>(DeleteAiEvalScoreDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiEvalScoreAnalyticsDocument = new TypedDocumentString(`
+    query aiEvalScoreAnalytics($workspaceId: ID!, $startDate: Long!, $endDate: Long!) {
+  aiEvalScoreAnalytics(
+    workspaceId: $workspaceId
+    startDate: $startDate
+    endDate: $endDate
+  ) {
+    average
+    count
+    dataType
+    distribution {
+      count
+      value
+    }
+    max
+    min
+    name
+  }
+}
+    `);
+
+export const useAiEvalScoreAnalyticsQuery = <
+      TData = AiEvalScoreAnalyticsQuery,
+      TError = unknown
+    >(
+      variables: AiEvalScoreAnalyticsQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalScoreAnalyticsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalScoreAnalyticsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalScoreAnalyticsQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalScoreAnalytics', variables],
+    queryFn: fetcher<AiEvalScoreAnalyticsQuery, AiEvalScoreAnalyticsQueryVariables>(AiEvalScoreAnalyticsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiEvalScoreTrendDocument = new TypedDocumentString(`
+    query aiEvalScoreTrend($workspaceId: ID!, $name: String!, $startDate: Long!, $endDate: Long!) {
+  aiEvalScoreTrend(
+    workspaceId: $workspaceId
+    name: $name
+    startDate: $startDate
+    endDate: $endDate
+  ) {
+    average
+    count
+    day
+  }
+}
+    `);
+
+export const useAiEvalScoreTrendQuery = <
+      TData = AiEvalScoreTrendQuery,
+      TError = unknown
+    >(
+      variables: AiEvalScoreTrendQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalScoreTrendQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalScoreTrendQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalScoreTrendQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalScoreTrend', variables],
+    queryFn: fetcher<AiEvalScoreTrendQuery, AiEvalScoreTrendQueryVariables>(AiEvalScoreTrendDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiExperimentComparisonDocument = new TypedDocumentString(`
+    query aiExperimentComparison($experimentIds: [ID!]!) {
+  experimentComparison(experimentIds: $experimentIds) {
+    aggregateScoreDeltas {
+      deltas {
+        average
+        count
+        experimentId
+      }
+      scoreName
+    }
+    experiments {
+      averageLatencyMs
+      completedRuns
+      failedRuns
+      id
+      model
+      totalCost
+      totalRuns
+    }
+    rows {
+      datasetItemId
+      runsByExperiment {
+        cost
+        experimentId
+        latencyMs
+        runId
+        scores {
+          dataType
+          name
+          stringValue
+          value
+        }
+        status
+        traceId
+      }
+    }
+  }
+}
+    `);
+
+export const useAiExperimentComparisonQuery = <
+      TData = AiExperimentComparisonQuery,
+      TError = unknown
+    >(
+      variables: AiExperimentComparisonQueryVariables,
+      options?: Omit<UseQueryOptions<AiExperimentComparisonQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiExperimentComparisonQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiExperimentComparisonQuery, TError, TData>(
+      {
+    queryKey: ['aiExperimentComparison', variables],
+    queryFn: fetcher<AiExperimentComparisonQuery, AiExperimentComparisonQueryVariables>(AiExperimentComparisonDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiExperimentsDocument = new TypedDocumentString(`
+    query aiExperiments($workspaceId: ID!) {
+  aiExperiments: aiEvalExperiments(workspaceId: $workspaceId) {
+    completedDate
+    completedRuns
+    createdDate
+    datasetVersionId
+    failedRuns
+    id
+    metadata
+    model
+    promptVersionId
+    startedDate
+    status
+    stopRequested
+    totalRuns
+  }
+}
+    `);
+
+export const useAiExperimentsQuery = <
+      TData = AiExperimentsQuery,
+      TError = unknown
+    >(
+      variables: AiExperimentsQueryVariables,
+      options?: Omit<UseQueryOptions<AiExperimentsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiExperimentsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiExperimentsQuery, TError, TData>(
+      {
+    queryKey: ['aiExperiments', variables],
+    queryFn: fetcher<AiExperimentsQuery, AiExperimentsQueryVariables>(AiExperimentsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiExperimentRunsDocument = new TypedDocumentString(`
+    query aiExperimentRuns($experimentId: ID!) {
+  aiExperimentRuns: aiEvalExperimentRuns(experimentId: $experimentId) {
+    cost
+    createdDate
+    datasetItemId
+    errorMessage
+    experimentId
+    id
+    latencyMs
+    status
+    traceId
+  }
+}
+    `);
+
+export const useAiExperimentRunsQuery = <
+      TData = AiExperimentRunsQuery,
+      TError = unknown
+    >(
+      variables: AiExperimentRunsQueryVariables,
+      options?: Omit<UseQueryOptions<AiExperimentRunsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiExperimentRunsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiExperimentRunsQuery, TError, TData>(
+      {
+    queryKey: ['aiExperimentRuns', variables],
+    queryFn: fetcher<AiExperimentRunsQuery, AiExperimentRunsQueryVariables>(AiExperimentRunsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiExperimentRunByTraceIdDocument = new TypedDocumentString(`
+    query aiExperimentRunByTraceId($traceId: ID!) {
+  aiExperimentRunByTraceId: aiEvalExperimentRunByTraceId(traceId: $traceId) {
+    cost
+    createdDate
+    datasetItemId
+    errorMessage
+    experimentId
+    id
+    latencyMs
+    status
+    traceId
+  }
+}
+    `);
+
+export const useAiExperimentRunByTraceIdQuery = <
+      TData = AiExperimentRunByTraceIdQuery,
+      TError = unknown
+    >(
+      variables: AiExperimentRunByTraceIdQueryVariables,
+      options?: Omit<UseQueryOptions<AiExperimentRunByTraceIdQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiExperimentRunByTraceIdQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiExperimentRunByTraceIdQuery, TError, TData>(
+      {
+    queryKey: ['aiExperimentRunByTraceId', variables],
+    queryFn: fetcher<AiExperimentRunByTraceIdQuery, AiExperimentRunByTraceIdQueryVariables>(AiExperimentRunByTraceIdDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiGatewayBudgetDocument = new TypedDocumentString(`
+    query aiGatewayBudget($workspaceId: ID!) {
+  aiGatewayBudget(workspaceId: $workspaceId) {
+    alertThreshold
+    amount
+    createdDate
+    enabled
+    enforcementMode
+    id
+    lastModifiedDate
+    period
+    version
+  }
+}
+    `);
+
+export const useAiGatewayBudgetQuery = <
+      TData = AiGatewayBudgetQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayBudgetQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayBudgetQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayBudgetQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayBudgetQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayBudget', variables],
+    queryFn: fetcher<AiGatewayBudgetQuery, AiGatewayBudgetQueryVariables>(AiGatewayBudgetDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiGatewayBudgetDocument = new TypedDocumentString(`
+    mutation createAiGatewayBudget($input: CreateAiGatewayBudgetInput!) {
+  createAiGatewayBudget(input: $input) {
+    alertThreshold
+    amount
+    createdDate
+    enabled
+    enforcementMode
+    id
+    lastModifiedDate
+    period
+    version
+  }
+}
+    `);
+
+export const useCreateAiGatewayBudgetMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiGatewayBudgetMutation, TError, CreateAiGatewayBudgetMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiGatewayBudgetMutation, TError, CreateAiGatewayBudgetMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiGatewayBudget'],
+    mutationFn: (variables?: CreateAiGatewayBudgetMutationVariables) => fetcher<CreateAiGatewayBudgetMutation, CreateAiGatewayBudgetMutationVariables>(CreateAiGatewayBudgetDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayBudgetDocument = new TypedDocumentString(`
+    mutation updateAiGatewayBudget($id: ID!, $input: UpdateAiGatewayBudgetInput!) {
+  updateAiGatewayBudget(id: $id, input: $input) {
+    alertThreshold
+    amount
+    createdDate
+    enabled
+    enforcementMode
+    id
+    lastModifiedDate
+    period
+    version
+  }
+}
+    `);
+
+export const useUpdateAiGatewayBudgetMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayBudgetMutation, TError, UpdateAiGatewayBudgetMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayBudgetMutation, TError, UpdateAiGatewayBudgetMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayBudget'],
+    mutationFn: (variables?: UpdateAiGatewayBudgetMutationVariables) => fetcher<UpdateAiGatewayBudgetMutation, UpdateAiGatewayBudgetMutationVariables>(UpdateAiGatewayBudgetDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiGatewayBudgetDocument = new TypedDocumentString(`
+    mutation deleteAiGatewayBudget($id: ID!) {
+  deleteAiGatewayBudget(id: $id)
+}
+    `);
+
+export const useDeleteAiGatewayBudgetMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiGatewayBudgetMutation, TError, DeleteAiGatewayBudgetMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiGatewayBudgetMutation, TError, DeleteAiGatewayBudgetMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiGatewayBudget'],
+    mutationFn: (variables?: DeleteAiGatewayBudgetMutationVariables) => fetcher<DeleteAiGatewayBudgetMutation, DeleteAiGatewayBudgetMutationVariables>(DeleteAiGatewayBudgetDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiGatewayModelsDocument = new TypedDocumentString(`
+    query aiGatewayModels {
+  aiGatewayModels {
+    alias
+    capabilities
+    contextWindow
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useAiGatewayModelsQuery = <
+      TData = AiGatewayModelsQuery,
+      TError = unknown
+    >(
+      variables?: AiGatewayModelsQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayModelsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayModelsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayModelsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['aiGatewayModels'] : ['aiGatewayModels', variables],
+    queryFn: fetcher<AiGatewayModelsQuery, AiGatewayModelsQueryVariables>(AiGatewayModelsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiGatewayModelsByProviderDocument = new TypedDocumentString(`
+    query aiGatewayModelsByProvider($providerId: ID!) {
+  aiGatewayModelsByProvider(providerId: $providerId) {
+    alias
+    capabilities
+    contextWindow
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useAiGatewayModelsByProviderQuery = <
+      TData = AiGatewayModelsByProviderQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayModelsByProviderQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayModelsByProviderQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayModelsByProviderQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayModelsByProviderQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayModelsByProvider', variables],
+    queryFn: fetcher<AiGatewayModelsByProviderQuery, AiGatewayModelsByProviderQueryVariables>(AiGatewayModelsByProviderDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiGatewayModelDocument = new TypedDocumentString(`
+    mutation createAiGatewayModel($input: CreateAiGatewayModelInput!) {
+  createAiGatewayModel(input: $input) {
+    alias
+    capabilities
+    contextWindow
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useCreateAiGatewayModelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiGatewayModelMutation, TError, CreateAiGatewayModelMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiGatewayModelMutation, TError, CreateAiGatewayModelMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiGatewayModel'],
+    mutationFn: (variables?: CreateAiGatewayModelMutationVariables) => fetcher<CreateAiGatewayModelMutation, CreateAiGatewayModelMutationVariables>(CreateAiGatewayModelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayModelDocument = new TypedDocumentString(`
+    mutation updateAiGatewayModel($id: ID!, $input: UpdateAiGatewayModelInput!) {
+  updateAiGatewayModel(id: $id, input: $input) {
+    alias
+    capabilities
+    contextWindow
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useUpdateAiGatewayModelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayModelMutation, TError, UpdateAiGatewayModelMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayModelMutation, TError, UpdateAiGatewayModelMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayModel'],
+    mutationFn: (variables?: UpdateAiGatewayModelMutationVariables) => fetcher<UpdateAiGatewayModelMutation, UpdateAiGatewayModelMutationVariables>(UpdateAiGatewayModelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiGatewayModelDocument = new TypedDocumentString(`
+    mutation deleteAiGatewayModel($id: ID!) {
+  deleteAiGatewayModel(id: $id)
+}
+    `);
+
+export const useDeleteAiGatewayModelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiGatewayModelMutation, TError, DeleteAiGatewayModelMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiGatewayModelMutation, TError, DeleteAiGatewayModelMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiGatewayModel'],
+    mutationFn: (variables?: DeleteAiGatewayModelMutationVariables) => fetcher<DeleteAiGatewayModelMutation, DeleteAiGatewayModelMutationVariables>(DeleteAiGatewayModelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const PlaygroundChatCompletionDocument = new TypedDocumentString(`
+    mutation playgroundChatCompletion($input: PlaygroundChatCompletionInput!) {
+  playgroundChatCompletion(input: $input) {
+    completionTokens
+    content
+    cost
+    finishReason
+    latencyMs
+    model
+    promptTokens
+    totalTokens
+    traceId
+  }
+}
+    `);
+
+export const usePlaygroundChatCompletionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<PlaygroundChatCompletionMutation, TError, PlaygroundChatCompletionMutationVariables, TContext>) => {
+    
+    return useMutation<PlaygroundChatCompletionMutation, TError, PlaygroundChatCompletionMutationVariables, TContext>(
+      {
+    mutationKey: ['playgroundChatCompletion'],
+    mutationFn: (variables?: PlaygroundChatCompletionMutationVariables) => fetcher<PlaygroundChatCompletionMutation, PlaygroundChatCompletionMutationVariables>(PlaygroundChatCompletionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiGatewayProjectsDocument = new TypedDocumentString(`
+    query aiGatewayProjects($workspaceId: ID!) {
+  aiGatewayProjects(workspaceId: $workspaceId) {
+    cachingEnabled
+    cacheTtlMinutes
+    compressionEnabled
+    createdDate
+    description
+    id
+    lastModifiedDate
+    logRetentionDays
+    name
+    retryMaxAttempts
+    routingPolicyId
+    slug
+    timeoutSeconds
+    version
+  }
+}
+    `);
+
+export const useAiGatewayProjectsQuery = <
+      TData = AiGatewayProjectsQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayProjectsQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayProjectsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayProjectsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayProjectsQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayProjects', variables],
+    queryFn: fetcher<AiGatewayProjectsQuery, AiGatewayProjectsQueryVariables>(AiGatewayProjectsDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiGatewayProjectDocument = new TypedDocumentString(`
+    mutation createAiGatewayProject($input: CreateAiGatewayProjectInput!) {
+  createAiGatewayProject(input: $input) {
+    id
+    name
+    slug
+  }
+}
+    `);
+
+export const useCreateAiGatewayProjectMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiGatewayProjectMutation, TError, CreateAiGatewayProjectMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiGatewayProjectMutation, TError, CreateAiGatewayProjectMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiGatewayProject'],
+    mutationFn: (variables?: CreateAiGatewayProjectMutationVariables) => fetcher<CreateAiGatewayProjectMutation, CreateAiGatewayProjectMutationVariables>(CreateAiGatewayProjectDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayProjectDocument = new TypedDocumentString(`
+    mutation updateAiGatewayProject($id: ID!, $input: UpdateAiGatewayProjectInput!) {
+  updateAiGatewayProject(id: $id, input: $input) {
+    id
+    name
+    slug
+  }
+}
+    `);
+
+export const useUpdateAiGatewayProjectMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayProjectMutation, TError, UpdateAiGatewayProjectMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayProjectMutation, TError, UpdateAiGatewayProjectMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayProject'],
+    mutationFn: (variables?: UpdateAiGatewayProjectMutationVariables) => fetcher<UpdateAiGatewayProjectMutation, UpdateAiGatewayProjectMutationVariables>(UpdateAiGatewayProjectDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiGatewayProjectDocument = new TypedDocumentString(`
+    mutation deleteAiGatewayProject($id: ID!) {
+  deleteAiGatewayProject(id: $id)
+}
+    `);
+
+export const useDeleteAiGatewayProjectMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiGatewayProjectMutation, TError, DeleteAiGatewayProjectMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiGatewayProjectMutation, TError, DeleteAiGatewayProjectMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiGatewayProject'],
+    mutationFn: (variables?: DeleteAiGatewayProjectMutationVariables) => fetcher<DeleteAiGatewayProjectMutation, DeleteAiGatewayProjectMutationVariables>(DeleteAiGatewayProjectDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiGatewayProvidersDocument = new TypedDocumentString(`
+    query aiGatewayProviders {
+  aiGatewayProviders {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useAiGatewayProvidersQuery = <
+      TData = AiGatewayProvidersQuery,
+      TError = unknown
+    >(
+      variables?: AiGatewayProvidersQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayProvidersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayProvidersQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayProvidersQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['aiGatewayProviders'] : ['aiGatewayProviders', variables],
+    queryFn: fetcher<AiGatewayProvidersQuery, AiGatewayProvidersQueryVariables>(AiGatewayProvidersDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiGatewayProviderDocument = new TypedDocumentString(`
+    query aiGatewayProvider($id: ID!) {
+  aiGatewayProvider(id: $id) {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useAiGatewayProviderQuery = <
+      TData = AiGatewayProviderQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayProviderQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayProviderQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayProviderQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayProviderQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayProvider', variables],
+    queryFn: fetcher<AiGatewayProviderQuery, AiGatewayProviderQueryVariables>(AiGatewayProviderDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiGatewayProviderDocument = new TypedDocumentString(`
+    mutation createAiGatewayProvider($input: CreateAiGatewayProviderInput!) {
+  createAiGatewayProvider(input: $input) {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useCreateAiGatewayProviderMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiGatewayProviderMutation, TError, CreateAiGatewayProviderMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiGatewayProviderMutation, TError, CreateAiGatewayProviderMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiGatewayProvider'],
+    mutationFn: (variables?: CreateAiGatewayProviderMutationVariables) => fetcher<CreateAiGatewayProviderMutation, CreateAiGatewayProviderMutationVariables>(CreateAiGatewayProviderDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayProviderDocument = new TypedDocumentString(`
+    mutation updateAiGatewayProvider($id: ID!, $input: UpdateAiGatewayProviderInput!) {
+  updateAiGatewayProvider(id: $id, input: $input) {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useUpdateAiGatewayProviderMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayProviderMutation, TError, UpdateAiGatewayProviderMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayProviderMutation, TError, UpdateAiGatewayProviderMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayProvider'],
+    mutationFn: (variables?: UpdateAiGatewayProviderMutationVariables) => fetcher<UpdateAiGatewayProviderMutation, UpdateAiGatewayProviderMutationVariables>(UpdateAiGatewayProviderDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiGatewayProviderDocument = new TypedDocumentString(`
+    mutation deleteAiGatewayProvider($id: ID!) {
+  deleteAiGatewayProvider(id: $id)
+}
+    `);
+
+export const useDeleteAiGatewayProviderMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiGatewayProviderMutation, TError, DeleteAiGatewayProviderMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiGatewayProviderMutation, TError, DeleteAiGatewayProviderMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiGatewayProvider'],
+    mutationFn: (variables?: DeleteAiGatewayProviderMutationVariables) => fetcher<DeleteAiGatewayProviderMutation, DeleteAiGatewayProviderMutationVariables>(DeleteAiGatewayProviderDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiGatewayRateLimitsDocument = new TypedDocumentString(`
+    query aiGatewayRateLimits($workspaceId: ID!) {
+  aiGatewayRateLimits(workspaceId: $workspaceId) {
+    createdDate
+    enabled
+    id
+    lastModifiedDate
+    limitType
+    limitValue
+    name
+    projectId
+    propertyKey
+    scope
+    version
+    windowSeconds
+  }
+}
+    `);
+
+export const useAiGatewayRateLimitsQuery = <
+      TData = AiGatewayRateLimitsQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayRateLimitsQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayRateLimitsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayRateLimitsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayRateLimitsQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayRateLimits', variables],
+    queryFn: fetcher<AiGatewayRateLimitsQuery, AiGatewayRateLimitsQueryVariables>(AiGatewayRateLimitsDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiGatewayRateLimitDocument = new TypedDocumentString(`
+    mutation createAiGatewayRateLimit($input: CreateAiGatewayRateLimitInput!) {
+  createAiGatewayRateLimit(input: $input) {
+    createdDate
+    enabled
+    id
+    lastModifiedDate
+    limitType
+    limitValue
+    name
+    projectId
+    propertyKey
+    scope
+    version
+    windowSeconds
+  }
+}
+    `);
+
+export const useCreateAiGatewayRateLimitMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiGatewayRateLimitMutation, TError, CreateAiGatewayRateLimitMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiGatewayRateLimitMutation, TError, CreateAiGatewayRateLimitMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiGatewayRateLimit'],
+    mutationFn: (variables?: CreateAiGatewayRateLimitMutationVariables) => fetcher<CreateAiGatewayRateLimitMutation, CreateAiGatewayRateLimitMutationVariables>(CreateAiGatewayRateLimitDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayRateLimitDocument = new TypedDocumentString(`
+    mutation updateAiGatewayRateLimit($id: ID!, $input: UpdateAiGatewayRateLimitInput!) {
+  updateAiGatewayRateLimit(id: $id, input: $input) {
+    createdDate
+    enabled
+    id
+    lastModifiedDate
+    limitType
+    limitValue
+    name
+    projectId
+    propertyKey
+    scope
+    version
+    windowSeconds
+  }
+}
+    `);
+
+export const useUpdateAiGatewayRateLimitMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayRateLimitMutation, TError, UpdateAiGatewayRateLimitMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayRateLimitMutation, TError, UpdateAiGatewayRateLimitMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayRateLimit'],
+    mutationFn: (variables?: UpdateAiGatewayRateLimitMutationVariables) => fetcher<UpdateAiGatewayRateLimitMutation, UpdateAiGatewayRateLimitMutationVariables>(UpdateAiGatewayRateLimitDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiGatewayRateLimitDocument = new TypedDocumentString(`
+    mutation deleteAiGatewayRateLimit($id: ID!) {
+  deleteAiGatewayRateLimit(id: $id)
+}
+    `);
+
+export const useDeleteAiGatewayRateLimitMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiGatewayRateLimitMutation, TError, DeleteAiGatewayRateLimitMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiGatewayRateLimitMutation, TError, DeleteAiGatewayRateLimitMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiGatewayRateLimit'],
+    mutationFn: (variables?: DeleteAiGatewayRateLimitMutationVariables) => fetcher<DeleteAiGatewayRateLimitMutation, DeleteAiGatewayRateLimitMutationVariables>(DeleteAiGatewayRateLimitDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiGatewayRequestLogsDocument = new TypedDocumentString(`
+    query aiGatewayRequestLogs($startDate: Long!, $endDate: Long!) {
+  aiGatewayRequestLogs(startDate: $startDate, endDate: $endDate) {
+    apiKeyId
+    cacheHit
+    cost
+    createdDate
+    errorMessage
+    id
+    inputTokens
+    latencyMs
+    outputTokens
+    requestId
+    requestedModel
+    routedModel
+    routedProvider
+    routingPolicyId
+    routingStrategy
+    status
+  }
+}
+    `);
+
+export const useAiGatewayRequestLogsQuery = <
+      TData = AiGatewayRequestLogsQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayRequestLogsQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayRequestLogsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayRequestLogsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayRequestLogsQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayRequestLogs', variables],
+    queryFn: fetcher<AiGatewayRequestLogsQuery, AiGatewayRequestLogsQueryVariables>(AiGatewayRequestLogsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiGatewayRoutingPoliciesDocument = new TypedDocumentString(`
+    query aiGatewayRoutingPolicies {
+  aiGatewayRoutingPolicies {
+    config
+    createdDate
+    deployments {
+      enabled
+      id
+      maxRpm
+      maxTpm
+      modelId
+      priorityOrder
+      routingPolicyId
+      weight
+    }
+    enabled
+    fallbackModel
+    id
+    lastModifiedDate
+    name
+    strategy
+    version
+  }
+}
+    `);
+
+export const useAiGatewayRoutingPoliciesQuery = <
+      TData = AiGatewayRoutingPoliciesQuery,
+      TError = unknown
+    >(
+      variables?: AiGatewayRoutingPoliciesQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayRoutingPoliciesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayRoutingPoliciesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayRoutingPoliciesQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['aiGatewayRoutingPolicies'] : ['aiGatewayRoutingPolicies', variables],
+    queryFn: fetcher<AiGatewayRoutingPoliciesQuery, AiGatewayRoutingPoliciesQueryVariables>(AiGatewayRoutingPoliciesDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiGatewayRoutingPolicyDocument = new TypedDocumentString(`
+    mutation createAiGatewayRoutingPolicy($input: CreateAiGatewayRoutingPolicyInput!) {
+  createAiGatewayRoutingPolicy(input: $input) {
+    config
+    createdDate
+    enabled
+    fallbackModel
+    id
+    lastModifiedDate
+    name
+    strategy
+    version
+  }
+}
+    `);
+
+export const useCreateAiGatewayRoutingPolicyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiGatewayRoutingPolicyMutation, TError, CreateAiGatewayRoutingPolicyMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiGatewayRoutingPolicyMutation, TError, CreateAiGatewayRoutingPolicyMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiGatewayRoutingPolicy'],
+    mutationFn: (variables?: CreateAiGatewayRoutingPolicyMutationVariables) => fetcher<CreateAiGatewayRoutingPolicyMutation, CreateAiGatewayRoutingPolicyMutationVariables>(CreateAiGatewayRoutingPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayRoutingPolicyDocument = new TypedDocumentString(`
+    mutation updateAiGatewayRoutingPolicy($id: ID!, $input: UpdateAiGatewayRoutingPolicyInput!) {
+  updateAiGatewayRoutingPolicy(id: $id, input: $input) {
+    config
+    createdDate
+    enabled
+    fallbackModel
+    id
+    lastModifiedDate
+    name
+    strategy
+    version
+  }
+}
+    `);
+
+export const useUpdateAiGatewayRoutingPolicyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayRoutingPolicyMutation, TError, UpdateAiGatewayRoutingPolicyMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayRoutingPolicyMutation, TError, UpdateAiGatewayRoutingPolicyMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayRoutingPolicy'],
+    mutationFn: (variables?: UpdateAiGatewayRoutingPolicyMutationVariables) => fetcher<UpdateAiGatewayRoutingPolicyMutation, UpdateAiGatewayRoutingPolicyMutationVariables>(UpdateAiGatewayRoutingPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiGatewayRoutingPolicyDocument = new TypedDocumentString(`
+    mutation deleteAiGatewayRoutingPolicy($id: ID!) {
+  deleteAiGatewayRoutingPolicy(id: $id)
+}
+    `);
+
+export const useDeleteAiGatewayRoutingPolicyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiGatewayRoutingPolicyMutation, TError, DeleteAiGatewayRoutingPolicyMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiGatewayRoutingPolicyMutation, TError, DeleteAiGatewayRoutingPolicyMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiGatewayRoutingPolicy'],
+    mutationFn: (variables?: DeleteAiGatewayRoutingPolicyMutationVariables) => fetcher<DeleteAiGatewayRoutingPolicyMutation, DeleteAiGatewayRoutingPolicyMutationVariables>(DeleteAiGatewayRoutingPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiGatewaySpendSummariesDocument = new TypedDocumentString(`
+    query aiGatewaySpendSummaries($startDate: Long!, $endDate: Long!) {
+  aiGatewaySpendSummaries(startDate: $startDate, endDate: $endDate) {
+    apiKeyId
+    createdDate
+    id
+    model
+    periodEnd
+    periodStart
+    provider
+    requestCount
+    totalCost
+    totalInputTokens
+    totalOutputTokens
+  }
+}
+    `);
+
+export const useAiGatewaySpendSummariesQuery = <
+      TData = AiGatewaySpendSummariesQuery,
+      TError = unknown
+    >(
+      variables: AiGatewaySpendSummariesQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewaySpendSummariesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewaySpendSummariesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewaySpendSummariesQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewaySpendSummaries', variables],
+    queryFn: fetcher<AiGatewaySpendSummariesQuery, AiGatewaySpendSummariesQueryVariables>(AiGatewaySpendSummariesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiGatewayWorkspaceSettingsDocument = new TypedDocumentString(`
+    query aiGatewayWorkspaceSettings($workspaceId: ID!) {
+  aiGatewayWorkspaceSettings(workspaceId: $workspaceId) {
+    cacheEnabled
+    cacheTtlSeconds
+    defaultRoutingPolicyId
+    logRetentionDays
+    redactPii
+    retryCount
+    softBudgetWarningPct
+    timeoutMs
+    workspaceId
+  }
+}
+    `);
+
+export const useAiGatewayWorkspaceSettingsQuery = <
+      TData = AiGatewayWorkspaceSettingsQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayWorkspaceSettingsQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayWorkspaceSettingsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayWorkspaceSettingsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayWorkspaceSettingsQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayWorkspaceSettings', variables],
+    queryFn: fetcher<AiGatewayWorkspaceSettingsQuery, AiGatewayWorkspaceSettingsQueryVariables>(AiGatewayWorkspaceSettingsDocument, variables),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayWorkspaceSettingsDocument = new TypedDocumentString(`
+    mutation updateAiGatewayWorkspaceSettings($input: AiGatewayWorkspaceSettingsInput!) {
+  updateAiGatewayWorkspaceSettings(input: $input) {
+    cacheEnabled
+    cacheTtlSeconds
+    defaultRoutingPolicyId
+    logRetentionDays
+    redactPii
+    retryCount
+    softBudgetWarningPct
+    timeoutMs
+    workspaceId
+  }
+}
+    `);
+
+export const useUpdateAiGatewayWorkspaceSettingsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayWorkspaceSettingsMutation, TError, UpdateAiGatewayWorkspaceSettingsMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayWorkspaceSettingsMutation, TError, UpdateAiGatewayWorkspaceSettingsMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayWorkspaceSettings'],
+    mutationFn: (variables?: UpdateAiGatewayWorkspaceSettingsMutationVariables) => fetcher<UpdateAiGatewayWorkspaceSettingsMutation, UpdateAiGatewayWorkspaceSettingsMutationVariables>(UpdateAiGatewayWorkspaceSettingsDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiObservabilityAlertEventsDocument = new TypedDocumentString(`
+    query aiObservabilityAlertEvents($alertRuleId: ID!) {
+  aiObservabilityAlertEvents(alertRuleId: $alertRuleId) {
+    alertRuleId
+    createdDate
+    id
+    message
+    status
+    triggeredValue
+  }
+}
+    `);
+
+export const useAiObservabilityAlertEventsQuery = <
+      TData = AiObservabilityAlertEventsQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityAlertEventsQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityAlertEventsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityAlertEventsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityAlertEventsQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityAlertEvents', variables],
+    queryFn: fetcher<AiObservabilityAlertEventsQuery, AiObservabilityAlertEventsQueryVariables>(AiObservabilityAlertEventsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AcknowledgeAiObservabilityAlertEventDocument = new TypedDocumentString(`
+    mutation acknowledgeAiObservabilityAlertEvent($id: ID!) {
+  acknowledgeAiObservabilityAlertEvent(id: $id) {
+    alertRuleId
+    createdDate
+    id
+    message
+    status
+    triggeredValue
+  }
+}
+    `);
+
+export const useAcknowledgeAiObservabilityAlertEventMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AcknowledgeAiObservabilityAlertEventMutation, TError, AcknowledgeAiObservabilityAlertEventMutationVariables, TContext>) => {
+    
+    return useMutation<AcknowledgeAiObservabilityAlertEventMutation, TError, AcknowledgeAiObservabilityAlertEventMutationVariables, TContext>(
+      {
+    mutationKey: ['acknowledgeAiObservabilityAlertEvent'],
+    mutationFn: (variables?: AcknowledgeAiObservabilityAlertEventMutationVariables) => fetcher<AcknowledgeAiObservabilityAlertEventMutation, AcknowledgeAiObservabilityAlertEventMutationVariables>(AcknowledgeAiObservabilityAlertEventDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiObservabilityAlertRulesDocument = new TypedDocumentString(`
+    query aiObservabilityAlertRules($workspaceId: ID!) {
+  aiObservabilityAlertRules(workspaceId: $workspaceId) {
+    channelIds
+    condition
+    cooldownMinutes
+    createdDate
+    enabled
+    filters
+    id
+    lastModifiedDate
+    metric
+    name
+    projectId
+    snoozedUntil
+    threshold
+    version
+    windowMinutes
+  }
+}
+    `);
+
+export const useAiObservabilityAlertRulesQuery = <
+      TData = AiObservabilityAlertRulesQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityAlertRulesQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityAlertRulesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityAlertRulesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityAlertRulesQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityAlertRules', variables],
+    queryFn: fetcher<AiObservabilityAlertRulesQuery, AiObservabilityAlertRulesQueryVariables>(AiObservabilityAlertRulesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    query aiObservabilityAlertRule($id: ID!) {
+  aiObservabilityAlertRule(id: $id) {
+    channelIds
+    condition
+    cooldownMinutes
+    createdDate
+    enabled
+    filters
+    id
+    lastModifiedDate
+    metric
+    name
+    projectId
+    snoozedUntil
+    threshold
+    version
+    windowMinutes
+  }
+}
+    `);
+
+export const useAiObservabilityAlertRuleQuery = <
+      TData = AiObservabilityAlertRuleQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityAlertRuleQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityAlertRuleQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityAlertRuleQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityAlertRuleQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityAlertRule', variables],
+    queryFn: fetcher<AiObservabilityAlertRuleQuery, AiObservabilityAlertRuleQueryVariables>(AiObservabilityAlertRuleDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    mutation createAiObservabilityAlertRule($input: AiObservabilityAlertRuleInput!) {
+  createAiObservabilityAlertRule(input: $input) {
+    channelIds
+    condition
+    cooldownMinutes
+    createdDate
+    enabled
+    filters
+    id
+    lastModifiedDate
+    metric
+    name
+    projectId
+    threshold
+    version
+    windowMinutes
+  }
+}
+    `);
+
+export const useCreateAiObservabilityAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiObservabilityAlertRuleMutation, TError, CreateAiObservabilityAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiObservabilityAlertRuleMutation, TError, CreateAiObservabilityAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiObservabilityAlertRule'],
+    mutationFn: (variables?: CreateAiObservabilityAlertRuleMutationVariables) => fetcher<CreateAiObservabilityAlertRuleMutation, CreateAiObservabilityAlertRuleMutationVariables>(CreateAiObservabilityAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    mutation updateAiObservabilityAlertRule($id: ID!, $input: AiObservabilityAlertRuleInput!) {
+  updateAiObservabilityAlertRule(id: $id, input: $input) {
+    channelIds
+    condition
+    cooldownMinutes
+    createdDate
+    enabled
+    filters
+    id
+    lastModifiedDate
+    metric
+    name
+    projectId
+    threshold
+    version
+    windowMinutes
+  }
+}
+    `);
+
+export const useUpdateAiObservabilityAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiObservabilityAlertRuleMutation, TError, UpdateAiObservabilityAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiObservabilityAlertRuleMutation, TError, UpdateAiObservabilityAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiObservabilityAlertRule'],
+    mutationFn: (variables?: UpdateAiObservabilityAlertRuleMutationVariables) => fetcher<UpdateAiObservabilityAlertRuleMutation, UpdateAiObservabilityAlertRuleMutationVariables>(UpdateAiObservabilityAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    mutation deleteAiObservabilityAlertRule($id: ID!) {
+  deleteAiObservabilityAlertRule(id: $id)
+}
+    `);
+
+export const useDeleteAiObservabilityAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiObservabilityAlertRuleMutation, TError, DeleteAiObservabilityAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiObservabilityAlertRuleMutation, TError, DeleteAiObservabilityAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiObservabilityAlertRule'],
+    mutationFn: (variables?: DeleteAiObservabilityAlertRuleMutationVariables) => fetcher<DeleteAiObservabilityAlertRuleMutation, DeleteAiObservabilityAlertRuleMutationVariables>(DeleteAiObservabilityAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const TestAiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    mutation testAiObservabilityAlertRule($id: ID!) {
+  testAiObservabilityAlertRule(id: $id)
+}
+    `);
+
+export const useTestAiObservabilityAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<TestAiObservabilityAlertRuleMutation, TError, TestAiObservabilityAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<TestAiObservabilityAlertRuleMutation, TError, TestAiObservabilityAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['testAiObservabilityAlertRule'],
+    mutationFn: (variables?: TestAiObservabilityAlertRuleMutationVariables) => fetcher<TestAiObservabilityAlertRuleMutation, TestAiObservabilityAlertRuleMutationVariables>(TestAiObservabilityAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SnoozeAiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    mutation snoozeAiObservabilityAlertRule($id: ID!, $until: Long!) {
+  snoozeAiObservabilityAlertRule(id: $id, until: $until) {
+    id
+    snoozedUntil
+  }
+}
+    `);
+
+export const useSnoozeAiObservabilityAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SnoozeAiObservabilityAlertRuleMutation, TError, SnoozeAiObservabilityAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<SnoozeAiObservabilityAlertRuleMutation, TError, SnoozeAiObservabilityAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['snoozeAiObservabilityAlertRule'],
+    mutationFn: (variables?: SnoozeAiObservabilityAlertRuleMutationVariables) => fetcher<SnoozeAiObservabilityAlertRuleMutation, SnoozeAiObservabilityAlertRuleMutationVariables>(SnoozeAiObservabilityAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UnsnoozeAiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    mutation unsnoozeAiObservabilityAlertRule($id: ID!) {
+  unsnoozeAiObservabilityAlertRule(id: $id) {
+    id
+    snoozedUntil
+  }
+}
+    `);
+
+export const useUnsnoozeAiObservabilityAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UnsnoozeAiObservabilityAlertRuleMutation, TError, UnsnoozeAiObservabilityAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<UnsnoozeAiObservabilityAlertRuleMutation, TError, UnsnoozeAiObservabilityAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['unsnoozeAiObservabilityAlertRule'],
+    mutationFn: (variables?: UnsnoozeAiObservabilityAlertRuleMutationVariables) => fetcher<UnsnoozeAiObservabilityAlertRuleMutation, UnsnoozeAiObservabilityAlertRuleMutationVariables>(UnsnoozeAiObservabilityAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiObservabilityExportJobsDocument = new TypedDocumentString(`
+    query aiObservabilityExportJobs($workspaceId: ID!) {
+  aiObservabilityExportJobs(workspaceId: $workspaceId) {
+    createdBy
+    createdDate
+    errorMessage
+    filePath
+    filters
+    format
+    id
+    projectId
+    recordCount
+    scope
+    status
+    type
+  }
+}
+    `);
+
+export const useAiObservabilityExportJobsQuery = <
+      TData = AiObservabilityExportJobsQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityExportJobsQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityExportJobsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityExportJobsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityExportJobsQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityExportJobs', variables],
+    queryFn: fetcher<AiObservabilityExportJobsQuery, AiObservabilityExportJobsQueryVariables>(AiObservabilityExportJobsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilityExportJobDocument = new TypedDocumentString(`
+    query aiObservabilityExportJob($id: ID!) {
+  aiObservabilityExportJob(id: $id) {
+    createdBy
+    createdDate
+    errorMessage
+    filePath
+    filters
+    format
+    id
+    projectId
+    recordCount
+    scope
+    status
+    type
+  }
+}
+    `);
+
+export const useAiObservabilityExportJobQuery = <
+      TData = AiObservabilityExportJobQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityExportJobQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityExportJobQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityExportJobQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityExportJobQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityExportJob', variables],
+    queryFn: fetcher<AiObservabilityExportJobQuery, AiObservabilityExportJobQueryVariables>(AiObservabilityExportJobDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiObservabilityExportJobDocument = new TypedDocumentString(`
+    mutation createAiObservabilityExportJob($workspaceId: ID!, $projectId: ID, $format: AiObservabilityExportFormat!, $scope: AiObservabilityExportScope!, $filters: String) {
+  createAiObservabilityExportJob(
+    workspaceId: $workspaceId
+    projectId: $projectId
+    format: $format
+    scope: $scope
+    filters: $filters
+  ) {
+    createdBy
+    createdDate
+    format
+    id
+    scope
+    status
+    type
+  }
+}
+    `);
+
+export const useCreateAiObservabilityExportJobMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiObservabilityExportJobMutation, TError, CreateAiObservabilityExportJobMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiObservabilityExportJobMutation, TError, CreateAiObservabilityExportJobMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiObservabilityExportJob'],
+    mutationFn: (variables?: CreateAiObservabilityExportJobMutationVariables) => fetcher<CreateAiObservabilityExportJobMutation, CreateAiObservabilityExportJobMutationVariables>(CreateAiObservabilityExportJobDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CancelAiObservabilityExportJobDocument = new TypedDocumentString(`
+    mutation cancelAiObservabilityExportJob($id: ID!) {
+  cancelAiObservabilityExportJob(id: $id) {
+    id
+    status
+  }
+}
+    `);
+
+export const useCancelAiObservabilityExportJobMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CancelAiObservabilityExportJobMutation, TError, CancelAiObservabilityExportJobMutationVariables, TContext>) => {
+    
+    return useMutation<CancelAiObservabilityExportJobMutation, TError, CancelAiObservabilityExportJobMutationVariables, TContext>(
+      {
+    mutationKey: ['cancelAiObservabilityExportJob'],
+    mutationFn: (variables?: CancelAiObservabilityExportJobMutationVariables) => fetcher<CancelAiObservabilityExportJobMutation, CancelAiObservabilityExportJobMutationVariables>(CancelAiObservabilityExportJobDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiObservabilityNotificationChannelsDocument = new TypedDocumentString(`
+    query aiObservabilityNotificationChannels($workspaceId: ID!) {
+  aiObservabilityNotificationChannels(workspaceId: $workspaceId) {
+    config
+    createdDate
+    enabled
+    id
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useAiObservabilityNotificationChannelsQuery = <
+      TData = AiObservabilityNotificationChannelsQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityNotificationChannelsQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityNotificationChannelsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityNotificationChannelsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityNotificationChannelsQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityNotificationChannels', variables],
+    queryFn: fetcher<AiObservabilityNotificationChannelsQuery, AiObservabilityNotificationChannelsQueryVariables>(AiObservabilityNotificationChannelsDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
+    mutation createAiObservabilityNotificationChannel($input: AiObservabilityNotificationChannelInput!) {
+  createAiObservabilityNotificationChannel(input: $input) {
+    config
+    createdDate
+    enabled
+    id
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useCreateAiObservabilityNotificationChannelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiObservabilityNotificationChannelMutation, TError, CreateAiObservabilityNotificationChannelMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiObservabilityNotificationChannelMutation, TError, CreateAiObservabilityNotificationChannelMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiObservabilityNotificationChannel'],
+    mutationFn: (variables?: CreateAiObservabilityNotificationChannelMutationVariables) => fetcher<CreateAiObservabilityNotificationChannelMutation, CreateAiObservabilityNotificationChannelMutationVariables>(CreateAiObservabilityNotificationChannelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
+    mutation updateAiObservabilityNotificationChannel($id: ID!, $input: AiObservabilityNotificationChannelInput!) {
+  updateAiObservabilityNotificationChannel(id: $id, input: $input) {
+    config
+    createdDate
+    enabled
+    id
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useUpdateAiObservabilityNotificationChannelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiObservabilityNotificationChannelMutation, TError, UpdateAiObservabilityNotificationChannelMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiObservabilityNotificationChannelMutation, TError, UpdateAiObservabilityNotificationChannelMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiObservabilityNotificationChannel'],
+    mutationFn: (variables?: UpdateAiObservabilityNotificationChannelMutationVariables) => fetcher<UpdateAiObservabilityNotificationChannelMutation, UpdateAiObservabilityNotificationChannelMutationVariables>(UpdateAiObservabilityNotificationChannelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
+    mutation deleteAiObservabilityNotificationChannel($id: ID!) {
+  deleteAiObservabilityNotificationChannel(id: $id)
+}
+    `);
+
+export const useDeleteAiObservabilityNotificationChannelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiObservabilityNotificationChannelMutation, TError, DeleteAiObservabilityNotificationChannelMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiObservabilityNotificationChannelMutation, TError, DeleteAiObservabilityNotificationChannelMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiObservabilityNotificationChannel'],
+    mutationFn: (variables?: DeleteAiObservabilityNotificationChannelMutationVariables) => fetcher<DeleteAiObservabilityNotificationChannelMutation, DeleteAiObservabilityNotificationChannelMutationVariables>(DeleteAiObservabilityNotificationChannelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const TestAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
+    mutation testAiObservabilityNotificationChannel($id: ID!) {
+  testAiObservabilityNotificationChannel(id: $id)
+}
+    `);
+
+export const useTestAiObservabilityNotificationChannelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<TestAiObservabilityNotificationChannelMutation, TError, TestAiObservabilityNotificationChannelMutationVariables, TContext>) => {
+    
+    return useMutation<TestAiObservabilityNotificationChannelMutation, TError, TestAiObservabilityNotificationChannelMutationVariables, TContext>(
+      {
+    mutationKey: ['testAiObservabilityNotificationChannel'],
+    mutationFn: (variables?: TestAiObservabilityNotificationChannelMutationVariables) => fetcher<TestAiObservabilityNotificationChannelMutation, TestAiObservabilityNotificationChannelMutationVariables>(TestAiObservabilityNotificationChannelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiObservabilitySessionsDocument = new TypedDocumentString(`
+    query aiObservabilitySessions($workspaceId: ID!) {
+  aiObservabilitySessions(workspaceId: $workspaceId) {
+    createdDate
+    id
+    lastModifiedDate
+    name
+    projectId
+    traceCount
+    userId
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiObservabilitySessionsQuery = <
+      TData = AiObservabilitySessionsQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilitySessionsQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilitySessionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilitySessionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilitySessionsQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilitySessions', variables],
+    queryFn: fetcher<AiObservabilitySessionsQuery, AiObservabilitySessionsQueryVariables>(AiObservabilitySessionsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilitySessionDocument = new TypedDocumentString(`
+    query aiObservabilitySession($id: ID!) {
+  aiObservabilitySession(id: $id) {
+    createdDate
+    id
+    lastModifiedDate
+    name
+    projectId
+    traces {
+      createdDate
+      id
+      name
+      source
+      status
+      totalCost
+      totalInputTokens
+      totalLatencyMs
+      totalOutputTokens
+      userId
+    }
+    userId
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiObservabilitySessionQuery = <
+      TData = AiObservabilitySessionQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilitySessionQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilitySessionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilitySessionQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilitySessionQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilitySession', variables],
+    queryFn: fetcher<AiObservabilitySessionQuery, AiObservabilitySessionQueryVariables>(AiObservabilitySessionDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilityTracesDocument = new TypedDocumentString(`
+    query aiObservabilityTraces($endDate: Long!, $model: String, $source: AiObservabilityTraceSource, $startDate: Long!, $status: AiObservabilityTraceStatus, $tagId: ID, $userId: String, $workspaceId: ID!) {
+  aiObservabilityTraces(
+    endDate: $endDate
+    model: $model
+    source: $source
+    startDate: $startDate
+    status: $status
+    tagId: $tagId
+    userId: $userId
+    workspaceId: $workspaceId
+  ) {
+    createdDate
+    id
+    input
+    lastModifiedDate
+    metadata
+    name
+    output
+    projectId
+    sessionId
+    source
+    status
+    totalCost
+    totalInputTokens
+    totalLatencyMs
+    totalOutputTokens
+    userId
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiObservabilityTracesQuery = <
+      TData = AiObservabilityTracesQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityTracesQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityTracesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityTracesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityTracesQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityTraces', variables],
+    queryFn: fetcher<AiObservabilityTracesQuery, AiObservabilityTracesQueryVariables>(AiObservabilityTracesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilityTraceDocument = new TypedDocumentString(`
+    query aiObservabilityTrace($id: ID!) {
+  aiObservabilityTrace(id: $id) {
+    createdDate
+    id
+    input
+    lastModifiedDate
+    metadata
+    name
+    output
+    projectId
+    sessionId
+    source
+    spans {
+      cost
+      createdDate
+      endTime
+      id
+      input
+      inputTokens
+      latencyMs
+      level
+      metadata
+      model
+      name
+      output
+      outputTokens
+      parentSpanId
+      provider
+      startTime
+      status
+      traceId
+      type
+      version
+    }
+    status
+    tagIds
+    totalCost
+    totalInputTokens
+    totalLatencyMs
+    totalOutputTokens
+    userId
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiObservabilityTraceQuery = <
+      TData = AiObservabilityTraceQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityTraceQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityTraceQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityTraceQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityTraceQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityTrace', variables],
+    queryFn: fetcher<AiObservabilityTraceQuery, AiObservabilityTraceQueryVariables>(AiObservabilityTraceDocument, variables),
+    ...options
+  }
+    )};
+
+export const SetAiObservabilityTraceTagsDocument = new TypedDocumentString(`
+    mutation setAiObservabilityTraceTags($traceId: ID!, $tagIds: [ID!]!) {
+  setAiObservabilityTraceTags(traceId: $traceId, tagIds: $tagIds) {
+    id
+    tagIds
+  }
+}
+    `);
+
+export const useSetAiObservabilityTraceTagsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetAiObservabilityTraceTagsMutation, TError, SetAiObservabilityTraceTagsMutationVariables, TContext>) => {
+    
+    return useMutation<SetAiObservabilityTraceTagsMutation, TError, SetAiObservabilityTraceTagsMutationVariables, TContext>(
+      {
+    mutationKey: ['setAiObservabilityTraceTags'],
+    mutationFn: (variables?: SetAiObservabilityTraceTagsMutationVariables) => fetcher<SetAiObservabilityTraceTagsMutation, SetAiObservabilityTraceTagsMutationVariables>(SetAiObservabilityTraceTagsDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiObservabilityWebhookDeliveriesDocument = new TypedDocumentString(`
+    query aiObservabilityWebhookDeliveries($subscriptionId: ID!) {
+  aiObservabilityWebhookDeliveries(subscriptionId: $subscriptionId) {
+    attemptCount
+    createdDate
+    deliveredDate
+    errorMessage
+    eventType
+    httpStatus
+    id
+    status
+    subscriptionId
+  }
+}
+    `);
+
+export const useAiObservabilityWebhookDeliveriesQuery = <
+      TData = AiObservabilityWebhookDeliveriesQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityWebhookDeliveriesQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityWebhookDeliveriesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityWebhookDeliveriesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityWebhookDeliveriesQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityWebhookDeliveries', variables],
+    queryFn: fetcher<AiObservabilityWebhookDeliveriesQuery, AiObservabilityWebhookDeliveriesQueryVariables>(AiObservabilityWebhookDeliveriesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilityWebhookSubscriptionsDocument = new TypedDocumentString(`
+    query aiObservabilityWebhookSubscriptions($workspaceId: ID!) {
+  aiObservabilityWebhookSubscriptions(workspaceId: $workspaceId) {
+    createdDate
+    enabled
+    events
+    id
+    lastModifiedDate
+    lastTriggeredDate
+    name
+    projectId
+    url
+    version
+  }
+}
+    `);
+
+export const useAiObservabilityWebhookSubscriptionsQuery = <
+      TData = AiObservabilityWebhookSubscriptionsQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityWebhookSubscriptionsQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityWebhookSubscriptionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityWebhookSubscriptionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityWebhookSubscriptionsQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityWebhookSubscriptions', variables],
+    queryFn: fetcher<AiObservabilityWebhookSubscriptionsQuery, AiObservabilityWebhookSubscriptionsQueryVariables>(AiObservabilityWebhookSubscriptionsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilityWebhookSubscriptionDocument = new TypedDocumentString(`
+    query aiObservabilityWebhookSubscription($id: ID!) {
+  aiObservabilityWebhookSubscription(id: $id) {
+    createdDate
+    enabled
+    events
+    id
+    lastModifiedDate
+    lastTriggeredDate
+    name
+    projectId
+    url
+    version
+  }
+}
+    `);
+
+export const useAiObservabilityWebhookSubscriptionQuery = <
+      TData = AiObservabilityWebhookSubscriptionQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityWebhookSubscriptionQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityWebhookSubscriptionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityWebhookSubscriptionQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityWebhookSubscriptionQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityWebhookSubscription', variables],
+    queryFn: fetcher<AiObservabilityWebhookSubscriptionQuery, AiObservabilityWebhookSubscriptionQueryVariables>(AiObservabilityWebhookSubscriptionDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiObservabilityWebhookSubscriptionDocument = new TypedDocumentString(`
+    mutation createAiObservabilityWebhookSubscription($workspaceId: ID!, $projectId: ID, $name: String!, $url: String!, $secret: String, $events: String!, $enabled: Boolean!) {
+  createAiObservabilityWebhookSubscription(
+    workspaceId: $workspaceId
+    projectId: $projectId
+    name: $name
+    url: $url
+    secret: $secret
+    events: $events
+    enabled: $enabled
+  ) {
+    createdDate
+    enabled
+    events
+    id
+    name
+    url
+    version
+  }
+}
+    `);
+
+export const useCreateAiObservabilityWebhookSubscriptionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiObservabilityWebhookSubscriptionMutation, TError, CreateAiObservabilityWebhookSubscriptionMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiObservabilityWebhookSubscriptionMutation, TError, CreateAiObservabilityWebhookSubscriptionMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiObservabilityWebhookSubscription'],
+    mutationFn: (variables?: CreateAiObservabilityWebhookSubscriptionMutationVariables) => fetcher<CreateAiObservabilityWebhookSubscriptionMutation, CreateAiObservabilityWebhookSubscriptionMutationVariables>(CreateAiObservabilityWebhookSubscriptionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiObservabilityWebhookSubscriptionDocument = new TypedDocumentString(`
+    mutation updateAiObservabilityWebhookSubscription($id: ID!, $name: String!, $url: String!, $secret: String, $events: String!, $enabled: Boolean!) {
+  updateAiObservabilityWebhookSubscription(
+    id: $id
+    name: $name
+    url: $url
+    secret: $secret
+    events: $events
+    enabled: $enabled
+  ) {
+    createdDate
+    enabled
+    events
+    id
+    name
+    url
+    version
+  }
+}
+    `);
+
+export const useUpdateAiObservabilityWebhookSubscriptionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiObservabilityWebhookSubscriptionMutation, TError, UpdateAiObservabilityWebhookSubscriptionMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiObservabilityWebhookSubscriptionMutation, TError, UpdateAiObservabilityWebhookSubscriptionMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiObservabilityWebhookSubscription'],
+    mutationFn: (variables?: UpdateAiObservabilityWebhookSubscriptionMutationVariables) => fetcher<UpdateAiObservabilityWebhookSubscriptionMutation, UpdateAiObservabilityWebhookSubscriptionMutationVariables>(UpdateAiObservabilityWebhookSubscriptionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiObservabilityWebhookSubscriptionDocument = new TypedDocumentString(`
+    mutation deleteAiObservabilityWebhookSubscription($id: ID!) {
+  deleteAiObservabilityWebhookSubscription(id: $id)
+}
+    `);
+
+export const useDeleteAiObservabilityWebhookSubscriptionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiObservabilityWebhookSubscriptionMutation, TError, DeleteAiObservabilityWebhookSubscriptionMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiObservabilityWebhookSubscriptionMutation, TError, DeleteAiObservabilityWebhookSubscriptionMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiObservabilityWebhookSubscription'],
+    mutationFn: (variables?: DeleteAiObservabilityWebhookSubscriptionMutationVariables) => fetcher<DeleteAiObservabilityWebhookSubscriptionMutation, DeleteAiObservabilityWebhookSubscriptionMutationVariables>(DeleteAiObservabilityWebhookSubscriptionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const TestAiObservabilityWebhookSubscriptionDocument = new TypedDocumentString(`
+    mutation testAiObservabilityWebhookSubscription($id: ID!) {
+  testAiObservabilityWebhookSubscription(id: $id)
+}
+    `);
+
+export const useTestAiObservabilityWebhookSubscriptionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<TestAiObservabilityWebhookSubscriptionMutation, TError, TestAiObservabilityWebhookSubscriptionMutationVariables, TContext>) => {
+    
+    return useMutation<TestAiObservabilityWebhookSubscriptionMutation, TError, TestAiObservabilityWebhookSubscriptionMutationVariables, TContext>(
+      {
+    mutationKey: ['testAiObservabilityWebhookSubscription'],
+    mutationFn: (variables?: TestAiObservabilityWebhookSubscriptionMutationVariables) => fetcher<TestAiObservabilityWebhookSubscriptionMutation, TestAiObservabilityWebhookSubscriptionMutationVariables>(TestAiObservabilityWebhookSubscriptionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiPromptsDocument = new TypedDocumentString(`
+    query aiPrompts($workspaceId: ID!) {
+  aiPrompts(workspaceId: $workspaceId) {
+    createdDate
+    description
+    id
+    lastModifiedDate
+    name
+    projectId
+    version
+    versions {
+      active
+      commitMessage
+      content
+      createdBy
+      createdDate
+      environment
+      id
+      metrics {
+        avgCostUsd
+        avgLatencyMs
+        errorRate
+        invocationCount
+      }
+      promptId
+      type
+      variables
+      versionNumber
+    }
+  }
+}
+    `);
+
+export const useAiPromptsQuery = <
+      TData = AiPromptsQuery,
+      TError = unknown
+    >(
+      variables: AiPromptsQueryVariables,
+      options?: Omit<UseQueryOptions<AiPromptsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiPromptsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiPromptsQuery, TError, TData>(
+      {
+    queryKey: ['aiPrompts', variables],
+    queryFn: fetcher<AiPromptsQuery, AiPromptsQueryVariables>(AiPromptsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiPromptDocument = new TypedDocumentString(`
+    query aiPrompt($id: ID!) {
+  aiPrompt(id: $id) {
+    createdDate
+    description
+    id
+    lastModifiedDate
+    name
+    projectId
+    version
+    versions {
+      active
+      commitMessage
+      content
+      createdBy
+      createdDate
+      environment
+      id
+      metrics {
+        avgCostUsd
+        avgLatencyMs
+        errorRate
+        invocationCount
+      }
+      promptId
+      type
+      variables
+      versionNumber
+    }
+  }
+}
+    `);
+
+export const useAiPromptQuery = <
+      TData = AiPromptQuery,
+      TError = unknown
+    >(
+      variables: AiPromptQueryVariables,
+      options?: Omit<UseQueryOptions<AiPromptQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiPromptQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiPromptQuery, TError, TData>(
+      {
+    queryKey: ['aiPrompt', variables],
+    queryFn: fetcher<AiPromptQuery, AiPromptQueryVariables>(AiPromptDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiPromptDocument = new TypedDocumentString(`
+    mutation createAiPrompt($input: CreateAiPromptInput!) {
+  createAiPrompt(input: $input) {
+    createdDate
+    description
+    id
+    lastModifiedDate
+    name
+    projectId
+    version
+  }
+}
+    `);
+
+export const useCreateAiPromptMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiPromptMutation, TError, CreateAiPromptMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiPromptMutation, TError, CreateAiPromptMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiPrompt'],
+    mutationFn: (variables?: CreateAiPromptMutationVariables) => fetcher<CreateAiPromptMutation, CreateAiPromptMutationVariables>(CreateAiPromptDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiPromptDocument = new TypedDocumentString(`
+    mutation updateAiPrompt($id: ID!, $input: UpdateAiPromptInput!) {
+  updateAiPrompt(id: $id, input: $input) {
+    createdDate
+    description
+    id
+    lastModifiedDate
+    name
+    projectId
+    version
+  }
+}
+    `);
+
+export const useUpdateAiPromptMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiPromptMutation, TError, UpdateAiPromptMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiPromptMutation, TError, UpdateAiPromptMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiPrompt'],
+    mutationFn: (variables?: UpdateAiPromptMutationVariables) => fetcher<UpdateAiPromptMutation, UpdateAiPromptMutationVariables>(UpdateAiPromptDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiPromptDocument = new TypedDocumentString(`
+    mutation deleteAiPrompt($id: ID!) {
+  deleteAiPrompt(id: $id)
+}
+    `);
+
+export const useDeleteAiPromptMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiPromptMutation, TError, DeleteAiPromptMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiPromptMutation, TError, DeleteAiPromptMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiPrompt'],
+    mutationFn: (variables?: DeleteAiPromptMutationVariables) => fetcher<DeleteAiPromptMutation, DeleteAiPromptMutationVariables>(DeleteAiPromptDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateAiPromptVersionDocument = new TypedDocumentString(`
+    mutation createAiPromptVersion($input: CreateAiPromptVersionInput!) {
+  createAiPromptVersion(input: $input) {
+    active
+    commitMessage
+    content
+    createdBy
+    createdDate
+    environment
+    id
+    promptId
+    type
+    variables
+    versionNumber
+  }
+}
+    `);
+
+export const useCreateAiPromptVersionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiPromptVersionMutation, TError, CreateAiPromptVersionMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiPromptVersionMutation, TError, CreateAiPromptVersionMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiPromptVersion'],
+    mutationFn: (variables?: CreateAiPromptVersionMutationVariables) => fetcher<CreateAiPromptVersionMutation, CreateAiPromptVersionMutationVariables>(CreateAiPromptVersionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetActiveAiPromptVersionDocument = new TypedDocumentString(`
+    mutation setActiveAiPromptVersion($promptVersionId: ID!, $environment: String!) {
+  setActiveAiPromptVersion(
+    promptVersionId: $promptVersionId
+    environment: $environment
+  )
+}
+    `);
+
+export const useSetActiveAiPromptVersionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetActiveAiPromptVersionMutation, TError, SetActiveAiPromptVersionMutationVariables, TContext>) => {
+    
+    return useMutation<SetActiveAiPromptVersionMutation, TError, SetActiveAiPromptVersionMutationVariables, TContext>(
+      {
+    mutationKey: ['setActiveAiPromptVersion'],
+    mutationFn: (variables?: SetActiveAiPromptVersionMutationVariables) => fetcher<SetActiveAiPromptVersionMutation, SetActiveAiPromptVersionMutationVariables>(SetActiveAiPromptVersionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const WorkspaceAiGatewayModelsDocument = new TypedDocumentString(`
+    query workspaceAiGatewayModels($workspaceId: ID!) {
+  workspaceAiGatewayModels(workspaceId: $workspaceId) {
+    alias
+    capabilities
+    contextWindow
+    defaultRoutingPolicyId
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useWorkspaceAiGatewayModelsQuery = <
+      TData = WorkspaceAiGatewayModelsQuery,
+      TError = unknown
+    >(
+      variables: WorkspaceAiGatewayModelsQueryVariables,
+      options?: Omit<UseQueryOptions<WorkspaceAiGatewayModelsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkspaceAiGatewayModelsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkspaceAiGatewayModelsQuery, TError, TData>(
+      {
+    queryKey: ['workspaceAiGatewayModels', variables],
+    queryFn: fetcher<WorkspaceAiGatewayModelsQuery, WorkspaceAiGatewayModelsQueryVariables>(WorkspaceAiGatewayModelsDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateWorkspaceAiGatewayModelDocument = new TypedDocumentString(`
+    mutation createWorkspaceAiGatewayModel($input: CreateWorkspaceAiGatewayModelInput!) {
+  createWorkspaceAiGatewayModel(input: $input) {
+    alias
+    capabilities
+    contextWindow
+    defaultRoutingPolicyId
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useCreateWorkspaceAiGatewayModelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateWorkspaceAiGatewayModelMutation, TError, CreateWorkspaceAiGatewayModelMutationVariables, TContext>) => {
+    
+    return useMutation<CreateWorkspaceAiGatewayModelMutation, TError, CreateWorkspaceAiGatewayModelMutationVariables, TContext>(
+      {
+    mutationKey: ['createWorkspaceAiGatewayModel'],
+    mutationFn: (variables?: CreateWorkspaceAiGatewayModelMutationVariables) => fetcher<CreateWorkspaceAiGatewayModelMutation, CreateWorkspaceAiGatewayModelMutationVariables>(CreateWorkspaceAiGatewayModelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteWorkspaceAiGatewayModelDocument = new TypedDocumentString(`
+    mutation deleteWorkspaceAiGatewayModel($workspaceId: ID!, $modelId: ID!) {
+  deleteWorkspaceAiGatewayModel(workspaceId: $workspaceId, modelId: $modelId)
+}
+    `);
+
+export const useDeleteWorkspaceAiGatewayModelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteWorkspaceAiGatewayModelMutation, TError, DeleteWorkspaceAiGatewayModelMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteWorkspaceAiGatewayModelMutation, TError, DeleteWorkspaceAiGatewayModelMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteWorkspaceAiGatewayModel'],
+    mutationFn: (variables?: DeleteWorkspaceAiGatewayModelMutationVariables) => fetcher<DeleteWorkspaceAiGatewayModelMutation, DeleteWorkspaceAiGatewayModelMutationVariables>(DeleteWorkspaceAiGatewayModelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateWorkspaceAiGatewayModelDocument = new TypedDocumentString(`
+    mutation updateWorkspaceAiGatewayModel($id: ID!, $input: UpdateAiGatewayModelInput!) {
+  updateWorkspaceAiGatewayModel(id: $id, input: $input) {
+    alias
+    capabilities
+    contextWindow
+    defaultRoutingPolicyId
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useUpdateWorkspaceAiGatewayModelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateWorkspaceAiGatewayModelMutation, TError, UpdateWorkspaceAiGatewayModelMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateWorkspaceAiGatewayModelMutation, TError, UpdateWorkspaceAiGatewayModelMutationVariables, TContext>(
+      {
+    mutationKey: ['updateWorkspaceAiGatewayModel'],
+    mutationFn: (variables?: UpdateWorkspaceAiGatewayModelMutationVariables) => fetcher<UpdateWorkspaceAiGatewayModelMutation, UpdateWorkspaceAiGatewayModelMutationVariables>(UpdateWorkspaceAiGatewayModelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const WorkspaceAiGatewayProvidersDocument = new TypedDocumentString(`
+    query workspaceAiGatewayProviders($workspaceId: ID!) {
+  workspaceAiGatewayProviders(workspaceId: $workspaceId) {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useWorkspaceAiGatewayProvidersQuery = <
+      TData = WorkspaceAiGatewayProvidersQuery,
+      TError = unknown
+    >(
+      variables: WorkspaceAiGatewayProvidersQueryVariables,
+      options?: Omit<UseQueryOptions<WorkspaceAiGatewayProvidersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkspaceAiGatewayProvidersQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkspaceAiGatewayProvidersQuery, TError, TData>(
+      {
+    queryKey: ['workspaceAiGatewayProviders', variables],
+    queryFn: fetcher<WorkspaceAiGatewayProvidersQuery, WorkspaceAiGatewayProvidersQueryVariables>(WorkspaceAiGatewayProvidersDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateWorkspaceAiGatewayProviderDocument = new TypedDocumentString(`
+    mutation createWorkspaceAiGatewayProvider($input: CreateWorkspaceAiGatewayProviderInput!) {
+  createWorkspaceAiGatewayProvider(input: $input) {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useCreateWorkspaceAiGatewayProviderMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateWorkspaceAiGatewayProviderMutation, TError, CreateWorkspaceAiGatewayProviderMutationVariables, TContext>) => {
+    
+    return useMutation<CreateWorkspaceAiGatewayProviderMutation, TError, CreateWorkspaceAiGatewayProviderMutationVariables, TContext>(
+      {
+    mutationKey: ['createWorkspaceAiGatewayProvider'],
+    mutationFn: (variables?: CreateWorkspaceAiGatewayProviderMutationVariables) => fetcher<CreateWorkspaceAiGatewayProviderMutation, CreateWorkspaceAiGatewayProviderMutationVariables>(CreateWorkspaceAiGatewayProviderDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteWorkspaceAiGatewayProviderDocument = new TypedDocumentString(`
+    mutation deleteWorkspaceAiGatewayProvider($workspaceId: ID!, $providerId: ID!) {
+  deleteWorkspaceAiGatewayProvider(
+    workspaceId: $workspaceId
+    providerId: $providerId
+  )
+}
+    `);
+
+export const useDeleteWorkspaceAiGatewayProviderMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteWorkspaceAiGatewayProviderMutation, TError, DeleteWorkspaceAiGatewayProviderMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteWorkspaceAiGatewayProviderMutation, TError, DeleteWorkspaceAiGatewayProviderMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteWorkspaceAiGatewayProvider'],
+    mutationFn: (variables?: DeleteWorkspaceAiGatewayProviderMutationVariables) => fetcher<DeleteWorkspaceAiGatewayProviderMutation, DeleteWorkspaceAiGatewayProviderMutationVariables>(DeleteWorkspaceAiGatewayProviderDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateWorkspaceAiGatewayProviderDocument = new TypedDocumentString(`
+    mutation updateWorkspaceAiGatewayProvider($workspaceId: ID!, $id: ID!, $input: UpdateAiGatewayProviderInput!) {
+  updateWorkspaceAiGatewayProvider(
+    workspaceId: $workspaceId
+    id: $id
+    input: $input
+  ) {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useUpdateWorkspaceAiGatewayProviderMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateWorkspaceAiGatewayProviderMutation, TError, UpdateWorkspaceAiGatewayProviderMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateWorkspaceAiGatewayProviderMutation, TError, UpdateWorkspaceAiGatewayProviderMutationVariables, TContext>(
+      {
+    mutationKey: ['updateWorkspaceAiGatewayProvider'],
+    mutationFn: (variables?: UpdateWorkspaceAiGatewayProviderMutationVariables) => fetcher<UpdateWorkspaceAiGatewayProviderMutation, UpdateWorkspaceAiGatewayProviderMutationVariables>(UpdateWorkspaceAiGatewayProviderDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const TestWorkspaceAiGatewayProviderConnectionDocument = new TypedDocumentString(`
+    mutation testWorkspaceAiGatewayProviderConnection($workspaceId: ID!, $providerId: ID!) {
+  testWorkspaceAiGatewayProviderConnection(
+    workspaceId: $workspaceId
+    providerId: $providerId
+  ) {
+    errorMessage
+    latencyMs
+    ok
+  }
+}
+    `);
+
+export const useTestWorkspaceAiGatewayProviderConnectionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<TestWorkspaceAiGatewayProviderConnectionMutation, TError, TestWorkspaceAiGatewayProviderConnectionMutationVariables, TContext>) => {
+    
+    return useMutation<TestWorkspaceAiGatewayProviderConnectionMutation, TError, TestWorkspaceAiGatewayProviderConnectionMutationVariables, TContext>(
+      {
+    mutationKey: ['testWorkspaceAiGatewayProviderConnection'],
+    mutationFn: (variables?: TestWorkspaceAiGatewayProviderConnectionMutationVariables) => fetcher<TestWorkspaceAiGatewayProviderConnectionMutation, TestWorkspaceAiGatewayProviderConnectionMutationVariables>(TestWorkspaceAiGatewayProviderConnectionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const WorkspaceAiGatewayRequestLogsDocument = new TypedDocumentString(`
+    query workspaceAiGatewayRequestLogs($endDate: Long!, $startDate: Long!, $workspaceId: ID!) {
+  workspaceAiGatewayRequestLogs(
+    endDate: $endDate
+    startDate: $startDate
+    workspaceId: $workspaceId
+  ) {
+    apiKeyId
+    cacheHit
+    cost
+    createdDate
+    errorMessage
+    id
+    inputTokens
+    latencyMs
+    outputTokens
+    requestId
+    requestedModel
+    routedModel
+    routedProvider
+    routingPolicyId
+    routingStrategy
+    status
+  }
+}
+    `);
+
+export const useWorkspaceAiGatewayRequestLogsQuery = <
+      TData = WorkspaceAiGatewayRequestLogsQuery,
+      TError = unknown
+    >(
+      variables: WorkspaceAiGatewayRequestLogsQueryVariables,
+      options?: Omit<UseQueryOptions<WorkspaceAiGatewayRequestLogsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkspaceAiGatewayRequestLogsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkspaceAiGatewayRequestLogsQuery, TError, TData>(
+      {
+    queryKey: ['workspaceAiGatewayRequestLogs', variables],
+    queryFn: fetcher<WorkspaceAiGatewayRequestLogsQuery, WorkspaceAiGatewayRequestLogsQueryVariables>(WorkspaceAiGatewayRequestLogsDocument, variables),
+    ...options
+  }
+    )};
+
+export const WorkspaceAiGatewayRoutingPoliciesDocument = new TypedDocumentString(`
+    query workspaceAiGatewayRoutingPolicies($workspaceId: ID!) {
+  workspaceAiGatewayRoutingPolicies(workspaceId: $workspaceId) {
+    config
+    createdDate
+    deployments {
+      enabled
+      id
+      maxRpm
+      maxTpm
+      modelId
+      priorityOrder
+      routingPolicyId
+      weight
+    }
+    enabled
+    fallbackModel
+    id
+    lastModifiedDate
+    name
+    strategy
+    version
+  }
+}
+    `);
+
+export const useWorkspaceAiGatewayRoutingPoliciesQuery = <
+      TData = WorkspaceAiGatewayRoutingPoliciesQuery,
+      TError = unknown
+    >(
+      variables: WorkspaceAiGatewayRoutingPoliciesQueryVariables,
+      options?: Omit<UseQueryOptions<WorkspaceAiGatewayRoutingPoliciesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkspaceAiGatewayRoutingPoliciesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkspaceAiGatewayRoutingPoliciesQuery, TError, TData>(
+      {
+    queryKey: ['workspaceAiGatewayRoutingPolicies', variables],
+    queryFn: fetcher<WorkspaceAiGatewayRoutingPoliciesQuery, WorkspaceAiGatewayRoutingPoliciesQueryVariables>(WorkspaceAiGatewayRoutingPoliciesDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateWorkspaceAiGatewayRoutingPolicyDocument = new TypedDocumentString(`
+    mutation createWorkspaceAiGatewayRoutingPolicy($input: CreateWorkspaceAiGatewayRoutingPolicyInput!) {
+  createWorkspaceAiGatewayRoutingPolicy(input: $input) {
+    config
+    createdDate
+    enabled
+    fallbackModel
+    id
+    lastModifiedDate
+    name
+    strategy
+    version
+  }
+}
+    `);
+
+export const useCreateWorkspaceAiGatewayRoutingPolicyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateWorkspaceAiGatewayRoutingPolicyMutation, TError, CreateWorkspaceAiGatewayRoutingPolicyMutationVariables, TContext>) => {
+    
+    return useMutation<CreateWorkspaceAiGatewayRoutingPolicyMutation, TError, CreateWorkspaceAiGatewayRoutingPolicyMutationVariables, TContext>(
+      {
+    mutationKey: ['createWorkspaceAiGatewayRoutingPolicy'],
+    mutationFn: (variables?: CreateWorkspaceAiGatewayRoutingPolicyMutationVariables) => fetcher<CreateWorkspaceAiGatewayRoutingPolicyMutation, CreateWorkspaceAiGatewayRoutingPolicyMutationVariables>(CreateWorkspaceAiGatewayRoutingPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteWorkspaceAiGatewayRoutingPolicyDocument = new TypedDocumentString(`
+    mutation deleteWorkspaceAiGatewayRoutingPolicy($workspaceId: ID!, $routingPolicyId: ID!) {
+  deleteWorkspaceAiGatewayRoutingPolicy(
+    workspaceId: $workspaceId
+    routingPolicyId: $routingPolicyId
+  )
+}
+    `);
+
+export const useDeleteWorkspaceAiGatewayRoutingPolicyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteWorkspaceAiGatewayRoutingPolicyMutation, TError, DeleteWorkspaceAiGatewayRoutingPolicyMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteWorkspaceAiGatewayRoutingPolicyMutation, TError, DeleteWorkspaceAiGatewayRoutingPolicyMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteWorkspaceAiGatewayRoutingPolicy'],
+    mutationFn: (variables?: DeleteWorkspaceAiGatewayRoutingPolicyMutationVariables) => fetcher<DeleteWorkspaceAiGatewayRoutingPolicyMutation, DeleteWorkspaceAiGatewayRoutingPolicyMutationVariables>(DeleteWorkspaceAiGatewayRoutingPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateWorkspaceAiGatewayRoutingPolicyDocument = new TypedDocumentString(`
+    mutation updateWorkspaceAiGatewayRoutingPolicy($workspaceId: ID!, $id: ID!, $input: UpdateAiGatewayRoutingPolicyInput!) {
+  updateWorkspaceAiGatewayRoutingPolicy(
+    workspaceId: $workspaceId
+    id: $id
+    input: $input
+  ) {
+    config
+    createdDate
+    enabled
+    fallbackModel
+    id
+    lastModifiedDate
+    name
+    strategy
+    version
+  }
+}
+    `);
+
+export const useUpdateWorkspaceAiGatewayRoutingPolicyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateWorkspaceAiGatewayRoutingPolicyMutation, TError, UpdateWorkspaceAiGatewayRoutingPolicyMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateWorkspaceAiGatewayRoutingPolicyMutation, TError, UpdateWorkspaceAiGatewayRoutingPolicyMutationVariables, TContext>(
+      {
+    mutationKey: ['updateWorkspaceAiGatewayRoutingPolicy'],
+    mutationFn: (variables?: UpdateWorkspaceAiGatewayRoutingPolicyMutationVariables) => fetcher<UpdateWorkspaceAiGatewayRoutingPolicyMutation, UpdateWorkspaceAiGatewayRoutingPolicyMutationVariables>(UpdateWorkspaceAiGatewayRoutingPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const ApprovalTaskDocument = new TypedDocumentString(`
     query approvalTask($id: ID!) {
   approvalTask(id: $id) {
@@ -2916,6 +16466,326 @@ export const useUpdateApprovalTaskMutation = <
   }
     )};
 
+export const DeleteAssetFileDocument = new TypedDocumentString(`
+    mutation DeleteAssetFile($id: ID!) {
+  deleteAssetFile(id: $id)
+}
+    `);
+
+export const useDeleteAssetFileMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAssetFileMutation, TError, DeleteAssetFileMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAssetFileMutation, TError, DeleteAssetFileMutationVariables, TContext>(
+      {
+    mutationKey: ['DeleteAssetFile'],
+    mutationFn: (variables?: DeleteAssetFileMutationVariables) => fetcher<DeleteAssetFileMutation, DeleteAssetFileMutationVariables>(DeleteAssetFileDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const GetAssetFileDocument = new TypedDocumentString(`
+    query GetAssetFile($id: ID!) {
+  assetFile(id: $id) {
+    createdBy
+    createdDate
+    description
+    downloadUrl
+    environmentId
+    format
+    generatedByAgentSource
+    generatedFromPrompt
+    id
+    lastModifiedBy
+    lastModifiedDate
+    metadataJson
+    mimeType
+    name
+    sizeBytes
+    source
+    tags {
+      id
+      name
+    }
+  }
+}
+    `);
+
+export const useGetAssetFileQuery = <
+      TData = GetAssetFileQuery,
+      TError = unknown
+    >(
+      variables: GetAssetFileQueryVariables,
+      options?: Omit<UseQueryOptions<GetAssetFileQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetAssetFileQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<GetAssetFileQuery, TError, TData>(
+      {
+    queryKey: ['GetAssetFile', variables],
+    queryFn: fetcher<GetAssetFileQuery, GetAssetFileQueryVariables>(GetAssetFileDocument, variables),
+    ...options
+  }
+    )};
+
+export const GetAssetFileTagsDocument = new TypedDocumentString(`
+    query GetAssetFileTags($workspaceId: ID!) {
+  assetFileTags(workspaceId: $workspaceId) {
+    id
+    name
+  }
+}
+    `);
+
+export const useGetAssetFileTagsQuery = <
+      TData = GetAssetFileTagsQuery,
+      TError = unknown
+    >(
+      variables: GetAssetFileTagsQueryVariables,
+      options?: Omit<UseQueryOptions<GetAssetFileTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetAssetFileTagsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<GetAssetFileTagsQuery, TError, TData>(
+      {
+    queryKey: ['GetAssetFileTags', variables],
+    queryFn: fetcher<GetAssetFileTagsQuery, GetAssetFileTagsQueryVariables>(GetAssetFileTagsDocument, variables),
+    ...options
+  }
+    )};
+
+export const GetAssetFileTextContentDocument = new TypedDocumentString(`
+    query GetAssetFileTextContent($id: ID!) {
+  assetFileTextContent(id: $id)
+}
+    `);
+
+export const useGetAssetFileTextContentQuery = <
+      TData = GetAssetFileTextContentQuery,
+      TError = unknown
+    >(
+      variables: GetAssetFileTextContentQueryVariables,
+      options?: Omit<UseQueryOptions<GetAssetFileTextContentQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetAssetFileTextContentQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<GetAssetFileTextContentQuery, TError, TData>(
+      {
+    queryKey: ['GetAssetFileTextContent', variables],
+    queryFn: fetcher<GetAssetFileTextContentQuery, GetAssetFileTextContentQueryVariables>(GetAssetFileTextContentDocument, variables),
+    ...options
+  }
+    )};
+
+export const GetAssetFilesDocument = new TypedDocumentString(`
+    query GetAssetFiles($workspaceId: ID!, $environment: Int, $tagIds: [ID!], $mimeTypePrefix: String) {
+  assetFiles(
+    workspaceId: $workspaceId
+    environment: $environment
+    tagIds: $tagIds
+    mimeTypePrefix: $mimeTypePrefix
+  ) {
+    createdBy
+    createdDate
+    description
+    downloadUrl
+    environmentId
+    format
+    generatedByAgentSource
+    generatedFromPrompt
+    id
+    lastModifiedBy
+    lastModifiedDate
+    metadataJson
+    mimeType
+    name
+    sizeBytes
+    source
+    tags {
+      id
+      name
+    }
+  }
+}
+    `);
+
+export const useGetAssetFilesQuery = <
+      TData = GetAssetFilesQuery,
+      TError = unknown
+    >(
+      variables: GetAssetFilesQueryVariables,
+      options?: Omit<UseQueryOptions<GetAssetFilesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetAssetFilesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<GetAssetFilesQuery, TError, TData>(
+      {
+    queryKey: ['GetAssetFiles', variables],
+    queryFn: fetcher<GetAssetFilesQuery, GetAssetFilesQueryVariables>(GetAssetFilesDocument, variables),
+    ...options
+  }
+    )};
+
+export const UpdateAssetFileDocument = new TypedDocumentString(`
+    mutation UpdateAssetFile($input: UpdateAssetFileInput!) {
+  updateAssetFile(input: $input) {
+    createdBy
+    createdDate
+    description
+    downloadUrl
+    id
+    lastModifiedBy
+    lastModifiedDate
+    mimeType
+    name
+    sizeBytes
+    source
+  }
+}
+    `);
+
+export const useUpdateAssetFileMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAssetFileMutation, TError, UpdateAssetFileMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAssetFileMutation, TError, UpdateAssetFileMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateAssetFile'],
+    mutationFn: (variables?: UpdateAssetFileMutationVariables) => fetcher<UpdateAssetFileMutation, UpdateAssetFileMutationVariables>(UpdateAssetFileDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAssetFileTagsDocument = new TypedDocumentString(`
+    mutation UpdateAssetFileTags($input: UpdateAssetFileTagsInput!) {
+  updateAssetFileTags(input: $input) {
+    id
+    tags {
+      id
+      name
+    }
+  }
+}
+    `);
+
+export const useUpdateAssetFileTagsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAssetFileTagsMutation, TError, UpdateAssetFileTagsMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAssetFileTagsMutation, TError, UpdateAssetFileTagsMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateAssetFileTags'],
+    mutationFn: (variables?: UpdateAssetFileTagsMutationVariables) => fetcher<UpdateAssetFileTagsMutation, UpdateAssetFileTagsMutationVariables>(UpdateAssetFileTagsDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAssetFileTextContentDocument = new TypedDocumentString(`
+    mutation UpdateAssetFileTextContent($id: ID!, $content: String!) {
+  updateAssetFileTextContent(id: $id, content: $content) {
+    id
+    lastModifiedDate
+    sizeBytes
+  }
+}
+    `);
+
+export const useUpdateAssetFileTextContentMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAssetFileTextContentMutation, TError, UpdateAssetFileTextContentMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAssetFileTextContentMutation, TError, UpdateAssetFileTextContentMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateAssetFileTextContent'],
+    mutationFn: (variables?: UpdateAssetFileTextContentMutationVariables) => fetcher<UpdateAssetFileTextContentMutation, UpdateAssetFileTextContentMutationVariables>(UpdateAssetFileTextContentDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AddProjectUserDocument = new TypedDocumentString(`
+    mutation AddProjectUser($projectId: ID!, $userId: ID!, $role: ProjectRole!) {
+  addProjectUser(projectId: $projectId, userId: $userId, role: $role) {
+    id
+    projectId
+    userId
+    projectRole
+    user {
+      email
+      firstName
+      lastName
+    }
+  }
+}
+    `);
+
+export const useAddProjectUserMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AddProjectUserMutation, TError, AddProjectUserMutationVariables, TContext>) => {
+    
+    return useMutation<AddProjectUserMutation, TError, AddProjectUserMutationVariables, TContext>(
+      {
+    mutationKey: ['AddProjectUser'],
+    mutationFn: (variables?: AddProjectUserMutationVariables) => fetcher<AddProjectUserMutation, AddProjectUserMutationVariables>(AddProjectUserDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AddWorkspaceUserDocument = new TypedDocumentString(`
+    mutation AddWorkspaceUser($workspaceId: ID!, $userId: ID!, $role: WorkspaceRole!) {
+  addWorkspaceUser(workspaceId: $workspaceId, userId: $userId, role: $role) {
+    id
+    workspaceId
+    userId
+    workspaceRole
+    user {
+      email
+      firstName
+      lastName
+    }
+  }
+}
+    `);
+
+export const useAddWorkspaceUserMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AddWorkspaceUserMutation, TError, AddWorkspaceUserMutationVariables, TContext>) => {
+    
+    return useMutation<AddWorkspaceUserMutation, TError, AddWorkspaceUserMutationVariables, TContext>(
+      {
+    mutationKey: ['AddWorkspaceUser'],
+    mutationFn: (variables?: AddWorkspaceUserMutationVariables) => fetcher<AddWorkspaceUserMutation, AddWorkspaceUserMutationVariables>(AddWorkspaceUserDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AffectedWorkflowsDocument = new TypedDocumentString(`
+    query affectedWorkflows($workspaceId: ID!, $userLogin: String!) {
+  affectedWorkflows(workspaceId: $workspaceId, userLogin: $userLogin) {
+    workflowId
+    workflowName
+    connectionIds
+  }
+}
+    `);
+
+export const useAffectedWorkflowsQuery = <
+      TData = AffectedWorkflowsQuery,
+      TError = unknown
+    >(
+      variables: AffectedWorkflowsQueryVariables,
+      options?: Omit<UseQueryOptions<AffectedWorkflowsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AffectedWorkflowsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AffectedWorkflowsQuery, TError, TData>(
+      {
+    queryKey: ['affectedWorkflows', variables],
+    queryFn: fetcher<AffectedWorkflowsQuery, AffectedWorkflowsQueryVariables>(AffectedWorkflowsDocument, variables),
+    ...options
+  }
+    )};
+
 export const CreateMcpProjectDocument = new TypedDocumentString(`
     mutation createMcpProject($input: CreateMcpProjectInput!) {
   createMcpProject(input: $input) {
@@ -2936,6 +16806,25 @@ export const useCreateMcpProjectMutation = <
       {
     mutationKey: ['createMcpProject'],
     mutationFn: (variables?: CreateMcpProjectMutationVariables) => fetcher<CreateMcpProjectMutation, CreateMcpProjectMutationVariables>(CreateMcpProjectDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateOrganizationConnectionDocument = new TypedDocumentString(`
+    mutation createOrganizationConnection($input: CreateOrganizationConnectionInput!) {
+  createOrganizationConnection(input: $input)
+}
+    `);
+
+export const useCreateOrganizationConnectionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateOrganizationConnectionMutation, TError, CreateOrganizationConnectionMutationVariables, TContext>) => {
+    
+    return useMutation<CreateOrganizationConnectionMutation, TError, CreateOrganizationConnectionMutationVariables, TContext>(
+      {
+    mutationKey: ['createOrganizationConnection'],
+    mutationFn: (variables?: CreateOrganizationConnectionMutationVariables) => fetcher<CreateOrganizationConnectionMutation, CreateOrganizationConnectionMutationVariables>(CreateOrganizationConnectionDocument, variables)(),
     ...options
   }
     )};
@@ -2988,6 +16877,36 @@ export const useCreateMcpServerMutation = <
   }
     )};
 
+export const DataStreamCompatibleConnectionsDocument = new TypedDocumentString(`
+    query dataStreamCompatibleConnections($workspaceId: ID!, $environmentId: ID!) {
+  dataStreamCompatibleConnections(
+    workspaceId: $workspaceId
+    environmentId: $environmentId
+  ) {
+    id
+    name
+    componentName
+    componentVersion
+  }
+}
+    `);
+
+export const useDataStreamCompatibleConnectionsQuery = <
+      TData = DataStreamCompatibleConnectionsQuery,
+      TError = unknown
+    >(
+      variables: DataStreamCompatibleConnectionsQueryVariables,
+      options?: Omit<UseQueryOptions<DataStreamCompatibleConnectionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<DataStreamCompatibleConnectionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<DataStreamCompatibleConnectionsQuery, TError, TData>(
+      {
+    queryKey: ['dataStreamCompatibleConnections', variables],
+    queryFn: fetcher<DataStreamCompatibleConnectionsQuery, DataStreamCompatibleConnectionsQueryVariables>(DataStreamCompatibleConnectionsDocument, variables),
+    ...options
+  }
+    )};
+
 export const DeleteMcpProjectDocument = new TypedDocumentString(`
     mutation deleteMcpProject($id: ID!) {
   deleteMcpProject(id: $id)
@@ -3022,6 +16941,25 @@ export const useDeleteMcpProjectWorkflowMutation = <
       {
     mutationKey: ['deleteMcpProjectWorkflow'],
     mutationFn: (variables?: DeleteMcpProjectWorkflowMutationVariables) => fetcher<DeleteMcpProjectWorkflowMutation, DeleteMcpProjectWorkflowMutationVariables>(DeleteMcpProjectWorkflowDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteOrganizationConnectionDocument = new TypedDocumentString(`
+    mutation deleteOrganizationConnection($connectionId: ID!) {
+  deleteOrganizationConnection(connectionId: $connectionId)
+}
+    `);
+
+export const useDeleteOrganizationConnectionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteOrganizationConnectionMutation, TError, DeleteOrganizationConnectionMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteOrganizationConnectionMutation, TError, DeleteOrganizationConnectionMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteOrganizationConnection'],
+    mutationFn: (variables?: DeleteOrganizationConnectionMutationVariables) => fetcher<DeleteOrganizationConnectionMutation, DeleteOrganizationConnectionMutationVariables>(DeleteOrganizationConnectionDocument, variables)(),
     ...options
   }
     )};
@@ -3098,6 +17036,28 @@ export const useDeleteWorkspaceMcpServerMutation = <
       {
     mutationKey: ['deleteWorkspaceMcpServer'],
     mutationFn: (variables?: DeleteWorkspaceMcpServerMutationVariables) => fetcher<DeleteWorkspaceMcpServerMutation, DeleteWorkspaceMcpServerMutationVariables>(DeleteWorkspaceMcpServerDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DemoteConnectionToPrivateDocument = new TypedDocumentString(`
+    mutation demoteConnectionToPrivate($workspaceId: ID!, $connectionId: ID!) {
+  demoteConnectionToPrivate(
+    workspaceId: $workspaceId
+    connectionId: $connectionId
+  )
+}
+    `);
+
+export const useDemoteConnectionToPrivateMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DemoteConnectionToPrivateMutation, TError, DemoteConnectionToPrivateMutationVariables, TContext>) => {
+    
+    return useMutation<DemoteConnectionToPrivateMutation, TError, DemoteConnectionToPrivateMutationVariables, TContext>(
+      {
+    mutationKey: ['demoteConnectionToPrivate'],
+    mutationFn: (variables?: DemoteConnectionToPrivateMutationVariables) => fetcher<DemoteConnectionToPrivateMutation, DemoteConnectionToPrivateMutationVariables>(DemoteConnectionToPrivateDocument, variables)(),
     ...options
   }
     )};
@@ -3373,6 +17333,81 @@ export const useMcpProjectsByServerIdQuery = <
   }
     )};
 
+export const MyProjectScopesDocument = new TypedDocumentString(`
+    query MyProjectScopes($projectId: ID!) {
+  myProjectScopes(projectId: $projectId)
+}
+    `);
+
+export const useMyProjectScopesQuery = <
+      TData = MyProjectScopesQuery,
+      TError = unknown
+    >(
+      variables: MyProjectScopesQueryVariables,
+      options?: Omit<UseQueryOptions<MyProjectScopesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<MyProjectScopesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<MyProjectScopesQuery, TError, TData>(
+      {
+    queryKey: ['MyProjectScopes', variables],
+    queryFn: fetcher<MyProjectScopesQuery, MyProjectScopesQueryVariables>(MyProjectScopesDocument, variables),
+    ...options
+  }
+    )};
+
+export const MyWorkspaceRoleDocument = new TypedDocumentString(`
+    query MyWorkspaceRole($workspaceId: ID!) {
+  myWorkspaceRole(workspaceId: $workspaceId)
+}
+    `);
+
+export const useMyWorkspaceRoleQuery = <
+      TData = MyWorkspaceRoleQuery,
+      TError = unknown
+    >(
+      variables: MyWorkspaceRoleQueryVariables,
+      options?: Omit<UseQueryOptions<MyWorkspaceRoleQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<MyWorkspaceRoleQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<MyWorkspaceRoleQuery, TError, TData>(
+      {
+    queryKey: ['MyWorkspaceRole', variables],
+    queryFn: fetcher<MyWorkspaceRoleQuery, MyWorkspaceRoleQueryVariables>(MyWorkspaceRoleDocument, variables),
+    ...options
+  }
+    )};
+
+export const OrganizationConnectionsDocument = new TypedDocumentString(`
+    query organizationConnections($environmentId: ID) {
+  organizationConnections(environmentId: $environmentId) {
+    id
+    name
+    componentName
+    environmentId
+    visibility
+    createdBy
+    createdDate
+    lastModifiedDate
+  }
+}
+    `);
+
+export const useOrganizationConnectionsQuery = <
+      TData = OrganizationConnectionsQuery,
+      TError = unknown
+    >(
+      variables?: OrganizationConnectionsQueryVariables,
+      options?: Omit<UseQueryOptions<OrganizationConnectionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<OrganizationConnectionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<OrganizationConnectionsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['organizationConnections'] : ['organizationConnections', variables],
+    queryFn: fetcher<OrganizationConnectionsQuery, OrganizationConnectionsQueryVariables>(OrganizationConnectionsDocument, variables),
+    ...options
+  }
+    )};
+
 export const PreBuiltProjectTemplatesDocument = new TypedDocumentString(`
     query preBuiltProjectTemplates($query: String, $category: String) {
   preBuiltProjectTemplates(query: $query, category: $category) {
@@ -3535,6 +17570,220 @@ export const useProjectTemplateQuery = <
   }
     )};
 
+export const ProjectUsersDocument = new TypedDocumentString(`
+    query ProjectUsers($projectId: ID!) {
+  projectUsers(projectId: $projectId) {
+    id
+    projectId
+    userId
+    projectRole
+    user {
+      email
+      firstName
+      lastName
+    }
+    createdDate
+  }
+}
+    `);
+
+export const useProjectUsersQuery = <
+      TData = ProjectUsersQuery,
+      TError = unknown
+    >(
+      variables: ProjectUsersQueryVariables,
+      options?: Omit<UseQueryOptions<ProjectUsersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ProjectUsersQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ProjectUsersQuery, TError, TData>(
+      {
+    queryKey: ['ProjectUsers', variables],
+    queryFn: fetcher<ProjectUsersQuery, ProjectUsersQueryVariables>(ProjectUsersDocument, variables),
+    ...options
+  }
+    )};
+
+export const PromoteAllPrivateConnectionsToWorkspaceDocument = new TypedDocumentString(`
+    mutation PromoteAllPrivateConnectionsToWorkspace($workspaceId: ID!) {
+  promoteAllPrivateConnectionsToWorkspace(workspaceId: $workspaceId) {
+    attempted
+    promoted
+    skipped
+    failed
+    failures {
+      connectionId
+      errorCode
+      message
+    }
+  }
+}
+    `);
+
+export const usePromoteAllPrivateConnectionsToWorkspaceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<PromoteAllPrivateConnectionsToWorkspaceMutation, TError, PromoteAllPrivateConnectionsToWorkspaceMutationVariables, TContext>) => {
+    
+    return useMutation<PromoteAllPrivateConnectionsToWorkspaceMutation, TError, PromoteAllPrivateConnectionsToWorkspaceMutationVariables, TContext>(
+      {
+    mutationKey: ['PromoteAllPrivateConnectionsToWorkspace'],
+    mutationFn: (variables?: PromoteAllPrivateConnectionsToWorkspaceMutationVariables) => fetcher<PromoteAllPrivateConnectionsToWorkspaceMutation, PromoteAllPrivateConnectionsToWorkspaceMutationVariables>(PromoteAllPrivateConnectionsToWorkspaceDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const PromoteConnectionToWorkspaceDocument = new TypedDocumentString(`
+    mutation promoteConnectionToWorkspace($workspaceId: ID!, $connectionId: ID!) {
+  promoteConnectionToWorkspace(
+    workspaceId: $workspaceId
+    connectionId: $connectionId
+  )
+}
+    `);
+
+export const usePromoteConnectionToWorkspaceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<PromoteConnectionToWorkspaceMutation, TError, PromoteConnectionToWorkspaceMutationVariables, TContext>) => {
+    
+    return useMutation<PromoteConnectionToWorkspaceMutation, TError, PromoteConnectionToWorkspaceMutationVariables, TContext>(
+      {
+    mutationKey: ['promoteConnectionToWorkspace'],
+    mutationFn: (variables?: PromoteConnectionToWorkspaceMutationVariables) => fetcher<PromoteConnectionToWorkspaceMutation, PromoteConnectionToWorkspaceMutationVariables>(PromoteConnectionToWorkspaceDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const ReassignAllConnectionsDocument = new TypedDocumentString(`
+    mutation reassignAllConnections($workspaceId: ID!, $userLogin: String!, $newOwnerLogin: String!) {
+  reassignAllConnections(
+    workspaceId: $workspaceId
+    userLogin: $userLogin
+    newOwnerLogin: $newOwnerLogin
+  )
+}
+    `);
+
+export const useReassignAllConnectionsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<ReassignAllConnectionsMutation, TError, ReassignAllConnectionsMutationVariables, TContext>) => {
+    
+    return useMutation<ReassignAllConnectionsMutation, TError, ReassignAllConnectionsMutationVariables, TContext>(
+      {
+    mutationKey: ['reassignAllConnections'],
+    mutationFn: (variables?: ReassignAllConnectionsMutationVariables) => fetcher<ReassignAllConnectionsMutation, ReassignAllConnectionsMutationVariables>(ReassignAllConnectionsDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RemoveProjectUserDocument = new TypedDocumentString(`
+    mutation RemoveProjectUser($projectId: ID!, $userId: ID!) {
+  removeProjectUser(projectId: $projectId, userId: $userId)
+}
+    `);
+
+export const useRemoveProjectUserMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RemoveProjectUserMutation, TError, RemoveProjectUserMutationVariables, TContext>) => {
+    
+    return useMutation<RemoveProjectUserMutation, TError, RemoveProjectUserMutationVariables, TContext>(
+      {
+    mutationKey: ['RemoveProjectUser'],
+    mutationFn: (variables?: RemoveProjectUserMutationVariables) => fetcher<RemoveProjectUserMutation, RemoveProjectUserMutationVariables>(RemoveProjectUserDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RemoveWorkspaceUserDocument = new TypedDocumentString(`
+    mutation RemoveWorkspaceUser($workspaceId: ID!, $userId: ID!) {
+  removeWorkspaceUser(workspaceId: $workspaceId, userId: $userId)
+}
+    `);
+
+export const useRemoveWorkspaceUserMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RemoveWorkspaceUserMutation, TError, RemoveWorkspaceUserMutationVariables, TContext>) => {
+    
+    return useMutation<RemoveWorkspaceUserMutation, TError, RemoveWorkspaceUserMutationVariables, TContext>(
+      {
+    mutationKey: ['RemoveWorkspaceUser'],
+    mutationFn: (variables?: RemoveWorkspaceUserMutationVariables) => fetcher<RemoveWorkspaceUserMutation, RemoveWorkspaceUserMutationVariables>(RemoveWorkspaceUserDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RevokeConnectionFromProjectDocument = new TypedDocumentString(`
+    mutation revokeConnectionFromProject($workspaceId: ID!, $connectionId: ID!, $projectId: ID!) {
+  revokeConnectionFromProject(
+    workspaceId: $workspaceId
+    connectionId: $connectionId
+    projectId: $projectId
+  )
+}
+    `);
+
+export const useRevokeConnectionFromProjectMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RevokeConnectionFromProjectMutation, TError, RevokeConnectionFromProjectMutationVariables, TContext>) => {
+    
+    return useMutation<RevokeConnectionFromProjectMutation, TError, RevokeConnectionFromProjectMutationVariables, TContext>(
+      {
+    mutationKey: ['revokeConnectionFromProject'],
+    mutationFn: (variables?: RevokeConnectionFromProjectMutationVariables) => fetcher<RevokeConnectionFromProjectMutation, RevokeConnectionFromProjectMutationVariables>(RevokeConnectionFromProjectDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetConnectionProjectsDocument = new TypedDocumentString(`
+    mutation SetConnectionProjects($workspaceId: ID!, $connectionId: ID!, $projectIds: [ID!]!) {
+  setConnectionProjects(
+    workspaceId: $workspaceId
+    connectionId: $connectionId
+    projectIds: $projectIds
+  )
+}
+    `);
+
+export const useSetConnectionProjectsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetConnectionProjectsMutation, TError, SetConnectionProjectsMutationVariables, TContext>) => {
+    
+    return useMutation<SetConnectionProjectsMutation, TError, SetConnectionProjectsMutationVariables, TContext>(
+      {
+    mutationKey: ['SetConnectionProjects'],
+    mutationFn: (variables?: SetConnectionProjectsMutationVariables) => fetcher<SetConnectionProjectsMutation, SetConnectionProjectsMutationVariables>(SetConnectionProjectsDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const ShareConnectionToProjectDocument = new TypedDocumentString(`
+    mutation shareConnectionToProject($workspaceId: ID!, $connectionId: ID!, $projectId: ID!) {
+  shareConnectionToProject(
+    workspaceId: $workspaceId
+    connectionId: $connectionId
+    projectId: $projectId
+  )
+}
+    `);
+
+export const useShareConnectionToProjectMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<ShareConnectionToProjectMutation, TError, ShareConnectionToProjectMutationVariables, TContext>) => {
+    
+    return useMutation<ShareConnectionToProjectMutation, TError, ShareConnectionToProjectMutationVariables, TContext>(
+      {
+    mutationKey: ['shareConnectionToProject'],
+    mutationFn: (variables?: ShareConnectionToProjectMutationVariables) => fetcher<ShareConnectionToProjectMutation, ShareConnectionToProjectMutationVariables>(ShareConnectionToProjectDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const SharedProjectDocument = new TypedDocumentString(`
     query sharedProject($projectUuid: String!) {
   sharedProject(projectUuid: $projectUuid) {
@@ -3616,6 +17865,34 @@ export const useToolEligibleProjectVersionWorkflowsQuery = <
       {
     queryKey: ['toolEligibleProjectVersionWorkflows', variables],
     queryFn: fetcher<ToolEligibleProjectVersionWorkflowsQuery, ToolEligibleProjectVersionWorkflowsQueryVariables>(ToolEligibleProjectVersionWorkflowsDocument, variables),
+    ...options
+  }
+    )};
+
+export const UnresolvedConnectionsDocument = new TypedDocumentString(`
+    query unresolvedConnections($workspaceId: ID!, $userLogin: String!) {
+  unresolvedConnections(workspaceId: $workspaceId, userLogin: $userLogin) {
+    connectionId
+    connectionName
+    visibility
+    environmentId
+    dependentWorkflowCount
+  }
+}
+    `);
+
+export const useUnresolvedConnectionsQuery = <
+      TData = UnresolvedConnectionsQuery,
+      TError = unknown
+    >(
+      variables: UnresolvedConnectionsQueryVariables,
+      options?: Omit<UseQueryOptions<UnresolvedConnectionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<UnresolvedConnectionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<UnresolvedConnectionsQuery, TError, TData>(
+      {
+    queryKey: ['unresolvedConnections', variables],
+    queryFn: fetcher<UnresolvedConnectionsQuery, UnresolvedConnectionsQueryVariables>(UnresolvedConnectionsDocument, variables),
     ...options
   }
     )};
@@ -3712,6 +17989,52 @@ export const useUpdateMcpServerTagsMutation = <
   }
     )};
 
+export const UpdateOrganizationConnectionDocument = new TypedDocumentString(`
+    mutation updateOrganizationConnection($connectionId: ID!, $name: String!, $tagIds: [ID!], $version: Int!) {
+  updateOrganizationConnection(
+    connectionId: $connectionId
+    name: $name
+    tagIds: $tagIds
+    version: $version
+  )
+}
+    `);
+
+export const useUpdateOrganizationConnectionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateOrganizationConnectionMutation, TError, UpdateOrganizationConnectionMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateOrganizationConnectionMutation, TError, UpdateOrganizationConnectionMutationVariables, TContext>(
+      {
+    mutationKey: ['updateOrganizationConnection'],
+    mutationFn: (variables?: UpdateOrganizationConnectionMutationVariables) => fetcher<UpdateOrganizationConnectionMutation, UpdateOrganizationConnectionMutationVariables>(UpdateOrganizationConnectionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateProjectUserRoleDocument = new TypedDocumentString(`
+    mutation UpdateProjectUserRole($projectId: ID!, $userId: ID!, $role: ProjectRole!) {
+  updateProjectUserRole(projectId: $projectId, userId: $userId, role: $role) {
+    id
+    projectRole
+  }
+}
+    `);
+
+export const useUpdateProjectUserRoleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateProjectUserRoleMutation, TError, UpdateProjectUserRoleMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateProjectUserRoleMutation, TError, UpdateProjectUserRoleMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateProjectUserRole'],
+    mutationFn: (variables?: UpdateProjectUserRoleMutationVariables) => fetcher<UpdateProjectUserRoleMutation, UpdateProjectUserRoleMutationVariables>(UpdateProjectUserRoleDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const UpdateWorkspaceApiKeyDocument = new TypedDocumentString(`
     mutation updateWorkspaceApiKey($apiKeyId: ID!, $name: String!) {
   updateWorkspaceApiKey(apiKeyId: $apiKeyId, name: $name)
@@ -3727,6 +18050,28 @@ export const useUpdateWorkspaceApiKeyMutation = <
       {
     mutationKey: ['updateWorkspaceApiKey'],
     mutationFn: (variables?: UpdateWorkspaceApiKeyMutationVariables) => fetcher<UpdateWorkspaceApiKeyMutation, UpdateWorkspaceApiKeyMutationVariables>(UpdateWorkspaceApiKeyDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateWorkspaceUserRoleDocument = new TypedDocumentString(`
+    mutation UpdateWorkspaceUserRole($workspaceId: ID!, $userId: ID!, $role: WorkspaceRole!) {
+  updateWorkspaceUserRole(workspaceId: $workspaceId, userId: $userId, role: $role) {
+    id
+    workspaceRole
+  }
+}
+    `);
+
+export const useUpdateWorkspaceUserRoleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateWorkspaceUserRoleMutation, TError, UpdateWorkspaceUserRoleMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateWorkspaceUserRoleMutation, TError, UpdateWorkspaceUserRoleMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateWorkspaceUserRole'],
+    mutationFn: (variables?: UpdateWorkspaceUserRoleMutationVariables) => fetcher<UpdateWorkspaceUserRoleMutation, UpdateWorkspaceUserRoleMutationVariables>(UpdateWorkspaceUserRoleDocument, variables)(),
     ...options
   }
     )};
@@ -3895,6 +18240,393 @@ export const useWorkspaceMcpServersQuery = <
       {
     queryKey: ['workspaceMcpServers', variables],
     queryFn: fetcher<WorkspaceMcpServersQuery, WorkspaceMcpServersQueryVariables>(WorkspaceMcpServersDocument, variables),
+    ...options
+  }
+    )};
+
+export const WorkspaceUsersDocument = new TypedDocumentString(`
+    query WorkspaceUsers($workspaceId: ID!) {
+  workspaceUsers(workspaceId: $workspaceId) {
+    id
+    workspaceId
+    userId
+    workspaceRole
+    user {
+      email
+      firstName
+      lastName
+    }
+    createdDate
+  }
+}
+    `);
+
+export const useWorkspaceUsersQuery = <
+      TData = WorkspaceUsersQuery,
+      TError = unknown
+    >(
+      variables: WorkspaceUsersQueryVariables,
+      options?: Omit<UseQueryOptions<WorkspaceUsersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkspaceUsersQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkspaceUsersQuery, TError, TData>(
+      {
+    queryKey: ['WorkspaceUsers', variables],
+    queryFn: fetcher<WorkspaceUsersQuery, WorkspaceUsersQueryVariables>(WorkspaceUsersDocument, variables),
+    ...options
+  }
+    )};
+
+export const ContextStoreSourceDocument = new TypedDocumentString(`
+    query contextStoreSource($id: ID!) {
+  contextStoreSource(id: $id) {
+    id
+    name
+    entityName
+    description
+    idField
+    storedFields
+    indexedFields
+    semanticIndexFields
+    parameters
+    sourceComponentName
+    sourceComponentVersion
+    sourceClusterElementName
+    connectionId
+    cadence
+    status
+    enabled
+    lastSyncRunAt
+    lastSyncJobExecutionId
+    workflowId
+    fullReplaceCadence
+    tombstoneStrategy
+  }
+}
+    `);
+
+export const useContextStoreSourceQuery = <
+      TData = ContextStoreSourceQuery,
+      TError = unknown
+    >(
+      variables: ContextStoreSourceQueryVariables,
+      options?: Omit<UseQueryOptions<ContextStoreSourceQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ContextStoreSourceQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ContextStoreSourceQuery, TError, TData>(
+      {
+    queryKey: ['contextStoreSource', variables],
+    queryFn: fetcher<ContextStoreSourceQuery, ContextStoreSourceQueryVariables>(ContextStoreSourceDocument, variables),
+    ...options
+  }
+    )};
+
+export const ContextStoreSourcesDocument = new TypedDocumentString(`
+    query contextStoreSources($workspaceId: ID!, $environmentId: ID!, $filter: ContextStoreSourceFilter) {
+  contextStoreSources(
+    workspaceId: $workspaceId
+    environmentId: $environmentId
+    filter: $filter
+  ) {
+    id
+    contextStoreId
+    name
+    entityName
+    description
+    idField
+    indexedFields
+    sourceComponentName
+    sourceComponentVersion
+    sourceClusterElementName
+    connectionId
+    cadence
+    status
+    enabled
+    lastSyncRunAt
+    lastSyncJobExecutionId
+    workflowId
+  }
+}
+    `);
+
+export const useContextStoreSourcesQuery = <
+      TData = ContextStoreSourcesQuery,
+      TError = unknown
+    >(
+      variables: ContextStoreSourcesQueryVariables,
+      options?: Omit<UseQueryOptions<ContextStoreSourcesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ContextStoreSourcesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ContextStoreSourcesQuery, TError, TData>(
+      {
+    queryKey: ['contextStoreSources', variables],
+    queryFn: fetcher<ContextStoreSourcesQuery, ContextStoreSourcesQueryVariables>(ContextStoreSourcesDocument, variables),
+    ...options
+  }
+    )};
+
+export const ContextStoreTagsDocument = new TypedDocumentString(`
+    query contextStoreTags($workspaceId: ID!) {
+  contextStoreTags(workspaceId: $workspaceId) {
+    id
+    name
+  }
+}
+    `);
+
+export const useContextStoreTagsQuery = <
+      TData = ContextStoreTagsQuery,
+      TError = unknown
+    >(
+      variables: ContextStoreTagsQueryVariables,
+      options?: Omit<UseQueryOptions<ContextStoreTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ContextStoreTagsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ContextStoreTagsQuery, TError, TData>(
+      {
+    queryKey: ['contextStoreTags', variables],
+    queryFn: fetcher<ContextStoreTagsQuery, ContextStoreTagsQueryVariables>(ContextStoreTagsDocument, variables),
+    ...options
+  }
+    )};
+
+export const ContextStoresDocument = new TypedDocumentString(`
+    query contextStores($workspaceId: ID!, $environmentId: ID!) {
+  contextStores(workspaceId: $workspaceId, environmentId: $environmentId) {
+    id
+    name
+    description
+    environment
+    tagIds
+    tags {
+      id
+      name
+    }
+    version
+  }
+}
+    `);
+
+export const useContextStoresQuery = <
+      TData = ContextStoresQuery,
+      TError = unknown
+    >(
+      variables: ContextStoresQueryVariables,
+      options?: Omit<UseQueryOptions<ContextStoresQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ContextStoresQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ContextStoresQuery, TError, TData>(
+      {
+    queryKey: ['contextStores', variables],
+    queryFn: fetcher<ContextStoresQuery, ContextStoresQueryVariables>(ContextStoresDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateContextStoreDocument = new TypedDocumentString(`
+    mutation createContextStore($workspaceId: ID!, $environmentId: ID!, $input: CreateContextStoreInput!) {
+  createContextStore(
+    workspaceId: $workspaceId
+    environmentId: $environmentId
+    input: $input
+  ) {
+    id
+    name
+    description
+    environment
+    tagIds
+    version
+  }
+}
+    `);
+
+export const useCreateContextStoreMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateContextStoreMutation, TError, CreateContextStoreMutationVariables, TContext>) => {
+    
+    return useMutation<CreateContextStoreMutation, TError, CreateContextStoreMutationVariables, TContext>(
+      {
+    mutationKey: ['createContextStore'],
+    mutationFn: (variables?: CreateContextStoreMutationVariables) => fetcher<CreateContextStoreMutation, CreateContextStoreMutationVariables>(CreateContextStoreDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateContextStoreSourceDocument = new TypedDocumentString(`
+    mutation createContextStoreSource($input: CreateContextStoreSourceInput!) {
+  createContextStoreSource(input: $input) {
+    id
+    name
+    status
+    enabled
+    cadence
+  }
+}
+    `);
+
+export const useCreateContextStoreSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateContextStoreSourceMutation, TError, CreateContextStoreSourceMutationVariables, TContext>) => {
+    
+    return useMutation<CreateContextStoreSourceMutation, TError, CreateContextStoreSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['createContextStoreSource'],
+    mutationFn: (variables?: CreateContextStoreSourceMutationVariables) => fetcher<CreateContextStoreSourceMutation, CreateContextStoreSourceMutationVariables>(CreateContextStoreSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteContextStoreDocument = new TypedDocumentString(`
+    mutation deleteContextStore($workspaceId: ID!, $id: ID!) {
+  deleteContextStore(workspaceId: $workspaceId, id: $id)
+}
+    `);
+
+export const useDeleteContextStoreMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteContextStoreMutation, TError, DeleteContextStoreMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteContextStoreMutation, TError, DeleteContextStoreMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteContextStore'],
+    mutationFn: (variables?: DeleteContextStoreMutationVariables) => fetcher<DeleteContextStoreMutation, DeleteContextStoreMutationVariables>(DeleteContextStoreDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteContextStoreSourceDocument = new TypedDocumentString(`
+    mutation deleteContextStoreSource($id: ID!) {
+  deleteContextStoreSource(id: $id)
+}
+    `);
+
+export const useDeleteContextStoreSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteContextStoreSourceMutation, TError, DeleteContextStoreSourceMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteContextStoreSourceMutation, TError, DeleteContextStoreSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteContextStoreSource'],
+    mutationFn: (variables?: DeleteContextStoreSourceMutationVariables) => fetcher<DeleteContextStoreSourceMutation, DeleteContextStoreSourceMutationVariables>(DeleteContextStoreSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RefreshContextStoreSourceDocument = new TypedDocumentString(`
+    mutation refreshContextStoreSource($id: ID!) {
+  refreshContextStoreSource(id: $id)
+}
+    `);
+
+export const useRefreshContextStoreSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RefreshContextStoreSourceMutation, TError, RefreshContextStoreSourceMutationVariables, TContext>) => {
+    
+    return useMutation<RefreshContextStoreSourceMutation, TError, RefreshContextStoreSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['refreshContextStoreSource'],
+    mutationFn: (variables?: RefreshContextStoreSourceMutationVariables) => fetcher<RefreshContextStoreSourceMutation, RefreshContextStoreSourceMutationVariables>(RefreshContextStoreSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetContextStoreSourceEnabledDocument = new TypedDocumentString(`
+    mutation setContextStoreSourceEnabled($id: ID!, $enabled: Boolean!) {
+  setContextStoreSourceEnabled(id: $id, enabled: $enabled) {
+    id
+    enabled
+    status
+  }
+}
+    `);
+
+export const useSetContextStoreSourceEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetContextStoreSourceEnabledMutation, TError, SetContextStoreSourceEnabledMutationVariables, TContext>) => {
+    
+    return useMutation<SetContextStoreSourceEnabledMutation, TError, SetContextStoreSourceEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['setContextStoreSourceEnabled'],
+    mutationFn: (variables?: SetContextStoreSourceEnabledMutationVariables) => fetcher<SetContextStoreSourceEnabledMutation, SetContextStoreSourceEnabledMutationVariables>(SetContextStoreSourceEnabledDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateContextStoreDocument = new TypedDocumentString(`
+    mutation updateContextStore($workspaceId: ID!, $id: ID!, $input: UpdateContextStoreInput!) {
+  updateContextStore(workspaceId: $workspaceId, id: $id, input: $input) {
+    id
+    name
+    description
+    environment
+    tagIds
+    version
+  }
+}
+    `);
+
+export const useUpdateContextStoreMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateContextStoreMutation, TError, UpdateContextStoreMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateContextStoreMutation, TError, UpdateContextStoreMutationVariables, TContext>(
+      {
+    mutationKey: ['updateContextStore'],
+    mutationFn: (variables?: UpdateContextStoreMutationVariables) => fetcher<UpdateContextStoreMutation, UpdateContextStoreMutationVariables>(UpdateContextStoreDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateContextStoreSourceDocument = new TypedDocumentString(`
+    mutation updateContextStoreSource($id: ID!, $input: UpdateContextStoreSourceInput!) {
+  updateContextStoreSource(id: $id, input: $input) {
+    id
+    name
+    cadence
+    enabled
+    status
+  }
+}
+    `);
+
+export const useUpdateContextStoreSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateContextStoreSourceMutation, TError, UpdateContextStoreSourceMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateContextStoreSourceMutation, TError, UpdateContextStoreSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['updateContextStoreSource'],
+    mutationFn: (variables?: UpdateContextStoreSourceMutationVariables) => fetcher<UpdateContextStoreSourceMutation, UpdateContextStoreSourceMutationVariables>(UpdateContextStoreSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateContextStoreTagsDocument = new TypedDocumentString(`
+    mutation updateContextStoreTags($workspaceId: ID!, $id: ID!, $tags: [TagInput!]!) {
+  updateContextStoreTags(workspaceId: $workspaceId, id: $id, tags: $tags) {
+    id
+    name
+  }
+}
+    `);
+
+export const useUpdateContextStoreTagsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateContextStoreTagsMutation, TError, UpdateContextStoreTagsMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateContextStoreTagsMutation, TError, UpdateContextStoreTagsMutationVariables, TContext>(
+      {
+    mutationKey: ['updateContextStoreTags'],
+    mutationFn: (variables?: UpdateContextStoreTagsMutationVariables) => fetcher<UpdateContextStoreTagsMutation, UpdateContextStoreTagsMutationVariables>(UpdateContextStoreTagsDocument, variables)(),
     ...options
   }
     )};
@@ -4324,6 +19056,31 @@ export const useCreateKnowledgeBaseMutation = <
   }
     )};
 
+export const CreateKnowledgeBaseSourceDocument = new TypedDocumentString(`
+    mutation createKnowledgeBaseSource($input: CreateKnowledgeBaseSourceInput!) {
+  createKnowledgeBaseSource(input: $input) {
+    id
+    name
+    status
+    enabled
+    cadence
+  }
+}
+    `);
+
+export const useCreateKnowledgeBaseSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateKnowledgeBaseSourceMutation, TError, CreateKnowledgeBaseSourceMutationVariables, TContext>) => {
+    
+    return useMutation<CreateKnowledgeBaseSourceMutation, TError, CreateKnowledgeBaseSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['createKnowledgeBaseSource'],
+    mutationFn: (variables?: CreateKnowledgeBaseSourceMutationVariables) => fetcher<CreateKnowledgeBaseSourceMutation, CreateKnowledgeBaseSourceMutationVariables>(CreateKnowledgeBaseSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const DeleteKnowledgeBaseDocument = new TypedDocumentString(`
     mutation deleteKnowledgeBase($id: ID!) {
   deleteKnowledgeBase(id: $id)
@@ -4381,6 +19138,25 @@ export const useDeleteKnowledgeBaseDocumentChunkMutation = <
   }
     )};
 
+export const DeleteKnowledgeBaseSourceDocument = new TypedDocumentString(`
+    mutation deleteKnowledgeBaseSource($id: ID!) {
+  deleteKnowledgeBaseSource(id: $id)
+}
+    `);
+
+export const useDeleteKnowledgeBaseSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteKnowledgeBaseSourceMutation, TError, DeleteKnowledgeBaseSourceMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteKnowledgeBaseSourceMutation, TError, DeleteKnowledgeBaseSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteKnowledgeBaseSource'],
+    mutationFn: (variables?: DeleteKnowledgeBaseSourceMutationVariables) => fetcher<DeleteKnowledgeBaseSourceMutation, DeleteKnowledgeBaseSourceMutationVariables>(DeleteKnowledgeBaseSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const KnowledgeBaseDocument = new TypedDocumentString(`
     query knowledgeBase($id: ID!) {
   knowledgeBase(id: $id) {
@@ -4402,6 +19178,8 @@ export const KnowledgeBaseDocument = new TypedDocumentString(`
       status
       tags
       createdDate
+      sourceId
+      sourceRecordId
       chunks {
         id
         knowledgeBaseDocumentId
@@ -4505,6 +19283,82 @@ export const useKnowledgeBaseDocumentTagsByDocumentQuery = <
   }
     )};
 
+export const KnowledgeBaseSourceDocument = new TypedDocumentString(`
+    query knowledgeBaseSource($id: ID!) {
+  knowledgeBaseSource(id: $id) {
+    id
+    name
+    knowledgeBaseId
+    sourceComponentName
+    sourceComponentVersion
+    sourceClusterElementName
+    connectionId
+    cadence
+    status
+    enabled
+    lastSyncRunAt
+    lastSyncJobExecutionId
+    workflowId
+  }
+}
+    `);
+
+export const useKnowledgeBaseSourceQuery = <
+      TData = KnowledgeBaseSourceQuery,
+      TError = unknown
+    >(
+      variables: KnowledgeBaseSourceQueryVariables,
+      options?: Omit<UseQueryOptions<KnowledgeBaseSourceQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<KnowledgeBaseSourceQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<KnowledgeBaseSourceQuery, TError, TData>(
+      {
+    queryKey: ['knowledgeBaseSource', variables],
+    queryFn: fetcher<KnowledgeBaseSourceQuery, KnowledgeBaseSourceQueryVariables>(KnowledgeBaseSourceDocument, variables),
+    ...options
+  }
+    )};
+
+export const KnowledgeBaseSourcesDocument = new TypedDocumentString(`
+    query knowledgeBaseSources($workspaceId: ID!, $environmentId: ID!, $filter: KnowledgeBaseSourceFilter) {
+  knowledgeBaseSources(
+    workspaceId: $workspaceId
+    environmentId: $environmentId
+    filter: $filter
+  ) {
+    id
+    name
+    knowledgeBaseId
+    sourceComponentName
+    sourceComponentVersion
+    sourceClusterElementName
+    connectionId
+    cadence
+    status
+    enabled
+    lastSyncRunAt
+    lastSyncJobExecutionId
+    workflowId
+  }
+}
+    `);
+
+export const useKnowledgeBaseSourcesQuery = <
+      TData = KnowledgeBaseSourcesQuery,
+      TError = unknown
+    >(
+      variables: KnowledgeBaseSourcesQueryVariables,
+      options?: Omit<UseQueryOptions<KnowledgeBaseSourcesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<KnowledgeBaseSourcesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<KnowledgeBaseSourcesQuery, TError, TData>(
+      {
+    queryKey: ['knowledgeBaseSources', variables],
+    queryFn: fetcher<KnowledgeBaseSourcesQuery, KnowledgeBaseSourcesQueryVariables>(KnowledgeBaseSourcesDocument, variables),
+    ...options
+  }
+    )};
+
 export const KnowledgeBaseTagsDocument = new TypedDocumentString(`
     query knowledgeBaseTags {
   knowledgeBaseTags {
@@ -4589,6 +19443,25 @@ export const useKnowledgeBasesQuery = <
   }
     )};
 
+export const RefreshKnowledgeBaseSourceDocument = new TypedDocumentString(`
+    mutation refreshKnowledgeBaseSource($id: ID!) {
+  refreshKnowledgeBaseSource(id: $id)
+}
+    `);
+
+export const useRefreshKnowledgeBaseSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RefreshKnowledgeBaseSourceMutation, TError, RefreshKnowledgeBaseSourceMutationVariables, TContext>) => {
+    
+    return useMutation<RefreshKnowledgeBaseSourceMutation, TError, RefreshKnowledgeBaseSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['refreshKnowledgeBaseSource'],
+    mutationFn: (variables?: RefreshKnowledgeBaseSourceMutationVariables) => fetcher<RefreshKnowledgeBaseSourceMutation, RefreshKnowledgeBaseSourceMutationVariables>(RefreshKnowledgeBaseSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const SearchKnowledgeBaseDocument = new TypedDocumentString(`
     query searchKnowledgeBase($id: ID!, $query: String!, $metadataFilters: String) {
   searchKnowledgeBase(id: $id, query: $query, metadataFilters: $metadataFilters) {
@@ -4613,6 +19486,29 @@ export const useSearchKnowledgeBaseQuery = <
       {
     queryKey: ['searchKnowledgeBase', variables],
     queryFn: fetcher<SearchKnowledgeBaseQuery, SearchKnowledgeBaseQueryVariables>(SearchKnowledgeBaseDocument, variables),
+    ...options
+  }
+    )};
+
+export const SetKnowledgeBaseSourceEnabledDocument = new TypedDocumentString(`
+    mutation setKnowledgeBaseSourceEnabled($id: ID!, $enabled: Boolean!) {
+  setKnowledgeBaseSourceEnabled(id: $id, enabled: $enabled) {
+    id
+    enabled
+    status
+  }
+}
+    `);
+
+export const useSetKnowledgeBaseSourceEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetKnowledgeBaseSourceEnabledMutation, TError, SetKnowledgeBaseSourceEnabledMutationVariables, TContext>) => {
+    
+    return useMutation<SetKnowledgeBaseSourceEnabledMutation, TError, SetKnowledgeBaseSourceEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['setKnowledgeBaseSourceEnabled'],
+    mutationFn: (variables?: SetKnowledgeBaseSourceEnabledMutationVariables) => fetcher<SetKnowledgeBaseSourceEnabledMutation, SetKnowledgeBaseSourceEnabledMutationVariables>(SetKnowledgeBaseSourceEnabledDocument, variables)(),
     ...options
   }
     )};
@@ -4685,6 +19581,31 @@ export const useUpdateKnowledgeBaseDocumentTagsMutation = <
       {
     mutationKey: ['updateKnowledgeBaseDocumentTags'],
     mutationFn: (variables?: UpdateKnowledgeBaseDocumentTagsMutationVariables) => fetcher<UpdateKnowledgeBaseDocumentTagsMutation, UpdateKnowledgeBaseDocumentTagsMutationVariables>(UpdateKnowledgeBaseDocumentTagsDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateKnowledgeBaseSourceDocument = new TypedDocumentString(`
+    mutation updateKnowledgeBaseSource($id: ID!, $input: UpdateKnowledgeBaseSourceInput!) {
+  updateKnowledgeBaseSource(id: $id, input: $input) {
+    id
+    name
+    cadence
+    enabled
+    status
+  }
+}
+    `);
+
+export const useUpdateKnowledgeBaseSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateKnowledgeBaseSourceMutation, TError, UpdateKnowledgeBaseSourceMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateKnowledgeBaseSourceMutation, TError, UpdateKnowledgeBaseSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['updateKnowledgeBaseSource'],
+    mutationFn: (variables?: UpdateKnowledgeBaseSourceMutationVariables) => fetcher<UpdateKnowledgeBaseSourceMutation, UpdateKnowledgeBaseSourceMutationVariables>(UpdateKnowledgeBaseSourceDocument, variables)(),
     ...options
   }
     )};
@@ -5623,7 +20544,6 @@ export const McpIntegrationInstanceConfigurationsByServerIdDocument = new TypedD
     integrationInstanceConfigurationId
     integrationInstanceConfigurationName
     integrationVersion
-    lastModifiedDate
     mcpIntegrationInstanceConfigurationWorkflows {
       id
       integrationInstanceConfigurationWorkflowId
@@ -6746,6 +21666,38 @@ export const useClusterElementDefinitionQuery = <
   }
     )};
 
+export const ClusterElementFieldsDocument = new TypedDocumentString(`
+    query clusterElementFields($componentName: String!, $componentVersion: Int!, $clusterElementName: String!, $connectionId: Long, $inputParameters: Map) {
+  clusterElementFields(
+    componentName: $componentName
+    componentVersion: $componentVersion
+    clusterElementName: $clusterElementName
+    connectionId: $connectionId
+    inputParameters: $inputParameters
+  ) {
+    name
+    label
+    type
+  }
+}
+    `);
+
+export const useClusterElementFieldsQuery = <
+      TData = ClusterElementFieldsQuery,
+      TError = unknown
+    >(
+      variables: ClusterElementFieldsQueryVariables,
+      options?: Omit<UseQueryOptions<ClusterElementFieldsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ClusterElementFieldsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ClusterElementFieldsQuery, TError, TData>(
+      {
+    queryKey: ['clusterElementFields', variables],
+    queryFn: fetcher<ClusterElementFieldsQuery, ClusterElementFieldsQueryVariables>(ClusterElementFieldsDocument, variables),
+    ...options
+  }
+    )};
+
 export const ClusterElementDynamicPropertiesDocument = new TypedDocumentString(`
     query clusterElementDynamicProperties($componentName: String!, $componentVersion: Int!, $clusterElementName: String!, $propertyName: String!, $connectionId: Long, $inputParameters: Map, $lookupDependsOnPaths: [String!]) {
   clusterElementDynamicProperties(
@@ -7859,6 +22811,50 @@ export const useWorkflowNodeScriptInputQuery = <
       {
     queryKey: ['workflowNodeScriptInput', variables],
     queryFn: fetcher<WorkflowNodeScriptInputQuery, WorkflowNodeScriptInputQueryVariables>(WorkflowNodeScriptInputDocument, variables),
+    ...options
+  }
+    )};
+
+export const ConnectionCredentialStoresDocument = new TypedDocumentString(`
+    query ConnectionCredentialStores {
+  connectionCredentialStores {
+    type
+    readOnly
+  }
+}
+    `);
+
+export const useConnectionCredentialStoresQuery = <
+      TData = ConnectionCredentialStoresQuery,
+      TError = unknown
+    >(
+      variables?: ConnectionCredentialStoresQueryVariables,
+      options?: Omit<UseQueryOptions<ConnectionCredentialStoresQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ConnectionCredentialStoresQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ConnectionCredentialStoresQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['ConnectionCredentialStores'] : ['ConnectionCredentialStores', variables],
+    queryFn: fetcher<ConnectionCredentialStoresQuery, ConnectionCredentialStoresQueryVariables>(ConnectionCredentialStoresDocument, variables),
+    ...options
+  }
+    )};
+
+export const RegisterExistingConnectionDocument = new TypedDocumentString(`
+    mutation RegisterExistingConnection($input: RegisterExistingConnectionInput!) {
+  registerExistingConnection(input: $input)
+}
+    `);
+
+export const useRegisterExistingConnectionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RegisterExistingConnectionMutation, TError, RegisterExistingConnectionMutationVariables, TContext>) => {
+    
+    return useMutation<RegisterExistingConnectionMutation, TError, RegisterExistingConnectionMutationVariables, TContext>(
+      {
+    mutationKey: ['RegisterExistingConnection'],
+    mutationFn: (variables?: RegisterExistingConnectionMutationVariables) => fetcher<RegisterExistingConnectionMutation, RegisterExistingConnectionMutationVariables>(RegisterExistingConnectionDocument, variables)(),
     ...options
   }
     )};
