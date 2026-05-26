@@ -109,11 +109,11 @@ public class AiAgentStreamChatAction extends AbstractAiAgentChatAction {
         ChatClientRequestSpec chatClientRequestSpec = buildPatchedRequestSpec(
             inputParameters, connectionParameters, extensions, continueParameters, data, context);
 
-        chatClientRequestSpec.toolContext(
+        chatClientRequestSpec.tools(spec -> spec.context(
             Map.of(
                 AiAgentToolContextKey.ACTION_CONTEXT, context,
                 AiAgentToolContextKey.SSE_EMITTER_REFERENCE, emitterReference,
-                AiAgentToolContextKey.SSE_BUFFERED_EVENTS, bufferedEvents));
+                AiAgentToolContextKey.SSE_BUFFERED_EVENTS, bufferedEvents)));
 
         Flux<Object> contentFlux = chatClientRequestSpec.stream()
             .chatResponse()
@@ -165,11 +165,11 @@ public class AiAgentStreamChatAction extends AbstractAiAgentChatAction {
         ChatClientRequestSpec chatClientRequestSpec = getChatClientRequestSpec(
             inputParameters, connectionParameters, extensions, toolExecutionListener, context);
 
-        chatClientRequestSpec.toolContext(
+        chatClientRequestSpec.tools(spec -> spec.context(
             Map.of(
                 AiAgentToolContextKey.ACTION_CONTEXT, context,
                 AiAgentToolContextKey.SSE_EMITTER_REFERENCE, emitterReference,
-                AiAgentToolContextKey.SSE_BUFFERED_EVENTS, bufferedEvents));
+                AiAgentToolContextKey.SSE_BUFFERED_EVENTS, bufferedEvents)));
 
         Flux<Object> contentFlux = chatClientRequestSpec.stream()
             .chatResponse()

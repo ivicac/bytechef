@@ -237,8 +237,7 @@ class AbstractAiAgentChatActionTest {
 
         com.bytechef.platform.component.definition.ai.agent.GuardrailsFunction guardrailsFunction = mock(
             com.bytechef.platform.component.definition.ai.agent.GuardrailsFunction.class);
-        org.springframework.ai.chat.client.advisor.api.Advisor advisor = mock(
-            org.springframework.ai.chat.client.advisor.api.Advisor.class);
+        Advisor advisor = mock(Advisor.class);
 
         when(
             clusterElementDefinitionService.<com.bytechef.platform.component.definition.ai.agent.GuardrailsFunction>getClusterElement(

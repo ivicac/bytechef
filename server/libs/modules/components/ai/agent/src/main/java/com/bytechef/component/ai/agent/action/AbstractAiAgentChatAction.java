@@ -167,10 +167,10 @@ public abstract class AbstractAiAgentChatAction {
             .advisors(getAdvisors(clusterElementMap, connectionParameters, context))
             .advisors(getConversationAdvisor(conversationId))
             .messages(messages)
-            .toolCallbacks(
+            .tools(spec -> spec.callbacks(
                 getToolCallbacks(
                     clusterElementMap.getClusterElements(BaseToolFunction.TOOLS), connectionParameters,
-                    context.isEditorEnvironment(), toolExecutionListener, toolSimulations, chatModel, context));
+                    context.isEditorEnvironment(), toolExecutionListener, toolSimulations, chatModel, context)));
     }
 
     protected Object resumeChat(
@@ -208,7 +208,7 @@ public abstract class AbstractAiAgentChatAction {
         ChatClient.ChatClientRequestSpec chatClientRequestSpec = getChatClientRequestSpec(
             inputParameters, connectionParameters, extensions, null, context, conversation);
 
-        chatClientRequestSpec.toolContext(Map.of(AiAgentToolContextKey.ACTION_CONTEXT, context));
+        chatClientRequestSpec.tools(spec -> spec.context(Map.of(AiAgentToolContextKey.ACTION_CONTEXT, context)));
 
         return chatClientRequestSpec;
     }

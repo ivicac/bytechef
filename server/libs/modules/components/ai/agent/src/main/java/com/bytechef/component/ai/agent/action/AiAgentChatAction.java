@@ -133,7 +133,7 @@ public class AiAgentChatAction extends AbstractAiAgentChatAction {
         ChatClientRequestSpec chatClientRequestSpec = getChatClientRequestSpec(
             inputParameters, connectionParameters, extensions, toolExecutionListener, context);
 
-        chatClientRequestSpec.toolContext(Map.of(AiAgentToolContextKey.ACTION_CONTEXT, context));
+        chatClientRequestSpec.tools(spec -> spec.context(Map.of(AiAgentToolContextKey.ACTION_CONTEXT, context)));
 
         ChatClient.CallResponseSpec call = chatClientRequestSpec.call();
 
