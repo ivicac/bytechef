@@ -176,7 +176,6 @@ Chat memory lets an agent recall earlier turns of the same conversation. The slo
 | Redis | [redisChatMemory/v1](/reference/components/redis-chat-memory_v1) | Low-latency, ephemeral or persisted depending on Redis config. |
 | MongoDB | [mongoDbChatMemory/v1](/reference/components/mongo-db-chat-memory_v1) | Document store; good fit for transcript replay. |
 | Cassandra | [cassandraChatMemory/v1](/reference/components/cassandra-chat-memory_v1) | Wide-column store for high-throughput workloads. |
-| Cosmos DB | [cosmosDbChatMemory/v1](/reference/components/cosmos-db-chat-memory_v1) | Managed multi-region store on Azure. |
 | Neo4j | [neo4jChatMemory/v1](/reference/components/neo4j-chat-memory_v1) | Graph-backed; useful when conversation context links into other graph entities. |
 | Vector Store | [vectorStoreChatMemory/v1](/reference/components/vector-store-chat-memory_v1) | Recalls semantically similar prior turns instead of raw chronological history. |
 
