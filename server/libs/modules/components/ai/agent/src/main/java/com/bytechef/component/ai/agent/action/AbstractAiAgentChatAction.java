@@ -76,7 +76,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.ToolCallAdvisor;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
-import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ToolContext;
@@ -266,8 +265,7 @@ public abstract class AbstractAiAgentChatAction {
         // tool call
 
         ToolCallAdvisor.Builder<?> toolCallAdvisorBuilder = ToolCallAdvisor.builder()
-            .toolCallingManager(new SuspendableToolCallingManager(toolCallingManager, (ActionContextAware) context))
-            .advisorOrder(BaseAdvisor.DEFAULT_CHAT_MEMORY_PRECEDENCE_ORDER + 100);
+            .toolCallingManager(new SuspendableToolCallingManager(toolCallingManager, (ActionContextAware) context));
 
         // memory
 

@@ -26,7 +26,6 @@ import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.definition.ai.agent.ChatMemoryFunction;
 import org.springframework.ai.chat.client.advisor.MessageChatMemoryAdvisor;
-import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
 import org.springframework.ai.chat.memory.MessageWindowChatMemory;
 
@@ -61,7 +60,6 @@ public class ChatMemory {
             .build();
 
         return MessageChatMemoryAdvisor.builder(chatMemory)
-            .order(BaseAdvisor.HIGHEST_PRECEDENCE + 200)
             .build();
     }
 }
