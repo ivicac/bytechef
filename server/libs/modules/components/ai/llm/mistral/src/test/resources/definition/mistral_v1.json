@@ -53,10 +53,6 @@
         "value": "magistral-medium-latest"
       }, {
         "description": null,
-        "label": "magistral-small-latest",
-        "value": "magistral-small-latest"
-      }, {
-        "description": null,
         "label": "ministral-14b-latest",
         "value": "ministral-14b-latest"
       }, {
@@ -2444,10 +2440,6 @@
         "value": "magistral-medium-latest"
       }, {
         "description": null,
-        "label": "magistral-small-latest",
-        "value": "magistral-small-latest"
-      }, {
-        "description": null,
         "label": "ministral-14b-latest",
         "value": "ministral-14b-latest"
       }, {
@@ -2705,6 +2697,7 @@
   "customActionHelp": null,
   "description": "Open, efficient, helpful and trustworthy AI models through ground-breaking innovations.",
   "icon": "path:assets/mistral.svg",
+  "inputs": null,
   "metadata": null,
   "name": "mistral",
   "resources": null,
