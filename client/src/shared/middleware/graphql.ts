@@ -1581,7 +1581,9 @@ export type ChatWorkflow = {
   projectDeploymentId: Scalars['ID']['output'];
   projectId: Scalars['ID']['output'];
   projectName: Scalars['String']['output'];
+  projectWorkflowId: Scalars['ID']['output'];
   workflowExecutionId: Scalars['String']['output'];
+  workflowId: Scalars['ID']['output'];
   workflowLabel: Scalars['String']['output'];
 };
 
@@ -9362,7 +9364,7 @@ export type WorkspaceChatWorkflowsQueryVariables = Exact<{
 }>;
 
 
-export type WorkspaceChatWorkflowsQuery = { __typename?: 'Query', workspaceChatWorkflows: Array<{ __typename?: 'ChatWorkflow', projectDeploymentId: string, projectId: string, projectName: string, workflowExecutionId: string, workflowLabel: string }> };
+export type WorkspaceChatWorkflowsQuery = { __typename?: 'Query', workspaceChatWorkflows: Array<{ __typename?: 'ChatWorkflow', projectDeploymentId: string, projectId: string, projectName: string, projectWorkflowId: string, workflowExecutionId: string, workflowId: string, workflowLabel: string }> };
 
 export type WorkspaceMcpServersQueryVariables = Exact<{
   workspaceId: Scalars['ID']['input'];
@@ -18181,7 +18183,9 @@ export const WorkspaceChatWorkflowsDocument = new TypedDocumentString(`
     projectDeploymentId
     projectId
     projectName
+    projectWorkflowId
     workflowExecutionId
+    workflowId
     workflowLabel
   }
 }
