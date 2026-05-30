@@ -17,10 +17,12 @@ import com.agui.server.LocalAgent;
 import com.agui.spring.ai.SpringAIAgent;
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.ee.ai.copilot.util.CopilotToolContextUtils;
 import com.bytechef.platform.configuration.dto.WorkflowNodeOutputDTO;
 import com.bytechef.platform.configuration.facade.WorkflowNodeOutputFacade;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.function.Function;
@@ -40,7 +42,7 @@ import org.springframework.ai.tool.ToolCallback;
  */
 public class WorkflowEditorSpringAIAgent extends SpringAIAgent {
 
-    private static final Logger logger = LoggerFactory.getLogger(WorkflowEditorSpringAIAgent.class);
+    private static final Logger log = LoggerFactory.getLogger(WorkflowEditorSpringAIAgent.class);
 
     private static final String ADDITIONAL_RULES =
         """
@@ -91,12 +93,17 @@ public class WorkflowEditorSpringAIAgent extends SpringAIAgent {
             // The override path is best-effort: any failure (missing provider, factory throw, malformed state) must
             // fall back to the workspace default rather than failing the turn. Absence of an override simply means
             // "use the configured default."
-            logger.warn(
+            log.warn(
                 "WorkflowEditorSpringAIAgent: override ChatClient resolver threw; falling back to default. {}",
                 exception.getMessage());
         }
 
         return super.resolveChatClient(input);
+    }
+
+    @Override
+    protected Map<String, Object> toolContext(RunAgentInput input) {
+        return CopilotToolContextUtils.toToolContext(input.state());
     }
 
     @Override
