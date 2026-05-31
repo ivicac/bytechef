@@ -1,5 +1,8 @@
+import type {ComponentInputReference} from '@/shared/middleware/platform/configuration/models/ComponentInputReference';
+
 declare module '@/shared/middleware/automation/configuration/models/WorkflowInput' {
     interface WorkflowInput {
+        componentReference?: ComponentInputReference;
         subflowInputName?: string;
         subflowWorkflowUuid?: string;
         subflowWorkflowUuidPath?: string[];
