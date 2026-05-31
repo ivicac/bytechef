@@ -16,6 +16,7 @@ import {IntegrationKeys} from '@/ee/shared/queries/embedded/integrations.queries
 import {WorkflowKeys, useGetWorkflowQuery} from '@/ee/shared/queries/embedded/workflows.queries';
 import DeleteWorkflowAlertDialog from '@/shared/components/DeleteWorkflowAlertDialog';
 import WorkflowDialog from '@/shared/components/workflow/WorkflowDialog';
+import {useIntegrationWorkflowsByIntegrationIdQuery} from '@/shared/middleware/graphql';
 import {ComponentDefinitionBasic} from '@/shared/middleware/platform/configuration';
 import {WorkflowTestConfigurationKeys} from '@/shared/queries/platform/workflowTestConfigurations.queries';
 import {useQueryClient} from '@tanstack/react-query';
@@ -46,6 +47,15 @@ const IntegrationWorkflowListItem = ({
     const [searchParams] = useSearchParams();
 
     const queryClient = useQueryClient();
+
+    const {data: integrationWorkflowsData} = useIntegrationWorkflowsByIntegrationIdQuery(
+        {integrationId: String(integration.id)},
+        {enabled: showEditDialog && integration.id != null}
+    );
+
+    const integrationWorkflowPermissionExpression = integrationWorkflowsData?.integrationWorkflowsByIntegrationId.find(
+        (integrationWorkflow) => integrationWorkflow.integrationWorkflowId === String(workflow.integrationWorkflowId)
+    )?.permissionExpression;
 
     const deleteWorkflowMutation = useDeleteWorkflowMutation({
         onSuccess: () => {
@@ -174,6 +184,8 @@ const IntegrationWorkflowListItem = ({
             {showEditDialog && workflow && (
                 <WorkflowDialog
                     integrationId={integration.id}
+                    integrationWorkflowId={workflow.integrationWorkflowId}
+                    integrationWorkflowPermissionExpression={integrationWorkflowPermissionExpression}
                     onClose={() => setShowEditDialog(false)}
                     updateWorkflowMutation={updateWorkflowMutation}
                     useGetWorkflowQuery={useGetWorkflowQuery}

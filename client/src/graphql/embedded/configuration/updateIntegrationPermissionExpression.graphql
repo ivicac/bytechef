@@ -1,0 +1,6 @@
+mutation updateIntegrationPermissionExpression($id: ID!, $permissionExpression: String) {
+    updateIntegrationPermissionExpression(id: $id, permissionExpression: $permissionExpression) {
+        id
+        permissionExpression
+    }
+}

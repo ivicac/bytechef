@@ -27,10 +27,11 @@ import {
 import {IntegrationTagKeys, useGetIntegrationTagsQuery} from '@/ee/shared/queries/embedded/integrationTags.quries';
 import {IntegrationKeys} from '@/ee/shared/queries/embedded/integrations.queries';
 import {useAnalytics} from '@/shared/hooks/useAnalytics';
+import {useIntegrationByIdQuery, useUpdateIntegrationPermissionExpressionMutation} from '@/shared/middleware/graphql';
 import {ComponentDefinitionBasic} from '@/shared/middleware/platform/configuration';
 import {useQueryClient} from '@tanstack/react-query';
 import CreatableSelect from 'components/CreatableSelect/CreatableSelect';
-import {ReactNode, useState} from 'react';
+import {ReactNode, useEffect, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
 interface IntegrationDialogProps {
@@ -39,12 +40,19 @@ interface IntegrationDialogProps {
     triggerNode?: ReactNode;
 }
 
+type IntegrationFormValuesType = Integration & {permissionExpression?: string | null};
+
 const IntegrationDialog = ({integration, onClose, triggerNode}: IntegrationDialogProps) => {
     const [isOpen, setIsOpen] = useState(!triggerNode);
 
     const {captureIntegrationCreated} = useAnalytics();
 
-    const form = useForm<Integration>({
+    const {data: integrationByIdData} = useIntegrationByIdQuery(
+        {id: String(integration?.id)},
+        {enabled: !!integration?.id}
+    );
+
+    const form = useForm<IntegrationFormValuesType>({
         defaultValues: {
             category: integration?.category
                 ? {
@@ -56,12 +64,13 @@ const IntegrationDialog = ({integration, onClose, triggerNode}: IntegrationDialo
             description: integration?.description || '',
             multipleInstances: false,
             name: integration?.name || '',
+            permissionExpression: '',
             tags:
                 integration?.tags?.map((tag: Tag) => ({
                     ...tag,
                     label: tag.name,
                 })) || [],
-        } as Integration,
+        } as IntegrationFormValuesType,
     });
 
     const {control, getValues, handleSubmit, reset, setValue} = form;
@@ -82,6 +91,13 @@ const IntegrationDialog = ({integration, onClose, triggerNode}: IntegrationDialo
         }
 
         if (integrationId) {
+            const permissionExpression = getValues().permissionExpression;
+
+            updateIntegrationPermissionExpressionMutation.mutate({
+                id: String(integrationId),
+                permissionExpression: permissionExpression || null,
+            });
+
             queryClient.invalidateQueries({
                 queryKey: IntegrationKeys.integration(integrationId),
             });
@@ -108,9 +124,19 @@ const IntegrationDialog = ({integration, onClose, triggerNode}: IntegrationDialo
         onSuccess,
     });
 
+    const updateIntegrationPermissionExpressionMutation = useUpdateIntegrationPermissionExpressionMutation();
+
     const tagNames = integration?.tags?.map((tag) => tag.name);
 
     const remainingTags = tags?.filter((tag) => !tagNames?.includes(tag.name));
+
+    useEffect(() => {
+        const permissionExpression = integrationByIdData?.integration?.permissionExpression;
+
+        if (permissionExpression != null) {
+            setValue('permissionExpression', permissionExpression);
+        }
+    }, [integrationByIdData, setValue]);
 
     function closeDialog() {
         reset();
@@ -285,6 +311,27 @@ const IntegrationDialog = ({integration, onClose, triggerNode}: IntegrationDialo
 
                                 <FormControl>
                                     <Textarea placeholder="Cute description of your integration" rows={5} {...field} />
+                                </FormControl>
+
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
+
+                    <FormField
+                        control={control}
+                        name="permissionExpression"
+                        render={({field}) => (
+                            <FormItem>
+                                <FormLabel>Permission Expression</FormLabel>
+
+                                <FormControl>
+                                    <Textarea
+                                        placeholder="e.g. metadata['plan'] == 'pro'"
+                                        rows={3}
+                                        {...field}
+                                        value={field.value ?? ''}
+                                    />
                                 </FormControl>
 
                                 <FormMessage />

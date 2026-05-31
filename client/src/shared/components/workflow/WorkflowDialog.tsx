@@ -15,6 +15,7 @@ import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/
 import {Input} from '@/components/ui/input';
 import {Textarea} from '@/components/ui/textarea';
 import {IntegrationWorkflowKeys} from '@/ee/shared/queries/embedded/integrationWorkflows.queries';
+import {useUpdateIntegrationWorkflowPermissionExpressionMutation} from '@/shared/middleware/graphql';
 import {Workflow} from '@/shared/middleware/platform/configuration';
 import {ProjectWorkflowKeys} from '@/shared/queries/automation/projectWorkflows.queries';
 import {UseMutationResult, UseQueryResult, useQueryClient} from '@tanstack/react-query';
@@ -24,9 +25,11 @@ import {useForm} from 'react-hook-form';
 interface WorkflowDialogProps {
     /* eslint-disable @typescript-eslint/no-explicit-any */
     createWorkflowMutation?: UseMutationResult<any, object, any, unknown>;
+    integrationId?: number;
+    integrationWorkflowId?: number;
+    integrationWorkflowPermissionExpression?: string | null;
     onClose?: () => void;
     projectId?: number;
-    integrationId?: number;
     triggerNode?: ReactNode;
     /* eslint-disable @typescript-eslint/no-explicit-any */
     updateWorkflowMutation?: UseMutationResult<any, object, any, unknown>;
@@ -37,6 +40,8 @@ interface WorkflowDialogProps {
 const WorkflowDialog = ({
     createWorkflowMutation,
     integrationId,
+    integrationWorkflowId,
+    integrationWorkflowPermissionExpression,
     onClose,
     projectId,
     triggerNode,
@@ -45,10 +50,16 @@ const WorkflowDialog = ({
     workflowId,
 }: WorkflowDialogProps) => {
     const [isOpen, setIsOpen] = useState(!triggerNode);
+    const [permissionExpression, setPermissionExpression] = useState<string | null>(
+        integrationWorkflowPermissionExpression ?? ''
+    );
 
     const {data: workflow} = useGetWorkflowQuery(workflowId ?? '', !!workflowId);
 
     const queryClient = useQueryClient();
+
+    const updateIntegrationWorkflowPermissionExpressionMutation =
+        useUpdateIntegrationWorkflowPermissionExpressionMutation();
 
     const form = useForm({
         defaultValues: {
@@ -103,6 +114,13 @@ const WorkflowDialog = ({
                     queryKey: IntegrationWorkflowKeys.integrationWorkflow(integrationId!, parseInt(workflow.id!)),
                 });
             }
+
+            if (integrationWorkflowId != null) {
+                updateIntegrationWorkflowPermissionExpressionMutation.mutate({
+                    integrationWorkflowId: String(integrationWorkflowId),
+                    permissionExpression: permissionExpression || null,
+                });
+            }
         } else {
             mutate({
                 id: projectId ?? integrationId,
@@ -145,6 +163,10 @@ const WorkflowDialog = ({
             label: workflow?.label || '',
         });
     }, [workflow, reset]);
+
+    useEffect(() => {
+        setPermissionExpression(integrationWorkflowPermissionExpression ?? '');
+    }, [integrationWorkflowPermissionExpression]);
 
     return (
         <Dialog
@@ -217,6 +239,23 @@ const WorkflowDialog = ({
                             </FormItem>
                         )}
                     />
+
+                    {integrationWorkflowId != null && (
+                        <FormItem>
+                            <FormLabel>Permission Expression</FormLabel>
+
+                            <FormControl>
+                                <Textarea
+                                    onChange={(event) => setPermissionExpression(event.target.value)}
+                                    placeholder="e.g. metadata['tier'] == 'gold'"
+                                    rows={3}
+                                    value={permissionExpression ?? ''}
+                                />
+                            </FormControl>
+
+                            <FormMessage />
+                        </FormItem>
+                    )}
 
                     <DialogFooter>
                         <DialogClose asChild>
