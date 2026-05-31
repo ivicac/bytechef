@@ -27,10 +27,13 @@ import java.util.List;
  */
 public class WorkflowConstants {
 
+    public static final String COMPONENT_NAME = "componentName";
+    public static final String COMPONENT_VERSION = "componentVersion";
     public static final String DEFAULT = "default";
     public static final String DESCRIPTION = "description";
     public static final String EVENT = "event";
     public static final String FINALIZE = "finalize";
+    public static final String GROUP_NAME = "groupName";
     public static final String INPUTS = "inputs";
     public static final String LABEL = "label";
     public static final String MAX_RETRIES = "maxRetries";
@@ -52,6 +55,6 @@ public class WorkflowConstants {
     public static final String WORKFLOW_ID = "workflowId";
 
     public static final List<String> WORKFLOW_DEFINITION_CONSTANTS = List.of(
-        DEFAULT, DESCRIPTION, FINALIZE, INPUTS, LABEL, METADATA, NAME, NODE, OUTPUTS, PARAMETERS, POST, PRE,
-        MAX_RETRIES, REQUIRED, TASKS, TIMEOUT, TYPE, VALUE);
+        COMPONENT_NAME, COMPONENT_VERSION, DEFAULT, DESCRIPTION, FINALIZE, GROUP_NAME, INPUTS, LABEL, METADATA, NAME,
+        NODE, OUTPUTS, PARAMETERS, POST, PRE, MAX_RETRIES, REQUIRED, TASKS, TIMEOUT, TYPE, VALUE);
 }

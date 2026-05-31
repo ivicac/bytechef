@@ -164,11 +164,21 @@ public final class Workflow implements Persistable<String>, Serializable {
             } else if (WorkflowConstants.INPUTS.equals(entry.getKey())) {
                 this.inputs = CollectionUtils.map(
                     MapUtils.getList(sourceMap, WorkflowConstants.INPUTS, Map.class, Collections.emptyList()),
-                    map -> new Input(
-                        MapUtils.getRequiredString(map, WorkflowConstants.NAME),
-                        MapUtils.getString(map, WorkflowConstants.LABEL),
-                        MapUtils.getString(map, WorkflowConstants.TYPE, "string"),
-                        MapUtils.getBoolean(map, WorkflowConstants.REQUIRED, false)));
+                    map -> {
+                        String componentName = MapUtils.getString(map, WorkflowConstants.COMPONENT_NAME);
+
+                        return new Input(
+                            MapUtils.getRequiredString(map, WorkflowConstants.NAME),
+                            MapUtils.getString(map, WorkflowConstants.LABEL),
+                            MapUtils.getString(map, WorkflowConstants.TYPE, "string"),
+                            MapUtils.getBoolean(map, WorkflowConstants.REQUIRED, false),
+                            componentName == null
+                                ? null
+                                : new ComponentInputReference(
+                                    componentName,
+                                    MapUtils.getInteger(map, WorkflowConstants.COMPONENT_VERSION),
+                                    MapUtils.getString(map, WorkflowConstants.GROUP_NAME)));
+                    });
             } else if (WorkflowConstants.LABEL.equals(entry.getKey())) {
                 this.label = MapUtils.getString(sourceMap, WorkflowConstants.LABEL);
             } else if (WorkflowConstants.OUTPUTS.equals(entry.getKey())) {
@@ -398,9 +408,27 @@ public final class Workflow implements Persistable<String>, Serializable {
         }
     }
 
-    public record Input(String name, String label, String type, boolean required)
-        implements Serializable {
+    public record Input(
+        String name, String label, String type, boolean required,
+        ComponentInputReference componentReference) implements Serializable {
 
+        public Input(String name, String label, String type, boolean required) {
+            this(name, label, type, required, null);
+        }
+    }
+
+    /**
+     * An all-or-nothing reference from a workflow input to a component-defined input group. Every component-defined
+     * input is a property group (a lone property is a group with one property), so a reference always targets a group.
+     */
+    public record ComponentInputReference(
+        String componentName, Integer componentVersion, String groupName) implements Serializable {
+
+        public ComponentInputReference {
+            Assert.notNull(componentName, "componentName is required");
+            Assert.notNull(componentVersion, "componentVersion is required");
+            Assert.notNull(groupName, "groupName is required");
+        }
     }
 
     public record Output(String name, Object value) implements Serializable {
