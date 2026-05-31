@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-05-19T21:01:14.514867+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-06-02T09:39:21.812932+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
 @Validated
 @Tag(name = "component-definition", description = "The Embedded Component Definition Internal API")
 public interface ComponentDefinitionApi {
@@ -81,7 +81,7 @@ public interface ComponentDefinitionApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "[ { \"componentCategories\" : [ { \"name\" : \"name\", \"label\" : \"label\" }, { \"name\" : \"name\", \"label\" : \"label\" } ], \"icon\" : \"icon\", \"name\" : \"name\", \"actionsCount\" : 0, \"clusterElementsCount\" : { \"key\" : 6 }, \"description\" : \"description\", \"title\" : \"title\", \"version\" : 5, \"triggersCount\" : 1 }, { \"componentCategories\" : [ { \"name\" : \"name\", \"label\" : \"label\" }, { \"name\" : \"name\", \"label\" : \"label\" } ], \"icon\" : \"icon\", \"name\" : \"name\", \"actionsCount\" : 0, \"clusterElementsCount\" : { \"key\" : 6 }, \"description\" : \"description\", \"title\" : \"title\", \"version\" : 5, \"triggersCount\" : 1 } ]";
+                    String exampleString = "[ { \"componentCategories\" : [ { \"name\" : \"name\", \"label\" : \"label\" }, { \"name\" : \"name\", \"label\" : \"label\" } ], \"icon\" : \"icon\", \"name\" : \"name\", \"actionsCount\" : 0, \"clusterElementsCount\" : { \"key\" : 6 }, \"description\" : \"description\", \"inputsCount\" : 1, \"title\" : \"title\", \"version\" : 5, \"triggersCount\" : 5 }, { \"componentCategories\" : [ { \"name\" : \"name\", \"label\" : \"label\" }, { \"name\" : \"name\", \"label\" : \"label\" } ], \"icon\" : \"icon\", \"name\" : \"name\", \"actionsCount\" : 0, \"clusterElementsCount\" : { \"key\" : 6 }, \"description\" : \"description\", \"inputsCount\" : 1, \"title\" : \"title\", \"version\" : 5, \"triggersCount\" : 5 } ]";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }

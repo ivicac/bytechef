@@ -23,7 +23,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "ScriptTestExecution", description = "Contains information about test execution of a script.")
 @JsonTypeName("ScriptTestExecution")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-05-12T21:18:53.574267+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-05-31T07:09:09.438152+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
 public class ScriptTestExecutionModel {
 
   private @Nullable ExecutionErrorModel error;

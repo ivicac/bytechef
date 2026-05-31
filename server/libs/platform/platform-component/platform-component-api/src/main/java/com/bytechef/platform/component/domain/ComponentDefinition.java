@@ -196,6 +196,10 @@ public class ComponentDefinition {
         return inputs;
     }
 
+    public int getInputsCount() {
+        return inputs.size();
+    }
+
     @Nullable
     public Resources getResources() {
         return resources;
