@@ -859,8 +859,7 @@ export type AiHubTaskArtifactPage = {
 export enum AiHubTaskArtifactStatus {
   Applied = 'APPLIED',
   Expired = 'EXPIRED',
-  Irreversible = 'IRREVERSIBLE',
-  Reversed = 'REVERSED'
+  Irreversible = 'IRREVERSIBLE'
 }
 
 export enum AiHubTaskKind {
@@ -2547,6 +2546,23 @@ export type GenerateFromDocumentationInput = {
   userPrompt?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type GeneratePropertyValueInput = {
+  environmentId: Scalars['Int']['input'];
+  mode: PropertyCopilotMode;
+  prompt: Scalars['String']['input'];
+  propertyPath: Scalars['String']['input'];
+  propertyType?: InputMaybe<Scalars['String']['input']>;
+  workflowId: Scalars['ID']['input'];
+  workflowNodeName: Scalars['String']['input'];
+};
+
+export type GeneratePropertyValuePayload = {
+  __typename?: 'GeneratePropertyValuePayload';
+  message?: Maybe<Scalars['String']['output']>;
+  valid: Scalars['Boolean']['output'];
+  value: Scalars['String']['output'];
+};
+
 export type GenerateSpecificationInput = {
   baseUrl?: InputMaybe<Scalars['String']['input']>;
   endpoints: Array<EndpointDefinitionInput>;
@@ -2675,6 +2691,7 @@ export type Integration = {
   componentName: Scalars['String']['output'];
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
+  permissionExpression?: Maybe<Scalars['String']['output']>;
 };
 
 export type IntegrationInstanceConfigurationWorkflow = {
@@ -2705,6 +2722,7 @@ export type IntegrationWorkflow = {
   label: Scalars['String']['output'];
   lastModifiedBy?: Maybe<Scalars['String']['output']>;
   lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  permissionExpression?: Maybe<Scalars['String']['output']>;
   workflowTaskComponentNames: Array<Scalars['String']['output']>;
   workflowTriggerComponentNames: Array<Scalars['String']['output']>;
   workflowUuid?: Maybe<Scalars['String']['output']>;
@@ -3309,6 +3327,7 @@ export type Mutation = {
    */
   generateAiHubTaskTitle: AiHubTask;
   generateFromDocumentation: ApiConnector;
+  generatePropertyValue: GeneratePropertyValuePayload;
   generateSpecification: GenerateSpecificationResponse;
   importDataTableCsv: Scalars['Boolean']['output'];
   importOpenApiSpecification: ApiConnector;
@@ -3470,6 +3489,8 @@ export type Mutation = {
   updateDataTableRow: DataTableRow;
   updateDataTableTags: Scalars['Boolean']['output'];
   updateIdentityProvider: IdentityProviderType;
+  updateIntegrationPermissionExpression?: Maybe<Integration>;
+  updateIntegrationWorkflowPermissionExpression?: Maybe<IntegrationWorkflow>;
   updateKnowledgeBase?: Maybe<KnowledgeBase>;
   updateKnowledgeBaseDocumentChunk?: Maybe<KnowledgeBaseDocumentChunk>;
   updateKnowledgeBaseDocumentTags: Scalars['Boolean']['output'];
@@ -4310,6 +4331,11 @@ export type MutationGenerateFromDocumentationArgs = {
 };
 
 
+export type MutationGeneratePropertyValueArgs = {
+  input: GeneratePropertyValueInput;
+};
+
+
 export type MutationGenerateSpecificationArgs = {
   input: GenerateSpecificationInput;
 };
@@ -4888,6 +4914,18 @@ export type MutationUpdateIdentityProviderArgs = {
 };
 
 
+export type MutationUpdateIntegrationPermissionExpressionArgs = {
+  id: Scalars['ID']['input'];
+  permissionExpression?: InputMaybe<Scalars['String']['input']>;
+};
+
+
+export type MutationUpdateIntegrationWorkflowPermissionExpressionArgs = {
+  integrationWorkflowId: Scalars['ID']['input'];
+  permissionExpression?: InputMaybe<Scalars['String']['input']>;
+};
+
+
 export type MutationUpdateKnowledgeBaseArgs = {
   id: Scalars['ID']['input'];
   knowledgeBase: KnowledgeBaseInput;
@@ -5326,6 +5364,11 @@ export type Property = {
   required?: Maybe<Scalars['Boolean']['output']>;
   type: PropertyType;
 };
+
+export enum PropertyCopilotMode {
+  Formula = 'FORMULA',
+  Text = 'TEXT'
+}
 
 export enum PropertyType {
   Array = 'ARRAY',

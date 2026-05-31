@@ -2634,7 +2634,7 @@ export type IntegrationByIdQueryVariables = Exact<{
 }>;
 
 
-export type IntegrationByIdQuery = { integration: { id: string, name: string } | null };
+export type IntegrationByIdQuery = { integration: { id: string, name: string, permissionExpression: string | null } | null };
 
 export type IntegrationWorkflowsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2646,7 +2646,7 @@ export type IntegrationWorkflowsByIntegrationIdQueryVariables = Exact<{
 }>;
 
 
-export type IntegrationWorkflowsByIntegrationIdQuery = { integrationWorkflowsByIntegrationId: Array<{ id: string, label: string, description: string | null, integrationWorkflowId: string, workflowUuid: string | null, workflowTaskComponentNames: Array<string>, workflowTriggerComponentNames: Array<string>, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any }> };
+export type IntegrationWorkflowsByIntegrationIdQuery = { integrationWorkflowsByIntegrationId: Array<{ id: string, label: string, description: string | null, integrationWorkflowId: string, workflowUuid: string | null, permissionExpression: string | null, workflowTaskComponentNames: Array<string>, workflowTriggerComponentNames: Array<string>, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any }> };
 
 export type McpComponentDefinitionsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -2699,6 +2699,22 @@ export type ToolEligibleIntegrationVersionWorkflowsQueryVariables = Exact<{
 
 
 export type ToolEligibleIntegrationVersionWorkflowsQuery = { toolEligibleIntegrationVersionWorkflows: Array<{ id: string, integrationWorkflowId: string, label: string }> };
+
+export type UpdateIntegrationPermissionExpressionMutationVariables = Exact<{
+  id: string | number;
+  permissionExpression?: string | null | undefined;
+}>;
+
+
+export type UpdateIntegrationPermissionExpressionMutation = { updateIntegrationPermissionExpression: { id: string, permissionExpression: string | null } | null };
+
+export type UpdateIntegrationWorkflowPermissionExpressionMutationVariables = Exact<{
+  integrationWorkflowId: string | number;
+  permissionExpression?: string | null | undefined;
+}>;
+
+
+export type UpdateIntegrationWorkflowPermissionExpressionMutation = { updateIntegrationWorkflowPermissionExpression: { id: string, permissionExpression: string | null } | null };
 
 export type UpdateMcpIntegrationInstanceConfigurationMutationVariables = Exact<{
   id: string | number;
@@ -3074,6 +3090,11 @@ export type EnvironmentsQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type EnvironmentsQuery = { environments: Array<{ id: string, name: string } | null> | null };
 
+export type EvaluatorFunctionDefinitionsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type EvaluatorFunctionDefinitionsQuery = { evaluatorFunctionDefinitions: Array<{ name: string, title: string, description: string, category: Types.EvaluatorFunctionCategory, returnType: Types.EvaluatorFunctionType, example: string, parameters: Array<{ name: string, description: string, type: Types.EvaluatorFunctionType, required: boolean }> }> };
+
 export type ManagementMcpServerUrlQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -3243,6 +3264,13 @@ export type RegisterExistingConnectionMutationVariables = Exact<{
 
 
 export type RegisterExistingConnectionMutation = { registerExistingConnection: any };
+
+export type GeneratePropertyValueMutationVariables = Exact<{
+  input: Types.GeneratePropertyValueInput;
+}>;
+
+
+export type GeneratePropertyValueMutation = { generatePropertyValue: { value: string, valid: boolean, message: string | null } };
 
 export type CustomComponentQueryVariables = Exact<{
   id: string | number;
@@ -12970,6 +12998,7 @@ export const IntegrationByIdDocument = new TypedDocumentString(`
   integration(id: $id) {
     id
     name
+    permissionExpression
   }
 }
     `);
@@ -13032,6 +13061,7 @@ export const IntegrationWorkflowsByIntegrationIdDocument = new TypedDocumentStri
     description
     integrationWorkflowId
     workflowUuid
+    permissionExpression
     workflowTaskComponentNames
     workflowTriggerComponentNames
     createdBy
@@ -13301,6 +13331,56 @@ export const useToolEligibleIntegrationVersionWorkflowsQuery = <
       {
     queryKey: ['toolEligibleIntegrationVersionWorkflows', variables],
     queryFn: fetcher<ToolEligibleIntegrationVersionWorkflowsQuery, ToolEligibleIntegrationVersionWorkflowsQueryVariables>(ToolEligibleIntegrationVersionWorkflowsDocument, variables),
+    ...options
+  }
+    )};
+
+export const UpdateIntegrationPermissionExpressionDocument = new TypedDocumentString(`
+    mutation updateIntegrationPermissionExpression($id: ID!, $permissionExpression: String) {
+  updateIntegrationPermissionExpression(
+    id: $id
+    permissionExpression: $permissionExpression
+  ) {
+    id
+    permissionExpression
+  }
+}
+    `);
+
+export const useUpdateIntegrationPermissionExpressionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateIntegrationPermissionExpressionMutation, TError, UpdateIntegrationPermissionExpressionMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateIntegrationPermissionExpressionMutation, TError, UpdateIntegrationPermissionExpressionMutationVariables, TContext>(
+      {
+    mutationKey: ['updateIntegrationPermissionExpression'],
+    mutationFn: (variables?: UpdateIntegrationPermissionExpressionMutationVariables) => fetcher<UpdateIntegrationPermissionExpressionMutation, UpdateIntegrationPermissionExpressionMutationVariables>(UpdateIntegrationPermissionExpressionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateIntegrationWorkflowPermissionExpressionDocument = new TypedDocumentString(`
+    mutation updateIntegrationWorkflowPermissionExpression($integrationWorkflowId: ID!, $permissionExpression: String) {
+  updateIntegrationWorkflowPermissionExpression(
+    integrationWorkflowId: $integrationWorkflowId
+    permissionExpression: $permissionExpression
+  ) {
+    id
+    permissionExpression
+  }
+}
+    `);
+
+export const useUpdateIntegrationWorkflowPermissionExpressionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateIntegrationWorkflowPermissionExpressionMutation, TError, UpdateIntegrationWorkflowPermissionExpressionMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateIntegrationWorkflowPermissionExpressionMutation, TError, UpdateIntegrationWorkflowPermissionExpressionMutationVariables, TContext>(
+      {
+    mutationKey: ['updateIntegrationWorkflowPermissionExpression'],
+    mutationFn: (variables?: UpdateIntegrationWorkflowPermissionExpressionMutationVariables) => fetcher<UpdateIntegrationWorkflowPermissionExpressionMutation, UpdateIntegrationWorkflowPermissionExpressionMutationVariables>(UpdateIntegrationWorkflowPermissionExpressionDocument, variables)(),
     ...options
   }
     )};
@@ -14955,6 +15035,41 @@ export const useEnvironmentsQuery = <
   }
     )};
 
+export const EvaluatorFunctionDefinitionsDocument = new TypedDocumentString(`
+    query evaluatorFunctionDefinitions {
+  evaluatorFunctionDefinitions {
+    name
+    title
+    description
+    category
+    returnType
+    example
+    parameters {
+      name
+      description
+      type
+      required
+    }
+  }
+}
+    `);
+
+export const useEvaluatorFunctionDefinitionsQuery = <
+      TData = EvaluatorFunctionDefinitionsQuery,
+      TError = unknown
+    >(
+      variables?: EvaluatorFunctionDefinitionsQueryVariables,
+      options?: Omit<UseQueryOptions<EvaluatorFunctionDefinitionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EvaluatorFunctionDefinitionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EvaluatorFunctionDefinitionsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['evaluatorFunctionDefinitions'] : ['evaluatorFunctionDefinitions', variables],
+    queryFn: fetcher<EvaluatorFunctionDefinitionsQuery, EvaluatorFunctionDefinitionsQueryVariables>(EvaluatorFunctionDefinitionsDocument, variables),
+    ...options
+  }
+    )};
+
 export const ManagementMcpServerUrlDocument = new TypedDocumentString(`
     query managementMcpServerUrl {
   managementMcpServerUrl
@@ -15515,6 +15630,29 @@ export const useRegisterExistingConnectionMutation = <
       {
     mutationKey: ['RegisterExistingConnection'],
     mutationFn: (variables?: RegisterExistingConnectionMutationVariables) => fetcher<RegisterExistingConnectionMutation, RegisterExistingConnectionMutationVariables>(RegisterExistingConnectionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const GeneratePropertyValueDocument = new TypedDocumentString(`
+    mutation generatePropertyValue($input: GeneratePropertyValueInput!) {
+  generatePropertyValue(input: $input) {
+    value
+    valid
+    message
+  }
+}
+    `);
+
+export const useGeneratePropertyValueMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<GeneratePropertyValueMutation, TError, GeneratePropertyValueMutationVariables, TContext>) => {
+    
+    return useMutation<GeneratePropertyValueMutation, TError, GeneratePropertyValueMutationVariables, TContext>(
+      {
+    mutationKey: ['generatePropertyValue'],
+    mutationFn: (variables?: GeneratePropertyValueMutationVariables) => fetcher<GeneratePropertyValueMutation, GeneratePropertyValueMutationVariables>(GeneratePropertyValueDocument, variables)(),
     ...options
   }
     )};
