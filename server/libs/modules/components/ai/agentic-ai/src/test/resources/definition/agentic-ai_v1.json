@@ -553,6 +553,7 @@
   "customActionHelp": null,
   "description": "With the Agentic AI, you can define a goal and let the AI autonomously plan and execute tools to achieve it using the Embabel Agent framework with GOAP planning.",
   "icon": "path:assets/agentic-ai.svg",
+  "inputs": null,
   "metadata": null,
   "name": "agenticAi",
   "resources": null,

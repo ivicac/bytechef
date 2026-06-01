@@ -3104,6 +3104,7 @@
   "customActionHelp": null,
   "description": "The NanoGPT API allows you to generate text, images and video using any AI model available.",
   "icon": "path:assets/nano-gpt.svg",
+  "inputs": null,
   "metadata": null,
   "name": "nanoGpt",
   "resources": null,
