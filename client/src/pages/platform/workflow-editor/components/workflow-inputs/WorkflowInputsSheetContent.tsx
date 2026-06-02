@@ -9,7 +9,7 @@ import WorkflowInputsTable from './WorkflowInputsTable';
 import useWorkflowInputs from './hooks/useWorkflowInputs';
 
 interface WorkflowInputsSheetContentProps {
-    internalOnlyVisible?: boolean;
+    internalOnlyVisible: boolean;
     invalidateWorkflowQueries: () => void;
     workflowTestConfiguration?: WorkflowTestConfiguration;
 }
@@ -60,6 +60,7 @@ const WorkflowInputsSheetContent = ({
                         nameInputRef={nameInputRef}
                         openEditDialog={openEditDialog}
                         saveWorkflowInput={saveWorkflowInput}
+                        workflow={workflow}
                     />
                 )}
 

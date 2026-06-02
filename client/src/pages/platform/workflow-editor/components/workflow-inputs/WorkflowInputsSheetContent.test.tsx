@@ -41,7 +41,8 @@ vi.mock('@/components/ui/sheet', () => ({
     SheetCloseButton: () => null,
 }));
 
-const renderContent = () => render(<WorkflowInputsSheetContent invalidateWorkflowQueries={vi.fn()} />);
+const renderContent = () =>
+    render(<WorkflowInputsSheetContent internalOnlyVisible={false} invalidateWorkflowQueries={vi.fn()} />);
 
 beforeEach(() => {
     windowResizeObserver();
