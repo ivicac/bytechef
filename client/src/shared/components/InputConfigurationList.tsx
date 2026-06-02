@@ -53,28 +53,6 @@ const componentDefinitionKey = (componentName: string, componentVersion?: number
 
 const isComponentReferenceInput = (input: WorkflowInput): boolean => !!input.componentReference?.groupName;
 
-const getOrCreateSubflowInputTreeNode = (
-    subflowInputTree: Map<string, SubflowInputTreeNodeI>,
-    uuidPath: string[]
-): SubflowInputTreeNodeI => {
-    let currentLevel = subflowInputTree;
-    let node: SubflowInputTreeNodeI | undefined;
-
-    for (const uuid of uuidPath) {
-        node = currentLevel.get(uuid);
-
-        if (!node) {
-            node = {children: new Map(), duplicateStubs: [], inputs: [], subflowWorkflowUuid: uuid};
-
-            currentLevel.set(uuid, node);
-        }
-
-        currentLevel = node.children;
-    }
-
-    return node!;
-};
-
 const createDanglingPlaceholder = (input: WorkflowInput): PropertyAllType =>
     ({
         controlType: ControlType.Text,
@@ -85,7 +63,7 @@ const createDanglingPlaceholder = (input: WorkflowInput): PropertyAllType =>
         type: PropertyType.String,
     }) as PropertyAllType;
 
-interface ResolvedComponentInputGroupI {
+export interface ResolvedComponentInputGroupI {
     label?: string;
     members: PropertyAllType[];
     name: string;
