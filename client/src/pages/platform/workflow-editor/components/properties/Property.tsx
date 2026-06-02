@@ -984,6 +984,7 @@ const Property = ({
                     {!control && controlType === 'JSON_SCHEMA_BUILDER' && (
                         <PropertyJsonSchemaBuilder
                             description={description}
+                            environmentId={currentEnvironmentId}
                             error={hasError}
                             errorMessage={errorMessage}
                             handleInputTypeSwitchButtonClick={handleInputTypeSwitchButtonClick}
@@ -991,8 +992,11 @@ const Property = ({
                             leadingIcon={typeIcon}
                             name={name!}
                             onChange={(value) => handleJsonSchemaBuilderChange(value)}
+                            propertyPath={calculatedPath ?? name}
                             schema={inputValue ? JSON.parse(inputValue) : undefined}
                             title={label || name}
+                            workflowId={workflow.id as string}
+                            workflowNodeName={currentNode?.name}
                         />
                     )}
 
