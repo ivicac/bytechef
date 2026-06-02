@@ -1224,6 +1224,7 @@ const Property = ({
                         <PropertyJsonSchemaBuilder
                             description={description}
                             dynamicSwitch={dynamicSwitch}
+                            environmentId={currentEnvironmentId}
                             error={hasError}
                             errorMessage={errorMessage}
                             handleInputTypeSwitchButtonClick={showFormulaSwitch ? handleFormulaSwitch : undefined}
@@ -1237,8 +1238,11 @@ const Property = ({
 
                                 handleJsonSchemaBuilderChange(value);
                             }}
+                            propertyPath={calculatedPath ?? name}
                             schema={parseJsonSchema(inputValue)}
                             title={label || name}
+                            workflowId={workflow.id as string}
+                            workflowNodeName={currentNode?.name}
                         />
                     )}
 
