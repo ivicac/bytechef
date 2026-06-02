@@ -56,6 +56,7 @@ const WorkflowInputsSheetContent = ({
                         nameInputRef={nameInputRef}
                         openEditDialog={openEditDialog}
                         saveWorkflowInput={saveWorkflowInput}
+                        workflow={workflow}
                     />
                 )}
 

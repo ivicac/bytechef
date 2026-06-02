@@ -13,9 +13,20 @@ import {
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
 import {Input} from '@/components/ui/input';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
+import {useWorkflowEditor} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
+import {resolveComponentInputGroup} from '@/shared/components/InputConfigurationList';
+import {Workflow, WorkflowInput} from '@/shared/middleware/platform/configuration';
+import {useGetComponentDefinitionQuery} from '@/shared/queries/platform/componentDefinitions.queries';
 import {WorkflowInputType} from '@/shared/types';
 import {RefObject, useEffect} from 'react';
-import {UseFormReturn, useWatch} from 'react-hook-form';
+import {Control, FieldValues, UseFormReturn, useWatch} from 'react-hook-form';
+
+import WorkflowInputComponentTestValue from './WorkflowInputComponentTestValue';
+import {getBackingWorkflowNodeName} from './utils/getBackingWorkflowNodeName';
+import {getComponentInputGroupLabel} from './utils/getComponentInputGroupLabel';
+import {getComponentPropertyInputValues} from './utils/getComponentPropertyInputValues';
+import getWorkflowComponentNames from './utils/getWorkflowComponentNames';
+import {getWorkflowComponentVersions} from './utils/getWorkflowComponentVersions';
 
 interface WorkflowInputsEditDialogProps {
     closeDialog: () => void;
@@ -25,6 +36,7 @@ interface WorkflowInputsEditDialogProps {
     nameInputRef: RefObject<HTMLInputElement | null>;
     openEditDialog: (index?: number) => void;
     saveWorkflowInput: (input: WorkflowInputType) => void;
+    workflow: Workflow;
 }
 
 const WorkflowInputsEditDialog = ({
@@ -35,8 +47,63 @@ const WorkflowInputsEditDialog = ({
     nameInputRef,
     openEditDialog,
     saveWorkflowInput,
+    workflow,
 }: WorkflowInputsEditDialogProps) => {
+    const {useGetComponentDefinitionsQuery} = useWorkflowEditor();
+
     const selectedType = useWatch({control: form.control, name: 'type'});
+    const selectedComponentName = useWatch({control: form.control, name: 'componentReference.componentName'});
+    const selectedGroupName = useWatch({control: form.control, name: 'componentReference.groupName'});
+
+    // setValue on fields that are not bound to a registered <FormField> does not notify their
+    // useWatch subscribers, so drive the dependent values explicitly through field.onChange below.
+
+    const {data: componentDefinitions} = useGetComponentDefinitionsQuery({});
+
+    // A component input borrows the connection of a workflow node already using that component, so only components
+    // present in the workflow are offerable. Of those, keep the ones that declare selectable inputs (inputsCount > 0)
+    // so the Property picker is never empty. Map each to its display title so the dropdown shows the label, not the name.
+    const inputComponentTitles = new Map(
+        (componentDefinitions ?? [])
+            .filter((componentDefinition) => (componentDefinition.inputsCount ?? 0) > 0)
+            .map((componentDefinition) => [
+                componentDefinition.name,
+                componentDefinition.title ?? componentDefinition.name,
+            ])
+    );
+
+    const componentNames = getWorkflowComponentNames(workflow).filter((componentName) =>
+        inputComponentTitles.has(componentName)
+    );
+
+    const componentVersions = getWorkflowComponentVersions(workflow);
+
+    const resolvedComponentVersion = selectedComponentName ? componentVersions[selectedComponentName] : undefined;
+
+    const {data: componentDefinition} = useGetComponentDefinitionQuery(
+        {componentName: selectedComponentName ?? '', componentVersion: resolvedComponentVersion ?? 1},
+        !!selectedComponentName
+    );
+
+    const selectedPropertyOrGroup = selectedGroupName ? `group:${selectedGroupName}` : '';
+
+    const backingWorkflowNodeName = getBackingWorkflowNodeName(workflow, selectedComponentName);
+
+    const resolvedComponentGroup =
+        selectedType === 'component' && selectedComponentName && selectedGroupName
+            ? resolveComponentInputGroup(
+                  {
+                      componentReference: {
+                          componentName: selectedComponentName,
+                          componentVersion: resolvedComponentVersion,
+                          groupName: selectedGroupName,
+                      },
+                      label: form.getValues('label'),
+                      name: form.getValues('name'),
+                  } as WorkflowInput,
+                  componentDefinition
+              )
+            : undefined;
 
     const testValueInputTypeMap: Record<string, string> = {
         date: 'date',
@@ -48,8 +115,40 @@ const WorkflowInputsEditDialog = ({
 
     const testValueInputType = (selectedType && testValueInputTypeMap[selectedType]) ?? 'text';
 
+    const handleComponentChange = (value: string, onChange: (value: string) => void) => {
+        onChange(value);
+
+        form.setValue('componentReference.componentVersion', componentVersions[value]);
+        form.setValue('componentReference.groupName', undefined);
+    };
+
+    const handlePropertyOrGroupChange = (value: string) => {
+        const values = getComponentPropertyInputValues({
+            componentDefinition,
+            componentName: selectedComponentName ?? '',
+            componentVersion: resolvedComponentVersion ?? 1,
+            currentLabel: form.getValues('label') ?? '',
+            currentName: form.getValues('name') ?? '',
+            selection: value,
+        });
+
+        form.setValue('componentReference.componentName', values.componentName);
+        form.setValue('componentReference.componentVersion', values.componentVersion);
+        form.setValue('componentReference.groupName', values.groupName);
+
+        if (values.name !== undefined) {
+            form.setValue('name', values.name);
+        }
+
+        if (values.label !== undefined) {
+            form.setValue('label', values.label);
+        }
+    };
+
     useEffect(() => {
-        form.setValue('testValue', '');
+        if (selectedType !== 'component') {
+            form.setValue('testValue', '');
+        }
     }, [form, selectedType]);
 
     return (
@@ -75,6 +174,122 @@ const WorkflowInputsEditDialog = ({
 
                             <DialogCloseButton />
                         </DialogHeader>
+
+                        <FormField
+                            control={form.control}
+                            name="type"
+                            render={({field}) => (
+                                <FormItem>
+                                    <FormLabel>
+                                        Type <RequiredMark />
+                                    </FormLabel>
+
+                                    <FormControl>
+                                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select input type" />
+                                            </SelectTrigger>
+
+                                            <SelectContent>
+                                                <SelectItem value="component">Component property</SelectItem>
+
+                                                <SelectItem value="boolean">Boolean</SelectItem>
+
+                                                <SelectItem value="date">Date</SelectItem>
+
+                                                <SelectItem value="date_time">Date Time</SelectItem>
+
+                                                <SelectItem value="integer">Integer</SelectItem>
+
+                                                <SelectItem value="number">Number</SelectItem>
+
+                                                <SelectItem value="string">String</SelectItem>
+
+                                                <SelectItem value="time">Time</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </FormControl>
+
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                            rules={{required: true}}
+                        />
+
+                        {selectedType === 'component' && (
+                            <>
+                                <FormField
+                                    control={form.control}
+                                    name="componentReference.componentName"
+                                    render={({field}) => (
+                                        <FormItem>
+                                            <FormLabel>
+                                                Component <RequiredMark />
+                                            </FormLabel>
+
+                                            <FormControl>
+                                                <Select
+                                                    onValueChange={(value) =>
+                                                        handleComponentChange(value, field.onChange)
+                                                    }
+                                                    value={field.value ?? ''}
+                                                >
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Select component" />
+                                                    </SelectTrigger>
+
+                                                    <SelectContent>
+                                                        {componentNames.map((currentComponentName) => (
+                                                            <SelectItem
+                                                                key={currentComponentName}
+                                                                value={currentComponentName}
+                                                            >
+                                                                {inputComponentTitles.get(currentComponentName) ??
+                                                                    currentComponentName}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+                                            </FormControl>
+
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                    rules={{required: true}}
+                                />
+
+                                <FormItem>
+                                    <FormLabel>
+                                        Input <RequiredMark />
+                                    </FormLabel>
+
+                                    <FormControl>
+                                        <Select
+                                            disabled={!selectedComponentName}
+                                            onValueChange={handlePropertyOrGroupChange}
+                                            value={selectedPropertyOrGroup}
+                                        >
+                                            <SelectTrigger className="w-full">
+                                                <SelectValue placeholder="Select input" />
+                                            </SelectTrigger>
+
+                                            <SelectContent>
+                                                {componentDefinition?.inputs?.map((group) => (
+                                                    <SelectItem
+                                                        key={`group:${group.name}`}
+                                                        value={`group:${group.name}`}
+                                                    >
+                                                        {getComponentInputGroupLabel(group)}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </FormControl>
+
+                                    <FormMessage />
+                                </FormItem>
+                            </>
+                        )}
 
                         <FormField
                             control={form.control}
@@ -121,45 +336,6 @@ const WorkflowInputsEditDialog = ({
 
                         <FormField
                             control={form.control}
-                            name="type"
-                            render={({field}) => (
-                                <FormItem>
-                                    <FormLabel>
-                                        Type <RequiredMark />
-                                    </FormLabel>
-
-                                    <FormControl>
-                                        <Select onValueChange={field.onChange} value={field.value ?? ''}>
-                                            <SelectTrigger className="w-full">
-                                                <SelectValue placeholder="Select input type" />
-                                            </SelectTrigger>
-
-                                            <SelectContent>
-                                                <SelectItem value="boolean">Boolean</SelectItem>
-
-                                                <SelectItem value="date">Date</SelectItem>
-
-                                                <SelectItem value="date_time">Date Time</SelectItem>
-
-                                                <SelectItem value="integer">Integer</SelectItem>
-
-                                                <SelectItem value="number">Number</SelectItem>
-
-                                                <SelectItem value="string">String</SelectItem>
-
-                                                <SelectItem value="time">Time</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </FormControl>
-
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                            rules={{required: true}}
-                        />
-
-                        <FormField
-                            control={form.control}
                             name="required"
                             render={({field}) => (
                                 <FormItem>
@@ -187,38 +363,59 @@ const WorkflowInputsEditDialog = ({
                             )}
                         />
 
-                        <FormField
-                            control={form.control}
-                            name="testValue"
-                            render={({field}) => (
-                                <FormItem>
-                                    <FormLabel>Test Value</FormLabel>
+                        {selectedType === 'component' ? (
+                            <fieldset className="space-y-2 border-0 p-0">
+                                <FormLabel>Test Value</FormLabel>
 
-                                    <FormControl>
-                                        {selectedType === 'boolean' ? (
-                                            <Select
-                                                onValueChange={(value) => field.onChange(value)}
-                                                value={field.value ?? ''}
-                                            >
-                                                <SelectTrigger className="w-full">
-                                                    <SelectValue placeholder="Select value" />
-                                                </SelectTrigger>
+                                {resolvedComponentGroup ? (
+                                    <WorkflowInputComponentTestValue
+                                        backingWorkflowNodeName={backingWorkflowNodeName}
+                                        control={form.control as unknown as Control<FieldValues>}
+                                        members={resolvedComponentGroup.members}
+                                        workflowId={workflow.id}
+                                    />
+                                ) : (
+                                    <p className="text-sm text-content-neutral-secondary">
+                                        Select an input to set its test value.
+                                    </p>
+                                )}
 
-                                                <SelectContent>
-                                                    <SelectItem value="true">True</SelectItem>
+                                <p className="text-sm text-content-neutral-secondary">Configured at deployment time.</p>
+                            </fieldset>
+                        ) : (
+                            <FormField
+                                control={form.control}
+                                name="testValue"
+                                render={({field}) => (
+                                    <FormItem>
+                                        <FormLabel>Test Value</FormLabel>
 
-                                                    <SelectItem value="false">False</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        ) : (
-                                            <Input {...field} placeholder="Enter value" type={testValueInputType} />
-                                        )}
-                                    </FormControl>
+                                        <FormControl>
+                                            {selectedType === 'boolean' ? (
+                                                <Select
+                                                    onValueChange={(value) => field.onChange(value)}
+                                                    value={field.value ?? ''}
+                                                >
+                                                    <SelectTrigger className="w-full">
+                                                        <SelectValue placeholder="Select value" />
+                                                    </SelectTrigger>
 
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                                    <SelectContent>
+                                                        <SelectItem value="true">True</SelectItem>
+
+                                                        <SelectItem value="false">False</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            ) : (
+                                                <Input {...field} placeholder="Enter value" type={testValueInputType} />
+                                            )}
+                                        </FormControl>
+
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
 
                         <DialogFooter>
                             <DialogClose asChild>

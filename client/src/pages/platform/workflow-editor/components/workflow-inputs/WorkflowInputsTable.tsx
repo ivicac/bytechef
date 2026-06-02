@@ -10,6 +10,23 @@ interface WorkflowInputsTableProps {
     workflowTestConfigurationInputs?: WorkflowTestConfiguration['inputs'];
 }
 
+// A component-property input's test value is a nested object ({member: value}); render its member
+// values rather than the default "[object Object]".
+const formatTestValue = (value: unknown): string => {
+    if (value == null) {
+        return '';
+    }
+
+    if (typeof value === 'object') {
+        return Object.values(value as Record<string, unknown>)
+            .filter((memberValue) => memberValue != null && memberValue !== '')
+            .map((memberValue) => String(memberValue))
+            .join(', ');
+    }
+
+    return String(value);
+};
+
 const WorkflowInputsTable = ({
     openDeleteDialog,
     openEditDialog,
@@ -40,15 +57,11 @@ const WorkflowInputsTable = ({
 
                     <TableCell>{input.label}</TableCell>
 
-                    <TableCell>{input.type}</TableCell>
+                    <TableCell>{input.componentReference ? 'component' : input.type}</TableCell>
 
                     <TableCell>{input.required === true ? 'true' : 'false'}</TableCell>
 
-                    <TableCell>
-                        {workflowTestConfigurationInputs
-                            ? workflowTestConfigurationInputs[workflowInputs![index]?.name]?.toString()
-                            : undefined}
-                    </TableCell>
+                    <TableCell>{formatTestValue(workflowTestConfigurationInputs?.[input.name])}</TableCell>
 
                     <TableCell className="flex justify-end">
                         <Button icon={<EditIcon />} onClick={() => openEditDialog(index)} size="icon" variant="ghost" />

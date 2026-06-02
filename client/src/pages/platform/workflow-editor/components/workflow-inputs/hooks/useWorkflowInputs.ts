@@ -11,6 +11,8 @@ import {useForm} from 'react-hook-form';
 import {useShallow} from 'zustand/react/shallow';
 
 import useWorkflowDataStore from '../../../stores/useWorkflowDataStore';
+import {fromWorkflowDefinitionInput} from '../utils/fromWorkflowDefinitionInput';
+import {toWorkflowDefinitionInput} from '../utils/toWorkflowDefinitionInput';
 
 interface UseWorkflowInputsProps {
     invalidateWorkflowQueries: () => void;
@@ -48,6 +50,7 @@ export default function useWorkflowInputs({
             testValue: workflowTestConfiguration?.inputs
                 ? workflowTestConfiguration?.inputs[currentInput?.name]
                 : undefined,
+            type: currentInput.componentReference ? 'component' : currentInput.type,
         };
     }
 
@@ -91,6 +94,7 @@ export default function useWorkflowInputs({
         form.reset({
             ...currentInput,
             testValue,
+            type: currentInput.componentReference ? 'component' : currentInput.type,
         });
     }
 
@@ -138,6 +142,10 @@ export default function useWorkflowInputs({
 
         delete input['testValue'];
 
+        if (input.componentReference) {
+            delete input['type'];
+        }
+
         const workflowDefinition: WorkflowDefinitionType = JSON.parse(workflow.definition!);
 
         let inputs: WorkflowInput[] = workflowDefinition.inputs ?? [];
@@ -149,14 +157,18 @@ export default function useWorkflowInputs({
                 input.name = getFormattedInputName(input.name, inputs);
             }
 
-            inputs = [...inputs, input];
+            inputs = [...inputs, toWorkflowDefinitionInput(input)];
         } else {
-            inputs[currentInputIndex] = input;
+            inputs[currentInputIndex] = toWorkflowDefinitionInput(input);
         }
+
+        // The definition persists flat keys; the local store mirrors what a reload returns (nested
+        // componentReference), so component inputs keep their reference instead of degrading to a string.
+        const stateInputs = inputs.map(fromWorkflowDefinitionInput);
 
         setWorkflow({
             ...workflow,
-            inputs,
+            inputs: stateInputs,
         });
 
         updateWorkflowMutation!.mutate(
@@ -176,11 +188,9 @@ export default function useWorkflowInputs({
             },
             {
                 onError: () => {
-                    const originalInputs = workflowDefinition.inputs ?? [];
-
                     setWorkflow({
                         ...workflow,
-                        inputs: originalInputs,
+                        inputs: (workflowDefinition.inputs ?? []).map(fromWorkflowDefinitionInput),
                     });
                 },
                 onSuccess: async () => {
@@ -195,7 +205,7 @@ export default function useWorkflowInputs({
 
                     setWorkflow({
                         ...workflow,
-                        inputs,
+                        inputs: stateInputs,
                         version: (workflow.version ?? 0) + 1,
                     });
 
@@ -228,11 +238,15 @@ export default function useWorkflowInputs({
 
         const index = inputs.findIndex((curInput) => curInput.name === input.name);
 
+        const originalInputs = [...inputs];
+
         inputs.splice(index, 1);
+
+        const stateInputs = inputs.map(fromWorkflowDefinitionInput);
 
         setWorkflow({
             ...workflow,
-            inputs,
+            inputs: stateInputs,
         });
 
         updateWorkflowMutation!.mutate(
@@ -252,17 +266,15 @@ export default function useWorkflowInputs({
             },
             {
                 onError: () => {
-                    const originalInputs = definitionObject.inputs ?? [];
-
                     setWorkflow({
                         ...workflow,
-                        inputs: originalInputs,
+                        inputs: originalInputs.map(fromWorkflowDefinitionInput),
                     });
                 },
                 onSuccess: () => {
                     setWorkflow({
                         ...workflow,
-                        inputs,
+                        inputs: stateInputs,
                         version: (workflow.version ?? 0) + 1,
                     });
 
