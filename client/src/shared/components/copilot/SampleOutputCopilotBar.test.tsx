@@ -10,8 +10,7 @@ vi.mock('./useGenerateSampleOutput', () => ({
 }));
 
 vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
-    useApplicationInfoStore: (selector: (state: unknown) => unknown) =>
-        selector({ai: {copilot: {enabled: true}}}),
+    useApplicationInfoStore: (selector: (state: unknown) => unknown) => selector({ai: {copilot: {enabled: true}}}),
 }));
 
 vi.mock('@/shared/stores/useFeatureFlagsStore', () => ({
@@ -29,12 +28,7 @@ describe('SampleOutputCopilotBar', () => {
         generateMock.mockResolvedValue({message: null, valid: true, value: '{"id":1}'});
 
         render(
-            <SampleOutputCopilotBar
-                currentEditorIsEmpty={true}
-                environmentId={1}
-                onApply={onApply}
-                workflowId="wf1"
-            />
+            <SampleOutputCopilotBar currentEditorIsEmpty={true} environmentId={1} onApply={onApply} workflowId="wf1" />
         );
 
         fireEvent.change(screen.getByPlaceholderText(/describe/i), {target: {value: 'an order'}});
