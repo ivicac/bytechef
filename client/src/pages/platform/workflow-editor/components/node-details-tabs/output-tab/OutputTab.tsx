@@ -42,6 +42,8 @@ const OutputTab = ({
     variablePropertiesDefined = false,
     workflowId,
 }: OutputTabProps) => {
+    const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
+
     const {
         copiedValue,
         copyToClipboard,
@@ -73,8 +75,6 @@ const OutputTab = ({
         parentWorkflowNodeName,
         workflowId,
     });
-
-    const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
 
     if (!testing && workflowNodeOutputIsFetching) {
         return <></>;
