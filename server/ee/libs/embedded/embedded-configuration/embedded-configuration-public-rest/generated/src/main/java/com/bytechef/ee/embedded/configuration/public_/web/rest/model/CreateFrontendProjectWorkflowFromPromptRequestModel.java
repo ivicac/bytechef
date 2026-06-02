@@ -17,27 +17,27 @@ import java.util.*;
 import jakarta.annotation.Generated;
 
 /**
- * GenerateFrontendProjectWorkflowRequestModel
+ * CreateFrontendProjectWorkflowFromPromptRequestModel
  */
 
-@JsonTypeName("generateFrontendProjectWorkflow_request")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-05-27T21:00:27.680399+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
-public class GenerateFrontendProjectWorkflowRequestModel {
+@JsonTypeName("createFrontendProjectWorkflowFromPrompt_request")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-06-02T21:07:07.106556+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
+public class CreateFrontendProjectWorkflowFromPromptRequestModel {
 
   private String prompt;
 
-  public GenerateFrontendProjectWorkflowRequestModel() {
+  public CreateFrontendProjectWorkflowFromPromptRequestModel() {
     super();
   }
 
   /**
    * Constructor with only required parameters
    */
-  public GenerateFrontendProjectWorkflowRequestModel(String prompt) {
+  public CreateFrontendProjectWorkflowFromPromptRequestModel(String prompt) {
     this.prompt = prompt;
   }
 
-  public GenerateFrontendProjectWorkflowRequestModel prompt(String prompt) {
+  public CreateFrontendProjectWorkflowFromPromptRequestModel prompt(String prompt) {
     this.prompt = prompt;
     return this;
   }
@@ -66,8 +66,8 @@ public class GenerateFrontendProjectWorkflowRequestModel {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    GenerateFrontendProjectWorkflowRequestModel generateFrontendProjectWorkflowRequest = (GenerateFrontendProjectWorkflowRequestModel) o;
-    return Objects.equals(this.prompt, generateFrontendProjectWorkflowRequest.prompt);
+    CreateFrontendProjectWorkflowFromPromptRequestModel createFrontendProjectWorkflowFromPromptRequest = (CreateFrontendProjectWorkflowFromPromptRequestModel) o;
+    return Objects.equals(this.prompt, createFrontendProjectWorkflowFromPromptRequest.prompt);
   }
 
   @Override
@@ -78,7 +78,7 @@ public class GenerateFrontendProjectWorkflowRequestModel {
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class GenerateFrontendProjectWorkflowRequestModel {\n");
+    sb.append("class CreateFrontendProjectWorkflowFromPromptRequestModel {\n");
     sb.append("    prompt: ").append(toIndentedString(prompt)).append("\n");
     sb.append("}");
     return sb.toString();
