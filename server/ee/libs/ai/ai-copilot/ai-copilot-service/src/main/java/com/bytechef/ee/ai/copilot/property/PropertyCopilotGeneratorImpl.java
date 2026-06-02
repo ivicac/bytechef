@@ -23,6 +23,7 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
+import tools.jackson.databind.ObjectMapper;
 
 /**
  * @version ee
@@ -34,6 +35,8 @@ import org.springframework.stereotype.Service;
 @ConditionalOnProperty(prefix = "bytechef.ai.copilot", name = "enabled", havingValue = "true")
 @SuppressFBWarnings("EI")
 public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
+
+    private static final ObjectMapper JSON_OBJECT_MAPPER = new ObjectMapper();
 
     private final ChatModel chatModel;
     private final Evaluator evaluator;
@@ -62,6 +65,11 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
             request.mode() == PropertyCopilotMode.FORMULA ? buildFunctionCatalog() : "";
 
         String prompt = promptBuilder.build(request, availableOutputs, functionCatalog);
+
+        if (request.mode() == PropertyCopilotMode.JSON_SCHEMA) {
+            return generateJsonSchema(request, prompt);
+        }
+
         String value = clean(call(prompt));
 
         if (request.mode() != PropertyCopilotMode.FORMULA) {
@@ -100,6 +108,44 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
 
         return new PropertyCopilotResult(
             repaired, false, "The generated formula could not be validated; please review it.");
+    }
+
+    private PropertyCopilotResult generateJsonSchema(PropertyCopilotRequest request, String prompt) {
+        String value = clean(call(prompt));
+
+        if (isValidJsonObject(value)) {
+            record(request, "success");
+
+            return new PropertyCopilotResult(value, true, null);
+        }
+
+        String repaired = clean(call(prompt +
+            "\n\nThe previous attempt was not valid JSON. Return ONLY a valid JSON Schema object."));
+
+        if (isValidJsonObject(repaired)) {
+            record(request, "success");
+
+            return new PropertyCopilotResult(repaired, true, null);
+        }
+
+        record(request, "invalid_json");
+
+        return new PropertyCopilotResult(
+            repaired, false, "The generated JSON schema could not be parsed; please review it.");
+    }
+
+    private static boolean isValidJsonObject(String value) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+
+        try {
+            JSON_OBJECT_MAPPER.readValue(value, Map.class);
+
+            return true;
+        } catch (Exception exception) {
+            return false;
+        }
     }
 
     private String buildAvailableOutputs(PropertyCopilotRequest request) {
@@ -156,7 +202,7 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
             return "";
         }
 
-        return text.replace("```", "")
+        return text.replaceAll("```[a-zA-Z]*", "")
             .strip();
     }
 
