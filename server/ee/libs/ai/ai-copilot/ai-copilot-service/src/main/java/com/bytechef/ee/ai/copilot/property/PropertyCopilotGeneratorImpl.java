@@ -60,15 +60,17 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
 
     @Override
     public PropertyCopilotResult generate(PropertyCopilotRequest request) {
+        // JSON_SCHEMA generation depends only on the user's prompt, so skip the previous-step output
+        // and function-catalog lookups (both involve real service calls) that TEXT/FORMULA need.
+        if (request.mode() == PropertyCopilotMode.JSON_SCHEMA) {
+            return generateJsonSchema(request, promptBuilder.build(request, "", ""));
+        }
+
         String availableOutputs = buildAvailableOutputs(request);
         String functionCatalog =
             request.mode() == PropertyCopilotMode.FORMULA ? buildFunctionCatalog() : "";
 
         String prompt = promptBuilder.build(request, availableOutputs, functionCatalog);
-
-        if (request.mode() == PropertyCopilotMode.JSON_SCHEMA) {
-            return generateJsonSchema(request, prompt);
-        }
 
         String value = clean(call(prompt));
 
