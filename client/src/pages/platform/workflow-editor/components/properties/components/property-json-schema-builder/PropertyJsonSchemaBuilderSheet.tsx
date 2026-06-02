@@ -14,13 +14,26 @@ import type {StandaloneCodeEditorType} from '@/shared/components/MonacoTypes';
 const MonacoEditor = lazy(() => import('@/shared/components/MonacoEditorWrapper'));
 
 interface PropertyJsonSchemaBuilderSheetProps {
+    environmentId?: number;
     onChange?: (newSchema: SchemaRecordType) => void;
     onClose?: () => void;
+    propertyPath?: string;
     schema?: SchemaRecordType;
     title?: string;
+    workflowId?: string;
+    workflowNodeName?: string;
 }
 
-const PropertyJsonSchemaBuilderSheet = ({onChange, onClose, schema, title}: PropertyJsonSchemaBuilderSheetProps) => {
+const PropertyJsonSchemaBuilderSheet = ({
+    environmentId,
+    onChange,
+    onClose,
+    propertyPath,
+    schema,
+    title,
+    workflowId,
+    workflowNodeName,
+}: PropertyJsonSchemaBuilderSheetProps) => {
     const [localSchema, setLocalSchema] = useState<SchemaRecordType | undefined>(schema);
 
     const editorRef = useRef<StandaloneCodeEditorType | null>(null);
