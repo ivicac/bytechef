@@ -1,30 +1,27 @@
 
-# WorkflowInput
+# ComponentInputReference
 
+An all-or-nothing reference from a workflow input to a component-defined input group.
 
 ## Properties
 
 Name | Type
 ------------ | -------------
-`label` | string
-`name` | string
-`required` | boolean
-`type` | string
-`componentReference` | [ComponentInputReference](ComponentInputReference.md)
+`componentName` | string
+`componentVersion` | number
+`groupName` | string
 
 ## Example
 
 ```typescript
-import type { WorkflowInput } from ''
+import type { ComponentInputReference } from ''
 
 // TODO: Update the object below with actual values
 const example = {
-  "label": null,
-  "name": null,
-  "required": null,
-  "type": null,
-  "componentReference": null,
-} satisfies WorkflowInput
+  "componentName": null,
+  "componentVersion": null,
+  "groupName": null,
+} satisfies ComponentInputReference
 
 console.log(example)
 
@@ -33,7 +30,7 @@ const exampleJSON: string = JSON.stringify(example)
 console.log(exampleJSON)
 
 // Parse the JSON string back to an object
-const exampleParsed = JSON.parse(exampleJSON) as WorkflowInput
+const exampleParsed = JSON.parse(exampleJSON) as ComponentInputReference
 console.log(exampleParsed)
 ```
 
