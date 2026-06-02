@@ -9,6 +9,7 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog';
 import MonacoEditorLoader from '@/shared/components/MonacoEditorLoader';
+import SampleOutputCopilotBar from '@/shared/components/copilot/SampleOutputCopilotBar';
 import {EDITOR_PLACEHOLDER, SPACE} from '@/shared/constants';
 import {Suspense, lazy, useEffect, useState} from 'react';
 
@@ -17,13 +18,22 @@ import type {StandaloneCodeEditorType} from '@/shared/components/MonacoTypes';
 const MonacoEditor = lazy(() => import('@/shared/components/MonacoEditorWrapper'));
 
 interface OutputTabSampleDataDialogProps {
+    environmentId?: number;
     onClose: () => void;
     onUpload: (value: string) => void;
     open: boolean;
     placeholder?: object;
+    workflowId?: string;
 }
 
-const OutputTabSampleDataDialog = ({onClose, onUpload, open, placeholder}: OutputTabSampleDataDialogProps) => {
+const OutputTabSampleDataDialog = ({
+    environmentId,
+    onClose,
+    onUpload,
+    open,
+    placeholder,
+    workflowId,
+}: OutputTabSampleDataDialogProps) => {
     const [rawValue, setRawValue] = useState<string>('');
     const [parsedValue, setParsedValue] = useState<object | undefined>();
 
@@ -96,6 +106,23 @@ const OutputTabSampleDataDialog = ({onClose, onUpload, open, placeholder}: Outpu
 
                     <DialogCloseButton />
                 </DialogHeader>
+
+                {environmentId !== undefined && (
+                    <SampleOutputCopilotBar
+                        currentEditorIsEmpty={rawValue.trim().length === 0}
+                        environmentId={environmentId}
+                        onApply={(value) => {
+                            setRawValue(value);
+
+                            try {
+                                setParsedValue(JSON.parse(value));
+                            } catch {
+                                setParsedValue(undefined);
+                            }
+                        }}
+                        workflowId={workflowId}
+                    />
+                )}
 
                 <div className="relative mt-4 min-h-output-tab-sample-data-dialog-height flex-1">
                     <div className="absolute inset-0">

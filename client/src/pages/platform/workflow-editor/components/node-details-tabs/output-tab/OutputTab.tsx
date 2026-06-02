@@ -9,6 +9,7 @@ import OutputSchemaDisplay from '@/pages/platform/workflow-editor/components/nod
 import OutputTabSampleDataDialog from '@/pages/platform/workflow-editor/components/node-details-tabs/output-tab/OutputTabSampleDataDialog';
 import DialogLoader from '@/shared/components/DialogLoader';
 import {TriggerType} from '@/shared/middleware/platform/configuration';
+import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {NodeDataType, PropertyAllType} from '@/shared/types';
 import {AlertCircleIcon, ClipboardIcon} from 'lucide-react';
 import {Suspense} from 'react';
@@ -72,6 +73,8 @@ const OutputTab = ({
         parentWorkflowNodeName,
         workflowId,
     });
+
+    const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
 
     if (!testing && workflowNodeOutputIsFetching) {
         return <></>;
@@ -214,10 +217,12 @@ const OutputTab = ({
             {showUploadDialog && (
                 <Suspense fallback={<DialogLoader />}>
                     <OutputTabSampleDataDialog
+                        environmentId={currentEnvironmentId}
                         onClose={() => setShowUploadDialog(false)}
                         onUpload={handleSampleDataDialogUpload}
                         open={showUploadDialog}
                         placeholder={placeholder || sampleOutput}
+                        workflowId={workflowId}
                     />
                 </Suspense>
             )}
