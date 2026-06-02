@@ -25,6 +25,7 @@ import com.bytechef.ai.copilot.agent.ConverterSpringAIAgent;
 import com.bytechef.ai.copilot.agent.JsonSchemaBuilderSpringAIAgent;
 import com.bytechef.ai.copilot.agent.McpServerSpringAIAgent;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
+import com.bytechef.ai.copilot.agent.SampleOutputSpringAIAgent;
 import com.bytechef.ai.copilot.agent.SkillsSpringAIAgent;
 import com.bytechef.ai.copilot.agent.WorkflowEditorSpringAIAgent;
 import com.bytechef.ai.copilot.connection.CopilotConnectionLister;
@@ -38,6 +39,7 @@ import com.bytechef.ai.copilot.tool.LookupActionPropertyOptionsToolCallback;
 import com.bytechef.ai.copilot.tool.LookupTriggerPropertyOptionsToolCallback;
 import com.bytechef.ai.copilot.tool.PropertyOptionsResolver;
 import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
+import com.bytechef.ai.copilot.tool.SampleOutputTools;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ai.copilot.tool.SelectConnectionToolCallback;
 import com.bytechef.ai.copilot.tool.SelectPropertyOptionToolCallback;
@@ -113,6 +115,8 @@ public class CopilotConfiguration {
     private final Resource promptSkillsBuildResource;
     private final Resource promptJsonSchemaBuilderAskResource;
     private final Resource promptJsonSchemaBuilderBuildResource;
+    private final Resource promptSampleOutputAskResource;
+    private final Resource promptSampleOutputBuildResource;
     private final WorkflowValidatorTools workflowValidatorTools;
     private final WorkflowInstructionTools workflowInstructionTools;
     private final State state = new State();
@@ -141,6 +145,8 @@ public class CopilotConfiguration {
         @Value("classpath:prompt_skills_build.txt") Resource promptSkillsBuildResource,
         @Value("classpath:prompt_json_schema_builder_ask.txt") Resource promptJsonSchemaBuilderAskResource,
         @Value("classpath:prompt_json_schema_builder_build.txt") Resource promptJsonSchemaBuilderBuildResource,
+        @Value("classpath:prompt_sample_output_ask.txt") Resource promptSampleOutputAskResource,
+        @Value("classpath:prompt_sample_output_build.txt") Resource promptSampleOutputBuildResource,
         WorkflowValidatorTools workflowValidatorTools, WorkflowInstructionTools workflowInstructionTools,
         ConnectionDefinitionService connectionDefinitionService, WorkspaceConnectionFacade workspaceConnectionFacade,
         ComponentDefinitionService componentDefinitionService, ActionDefinitionService actionDefinitionService,
@@ -170,6 +176,8 @@ public class CopilotConfiguration {
         this.promptSkillsBuildResource = promptSkillsBuildResource;
         this.promptJsonSchemaBuilderAskResource = promptJsonSchemaBuilderAskResource;
         this.promptJsonSchemaBuilderBuildResource = promptJsonSchemaBuilderBuildResource;
+        this.promptSampleOutputAskResource = promptSampleOutputAskResource;
+        this.promptSampleOutputBuildResource = promptSampleOutputBuildResource;
     }
 
     @Bean
@@ -513,6 +521,44 @@ public class CopilotConfiguration {
             .chatMemory(chatMemory)
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptJsonSchemaBuilderBuildResource))
+            .toolCallbacks(wrapTools(securityContextRehydrator, tools))
+            .state(state)
+            .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
+            .build();
+    }
+
+    @Bean
+    SampleOutputSpringAIAgent sampleOutputAskSpringAIAgent(
+        ChatMemory chatMemory, ChatModel chatModel, SecurityContextRehydrator securityContextRehydrator,
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider) throws AGUIException {
+
+        String name = Source.SAMPLE_OUTPUT.name() + "_" + Mode.ASK.name();
+
+        return SampleOutputSpringAIAgent.builder()
+            .agentId(name.toLowerCase())
+            .chatMemory(chatMemory)
+            .chatModel(chatModel)
+            .systemMessage(getSystemPrompt(promptSampleOutputAskResource))
+            .toolCallbacks(wrapTools(securityContextRehydrator, List.of()))
+            .state(state)
+            .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
+            .build();
+    }
+
+    @Bean
+    SampleOutputSpringAIAgent sampleOutputBuildSpringAIAgent(
+        ChatMemory chatMemory, ChatModel chatModel, SecurityContextRehydrator securityContextRehydrator,
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider) throws AGUIException {
+
+        String name = Source.SAMPLE_OUTPUT.name() + "_" + Mode.BUILD.name();
+
+        List<Object> tools = new ArrayList<>(List.of(new SampleOutputTools()));
+
+        return SampleOutputSpringAIAgent.builder()
+            .agentId(name.toLowerCase())
+            .chatMemory(chatMemory)
+            .chatModel(chatModel)
+            .systemMessage(getSystemPrompt(promptSampleOutputBuildResource))
             .toolCallbacks(wrapTools(securityContextRehydrator, tools))
             .state(state)
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
