@@ -33,6 +33,8 @@ import {useDebouncedCallback} from 'use-debounce';
 import {useShallow} from 'zustand/react/shallow';
 
 import {FormulaMode} from './FormulaMode.extension';
+import {FunctionSignature} from './FunctionSignature.extension';
+import {FunctionSuggestion} from './FunctionSuggestion.extension';
 import {MentionStorage} from './MentionStorage.extension';
 import PropertyMentionNodeView from './PropertyMentionNodeView';
 import {getDataPillIconSource} from './getDataPillIconSource';
@@ -42,6 +44,7 @@ import {
     PROPERTY_MENTION_ROOT_CLASS,
     replaceMentionNodesInHtmlWithVariables,
 } from './propertyMentionDom';
+import {useEvaluatorFunctionDefinitions} from './useEvaluatorFunctionDefinitions';
 
 interface PropertyMentionsInputEditorProps {
     className?: string;
@@ -130,6 +133,8 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
             [componentDefinitions, taskDispatcherDefinitions, workflow]
         );
 
+        const evaluatorFunctionDefinitions = useEvaluatorFunctionDefinitions();
+
         const extensions = useMemo(() => {
             const extensions = [
                 ...(controlType === 'RICH_TEXT' ? [StarterKit] : [Document, Paragraph, Text]),
@@ -160,6 +165,7 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
                     setIsFormulaMode: setIsFormulaMode || (() => {}),
                 }),
                 MentionStorage,
+                ...(expressionEnabled !== false ? [FunctionSuggestion, FunctionSignature] : []),
                 Mention.extend({
                     addNodeView() {
                         return ReactNodeViewRenderer(PropertyMentionNodeView);
@@ -609,6 +615,16 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
             editor.storage.MentionStorage.dataPills = dataPills;
             editor.storage.MentionStorage.controlType = controlType;
         }, [controlType, dataPills, editor]);
+
+        // Keep the function suggestion catalog in editor storage so the suggestion items callback can read it
+        // without recreating the editor.
+        useEffect(() => {
+            if (!editor || editor.storage.FunctionSuggestion === undefined) {
+                return;
+            }
+
+            editor.storage.FunctionSuggestion.functionDefinitions = evaluatorFunctionDefinitions;
+        }, [editor, evaluatorFunctionDefinitions]);
 
         // Update editor content when editorValue changes (but not during local updates)
         useEffect(() => {
