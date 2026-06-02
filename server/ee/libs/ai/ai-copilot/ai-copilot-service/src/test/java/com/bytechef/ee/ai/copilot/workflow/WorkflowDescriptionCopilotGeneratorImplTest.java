@@ -81,4 +81,15 @@ class WorkflowDescriptionCopilotGeneratorImplTest {
 
         assertThat(result.value()).isEqualTo("Sends a Slack message.");
     }
+
+    @Test
+    void testGenerateStripsLanguageTaggedFences() {
+        WorkflowDescriptionCopilotGeneratorImpl generator = generatorReturning(
+            "{\"label\":\"Sync\"}", "```markdown\nSyncs records nightly.\n```");
+
+        WorkflowDescriptionCopilotResult result = generator.generate(
+            new WorkflowDescriptionCopilotRequest("wf1", null, 0));
+
+        assertThat(result.value()).isEqualTo("Syncs records nightly.");
+    }
 }

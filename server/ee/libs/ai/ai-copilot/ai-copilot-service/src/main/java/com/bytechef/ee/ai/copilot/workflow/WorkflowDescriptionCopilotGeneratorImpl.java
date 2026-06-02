@@ -70,7 +70,7 @@ public class WorkflowDescriptionCopilotGeneratorImpl implements WorkflowDescript
             return "";
         }
 
-        return text.replace("```", "")
+        return text.replaceAll("```[a-zA-Z]*", "")
             .strip();
     }
 
