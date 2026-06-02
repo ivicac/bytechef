@@ -9,6 +9,8 @@ import {MessageCircleQuestionIcon} from 'lucide-react';
 import {VisuallyHidden} from 'radix-ui';
 import {Suspense, lazy, useCallback, useEffect, useRef, useState} from 'react';
 
+import JsonSchemaCopilotBar from './JsonSchemaCopilotBar';
+
 import type {StandaloneCodeEditorType} from '@/shared/components/MonacoTypes';
 
 const MonacoEditor = lazy(() => import('@/shared/components/MonacoEditorWrapper'));
@@ -93,6 +95,22 @@ const PropertyJsonSchemaBuilderSheet = ({
                     </header>
 
                     <div className="flex-1 space-y-4 overflow-y-auto p-3">
+                        {environmentId !== undefined && propertyPath && (
+                            <JsonSchemaCopilotBar
+                                currentSchemaIsEmpty={
+                                    !(localSchema as {properties?: Record<string, unknown>})?.properties ||
+                                    Object.keys(
+                                        (localSchema as {properties?: Record<string, unknown>})?.properties ?? {}
+                                    ).length === 0
+                                }
+                                environmentId={environmentId}
+                                onApply={handleSchemaChange}
+                                propertyPath={propertyPath}
+                                workflowId={workflowId}
+                                workflowNodeName={workflowNodeName}
+                            />
+                        )}
+
                         {title === 'Response Schema' && (
                             <Note
                                 content="Define how you'd like the LLM to structure its responses — essentially a template for its output."

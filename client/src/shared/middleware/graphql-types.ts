@@ -5367,6 +5367,7 @@ export type Property = {
 
 export enum PropertyCopilotMode {
   Formula = 'FORMULA',
+  JsonSchema = 'JSON_SCHEMA',
   Text = 'TEXT'
 }
 
