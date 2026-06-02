@@ -52,6 +52,12 @@ const JsonSchemaCopilotBar = ({
                 workflowNodeName,
             });
 
+            if (!result.valid) {
+                setError(result.message ?? 'The generated schema could not be validated.');
+
+                return;
+            }
+
             let parsed: SchemaRecordType;
 
             try {
