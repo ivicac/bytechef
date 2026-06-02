@@ -1,0 +1,15 @@
+extend type Mutation {
+    generateSampleOutput(input: GenerateSampleOutputInput!): GenerateSampleOutputPayload!
+}
+
+input GenerateSampleOutputInput {
+    workflowId: ID!
+    prompt: String!
+    environmentId: Int!
+}
+
+type GenerateSampleOutputPayload {
+    value: String!
+    valid: Boolean!
+    message: String
+}
