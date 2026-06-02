@@ -18,6 +18,7 @@ package com.bytechef.platform.configuration.facade;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
@@ -354,7 +355,7 @@ class WorkflowNodeDynamicPropertiesFacadeTest {
         when(workflowTask.getType()).thenReturn("httpClient/v1/get");
         when(workflowTask.getName()).thenReturn(workflowNodeName);
         doReturn(Map.of()).when(workflowTask)
-            .evaluateParameters(anyMap(), any(Evaluator.class));
+            .evaluateParameters(anyMap(), any(Evaluator.class), anyBoolean());
 
         doReturn(Map.of()).when(workflowNodeOutputFacade)
             .getPreviousWorkflowNodeSampleOutputs(eq(workflowId), eq(workflowNodeName), eq(environmentId));
@@ -403,7 +404,7 @@ class WorkflowNodeDynamicPropertiesFacadeTest {
 
         when(workflowTrigger.getType()).thenReturn("github/v1/newIssue");
         doReturn(Map.of()).when(workflowTrigger)
-            .evaluateParameters(anyMap(), any(Evaluator.class));
+            .evaluateParameters(anyMap(), any(Evaluator.class), anyBoolean());
 
         List<Property> expectedProperties = List.of(mock(Property.class));
 
@@ -445,7 +446,7 @@ class WorkflowNodeDynamicPropertiesFacadeTest {
         when(workflow.getTask(workflowNodeName)).thenReturn(workflowTask);
         when(workflowTask.getType()).thenReturn("subflow/v1");
         doReturn(Map.of()).when(workflowTask)
-            .evaluateParameters(anyMap(), any(Evaluator.class));
+            .evaluateParameters(anyMap(), any(Evaluator.class), anyBoolean());
 
         List<com.bytechef.platform.workflow.task.dispatcher.domain.Property> expectedProperties = List.of();
 

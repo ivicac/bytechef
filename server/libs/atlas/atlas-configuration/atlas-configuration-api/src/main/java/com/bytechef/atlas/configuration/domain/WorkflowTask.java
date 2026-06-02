@@ -108,7 +108,16 @@ public class WorkflowTask implements Task, Serializable {
     }
 
     public Map<String, ?> evaluateParameters(Map<String, ?> context, Evaluator evaluator) {
-        WorkflowTask workflowTask = new WorkflowTask(evaluator.evaluate(toMap(), context));
+        return evaluateParameters(context, evaluator, false);
+    }
+
+    /**
+     * Evaluates the task parameters. Pass {@code lenient=true} for editor-preview contexts (dynamic properties,
+     * options, output schema) so an in-progress/invalid formula returns its original value instead of throwing; pass
+     * {@code false} for workflow execution where invalid expressions must fail.
+     */
+    public Map<String, ?> evaluateParameters(Map<String, ?> context, Evaluator evaluator, boolean lenient) {
+        WorkflowTask workflowTask = new WorkflowTask(evaluator.evaluate(toMap(), context, lenient));
 
         return workflowTask.getParameters();
     }

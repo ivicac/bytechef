@@ -119,6 +119,8 @@ dependencies {
     implementation(project(":server:libs:ai:mcp:mcp-tool:mcp-tool-platform"))
 
     implementation(project(":server:ee:libs:ai:ai-copilot:ai-copilot-api"))
+    implementation(project(":server:libs:core:evaluator:evaluator-api"))
+    implementation("io.micrometer:micrometer-core")
 
     // For CopilotChatClientResolver — resolves per-request user-selected (provider, model) overrides against the
     // workspace's AI Gateway. Optional at runtime (bean is @ConditionalOnProperty("bytechef.ai.gateway.enabled")),

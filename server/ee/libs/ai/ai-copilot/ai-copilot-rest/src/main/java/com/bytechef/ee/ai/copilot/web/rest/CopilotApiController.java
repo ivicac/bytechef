@@ -12,13 +12,17 @@ import com.agui.server.LocalAgent;
 import com.agui.server.spring.AgUiParameters;
 import com.agui.server.spring.AgUiService;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.automation.configuration.service.PermissionService;
+import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.ai.copilot.util.Mode;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.NonNull;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -40,12 +44,19 @@ public class CopilotApiController {
 
     private final Map<String, LocalAgent> localAgentMap;
     private final AgUiService agUiService;
+    private final PermissionService permissionService;
+    private final ProjectWorkflowService projectWorkflowService;
 
     @SuppressFBWarnings("EI")
-    public CopilotApiController(AgUiService agUiService, List<LocalAgent> localAgents) {
+    public CopilotApiController(
+        AgUiService agUiService, List<LocalAgent> localAgents, Optional<PermissionService> permissionService,
+        Optional<ProjectWorkflowService> projectWorkflowService) {
+
         this.agUiService = agUiService;
         this.localAgentMap = localAgents.stream()
             .collect(Collectors.toMap(LocalAgent::getAgentId, localAgent -> localAgent));
+        this.permissionService = permissionService.orElse(null);
+        this.projectWorkflowService = projectWorkflowService.orElse(null);
     }
 
     @Validated
@@ -56,6 +67,8 @@ public class CopilotApiController {
         State state = agUiParameters.getState();
         Map<String, Object> stateMap = state.getState();
         Object mode = stateMap.get("mode");
+
+        authorizeWorkflowAccess(stateMap, mode);
 
         if (agentId.equals("workflow_editor")) {
             if (Mode.valueOf((String) mode) == Mode.BUILD) {
@@ -94,5 +107,30 @@ public class CopilotApiController {
         LocalAgent localAgent = localAgentMap.get(agentId);
 
         return this.agUiService.runAgent(localAgent, agUiParameters);
+    }
+
+    /**
+     * Authorizes the client-supplied {@code workflowId} carried in the request state before any agent reads or mutates
+     * that workflow's data, preventing cross-tenant access (IDOR). BUILD turns mutate the workflow and require the
+     * WORKFLOW_EDIT scope; other turns only read and require WORKFLOW_VIEW. Fails closed when the authorization
+     * services are not wired in the running app variant.
+     */
+    private void authorizeWorkflowAccess(Map<String, Object> stateMap, Object mode) {
+        if (!(stateMap.get("workflowId") instanceof String workflowId) || workflowId.isBlank()) {
+            return;
+        }
+
+        if (permissionService == null || projectWorkflowService == null) {
+            throw new AccessDeniedException("Workflow authorization is not available");
+        }
+
+        long projectId = projectWorkflowService.getWorkflowProjectWorkflow(workflowId)
+            .getProjectId();
+
+        boolean build = mode instanceof String modeValue && Mode.valueOf(modeValue) == Mode.BUILD;
+
+        if (!permissionService.hasProjectScope(projectId, build ? "WORKFLOW_EDIT" : "WORKFLOW_VIEW")) {
+            throw new AccessDeniedException("Access denied to workflow " + workflowId);
+        }
     }
 }
