@@ -1,0 +1,7 @@
+mutation generateSampleOutput($input: GenerateSampleOutputInput!) {
+    generateSampleOutput(input: $input) {
+        value
+        valid
+        message
+    }
+}

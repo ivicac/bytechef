@@ -3272,6 +3272,13 @@ export type GeneratePropertyValueMutationVariables = Exact<{
 
 export type GeneratePropertyValueMutation = { generatePropertyValue: { value: string, valid: boolean, message: string | null } };
 
+export type GenerateSampleOutputMutationVariables = Exact<{
+  input: Types.GenerateSampleOutputInput;
+}>;
+
+
+export type GenerateSampleOutputMutation = { generateSampleOutput: { value: string, valid: boolean, message: string | null } };
+
 export type GenerateWorkflowDescriptionMutationVariables = Exact<{
   input: Types.GenerateWorkflowDescriptionInput;
 }>;
@@ -15660,6 +15667,29 @@ export const useGeneratePropertyValueMutation = <
       {
     mutationKey: ['generatePropertyValue'],
     mutationFn: (variables?: GeneratePropertyValueMutationVariables) => fetcher<GeneratePropertyValueMutation, GeneratePropertyValueMutationVariables>(GeneratePropertyValueDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const GenerateSampleOutputDocument = new TypedDocumentString(`
+    mutation generateSampleOutput($input: GenerateSampleOutputInput!) {
+  generateSampleOutput(input: $input) {
+    value
+    valid
+    message
+  }
+}
+    `);
+
+export const useGenerateSampleOutputMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<GenerateSampleOutputMutation, TError, GenerateSampleOutputMutationVariables, TContext>) => {
+    
+    return useMutation<GenerateSampleOutputMutation, TError, GenerateSampleOutputMutationVariables, TContext>(
+      {
+    mutationKey: ['generateSampleOutput'],
+    mutationFn: (variables?: GenerateSampleOutputMutationVariables) => fetcher<GenerateSampleOutputMutation, GenerateSampleOutputMutationVariables>(GenerateSampleOutputDocument, variables)(),
     ...options
   }
     )};

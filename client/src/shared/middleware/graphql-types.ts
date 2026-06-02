@@ -2563,6 +2563,19 @@ export type GeneratePropertyValuePayload = {
   value: Scalars['String']['output'];
 };
 
+export type GenerateSampleOutputInput = {
+  environmentId: Scalars['Int']['input'];
+  prompt: Scalars['String']['input'];
+  workflowId: Scalars['ID']['input'];
+};
+
+export type GenerateSampleOutputPayload = {
+  __typename?: 'GenerateSampleOutputPayload';
+  message?: Maybe<Scalars['String']['output']>;
+  valid: Scalars['Boolean']['output'];
+  value: Scalars['String']['output'];
+};
+
 export type GenerateSpecificationInput = {
   baseUrl?: InputMaybe<Scalars['String']['input']>;
   endpoints: Array<EndpointDefinitionInput>;
@@ -3339,6 +3352,7 @@ export type Mutation = {
   generateAiHubTaskTitle: AiHubTask;
   generateFromDocumentation: ApiConnector;
   generatePropertyValue: GeneratePropertyValuePayload;
+  generateSampleOutput: GenerateSampleOutputPayload;
   generateSpecification: GenerateSpecificationResponse;
   generateWorkflowDescription: GenerateWorkflowDescriptionPayload;
   importDataTableCsv: Scalars['Boolean']['output'];
@@ -4345,6 +4359,11 @@ export type MutationGenerateFromDocumentationArgs = {
 
 export type MutationGeneratePropertyValueArgs = {
   input: GeneratePropertyValueInput;
+};
+
+
+export type MutationGenerateSampleOutputArgs = {
+  input: GenerateSampleOutputInput;
 };
 
 
