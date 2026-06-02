@@ -28,9 +28,13 @@ const CopilotGenerateDescriptionButton = ({
     }
 
     const handleGenerate = async () => {
-        const result = await generate({environmentId, workflowId, workflowNodeName});
+        try {
+            const result = await generate({environmentId, workflowId, workflowNodeName});
 
-        onApply(result.value);
+            onApply(result.value);
+        } catch {
+            // The error is already surfaced via the global fetch-interceptor toast.
+        }
     };
 
     return (

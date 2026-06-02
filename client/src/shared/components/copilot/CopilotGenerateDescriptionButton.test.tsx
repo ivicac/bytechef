@@ -42,7 +42,7 @@ describe('CopilotGenerateDescriptionButton', () => {
         expect(generateMock).toHaveBeenCalledWith({environmentId: 1, workflowId: 'wf1', workflowNodeName: undefined});
     });
 
-    it('renders nothing when copilot disabled context (no workflowId)', () => {
+    it('renders nothing when workflowId is undefined', () => {
         const {container} = render(
             <CopilotGenerateDescriptionButton environmentId={1} onApply={vi.fn()} workflowId={undefined} />
         );

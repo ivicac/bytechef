@@ -236,7 +236,7 @@ const DescriptionTab = ({nodeDefinition, updateWorkflowMutation}: DescriptionTab
                                 target: {value},
                             } as ChangeEvent<HTMLTextAreaElement>);
                         }}
-                        workflowId={workflow.id as string}
+                        workflowId={workflow.id}
                         workflowNodeName={currentNode?.workflowNodeName}
                     />
                 </div>
