@@ -73,6 +73,21 @@ class PropertyCopilotGraphQlControllerTest {
         when(projectWorkflowService.getWorkflowProjectWorkflow("wf1")).thenReturn(projectWorkflow);
     }
 
+    @Test
+    void testGenerateJsonSchemaModeForwardsToGenerator() {
+        givenWorkflowProject(42L);
+
+        when(permissionService.hasProjectScope(42L, "WORKFLOW_VIEW")).thenReturn(true);
+        when(propertyCopilotGenerator.generate(any()))
+            .thenReturn(new PropertyCopilotResult("{\"type\":\"object\"}", true, null));
+
+        GeneratePropertyValuePayload payload = controller.generatePropertyValue(new GeneratePropertyValueInput(
+            "order schema", PropertyCopilotMode.JSON_SCHEMA, "wf1", "n1", "responseSchema", "STRING", 0));
+
+        assertThat(payload.value()).isEqualTo("{\"type\":\"object\"}");
+        assertThat(payload.valid()).isTrue();
+    }
+
     private static GeneratePropertyValueInput input() {
         return new GeneratePropertyValueInput("greet", PropertyCopilotMode.TEXT, "wf1", "n1", "p", "STRING", 0);
     }
