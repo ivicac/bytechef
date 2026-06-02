@@ -51,10 +51,10 @@ into a schema, and the payload itself is usable as the node's sample output for 
 
 ## Goal
 
-On both sample-data dialogs, the user types a natural-language description of the desired output, the
-AI generates a matching sample JSON instance that fills the dialog's editor for review, and the
-user clicks the dialog's existing **Generate/Upload** button to run the existing (deterministic)
-schema inference.
+On the node output-tab sample-data dialog, the user types a natural-language description of the
+desired output, the AI generates a matching sample JSON instance that fills the dialog's editor for
+review, and the user clicks the dialog's existing **Upload** button to run the existing
+(deterministic) output-schema inference.
 
 EE-only, single-shot, gated on `ai.copilot.enabled && ff-1570`.
 
@@ -124,15 +124,19 @@ The mutation is fully independent of `generatePropertyValue` / `generateWorkflow
    `mode`-free input; if `!result.valid` show `result.message`; else if `!currentEditorIsEmpty`
    `window.confirm('Replace the current sample data?')` before `onApply(result.value)`. It knows
    nothing about schema vs output-upload — it only yields the JSON string.
-3. **Wire into `PropertyJsonSchemaBuilderSampleDataDialog`**: add optional `environmentId`/
-   `workflowId` props (threaded from the schema-builder sheet/builder chain established in #2109);
-   render the bar above the editor; `onApply(value)` → `setCurSchema(JSON.parse(value))`
-   (the editor `value` is bound to `JSON.stringify(curSchema)`, so it updates). `currentEditorIsEmpty
-   = curSchema === undefined`.
-4. **Wire into `OutputTabSampleDataDialog`**: add optional `environmentId`/`workflowId` props (passed
-   by `OutputTab`/`OutputSchemaDisplay`, which already hold them); render the bar above the editor;
-   `onApply(value)` → `setRawValue(value)` + `setParsedValue(JSON.parse(value))`.
-   `currentEditorIsEmpty = rawValue.trim().length === 0`.
+3. **Wire into `OutputTabSampleDataDialog`** (the one live surface): add optional `environmentId`/
+   `workflowId` props (passed by `OutputTab`, which holds `workflowId` + `currentNode` and reads
+   `currentEnvironmentId` from `useEnvironmentStore`); render the bar above the editor; `onApply(value)`
+   → `setRawValue(value)` + `setParsedValue(JSON.parse(value))`. `currentEditorIsEmpty =
+   rawValue.trim().length === 0`. The existing footer **Upload** button then runs the deterministic
+   `SchemaUtils.getOutputSchema` inference unchanged.
+
+> **Discovered constraint (scope cut, documented honestly):** the other sample dialog,
+> `PropertyJsonSchemaBuilderSampleDataDialog`, is currently **dead code** — no component renders it
+> (verified: only its own file references it). Wiring the AI bar there would ship a feature no user
+> can reach, so it is **excluded** from this work. The `SampleOutputCopilotBar` is built
+> surface-agnostic, so if that dialog is ever made live it can drop the bar in with no backend
+> change.
 
 ## Cross-cutting
 
@@ -154,7 +158,8 @@ The mutation is fully independent of `generatePropertyValue` / `generateWorkflow
 | `SampleOutputCopilotGeneratorImpl` | call model + parse-validate (object/array) + repair | ChatModel, JSON util |
 | `SampleOutputCopilotGraphQlController` | mutation + IDOR guard | generator, Permission/ProjectWorkflow |
 | `SampleOutputCopilotBar` (client) | prompt → generate → confirm → `onApply(jsonString)` | `useGenerateSampleOutput` |
-| dialog wiring (2) | place sample into the editor; existing submit infers schema | `SampleOutputCopilotBar` |
+| `OutputTabSampleDataDialog` wiring | place sample into the editor; existing Upload infers schema | `SampleOutputCopilotBar` |
 
-Each unit has one purpose and a narrow interface. The bar is reused verbatim across both surfaces;
-the only per-surface code is the `onApply` that drops the JSON into that dialog's editor state.
+Each unit has one purpose and a narrow interface. The bar is surface-agnostic; the only per-surface
+code is the `onApply` that drops the JSON into the dialog's editor state — so a second surface
+(should the dead schema-builder dialog ever go live) reuses it with no backend change.
