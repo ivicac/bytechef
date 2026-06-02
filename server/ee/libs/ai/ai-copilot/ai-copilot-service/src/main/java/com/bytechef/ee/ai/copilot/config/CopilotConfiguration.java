@@ -21,6 +21,8 @@ import com.bytechef.ai.mcp.tool.automation.WorkflowExecutionTools;
 import com.bytechef.ai.mcp.tool.platform.ComponentTools;
 import com.bytechef.ai.mcp.tool.platform.FirecrawlTools;
 import com.bytechef.ai.mcp.tool.platform.TaskTools;
+import com.bytechef.ai.mcp.tool.platform.WorkflowInstructionTools;
+import com.bytechef.ai.mcp.tool.platform.WorkflowValidatorTools;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.ee.ai.copilot.agent.ClusterElementSpringAIAgent;
 import com.bytechef.ee.ai.copilot.agent.CodeEditorSpringAIAgent;
@@ -71,6 +73,8 @@ public class CopilotConfiguration {
     private final Resource promptSkillsBuildResource;
     private final Resource promptWorkflowExecutionAskResource;
     private final Resource promptWorkflowExecutionBuildResource;
+    private final WorkflowValidatorTools workflowValidatorTools;
+    private final WorkflowInstructionTools workflowInstructionTools;
     private final State state = new State();
 
     @SuppressFBWarnings("EI")
@@ -85,8 +89,11 @@ public class CopilotConfiguration {
         @Value("classpath:prompt_skills_ask.txt") Resource promptSkillsAskResource,
         @Value("classpath:prompt_skills_build.txt") Resource promptSkillsBuildResource,
         @Value("classpath:prompt_workflow_execution_ask.txt") Resource promptWorkflowExecutionAskResource,
-        @Value("classpath:prompt_workflow_execution_build.txt") Resource promptWorkflowExecutionBuildResource) {
+        @Value("classpath:prompt_workflow_execution_build.txt") Resource promptWorkflowExecutionBuildResource,
+        WorkflowValidatorTools workflowValidatorTools, WorkflowInstructionTools workflowInstructionTools) {
 
+        this.workflowValidatorTools = workflowValidatorTools;
+        this.workflowInstructionTools = workflowInstructionTools;
         this.promptWorkflowEditorAskResource = promptWorkflowEditorAskResource;
         this.promptWorkflowEditorBuildResource = promptWorkflowEditorBuildResource;
         this.promptCodeEditorAskResource = promptCodeEditorAskResource;
@@ -107,7 +114,8 @@ public class CopilotConfiguration {
         ObjectProvider<CopilotChatClientResolver> overrideChatClientResolverProvider) throws AGUIException {
         String name = Source.CODE_EDITOR.name() + "_" + Mode.ASK.name();
 
-        List<Object> tools = new ArrayList<>(List.of(readProjectWorkflowTools, componentTools));
+        List<Object> tools = new ArrayList<>(
+            List.of(readProjectWorkflowTools, componentTools, workflowValidatorTools, workflowInstructionTools));
 
         firecrawlTools.ifPresent(tools::add);
 
@@ -136,7 +144,10 @@ public class CopilotConfiguration {
             .chatMemory(chatMemory)
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptCodeEditorBuildResource))
-            .tools(List.of(readProjectWorkflowTools, scriptTools, componentTools))
+            .tools(
+                List.of(
+                    readProjectWorkflowTools, scriptTools, componentTools, workflowValidatorTools,
+                    workflowInstructionTools))
             .state(state)
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
@@ -155,7 +166,10 @@ public class CopilotConfiguration {
             .chatMemory(chatMemory)
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptClusterElementAskResource))
-            .tools(List.of(readProjectWorkflowTools, componentTools, taskTools))
+            .tools(
+                List.of(
+                    readProjectWorkflowTools, componentTools, taskTools, workflowValidatorTools,
+                    workflowInstructionTools))
             .state(state)
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
@@ -175,7 +189,10 @@ public class CopilotConfiguration {
             .chatMemory(chatMemory)
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptClusterElementBuildResource))
-            .tools(List.of(readProjectWorkflowTools, clusterElementTools, componentTools, taskTools))
+            .tools(
+                List.of(
+                    readProjectWorkflowTools, clusterElementTools, componentTools, taskTools, workflowValidatorTools,
+                    workflowInstructionTools))
             .state(state)
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
             .build();
@@ -199,7 +216,9 @@ public class CopilotConfiguration {
         String name = Source.WORKFLOW_EDITOR.name() + "_" + Mode.ASK.name();
 
         List<Object> tools = new ArrayList<>(
-            List.of(readProjectTools, readProjectWorkflowTools, componentTools, taskTools));
+            List.of(
+                readProjectTools, readProjectWorkflowTools, componentTools, taskTools, workflowValidatorTools,
+                workflowInstructionTools));
 
         firecrawlTools.ifPresent(tools::add);
 
@@ -233,7 +252,10 @@ public class CopilotConfiguration {
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptWorkflowEditorBuildResource))
             .state(state)
-            .tools(List.of(projectTools, projectWorkflowTools, taskTools, scriptTools))
+            .tools(
+                List.of(
+                    projectTools, projectWorkflowTools, taskTools, scriptTools, workflowValidatorTools,
+                    workflowInstructionTools))
             .workflowService(workflowService)
             .workflowNodeOutputFacade(workflowNodeOutputFacade)
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
@@ -254,7 +276,10 @@ public class CopilotConfiguration {
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptConverterBuildResource))
             .state(state)
-            .tools(List.of(projectToolsImpl, projectWorkflowToolsImpl, taskTools, scriptTools))
+            .tools(
+                List.of(
+                    projectToolsImpl, projectWorkflowToolsImpl, taskTools, scriptTools, workflowValidatorTools,
+                    workflowInstructionTools))
             .build();
     }
 
@@ -272,7 +297,10 @@ public class CopilotConfiguration {
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptSkillsAskResource))
             .state(state)
-            .tools(List.of(readSkillsTools, readProjectTools, readProjectWorkflowTools))
+            .tools(
+                List.of(
+                    readSkillsTools, readProjectTools, readProjectWorkflowTools, workflowValidatorTools,
+                    workflowInstructionTools))
             .build();
     }
 
@@ -290,7 +318,10 @@ public class CopilotConfiguration {
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptSkillsBuildResource))
             .state(state)
-            .tools(List.of(skillsTools, readProjectTools, readProjectWorkflowTools))
+            .tools(
+                List.of(
+                    skillsTools, readProjectTools, readProjectWorkflowTools, workflowValidatorTools,
+                    workflowInstructionTools))
             .build();
     }
 
@@ -304,7 +335,9 @@ public class CopilotConfiguration {
         String name = Source.WORKFLOW_EXECUTION.name() + "_" + Mode.ASK.name();
 
         List<Object> tools = new ArrayList<>(
-            List.of(workflowExecutionTools, readProjectWorkflowTools, componentTools));
+            List.of(
+                workflowExecutionTools, readProjectWorkflowTools, componentTools, workflowValidatorTools,
+                workflowInstructionTools));
 
         firecrawlTools.ifPresent(tools::add);
 
@@ -328,7 +361,9 @@ public class CopilotConfiguration {
         String name = Source.WORKFLOW_EXECUTION.name() + "_" + Mode.BUILD.name();
 
         List<Object> tools = new ArrayList<>(
-            List.of(workflowExecutionTools, projectWorkflowTools, scriptTools, taskTools));
+            List.of(
+                workflowExecutionTools, projectWorkflowTools, scriptTools, taskTools, workflowValidatorTools,
+                workflowInstructionTools));
 
         return WorkflowExecutionSpringAIAgent.builder()
             .agentId(name.toLowerCase())
@@ -355,9 +390,12 @@ public class CopilotConfiguration {
             .defaultSystem(getSystemPrompt(promptCodeEditorAskResource));
 
         if (firecrawlTools.isPresent()) {
-            builder.defaultTools(readProjectWorkflowTools, componentTools, firecrawlTools.get());
+            builder.defaultTools(
+                readProjectWorkflowTools, componentTools, workflowValidatorTools, workflowInstructionTools,
+                firecrawlTools.get());
         } else {
-            builder.defaultTools(readProjectWorkflowTools, componentTools);
+            builder.defaultTools(
+                readProjectWorkflowTools, componentTools, workflowValidatorTools, workflowInstructionTools);
         }
 
         return builder.build();
@@ -375,7 +413,9 @@ public class CopilotConfiguration {
 
         return ChatClient.builder(chatModel)
             .defaultSystem(getSystemPrompt(promptCodeEditorBuildResource))
-            .defaultTools(readProjectWorkflowTools, scriptTools, componentTools)
+            .defaultTools(
+                readProjectWorkflowTools, scriptTools, componentTools, workflowValidatorTools,
+                workflowInstructionTools)
             .build();
     }
 
@@ -397,9 +437,12 @@ public class CopilotConfiguration {
 
         if (firecrawlTools.isPresent()) {
             builder.defaultTools(
-                readProjectTools, readProjectWorkflowTools, componentTools, taskTools, firecrawlTools.get());
+                readProjectTools, readProjectWorkflowTools, componentTools, taskTools, workflowValidatorTools,
+                workflowInstructionTools, firecrawlTools.get());
         } else {
-            builder.defaultTools(readProjectTools, readProjectWorkflowTools, componentTools, taskTools);
+            builder.defaultTools(
+                readProjectTools, readProjectWorkflowTools, componentTools, taskTools, workflowValidatorTools,
+                workflowInstructionTools);
         }
 
         return builder.build();
@@ -417,7 +460,9 @@ public class CopilotConfiguration {
 
         return ChatClient.builder(chatModel)
             .defaultSystem(getSystemPrompt(promptWorkflowEditorBuildResource))
-            .defaultTools(projectTools, projectWorkflowTools, taskTools, scriptTools)
+            .defaultTools(
+                projectTools, projectWorkflowTools, taskTools, scriptTools, workflowValidatorTools,
+                workflowInstructionTools)
             .build();
     }
 
@@ -433,7 +478,9 @@ public class CopilotConfiguration {
 
         return ChatClient.builder(chatModel)
             .defaultSystem(getSystemPrompt(promptConverterBuildResource))
-            .defaultTools(projectTools, projectWorkflowTools, taskTools, scriptTools)
+            .defaultTools(
+                projectTools, projectWorkflowTools, taskTools, scriptTools, workflowValidatorTools,
+                workflowInstructionTools)
             .build();
     }
 
@@ -449,7 +496,8 @@ public class CopilotConfiguration {
 
         return ChatClient.builder(chatModel)
             .defaultSystem(getSystemPrompt(promptClusterElementAskResource))
-            .defaultTools(readProjectWorkflowTools, componentTools, taskTools)
+            .defaultTools(
+                readProjectWorkflowTools, componentTools, taskTools, workflowValidatorTools, workflowInstructionTools)
             .build();
     }
 
@@ -465,7 +513,9 @@ public class CopilotConfiguration {
 
         return ChatClient.builder(chatModel)
             .defaultSystem(getSystemPrompt(promptClusterElementBuildResource))
-            .defaultTools(readProjectWorkflowTools, clusterElementTools, componentTools, taskTools)
+            .defaultTools(
+                readProjectWorkflowTools, clusterElementTools, componentTools, taskTools, workflowValidatorTools,
+                workflowInstructionTools)
             .build();
     }
 
@@ -482,7 +532,9 @@ public class CopilotConfiguration {
 
         return ChatClient.builder(chatModel)
             .defaultSystem(getSystemPrompt(promptSkillsAskResource))
-            .defaultTools(readSkillsTools, readProjectTools, readProjectWorkflowTools)
+            .defaultTools(
+                readSkillsTools, readProjectTools, readProjectWorkflowTools, workflowValidatorTools,
+                workflowInstructionTools)
             .build();
     }
 
@@ -498,7 +550,9 @@ public class CopilotConfiguration {
 
         return ChatClient.builder(chatModel)
             .defaultSystem(getSystemPrompt(promptSkillsBuildResource))
-            .defaultTools(skillsTools, readProjectTools, readProjectWorkflowTools)
+            .defaultTools(
+                skillsTools, readProjectTools, readProjectWorkflowTools, workflowValidatorTools,
+                workflowInstructionTools)
             .build();
     }
 
@@ -519,9 +573,12 @@ public class CopilotConfiguration {
 
         if (firecrawlTools.isPresent()) {
             builder.defaultTools(
-                workflowExecutionTools, readProjectWorkflowTools, componentTools, firecrawlTools.get());
+                workflowExecutionTools, readProjectWorkflowTools, componentTools, workflowValidatorTools,
+                workflowInstructionTools, firecrawlTools.get());
         } else {
-            builder.defaultTools(workflowExecutionTools, readProjectWorkflowTools, componentTools);
+            builder.defaultTools(
+                workflowExecutionTools, readProjectWorkflowTools, componentTools, workflowValidatorTools,
+                workflowInstructionTools);
         }
 
         return builder.build();
@@ -540,7 +597,9 @@ public class CopilotConfiguration {
 
         return ChatClient.builder(chatModel)
             .defaultSystem(getSystemPrompt(promptWorkflowExecutionBuildResource))
-            .defaultTools(workflowExecutionTools, projectWorkflowTools, scriptTools, taskTools)
+            .defaultTools(
+                workflowExecutionTools, projectWorkflowTools, scriptTools, taskTools, workflowValidatorTools,
+                workflowInstructionTools)
             .build();
     }
 

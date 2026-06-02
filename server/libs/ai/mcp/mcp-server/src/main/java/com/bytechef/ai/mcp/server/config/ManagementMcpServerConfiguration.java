@@ -26,6 +26,8 @@ import com.bytechef.ai.mcp.tool.platform.ComponentTools;
 import com.bytechef.ai.mcp.tool.platform.FirecrawlTools;
 import com.bytechef.ai.mcp.tool.platform.TaskDispatcherTools;
 import com.bytechef.ai.mcp.tool.platform.TaskTools;
+import com.bytechef.ai.mcp.tool.platform.WorkflowInstructionTools;
+import com.bytechef.ai.mcp.tool.platform.WorkflowValidatorTools;
 import com.bytechef.platform.configuration.service.PropertyService;
 import com.bytechef.platform.security.service.ApiKeyService;
 import com.bytechef.platform.security.web.config.SecurityConfigurerContributor;
@@ -73,12 +75,15 @@ public class ManagementMcpServerConfiguration {
     private final ScriptTools scriptTools;
     private final SkillsTools skillsTools;
     private final ClusterElementTools clusterElementTools;
+    private final WorkflowValidatorTools workflowValidatorTools;
+    private final WorkflowInstructionTools workflowInstructionTools;
 
     @SuppressFBWarnings("EI")
     public ManagementMcpServerConfiguration(
         ComponentTools componentTools, @Nullable FirecrawlTools firecrawlTools, ProjectTools projectTools,
         ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools, TaskDispatcherTools taskDispatcherTools,
-        ScriptTools scriptTools, SkillsTools skillsTools, ClusterElementTools clusterElementTools) {
+        ScriptTools scriptTools, SkillsTools skillsTools, ClusterElementTools clusterElementTools,
+        WorkflowValidatorTools workflowValidatorTools, WorkflowInstructionTools workflowInstructionTools) {
 
         this.componentTools = componentTools;
         this.firecrawlTools = firecrawlTools;
@@ -89,6 +94,8 @@ public class ManagementMcpServerConfiguration {
         this.scriptTools = scriptTools;
         this.skillsTools = skillsTools;
         this.clusterElementTools = clusterElementTools;
+        this.workflowValidatorTools = workflowValidatorTools;
+        this.workflowInstructionTools = workflowInstructionTools;
     }
 
     @Bean
@@ -128,7 +135,7 @@ public class ManagementMcpServerConfiguration {
         List<Object> tools = new ArrayList<>(
             List.of(
                 projectTools, projectWorkflowTools, componentTools, taskTools, taskDispatcherTools, scriptTools,
-                skillsTools, clusterElementTools));
+                skillsTools, clusterElementTools, workflowValidatorTools, workflowInstructionTools));
 
         if (firecrawlTools != null) {
             tools.add(firecrawlTools);
