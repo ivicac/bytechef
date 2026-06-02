@@ -59,6 +59,7 @@ include("server:ee:libs:platform:platform-ai:platform-ai-tool-usage:platform-ai-
 include("server:libs:ai:mcp:mcp-server")
 include("server:libs:ai:mcp:mcp-server-configuration:mcp-server-configuration-graphql")
 include("server:libs:ai:mcp:mcp-tool:mcp-tool-automation")
+include("server:libs:ai:mcp:mcp-tool:mcp-tool-integration")
 include("server:libs:ai:mcp:mcp-tool:mcp-tool-platform")
 
 include("server:libs:atlas:atlas-configuration:atlas-configuration-api")

@@ -22,6 +22,7 @@ import com.bytechef.ai.mcp.tool.automation.ProjectTools;
 import com.bytechef.ai.mcp.tool.automation.ProjectWorkflowTools;
 import com.bytechef.ai.mcp.tool.automation.ScriptTools;
 import com.bytechef.ai.mcp.tool.automation.SkillsTools;
+import com.bytechef.ai.mcp.tool.integration.ConnectedUserProjectWorkflowTools;
 import com.bytechef.ai.mcp.tool.platform.ComponentTools;
 import com.bytechef.ai.mcp.tool.platform.FirecrawlTools;
 import com.bytechef.ai.mcp.tool.platform.TaskDispatcherTools;
@@ -77,13 +78,15 @@ public class ManagementMcpServerConfiguration {
     private final ClusterElementTools clusterElementTools;
     private final WorkflowValidatorTools workflowValidatorTools;
     private final WorkflowInstructionTools workflowInstructionTools;
+    private final @Nullable ConnectedUserProjectWorkflowTools connectedUserProjectWorkflowTools;
 
     @SuppressFBWarnings("EI")
     public ManagementMcpServerConfiguration(
         ComponentTools componentTools, @Nullable FirecrawlTools firecrawlTools, ProjectTools projectTools,
         ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools, TaskDispatcherTools taskDispatcherTools,
         ScriptTools scriptTools, SkillsTools skillsTools, ClusterElementTools clusterElementTools,
-        WorkflowValidatorTools workflowValidatorTools, WorkflowInstructionTools workflowInstructionTools) {
+        WorkflowValidatorTools workflowValidatorTools, WorkflowInstructionTools workflowInstructionTools,
+        @Nullable ConnectedUserProjectWorkflowTools connectedUserProjectWorkflowTools) {
 
         this.componentTools = componentTools;
         this.firecrawlTools = firecrawlTools;
@@ -96,6 +99,7 @@ public class ManagementMcpServerConfiguration {
         this.clusterElementTools = clusterElementTools;
         this.workflowValidatorTools = workflowValidatorTools;
         this.workflowInstructionTools = workflowInstructionTools;
+        this.connectedUserProjectWorkflowTools = connectedUserProjectWorkflowTools;
     }
 
     @Bean
@@ -139,6 +143,10 @@ public class ManagementMcpServerConfiguration {
 
         if (firecrawlTools != null) {
             tools.add(firecrawlTools);
+        }
+
+        if (connectedUserProjectWorkflowTools != null) {
+            tools.add(connectedUserProjectWorkflowTools);
         }
 
         return ToolCallbackProvider.from(
