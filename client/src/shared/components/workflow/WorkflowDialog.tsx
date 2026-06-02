@@ -15,9 +15,11 @@ import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/
 import {Input} from '@/components/ui/input';
 import {Textarea} from '@/components/ui/textarea';
 import {IntegrationWorkflowKeys} from '@/ee/shared/queries/embedded/integrationWorkflows.queries';
+import CopilotGenerateDescriptionButton from '@/shared/components/copilot/CopilotGenerateDescriptionButton';
 import {useUpdateIntegrationWorkflowPermissionExpressionMutation} from '@/shared/middleware/graphql';
 import {Workflow} from '@/shared/middleware/platform/configuration';
 import {ProjectWorkflowKeys} from '@/shared/queries/automation/projectWorkflows.queries';
+import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {UseMutationResult, UseQueryResult, useQueryClient} from '@tanstack/react-query';
 import {KeyboardEvent, ReactNode, useEffect, useRef, useState} from 'react';
 import {useForm} from 'react-hook-form';
@@ -55,6 +57,8 @@ const WorkflowDialog = ({
     );
 
     const {data: workflow} = useGetWorkflowQuery(workflowId ?? '', !!workflowId);
+
+    const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
 
     const queryClient = useQueryClient();
 
@@ -225,7 +229,19 @@ const WorkflowDialog = ({
                         name="description"
                         render={({field}) => (
                             <FormItem>
-                                <FormLabel>Description</FormLabel>
+                                <div className="flex items-center justify-between">
+                                    <FormLabel>Description</FormLabel>
+
+                                    {workflow?.id && (
+                                        <CopilotGenerateDescriptionButton
+                                            environmentId={currentEnvironmentId}
+                                            onApply={(value) =>
+                                                form.setValue('description', value, {shouldDirty: true})
+                                            }
+                                            workflowId={workflow.id}
+                                        />
+                                    )}
+                                </div>
 
                                 <FormControl>
                                     <Textarea
