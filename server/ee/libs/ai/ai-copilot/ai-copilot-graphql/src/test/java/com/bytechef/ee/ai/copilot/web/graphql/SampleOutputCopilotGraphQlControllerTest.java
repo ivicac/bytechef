@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
@@ -63,6 +64,17 @@ class SampleOutputCopilotGraphQlControllerTest {
 
         assertThat(payload.value()).isEqualTo("{\"id\":1}");
         assertThat(payload.valid()).isTrue();
+    }
+
+    @Test
+    void testGenerateThrowsWhenCopilotDisabled() {
+        SampleOutputCopilotGraphQlController disabledController = new SampleOutputCopilotGraphQlController(
+            permissionService, projectWorkflowService, Optional.empty());
+
+        assertThatThrownBy(() -> disabledController.generateSampleOutput(input()))
+            .isInstanceOf(IllegalStateException.class);
+
+        verifyNoInteractions(projectWorkflowService, permissionService);
     }
 
     private void givenWorkflowProject(long projectId) {
