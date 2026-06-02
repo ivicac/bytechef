@@ -18,6 +18,7 @@ const workflowInputs = [
 const renderTable = () =>
     render(
         <WorkflowInputsTable
+            internalOnlyVisible={false}
             openDeleteDialog={vi.fn()}
             openEditDialog={vi.fn()}
             workflowInputs={workflowInputs}
