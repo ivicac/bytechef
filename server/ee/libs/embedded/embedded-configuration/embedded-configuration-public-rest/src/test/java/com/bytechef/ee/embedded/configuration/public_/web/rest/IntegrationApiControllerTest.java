@@ -16,13 +16,27 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserIntegrationDTO;
+import com.bytechef.ee.embedded.configuration.dto.IntegrationDTO;
+import com.bytechef.ee.embedded.configuration.dto.IntegrationInstanceConfigurationDTO;
 import com.bytechef.ee.embedded.configuration.exception.EmbeddedIntegrationNotVisibleException;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserIntegrationFacade;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.EnvironmentModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.IntegrationModel;
+import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationWorkflowService;
+import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceWorkflowService;
+import com.bytechef.ee.embedded.configuration.service.IntegrationWorkflowService;
+import com.bytechef.ee.embedded.mcp.service.McpIntegrationInstanceConfigurationService;
+import com.bytechef.ee.embedded.mcp.service.McpIntegrationInstanceConfigurationWorkflowService;
+import com.bytechef.ee.embedded.mcp.service.McpIntegrationInstanceToolService;
+import com.bytechef.platform.component.service.ClusterElementDefinitionService;
+import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
+import com.bytechef.platform.mcp.service.McpComponentService;
+import com.bytechef.platform.mcp.service.McpServerService;
+import com.bytechef.platform.mcp.service.McpToolService;
 import org.junit.jupiter.api.Test;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.http.HttpStatus;
@@ -41,7 +55,13 @@ class IntegrationApiControllerTest {
     private final EnvironmentService environmentService = mock(EnvironmentService.class);
 
     private final IntegrationApiController integrationApiController = new IntegrationApiController(
-        conversionService, connectedUserIntegrationFacade, environmentService);
+        mock(ClusterElementDefinitionService.class), mock(ComponentDefinitionService.class), conversionService,
+        connectedUserIntegrationFacade, environmentService,
+        mock(IntegrationInstanceConfigurationWorkflowService.class), mock(IntegrationInstanceWorkflowService.class),
+        mock(IntegrationWorkflowService.class), mock(McpComponentService.class),
+        mock(McpIntegrationInstanceToolService.class), mock(McpIntegrationInstanceConfigurationService.class),
+        mock(McpIntegrationInstanceConfigurationWorkflowService.class), mock(McpServerService.class),
+        mock(McpToolService.class), mock(WorkflowService.class));
 
     @Test
     void testGetIntegrationReturnsNotFoundWhenIntegrationNotVisible() {
@@ -60,7 +80,17 @@ class IntegrationApiControllerTest {
     @Test
     void testGetIntegrationReturnsOkWhenIntegrationVisible() {
         ConnectedUserIntegrationDTO connectedUserIntegrationDTO = mock(ConnectedUserIntegrationDTO.class);
+        IntegrationInstanceConfigurationDTO integrationInstanceConfigurationDTO =
+            mock(IntegrationInstanceConfigurationDTO.class);
         IntegrationModel integrationModel = new IntegrationModel();
+
+        // MCP/workflow population walks the DTO chain; stub it to resolve to empty results so the happy path
+        // exercises the visible-integration branch without NPEs. integrationInstanceConfigurationWorkflows() is left
+        // null so filterDisabledWorkflows returns early.
+        when(connectedUserIntegrationDTO.integrationInstanceConfiguration())
+            .thenReturn(integrationInstanceConfigurationDTO);
+        when(integrationInstanceConfigurationDTO.integration())
+            .thenReturn(mock(IntegrationDTO.class));
 
         when(environmentService.getEnvironment(any()))
             .thenReturn(Environment.PRODUCTION);
