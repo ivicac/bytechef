@@ -4,13 +4,32 @@ import {WorkflowInput, WorkflowTestConfiguration} from '@/shared/middleware/plat
 import {EditIcon, Trash2Icon} from 'lucide-react';
 
 interface WorkflowInputsTableProps {
+    internalOnlyVisible: boolean;
     openDeleteDialog: (index: number) => void;
     openEditDialog: (index?: number) => void;
     workflowInputs: WorkflowInput[];
     workflowTestConfigurationInputs?: WorkflowTestConfiguration['inputs'];
 }
 
+// A component-property input's test value is a nested object ({member: value}); render its member
+// values rather than the default "[object Object]".
+const formatTestValue = (value: unknown): string => {
+    if (value == null) {
+        return '';
+    }
+
+    if (typeof value === 'object') {
+        return Object.values(value as Record<string, unknown>)
+            .filter((memberValue) => memberValue != null && memberValue !== '')
+            .map((memberValue) => String(memberValue))
+            .join(', ');
+    }
+
+    return String(value);
+};
+
 const WorkflowInputsTable = ({
+    internalOnlyVisible,
     openDeleteDialog,
     openEditDialog,
     workflowInputs,
@@ -27,7 +46,11 @@ const WorkflowInputsTable = ({
 
                 <TableHead className="w-[12%] truncate">Required</TableHead>
 
-                <TableHead className="w-[30%] truncate">Test Value</TableHead>
+                {internalOnlyVisible && <TableHead className="w-[11%] truncate">Internal only</TableHead>}
+
+                <TableHead className={internalOnlyVisible ? 'w-[19%] truncate' : 'w-[30%] truncate'}>
+                    Test Value
+                </TableHead>
 
                 <TableHead className="w-[14%] truncate">Actions</TableHead>
             </TableRow>
@@ -35,7 +58,8 @@ const WorkflowInputsTable = ({
 
         <TableBody>
             {workflowInputs?.map((input, index) => {
-                const testValue = workflowTestConfigurationInputs?.[input.name]?.toString();
+                const inputType = input.componentReference ? 'component' : input.type;
+                const testValue = formatTestValue(workflowTestConfigurationInputs?.[input.name]);
 
                 return (
                     <TableRow className="cursor-pointer border-b-border/50" key={`${input.name}-${index}`}>
@@ -47,11 +71,13 @@ const WorkflowInputsTable = ({
                             {input.label}
                         </TableCell>
 
-                        <TableCell className="truncate" title={input.type}>
-                            {input.type}
+                        <TableCell className="truncate" title={inputType}>
+                            {inputType}
                         </TableCell>
 
                         <TableCell>{input.required === true ? 'true' : 'false'}</TableCell>
+
+                        {internalOnlyVisible && <TableCell>{input.internalOnly === true ? 'true' : 'false'}</TableCell>}
 
                         <TableCell className="truncate" title={testValue}>
                             {testValue}

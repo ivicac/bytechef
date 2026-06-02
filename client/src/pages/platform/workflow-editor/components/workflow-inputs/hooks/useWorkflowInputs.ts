@@ -11,6 +11,9 @@ import {useShallow} from 'zustand/react/shallow';
 
 import useWorkflowDataStore from '../../../stores/useWorkflowDataStore';
 import saveWorkflowDefinitionUpdate from '../../../utils/saveWorkflowDefinitionUpdate';
+import deriveObjectName from '../utils/deriveObjectName';
+import {fromWorkflowDefinitionInput} from '../utils/fromWorkflowDefinitionInput';
+import {toWorkflowDefinitionInput} from '../utils/toWorkflowDefinitionInput';
 
 interface UseWorkflowInputsProps {
     invalidateWorkflowQueries: () => void;
@@ -48,6 +51,7 @@ export default function useWorkflowInputs({
             testValue: workflowTestConfiguration?.inputs
                 ? workflowTestConfiguration?.inputs[currentInput?.name]
                 : undefined,
+            type: currentInput.componentReference ? 'component' : currentInput.type,
         };
     }
 
@@ -71,6 +75,15 @@ export default function useWorkflowInputs({
         if (index === undefined) {
             setCurrentInputIndex(-1);
 
+            form.reset({
+                internalOnly: false,
+                label: '',
+                name: '',
+                required: false,
+                testValue: '',
+                type: undefined,
+            });
+
             return;
         } else {
             setCurrentInputIndex(index);
@@ -91,6 +104,7 @@ export default function useWorkflowInputs({
         form.reset({
             ...currentInput,
             testValue,
+            type: currentInput.componentReference ? 'component' : currentInput.type,
         });
     }
 
@@ -136,7 +150,24 @@ export default function useWorkflowInputs({
     function saveWorkflowInput(input: WorkflowInputType) {
         const {getValues} = form;
 
+        // `type === 'component'` is a UI-only discriminator. componentReference.componentVersion and .groupName are
+        // set via setValue (no registered FormField), so they can be missing from the submitted payload — pull the
+        // complete reference from the form so the input persists as a component input instead of degrading to a string.
+        if (input.type === 'component') {
+            input.componentReference = getValues('componentReference');
+        }
+
+        const testValue = getValues().testValue;
+
+        if (input.type === 'field_mapping') {
+            input.objectName = deriveObjectName(testValue);
+        }
+
         delete input['testValue'];
+
+        if (input.componentReference) {
+            delete input['type'];
+        }
 
         const workflowDefinition: WorkflowDefinitionType = JSON.parse(workflow.definition!);
 
@@ -146,21 +177,25 @@ export default function useWorkflowInputs({
             input.name = getFormattedInputName(input.name, previousInputs);
         }
 
+        const definitionInput = toWorkflowDefinitionInput(input);
+
         const applyInput = (inputs: WorkflowInput[]): WorkflowInput[] =>
             currentInputIndex === -1
-                ? [...inputs, input]
-                : inputs.map((existingInput, index) => (index === currentInputIndex ? input : existingInput));
+                ? [...inputs, definitionInput]
+                : inputs.map((existingInput, index) => (index === currentInputIndex ? definitionInput : existingInput));
 
+        // The definition persists flat keys; the local store mirrors what a reload returns (nested
+        // componentReference), so component inputs keep their reference instead of degrading to a string.
         setWorkflow({
             ...workflow,
-            inputs: applyInput(previousInputs),
+            inputs: applyInput(previousInputs).map(fromWorkflowDefinitionInput),
         });
 
         saveWorkflowDefinitionUpdate({
             onError: () => {
                 setWorkflow({
                     ...useWorkflowDataStore.getState().workflow,
-                    inputs: previousInputs,
+                    inputs: previousInputs.map(fromWorkflowDefinitionInput),
                 });
             },
             onSuccess: () => {
@@ -174,6 +209,7 @@ export default function useWorkflowInputs({
                 });
 
                 form.reset({
+                    internalOnly: false,
                     label: '',
                     name: '',
                     required: false,
@@ -209,14 +245,14 @@ export default function useWorkflowInputs({
 
         setWorkflow({
             ...workflow,
-            inputs: removeInput(originalInputs),
+            inputs: removeInput(originalInputs).map(fromWorkflowDefinitionInput),
         });
 
         saveWorkflowDefinitionUpdate({
             onError: () => {
                 setWorkflow({
                     ...useWorkflowDataStore.getState().workflow,
-                    inputs: originalInputs,
+                    inputs: originalInputs.map(fromWorkflowDefinitionInput),
                 });
             },
             onSuccess: () => {

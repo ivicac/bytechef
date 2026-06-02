@@ -52,6 +52,7 @@ interface WorkflowEditorLayoutProps {
     customCanvasWidth?: number;
     enableUndoRedo?: boolean;
     includeComponents?: string[];
+    internalOnlyVisible?: boolean;
     leftSidebarOpen?: boolean;
     onEditSubflowClick?: (workflowUuid: string) => void;
     runDisabled: boolean;
@@ -64,6 +65,7 @@ const WorkflowEditorLayout = ({
     customCanvasWidth,
     enableUndoRedo,
     includeComponents,
+    internalOnlyVisible = false,
     leftSidebarOpen,
     onEditSubflowClick,
     runDisabled,
@@ -281,6 +283,7 @@ const WorkflowEditorLayout = ({
 
             {showWorkflowInputsSheet && (
                 <WorkflowInputsSheet
+                    internalOnlyVisible={internalOnlyVisible}
                     invalidateWorkflowQueries={invalidateWorkflowQueries!}
                     onSheetOpenChange={setShowWorkflowInputsSheet}
                     sheetOpen={showWorkflowInputsSheet}
