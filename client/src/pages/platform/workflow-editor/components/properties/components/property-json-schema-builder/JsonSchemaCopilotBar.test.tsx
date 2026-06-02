@@ -10,8 +10,7 @@ vi.mock('../property-copilot/useGeneratePropertyValue', () => ({
 }));
 
 vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
-    useApplicationInfoStore: (selector: (state: unknown) => unknown) =>
-        selector({ai: {copilot: {enabled: true}}}),
+    useApplicationInfoStore: (selector: (state: unknown) => unknown) => selector({ai: {copilot: {enabled: true}}}),
 }));
 
 vi.mock('@/shared/stores/useFeatureFlagsStore', () => ({
