@@ -71,6 +71,16 @@ class ApiConnectorAiServiceImplTest {
     }
 
     @Test
+    void testCleanOpenApiResponseStripsPlainFence() {
+        when(webScrapeService.scrape(any())).thenReturn(ScrapeResult.success("# docs"));
+        givenLlmReturns("```\nopenapi: \"3.0.0\"\n```");
+
+        String specification = service.generateOpenApiSpecification("https://docs.example.com");
+
+        assertThat(specification).isEqualTo("openapi: \"3.0.0\"");
+    }
+
+    @Test
     void testAsyncWithMaxPagesOneScrapes() {
         when(jobService.isCancellationRequested("j1")).thenReturn(false);
         when(webScrapeService.scrape("https://docs.example.com"))
@@ -81,6 +91,7 @@ class ApiConnectorAiServiceImplTest {
 
         verify(webScrapeService).scrape("https://docs.example.com");
         verify(webScrapeService, never()).crawl(any(), anyInt(), anyList());
+        verify(jobService).markAsProcessing("j1");
         verify(jobService).markAsCompleted(eq("j1"), any());
     }
 
@@ -94,6 +105,7 @@ class ApiConnectorAiServiceImplTest {
         service.generateOpenApiSpecificationAsync("j1", "https://docs.example.com", null, 5);
 
         verify(webScrapeService).crawl("https://docs.example.com", 5, List.of());
+        verify(jobService).markAsProcessing("j1");
         verify(jobService).markAsCompleted(eq("j1"), any());
     }
 
