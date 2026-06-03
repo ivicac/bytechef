@@ -19,13 +19,13 @@ describe('extractDefinitionFromMessage', () => {
         expect(extractDefinitionFromMessage('  label: x  ')).toBe('label: x');
     });
 
-    it('joins array text parts before extracting', () => {
+    it('concatenates array text parts faithfully before extracting', () => {
         const content = [
-            {text: 'intro ```json\n{"a":1}', type: 'text'},
+            {text: 'Here you go:\n```json\n{"a":1}', type: 'text'},
             {text: '}\n```', type: 'text'},
         ];
 
-        expect(extractDefinitionFromMessage(content)).toBe('{"a":1}\n}');
+        expect(extractDefinitionFromMessage(content)).toBe('{"a":1}}');
     });
 
     it('returns empty string for empty content', () => {

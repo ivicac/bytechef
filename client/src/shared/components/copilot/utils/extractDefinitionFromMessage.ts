@@ -9,7 +9,7 @@ export function extractDefinitionFromMessage(content: MessageContentType): strin
     if (typeof content === 'string') {
         text = content;
     } else if (Array.isArray(content)) {
-        text = content.map((part) => part?.text ?? '').join('\n');
+        text = content.map((part) => part?.text ?? '').join('');
     }
 
     const match = FENCE_REGEX.exec(text);
