@@ -304,7 +304,7 @@ const ExperimentSummaryCards = ({experiments}: ExperimentSummaryCardsProps) => {
 
     return (
         <section>
-            <h4 className="mb-3 text-sm font-semibold uppercase text-muted-foreground">Summaries</h4>
+            <h4 className="mb-3 text-sm font-semibold text-muted-foreground uppercase">Summaries</h4>
 
             <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {experiments.map((experiment) => {
@@ -361,7 +361,7 @@ const AggregateScoreDeltas = ({deltas, experimentIds}: AggregateScoreDeltasProps
     if (deltas.length === 0) {
         return (
             <section>
-                <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase text-muted-foreground">
+                <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase">
                     <ChartBarIcon className="size-4" />
                     Aggregate score deltas
                 </h4>
@@ -373,7 +373,7 @@ const AggregateScoreDeltas = ({deltas, experimentIds}: AggregateScoreDeltasProps
 
     return (
         <section>
-            <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold uppercase text-muted-foreground">
+            <h4 className="mb-3 flex items-center gap-2 text-sm font-semibold text-muted-foreground uppercase">
                 <ChartBarIcon className="size-4" />
                 Aggregate score deltas
             </h4>
@@ -441,7 +441,7 @@ const PerItemRunsTable = ({comparison, experimentIds}: PerItemRunsTableProps) =>
     if (comparison.rows.length === 0) {
         return (
             <section>
-                <h4 className="mb-3 text-sm font-semibold uppercase text-muted-foreground">Per-item runs</h4>
+                <h4 className="mb-3 text-sm font-semibold text-muted-foreground uppercase">Per-item runs</h4>
 
                 <p className="text-sm text-muted-foreground">
                     No dataset items have been replayed across the selected experiments yet.
@@ -452,7 +452,7 @@ const PerItemRunsTable = ({comparison, experimentIds}: PerItemRunsTableProps) =>
 
     return (
         <section>
-            <h4 className="mb-3 text-sm font-semibold uppercase text-muted-foreground">Per-item runs</h4>
+            <h4 className="mb-3 text-sm font-semibold text-muted-foreground uppercase">Per-item runs</h4>
 
             <div className="overflow-x-auto rounded-md border">
                 <table className="min-w-full text-sm">

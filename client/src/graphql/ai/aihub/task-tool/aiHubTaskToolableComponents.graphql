@@ -1,0 +1,14 @@
+query aiHubTaskToolableComponents($workspaceId: ID!) {
+    aiHubTaskToolableComponents(workspaceId: $workspaceId) {
+        componentName
+        componentVersion
+        description
+        icon
+        title
+        tools {
+            description
+            name
+            title
+        }
+    }
+}

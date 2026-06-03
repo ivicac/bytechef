@@ -41,6 +41,7 @@ const WorkflowRightSidebar = lazy(() => import('./components/WorkflowRightSideba
 const WorkflowNodesSidebar = lazy(() => import('./components/WorkflowNodesSidebar'));
 
 interface WorkflowEditorLayoutProps {
+    customCanvasWidth?: number;
     includeComponents?: string[];
     leftSidebarOpen?: boolean;
     runDisabled: boolean;
@@ -50,6 +51,7 @@ interface WorkflowEditorLayoutProps {
 }
 
 const WorkflowEditorLayout = ({
+    customCanvasWidth,
     includeComponents,
     leftSidebarOpen,
     runDisabled,
@@ -196,6 +198,7 @@ const WorkflowEditorLayout = ({
                     <Suspense>
                         <WorkflowEditor
                             componentDefinitions={componentDefinitions}
+                            customCanvasWidth={customCanvasWidth}
                             leftSidebarOpen={leftSidebarOpen}
                             taskDispatcherDefinitions={taskDispatcherDefinitions}
                         />

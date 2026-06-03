@@ -1,6 +1,6 @@
 import {Dialog, DialogContent} from '@/components/ui/dialog';
 import {XIcon} from 'lucide-react';
-import {PropsWithChildren, ReactNode, useState} from 'react';
+import {PropsWithChildren, ReactNode, useEffect, useState} from 'react';
 import {twMerge} from 'tailwind-merge';
 
 interface SidebarContentLayoutProps {
@@ -58,6 +58,24 @@ const LayoutContainer = ({
 }: PropsWithChildren<SidebarContentLayoutProps>) => {
     const [sidebarOpen, setSidebarOpen] = useState(false);
 
+    // Keep the left sidebar mounted for 300ms after it closes so it can slide out (translate) before
+    // unmounting, mirroring the slide-in on open. Pages that never toggle leftSidebarOpen keep this
+    // permanently true, so they see no behavior change — only the transform/padding transitions, which
+    // are no-ops while the value is static.
+    const [leftAsideMounted, setLeftAsideMounted] = useState(leftSidebarOpen);
+
+    useEffect(() => {
+        if (leftSidebarOpen) {
+            setLeftAsideMounted(true);
+
+            return;
+        }
+
+        const timerId = setTimeout(() => setLeftAsideMounted(false), 300);
+
+        return () => clearTimeout(timerId);
+    }, [leftSidebarOpen]);
+
     return (
         <div className={twMerge('size-full overflow-auto', className)}>
             <Dialog open={sidebarOpen}>
@@ -84,11 +102,13 @@ const LayoutContainer = ({
                 </DialogContent>
             </Dialog>
 
-            {leftSidebarOpen && (
+            {leftAsideMounted && (
                 <aside
                     className={twMerge(
                         'hidden border-r border-r-border/50 bg-muted/50 lg:flex lg:flex-col',
                         'lg:fixed lg:inset-y-0',
+                        'transition-transform duration-300 ease-in-out',
+                        leftSidebarOpen ? 'lg:translate-x-0' : 'lg:-translate-x-full',
                         leftSidebarClass,
                         leftSidebarWidths[leftSidebarWidth][0]
                     )}
@@ -103,7 +123,7 @@ const LayoutContainer = ({
 
             <div
                 className={twMerge(
-                    'size-full',
+                    'size-full transition-[padding] duration-300 ease-in-out',
                     topHeader && 'flex flex-col',
                     leftSidebarOpen && leftSidebarWidths[leftSidebarWidth][1]
                 )}

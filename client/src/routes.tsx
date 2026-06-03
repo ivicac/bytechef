@@ -57,11 +57,19 @@ const ProjectTemplates = lazy(() => import('@/pages/automation/templates/project
 const Projects = lazy(() => import('@/pages/automation/projects/Projects'));
 const Sessions = lazy(() => import('@/pages/account/settings/Sessions'));
 const ApprovalTasks = lazy(() => import('@/pages/automation/approval-tasks/ApprovalTasks'));
-const Chat = lazy(() => import('@/pages/automation/chats/Chat'));
-const Chats = lazy(() => import('@/pages/automation/chats/Chats'));
 const WorkflowTemplate = lazy(() => import('@/pages/automation/template/workflow-template/WorkflowTemplate'));
 const WorkflowTemplates = lazy(() => import('@/pages/automation/templates/workflow-templates/WorkflowTemplates'));
 const AssetFiles = lazy(() => import('@/pages/automation/asset-files/AssetFiles'));
+const AiHub = lazy(() => import('@/pages/automation/ai-hub/AiHub'));
+const AiHubArtifactHistoryPage = lazy(() => import('@/pages/automation/ai-hub/AiHubArtifactHistoryPage'));
+const ContextStoreSourceDetail = lazy(() => import('@/pages/automation/context-store/ContextStoreSourceDetail'));
+const ContextStoreSources = lazy(() => import('@/pages/automation/context-store/ContextStoreSources'));
+const AiAutoMemoriesPage = lazy(() => import('@/pages/automation/ai-hub/memories/Memories'));
+const AiHubPersonalAgentsPage = lazy(() => import('@/pages/automation/ai-hub/personal-agents/AiHubPersonalAgents'));
+const AiHubPersonalAgentFormPage = lazy(
+    () => import('@/pages/automation/ai-hub/personal-agents/AiHubPersonalAgentForm')
+);
+const AiHubWorkflowChatsPage = lazy(() => import('@/pages/automation/ai-hub/tasks/WorkflowChats'));
 
 const AiProviders = lazy(() => import('@/ee/pages/settings/platform/ai-providers/AiProviders'));
 const ApiClients = lazy(() => import('@/ee/pages/automation/api-platform/api-clients/ApiClients'));
@@ -756,32 +764,122 @@ export const getRouter = (queryClient: QueryClient) =>
                                 {
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
-                                            <LazyLoadWrapper hasLeftSidebar>
-                                                <AssetFiles />
-                                            </LazyLoadWrapper>
+                                            <EEVersion>
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <ContextStoreSources />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
                                         </PrivateRoute>
                                     ),
-                                    path: 'asset-files',
+                                    path: 'context-store',
                                 },
                                 {
-                                    children: [
-                                        {
-                                            element: (
-                                                <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
-                                                    <LazyLoadWrapper hasLeftSidebar>
-                                                        <Chat />
-                                                    </LazyLoadWrapper>
-                                                </PrivateRoute>
-                                            ),
-                                            path: ':workflowExecutionId',
-                                        },
-                                    ],
                                     element: (
-                                        <LazyLoadWrapper hasLeftSidebar>
-                                            <Chats />
-                                        </LazyLoadWrapper>
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <ContextStoreSourceDetail />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
                                     ),
-                                    path: 'chats',
+                                    path: 'context-store/:id',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <AiHub />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'ai-hub',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <AiHub />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'ai-hub/tasks/:taskId',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <AiHubArtifactHistoryPage />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'ai-hub/artifact-history',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <AiAutoMemoriesPage />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'ai-hub/memories',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <AiHubPersonalAgentsPage />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'ai-hub/personal-agents',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <AiHubPersonalAgentFormPage />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'ai-hub/personal-agents/new',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <AiHubPersonalAgentFormPage />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'ai-hub/personal-agents/:agentId/edit',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <AiHubWorkflowChatsPage />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'ai-hub/workflow-chats',
                                 },
                                 {
                                     element: (
@@ -838,6 +936,26 @@ export const getRouter = (queryClient: QueryClient) =>
                                         </PrivateRoute>
                                     ),
                                     path: 'ai/skills/:skillId',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <LazyLoadWrapper hasLeftSidebar>
+                                                <AssetFiles />
+                                            </LazyLoadWrapper>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'asset-files',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <LazyLoadWrapper hasLeftSidebar>
+                                                <AssetFiles />
+                                            </LazyLoadWrapper>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'asset-files/:fileId',
                                 },
                                 {
                                     element: (

@@ -16,6 +16,7 @@ export enum Source {
     CODE_EDITOR = 'CODE_EDITOR',
     CLUSTER_ELEMENT = 'CLUSTER_ELEMENT',
     SKILLS = 'SKILLS',
+    WORKFLOW_EXECUTION = 'WORKFLOW_EXECUTION',
 }
 
 export type ContextType = {

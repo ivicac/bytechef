@@ -306,7 +306,7 @@ const DatasetVersionItems = ({onBack, version}: DatasetVersionItemsProps) => {
 
                                 <div className="space-y-2 text-sm">
                                     <div>
-                                        <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                                        <div className="mb-1 text-xs font-semibold text-muted-foreground uppercase">
                                             Input
                                         </div>
 
@@ -317,7 +317,7 @@ const DatasetVersionItems = ({onBack, version}: DatasetVersionItemsProps) => {
 
                                     {item.expectedOutput != null && (
                                         <div>
-                                            <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                                            <div className="mb-1 text-xs font-semibold text-muted-foreground uppercase">
                                                 Expected output
                                             </div>
 
@@ -329,7 +329,7 @@ const DatasetVersionItems = ({onBack, version}: DatasetVersionItemsProps) => {
 
                                     {item.metadata != null && (
                                         <div>
-                                            <div className="mb-1 text-xs font-semibold uppercase text-muted-foreground">
+                                            <div className="mb-1 text-xs font-semibold text-muted-foreground uppercase">
                                                 Metadata
                                             </div>
 

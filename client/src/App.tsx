@@ -50,6 +50,12 @@ type NavigationType = {
 
 const automationNavigation: NavigationType[] = [
     {
+        href: '/automation/ai-hub',
+        icon: MessagesSquareIcon,
+        name: 'AI Hub',
+    },
+    {href: '/automation/approval-tasks', icon: CircleIcon, name: 'Approval Tasks'},
+    {
         href: '/automation/projects',
         icon: FolderIcon,
         name: 'Projects',
@@ -90,8 +96,6 @@ const automationNavigation: NavigationType[] = [
         icon: FileTextIcon,
         name: 'Files',
     },
-    {href: '/automation/chats', icon: MessagesSquareIcon, name: 'Chats'},
-    {href: '/automation/approval-tasks', icon: CircleIcon, name: 'Approval Tasks'},
     {href: '/automation/ai', icon: SparklesIcon, name: 'AI'},
 ];
 
@@ -221,6 +225,10 @@ function App() {
             return ff_4545 && edition === EditionType.EE;
         }
 
+        if (navItem.href === '/automation/ai-hub') {
+            return edition === EditionType.EE && ai.copilot.enabled;
+        }
+
         return true;
     });
 
@@ -260,10 +268,20 @@ function App() {
     }, [account, helpHub, userGuiding]);
 
     useEffect(() => {
-        document.title =
-            [...automationNavigation, ...embeddedNavigation, ...platformNavigation].find(
-                (navItem) => navItem.href === location.pathname
-            )?.name ?? 'ByteChef';
+        // Format `ByteChef | <Page>` (or just `ByteChef` if no nav match). Match by `startsWith` instead
+        // of strict equality so deep-linked sub-routes like `/automation/asset-files/123` still pick up
+        // the parent `Files` entry's title — without this, the title falls back to the bare `ByteChef`
+        // default and the user's tab loses context as soon as they open a file detail. The exact-match
+        // sort ensures longer prefixes win (e.g. `/automation/api-platform/foo` matches `api-platform`,
+        // not the empty parent), so the standard nav-driven title behavior is preserved on the list
+        // pages while picking up the right entry on nested routes.
+        const allNavItems = [...automationNavigation, ...embeddedNavigation, ...platformNavigation].sort(
+            (a, b) => b.href.length - a.href.length
+        );
+
+        const matchedNavItem = allNavItems.find((navItem) => location.pathname.startsWith(navItem.href));
+
+        document.title = matchedNavItem ? `ByteChef | ${matchedNavItem.name}` : 'ByteChef';
     }, [location]);
 
     useEffect(() => {
