@@ -2542,6 +2542,7 @@ export type GenerateForEndpointsInput = {
 export type GenerateFromDocumentationInput = {
   documentationUrl: Scalars['String']['input'];
   icon?: InputMaybe<Scalars['String']['input']>;
+  maxPages?: InputMaybe<Scalars['Int']['input']>;
   name: Scalars['String']['input'];
   userPrompt?: InputMaybe<Scalars['String']['input']>;
 };

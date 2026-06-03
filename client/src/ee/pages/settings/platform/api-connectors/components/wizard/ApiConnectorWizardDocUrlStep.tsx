@@ -1,12 +1,18 @@
+import {Checkbox} from '@/components/ui/checkbox';
 import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
 import {Input} from '@/components/ui/input';
 import {Textarea} from '@/components/ui/textarea';
 import IconField from '@/ee/pages/settings/platform/api-connectors/components/IconField';
+import {useState} from 'react';
 
 import useApiConnectorWizard from './hooks/useApiConnectorWizard';
 
 const ApiConnectorWizardDocUrlStep = () => {
     const {control, form} = useApiConnectorWizard('docUrl');
+
+    const maxPages = form.watch('maxPages');
+
+    const [crawlEnabled, setCrawlEnabled] = useState((maxPages ?? 1) > 1);
 
     return (
         <Form {...form}>
@@ -75,6 +81,45 @@ const ApiConnectorWizardDocUrlStep = () => {
                                     {...field}
                                 />
                             </FormControl>
+
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                />
+
+                <FormField
+                    control={control}
+                    name="maxPages"
+                    render={({field}) => (
+                        <FormItem>
+                            <div className="flex items-center gap-2">
+                                <Checkbox
+                                    checked={crawlEnabled}
+                                    id="crawl-enabled"
+                                    onCheckedChange={(checked) => {
+                                        const enabled = checked === true;
+
+                                        setCrawlEnabled(enabled);
+                                        field.onChange(enabled ? 10 : 1);
+                                    }}
+                                />
+
+                                <FormLabel className="!mt-0" htmlFor="crawl-enabled">
+                                    Crawl linked documentation pages
+                                </FormLabel>
+                            </div>
+
+                            {crawlEnabled && (
+                                <FormControl>
+                                    <Input
+                                        max={50}
+                                        min={2}
+                                        onChange={(event) => field.onChange(Number(event.target.value) || 2)}
+                                        type="number"
+                                        value={field.value ?? 10}
+                                    />
+                                </FormControl>
+                            )}
 
                             <FormMessage />
                         </FormItem>
