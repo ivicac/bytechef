@@ -299,7 +299,7 @@ const WorkflowCodeEditorSheet = ({
 
                 <CopilotPanel
                     className="h-full rounded-r-md border-l border-l-border/50"
-                    onApply={(value) => handleDefinitionChange(value)}
+                    onApply={handleDefinitionChange}
                     onClose={handleCopilotClose}
                     open={copilotPanelOpen}
                     source={Source.WORKFLOW_CODE_EDITOR}

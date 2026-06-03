@@ -1,7 +1,7 @@
 type MessageTextPartType = {text?: string; type?: string};
 type MessageContentType = string | ReadonlyArray<MessageTextPartType> | undefined;
 
-const FENCE_REGEX = /```(?:[a-zA-Z]*)\n([\s\S]*?)```/;
+const FENCE_REGEX = /```(?:[a-zA-Z]*)\r?\n([\s\S]*?)```/;
 
 export function extractDefinitionFromMessage(content: MessageContentType): string {
     let text = '';
