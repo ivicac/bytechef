@@ -71,7 +71,17 @@ export default function useApiConnectorWizard(formType: WizardFormType): UseApiC
         });
 
         return () => subscription.unsubscribe();
-    }, [form, formType, setBaseUrl, setDocumentationUrl, setIcon, setMaxPages, setName, setSpecification, setUserPrompt]);
+    }, [
+        form,
+        formType,
+        setBaseUrl,
+        setDocumentationUrl,
+        setIcon,
+        setMaxPages,
+        setName,
+        setSpecification,
+        setUserPrompt,
+    ]);
 
     return {control: form.control, form};
 }

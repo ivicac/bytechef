@@ -106,7 +106,9 @@ const ApiConnectorWizardDocUrlStep = () => {
                                     <Input
                                         max={50}
                                         min={2}
-                                        onChange={(event) => field.onChange(Math.max(2, Number(event.target.value) || 2))}
+                                        onChange={(event) =>
+                                            field.onChange(Math.max(2, Number(event.target.value) || 2))
+                                        }
                                         type="number"
                                         value={field.value ?? 10}
                                     />
