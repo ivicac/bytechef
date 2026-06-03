@@ -67,6 +67,11 @@ public class WorkflowCodeEditorSpringAIAgent extends SpringAIAgent {
         return "The workflow definition format you have to assist with is JSON.";
     }
 
+    /**
+     * Returns the per-request {@link ChatClient}. Consults the override resolver first (for the user-selected
+     * (provider, model) supplied via AG-UI state); falls back to the builder-time default whenever the resolver is
+     * absent, returns {@code null}, or throws. Mirrors the same hook on {@code CodeEditorSpringAIAgent.resolveChatClient}.
+     */
     @Override
     protected ChatClient resolveChatClient(RunAgentInput input) {
         if (overrideChatClientResolver == null) {
@@ -80,6 +85,9 @@ public class WorkflowCodeEditorSpringAIAgent extends SpringAIAgent {
                 return override;
             }
         } catch (RuntimeException exception) {
+            // The override path is best-effort: any failure (missing provider, factory throw, malformed state) must
+            // fall back to the workspace default rather than failing the turn. Absence of an override simply means
+            // "use the configured default."
             log.warn(
                 "WorkflowCodeEditorSpringAIAgent: override ChatClient resolver threw; falling back to default. {}",
                 exception.getMessage());
