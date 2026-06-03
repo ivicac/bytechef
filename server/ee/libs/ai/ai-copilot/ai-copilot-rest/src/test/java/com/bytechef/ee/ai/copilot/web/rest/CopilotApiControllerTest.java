@@ -10,12 +10,14 @@ package com.bytechef.ee.ai.copilot.web.rest;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.agui.core.state.State;
+import com.agui.server.LocalAgent;
 import com.agui.server.spring.AgUiParameters;
 import com.agui.server.spring.AgUiService;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
@@ -107,6 +109,47 @@ class CopilotApiControllerTest {
             .isInstanceOf(AccessDeniedException.class);
 
         verify(agUiService, never()).runAgent(any(), any());
+    }
+
+    @Test
+    void testChatRoutesWorkflowCodeEditorAsk() {
+        LocalAgent agent = localAgent("workflow_code_editor_ask");
+        CopilotApiController controller = controllerWith(agent);
+
+        when(agUiService.runAgent(eq(agent), any())).thenReturn(new SseEmitter());
+
+        controller.chat("workflow_code_editor", agUiParameters("ASK"));
+
+        verify(agUiService).runAgent(eq(agent), any());
+    }
+
+    @Test
+    void testChatRoutesWorkflowCodeEditorBuild() {
+        LocalAgent agent = localAgent("workflow_code_editor_build");
+        CopilotApiController controller = controllerWith(agent);
+
+        when(agUiService.runAgent(eq(agent), any())).thenReturn(new SseEmitter());
+
+        controller.chat("workflow_code_editor", agUiParameters("BUILD"));
+
+        verify(agUiService).runAgent(eq(agent), any());
+    }
+
+    private AgUiParameters agUiParameters(String mode) {
+        return parameters(Map.<String, Object>of("mode", mode));
+    }
+
+    private LocalAgent localAgent(String agentId) {
+        LocalAgent localAgent = mock(LocalAgent.class);
+
+        when(localAgent.getAgentId()).thenReturn(agentId);
+
+        return localAgent;
+    }
+
+    private CopilotApiController controllerWith(LocalAgent localAgent) {
+        return new CopilotApiController(
+            agUiService, List.of(localAgent), Optional.empty(), Optional.empty());
     }
 
     private AgUiParameters parameters(Map<String, Object> stateMap) {
