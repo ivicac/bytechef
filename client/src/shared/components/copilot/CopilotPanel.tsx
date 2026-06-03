@@ -8,7 +8,8 @@ import CopilotPanelBoundary from '@/shared/components/copilot/CopilotPanelBounda
 import {CopilotRuntimeProvider} from '@/shared/components/copilot/runtime-providers/CopilotRuntimeProvider';
 import useCopilotPanelStore from '@/shared/components/copilot/stores/useCopilotPanelStore';
 import {MODE, Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
-import {BotMessageSquareIcon, MessageSquareXIcon, XIcon} from 'lucide-react';
+import {extractDefinitionFromMessage} from '@/shared/components/copilot/utils/extractDefinitionFromMessage';
+import {BotMessageSquareIcon, MessageSquareXIcon, SparklesIcon, XIcon} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import {useLocation} from 'react-router-dom';
 import {twMerge} from 'tailwind-merge';
@@ -19,15 +20,23 @@ const ANIMATION_DURATION_MS = 300;
 interface CopilotPanelProps {
     className?: string;
     headerClassName?: string;
+    onApply?: (value: string) => void;
     onClose?: () => void;
     open: boolean;
     source?: Source;
 }
 
-const CopilotPanelContent = ({className, headerClassName, onClose, source}: Omit<CopilotPanelProps, 'open'>) => {
+const CopilotPanelContent = ({
+    className,
+    headerClassName,
+    onApply,
+    onClose,
+    source,
+}: Omit<CopilotPanelProps, 'open'>) => {
     const {
         context,
         generateConversationId,
+        messages,
         resetMessages,
         selectedLlmModel,
         selectedLlmProvider,
@@ -37,6 +46,7 @@ const CopilotPanelContent = ({className, headerClassName, onClose, source}: Omit
         useShallow((state) => ({
             context: state.context,
             generateConversationId: state.generateConversationId,
+            messages: state.messages,
             resetMessages: state.resetMessages,
             selectedLlmModel: state.selectedLlmModel,
             selectedLlmProvider: state.selectedLlmProvider,
@@ -47,6 +57,20 @@ const CopilotPanelContent = ({className, headerClassName, onClose, source}: Omit
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const setCopilotPanelOpen = useCopilotPanelStore((state) => state.setCopilotPanelOpen);
     const location = useLocation();
+
+    const lastAssistantMessage = [...messages].reverse().find((message) => message.role === 'assistant');
+
+    const handleApplyClick = () => {
+        if (!onApply || !lastAssistantMessage) {
+            return;
+        }
+
+        const definition = extractDefinitionFromMessage(lastAssistantMessage.content);
+
+        if (definition) {
+            onApply(definition);
+        }
+    };
 
     const handleCleanMessages = () => {
         resetMessages();
@@ -90,6 +114,22 @@ const CopilotPanelContent = ({className, headerClassName, onClose, source}: Omit
                      * (ModeSwitch, passed via Thread's composerActions below) — one toggle near the send
                      * button replaces the two-button segmented control that used to live here.
                      */}
+
+                    {source === Source.WORKFLOW_CODE_EDITOR && onApply && lastAssistantMessage && (
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    aria-label="Apply to editor"
+                                    icon={<SparklesIcon />}
+                                    onClick={handleApplyClick}
+                                    size="icon"
+                                    variant="ghost"
+                                />
+                            </TooltipTrigger>
+
+                            <TooltipContent>Apply to editor</TooltipContent>
+                        </Tooltip>
+                    )}
 
                     <Tooltip>
                         <TooltipTrigger asChild>
@@ -148,7 +188,7 @@ const CopilotPanelContent = ({className, headerClassName, onClose, source}: Omit
     );
 };
 
-const CopilotPanel = ({className, headerClassName, onClose, open, source}: CopilotPanelProps) => {
+const CopilotPanel = ({className, headerClassName, onApply, onClose, open, source}: CopilotPanelProps) => {
     const [shouldRender, setShouldRender] = useState(open);
     const [isVisible, setIsVisible] = useState(open);
 
@@ -209,6 +249,7 @@ const CopilotPanel = ({className, headerClassName, onClose, open, source}: Copil
                     <CopilotPanelContent
                         className={contentClassName}
                         headerClassName={headerClassName}
+                        onApply={onApply}
                         onClose={onClose}
                         source={source}
                     />
