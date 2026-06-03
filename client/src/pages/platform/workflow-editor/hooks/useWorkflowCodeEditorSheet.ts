@@ -24,8 +24,9 @@ import type {editor} from 'monaco-editor';
 
 const workflowTestApi = new WorkflowTestApi();
 
-const MARKER_SEVERITY_ERROR = 8;
-
+// Shown in the copilot panel in place of the workflow definition once a BUILD-mode turn has been
+// applied straight to the code editor — the editor is the source of truth, so the definition itself
+// no longer needs to occupy the conversation.
 const APPLIED_TO_EDITOR_MESSAGE = '✓ Applied changes to the editor.';
 
 type UseWorkflowCodeEditorSheetReturnType = {
