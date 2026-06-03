@@ -8,6 +8,7 @@ import CopilotPanelBoundary from '@/shared/components/copilot/CopilotPanelBounda
 import {CopilotRuntimeProvider} from '@/shared/components/copilot/runtime-providers/CopilotRuntimeProvider';
 import useCopilotPanelStore from '@/shared/components/copilot/stores/useCopilotPanelStore';
 import {MODE, Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
+import {canApplyToEditor} from '@/shared/components/copilot/utils/canApplyToEditor';
 import {extractDefinitionFromMessage} from '@/shared/components/copilot/utils/extractDefinitionFromMessage';
 import {BotMessageSquareIcon, MessageSquareXIcon, SparklesIcon, XIcon} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
@@ -59,6 +60,8 @@ const CopilotPanelContent = ({
     const location = useLocation();
 
     const lastAssistantMessage = [...messages].reverse().find((message) => message.role === 'assistant');
+
+    const applyToEditorEnabled = canApplyToEditor(source, context?.mode, !!onApply && !!lastAssistantMessage);
 
     const handleApplyClick = () => {
         if (!onApply || !lastAssistantMessage) {
@@ -115,7 +118,7 @@ const CopilotPanelContent = ({
                      * button replaces the two-button segmented control that used to live here.
                      */}
 
-                    {source === Source.WORKFLOW_CODE_EDITOR && onApply && lastAssistantMessage && (
+                    {applyToEditorEnabled && (
                         <Tooltip>
                             <TooltipTrigger asChild>
                                 <Button
