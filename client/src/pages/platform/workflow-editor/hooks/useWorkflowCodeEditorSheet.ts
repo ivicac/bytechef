@@ -120,12 +120,12 @@ const useWorkflowCodeEditorSheet = ({
         setContext({
             ...currentContext,
             mode: MODE.ASK,
-            parameters: {language: 'json'},
-            source: Source.CODE_EDITOR,
+            parameters: {format: workflow.format?.toLowerCase() ?? 'json'},
+            source: Source.WORKFLOW_CODE_EDITOR,
         });
 
         setCopilotPanelOpen(true);
-    }, [setContext]);
+    }, [setContext, workflow.format]);
 
     const handleCopilotClose = useCallback(() => {
         useCopilotStore.getState().restoreConversationState();

@@ -10,6 +10,7 @@ import WorkflowTestConfigurationDialog from '@/pages/platform/workflow-editor/co
 import useWorkflowCodeEditorSheet from '@/pages/platform/workflow-editor/hooks/useWorkflowCodeEditorSheet';
 import MonacoEditorLoader from '@/shared/components/MonacoEditorLoader';
 import CopilotPanel from '@/shared/components/copilot/CopilotPanel';
+import {Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import {Workflow, WorkflowTestConfiguration} from '@/shared/middleware/platform/configuration';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {
@@ -298,8 +299,10 @@ const WorkflowCodeEditorSheet = ({
 
                 <CopilotPanel
                     className="h-full rounded-r-md border-l border-l-border/50"
+                    onApply={(value) => handleDefinitionChange(value)}
                     onClose={handleCopilotClose}
                     open={copilotPanelOpen}
+                    source={Source.WORKFLOW_CODE_EDITOR}
                 />
             </SheetContent>
 
