@@ -70,7 +70,8 @@ public class WorkflowCodeEditorSpringAIAgent extends SpringAIAgent {
     /**
      * Returns the per-request {@link ChatClient}. Consults the override resolver first (for the user-selected
      * (provider, model) supplied via AG-UI state); falls back to the builder-time default whenever the resolver is
-     * absent, returns {@code null}, or throws. Mirrors the same hook on {@code CodeEditorSpringAIAgent.resolveChatClient}.
+     * absent, returns {@code null}, or throws. Mirrors the same hook on
+     * {@code CodeEditorSpringAIAgent.resolveChatClient}.
      */
     @Override
     protected ChatClient resolveChatClient(RunAgentInput input) {
