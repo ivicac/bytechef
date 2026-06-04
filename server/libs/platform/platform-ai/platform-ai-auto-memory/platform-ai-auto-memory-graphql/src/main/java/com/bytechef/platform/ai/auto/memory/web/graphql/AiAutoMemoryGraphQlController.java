@@ -19,6 +19,7 @@ package com.bytechef.platform.ai.auto.memory.web.graphql;
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemory;
+import com.bytechef.platform.ai.auto.memory.AiAutoMemoryPrincipalType;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryService;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryType;
 import com.bytechef.platform.user.service.UserService;
@@ -74,7 +75,7 @@ public class AiAutoMemoryGraphQlController {
 
         verifyUserCanAccessWorkspace(userId, workspaceId);
 
-        return aiAutoMemoryService.list(workspaceId, userId, environment, memoryType);
+        return aiAutoMemoryService.list(workspaceId, AiAutoMemoryPrincipalType.USER, userId, environment, memoryType);
     }
 
     @QueryMapping
@@ -85,7 +86,8 @@ public class AiAutoMemoryGraphQlController {
 
         verifyUserCanAccessWorkspace(userId, workspaceId);
 
-        Optional<AiAutoMemory> memory = aiAutoMemoryService.findById(workspaceId, userId, id);
+        Optional<AiAutoMemory> memory =
+            aiAutoMemoryService.findById(workspaceId, AiAutoMemoryPrincipalType.USER, userId, id);
 
         return memory.orElse(null);
     }
@@ -104,7 +106,7 @@ public class AiAutoMemoryGraphQlController {
         verifyUserCanAccessWorkspace(userId, input.workspaceId());
 
         return aiAutoMemoryService.updateById(
-            input.workspaceId(), userId, input.id(),
+            input.workspaceId(), AiAutoMemoryPrincipalType.USER, userId, input.id(),
             input.title(), input.description(), input.memoryType(), input.content());
     }
 
@@ -115,7 +117,7 @@ public class AiAutoMemoryGraphQlController {
 
         verifyUserCanAccessWorkspace(userId, workspaceId);
 
-        aiAutoMemoryService.deleteById(workspaceId, userId, id);
+        aiAutoMemoryService.deleteById(workspaceId, AiAutoMemoryPrincipalType.USER, userId, id);
 
         return true;
     }
