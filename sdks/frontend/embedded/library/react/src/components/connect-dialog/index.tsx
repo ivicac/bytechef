@@ -10,6 +10,7 @@ import {
     IntegrationInstanceWorkflowType,
     IntegrationType,
     IntegrationWorkflowType,
+    MapObjectFieldsType,
     McpIntegrationInstanceToolType,
     McpToolType,
     MergedMcpToolType,
@@ -19,6 +20,8 @@ import {
     TokenPayloadI,
     WorkflowInputType,
 } from './types';
+import {decodeJwtSubject} from './utils';
+import useExecuteAction from './useExecuteAction';
 
 const OAUTH2_TYPES = ['OAUTH2_AUTHORIZATION_CODE', 'OAUTH2_AUTHORIZATION_CODE_PKCE'];
 
@@ -105,6 +108,7 @@ interface UseConnectDialogProps {
     integrationId: string;
     integrationInstanceId?: string;
     jwtToken: string;
+    mapObjectFields?: MapObjectFieldsType;
 }
 
 export default function useConnectDialog({
@@ -113,6 +117,7 @@ export default function useConnectDialog({
     integrationId,
     integrationInstanceId,
     jwtToken,
+    mapObjectFields,
 }: UseConnectDialogProps): ConnectionDialogHookReturnType {
     const [integration, setIntegration] = useState<IntegrationType | undefined>(undefined);
     const [isOAuth2, setIsOAuth2] = useState(false);
@@ -120,16 +125,14 @@ export default function useConnectDialog({
     const [formValues, setFormValues] = useState<Record<string, string>>({});
     const [formErrors, setFormErrors] = useState<Record<string, {message: string}>>({});
     const [enabledOverrides, setEnabledOverrides] = useState<Record<string, boolean | undefined>>({});
-    const [inputOverrides, setInputOverrides] = useState<
-        Record<string, Record<string, string | Record<string, string>>>
-    >({});
+    const [inputOverrides, setInputOverrides] = useState<Record<string, Record<string, unknown>>>({});
     const [mcpToolEnabledOverrides, setMcpToolEnabledOverrides] = useState<Record<number, boolean | undefined>>({});
     const [mcpWorkflowEnabledOverrides, setMcpWorkflowEnabledOverrides] = useState<Record<string, boolean | undefined>>(
         {}
     );
-    const [mcpWorkflowInputOverrides, setMcpWorkflowInputOverrides] = useState<
-        Record<string, Record<string, string | Record<string, string>>>
-    >({});
+    const [mcpWorkflowInputOverrides, setMcpWorkflowInputOverrides] = useState<Record<string, Record<string, unknown>>>(
+        {}
+    );
     const [isLoading, setIsLoading] = useState(false);
     const [workflowsView, setWorkflowsView] = useState(!!integrationInstanceId);
     const [currentIntegrationInstanceId, setCurrentIntegrationInstanceId] = useState<number | undefined>(
@@ -142,6 +145,10 @@ export default function useConnectDialog({
     const formSubmitRef = useRef<FormSubmitHandler | null>(null);
 
     const {fetch} = useMemo(() => createApiClient(baseUrl, environment, jwtToken), [baseUrl, environment, jwtToken]);
+
+    const externalUserId = useMemo(() => decodeJwtSubject(jwtToken), [jwtToken]);
+
+    const executeAction = useExecuteAction(fetch, externalUserId, currentIntegrationInstanceId);
 
     // Merge integration workflows with instance workflows to get complete workflow data, because the backend is incomplete
     const mergedWorkflows: MergedWorkflowType[] = useMemo(() => {
@@ -733,7 +740,7 @@ export default function useConnectDialog({
     );
 
     const handleWorkflowInputChange = useCallback(
-        (workflowUuid: string, inputName: string, value: string) => {
+        (workflowUuid: string, inputName: string, value: unknown) => {
             setInputOverrides((previous) => {
                 const updated = {
                     ...previous,
@@ -757,7 +764,7 @@ export default function useConnectDialog({
         (workflowUuid: string, inputName: string, memberName: string, value: string) => {
             setInputOverrides((previous) => {
                 const existingGroupValue =
-                    (previous[workflowUuid]?.[inputName] as Record<string, string> | undefined) ?? {};
+                    (previous[workflowUuid]?.[inputName] as Record<string, unknown> | undefined) ?? {};
 
                 const updated = {
                     ...previous,
@@ -827,7 +834,7 @@ export default function useConnectDialog({
     );
 
     const handleMcpWorkflowInputChange = useCallback(
-        (workflowUuid: string, inputName: string, value: string) => {
+        (workflowUuid: string, inputName: string, value: unknown) => {
             setMcpWorkflowInputOverrides((previous) => {
                 const updated = {
                     ...previous,
@@ -851,7 +858,7 @@ export default function useConnectDialog({
         (workflowUuid: string, inputName: string, memberName: string, value: string) => {
             setMcpWorkflowInputOverrides((previous) => {
                 const existingGroupValue =
-                    (previous[workflowUuid]?.[inputName] as Record<string, string> | undefined) ?? {};
+                    (previous[workflowUuid]?.[inputName] as Record<string, unknown> | undefined) ?? {};
 
                 const updated = {
                     ...previous,
@@ -927,6 +934,7 @@ export default function useConnectDialog({
             <ConnectDialog
                 apiFetch={fetch}
                 closeDialog={closeDialog}
+                executeAction={executeAction}
                 form={form}
                 handleClick={handleClick}
                 handleMcpToolToggle={handleMcpToolToggle}
@@ -941,6 +949,7 @@ export default function useConnectDialog({
                 isOAuth2={isOAuth2}
                 isOpen={isOpen}
                 loading={isLoading}
+                mapObjectFields={mapObjectFields}
                 mergedMcpTools={mergedMcpTools}
                 mergedMcpWorkflows={mergedMcpWorkflows}
                 mergedWorkflows={mergedWorkflows}
@@ -951,6 +960,7 @@ export default function useConnectDialog({
         );
     }, [
         isOpen,
+        executeAction,
         fetch,
         form,
         formValues,
@@ -965,6 +975,7 @@ export default function useConnectDialog({
         integration,
         integrationInstanceId,
         isOAuth2,
+        mapObjectFields,
         mergedMcpTools,
         mergedMcpWorkflows,
         mergedWorkflows,

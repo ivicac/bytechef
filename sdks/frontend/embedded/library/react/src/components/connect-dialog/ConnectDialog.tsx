@@ -5,9 +5,13 @@ import SquareArrowOutUpRightIcon from './assets/square-arrow-out-up-right.svg';
 import styles from './styles.module.css';
 import {
     ApiFetch,
+    BoundFieldMappingIntegrationFieldArgsType,
+    BoundFieldMappingObjectListArgsType,
     ComponentPropertyGroupType,
+    FieldMappingValueType,
     FormType,
     IntegrationType,
+    MapObjectFieldsType,
     MergedMcpToolType,
     MergedWorkflowType,
     OptionType,
@@ -15,8 +19,10 @@ import {
     RegisterFormSubmitFunction,
     WorkflowInputType,
 } from './types';
+import type {ExecuteActionFunction} from './useExecuteAction';
 import {optionsCacheKey} from './utils';
 import useWorkflowInputOptions from './useWorkflowInputOptions';
+import FieldMappingField from './FieldMappingField';
 
 type LoadWorkflowInputOptionsFunction = (
     workflowUuid: string,
@@ -63,21 +69,23 @@ const Toggle = ({id, pressed, onPressedChange}: ToggleProps) => (
 interface DialogProps {
     apiFetch?: ApiFetch;
     closeDialog: () => void;
+    executeAction?: ExecuteActionFunction;
     workflowsView?: boolean;
     form?: FormType;
     handleClick: (event: React.MouseEvent<HTMLButtonElement>) => void;
     handleMcpToolToggle?: (mcpToolId: number, pressed: boolean) => void;
     handleMcpWorkflowToggle?: (workflowUuid: string, pressed: boolean) => void;
-    handleMcpWorkflowInputChange?: (workflowUuid: string, inputName: string, value: string) => void;
+    handleMcpWorkflowInputChange?: (workflowUuid: string, inputName: string, value: unknown) => void;
     handleMcpWorkflowGroupInputChange?: HandleWorkflowGroupInputChangeFunction;
     handleWorkflowToggle: (workflowUuid: string, pressed: boolean) => void;
-    handleWorkflowInputChange: (workflowUuid: string, inputName: string, value: string) => void;
+    handleWorkflowInputChange: (workflowUuid: string, inputName: string, value: unknown) => void;
     handleWorkflowGroupInputChange?: HandleWorkflowGroupInputChangeFunction;
     integration?: IntegrationType;
     integrationInstanceId?: number;
     isOAuth2?: boolean;
     isOpen: boolean;
     loading?: boolean;
+    mapObjectFields?: MapObjectFieldsType;
     mergedMcpTools?: MergedMcpToolType[];
     mergedMcpWorkflows?: MergedWorkflowType[];
     mergedWorkflows: MergedWorkflowType[];
@@ -88,6 +96,7 @@ interface DialogProps {
 const ConnectDialog = ({
     apiFetch,
     closeDialog,
+    executeAction,
     workflowsView = false,
     form,
     handleClick,
@@ -103,6 +112,7 @@ const ConnectDialog = ({
     isOAuth2 = false,
     isOpen,
     loading = false,
+    mapObjectFields,
     mergedMcpTools = [],
     mergedMcpWorkflows = [],
     mergedWorkflows,
@@ -155,6 +165,7 @@ const ConnectDialog = ({
                 ) : integration ? (
                     <DialogContent
                         closeDialog={closeDialog}
+                        executeAction={executeAction}
                         workflowsView={workflowsView}
                         form={form}
                         handleMcpToolToggle={handleMcpToolToggle}
@@ -166,6 +177,7 @@ const ConnectDialog = ({
                         handleWorkflowGroupInputChange={handleWorkflowGroupInputChange}
                         integration={integration}
                         loadWorkflowInputOptions={loadOptions}
+                        mapObjectFields={mapObjectFields}
                         mergedMcpTools={mergedMcpTools}
                         mergedMcpWorkflows={mergedMcpWorkflows}
                         mergedWorkflows={mergedWorkflows}
@@ -217,19 +229,23 @@ const DialogHeader = ({closeDialog, integration}: DialogHeaderProps) => (
 );
 
 interface DialogWorkflowsContainerProps {
+    executeAction?: ExecuteActionFunction;
     handleWorkflowToggle: (workflowUuid: string, pressed: boolean) => void;
-    handleWorkflowInputChange: (workflowUuid: string, inputName: string, value: string) => void;
+    handleWorkflowInputChange: (workflowUuid: string, inputName: string, value: unknown) => void;
     handleWorkflowGroupInputChange: HandleWorkflowGroupInputChangeFunction;
     loadWorkflowInputOptions: LoadWorkflowInputOptionsFunction;
+    mapObjectFields?: MapObjectFieldsType;
     mergedWorkflows: MergedWorkflowType[];
     workflowInputOptions: Record<string, OptionType[]>;
 }
 
 const DialogWorkflowsContainer = ({
+    executeAction,
     handleWorkflowToggle,
     handleWorkflowInputChange,
     handleWorkflowGroupInputChange,
     loadWorkflowInputOptions,
+    mapObjectFields,
     mergedWorkflows,
     workflowInputOptions,
 }: DialogWorkflowsContainerProps) => {
@@ -268,10 +284,12 @@ const DialogWorkflowsContainer = ({
                                             {inputs?.map((input: WorkflowInputType) => (
                                                 <li key={input.name}>
                                                     {renderWorkflowInput({
+                                                        executeAction,
                                                         handleInputChange: handleWorkflowInputChange,
                                                         handleWorkflowGroupInputChange,
                                                         input,
                                                         loadWorkflowInputOptions,
+                                                        mapObjectFields,
                                                         workflowInputOptions,
                                                         workflowUuid,
                                                     })}
@@ -292,7 +310,7 @@ const DialogWorkflowsContainer = ({
 interface DialogToolsContainerProps {
     handleMcpToolToggle: (mcpToolId: number, pressed: boolean) => void;
     handleMcpWorkflowToggle: (workflowUuid: string, pressed: boolean) => void;
-    handleMcpWorkflowInputChange: (workflowUuid: string, inputName: string, value: string) => void;
+    handleMcpWorkflowInputChange: (workflowUuid: string, inputName: string, value: unknown) => void;
     handleWorkflowGroupInputChange: HandleWorkflowGroupInputChangeFunction;
     loadWorkflowInputOptions: LoadWorkflowInputOptionsFunction;
     mergedMcpTools: MergedMcpToolType[];
@@ -390,14 +408,15 @@ const DialogToolsContainer = ({
 
 interface DialogContentProps {
     closeDialog: () => void;
+    executeAction?: ExecuteActionFunction;
     workflowsView?: boolean;
     form?: FormType;
     handleMcpToolToggle: (mcpToolId: number, pressed: boolean) => void;
     handleMcpWorkflowToggle: (workflowUuid: string, pressed: boolean) => void;
-    handleMcpWorkflowInputChange: (workflowUuid: string, inputName: string, value: string) => void;
+    handleMcpWorkflowInputChange: (workflowUuid: string, inputName: string, value: unknown) => void;
     handleMcpWorkflowGroupInputChange?: HandleWorkflowGroupInputChangeFunction;
     handleWorkflowToggle: (workflowUuid: string, pressed: boolean) => void;
-    handleWorkflowInputChange: (workflowUuid: string, inputName: string, value: string) => void;
+    handleWorkflowInputChange: (workflowUuid: string, inputName: string, value: unknown) => void;
     handleWorkflowGroupInputChange?: HandleWorkflowGroupInputChangeFunction;
     integration: IntegrationType;
     loadWorkflowInputOptions?: (
@@ -406,6 +425,7 @@ interface DialogContentProps {
         propertyName: string,
         dependencyValues: Record<string, unknown>
     ) => void;
+    mapObjectFields?: MapObjectFieldsType;
     mergedMcpTools?: MergedMcpToolType[];
     mergedMcpWorkflows?: MergedWorkflowType[];
     mergedWorkflows: MergedWorkflowType[];
@@ -417,6 +437,7 @@ interface DialogContentProps {
 type TabType = 'tools' | 'workflows';
 
 const DialogContent = ({
+    executeAction,
     workflowsView = false,
     form,
     handleMcpToolToggle,
@@ -428,6 +449,7 @@ const DialogContent = ({
     handleWorkflowGroupInputChange = () => {},
     integration,
     loadWorkflowInputOptions = () => {},
+    mapObjectFields,
     mergedMcpTools = [],
     mergedMcpWorkflows = [],
     mergedWorkflows,
@@ -500,10 +522,12 @@ const DialogContent = ({
 
             {workflowsView && (!showTabs || activeTab === 'workflows') && (
                 <DialogWorkflowsContainer
+                    executeAction={executeAction}
                     handleWorkflowToggle={handleWorkflowToggle}
                     handleWorkflowInputChange={handleWorkflowInputChange}
                     handleWorkflowGroupInputChange={handleWorkflowGroupInputChange}
                     loadWorkflowInputOptions={loadWorkflowInputOptions}
+                    mapObjectFields={mapObjectFields}
                     mergedWorkflows={mergedWorkflows}
                     workflowInputOptions={workflowInputOptions}
                 />
@@ -718,22 +742,57 @@ const collectDependencyValues = (
 };
 
 interface RenderWorkflowInputArgs {
-    handleInputChange: (workflowUuid: string, inputName: string, value: string) => void;
+    executeAction?: ExecuteActionFunction;
+    handleInputChange: (workflowUuid: string, inputName: string, value: unknown) => void;
     handleWorkflowGroupInputChange: HandleWorkflowGroupInputChangeFunction;
     input: WorkflowInputType;
     loadWorkflowInputOptions: LoadWorkflowInputOptionsFunction;
+    mapObjectFields?: MapObjectFieldsType;
     workflowInputOptions: Record<string, OptionType[]>;
     workflowUuid: string;
 }
 
 const renderWorkflowInput = ({
+    executeAction,
     handleInputChange,
     handleWorkflowGroupInputChange,
     input,
     loadWorkflowInputOptions,
+    mapObjectFields,
     workflowInputOptions,
     workflowUuid,
 }: RenderWorkflowInputArgs) => {
+    if (input.type === 'field_mapping') {
+        const objectName = input.objectName ?? input.name;
+        const rawConfig = mapObjectFields?.[objectName];
+
+        if (!rawConfig || !executeAction) {
+            return null;
+        }
+
+        const config = {
+            ...rawConfig,
+            integrationFields: {
+                get: (args: BoundFieldMappingIntegrationFieldArgsType) =>
+                    rawConfig.integrationFields.get({...args, executeAction}),
+            },
+            objectTypes: {
+                get: (args: BoundFieldMappingObjectListArgsType) =>
+                    rawConfig.objectTypes.get({...args, executeAction}),
+            },
+        };
+
+        return (
+            <FieldMappingField
+                config={config}
+                label={input.label}
+                onChange={(value: FieldMappingValueType) => handleInputChange(workflowUuid, input.name, value)}
+                required={input.required}
+                value={input.value as FieldMappingValueType | undefined}
+            />
+        );
+    }
+
     const group = input.componentReference?.group;
 
     if (group) {
