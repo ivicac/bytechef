@@ -5,7 +5,8 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.platform.aihub.tool;
+package com.bytechef.ee.ai.mcp.tool.automation;
+import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,35 +39,33 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * @author Ivica Cardic
  */
-class SkillsAgentToolCallbackTest {
+class WorkflowEditorAgentToolCallbackTest {
 
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @Test
     void testCallReturnsResultWhenSubagentSucceeds() {
-        String synthesised = "## Skills\n\n1. summarise-emails — daily digest from Gmail.";
+        String synthesised = "{\"label\":\"daily report\",\"tasks\":[]}";
 
-        ChatClient skillsChatClient = mock(ChatClient.class);
+        ChatClient chatClient = mock(ChatClient.class);
         ChatClientRequestSpec requestSpec = mock(ChatClientRequestSpec.class);
         CallResponseSpec responseSpec = mock(CallResponseSpec.class);
 
-        when(skillsChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(chatClient.prompt(anyString())).thenReturn(requestSpec);
         stubToolsLambda(requestSpec);
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn(synthesised);
 
-        SkillsAgentToolCallback callback = new SkillsAgentToolCallback(skillsChatClient);
+        WorkflowEditorAgentToolCallback callback = new WorkflowEditorAgentToolCallback(chatClient);
 
-        String result = callback.call("{\"request\":\"list my skills\"}");
+        String result = callback.call("{\"request\":\"build a daily report workflow\"}");
 
         assertThat(result).isEqualTo(synthesised);
     }
 
     @Test
     void testCallReturnsErrorWhenRequestIsBlank() {
-        ChatClient skillsChatClient = mock(ChatClient.class);
-
-        SkillsAgentToolCallback callback = new SkillsAgentToolCallback(skillsChatClient);
+        WorkflowEditorAgentToolCallback callback = new WorkflowEditorAgentToolCallback(mock(ChatClient.class));
 
         String result = callback.call("{\"request\":\"   \"}");
 
@@ -76,9 +75,7 @@ class SkillsAgentToolCallbackTest {
 
     @Test
     void testCallReturnsErrorOnInvalidJson() {
-        ChatClient skillsChatClient = mock(ChatClient.class);
-
-        SkillsAgentToolCallback callback = new SkillsAgentToolCallback(skillsChatClient);
+        WorkflowEditorAgentToolCallback callback = new WorkflowEditorAgentToolCallback(mock(ChatClient.class));
 
         String result = callback.call("not-json");
 
@@ -88,42 +85,38 @@ class SkillsAgentToolCallbackTest {
 
     @Test
     void testCallReturnsToolErrorWhenSubagentReturnsNull() throws Exception {
-        ChatClient skillsChatClient = mock(ChatClient.class);
+        ChatClient chatClient = mock(ChatClient.class);
         ChatClientRequestSpec requestSpec = mock(ChatClientRequestSpec.class);
         CallResponseSpec responseSpec = mock(CallResponseSpec.class);
 
-        when(skillsChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(chatClient.prompt(anyString())).thenReturn(requestSpec);
         stubToolsLambda(requestSpec);
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn(null);
 
-        SkillsAgentToolCallback callback = new SkillsAgentToolCallback(skillsChatClient);
+        WorkflowEditorAgentToolCallback callback = new WorkflowEditorAgentToolCallback(chatClient);
 
-        String result = callback.call("{\"request\":\"any request\"}");
+        String result = callback.call("{\"request\":\"any\"}");
 
         JsonNode node = jsonMapper.readTree(result);
 
-        // A null subagent result must surface as a typed tool error so the parent agent does not
-        // synthesise an answer from an empty response.
-        assertThat(node.has("error"))
-            .as("null subagent result must surface as a tool error")
-            .isTrue();
+        assertThat(node.has("error")).isTrue();
         assertThat(node.get("error")
             .asText()).containsIgnoringCase("returned null");
     }
 
     @Test
     void testCallReturnsToolErrorWhenSubagentThrows() throws Exception {
-        ChatClient skillsChatClient = mock(ChatClient.class);
+        ChatClient chatClient = mock(ChatClient.class);
         ChatClientRequestSpec requestSpec = mock(ChatClientRequestSpec.class);
         CallResponseSpec responseSpec = mock(CallResponseSpec.class);
 
-        when(skillsChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(chatClient.prompt(anyString())).thenReturn(requestSpec);
         stubToolsLambda(requestSpec);
         when(requestSpec.call()).thenReturn(responseSpec);
-        when(responseSpec.content()).thenThrow(new RuntimeException("skill repository unavailable"));
+        when(responseSpec.content()).thenThrow(new RuntimeException("project facade unavailable"));
 
-        SkillsAgentToolCallback callback = new SkillsAgentToolCallback(skillsChatClient);
+        WorkflowEditorAgentToolCallback callback = new WorkflowEditorAgentToolCallback(chatClient);
 
         String result = callback.call("{\"request\":\"any\"}");
 
@@ -131,51 +124,49 @@ class SkillsAgentToolCallbackTest {
 
         assertThat(node.get("error")
             .asText())
-                .as("payload must surface tool name for the LLM to recover")
-                .contains("skills_agent failed")
-                .as("payload must NOT leak the exception's getMessage() text — see ToolErrors.runtimeFailure")
-                .doesNotContain("skill repository unavailable");
+                .as("payload must surface tool name")
+                .contains("workflow_editor_agent failed")
+                .as("payload must NOT leak the exception getMessage()")
+                .doesNotContain("project facade unavailable");
     }
 
     @Test
     void testCallForwardsParentToolContextToSubagent() {
-        ChatClient skillsChatClient = mock(ChatClient.class);
+        ChatClient chatClient = mock(ChatClient.class);
         ChatClientRequestSpec requestSpec = mock(ChatClientRequestSpec.class);
         CallResponseSpec responseSpec = mock(CallResponseSpec.class);
 
-        when(skillsChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(chatClient.prompt(anyString())).thenReturn(requestSpec);
         ToolSpec toolSpec = stubToolsLambda(requestSpec);
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn("ok");
 
         AiHubToolInvocationContext invocationContext =
-            new AiHubToolInvocationContext(11L, 42L, (short) 0, "list my skills", 1L);
+            new AiHubToolInvocationContext(11L, 42L, (short) 0, "design a workflow", 1L);
 
         Map<String, Object> parentContextMap = invocationContext.toToolContext();
 
         ToolContext parentToolContext = new ToolContext(parentContextMap);
 
-        SkillsAgentToolCallback callback = new SkillsAgentToolCallback(skillsChatClient);
+        WorkflowEditorAgentToolCallback callback = new WorkflowEditorAgentToolCallback(chatClient);
 
         callback.call("{\"request\":\"any\"}", parentToolContext);
 
-        // Regression guard: dropping the forwardedContext on the new tools(spec -> spec.context(...))
-        // call would silently break workspace-scoped lookups inside the Skills subagent's tool catalog.
         verify(toolSpec).context(parentContextMap);
     }
 
     @Test
     void testCallForwardsEmptyMapWhenParentToolContextIsNull() {
-        ChatClient skillsChatClient = mock(ChatClient.class);
+        ChatClient chatClient = mock(ChatClient.class);
         ChatClientRequestSpec requestSpec = mock(ChatClientRequestSpec.class);
         CallResponseSpec responseSpec = mock(CallResponseSpec.class);
 
-        when(skillsChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(chatClient.prompt(anyString())).thenReturn(requestSpec);
         ToolSpec toolSpec = stubToolsLambda(requestSpec);
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn("ok");
 
-        SkillsAgentToolCallback callback = new SkillsAgentToolCallback(skillsChatClient);
+        WorkflowEditorAgentToolCallback callback = new WorkflowEditorAgentToolCallback(chatClient);
 
         callback.call("{\"request\":\"any\"}", null);
 
@@ -183,19 +174,15 @@ class SkillsAgentToolCallbackTest {
     }
 
     @Test
-    void testToolDefinitionExposesSkillsAgentNameAndRequestSchema() {
-        SkillsAgentToolCallback callback = new SkillsAgentToolCallback(mock(ChatClient.class));
+    void testToolDefinitionExposesWorkflowEditorAgentNameAndRequestSchema() {
+        WorkflowEditorAgentToolCallback callback = new WorkflowEditorAgentToolCallback(mock(ChatClient.class));
 
         assertThat(callback.getToolDefinition()
-            .name()).isEqualTo("skills_agent");
+            .name()).isEqualTo("workflow_editor_agent");
         assertThat(callback.getToolDefinition()
             .inputSchema()).contains("\"request\"");
     }
 
-    /**
-     * Catch-narrowing regression guard. A future refactor that narrows the {@code catch (RuntimeException)} arm would
-     * let non-WebClient types leak again.
-     */
     private static Stream<Arguments> upstreamFailures() {
         return Stream.of(
             Arguments.of(WebClientResponseException.create(400, "Bad Request", null, null, null)),
@@ -208,26 +195,24 @@ class SkillsAgentToolCallbackTest {
     @ParameterizedTest
     @MethodSource("upstreamFailures")
     void testCallSurfacesAllRuntimeExceptionTypesAsToolError(RuntimeException upstreamException) throws Exception {
-        ChatClient skillsChatClient = mock(ChatClient.class);
+        ChatClient chatClient = mock(ChatClient.class);
         ChatClientRequestSpec requestSpec = mock(ChatClientRequestSpec.class);
         CallResponseSpec responseSpec = mock(CallResponseSpec.class);
 
-        when(skillsChatClient.prompt(anyString())).thenReturn(requestSpec);
+        when(chatClient.prompt(anyString())).thenReturn(requestSpec);
         stubToolsLambda(requestSpec);
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenThrow(upstreamException);
 
-        SkillsAgentToolCallback callback = new SkillsAgentToolCallback(skillsChatClient);
+        WorkflowEditorAgentToolCallback callback = new WorkflowEditorAgentToolCallback(chatClient);
 
         String result = callback.call("{\"request\":\"any\"}");
 
         JsonNode node = jsonMapper.readTree(result);
 
-        assertThat(node.has("error"))
-            .as("every upstream RuntimeException must produce a typed tool-error payload, not propagate")
-            .isTrue();
+        assertThat(node.has("error")).isTrue();
         assertThat(node.get("error")
-            .asText()).contains("skills_agent failed");
+            .asText()).contains("workflow_editor_agent failed");
     }
 
     @SuppressWarnings("unchecked")

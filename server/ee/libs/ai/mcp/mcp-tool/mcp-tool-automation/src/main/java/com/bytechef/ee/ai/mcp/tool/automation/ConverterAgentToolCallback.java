@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.platform.aihub.tool;
+package com.bytechef.ee.ai.mcp.tool.automation;
 
 import com.bytechef.ee.ai.mcp.tool.usage.Agent;
 import com.bytechef.ee.ai.mcp.tool.usage.CurrentAgentContext;
@@ -25,31 +25,29 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Hand-rolled Spring AI {@link ToolCallback} that exposes the Cluster Element Copilot subagent to the parent ai_hub
- * agent.
+ * Hand-rolled Spring AI {@link ToolCallback} that exposes the Converter Copilot subagent to the parent ai_hub BUILD
+ * agent. BUILD-only — there is no ASK variant of the Converter Copilot specialist.
  *
  * <p>
  * When the parent LLM invokes this tool it passes a JSON object with a {@code request} field. The callback delegates to
- * a pre-configured {@link ChatClient} that carries the Cluster Element system prompt and the Copilot specialist's tool
- * catalog (ReadProjectWorkflowTools + ComponentTools + TaskTools + WorkflowValidatorTools + WorkflowInstructionTools on
- * ASK; adds ClusterElementTools on BUILD). The isolated chat client context means the parent never sees the discovery /
- * mutation transcript — only the synthesised result.
+ * a pre-configured {@link ChatClient} that carries the Converter system prompt and the Copilot specialist's
+ * write-capable tool catalog (ProjectTools + ProjectWorkflowTools + TaskTools + ScriptTools). The isolated chat client
+ * context means the parent never sees the conversion transcript — only the synthesised ByteChef workflow JSON.
  *
  * @version ee
  *
  * @author Ivica Cardic
  */
-public class ClusterElementAgentToolCallback implements ToolCallback {
+public class ConverterAgentToolCallback implements ToolCallback {
 
-    private static final Logger log = LoggerFactory.getLogger(ClusterElementAgentToolCallback.class);
+    private static final Logger log = LoggerFactory.getLogger(ConverterAgentToolCallback.class);
 
     private static final String DESCRIPTION =
         """
-            Delegate a user request about cluster elements to a specialised Cluster Element subagent.
-            Cluster elements are the slotted child operations inside cluster-root components (AI Agent,
-            Knowledge Base, etc.) — model, chat memory, RAG source, guardrails, tools. The subagent owns
-            the canonical behaviour for designing, editing, and explaining cluster element configuration;
-            prefer calling it over reasoning about cluster element shape directly.""";
+            Delegate a request to convert an external workflow definition (n8n, Make, Zapier, Workato,
+            etc.) into a ByteChef workflow. The Converter subagent owns the canonical behaviour for this
+            domain — translating constructs, mapping integrations, and producing valid ByteChef workflow
+            JSON plus a rationale.""";
 
     private static final String INPUT_SCHEMA =
         """
@@ -64,18 +62,18 @@ public class ClusterElementAgentToolCallback implements ToolCallback {
                 "required": ["request"]
             }""";
 
-    private final ChatClient clusterElementChatClient;
+    private final ChatClient converterChatClient;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public ClusterElementAgentToolCallback(ChatClient clusterElementChatClient) {
-        this.clusterElementChatClient = clusterElementChatClient;
+    public ConverterAgentToolCallback(ChatClient converterChatClient) {
+        this.converterChatClient = converterChatClient;
     }
 
     @Override
     public ToolDefinition getToolDefinition() {
         return ToolDefinition.builder()
-            .name("cluster_element_agent")
+            .name("converter_agent")
             .description(DESCRIPTION)
             .inputSchema(INPUT_SCHEMA)
             .build();
@@ -89,7 +87,7 @@ public class ClusterElementAgentToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            ClusterElementAgentInput input = jsonMapper.readValue(toolInput, ClusterElementAgentInput.class);
+            ConverterAgentInput input = jsonMapper.readValue(toolInput, ConverterAgentInput.class);
 
             if (input.request() == null || input.request()
                 .isBlank()) {
@@ -99,28 +97,26 @@ public class ClusterElementAgentToolCallback implements ToolCallback {
             AgentBinding parent = CurrentAgentContext.current();
             Agent parentAgent = parent != null ? parent.agentName() : null;
 
-            // Forward parent ToolContext so the subagent's workspace-scoped lookups (component / action /
-            // task ops) can rehydrate AiHubToolInvocationContext. Same rationale as ResearchToolCallback.
             Map<String, Object> forwardedContext = toolContext == null ? Map.of() : toolContext.getContext();
 
-            String result = CurrentAgentContext.callWith(Agent.CLUSTER_ELEMENT_AGENT, parentAgent,
-                () -> clusterElementChatClient.prompt(input.request())
+            String result = CurrentAgentContext.callWith(Agent.CONVERTER_AGENT, parentAgent,
+                () -> converterChatClient.prompt(input.request())
                     .tools(spec -> spec.context(forwardedContext))
                     .call()
                     .content());
 
             if (result == null) {
                 log.warn(
-                    "cluster_element subagent returned null for request='{}'",
+                    "converter subagent returned null for request='{}'",
                     LogSanitizer.sanitizeForLog(input.request()));
 
-                return ToolErrors.toolError(jsonMapper, "cluster_element subagent returned null");
+                return ToolErrors.toolError(jsonMapper, "converter subagent returned null");
             }
 
             return result;
         } catch (JacksonException exception) {
             log.warn(
-                "cluster_element_agent rejected malformed tool input: {} — first 200 chars of input: {}",
+                "converter_agent rejected malformed tool input: {} — first 200 chars of input: {}",
                 exception.getMessage(),
                 LogSanitizer.sanitizeForLog(
                     toolInput == null ? "<null>" : toolInput.substring(0, Math.min(toolInput.length(), 200))));
@@ -128,7 +124,7 @@ public class ClusterElementAgentToolCallback implements ToolCallback {
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (RuntimeException exception) {
             return ToolErrors.runtimeFailure(
-                jsonMapper, ClusterElementAgentToolCallback.class, "cluster_element_agent", exception);
+                jsonMapper, ConverterAgentToolCallback.class, "converter_agent", exception);
         }
     }
 
@@ -136,6 +132,6 @@ public class ClusterElementAgentToolCallback implements ToolCallback {
         return ToolErrors.toolError(jsonMapper, message);
     }
 
-    public record ClusterElementAgentInput(String request) {
+    public record ConverterAgentInput(String request) {
     }
 }

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.platform.aihub.tool;
+package com.bytechef.ee.ai.mcp.tool.automation;
 
 import com.bytechef.ee.ai.mcp.tool.usage.Agent;
 import com.bytechef.ee.ai.mcp.tool.usage.CurrentAgentContext;
@@ -25,33 +25,30 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Hand-rolled Spring AI {@link ToolCallback} that exposes the Workflow Editor Copilot subagent to the parent ai_hub
- * agent.
+ * Hand-rolled Spring AI {@link ToolCallback} that exposes the Code Editor Copilot subagent to the parent ai_hub agent.
  *
  * <p>
  * When the parent LLM invokes this tool it passes a JSON object with a {@code request} field. The callback delegates to
- * a pre-configured {@link ChatClient} that carries the Workflow Editor system prompt and the Copilot specialist's tool
- * catalog (ReadProjectTools + ReadProjectWorkflowTools + ComponentTools + TaskTools + WorkflowValidatorTools +
- * WorkflowInstructionTools + optional FirecrawlTools, plus a RAG QuestionAnswerAdvisor on ASK; ProjectTools +
- * ProjectWorkflowTools + TaskTools + ScriptTools + WorkflowValidatorTools + WorkflowInstructionTools on BUILD). The
- * isolated chat client context means the parent never sees the discovery / mutation transcript — only the synthesised
- * result.
+ * a pre-configured {@link ChatClient} that carries the Code Editor system prompt and the Copilot specialist's tool
+ * catalog (ReadProjectWorkflowTools + ComponentTools + WorkflowValidatorTools + WorkflowInstructionTools on ASK; adds
+ * ScriptTools on BUILD). The isolated chat client context means the parent never sees the discovery / mutation
+ * transcript — only the synthesised result.
  *
  * @version ee
  *
  * @author Ivica Cardic
  */
-public class WorkflowEditorAgentToolCallback implements ToolCallback {
+public class CodeEditorAgentToolCallback implements ToolCallback {
 
-    private static final Logger log = LoggerFactory.getLogger(WorkflowEditorAgentToolCallback.class);
+    private static final Logger log = LoggerFactory.getLogger(CodeEditorAgentToolCallback.class);
 
     private static final String DESCRIPTION =
         """
-            Delegate a user request about whole workflows to a specialised Workflow Editor subagent. Use
-            this for requests that design, edit, debug, or explain a workflow (orchestration of tasks,
-            triggers, conditions, loops). The subagent owns the canonical behaviour for this domain;
-            prefer calling it over reasoning about workflow shape directly. ASK mode returns analysis;
-            BUILD mode returns the updated workflow JSON plus a change rationale.""";
+            Delegate a user request about embedded script code to a specialised Code Editor subagent.
+            Use this for requests that write, edit, debug, or explain JavaScript / Python / Ruby script
+            embedded inside a workflow task. The subagent owns the canonical behaviour for this domain;
+            prefer calling it over generating script code directly. Returns the updated script (BUILD)
+            or an explanation (ASK).""";
 
     private static final String INPUT_SCHEMA =
         """
@@ -66,18 +63,18 @@ public class WorkflowEditorAgentToolCallback implements ToolCallback {
                 "required": ["request"]
             }""";
 
-    private final ChatClient workflowEditorChatClient;
+    private final ChatClient codeEditorChatClient;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public WorkflowEditorAgentToolCallback(ChatClient workflowEditorChatClient) {
-        this.workflowEditorChatClient = workflowEditorChatClient;
+    public CodeEditorAgentToolCallback(ChatClient codeEditorChatClient) {
+        this.codeEditorChatClient = codeEditorChatClient;
     }
 
     @Override
     public ToolDefinition getToolDefinition() {
         return ToolDefinition.builder()
-            .name("workflow_editor_agent")
+            .name("code_editor_agent")
             .description(DESCRIPTION)
             .inputSchema(INPUT_SCHEMA)
             .build();
@@ -91,7 +88,7 @@ public class WorkflowEditorAgentToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            WorkflowEditorAgentInput input = jsonMapper.readValue(toolInput, WorkflowEditorAgentInput.class);
+            CodeEditorAgentInput input = jsonMapper.readValue(toolInput, CodeEditorAgentInput.class);
 
             if (input.request() == null || input.request()
                 .isBlank()) {
@@ -103,24 +100,24 @@ public class WorkflowEditorAgentToolCallback implements ToolCallback {
 
             Map<String, Object> forwardedContext = toolContext == null ? Map.of() : toolContext.getContext();
 
-            String result = CurrentAgentContext.callWith(Agent.WORKFLOW_EDITOR_AGENT, parentAgent,
-                () -> workflowEditorChatClient.prompt(input.request())
+            String result = CurrentAgentContext.callWith(Agent.CODE_EDITOR_AGENT, parentAgent,
+                () -> codeEditorChatClient.prompt(input.request())
                     .tools(spec -> spec.context(forwardedContext))
                     .call()
                     .content());
 
             if (result == null) {
                 log.warn(
-                    "workflow_editor subagent returned null for request='{}'",
+                    "code_editor subagent returned null for request='{}'",
                     LogSanitizer.sanitizeForLog(input.request()));
 
-                return ToolErrors.toolError(jsonMapper, "workflow_editor subagent returned null");
+                return ToolErrors.toolError(jsonMapper, "code_editor subagent returned null");
             }
 
             return result;
         } catch (JacksonException exception) {
             log.warn(
-                "workflow_editor_agent rejected malformed tool input: {} — first 200 chars of input: {}",
+                "code_editor_agent rejected malformed tool input: {} — first 200 chars of input: {}",
                 exception.getMessage(),
                 LogSanitizer.sanitizeForLog(
                     toolInput == null ? "<null>" : toolInput.substring(0, Math.min(toolInput.length(), 200))));
@@ -128,7 +125,7 @@ public class WorkflowEditorAgentToolCallback implements ToolCallback {
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (RuntimeException exception) {
             return ToolErrors.runtimeFailure(
-                jsonMapper, WorkflowEditorAgentToolCallback.class, "workflow_editor_agent", exception);
+                jsonMapper, CodeEditorAgentToolCallback.class, "code_editor_agent", exception);
         }
     }
 
@@ -136,6 +133,6 @@ public class WorkflowEditorAgentToolCallback implements ToolCallback {
         return ToolErrors.toolError(jsonMapper, message);
     }
 
-    public record WorkflowEditorAgentInput(String request) {
+    public record CodeEditorAgentInput(String request) {
     }
 }

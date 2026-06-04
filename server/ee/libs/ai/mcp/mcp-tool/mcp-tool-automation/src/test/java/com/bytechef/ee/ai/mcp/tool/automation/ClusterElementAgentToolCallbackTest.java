@@ -5,7 +5,8 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.platform.aihub.tool;
+package com.bytechef.ee.ai.mcp.tool.automation;
+import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,13 +39,13 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * @author Ivica Cardic
  */
-class CodeEditorAgentToolCallbackTest {
+class ClusterElementAgentToolCallbackTest {
 
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @Test
     void testCallReturnsResultWhenSubagentSucceeds() {
-        String synthesised = "function transform(input) { return input.toUpperCase(); }";
+        String synthesised = "Cluster: aiAgent\n - model: gpt-4o\n - chatMemory: in-memory";
 
         ChatClient chatClient = mock(ChatClient.class);
         ChatClientRequestSpec requestSpec = mock(ChatClientRequestSpec.class);
@@ -55,16 +56,16 @@ class CodeEditorAgentToolCallbackTest {
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn(synthesised);
 
-        CodeEditorAgentToolCallback callback = new CodeEditorAgentToolCallback(chatClient);
+        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(chatClient);
 
-        String result = callback.call("{\"request\":\"uppercase the input\"}");
+        String result = callback.call("{\"request\":\"describe the cluster\"}");
 
         assertThat(result).isEqualTo(synthesised);
     }
 
     @Test
     void testCallReturnsErrorWhenRequestIsBlank() {
-        CodeEditorAgentToolCallback callback = new CodeEditorAgentToolCallback(mock(ChatClient.class));
+        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(mock(ChatClient.class));
 
         String result = callback.call("{\"request\":\"   \"}");
 
@@ -74,7 +75,7 @@ class CodeEditorAgentToolCallbackTest {
 
     @Test
     void testCallReturnsErrorOnInvalidJson() {
-        CodeEditorAgentToolCallback callback = new CodeEditorAgentToolCallback(mock(ChatClient.class));
+        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(mock(ChatClient.class));
 
         String result = callback.call("not-json");
 
@@ -93,7 +94,7 @@ class CodeEditorAgentToolCallbackTest {
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn(null);
 
-        CodeEditorAgentToolCallback callback = new CodeEditorAgentToolCallback(chatClient);
+        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(chatClient);
 
         String result = callback.call("{\"request\":\"any\"}");
 
@@ -113,9 +114,9 @@ class CodeEditorAgentToolCallbackTest {
         when(chatClient.prompt(anyString())).thenReturn(requestSpec);
         stubToolsLambda(requestSpec);
         when(requestSpec.call()).thenReturn(responseSpec);
-        when(responseSpec.content()).thenThrow(new RuntimeException("script engine failure"));
+        when(responseSpec.content()).thenThrow(new RuntimeException("component lookup unavailable"));
 
-        CodeEditorAgentToolCallback callback = new CodeEditorAgentToolCallback(chatClient);
+        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(chatClient);
 
         String result = callback.call("{\"request\":\"any\"}");
 
@@ -124,9 +125,9 @@ class CodeEditorAgentToolCallbackTest {
         assertThat(node.get("error")
             .asText())
                 .as("payload must surface tool name")
-                .contains("code_editor_agent failed")
+                .contains("cluster_element_agent failed")
                 .as("payload must NOT leak the exception getMessage()")
-                .doesNotContain("script engine failure");
+                .doesNotContain("component lookup unavailable");
     }
 
     @Test
@@ -141,13 +142,13 @@ class CodeEditorAgentToolCallbackTest {
         when(responseSpec.content()).thenReturn("ok");
 
         AiHubToolInvocationContext invocationContext =
-            new AiHubToolInvocationContext(11L, 42L, (short) 0, "edit the script", 1L);
+            new AiHubToolInvocationContext(11L, 42L, (short) 0, "describe the cluster", 1L);
 
         Map<String, Object> parentContextMap = invocationContext.toToolContext();
 
         ToolContext parentToolContext = new ToolContext(parentContextMap);
 
-        CodeEditorAgentToolCallback callback = new CodeEditorAgentToolCallback(chatClient);
+        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(chatClient);
 
         callback.call("{\"request\":\"any\"}", parentToolContext);
 
@@ -165,7 +166,7 @@ class CodeEditorAgentToolCallbackTest {
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn("ok");
 
-        CodeEditorAgentToolCallback callback = new CodeEditorAgentToolCallback(chatClient);
+        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(chatClient);
 
         callback.call("{\"request\":\"any\"}", null);
 
@@ -173,11 +174,11 @@ class CodeEditorAgentToolCallbackTest {
     }
 
     @Test
-    void testToolDefinitionExposesCodeEditorAgentNameAndRequestSchema() {
-        CodeEditorAgentToolCallback callback = new CodeEditorAgentToolCallback(mock(ChatClient.class));
+    void testToolDefinitionExposesClusterElementAgentNameAndRequestSchema() {
+        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(mock(ChatClient.class));
 
         assertThat(callback.getToolDefinition()
-            .name()).isEqualTo("code_editor_agent");
+            .name()).isEqualTo("cluster_element_agent");
         assertThat(callback.getToolDefinition()
             .inputSchema()).contains("\"request\"");
     }
@@ -203,7 +204,7 @@ class CodeEditorAgentToolCallbackTest {
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenThrow(upstreamException);
 
-        CodeEditorAgentToolCallback callback = new CodeEditorAgentToolCallback(chatClient);
+        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(chatClient);
 
         String result = callback.call("{\"request\":\"any\"}");
 
@@ -211,7 +212,7 @@ class CodeEditorAgentToolCallbackTest {
 
         assertThat(node.has("error")).isTrue();
         assertThat(node.get("error")
-            .asText()).contains("code_editor_agent failed");
+            .asText()).contains("cluster_element_agent failed");
     }
 
     @SuppressWarnings("unchecked")

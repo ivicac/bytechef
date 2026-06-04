@@ -5,7 +5,8 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.platform.aihub.tool;
+package com.bytechef.ee.ai.mcp.tool.automation;
+import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -38,13 +39,13 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * @author Ivica Cardic
  */
-class ClusterElementAgentToolCallbackTest {
+class ConverterAgentToolCallbackTest {
 
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @Test
     void testCallReturnsResultWhenSubagentSucceeds() {
-        String synthesised = "Cluster: aiAgent\n - model: gpt-4o\n - chatMemory: in-memory";
+        String synthesised = "{\"label\":\"converted from n8n\",\"tasks\":[]}";
 
         ChatClient chatClient = mock(ChatClient.class);
         ChatClientRequestSpec requestSpec = mock(ChatClientRequestSpec.class);
@@ -55,16 +56,16 @@ class ClusterElementAgentToolCallbackTest {
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn(synthesised);
 
-        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(chatClient);
+        ConverterAgentToolCallback callback = new ConverterAgentToolCallback(chatClient);
 
-        String result = callback.call("{\"request\":\"describe the cluster\"}");
+        String result = callback.call("{\"request\":\"convert this n8n workflow\"}");
 
         assertThat(result).isEqualTo(synthesised);
     }
 
     @Test
     void testCallReturnsErrorWhenRequestIsBlank() {
-        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(mock(ChatClient.class));
+        ConverterAgentToolCallback callback = new ConverterAgentToolCallback(mock(ChatClient.class));
 
         String result = callback.call("{\"request\":\"   \"}");
 
@@ -74,7 +75,7 @@ class ClusterElementAgentToolCallbackTest {
 
     @Test
     void testCallReturnsErrorOnInvalidJson() {
-        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(mock(ChatClient.class));
+        ConverterAgentToolCallback callback = new ConverterAgentToolCallback(mock(ChatClient.class));
 
         String result = callback.call("not-json");
 
@@ -93,7 +94,7 @@ class ClusterElementAgentToolCallbackTest {
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn(null);
 
-        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(chatClient);
+        ConverterAgentToolCallback callback = new ConverterAgentToolCallback(chatClient);
 
         String result = callback.call("{\"request\":\"any\"}");
 
@@ -113,9 +114,9 @@ class ClusterElementAgentToolCallbackTest {
         when(chatClient.prompt(anyString())).thenReturn(requestSpec);
         stubToolsLambda(requestSpec);
         when(requestSpec.call()).thenReturn(responseSpec);
-        when(responseSpec.content()).thenThrow(new RuntimeException("component lookup unavailable"));
+        when(responseSpec.content()).thenThrow(new RuntimeException("conversion engine failure"));
 
-        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(chatClient);
+        ConverterAgentToolCallback callback = new ConverterAgentToolCallback(chatClient);
 
         String result = callback.call("{\"request\":\"any\"}");
 
@@ -124,9 +125,9 @@ class ClusterElementAgentToolCallbackTest {
         assertThat(node.get("error")
             .asText())
                 .as("payload must surface tool name")
-                .contains("cluster_element_agent failed")
+                .contains("converter_agent failed")
                 .as("payload must NOT leak the exception getMessage()")
-                .doesNotContain("component lookup unavailable");
+                .doesNotContain("conversion engine failure");
     }
 
     @Test
@@ -141,13 +142,13 @@ class ClusterElementAgentToolCallbackTest {
         when(responseSpec.content()).thenReturn("ok");
 
         AiHubToolInvocationContext invocationContext =
-            new AiHubToolInvocationContext(11L, 42L, (short) 0, "describe the cluster", 1L);
+            new AiHubToolInvocationContext(11L, 42L, (short) 0, "convert this", 1L);
 
         Map<String, Object> parentContextMap = invocationContext.toToolContext();
 
         ToolContext parentToolContext = new ToolContext(parentContextMap);
 
-        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(chatClient);
+        ConverterAgentToolCallback callback = new ConverterAgentToolCallback(chatClient);
 
         callback.call("{\"request\":\"any\"}", parentToolContext);
 
@@ -165,7 +166,7 @@ class ClusterElementAgentToolCallbackTest {
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn("ok");
 
-        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(chatClient);
+        ConverterAgentToolCallback callback = new ConverterAgentToolCallback(chatClient);
 
         callback.call("{\"request\":\"any\"}", null);
 
@@ -173,11 +174,11 @@ class ClusterElementAgentToolCallbackTest {
     }
 
     @Test
-    void testToolDefinitionExposesClusterElementAgentNameAndRequestSchema() {
-        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(mock(ChatClient.class));
+    void testToolDefinitionExposesConverterAgentNameAndRequestSchema() {
+        ConverterAgentToolCallback callback = new ConverterAgentToolCallback(mock(ChatClient.class));
 
         assertThat(callback.getToolDefinition()
-            .name()).isEqualTo("cluster_element_agent");
+            .name()).isEqualTo("converter_agent");
         assertThat(callback.getToolDefinition()
             .inputSchema()).contains("\"request\"");
     }
@@ -203,7 +204,7 @@ class ClusterElementAgentToolCallbackTest {
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenThrow(upstreamException);
 
-        ClusterElementAgentToolCallback callback = new ClusterElementAgentToolCallback(chatClient);
+        ConverterAgentToolCallback callback = new ConverterAgentToolCallback(chatClient);
 
         String result = callback.call("{\"request\":\"any\"}");
 
@@ -211,7 +212,7 @@ class ClusterElementAgentToolCallbackTest {
 
         assertThat(node.has("error")).isTrue();
         assertThat(node.get("error")
-            .asText()).contains("cluster_element_agent failed");
+            .asText()).contains("converter_agent failed");
     }
 
     @SuppressWarnings("unchecked")

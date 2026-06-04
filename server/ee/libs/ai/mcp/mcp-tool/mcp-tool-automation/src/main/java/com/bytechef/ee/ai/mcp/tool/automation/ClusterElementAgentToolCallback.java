@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.platform.aihub.tool;
+package com.bytechef.ee.ai.mcp.tool.automation;
 
 import com.bytechef.ee.ai.mcp.tool.usage.Agent;
 import com.bytechef.ee.ai.mcp.tool.usage.CurrentAgentContext;
@@ -25,30 +25,31 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Hand-rolled Spring AI {@link ToolCallback} that exposes the Code Editor Copilot subagent to the parent ai_hub agent.
+ * Hand-rolled Spring AI {@link ToolCallback} that exposes the Cluster Element Copilot subagent to the parent ai_hub
+ * agent.
  *
  * <p>
  * When the parent LLM invokes this tool it passes a JSON object with a {@code request} field. The callback delegates to
- * a pre-configured {@link ChatClient} that carries the Code Editor system prompt and the Copilot specialist's tool
- * catalog (ReadProjectWorkflowTools + ComponentTools + WorkflowValidatorTools + WorkflowInstructionTools on ASK; adds
- * ScriptTools on BUILD). The isolated chat client context means the parent never sees the discovery / mutation
- * transcript — only the synthesised result.
+ * a pre-configured {@link ChatClient} that carries the Cluster Element system prompt and the Copilot specialist's tool
+ * catalog (ReadProjectWorkflowTools + ComponentTools + TaskTools + WorkflowValidatorTools + WorkflowInstructionTools on
+ * ASK; adds ClusterElementTools on BUILD). The isolated chat client context means the parent never sees the discovery /
+ * mutation transcript — only the synthesised result.
  *
  * @version ee
  *
  * @author Ivica Cardic
  */
-public class CodeEditorAgentToolCallback implements ToolCallback {
+public class ClusterElementAgentToolCallback implements ToolCallback {
 
-    private static final Logger log = LoggerFactory.getLogger(CodeEditorAgentToolCallback.class);
+    private static final Logger log = LoggerFactory.getLogger(ClusterElementAgentToolCallback.class);
 
     private static final String DESCRIPTION =
         """
-            Delegate a user request about embedded script code to a specialised Code Editor subagent.
-            Use this for requests that write, edit, debug, or explain JavaScript / Python / Ruby script
-            embedded inside a workflow task. The subagent owns the canonical behaviour for this domain;
-            prefer calling it over generating script code directly. Returns the updated script (BUILD)
-            or an explanation (ASK).""";
+            Delegate a user request about cluster elements to a specialised Cluster Element subagent.
+            Cluster elements are the slotted child operations inside cluster-root components (AI Agent,
+            Knowledge Base, etc.) — model, chat memory, RAG source, guardrails, tools. The subagent owns
+            the canonical behaviour for designing, editing, and explaining cluster element configuration;
+            prefer calling it over reasoning about cluster element shape directly.""";
 
     private static final String INPUT_SCHEMA =
         """
@@ -63,18 +64,18 @@ public class CodeEditorAgentToolCallback implements ToolCallback {
                 "required": ["request"]
             }""";
 
-    private final ChatClient codeEditorChatClient;
+    private final ChatClient clusterElementChatClient;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public CodeEditorAgentToolCallback(ChatClient codeEditorChatClient) {
-        this.codeEditorChatClient = codeEditorChatClient;
+    public ClusterElementAgentToolCallback(ChatClient clusterElementChatClient) {
+        this.clusterElementChatClient = clusterElementChatClient;
     }
 
     @Override
     public ToolDefinition getToolDefinition() {
         return ToolDefinition.builder()
-            .name("code_editor_agent")
+            .name("cluster_element_agent")
             .description(DESCRIPTION)
             .inputSchema(INPUT_SCHEMA)
             .build();
@@ -88,7 +89,7 @@ public class CodeEditorAgentToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            CodeEditorAgentInput input = jsonMapper.readValue(toolInput, CodeEditorAgentInput.class);
+            ClusterElementAgentInput input = jsonMapper.readValue(toolInput, ClusterElementAgentInput.class);
 
             if (input.request() == null || input.request()
                 .isBlank()) {
@@ -98,26 +99,28 @@ public class CodeEditorAgentToolCallback implements ToolCallback {
             AgentBinding parent = CurrentAgentContext.current();
             Agent parentAgent = parent != null ? parent.agentName() : null;
 
+            // Forward parent ToolContext so the subagent's workspace-scoped lookups (component / action /
+            // task ops) can rehydrate AiHubToolInvocationContext. Same rationale as ResearchToolCallback.
             Map<String, Object> forwardedContext = toolContext == null ? Map.of() : toolContext.getContext();
 
-            String result = CurrentAgentContext.callWith(Agent.CODE_EDITOR_AGENT, parentAgent,
-                () -> codeEditorChatClient.prompt(input.request())
+            String result = CurrentAgentContext.callWith(Agent.CLUSTER_ELEMENT_AGENT, parentAgent,
+                () -> clusterElementChatClient.prompt(input.request())
                     .tools(spec -> spec.context(forwardedContext))
                     .call()
                     .content());
 
             if (result == null) {
                 log.warn(
-                    "code_editor subagent returned null for request='{}'",
+                    "cluster_element subagent returned null for request='{}'",
                     LogSanitizer.sanitizeForLog(input.request()));
 
-                return ToolErrors.toolError(jsonMapper, "code_editor subagent returned null");
+                return ToolErrors.toolError(jsonMapper, "cluster_element subagent returned null");
             }
 
             return result;
         } catch (JacksonException exception) {
             log.warn(
-                "code_editor_agent rejected malformed tool input: {} — first 200 chars of input: {}",
+                "cluster_element_agent rejected malformed tool input: {} — first 200 chars of input: {}",
                 exception.getMessage(),
                 LogSanitizer.sanitizeForLog(
                     toolInput == null ? "<null>" : toolInput.substring(0, Math.min(toolInput.length(), 200))));
@@ -125,7 +128,7 @@ public class CodeEditorAgentToolCallback implements ToolCallback {
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (RuntimeException exception) {
             return ToolErrors.runtimeFailure(
-                jsonMapper, CodeEditorAgentToolCallback.class, "code_editor_agent", exception);
+                jsonMapper, ClusterElementAgentToolCallback.class, "cluster_element_agent", exception);
         }
     }
 
@@ -133,6 +136,6 @@ public class CodeEditorAgentToolCallback implements ToolCallback {
         return ToolErrors.toolError(jsonMapper, message);
     }
 
-    public record CodeEditorAgentInput(String request) {
+    public record ClusterElementAgentInput(String request) {
     }
 }
