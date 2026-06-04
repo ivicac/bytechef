@@ -71,8 +71,11 @@ public class PropertyCopilotPromptBuilder {
                     "${nodeName.path}. Use only the listed functions. No explanation, no code fences.");
         } else {
             builder.append(
-                "Return ONLY the literal text value for the property, embedding references to the " +
-                    "outputs inline as ${nodeName.path} where appropriate. No explanation, no code fences.");
+                "First, look through the available previous step outputs above and try to find a value that " +
+                    "satisfies the user's request. If a matching output exists, return it as a data pill " +
+                    "reference ${nodeName.path} (embed multiple pills inline within surrounding text when the " +
+                    "request calls for it). Only if no available output matches, propose a constant literal " +
+                    "value. Return ONLY the value itself. No explanation, no code fences.");
         }
 
         return builder.toString();

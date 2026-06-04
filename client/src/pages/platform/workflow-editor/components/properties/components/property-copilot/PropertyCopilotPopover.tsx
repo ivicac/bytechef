@@ -36,7 +36,7 @@ const PropertyCopilotPopover = ({
                 <Textarea
                     className="min-h-16 resize-none border-0 text-sm shadow-none focus-visible:ring-0"
                     onChange={(event) => setPrompt(event.target.value)}
-                    placeholder="Describe what this field should contain…"
+                    placeholder="Finds a suitable value, or describe your own…"
                     value={prompt}
                 />
 
@@ -44,14 +44,14 @@ const PropertyCopilotPopover = ({
                     {isRegenerate ? (
                         <Button
                             aria-label="Regenerate"
-                            disabled={pending || prompt.trim().length === 0}
+                            disabled={pending}
                             icon={pending ? <Loader2Icon className="animate-spin" /> : <PlayIcon />}
                             onClick={() => onGenerate(prompt)}
                             size="iconXs"
                         />
                     ) : (
                         <Button
-                            disabled={pending || prompt.trim().length === 0}
+                            disabled={pending}
                             icon={pending ? <Loader2Icon className="animate-spin" /> : undefined}
                             onClick={() => onGenerate(prompt)}
                             size="xs"

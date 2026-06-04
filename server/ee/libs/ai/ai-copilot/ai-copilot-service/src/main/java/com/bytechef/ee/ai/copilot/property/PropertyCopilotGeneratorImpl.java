@@ -18,6 +18,8 @@ import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.beans.factory.ObjectProvider;
@@ -37,6 +39,7 @@ import tools.jackson.databind.ObjectMapper;
 public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
 
     private static final ObjectMapper JSON_OBJECT_MAPPER = new ObjectMapper();
+    private static final Pattern DATA_PILL_PATTERN = Pattern.compile("\\$\\{[^}]+}");
 
     private final ChatModel chatModel;
     private final Evaluator evaluator;
@@ -72,13 +75,11 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
 
         String prompt = promptBuilder.build(request, availableOutputs, functionCatalog);
 
-        String value = clean(call(prompt));
-
         if (request.mode() != PropertyCopilotMode.FORMULA) {
-            record(request, "success");
-
-            return new PropertyCopilotResult(value, true, null);
+            return generateText(request, prompt);
         }
+
+        String value = clean(call(prompt));
 
         if (!value.startsWith("=")) {
             value = "=" + value;
@@ -110,6 +111,34 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
 
         return new PropertyCopilotResult(
             repaired, false, "The generated formula could not be validated; please review it.");
+    }
+
+    private PropertyCopilotResult generateText(PropertyCopilotRequest request, String prompt) {
+        String value = clean(call(prompt));
+
+        Map<String, ?> context = workflowNodeOutputFacade.getPreviousWorkflowNodeSampleOutputs(
+            request.workflowId(), request.workflowNodeName(), request.environmentId());
+
+        if (!hasUnresolvedPills(value, context)) {
+            record(request, "success");
+
+            return new PropertyCopilotResult(value, true, null);
+        }
+
+        String repaired = clean(call(prompt +
+            "\n\nThe previous attempt referenced outputs that do not exist. Use ONLY ${nodeName.path} " +
+            "references that appear in the available previous step outputs; otherwise return a constant value."));
+
+        if (!hasUnresolvedPills(repaired, context)) {
+            record(request, "success");
+
+            return new PropertyCopilotResult(repaired, true, null);
+        }
+
+        record(request, "unresolved_pills");
+
+        return new PropertyCopilotResult(
+            repaired, false, "The generated value references outputs that could not be resolved; please review it.");
     }
 
     private PropertyCopilotResult generateJsonSchema(PropertyCopilotRequest request, String prompt) {
@@ -187,6 +216,29 @@ public class PropertyCopilotGeneratorImpl implements PropertyCopilotGenerator {
             .getResult()
             .getOutput()
             .getText();
+    }
+
+    private boolean hasUnresolvedPills(String value, Map<String, ?> context) {
+        if (value == null || value.isBlank()) {
+            return false;
+        }
+
+        Matcher matcher = DATA_PILL_PATTERN.matcher(value);
+
+        while (matcher.find()) {
+            String pill = matcher.group();
+
+            Object evaluated = evaluator.evaluate(Map.of("value", pill), context, true)
+                .get("value");
+
+            // An unresolvable reference is returned unchanged by the evaluator, so the ${...} token survives.
+            if (String.valueOf(evaluated)
+                .contains("${")) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private boolean isValidFormula(String value, Map<String, ?> context) {

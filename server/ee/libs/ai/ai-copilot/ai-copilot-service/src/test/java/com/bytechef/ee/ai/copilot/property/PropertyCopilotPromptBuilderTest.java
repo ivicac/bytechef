@@ -30,6 +30,8 @@ class PropertyCopilotPromptBuilderTest {
         assertThat(prompt).contains("greet the customer by first name");
         assertThat(prompt).contains("trigger_1");
         assertThat(prompt).contains("${");
+        assertThat(prompt).contains("data pill");
+        assertThat(prompt).contains("Only if no available output matches");
         assertThat(prompt).doesNotContain("function");
     }
 

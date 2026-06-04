@@ -70,12 +70,73 @@ class PropertyCopilotGeneratorImplTest {
     void testTextModeReturnsValueVerbatim() {
         PropertyCopilotGeneratorImpl generator = generatorReturning("Hello ${trigger_1.firstName}");
 
+        // pill resolves -> evaluator returns the substituted value (no surviving ${...})
+        when(evaluator.evaluate(any(), any(), eq(true))).thenReturn(Map.of("value", "Hello Ada"));
+
         PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
             "greet", PropertyCopilotMode.TEXT, "wf1", "node2", "message", "STRING", 0));
 
         assertThat(result.value()).isEqualTo("Hello ${trigger_1.firstName}");
         assertThat(result.valid()).isTrue();
         assertThat(result.message()).isNull();
+    }
+
+    @Test
+    void testTextModeReturnsConstantWithoutPillsAsValid() {
+        PropertyCopilotGeneratorImpl generator = generatorReturning("a constant value");
+
+        PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
+            "value", PropertyCopilotMode.TEXT, "wf1", "node2", "message", "STRING", 0));
+
+        assertThat(result.value()).isEqualTo("a constant value");
+        assertThat(result.valid()).isTrue();
+        assertThat(result.message()).isNull();
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testTextModeUnresolvedPillThenRepaired() {
+        ChatModel chatModel = mock(ChatModel.class);
+        ChatResponse bad = buildChatResponse("Hi ${missing.name}");
+        ChatResponse good = buildChatResponse("Hi ${trigger_1.firstName}");
+
+        when(chatModel.call(any(org.springframework.ai.chat.prompt.Prompt.class))).thenReturn(bad, good);
+        when(workflowNodeOutputFacade.getPreviousWorkflowNodeOutputs(any(), any(), anyLong())).thenReturn(List.of());
+        when(workflowNodeOutputFacade.getPreviousWorkflowNodeSampleOutputs(any(), any(), anyLong()))
+            .thenReturn(Map.of());
+
+        // first pill stays unresolved (${...} survives), second resolves
+        when(evaluator.evaluate(any(), any(), eq(true)))
+            .thenReturn(Map.of("value", "${missing.name}"))
+            .thenReturn(Map.of("value", "Ada"));
+
+        ObjectProvider<MeterRegistry> meterRegistryProvider = mock(ObjectProvider.class);
+
+        when(meterRegistryProvider.getIfAvailable()).thenReturn(meterRegistry);
+
+        PropertyCopilotGeneratorImpl generator = new PropertyCopilotGeneratorImpl(
+            chatModel, evaluator, new PropertyCopilotPromptBuilder(), List.of(), workflowNodeOutputFacade,
+            meterRegistryProvider);
+
+        PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
+            "greet", PropertyCopilotMode.TEXT, "wf1", "node2", "message", "STRING", 0));
+
+        assertThat(result.value()).isEqualTo("Hi ${trigger_1.firstName}");
+        assertThat(result.valid()).isTrue();
+    }
+
+    @Test
+    void testTextModeStillUnresolvedAfterRepairReturnsInvalid() {
+        PropertyCopilotGeneratorImpl generator = generatorReturning("Hi ${missing.name}");
+
+        when(evaluator.evaluate(any(), any(), eq(true))).thenReturn(Map.of("value", "${missing.name}"));
+
+        PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
+            "greet", PropertyCopilotMode.TEXT, "wf1", "node2", "message", "STRING", 0));
+
+        assertThat(result.value()).isEqualTo("Hi ${missing.name}");
+        assertThat(result.valid()).isFalse();
+        assertThat(result.message()).isNotBlank();
     }
 
     @Test
