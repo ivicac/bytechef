@@ -1,11 +1,11 @@
 ---
 title: "Permission Expressions"
-description: "Gate which integrations and workflows each connected end-user sees with a per-integration expression evaluated against the user's identity and metadata. Fails closed."
+description: "Gate which integrations, automation workflow projects, and workflows each connected end-user sees with a per-resource expression evaluated against the user's identity and metadata. Fails closed."
 ---
 
 import {Callout} from "fumadocs-ui/components/callout";
 
-In an [embedded](/enterprise/embedded-ipaas/) deployment, not every customer should see every integration. A free-tier user shouldn't see the Salesforce integration you sell as a premium add-on; an EU customer shouldn't see an integration that isn't GDPR-cleared; a beta feature should reach only the accounts you've flagged. **Permission expressions** let you encode those rules directly on an integration or one of its workflows, evaluated per connected user at request time.
+In an [embedded](/enterprise/embedded-ipaas/) deployment, not every customer should see every integration or automation workflow. A free-tier user shouldn't see the Salesforce integration you sell as a premium add-on; an EU customer shouldn't see an integration that isn't GDPR-cleared; a beta feature should reach only the accounts you've flagged. **Permission expressions** let you encode those rules directly on an integration, an automation workflow project, or one of their workflows, evaluated per connected user at request time.
 
 <Callout type="info">
   Permission expressions are an **Enterprise, embedded-edition** feature. They gate visibility for **connected users** — the end-users of your product who authenticate through your backend — not the admins who build integrations in the ByteChef UI.
@@ -13,15 +13,15 @@ In an [embedded](/enterprise/embedded-ipaas/) deployment, not every customer sho
 
 ## How it works
 
-Each integration, and each integration workflow, carries an optional **permission expression**: a [SpEL](https://docs.spring.io/spring-framework/reference/core/expressions.html) expression that must evaluate to `true` for the requesting connected user to see that integration or workflow.
+Each integration, each automation workflow project, and each of their workflows carries an optional **permission expression**: a [SpEL](https://docs.spring.io/spring-framework/reference/core/expressions.html) expression that must evaluate to `true` for the requesting connected user to see that resource.
 
-When your product lists the integrations available to a connected user, the platform evaluates each expression against that user's identity and metadata and filters out anything that doesn't pass.
+When your product lists the integrations or automation workflow projects available to a connected user, the platform evaluates each expression against that user's identity and metadata and filters out anything that doesn't pass.
 
 ```
-Connected user requests their integrations
+Connected user requests their integrations / automation workflow projects
         │
         ▼
-For each integration / workflow:
+For each integration / project / workflow:
   permission expression blank? ──► visible
   expression evaluates to true? ──► visible
   anything else (false or error) ──► hidden
@@ -77,12 +77,19 @@ email != null && email.endsWith('@yourcompany.com')
 
 ## Setting an expression
 
-Expressions are managed per integration and per workflow through GraphQL mutations:
+Expressions are managed through GraphQL mutations, scoped to the resource they gate.
 
-- `updateIntegrationPermissionExpression` — sets the expression on an integration.
+**Integrations:**
+
+- The integration-level expression is set as part of the integration update (a `permissionExpression` field on the integration), so it is saved together with the rest of the integration in a single write.
 - `updateIntegrationWorkflowPermissionExpression` — sets the expression on a single workflow within an integration.
 
-A workflow-level expression lets you ship an integration broadly while still gating individual workflows inside it — e.g., the integration is visible to everyone, but its "bulk export" workflow only to enterprise accounts.
+**Automation workflow projects:**
+
+- The project-level expression is folded into `createAutomationWorkflowProject` / `updateAutomationWorkflowProject` as a `permissionExpression` argument, so it is saved with the rest of the project in a single write. A `null` argument leaves any stored expression unchanged; an empty string clears it.
+- A workflow's expression can be passed on `createAutomationWorkflowProjectWorkflow`, and changed later with `updateAutomationWorkflowProjectWorkflowPermissionExpression`.
+
+A workflow-level expression lets you ship an integration or automation workflow project broadly while still gating individual workflows inside it — e.g., the project is visible to everyone, but its "bulk export" workflow only to enterprise accounts. The project-level expression behaves like the integration-level one: when it evaluates `false`, the whole project (and all its workflows) drops out of that connected user's catalog.
 
 ## Where it fits
 
