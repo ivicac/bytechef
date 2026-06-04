@@ -109,7 +109,7 @@ const QueryWrapper = ({children}: {children: ReactNode}) => {
     return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 };
 
-const TestForm = () => {
+const TestForm = ({componentName = 'someApp'}: {componentName?: string}) => {
     const {control, formState, setValue} = useForm<IntegrationInstanceConfiguration>({
         defaultValues: {
             integrationInstanceConfigurationWorkflows: [
@@ -120,7 +120,7 @@ const TestForm = () => {
 
     return (
         <IntegrationInstanceConfigurationDialogWorkflowsStepItem
-            componentName="someApp"
+            componentName={componentName}
             control={control}
             formState={formState}
             label="Workflow"
@@ -142,5 +142,17 @@ describe('IntegrationInstanceConfigurationDialogWorkflowsStepItem', () => {
 
         await waitFor(() => expect(screen.getByText('Channel')).toBeInTheDocument());
         await waitFor(() => expect(screen.getByText('Spreadsheet')).toBeInTheDocument());
+    });
+
+    it('excludes inputs that reference the integration component', async () => {
+        render(
+            <QueryWrapper>
+                <TestForm componentName="slack" />
+            </QueryWrapper>
+        );
+
+        await waitFor(() => expect(screen.getByText('Spreadsheet')).toBeInTheDocument());
+
+        expect(screen.queryByText('Channel')).not.toBeInTheDocument();
     });
 });
