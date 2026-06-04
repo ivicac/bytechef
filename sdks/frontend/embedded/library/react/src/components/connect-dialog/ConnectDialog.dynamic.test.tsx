@@ -1,32 +1,37 @@
-import {fireEvent, render, screen} from '@testing-library/react';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 import ConnectDialog from './ConnectDialog';
-import {MergedWorkflowType, OptionType} from './types';
-import {optionsCacheKey} from './utils';
+import {MergedWorkflowType} from './types';
 
 const baseProps = {
+    apiFetch: vi.fn().mockResolvedValue([]),
     closeDialog: vi.fn(),
     handleClick: vi.fn(),
+    handleMcpWorkflowGroupInputChange: vi.fn(),
     handleWorkflowToggle: vi.fn(),
     handleWorkflowInputChange: vi.fn(),
     handleWorkflowGroupInputChange: vi.fn(),
     integration: {id: 1, name: 'Test Integration'},
+    integrationInstanceId: 1,
     isOpen: true,
-    loadWorkflowInputOptions: vi.fn(),
     loading: false,
     mergedMcpTools: [],
     mergedMcpWorkflows: [],
-    workflowInputOptions: {} as Record<string, OptionType[]>,
     workflowsView: true,
 };
 
 describe('ConnectDialog dynamic inputs', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
     });
 
-    it('renders a select for a single-property group member with dynamic options and shows resolved labels', () => {
+    it('fetches and renders options for a single-property dynamic group member', async () => {
         const workflowUuid = 'wf-1';
+        const apiFetch = vi.fn().mockResolvedValue([
+            {label: 'General', value: 'C1'},
+            {label: 'Random', value: 'C2'},
+        ]);
         const mergedWorkflows: MergedWorkflowType[] = [
             {
                 enabled: true,
@@ -51,30 +56,18 @@ describe('ConnectDialog dynamic inputs', () => {
             },
         ];
 
-        const cacheKey = optionsCacheKey(workflowUuid, 'channel', 'channelId', {});
+        render(<ConnectDialog {...baseProps} apiFetch={apiFetch} mergedWorkflows={mergedWorkflows} />);
 
-        render(
-            <ConnectDialog
-                {...baseProps}
-                mergedWorkflows={mergedWorkflows}
-                workflowInputOptions={{
-                    [cacheKey]: [
-                        {label: 'General', value: 'C1'},
-                        {label: 'Random', value: 'C2'},
-                    ],
-                }}
-            />
+        expect(apiFetch).toHaveBeenCalledWith(
+            '/api/embedded/v1/integration-instances/1/workflows/wf-1/options',
+            {
+                body: {inputName: 'channel', lookupDependsOnValues: {}, propertyName: 'channelId'},
+                method: 'POST',
+            }
         );
 
-        const select = screen.getByLabelText('Channel') as HTMLSelectElement;
-
-        expect(select.tagName).toBe('SELECT');
-        expect(select.disabled).toBe(false);
-        expect(screen.getByText('General')).toBeTruthy();
-        expect(screen.getByText('Random')).toBeTruthy();
-
-        // The effect loads options for an input whose dependencies are satisfied (here, none).
-        expect(baseProps.loadWorkflowInputOptions).toHaveBeenCalledWith(workflowUuid, 'channel', 'channelId', {});
+        expect(await screen.findByText('General')).toBeTruthy();
+        expect(await screen.findByText('Random')).toBeTruthy();
     });
 
     it('renders the member fields of a property group and reports member changes', () => {
@@ -115,7 +108,6 @@ describe('ConnectDialog dynamic inputs', () => {
 
         fireEvent.change(screen.getByLabelText('Spreadsheet'), {target: {value: 'spreadsheet-1'}});
 
-        // A group member change is reported scoped to (workflowUuid, group name, member name).
         expect(baseProps.handleWorkflowGroupInputChange).toHaveBeenCalledWith(
             workflowUuid,
             'location',
@@ -124,7 +116,8 @@ describe('ConnectDialog dynamic inputs', () => {
         );
     });
 
-    it('disables a dependent group member select until its dependency value is present and does not load options', () => {
+    it('disables a dependent member select and does not fetch until the dependency is present', () => {
+        const apiFetch = vi.fn().mockResolvedValue([]);
         const mergedWorkflows: MergedWorkflowType[] = [
             {
                 enabled: true,
@@ -157,19 +150,18 @@ describe('ConnectDialog dynamic inputs', () => {
             },
         ];
 
-        render(<ConnectDialog {...baseProps} mergedWorkflows={mergedWorkflows} />);
+        render(<ConnectDialog {...baseProps} apiFetch={apiFetch} mergedWorkflows={mergedWorkflows} />);
 
         const select = screen.getByLabelText('Channel') as HTMLSelectElement;
 
         expect(select.disabled).toBe(true);
         expect(screen.getByText('Select dependencies first')).toBeTruthy();
-
-        // Options must not be requested while a dependency is unsatisfied.
-        expect(baseProps.loadWorkflowInputOptions).not.toHaveBeenCalled();
+        expect(apiFetch).not.toHaveBeenCalled();
     });
 
-    it('loads options once a previously unsatisfied group-member dependency becomes available', () => {
+    it('fetches options once a previously unsatisfied dependency becomes available', () => {
         const workflowUuid = 'wf-3';
+        const apiFetch = vi.fn().mockResolvedValue([]);
         const buildWorkflows = (workspaceValue: string): MergedWorkflowType[] => [
             {
                 enabled: true,
@@ -203,15 +195,21 @@ describe('ConnectDialog dynamic inputs', () => {
             },
         ];
 
-        const {rerender} = render(<ConnectDialog {...baseProps} mergedWorkflows={buildWorkflows('')} />);
+        const {rerender} = render(
+            <ConnectDialog {...baseProps} apiFetch={apiFetch} mergedWorkflows={buildWorkflows('')} />
+        );
 
-        expect(baseProps.loadWorkflowInputOptions).not.toHaveBeenCalled();
+        expect(apiFetch).not.toHaveBeenCalled();
 
-        rerender(<ConnectDialog {...baseProps} mergedWorkflows={buildWorkflows('W1')} />);
+        rerender(<ConnectDialog {...baseProps} apiFetch={apiFetch} mergedWorkflows={buildWorkflows('W1')} />);
 
-        expect(baseProps.loadWorkflowInputOptions).toHaveBeenCalledWith(workflowUuid, 'channel', 'channelId', {
-            workspace: 'W1',
-        });
+        expect(apiFetch).toHaveBeenCalledWith(
+            '/api/embedded/v1/integration-instances/1/workflows/wf-3/options',
+            {
+                body: {inputName: 'channel', lookupDependsOnValues: {workspace: 'W1'}, propertyName: 'channelId'},
+                method: 'POST',
+            }
+        );
     });
 
     it('falls back to a plain text input when a component reference has no resolved group', () => {
@@ -237,10 +235,70 @@ describe('ConnectDialog dynamic inputs', () => {
 
         expect(input.tagName).toBe('INPUT');
     });
+
+    it('fetches MCP-workflow group-member options from the same workflows options endpoint', async () => {
+        const workflowUuid = 'mcp-wf-1';
+        const apiFetch = vi.fn().mockResolvedValue([{label: 'General', value: 'C1'}]);
+        const mergedMcpWorkflows: MergedWorkflowType[] = [
+            {
+                enabled: true,
+                inputs: [
+                    {
+                        componentReference: {
+                            componentName: 'slack',
+                            componentVersion: 1,
+                            group: {
+                                name: 'channel',
+                                properties: [{dynamicOptions: true, label: 'Channel', name: 'channelId'}],
+                            },
+                            groupName: 'channel',
+                        },
+                        label: 'Channel',
+                        name: 'channel',
+                        type: 'object',
+                    },
+                ],
+                label: 'MCP Workflow 1',
+                workflowUuid,
+            },
+        ];
+
+        render(
+            <ConnectDialog
+                {...baseProps}
+                apiFetch={apiFetch}
+                mergedWorkflows={[]}
+                mergedMcpWorkflows={mergedMcpWorkflows}
+            />
+        );
+
+        expect(apiFetch).toHaveBeenCalledWith(
+            '/api/embedded/v1/integration-instances/1/workflows/mcp-wf-1/options',
+            {
+                body: {inputName: 'channel', lookupDependsOnValues: {}, propertyName: 'channelId'},
+                method: 'POST',
+            }
+        );
+
+        expect(await screen.findByText('General')).toBeTruthy();
+
+        fireEvent.change(screen.getByLabelText('Channel'), {target: {value: 'C1'}});
+
+        await waitFor(() =>
+            expect(baseProps.handleMcpWorkflowGroupInputChange).toHaveBeenCalledWith(
+                workflowUuid,
+                'channel',
+                'channelId',
+                'C1'
+            )
+        );
+    });
 });
 
 describe('optionsCacheKey', () => {
-    it('produces distinct keys for distinct dependency values and a stable key for equal values', () => {
+    it('produces distinct keys for distinct dependency values and a stable key for equal values', async () => {
+        const {optionsCacheKey} = await import('./utils');
+
         const first = optionsCacheKey('wf', 'channel', 'channelId', {teamId: 'T1'});
         const second = optionsCacheKey('wf', 'channel', 'channelId', {teamId: 'T2'});
         const repeated = optionsCacheKey('wf', 'channel', 'channelId', {teamId: 'T1'});
@@ -249,7 +307,9 @@ describe('optionsCacheKey', () => {
         expect(first).toBe(repeated);
     });
 
-    it('does not collide for distinct inputs that share a property name', () => {
+    it('does not collide for distinct inputs that share a property name', async () => {
+        const {optionsCacheKey} = await import('./utils');
+
         const topLevel = optionsCacheKey('wf', 'channel', 'channelId', {});
         const groupMember = optionsCacheKey('wf', 'location', 'channelId', {});
 
