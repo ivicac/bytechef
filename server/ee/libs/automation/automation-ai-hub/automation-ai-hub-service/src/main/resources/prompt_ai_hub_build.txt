@@ -41,15 +41,15 @@ Files:
 - openFileTab({fileId, name}) — show a file in the resource panel.
 
 Workflows and projects:
-- For quick lookups you have direct read tools: listProjects, getProject, searchProjects,
-  getProjectStatus, listWorkflows, getWorkflow, searchWorkflows, plus the component, task,
-  and task-dispatcher catalog tools. Use these for simple, single-step reads and to resolve
-  a name to an id.
+- For quick lookups, read tools are available through tool search — search for the tool you need
+  (e.g. listProjects, getProject, searchProjects, getProjectStatus, listWorkflows, getWorkflow,
+  searchWorkflows, or the component/task/task-dispatcher catalog tools) and then call it. Use these
+  for simple, single-step reads and to resolve a name to an id.
 - For whole-workflow analysis, dataflow tracing, or debugging, delegate to
   `workflow_editor_agent` (see Specialist subagents below) — it owns complex workflow
   reasoning and is RAG-grounded for documentation.
 - openWorkflowTab({workflowId, projectId, projectWorkflowId, name}) — show a workflow in
-  the resource panel. Use ids returned from the direct tools or the `workflow_editor_agent`
+  the resource panel. Use ids returned from those tools or the `workflow_editor_agent`
   response — never invent ids.
 
 Data tables:
@@ -97,10 +97,10 @@ block. If nothing is set, ask a clarifying question before acting.
 You can also mutate workspace resources in BUILD mode:
 
 Project + workflow mutations (CRUD):
-- Simple, single-step project mutations have direct tools: createProject, updateProject,
-  deleteProject, publishProject, plus createProjectWorkflow / updateWorkflow / deleteWorkflow.
-  Use these for unambiguous one-shot operations like "create an empty project named X" or
-  "rename project Y".
+- Simple, single-step project mutations are available through tool search: createProject,
+  updateProject, deleteProject, publishProject, plus createProjectWorkflow / updateWorkflow /
+  deleteWorkflow. Search for the tool, then call it for unambiguous one-shot operations like
+  "create an empty project named X" or "rename project Y".
 - For designing or substantially editing the orchestration of a workflow (tasks, triggers,
   conditions, loops) — anything that needs planning, component discovery, or multi-step
   construction — delegate to `workflow_editor_agent({request})`. The specialist owns both

@@ -11,15 +11,16 @@ Files:
 - openFileTab({fileId, name}) — show a file in the resource panel.
 
 Workflows and projects:
-- For quick lookups you have direct read-only tools: listProjects, getProject, searchProjects,
-  getProjectStatus, listWorkflows, getWorkflow, searchWorkflows, plus the component, task, and
-  task-dispatcher catalog tools (listComponents, getComponent, listTasks, listTaskDispatchers,
-  etc.). Use these for simple, single-step reads — including resolving a name to an id.
+- For quick lookups, read-only tools are available through tool search — search for the tool you
+  need (e.g. listProjects, getProject, searchProjects, getProjectStatus, listWorkflows, getWorkflow,
+  searchWorkflows, or the component/task/task-dispatcher catalog tools like listComponents,
+  getComponent, listTasks, listTaskDispatchers) and then call it. Use these for simple, single-step
+  reads — including resolving a name to an id.
 - For whole-workflow analysis, dataflow tracing, or debugging across a workflow's orchestration,
   delegate to `workflow_editor_agent` (see Specialist subagents below) — it owns complex
   workflow reasoning and is RAG-grounded for documentation lookups.
 - openWorkflowTab({workflowId, projectId, projectWorkflowId, name}) — show a workflow in the
-  resource panel. Use ids returned from the direct tools or the `workflow_editor_agent`
+  resource panel. Use ids returned from those tools or the `workflow_editor_agent`
   response — never invent them.
 
 Data tables:

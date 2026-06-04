@@ -584,11 +584,9 @@ public class AiHubConfiguration {
         ReadProjectTools readProjectTools, ReadProjectWorkflowTools readProjectWorkflowTools,
         ComponentTools componentTools, TaskTools taskTools, TaskDispatcherTools taskDispatcherTools) {
 
-        return new AiHubGlobalToolCatalog(
-            ToolSearchCatalogFeeder.GLOBAL_ASK_SESSION_ID,
-            List.of(
-                ToolCallbacks.from(
-                    readProjectTools, readProjectWorkflowTools, componentTools, taskTools, taskDispatcherTools)));
+        return globalToolCatalog(
+            ToolSearchCatalogFeeder.GLOBAL_ASK_SESSION_ID, readProjectTools, readProjectWorkflowTools, componentTools,
+            taskTools, taskDispatcherTools);
     }
 
     @Bean
@@ -597,12 +595,13 @@ public class AiHubConfiguration {
         TaskTools taskTools, TaskDispatcherTools taskDispatcherTools, ScriptTools scriptTools,
         ClusterElementTools clusterElementTools) {
 
-        return new AiHubGlobalToolCatalog(
-            ToolSearchCatalogFeeder.GLOBAL_BUILD_SESSION_ID,
-            List.of(
-                ToolCallbacks.from(
-                    projectTools, projectWorkflowTools, componentTools, taskTools, taskDispatcherTools, scriptTools,
-                    clusterElementTools)));
+        return globalToolCatalog(
+            ToolSearchCatalogFeeder.GLOBAL_BUILD_SESSION_ID, projectTools, projectWorkflowTools, componentTools,
+            taskTools, taskDispatcherTools, scriptTools, clusterElementTools);
+    }
+
+    private static AiHubGlobalToolCatalog globalToolCatalog(String sessionId, Object... toolObjects) {
+        return new AiHubGlobalToolCatalog(sessionId, List.of(ToolCallbacks.from(toolObjects)));
     }
 
     /**
