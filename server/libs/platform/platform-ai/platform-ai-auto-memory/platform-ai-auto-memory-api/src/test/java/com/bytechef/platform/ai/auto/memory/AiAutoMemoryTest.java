@@ -1,8 +1,17 @@
 /*
  * Copyright 2025 ByteChef
  *
- * Licensed under the ByteChef Enterprise license (the "Enterprise License");
- * you may not use this file except in compliance with the Enterprise License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.bytechef.platform.ai.auto.memory;
@@ -16,8 +25,6 @@ import org.junit.jupiter.api.Test;
  * Pins the slug-regex enforcement on {@link AiAutoMemory#setName(String)}. Without explicit coverage a future refactor
  * that removes the matcher (or relaxes the pattern) ships silently — the field is described in the class Javadoc as a
  * "load-bearing invariant" but only the setter actually enforces it.
- *
- * @version ee
  *
  * @author Ivica Cardic
  */
