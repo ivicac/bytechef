@@ -8,8 +8,7 @@
 package com.bytechef.ee.platform.aihub.toolsearch;
 
 import com.bytechef.component.definition.ai.agent.BaseToolFunction;
-import com.bytechef.ee.platform.aihub.agent.NonEmptyToolCallback;
-import com.bytechef.ee.platform.aihub.agent.RehydrateSecurityContextToolCallback;
+import com.bytechef.ee.platform.aihub.agent.AiHubToolCallbackWrappers;
 import com.bytechef.ee.platform.aihub.util.ToolNameNormalizer;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
@@ -191,7 +190,7 @@ public class ToolSearchAdvisorConfiguration {
                 // Discovered global tools resolve through this StaticToolCallbackResolver and execute directly on a
                 // Reactor scheduler thread. Mirror AiHubSpringAIAgent.wrapToolCallback so @PreAuthorize-protected
                 // service calls run under the invoking user's SecurityContext (and empty results are guarded).
-                callbackList.add(wrapGlobalToolCallback(toolCallback, userService, authorityService));
+                callbackList.add(AiHubToolCallbackWrappers.wrap(toolCallback, userService, authorityService));
             }
         } else {
             log.warn(
@@ -217,18 +216,6 @@ public class ToolSearchAdvisorConfiguration {
             .maxResults(MAX_SEARCH_RESULTS)
             .disableInternalConversationHistory()
             .build();
-    }
-
-    private static ToolCallback wrapGlobalToolCallback(
-        ToolCallback callback, @Nullable UserService userService, @Nullable AuthorityService authorityService) {
-
-        ToolCallback nonEmpty = NonEmptyToolCallback.wrap(callback);
-
-        if (userService == null || authorityService == null) {
-            return nonEmpty;
-        }
-
-        return RehydrateSecurityContextToolCallback.wrap(nonEmpty, userService, authorityService);
     }
 
     private static @Nullable AiHubGlobalToolCatalog findCatalog(

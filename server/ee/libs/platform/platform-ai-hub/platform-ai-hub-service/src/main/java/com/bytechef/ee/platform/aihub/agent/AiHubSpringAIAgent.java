@@ -221,17 +221,7 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
      * per-request {@link #additionalToolCallbacks} path and the static-builder path.
      */
     ToolCallback wrapToolCallback(ToolCallback callback) {
-        ToolCallback nonEmpty = NonEmptyToolCallback.wrap(callback);
-
-        if (userService == null || authorityService == null) {
-            // Pre-wiring path (tests, or a future code path that constructs the agent without user
-            // services). The empty-return guard is still applied — only the SecurityContext rehydration
-            // is skipped. @PreAuthorize-protected facade calls will fail-closed in that case, which is
-            // the right outcome for an unauthenticated invocation.
-            return nonEmpty;
-        }
-
-        return RehydrateSecurityContextToolCallback.wrap(nonEmpty, userService, authorityService);
+        return AiHubToolCallbackWrappers.wrap(callback, userService, authorityService);
     }
 
     AiHubToolInvocationContext buildInvocationContext(RunAgentInput input) {
@@ -660,13 +650,7 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
         }
 
         private ToolCallback wrapForAgent(ToolCallback callback) {
-            ToolCallback nonEmpty = NonEmptyToolCallback.wrap(callback);
-
-            if (userService == null || authorityService == null) {
-                return nonEmpty;
-            }
-
-            return RehydrateSecurityContextToolCallback.wrap(nonEmpty, userService, authorityService);
+            return AiHubToolCallbackWrappers.wrap(callback, userService, authorityService);
         }
     }
 }
