@@ -53,31 +53,25 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 
 /**
- * Provides a task tool that delegates complex tasks to specialized sub-agents.
+ * Provides a task tool that delegates complex tasks to specialized built-in sub-agents (Explore, General-Purpose, Plan,
+ * Bash). The sub-agent model is supplied by a Model child cluster element configured on this tool.
  *
  * @author Ivica Cardic
  */
 public class AiAgentUtilsTaskTool {
 
-    private final ExecutorService executorService = Executors.newVirtualThreadPerTaskExecutor();
-
     private final ClusterElementDefinitionService clusterElementDefinitionService;
-    private final ClusterElementToolCallbacks clusterElementToolCallbacks;
 
     public final ClusterElementDefinition<MultipleConnectionsToolCallbackProviderFunction> clusterElementDefinition;
 
     @SuppressFBWarnings("EI")
-    public AiAgentUtilsTaskTool(
-        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService) {
-
+    public AiAgentUtilsTaskTool(ClusterElementDefinitionService clusterElementDefinitionService) {
         this.clusterElementDefinitionService = clusterElementDefinitionService;
-        this.clusterElementToolCallbacks =
-            new ClusterElementToolCallbacks(aiAgentToolFacade, clusterElementDefinitionService);
 
         this.clusterElementDefinition =
             ComponentDsl.<MultipleConnectionsToolCallbackProviderFunction>clusterElement("taskTool")
                 .title("Task Tool")
-                .description("Delegate tasks to subagents you define, each limited to the tools you attach to it.")
+                .description("Delegate complex tasks to specialized sub-agents for parallel execution.")
                 .type(TOOLS)
                 .object(() -> this::apply);
     }
@@ -87,7 +81,7 @@ public class AiAgentUtilsTaskTool {
         Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
         Map<String, ComponentConnection> componentConnections, Context context) throws Exception {
 
-        ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
+        ChatModel chatModel = resolveChatModel(extensions, componentConnections);
 
         ChatModel defaultChatModel = resolveChatModel(clusterElementMap, componentConnections);
 
@@ -162,6 +156,44 @@ public class AiAgentUtilsTaskTool {
             throw new IllegalStateException(
                 "Unable to initialize the model '%s'".formatted(element.getWorkflowNodeName()), exception);
         }
+
+        if (!(model instanceof ChatModel chatModel)) {
+            String returnedType = model == null ? "null" : model.getClass()
+                .getName();
+
+            throw new IllegalArgumentException(
+                "MODEL child '%s' on component '%s' v%s returned %s; Task Tool requires a ChatModel. Attach a chat-capable model."
+                    .formatted(
+                        element.getClusterElementName(), element.getComponentName(),
+                        element.getComponentVersion(), returnedType));
+        }
+
+        return chatModel;
+    }
+
+    private ChatModel resolveChatModel(
+        Parameters extensions, Map<String, ComponentConnection> componentConnections) throws Exception {
+
+        ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
+
+        Optional<ClusterElement> modelElement = clusterElementMap.fetchClusterElement(MODEL);
+
+        if (modelElement.isEmpty()) {
+            throw new IllegalStateException(
+                "Task Tool requires a Model child cluster element. Attach a chat-capable model.");
+        }
+
+        ClusterElement element = modelElement.get();
+
+        ModelFunction modelFunction = clusterElementDefinitionService.getClusterElement(
+            element.getComponentName(), element.getComponentVersion(), element.getClusterElementName());
+
+        ComponentConnection connection = componentConnections.get(element.getWorkflowNodeName());
+
+        Object model = modelFunction.apply(
+            ParametersFactory.create(element.getParameters()),
+            ParametersFactory.create(connection == null ? Map.of() : connection.getParameters()),
+            false);
 
         if (!(model instanceof ChatModel chatModel)) {
             String returnedType = model == null ? "null" : model.getClass()
