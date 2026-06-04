@@ -64,6 +64,8 @@ public class VectorToolSearcher implements Closeable, ToolSearcher {
 
 	private final VectorStore vectorStore;
 
+	private final java.util.Set<String> additionalSessionIds;
+
 	private final AtomicInteger counter = new AtomicInteger(0);
 
 	private final ConcurrentHashMap<String, List<String>> sessionToolIds = new ConcurrentHashMap<>();
@@ -89,7 +91,15 @@ public class VectorToolSearcher implements Closeable, ToolSearcher {
 	 * embeddings
 	 */
 	public VectorToolSearcher(VectorStore vectorStore) {
+		this(vectorStore, java.util.Set.of());
+	}
+
+	// ByteChef fork: additionalSessionIds lets a searcher instance also match results from
+	// persistent sessions (e.g. the workspace tool catalog) on top of the per-request session,
+	// so one search spans the per-conversation self-index plus pre-embedded catalogs.
+	public VectorToolSearcher(VectorStore vectorStore, java.util.Set<String> additionalSessionIds) {
 		this.vectorStore = vectorStore;
+		this.additionalSessionIds = java.util.Set.copyOf(additionalSessionIds);
 	}
 
 	@Override
@@ -110,7 +120,9 @@ public class VectorToolSearcher implements Closeable, ToolSearcher {
 		List<Document> docs = this.doSearch(toolSearchRequest.query());
 
 		List<ToolReference> toolReferences = docs.stream().map(doc -> {
-			if (!doc.getMetadata().get(METADATA_SESSION_ID).equals(toolSearchRequest.sessionId())) {
+			Object docSessionId = doc.getMetadata().get(METADATA_SESSION_ID);
+			// ByteChef fork: match the request session OR any configured additional (persistent) session.
+			if (!toolSearchRequest.sessionId().equals(docSessionId) && !this.additionalSessionIds.contains(docSessionId)) {
 				return null;
 			}
 			String toolName = (String) doc.getMetadata().get(METADATA_TOOL_NAME);
