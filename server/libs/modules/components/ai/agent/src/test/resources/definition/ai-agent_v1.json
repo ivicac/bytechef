@@ -1156,12 +1156,14 @@
     "workflowNodeDescription": null
   } ],
   "clusterElementClusterElementTypes": {
-    "nsfw": [ "model" ],
-    "custom": [ "model" ],
-    "topicalAlignment": [ "model" ],
-    "checkForViolations": [ "checkForViolations" ],
+    "jailbreak": [ "model" ],
     "sanitizeText": [ "sanitizeText" ],
-    "jailbreak": [ "model" ]
+    "nsfw": [ "model" ],
+    "smartWebFetchTool": [ "model" ],
+    "topicalAlignment": [ "model" ],
+    "taskTool": [ "model" ],
+    "checkForViolations": [ "checkForViolations" ],
+    "custom": [ "model" ]
   },
   "clusterElementTypes": [ {
     "name": "MODEL",
