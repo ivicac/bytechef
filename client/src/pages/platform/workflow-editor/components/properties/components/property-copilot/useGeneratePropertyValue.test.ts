@@ -19,6 +19,7 @@ describe('useGeneratePropertyValue', () => {
         const {result} = renderHook(() => useGeneratePropertyValue());
 
         const payload = await result.current.generate({
+            dynamic: false,
             environmentId: 0,
             mode: PropertyCopilotMode.Formula,
             prompt: 'x',
@@ -30,6 +31,7 @@ describe('useGeneratePropertyValue', () => {
 
         expect(mutateAsyncMock).toHaveBeenCalledWith({
             input: {
+                dynamic: false,
                 environmentId: 0,
                 mode: PropertyCopilotMode.Formula,
                 prompt: 'x',

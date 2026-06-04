@@ -43,6 +43,7 @@ const JsonSchemaCopilotBar = ({
 
         try {
             const result = await generate({
+                dynamic: false,
                 environmentId,
                 mode: PropertyCopilotMode.JsonSchema,
                 prompt,

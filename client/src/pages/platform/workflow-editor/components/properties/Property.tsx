@@ -21,6 +21,7 @@ import PropertyCopilotButton from '@/pages/platform/workflow-editor/components/p
 import PropertyInput from '@/pages/platform/workflow-editor/components/properties/components/property-input/PropertyInput';
 import PropertyJsonSchemaBuilder from '@/pages/platform/workflow-editor/components/properties/components/property-json-schema-builder/PropertyJsonSchemaBuilder';
 import PropertyMentionsInput from '@/pages/platform/workflow-editor/components/properties/components/property-mentions-input/PropertyMentionsInput';
+import {buildPropertyMentionsContent} from '@/pages/platform/workflow-editor/components/properties/components/property-mentions-input/propertyMentionDom';
 import useProperty from '@/pages/platform/workflow-editor/components/properties/hooks/useProperty';
 import getInputHTMLType from '@/pages/platform/workflow-editor/utils/getInputHTMLType';
 import resolveExpressionValue from '@/pages/platform/workflow-editor/utils/resolveExpressionValue';
@@ -175,16 +176,21 @@ const Property = ({
     const handleCopilotApply = useCallback(
         (value: string) => {
             const isFormula = value.startsWith('=');
+            const rawValue = isFormula ? value.substring(1) : value;
+
+            // Convert ${...} pills to mention-span HTML so TipTap renders them as chips immediately;
+            // calling setContent with the raw value would leave them as plain text until a refresh.
+            const content = buildPropertyMentionsContent(rawValue, controlType);
 
             if (isFormula) {
                 setIsFormulaMode(true);
-
-                editorRef.current?.commands.setContent(value.substring(1));
-            } else {
-                editorRef.current?.commands.setContent(value);
             }
+
+            editorRef.current?.commands.setContent(content ?? rawValue, {
+                parseOptions: {preserveWhitespace: 'full'},
+            });
         },
-        [editorRef, setIsFormulaMode]
+        [controlType, editorRef, setIsFormulaMode]
     );
 
     const getCopilotHasValue = useCallback(
@@ -246,6 +252,8 @@ const Property = ({
                             {workflow.id && currentNode?.name && (
                                 <PropertyCopilotButton
                                     anchorRef={propertyCopilotAnchorRef}
+                                    disabled={!!options?.length && !isFormulaMode && !mentionInput}
+                                    dynamic={mentionInput}
                                     environmentId={currentEnvironmentId}
                                     getHasValue={getCopilotHasValue}
                                     mode={isFormulaMode ? PropertyCopilotMode.Formula : PropertyCopilotMode.Text}

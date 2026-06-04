@@ -29,6 +29,7 @@ describe('PropertyCopilotButton', () => {
     });
 
     const baseProps = {
+        dynamic: true,
         environmentId: 0,
         getHasValue: () => false,
         mode: PropertyCopilotMode.Text,
@@ -53,6 +54,30 @@ describe('PropertyCopilotButton', () => {
         render(<PropertyCopilotButton {...baseProps} />);
 
         expect(screen.queryByLabelText(/copilot/i)).not.toBeInTheDocument();
+    });
+
+    it('is disabled and does not open the popover when disabled', () => {
+        render(<PropertyCopilotButton {...baseProps} disabled />);
+
+        const button = screen.getByLabelText(/copilot/i);
+
+        expect(button).toBeDisabled();
+
+        fireEvent.click(button);
+
+        expect(screen.queryByPlaceholderText(/describe/i)).not.toBeInTheDocument();
+    });
+
+    it('passes the dynamic flag through to generate', async () => {
+        generateMock.mockResolvedValue({message: null, valid: true, value: 'x'});
+
+        render(<PropertyCopilotButton {...baseProps} dynamic={false} />);
+
+        fireEvent.click(screen.getByLabelText(/copilot/i));
+        fireEvent.change(screen.getByPlaceholderText(/describe/i), {target: {value: 'greet'}});
+        fireEvent.click(screen.getByRole('button', {name: /generate/i}));
+
+        await waitFor(() => expect(generateMock).toHaveBeenCalledWith(expect.objectContaining({dynamic: false})));
     });
 
     it('previews the generated value and applies it on Insert', async () => {

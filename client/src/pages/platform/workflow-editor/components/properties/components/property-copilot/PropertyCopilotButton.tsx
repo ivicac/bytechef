@@ -11,6 +11,8 @@ import {useGeneratePropertyValue} from './useGeneratePropertyValue';
 
 interface PropertyCopilotButtonPropsI {
     anchorRef?: RefObject<HTMLDivElement | null>;
+    disabled?: boolean;
+    dynamic: boolean;
     environmentId: number;
     getHasValue: () => boolean;
     mode: PropertyCopilotMode;
@@ -23,6 +25,8 @@ interface PropertyCopilotButtonPropsI {
 
 const PropertyCopilotButton = ({
     anchorRef,
+    disabled = false,
+    dynamic,
     environmentId,
     getHasValue,
     mode,
@@ -80,6 +84,7 @@ const PropertyCopilotButton = ({
 
         try {
             const result = await generate({
+                dynamic,
                 environmentId,
                 mode,
                 prompt,
@@ -128,14 +133,26 @@ const PropertyCopilotButton = ({
             <span className="inline-flex" ref={triggerRef}>
                 <Button
                     aria-label="Ask copilot"
+                    disabled={disabled}
                     icon={<SparklesIcon />}
-                    onClick={() => (open ? close() : setOpen(true))}
+                    onClick={() => {
+                        if (disabled) {
+                            return;
+                        }
+
+                        if (open) {
+                            close();
+                        } else {
+                            setOpen(true);
+                        }
+                    }}
                     size="icon"
                     variant="ghost"
                 />
             </span>
 
-            {open &&
+            {!disabled &&
+                open &&
                 (anchorRef?.current
                     ? createPortal(
                           <div className="absolute top-full -left-px w-[calc(100%+2px)]">{panel}</div>,

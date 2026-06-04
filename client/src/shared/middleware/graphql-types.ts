@@ -2548,6 +2548,7 @@ export type GenerateFromDocumentationInput = {
 };
 
 export type GeneratePropertyValueInput = {
+  dynamic: Scalars['Boolean']['input'];
   environmentId: Scalars['Int']['input'];
   mode: PropertyCopilotMode;
   prompt: Scalars['String']['input'];
