@@ -817,55 +817,62 @@ export default function useConnectDialog({
 
         // Cleanup on unmount
         return () => {
+            const root = rootRef.current;
+
+            rootRef.current = null;
+
+            // Defer the unmount to a microtask so it never runs synchronously while React is still
+            // rendering/committing the host tree, which would trigger React 19's
+            // synchronous-unmount-during-render warning.
+            if (root) {
+                queueMicrotask(() => root.unmount());
+            }
+
             if (portalContainerRef.current) {
                 document.body.removeChild(portalContainerRef.current);
             }
         };
     }, []);
 
-    // Handle creation and updates
+    // Render the dialog into a nested React root.
+    //
+    // The root is created lazily on first open and kept for the lifetime of the hook. We
+    // intentionally never unmount it on close: ConnectDialog renders null when isOpen is false, so
+    // toggling isOpen is enough. Unmounting the nested root here would run synchronously inside the
+    // host tree's render/commit (closeDialog is dispatched from within the nested root's own event
+    // handler), which triggers React 19's "Attempted to synchronously unmount a root while React was
+    // already rendering" warning. The root is unmounted once, deferred, on host unmount above.
     useEffect(() => {
-        // Clean up when closed
-        if (!isOpen) {
-            if (rootRef.current) {
-                rootRef.current.unmount();
-
-                rootRef.current = null;
+        if (!rootRef.current) {
+            if (!isOpen || !portalContainerRef.current) {
+                return;
             }
 
-            return;
-        }
-
-        // Create root if needed
-        if (!rootRef.current && portalContainerRef.current) {
             rootRef.current = createRoot(portalContainerRef.current);
         }
 
-        // Always render with current state
-        if (rootRef.current) {
-            rootRef.current.render(
-                <ConnectDialog
-                    closeDialog={closeDialog}
-                    form={form}
-                    handleClick={handleClick}
-                    handleMcpToolToggle={handleMcpToolToggle}
-                    handleMcpWorkflowToggle={handleMcpWorkflowToggle}
-                    handleMcpWorkflowInputChange={handleMcpWorkflowInputChange}
-                    handleWorkflowToggle={handleWorkflowToggle}
-                    handleWorkflowInputChange={handleWorkflowInputChange}
-                    integration={integration}
-                    isOAuth2={isOAuth2}
-                    isOpen={isOpen}
-                    loading={isLoading}
-                    mergedMcpTools={mergedMcpTools}
-                    mergedMcpWorkflows={mergedMcpWorkflows}
-                    mergedWorkflows={mergedWorkflows}
-                    properties={integration?.connectionConfig?.inputs}
-                    registerFormSubmit={registerFormSubmit}
-                    workflowsView={workflowsView}
-                />
-            );
-        }
+        rootRef.current.render(
+            <ConnectDialog
+                closeDialog={closeDialog}
+                form={form}
+                handleClick={handleClick}
+                handleMcpToolToggle={handleMcpToolToggle}
+                handleMcpWorkflowToggle={handleMcpWorkflowToggle}
+                handleMcpWorkflowInputChange={handleMcpWorkflowInputChange}
+                handleWorkflowToggle={handleWorkflowToggle}
+                handleWorkflowInputChange={handleWorkflowInputChange}
+                integration={integration}
+                isOAuth2={isOAuth2}
+                isOpen={isOpen}
+                loading={isLoading}
+                mergedMcpTools={mergedMcpTools}
+                mergedMcpWorkflows={mergedMcpWorkflows}
+                mergedWorkflows={mergedWorkflows}
+                properties={integration?.connectionConfig?.inputs}
+                registerFormSubmit={registerFormSubmit}
+                workflowsView={workflowsView}
+            />
+        );
     }, [
         isOpen,
         form,

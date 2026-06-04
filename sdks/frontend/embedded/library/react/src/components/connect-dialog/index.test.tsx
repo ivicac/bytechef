@@ -263,6 +263,77 @@ describe('useConnectDialog - Form Validation', () => {
     });
 });
 
+describe('useConnectDialog - Nested root lifecycle', () => {
+    beforeEach(() => {
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        vi.restoreAllMocks();
+    });
+
+    it('does not unmount the nested root when the dialog closes', async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({name: 'Test Integration', workflows: [], integrationInstances: []}),
+        });
+
+        const renderMock = vi.fn();
+        const unmountMock = vi.fn();
+
+        vi.mocked(createRoot).mockReturnValue({
+            render: renderMock,
+            unmount: unmountMock,
+        });
+
+        const {result} = renderHook(() => useConnectDialog(defaultConnectDialogProps));
+
+        await act(async () => result.current.openDialog());
+
+        renderMock.mockClear();
+
+        act(() => result.current.closeDialog());
+
+        // Closing must NOT unmount the nested root (that would run synchronously while
+        // React is rendering the host tree and trigger React 19's unmount warning)...
+        expect(unmountMock).not.toHaveBeenCalled();
+
+        // ...instead it re-renders ConnectDialog with isOpen=false, which renders null.
+        const lastRenderCall = renderMock.mock.calls[renderMock.mock.calls.length - 1];
+
+        expect(lastRenderCall[0].props.isOpen).toBe(false);
+    });
+
+    it('unmounts the nested root, deferred to a microtask, when the host unmounts', async () => {
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            json: vi.fn().mockResolvedValue({name: 'Test Integration', workflows: [], integrationInstances: []}),
+        });
+
+        const unmountMock = vi.fn();
+
+        vi.mocked(createRoot).mockReturnValue({
+            render: vi.fn(),
+            unmount: unmountMock,
+        });
+
+        const {result, unmount} = renderHook(() => useConnectDialog(defaultConnectDialogProps));
+
+        await act(async () => result.current.openDialog());
+
+        act(() => unmount());
+
+        // The unmount is deferred, so it must not have fired synchronously during teardown.
+        expect(unmountMock).not.toHaveBeenCalled();
+
+        await act(async () => {
+            await Promise.resolve();
+        });
+
+        expect(unmountMock).toHaveBeenCalledTimes(1);
+    });
+});
+
 describe('useConnectDialog - Navigation', () => {
     beforeEach(() => {
         vi.spyOn(console, 'error').mockImplementation(() => {});
