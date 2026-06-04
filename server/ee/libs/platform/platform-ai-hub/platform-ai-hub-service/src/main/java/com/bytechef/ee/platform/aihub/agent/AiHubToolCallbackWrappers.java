@@ -16,9 +16,9 @@ import org.springframework.ai.tool.ToolCallback;
  * Shared wrapping for AI Hub tool callbacks. Applies two layers, in order: (1) {@link NonEmptyToolCallback} so an empty
  * tool result does not trigger an Anthropic "non-empty content" HTTP 400, then (2)
  * {@link RehydrateSecurityContextToolCallback} so {@code @PreAuthorize}-protected service calls run under the invoking
- * user's SecurityContext on Reactor scheduler threads. When the user/authority services are absent the
- * SecurityContext layer is skipped (rehydration is impossible). Centralised so the agent's per-request tool list and
- * the tool-search advisor's resolver wrap callbacks identically.
+ * user's SecurityContext on Reactor scheduler threads. When the user/authority services are absent the SecurityContext
+ * layer is skipped (rehydration is impossible). Centralised so the agent's per-request tool list and the tool-search
+ * advisor's resolver wrap callbacks identically.
  *
  * @version ee
  *
