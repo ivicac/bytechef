@@ -254,9 +254,8 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
     public List<AutomationWorkflowProjectDTO> getProjects() {
         return projectService.getProjects()
             .stream()
-            .filter(project -> project.getName() != null && project.getName()
-                .startsWith(MARKER)
-                && Objects.equals(project.getWorkspaceId(), Workspace.DEFAULT_WORKSPACE_ID))
+            .filter(project -> project.getName() != null && Strings.CS.startsWith(project.getName(), MARKER) &&
+                Objects.equals(project.getWorkspaceId(), Workspace.DEFAULT_WORKSPACE_ID))
             .map(this::toDTO)
             .toList();
     }
