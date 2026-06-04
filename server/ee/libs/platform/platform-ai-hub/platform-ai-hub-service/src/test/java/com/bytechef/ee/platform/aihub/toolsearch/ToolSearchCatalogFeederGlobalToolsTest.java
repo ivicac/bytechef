@@ -70,7 +70,7 @@ class ToolSearchCatalogFeederGlobalToolsTest {
             "ai_hub_tool_catalog:global:build",
             List.of(toolCallback("listProjects", "List all projects"), toolCallback("blank", "  ")));
 
-        verify(vectorToolSearcher).clearIndex("ai_hub_tool_catalog:global:build");
+        verify(vectorToolSearcher).clearSession("ai_hub_tool_catalog:global:build");
         verify(vectorToolSearcher, times(1)).indexTool(eq("ai_hub_tool_catalog:global:build"), any());
     }
 

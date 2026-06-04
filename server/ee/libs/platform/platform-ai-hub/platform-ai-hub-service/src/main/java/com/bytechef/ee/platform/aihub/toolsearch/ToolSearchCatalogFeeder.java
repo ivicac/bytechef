@@ -235,7 +235,7 @@ public class ToolSearchCatalogFeeder {
             // No subset to index — clear so a previously-populated session doesn't leak into search results after
             // the user has detached every tool. Equivalent to calling clearTaskSession explicitly; provided
             // here so call sites don't have to special-case the empty-collection branch.
-            vectorToolSearcher.clearIndex(sessionId);
+            vectorToolSearcher.clearSession(sessionId);
 
             if (log.isDebugEnabled()) {
                 log.debug(
@@ -313,32 +313,13 @@ public class ToolSearchCatalogFeeder {
             return;
         }
 
-        int indexed = indexGlobalEntries(sessionId, entries);
+        int indexed = indexEntries(sessionId, entries);
 
         writeStoredHash(sessionId, currentHash, indexed);
 
         log.info(
             "Global tool session populated: indexed {} of {} static tools under session {}",
             indexed, toolCallbacks.size(), sessionId);
-    }
-
-    private int indexGlobalEntries(String sessionId, List<CatalogEntry> entries) {
-        vectorToolSearcher.clearIndex(sessionId);
-
-        int indexed = 0;
-
-        for (CatalogEntry entry : entries) {
-            ToolReference reference = ToolReference.builder()
-                .toolName(entry.toolName())
-                .summary(entry.summary())
-                .build();
-
-            vectorToolSearcher.indexTool(sessionId, reference);
-
-            indexed++;
-        }
-
-        return indexed;
     }
 
     /**
@@ -349,7 +330,7 @@ public class ToolSearchCatalogFeeder {
     public void clearTaskSession(long taskId) {
         String sessionId = taskSessionId(taskId);
 
-        vectorToolSearcher.clearIndex(sessionId);
+        vectorToolSearcher.clearSession(sessionId);
 
         if (log.isDebugEnabled()) {
             log.debug("Cleared tool search session {} for task {}", sessionId, taskId);
@@ -357,18 +338,13 @@ public class ToolSearchCatalogFeeder {
     }
 
     /**
-     * Shared indexing routine used by both the workspace-catalog and per-task paths. Clears the session first so
-     * callers always observe a fresh-slate-then-load semantic, then issues one {@code indexTool} per entry whose
-     * summary is non-blank. Returns the number of entries actually indexed.
+     * Shared indexing routine used by both the workspace-catalog and per-task paths. Builds the filtered
+     * {@link CatalogEntry} list (skipping cluster elements with a blank summary) then delegates to
+     * {@link #indexEntries(String, List)} for the clear-then-index work. Returns the number of entries actually
+     * indexed.
      */
     private int indexCatalog(String sessionId, List<ClusterElementDefinition> toolDefinitions) {
-        vectorToolSearcher.clearIndex(sessionId);
-
-        if (toolDefinitions.isEmpty()) {
-            return 0;
-        }
-
-        int indexed = 0;
+        List<CatalogEntry> entries = new ArrayList<>();
 
         for (ClusterElementDefinition toolDefinition : toolDefinitions) {
             String toolName = ToolNameNormalizer.toToolName(
@@ -384,9 +360,25 @@ public class ToolSearchCatalogFeeder {
                 continue;
             }
 
+            entries.add(new CatalogEntry(toolName, summary));
+        }
+
+        return indexEntries(sessionId, entries);
+    }
+
+    /**
+     * Shared clear-then-index routine. Clears the target persistent session (restart-safe, by metadata) then issues one
+     * {@code indexTool} per entry. Used by the workspace catalog, per-task subset, and global tool paths.
+     */
+    private int indexEntries(String sessionId, List<CatalogEntry> entries) {
+        vectorToolSearcher.clearSession(sessionId);
+
+        int indexed = 0;
+
+        for (CatalogEntry entry : entries) {
             ToolReference reference = ToolReference.builder()
-                .toolName(toolName)
-                .summary(summary)
+                .toolName(entry.toolName())
+                .summary(entry.summary())
                 .build();
 
             vectorToolSearcher.indexTool(sessionId, reference);
