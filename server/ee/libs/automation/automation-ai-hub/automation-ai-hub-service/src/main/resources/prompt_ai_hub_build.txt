@@ -40,12 +40,17 @@ Files:
   (markdown, plain text, CSV, JSON, code).
 - openFileTab({fileId, name}) — show a file in the resource panel.
 
-Workflows:
-- Delegate workflow listing, reading, and analysis to `workflow_editor_agent` (see
-  Specialist subagents below) — the specialist owns workflow discovery and design.
+Workflows and projects:
+- For quick lookups you have direct read tools: listProjects, getProject, searchProjects,
+  getProjectStatus, listWorkflows, getWorkflow, searchWorkflows, plus the component, task,
+  and task-dispatcher catalog tools. Use these for simple, single-step reads and to resolve
+  a name to an id.
+- For whole-workflow analysis, dataflow tracing, or debugging, delegate to
+  `workflow_editor_agent` (see Specialist subagents below) — it owns complex workflow
+  reasoning and is RAG-grounded for documentation.
 - openWorkflowTab({workflowId, projectId, projectWorkflowId, name}) — show a workflow in
-  the resource panel. Use ids returned from the `workflow_editor_agent` response — never
-  invent ids.
+  the resource panel. Use ids returned from the direct tools or the `workflow_editor_agent`
+  response — never invent ids.
 
 Data tables:
 - listDataTables — list data tables in the current workspace.
@@ -92,17 +97,20 @@ block. If nothing is set, ask a clarifying question before acting.
 You can also mutate workspace resources in BUILD mode:
 
 Project + workflow mutations (CRUD):
-- Delegate project CRUD (listing, creating, updating, deleting projects) and any iteration
-  on existing workflows to `workflow_editor_agent({request})` — the specialist owns both
-  project hierarchy and workflow design. For requests like "create a new project for X"
-  or "rename project Y", pass the user's request verbatim and return the specialist's
+- Simple, single-step project mutations have direct tools: createProject, updateProject,
+  deleteProject, publishProject, plus createProjectWorkflow / updateWorkflow / deleteWorkflow.
+  Use these for unambiguous one-shot operations like "create an empty project named X" or
+  "rename project Y".
+- For designing or substantially editing the orchestration of a workflow (tasks, triggers,
+  conditions, loops) — anything that needs planning, component discovery, or multi-step
+  construction — delegate to `workflow_editor_agent({request})`. The specialist owns both
+  project hierarchy and workflow design; pass the user's request verbatim and return its
   response.
 
-Workflow construction, edits, and persistence all go through `workflow_editor_agent`
-(see Specialist subagents below). The specialist's BUILD-mode ChatClient carries
-`ProjectTools` + `ProjectWorkflowTools`, so it discovers, plans, creates, and persists
-in a single delegation — there is no longer a separate `createWorkflow` / `updateWorkflow`
-parent-side persistence step.
+When in doubt between a direct tool and the specialist, prefer `workflow_editor_agent`
+for anything touching workflow shape. Its BUILD-mode ChatClient carries `ProjectTools` +
+`ProjectWorkflowTools`, so it discovers, plans, creates, and persists in a single delegation
+— there is no separate parent-side persistence step after it returns.
 
 Data table mutations:
 - addDataTableRow({dataTableId, values}) — insert a row.

@@ -9,6 +9,15 @@ package com.bytechef.ee.automation.aihub.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
+import com.bytechef.ai.mcp.tool.automation.ClusterElementTools;
+import com.bytechef.ai.mcp.tool.automation.ProjectTools;
+import com.bytechef.ai.mcp.tool.automation.ProjectWorkflowTools;
+import com.bytechef.ai.mcp.tool.automation.ReadProjectTools;
+import com.bytechef.ai.mcp.tool.automation.ReadProjectWorkflowTools;
+import com.bytechef.ai.mcp.tool.automation.ScriptTools;
+import com.bytechef.ai.mcp.tool.platform.ComponentTools;
+import com.bytechef.ai.mcp.tool.platform.TaskDispatcherTools;
+import com.bytechef.ai.mcp.tool.platform.TaskTools;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.assetfile.service.AssetFileFacade;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
@@ -142,6 +151,7 @@ import org.springaicommunity.tool.search.ToolSearchToolCallAdvisor;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -218,6 +228,8 @@ public class AiHubConfiguration {
         WorkspaceConnectionFacade workspaceConnectionFacade,
         UserService userService, AuthorityService authorityService,
         PropertyOptionsResolver propertyOptionsResolver,
+        ReadProjectTools readProjectTools, ReadProjectWorkflowTools readProjectWorkflowTools,
+        ComponentTools componentTools, TaskTools taskTools, TaskDispatcherTools taskDispatcherTools,
         ObjectProvider<ContextStoreQueryService> contextStoreQueryServiceProvider,
         ObjectProvider<ContextStoreSemanticSearchService> contextStoreSemanticSearchServiceProvider,
         ObjectProvider<WorkspaceContextStoreSourceService> workspaceContextStoreSourceServiceProvider,
@@ -297,6 +309,11 @@ public class AiHubConfiguration {
         registerContextStoreSemanticSearchToolCallback(
             toolCallbacks, contextStoreSemanticSearchServiceProvider, workspaceContextStoreSourceServiceProvider);
 
+        // Direct read-only project / workflow / component / task catalog tools — first-class lookups alongside
+        // the workflow_editor_agent delegation. ASK mode gets the Read* variants only (no mutations).
+        registerReadOnlyAutomationToolCallbacks(
+            toolCallbacks, readProjectTools, readProjectWorkflowTools, componentTools, taskTools, taskDispatcherTools);
+
         AiHubSpringAIAgent.Builder builder = AiHubSpringAIAgent.builder()
             .agentId(name.toLowerCase() + "_llm")
             .chatMemory(chatMemory)
@@ -360,6 +377,9 @@ public class AiHubConfiguration {
         WorkspaceConnectionFacade workspaceConnectionFacade,
         UserService userService, AuthorityService authorityService,
         PropertyOptionsResolver propertyOptionsResolver,
+        ProjectTools projectTools, ProjectWorkflowTools projectWorkflowTools, ComponentTools componentTools,
+        TaskTools taskTools, TaskDispatcherTools taskDispatcherTools, ScriptTools scriptTools,
+        ClusterElementTools clusterElementTools,
         AiHubTaskToolFacade taskToolFacade,
         ObjectProvider<WorkspaceContextStoreSourceFacade> workspaceContextStoreSourceFacadeProvider,
         ObjectProvider<ContextStoreQueryService> contextStoreQueryServiceProvider,
@@ -488,6 +508,13 @@ public class AiHubConfiguration {
         toolCallbacks.add(new GetAssetFileContentToolCallback(assetFileFacade));
         toolCallbacks.add(new ListAssetFilesToolCallback(assetFileFacade));
 
+        // Direct read-write project / workflow tools plus the read-only component / task / task-dispatcher catalogs —
+        // the same flat set the management MCP server exposes — registered first-class alongside the
+        // workflow_editor_agent delegation so simple lookups and single-step edits don't require a subagent hop.
+        registerAutomationToolCallbacks(
+            toolCallbacks, projectTools, projectWorkflowTools, componentTools, taskTools, taskDispatcherTools,
+            scriptTools, clusterElementTools);
+
         AiHubSpringAIAgent.Builder buildBuilder = AiHubSpringAIAgent.builder()
             .agentId(name.toLowerCase() + "_llm")
             .chatMemory(chatMemory)
@@ -606,6 +633,57 @@ public class AiHubConfiguration {
                 new ProgressReportingToolCallback(
                     SlideBuilderConfiguration.createSlideBuilderToolCallback(slideBuilderChatClient),
                     "slide_builder")));
+    }
+
+    /**
+     * Registers the read-only automation / platform tool beans on the ASK agent: project + workflow discovery (the
+     * {@code Read*} variants) and the component / task / task-dispatcher catalogs. These give the ASK agent
+     * first-class, single-step lookups (e.g. {@code listProjects}) without delegating to the
+     * {@code workflow_editor_agent} specialist, which remains the canonical path for whole-workflow analysis. The
+     * mutating {@link ProjectTools} / {@link ProjectWorkflowTools} / {@link ScriptTools} / {@link ClusterElementTools}
+     * are intentionally excluded — ASK mode never mutates.
+     *
+     * <p>
+     * Each {@code @Tool}-annotated bean is expanded into its individual {@link ToolCallback}s via
+     * {@link ToolCallbacks#from(Object...)}. {@link AiHubSpringAIAgent} then wraps every callback in a
+     * SecurityContext-rehydrating delegate, so the underlying {@code @PreAuthorize}-protected service calls run under
+     * the invoking user's authorities on Reactor scheduler threads.
+     * </p>
+     */
+    private static void registerReadOnlyAutomationToolCallbacks(
+        List<ToolCallback> toolCallbacks, ReadProjectTools readProjectTools,
+        ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools, TaskTools taskTools,
+        TaskDispatcherTools taskDispatcherTools) {
+
+        toolCallbacks.addAll(
+            List.of(
+                ToolCallbacks.from(
+                    readProjectTools, readProjectWorkflowTools, componentTools, taskTools, taskDispatcherTools)));
+    }
+
+    /**
+     * Registers the full automation / platform tool beans on the BUILD agent — the same flat set the management MCP
+     * server exposes ({@link ProjectTools}, {@link ProjectWorkflowTools}, {@link ComponentTools}, {@link TaskTools},
+     * {@link TaskDispatcherTools}, {@link ScriptTools}, {@link ClusterElementTools}). The mutating project / workflow /
+     * script / cluster-element tools are safe here because BUILD mode is read-write; the read-only catalog tools
+     * (component / task / task-dispatcher) carry over unchanged from the ASK set. Registered alongside the
+     * {@code workflow_editor_agent} delegation — the specialist stays the preferred path for multi-step workflow
+     * design, these tools handle quick lookups and simple single-step edits.
+     *
+     * <p>
+     * Conversion + SecurityContext rehydration work identically to {@link #registerReadOnlyAutomationToolCallbacks}.
+     * </p>
+     */
+    private static void registerAutomationToolCallbacks(
+        List<ToolCallback> toolCallbacks, ProjectTools projectTools, ProjectWorkflowTools projectWorkflowTools,
+        ComponentTools componentTools, TaskTools taskTools, TaskDispatcherTools taskDispatcherTools,
+        ScriptTools scriptTools, ClusterElementTools clusterElementTools) {
+
+        toolCallbacks.addAll(
+            List.of(
+                ToolCallbacks.from(
+                    projectTools, projectWorkflowTools, componentTools, taskTools, taskDispatcherTools, scriptTools,
+                    clusterElementTools)));
     }
 
     /**
