@@ -323,8 +323,8 @@ public class CopilotConfiguration {
 
     @Bean
     ConverterSpringAIAgent converterBuildSpringAIAgent(
-        ChatMemory chatMemory, ChatModel chatModel, ProjectTools projectToolsImpl,
-        ProjectWorkflowTools projectWorkflowToolsImpl, TaskTools taskTools, ScriptTools scriptTools)
+        ChatMemory chatMemory, ChatModel chatModel, ProjectTools projectTools,
+        ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools, ScriptTools scriptTools)
         throws AGUIException {
 
         String name = Source.CONVERTER.name() + "_" + Mode.BUILD.name();
@@ -337,7 +337,7 @@ public class CopilotConfiguration {
             .state(state)
             .tools(
                 List.of(
-                    projectToolsImpl, projectWorkflowToolsImpl, taskTools, scriptTools, workflowValidatorTools,
+                    projectTools, projectWorkflowTools, taskTools, scriptTools, workflowValidatorTools,
                     workflowInstructionTools))
             .build();
     }
@@ -514,8 +514,8 @@ public class CopilotConfiguration {
      */
     @Bean
     ChatClient workflowEditorBuildSubAgentChatClient(
-        ChatModel chatModel, ProjectTools projectTools,
-        ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools, ScriptTools scriptTools) {
+        ChatModel chatModel, ProjectTools projectTools, ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools,
+        ScriptTools scriptTools) {
 
         return ChatClient.builder(chatModel)
             .defaultSystem(getSystemPrompt(promptWorkflowEditorBuildResource))
@@ -532,8 +532,8 @@ public class CopilotConfiguration {
      */
     @Bean
     ChatClient converterBuildSubAgentChatClient(
-        ChatModel chatModel, ProjectTools projectTools,
-        ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools, ScriptTools scriptTools) {
+        ChatModel chatModel, ProjectTools projectTools, ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools,
+        ScriptTools scriptTools) {
 
         return ChatClient.builder(chatModel)
             .defaultSystem(getSystemPrompt(promptConverterBuildResource))
