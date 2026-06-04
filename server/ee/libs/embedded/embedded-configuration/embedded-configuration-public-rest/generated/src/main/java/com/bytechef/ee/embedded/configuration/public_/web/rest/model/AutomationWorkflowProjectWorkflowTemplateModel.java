@@ -26,7 +26,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "AutomationWorkflowProjectWorkflowTemplate", description = "A catalog workflow template within an automation workflow project.")
 @JsonTypeName("AutomationWorkflowProjectWorkflowTemplate")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-06-02T21:07:07.106556+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-06-04T21:22:08.675719+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
 public class AutomationWorkflowProjectWorkflowTemplateModel {
 
   private @Nullable String id;

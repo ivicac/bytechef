@@ -1842,6 +1842,9 @@ components:
         name:
           description: "The name of an input"
           type: "string"
+        objectName:
+          description: "For FIELD_MAPPING inputs, the object name used to match the SDK mapObjectFields config."
+          type: "string"
         required:
           description: "If an input is required, or not"
           type: "boolean"
@@ -1883,6 +1886,7 @@ components:
         - "NUMBER"
         - "STRING"
         - "TIME"
+        - "FIELD_MAPPING"
     Option:
       type: "object"
       required:

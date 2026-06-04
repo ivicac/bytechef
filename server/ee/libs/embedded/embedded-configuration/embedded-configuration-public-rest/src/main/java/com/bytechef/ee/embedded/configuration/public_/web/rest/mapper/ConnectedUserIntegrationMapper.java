@@ -126,6 +126,7 @@ public interface ConnectedUserIntegrationMapper {
             return new InputModel()
                 .label(input.label())
                 .name(input.name())
+                .objectName(input.objectName())
                 .required(input.required())
                 .type(InputTypeModel.valueOf(StringUtils.upperCase(input.type())));
         }
