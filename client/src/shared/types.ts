@@ -421,6 +421,7 @@ export type ParallelChildTasksType = {[parallelId: string]: {tasks: string[]}};
 export type ForkJoinChildTasksType = {[forkJoinId: string]: {branches: string[][]}};
 
 export type WorkflowInputType = WorkflowInput & {
+    objectName?: string;
     testValue?: string;
 };
 

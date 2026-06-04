@@ -15,7 +15,7 @@ export function toWorkflowDefinitionInput(input: WorkflowInputType): WorkflowInp
     delete rest.testValue;
 
     if (!componentReference) {
-        return rest;
+        return rest as WorkflowInput;
     }
 
     return {

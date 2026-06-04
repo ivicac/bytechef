@@ -11,6 +11,7 @@ import {useForm} from 'react-hook-form';
 import {useShallow} from 'zustand/react/shallow';
 
 import useWorkflowDataStore from '../../../stores/useWorkflowDataStore';
+import deriveObjectName from '../utils/deriveObjectName';
 import {fromWorkflowDefinitionInput} from '../utils/fromWorkflowDefinitionInput';
 import {toWorkflowDefinitionInput} from '../utils/toWorkflowDefinitionInput';
 
@@ -139,6 +140,12 @@ export default function useWorkflowInputs({
 
     function saveWorkflowInput(input: WorkflowInputType) {
         const {getValues} = form;
+
+        const testValue = getValues().testValue;
+
+        if (input.type === 'field_mapping') {
+            input.objectName = deriveObjectName(testValue);
+        }
 
         delete input['testValue'];
 
