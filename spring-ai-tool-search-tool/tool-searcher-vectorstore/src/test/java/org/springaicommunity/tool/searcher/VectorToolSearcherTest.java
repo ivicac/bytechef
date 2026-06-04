@@ -16,6 +16,8 @@
 package org.springaicommunity.tool.searcher;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import java.util.List;
@@ -29,6 +31,7 @@ import org.springaicommunity.tool.search.ToolSearchRequest;
 import org.springaicommunity.tool.search.ToolSearchResponse;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.filter.Filter;
 
 @ExtendWith(MockitoExtension.class)
 class VectorToolSearcherTest {
@@ -69,5 +72,29 @@ class VectorToolSearcherTest {
         ToolSearchResponse response = searcher.search(new ToolSearchRequest("thread-123", "q", 5, null));
 
         assertThat(response.toolReferences()).extracting(tr -> tr.toolName()).containsExactly("listTasks");
+    }
+
+    @Test
+    void testClearSessionDeletesByMetadataFilter() {
+        VectorToolSearcher searcher = new VectorToolSearcher(vectorStore, Set.of("ai_hub_tool_catalog"));
+
+        searcher.clearSession("ai_hub_tool_catalog");
+
+        verify(vectorStore).delete(any(Filter.Expression.class));
+    }
+
+    @Test
+    void testSearchSkipsDocumentWithNullSessionIdWithoutNpe() {
+        VectorToolSearcher searcher = new VectorToolSearcher(vectorStore, Set.of("ai_hub_tool_catalog"));
+
+        Document ghost = new Document(
+            "9", "ghost description", Map.of("id", "9", "toolName", "ghost", "toolDescription", "ghost description"));
+
+        when(vectorStore.similaritySearch(org.mockito.ArgumentMatchers.<org.springframework.ai.vectorstore.SearchRequest>any()))
+            .thenReturn(List.of(ghost, doc("2", "ai_hub_tool_catalog", "slack_sendMessage")));
+
+        ToolSearchResponse response = searcher.search(new ToolSearchRequest("thread-123", "q", 5, null));
+
+        assertThat(response.toolReferences()).extracting(tr -> tr.toolName()).containsExactly("slack_sendMessage");
     }
 }

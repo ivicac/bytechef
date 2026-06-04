@@ -36,6 +36,7 @@ import org.springaicommunity.tool.search.ToolSearchResponse.SearchMetadata;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.filter.FilterExpressionBuilder;
 
 /**
  * Vector-based tool searcher for semantic search of tool descriptions.
@@ -86,6 +87,18 @@ public class VectorToolSearcher implements Closeable, ToolSearcher {
 	}
 
 	/**
+	 * ByteChef fork: deletes every indexed tool for {@code sessionId} by matching the persisted {@code sessionId}
+	 * metadata, rather than the in-memory id list used by {@link #clearIndex(String)}. This is restart-safe — a fresh
+	 * JVM (empty in-memory map) still removes the previous run's rows for fixed-name sessions (the workspace catalog
+	 * and the global tool sessions) before re-indexing, preventing stale rows from accumulating and being matched by
+	 * {@link #search}.
+	 */
+	public void clearSession(String sessionId) {
+		this.vectorStore.delete(new FilterExpressionBuilder().eq(METADATA_SESSION_ID, sessionId).build());
+		this.sessionToolIds.remove(sessionId);
+	}
+
+	/**
 	 * Creates a new VectorToolSearcher with the given vector store.
 	 * @param vectorStore the vector store to use for storing and searching tool
 	 * embeddings
@@ -121,8 +134,12 @@ public class VectorToolSearcher implements Closeable, ToolSearcher {
 
 		List<ToolReference> toolReferences = docs.stream().map(doc -> {
 			Object docSessionId = doc.getMetadata().get(METADATA_SESSION_ID);
-			// ByteChef fork: match the request session OR any configured additional (persistent) session.
-			if (!toolSearchRequest.sessionId().equals(docSessionId) && !this.additionalSessionIds.contains(docSessionId)) {
+			// ByteChef fork: keep the doc if its session matches the request session OR a configured additional
+			// (persistent) session. Null-safe: a doc with no sessionId metadata matches nothing and is dropped.
+			boolean matchesRequest = toolSearchRequest.sessionId().equals(docSessionId);
+			boolean matchesAdditional = docSessionId != null && this.additionalSessionIds.contains(docSessionId);
+
+			if (!matchesRequest && !matchesAdditional) {
 				return null;
 			}
 			String toolName = (String) doc.getMetadata().get(METADATA_TOOL_NAME);
