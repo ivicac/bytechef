@@ -69,8 +69,8 @@ public class AiAutoMemoryServiceImpl implements AiAutoMemoryService {
 
     @Override
     public AiAutoMemory create(
-        long workspaceId, long userId, int environment, String name, String title, @Nullable String description,
-        AiAutoMemoryType memoryType, String content) {
+        long workspaceId, AiAutoMemoryPrincipalType principalType, long principalId, int environment, String name,
+        String title, @Nullable String description, AiAutoMemoryType memoryType, String content) {
 
         validateName(name);
         validateRequired(title, "title");
@@ -80,17 +80,18 @@ public class AiAutoMemoryServiceImpl implements AiAutoMemoryService {
             throw new IllegalArgumentException("memoryType is required");
         }
 
-        // Service-layer duplicate-name check is the only gate now (DB no longer enforces (user, env, name) unique).
-        // Concurrent same-name creates CAN race; the resulting redundant row is removable from the UI.
+        // Service-layer duplicate-name check is the only gate now (DB no longer enforces (principal, env, name)
+        // unique). Concurrent same-name creates CAN race; the resulting redundant row is removable from the UI.
         if (!aiMemoryRepository
-            .findAllByWorkspaceIdAndUserIdAndEnvironmentAndName(workspaceId, userId, environment, name)
+            .findAllByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndName(
+                workspaceId, principalType.ordinal(), principalId, environment, name)
             .isEmpty()) {
             throw new DuplicateAiAutoMemoryNameException(name);
         }
 
         LocalDateTime now = LocalDateTime.now(clock);
 
-        AiAutoMemory memory = new AiAutoMemory(userId);
+        AiAutoMemory memory = new AiAutoMemory(principalType, principalId);
 
         memory.setName(name);
         memory.setTitle(title);
@@ -117,16 +118,19 @@ public class AiAutoMemoryServiceImpl implements AiAutoMemoryService {
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<AiAutoMemory> read(long workspaceId, long userId, int environment, String name) {
+    public Optional<AiAutoMemory> read(
+        long workspaceId, AiAutoMemoryPrincipalType principalType, long principalId, int environment, String name) {
+
         List<AiAutoMemory> matches = aiMemoryRepository
-            .findAllByWorkspaceIdAndUserIdAndEnvironmentAndName(workspaceId, userId, environment, name);
+            .findAllByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndName(
+                workspaceId, principalType.ordinal(), principalId, environment, name);
 
         return matches.isEmpty() ? Optional.empty() : Optional.of(matches.get(0));
     }
 
     @Override
     public AiAutoMemory update(
-        long workspaceId, long userId, int environment, String name,
+        long workspaceId, AiAutoMemoryPrincipalType principalType, long principalId, int environment, String name,
         @Nullable String title, @Nullable String description,
         @Nullable AiAutoMemoryType memoryType, @Nullable String content) {
 
@@ -135,7 +139,7 @@ public class AiAutoMemoryServiceImpl implements AiAutoMemoryService {
                 "At least one of title, description, memoryType, content must be provided");
         }
 
-        AiAutoMemory memory = loadByName(workspaceId, userId, environment, name);
+        AiAutoMemory memory = loadByName(workspaceId, principalType, principalId, environment, name);
 
         applyPartial(memory, title, description, memoryType, content);
 
@@ -144,11 +148,11 @@ public class AiAutoMemoryServiceImpl implements AiAutoMemoryService {
 
     @Override
     public AiAutoMemory updateById(
-        long workspaceId, long userId, long memoryId,
+        long workspaceId, AiAutoMemoryPrincipalType principalType, long principalId, long memoryId,
         @Nullable String title, @Nullable String description,
         @Nullable AiAutoMemoryType memoryType, @Nullable String content) {
 
-        AiAutoMemory memory = loadAndCheckOwnership(workspaceId, userId, memoryId);
+        AiAutoMemory memory = loadAndCheckOwnership(workspaceId, principalType, principalId, memoryId);
 
         applyPartial(memory, title, description, memoryType, content);
 
@@ -156,8 +160,10 @@ public class AiAutoMemoryServiceImpl implements AiAutoMemoryService {
     }
 
     @Override
-    public AiAutoMemory delete(long workspaceId, long userId, int environment, String name) {
-        AiAutoMemory memory = loadByName(workspaceId, userId, environment, name);
+    public AiAutoMemory delete(
+        long workspaceId, AiAutoMemoryPrincipalType principalType, long principalId, int environment, String name) {
+
+        AiAutoMemory memory = loadByName(workspaceId, principalType, principalId, environment, name);
 
         aiMemoryRepository.delete(memory);
 
@@ -165,8 +171,10 @@ public class AiAutoMemoryServiceImpl implements AiAutoMemoryService {
     }
 
     @Override
-    public AiAutoMemory deleteById(long workspaceId, long userId, long memoryId) {
-        AiAutoMemory memory = loadAndCheckOwnership(workspaceId, userId, memoryId);
+    public AiAutoMemory deleteById(
+        long workspaceId, AiAutoMemoryPrincipalType principalType, long principalId, long memoryId) {
+
+        AiAutoMemory memory = loadAndCheckOwnership(workspaceId, principalType, principalId, memoryId);
 
         aiMemoryRepository.delete(memory);
 
@@ -175,21 +183,23 @@ public class AiAutoMemoryServiceImpl implements AiAutoMemoryService {
 
     @Override
     public AiAutoMemory rename(
-        long workspaceId, long userId, int environment, String oldName, String newName) {
+        long workspaceId, AiAutoMemoryPrincipalType principalType, long principalId, int environment, String oldName,
+        String newName) {
 
         validateName(newName);
 
         if (oldName.equals(newName)) {
-            return loadByName(workspaceId, userId, environment, oldName);
+            return loadByName(workspaceId, principalType, principalId, environment, oldName);
         }
 
         if (!aiMemoryRepository
-            .findAllByWorkspaceIdAndUserIdAndEnvironmentAndName(workspaceId, userId, environment, newName)
+            .findAllByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndName(
+                workspaceId, principalType.ordinal(), principalId, environment, newName)
             .isEmpty()) {
             throw new DuplicateAiAutoMemoryNameException(newName);
         }
 
-        AiAutoMemory memory = loadByName(workspaceId, userId, environment, oldName);
+        AiAutoMemory memory = loadByName(workspaceId, principalType, principalId, environment, oldName);
 
         memory.setName(newName);
         memory.setUpdatedAt(LocalDateTime.now(clock));
@@ -200,22 +210,28 @@ public class AiAutoMemoryServiceImpl implements AiAutoMemoryService {
     @Override
     @Transactional(readOnly = true)
     public List<AiAutoMemory> list(
-        long workspaceId, long userId, int environment, @Nullable AiAutoMemoryType memoryType) {
+        long workspaceId, AiAutoMemoryPrincipalType principalType, long principalId, int environment,
+        @Nullable AiAutoMemoryType memoryType) {
 
         if (memoryType == null) {
             return aiMemoryRepository
-                .findByWorkspaceIdAndUserIdAndEnvironmentOrderByUpdatedAtDesc(workspaceId, userId, environment);
+                .findByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentOrderByUpdatedAtDesc(
+                    workspaceId, principalType.ordinal(), principalId, environment);
         }
 
-        return aiMemoryRepository.findByWorkspaceIdAndUserIdAndEnvironmentAndMemoryTypeOrderByUpdatedAtDesc(
-            workspaceId, userId, environment, memoryType.ordinal());
+        return aiMemoryRepository
+            .findByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndMemoryTypeOrderByUpdatedAtDesc(
+                workspaceId, principalType.ordinal(), principalId, environment, memoryType.ordinal());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<AiAutoMemory> findById(long workspaceId, long userId, long memoryId) {
+    public Optional<AiAutoMemory> findById(
+        long workspaceId, AiAutoMemoryPrincipalType principalType, long principalId, long memoryId) {
+
         return aiMemoryRepository.findById(memoryId)
-            .filter(memory -> memory.getUserId() == userId)
+            .filter(memory -> memory.getPrincipalType() == principalType)
+            .filter(memory -> memory.getPrincipalId() == principalId)
             .filter(memory -> workspaceAiMemoryRepository
                 .findByWorkspaceIdAndAiAutoMemoryId(workspaceId, memory.getId())
                 .isPresent());
@@ -223,19 +239,25 @@ public class AiAutoMemoryServiceImpl implements AiAutoMemoryService {
 
     @Override
     @Transactional(readOnly = true)
-    public List<AiAutoMemory> listByUserAndWorkspace(long workspaceId, long userId, int environment) {
+    public List<AiAutoMemory> listByPrincipalAndWorkspace(
+        long workspaceId, AiAutoMemoryPrincipalType principalType, long principalId, int environment) {
+
         return aiMemoryRepository
-            .findByWorkspaceIdAndUserIdAndEnvironmentOrderByUpdatedAtDesc(workspaceId, userId, environment);
+            .findByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentOrderByUpdatedAtDesc(
+                workspaceId, principalType.ordinal(), principalId, environment);
     }
 
-    private AiAutoMemory loadByName(long workspaceId, long userId, int environment, String name) {
+    private AiAutoMemory loadByName(
+        long workspaceId, AiAutoMemoryPrincipalType principalType, long principalId, int environment, String name) {
+
         List<AiAutoMemory> matches = aiMemoryRepository
-            .findAllByWorkspaceIdAndUserIdAndEnvironmentAndName(workspaceId, userId, environment, name);
+            .findAllByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndName(
+                workspaceId, principalType.ordinal(), principalId, environment, name);
 
         if (matches.isEmpty()) {
             throw new AiAutoMemoryNotFoundException(
-                "Memory '" + name + "' not found for workspace " + workspaceId + " user " + userId
-                    + " environment " + environment);
+                "Memory '" + name + "' not found for workspace " + workspaceId + " principalType " + principalType
+                    + " principalId " + principalId + " environment " + environment);
         }
 
         return matches.get(0);
@@ -268,8 +290,10 @@ public class AiAutoMemoryServiceImpl implements AiAutoMemoryService {
         memory.setUpdatedAt(LocalDateTime.now(clock));
     }
 
-    private AiAutoMemory loadAndCheckOwnership(long workspaceId, long userId, long memoryId) {
-        // Probe-oracle defense: collapse "does not exist" and "exists in another workspace/user" into the SAME
+    private AiAutoMemory loadAndCheckOwnership(
+        long workspaceId, AiAutoMemoryPrincipalType principalType, long principalId, long memoryId) {
+
+        // Probe-oracle defense: collapse "does not exist" and "exists for another workspace/principal" into the SAME
         // 404 response so an authenticated attacker cannot enumerate memory ids across workspaces.
         Optional<AiAutoMemory> memoryOptional = aiMemoryRepository.findById(memoryId);
 
@@ -279,16 +303,18 @@ public class AiAutoMemoryServiceImpl implements AiAutoMemoryService {
 
         AiAutoMemory memory = memoryOptional.get();
 
-        boolean userOwns = memory.getUserId() == userId;
+        boolean principalOwns = memory.getPrincipalType() == principalType && memory.getPrincipalId() == principalId;
         boolean workspaceClaims = workspaceAiMemoryRepository
             .findByWorkspaceIdAndAiAutoMemoryId(workspaceId, memoryId)
             .isPresent();
 
-        if (!userOwns || !workspaceClaims) {
+        if (!principalOwns || !workspaceClaims) {
             log.warn(
-                "Memory ownership mismatch: requester userId={} workspaceId={} attempted to access memoryId={} "
-                    + "owned by userId={}. Returning 404 to avoid leaking existence.",
-                userId, workspaceId, memoryId, memory.getUserId());
+                "Memory ownership mismatch: requester principalType={} principalId={} workspaceId={} attempted to "
+                    + "access memoryId={} owned by principalType={} principalId={}. Returning 404 to avoid leaking "
+                    + "existence.",
+                principalType, principalId, workspaceId, memoryId, memory.getPrincipalType(),
+                memory.getPrincipalId());
 
             throw new AiAutoMemoryNotFoundException("Memory not found");
         }

@@ -45,8 +45,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class AiAutoMemoryServiceTest {
 
     private static final long WORKSPACE_ID = 1L;
-    private static final long USER_ID = 10L;
-    private static final long OTHER_USER_ID = 99L;
+    private static final long PRINCIPAL_ID = 10L;
+    private static final long OTHER_PRINCIPAL_ID = 99L;
     private static final int ENVIRONMENT = 0;
 
     @Mock
@@ -61,8 +61,8 @@ class AiAutoMemoryServiceTest {
     void testCreatePersistsWithTimestamps() {
         AiAutoMemoryServiceImpl realService = newService();
 
-        when(aiMemoryRepository.findAllByWorkspaceIdAndUserIdAndEnvironmentAndName(
-            WORKSPACE_ID, USER_ID, ENVIRONMENT, "user_profile"))
+        when(aiMemoryRepository.findAllByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndName(
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER.ordinal(), PRINCIPAL_ID, ENVIRONMENT, "user_profile"))
                 .thenReturn(List.of());
         when(aiMemoryRepository.save(any(AiAutoMemory.class)))
             .thenAnswer(invocation -> {
@@ -74,8 +74,8 @@ class AiAutoMemoryServiceTest {
             });
 
         AiAutoMemory created = realService.create(
-            WORKSPACE_ID, USER_ID, ENVIRONMENT, "user_profile", "User Profile", "User preferences",
-            AiAutoMemoryType.USER, "Alice prefers concise replies");
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER, PRINCIPAL_ID, ENVIRONMENT, "user_profile", "User Profile",
+            "User preferences", AiAutoMemoryType.USER, "Alice prefers concise replies");
 
         assertThat(created.getId()).isEqualTo(42L);
         assertThat(created.getName()).isEqualTo("user_profile");
@@ -95,12 +95,13 @@ class AiAutoMemoryServiceTest {
         existing.setId(1L);
         existing.setName("dup");
 
-        when(aiMemoryRepository.findAllByWorkspaceIdAndUserIdAndEnvironmentAndName(
-            WORKSPACE_ID, USER_ID, ENVIRONMENT, "dup"))
+        when(aiMemoryRepository.findAllByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndName(
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER.ordinal(), PRINCIPAL_ID, ENVIRONMENT, "dup"))
                 .thenReturn(List.of(existing));
 
         assertThatThrownBy(() -> realService.create(
-            WORKSPACE_ID, USER_ID, ENVIRONMENT, "dup", "title", null, AiAutoMemoryType.USER, "content"))
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER, PRINCIPAL_ID, ENVIRONMENT, "dup", "title", null,
+            AiAutoMemoryType.USER, "content"))
                 .isInstanceOf(DuplicateAiAutoMemoryNameException.class);
 
         verify(aiMemoryRepository, never()).save(any());
@@ -111,9 +112,44 @@ class AiAutoMemoryServiceTest {
         AiAutoMemoryServiceImpl realService = newService();
 
         assertThatThrownBy(() -> realService.create(
-            WORKSPACE_ID, USER_ID, ENVIRONMENT, "name", "title", null, null, "content"))
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER, PRINCIPAL_ID, ENVIRONMENT, "name", "title", null, null,
+            "content"))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("memoryType");
+    }
+
+    @Test
+    void testUserAndDeploymentMemoriesDoNotCollide() {
+        AiAutoMemoryServiceImpl realService = newService();
+
+        when(aiMemoryRepository.findAllByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndName(
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER.ordinal(), PRINCIPAL_ID, ENVIRONMENT, "notes"))
+                .thenReturn(List.of());
+        when(aiMemoryRepository.findAllByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndName(
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.DEPLOYMENT.ordinal(), PRINCIPAL_ID, ENVIRONMENT, "notes"))
+                .thenReturn(List.of());
+        when(aiMemoryRepository.save(any(AiAutoMemory.class)))
+            .thenAnswer(invocation -> invocation.getArgument(0));
+
+        AiAutoMemory userMemory = realService.create(
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER, PRINCIPAL_ID, ENVIRONMENT,
+            "notes", "t", null, AiAutoMemoryType.USER, "user-body");
+
+        realService.create(
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.DEPLOYMENT, PRINCIPAL_ID, ENVIRONMENT,
+            "notes", "t", null, AiAutoMemoryType.USER, "deployment-body");
+
+        // The USER read query only sees the USER-owned row, proving the two principals don't read each other.
+        when(aiMemoryRepository.findAllByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndName(
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER.ordinal(), PRINCIPAL_ID, ENVIRONMENT, "notes"))
+                .thenReturn(List.of(userMemory));
+
+        Optional<AiAutoMemory> userRead = realService.read(
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER, PRINCIPAL_ID, ENVIRONMENT, "notes");
+
+        assertThat(userRead).isPresent();
+        assertThat(userRead.get()
+            .getContent()).isEqualTo("user-body");
     }
 
     @Test
@@ -121,7 +157,7 @@ class AiAutoMemoryServiceTest {
         AiAutoMemoryServiceImpl realService = newService();
 
         assertThatThrownBy(() -> realService.update(
-            WORKSPACE_ID, USER_ID, ENVIRONMENT, "name", null, null, null, null))
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER, PRINCIPAL_ID, ENVIRONMENT, "name", null, null, null, null))
                 .isInstanceOf(IllegalArgumentException.class);
     }
 
@@ -131,14 +167,15 @@ class AiAutoMemoryServiceTest {
 
         AiAutoMemory existing = buildMemory("user_profile", AiAutoMemoryType.USER);
 
-        when(aiMemoryRepository.findAllByWorkspaceIdAndUserIdAndEnvironmentAndName(
-            WORKSPACE_ID, USER_ID, ENVIRONMENT, "user_profile"))
+        when(aiMemoryRepository.findAllByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndName(
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER.ordinal(), PRINCIPAL_ID, ENVIRONMENT, "user_profile"))
                 .thenReturn(List.of(existing));
         when(aiMemoryRepository.save(any(AiAutoMemory.class)))
             .thenAnswer(invocation -> invocation.getArgument(0));
 
         AiAutoMemory updated = realService.update(
-            WORKSPACE_ID, USER_ID, ENVIRONMENT, "user_profile", null, null, null, "new content");
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER, PRINCIPAL_ID, ENVIRONMENT, "user_profile", null, null, null,
+            "new content");
 
         assertThat(updated.getContent()).isEqualTo("new content");
         assertThat(updated.getTitle()).isEqualTo("Title: user_profile");
@@ -149,16 +186,16 @@ class AiAutoMemoryServiceTest {
     void testDeleteByIdReturnsNotFoundOnOwnershipMismatch() {
         AiAutoMemoryServiceImpl realService = newService();
 
-        AiAutoMemory owned = buildMemory("name", AiAutoMemoryType.USER);
+        AiAutoMemory owned = buildMemory("name", AiAutoMemoryType.USER, OTHER_PRINCIPAL_ID);
 
         owned.setId(5L);
-        owned.setUserId(OTHER_USER_ID);
 
         when(aiMemoryRepository.findById(5L)).thenReturn(Optional.of(owned));
 
-        assertThatThrownBy(() -> realService.deleteById(WORKSPACE_ID, USER_ID, 5L))
-            .isInstanceOf(AiAutoMemoryNotFoundException.class)
-            .hasMessageContaining("Memory not found");
+        assertThatThrownBy(
+            () -> realService.deleteById(WORKSPACE_ID, AiAutoMemoryPrincipalType.USER, PRINCIPAL_ID, 5L))
+                .isInstanceOf(AiAutoMemoryNotFoundException.class)
+                .hasMessageContaining("Memory not found");
 
         verify(aiMemoryRepository, never()).delete(any(AiAutoMemory.class));
     }
@@ -169,40 +206,43 @@ class AiAutoMemoryServiceTest {
 
         AiAutoMemory target = buildMemory("target", AiAutoMemoryType.USER);
 
-        when(aiMemoryRepository.findAllByWorkspaceIdAndUserIdAndEnvironmentAndName(
-            WORKSPACE_ID, USER_ID, ENVIRONMENT, "target"))
+        when(aiMemoryRepository.findAllByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndName(
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER.ordinal(), PRINCIPAL_ID, ENVIRONMENT, "target"))
                 .thenReturn(List.of(target));
 
-        assertThatThrownBy(() -> realService.rename(WORKSPACE_ID, USER_ID, ENVIRONMENT, "source", "target"))
-            .isInstanceOf(DuplicateAiAutoMemoryNameException.class);
+        assertThatThrownBy(() -> realService.rename(
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER, PRINCIPAL_ID, ENVIRONMENT, "source", "target"))
+                .isInstanceOf(DuplicateAiAutoMemoryNameException.class);
     }
 
     @Test
     void testListFiltersByType() {
         AiAutoMemoryServiceImpl realService = newService();
 
-        when(aiMemoryRepository.findByWorkspaceIdAndUserIdAndEnvironmentAndMemoryTypeOrderByUpdatedAtDesc(
-            WORKSPACE_ID, USER_ID, ENVIRONMENT, AiAutoMemoryType.FEEDBACK.ordinal()))
-                .thenReturn(List.of(buildMemory("a", AiAutoMemoryType.FEEDBACK)));
+        when(aiMemoryRepository
+            .findByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndMemoryTypeOrderByUpdatedAtDesc(
+                WORKSPACE_ID, AiAutoMemoryPrincipalType.USER.ordinal(), PRINCIPAL_ID, ENVIRONMENT,
+                AiAutoMemoryType.FEEDBACK.ordinal()))
+                    .thenReturn(List.of(buildMemory("a", AiAutoMemoryType.FEEDBACK)));
 
         List<AiAutoMemory> result = realService.list(
-            WORKSPACE_ID, USER_ID, ENVIRONMENT, AiAutoMemoryType.FEEDBACK);
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER, PRINCIPAL_ID, ENVIRONMENT, AiAutoMemoryType.FEEDBACK);
 
         assertThat(result).hasSize(1);
     }
 
     @Test
-    void testFindByIdReturnsEmptyWhenOwnedByOtherUser() {
+    void testFindByIdReturnsEmptyWhenOwnedByOtherPrincipal() {
         AiAutoMemoryServiceImpl realService = newService();
 
-        AiAutoMemory otherUsers = buildMemory("mine", AiAutoMemoryType.USER);
+        AiAutoMemory otherPrincipals = buildMemory("mine", AiAutoMemoryType.USER, OTHER_PRINCIPAL_ID);
 
-        otherUsers.setId(7L);
-        otherUsers.setUserId(OTHER_USER_ID);
+        otherPrincipals.setId(7L);
 
-        when(aiMemoryRepository.findById(7L)).thenReturn(Optional.of(otherUsers));
+        when(aiMemoryRepository.findById(7L)).thenReturn(Optional.of(otherPrincipals));
 
-        Optional<AiAutoMemory> result = realService.findById(WORKSPACE_ID, USER_ID, 7L);
+        Optional<AiAutoMemory> result = realService.findById(
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.USER, PRINCIPAL_ID, 7L);
 
         assertThat(result).isEmpty();
     }
@@ -212,9 +252,12 @@ class AiAutoMemoryServiceTest {
     }
 
     private AiAutoMemory buildMemory(String name, AiAutoMemoryType memoryType) {
-        AiAutoMemory memory = new AiAutoMemory();
+        return buildMemory(name, memoryType, PRINCIPAL_ID);
+    }
 
-        memory.setUserId(USER_ID);
+    private AiAutoMemory buildMemory(String name, AiAutoMemoryType memoryType, long principalId) {
+        AiAutoMemory memory = new AiAutoMemory(AiAutoMemoryPrincipalType.USER, principalId);
+
         memory.setName(name);
         memory.setTitle("Title: " + name);
         memory.setMemoryType(memoryType);
