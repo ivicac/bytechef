@@ -11,7 +11,7 @@ import com.bytechef.ee.platform.ai.tool.usage.ToolUsageContext;
 import com.bytechef.ee.platform.aihub.task.AiHubTask;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskService;
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
-import com.bytechef.ee.platform.aihub.util.LogSanitizer;
+import com.bytechef.ee.ai.mcp.tool.util.LogSanitizer;
 import io.micrometer.core.instrument.Metrics;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;

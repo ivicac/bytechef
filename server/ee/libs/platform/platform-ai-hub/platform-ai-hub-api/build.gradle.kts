@@ -1,4 +1,5 @@
 dependencies {
+    implementation(project(":server:ee:libs:ai:mcp:mcp-tool:mcp-tool-api"))
     api(project(":server:libs:platform:platform-configuration:platform-configuration-api"))
 
     implementation("org.springframework:spring-core")

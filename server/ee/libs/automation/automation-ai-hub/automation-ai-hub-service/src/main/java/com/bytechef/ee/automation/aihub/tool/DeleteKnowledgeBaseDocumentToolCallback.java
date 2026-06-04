@@ -11,7 +11,7 @@ import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactKind;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactService;
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import com.bytechef.platform.knowledgebase.exception.KnowledgeBaseDocumentNotFoundException;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;

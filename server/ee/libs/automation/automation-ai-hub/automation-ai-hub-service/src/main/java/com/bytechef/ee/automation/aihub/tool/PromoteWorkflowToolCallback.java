@@ -9,7 +9,7 @@ package com.bytechef.ee.automation.aihub.tool;
 
 import com.bytechef.automation.configuration.dto.ProjectDeploymentDTO;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Arrays;

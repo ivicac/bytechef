@@ -9,7 +9,7 @@ package com.bytechef.ee.automation.aihub.tool;
 
 import com.bytechef.ee.automation.contextstore.service.WorkspaceContextStoreSourceService;
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.ee.platform.contextstore.domain.ContextStoreRecord;
 import com.bytechef.ee.platform.contextstore.dto.ContextStoreQuery;
 import com.bytechef.ee.platform.contextstore.dto.ContextStoreQueryFilter;

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.platform.aihub.util;
+package com.bytechef.ee.ai.mcp.tool.util;
 
 /**
  * Strips control characters and clamps length on values that flow into log lines from user-controlled or LLM-controlled

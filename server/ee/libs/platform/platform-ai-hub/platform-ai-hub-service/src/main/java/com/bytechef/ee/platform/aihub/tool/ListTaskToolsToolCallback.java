@@ -12,7 +12,7 @@ import com.bytechef.ee.platform.aihub.task.AiHubTask;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskService;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskToolBinding;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskToolFacade;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

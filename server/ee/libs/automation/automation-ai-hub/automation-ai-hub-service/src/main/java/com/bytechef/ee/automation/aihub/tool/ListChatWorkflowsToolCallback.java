@@ -17,7 +17,7 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowSe
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.component.definition.TriggerDefinition.TriggerType;
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.platform.component.domain.TriggerDefinition;
 import com.bytechef.platform.component.service.TriggerDefinitionService;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;

@@ -18,7 +18,7 @@ import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactKind;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactService;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactStatus;
 import com.bytechef.ee.platform.aihub.util.EnumOrdinals;
-import com.bytechef.ee.platform.aihub.util.LogSanitizer;
+import com.bytechef.ee.ai.mcp.tool.util.LogSanitizer;
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Clock;

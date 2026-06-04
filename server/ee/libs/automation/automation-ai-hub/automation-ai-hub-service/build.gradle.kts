@@ -1,4 +1,5 @@
 dependencies {
+    implementation(project(":server:ee:libs:ai:mcp:mcp-tool:mcp-tool-api"))
     implementation(libs.com.github.mizosoft.methanol)
     implementation(libs.org.apache.poi.poi.ooxml)
     implementation(libs.org.jsoup)

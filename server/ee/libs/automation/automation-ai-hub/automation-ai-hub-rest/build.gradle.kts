@@ -1,4 +1,5 @@
 dependencies {
+    implementation(project(":server:ee:libs:ai:mcp:mcp-tool:mcp-tool-api"))
     compileOnly("jakarta.servlet:jakarta.servlet-api")
 
     implementation("com.github.ben-manes.caffeine:caffeine")

@@ -18,7 +18,7 @@ import com.bytechef.ee.platform.aihub.agent.InFlightAiHubRunRegistry;
 import com.bytechef.ee.platform.aihub.task.AiHubTask;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskService;
 import com.bytechef.ee.platform.aihub.util.AiHubStateKeys;
-import com.bytechef.ee.platform.aihub.util.LogSanitizer;
+import com.bytechef.ee.ai.mcp.tool.util.LogSanitizer;
 import com.bytechef.ee.platform.aihub.util.Mode;
 import com.bytechef.platform.user.service.UserService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;

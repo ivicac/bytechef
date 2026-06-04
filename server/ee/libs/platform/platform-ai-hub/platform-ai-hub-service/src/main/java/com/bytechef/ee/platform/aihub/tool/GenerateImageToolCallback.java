@@ -8,7 +8,7 @@
 package com.bytechef.ee.platform.aihub.tool;
 
 import com.bytechef.config.ApplicationProperties;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
 import java.util.LinkedHashMap;
 import java.util.Map;

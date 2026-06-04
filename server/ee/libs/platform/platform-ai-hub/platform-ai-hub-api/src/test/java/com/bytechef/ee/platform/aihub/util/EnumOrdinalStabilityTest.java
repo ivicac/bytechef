@@ -14,7 +14,7 @@ import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactKind;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactStatus;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskKind;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskStatus;
-import com.bytechef.ee.platform.aihub.usage.Agent;
+import com.bytechef.ee.ai.mcp.tool.usage.Agent;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryType;
 import com.bytechef.test.assertion.OrdinalStabilityAssertions;
 import java.util.LinkedHashMap;

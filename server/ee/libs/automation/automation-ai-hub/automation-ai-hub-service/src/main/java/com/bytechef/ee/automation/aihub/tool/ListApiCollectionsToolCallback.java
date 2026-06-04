@@ -10,7 +10,7 @@ package com.bytechef.ee.automation.aihub.tool;
 import com.bytechef.ee.automation.apiplatform.configuration.dto.ApiCollectionDTO;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;

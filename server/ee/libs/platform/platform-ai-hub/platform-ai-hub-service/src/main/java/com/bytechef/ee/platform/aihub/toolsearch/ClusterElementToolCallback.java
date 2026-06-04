@@ -8,7 +8,7 @@
 package com.bytechef.ee.platform.aihub.toolsearch;
 
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.connection.domain.Connection;

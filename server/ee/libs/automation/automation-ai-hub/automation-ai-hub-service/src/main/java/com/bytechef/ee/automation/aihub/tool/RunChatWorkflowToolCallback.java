@@ -17,7 +17,7 @@ import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactKind;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactService;
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.platform.configuration.facade.WorkflowFacade;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
 import com.fasterxml.jackson.annotation.JsonInclude;

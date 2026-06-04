@@ -10,7 +10,7 @@ package com.bytechef.ee.automation.aihub.tool;
 import com.bytechef.ee.automation.contextstore.dto.CreateContextStoreSourceInput;
 import com.bytechef.ee.automation.contextstore.facade.WorkspaceContextStoreSourceFacade;
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.ee.platform.contextstore.domain.ContextStoreSource;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.LinkedHashMap;

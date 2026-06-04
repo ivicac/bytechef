@@ -17,7 +17,7 @@ import com.bytechef.ee.automation.aihub.artifact.GenerationResult;
 import com.bytechef.ee.platform.aihub.task.AiHubTask;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskService;
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;

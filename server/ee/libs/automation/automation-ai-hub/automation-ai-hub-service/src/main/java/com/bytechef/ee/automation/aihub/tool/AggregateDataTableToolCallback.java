@@ -11,7 +11,7 @@ import com.bytechef.automation.data.table.configuration.service.DataTableService
 import com.bytechef.automation.data.table.execution.domain.DataTableRow;
 import com.bytechef.automation.data.table.execution.service.DataTableRowService;
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;

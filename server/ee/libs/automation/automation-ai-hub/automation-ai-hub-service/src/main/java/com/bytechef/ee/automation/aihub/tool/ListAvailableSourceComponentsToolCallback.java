@@ -7,7 +7,7 @@
 
 package com.bytechef.ee.automation.aihub.tool;
 
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;

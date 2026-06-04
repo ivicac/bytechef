@@ -14,7 +14,7 @@ import com.bytechef.automation.data.table.execution.service.DataTableRowService;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactKind;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactService;
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;

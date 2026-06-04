@@ -7,7 +7,7 @@
 
 package com.bytechef.ee.automation.aihub.tool;
 
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
 import com.bytechef.platform.component.domain.Property;
 import com.bytechef.platform.component.domain.ValueProperty;

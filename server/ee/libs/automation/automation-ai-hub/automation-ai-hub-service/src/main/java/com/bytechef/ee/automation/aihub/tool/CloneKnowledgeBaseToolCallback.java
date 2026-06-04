@@ -9,7 +9,7 @@ package com.bytechef.ee.automation.aihub.tool;
 
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;

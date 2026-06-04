@@ -7,7 +7,7 @@
 
 package com.bytechef.ee.platform.aihub.tool;
 
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.Base64;

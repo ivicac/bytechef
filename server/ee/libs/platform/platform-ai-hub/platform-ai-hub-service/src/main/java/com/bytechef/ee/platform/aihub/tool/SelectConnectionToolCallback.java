@@ -7,8 +7,8 @@
 
 package com.bytechef.ee.platform.aihub.tool;
 
-import com.bytechef.ee.platform.aihub.util.LogSanitizer;
-import com.bytechef.ee.platform.aihub.util.ToolErrors;
+import com.bytechef.ee.ai.mcp.tool.util.LogSanitizer;
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.fasterxml.jackson.annotation.JsonInclude;
