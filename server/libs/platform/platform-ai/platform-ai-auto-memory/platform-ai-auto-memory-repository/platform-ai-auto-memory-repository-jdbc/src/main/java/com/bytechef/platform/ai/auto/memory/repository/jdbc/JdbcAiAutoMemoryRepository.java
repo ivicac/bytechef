@@ -37,35 +37,38 @@ public interface JdbcAiAutoMemoryRepository extends CrudRepository<AiAutoMemory,
         SELECT m.* FROM ai_auto_memory m
         JOIN workspace_ai_auto_memory wam ON wam.ai_auto_memory_id = m.id
         WHERE wam.workspace_id = :workspaceId
-          AND m.user_id = :userId
+          AND m.principal_type = :principalType
+          AND m.principal_id = :principalId
           AND m.environment = :environment
         ORDER BY m.updated_at DESC
         """)
-    List<AiAutoMemory> findByWorkspaceIdAndUserIdAndEnvironmentOrderByUpdatedAtDesc(
-        long workspaceId, long userId, int environment);
+    List<AiAutoMemory> findByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentOrderByUpdatedAtDesc(
+        long workspaceId, int principalType, long principalId, int environment);
 
     @Override
     @Query("""
         SELECT m.* FROM ai_auto_memory m
         JOIN workspace_ai_auto_memory wam ON wam.ai_auto_memory_id = m.id
         WHERE wam.workspace_id = :workspaceId
-          AND m.user_id = :userId
+          AND m.principal_type = :principalType
+          AND m.principal_id = :principalId
           AND m.environment = :environment
           AND m.memory_type = :memoryType
         ORDER BY m.updated_at DESC
         """)
-    List<AiAutoMemory> findByWorkspaceIdAndUserIdAndEnvironmentAndMemoryTypeOrderByUpdatedAtDesc(
-        long workspaceId, long userId, int environment, int memoryType);
+    List<AiAutoMemory> findByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndMemoryTypeOrderByUpdatedAtDesc(
+        long workspaceId, int principalType, long principalId, int environment, int memoryType);
 
     @Override
     @Query("""
         SELECT m.* FROM ai_auto_memory m
         JOIN workspace_ai_auto_memory wam ON wam.ai_auto_memory_id = m.id
         WHERE wam.workspace_id = :workspaceId
-          AND m.user_id = :userId
+          AND m.principal_type = :principalType
+          AND m.principal_id = :principalId
           AND m.environment = :environment
           AND m.name = :name
         """)
-    List<AiAutoMemory> findAllByWorkspaceIdAndUserIdAndEnvironmentAndName(
-        long workspaceId, long userId, int environment, String name);
+    List<AiAutoMemory> findAllByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndName(
+        long workspaceId, int principalType, long principalId, int environment, String name);
 }

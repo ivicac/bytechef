@@ -24,7 +24,7 @@ import java.util.Optional;
  * Storage contract for {@link AiAutoMemory} rows. Backend-agnostic on purpose: the JDBC implementation lives in
  * {@code platform-ai-auto-memory-repository-jdbc}. Workspace-aware queries JOIN through
  * {@code workspace_ai_auto_memory} — non-JDBC backends MUST honor the documented filter shape (matching workspace
- * membership AND user AND environment).
+ * membership AND principalType AND principalId AND environment).
  *
  * @author Ivica Cardic
  */
@@ -41,25 +41,27 @@ public interface AiAutoMemoryRepository {
     Optional<AiAutoMemory> findById(long id);
 
     /**
-     * Returns the workspace's memories for the given user + environment, newest first by {@code updatedAt}. Consumers
-     * depend on the ordering. Joins through {@code workspace_ai_auto_memory} on the JDBC backend.
+     * Returns the workspace's memories for the given principal + environment, newest first by {@code updatedAt}.
+     * Consumers depend on the ordering. The principal is discriminated by {@code principalType} (the persisted INT
+     * ordinal of {@link com.bytechef.platform.ai.auto.memory.AiAutoMemoryPrincipalType}) and {@code principalId}. Joins
+     * through {@code workspace_ai_auto_memory} on the JDBC backend.
      */
-    List<AiAutoMemory> findByWorkspaceIdAndUserIdAndEnvironmentOrderByUpdatedAtDesc(
-        long workspaceId, long userId, int environment);
+    List<AiAutoMemory> findByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentOrderByUpdatedAtDesc(
+        long workspaceId, int principalType, long principalId, int environment);
 
     /**
-     * Same shape as {@link #findByWorkspaceIdAndUserIdAndEnvironmentOrderByUpdatedAtDesc} narrowed by
-     * {@link AiAutoMemory#getMemoryType() memoryType} (passed as the persisted INT ordinal — see
+     * Same shape as {@link #findByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentOrderByUpdatedAtDesc} narrowed
+     * by {@link AiAutoMemory#getMemoryType() memoryType} (passed as the persisted INT ordinal — see
      * {@link com.bytechef.platform.ai.auto.memory.AiAutoMemoryType}).
      */
-    List<AiAutoMemory> findByWorkspaceIdAndUserIdAndEnvironmentAndMemoryTypeOrderByUpdatedAtDesc(
-        long workspaceId, long userId, int environment, int memoryType);
+    List<AiAutoMemory> findByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndMemoryTypeOrderByUpdatedAtDesc(
+        long workspaceId, int principalType, long principalId, int environment, int memoryType);
 
     /**
-     * Returns rows matching the (workspace, user, environment, name) tuple. The DB no longer enforces uniqueness on
-     * name — the service layer's duplicate-name check in {@code create()} is the policy gate; multiple matches
-     * theoretically possible.
+     * Returns rows matching the (workspace, principalType, principalId, environment, name) tuple. The DB no longer
+     * enforces uniqueness on name — the service layer's duplicate-name check in {@code create()} is the policy gate;
+     * multiple matches theoretically possible.
      */
-    List<AiAutoMemory> findAllByWorkspaceIdAndUserIdAndEnvironmentAndName(
-        long workspaceId, long userId, int environment, String name);
+    List<AiAutoMemory> findAllByWorkspaceIdAndPrincipalTypeAndPrincipalIdAndEnvironmentAndName(
+        long workspaceId, int principalType, long principalId, int environment, String name);
 }
