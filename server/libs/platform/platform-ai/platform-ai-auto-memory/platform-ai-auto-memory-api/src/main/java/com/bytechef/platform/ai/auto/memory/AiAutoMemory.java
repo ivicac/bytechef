@@ -25,11 +25,11 @@ import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 /**
- * Persistent long-term memory entry for the agent. Owned by a user; the workspace association lives on
- * {@code workspace_ai_auto_memory} (mirrors workspace_mcp_server / workspace_ai_hub_personal_agent), so the same memory
- * row can in principle be shared across workspaces. The DB does NOT enforce a (user, env, name) unique constraint — the
- * slug regex on {@link #name} is the only entity-level shape gate; a service-layer duplicate-name check in create() is
- * the policy gate.
+ * Persistent long-term memory entry for the agent. Owned by a principal — either a user or a deployment, discriminated
+ * by {@code principal_type}/{@code principal_id}; the workspace association lives on {@code workspace_ai_auto_memory}
+ * (mirrors workspace_mcp_server / workspace_ai_hub_personal_agent), so the same memory row can in principle be shared
+ * across workspaces. The DB does NOT enforce a (user, env, name) unique constraint — the slug regex on {@link #name} is
+ * the only entity-level shape gate; a service-layer duplicate-name check in create() is the policy gate.
  *
  * <p>
  * This is a Spring Data JDBC row-mapper entity. Setters mostly exist for the construct-then-save flow. The load-bearing
@@ -70,8 +70,11 @@ public class AiAutoMemory {
     @Id
     private Long id;
 
-    @Column("user_id")
-    private long userId;
+    @Column("principal_id")
+    private long principalId;
+
+    @Column("principal_type")
+    private int principalType;
 
     @Column("name")
     private String name;
@@ -101,12 +104,14 @@ public class AiAutoMemory {
     }
 
     /**
-     * Bind-once constructor for new (unpersisted) rows. The per-field setter for {@code userId} is package-private so a
-     * loaded row cannot be retargeted by mistake. Workspace association lives on {@code workspace_ai_auto_memory} and
-     * is set independently when the membership row is created.
+     * Bind-once constructor for new (unpersisted) rows. The per-field setters for {@code principalId} and
+     * {@code principalType} are package-private so a loaded row cannot be retargeted by mistake. Workspace association
+     * lives on {@code workspace_ai_auto_memory} and is set independently when the membership row is created.
      */
-    public AiAutoMemory(long userId) {
-        this.userId = userId;
+    public AiAutoMemory(AiAutoMemoryPrincipalType principalType, long principalId) {
+        this.principalType = Objects.requireNonNull(principalType, "principalType")
+            .ordinal();
+        this.principalId = principalId;
     }
 
     public Long getId() {
@@ -117,16 +122,32 @@ public class AiAutoMemory {
         this.id = id;
     }
 
-    public long getUserId() {
-        return userId;
+    public long getPrincipalId() {
+        return principalId;
     }
 
     /**
      * Package-private so post-load retargeting cannot happen across module boundaries. New rows must use
-     * {@link #AiAutoMemory(long)}; Spring Data JDBC hydration writes the field directly via reflection.
+     * {@link #AiAutoMemory(AiAutoMemoryPrincipalType, long)}; Spring Data JDBC hydration writes the field directly via
+     * reflection.
      */
-    void setUserId(long userId) {
-        this.userId = userId;
+    void setPrincipalId(long principalId) {
+        this.principalId = principalId;
+    }
+
+    public AiAutoMemoryPrincipalType getPrincipalType() {
+        AiAutoMemoryPrincipalType[] values = AiAutoMemoryPrincipalType.values();
+
+        if (principalType < 0 || principalType >= values.length) {
+            throw new IllegalStateException("Unknown AiAutoMemoryPrincipalType ordinal: " + principalType);
+        }
+
+        return values[principalType];
+    }
+
+    void setPrincipalType(AiAutoMemoryPrincipalType principalType) {
+        this.principalType = Objects.requireNonNull(principalType, "principalType")
+            .ordinal();
     }
 
     public String getName() {
@@ -292,16 +313,17 @@ public class AiAutoMemory {
      * Excludes {@code name}, {@code title}, {@code description}, and {@code content} on purpose. Memory rows hold
      * user-authored prompt content / preferences that may carry PII. Spring Data JDBC trace logging and any
      * {@code logger.warn(memory)} call site would otherwise persist that content to log aggregators. The remaining
-     * fields (id, userId, memoryType, timestamps) are sufficient for ops to correlate a row with a database record.
-     * Note: the redaction policy is unique to {@code AiAutoMemory} — sibling entities like {@link AiHubUsage} log all
-     * numeric fields (token counts, model names, costs) because none of them carry PII; if that ever changes, this
-     * Javadoc and the matching {@code toString} should be revisited together.
+     * fields (id, principalType, principalId, memoryType, timestamps) are sufficient for ops to correlate a row with a
+     * database record. Note: the redaction policy is unique to {@code AiAutoMemory} — sibling entities like
+     * {@link AiHubUsage} log all numeric fields (token counts, model names, costs) because none of them carry PII; if
+     * that ever changes, this Javadoc and the matching {@code toString} should be revisited together.
      */
     @Override
     public String toString() {
         return "AiAutoMemory{" +
             "id=" + id +
-            ", userId=" + userId +
+            ", principalType=" + principalType +
+            ", principalId=" + principalId +
             ", memoryType=" + memoryType +
             ", environment=" + environment +
             ", createdAt=" + createdAt +
