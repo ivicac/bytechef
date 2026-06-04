@@ -26,6 +26,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.tool.search.ToolReference;
 import org.springaicommunity.tool.searcher.VectorToolSearcher;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
@@ -90,6 +92,16 @@ public class ToolSearchCatalogFeeder {
      * per-task sessions on top.
      */
     public static final String CATALOG_SESSION_ID = "ai_hub_tool_catalog";
+
+    /**
+     * Per-mode persistent sessions for the AI Hub global static tool beans (project/workflow/component/task/...).
+     * Embedded once at startup via {@link #populateGlobalTools(String, List)} and unioned into the per-mode searcher
+     * so they are discoverable without being re-embedded on every user turn. Split per mode because the ASK read-only
+     * variants and the BUILD full set share tool names (e.g. {@code listProjects}) and would collide in one session.
+     */
+    public static final String GLOBAL_ASK_SESSION_ID = CATALOG_SESSION_ID + ":global:ask";
+
+    public static final String GLOBAL_BUILD_SESSION_ID = CATALOG_SESSION_ID + ":global:build";
 
     /**
      * Prefix for per-task session ids, joined with the task primary key via {@code :}. Keeping the prefix distinct from
@@ -258,6 +270,74 @@ public class ToolSearchCatalogFeeder {
         log.info(
             "Tool search subset populated for task {}: indexed {} of {} attached tools under session {}",
             taskId, indexed, taskTools.size(), sessionId);
+    }
+
+    /**
+     * Re-populates a persistent global static-tool session from the supplied tool callbacks. Mirrors {@link #populate()}
+     * (hash-skip + clear-then-index) but sources its {@code (name, summary)} entries from {@link ToolCallback}
+     * definitions rather than cluster-element definitions. Called once per mode at startup so the AI Hub static tool
+     * beans embed a single time instead of being re-embedded by the advisor's per-turn self-index.
+     *
+     * @param sessionId     the persistent session id ({@link #GLOBAL_ASK_SESSION_ID} or {@link #GLOBAL_BUILD_SESSION_ID})
+     * @param toolCallbacks the static tool callbacks to index; entries with a blank description are skipped
+     */
+    @SuppressFBWarnings("UNSAFE_HASH_EQUALS")
+    public void populateGlobalTools(String sessionId, List<ToolCallback> toolCallbacks) {
+        List<CatalogEntry> entries = new ArrayList<>();
+
+        for (ToolCallback toolCallback : toolCallbacks) {
+            ToolDefinition toolDefinition = toolCallback.getToolDefinition();
+            String summary = toolDefinition.description();
+
+            if (summary == null || summary.isBlank()) {
+                continue;
+            }
+
+            entries.add(new CatalogEntry(toolDefinition.name(), summary));
+        }
+
+        String currentHash = computeCatalogHash(entries);
+
+        ensureMetaTable();
+
+        Optional<String> storedHash = readStoredHash(sessionId);
+
+        if (storedHash.isPresent() && storedHash.get()
+            .equals(currentHash)) {
+
+            log.info(
+                "Global tool session unchanged (hash matches {} entries under session {}); skipping re-embedding",
+                entries.size(), sessionId);
+
+            return;
+        }
+
+        int indexed = indexGlobalEntries(sessionId, entries);
+
+        writeStoredHash(sessionId, currentHash, indexed);
+
+        log.info(
+            "Global tool session populated: indexed {} of {} static tools under session {}",
+            indexed, toolCallbacks.size(), sessionId);
+    }
+
+    private int indexGlobalEntries(String sessionId, List<CatalogEntry> entries) {
+        vectorToolSearcher.clearIndex(sessionId);
+
+        int indexed = 0;
+
+        for (CatalogEntry entry : entries) {
+            ToolReference reference = ToolReference.builder()
+                .toolName(entry.toolName())
+                .summary(entry.summary())
+                .build();
+
+            vectorToolSearcher.indexTool(sessionId, reference);
+
+            indexed++;
+        }
+
+        return indexed;
     }
 
     /**
