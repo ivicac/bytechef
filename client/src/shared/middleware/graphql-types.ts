@@ -1447,6 +1447,7 @@ export type AutomationWorkflowProject = {
   id: Scalars['ID']['output'];
   lastPublishedVersion?: Maybe<Scalars['Int']['output']>;
   name: Scalars['String']['output'];
+  permissionExpression?: Maybe<Scalars['String']['output']>;
   published: Scalars['Boolean']['output'];
   tagIds: Array<Scalars['ID']['output']>;
   version: Scalars['Int']['output'];
@@ -1485,6 +1486,7 @@ export type AutomationWorkflowProjectWorkflowTemplate = {
   description?: Maybe<Scalars['String']['output']>;
   label?: Maybe<Scalars['String']['output']>;
   lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  permissionExpression?: Maybe<Scalars['String']['output']>;
   triggers: Array<AutomationWorkflowProjectComponent>;
   workflowUuid: Scalars['ID']['output'];
 };
@@ -3504,6 +3506,8 @@ export type Mutation = {
   updateAssetFileTags: AssetFile;
   updateAssetFileTextContent: AssetFile;
   updateAutomationWorkflowProject: Scalars['Boolean']['output'];
+  updateAutomationWorkflowProjectWorkflow: Scalars['Boolean']['output'];
+  updateAutomationWorkflowProjectWorkflowPermissionExpression: Scalars['Boolean']['output'];
   updateContextStore: ContextStore;
   updateContextStoreSource: ContextStoreSource;
   /**
@@ -3829,12 +3833,14 @@ export type MutationCreateAutomationWorkflowProjectArgs = {
   category?: InputMaybe<Scalars['String']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
+  permissionExpression?: InputMaybe<Scalars['String']['input']>;
   tags?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 
 export type MutationCreateAutomationWorkflowProjectWorkflowArgs = {
   definition?: InputMaybe<Scalars['String']['input']>;
+  permissionExpression?: InputMaybe<Scalars['String']['input']>;
   projectId: Scalars['ID']['input'];
 };
 
@@ -4905,7 +4911,21 @@ export type MutationUpdateAutomationWorkflowProjectArgs = {
   description?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
   name: Scalars['String']['input'];
+  permissionExpression?: InputMaybe<Scalars['String']['input']>;
   tags?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
+
+export type MutationUpdateAutomationWorkflowProjectWorkflowArgs = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  label: Scalars['String']['input'];
+  workflowUuid: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateAutomationWorkflowProjectWorkflowPermissionExpressionArgs = {
+  permissionExpression?: InputMaybe<Scalars['String']['input']>;
+  workflowUuid: Scalars['ID']['input'];
 };
 
 
