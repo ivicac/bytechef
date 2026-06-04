@@ -159,3 +159,12 @@ export interface CodePayloadI {
     code: string;
     [key: string]: string;
 }
+
+export type ApiFetch = <T>(
+    endpoint: string,
+    options?: {
+        method?: 'GET' | 'POST' | 'PUT' | 'DELETE';
+        body?: object;
+        headers?: Record<string, string>;
+    }
+) => Promise<T>;
