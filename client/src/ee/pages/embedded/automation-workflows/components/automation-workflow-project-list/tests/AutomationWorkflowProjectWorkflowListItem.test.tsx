@@ -19,6 +19,7 @@ const renderRow = () =>
             <ul>
                 <AutomationWorkflowProjectWorkflowListItem
                     onDeleteWorkflow={vi.fn()}
+                    onEditWorkflow={vi.fn()}
                     onSelectWorkflow={vi.fn()}
                     workflow={workflow}
                 />
