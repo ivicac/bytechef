@@ -410,3 +410,71 @@ describe('useConnectDialog - Navigation', () => {
         );
     });
 });
+
+describe('useConnectDialog - group-member persistence', () => {
+    beforeEach(() => {
+        vi.useFakeTimers();
+        vi.spyOn(console, 'error').mockImplementation(() => {});
+    });
+
+    afterEach(() => {
+        vi.runOnlyPendingTimers();
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+    });
+
+    it('passes apiFetch, integrationInstanceId and a working group handler that PUTs a nested object', async () => {
+        const workflowUuid = '11111111-1111-1111-1111-111111111111';
+
+        global.fetch = vi.fn().mockResolvedValue({
+            ok: true,
+            headers: {get: () => '0'},
+            json: vi.fn().mockResolvedValue({
+                name: 'Test Integration',
+                workflows: [{label: 'Workflow 1', workflowUuid}],
+                integrationInstances: [{id: 55, workflows: [{enabled: true, workflowUuid}]}],
+            }),
+        });
+
+        const renderMock = vi.fn();
+
+        vi.mocked(createRoot).mockReturnValue({
+            render: renderMock,
+            unmount: vi.fn(),
+        });
+
+        const {result} = renderHook(() =>
+            useConnectDialog({
+                baseUrl: 'https://api.example.com',
+                environment: 'DEVELOPMENT',
+                integrationId: '1234',
+                integrationInstanceId: '55',
+                jwtToken: 'ey',
+            })
+        );
+
+        await act(async () => result.current.openDialog());
+
+        const props = renderMock.mock.calls[renderMock.mock.calls.length - 1][0].props;
+
+        expect(props.integrationInstanceId).toBe(55);
+        expect(typeof props.apiFetch).toBe('function');
+        expect(typeof props.handleWorkflowGroupInputChange).toBe('function');
+
+        vi.mocked(global.fetch).mockClear();
+
+        act(() => props.handleWorkflowGroupInputChange(workflowUuid, 'channel', 'channelId', 'C1'));
+
+        await act(async () => {
+            vi.advanceTimersByTime(600);
+        });
+
+        expect(global.fetch).toHaveBeenCalledWith(
+            `https://api.example.com/api/embedded/v1/integration-instances/55/workflows/${workflowUuid}`,
+            expect.objectContaining({
+                method: 'PUT',
+                body: JSON.stringify({inputs: {channel: {channelId: 'C1'}}}),
+            })
+        );
+    });
+});
