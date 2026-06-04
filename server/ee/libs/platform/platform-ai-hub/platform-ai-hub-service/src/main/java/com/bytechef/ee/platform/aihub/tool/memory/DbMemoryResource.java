@@ -8,6 +8,7 @@
 package com.bytechef.ee.platform.aihub.tool.memory;
 
 import com.bytechef.platform.ai.auto.memory.AiAutoMemory;
+import com.bytechef.platform.ai.auto.memory.AiAutoMemoryPrincipalType;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryService;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryType;
 import com.bytechef.platform.ai.auto.memory.DuplicateAiAutoMemoryNameException;
@@ -56,13 +57,14 @@ final class DbMemoryResource extends AbstractResource implements WritableResourc
 
     @Override
     public boolean exists() {
-        return aiAutoMemoryService.read(workspaceId, userId, environment, name)
+        return aiAutoMemoryService.read(workspaceId, AiAutoMemoryPrincipalType.USER, userId, environment, name)
             .isPresent();
     }
 
     @Override
     public InputStream getInputStream() throws IOException {
-        AiAutoMemory memory = aiAutoMemoryService.read(workspaceId, userId, environment, name)
+        AiAutoMemory memory = aiAutoMemoryService
+            .read(workspaceId, AiAutoMemoryPrincipalType.USER, userId, environment, name)
             .orElseThrow(() -> new IOException("Memory not found: " + name));
 
         String rendered = AutoMemoryFrontmatter.render(
@@ -90,15 +92,18 @@ final class DbMemoryResource extends AbstractResource implements WritableResourc
         String title = parsed.title() != null && !parsed.title()
             .isBlank() ? parsed.title() : name;
 
-        Optional<AiAutoMemory> existing = aiAutoMemoryService.read(workspaceId, userId, environment, name);
+        Optional<AiAutoMemory> existing =
+            aiAutoMemoryService.read(workspaceId, AiAutoMemoryPrincipalType.USER, userId, environment, name);
 
         try {
             if (existing.isPresent()) {
                 aiAutoMemoryService.update(
-                    workspaceId, userId, environment, name, title, parsed.description(), memoryType, parsed.content());
+                    workspaceId, AiAutoMemoryPrincipalType.USER, userId, environment, name, title,
+                    parsed.description(), memoryType, parsed.content());
             } else {
                 aiAutoMemoryService.create(
-                    workspaceId, userId, environment, name, title, parsed.description(), memoryType, parsed.content());
+                    workspaceId, AiAutoMemoryPrincipalType.USER, userId, environment, name, title,
+                    parsed.description(), memoryType, parsed.content());
             }
         } catch (DuplicateAiAutoMemoryNameException exception) {
             throw new IOException(exception.getMessage(), exception);

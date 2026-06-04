@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemory;
+import com.bytechef.platform.ai.auto.memory.AiAutoMemoryPrincipalType;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryService;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryType;
 import java.util.List;
@@ -40,7 +41,7 @@ class DbAutoMemorySeamTest {
 
     @Test
     void testDirectoryOpsExistsDelegatesToRead() {
-        when(aiAutoMemoryService.read(1L, 2L, 0, "note"))
+        when(aiAutoMemoryService.read(1L, AiAutoMemoryPrincipalType.USER, 2L, 0, "note"))
             .thenReturn(Optional.of(mock(AiAutoMemory.class)));
 
         DbAutoMemoryDirectoryOps directoryOps = new DbAutoMemoryDirectoryOps(aiAutoMemoryService);
@@ -54,7 +55,7 @@ class DbAutoMemorySeamTest {
 
         directoryOps.delete("note.md", toolContext());
 
-        verify(aiAutoMemoryService).delete(1L, 2L, 0, "note");
+        verify(aiAutoMemoryService).delete(1L, AiAutoMemoryPrincipalType.USER, 2L, 0, "note");
     }
 
     @Test
@@ -63,7 +64,7 @@ class DbAutoMemorySeamTest {
 
         directoryOps.rename("old.md", "new.md", toolContext());
 
-        verify(aiAutoMemoryService).rename(1L, 2L, 0, "old", "new");
+        verify(aiAutoMemoryService).rename(1L, AiAutoMemoryPrincipalType.USER, 2L, 0, "old", "new");
     }
 
     @Test
@@ -74,7 +75,7 @@ class DbAutoMemorySeamTest {
         when(memory.getTitle()).thenReturn("User Profile");
         when(memory.getMemoryType()).thenReturn(AiAutoMemoryType.USER);
         when(memory.getDescription()).thenReturn("who the user is");
-        when(aiAutoMemoryService.listByUserAndWorkspace(1L, 2L, 0))
+        when(aiAutoMemoryService.listByPrincipalAndWorkspace(1L, AiAutoMemoryPrincipalType.USER, 2L, 0))
             .thenReturn(List.of(memory));
 
         DbAutoMemoryDirectoryOps directoryOps = new DbAutoMemoryDirectoryOps(aiAutoMemoryService);
@@ -88,7 +89,7 @@ class DbAutoMemorySeamTest {
 
     @Test
     void testResolverWritesCreateThroughService() throws Exception {
-        when(aiAutoMemoryService.read(1L, 2L, 0, "user_profile"))
+        when(aiAutoMemoryService.read(1L, AiAutoMemoryPrincipalType.USER, 2L, 0, "user_profile"))
             .thenReturn(Optional.empty());
 
         DbMemoryResourceResolver resolver = new DbMemoryResourceResolver(aiAutoMemoryService);
@@ -103,8 +104,8 @@ class DbAutoMemorySeamTest {
         }
 
         verify(aiAutoMemoryService).create(
-            eq(1L), eq(2L), eq(0), eq("user_profile"), eq("User Profile"), eq("who"), eq(AiAutoMemoryType.USER),
-            eq("body"));
+            eq(1L), eq(AiAutoMemoryPrincipalType.USER), eq(2L), eq(0), eq("user_profile"), eq("User Profile"),
+            eq("who"), eq(AiAutoMemoryType.USER), eq("body"));
     }
 
     @Test

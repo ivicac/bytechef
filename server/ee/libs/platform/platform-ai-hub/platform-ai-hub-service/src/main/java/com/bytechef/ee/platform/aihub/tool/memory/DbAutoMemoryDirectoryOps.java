@@ -10,6 +10,7 @@ package com.bytechef.ee.platform.aihub.tool.memory;
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
 import com.bytechef.platform.ai.agent.memory.AutoMemoryDirectoryOps;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemory;
+import com.bytechef.platform.ai.auto.memory.AiAutoMemoryPrincipalType;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
@@ -17,8 +18,8 @@ import org.springframework.ai.chat.model.ToolContext;
 
 /**
  * {@link AutoMemoryDirectoryOps} backed by {@link AiAutoMemoryService}. The "index" (MEMORY.md) is synthesized from
- * {@link AiAutoMemoryService#listByUserAndWorkspace} rather than stored — the DB is the source of truth, so there is no
- * standalone index file to maintain.
+ * {@link AiAutoMemoryService#listByPrincipalAndWorkspace} rather than stored — the DB is the source of truth, so there
+ * is no standalone index file to maintain.
  *
  * @version ee
  *
@@ -37,8 +38,9 @@ public class DbAutoMemoryDirectoryOps implements AutoMemoryDirectoryOps {
     public String list(String path, ToolContext toolContext) {
         AiHubToolInvocationContext context = resolve(toolContext);
 
-        List<AiAutoMemory> memories = aiAutoMemoryService.listByUserAndWorkspace(
-            context.workspaceId(), context.userId(), AiHubToolInvocationContext.resolveEnvironmentOrDefault(context));
+        List<AiAutoMemory> memories = aiAutoMemoryService.listByPrincipalAndWorkspace(
+            context.workspaceId(), AiAutoMemoryPrincipalType.USER, context.userId(),
+            AiHubToolInvocationContext.resolveEnvironmentOrDefault(context));
 
         if (memories.isEmpty()) {
             return "MEMORY index is empty. Create entries with MemoryCreate.";
@@ -76,7 +78,7 @@ public class DbAutoMemoryDirectoryOps implements AutoMemoryDirectoryOps {
         AiHubToolInvocationContext context = resolve(toolContext);
 
         return aiAutoMemoryService.read(
-            context.workspaceId(), context.userId(),
+            context.workspaceId(), AiAutoMemoryPrincipalType.USER, context.userId(),
             AiHubToolInvocationContext.resolveEnvironmentOrDefault(context),
             AutoMemoryToolSupport.toMemoryName(relativePath))
             .isPresent();
@@ -87,7 +89,7 @@ public class DbAutoMemoryDirectoryOps implements AutoMemoryDirectoryOps {
         AiHubToolInvocationContext context = resolve(toolContext);
 
         aiAutoMemoryService.delete(
-            context.workspaceId(), context.userId(),
+            context.workspaceId(), AiAutoMemoryPrincipalType.USER, context.userId(),
             AiHubToolInvocationContext.resolveEnvironmentOrDefault(context),
             AutoMemoryToolSupport.toMemoryName(relativePath));
     }
@@ -97,7 +99,7 @@ public class DbAutoMemoryDirectoryOps implements AutoMemoryDirectoryOps {
         AiHubToolInvocationContext context = resolve(toolContext);
 
         aiAutoMemoryService.rename(
-            context.workspaceId(), context.userId(),
+            context.workspaceId(), AiAutoMemoryPrincipalType.USER, context.userId(),
             AiHubToolInvocationContext.resolveEnvironmentOrDefault(context),
             AutoMemoryToolSupport.toMemoryName(oldRelativePath), AutoMemoryToolSupport.toMemoryName(newRelativePath));
     }
