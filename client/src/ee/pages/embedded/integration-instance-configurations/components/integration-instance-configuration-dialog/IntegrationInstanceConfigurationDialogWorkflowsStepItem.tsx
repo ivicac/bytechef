@@ -41,9 +41,7 @@ const IntegrationInstanceConfigurationDialogWorkflowsStepItem = ({
 
     // Inputs referencing the integration's own component (e.g. a Slack input on a Slack integration) are configured
     // through the connect flow, not here, so exclude them from the instance configuration form.
-    const inputs = (workflow.inputs ?? []).filter(
-        (input) => input.componentReference?.componentName !== componentName
-    );
+    const inputs = (workflow.inputs ?? []).filter((input) => input.componentReference?.componentName !== componentName);
 
     const watchedConnections = useWatch({
         control,

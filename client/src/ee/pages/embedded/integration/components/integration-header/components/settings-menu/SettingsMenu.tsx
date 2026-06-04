@@ -130,7 +130,10 @@ const SettingsMenu = ({integration, updateWorkflowMutation, workflow}: Integrati
                     onClose={() => setShowEditWorkflowDialog(false)}
                     onSave={() =>
                         queryClient.invalidateQueries({
-                            queryKey: IntegrationWorkflowKeys.integrationWorkflow(integration.id!, parseInt(workflow.id!)),
+                            queryKey: IntegrationWorkflowKeys.integrationWorkflow(
+                                integration.id!,
+                                parseInt(workflow.id!)
+                            ),
                         })
                     }
                     updateWorkflowMutation={updateWorkflowMutation}
