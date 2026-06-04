@@ -19,6 +19,7 @@ package com.bytechef.component.ai.agent.utils;
 import static com.bytechef.component.definition.ComponentDsl.component;
 
 import com.bytechef.component.ComponentHandler;
+import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsAgentClientTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsAskUserQuestionTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsBraveWebSearchTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsFileSystemTools;
@@ -55,6 +56,7 @@ public class AiAgentUtilsComponentHandler implements ComponentHandler {
         AiAgentUtilsTaskTool agentUtilsTaskTool = new AiAgentUtilsTaskTool(clusterElementDefinitionService);
 
         List<ClusterElementDefinition<?>> clusterElements = new ArrayList<>(List.of(
+            AiAgentUtilsAgentClientTool.CLUSTER_ELEMENT_DEFINITION,
             AiAgentUtilsAskUserQuestionTool.CLUSTER_ELEMENT_DEFINITION,
             AiAgentUtilsFileSystemTools.CLUSTER_ELEMENT_DEFINITION,
             AiAgentUtilsShellTools.CLUSTER_ELEMENT_DEFINITION,
