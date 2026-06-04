@@ -58,13 +58,10 @@ describe('ConnectDialog dynamic inputs', () => {
 
         render(<ConnectDialog {...baseProps} apiFetch={apiFetch} mergedWorkflows={mergedWorkflows} />);
 
-        expect(apiFetch).toHaveBeenCalledWith(
-            '/api/embedded/v1/integration-instances/1/workflows/wf-1/options',
-            {
-                body: {inputName: 'channel', lookupDependsOnValues: {}, propertyName: 'channelId'},
-                method: 'POST',
-            }
-        );
+        expect(apiFetch).toHaveBeenCalledWith('/api/embedded/v1/integration-instances/1/workflows/wf-1/options', {
+            body: {inputName: 'channel', lookupDependsOnValues: {}, propertyName: 'channelId'},
+            method: 'POST',
+        });
 
         expect(await screen.findByText('General')).toBeTruthy();
         expect(await screen.findByText('Random')).toBeTruthy();
@@ -203,13 +200,10 @@ describe('ConnectDialog dynamic inputs', () => {
 
         rerender(<ConnectDialog {...baseProps} apiFetch={apiFetch} mergedWorkflows={buildWorkflows('W1')} />);
 
-        expect(apiFetch).toHaveBeenCalledWith(
-            '/api/embedded/v1/integration-instances/1/workflows/wf-3/options',
-            {
-                body: {inputName: 'channel', lookupDependsOnValues: {workspace: 'W1'}, propertyName: 'channelId'},
-                method: 'POST',
-            }
-        );
+        expect(apiFetch).toHaveBeenCalledWith('/api/embedded/v1/integration-instances/1/workflows/wf-3/options', {
+            body: {inputName: 'channel', lookupDependsOnValues: {workspace: 'W1'}, propertyName: 'channelId'},
+            method: 'POST',
+        });
     });
 
     it('falls back to a plain text input when a component reference has no resolved group', () => {
@@ -272,13 +266,10 @@ describe('ConnectDialog dynamic inputs', () => {
             />
         );
 
-        expect(apiFetch).toHaveBeenCalledWith(
-            '/api/embedded/v1/integration-instances/1/workflows/mcp-wf-1/options',
-            {
-                body: {inputName: 'channel', lookupDependsOnValues: {}, propertyName: 'channelId'},
-                method: 'POST',
-            }
-        );
+        expect(apiFetch).toHaveBeenCalledWith('/api/embedded/v1/integration-instances/1/workflows/mcp-wf-1/options', {
+            body: {inputName: 'channel', lookupDependsOnValues: {}, propertyName: 'channelId'},
+            method: 'POST',
+        });
 
         expect(await screen.findByText('General')).toBeTruthy();
 

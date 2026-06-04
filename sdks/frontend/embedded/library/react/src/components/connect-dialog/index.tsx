@@ -124,9 +124,9 @@ export default function useConnectDialog({
         Record<string, Record<string, string | Record<string, string>>>
     >({});
     const [mcpToolEnabledOverrides, setMcpToolEnabledOverrides] = useState<Record<number, boolean | undefined>>({});
-    const [mcpWorkflowEnabledOverrides, setMcpWorkflowEnabledOverrides] = useState<
-        Record<string, boolean | undefined>
-    >({});
+    const [mcpWorkflowEnabledOverrides, setMcpWorkflowEnabledOverrides] = useState<Record<string, boolean | undefined>>(
+        {}
+    );
     const [mcpWorkflowInputOverrides, setMcpWorkflowInputOverrides] = useState<
         Record<string, Record<string, string | Record<string, string>>>
     >({});
@@ -273,13 +273,12 @@ export default function useConnectDialog({
                     }
                 );
 
-                const integrationData: IntegrationType = await fetch(
-                    `/api/embedded/v1/integrations/${integrationId}`
-                );
+                const integrationData: IntegrationType = await fetch(`/api/embedded/v1/integrations/${integrationId}`);
 
-                const createdInstance = integrationData.integrationInstances?.find(
-                    (instance) => instance.id === newIntegrationInstanceId
-                ) || integrationData.integrationInstances?.[0];
+                const createdInstance =
+                    integrationData.integrationInstances?.find(
+                        (instance) => instance.id === newIntegrationInstanceId
+                    ) || integrationData.integrationInstances?.[0];
 
                 if (createdInstance) {
                     setCurrentIntegrationInstanceId(createdInstance.id);
@@ -309,13 +308,12 @@ export default function useConnectDialog({
                     }
                 );
 
-                const integrationData: IntegrationType = await fetch(
-                    `/api/embedded/v1/integrations/${integrationId}`
-                );
+                const integrationData: IntegrationType = await fetch(`/api/embedded/v1/integrations/${integrationId}`);
 
-                const createdInstance = integrationData.integrationInstances?.find(
-                    (instance) => instance.id === newIntegrationInstanceId
-                ) || integrationData.integrationInstances?.[0];
+                const createdInstance =
+                    integrationData.integrationInstances?.find(
+                        (instance) => instance.id === newIntegrationInstanceId
+                    ) || integrationData.integrationInstances?.[0];
 
                 if (createdInstance) {
                     setCurrentIntegrationInstanceId(createdInstance.id);
@@ -814,15 +812,12 @@ export default function useConnectDialog({
                         ...mcpWorkflowInputOverridesRef.current[workflowUuid],
                     };
 
-                    void fetch(
-                        `/api/embedded/v1/integration-instances/${instanceId}/mcp-workflows/${workflowUuid}`,
-                        {
-                            body: {
-                                inputs: mergedInputs,
-                            },
-                            method: 'PUT',
-                        }
-                    ).catch((error) => console.error('Failed to save MCP workflow inputs:', error));
+                    void fetch(`/api/embedded/v1/integration-instances/${instanceId}/mcp-workflows/${workflowUuid}`, {
+                        body: {
+                            inputs: mergedInputs,
+                        },
+                        method: 'PUT',
+                    }).catch((error) => console.error('Failed to save MCP workflow inputs:', error));
                 }, 600);
             }
 
