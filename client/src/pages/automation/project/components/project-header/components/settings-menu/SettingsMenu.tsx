@@ -18,8 +18,10 @@ import WorkflowDialog from '@/shared/components/workflow/WorkflowDialog';
 import {useHasProjectScope} from '@/shared/hooks/useHasProjectScope';
 import {useLoadProjectPermissions} from '@/shared/hooks/useLoadProjectPermissions';
 import {Project, Workflow} from '@/shared/middleware/automation/configuration';
+import {ProjectWorkflowKeys} from '@/shared/queries/automation/projectWorkflows.queries';
 import {useGetWorkflowQuery} from '@/shared/queries/automation/workflows.queries';
 import {UpdateWorkflowMutationType} from '@/shared/types';
+import {useQueryClient} from '@tanstack/react-query';
 import {SettingsIcon} from 'lucide-react';
 import {useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
@@ -47,6 +49,8 @@ const SettingsMenu = ({project, updateWorkflowMutation, workflow}: ProjectHeader
             showEditWorkflowDialog: state.showEditWorkflowDialog,
         }))
     );
+
+    const queryClient = useQueryClient();
 
     // Prime the permission store with this project's scopes so downstream gating (Members, delete, etc.) resolves
     // without each child component firing its own query.
@@ -157,7 +161,11 @@ const SettingsMenu = ({project, updateWorkflowMutation, workflow}: ProjectHeader
             {showEditWorkflowDialog && (
                 <WorkflowDialog
                     onClose={() => setShowEditWorkflowDialog(false)}
-                    projectId={project.id}
+                    onSave={() =>
+                        queryClient.invalidateQueries({
+                            queryKey: ProjectWorkflowKeys.projectWorkflow(project.id!, parseInt(workflow.id!)),
+                        })
+                    }
                     updateWorkflowMutation={updateWorkflowMutation}
                     useGetWorkflowQuery={useGetWorkflowQuery}
                     workflowId={workflow.id!}

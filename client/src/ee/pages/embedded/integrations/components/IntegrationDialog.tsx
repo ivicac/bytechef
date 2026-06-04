@@ -27,11 +27,10 @@ import {
 import {IntegrationTagKeys, useGetIntegrationTagsQuery} from '@/ee/shared/queries/embedded/integrationTags.quries';
 import {IntegrationKeys} from '@/ee/shared/queries/embedded/integrations.queries';
 import {useAnalytics} from '@/shared/hooks/useAnalytics';
-import {useIntegrationByIdQuery, useUpdateIntegrationPermissionExpressionMutation} from '@/shared/middleware/graphql';
 import {ComponentDefinitionBasic} from '@/shared/middleware/platform/configuration';
 import {useQueryClient} from '@tanstack/react-query';
 import CreatableSelect from 'components/CreatableSelect/CreatableSelect';
-import {ReactNode, useEffect, useState} from 'react';
+import {ReactNode, useState} from 'react';
 import {useForm} from 'react-hook-form';
 
 interface IntegrationDialogProps {
@@ -47,11 +46,6 @@ const IntegrationDialog = ({integration, onClose, triggerNode}: IntegrationDialo
 
     const {captureIntegrationCreated} = useAnalytics();
 
-    const {data: integrationByIdData} = useIntegrationByIdQuery(
-        {id: String(integration?.id)},
-        {enabled: !!integration?.id}
-    );
-
     const form = useForm<IntegrationFormValuesType>({
         defaultValues: {
             category: integration?.category
@@ -64,7 +58,7 @@ const IntegrationDialog = ({integration, onClose, triggerNode}: IntegrationDialo
             description: integration?.description || '',
             multipleInstances: false,
             name: integration?.name || '',
-            permissionExpression: '',
+            permissionExpression: integration?.permissionExpression ?? '',
             tags:
                 integration?.tags?.map((tag: Tag) => ({
                     ...tag,
@@ -86,20 +80,11 @@ const IntegrationDialog = ({integration, onClose, triggerNode}: IntegrationDialo
     const onSuccess = (integrationId: number | void) => {
         captureIntegrationCreated();
 
-        if (!integrationId && integration) {
-            integrationId = integration.id!;
-        }
+        const id = integrationId || integration?.id;
 
-        if (integrationId) {
-            const permissionExpression = getValues().permissionExpression;
-
-            updateIntegrationPermissionExpressionMutation.mutate({
-                id: String(integrationId),
-                permissionExpression: permissionExpression || null,
-            });
-
+        if (id) {
             queryClient.invalidateQueries({
-                queryKey: IntegrationKeys.integration(integrationId),
+                queryKey: IntegrationKeys.integration(id),
             });
         }
 
@@ -124,19 +109,9 @@ const IntegrationDialog = ({integration, onClose, triggerNode}: IntegrationDialo
         onSuccess,
     });
 
-    const updateIntegrationPermissionExpressionMutation = useUpdateIntegrationPermissionExpressionMutation();
-
     const tagNames = integration?.tags?.map((tag) => tag.name);
 
     const remainingTags = tags?.filter((tag) => !tagNames?.includes(tag.name));
-
-    useEffect(() => {
-        const permissionExpression = integrationByIdData?.integration?.permissionExpression;
-
-        if (permissionExpression != null) {
-            setValue('permissionExpression', permissionExpression);
-        }
-    }, [integrationByIdData, setValue]);
 
     function closeDialog() {
         reset();
@@ -161,16 +136,20 @@ const IntegrationDialog = ({integration, onClose, triggerNode}: IntegrationDialo
 
         const category = formData?.category?.name ? formData?.category : undefined;
 
+        const permissionExpression = formData.permissionExpression?.trim() || undefined;
+
         if (integration?.id) {
             updateIntegrationMutation.mutate({
                 ...integration,
                 ...formData,
                 category,
+                permissionExpression,
             } as Integration);
         } else {
             createIntegrationMutation.mutate({
                 ...formData,
                 category,
+                permissionExpression,
                 tags: tagValues,
             } as Integration);
         }

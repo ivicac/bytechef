@@ -1,7 +1,0 @@
-query integrationById($id: ID!) {
-    integration(id: $id) {
-        id
-        name
-        permissionExpression
-    }
-}
