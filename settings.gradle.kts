@@ -36,7 +36,6 @@ include("cli:commands:component:init:openapi")
 
 include("server:apps:server-app")
 
-include("server:libs:platform:platform-ai:platform-ai-tool-api")
 include("server:ee:libs:platform:platform-ai:platform-ai-llm-usage:platform-ai-llm-usage-api")
 include("server:ee:libs:platform:platform-ai:platform-ai-llm-usage:platform-ai-llm-usage-service")
 include("server:ee:libs:platform:platform-ai:platform-ai-prompt:platform-ai-prompt-api")

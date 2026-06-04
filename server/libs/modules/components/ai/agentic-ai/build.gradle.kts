@@ -13,7 +13,6 @@ dependencies {
     implementation("com.embabel.agent:embabel-agent-starter-platform:0.3.5")
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
     implementation("org.springframework:spring-context")
-    implementation(project(":server:libs:platform:platform-ai:platform-ai-tool-api"))
     implementation(project(":server:libs:core:commons:commons-util"))
     implementation(project(":server:libs:core:evaluator:evaluator-api"))
 
