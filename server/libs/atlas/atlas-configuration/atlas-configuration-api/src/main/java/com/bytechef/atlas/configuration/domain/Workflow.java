@@ -177,7 +177,8 @@ public final class Workflow implements Persistable<String>, Serializable {
                                 : new ComponentInputReference(
                                     componentName,
                                     MapUtils.getInteger(map, WorkflowConstants.COMPONENT_VERSION),
-                                    MapUtils.getString(map, WorkflowConstants.GROUP_NAME)));
+                                    MapUtils.getString(map, WorkflowConstants.GROUP_NAME)),
+                            MapUtils.getString(map, WorkflowConstants.OBJECT_NAME));
                     });
             } else if (WorkflowConstants.LABEL.equals(entry.getKey())) {
                 this.label = MapUtils.getString(sourceMap, WorkflowConstants.LABEL);
@@ -410,10 +411,16 @@ public final class Workflow implements Persistable<String>, Serializable {
 
     public record Input(
         String name, String label, String type, boolean required,
-        ComponentInputReference componentReference) implements Serializable {
+        ComponentInputReference componentReference, String objectName) implements Serializable {
 
         public Input(String name, String label, String type, boolean required) {
-            this(name, label, type, required, null);
+            this(name, label, type, required, null, null);
+        }
+
+        public Input(
+            String name, String label, String type, boolean required, ComponentInputReference componentReference) {
+
+            this(name, label, type, required, componentReference, null);
         }
     }
 

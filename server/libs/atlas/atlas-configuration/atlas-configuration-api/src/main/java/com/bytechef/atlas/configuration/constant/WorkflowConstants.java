@@ -40,6 +40,7 @@ public class WorkflowConstants {
     public static final String METADATA = "metadata";
     public static final String NAME = "name";
     public static final String NODE = "node";
+    public static final String OBJECT_NAME = "objectName";
     public static final String OUTPUTS = "outputs";
     public static final String PARAMETERS = "parameters";
     public static final String PATH = "path";
@@ -56,5 +57,5 @@ public class WorkflowConstants {
 
     public static final List<String> WORKFLOW_DEFINITION_CONSTANTS = List.of(
         COMPONENT_NAME, COMPONENT_VERSION, DEFAULT, DESCRIPTION, FINALIZE, GROUP_NAME, INPUTS, LABEL, METADATA, NAME,
-        NODE, OUTPUTS, PARAMETERS, POST, PRE, MAX_RETRIES, REQUIRED, TASKS, TIMEOUT, TYPE, VALUE);
+        NODE, OBJECT_NAME, OUTPUTS, PARAMETERS, POST, PRE, MAX_RETRIES, REQUIRED, TASKS, TIMEOUT, TYPE, VALUE);
 }
