@@ -44,7 +44,6 @@ import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Primary;
 import org.springframework.security.config.annotation.web.HttpSecurityBuilder;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.web.servlet.function.RouterFunction;
@@ -101,7 +100,7 @@ public class ManagementMcpServerConfiguration {
     }
 
     @Bean
-    McpAsyncServer mcpAsyncServer(ToolCallbackProvider toolCallbackProvider) {
+    McpAsyncServer mcpAsyncServer() {
         return McpServer.async(webMvcStreamableHttpServerTransportProvider())
             .serverInfo("mcp-server", "1.0.0")
             .capabilities(
@@ -111,16 +110,22 @@ public class ManagementMcpServerConfiguration {
                     .prompts(true)
                     .logging()
                     .build())
-            .tools(McpToolUtils.toAsyncToolSpecifications(toolCallbackProvider.getToolCallbacks()))
+            .tools(McpToolUtils.toAsyncToolSpecifications(toolCallbackProvider().getToolCallbacks()))
             .build();
     }
 
     /**
      * Direct CE CRUD tools plus every contributed callback. EE deployments contribute the Copilot subagent agent-tools
      * (and SkillsTools) via {@link McpToolCallbackContributor}; CE-only deployments expose just the direct tools.
+     * <p>
+     * Intentionally NOT a Spring bean. Spring AI's {@code ToolCallingAutoConfiguration.toolCallbackResolver} harvests
+     * every {@link ToolCallbackProvider} bean in the context (except the framework's own MCP-client providers) and
+     * folds their callbacks into the global tool-calling graph that backs every {@code ChatModel}. The EE contributor
+     * adds Copilot subagent agent-tools that wrap {@code ChatClient}s built on that same {@code ChatModel}, so
+     * publishing this as a bean creates a {@code ChatModel -> ToolCallingManager -> ToolCallbackResolver -> this
+     * provider -> subagent ChatClient -> ChatModel} cycle. These callbacks belong to the MCP endpoint only, so they are
+     * built inline for {@link #mcpAsyncServer()} instead.
      */
-    @Bean
-    @Primary
     ToolCallbackProvider toolCallbackProvider() {
         List<Object> tools = List.of(
             projectTools, projectWorkflowTools, componentTools, taskTools, taskDispatcherTools, scriptTools,

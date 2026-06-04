@@ -28,12 +28,14 @@ import com.bytechef.ai.mcp.tool.automation.ScriptTools;
 import com.bytechef.ai.mcp.tool.platform.ComponentTools;
 import com.bytechef.ai.mcp.tool.platform.TaskDispatcherTools;
 import com.bytechef.ai.mcp.tool.platform.TaskTools;
+import java.lang.reflect.Method;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.context.annotation.Bean;
 
 class ManagementMcpServerToolCallbackProviderTest {
 
@@ -75,5 +77,29 @@ class ManagementMcpServerToolCallbackProviderTest {
         ToolCallbackProvider provider = configuration.toolCallbackProvider();
 
         assertThat(provider.getToolCallbacks()).isNotNull();
+    }
+
+    /**
+     * Regression guard for the application-context startup cycle. The MCP tool callbacks must NOT be published as a
+     * {@link ToolCallbackProvider} Spring bean: Spring AI's {@code ToolCallingAutoConfiguration} harvests every such
+     * bean into the global tool-calling graph that backs every {@code ChatModel}, and the EE contributor adds Copilot
+     * subagent agent-tools that wrap {@code ChatClient}s built on that same {@code ChatModel} — closing a
+     * {@code ChatModel -> ToolCallingManager -> ToolCallbackResolver -> this provider -> subagent ChatClient ->
+     * ChatModel} cycle. The callbacks are built inline for {@code mcpAsyncServer} instead.
+     */
+    @Test
+    void toolCallbackProviderIsNotPublishedAsBean() throws NoSuchMethodException {
+        Method toolCallbackProviderMethod = ManagementMcpServerConfiguration.class.getDeclaredMethod(
+            "toolCallbackProvider");
+
+        assertThat(toolCallbackProviderMethod.isAnnotationPresent(Bean.class))
+            .as("toolCallbackProvider() must not be a @Bean or the ChatModel tool-calling cycle returns")
+            .isFalse();
+
+        Method mcpAsyncServerMethod = ManagementMcpServerConfiguration.class.getDeclaredMethod("mcpAsyncServer");
+
+        assertThat(mcpAsyncServerMethod.isAnnotationPresent(Bean.class))
+            .as("mcpAsyncServer() must remain a @Bean so the MCP endpoint is wired")
+            .isTrue();
     }
 }
