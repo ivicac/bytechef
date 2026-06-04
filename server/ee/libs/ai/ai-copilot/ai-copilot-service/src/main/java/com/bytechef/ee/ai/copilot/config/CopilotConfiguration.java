@@ -298,8 +298,8 @@ public class CopilotConfiguration {
     @Bean
     WorkflowEditorSpringAIAgent workflowEditorBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, ProjectTools projectTools,
-        ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools, ScriptTools scriptTools,
-        WorkflowService workflowService, WorkflowNodeOutputFacade workflowNodeOutputFacade,
+        ProjectWorkflowTools projectWorkflowTools, ComponentTools componentTools, TaskTools taskTools,
+        ScriptTools scriptTools, WorkflowService workflowService, WorkflowNodeOutputFacade workflowNodeOutputFacade,
         ObjectProvider<CopilotChatClientResolver> overrideChatClientResolverProvider)
         throws AGUIException {
 
@@ -313,7 +313,7 @@ public class CopilotConfiguration {
             .state(state)
             .tools(
                 List.of(
-                    projectTools, projectWorkflowTools, taskTools, scriptTools, workflowValidatorTools,
+                    projectTools, projectWorkflowTools, componentTools, taskTools, scriptTools, workflowValidatorTools,
                     workflowInstructionTools))
             .workflowService(workflowService)
             .workflowNodeOutputFacade(workflowNodeOutputFacade)
