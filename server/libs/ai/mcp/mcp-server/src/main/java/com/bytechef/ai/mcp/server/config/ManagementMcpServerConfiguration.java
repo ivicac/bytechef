@@ -17,18 +17,14 @@
 package com.bytechef.ai.mcp.server.config;
 
 import com.bytechef.ai.mcp.server.security.web.configurer.ManagementMcpServerSecurityConfigurer;
+import com.bytechef.ai.mcp.tool.McpToolCallbackContributor;
 import com.bytechef.ai.mcp.tool.automation.ClusterElementTools;
 import com.bytechef.ai.mcp.tool.automation.ProjectTools;
 import com.bytechef.ai.mcp.tool.automation.ProjectWorkflowTools;
 import com.bytechef.ai.mcp.tool.automation.ScriptTools;
-import com.bytechef.ai.mcp.tool.automation.SkillsTools;
-import com.bytechef.ai.mcp.tool.integration.ConnectedUserProjectWorkflowTools;
 import com.bytechef.ai.mcp.tool.platform.ComponentTools;
-import com.bytechef.ai.mcp.tool.platform.FirecrawlTools;
 import com.bytechef.ai.mcp.tool.platform.TaskDispatcherTools;
 import com.bytechef.ai.mcp.tool.platform.TaskTools;
-import com.bytechef.ai.mcp.tool.platform.WorkflowInstructionTools;
-import com.bytechef.ai.mcp.tool.platform.WorkflowValidatorTools;
 import com.bytechef.platform.configuration.service.PropertyService;
 import com.bytechef.platform.security.service.ApiKeyService;
 import com.bytechef.platform.security.web.config.SecurityConfigurerContributor;
@@ -40,10 +36,10 @@ import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.util.ArrayList;
 import java.util.List;
-import org.jspecify.annotations.Nullable;
 import org.springframework.ai.mcp.McpToolUtils;
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcStreamableServerTransportProvider;
 import org.springframework.ai.support.ToolCallbacks;
+import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -57,9 +53,9 @@ import org.springframework.web.servlet.function.ServerResponse;
 /**
  * Configuration for ByteChef MCP Server using Streamable HTTP transport.
  *
- * This configuration provides MCP tools for project and workflow management through Spring AI's auto-configured
- * Streamable HTTP MCP server. The server is automatically configured by spring-ai-starter-mcp-server-webmvc and exposes
- * tools at /api/mcp.
+ * This configuration registers a set of deterministic CE automation/platform tools directly, and folds in any
+ * {@link McpToolCallbackContributor} beans (EE deployments contribute the Copilot subagent agent-tools). The server is
+ * exposed via Streamable HTTP at /api/management/{secretKey}/mcp.
  *
  * @author Ivica Cardic
  */
@@ -68,38 +64,28 @@ import org.springframework.web.servlet.function.ServerResponse;
 public class ManagementMcpServerConfiguration {
 
     private final ComponentTools componentTools;
-    private final @Nullable FirecrawlTools firecrawlTools;
     private final ProjectTools projectTools;
     private final ProjectWorkflowTools projectWorkflowTools;
     private final TaskTools taskTools;
     private final TaskDispatcherTools taskDispatcherTools;
     private final ScriptTools scriptTools;
-    private final SkillsTools skillsTools;
     private final ClusterElementTools clusterElementTools;
-    private final WorkflowValidatorTools workflowValidatorTools;
-    private final WorkflowInstructionTools workflowInstructionTools;
-    private final @Nullable ConnectedUserProjectWorkflowTools connectedUserProjectWorkflowTools;
+    private final List<McpToolCallbackContributor> mcpToolCallbackContributors;
 
     @SuppressFBWarnings("EI")
     public ManagementMcpServerConfiguration(
-        ComponentTools componentTools, @Nullable FirecrawlTools firecrawlTools, ProjectTools projectTools,
-        ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools, TaskDispatcherTools taskDispatcherTools,
-        ScriptTools scriptTools, SkillsTools skillsTools, ClusterElementTools clusterElementTools,
-        WorkflowValidatorTools workflowValidatorTools, WorkflowInstructionTools workflowInstructionTools,
-        @Nullable ConnectedUserProjectWorkflowTools connectedUserProjectWorkflowTools) {
+        ComponentTools componentTools, ProjectTools projectTools, ProjectWorkflowTools projectWorkflowTools,
+        TaskTools taskTools, TaskDispatcherTools taskDispatcherTools, ScriptTools scriptTools,
+        ClusterElementTools clusterElementTools, List<McpToolCallbackContributor> mcpToolCallbackContributors) {
 
         this.componentTools = componentTools;
-        this.firecrawlTools = firecrawlTools;
         this.projectTools = projectTools;
         this.projectWorkflowTools = projectWorkflowTools;
         this.taskTools = taskTools;
         this.taskDispatcherTools = taskDispatcherTools;
         this.scriptTools = scriptTools;
-        this.skillsTools = skillsTools;
         this.clusterElementTools = clusterElementTools;
-        this.workflowValidatorTools = workflowValidatorTools;
-        this.workflowInstructionTools = workflowInstructionTools;
-        this.connectedUserProjectWorkflowTools = connectedUserProjectWorkflowTools;
+        this.mcpToolCallbackContributors = mcpToolCallbackContributors;
     }
 
     @Bean
@@ -130,27 +116,23 @@ public class ManagementMcpServerConfiguration {
     }
 
     /**
-     * Provides tool callbacks for ByteChef automation tools. These tools are automatically registered with the MCP
-     * server by Spring AI's auto-configuration. The MCP server is exposed via Streamable HTTP at /api/mcp endpoint.
+     * Direct CE CRUD tools plus every contributed callback. EE deployments contribute the Copilot subagent agent-tools
+     * (and SkillsTools) via {@link McpToolCallbackContributor}; CE-only deployments expose just the direct tools.
      */
     @Bean
     @Primary
     ToolCallbackProvider toolCallbackProvider() {
-        List<Object> tools = new ArrayList<>(
-            List.of(
-                projectTools, projectWorkflowTools, componentTools, taskTools, taskDispatcherTools, scriptTools,
-                skillsTools, clusterElementTools, workflowValidatorTools, workflowInstructionTools));
+        List<Object> tools = List.of(
+            projectTools, projectWorkflowTools, componentTools, taskTools, taskDispatcherTools, scriptTools,
+            clusterElementTools);
 
-        if (firecrawlTools != null) {
-            tools.add(firecrawlTools);
+        List<ToolCallback> toolCallbacks = new ArrayList<>(List.of(ToolCallbacks.from(tools.toArray())));
+
+        for (McpToolCallbackContributor contributor : mcpToolCallbackContributors) {
+            toolCallbacks.addAll(contributor.getToolCallbacks());
         }
 
-        if (connectedUserProjectWorkflowTools != null) {
-            tools.add(connectedUserProjectWorkflowTools);
-        }
-
-        return ToolCallbackProvider.from(
-            new ArrayList<>(List.of(ToolCallbacks.from(tools.toArray()))));
+        return ToolCallbackProvider.from(toolCallbacks);
     }
 
     @Bean
