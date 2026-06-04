@@ -1,4 +1,4 @@
-# AI Hub persistent tool-search catalog for global static tools
+# AI Hub persistent tool-search catalog (static tools + cluster-element activation)
 
 **Date:** 2026-06-04
 **Status:** Design — pending review
@@ -13,13 +13,17 @@ variants for ASK mode) as first-class AI Hub tools — but deliver them through 
 **persistent, embed-once tool-search catalog** instead of per-request static tool
 callbacks, so they are not re-embedded on every user turn.
 
-This folds together two pieces of work:
+This folds together three pieces of work:
 
 - **A — capability:** give the AI Hub agents direct access to project / workflow /
   component / task tools (closing the gap where AI Hub could only reach
   `listProjects` indirectly through the `workflow_editor_agent` subagent).
 - **B — performance/infra:** embed those tools once at startup into a persistent
-  search session rather than relying on the advisor's per-turn self-indexing.
+  search session rather than relying on the advisor's per-turn self-indexing (which,
+  with `VectorToolSearcher`, re-embeds every registered tool on every user turn).
+- **C — activate the dormant catalog:** wire search to read the cluster-element
+  Workspace catalog (`CATALOG_SESSION_ID`), which the feeder already pre-embeds but
+  which nothing currently queries, so component-action tools become discoverable.
 
 ## Background — verified current behavior
 
@@ -72,9 +76,15 @@ cost to zero.
 
 ## Goals
 
-- AI Hub ASK and BUILD agents can discover and execute the full automation/platform
-  tool set via tool search.
-- The global static tools embed **once** at startup (hash-skipped), not per turn.
+Two pieces, sharing one mechanism (search reading persistent sessions):
+
+1. **Static tools embed once.** AI Hub ASK and BUILD agents can discover and execute the
+   full automation/platform tool set via tool search, with those tools embedded **once**
+   at startup (hash-skipped) — never re-embedded per user turn.
+2. **Activate the cluster-element Workspace catalog.** The thousands of component-action
+   (cluster-element) tools the feeder already pre-embeds under `CATALOG_SESSION_ID`
+   become discoverable via search (today they are pre-embedded but never queried).
+
 - Preserve the ASK = read-only / BUILD = read-write boundary.
 - Keep the existing `workflow_editor_agent` (and other subagent) delegation intact —
   these tools are added *alongside* it.
@@ -82,14 +92,15 @@ cost to zero.
 
 ## Non-goals
 
-- **Not** activating the dormant cluster-element workspace catalog or per-task feeder
-  sessions for search. Their current behavior (cluster-element executable callbacks in
-  the advisor's resolver; per-task tools delivered via `additionalToolCallbacks` and
-  self-indexed per turn) is unchanged. (Chosen scope: "dedicated global session only.")
-- **Not** changing how per-task / personal-agent tool subsets are discovered.
+- **Not** changing the per-task / personal-agent tool delivery path: per-task attached
+  tools keep flowing through `additionalToolCallbacks` (self-indexed per turn under the
+  conversation session) with their pinned connection/parameters. The feeder's per-task
+  sessions (`:task:<id>`) remain dormant — out of scope here.
 - **Not** reducing the per-turn embedding cost of the *existing* built-in AI Hub static
-  tools (open-tab, list-data-tables, etc.). Only the new global tool beans move to the
-  persistent catalog. (A future change could migrate the rest.)
+  tools (open-tab, list-data-tables, subagent delegations, etc.). Only the new
+  automation/platform tool beans move to the persistent catalog; the built-ins keep
+  self-indexing per turn. The same `populateGlobalTools` mechanism can migrate them in a
+  follow-up.
 
 ## Why per-mode separation is required (not optional)
 
@@ -104,14 +115,23 @@ session + resolver entries for ASK and for BUILD. This drives the bean split bel
 
 ## Target design
 
-### New persistent sessions
+### Sessions involved per request
 
-- `ai_hub_tool_catalog:global:ask` — ASK-mode global tools (read-only variants +
-  read-only catalogs).
-- `ai_hub_tool_catalog:global:build` — BUILD-mode global tools (full set).
+Three kinds of session feed a search, unioned per request:
 
-Distinct from the existing `CATALOG_SESSION_ID` (cluster elements) and `:task:<id>`
-sessions, which remain untouched.
+- `CATALOG_SESSION_ID` (`ai_hub_tool_catalog`) — the **existing** Workspace catalog of
+  cluster-element component actions, pre-embedded once by `feeder.populate()`. Shared by
+  both modes (component actions have no read/write variants). **Newly wired into search**
+  by this design — it is the dormant catalog being activated.
+- `ai_hub_tool_catalog:global:ask` / `:global:build` — **new** per-mode persistent
+  sessions for the automation/platform tool beans (read-only variants for ASK, full set
+  for BUILD). Pre-embedded once at startup.
+- the per-conversation session (`conversationId` = threadId) — the advisor's existing
+  per-turn self-index, carrying per-task `additionalToolCallbacks` and the existing
+  built-in AI Hub static tools. Unchanged.
+
+The per-mode separation of the global static session is required by the name-collision
+argument above; `CATALOG_SESSION_ID` needs no per-mode split.
 
 ### Tool membership
 
@@ -132,8 +152,12 @@ sessions, which remain untouched.
 **`request.sessionId` OR in `additionalSessionIds`**. This is the minimal forked-
 searcher change and keeps the upstream advisor's `search` call untouched.
 
-Because the global session is configured into the searcher (not passed per request),
-each mode needs its own searcher instance carrying the right global session.
+Each mode's searcher is configured with `additionalSessionIds = { CATALOG_SESSION_ID,
+<mode global session> }`. So a single search call returns matches from the
+per-conversation self-index (request session), the shared cluster-element Workspace
+catalog, and the mode's global static catalog — all three populations the agent can use.
+Because these persistent sessions are configured into the searcher (not passed per
+request), each mode needs its own searcher instance.
 
 **Shared store vs per-instance clear-tracking (implementation trap):** all
 `VectorToolSearcher` instances share the same `toolSearchPgVectorStore`, so a row
@@ -178,16 +202,19 @@ New `ToolSearchCatalogFeeder.populateGlobalTools(String sessionId, List<ToolCall
 
 3. **`ToolSearchAdvisorConfiguration`** (`platform-ai-hub`): split the single advisor /
    searcher into per-mode beans:
-   - `aiHubAskToolSearchVectorToolSearcher` (additional session `:global:ask`),
-     `aiHubBuildToolSearchVectorToolSearcher` (additional session `:global:build`) —
-     both over the same `toolSearchPgVectorStore`.
+   - `aiHubAskToolSearchVectorToolSearcher` (additional sessions `{CATALOG_SESSION_ID,
+     :global:ask}`), `aiHubBuildToolSearchVectorToolSearcher` (additional sessions
+     `{CATALOG_SESSION_ID, :global:build}`) — both over the same `toolSearchPgVectorStore`.
+     The shared `CATALOG_SESSION_ID` is what activates cluster-element discovery.
    - `aiHubAskToolSearchToolCallAdvisor` / `aiHubBuildToolSearchToolCallAdvisor`, each
      with its searcher and a `StaticToolCallbackResolver` containing the cluster-element
      callbacks **plus** the mode's global tool callbacks.
    - Inject the global tool beans; build mode-specific `List<ToolCallback>` via
      `ToolCallbacks.from(...)`.
-   - In `populateCatalogOnAppReady`, also call `feeder.populateGlobalTools(...)` for both
-     mode sessions.
+   - In `populateCatalogOnAppReady`, keep `feeder.populate()` (cluster elements) and add
+     `feeder.populateGlobalTools(...)` for both mode sessions. The feeder owns indexing of
+     all persistent sessions (see clear-tracking trap above); the per-mode searcher beans
+     only query.
 
 4. **`AiHubConfiguration`** (`automation-ai-hub`): **remove** the static
    `.toolCallbacks(...)` registration of the global tools added in A (so they are not
@@ -196,9 +223,15 @@ New `ToolSearchCatalogFeeder.populateGlobalTools(String sessionId, List<ToolCall
 
 ## Backward compatibility & risk
 
-- **No change to existing tool behavior**: cluster-element resolver entries, per-task
-  delivery, and the existing built-in AI Hub static tools are untouched. The new global
-  sessions are purely additive to search.
+- **Cluster-element discovery becomes live**: today the cluster-element catalog is
+  pre-embedded but never searched, so component actions are effectively undiscoverable via
+  AI Hub tool search. After this change they *are* discoverable. This is the intended
+  behavior change (piece C) — but it means the ASK and BUILD agents will start surfacing
+  component-action tools in search results where they previously surfaced none. Worth a
+  focused review of search-result quality (top-K noise) once live.
+- **Per-task delivery and existing built-in static tools are untouched**: per-task tools
+  still arrive via `additionalToolCallbacks`; built-ins still self-index per turn. The new
+  persistent sessions are additive.
 - **Bean split risk**: ASK and BUILD now have distinct advisor/searcher beans. The
   cluster-element callback map is built once and shared into both resolvers; only the
   global-tool entries differ. Must verify no other consumer depends on a single
@@ -216,18 +249,28 @@ New `ToolSearchCatalogFeeder.populateGlobalTools(String sessionId, List<ToolCall
 ## Testing
 
 - Unit: `populateGlobalTools` indexes the expected `(name, summary)` pairs and respects
-  the hash-skip; `VectorToolSearcher.search` returns results from both
-  `request.sessionId` and `additionalSessionIds`.
+  the hash-skip; `VectorToolSearcher.search` returns results across `request.sessionId`
+  and every id in `additionalSessionIds` (including `CATALOG_SESSION_ID`).
 - Unit: per-mode resolver contains the expected tool names (ASK excludes mutating tools;
   BUILD includes them) and there are no duplicate tool names within a mode.
 - Integration: with AI Hub enabled, a BUILD turn can discover + execute `listProjects`
   via tool search; an ASK turn can discover the read-only variant but not `createProject`.
-- Regression: existing cluster-element / per-task discovery behavior unchanged.
+- Integration: a cluster-element component action (e.g. a connected component's action)
+  is now discoverable via `toolSearchTool` in both modes — i.e. the `CATALOG_SESSION_ID`
+  catalog is actually queried (piece C).
+- Performance: confirm the global static tools and cluster-element catalog are **not**
+  re-embedded per turn — only the per-conversation self-index runs each turn (assert
+  `vectorStore.add` is not called for the persistent-session tools on a second turn).
 
 ## Open questions
 
 - Should the per-mode searcher be two beans, or one searcher whose `search` takes the
   extra session set per call (would require the forked advisor to pass it through)?
   Current choice: two searcher beans (keeps the advisor untouched).
+- **Search-result quality once the cluster-element catalog is live**: with thousands of
+  component actions now in scope, does top-K need tuning (similarity threshold,
+  per-category filtering) to avoid noisy picks? The feeder docstring already anticipates
+  this (the per-task subset feature was the v2 answer); we may want a follow-up to wire
+  per-task narrowing into search. Out of scope here but flagged.
 - Do we want a metric/log line confirming global-catalog hash-skip on cold start (mirrors
   the existing `populate()` log)?
