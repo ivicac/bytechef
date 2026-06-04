@@ -21,6 +21,7 @@ export default function useWorkflowInputOptions(
 
     const optionsByKeyRef = useRef<Record<string, OptionType[]>>({});
     const inFlightKeysRef = useRef<Set<string>>(new Set());
+    const generationRef = useRef(0);
 
     const loadOptions = useCallback(
         (
@@ -41,6 +42,8 @@ export default function useWorkflowInputOptions(
 
             inFlightKeysRef.current.add(cacheKey);
 
+            const requestGeneration = generationRef.current;
+
             void apiFetch<OptionType[]>(
                 `/api/embedded/v1/integration-instances/${integrationInstanceId}/workflows/${workflowUuid}/options`,
                 {
@@ -49,6 +52,10 @@ export default function useWorkflowInputOptions(
                 }
             )
                 .then((options) => {
+                    if (generationRef.current !== requestGeneration) {
+                        return;
+                    }
+
                     optionsByKeyRef.current = {...optionsByKeyRef.current, [cacheKey]: options ?? []};
 
                     setOptionsByKey(optionsByKeyRef.current);
@@ -64,6 +71,8 @@ export default function useWorkflowInputOptions(
     );
 
     const resetOptions = useCallback(() => {
+        generationRef.current += 1;
+
         optionsByKeyRef.current = {};
 
         inFlightKeysRef.current.clear();

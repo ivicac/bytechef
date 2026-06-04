@@ -18,6 +18,14 @@ describe('useWorkflowInputOptions', () => {
         expect(apiFetch).not.toHaveBeenCalled();
     });
 
+    it('does not fetch when apiFetch is missing', () => {
+        const {result} = renderHook(() => useWorkflowInputOptions(undefined, 7));
+
+        act(() => result.current.loadOptions('wf-1', 'channel', 'channelId', {}));
+
+        expect(result.current.optionsByKey).toEqual({});
+    });
+
     it('posts the option request and stores the result under the cache key', async () => {
         const options = [
             {label: 'General', value: 'C1'},
@@ -57,7 +65,7 @@ describe('useWorkflowInputOptions', () => {
         expect(apiFetch).toHaveBeenCalledTimes(1);
     });
 
-    it('deduplicates concurrent in-flight requests for the same key', () => {
+    it('deduplicates concurrent in-flight requests for the same key', async () => {
         let resolveFetch: (value: unknown) => void = () => {};
         const apiFetch = vi.fn().mockReturnValue(
             new Promise((resolve) => {
@@ -74,7 +82,9 @@ describe('useWorkflowInputOptions', () => {
 
         expect(apiFetch).toHaveBeenCalledTimes(1);
 
-        resolveFetch([]);
+        await act(async () => {
+            resolveFetch([]);
+        });
     });
 
     it('clears the cache on resetOptions', async () => {
