@@ -8,11 +8,15 @@
 package com.bytechef.ee.platform.aihub.toolsearch;
 
 import com.bytechef.component.definition.ai.agent.BaseToolFunction;
+import com.bytechef.ee.platform.aihub.agent.NonEmptyToolCallback;
+import com.bytechef.ee.platform.aihub.agent.RehydrateSecurityContextToolCallback;
 import com.bytechef.ee.platform.aihub.util.ToolNameNormalizer;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.component.util.JsonSchemaGeneratorUtils;
 import com.bytechef.platform.connection.service.ConnectionService;
+import com.bytechef.platform.user.service.AuthorityService;
+import com.bytechef.platform.user.service.UserService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.observation.ObservationRegistry;
 import java.util.ArrayList;
@@ -20,6 +24,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.tool.search.ToolSearchToolCallAdvisor;
@@ -145,11 +150,13 @@ public class ToolSearchAdvisorConfiguration {
     ToolSearchToolCallAdvisor aiHubAskToolSearchToolCallAdvisor(
         @Qualifier("toolSearchPgVectorStore") VectorStore vectorStore,
         AiHubClusterElementToolCallbacks clusterElementToolCallbacks, ObservationRegistry observationRegistry,
-        ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider) {
+        ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider, UserService userService,
+        AuthorityService authorityService) {
 
         return buildModeAdvisor(
             vectorStore, clusterElementToolCallbacks.callbacks(), observationRegistry,
-            requireCatalog(globalToolCatalogProvider, ToolSearchCatalogFeeder.GLOBAL_ASK_SESSION_ID));
+            findCatalog(globalToolCatalogProvider, ToolSearchCatalogFeeder.GLOBAL_ASK_SESSION_ID), userService,
+            authorityService);
     }
 
     @Bean
@@ -157,23 +164,40 @@ public class ToolSearchAdvisorConfiguration {
     ToolSearchToolCallAdvisor aiHubBuildToolSearchToolCallAdvisor(
         @Qualifier("toolSearchPgVectorStore") VectorStore vectorStore,
         AiHubClusterElementToolCallbacks clusterElementToolCallbacks, ObservationRegistry observationRegistry,
-        ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider) {
+        ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider, UserService userService,
+        AuthorityService authorityService) {
 
         return buildModeAdvisor(
             vectorStore, clusterElementToolCallbacks.callbacks(), observationRegistry,
-            requireCatalog(globalToolCatalogProvider, ToolSearchCatalogFeeder.GLOBAL_BUILD_SESSION_ID));
+            findCatalog(globalToolCatalogProvider, ToolSearchCatalogFeeder.GLOBAL_BUILD_SESSION_ID), userService,
+            authorityService);
     }
 
     private static ToolSearchToolCallAdvisor buildModeAdvisor(
         VectorStore vectorStore, List<ToolCallback> clusterElementCallbacks,
-        ObservationRegistry observationRegistry, AiHubGlobalToolCatalog globalToolCatalog) {
+        ObservationRegistry observationRegistry, @Nullable AiHubGlobalToolCatalog globalToolCatalog,
+        UserService userService, AuthorityService authorityService) {
 
-        VectorToolSearcher searcher = new VectorToolSearcher(
-            vectorStore, Set.of(ToolSearchCatalogFeeder.CATALOG_SESSION_ID, globalToolCatalog.sessionId()));
+        Set<String> additionalSessionIds = globalToolCatalog == null
+            ? Set.of(ToolSearchCatalogFeeder.CATALOG_SESSION_ID)
+            : Set.of(ToolSearchCatalogFeeder.CATALOG_SESSION_ID, globalToolCatalog.sessionId());
+
+        VectorToolSearcher searcher = new VectorToolSearcher(vectorStore, additionalSessionIds);
 
         List<ToolCallback> callbackList = new ArrayList<>(clusterElementCallbacks);
 
-        callbackList.addAll(globalToolCatalog.toolCallbacks());
+        if (globalToolCatalog != null) {
+            for (ToolCallback toolCallback : globalToolCatalog.toolCallbacks()) {
+                // Discovered global tools resolve through this StaticToolCallbackResolver and execute directly on a
+                // Reactor scheduler thread. Mirror AiHubSpringAIAgent.wrapToolCallback so @PreAuthorize-protected
+                // service calls run under the invoking user's SecurityContext (and empty results are guarded).
+                callbackList.add(wrapGlobalToolCallback(toolCallback, userService, authorityService));
+            }
+        } else {
+            log.warn(
+                "No AiHubGlobalToolCatalog contributed for this mode — tool search runs catalog-only (no global "
+                    + "static tools). automation-ai-hub should contribute one.");
+        }
 
         ToolCallbackResolver resolver = new StaticToolCallbackResolver(callbackList);
         ToolExecutionExceptionProcessor exceptionProcessor = new DefaultToolExecutionExceptionProcessor(false);
@@ -195,15 +219,25 @@ public class ToolSearchAdvisorConfiguration {
             .build();
     }
 
-    private static AiHubGlobalToolCatalog requireCatalog(
+    private static ToolCallback wrapGlobalToolCallback(
+        ToolCallback callback, @Nullable UserService userService, @Nullable AuthorityService authorityService) {
+
+        ToolCallback nonEmpty = NonEmptyToolCallback.wrap(callback);
+
+        if (userService == null || authorityService == null) {
+            return nonEmpty;
+        }
+
+        return RehydrateSecurityContextToolCallback.wrap(nonEmpty, userService, authorityService);
+    }
+
+    private static @Nullable AiHubGlobalToolCatalog findCatalog(
         ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider, String sessionId) {
 
         return globalToolCatalogProvider.orderedStream()
             .filter(catalog -> sessionId.equals(catalog.sessionId()))
             .findFirst()
-            .orElseThrow(() -> new IllegalStateException(
-                "No AiHubGlobalToolCatalog bean found for session " + sessionId
-                    + " — automation-ai-hub must contribute it"));
+            .orElse(null);
     }
 
     /**
