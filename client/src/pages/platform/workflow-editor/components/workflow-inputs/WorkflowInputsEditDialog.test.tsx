@@ -175,6 +175,18 @@ describe('WorkflowInputsEditDialog', () => {
         expect(savedInput.componentReference.groupName).toBe('dateRange');
     });
 
+    it('offers a Field Mapping input type', async () => {
+        const user = setupUser();
+
+        render(<Harness />);
+
+        await user.click(screen.getByText('Select input type'));
+
+        const listbox = await screen.findByRole('listbox');
+
+        expect(within(listbox).getByRole('option', {name: 'Field Mapping'})).toBeInTheDocument();
+    });
+
     it('reopens a saved component-referenced input in edit mode with its component selectors visible', () => {
         render(
             <EditHarness

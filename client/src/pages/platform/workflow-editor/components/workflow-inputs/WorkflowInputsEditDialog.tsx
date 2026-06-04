@@ -199,6 +199,8 @@ const WorkflowInputsEditDialog = ({
 
                                                 <SelectItem value="date_time">Date Time</SelectItem>
 
+                                                <SelectItem value="field_mapping">Field Mapping</SelectItem>
+
                                                 <SelectItem value="integer">Integer</SelectItem>
 
                                                 <SelectItem value="number">Number</SelectItem>
