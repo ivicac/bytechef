@@ -15,6 +15,7 @@ input GeneratePropertyValueInput {
     workflowNodeName: String!
     propertyPath: String!
     propertyType: String
+    dynamic: Boolean!
     environmentId: Int!
 }
 

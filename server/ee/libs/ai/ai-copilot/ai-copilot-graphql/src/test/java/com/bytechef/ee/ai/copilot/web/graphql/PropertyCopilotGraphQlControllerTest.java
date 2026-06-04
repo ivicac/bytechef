@@ -82,13 +82,13 @@ class PropertyCopilotGraphQlControllerTest {
             .thenReturn(new PropertyCopilotResult("{\"type\":\"object\"}", true, null));
 
         GeneratePropertyValuePayload payload = controller.generatePropertyValue(new GeneratePropertyValueInput(
-            "order schema", PropertyCopilotMode.JSON_SCHEMA, "wf1", "n1", "responseSchema", "STRING", 0));
+            "order schema", PropertyCopilotMode.JSON_SCHEMA, "wf1", "n1", "responseSchema", "STRING", true, 0));
 
         assertThat(payload.value()).isEqualTo("{\"type\":\"object\"}");
         assertThat(payload.valid()).isTrue();
     }
 
     private static GeneratePropertyValueInput input() {
-        return new GeneratePropertyValueInput("greet", PropertyCopilotMode.TEXT, "wf1", "n1", "p", "STRING", 0);
+        return new GeneratePropertyValueInput("greet", PropertyCopilotMode.TEXT, "wf1", "n1", "p", "STRING", true, 0);
     }
 }

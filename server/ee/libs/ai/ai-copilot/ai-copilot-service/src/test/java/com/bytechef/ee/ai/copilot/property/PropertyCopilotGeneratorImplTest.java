@@ -74,7 +74,7 @@ class PropertyCopilotGeneratorImplTest {
         when(evaluator.evaluate(any(), any(), eq(true))).thenReturn(Map.of("value", "Hello Ada"));
 
         PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
-            "greet", PropertyCopilotMode.TEXT, "wf1", "node2", "message", "STRING", 0));
+            "greet", PropertyCopilotMode.TEXT, "wf1", "node2", "message", "STRING", true, 0));
 
         assertThat(result.value()).isEqualTo("Hello ${trigger_1.firstName}");
         assertThat(result.valid()).isTrue();
@@ -86,7 +86,7 @@ class PropertyCopilotGeneratorImplTest {
         PropertyCopilotGeneratorImpl generator = generatorReturning("a constant value");
 
         PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
-            "value", PropertyCopilotMode.TEXT, "wf1", "node2", "message", "STRING", 0));
+            "value", PropertyCopilotMode.TEXT, "wf1", "node2", "message", "STRING", true, 0));
 
         assertThat(result.value()).isEqualTo("a constant value");
         assertThat(result.valid()).isTrue();
@@ -119,7 +119,7 @@ class PropertyCopilotGeneratorImplTest {
             meterRegistryProvider);
 
         PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
-            "greet", PropertyCopilotMode.TEXT, "wf1", "node2", "message", "STRING", 0));
+            "greet", PropertyCopilotMode.TEXT, "wf1", "node2", "message", "STRING", true, 0));
 
         assertThat(result.value()).isEqualTo("Hi ${trigger_1.firstName}");
         assertThat(result.valid()).isTrue();
@@ -132,7 +132,7 @@ class PropertyCopilotGeneratorImplTest {
         when(evaluator.evaluate(any(), any(), eq(true))).thenReturn(Map.of("value", "${missing.name}"));
 
         PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
-            "greet", PropertyCopilotMode.TEXT, "wf1", "node2", "message", "STRING", 0));
+            "greet", PropertyCopilotMode.TEXT, "wf1", "node2", "message", "STRING", true, 0));
 
         assertThat(result.value()).isEqualTo("Hi ${missing.name}");
         assertThat(result.valid()).isFalse();
@@ -146,7 +146,7 @@ class PropertyCopilotGeneratorImplTest {
         when(evaluator.evaluate(any(), any(), eq(false))).thenReturn(Map.of("value", "PARIS"));
 
         PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
-            "uppercase city", PropertyCopilotMode.FORMULA, "wf1", "node2", "city", "STRING", 0));
+            "uppercase city", PropertyCopilotMode.FORMULA, "wf1", "node2", "city", "STRING", true, 0));
 
         assertThat(result.value()).isEqualTo("=upperCase(${trigger_1.city})");
         assertThat(result.valid()).isTrue();
@@ -178,7 +178,7 @@ class PropertyCopilotGeneratorImplTest {
             meterRegistryProvider);
 
         PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
-            "concat a", PropertyCopilotMode.FORMULA, "wf1", "node2", "city", "STRING", 0));
+            "concat a", PropertyCopilotMode.FORMULA, "wf1", "node2", "city", "STRING", true, 0));
 
         assertThat(result.value()).isEqualTo("=concat(${a})");
         assertThat(result.valid()).isTrue();
@@ -191,7 +191,7 @@ class PropertyCopilotGeneratorImplTest {
         when(evaluator.evaluate(any(), any(), eq(false))).thenThrow(new RuntimeException("parse error"));
 
         PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
-            "x", PropertyCopilotMode.FORMULA, "wf1", "node2", "city", "STRING", 0));
+            "x", PropertyCopilotMode.FORMULA, "wf1", "node2", "city", "STRING", true, 0));
 
         assertThat(result.value()).isEqualTo("=bogus(");
         assertThat(result.valid()).isFalse();
@@ -204,7 +204,7 @@ class PropertyCopilotGeneratorImplTest {
             "```json\n{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"}}}\n```");
 
         PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
-            "order schema", PropertyCopilotMode.JSON_SCHEMA, "wf1", "node2", "responseSchema", "STRING", 0));
+            "order schema", PropertyCopilotMode.JSON_SCHEMA, "wf1", "node2", "responseSchema", "STRING", true, 0));
 
         assertThat(result.value()).isEqualTo("{\"type\":\"object\",\"properties\":{\"id\":{\"type\":\"string\"}}}");
         assertThat(result.valid()).isTrue();
@@ -230,7 +230,7 @@ class PropertyCopilotGeneratorImplTest {
             meterRegistryProvider);
 
         PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
-            "order schema", PropertyCopilotMode.JSON_SCHEMA, "wf1", "node2", "responseSchema", "STRING", 0));
+            "order schema", PropertyCopilotMode.JSON_SCHEMA, "wf1", "node2", "responseSchema", "STRING", true, 0));
 
         assertThat(result.value()).isEqualTo("{\"type\":\"object\",\"properties\":{}}");
         assertThat(result.valid()).isTrue();
@@ -241,7 +241,7 @@ class PropertyCopilotGeneratorImplTest {
         PropertyCopilotGeneratorImpl generator = generatorReturning("definitely not json");
 
         PropertyCopilotResult result = generator.generate(new PropertyCopilotRequest(
-            "order schema", PropertyCopilotMode.JSON_SCHEMA, "wf1", "node2", "responseSchema", "STRING", 0));
+            "order schema", PropertyCopilotMode.JSON_SCHEMA, "wf1", "node2", "responseSchema", "STRING", true, 0));
 
         assertThat(result.value()).isEqualTo("definitely not json");
         assertThat(result.valid()).isFalse();

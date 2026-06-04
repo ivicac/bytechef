@@ -69,13 +69,18 @@ public class PropertyCopilotPromptBuilder {
             builder.append(
                 "Return ONLY a single SpEL expression beginning with '='. Reference outputs as " +
                     "${nodeName.path}. Use only the listed functions. No explanation, no code fences.");
-        } else {
+        } else if (request.dynamic() && "STRING".equals(request.propertyType())) {
             builder.append(
                 "First, look through the available previous step outputs above and try to find a value that " +
                     "satisfies the user's request. If a matching output exists, return it as a data pill " +
                     "reference ${nodeName.path} (embed multiple pills inline within surrounding text when the " +
                     "request calls for it). Only if no available output matches, propose a constant literal " +
                     "value. Return ONLY the value itself. No explanation, no code fences.");
+        } else {
+            builder.append(
+                "Return ONLY a single constant literal value that satisfies the user's request. Do not " +
+                    "reference previous step outputs and do not use ${...} data pill references. No " +
+                    "explanation, no code fences.");
         }
 
         return builder.toString();

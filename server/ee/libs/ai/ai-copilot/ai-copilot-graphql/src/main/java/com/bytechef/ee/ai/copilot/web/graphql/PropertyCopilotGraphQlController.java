@@ -67,7 +67,7 @@ public class PropertyCopilotGraphQlController {
 
         PropertyCopilotResult result = propertyCopilotGenerator.generate(new PropertyCopilotRequest(
             input.prompt(), input.mode(), input.workflowId(), input.workflowNodeName(), input.propertyPath(),
-            input.propertyType(), input.environmentId()));
+            input.propertyType(), input.dynamic(), input.environmentId()));
 
         return new GeneratePropertyValuePayload(result.value(), result.valid(), result.message());
     }
@@ -75,7 +75,7 @@ public class PropertyCopilotGraphQlController {
     @SuppressFBWarnings("EI")
     public record GeneratePropertyValueInput(
         String prompt, PropertyCopilotMode mode, String workflowId, String workflowNodeName, String propertyPath,
-        String propertyType, long environmentId) {
+        String propertyType, boolean dynamic, long environmentId) {
     }
 
     @SuppressFBWarnings("EI")

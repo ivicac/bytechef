@@ -19,5 +19,6 @@ public record PropertyCopilotRequest(
     String workflowNodeName,
     String propertyPath,
     String propertyType,
+    boolean dynamic,
     long environmentId) {
 }
