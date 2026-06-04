@@ -169,6 +169,28 @@ global sessions through a single, stable searcher instance** (its injected
 *query* (their `additionalSessionIds` filter) and never index/clear the global
 sessions. This keeps clear-tracking consistent and avoids orphaning rows.
 
+### Module boundary (cross-module seam)
+
+`platform-ai-hub` (home of `ToolSearchAdvisorConfiguration`, the pgvector store, the
+feeder, and `ClusterElementToolCallback`) depends on `mcp-tool-platform` but **not**
+`mcp-tool-automation`. It can therefore see `ComponentTools` / `TaskTools` /
+`TaskDispatcherTools` but not `ProjectTools` / `ProjectWorkflowTools` /
+`ReadProjectTools` / `ReadProjectWorkflowTools` / `ScriptTools` / `ClusterElementTools`.
+Adding `mcp-tool-automation` to `platform-ai-hub` would invert the platform→automation
+layering, so instead:
+
+- `platform-ai-hub` defines a small holder type
+  `record AiHubGlobalToolCatalog(String sessionId, List<ToolCallback> toolCallbacks)`.
+  (`Mode` already lives in `platform-ai-hub`, so per-mode wiring here is in-bounds.)
+- `automation-ai-hub` (which already depends on both `platform-ai-hub` and the
+  `mcp-tool-*` modules) provides two `AiHubGlobalToolCatalog` beans — one for ASK
+  (read-only variants), one for BUILD (full set) — each built via
+  `ToolCallbacks.from(...)`. The opaque `List<ToolCallback>` is wrapped in the holder so
+  Spring does **not** auto-collect every `ToolCallback` bean in the context.
+- `ToolSearchAdvisorConfiguration` consumes the `AiHubGlobalToolCatalog` beans
+  (`ObjectProvider<AiHubGlobalToolCatalog>`, matched to mode by `sessionId`), builds the
+  per-mode searcher + advisor, and feeds each catalog's tools at startup.
+
 ### Execution / resolution
 
 Discovered global tools must resolve to executable callbacks. In `doBeforeCall`, a
