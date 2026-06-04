@@ -187,6 +187,21 @@ describe('WorkflowInputsEditDialog', () => {
         expect(within(listbox).getByRole('option', {name: 'Field Mapping'})).toBeInTheDocument();
     });
 
+    it('renders a JSON editor for the field_mapping test value', async () => {
+        const user = setupUser();
+
+        render(<Harness />);
+
+        await user.click(screen.getByText('Select input type'));
+
+        const listbox = await screen.findByRole('listbox');
+
+        await user.click(within(listbox).getByRole('option', {name: 'Field Mapping'}));
+
+        expect(screen.getByText('Test Value')).toBeInTheDocument();
+        expect(screen.getByTestId('field-mapping-json-editor')).toBeInTheDocument();
+    });
+
     it('reopens a saved component-referenced input in edit mode with its component selectors visible', () => {
         render(
             <EditHarness

@@ -365,7 +365,33 @@ const WorkflowInputsEditDialog = ({
                             )}
                         />
 
-                        {selectedType === 'component' ? (
+                        {selectedType === 'field_mapping' ? (
+                            <FormField
+                                control={form.control}
+                                name="testValue"
+                                render={({field}) => (
+                                    <FormItem>
+                                        <FormLabel>Test Value</FormLabel>
+
+                                        <FormControl>
+                                            <textarea
+                                                {...field}
+                                                className="min-h-40 w-full rounded-md border p-2 font-mono text-sm"
+                                                data-testid="field-mapping-json-editor"
+                                                placeholder='{"Contacts": {"applicationFields": [], "integrationFields": [], "objectTypes": []}}'
+                                                value={field.value ?? ''}
+                                            />
+                                        </FormControl>
+
+                                        <FormMessage />
+
+                                        <p className="text-sm text-content-neutral-secondary">
+                                            Static mapObjectFields-shaped sample; the top-level key is the object name.
+                                        </p>
+                                    </FormItem>
+                                )}
+                            />
+                        ) : selectedType === 'component' ? (
                             <fieldset className="space-y-2 border-0 p-0">
                                 <FormLabel>Test Value</FormLabel>
 
