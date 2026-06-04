@@ -7,11 +7,11 @@
 
 package com.bytechef.ee.platform.aihub.tool;
 
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.ee.platform.aihub.metric.AiHubToolAttachMetrics;
 import com.bytechef.ee.platform.aihub.task.AiHubTask;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskService;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskToolFacade;
-import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.service.ConnectionService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;

@@ -7,10 +7,10 @@
 
 package com.bytechef.ee.automation.aihub.task;
 
+import com.bytechef.ee.ai.mcp.tool.util.LogSanitizer;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactKind;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactService;
 import com.bytechef.ee.platform.aihub.tool.AiHubTaskArtifactRecorder;
-import com.bytechef.ee.ai.mcp.tool.util.LogSanitizer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;

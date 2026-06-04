@@ -7,11 +7,11 @@
 
 package com.bytechef.ee.platform.aihub.tool;
 
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.ee.platform.aihub.personalagent.AiHubPersonalAgent;
 import com.bytechef.ee.platform.aihub.personalagent.AiHubPersonalAgentService;
 import com.bytechef.ee.platform.aihub.task.AiHubTask;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskService;
-import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;

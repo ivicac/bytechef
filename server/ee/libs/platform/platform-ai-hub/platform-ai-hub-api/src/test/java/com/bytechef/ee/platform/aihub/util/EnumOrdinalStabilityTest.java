@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.platform.aihub.util;
 
+import com.bytechef.ee.ai.mcp.tool.usage.Agent;
 import com.bytechef.ee.platform.aihub.personalagent.AiHubPersonalAgentResourceKind;
 import com.bytechef.ee.platform.aihub.personalagent.ScheduleFrequencyKind;
 import com.bytechef.ee.platform.aihub.personalagent.ScheduleLifecycleKind;
@@ -14,7 +15,6 @@ import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactKind;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactStatus;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskKind;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskStatus;
-import com.bytechef.ee.ai.mcp.tool.usage.Agent;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryType;
 import com.bytechef.test.assertion.OrdinalStabilityAssertions;
 import java.util.LinkedHashMap;

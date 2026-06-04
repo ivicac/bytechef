@@ -6,7 +6,6 @@
  */
 
 package com.bytechef.ee.ai.mcp.tool.automation;
-import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -16,6 +15,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
 import java.io.IOException;
 import java.util.Map;
 import java.util.concurrent.TimeoutException;

@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.automation.aihub.task;
 
+import com.bytechef.ee.ai.mcp.tool.util.LogSanitizer;
 import com.bytechef.ee.automation.aihub.task.repository.AiHubTaskArtifactRepository;
 import com.bytechef.ee.automation.aihub.task.repository.AiHubTaskRepository;
 import com.bytechef.ee.automation.aihub.task.repository.WorkspaceAiHubTaskRepository;
@@ -18,7 +19,6 @@ import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactKind;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactService;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskArtifactStatus;
 import com.bytechef.ee.platform.aihub.util.EnumOrdinals;
-import com.bytechef.ee.ai.mcp.tool.util.LogSanitizer;
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Clock;

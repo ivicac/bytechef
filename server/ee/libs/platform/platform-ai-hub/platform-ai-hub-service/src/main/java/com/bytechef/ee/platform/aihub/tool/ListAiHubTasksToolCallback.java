@@ -7,10 +7,10 @@
 
 package com.bytechef.ee.platform.aihub.tool;
 
+import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import com.bytechef.ee.platform.aihub.task.AiHubTask;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskService;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskStatus;
-import com.bytechef.ee.ai.mcp.tool.util.ToolErrors;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.LocalDateTime;
 import java.time.ZoneOffset;
