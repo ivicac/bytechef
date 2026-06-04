@@ -135,6 +135,8 @@ When the user clicks the button, the SDK opens the ByteChef-hosted connect dialo
 
 <Callout title="Component-defined workflow inputs">
     Beyond connecting and enabling workflows, the connect dialog can also collect **workflow inputs** from the user. When a workflow input references a component (for example, "pick a Slack channel" or "choose a HubSpot pipeline"), the dialog renders the component's own input group — including dynamic dropdowns whose options are fetched live against the user's connection. Dependent fields resolve in order, so a selection can filter the next one (for example, choose a workspace and then one of its channels). This works the same for workflows you expose as MCP tools. The user's selections are saved per integration instance, so each connected user configures the workflow with their own data without you building any of those forms yourself.
+
+    The dialog can also collect a **[Field Mapping](/embedded/field-mapping)** — let the user pick a remote object type and map your application's fields to the connected integration's fields, with the option lists fetched live against their connection.
 </Callout>
 
 ---

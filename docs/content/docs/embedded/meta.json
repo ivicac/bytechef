@@ -13,6 +13,8 @@
     "...integrations",
     "configurations/index",
     "...configurations",
+    "field-mapping/index",
+    "...field-mapping",
     "mcp-servers/index",
     "...mcp-servers",
     "app-events/index",
