@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bytechef.ai.mcp.tool.automation;
+package com.bytechef.ee.ai.mcp.tool.automation;
 
 import com.bytechef.ee.platform.ai.skill.domain.AiSkill;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -25,6 +25,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Read-only skill tools implementation that delegates to SkillsTools.
+ *
+ * @version ee
  *
  * @author Ivica Cardic
  */

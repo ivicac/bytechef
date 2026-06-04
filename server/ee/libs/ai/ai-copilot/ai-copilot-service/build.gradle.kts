@@ -119,6 +119,7 @@ dependencies {
     implementation(project(":server:libs:ai:mcp:mcp-tool:mcp-tool-platform"))
 
     implementation(project(":server:ee:libs:ai:ai-copilot:ai-copilot-api"))
+    implementation(project(":server:ee:libs:ai:mcp:mcp-tool:mcp-tool-automation"))
     implementation(project(":server:libs:core:evaluator:evaluator-api"))
     implementation("io.micrometer:micrometer-core")
 

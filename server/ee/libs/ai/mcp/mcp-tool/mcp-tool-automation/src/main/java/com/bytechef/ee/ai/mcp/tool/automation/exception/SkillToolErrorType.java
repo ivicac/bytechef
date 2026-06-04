@@ -14,11 +14,13 @@
  * limitations under the License.
  */
 
-package com.bytechef.ai.mcp.tool.automation.exception;
+package com.bytechef.ee.ai.mcp.tool.automation.exception;
 
 import com.bytechef.exception.AbstractErrorType;
 
 /**
+ * @version ee
+ *
  * @author Marko Kriskovic
  */
 public class SkillToolErrorType extends AbstractErrorType {

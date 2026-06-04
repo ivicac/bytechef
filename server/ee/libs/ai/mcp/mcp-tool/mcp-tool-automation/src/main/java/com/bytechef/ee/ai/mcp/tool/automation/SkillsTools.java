@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-package com.bytechef.ai.mcp.tool.automation;
+package com.bytechef.ee.ai.mcp.tool.automation;
 
-import com.bytechef.ai.mcp.tool.automation.exception.SkillToolErrorType;
+import com.bytechef.ee.ai.mcp.tool.automation.exception.SkillToolErrorType;
 import com.bytechef.ee.platform.ai.skill.domain.AiSkill;
 import com.bytechef.ee.platform.ai.skill.facade.AiSkillFacade;
 import com.bytechef.exception.ExecutionException;
@@ -30,6 +30,8 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Component;
 
 /**
+ * @version ee
+ *
  * @author Marko Kriskovic
  */
 @Component

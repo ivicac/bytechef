@@ -6,6 +6,9 @@ dependencies {
     implementation("tools.jackson.core:jackson-databind")
     implementation(project(":server:ee:libs:ai:mcp:mcp-tool:mcp-tool-api"))
     implementation(project(":server:libs:ai:mcp:mcp-tool:mcp-tool-api"))
+    implementation(project(":server:ee:libs:platform:platform-ai:platform-ai-skill:platform-ai-skill-api"))
+    implementation(project(":server:libs:core:commons:commons-util"))
+    implementation(project(":server:libs:core:exception:exception-api"))
 
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.junit.jupiter:junit-jupiter")
