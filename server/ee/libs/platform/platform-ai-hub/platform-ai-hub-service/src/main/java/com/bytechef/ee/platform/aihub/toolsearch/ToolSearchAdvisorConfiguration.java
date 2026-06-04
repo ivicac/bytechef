@@ -19,6 +19,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springaicommunity.tool.search.ToolSearchToolCallAdvisor;
@@ -31,6 +32,7 @@ import org.springframework.ai.tool.execution.ToolExecutionExceptionProcessor;
 import org.springframework.ai.tool.resolution.StaticToolCallbackResolver;
 import org.springframework.ai.tool.resolution.ToolCallbackResolver;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.context.event.ApplicationReadyEvent;
@@ -119,6 +121,17 @@ public class ToolSearchAdvisorConfiguration {
             taskService, taskToolFacade, clusterElementDefinitionService, connectionService);
     }
 
+    @Bean
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
+    AiHubClusterElementToolCallbacks aiHubClusterElementToolCallbacks(
+        ClusterElementDefinitionService clusterElementDefinitionService, ConnectionService connectionService) {
+
+        Map<String, ClusterElementToolCallback> callbacks = buildClusterElementToolCallbacks(
+            clusterElementDefinitionService, connectionService);
+
+        return new AiHubClusterElementToolCallbacks(new ArrayList<>(callbacks.values()));
+    }
+
     /**
      * Construction note: the search-specific {@link ToolCallingManager} is built inline here and never published as a
      * top-level bean. If it were a bean it would be the only {@code ToolCallingManager} in the context (Spring AI's
@@ -129,15 +142,38 @@ public class ToolSearchAdvisorConfiguration {
      */
     @Bean
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    ToolSearchToolCallAdvisor toolSearchToolCallAdvisor(
-        VectorToolSearcher toolSearchVectorToolSearcher,
-        ClusterElementDefinitionService clusterElementDefinitionService, ConnectionService connectionService,
-        ObservationRegistry observationRegistry) {
+    ToolSearchToolCallAdvisor aiHubAskToolSearchToolCallAdvisor(
+        @Qualifier("toolSearchPgVectorStore") VectorStore vectorStore,
+        AiHubClusterElementToolCallbacks clusterElementToolCallbacks, ObservationRegistry observationRegistry,
+        ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider) {
 
-        Map<String, ClusterElementToolCallback> callbacks = buildClusterElementToolCallbacks(
-            clusterElementDefinitionService, connectionService);
+        return buildModeAdvisor(
+            vectorStore, clusterElementToolCallbacks.callbacks(), observationRegistry,
+            requireCatalog(globalToolCatalogProvider, ToolSearchCatalogFeeder.GLOBAL_ASK_SESSION_ID));
+    }
 
-        List<ToolCallback> callbackList = new ArrayList<>(callbacks.values());
+    @Bean
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
+    ToolSearchToolCallAdvisor aiHubBuildToolSearchToolCallAdvisor(
+        @Qualifier("toolSearchPgVectorStore") VectorStore vectorStore,
+        AiHubClusterElementToolCallbacks clusterElementToolCallbacks, ObservationRegistry observationRegistry,
+        ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider) {
+
+        return buildModeAdvisor(
+            vectorStore, clusterElementToolCallbacks.callbacks(), observationRegistry,
+            requireCatalog(globalToolCatalogProvider, ToolSearchCatalogFeeder.GLOBAL_BUILD_SESSION_ID));
+    }
+
+    private static ToolSearchToolCallAdvisor buildModeAdvisor(
+        VectorStore vectorStore, List<ToolCallback> clusterElementCallbacks,
+        ObservationRegistry observationRegistry, AiHubGlobalToolCatalog globalToolCatalog) {
+
+        VectorToolSearcher searcher = new VectorToolSearcher(
+            vectorStore, Set.of(ToolSearchCatalogFeeder.CATALOG_SESSION_ID, globalToolCatalog.sessionId()));
+
+        List<ToolCallback> callbackList = new ArrayList<>(clusterElementCallbacks);
+
+        callbackList.addAll(globalToolCatalog.toolCallbacks());
 
         ToolCallbackResolver resolver = new StaticToolCallbackResolver(callbackList);
         ToolExecutionExceptionProcessor exceptionProcessor = new DefaultToolExecutionExceptionProcessor(false);
@@ -152,11 +188,22 @@ public class ToolSearchAdvisorConfiguration {
         // tool-call sequences (assistant(tool_calls) followed by a user message
         // before the corresponding tool response) that OpenAI rejects.
         return ToolSearchToolCallAdvisor.builder()
-            .toolSearcher(toolSearchVectorToolSearcher)
+            .toolSearcher(searcher)
             .toolCallingManager(toolCallingManager)
             .maxResults(MAX_SEARCH_RESULTS)
             .disableInternalConversationHistory()
             .build();
+    }
+
+    private static AiHubGlobalToolCatalog requireCatalog(
+        ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider, String sessionId) {
+
+        return globalToolCatalogProvider.orderedStream()
+            .filter(catalog -> sessionId.equals(catalog.sessionId()))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException(
+                "No AiHubGlobalToolCatalog bean found for session " + sessionId
+                    + " — automation-ai-hub must contribute it"));
     }
 
     /**
@@ -224,6 +271,15 @@ public class ToolSearchAdvisorConfiguration {
             .getBean(ToolSearchCatalogFeeder.class);
 
         feeder.populate();
+
+        // Embed the per-mode global static tool catalogs once. The feeder owns indexing of all persistent sessions
+        // through its single injected searcher instance; the per-mode searcher beans only query (their
+        // additionalSessionIds filter), so clear-tracking stays consistent and no rows are orphaned.
+        for (AiHubGlobalToolCatalog globalToolCatalog : event.getApplicationContext()
+            .getBeanProvider(AiHubGlobalToolCatalog.class)) {
+
+            feeder.populateGlobalTools(globalToolCatalog.sessionId(), globalToolCatalog.toolCallbacks());
+        }
     }
 
     private static String formatToolDescription(ClusterElementDefinition toolDefinition) {
@@ -235,5 +291,13 @@ public class ToolSearchAdvisorConfiguration {
         }
 
         return title != null && !title.isBlank() ? title : "(no description)";
+    }
+
+    /**
+     * Build-once carrier for the cluster-element executable callbacks, shared by both per-mode advisors so the full
+     * cluster-element catalog is materialised a single time at startup. Wrapped in a record so Spring does not
+     * auto-collect every {@link ToolCallback} bean when the advisors inject it.
+     */
+    record AiHubClusterElementToolCallbacks(List<ToolCallback> callbacks) {
     }
 }
