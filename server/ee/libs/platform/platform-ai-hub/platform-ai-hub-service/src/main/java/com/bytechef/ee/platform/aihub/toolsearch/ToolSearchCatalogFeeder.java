@@ -95,8 +95,8 @@ public class ToolSearchCatalogFeeder {
 
     /**
      * Per-mode persistent sessions for the AI Hub global static tool beans (project/workflow/component/task/...).
-     * Embedded once at startup via {@link #populateGlobalTools(String, List)} and unioned into the per-mode searcher
-     * so they are discoverable without being re-embedded on every user turn. Split per mode because the ASK read-only
+     * Embedded once at startup via {@link #populateGlobalTools(String, List)} and unioned into the per-mode searcher so
+     * they are discoverable without being re-embedded on every user turn. Split per mode because the ASK read-only
      * variants and the BUILD full set share tool names (e.g. {@code listProjects}) and would collide in one session.
      */
     public static final String GLOBAL_ASK_SESSION_ID = CATALOG_SESSION_ID + ":global:ask";
@@ -273,12 +273,13 @@ public class ToolSearchCatalogFeeder {
     }
 
     /**
-     * Re-populates a persistent global static-tool session from the supplied tool callbacks. Mirrors {@link #populate()}
-     * (hash-skip + clear-then-index) but sources its {@code (name, summary)} entries from {@link ToolCallback}
-     * definitions rather than cluster-element definitions. Called once per mode at startup so the AI Hub static tool
-     * beans embed a single time instead of being re-embedded by the advisor's per-turn self-index.
+     * Re-populates a persistent global static-tool session from the supplied tool callbacks. Mirrors
+     * {@link #populate()} (hash-skip + clear-then-index) but sources its {@code (name, summary)} entries from
+     * {@link ToolCallback} definitions rather than cluster-element definitions. Called once per mode at startup so the
+     * AI Hub static tool beans embed a single time instead of being re-embedded by the advisor's per-turn self-index.
      *
-     * @param sessionId     the persistent session id ({@link #GLOBAL_ASK_SESSION_ID} or {@link #GLOBAL_BUILD_SESSION_ID})
+     * @param sessionId     the persistent session id ({@link #GLOBAL_ASK_SESSION_ID} or
+     *                      {@link #GLOBAL_BUILD_SESSION_ID})
      * @param toolCallbacks the static tool callbacks to index; entries with a blank description are skipped
      */
     @SuppressFBWarnings("UNSAFE_HASH_EQUALS")

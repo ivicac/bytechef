@@ -46,8 +46,12 @@ class ToolSearchCatalogFeederGlobalToolsTest {
         ToolCallback toolCallback = org.mockito.Mockito.mock(ToolCallback.class);
         ToolDefinition toolDefinition = org.mockito.Mockito.mock(ToolDefinition.class);
 
-        org.mockito.Mockito.lenient().when(toolDefinition.name()).thenReturn(name);
-        org.mockito.Mockito.lenient().when(toolDefinition.description()).thenReturn(description);
+        org.mockito.Mockito.lenient()
+            .when(toolDefinition.name())
+            .thenReturn(name);
+        org.mockito.Mockito.lenient()
+            .when(toolDefinition.description())
+            .thenReturn(description);
 
         when(toolCallback.getToolDefinition()).thenReturn(toolDefinition);
 
