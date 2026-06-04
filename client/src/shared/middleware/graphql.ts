@@ -2629,13 +2629,6 @@ export type EnableConnectedUserProjectWorkflowMutationVariables = Exact<{
 
 export type EnableConnectedUserProjectWorkflowMutation = { enableConnectedUserProjectWorkflow: boolean | null };
 
-export type IntegrationByIdQueryVariables = Exact<{
-  id: string | number;
-}>;
-
-
-export type IntegrationByIdQuery = { integration: { id: string, name: string, permissionExpression: string | null } | null };
-
 export type IntegrationWorkflowsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -2699,14 +2692,6 @@ export type ToolEligibleIntegrationVersionWorkflowsQueryVariables = Exact<{
 
 
 export type ToolEligibleIntegrationVersionWorkflowsQuery = { toolEligibleIntegrationVersionWorkflows: Array<{ id: string, integrationWorkflowId: string, label: string }> };
-
-export type UpdateIntegrationPermissionExpressionMutationVariables = Exact<{
-  id: string | number;
-  permissionExpression?: string | null | undefined;
-}>;
-
-
-export type UpdateIntegrationPermissionExpressionMutation = { updateIntegrationPermissionExpression: { id: string, permissionExpression: string | null } | null };
 
 export type UpdateIntegrationWorkflowPermissionExpressionMutationVariables = Exact<{
   integrationWorkflowId: string | number;
@@ -13007,32 +12992,6 @@ export const useEnableConnectedUserProjectWorkflowMutation = <
   }
     )};
 
-export const IntegrationByIdDocument = new TypedDocumentString(`
-    query integrationById($id: ID!) {
-  integration(id: $id) {
-    id
-    name
-    permissionExpression
-  }
-}
-    `);
-
-export const useIntegrationByIdQuery = <
-      TData = IntegrationByIdQuery,
-      TError = unknown
-    >(
-      variables: IntegrationByIdQueryVariables,
-      options?: Omit<UseQueryOptions<IntegrationByIdQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<IntegrationByIdQuery, TError, TData>['queryKey'] }
-    ) => {
-    
-    return useQuery<IntegrationByIdQuery, TError, TData>(
-      {
-    queryKey: ['integrationById', variables],
-    queryFn: fetcher<IntegrationByIdQuery, IntegrationByIdQueryVariables>(IntegrationByIdDocument, variables),
-    ...options
-  }
-    )};
-
 export const IntegrationWorkflowsDocument = new TypedDocumentString(`
     query integrationWorkflows {
   integrationWorkflows {
@@ -13345,31 +13304,6 @@ export const useToolEligibleIntegrationVersionWorkflowsQuery = <
       {
     queryKey: ['toolEligibleIntegrationVersionWorkflows', variables],
     queryFn: fetcher<ToolEligibleIntegrationVersionWorkflowsQuery, ToolEligibleIntegrationVersionWorkflowsQueryVariables>(ToolEligibleIntegrationVersionWorkflowsDocument, variables),
-    ...options
-  }
-    )};
-
-export const UpdateIntegrationPermissionExpressionDocument = new TypedDocumentString(`
-    mutation updateIntegrationPermissionExpression($id: ID!, $permissionExpression: String) {
-  updateIntegrationPermissionExpression(
-    id: $id
-    permissionExpression: $permissionExpression
-  ) {
-    id
-    permissionExpression
-  }
-}
-    `);
-
-export const useUpdateIntegrationPermissionExpressionMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<UpdateIntegrationPermissionExpressionMutation, TError, UpdateIntegrationPermissionExpressionMutationVariables, TContext>) => {
-    
-    return useMutation<UpdateIntegrationPermissionExpressionMutation, TError, UpdateIntegrationPermissionExpressionMutationVariables, TContext>(
-      {
-    mutationKey: ['updateIntegrationPermissionExpression'],
-    mutationFn: (variables?: UpdateIntegrationPermissionExpressionMutationVariables) => fetcher<UpdateIntegrationPermissionExpressionMutation, UpdateIntegrationPermissionExpressionMutationVariables>(UpdateIntegrationPermissionExpressionDocument, variables)(),
     ...options
   }
     )};

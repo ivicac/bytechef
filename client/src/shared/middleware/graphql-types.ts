@@ -3516,7 +3516,6 @@ export type Mutation = {
   updateDataTableRow: DataTableRow;
   updateDataTableTags: Scalars['Boolean']['output'];
   updateIdentityProvider: IdentityProviderType;
-  updateIntegrationPermissionExpression?: Maybe<Integration>;
   updateIntegrationWorkflowPermissionExpression?: Maybe<IntegrationWorkflow>;
   updateKnowledgeBase?: Maybe<KnowledgeBase>;
   updateKnowledgeBaseDocumentChunk?: Maybe<KnowledgeBaseDocumentChunk>;
@@ -4951,12 +4950,6 @@ export type MutationUpdateIdentityProviderArgs = {
 };
 
 
-export type MutationUpdateIntegrationPermissionExpressionArgs = {
-  id: Scalars['ID']['input'];
-  permissionExpression?: InputMaybe<Scalars['String']['input']>;
-};
-
-
 export type MutationUpdateIntegrationWorkflowPermissionExpressionArgs = {
   integrationWorkflowId: Scalars['ID']['input'];
   permissionExpression?: InputMaybe<Scalars['String']['input']>;
@@ -5653,7 +5646,6 @@ export type Query = {
   generationJobStatus?: Maybe<GenerationJobStatus>;
   identityProvider?: Maybe<IdentityProviderType>;
   identityProviders: Array<Maybe<IdentityProviderType>>;
-  integration?: Maybe<Integration>;
   integrationWorkflows: Array<IntegrationWorkflow>;
   integrationWorkflowsByIntegrationId: Array<IntegrationWorkflow>;
   jobFileLogs: LogPage;
@@ -6479,11 +6471,6 @@ export type QueryGenerationJobStatusArgs = {
 
 export type QueryIdentityProviderArgs = {
   id: Scalars['ID']['input'];
-};
-
-
-export type QueryIntegrationArgs = {
-  id?: InputMaybe<Scalars['ID']['input']>;
 };
 
 
