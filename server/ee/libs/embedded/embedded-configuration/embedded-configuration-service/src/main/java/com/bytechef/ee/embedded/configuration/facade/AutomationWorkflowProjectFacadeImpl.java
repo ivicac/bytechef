@@ -232,8 +232,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
 
     @Override
     public List<AutomationWorkflowProjectDTO> getProjects() {
-        return projectService
-            .getProjects()
+        return projectService.getProjects()
             .stream()
             .filter(project -> project.getName() != null && project.getName()
                 .startsWith(MARKER)
@@ -244,8 +243,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
 
     @Override
     public List<AutomationWorkflowProjectDTO> getPublishedProjects() {
-        return projectService
-            .getProjects()
+        return projectService.getProjects()
             .stream()
             .filter(project -> project.getName() != null && Strings.CS.startsWith(project.getName(), MARKER) &&
                 Objects.equals(project.getWorkspaceId(), Workspace.DEFAULT_WORKSPACE_ID))
