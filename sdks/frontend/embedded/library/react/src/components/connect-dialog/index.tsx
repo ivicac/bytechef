@@ -128,7 +128,7 @@ export default function useConnectDialog({
         Record<string, boolean | undefined>
     >({});
     const [mcpWorkflowInputOverrides, setMcpWorkflowInputOverrides] = useState<
-        Record<string, Record<string, string>>
+        Record<string, Record<string, string | Record<string, string>>>
     >({});
     const [isLoading, setIsLoading] = useState(false);
     const [workflowsView, setWorkflowsView] = useState(!!integrationInstanceId);
@@ -236,13 +236,19 @@ export default function useConnectDialog({
                 ...workflow,
                 enabled: effectiveEnabled,
                 inputs: Array.isArray(workflow.inputs)
-                    ? workflow.inputs.map((input: WorkflowInputType) => ({
-                          ...input,
-                          value:
-                              workflowInputOverrides?.[input.name] ??
-                              (instanceWorkflow?.inputs as Record<string, string> | undefined)?.[input.name] ??
-                              '',
-                      }))
+                    ? workflow.inputs.map((input: WorkflowInputType) => {
+                          const isGroupInput = input.componentReference?.group != null;
+
+                          const overrideValue = workflowInputOverrides?.[input.name];
+                          const serverValue = (instanceWorkflow?.inputs as Record<string, unknown> | undefined)?.[
+                              input.name
+                          ];
+
+                          return {
+                              ...input,
+                              value: overrideValue ?? serverValue ?? (isGroupInput ? {} : ''),
+                          };
+                      })
                     : [],
             } as MergedWorkflowType;
         });
@@ -776,22 +782,8 @@ export default function useConnectDialog({
         [scheduleWorkflowInputsSave]
     );
 
-    const handleMcpWorkflowInputChange = useCallback(
-        (workflowUuid: string, inputName: string, value: string) => {
-            setMcpWorkflowInputOverrides((previous) => {
-                const updated = {
-                    ...previous,
-                    [workflowUuid]: {
-                        ...previous[workflowUuid],
-                        [inputName]: value,
-                    },
-                };
-
-                mcpWorkflowInputOverridesRef.current = updated;
-
-                return updated;
-            });
-
+    const scheduleMcpWorkflowInputsSave = useCallback(
+        (workflowUuid: string) => {
             if (!currentIntegrationInstanceIdRef.current || isNaN(currentIntegrationInstanceIdRef.current)) {
                 console.error('Invalid integration instance ID');
 
@@ -814,9 +806,8 @@ export default function useConnectDialog({
                     );
                     const serverInputs =
                         (currentInstance?.mcpWorkflows?.find(
-                            (workflow: IntegrationInstanceWorkflowType) =>
-                                workflow.workflowUuid === workflowUuid
-                        )?.inputs as Record<string, string> | undefined) || {};
+                            (workflow: IntegrationInstanceWorkflowType) => workflow.workflowUuid === workflowUuid
+                        )?.inputs as Record<string, unknown> | undefined) || {};
 
                     const mergedInputs = {
                         ...serverInputs,
@@ -838,6 +829,54 @@ export default function useConnectDialog({
             debouncedFetchesRef.current[debouncedFetchKey]();
         },
         [fetch]
+    );
+
+    const handleMcpWorkflowInputChange = useCallback(
+        (workflowUuid: string, inputName: string, value: string) => {
+            setMcpWorkflowInputOverrides((previous) => {
+                const updated = {
+                    ...previous,
+                    [workflowUuid]: {
+                        ...previous[workflowUuid],
+                        [inputName]: value,
+                    },
+                };
+
+                mcpWorkflowInputOverridesRef.current = updated;
+
+                return updated;
+            });
+
+            scheduleMcpWorkflowInputsSave(workflowUuid);
+        },
+        [scheduleMcpWorkflowInputsSave]
+    );
+
+    const handleMcpWorkflowGroupInputChange = useCallback(
+        (workflowUuid: string, inputName: string, memberName: string, value: string) => {
+            setMcpWorkflowInputOverrides((previous) => {
+                const existingGroupValue =
+                    (previous[workflowUuid]?.[inputName] as Record<string, string> | undefined) ?? {};
+
+                const updated = {
+                    ...previous,
+                    [workflowUuid]: {
+                        ...previous[workflowUuid],
+                        [inputName]: {
+                            ...existingGroupValue,
+                            [memberName]: value,
+                        },
+                    },
+                };
+
+                mcpWorkflowInputOverridesRef.current = updated;
+
+                return updated;
+            });
+
+            scheduleMcpWorkflowInputsSave(workflowUuid);
+        },
+        [scheduleMcpWorkflowInputsSave]
     );
 
     // Create portal container only once
@@ -897,6 +936,7 @@ export default function useConnectDialog({
                 handleClick={handleClick}
                 handleMcpToolToggle={handleMcpToolToggle}
                 handleMcpWorkflowToggle={handleMcpWorkflowToggle}
+                handleMcpWorkflowGroupInputChange={handleMcpWorkflowGroupInputChange}
                 handleMcpWorkflowInputChange={handleMcpWorkflowInputChange}
                 handleWorkflowGroupInputChange={handleWorkflowGroupInputChange}
                 handleWorkflowToggle={handleWorkflowToggle}
@@ -921,6 +961,7 @@ export default function useConnectDialog({
         formValues,
         handleClick,
         handleMcpToolToggle,
+        handleMcpWorkflowGroupInputChange,
         handleMcpWorkflowToggle,
         handleMcpWorkflowInputChange,
         handleWorkflowGroupInputChange,
