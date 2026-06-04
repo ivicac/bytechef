@@ -1,4 +1,5 @@
 dependencies {
+    implementation(libs.io.github.a2asdk.a2a.java.sdk.client)
     implementation(libs.org.springaicommunity.spring.ai.agent.utils)
     implementation(libs.org.springaicommunity.spring.ai.agent.utils.docker.cli)
     implementation(project(":server:libs:config:app-config"))

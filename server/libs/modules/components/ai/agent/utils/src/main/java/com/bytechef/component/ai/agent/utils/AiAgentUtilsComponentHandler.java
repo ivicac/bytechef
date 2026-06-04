@@ -31,7 +31,7 @@ import com.bytechef.component.ai.agent.utils.action.AiAgentUtilsCreateAiSkillAct
 import com.bytechef.component.ai.agent.utils.action.AiAgentUtilsDeleteAiSkillAction;
 import com.bytechef.component.ai.agent.utils.action.AiAgentUtilsRemoveFileFromAiSkillAction;
 import com.bytechef.component.ai.agent.utils.action.AiAgentUtilsUpdateAiSkillAction;
-import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsApprovalGate;
+import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsAgentClientTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsAskUserQuestionTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsAutoMemoryTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsBraveWebSearchTool;
@@ -84,29 +84,16 @@ public class AiAgentUtilsComponentHandler implements ComponentHandler {
 
     @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
     public AiAgentUtilsComponentHandler(
-        AiAgentToolFacade aiAgentToolFacade, AiSkillFacade aiSkillFacade, ApplicationProperties applicationProperties,
-        List<AiAgentUtilsClusterElementContributor> clusterElementContributors,
-        ClusterElementDefinitionService clusterElementDefinitionService, AiAutoMemoryService aiAutoMemoryService,
-        ProjectDeploymentService projectDeploymentService, ProjectService projectService) {
+        AiSkillFacade aiSkillFacade, List<AiAgentUtilsClusterElementContributor> clusterElementContributors,
+        ClusterElementDefinitionService clusterElementDefinitionService) {
 
-        ApplicationProperties.Ai.AgentUtils agentUtils = applicationProperties.getAi()
-            .getAgentUtils();
-
-        Set<String> allowedPrivateHosts = getAllowedPrivateHosts(agentUtils);
-        AgentWorkspaceResolver agentWorkspaceResolver = createAgentWorkspaceResolver(agentUtils);
-
-        AiAgentUtilsAutoMemoryTool agentUtilsAutoMemoryTool = new AiAgentUtilsAutoMemoryTool(
-            aiAutoMemoryService, projectDeploymentService, projectService);
         AiAgentUtilsSmartWebFetchTool agentUtilsSmartWebFetchTool = new AiAgentUtilsSmartWebFetchTool(
-            clusterElementDefinitionService, allowedPrivateHosts);
-        AiAgentUtilsTaskTool agentUtilsTaskTool = new AiAgentUtilsTaskTool(
-            aiAgentToolFacade, clusterElementDefinitionService);
-        AiAgentUtilsApprovalGate agentUtilsApprovalGate = new AiAgentUtilsApprovalGate(
-            new ClusterElementToolCallbacks(aiAgentToolFacade, clusterElementDefinitionService),
             clusterElementDefinitionService);
 
+        AiAgentUtilsTaskTool agentUtilsTaskTool = new AiAgentUtilsTaskTool(clusterElementDefinitionService);
+
         List<ClusterElementDefinition<?>> clusterElements = new ArrayList<>(List.of(
-            agentUtilsApprovalGate.clusterElementDefinition,
+            AiAgentUtilsAgentClientTool.CLUSTER_ELEMENT_DEFINITION,
             AiAgentUtilsAskUserQuestionTool.CLUSTER_ELEMENT_DEFINITION,
             new AiAgentUtilsFileSystemTools(agentWorkspaceResolver).clusterElementDefinition,
             new AiAgentUtilsGrepTool(agentWorkspaceResolver).clusterElementDefinition,
@@ -116,7 +103,6 @@ public class AiAgentUtilsComponentHandler implements ComponentHandler {
             agentUtilsAutoMemoryTool.clusterElementDefinition,
             AiAgentUtilsTodoWriteTool.CLUSTER_ELEMENT_DEFINITION,
             agentUtilsTaskTool.clusterElementDefinition,
-            AiAgentUtilsSubagentTool.CLUSTER_ELEMENT_DEFINITION,
             tool(AiAgentUtilsAppendFilesToAiSkillAction.of(aiSkillFacade)),
             tool(AiAgentUtilsCreateAiSkillAction.of(aiSkillFacade)),
             tool(AiAgentUtilsDeleteAiSkillAction.of(aiSkillFacade)),
