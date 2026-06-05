@@ -81,4 +81,4 @@ Permission expressions apply at two levels:
 - **Integration level** — set in the integration's create/edit dialog. Controls whether the entire integration (all of its workflows) is offered to the user.
 - **Workflow level** — set per workflow from the integration's workflow list. Controls whether that single workflow is offered, even when the parent integration is visible.
 
-Both filters are fail-closed: an expression that errors or evaluates to `false` hides the resource. See **[Permission Expressions](/enterprise/embedded-ipaas/permission-expressions)** for the full reference.
+Both filters are fail-closed: an expression that errors or evaluates to `false` hides the resource. See **[Permission Expressions](/embedded/permission-expressions)** for the full reference.

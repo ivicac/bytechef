@@ -22,7 +22,7 @@ A REST API with predictable resources:
 | `/integration-instances` | Manage a connected user's enabled integration instances. |
 | `/components/{name}/connections` | Create and manage a connected user's connections. |
 
-Resources are also addressable per connected user via an `/{externalUserId}/...` prefix. Each endpoint is scoped to a tenant via the request's auth context — see [tenant-isolated security](/enterprise/embedded-ipaas/tenant-isolated-security).
+Resources are also addressable per connected user via an `/{externalUserId}/...` prefix. Each endpoint is scoped to a tenant via the request's auth context — see [tenant-isolated security](/embedded/tenant-isolated-security).
 
 ## Designed for product surfaces
 
@@ -52,7 +52,7 @@ The API authenticates calls with one of:
 - **Tenant-scoped service tokens** issued by ByteChef to your backend, with the tenant ID baked in.
 - **Customer-scoped JWTs** signed by you and validated by ByteChef against a shared key.
 
-In both cases, the auth context selects the tenant, and the [tenant-isolated security](/enterprise/embedded-ipaas/tenant-isolated-security) model takes over from there.
+In both cases, the auth context selects the tenant, and the [tenant-isolated security](/embedded/tenant-isolated-security) model takes over from there.
 
 ## Audit linkage
 

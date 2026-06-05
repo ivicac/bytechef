@@ -3,68 +3,12 @@ title: "Embedded iPaaS Overview"
 description: "Expose ByteChef's workflow engine inside your SaaS. Your customers build integrations; you don't build an integration team."
 ---
 
-If you're shipping a SaaS product, your customers are going to ask for integrations: "Can you connect to Salesforce? Slack? Our internal CRM? Our data warehouse?" The traditional answers are:
+If you're shipping a SaaS product, your customers will ask for integrations: "Can you connect to Salesforce? Slack? Our internal CRM?" ByteChef's **Embedded iPaaS** lets you give them hundreds of integrations and a white-labeled workflow builder inside your own product — without building an integration team — while you keep control of a source-available engine.
 
-1. **Build the integration team.** Slow, expensive, never-ending.
-2. **Pick one or two integrations.** Customers churn over the ones you skipped.
-3. **Embed an iPaaS.** Get hundreds of integrations and a workflow builder, branded as yours.
+The full embedded documentation now lives in the **[Embedded](/embedded)** guide. The enterprise-focused iPaaS topics:
 
-ByteChef's Embedded iPaaS is option 3 — and because the platform is source-available, you keep control of the engine.
-
-## What you get
-
-| Capability | Purpose |
-|---|---|
-| [White-label execution](/enterprise/embedded-ipaas/white-label-execution) | The workflow engine, runs inside your product, branded as yours. |
-| [Embedded configuration API](/enterprise/embedded-ipaas/configuration-api) | Programmatic CRUD for projects, workflows, and connections — designed for product surfaces. |
-| [Permission expressions](/enterprise/embedded-ipaas/permission-expressions) | Gate which integrations, automation workflow projects, and workflows each connected user sees, driven by their plan, region, or feature flags. |
-| [Tenant-isolated security](/enterprise/embedded-ipaas/tenant-isolated-security) | Multi-tenant defaults that fail safe. |
-| [Embedded MCP](/enterprise/embedded-ipaas/embedded-mcp) | Surface each tenant's workflows as MCP tools for their agents. |
-
-## The mental model
-
-```
-       Your SaaS product
-       ┌────────────────────────────────┐
-       │  Your UI / Your branding       │
-       │  ┌──────────────────────────┐  │
-       │  │  ByteChef-rendered       │  │
-       │  │  workflow builder        │  │  ◄── embedded via iframe / SDK
-       │  │  (white-labeled)         │  │
-       │  └──────────────────────────┘  │
-       │  ┌──────────────────────────┐  │
-       │  │  Your business logic     │  │
-       │  └──────────────────────────┘  │
-       └────────────────────────────────┘
-                      │
-                      ▼
-       ┌────────────────────────────────┐
-       │  ByteChef Enterprise           │
-       │  ┌──────────────┐  ┌────────┐  │
-       │  │ Tenant A     │  │ Tenant │  │
-       │  │ workspace    │  │   B    │  │  ◄── per-customer isolation
-       │  └──────────────┘  └────────┘  │
-       └────────────────────────────────┘
-```
-
-Your customer never sees "ByteChef." They see your product offering integrations.
-
-## The promise to your customers
-
-Embedded gives your customers:
-
-- **Hundreds of integrations** without you having to build them.
-- **A visual workflow builder** they can use without writing code.
-- **Their own connections** — they bring their own credentials; you don't see them.
-- **Their data, isolated** — your other customers can't see their workflows or data.
-
-## The promise to you
-
-- **No integration team.** ByteChef ships and maintains the [180+ built-in components](/enterprise/extensibility/built-in-components).
-- **No new infrastructure to operate** — Embedded is the same binary you've already deployed.
-- **One billing surface.** You charge your customers; ByteChef bills you.
-- **Source-available engine.** No vendor lock-in on the part of your product that powers a critical workflow surface.
-
-## See also
-
-- [Embedded developer guide](/embedded) — the hands-on documentation: quick start, the embeddable React SDK, App Events, and the workflow executions API.
+- [White-Label Execution](/embedded/white-label-execution) — the workflow engine, running inside your product, branded as yours.
+- [Embedded Configuration API](/embedded/configuration-api) — programmatic CRUD for projects, workflows, and connections, designed for product surfaces.
+- [Permission Expressions](/embedded/permission-expressions) — gate which integrations, automation workflow projects, and workflows each connected user sees.
+- [Tenant-Isolated Security](/embedded/tenant-isolated-security) — multi-tenant defaults that fail safe.
+- [Embedded MCP](/embedded/embedded-mcp) — surface each tenant's workflows as MCP tools for their agents.

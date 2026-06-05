@@ -28,6 +28,12 @@
     "connections/index",
     "...connections",
     "settings/index",
-    "...settings"
+    "...settings",
+    "---Enterprise iPaaS---",
+    "white-label-execution",
+    "configuration-api",
+    "permission-expressions",
+    "tenant-isolated-security",
+    "embedded-mcp"
   ]
 }
