@@ -74,6 +74,15 @@ public class PersonalAgentSaveValidator {
      * generic "validation failed."
      */
     public void validate(long workspaceId, String llmProvider, String llmModel) {
+        // Catalog-based selections (provider keys like "ai.provider.openAi", emitted by the catalog ModelPicker) are
+        // resolved at runtime from the platform AI provider catalog (CatalogChatClientResolver), NOT the workspace AI
+        // Gateway, so the gateway provider/model checks below don't apply. Gateway type names ("openai", "anthropic")
+        // never carry this prefix, so this guard only short-circuits catalog selections. Runtime degrades to the
+        // workspace default if the catalog can't resolve the pair.
+        if (llmProvider.startsWith("ai.provider.")) {
+            return;
+        }
+
         AiGatewayProvider provider = resolveProvider(workspaceId, llmProvider);
 
         if (provider == null) {

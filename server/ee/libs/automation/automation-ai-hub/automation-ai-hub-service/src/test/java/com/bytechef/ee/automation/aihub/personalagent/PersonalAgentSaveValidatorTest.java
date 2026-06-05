@@ -86,6 +86,13 @@ class PersonalAgentSaveValidatorTest {
     }
 
     @Test
+    void testCatalogProviderKeyBypassesGatewayValidation() {
+        // Catalog selections (keys like "ai.provider.openAi") resolve at runtime from the platform catalog, not the
+        // workspace gateway, so the save validator must not reject them even when no matching gateway provider exists.
+        assertDoesNotThrow(() -> validator.validate(WORKSPACE_ID, "ai.provider.openAi", "gpt-4o"));
+    }
+
+    @Test
     void testUnknownProviderThrowsWithProviderInMessage() {
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
