@@ -12,6 +12,22 @@
 
 ---
 
+## Implementation deviations from this plan (recorded post-build, 2026-06-05)
+
+These are the places where the as-built code diverged from the plan as written. Documented honestly so the plan matches reality:
+
+1. **GraphQL host module.** The plan tentatively placed the controller/schema in `platform-configuration-graphql`, but that module is **CE-only** and can't depend on the EE `AiProviderFacade`. The query was hosted in the EE module `automation-ai-gateway-graphql` (already codegen-globbed), package `com.bytechef.ee.automation.ai.gateway.web.graphql`. No `codegen.ts` change was needed (that module's `.graphqls` glob already existed), so Task 3.1 only added the client operation + regenerated.
+
+2. **Provider key mapping.** `Provider`'s constructor is `Provider(int id, String name, String key, String label)`: `getName()` is the component-match (e.g. `"openAi"`), **`getKey()` is the PropertyService storage key AND the catalog wire value (e.g. `"ai.provider.openAi"`)**, `getLabel()` is the display name. The DTO emits `key=getKey()`, `name=getLabel()`. The wire `userSelectedLlmProvider` is therefore `"ai.provider.openAi"`; it cannot collide with the gateway namespace (`"OPENAI"`).
+
+3. **VERTEX_GEMINI matching bug fix.** The pre-existing `provider.getName().contains(componentDefinition.getName())` match is case-sensitive and dropped Gemini (`"vertexGemini".contains("gemini")` is false). `getAiProviderCatalog` uses a case-insensitive **longest-substring** match instead (also prevents AZURE_OPEN_AI cross-matching an `"openai"` component). The pre-existing `getAiProviders` method was left unchanged (out of scope).
+
+4. **Fourth `ModelPicker` caller + optional default sentinel (plan gap).** The plan enumerated only three callers; a **fourth** exists: `AiHubPersonalAgentForm.tsx` (the personal-agent config form). That form genuinely needs a "Use workspace default" sentinel to clear an agent's override. So the rewrite did **not** remove the default sentinel outright — it made it **optional**, gated on the re-added optional prop `workspaceDefaultLabel?: string`: composers omit it (exact-provider behavior per the spec); the personal-agent form passes it (sentinel restored). The form was updated to also pass the new `environment` prop. No last-used seeding in the form (it persists the agent's own default, not a per-conversation pick).
+
+5. **v1 limitation (as designed).** Azure OpenAI and Hugging Face are listed in the catalog but `CatalogChatModelFactory` returns null for them (they need connection params — deployment endpoint / inference URL — the catalog doesn't store), so a pick falls back to the gateway/workspace default. Documented in the spec's "Out of scope".
+
+---
+
 ## Background facts (verified — do not re-derive)
 
 - **Catalog provider enum:** `com.bytechef.component.ai.llm.Provider` — constructor `Provider(int id, String name, String key, String label)`. Getters: `getId()`, `getName()` (component name match key, e.g. `"anthropic"`), `getKey()` (stable storage key, e.g. `"ai.provider.openAi"`), `getLabel()` (display, e.g. `"Anthropic"`). Chat-capable entries: ANTHROPIC, AZURE_OPEN_AI, GROQ, HUGGING_FACE, MISTRAL, NVIDIA, OPEN_AI, VERTEX_GEMINI, PERPLEXITY, DEEPSEEK. **STABILITY is image-only — exclude.**
