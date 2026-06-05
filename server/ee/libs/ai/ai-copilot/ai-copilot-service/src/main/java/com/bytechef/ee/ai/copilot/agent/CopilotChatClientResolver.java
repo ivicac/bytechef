@@ -10,6 +10,7 @@ package com.bytechef.ee.ai.copilot.agent;
 import com.agui.core.state.State;
 import com.bytechef.ee.automation.ai.gateway.domain.WorkspaceAiGatewayProvider;
 import com.bytechef.ee.automation.ai.gateway.service.WorkspaceAiGatewayProviderService;
+import com.bytechef.ee.platform.ai.gateway.catalog.CatalogChatClientResolver;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProvider;
 import com.bytechef.ee.platform.ai.gateway.provider.AiGatewayChatModelFactory;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayProviderService;
@@ -86,18 +87,27 @@ public class CopilotChatClientResolver implements OverrideChatClientResolver {
      */
     static final String WORKSPACE_ID_KEY = "workspaceId";
 
+    /**
+     * AG-UI state key for the active environment id (client-supplied). Used to resolve the platform AI provider catalog
+     * API key for the chosen provider.
+     */
+    static final String ENVIRONMENT_ID_KEY = "environmentId";
+
     private final WorkspaceAiGatewayProviderService workspaceAiGatewayProviderService;
     private final AiGatewayProviderService aiGatewayProviderService;
     private final AiGatewayChatModelFactory aiGatewayChatModelFactory;
+    private final CatalogChatClientResolver catalogChatClientResolver;
 
     @SuppressFBWarnings("EI")
     public CopilotChatClientResolver(
         WorkspaceAiGatewayProviderService workspaceAiGatewayProviderService,
-        AiGatewayProviderService aiGatewayProviderService, AiGatewayChatModelFactory aiGatewayChatModelFactory) {
+        AiGatewayProviderService aiGatewayProviderService, AiGatewayChatModelFactory aiGatewayChatModelFactory,
+        CatalogChatClientResolver catalogChatClientResolver) {
 
         this.workspaceAiGatewayProviderService = workspaceAiGatewayProviderService;
         this.aiGatewayProviderService = aiGatewayProviderService;
         this.aiGatewayChatModelFactory = aiGatewayChatModelFactory;
+        this.catalogChatClientResolver = catalogChatClientResolver;
     }
 
     @Override
@@ -117,6 +127,17 @@ public class CopilotChatClientResolver implements OverrideChatClientResolver {
             }
 
             return null;
+        }
+
+        Long environment = asLong(state.get(ENVIRONMENT_ID_KEY));
+
+        if (environment != null) {
+            ChatClient catalogChatClient = catalogChatClientResolver.resolve(
+                environment.intValue(), llmProvider, llmModel);
+
+            if (catalogChatClient != null) {
+                return catalogChatClient;
+            }
         }
 
         Long workspaceId = asLong(state.get(WORKSPACE_ID_KEY));
