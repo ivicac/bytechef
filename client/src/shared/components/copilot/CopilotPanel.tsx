@@ -4,12 +4,14 @@ import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import ModeSwitch from '@/shared/components/ModeSwitch/ModeSwitch';
 import ModelPicker from '@/shared/components/ai/model-picker/ModelPicker';
+import {readLastUsedModel, writeLastUsedModel} from '@/shared/components/ai/model-picker/lastUsedModel';
 import CopilotPanelBoundary from '@/shared/components/copilot/CopilotPanelBoundary';
 import {CopilotRuntimeProvider} from '@/shared/components/copilot/runtime-providers/CopilotRuntimeProvider';
 import useCopilotPanelStore from '@/shared/components/copilot/stores/useCopilotPanelStore';
 import {MODE, Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
 import {canApplyToEditor} from '@/shared/components/copilot/utils/canApplyToEditor';
 import {extractDefinitionFromMessage} from '@/shared/components/copilot/utils/extractDefinitionFromMessage';
+import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {BotMessageSquareIcon, MessageSquareXIcon, SparklesIcon, XIcon} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import {useLocation} from 'react-router-dom';
@@ -56,6 +58,7 @@ const CopilotPanelContent = ({
         }))
     );
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+    const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
     const setCopilotPanelOpen = useCopilotPanelStore((state) => state.setCopilotPanelOpen);
     const location = useLocation();
 
@@ -177,9 +180,17 @@ const CopilotPanelContent = ({
                         leadingComposerActions={
                             currentWorkspaceId != null ? (
                                 <ModelPicker
-                                    onChange={setSelectedLlm}
-                                    selectedModel={selectedLlmModel}
-                                    selectedProvider={selectedLlmProvider}
+                                    environment={currentEnvironmentId}
+                                    onChange={(provider, model) => {
+                                        writeLastUsedModel(currentWorkspaceId, provider, model);
+                                        setSelectedLlm(provider, model);
+                                    }}
+                                    selectedModel={
+                                        selectedLlmModel ?? readLastUsedModel(currentWorkspaceId)?.model ?? null
+                                    }
+                                    selectedProvider={
+                                        selectedLlmProvider ?? readLastUsedModel(currentWorkspaceId)?.provider ?? null
+                                    }
                                     workspaceId={currentWorkspaceId}
                                 />
                             ) : null

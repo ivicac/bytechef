@@ -1,6 +1,7 @@
 import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
 import useCopilotStateContributorRegistry from '@/shared/components/copilot/stores/useCopilotStateContributorRegistry';
 import {Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
+import {environmentStore} from '@/shared/stores/useEnvironmentStore';
 import {getCookie} from '@/shared/util/cookie-utils';
 import {getRandomId} from '@/shared/util/random-utils';
 import {AgentSubscriber, HttpAgent} from '@ag-ui/client';
@@ -75,6 +76,7 @@ export function CopilotRuntimeProvider({
         const stateToSend = {
             ...contextWithoutError,
             ...useCopilotStateContributorRegistry.getState().contribute(),
+            environmentId: String(environmentStore.getState().currentEnvironmentId ?? 0),
             // Drop half-set picker values client-side rather than sending them. The server
             // tolerates partial input (logs once, falls back to workspace default), but omitting
             // here keeps the wire format clean and reserves the warning log for genuinely-broken state.
