@@ -4,6 +4,8 @@ import {aiHubTasksStore, useAiHubTasksStore} from '@/pages/automation/ai-hub/tas
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import EnvironmentSelect from '@/shared/components/EnvironmentSelect';
 import ModelPicker from '@/shared/components/ai/model-picker/ModelPicker';
+import {readLastUsedModel, writeLastUsedModel} from '@/shared/components/ai/model-picker/lastUsedModel';
+import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {useNavigate} from 'react-router-dom';
 
 // Note: this view stays mounted inside the same `AiHubRuntimeProvider` (hoisted to
@@ -17,6 +19,7 @@ const AiHubHomePanel = () => {
     const navigate = useNavigate();
 
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+    const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
     // Draft slot: the home composer has no task to scope a selection to until the user sends a
     // message (AiHubRuntimeProvider.onNew auto-creates the task on first send). The draft is migrated
     // into taskLlmSelections[newTaskId] inside onNew via consumeDraftLlmSelection so the override
@@ -61,9 +64,19 @@ const AiHubHomePanel = () => {
                         modelPicker={
                             currentWorkspaceId != null ? (
                                 <ModelPicker
-                                    onChange={setDraftLlmSelection}
-                                    selectedModel={draftLlmSelection?.model ?? null}
-                                    selectedProvider={draftLlmSelection?.provider ?? null}
+                                    environment={currentEnvironmentId}
+                                    onChange={(provider, model) => {
+                                        writeLastUsedModel(currentWorkspaceId, provider, model);
+                                        setDraftLlmSelection(provider, model);
+                                    }}
+                                    selectedModel={
+                                        draftLlmSelection?.model ?? readLastUsedModel(currentWorkspaceId)?.model ?? null
+                                    }
+                                    selectedProvider={
+                                        draftLlmSelection?.provider ??
+                                        readLastUsedModel(currentWorkspaceId)?.provider ??
+                                        null
+                                    }
                                     workspaceId={currentWorkspaceId}
                                 />
                             ) : null
