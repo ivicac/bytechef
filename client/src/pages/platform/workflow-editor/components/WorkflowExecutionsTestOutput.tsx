@@ -73,7 +73,7 @@ const WorkflowExecutionsTestOutput = ({
 
     return (
         <div className="flex size-full flex-col">
-            <div className="flex items-center justify-between border-b border-stroke-neutral-secondary py-1">
+            <div className="flex items-center justify-between border-b border-stroke-neutral-secondary">
                 {job ? (
                     <WorkflowExecutionsHeader job={job} triggerExecution={triggerExecution} />
                 ) : (
@@ -110,15 +110,15 @@ const WorkflowExecutionsTestOutput = ({
                             {workflowTestExecution?.job && !jobFailedWithNoExecutions && (
                                 <ResizablePanelGroup orientation="horizontal">
                                     <ResizablePanel
-                                        className="flex flex-col overflow-hidden py-4"
+                                        className="flex flex-col overflow-hidden pb-3"
                                         defaultSize={resizablePanelSize}
                                     >
                                         {subflowStack.length === 0 && rootJob && (
-                                            <div className="flex h-9 items-center gap-1 px-3 py-2">
+                                            <div className="my-2 flex h-9 items-center gap-1 px-3">
                                                 <WorkflowIcon className="size-3 shrink-0 text-content-neutral-primary" />
 
                                                 <TruncatedLabel
-                                                    className="text-xs leading-4 font-medium text-content-neutral-primary"
+                                                    className="text-sm leading-4 font-medium text-content-neutral-primary"
                                                     label={rootJob.label ?? ''}
                                                 />
                                             </div>
@@ -172,7 +172,7 @@ const WorkflowExecutionsTestOutput = ({
 
                                     <ResizableHandle className="bg-muted" />
 
-                                    <ResizablePanel className="flex min-h-0 flex-col space-y-4 overflow-hidden p-4">
+                                    <ResizablePanel className="flex min-h-0 flex-col space-y-4 overflow-hidden px-1 pt-1 pb-3">
                                         {job && (
                                             <WorkflowExecutionsTabsPanel
                                                 activeTab={activeTab}
