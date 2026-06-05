@@ -19,7 +19,7 @@ Two halves make up the feature, joined by a single shared **object name**:
 | Object-type selector | The user picks a remote object type; the integration-field dropdown then loads for that type. |
 | Live option lists | Object types and integration fields are fetched at runtime against the user's connection — no hardcoded lists. |
 | Configurable rows | `defaultFields` seeds which application-field rows show initially; `userCanRemoveMappings` lets users remove and re-add them. |
-| User-creatable fields | `userCanCreateFields` lets users invent an application field not in your configured set. |
+| User-creatable fields | When your application object supports freeform fields or a flexible schema, `userCanCreateFields` lets users create their own fields beyond your configured set. |
 | Data pills | Mapped application fields appear as child data pills in the embedded workflow builder. |
 
 <Callout title="Scope">
@@ -163,7 +163,7 @@ It runs the named component action against the connected user's stored credentia
 | `applicationFields.fields` | `OptionType[]` | yes | Your application's fields (the mappable left column). |
 | `applicationFields.defaultFields` | `string[]` | no | `value`s of the rows visible initially. `[]` shows none; omitting shows all. |
 | `applicationFields.userCanRemoveMappings` | `boolean` | no | Allow per-row remove and re-add. |
-| `applicationFields.userCanCreateFields` | `boolean` | no | Allow inventing an application field not in `fields`. |
+| `applicationFields.userCanCreateFields` | `boolean` | no | For application objects with a freeform or flexible schema, let users create their own application fields beyond the configured `fields`. |
 
 `OptionType` is `{label: string; value: string}`.
 
