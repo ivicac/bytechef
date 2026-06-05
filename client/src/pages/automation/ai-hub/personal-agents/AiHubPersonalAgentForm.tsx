@@ -542,6 +542,7 @@ const AiHubPersonalAgentForm = () => {
                                     <Label htmlFor="personal-agent-llm-picker">LLM provider and model</Label>
 
                                     <ModelPicker
+                                        environment={currentEnvironmentId ?? 0}
                                         layout="full"
                                         onChange={(provider, model) => {
                                             setLlmProvider(provider ?? '');
