@@ -1,0 +1,64 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the ByteChef Enterprise license (the "Enterprise License");
+ * you may not use this file except in compliance with the Enterprise License.
+ */
+
+package com.bytechef.ee.platform.ai.gateway.catalog;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
+
+import com.bytechef.component.ai.llm.Provider;
+import com.bytechef.platform.configuration.domain.Property;
+import com.bytechef.platform.configuration.domain.Property.Scope;
+import com.bytechef.platform.configuration.service.PropertyService;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+
+/**
+ * @version ee
+ *
+ * @author Ivica Cardic
+ */
+class CatalogChatClientResolverTest {
+
+    private final PropertyService propertyService = mock(PropertyService.class);
+    private final CatalogChatModelFactory catalogChatModelFactory = mock(CatalogChatModelFactory.class);
+    private final CatalogChatClientResolver resolver =
+        new CatalogChatClientResolver(propertyService, catalogChatModelFactory);
+
+    @Test
+    void testResolveReturnsNullForUnknownProviderKey() {
+        assertThat(resolver.resolve(1, "notAProvider", "x")).isNull();
+    }
+
+    @Test
+    void testResolveReturnsNullWhenProviderDisabled() {
+        Property property = mock(Property.class);
+
+        when(property.isEnabled()).thenReturn(false);
+        when(propertyService.fetchProperty(eq("ai.provider.openAi"), eq(Scope.PLATFORM), eq(null), anyLong()))
+            .thenReturn(Optional.of(property));
+
+        assertThat(resolver.resolve(1, "ai.provider.openAi", "gpt-4o")).isNull();
+    }
+
+    @Test
+    void testResolveBuildsClientWhenEnabledWithKey() {
+        Property property = mock(Property.class);
+
+        when(property.isEnabled()).thenReturn(true);
+        when(property.get("apiKey")).thenReturn("sk-test");
+        when(propertyService.fetchProperty(eq("ai.provider.openAi"), eq(Scope.PLATFORM), eq(null), anyLong()))
+            .thenReturn(Optional.of(property));
+        when(catalogChatModelFactory.createChatModel(eq(Provider.OPEN_AI), eq("gpt-4o"), eq("sk-test")))
+            .thenReturn(mock(org.springframework.ai.chat.model.ChatModel.class));
+
+        assertThat(resolver.resolve(1, "ai.provider.openAi", "gpt-4o")).isNotNull();
+    }
+}
