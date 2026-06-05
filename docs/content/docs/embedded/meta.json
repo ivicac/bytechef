@@ -21,6 +21,7 @@
     "...app-events",
     "automations/index",
     "...automations",
+    "workflow-builder-tools",
     "connected-users/index",
     "...connected-users",
     "executions/index",

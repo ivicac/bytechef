@@ -25,10 +25,11 @@ It's split into two pieces:
 | **ActionKit Playground** (`/action-kit`) | Invoking a single component action directly, without authoring a workflow first. | `POST /api/embedded/v1/{externalUserId}/components/{componentName}/versions/{componentVersion}/actions/{actionName}` |
 | **Chat MCP** (`/chat-mcp`) | Using a ByteChef **MCP Server** as the tool source for an AI assistant chat. | MCP transport against your MCP Server URL, authenticated with the end-user JWT |
 | **Chat Component Kit** (`/chat-component-kit`) | Exposing every component action available to a user as tools for an AI assistant. | `GET /api/embedded/v1/{externalUserId}/tools` |
+| **Create From Chat** (`/create-from-chat`) | An agent that creates and refines the user's workflows from chat, then returns to the list when done. | [Workflow Builder Tools](/embedded/workflow-builder-tools) via `POST /api/embedded/v1/{externalUserId}/tools` |
 | **App Event** (`/app-event`) | Firing an **App Event** from your application to trigger every workflow whose connected-user trigger subscribes to it. | [`POST /api/embedded/v1/app-events`](/openapi/embedded-webhook) |
 | **Request** (`/request`) | Triggering a single workflow synchronously via its **Request trigger** and reading the workflow's response back. | [`POST /api/embedded/v1/workflows/{workflowUuid}`](/openapi/embedded-webhook) |
 
-Together these cover the seven most common embedded integration patterns: the connect flow, programmatic workflow CRUD, ad-hoc action execution, MCP-based tooling, tool-by-tool LLM integration, App Event firing, and synchronous request-triggered workflows.
+Together these cover the most common embedded integration patterns: the connect flow, programmatic workflow CRUD, ad-hoc action execution, MCP-based tooling, tool-by-tool LLM integration, agent-driven workflow authoring, App Event firing, and synchronous request-triggered workflows.
 
 ---
 
