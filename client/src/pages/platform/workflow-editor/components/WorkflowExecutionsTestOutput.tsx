@@ -184,6 +184,17 @@ const WorkflowExecutionsTestOutput = ({
                                         className="flex flex-col overflow-hidden"
                                         defaultSize={resizablePanelSize}
                                     >
+                                        {subflowStack.length === 0 && rootJob && (
+                                            <div className={twMerge(EXECUTIONS_PANEL_HEADER_CLASS_NAME, 'gap-1')}>
+                                                <WorkflowIcon className="size-3 shrink-0 text-content-neutral-primary" />
+
+                                                <TruncatedLabel
+                                                    className="text-sm leading-4 font-medium text-content-neutral-primary"
+                                                    label={rootJob.label ?? ''}
+                                                />
+                                            </div>
+                                        )}
+
                                         {subflowStack.length > 0 && (
                                             <SubflowExecutionBreadcrumb
                                                 items={breadcrumbItems}
