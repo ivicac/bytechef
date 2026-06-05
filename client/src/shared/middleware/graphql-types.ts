@@ -1219,6 +1219,22 @@ export enum AiPromptVersionType {
   Text = 'TEXT'
 }
 
+export type AiProviderCatalogItem = {
+  __typename?: 'AiProviderCatalogItem';
+  enabled: Scalars['Boolean']['output'];
+  icon?: Maybe<Scalars['String']['output']>;
+  key: Scalars['String']['output'];
+  models: Array<AiProviderModel>;
+  name: Scalars['String']['output'];
+  supportsModelById: Scalars['Boolean']['output'];
+};
+
+export type AiProviderModel = {
+  __typename?: 'AiProviderModel';
+  label: Scalars['String']['output'];
+  name: Scalars['String']['output'];
+};
+
 export type AiSkill = {
   __typename?: 'AiSkill';
   /** Epoch milliseconds (UTC) */
@@ -5567,6 +5583,7 @@ export type Query = {
   aiPrompt?: Maybe<AiPrompt>;
   aiPromptVersions?: Maybe<Array<Maybe<AiPromptVersion>>>;
   aiPrompts?: Maybe<Array<Maybe<AiPrompt>>>;
+  aiProviderCatalog: Array<AiProviderCatalogItem>;
   aiSkill: AiSkill;
   aiSkillFileContent: Scalars['String']['output'];
   aiSkillFilePaths: Array<Scalars['String']['output']>;
@@ -6123,6 +6140,11 @@ export type QueryAiPromptVersionsArgs = {
 
 export type QueryAiPromptsArgs = {
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiProviderCatalogArgs = {
+  environment: Scalars['ID']['input'];
 };
 
 
