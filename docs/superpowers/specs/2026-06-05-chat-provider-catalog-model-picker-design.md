@@ -39,24 +39,27 @@ so the catalog can both render the picker and resolve selections.
 
 ### Chat-capable providers
 
-From `Provider.java`, the chat-capable subset (excludes `STABILITY`, which is image-only):
+From `Provider.java`, the catalog offers this chat-capable subset (8 providers):
 
-`ANTHROPIC (anthropic)`, `AZURE_OPEN_AI (azureOpenAi)`, `GROQ (groq)`, `HUGGING_FACE (huggingFace)`,
-`MISTRAL (mistral)`, `NVIDIA (nvidia)`, `OPEN_AI (openAi)`, `VERTEX_GEMINI (vertexGemini)`,
-`PERPLEXITY (perplexity)`, `DEEPSEEK (deepseek)`.
+`ANTHROPIC (anthropic)`, `GROQ (groq)`, `MISTRAL (mistral)`, `NVIDIA (nvidia)`,
+`OPEN_AI (openAi)`, `VERTEX_GEMINI (vertexGemini)`, `PERPLEXITY (perplexity)`, `DEEPSEEK (deepseek)`.
 
-"Chat-capable" is determined programmatically: the provider's `ComponentDefinition` exposes a chat
-action. (Stability has only an image action and is therefore excluded.)
+**Excluded** from the catalog (curated `CHAT_PROVIDERS` set):
+- `STABILITY` — image-only.
+- `HUGGING_FACE` — Spring AI no longer supports the Hugging Face chat model.
+- `AZURE_OPEN_AI` — its chat model requires a per-deployment **endpoint** that the platform catalog does
+  not store (only an `apiKey`), so it can't be resolved from catalog credentials; listing it would be a
+  silent fall-back to the workspace default. (Supporting it later means adding an endpoint field to AI
+  Providers settings + the property store.)
 
 ### Model lists per provider
 
 Providers with an enumerable model list (the chat action's `model` property has `options`):
 `OPEN_AI`, `ANTHROPIC`, `MISTRAL`, `VERTEX_GEMINI`. These expose `[{name, label}]`.
 
-Providers that are OpenAI-compatible or endpoint-based and accept a **free-form** model id
-(no `options` on the `model` property): `GROQ`, `PERPLEXITY`, `NVIDIA`, `AZURE_OPEN_AI`,
-`DEEPSEEK`, `HUGGING_FACE`. These expose an empty `models` list and `supportsModelById: true`; their
-active submenu shows **only** "Choose model by ID".
+Providers that are OpenAI-compatible and accept a **free-form** model id (no `options` on the `model`
+property): `GROQ`, `PERPLEXITY`, `NVIDIA`, `DEEPSEEK`. These expose an empty `models` list and
+`supportsModelById: true`; their active submenu shows **only** "Choose model by ID".
 
 ## Requirements
 
