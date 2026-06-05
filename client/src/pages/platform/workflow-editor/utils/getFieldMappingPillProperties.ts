@@ -19,7 +19,7 @@ export default function getFieldMappingPillProperties(testValue: string | undefi
     try {
         const parsed = JSON.parse(testValue) as Record<
             string,
-            {applicationFields?: Array<{label: string; value: string}>}
+            {applicationFields?: {fields?: Array<{label: string; value: string}>}}
         >;
 
         const root = (parsed.mapObjectFields as typeof parsed) ?? parsed;
@@ -29,7 +29,7 @@ export default function getFieldMappingPillProperties(testValue: string | undefi
             return [];
         }
 
-        const applicationFields = root[firstKey]?.applicationFields ?? [];
+        const applicationFields = root[firstKey]?.applicationFields?.fields ?? [];
 
         return applicationFields.map((field) => ({label: field.label, name: field.value, type: PropertyType.String}));
     } catch {

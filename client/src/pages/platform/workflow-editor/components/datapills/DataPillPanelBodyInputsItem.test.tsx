@@ -18,7 +18,7 @@ vi.mock('@/shared/queries/platform/workflowTestConfigurations.queries', () => ({
         data: {
             inputs: {
                 contactMapping: JSON.stringify({
-                    Contacts: {applicationFields: [{label: 'Title', value: 'title'}]},
+                    Contacts: {applicationFields: {fields: [{label: 'Title', value: 'title'}]}},
                 }),
             },
         },

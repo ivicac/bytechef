@@ -27,9 +27,9 @@ const FieldMappingField = ({config, label, onChange, required, value}: FieldMapp
     );
 
     const [rows, setRows] = useState<RowType[]>(() => {
-        const sourceFields = config.fields ?? config.applicationFields ?? [];
-        const visible = config.defaultFields
-            ? sourceFields.filter((field) => config.defaultFields!.includes(field.value))
+        const sourceFields = config.applicationFields.fields;
+        const visible = config.applicationFields.defaultFields
+            ? sourceFields.filter((field) => config.applicationFields.defaultFields!.includes(field.value))
             : sourceFields;
 
         return visible.map((field) => ({custom: false, label: field.label, value: field.value}));
@@ -178,7 +178,7 @@ const FieldMappingField = ({config, label, onChange, required, value}: FieldMapp
                         ))}
                     </select>
 
-                    {config.userCanRemoveMappings && (
+                    {config.applicationFields.userCanRemoveMappings && (
                         <button onClick={() => handleRemoveRow(row.value)} type="button">
                             Remove
                         </button>
@@ -186,7 +186,7 @@ const FieldMappingField = ({config, label, onChange, required, value}: FieldMapp
                 </fieldset>
             ))}
 
-            {config.userCanCreateFields && (
+            {config.applicationFields.userCanCreateFields && (
                 <button onClick={handleCreateField} type="button">
                     Add custom field
                 </button>

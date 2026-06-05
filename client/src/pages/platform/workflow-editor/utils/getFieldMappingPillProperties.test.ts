@@ -6,10 +6,12 @@ describe('getFieldMappingPillProperties', () => {
     it('builds one child property per applicationFields entry', () => {
         const sample = JSON.stringify({
             Contacts: {
-                applicationFields: [
-                    {label: 'Title', value: 'title'},
-                    {label: 'Email', value: 'email'},
-                ],
+                applicationFields: {
+                    fields: [
+                        {label: 'Title', value: 'title'},
+                        {label: 'Email', value: 'email'},
+                    ],
+                },
             },
         });
 

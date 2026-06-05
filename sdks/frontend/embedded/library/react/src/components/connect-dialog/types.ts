@@ -183,14 +183,17 @@ export interface FieldMappingIntegrationFieldArgsType {
     search?: string;
 }
 
-export interface FieldMappingConfigType {
-    applicationFields?: OptionType[];
+export interface FieldMappingApplicationFieldsType {
     defaultFields?: string[];
-    fields?: OptionType[];
-    integrationFields: {get: (args: FieldMappingIntegrationFieldArgsType) => Promise<OptionType[]>};
-    objectTypes: {get: (args: FieldMappingObjectListArgsType) => Promise<OptionType[]>};
+    fields: OptionType[];
     userCanCreateFields?: boolean;
     userCanRemoveMappings?: boolean;
+}
+
+export interface FieldMappingConfigType {
+    applicationFields: FieldMappingApplicationFieldsType;
+    integrationFields: {get: (args: FieldMappingIntegrationFieldArgsType) => Promise<OptionType[]>};
+    objectTypes: {get: (args: FieldMappingObjectListArgsType) => Promise<OptionType[]>};
 }
 
 export type MapObjectFieldsType = Record<string, FieldMappingConfigType>;
@@ -207,13 +210,9 @@ export interface BoundFieldMappingIntegrationFieldArgsType {
 }
 
 export interface BoundFieldMappingConfigType {
-    applicationFields?: OptionType[];
-    defaultFields?: string[];
-    fields?: OptionType[];
+    applicationFields: FieldMappingApplicationFieldsType;
     integrationFields: {get: (args: BoundFieldMappingIntegrationFieldArgsType) => Promise<OptionType[]>};
     objectTypes: {get: (args: BoundFieldMappingObjectListArgsType) => Promise<OptionType[]>};
-    userCanCreateFields?: boolean;
-    userCanRemoveMappings?: boolean;
 }
 
 export interface FieldMappingRowValueType {

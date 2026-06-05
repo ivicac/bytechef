@@ -6,10 +6,12 @@ import FieldMappingField from './FieldMappingField';
 import {BoundFieldMappingConfigType} from './types';
 
 const config: BoundFieldMappingConfigType = {
-    fields: [
-        {label: 'Title', value: 'title'},
-        {label: 'Email', value: 'email'},
-    ],
+    applicationFields: {
+        fields: [
+            {label: 'Title', value: 'title'},
+            {label: 'Email', value: 'email'},
+        ],
+    },
     integrationFields: {
         get: vi.fn().mockResolvedValue([
             {label: 'First Name', value: 'first_name'},
