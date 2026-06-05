@@ -25,6 +25,7 @@ import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -37,7 +38,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * @author Ivica Cardic
  */
 @ExtendWith(MockitoExtension.class)
-class AiProviderFacadeImplCatalogTest {
+class AiProviderFacadeCatalogTest {
 
     private static final int ENVIRONMENT = 1;
 
@@ -60,10 +61,10 @@ class AiProviderFacadeImplCatalogTest {
 
         when(componentDefinitionService.getComponentDefinitions()).thenReturn(minimalDefinitions);
         when(propertyService.getProperties(
-            org.mockito.ArgumentMatchers.anyList(),
-            org.mockito.ArgumentMatchers.eq(Scope.PLATFORM),
-            org.mockito.ArgumentMatchers.isNull(),
-            org.mockito.ArgumentMatchers.eq((long) ENVIRONMENT)))
+            ArgumentMatchers.anyList(),
+            ArgumentMatchers.eq(Scope.PLATFORM),
+            ArgumentMatchers.isNull(),
+            ArgumentMatchers.eq((long) ENVIRONMENT)))
                 .thenReturn(List.of());
 
         List<AiProviderCatalogItemDTO> catalog = facade.getAiProviderCatalog(ENVIRONMENT);
@@ -81,10 +82,10 @@ class AiProviderFacadeImplCatalogTest {
 
         when(componentDefinitionService.getComponentDefinitions()).thenReturn(minimalDefinitions);
         when(propertyService.getProperties(
-            org.mockito.ArgumentMatchers.anyList(),
-            org.mockito.ArgumentMatchers.eq(Scope.PLATFORM),
-            org.mockito.ArgumentMatchers.isNull(),
-            org.mockito.ArgumentMatchers.eq((long) ENVIRONMENT)))
+            ArgumentMatchers.anyList(),
+            ArgumentMatchers.eq(Scope.PLATFORM),
+            ArgumentMatchers.isNull(),
+            ArgumentMatchers.eq((long) ENVIRONMENT)))
                 .thenReturn(List.of());
 
         List<AiProviderCatalogItemDTO> catalog = facade.getAiProviderCatalog(ENVIRONMENT);
@@ -122,10 +123,10 @@ class AiProviderFacadeImplCatalogTest {
 
         when(componentDefinitionService.getComponentDefinitions()).thenReturn(List.of(anthropicDefinition));
         when(propertyService.getProperties(
-            org.mockito.ArgumentMatchers.anyList(),
-            org.mockito.ArgumentMatchers.eq(Scope.PLATFORM),
-            org.mockito.ArgumentMatchers.isNull(),
-            org.mockito.ArgumentMatchers.eq((long) ENVIRONMENT)))
+            ArgumentMatchers.anyList(),
+            ArgumentMatchers.eq(Scope.PLATFORM),
+            ArgumentMatchers.isNull(),
+            ArgumentMatchers.eq((long) ENVIRONMENT)))
                 .thenReturn(List.of());
 
         List<AiProviderCatalogItemDTO> catalog = facade.getAiProviderCatalog(ENVIRONMENT);
@@ -167,10 +168,10 @@ class AiProviderFacadeImplCatalogTest {
 
         when(componentDefinitionService.getComponentDefinitions()).thenReturn(List.of(groqDefinition));
         when(propertyService.getProperties(
-            org.mockito.ArgumentMatchers.anyList(),
-            org.mockito.ArgumentMatchers.eq(Scope.PLATFORM),
-            org.mockito.ArgumentMatchers.isNull(),
-            org.mockito.ArgumentMatchers.eq((long) ENVIRONMENT)))
+            ArgumentMatchers.anyList(),
+            ArgumentMatchers.eq(Scope.PLATFORM),
+            ArgumentMatchers.isNull(),
+            ArgumentMatchers.eq((long) ENVIRONMENT)))
                 .thenReturn(List.of());
 
         List<AiProviderCatalogItemDTO> catalog = facade.getAiProviderCatalog(ENVIRONMENT);
@@ -191,10 +192,10 @@ class AiProviderFacadeImplCatalogTest {
 
         when(componentDefinitionService.getComponentDefinitions()).thenReturn(minimalDefinitions);
         when(propertyService.getProperties(
-            org.mockito.ArgumentMatchers.anyList(),
-            org.mockito.ArgumentMatchers.eq(Scope.PLATFORM),
-            org.mockito.ArgumentMatchers.isNull(),
-            org.mockito.ArgumentMatchers.eq((long) ENVIRONMENT)))
+            ArgumentMatchers.anyList(),
+            ArgumentMatchers.eq(Scope.PLATFORM),
+            ArgumentMatchers.isNull(),
+            ArgumentMatchers.eq((long) ENVIRONMENT)))
                 .thenReturn(List.of());
 
         List<AiProviderCatalogItemDTO> catalog = facade.getAiProviderCatalog(ENVIRONMENT);
@@ -203,6 +204,25 @@ class AiProviderFacadeImplCatalogTest {
         assertThat(catalog).isNotEmpty();
         assertThat(catalog.get(0))
             .isInstanceOf(AiProviderCatalogItemDTO.class);
+    }
+
+    @Test
+    void testGetAiProviderCatalogIncludesVertexGeminiMatchedByGeminiComponent() {
+        ComponentDefinition gemini = mockComponentDefinition("gemini", "<svg>gemini</svg>");
+
+        when(componentDefinitionService.getComponentDefinitions()).thenReturn(List.of(gemini));
+        when(propertyService.getProperties(
+            ArgumentMatchers.anyList(),
+            ArgumentMatchers.eq(Scope.PLATFORM),
+            ArgumentMatchers.isNull(),
+            ArgumentMatchers.eq((long) ENVIRONMENT)))
+                .thenReturn(List.of());
+
+        List<AiProviderCatalogItemDTO> catalog = facade.getAiProviderCatalog(ENVIRONMENT);
+
+        assertThat(catalog)
+            .extracting(AiProviderCatalogItemDTO::key)
+            .contains("ai.provider.vertexGemini");
     }
 
     /**
@@ -224,6 +244,18 @@ class AiProviderFacadeImplCatalogTest {
         when(definition.getName()).thenReturn(componentName);
         lenient().when(definition.getIcon())
             .thenReturn(null);
+        lenient().when(definition.getActions())
+            .thenReturn(List.of());
+
+        return definition;
+    }
+
+    private ComponentDefinition mockComponentDefinition(String name, String icon) {
+        ComponentDefinition definition = mock(ComponentDefinition.class);
+
+        when(definition.getName()).thenReturn(name);
+        lenient().when(definition.getIcon())
+            .thenReturn(icon);
         lenient().when(definition.getActions())
             .thenReturn(List.of());
 

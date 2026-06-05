@@ -22,7 +22,6 @@ import java.util.List;
 public record AiProviderCatalogItemDTO(
     String key, String name, String icon, boolean enabled, boolean supportsModelById, List<Model> models) {
 
-    @SuppressFBWarnings("EI")
     public record Model(String name, String label) {
     }
 }

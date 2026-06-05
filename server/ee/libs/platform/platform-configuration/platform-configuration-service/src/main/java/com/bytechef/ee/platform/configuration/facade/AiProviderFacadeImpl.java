@@ -20,6 +20,7 @@ import com.bytechef.platform.configuration.domain.Property.Scope;
 import com.bytechef.platform.configuration.service.PropertyService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Arrays;
+import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
@@ -81,13 +82,15 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
 
         return CHAT_PROVIDERS.stream()
             .map(provider -> {
-                ComponentDefinition componentDefinition = componentDefinitions.stream()
-                    .filter(curComponentDefinition -> {
-                        String providerName = provider.getName();
+                String providerName = provider.getName()
+                    .toLowerCase();
 
-                        return providerName.contains(curComponentDefinition.getName());
-                    })
-                    .findFirst()
+                ComponentDefinition componentDefinition = componentDefinitions.stream()
+                    .filter(curComponentDefinition -> providerName.contains(
+                        curComponentDefinition.getName()
+                            .toLowerCase()))
+                    .max(Comparator.comparingInt(curComponentDefinition -> curComponentDefinition.getName()
+                        .length()))
                     .orElse(null);
 
                 if (componentDefinition == null) {
