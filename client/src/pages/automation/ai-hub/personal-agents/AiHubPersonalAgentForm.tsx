@@ -551,7 +551,6 @@ const AiHubPersonalAgentForm = () => {
                                         selectedModel={llmModel || null}
                                         selectedProvider={llmProvider || null}
                                         workspaceDefaultLabel="Workspace default"
-                                        workspaceId={currentWorkspaceId ?? 0}
                                     />
 
                                     <p className="text-xs text-muted-foreground">

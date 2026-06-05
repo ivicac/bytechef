@@ -336,7 +336,6 @@ const AiHubPanel = () => {
                                     null
                                 }
                                 workflowChats={pickerWorkflowChats}
-                                workspaceId={currentWorkspaceId}
                             />
                         ) : null
                     }

@@ -77,7 +77,6 @@ const AiHubHomePanel = () => {
                                         readLastUsedModel(currentWorkspaceId)?.provider ??
                                         null
                                     }
-                                    workspaceId={currentWorkspaceId}
                                 />
                             ) : null
                         }

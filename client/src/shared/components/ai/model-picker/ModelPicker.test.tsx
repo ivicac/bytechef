@@ -45,15 +45,7 @@ describe('ModelPicker', () => {
     });
 
     it('lists active and inactive providers', async () => {
-        render(
-            <ModelPicker
-                environment={1}
-                onChange={vi.fn()}
-                selectedModel={null}
-                selectedProvider={null}
-                workspaceId={5}
-            />
-        );
+        render(<ModelPicker environment={1} onChange={vi.fn()} selectedModel={null} selectedProvider={null} />);
 
         await userEvent.click(screen.getByLabelText('Select LLM provider and model'));
 
@@ -68,7 +60,6 @@ describe('ModelPicker', () => {
                 onChange={vi.fn()}
                 selectedModel="gpt-4o"
                 selectedProvider="ai.provider.openAi"
-                workspaceId={5}
             />
         );
 
@@ -86,7 +77,6 @@ describe('ModelPicker', () => {
                 selectedModel={null}
                 selectedProvider={null}
                 workspaceDefaultLabel="Workspace default"
-                workspaceId={5}
             />
         );
 
@@ -108,7 +98,6 @@ describe('ModelPicker', () => {
                 personalAgents={[{id: 1, name: 'A', title: 'Agent A'}]}
                 selectedModel={null}
                 selectedProvider={null}
-                workspaceId={5}
             />
         );
 
@@ -118,15 +107,7 @@ describe('ModelPicker', () => {
     });
 
     it('navigates to AI Providers settings for an inactive provider', async () => {
-        render(
-            <ModelPicker
-                environment={1}
-                onChange={vi.fn()}
-                selectedModel={null}
-                selectedProvider={null}
-                workspaceId={5}
-            />
-        );
+        render(<ModelPicker environment={1} onChange={vi.fn()} selectedModel={null} selectedProvider={null} />);
 
         await userEvent.click(screen.getByLabelText('Select LLM provider and model'));
         await userEvent.click(screen.getByText('Anthropic'));

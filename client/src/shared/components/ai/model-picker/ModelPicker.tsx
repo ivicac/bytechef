@@ -49,7 +49,6 @@ export interface ModelPickerPropsI {
      * form to allow reverting to the workspace default. Composers omit it to always show a concrete model.
      */
     workspaceDefaultLabel?: string;
-    workspaceId: number;
 }
 
 const isPresent = <T,>(value: T | null): value is T => value != null;

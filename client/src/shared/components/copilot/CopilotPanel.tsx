@@ -191,7 +191,6 @@ const CopilotPanelContent = ({
                                     selectedProvider={
                                         selectedLlmProvider ?? readLastUsedModel(currentWorkspaceId)?.provider ?? null
                                     }
-                                    workspaceId={currentWorkspaceId}
                                 />
                             ) : null
                         }
