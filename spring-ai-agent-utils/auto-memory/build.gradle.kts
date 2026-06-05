@@ -15,7 +15,9 @@ dependencies {
     compileOnly("com.github.spotbugs:spotbugs-annotations")
     implementation("org.springframework:spring-core")
     implementation("org.slf4j:slf4j-api")
+    implementation(project(":server:libs:platform:platform-ai:platform-ai-auto-memory:platform-ai-auto-memory-api"))
 
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockito:mockito-core")
 }

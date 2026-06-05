@@ -9,6 +9,7 @@ package com.bytechef.ee.platform.aihub.tool.memory;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.platform.ai.agent.memory.AutoMemoryFrontmatter;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryType;
 import org.junit.jupiter.api.Test;
 

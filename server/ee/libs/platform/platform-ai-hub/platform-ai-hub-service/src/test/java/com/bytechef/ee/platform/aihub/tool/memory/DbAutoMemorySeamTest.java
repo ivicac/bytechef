@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.platform.aihub.tool.AiHubToolInvocationContext;
+import com.bytechef.platform.ai.agent.memory.AutoMemoryFrontmatter;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemory;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryPrincipalType;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryService;

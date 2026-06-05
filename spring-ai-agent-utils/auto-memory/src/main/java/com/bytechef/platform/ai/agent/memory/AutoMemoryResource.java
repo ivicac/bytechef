@@ -1,13 +1,21 @@
 /*
  * Copyright 2025 ByteChef
  *
- * Licensed under the ByteChef Enterprise license (the "Enterprise License");
- * you may not use this file except in compliance with the Enterprise License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-package com.bytechef.ee.platform.aihub.tool.memory;
+package com.bytechef.platform.ai.agent.memory;
 
-import com.bytechef.platform.ai.agent.memory.AutoMemoryFrontmatter;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemory;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryPrincipalType;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryService;
@@ -24,48 +32,47 @@ import org.springframework.core.io.AbstractResource;
 import org.springframework.core.io.WritableResource;
 
 /**
- * A {@link WritableResource} bound to a single memory entry, identified by its slug {@code name} within a
- * {@code (workspaceId, userId, environment)} tenant. Reads render the row as a frontmatter document; writes parse the
- * document and create or update the row through {@link AiAutoMemoryService}. The backing store ({@code ai_auto_memory})
- * remains the source of truth.
- *
- * @version ee
+ * A {@link WritableResource} bound to a single memory entry, identified by its slug {@code name} within a fixed
+ * {@code (workspaceId, principalId, environment)} tenant owned by {@link AiAutoMemoryPrincipalType#DEPLOYMENT}. Reads
+ * render the row as a frontmatter document; writes parse the document and create or update the row through
+ * {@link AiAutoMemoryService}. The backing store ({@code ai_auto_memory}) remains the source of truth.
  *
  * @author Ivica Cardic
  */
-final class DbMemoryResource extends AbstractResource implements WritableResource {
+final class AutoMemoryResource extends AbstractResource implements WritableResource {
 
     private final AiAutoMemoryService aiAutoMemoryService;
     private final long workspaceId;
-    private final long userId;
+    private final long principalId;
     private final int environment;
     private final String name;
 
-    DbMemoryResource(
-        AiAutoMemoryService aiAutoMemoryService, long workspaceId, long userId, int environment, String name) {
+    AutoMemoryResource(
+        AiAutoMemoryService aiAutoMemoryService, long workspaceId, long principalId, int environment, String name) {
 
         this.aiAutoMemoryService = aiAutoMemoryService;
         this.workspaceId = workspaceId;
-        this.userId = userId;
+        this.principalId = principalId;
         this.environment = environment;
         this.name = name;
     }
 
     @Override
     public String getDescription() {
-        return "DbMemoryResource[" + name + "]";
+        return "AutoMemoryResource[" + name + "]";
     }
 
     @Override
     public boolean exists() {
-        return aiAutoMemoryService.read(workspaceId, AiAutoMemoryPrincipalType.USER, userId, environment, name)
+        return aiAutoMemoryService
+            .read(workspaceId, AiAutoMemoryPrincipalType.DEPLOYMENT, principalId, environment, name)
             .isPresent();
     }
 
     @Override
     public InputStream getInputStream() throws IOException {
         AiAutoMemory memory = aiAutoMemoryService
-            .read(workspaceId, AiAutoMemoryPrincipalType.USER, userId, environment, name)
+            .read(workspaceId, AiAutoMemoryPrincipalType.DEPLOYMENT, principalId, environment, name)
             .orElseThrow(() -> new IOException("Memory not found: " + name));
 
         String rendered = AutoMemoryFrontmatter.render(
@@ -94,16 +101,16 @@ final class DbMemoryResource extends AbstractResource implements WritableResourc
             .isBlank() ? parsed.title() : name;
 
         Optional<AiAutoMemory> existing =
-            aiAutoMemoryService.read(workspaceId, AiAutoMemoryPrincipalType.USER, userId, environment, name);
+            aiAutoMemoryService.read(workspaceId, AiAutoMemoryPrincipalType.DEPLOYMENT, principalId, environment, name);
 
         try {
             if (existing.isPresent()) {
                 aiAutoMemoryService.update(
-                    workspaceId, AiAutoMemoryPrincipalType.USER, userId, environment, name, title,
+                    workspaceId, AiAutoMemoryPrincipalType.DEPLOYMENT, principalId, environment, name, title,
                     parsed.description(), memoryType, parsed.content());
             } else {
                 aiAutoMemoryService.create(
-                    workspaceId, AiAutoMemoryPrincipalType.USER, userId, environment, name, title,
+                    workspaceId, AiAutoMemoryPrincipalType.DEPLOYMENT, principalId, environment, name, title,
                     parsed.description(), memoryType, parsed.content());
             }
         } catch (DuplicateAiAutoMemoryNameException exception) {
