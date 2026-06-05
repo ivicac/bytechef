@@ -5,6 +5,34 @@ description: "Expose ByteChef's workflow engine inside your SaaS. Your customers
 
 White-label execution is the core promise of the [Embedded iPaaS](/enterprise/embedded-ipaas): your customers get a fully featured workflow engine and an integration builder inside your product, with your branding, your URL, your user experience.
 
+## The mental model
+
+```
+       Your SaaS product
+       ┌────────────────────────────────┐
+       │  Your UI / Your branding       │
+       │  ┌──────────────────────────┐  │
+       │  │  ByteChef-rendered       │  │
+       │  │  workflow builder        │  │  ◄── embedded via iframe / SDK
+       │  │  (white-labeled)         │  │
+       │  └──────────────────────────┘  │
+       │  ┌──────────────────────────┐  │
+       │  │  Your business logic     │  │
+       │  └──────────────────────────┘  │
+       └────────────────────────────────┘
+                      │
+                      ▼
+       ┌────────────────────────────────┐
+       │  ByteChef Enterprise           │
+       │  ┌──────────────┐  ┌────────┐  │
+       │  │ Tenant A     │  │ Tenant │  │
+       │  │ workspace    │  │   B    │  │  ◄── per-customer isolation
+       │  └──────────────┘  └────────┘  │
+       └────────────────────────────────┘
+```
+
+Your customer never sees "ByteChef." They see your product offering integrations.
+
 ## What "white-label" actually covers
 
 | Surface | White-labeled? |
@@ -65,3 +93,19 @@ The integration catalog you give customers can include [custom components](/ente
 - **Build observability and execution history.**
 
 All of those come with the platform. You build **the product wrapper** — branding, billing, customer onboarding, your business logic.
+
+## The promise to your customers
+
+Embedded gives your customers:
+
+- **Hundreds of integrations** without you having to build them.
+- **A visual workflow builder** they can use without writing code.
+- **Their own connections** — they bring their own credentials; you don't see them.
+- **Their data, isolated** — your other customers can't see their workflows or data.
+
+## The promise to you
+
+- **No integration team.** ByteChef ships and maintains the [180+ built-in components](/enterprise/extensibility/built-in-components).
+- **No new infrastructure to operate** — Embedded is the same binary you've already deployed.
+- **One billing surface.** You charge your customers; ByteChef bills you.
+- **Source-available engine.** No vendor lock-in on the part of your product that powers a critical workflow surface.
