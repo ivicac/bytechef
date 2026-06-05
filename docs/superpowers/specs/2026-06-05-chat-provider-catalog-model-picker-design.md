@@ -78,8 +78,8 @@ Add a new **GraphQL** query (consistent with the picker's existing GraphQL data 
 environment-scoped, `@PreAuthorize("hasAuthority('USER')")`:
 
 ```graphql
-query chatProviderCatalog($environment: ID!) {
-    chatProviderCatalog(environment: $environment) {
+query aiProviderCatalog($environment: ID!) {
+    aiProviderCatalog(environment: $environment) {
         key            # Provider.getKey(), e.g. "openAi" — the value sent as userSelectedLlmProvider
         name           # display label, e.g. "OpenAI"
         icon           # SVG string (inline or path:-resolved), same as settings page
@@ -100,7 +100,7 @@ Resolver/facade behavior (extends the existing `AiProviderFacade` path):
 - `supportsModelById`: true when `models` is empty OR the model property is free-form text.
 - **Never** include `apiKey`.
 
-The DTO is a new USER-safe projection (e.g. `ChatProviderCatalogItem`), distinct from the
+The DTO is a new USER-safe projection (e.g. `AiProviderCatalogItem`), distinct from the
 admin-only `AiProviderDTO`, so the API key field cannot leak by construction.
 
 Module placement (finalize in plan): the catalog facade lives in
@@ -143,7 +143,7 @@ the two namespaces don't collide.
 
 `client/src/shared/components/ai/model-picker/ModelPicker.tsx`:
 
-- Data source: new `useChatProviderCatalogQuery({environment})` (replaces the two AI-Gateway
+- Data source: new `useAiProviderCatalogQuery({environment})` (replaces the two AI-Gateway
   queries for the provider/model sections). `environment` from `useEnvironmentStore`.
 - Render every provider (alphabetized) with its icon via `react-inlinesvg` `InlineSVG`.
   - **Active** (`enabled`): submenu lists `models` as items; append a **"Choose model by ID"** row
@@ -212,7 +212,7 @@ last-used.
 
 ## Implementation phases (for the plan)
 
-1. Server: USER-safe `chatProviderCatalog` query (facade projection + GraphQL controller + tests).
+1. Server: USER-safe `aiProviderCatalog` query (facade projection + GraphQL controller + tests).
 2. Server: `CatalogChatClientResolver` + precedence wiring in both chat resolvers + tests.
 3. Client: `ModelPicker` rewrite (catalog query, icons, active/inactive, model-by-id, exact trigger)
    + last-used seeding + both-composer wiring + tests.

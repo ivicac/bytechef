@@ -4,7 +4,7 @@
 
 **Goal:** Replace the composer's AI-Gateway-driven LLM picker (in both AI Hub and Copilot) with a catalog-driven picker that lists all chat-capable providers with icons, shows models only for active providers, links inactive providers to Settings, shows the exact selected provider+model, and actually resolves catalog selections at runtime.
 
-**Architecture:** Three phases. (1) A new USER-safe GraphQL query `chatProviderCatalog(environment)` projects the platform `Provider` catalog (icons, enabled, Spring-AI model lists) without exposing API keys. (2) A new `CatalogChatModelFactory` + `CatalogChatClientResolver` build a Spring-AI `ChatModel` from the catalog's platform API key by reusing each component's existing `CHAT_MODEL` lambda; both `AiHubChatClientResolver` and `CopilotChatClientResolver` try it before the gateway path. (3) The shared `ModelPicker` is rewritten to consume the new query (icons, active/inactive, "Choose model by ID", exact-trigger, last-used seeding); both composers already render this one component.
+**Architecture:** Three phases. (1) A new USER-safe GraphQL query `aiProviderCatalog(environment)` projects the platform `Provider` catalog (icons, enabled, Spring-AI model lists) without exposing API keys. (2) A new `CatalogChatModelFactory` + `CatalogChatClientResolver` build a Spring-AI `ChatModel` from the catalog's platform API key by reusing each component's existing `CHAT_MODEL` lambda; both `AiHubChatClientResolver` and `CopilotChatClientResolver` try it before the gateway path. (3) The shared `ModelPicker` is rewritten to consume the new query (icons, active/inactive, "Choose model by ID", exact-trigger, last-used seeding); both composers already render this one component.
 
 **Tech Stack:** Java 25 / Spring Boot 4 (EE modules), Spring GraphQL, Spring AI; React 19 / TypeScript, GraphQL codegen, Zustand, react-inlinesvg, Vitest.
 
@@ -33,12 +33,12 @@
 ## File Structure
 
 **Phase 1 — Server query**
-- Modify: `server/ee/libs/platform/.../platform-configuration-api/.../facade/AiProviderFacade.java` — add `getChatProviderCatalog(int)`.
-- Create: `server/ee/libs/platform/.../platform-configuration-api/.../dto/ChatProviderCatalogItemDTO.java` — USER-safe DTO (no apiKey).
+- Modify: `server/ee/libs/platform/.../platform-configuration-api/.../facade/AiProviderFacade.java` — add `getAiProviderCatalog(int)`.
+- Create: `server/ee/libs/platform/.../platform-configuration-api/.../dto/AiProviderCatalogItemDTO.java` — USER-safe DTO (no apiKey).
 - Modify: `server/ee/libs/platform/.../platform-configuration-service/.../facade/AiProviderFacadeImpl.java` — implement it.
-- Create: `server/ee/libs/platform/.../platform-configuration-graphql/.../web/graphql/ChatProviderCatalogGraphQlController.java` — USER query.
-- Create: `server/ee/libs/platform/.../platform-configuration-graphql/src/main/resources/graphql/chat-provider-catalog.graphqls`.
-- Tests: `AiProviderFacadeImplChatCatalogTest.java`, `ChatProviderCatalogGraphQlControllerTest.java`.
+- Create: `server/ee/libs/platform/.../platform-configuration-graphql/.../web/graphql/AiProviderCatalogGraphQlController.java` — USER query.
+- Create: `server/ee/libs/platform/.../platform-configuration-graphql/src/main/resources/graphql/ai-provider-catalog.graphqls`.
+- Tests: `AiProviderFacadeImplCatalogTest.java`, `AiProviderCatalogGraphQlControllerTest.java`.
 
 **Phase 2 — Server runtime resolver**
 - Create: `server/ee/libs/platform/.../platform-ai-hub-service/.../agent/CatalogChatModelFactory.java` (or nearest shared EE module reachable by both resolvers — see Task 2.1).
@@ -48,7 +48,7 @@
 - Tests: `CatalogChatModelFactoryTest.java`, `CatalogChatClientResolverTest.java`, resolver wiring tests.
 
 **Phase 3 — Client**
-- Create: `client/src/graphql/platform/ai-providers/chatProviderCatalog.graphql`.
+- Create: `client/src/graphql/platform/ai-providers/aiProviderCatalog.graphql`.
 - Modify: `client/codegen.ts` — add the schema path.
 - Create: `client/src/shared/components/ai/model-picker/lastUsedModel.ts` — last-used persistence.
 - Rewrite: `client/src/shared/components/ai/model-picker/ModelPicker.tsx`.
@@ -57,12 +57,12 @@
 
 ---
 
-# Phase 1 — Server: USER-safe `chatProviderCatalog` query
+# Phase 1 — Server: USER-safe `aiProviderCatalog` query
 
 ### Task 1.1: USER-safe DTO
 
 **Files:**
-- Create: `server/ee/libs/platform/platform-configuration/platform-configuration-api/src/main/java/com/bytechef/ee/platform/configuration/dto/ChatProviderCatalogItemDTO.java`
+- Create: `server/ee/libs/platform/platform-configuration/platform-configuration-api/src/main/java/com/bytechef/ee/platform/configuration/dto/AiProviderCatalogItemDTO.java`
 
 - [ ] **Step 1: Create the DTO**
 
@@ -88,7 +88,7 @@ import java.util.List;
  * @author Ivica Cardic
  */
 @SuppressFBWarnings("EI")
-public record ChatProviderCatalogItemDTO(
+public record AiProviderCatalogItemDTO(
     String key, String name, String icon, boolean enabled, boolean supportsModelById, List<Model> models) {
 
     @SuppressFBWarnings("EI")
@@ -100,8 +100,8 @@ public record ChatProviderCatalogItemDTO(
 - [ ] **Step 2: Commit**
 
 ```bash
-git add server/ee/libs/platform/platform-configuration/platform-configuration-api/src/main/java/com/bytechef/ee/platform/configuration/dto/ChatProviderCatalogItemDTO.java
-git commit -m "732 Add ChatProviderCatalogItemDTO for USER-safe chat provider catalog"
+git add server/ee/libs/platform/platform-configuration/platform-configuration-api/src/main/java/com/bytechef/ee/platform/configuration/dto/AiProviderCatalogItemDTO.java
+git commit -m "732 Add AiProviderCatalogItemDTO for USER-safe chat provider catalog"
 ```
 
 ---
@@ -111,17 +111,17 @@ git commit -m "732 Add ChatProviderCatalogItemDTO for USER-safe chat provider ca
 **Files:**
 - Modify: `server/ee/libs/platform/platform-configuration/platform-configuration-api/src/main/java/com/bytechef/ee/platform/configuration/facade/AiProviderFacade.java`
 - Modify: `server/ee/libs/platform/platform-configuration/platform-configuration-service/src/main/java/com/bytechef/ee/platform/configuration/facade/AiProviderFacadeImpl.java`
-- Test: `server/ee/libs/platform/platform-configuration/platform-configuration-service/src/test/java/com/bytechef/ee/platform/configuration/facade/AiProviderFacadeImplChatCatalogTest.java`
+- Test: `server/ee/libs/platform/platform-configuration/platform-configuration-service/src/test/java/com/bytechef/ee/platform/configuration/facade/AiProviderFacadeImplCatalogTest.java`
 
 - [ ] **Step 1: Add the interface method**
 
 In `AiProviderFacade.java`, add (keep alphabetical with existing methods):
 
 ```java
-    List<ChatProviderCatalogItemDTO> getChatProviderCatalog(int environment);
+    List<AiProviderCatalogItemDTO> getAiProviderCatalog(int environment);
 ```
 
-Add the import `import com.bytechef.ee.platform.configuration.dto.ChatProviderCatalogItemDTO;`.
+Add the import `import com.bytechef.ee.platform.configuration.dto.AiProviderCatalogItemDTO;`.
 
 - [ ] **Step 2: Write the failing test**
 
@@ -141,7 +141,7 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
-import com.bytechef.ee.platform.configuration.dto.ChatProviderCatalogItemDTO;
+import com.bytechef.ee.platform.configuration.dto.AiProviderCatalogItemDTO;
 import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Property;
@@ -159,7 +159,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * @author Ivica Cardic
  */
 @ExtendWith(MockitoExtension.class)
-class AiProviderFacadeImplChatCatalogTest {
+class AiProviderFacadeImplCatalogTest {
 
     @Mock
     private ComponentDefinitionService componentDefinitionService;
@@ -168,7 +168,7 @@ class AiProviderFacadeImplChatCatalogTest {
     private PropertyService propertyService;
 
     @Test
-    void testGetChatProviderCatalogExcludesStabilityAndOmitsApiKey() {
+    void testGetAiProviderCatalogExcludesStabilityAndOmitsApiKey() {
         ComponentDefinition openAi = mockComponentDefinition("openAi", "<svg>openai</svg>");
         ComponentDefinition anthropic = mockComponentDefinition("anthropic", "<svg>anthropic</svg>");
         ComponentDefinition stability = mockComponentDefinition("stability", "<svg>stability</svg>");
@@ -180,10 +180,10 @@ class AiProviderFacadeImplChatCatalogTest {
 
         AiProviderFacadeImpl facade = new AiProviderFacadeImpl(componentDefinitionService, propertyService);
 
-        List<ChatProviderCatalogItemDTO> catalog = facade.getChatProviderCatalog(1);
+        List<AiProviderCatalogItemDTO> catalog = facade.getAiProviderCatalog(1);
 
         assertThat(catalog)
-            .extracting(ChatProviderCatalogItemDTO::key)
+            .extracting(AiProviderCatalogItemDTO::key)
             .contains("openAi", "anthropic")
             .doesNotContain("stability");
     }
@@ -202,10 +202,10 @@ class AiProviderFacadeImplChatCatalogTest {
 
 - [ ] **Step 3: Run test, verify it fails**
 
-Run: `./gradlew :server:ee:libs:platform:platform-configuration:platform-configuration-service:test --tests '*AiProviderFacadeImplChatCatalogTest*'`
-Expected: FAIL (method `getChatProviderCatalog` does not exist).
+Run: `./gradlew :server:ee:libs:platform:platform-configuration:platform-configuration-service:test --tests '*AiProviderFacadeImplCatalogTest*'`
+Expected: FAIL (method `getAiProviderCatalog` does not exist).
 
-- [ ] **Step 4: Implement `getChatProviderCatalog` in `AiProviderFacadeImpl`**
+- [ ] **Step 4: Implement `getAiProviderCatalog` in `AiProviderFacadeImpl`**
 
 Add this method (mirrors the existing `getAiProviders` traversal; reuses the same icon + property lookup). Add a private helper to read the chat action's `model` options and a chat-capable set.
 
@@ -216,7 +216,7 @@ Add this method (mirrors the existing `getAiProviders` traversal; reuses the sam
 
     @Override
     @Transactional(readOnly = true)
-    public List<ChatProviderCatalogItemDTO> getChatProviderCatalog(int environment) {
+    public List<AiProviderCatalogItemDTO> getAiProviderCatalog(int environment) {
         List<ComponentDefinition> componentDefinitions = componentDefinitionService.getComponentDefinitions();
 
         List<Property> properties = propertyService.getProperties(
@@ -248,9 +248,9 @@ Add this method (mirrors the existing `getAiProviders` traversal; reuses the sam
 
                 boolean enabled = property != null && property.isEnabled();
 
-                List<ChatProviderCatalogItemDTO.Model> models = readChatModels(componentDefinition);
+                List<AiProviderCatalogItemDTO.Model> models = readChatModels(componentDefinition);
 
-                return new ChatProviderCatalogItemDTO(
+                return new AiProviderCatalogItemDTO(
                     provider.getKey(), provider.getLabel(), componentDefinition.getIcon(), enabled,
                     models.isEmpty(), models);
             })
@@ -258,7 +258,7 @@ Add this method (mirrors the existing `getAiProviders` traversal; reuses the sam
             .toList();
     }
 
-    private static List<ChatProviderCatalogItemDTO.Model> readChatModels(ComponentDefinition componentDefinition) {
+    private static List<AiProviderCatalogItemDTO.Model> readChatModels(ComponentDefinition componentDefinition) {
         // The chat action is the component's "ask"/chat action; its "model" property carries the option list
         // for providers that enumerate models (OpenAI/Anthropic/Mistral/Gemini). Free-form providers (Groq,
         // Perplexity, NVIDIA, Azure, DeepSeek, HuggingFace) have no options -> empty list -> supportsModelById.
@@ -274,11 +274,11 @@ Add this method (mirrors the existing `getAiProviders` traversal; reuses the sam
                 List<? extends com.bytechef.platform.component.domain.Option> options = stringProperty.getOptions();
 
                 if (options == null) {
-                    return List.<ChatProviderCatalogItemDTO.Model>of();
+                    return List.<AiProviderCatalogItemDTO.Model>of();
                 }
 
                 return options.stream()
-                    .map(option -> new ChatProviderCatalogItemDTO.Model(
+                    .map(option -> new AiProviderCatalogItemDTO.Model(
                         String.valueOf(option.getValue()), option.getLabel()))
                     .toList();
             })
@@ -286,17 +286,17 @@ Add this method (mirrors the existing `getAiProviders` traversal; reuses the sam
     }
 ```
 
-Add imports: `com.bytechef.ee.platform.configuration.dto.ChatProviderCatalogItemDTO`, `java.util.List` (already present), `java.util.Objects` (already present).
+Add imports: `com.bytechef.ee.platform.configuration.dto.AiProviderCatalogItemDTO`, `java.util.List` (already present), `java.util.Objects` (already present).
 
 > If `ComponentDefinition.getActions()` / `StringProperty.getOptions()` / `Option.getValue()/getLabel()` signatures differ from the above when you open the files, adapt the calls — the contract you need is "from the component definition, find the chat action's `model` property and read its options (value+label)". Confirm the exact `domain` package types under `platform-component-api/.../platform/component/domain/`.
 
 - [ ] **Step 5: Flesh out the test's model assertion**
 
-Extend `AiProviderFacadeImplChatCatalogTest` with a case where a mocked `ComponentDefinition` for `openAi` returns an action whose `model` `StringProperty` has two options, and assert the returned item's `models` has those two `{name,label}` pairs and `supportsModelById == false`; and a free-form provider yields empty `models` + `supportsModelById == true`. Use Mockito to stub `getActions()`/`getProperties()`/`getOptions()` per the confirmed domain API.
+Extend `AiProviderFacadeImplCatalogTest` with a case where a mocked `ComponentDefinition` for `openAi` returns an action whose `model` `StringProperty` has two options, and assert the returned item's `models` has those two `{name,label}` pairs and `supportsModelById == false`; and a free-form provider yields empty `models` + `supportsModelById == true`. Use Mockito to stub `getActions()`/`getProperties()`/`getOptions()` per the confirmed domain API.
 
 - [ ] **Step 6: Run tests, verify pass**
 
-Run: `./gradlew :server:ee:libs:platform:platform-configuration:platform-configuration-service:test --tests '*AiProviderFacadeImplChatCatalogTest*'`
+Run: `./gradlew :server:ee:libs:platform:platform-configuration:platform-configuration-service:test --tests '*AiProviderFacadeImplCatalogTest*'`
 Expected: PASS.
 
 - [ ] **Step 7: Spotless + commit**
@@ -305,8 +305,8 @@ Expected: PASS.
 ./gradlew spotlessApply
 git add server/ee/libs/platform/platform-configuration/platform-configuration-api/src/main/java/com/bytechef/ee/platform/configuration/facade/AiProviderFacade.java \
         server/ee/libs/platform/platform-configuration/platform-configuration-service/src/main/java/com/bytechef/ee/platform/configuration/facade/AiProviderFacadeImpl.java \
-        server/ee/libs/platform/platform-configuration/platform-configuration-service/src/test/java/com/bytechef/ee/platform/configuration/facade/AiProviderFacadeImplChatCatalogTest.java
-git commit -m "732 Add getChatProviderCatalog facade method (chat providers, models, no apiKey)"
+        server/ee/libs/platform/platform-configuration/platform-configuration-service/src/test/java/com/bytechef/ee/platform/configuration/facade/AiProviderFacadeImplCatalogTest.java
+git commit -m "732 Add getAiProviderCatalog facade method (chat providers, models, no apiKey)"
 ```
 
 ---
@@ -314,9 +314,9 @@ git commit -m "732 Add getChatProviderCatalog facade method (chat providers, mod
 ### Task 1.3: GraphQL schema + controller
 
 **Files:**
-- Create: `server/ee/libs/platform/platform-configuration/platform-configuration-graphql/src/main/resources/graphql/chat-provider-catalog.graphqls`
-- Create: `server/ee/libs/platform/platform-configuration/platform-configuration-graphql/src/main/java/com/bytechef/ee/platform/configuration/web/graphql/ChatProviderCatalogGraphQlController.java`
-- Test: `.../platform-configuration-graphql/src/test/java/com/bytechef/ee/platform/configuration/web/graphql/ChatProviderCatalogGraphQlControllerTest.java`
+- Create: `server/ee/libs/platform/platform-configuration/platform-configuration-graphql/src/main/resources/graphql/ai-provider-catalog.graphqls`
+- Create: `server/ee/libs/platform/platform-configuration/platform-configuration-graphql/src/main/java/com/bytechef/ee/platform/configuration/web/graphql/AiProviderCatalogGraphQlController.java`
+- Test: `.../platform-configuration-graphql/src/test/java/com/bytechef/ee/platform/configuration/web/graphql/AiProviderCatalogGraphQlControllerTest.java`
 
 > Confirm the graphql module path exists (`platform-configuration-graphql`). If the platform-configuration domain has no graphql module yet, place the controller + schema in the nearest existing EE graphql module that the client codegen already scans and that is coordinator-scoped; update the codegen path in Task 3.1 accordingly. The automation-ai-gateway-graphql module is a valid fallback host.
 
@@ -324,19 +324,19 @@ git commit -m "732 Add getChatProviderCatalog facade method (chat providers, mod
 
 ```graphql
 extend type Query {
-    chatProviderCatalog(environment: ID!): [ChatProviderCatalogItem!]!
+    aiProviderCatalog(environment: ID!): [AiProviderCatalogItem!]!
 }
 
-type ChatProviderCatalogItem {
+type AiProviderCatalogItem {
     key: String!
     name: String!
     icon: String
     enabled: Boolean!
     supportsModelById: Boolean!
-    models: [ChatProviderModel!]!
+    models: [AiProviderModel!]!
 }
 
-type ChatProviderModel {
+type AiProviderModel {
     name: String!
     label: String!
 }
@@ -357,7 +357,7 @@ package com.bytechef.ee.platform.configuration.web.graphql;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
-import com.bytechef.ee.platform.configuration.dto.ChatProviderCatalogItemDTO;
+import com.bytechef.ee.platform.configuration.dto.AiProviderCatalogItemDTO;
 import com.bytechef.ee.platform.configuration.facade.AiProviderFacade;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -371,24 +371,24 @@ import org.mockito.junit.jupiter.MockitoExtension;
  * @author Ivica Cardic
  */
 @ExtendWith(MockitoExtension.class)
-class ChatProviderCatalogGraphQlControllerTest {
+class AiProviderCatalogGraphQlControllerTest {
 
     @Mock
     private AiProviderFacade aiProviderFacade;
 
     @Test
-    void testChatProviderCatalogDelegatesToFacade() {
-        ChatProviderCatalogItemDTO item = new ChatProviderCatalogItemDTO(
-            "openAi", "Open AI", "<svg/>", true, false, List.of(new ChatProviderCatalogItemDTO.Model("gpt-5", "GPT-5")));
+    void testAiProviderCatalogDelegatesToFacade() {
+        AiProviderCatalogItemDTO item = new AiProviderCatalogItemDTO(
+            "openAi", "Open AI", "<svg/>", true, false, List.of(new AiProviderCatalogItemDTO.Model("gpt-5", "GPT-5")));
 
-        when(aiProviderFacade.getChatProviderCatalog(2)).thenReturn(List.of(item));
+        when(aiProviderFacade.getAiProviderCatalog(2)).thenReturn(List.of(item));
 
-        ChatProviderCatalogGraphQlController controller = new ChatProviderCatalogGraphQlController(aiProviderFacade);
+        AiProviderCatalogGraphQlController controller = new AiProviderCatalogGraphQlController(aiProviderFacade);
 
-        List<ChatProviderCatalogItemDTO> result = controller.chatProviderCatalog(2L);
+        List<AiProviderCatalogItemDTO> result = controller.aiProviderCatalog(2L);
 
         assertThat(result).singleElement()
-            .extracting(ChatProviderCatalogItemDTO::key)
+            .extracting(AiProviderCatalogItemDTO::key)
             .isEqualTo("openAi");
     }
 }
@@ -396,7 +396,7 @@ class ChatProviderCatalogGraphQlControllerTest {
 
 - [ ] **Step 3: Run test, verify fail**
 
-Run: `./gradlew :server:ee:libs:platform:platform-configuration:platform-configuration-graphql:test --tests '*ChatProviderCatalogGraphQlControllerTest*'`
+Run: `./gradlew :server:ee:libs:platform:platform-configuration:platform-configuration-graphql:test --tests '*AiProviderCatalogGraphQlControllerTest*'`
 Expected: FAIL (controller class missing).
 
 - [ ] **Step 4: Create the controller**
@@ -412,7 +412,7 @@ Expected: FAIL (controller class missing).
 package com.bytechef.ee.platform.configuration.web.graphql;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
-import com.bytechef.ee.platform.configuration.dto.ChatProviderCatalogItemDTO;
+import com.bytechef.ee.platform.configuration.dto.AiProviderCatalogItemDTO;
 import com.bytechef.ee.platform.configuration.facade.AiProviderFacade;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.security.constant.AuthorityConstants;
@@ -434,38 +434,38 @@ import org.springframework.stereotype.Controller;
 @Controller
 @ConditionalOnEEVersion
 @ConditionalOnCoordinator
-class ChatProviderCatalogGraphQlController {
+class AiProviderCatalogGraphQlController {
 
     private final AiProviderFacade aiProviderFacade;
 
     @SuppressFBWarnings("EI")
-    ChatProviderCatalogGraphQlController(AiProviderFacade aiProviderFacade) {
+    AiProviderCatalogGraphQlController(AiProviderFacade aiProviderFacade) {
         this.aiProviderFacade = aiProviderFacade;
     }
 
     @QueryMapping
     @PreAuthorize("hasAuthority(\"" + AuthorityConstants.USER + "\")")
-    public List<ChatProviderCatalogItemDTO> chatProviderCatalog(@Argument Long environment) {
-        return aiProviderFacade.getChatProviderCatalog(environment.intValue());
+    public List<AiProviderCatalogItemDTO> aiProviderCatalog(@Argument Long environment) {
+        return aiProviderFacade.getAiProviderCatalog(environment.intValue());
     }
 }
 ```
 
-> GraphQL field-to-record mapping: GraphQL `ChatProviderCatalogItem`/`ChatProviderModel` fields map by name to `ChatProviderCatalogItemDTO`/`...Model` record accessors. No extra `@SchemaMapping` needed.
+> GraphQL field-to-record mapping: GraphQL `AiProviderCatalogItem`/`AiProviderModel` fields map by name to `AiProviderCatalogItemDTO`/`...Model` record accessors. No extra `@SchemaMapping` needed.
 
 - [ ] **Step 5: Run test, verify pass**
 
-Run: `./gradlew :server:ee:libs:platform:platform-configuration:platform-configuration-graphql:test --tests '*ChatProviderCatalogGraphQlControllerTest*'`
+Run: `./gradlew :server:ee:libs:platform:platform-configuration:platform-configuration-graphql:test --tests '*AiProviderCatalogGraphQlControllerTest*'`
 Expected: PASS.
 
 - [ ] **Step 6: Spotless + commit**
 
 ```bash
 ./gradlew spotlessApply
-git add server/ee/libs/platform/platform-configuration/platform-configuration-graphql/src/main/resources/graphql/chat-provider-catalog.graphqls \
-        server/ee/libs/platform/platform-configuration/platform-configuration-graphql/src/main/java/com/bytechef/ee/platform/configuration/web/graphql/ChatProviderCatalogGraphQlController.java \
-        server/ee/libs/platform/platform-configuration/platform-configuration-graphql/src/test/java/com/bytechef/ee/platform/configuration/web/graphql/ChatProviderCatalogGraphQlControllerTest.java
-git commit -m "732 Add chatProviderCatalog USER GraphQL query"
+git add server/ee/libs/platform/platform-configuration/platform-configuration-graphql/src/main/resources/graphql/ai-provider-catalog.graphqls \
+        server/ee/libs/platform/platform-configuration/platform-configuration-graphql/src/main/java/com/bytechef/ee/platform/configuration/web/graphql/AiProviderCatalogGraphQlController.java \
+        server/ee/libs/platform/platform-configuration/platform-configuration-graphql/src/test/java/com/bytechef/ee/platform/configuration/web/graphql/AiProviderCatalogGraphQlControllerTest.java
+git commit -m "732 Add aiProviderCatalog USER GraphQL query"
 ```
 
 ---
@@ -1027,14 +1027,14 @@ git commit -m "732 Resolve Copilot user-selected LLM via catalog before gateway"
 ### Task 3.1: GraphQL operation + codegen
 
 **Files:**
-- Create: `client/src/graphql/platform/ai-providers/chatProviderCatalog.graphql`
+- Create: `client/src/graphql/platform/ai-providers/aiProviderCatalog.graphql`
 - Modify: `client/codegen.ts` — add the schema path (the `.graphqls` from Task 1.3)
 
 - [ ] **Step 1: Create the operation**
 
 ```graphql
-query chatProviderCatalog($environment: ID!) {
-    chatProviderCatalog(environment: $environment) {
+query aiProviderCatalog($environment: ID!) {
+    aiProviderCatalog(environment: $environment) {
         key
         name
         icon
@@ -1061,13 +1061,13 @@ In the `schema` array, add the path to the new schema file:
 - [ ] **Step 3: Regenerate types**
 
 Run: `cd client && npx graphql-codegen`
-Expected: `src/shared/middleware/graphql.ts` now exports `useChatProviderCatalogQuery` and `graphql-types.ts` has `ChatProviderCatalogItem`/`ChatProviderModel` types.
+Expected: `src/shared/middleware/graphql.ts` now exports `useAiProviderCatalogQuery` and `graphql-types.ts` has `AiProviderCatalogItem`/`AiProviderModel` types.
 
 - [ ] **Step 4: Commit**
 
 ```bash
-git add client/src/graphql/platform/ai-providers/chatProviderCatalog.graphql client/codegen.ts client/src/shared/middleware/graphql.ts client/src/shared/middleware/graphql-types.ts
-git commit -m "732 client - Add chatProviderCatalog GraphQL query + codegen"
+git add client/src/graphql/platform/ai-providers/aiProviderCatalog.graphql client/codegen.ts client/src/shared/middleware/graphql.ts client/src/shared/middleware/graphql-types.ts
+git commit -m "732 client - Add aiProviderCatalog GraphQL query + codegen"
 ```
 
 ---
@@ -1178,7 +1178,7 @@ git commit -m "732 client - Add last-used model persistence helper"
 
 ### Task 3.3: Rewrite `ModelPicker` (catalog-driven)
 
-This replaces the AI-Gateway data source with `useChatProviderCatalogQuery`, renders provider icons, branches active/inactive, adds "Choose model by ID", and shows the exact selected provider+model in the trigger. The personal-agents and workflow-chats cascades and all existing props are preserved; one new required prop `environment` is added.
+This replaces the AI-Gateway data source with `useAiProviderCatalogQuery`, renders provider icons, branches active/inactive, adds "Choose model by ID", and shows the exact selected provider+model in the trigger. The personal-agents and workflow-chats cascades and all existing props are preserved; one new required prop `environment` is added.
 
 **Files:**
 - Rewrite: `client/src/shared/components/ai/model-picker/ModelPicker.tsx`
@@ -1192,9 +1192,9 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import ModelPicker from './ModelPicker';
 
-const {navigateMock, useChatProviderCatalogQueryMock} = vi.hoisted(() => ({
+const {navigateMock, useAiProviderCatalogQueryMock} = vi.hoisted(() => ({
     navigateMock: vi.fn(),
-    useChatProviderCatalogQueryMock: vi.fn(),
+    useAiProviderCatalogQueryMock: vi.fn(),
 }));
 
 vi.mock('react-router-dom', async (importOriginal) => ({
@@ -1203,7 +1203,7 @@ vi.mock('react-router-dom', async (importOriginal) => ({
 }));
 
 vi.mock('@/shared/middleware/graphql', () => ({
-    useChatProviderCatalogQuery: useChatProviderCatalogQueryMock,
+    useAiProviderCatalogQuery: useAiProviderCatalogQueryMock,
 }));
 
 const catalog = [
@@ -1228,7 +1228,7 @@ const catalog = [
 describe('ModelPicker', () => {
     beforeEach(() => {
         navigateMock.mockReset();
-        useChatProviderCatalogQueryMock.mockReturnValue({data: {chatProviderCatalog: catalog}});
+        useAiProviderCatalogQueryMock.mockReturnValue({data: {aiProviderCatalog: catalog}});
         localStorage.clear();
     });
 
@@ -1304,7 +1304,7 @@ import {
     DropdownMenuSubTrigger,
     DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import {useChatProviderCatalogQuery} from '@/shared/middleware/graphql';
+import {useAiProviderCatalogQuery} from '@/shared/middleware/graphql';
 import {BotIcon, BrainCircuitIcon, ChevronDownIcon, PlusIcon, SettingsIcon, WorkflowIcon} from 'lucide-react';
 import {useMemo, useState} from 'react';
 import InlineSVG from 'react-inlinesvg';
@@ -1368,13 +1368,13 @@ const ModelPicker = ({
 
     const queryEnabled = environment > 0;
 
-    const {data: catalogData} = useChatProviderCatalogQuery(
+    const {data: catalogData} = useAiProviderCatalogQuery(
         {environment: environment > 0 ? String(environment) : ''},
         {enabled: queryEnabled}
     );
 
     const providers = useMemo(
-        () => (catalogData?.chatProviderCatalog ?? []).filter(isPresent),
+        () => (catalogData?.aiProviderCatalog ?? []).filter(isPresent),
         [catalogData]
     );
 
