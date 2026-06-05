@@ -104,10 +104,12 @@ Location: `sdks/frontend/embedded/library/react/src/components/connect-dialog/`.
         integrationFields: { get: async ({executeAction, objectType}) =>
                                (await executeAction('hubspot', 1, 'listObjectFields', {objectType}))
                                  .map((f) => ({label: f.label, value: f.id})) },
-        fields: [{label: 'Title', value: 'title'}, {label: 'Email', value: 'email'}],
-        defaultFields: [],            // [] = none shown initially; omitted = all shown
-        userCanRemoveMappings: true,  // optional
-        userCanCreateFields: true,    // optional
+        applicationFields: {
+          fields: [{label: 'Title', value: 'title'}, {label: 'Email', value: 'email'}],
+          defaultFields: [],            // [] = none shown initially; omitted = all shown
+          userCanRemoveMappings: true,  // optional
+          userCanCreateFields: true,    // optional
+        },
       },
     },
   })
@@ -185,7 +187,9 @@ Location: `client/src/pages/platform/workflow-editor/components/workflow-inputs/
     "Contacts": {
       "objectTypes":       [{"label": "Contacts", "value": "contacts"}, {"label": "Leads", "value": "leads"}],
       "integrationFields": [{"label": "First Name", "value": "first_name"}, {"label": "Last Name", "value": "last_name"}],
-      "applicationFields": [{"label": "Title", "value": "title"}, {"label": "Email", "value": "email"}]
+      "applicationFields": {
+        "fields": [{"label": "Title", "value": "title"}, {"label": "Email", "value": "email"}]
+      }
     }
   }
   ```
@@ -220,8 +224,8 @@ server-side transform that emits `mappedIntegrationObject` / `mappedApplicationO
 
 ## 6. Data shapes (reference)
 
-- **SDK config entry** (`mapObjectFields[objectName]`, runtime): `{objectTypes: {get}, integrationFields: {get}, fields: Option[], defaultFields?: string[], userCanRemoveMappings?: boolean, userCanCreateFields?: boolean}` where `Option = {label: string, value: string}`.
-- **Test value** (`WorkflowTestConfiguration.inputs[name]`, design time): `{ <objectName>: {objectTypes: Option[], integrationFields: Option[], applicationFields: Option[]} }` (static arrays).
+- **SDK config entry** (`mapObjectFields[objectName]`, runtime): `{objectTypes: {get}, integrationFields: {get}, applicationFields: {fields: Option[], defaultFields?: string[], userCanRemoveMappings?: boolean, userCanCreateFields?: boolean}}` where `Option = {label: string, value: string}`.
+- **Test value** (`WorkflowTestConfiguration.inputs[name]`, design time): `{ <objectName>: {objectTypes: Option[], integrationFields: Option[], applicationFields: {fields: Option[]}} }` (static arrays).
 - **Name correspondence:** the static test value uses `applicationFields` for the application-field
   array; at runtime the same list is the SDK config's `fields`. `objectTypes` / `integrationFields`
   are static `Option[]` arrays in the test value but callback objects (`{get}`) at runtime. This is

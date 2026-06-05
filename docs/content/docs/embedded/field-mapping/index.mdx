@@ -38,7 +38,7 @@ Design time (workflow builder)
       └─ applicationFields[]       → one data pill each
 
 Runtime (end user, Connect dialog)
-  useConnectDialog({ mapObjectFields: { <objectName>: { objectTypes, integrationFields, fields, ... } } })
+  useConnectDialog({ mapObjectFields: { <objectName>: { objectTypes, integrationFields, applicationFields: { fields, ... } } } })
     object-type <select>     ← objectTypes.get({ executeAction, search })
     row: app field → integration field <select> ← integrationFields.get({ executeAction, objectType, search })
     executeAction(...)       → runs a component action against the user's live credentials
@@ -60,7 +60,9 @@ The same **object name** keys both sides: the top-level key of the design-time J
      "Contacts": {
        "objectTypes":       [{"label": "Contacts", "value": "contacts"}, {"label": "Leads", "value": "leads"}],
        "integrationFields": [{"label": "First Name", "value": "first_name"}, {"label": "Last Name", "value": "last_name"}],
-       "applicationFields": [{"label": "Title", "value": "title"}, {"label": "Email", "value": "email"}]
+       "applicationFields": {
+         "fields": [{"label": "Title", "value": "title"}, {"label": "Email", "value": "email"}]
+       }
      }
    }
    ```
@@ -106,13 +108,15 @@ const mapObjectFields: MapObjectFieldsType = {
             },
         },
         // Your application's fields the user maps from (the left column).
-        fields: [
-            {label: 'Title', value: 'title'},
-            {label: 'Email', value: 'email'},
-        ],
-        defaultFields: [],            // [] = none shown initially; omit = all shown
-        userCanRemoveMappings: true,  // optional — per-row remove / re-add
-        userCanCreateFields: true,    // optional — let users invent a field
+        applicationFields: {
+            fields: [
+                {label: 'Title', value: 'title'},
+                {label: 'Email', value: 'email'},
+            ],
+            defaultFields: [],            // [] = none shown initially; omit = all shown
+            userCanRemoveMappings: true,  // optional — per-row remove / re-add
+            userCanCreateFields: true,    // optional — let users invent a field
+        },
     },
 };
 
@@ -155,10 +159,11 @@ It runs the named component action against the connected user's stored credentia
 |---|---|---|---|
 | `objectTypes.get` | `(args) => Promise<OptionType[]>` | yes | Returns the remote object types for the selector. |
 | `integrationFields.get` | `(args) => Promise<OptionType[]>` | yes | Returns the integration fields for the chosen object type. |
-| `fields` | `OptionType[]` | no | Your application's fields (the mappable left column). `applicationFields` is accepted as an alias. |
-| `defaultFields` | `string[]` | no | `value`s of the rows visible initially. `[]` shows none; omitting shows all. |
-| `userCanRemoveMappings` | `boolean` | no | Allow per-row remove and re-add. |
-| `userCanCreateFields` | `boolean` | no | Allow inventing an application field not in `fields`. |
+| `applicationFields` | `object` | yes | Nested object containing your application's field options and toggles (see sub-fields below). |
+| `applicationFields.fields` | `OptionType[]` | yes | Your application's fields (the mappable left column). |
+| `applicationFields.defaultFields` | `string[]` | no | `value`s of the rows visible initially. `[]` shows none; omitting shows all. |
+| `applicationFields.userCanRemoveMappings` | `boolean` | no | Allow per-row remove and re-add. |
+| `applicationFields.userCanCreateFields` | `boolean` | no | Allow inventing an application field not in `fields`. |
 
 `OptionType` is `{label: string; value: string}`.
 
