@@ -24,6 +24,7 @@ spring-vault = "4.0.2"
 springaicommunity-agent-claude = "0.16.0"
 springaicommunity-agent-judge = "0.9.1"
 springaicommunity-agent-utils = "0.8.0"
+springaicommunity-spring-ai-session = "0.3.0"
 # Note: tool-search-tool and tool-searcher-vectorstore are temporarily vendored
 # under //spring-ai-tool-search-tool/ because upstream 2.1.0 builds against
 # spring-ai 2.0.0-M4 and is binary-incompatible with M7+. See
@@ -69,6 +70,8 @@ org-springaicommunity-agents-agent-client-core = { module = "org.springaicommuni
 org-springaicommunity-agent-judge-core = { module = "org.springaicommunity:agent-judge-core", version.ref = "springaicommunity-agent-judge" }
 org-springaicommunity-agent-judge-llm = { module = "org.springaicommunity:agent-judge-llm", version.ref = "springaicommunity-agent-judge" }
 org-springaicommunity-spring-ai-agent-utils = { module = "org.springaicommunity:spring-ai-agent-utils", version.ref = "springaicommunity-agent-utils" }
+org-springaicommunity-spring-ai-session-jdbc = { module = "org.springaicommunity:spring-ai-session-jdbc", version.ref = "springaicommunity-spring-ai-session" }
+org-springaicommunity-spring-ai-session-management = { module = "org.springaicommunity:spring-ai-session-management", version.ref = "springaicommunity-spring-ai-session" }
 org-springdoc-springdoc-openapi-starter-common = { module = "org.springdoc:springdoc-openapi-starter-common", version.ref = "org-springdoc" }
 org-springdoc-springdoc-openapi-starter-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "org-springdoc" }
 org-springframework-vault-spring-vault-core = { module = "org.springframework.vault:spring-vault-core", version.ref = "spring-vault" }

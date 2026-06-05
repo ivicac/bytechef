@@ -1,0 +1,7 @@
+dependencies {
+    implementation(libs.org.springaicommunity.spring.ai.session.management)
+    implementation(libs.org.springaicommunity.spring.ai.session.jdbc)
+    implementation("org.springframework:spring-jdbc")
+    implementation("tools.jackson.core:jackson-databind")
+    implementation(project(":server:libs:platform:platform-component:platform-component-api"))
+}
