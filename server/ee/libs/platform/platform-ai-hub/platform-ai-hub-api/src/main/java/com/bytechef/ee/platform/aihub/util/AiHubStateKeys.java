@@ -93,6 +93,12 @@ public final class AiHubStateKeys {
      */
     public static final String USER_SELECTED_LLM_MODEL_KEY = "userSelectedLlmModel";
 
+    /**
+     * AG-UI state key for the active environment id (client-supplied). Used to resolve the platform AI provider catalog
+     * API key for the chosen provider.
+     */
+    public static final String ENVIRONMENT_ID = "environmentId";
+
     private AiHubStateKeys() {
     }
 }

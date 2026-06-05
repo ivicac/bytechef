@@ -17,6 +17,7 @@ import static org.mockito.Mockito.when;
 import com.agui.core.state.State;
 import com.bytechef.ee.automation.ai.gateway.domain.WorkspaceAiGatewayProvider;
 import com.bytechef.ee.automation.ai.gateway.service.WorkspaceAiGatewayProviderService;
+import com.bytechef.ee.platform.ai.gateway.catalog.CatalogChatClientResolver;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProvider;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProviderType;
 import com.bytechef.ee.platform.ai.gateway.provider.AiGatewayChatModelFactory;
@@ -104,7 +105,8 @@ class AiHubChatClientResolverTest {
         when(aiGatewayChatModelFactory.getChatModel(anthropicProvider)).thenReturn(anthropicChatModel);
 
         resolver = new AiHubChatClientResolver(
-            workspaceAiGatewayProviderService, aiGatewayProviderService, aiGatewayChatModelFactory);
+            workspaceAiGatewayProviderService, aiGatewayProviderService, aiGatewayChatModelFactory,
+            mock(CatalogChatClientResolver.class));
     }
 
     @Test

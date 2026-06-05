@@ -10,6 +10,7 @@ package com.bytechef.ee.automation.aihub.agent;
 import com.agui.core.state.State;
 import com.bytechef.ee.automation.ai.gateway.domain.WorkspaceAiGatewayProvider;
 import com.bytechef.ee.automation.ai.gateway.service.WorkspaceAiGatewayProviderService;
+import com.bytechef.ee.platform.ai.gateway.catalog.CatalogChatClientResolver;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProvider;
 import com.bytechef.ee.platform.ai.gateway.provider.AiGatewayChatModelFactory;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayProviderService;
@@ -82,15 +83,18 @@ public class AiHubChatClientResolver implements AiHubSpringAIAgent.OverrideChatC
     private final WorkspaceAiGatewayProviderService workspaceAiGatewayProviderService;
     private final AiGatewayProviderService aiGatewayProviderService;
     private final AiGatewayChatModelFactory aiGatewayChatModelFactory;
+    private final CatalogChatClientResolver catalogChatClientResolver;
 
     @SuppressFBWarnings("EI")
     public AiHubChatClientResolver(
         WorkspaceAiGatewayProviderService workspaceAiGatewayProviderService,
-        AiGatewayProviderService aiGatewayProviderService, AiGatewayChatModelFactory aiGatewayChatModelFactory) {
+        AiGatewayProviderService aiGatewayProviderService, AiGatewayChatModelFactory aiGatewayChatModelFactory,
+        CatalogChatClientResolver catalogChatClientResolver) {
 
         this.workspaceAiGatewayProviderService = workspaceAiGatewayProviderService;
         this.aiGatewayProviderService = aiGatewayProviderService;
         this.aiGatewayChatModelFactory = aiGatewayChatModelFactory;
+        this.catalogChatClientResolver = catalogChatClientResolver;
     }
 
     @Override
@@ -127,6 +131,16 @@ public class AiHubChatClientResolver implements AiHubSpringAIAgent.OverrideChatC
 
         if (llmProvider == null || llmModel == null) {
             return null;
+        }
+
+        Integer environment = asInteger(state.get(AiHubStateKeys.ENVIRONMENT_ID));
+
+        if (environment != null) {
+            ChatClient catalogChatClient = catalogChatClientResolver.resolve(environment, llmProvider, llmModel);
+
+            if (catalogChatClient != null) {
+                return catalogChatClient;
+            }
         }
 
         AiGatewayProvider provider = resolveProvider(workspaceId, llmProvider);
@@ -191,6 +205,12 @@ public class AiHubChatClientResolver implements AiHubSpringAIAgent.OverrideChatC
 
     private static @Nullable String asString(@Nullable Object value) {
         return value == null ? null : value.toString();
+    }
+
+    private static @Nullable Integer asInteger(@Nullable Object value) {
+        Long parsed = asLong(value);
+
+        return parsed == null ? null : parsed.intValue();
     }
 
     private static @Nullable Long asLong(@Nullable Object value) {

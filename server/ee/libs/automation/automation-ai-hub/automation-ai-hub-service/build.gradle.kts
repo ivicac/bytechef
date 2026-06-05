@@ -65,6 +65,7 @@ dependencies {
     implementation(project(":server:ee:libs:automation:automation-api-platform:automation-api-platform-configuration:automation-api-platform-configuration-api"))
     implementation(project(":server:ee:libs:automation:automation-ai-hub:automation-ai-hub-api"))
     implementation(project(":server:ee:libs:platform:platform-ai:platform-ai-gateway:platform-ai-gateway-api"))
+    implementation(project(":server:ee:libs:platform:platform-ai:platform-ai-gateway:platform-ai-gateway-service"))
     implementation(project(":server:ee:libs:automation:automation-context-store:automation-context-store-api"))
     implementation(project(":server:ee:libs:platform:platform-context-store:platform-context-store-api"))
     implementation(project(":server:ee:libs:platform:platform-ai-hub:platform-ai-hub-api"))
