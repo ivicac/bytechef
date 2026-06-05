@@ -8,6 +8,7 @@ import WorkflowExecutionsTestOutput from '@/pages/platform/workflow-editor/compo
 import {useRun} from '@/pages/platform/workflow-editor/hooks/useRun';
 import {WorkflowEditorProvider} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
+import useWorkflowTestChatStore from '@/pages/platform/workflow-editor/stores/useWorkflowTestChatStore';
 import WorkflowTestRunLeaveDialog from '@/shared/components/WorkflowTestRunLeaveDialog';
 import useCopilotLayoutShifted from '@/shared/components/copilot/hooks/useCopilotLayoutShifted';
 import {useLoadWorkspacePermissions} from '@/shared/hooks/useLoadWorkspacePermissions';
@@ -30,6 +31,8 @@ const Project = () => {
             workflow: state.workflow,
         }))
     );
+
+    const workflowTestChatPanelOpen = useWorkflowTestChatStore((state) => state.workflowTestChatPanelOpen);
 
     const {cancelLeave, confirmLeave, showLeaveDialog, workflowIsRunning, workflowTestExecution} =
         useWorkflowTestRunGuard(workflow.id, currentEnvironmentId);
@@ -143,12 +146,14 @@ const Project = () => {
                             defaultSize={0}
                             panelRef={bottomResizablePanelRef}
                         >
-                            <WorkflowExecutionsTestOutput
-                                onCloseClick={handleWorkflowExecutionsTestOutputCloseClick}
-                                onEditSubflowClick={handleEditSubflowClick}
-                                workflowIsRunning={workflowIsRunning}
-                                workflowTestExecution={workflowTestExecution}
-                            />
+                            {(workflowIsRunning || workflowTestExecution || workflowTestChatPanelOpen) && (
+                                <WorkflowExecutionsTestOutput
+                                    onCloseClick={handleWorkflowExecutionsTestOutputCloseClick}
+                                    onEditSubflowClick={handleEditSubflowClick}
+                                    workflowIsRunning={workflowIsRunning}
+                                    workflowTestExecution={workflowTestExecution}
+                                />
+                            )}
                         </ResizablePanel>
                     </ResizablePanelGroup>
                 </div>

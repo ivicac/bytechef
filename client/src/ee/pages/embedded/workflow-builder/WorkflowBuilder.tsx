@@ -14,6 +14,7 @@ import {useRun} from '@/pages/platform/workflow-editor/hooks/useRun';
 import {WorkflowEditorProvider} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
+import useWorkflowTestChatStore from '@/pages/platform/workflow-editor/stores/useWorkflowTestChatStore';
 import {WebhookTriggerTestApi} from '@/shared/middleware/automation/configuration';
 import {PlatformType} from '@/shared/middleware/graphql';
 import {useGetComponentDefinitionsQuery} from '@/shared/queries/automation/componentDefinitions.queries';
@@ -31,6 +32,7 @@ const WorkflowBuilder = () => {
             workflow: state.workflow,
         }))
     );
+    const workflowTestChatPanelOpen = useWorkflowTestChatStore((state) => state.workflowTestChatPanelOpen);
 
     const {
         bottomResizablePanelRef,
@@ -116,12 +118,18 @@ const WorkflowBuilder = () => {
 
                     <ResizableHandle className="bg-muted" />
 
-                    <ResizablePanel className="bg-background" defaultSize={0} panelRef={bottomResizablePanelRef}>
-                        <WorkflowExecutionsTestOutput
-                            onCloseClick={handleWorkflowExecutionsTestOutputCloseClick}
-                            workflowIsRunning={workflowIsRunning}
-                            workflowTestExecution={workflowTestExecution}
-                        />
+                    <ResizablePanel className="flex" defaultSize={0} panelRef={bottomResizablePanelRef}>
+                        {(workflowIsRunning || workflowTestExecution || workflowTestChatPanelOpen) && (
+                            <div className="m-3 flex flex-1 overflow-hidden rounded-lg bg-background">
+                                {(workflowIsRunning || workflowTestExecution) && (
+                                    <WorkflowExecutionsTestOutput
+                                        onCloseClick={handleWorkflowExecutionsTestOutputCloseClick}
+                                        workflowIsRunning={workflowIsRunning}
+                                        workflowTestExecution={workflowTestExecution}
+                                    />
+                                )}
+                            </div>
+                        )}
                     </ResizablePanel>
                 </ResizablePanelGroup>
             </div>
