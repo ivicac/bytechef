@@ -43,6 +43,12 @@ export interface ModelPickerPropsI {
     workflowChats?: ModelPickerWorkflowChatI[];
     selectedModel: string | null;
     selectedProvider: string | null;
+    /**
+     * When provided, renders a "Use <label>" sentinel that clears the selection to (null, null) and is
+     * shown in the trigger when nothing is selected (and no agent default). Used by the Personal Agent
+     * form to allow reverting to the workspace default. Composers omit it to always show a concrete model.
+     */
+    workspaceDefaultLabel?: string;
     workspaceId: number;
 }
 
@@ -61,6 +67,7 @@ const ModelPicker = ({
     selectedModel,
     selectedProvider,
     workflowChats,
+    workspaceDefaultLabel,
 }: ModelPickerPropsI) => {
     const [open, setOpen] = useState(false);
     const [searchQuery, setSearchQuery] = useState('');
@@ -137,8 +144,8 @@ const ModelPicker = ({
             return {icon: provider?.icon ?? null, label: model?.label || agentDefaultModel};
         }
 
-        return {icon: null, label: 'Select model'};
-    }, [agentDefaultModel, agentDefaultProvider, providers, selectedModel, selectedProvider]);
+        return {icon: null, label: workspaceDefaultLabel ?? 'Select model'};
+    }, [agentDefaultModel, agentDefaultProvider, providers, selectedModel, selectedProvider, workspaceDefaultLabel]);
 
     const closeMenu = () => {
         setOpen(false);
@@ -149,6 +156,11 @@ const ModelPicker = ({
 
     const handleSelectModel = (providerKey: string, modelName: string) => {
         onChange(providerKey, modelName);
+        closeMenu();
+    };
+
+    const handleSelectDefault = () => {
+        onChange(null, null);
         closeMenu();
     };
 
@@ -220,6 +232,22 @@ const ModelPicker = ({
                 </div>
 
                 <DropdownMenuSeparator />
+
+                {workspaceDefaultLabel != null && (
+                    <>
+                        <DropdownMenuItem onSelect={() => handleSelectDefault()}>
+                            <BrainCircuitIcon className="text-muted-foreground" />
+
+                            <span>
+                                {agentDefaultProvider && agentDefaultModel
+                                    ? 'Use agent default'
+                                    : `Use ${workspaceDefaultLabel.toLowerCase()}`}
+                            </span>
+                        </DropdownMenuItem>
+
+                        <DropdownMenuSeparator />
+                    </>
+                )}
 
                 {showPersonalAgentsSection && (
                     <DropdownMenuSub>

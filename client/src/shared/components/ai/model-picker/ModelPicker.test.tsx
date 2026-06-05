@@ -76,6 +76,47 @@ describe('ModelPicker', () => {
         expect(screen.queryByText('Workspace default')).not.toBeInTheDocument();
     });
 
+    it('shows the workspace-default sentinel and clears selection to (null, null) on click', async () => {
+        const onChange = vi.fn();
+
+        render(
+            <ModelPicker
+                environment={1}
+                onChange={onChange}
+                selectedModel={null}
+                selectedProvider={null}
+                workspaceDefaultLabel="Workspace default"
+                workspaceId={5}
+            />
+        );
+
+        expect(screen.getByLabelText('Select LLM provider and model')).toHaveTextContent('Workspace default');
+
+        await userEvent.click(screen.getByLabelText('Select LLM provider and model'));
+
+        await userEvent.click(screen.getByText('Use workspace default'));
+
+        expect(onChange).toHaveBeenCalledWith(null, null);
+    });
+
+    it('renders the Personal agents section when personalAgents and onSelectPersonalAgent are passed', async () => {
+        render(
+            <ModelPicker
+                environment={1}
+                onChange={vi.fn()}
+                onSelectPersonalAgent={vi.fn()}
+                personalAgents={[{id: 1, name: 'A', title: 'Agent A'}]}
+                selectedModel={null}
+                selectedProvider={null}
+                workspaceId={5}
+            />
+        );
+
+        await userEvent.click(screen.getByLabelText('Select LLM provider and model'));
+
+        expect(screen.getByText('Personal agents')).toBeInTheDocument();
+    });
+
     it('navigates to AI Providers settings for an inactive provider', async () => {
         render(
             <ModelPicker
