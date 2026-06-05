@@ -133,7 +133,7 @@ public class AiHubChatClientResolver implements AiHubSpringAIAgent.OverrideChatC
             return null;
         }
 
-        Integer environment = asInteger(state.get(AiHubStateKeys.ENVIRONMENT_ID));
+        Integer environment = asInteger(state.get(AiHubStateKeys.VERIFIED_ENVIRONMENT_ID));
 
         if (environment != null) {
             ChatClient catalogChatClient = catalogChatClientResolver.resolve(environment, llmProvider, llmModel);

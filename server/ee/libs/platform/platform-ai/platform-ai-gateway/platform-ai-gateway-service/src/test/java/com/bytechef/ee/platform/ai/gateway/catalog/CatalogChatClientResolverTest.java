@@ -38,6 +38,14 @@ class CatalogChatClientResolverTest {
     }
 
     @Test
+    void testResolveReturnsNullForOutOfRangeEnvironment() {
+        // The range check short-circuits before any propertyService lookup, so no stubbing is needed (and a forged
+        // or out-of-range ordinal can never drive platform-API-key selection — fail closed).
+        assertThat(resolver.resolve(99, "ai.provider.openAi", "gpt-4o")).isNull();
+        assertThat(resolver.resolve(-1, "ai.provider.openAi", "gpt-4o")).isNull();
+    }
+
+    @Test
     void testResolveReturnsNullWhenProviderDisabled() {
         Property property = mock(Property.class);
 

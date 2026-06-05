@@ -46,6 +46,15 @@ public final class AiHubStateKeys {
     public static final String VERIFIED_THREAD_ID = "__verifiedThreadId";
 
     /**
+     * The server-validated environment ordinal, injected by the controller after range-checking the client-supplied
+     * {@code environmentId}. The catalog runtime resolver reads THIS key (never the raw client value) so a forged or
+     * out-of-range ordinal can't drive platform-API-key selection. Environment is a deployment-wide enum
+     * (DEVELOPMENT/STAGING/PRODUCTION), not a per-user ACL, so this is range-validation + verified-state consistency,
+     * not a membership check.
+     */
+    public static final String VERIFIED_ENVIRONMENT_ID = "__verifiedEnvironmentId";
+
+    /**
      * Personal-agent instructions string, set by the routing agent for {@code kind = PERSONAL_AGENT} tasks. Read by
      * {@code AiHubSpringAIAgent.appendPersonalAgentContext} to inject the agent's instructions as a Context block in
      * the system prompt.

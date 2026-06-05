@@ -20,6 +20,7 @@ import com.bytechef.ee.platform.aihub.task.AiHubTask;
 import com.bytechef.ee.platform.aihub.task.AiHubTaskService;
 import com.bytechef.ee.platform.aihub.util.AiHubStateKeys;
 import com.bytechef.ee.platform.aihub.util.Mode;
+import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.user.service.UserService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.Metrics;
@@ -304,6 +305,15 @@ public class AiHubApiController {
         if (verifiedThreadId != null) {
             state.set(AiHubStateKeys.VERIFIED_THREAD_ID, verifiedThreadId);
             state.set("threadId", verifiedThreadId);
+        }
+
+        Long environmentId = readLong(agUiParameters, "environmentId");
+
+        if (environmentId != null && environmentId >= 0 && environmentId < Environment.values().length) {
+            state.set(AiHubStateKeys.VERIFIED_ENVIRONMENT_ID, environmentId);
+
+            // Overwrite the unverified path so downstream reads of state.environmentId get the validated value.
+            state.set("environmentId", environmentId);
         }
     }
 

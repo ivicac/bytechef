@@ -38,7 +38,7 @@ class AiHubChatClientResolverCatalogTest {
         CatalogChatClientResolver catalogChatClientResolver = mock(CatalogChatClientResolver.class);
         ChatClient catalogChatClient = mock(ChatClient.class);
 
-        when(catalogChatClientResolver.resolve(3, "ai.provider.openAi", "gpt-4o")).thenReturn(catalogChatClient);
+        when(catalogChatClientResolver.resolve(1, "ai.provider.openAi", "gpt-4o")).thenReturn(catalogChatClient);
 
         AiHubChatClientResolver resolver = new AiHubChatClientResolver(
             mock(WorkspaceAiGatewayProviderService.class), mock(AiGatewayProviderService.class),
@@ -47,7 +47,7 @@ class AiHubChatClientResolverCatalogTest {
         State state = new State();
 
         state.set(AiHubStateKeys.VERIFIED_WORKSPACE_ID, 10L);
-        state.set(AiHubStateKeys.ENVIRONMENT_ID, 3);
+        state.set(AiHubStateKeys.VERIFIED_ENVIRONMENT_ID, 1);
         state.set(AiHubStateKeys.USER_SELECTED_LLM_PROVIDER_KEY, "ai.provider.openAi");
         state.set(AiHubStateKeys.USER_SELECTED_LLM_MODEL_KEY, "gpt-4o");
 

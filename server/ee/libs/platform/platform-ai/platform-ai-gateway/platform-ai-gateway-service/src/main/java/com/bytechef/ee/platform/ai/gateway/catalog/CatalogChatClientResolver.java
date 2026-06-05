@@ -8,6 +8,7 @@
 package com.bytechef.ee.platform.ai.gateway.catalog;
 
 import com.bytechef.component.ai.llm.Provider;
+import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.domain.Property;
 import com.bytechef.platform.configuration.domain.Property.Scope;
 import com.bytechef.platform.configuration.service.PropertyService;
@@ -45,6 +46,12 @@ public class CatalogChatClientResolver {
     }
 
     public @Nullable ChatClient resolve(int environment, String providerKey, String model) {
+        // Fail closed: the environment ordinal selects the platform API key, so a forged or out-of-range value
+        // (client-supplied upstream) must never drive key selection. Reject anything outside the enum range.
+        if (environment < 0 || environment >= Environment.values().length) {
+            return null;
+        }
+
         Provider provider = Arrays.stream(Provider.values())
             .filter(curProvider -> curProvider.getKey()
                 .equals(providerKey))

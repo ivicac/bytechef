@@ -129,6 +129,10 @@ public class CopilotChatClientResolver implements OverrideChatClientResolver {
             return null;
         }
 
+        // Environment is a deployment-wide enum (DEVELOPMENT/STAGING/PRODUCTION), not a per-user ACL, so there's no
+        // membership check to add here. The shared CatalogChatClientResolver range-validates the ordinal and fails
+        // closed on garbage/out-of-range values. Copilot is a read-only UI assistant that already trusts the
+        // client-supplied workspaceId by design (see class Javadoc), so no verified-state injection is added here.
         Long environment = asLong(state.get(ENVIRONMENT_ID_KEY));
 
         if (environment != null) {
