@@ -13,6 +13,7 @@ import {aiHubTasksStore, useAiHubTasksStore} from '@/pages/automation/ai-hub/tas
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import EnvironmentSelect from '@/shared/components/EnvironmentSelect';
 import ModelPicker from '@/shared/components/ai/model-picker/ModelPicker';
+import {readLastUsedModel, writeLastUsedModel} from '@/shared/components/ai/model-picker/lastUsedModel';
 import {
     useCreateAiHubPersonalAgentTaskMutation,
     useCreateWorkflowChatAiHubTaskMutation,
@@ -318,12 +319,22 @@ const AiHubPanel = () => {
                             <ModelPicker
                                 agentDefaultModel={personalAgent?.llmModel ?? null}
                                 agentDefaultProvider={personalAgent?.llmProvider ?? null}
-                                onChange={(provider, model) => setTaskLlmSelection(currentTaskId, provider, model)}
+                                environment={currentEnvironmentId}
+                                onChange={(provider, model) => {
+                                    writeLastUsedModel(currentWorkspaceId, provider, model);
+                                    setTaskLlmSelection(currentTaskId, provider, model);
+                                }}
                                 onSelectPersonalAgent={handleSelectPersonalAgent}
                                 onSelectWorkflowChat={handleSelectWorkflowChat}
                                 personalAgents={pickerAgents}
-                                selectedModel={taskLlmSelection?.model ?? null}
-                                selectedProvider={taskLlmSelection?.provider ?? null}
+                                selectedModel={
+                                    taskLlmSelection?.model ?? readLastUsedModel(currentWorkspaceId)?.model ?? null
+                                }
+                                selectedProvider={
+                                    taskLlmSelection?.provider ??
+                                    readLastUsedModel(currentWorkspaceId)?.provider ??
+                                    null
+                                }
                                 workflowChats={pickerWorkflowChats}
                                 workspaceId={currentWorkspaceId}
                             />
