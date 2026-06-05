@@ -135,6 +135,7 @@ class EnumOrdinalStabilityTest {
 
         expected.put("USER", 0);
         expected.put("DEPLOYMENT", 1);
+        expected.put("INTEGRATION_INSTANCE", 2);
 
         OrdinalStabilityAssertions.assertOrdinalsMatch(
             AiAutoMemoryPrincipalType.values(), expected, AiAutoMemoryPrincipalType.class.getSimpleName());

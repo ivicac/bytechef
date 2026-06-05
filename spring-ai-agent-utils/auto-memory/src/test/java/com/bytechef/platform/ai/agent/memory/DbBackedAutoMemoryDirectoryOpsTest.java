@@ -46,7 +46,8 @@ class DbBackedAutoMemoryDirectoryOpsTest {
                     .thenReturn(List.<AiAutoMemory>of());
 
         DbBackedAutoMemoryDirectoryOps directoryOps =
-            new DbBackedAutoMemoryDirectoryOps(aiAutoMemoryService, WORKSPACE_ID, PRINCIPAL_ID, ENVIRONMENT);
+            new DbBackedAutoMemoryDirectoryOps(
+                aiAutoMemoryService, WORKSPACE_ID, AiAutoMemoryPrincipalType.DEPLOYMENT, PRINCIPAL_ID, ENVIRONMENT);
 
         String index = directoryOps.list("MEMORY.md", null);
 
@@ -61,11 +62,26 @@ class DbBackedAutoMemoryDirectoryOpsTest {
         AiAutoMemoryService aiAutoMemoryService = mock(AiAutoMemoryService.class);
 
         DbBackedAutoMemoryDirectoryOps directoryOps =
-            new DbBackedAutoMemoryDirectoryOps(aiAutoMemoryService, WORKSPACE_ID, PRINCIPAL_ID, ENVIRONMENT);
+            new DbBackedAutoMemoryDirectoryOps(
+                aiAutoMemoryService, WORKSPACE_ID, AiAutoMemoryPrincipalType.DEPLOYMENT, PRINCIPAL_ID, ENVIRONMENT);
 
         directoryOps.delete("foo", null);
 
         verify(aiAutoMemoryService).delete(
             WORKSPACE_ID, AiAutoMemoryPrincipalType.DEPLOYMENT, PRINCIPAL_ID, ENVIRONMENT, "foo");
+    }
+
+    @Test
+    void testIntegrationInstancePrincipalTypeIsThreadedThrough() {
+        AiAutoMemoryService aiAutoMemoryService = mock(AiAutoMemoryService.class);
+
+        DbBackedAutoMemoryDirectoryOps directoryOps = new DbBackedAutoMemoryDirectoryOps(
+            aiAutoMemoryService, WORKSPACE_ID, AiAutoMemoryPrincipalType.INTEGRATION_INSTANCE, PRINCIPAL_ID,
+            ENVIRONMENT);
+
+        directoryOps.delete("foo", null);
+
+        verify(aiAutoMemoryService).delete(
+            WORKSPACE_ID, AiAutoMemoryPrincipalType.INTEGRATION_INSTANCE, PRINCIPAL_ID, ENVIRONMENT, "foo");
     }
 }

@@ -32,5 +32,6 @@ public enum AiAutoMemoryPrincipalType {
 
     // append-only
     USER,
-    DEPLOYMENT
+    DEPLOYMENT,
+    INTEGRATION_INSTANCE
 }

@@ -16,6 +16,7 @@
 
 package com.bytechef.platform.ai.agent.memory;
 
+import com.bytechef.platform.ai.auto.memory.AiAutoMemoryPrincipalType;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.springframework.ai.chat.model.ToolContext;
@@ -23,9 +24,8 @@ import org.springframework.core.io.WritableResource;
 
 /**
  * {@link MemoryResourceResolver} backed by {@link AiAutoMemoryService} with a fixed
- * {@code (workspaceId, principalId, environment)} tenant owned by
- * {@link com.bytechef.platform.ai.auto.memory.AiAutoMemoryPrincipalType#DEPLOYMENT}. The scoping is pinned per agent
- * run at construction time, so the {@link ToolContext} passed to {@link #resolve(String, ToolContext)} is ignored.
+ * {@code (workspaceId, principalType, principalId, environment)} tenant. The scoping is pinned per agent run at
+ * construction time, so the {@link ToolContext} passed to {@link #resolve(String, ToolContext)} is ignored.
  *
  * @author Ivica Cardic
  */
@@ -33,15 +33,18 @@ public class AutoMemoryResourceResolver implements MemoryResourceResolver {
 
     private final AiAutoMemoryService aiAutoMemoryService;
     private final long workspaceId;
+    private final AiAutoMemoryPrincipalType principalType;
     private final long principalId;
     private final int environment;
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public AutoMemoryResourceResolver(
-        AiAutoMemoryService aiAutoMemoryService, long workspaceId, long principalId, int environment) {
+        AiAutoMemoryService aiAutoMemoryService, long workspaceId, AiAutoMemoryPrincipalType principalType,
+        long principalId, int environment) {
 
         this.aiAutoMemoryService = aiAutoMemoryService;
         this.workspaceId = workspaceId;
+        this.principalType = principalType;
         this.principalId = principalId;
         this.environment = environment;
     }
@@ -49,7 +52,7 @@ public class AutoMemoryResourceResolver implements MemoryResourceResolver {
     @Override
     public WritableResource resolve(String relativePath, ToolContext toolContext) {
         return new AutoMemoryResource(
-            aiAutoMemoryService, workspaceId, principalId, environment, toMemoryName(relativePath));
+            aiAutoMemoryService, workspaceId, principalType, principalId, environment, toMemoryName(relativePath));
     }
 
     /**

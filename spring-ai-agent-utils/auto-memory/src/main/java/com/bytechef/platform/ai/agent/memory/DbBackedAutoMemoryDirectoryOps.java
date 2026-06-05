@@ -25,10 +25,10 @@ import org.springframework.ai.chat.model.ToolContext;
 
 /**
  * {@link AutoMemoryDirectoryOps} backed by {@link AiAutoMemoryService} with a fixed
- * {@code (workspaceId, principalId, environment)} tenant owned by {@link AiAutoMemoryPrincipalType#DEPLOYMENT}. The
- * "index" (MEMORY.md) is synthesized from {@link AiAutoMemoryService#listByPrincipalAndWorkspace} rather than stored —
- * the DB is the source of truth, so there is no standalone index file to maintain. The scoping is pinned per agent run
- * at construction time, so the {@link ToolContext} passed to each operation is ignored.
+ * {@code (workspaceId, principalType, principalId, environment)} tenant. The "index" (MEMORY.md) is synthesized from
+ * {@link AiAutoMemoryService#listByPrincipalAndWorkspace} rather than stored — the DB is the source of truth, so there
+ * is no standalone index file to maintain. The scoping is pinned per agent run at construction time, so the
+ * {@link ToolContext} passed to each operation is ignored.
  *
  * @author Ivica Cardic
  */
@@ -36,15 +36,18 @@ public class DbBackedAutoMemoryDirectoryOps implements AutoMemoryDirectoryOps {
 
     private final AiAutoMemoryService aiAutoMemoryService;
     private final long workspaceId;
+    private final AiAutoMemoryPrincipalType principalType;
     private final long principalId;
     private final int environment;
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public DbBackedAutoMemoryDirectoryOps(
-        AiAutoMemoryService aiAutoMemoryService, long workspaceId, long principalId, int environment) {
+        AiAutoMemoryService aiAutoMemoryService, long workspaceId, AiAutoMemoryPrincipalType principalType,
+        long principalId, int environment) {
 
         this.aiAutoMemoryService = aiAutoMemoryService;
         this.workspaceId = workspaceId;
+        this.principalType = principalType;
         this.principalId = principalId;
         this.environment = environment;
     }
@@ -52,7 +55,7 @@ public class DbBackedAutoMemoryDirectoryOps implements AutoMemoryDirectoryOps {
     @Override
     public String list(String path, ToolContext toolContext) {
         List<AiAutoMemory> memories = aiAutoMemoryService.listByPrincipalAndWorkspace(
-            workspaceId, AiAutoMemoryPrincipalType.DEPLOYMENT, principalId, environment);
+            workspaceId, principalType, principalId, environment);
 
         if (memories.isEmpty()) {
             return "MEMORY index is empty. Create entries with MemoryCreate.";
@@ -88,20 +91,20 @@ public class DbBackedAutoMemoryDirectoryOps implements AutoMemoryDirectoryOps {
     @Override
     public boolean exists(String relativePath, ToolContext toolContext) {
         return aiAutoMemoryService.read(
-            workspaceId, AiAutoMemoryPrincipalType.DEPLOYMENT, principalId, environment, toMemoryName(relativePath))
+            workspaceId, principalType, principalId, environment, toMemoryName(relativePath))
             .isPresent();
     }
 
     @Override
     public void delete(String relativePath, ToolContext toolContext) {
         aiAutoMemoryService.delete(
-            workspaceId, AiAutoMemoryPrincipalType.DEPLOYMENT, principalId, environment, toMemoryName(relativePath));
+            workspaceId, principalType, principalId, environment, toMemoryName(relativePath));
     }
 
     @Override
     public void rename(String oldRelativePath, String newRelativePath, ToolContext toolContext) {
         aiAutoMemoryService.rename(
-            workspaceId, AiAutoMemoryPrincipalType.DEPLOYMENT, principalId, environment,
+            workspaceId, principalType, principalId, environment,
             toMemoryName(oldRelativePath), toMemoryName(newRelativePath));
     }
 
