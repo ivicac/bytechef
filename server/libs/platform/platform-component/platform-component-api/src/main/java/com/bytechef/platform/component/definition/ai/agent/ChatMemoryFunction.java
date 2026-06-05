@@ -20,7 +20,7 @@ import com.bytechef.component.definition.ClusterElementDefinition.ClusterElement
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.ComponentConnection;
 import java.util.Map;
-import org.springframework.ai.chat.client.advisor.api.BaseChatMemoryAdvisor;
+import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
 
 /**
  * @author Ivica Cardic
@@ -41,7 +41,7 @@ public interface ChatMemoryFunction {
      * @return
      * @throws Exception
      */
-    BaseChatMemoryAdvisor apply(
+    BaseAdvisor apply(
         Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
         Map<String, ComponentConnection> componentConnections) throws Exception;
 }

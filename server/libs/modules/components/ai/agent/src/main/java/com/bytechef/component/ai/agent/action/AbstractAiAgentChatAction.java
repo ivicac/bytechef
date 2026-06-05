@@ -342,6 +342,12 @@ public abstract class AbstractAiAgentChatAction {
         return advisor -> {
             if (conversationId != null) {
                 advisor.param(ChatMemory.CONVERSATION_ID, conversationId);
+
+                // Session-based chat memory (SessionMemoryAdvisor) keys off its own context param; set it to the same
+                // conversation id so the message-window and session memory implementations are interchangeable. The
+                // literal mirrors SessionMemoryAdvisor.SESSION_ID_CONTEXT_KEY (spring-ai-session); kept as a literal to
+                // avoid coupling the core agent module to that dependency.
+                advisor.param("chat_memory_session_id", conversationId);
             }
         };
     }
