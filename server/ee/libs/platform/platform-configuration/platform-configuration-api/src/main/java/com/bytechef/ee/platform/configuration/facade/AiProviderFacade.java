@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.platform.configuration.facade;
 
+import com.bytechef.ee.platform.configuration.dto.AiProviderCatalogItemDTO;
 import com.bytechef.ee.platform.configuration.dto.AiProviderDTO;
 import java.util.List;
 
@@ -18,6 +19,8 @@ import java.util.List;
 public interface AiProviderFacade {
 
     void deleteAiProvider(int id, int environment);
+
+    List<AiProviderCatalogItemDTO> getAiProviderCatalog(int environment);
 
     List<AiProviderDTO> getAiProviders(int environment);
 

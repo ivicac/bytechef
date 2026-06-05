@@ -8,18 +8,23 @@
 package com.bytechef.ee.platform.configuration.facade;
 
 import com.bytechef.component.ai.llm.Provider;
+import com.bytechef.ee.platform.configuration.dto.AiProviderCatalogItemDTO;
 import com.bytechef.ee.platform.configuration.dto.AiProviderDTO;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.component.domain.ActionDefinition;
 import com.bytechef.platform.component.domain.ComponentDefinition;
+import com.bytechef.platform.component.domain.StringProperty;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Property;
 import com.bytechef.platform.configuration.domain.Property.Scope;
 import com.bytechef.platform.configuration.service.PropertyService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Arrays;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -32,6 +37,18 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 @ConditionalOnEEVersion
 public class AiProviderFacadeImpl implements AiProviderFacade {
+
+    private static final Set<Provider> CHAT_PROVIDERS = EnumSet.of(
+        Provider.ANTHROPIC,
+        Provider.AZURE_OPEN_AI,
+        Provider.GROQ,
+        Provider.HUGGING_FACE,
+        Provider.MISTRAL,
+        Provider.NVIDIA,
+        Provider.OPEN_AI,
+        Provider.VERTEX_GEMINI,
+        Provider.PERPLEXITY,
+        Provider.DEEPSEEK);
 
     private final ComponentDefinitionService componentDefinitionService;
     private final PropertyService propertyService;
@@ -49,6 +66,50 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
         Provider provider = getProvider(id);
 
         propertyService.delete(provider.getKey(), Scope.PLATFORM, null, (long) environment);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<AiProviderCatalogItemDTO> getAiProviderCatalog(int environment) {
+        List<ComponentDefinition> componentDefinitions = componentDefinitionService.getComponentDefinitions();
+
+        List<Property> properties = propertyService.getProperties(
+            CHAT_PROVIDERS.stream()
+                .map(Provider::getKey)
+                .toList(),
+            Scope.PLATFORM, null, (long) environment);
+
+        return CHAT_PROVIDERS.stream()
+            .map(provider -> {
+                ComponentDefinition componentDefinition = componentDefinitions.stream()
+                    .filter(curComponentDefinition -> {
+                        String providerName = provider.getName();
+
+                        return providerName.contains(curComponentDefinition.getName());
+                    })
+                    .findFirst()
+                    .orElse(null);
+
+                if (componentDefinition == null) {
+                    return null;
+                }
+
+                Property property = properties.stream()
+                    .filter(curProperty -> curProperty.getKey()
+                        .equals(provider.getKey()))
+                    .findFirst()
+                    .orElse(null);
+
+                boolean enabled = property != null && property.isEnabled();
+
+                List<AiProviderCatalogItemDTO.Model> models = readChatModels(componentDefinition);
+
+                return new AiProviderCatalogItemDTO(
+                    provider.getKey(), provider.getLabel(), componentDefinition.getIcon(), enabled,
+                    models.isEmpty(), models);
+            })
+            .filter(Objects::nonNull)
+            .toList();
     }
 
     @Override
@@ -108,6 +169,29 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
         Provider provider = getProvider(id);
 
         propertyService.save(provider.getKey(), Map.of("apiKey", apiKey), Scope.PLATFORM, null, (long) environment);
+    }
+
+    private static List<AiProviderCatalogItemDTO.Model> readChatModels(ComponentDefinition componentDefinition) {
+        return componentDefinition.getActions()
+            .stream()
+            .filter(actionDefinition -> "ask".equals(actionDefinition.getName()))
+            .findFirst()
+            .map(AiProviderFacadeImpl::extractModelOptions)
+            .orElse(List.of());
+    }
+
+    private static List<AiProviderCatalogItemDTO.Model> extractModelOptions(ActionDefinition actionDefinition) {
+        return actionDefinition.getProperties()
+            .stream()
+            .filter(property -> "model".equals(property.getName()) && property instanceof StringProperty)
+            .map(property -> (StringProperty) property)
+            .findFirst()
+            .map(stringProperty -> stringProperty.getOptions()
+                .stream()
+                .map(option -> new AiProviderCatalogItemDTO.Model(
+                    String.valueOf(option.getValue()), option.getLabel()))
+                .toList())
+            .orElse(List.of());
     }
 
     private static Provider getProvider(int id) {
