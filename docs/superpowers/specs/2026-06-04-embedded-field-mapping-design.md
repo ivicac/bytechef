@@ -74,10 +74,10 @@ Design time (workflow builder)
                                                         │ derive objectName (top-level key) → input def
                                                         │ derive applicationFields → data pills
   DataPillPanel (shared)  ◄───────────────────────────┘
-    one child pill per applicationFields[].value
+    one child pill per applicationFields.fields[].value
 
 Runtime (end user, ConnectDialog)
-  SDK useConnectDialog({ mapObjectFields: { <objectName>: { objectTypes.get, integrationFields.get, fields, ... } } })
+  SDK useConnectDialog({ mapObjectFields: { <objectName>: { objectTypes.get, integrationFields.get, applicationFields: { fields, ... } } } })
   FieldMappingField
     objectType <select>  ── objectTypes.get({ executeAction, search })
     rows: applicationField (left) → integrationField <select> ── integrationFields.get({ executeAction, objectType })
@@ -207,7 +207,7 @@ Location: `client/src/pages/platform/workflow-editor/components/workflow-inputs/
 
 Location: `client/src/pages/platform/workflow-editor/components/datapills/`.
 
-- For `FIELD_MAPPING` inputs only, expand the test value's `applicationFields[]` into one child pill
+- For `FIELD_MAPPING` inputs only, expand the test value's `applicationFields.fields[]` into one child pill
   per field in `DataPillPanelBodyInputsItem` / `DataPill` (e.g. `contactMapping.title`,
   `contactMapping.email`), using each field's `label`/`value` for the pill label and preview. This
   is a **type-gated** addition: it builds a synthetic `properties[]` from the sample for this type

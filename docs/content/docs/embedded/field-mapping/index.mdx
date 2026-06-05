@@ -35,7 +35,7 @@ Design time (workflow builder)
   Workflow input  type = Field Mapping
     test value = static mapObjectFields-shaped JSON
       └─ top-level key            → objectName (matches the SDK config key)
-      └─ applicationFields[]       → one data pill each
+      └─ applicationFields.fields[] → one data pill each
 
 Runtime (end user, Connect dialog)
   useConnectDialog({ mapObjectFields: { <objectName>: { objectTypes, integrationFields, applicationFields: { fields, ... } } } })
