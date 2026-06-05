@@ -14,8 +14,8 @@
 
 ## Background facts (verified — do not re-derive)
 
-- **Catalog provider enum:** `com.bytechef.component.ai.llm.Provider` — constructor `Provider(int id, String name, String key, String label)`. Getters: `getId()`, `getName()` (component name match key, e.g. `"anthropic"`), `getKey()` (stable storage key, e.g. `"openAi"`), `getLabel()` (display, e.g. `"Anthropic"`). Chat-capable entries: ANTHROPIC, AZURE_OPEN_AI, GROQ, HUGGING_FACE, MISTRAL, NVIDIA, OPEN_AI, VERTEX_GEMINI, PERPLEXITY, DEEPSEEK. **STABILITY is image-only — exclude.**
-- **`getKey()` is the wire value** sent as `userSelectedLlmProvider` (e.g. `"openAi"`). Gateway resolvers match `AiGatewayProviderType.name()` (e.g. `"OPENAI"`) — different namespace, so catalog and gateway tiers never collide.
+- **Catalog provider enum:** `com.bytechef.component.ai.llm.Provider` — constructor `Provider(int id, String name, String key, String label)`. Getters: `getId()`, `getName()` (component name match key, e.g. `"anthropic"`), `getKey()` (stable storage key, e.g. `"ai.provider.openAi"`), `getLabel()` (display, e.g. `"Anthropic"`). Chat-capable entries: ANTHROPIC, AZURE_OPEN_AI, GROQ, HUGGING_FACE, MISTRAL, NVIDIA, OPEN_AI, VERTEX_GEMINI, PERPLEXITY, DEEPSEEK. **STABILITY is image-only — exclude.**
+- **`getKey()` is the wire value** sent as `userSelectedLlmProvider` (e.g. `"ai.provider.openAi"`). Gateway resolvers match `AiGatewayProviderType.name()` (e.g. `"OPENAI"`) — different namespace, so catalog and gateway tiers never collide.
 - **Each provider component exposes** `public static final com.bytechef.component.ai.llm.ChatModel CHAT_MODEL` in its `*ChatAction` class (e.g. `OpenAiChatAction.CHAT_MODEL`). The interface method is `org.springframework.ai.chat.model.ChatModel createChatModel(Parameters inputParameters, Parameters connectionParameters, boolean responseFormatRequired)`. The lambdas read `inputParameters.getRequiredString(MODEL)` (`LLMConstants.MODEL = "model"`) and `connectionParameters.getString(TOKEN)` (`com.bytechef.component.definition.Authorization.TOKEN`).
 - **Build `Parameters` via** `com.bytechef.platform.component.definition.ParametersFactory.create(Map<String, ?> map)`.
 - **No registry** maps `Provider` → `CHAT_MODEL`; the new `CatalogChatModelFactory` is that registry (a `switch` on `Provider`).
@@ -184,8 +184,8 @@ class AiProviderFacadeImplCatalogTest {
 
         assertThat(catalog)
             .extracting(AiProviderCatalogItemDTO::key)
-            .contains("openAi", "anthropic")
-            .doesNotContain("stability");
+            .contains("ai.provider.openAi", "ai.provider.anthropic")
+            .doesNotContain("ai.provider.stability");
     }
 
     private static ComponentDefinition mockComponentDefinition(String name, String icon) {
@@ -379,7 +379,7 @@ class AiProviderCatalogGraphQlControllerTest {
     @Test
     void testAiProviderCatalogDelegatesToFacade() {
         AiProviderCatalogItemDTO item = new AiProviderCatalogItemDTO(
-            "openAi", "Open AI", "<svg/>", true, false, List.of(new AiProviderCatalogItemDTO.Model("gpt-5", "GPT-5")));
+            "ai.provider.openAi", "Open AI", "<svg/>", true, false, List.of(new AiProviderCatalogItemDTO.Model("gpt-5", "GPT-5")));
 
         when(aiProviderFacade.getAiProviderCatalog(2)).thenReturn(List.of(item));
 
@@ -389,7 +389,7 @@ class AiProviderCatalogGraphQlControllerTest {
 
         assertThat(result).singleElement()
             .extracting(AiProviderCatalogItemDTO::key)
-            .isEqualTo("openAi");
+            .isEqualTo("ai.provider.openAi");
     }
 }
 ```
@@ -707,10 +707,10 @@ class CatalogChatClientResolverTest {
         Property property = mock(Property.class);
 
         when(property.isEnabled()).thenReturn(false);
-        when(propertyService.fetchProperty(eq("openAi"), eq(Scope.PLATFORM), eq(null), anyLong()))
+        when(propertyService.fetchProperty(eq("ai.provider.openAi"), eq(Scope.PLATFORM), eq(null), anyLong()))
             .thenReturn(Optional.of(property));
 
-        assertThat(resolver.resolve(1, "openAi", "gpt-4o")).isNull();
+        assertThat(resolver.resolve(1, "ai.provider.openAi", "gpt-4o")).isNull();
     }
 
     @Test
@@ -719,12 +719,12 @@ class CatalogChatClientResolverTest {
 
         when(property.isEnabled()).thenReturn(true);
         when(property.get("apiKey")).thenReturn("sk-test");
-        when(propertyService.fetchProperty(eq("openAi"), eq(Scope.PLATFORM), eq(null), anyLong()))
+        when(propertyService.fetchProperty(eq("ai.provider.openAi"), eq(Scope.PLATFORM), eq(null), anyLong()))
             .thenReturn(Optional.of(property));
         when(catalogChatModelFactory.createChatModel(eq(Provider.OPEN_AI), eq("gpt-4o"), eq("sk-test")))
             .thenReturn(mock(org.springframework.ai.chat.model.ChatModel.class));
 
-        assertThat(resolver.resolve(1, "openAi", "gpt-4o")).isNotNull();
+        assertThat(resolver.resolve(1, "ai.provider.openAi", "gpt-4o")).isNotNull();
     }
 }
 ```
@@ -761,7 +761,7 @@ import org.springframework.stereotype.Component;
 
 /**
  * Resolves an override {@link ChatClient} from the platform AI provider catalog: given a catalog provider
- * key (e.g. {@code "openAi"}) + model name, reads the environment-scoped platform API key and builds a
+ * key (e.g. {@code "ai.provider.openAi"}) + model name, reads the environment-scoped platform API key and builds a
  * Spring-AI ChatModel via {@link CatalogChatModelFactory}. Returns {@code null} (caller falls back) when
  * the key is unknown, the provider is disabled, no API key is stored, or the factory can't build it.
  *
@@ -890,7 +890,7 @@ class AiHubChatClientResolverCatalogTest {
         CatalogChatClientResolver catalogResolver = mock(CatalogChatClientResolver.class);
         ChatClient catalogClient = mock(ChatClient.class);
 
-        when(catalogResolver.resolve(eq(3), eq("openAi"), eq("gpt-4o"))).thenReturn(catalogClient);
+        when(catalogResolver.resolve(eq(3), eq("ai.provider.openAi"), eq("gpt-4o"))).thenReturn(catalogClient);
 
         AiHubChatClientResolver resolver = new AiHubChatClientResolver(
             mock(com.bytechef.ee.automation.ai.gateway.service.WorkspaceAiGatewayProviderService.class),
@@ -901,7 +901,7 @@ class AiHubChatClientResolverCatalogTest {
         State state = new State(Map.of(
             AiHubStateKeys.VERIFIED_WORKSPACE_ID, "10",
             AiHubStateKeys.ENVIRONMENT_ID, "3",
-            AiHubStateKeys.USER_SELECTED_LLM_PROVIDER_KEY, "openAi",
+            AiHubStateKeys.USER_SELECTED_LLM_PROVIDER_KEY, "ai.provider.openAi",
             AiHubStateKeys.USER_SELECTED_LLM_MODEL_KEY, "gpt-4o"));
 
         assertThat(resolver.resolve(state)).isSameAs(catalogClient);
@@ -1122,7 +1122,7 @@ Expected: FAIL (module missing).
  * Per-workspace persistence of the user's last-used (provider, model) selection so a fresh conversation
  * or task seeds the picker with what they last ran, instead of the workspace default. Keyed by workspace
  * because providers/active-state are environment+workspace specific; the value is a stable provider key
- * (e.g. "openAi") + model name.
+ * (e.g. "ai.provider.openAi") + model name.
  */
 interface LastUsedModelI {
     model: string;
@@ -1255,7 +1255,7 @@ describe('ModelPicker', () => {
                 environment={1}
                 onChange={vi.fn()}
                 selectedModel="gpt-4o"
-                selectedProvider="openAi"
+                selectedProvider="ai.provider.openAi"
                 workspaceId={5}
             />
         );
