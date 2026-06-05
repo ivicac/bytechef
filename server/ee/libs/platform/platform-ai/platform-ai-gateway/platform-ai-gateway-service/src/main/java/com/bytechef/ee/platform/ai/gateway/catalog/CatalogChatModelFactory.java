@@ -31,9 +31,10 @@ import org.springframework.stereotype.Component;
  * component's existing {@code CHAT_MODEL} lambda fed synthetic {@link Parameters}.
  *
  * <p>
- * Providers whose {@code CHAT_MODEL} needs connection params beyond the API key (Azure: deployment endpoint;
- * HuggingFace: inference URL) cannot be built from the catalog alone and return {@code null} (the caller falls back to
- * the gateway/workspace default). All other chat providers' lambdas need only {@code TOKEN} + {@code MODEL}.
+ * The supported chat providers' lambdas need only {@code TOKEN} + {@code MODEL}. Any provider not mapped below returns
+ * {@code null} (the caller falls back to the gateway/workspace default) — this is defensive: the catalog query does not
+ * offer providers that can't be resolved from an API key alone (e.g. Azure OpenAI needs a per-deployment endpoint;
+ * Hugging Face is no longer supported by Spring AI), so {@code resolve} is not expected to be called for them.
  *
  * @version ee
  *

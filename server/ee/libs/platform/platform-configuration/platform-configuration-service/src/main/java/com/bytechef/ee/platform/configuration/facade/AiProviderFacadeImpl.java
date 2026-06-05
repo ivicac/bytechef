@@ -39,11 +39,15 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnEEVersion
 public class AiProviderFacadeImpl implements AiProviderFacade {
 
+    // Chat-capable providers offered by the catalog picker. Excludes:
+    // - STABILITY (image-only).
+    // - HUGGING_FACE (Spring AI no longer supports the Hugging Face chat model).
+    // - AZURE_OPEN_AI (its chat model requires a per-deployment ENDPOINT that the platform catalog does not
+    // store — only an apiKey — so it can't be resolved from catalog credentials; listing it would be a
+    // silent fall-back to the workspace default).
     private static final Set<Provider> CHAT_PROVIDERS = EnumSet.of(
         Provider.ANTHROPIC,
-        Provider.AZURE_OPEN_AI,
         Provider.GROQ,
-        Provider.HUGGING_FACE,
         Provider.MISTRAL,
         Provider.NVIDIA,
         Provider.OPEN_AI,

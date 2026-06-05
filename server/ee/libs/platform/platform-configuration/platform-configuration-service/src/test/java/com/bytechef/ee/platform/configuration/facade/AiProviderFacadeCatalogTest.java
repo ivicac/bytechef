@@ -77,7 +77,7 @@ class AiProviderFacadeCatalogTest {
     }
 
     @Test
-    void testGetChatProviderCatalogExcludesStability() {
+    void testGetChatProviderCatalogExcludesUnsupportedProviders() {
         List<ComponentDefinition> minimalDefinitions = buildMinimalComponentDefinitions();
 
         when(componentDefinitionService.getComponentDefinitions()).thenReturn(minimalDefinitions);
@@ -94,7 +94,10 @@ class AiProviderFacadeCatalogTest {
             .map(AiProviderCatalogItemDTO::key)
             .toList();
 
-        assertThat(keys).doesNotContain("ai.provider.stability");
+        // STABILITY is image-only; HUGGING_FACE is no longer supported by Spring AI; AZURE_OPEN_AI needs an
+        // endpoint the catalog doesn't store.
+        assertThat(keys).doesNotContain(
+            "ai.provider.stability", "ai.provider.huggingFace", "ai.provider.azureOpenAi");
     }
 
     @Test
