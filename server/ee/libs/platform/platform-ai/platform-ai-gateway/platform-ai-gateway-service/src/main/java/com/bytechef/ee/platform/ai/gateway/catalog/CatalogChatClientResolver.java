@@ -8,6 +8,7 @@
 package com.bytechef.ee.platform.ai.gateway.catalog;
 
 import com.bytechef.component.ai.llm.Provider;
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.domain.Property;
 import com.bytechef.platform.configuration.domain.Property.Scope;
@@ -36,13 +37,16 @@ public class CatalogChatClientResolver {
 
     private final PropertyService propertyService;
     private final CatalogChatModelFactory catalogChatModelFactory;
+    private final ApplicationProperties applicationProperties;
 
     @SuppressFBWarnings("EI")
     public CatalogChatClientResolver(
-        PropertyService propertyService, CatalogChatModelFactory catalogChatModelFactory) {
+        PropertyService propertyService, CatalogChatModelFactory catalogChatModelFactory,
+        ApplicationProperties applicationProperties) {
 
         this.propertyService = propertyService;
         this.catalogChatModelFactory = catalogChatModelFactory;
+        this.applicationProperties = applicationProperties;
     }
 
     public @Nullable ChatClient resolve(int environment, String providerKey, String model) {
@@ -62,23 +66,13 @@ public class CatalogChatClientResolver {
             return null;
         }
 
-        Optional<Property> property =
-            propertyService.fetchProperty(provider.getKey(), Scope.PLATFORM, null, (long) environment);
+        String apiKey = resolveApiKey(provider, environment);
 
-        if (property.isEmpty() || !property.get()
-            .isEnabled()) {
-
+        if (apiKey == null || apiKey.isBlank()) {
             return null;
         }
 
-        Object apiKey = property.get()
-            .get("apiKey");
-
-        if (apiKey == null) {
-            return null;
-        }
-
-        ChatModel chatModel = catalogChatModelFactory.createChatModel(provider, model, apiKey.toString());
+        ChatModel chatModel = catalogChatModelFactory.createChatModel(provider, model, apiKey);
 
         if (chatModel == null) {
             return null;
@@ -89,5 +83,53 @@ public class CatalogChatClientResolver {
                 ChatOptions.builder()
                     .model(model))
             .build();
+    }
+
+    private @Nullable String resolveApiKey(Provider provider, int environment) {
+        // Mirror AiTextActionDefinition: prefer the platform-store key for an ENABLED provider, otherwise fall back to
+        // the application.yml-configured key. Lets deployments that configure provider keys via config (not the AI
+        // Providers settings page) still resolve catalog selections.
+        Optional<Property> property = propertyService.fetchProperty(
+            provider.getKey(), Scope.PLATFORM, null, (long) environment);
+
+        if (property.isPresent() && property.get()
+            .isEnabled()) {
+
+            Object apiKey = property.get()
+                .get("apiKey");
+
+            if (apiKey != null && !apiKey.toString()
+                .isBlank()) {
+
+                return apiKey.toString();
+            }
+        }
+
+        return configApiKey(provider);
+    }
+
+    private @Nullable String configApiKey(Provider provider) {
+        ApplicationProperties.Ai.Provider configProvider = applicationProperties.getAi()
+            .getProvider();
+
+        return switch (provider) {
+            case OPEN_AI -> configProvider.getOpenAi()
+                .getApiKey();
+            case ANTHROPIC -> configProvider.getAnthropic()
+                .getApiKey();
+            case MISTRAL -> configProvider.getMistral()
+                .getApiKey();
+            case VERTEX_GEMINI -> configProvider.getVertexGemini()
+                .getApiKey();
+            case GROQ -> configProvider.getGroq()
+                .getApiKey();
+            case PERPLEXITY -> configProvider.getPerplexity()
+                .getApiKey();
+            case NVIDIA -> configProvider.getNvidia()
+                .getApiKey();
+            case DEEPSEEK -> configProvider.getDeepSeek()
+                .getApiKey();
+            default -> null;
+        };
     }
 }
