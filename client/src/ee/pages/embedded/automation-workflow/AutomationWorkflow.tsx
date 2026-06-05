@@ -207,20 +207,22 @@ const AutomationWorkflow = () => {
 
                         <ResizableHandle className="bg-transparent aria-[orientation=horizontal]:-top-1.5 aria-[orientation=horizontal]:h-0" />
 
-                        <ResizablePanel
-                            className={twMerge(
-                                'bg-surface-main px-3 pb-3',
-                                leftSidebarOpen && 'pl-0',
-                                copilotLayoutShifted && 'pr-0'
+                        <ResizablePanel className="flex" defaultSize={0} panelRef={bottomResizablePanelRef}>
+                            {(workflowIsRunning || workflowTestExecution) && (
+                                <div
+                                    className={twMerge(
+                                        'm-3 flex flex-1 overflow-hidden rounded-lg bg-background',
+                                        leftSidebarOpen && 'ml-0',
+                                        copilotLayoutShifted && 'mr-0'
+                                    )}
+                                >
+                                    <WorkflowExecutionsTestOutput
+                                        onCloseClick={handleWorkflowExecutionsTestOutputCloseClick}
+                                        workflowIsRunning={workflowIsRunning}
+                                        workflowTestExecution={workflowTestExecution}
+                                    />
+                                </div>
                             )}
-                            defaultSize={0}
-                            panelRef={bottomResizablePanelRef}
-                        >
-                            <WorkflowExecutionsTestOutput
-                                onCloseClick={handleWorkflowExecutionsTestOutputCloseClick}
-                                workflowIsRunning={workflowIsRunning}
-                                workflowTestExecution={workflowTestExecution}
-                            />
                         </ResizablePanel>
                     </ResizablePanelGroup>
                 </div>
