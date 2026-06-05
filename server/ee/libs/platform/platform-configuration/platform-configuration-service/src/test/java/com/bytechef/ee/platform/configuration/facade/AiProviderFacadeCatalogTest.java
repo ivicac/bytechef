@@ -8,11 +8,13 @@
 package com.bytechef.ee.platform.configuration.facade;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.platform.configuration.dto.AiProviderCatalogItemDTO;
 import com.bytechef.platform.component.domain.ActionDefinition;
 import com.bytechef.platform.component.domain.ComponentDefinition;
@@ -48,11 +50,15 @@ class AiProviderFacadeCatalogTest {
     @Mock
     private PropertyService propertyService;
 
+    private ApplicationProperties applicationProperties;
+
     private AiProviderFacadeImpl facade;
 
     @BeforeEach
     void setUp() {
-        facade = new AiProviderFacadeImpl(componentDefinitionService, propertyService);
+        applicationProperties = mock(ApplicationProperties.class, RETURNS_DEEP_STUBS);
+
+        facade = new AiProviderFacadeImpl(componentDefinitionService, propertyService, applicationProperties);
     }
 
     @Test
@@ -226,6 +232,42 @@ class AiProviderFacadeCatalogTest {
         assertThat(catalog)
             .extracting(AiProviderCatalogItemDTO::key)
             .contains("ai.provider.vertexGemini");
+    }
+
+    @Test
+    void testGetAiProviderCatalogMarksProviderActiveWhenConfiguredViaApplicationProperties() {
+        List<ComponentDefinition> minimalDefinitions = buildMinimalComponentDefinitions();
+
+        when(componentDefinitionService.getComponentDefinitions()).thenReturn(minimalDefinitions);
+        when(propertyService.getProperties(
+            ArgumentMatchers.anyList(),
+            ArgumentMatchers.eq(Scope.PLATFORM),
+            ArgumentMatchers.isNull(),
+            ArgumentMatchers.eq((long) ENVIRONMENT)))
+                .thenReturn(List.of());
+
+        when(applicationProperties.getAi()
+            .getProvider()
+            .getOpenAi()
+            .getApiKey()).thenReturn("sk-config");
+
+        List<AiProviderCatalogItemDTO> catalog = facade.getAiProviderCatalog(ENVIRONMENT);
+
+        AiProviderCatalogItemDTO openAi = catalog.stream()
+            .filter(item -> item.key()
+                .equals("ai.provider.openAi"))
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(openAi.enabled()).isTrue();
+
+        AiProviderCatalogItemDTO anthropic = catalog.stream()
+            .filter(item -> item.key()
+                .equals("ai.provider.anthropic"))
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(anthropic.enabled()).isFalse();
     }
 
     /**

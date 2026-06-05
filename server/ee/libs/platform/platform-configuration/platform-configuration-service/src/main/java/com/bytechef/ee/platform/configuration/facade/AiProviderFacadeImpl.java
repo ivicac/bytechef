@@ -8,6 +8,7 @@
 package com.bytechef.ee.platform.configuration.facade;
 
 import com.bytechef.component.ai.llm.Provider;
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.platform.configuration.dto.AiProviderCatalogItemDTO;
 import com.bytechef.ee.platform.configuration.dto.AiProviderDTO;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
@@ -57,13 +58,16 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
 
     private final ComponentDefinitionService componentDefinitionService;
     private final PropertyService propertyService;
+    private final ApplicationProperties applicationProperties;
 
     @SuppressFBWarnings("EI")
     public AiProviderFacadeImpl(
-        ComponentDefinitionService componentDefinitionService, PropertyService propertyService) {
+        ComponentDefinitionService componentDefinitionService, PropertyService propertyService,
+        ApplicationProperties applicationProperties) {
 
         this.componentDefinitionService = componentDefinitionService;
         this.propertyService = propertyService;
+        this.applicationProperties = applicationProperties;
     }
 
     @Override
@@ -107,7 +111,7 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
                     .findFirst()
                     .orElse(null);
 
-                boolean enabled = property != null && property.isEnabled();
+                boolean enabled = (property != null && property.isEnabled()) || hasConfigApiKey(provider);
 
                 List<AiProviderCatalogItemDTO.Model> models = readChatModels(componentDefinition);
 
@@ -206,5 +210,32 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
             .filter(curProvider -> curProvider.getId() == id)
             .findFirst()
             .orElseThrow(() -> new IllegalArgumentException("Provider not found for id: " + id));
+    }
+
+    private boolean hasConfigApiKey(Provider provider) {
+        ApplicationProperties.Ai.Provider configProvider = applicationProperties.getAi()
+            .getProvider();
+
+        String apiKey = switch (provider) {
+            case OPEN_AI -> configProvider.getOpenAi()
+                .getApiKey();
+            case ANTHROPIC -> configProvider.getAnthropic()
+                .getApiKey();
+            case MISTRAL -> configProvider.getMistral()
+                .getApiKey();
+            case VERTEX_GEMINI -> configProvider.getVertexGemini()
+                .getApiKey();
+            case GROQ -> configProvider.getGroq()
+                .getApiKey();
+            case PERPLEXITY -> configProvider.getPerplexity()
+                .getApiKey();
+            case NVIDIA -> configProvider.getNvidia()
+                .getApiKey();
+            case DEEPSEEK -> configProvider.getDeepSeek()
+                .getApiKey();
+            default -> null;
+        };
+
+        return apiKey != null && !apiKey.isBlank();
     }
 }
