@@ -21,6 +21,7 @@ export enum Source {
     SKILLS = 'SKILLS',
     WORKFLOW_CODE_EDITOR = 'WORKFLOW_CODE_EDITOR',
     JSON_SCHEMA_BUILDER = 'JSON_SCHEMA_BUILDER',
+    SAMPLE_OUTPUT = 'SAMPLE_OUTPUT',
 }
 
 export type ContextType = {
