@@ -311,7 +311,7 @@ module.exports = {
                 'workflow-sidebar-project-version-history-sheet-width': '600px',
             },
             minHeight: {
-                'output-tab-sample-data-dialog-height': '400px',
+                'output-tab-sample-data-dialog-height': '720px',
             },
             minWidth: {
                 'combo-box-popper-anchor-width': 'var(--radix-popper-anchor-width)',

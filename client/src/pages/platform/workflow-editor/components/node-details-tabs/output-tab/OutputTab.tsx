@@ -265,6 +265,8 @@ const OutputTab = ({
                         onUpload={handleSampleDataDialogUpload}
                         open={showUploadDialog}
                         placeholder={placeholder || sampleOutput}
+                        workflowId={workflowId}
+                        workflowNodeName={currentNode.name}
                     />
                 </Suspense>
             )}
