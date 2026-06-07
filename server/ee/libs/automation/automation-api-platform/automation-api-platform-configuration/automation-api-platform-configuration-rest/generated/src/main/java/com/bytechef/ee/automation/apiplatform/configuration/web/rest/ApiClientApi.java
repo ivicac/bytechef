@@ -84,7 +84,6 @@ public interface ApiClientApi {
 
     }
 
-
     String PATH_DELETE_API_CLIENT = "/api-client/{id}";
     /**
      * DELETE /api-client/{id} : Delete an API client
@@ -112,7 +111,6 @@ public interface ApiClientApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_API_CLIENT = "/api-client/{id}";
     /**
@@ -154,7 +152,6 @@ public interface ApiClientApi {
 
     }
 
-
     String PATH_GET_API_CLIENTS = "/api-clients";
     /**
      * GET /api-clients : Get API clients
@@ -193,7 +190,6 @@ public interface ApiClientApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_UPDATE_API_CLIENT = "/api-client/{id}";
     /**

@@ -33,7 +33,9 @@ public enum TriggerTypeModel {
   
   POLLING("POLLING"),
   
-  DYNAMIC_WEBHOOK("DYNAMIC_WEBHOOK");
+  DYNAMIC_WEBHOOK("DYNAMIC_WEBHOOK"),
+  
+  WEBSOCKET("WEBSOCKET");
 
   private final String value;
 

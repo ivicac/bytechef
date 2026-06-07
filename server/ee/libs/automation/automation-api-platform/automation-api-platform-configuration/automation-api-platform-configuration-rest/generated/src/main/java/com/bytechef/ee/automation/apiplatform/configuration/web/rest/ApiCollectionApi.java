@@ -84,7 +84,6 @@ public interface ApiCollectionApi {
 
     }
 
-
     String PATH_DELETE_API_COLLECTION = "/api-collections/{id}";
     /**
      * DELETE /api-collections/{id} : Delete an API collection
@@ -112,7 +111,6 @@ public interface ApiCollectionApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_API_COLLECTION = "/api-collections/{id}";
     /**
@@ -153,7 +151,6 @@ public interface ApiCollectionApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_WORKSPACE_API_COLLECTIONS = "/workspaces/{id}/api-collections";
     /**
@@ -200,7 +197,6 @@ public interface ApiCollectionApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_UPDATE_API_COLLECTION = "/api-collections/{id}";
     /**

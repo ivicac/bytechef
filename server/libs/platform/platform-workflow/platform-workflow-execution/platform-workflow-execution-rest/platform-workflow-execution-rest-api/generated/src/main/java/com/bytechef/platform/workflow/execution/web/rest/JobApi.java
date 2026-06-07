@@ -84,7 +84,6 @@ public interface JobApi {
 
     }
 
-
     String PATH_GET_JOBS_PAGE = "/jobs";
     /**
      * GET /jobs : Get a page of jobs
@@ -125,7 +124,6 @@ public interface JobApi {
 
     }
 
-
     String PATH_GET_LATEST_JOB = "/jobs/latest";
     /**
      * GET /jobs/latest : Get the latest job
@@ -164,7 +162,6 @@ public interface JobApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_LATEST_TRIGGER_EXECUTION = "/trigger-executions/latest";
     /**
@@ -205,7 +202,6 @@ public interface JobApi {
 
     }
 
-
     String PATH_RESTART_JOB = "/jobs/{id}/restart";
     /**
      * PUT /jobs/{id}/restart : Restart a job
@@ -233,7 +229,6 @@ public interface JobApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_STOP_JOB = "/jobs/{id}/stop";
     /**

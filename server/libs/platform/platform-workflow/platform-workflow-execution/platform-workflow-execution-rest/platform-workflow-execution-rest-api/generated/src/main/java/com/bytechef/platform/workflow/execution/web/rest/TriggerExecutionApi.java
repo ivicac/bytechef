@@ -83,7 +83,6 @@ public interface TriggerExecutionApi {
 
     }
 
-
     String PATH_GET_TRIGGER_EXECUTIONS_PAGE = "/trigger-executions";
     /**
      * GET /trigger-executions : Get a page of trigger execution

@@ -82,7 +82,6 @@ public interface GitConfigurationApi {
 
     }
 
-
     String PATH_UPDATE_GIT_CONFIGURATION = "/workspaces/{id}/git-configuration";
     /**
      * PUT /workspaces/{id}/git-configuration : Update git configuration.
