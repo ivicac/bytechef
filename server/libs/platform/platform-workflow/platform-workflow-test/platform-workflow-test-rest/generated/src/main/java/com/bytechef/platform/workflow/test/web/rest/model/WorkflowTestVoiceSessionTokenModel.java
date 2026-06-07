@@ -22,7 +22,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "WorkflowTestVoiceSessionToken", description = "Single-use short-lived token authorizing a browser to open a workflow-test voice WebSocket.")
 @JsonTypeName("WorkflowTestVoiceSessionToken")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-05-12T22:10:25.561578+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-03T17:34:58.854224+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 public class WorkflowTestVoiceSessionTokenModel {
 
   private @Nullable String token;
