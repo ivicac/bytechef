@@ -28,6 +28,7 @@ import org.springframework.jdbc.core.simple.JdbcClient;
 public class CustomProjectDeploymentRepositoryImpl implements CustomProjectDeploymentRepository {
 
     private static final String API_COLLECTION_NAME_PREFIX = "__API_COLLECTION__";
+    private static final String CONTEXT_STORE_NAME_PREFIX = "__CONTEXT_STORE__";
     private static final String EMBEDDED_NAME_PREFIX = "__EMBEDDED__";
     private static final String MCP_SERVER_NAME_PREFIX = "__MCP_SERVER__";
 
@@ -110,7 +111,8 @@ public class CustomProjectDeploymentRepositoryImpl implements CustomProjectDeplo
         // __MCP_SERVER__% matches McpServer.MCP_SERVER_NAME_PREFIX in platform-mcp-api
         query += "AND (NOT " + startsWith("project_deployment.name", API_COLLECTION_NAME_PREFIX) + " AND NOT " +
             startsWith("project_deployment.name", MCP_SERVER_NAME_PREFIX) + " AND NOT " +
-            startsWith("project_deployment.name", SystemProjects.A2A_SERVER_DEPLOYMENT_NAME_PREFIX) + ") ";
+            startsWith("project_deployment.name", SystemProjects.A2A_SERVER_DEPLOYMENT_NAME_PREFIX) + " AND NOT " +
+            startsWith("project.name", CONTEXT_STORE_NAME_PREFIX) + ") ";
 
         query += "ORDER BY LOWER(project_deployment.name) ASC, project_deployment.project_version ASC, " +
             "project_deployment.environment ASC";

@@ -64,10 +64,12 @@ dependencies {
     testImplementation(project(":server:libs:platform:platform-security:platform-security-service"))
     testImplementation(project(":server:libs:test:test-int-support"))
     testImplementation(project(":server:libs:test:test-support"))
-
     testRuntimeOnly("org.postgresql:postgresql")
     testRuntimeOnly(project(":server:libs:platform:platform-category:platform-category-service"))
     testRuntimeOnly(project(":server:libs:platform:platform-connection:platform-connection-service"))
     testRuntimeOnly(project(":server:libs:platform:platform-tag:platform-tag-service"))
     testRuntimeOnly(project(":server:libs:platform:platform-user:platform-user-service"))
+    testImplementation("org.junit.jupiter:junit-jupiter")
+    testImplementation("org.mockito:mockito-core")
+    testImplementation("org.mockito:mockito-junit-jupiter")
 }
