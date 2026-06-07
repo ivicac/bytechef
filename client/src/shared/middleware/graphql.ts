@@ -221,6 +221,448 @@ export type UpdateAiAgentScenarioToolSimulationMutationVariables = Exact<{
 
 export type UpdateAiAgentScenarioToolSimulationMutation = { updateAiAgentScenarioToolSimulation: { id: string, toolName: string, responsePrompt: string, simulationModel: string | null } };
 
+export type AiHubChatArtifactsQueryVariables = Exact<{
+  workspaceId: string | number;
+  environment?: number | null | undefined;
+  userId?: string | number | null | undefined;
+  kind?: Types.AiHubChatArtifactKind | null | undefined;
+  from?: any;
+  to?: any;
+  page?: number | null | undefined;
+  size?: number | null | undefined;
+}>;
+
+
+export type AiHubChatArtifactsQuery = { aiHubChatArtifacts: { totalCount: any, hasMore: boolean, pageClamped: boolean, sizeClamped: boolean, items: Array<{ id: string, chatId: string, kind: Types.AiHubChatArtifactKind, status: Types.AiHubChatArtifactStatus, artifactId: string, artifactName: string, metadataJson: string | null, environmentId: any, createdAt: any, statusChangedAt: any }> } };
+
+export type DeleteAiHubChatArtifactMutationVariables = Exact<{
+  input: Types.DeleteAiHubChatArtifactInput;
+}>;
+
+
+export type DeleteAiHubChatArtifactMutation = { deleteAiHubChatArtifact: boolean };
+
+export type RecordReferencedAiHubChatArtifactMutationVariables = Exact<{
+  input: Types.RecordReferencedAiHubChatArtifactInput;
+}>;
+
+
+export type RecordReferencedAiHubChatArtifactMutation = { recordReferencedAiHubChatArtifact: { id: string, chatId: string, kind: Types.AiHubChatArtifactKind, status: Types.AiHubChatArtifactStatus, artifactId: string, artifactName: string, environmentId: any, createdAt: any } };
+
+export type AiHubChatGrantsQueryVariables = Exact<{
+  workspaceId: string | number;
+  chatId: string | number;
+}>;
+
+
+export type AiHubChatGrantsQuery = { aiHubChatGrants: Array<any> };
+
+export type GrantAiHubChatAccessMutationVariables = Exact<{
+  workspaceId: string | number;
+  chatId: string | number;
+  userId: string | number;
+}>;
+
+
+export type GrantAiHubChatAccessMutation = { grantAiHubChatAccess: { id: string } };
+
+export type RevokeAiHubChatAccessMutationVariables = Exact<{
+  workspaceId: string | number;
+  chatId: string | number;
+  userId: string | number;
+}>;
+
+
+export type RevokeAiHubChatAccessMutation = { revokeAiHubChatAccess: { id: string } };
+
+export type SetAiHubChatVisibilityMutationVariables = Exact<{
+  workspaceId: string | number;
+  chatId: string | number;
+  visibility: Types.AiHubChatVisibility;
+  participation: Types.AiHubChatParticipation;
+}>;
+
+
+export type SetAiHubChatVisibilityMutation = { setAiHubChatVisibility: { id: string, visibility: Types.AiHubChatVisibility, participation: Types.AiHubChatParticipation } };
+
+export type AddAiHubUserConnectorMutationVariables = Exact<{
+  workspaceId: string | number;
+  componentName: string;
+  componentVersion: number;
+  connectionId?: string | number | null | undefined;
+  environment: number;
+}>;
+
+
+export type AddAiHubUserConnectorMutation = { addAiHubUserConnector: string };
+
+export type AiHubChatToolableComponentsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiHubChatToolableComponentsQuery = { aiHubChatToolableComponents: Array<{ componentName: string, componentVersion: number, connectionRequired: boolean, description: string | null, icon: string | null, title: string | null, tools: Array<{ description: string | null, name: string, title: string | null }> }> };
+
+export type AiHubChatToolsQueryVariables = Exact<{
+  workspaceId: string | number;
+  chatId: string | number;
+}>;
+
+
+export type AiHubChatToolsQuery = { aiHubChatTools: Array<{ clusterElementName: string, componentName: string, componentVersion: number, connectionId: string | null, chatComponentId: string, chatId: string, chatToolId: string, environment: number, parameters: any, requiresApproval: boolean }> };
+
+export type AiHubUserConnectorsQueryVariables = Exact<{
+  workspaceId: string | number;
+  chatId?: string | number | null | undefined;
+}>;
+
+
+export type AiHubUserConnectorsQuery = { aiHubUserConnectors: Array<{ componentName: string, componentVersion: number, connectionId: string | null, connectionRequired: boolean, description: string | null, enabled: boolean, enabledInChat: boolean, icon: string | null, id: string, title: string | null, tools: Array<{ description: string | null, enabled: boolean, name: string, parameters: any, requiresApproval: boolean, title: string | null }> }> };
+
+export type AttachAiHubChatToolMutationVariables = Exact<{
+  input: Types.AttachAiHubChatToolInput;
+}>;
+
+
+export type AttachAiHubChatToolMutation = { attachAiHubChatTool: { clusterElementName: string, componentName: string, componentVersion: number, connectionId: string | null, chatComponentId: string, chatId: string, chatToolId: string, environment: number, parameters: any } };
+
+export type DetachAiHubChatComponentMutationVariables = Exact<{
+  workspaceId: string | number;
+  chatComponentId: string | number;
+}>;
+
+
+export type DetachAiHubChatComponentMutation = { detachAiHubChatComponent: boolean };
+
+export type RemoveAiHubChatToolMutationVariables = Exact<{
+  workspaceId: string | number;
+  chatToolId: string | number;
+}>;
+
+
+export type RemoveAiHubChatToolMutation = { removeAiHubChatTool: boolean };
+
+export type RemoveAiHubUserConnectorMutationVariables = Exact<{
+  workspaceId: string | number;
+  connectorId: string | number;
+}>;
+
+
+export type RemoveAiHubUserConnectorMutation = { removeAiHubUserConnector: boolean };
+
+export type SetAiHubChatConnectorEnabledMutationVariables = Exact<{
+  workspaceId: string | number;
+  chatId: string | number;
+  connectorId: string | number;
+  enabled: boolean;
+}>;
+
+
+export type SetAiHubChatConnectorEnabledMutation = { setAiHubChatConnectorEnabled: boolean };
+
+export type SetAiHubChatToolRequiresApprovalMutationVariables = Exact<{
+  workspaceId: string | number;
+  chatToolId: string | number;
+  requiresApproval: boolean;
+}>;
+
+
+export type SetAiHubChatToolRequiresApprovalMutation = { setAiHubChatToolRequiresApproval: { chatToolId: string, requiresApproval: boolean } };
+
+export type SetAiHubUserConnectorEnabledMutationVariables = Exact<{
+  workspaceId: string | number;
+  connectorId: string | number;
+  enabled: boolean;
+}>;
+
+
+export type SetAiHubUserConnectorEnabledMutation = { setAiHubUserConnectorEnabled: boolean };
+
+export type SetAiHubUserConnectorToolEnabledMutationVariables = Exact<{
+  workspaceId: string | number;
+  connectorId: string | number;
+  toolName: string;
+  enabled: boolean;
+}>;
+
+
+export type SetAiHubUserConnectorToolEnabledMutation = { setAiHubUserConnectorToolEnabled: boolean };
+
+export type SetAiHubUserConnectorToolParametersMutationVariables = Exact<{
+  workspaceId: string | number;
+  connectorId: string | number;
+  toolName: string;
+  parameters: any;
+}>;
+
+
+export type SetAiHubUserConnectorToolParametersMutation = { setAiHubUserConnectorToolParameters: boolean };
+
+export type SetAiHubUserConnectorToolRequiresApprovalMutationVariables = Exact<{
+  workspaceId: string | number;
+  connectorId: string | number;
+  toolName: string;
+  requiresApproval: boolean;
+}>;
+
+
+export type SetAiHubUserConnectorToolRequiresApprovalMutation = { setAiHubUserConnectorToolRequiresApproval: boolean };
+
+export type UpdateAiHubChatToolParametersMutationVariables = Exact<{
+  workspaceId: string | number;
+  chatToolId: string | number;
+  parameters: any;
+}>;
+
+
+export type UpdateAiHubChatToolParametersMutation = { updateAiHubChatToolParameters: { clusterElementName: string, componentName: string, componentVersion: number, connectionId: string | null, chatComponentId: string, chatId: string, chatToolId: string, environment: number, parameters: any } };
+
+export type AiHubChatArtifactsByAiHubChatQueryVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+}>;
+
+
+export type AiHubChatArtifactsByAiHubChatQuery = { aiHubChatArtifactsByAiHubChat: Array<{ id: string, chatId: string, kind: Types.AiHubChatArtifactKind, status: Types.AiHubChatArtifactStatus, artifactId: string, artifactName: string, metadataJson: string | null, environmentId: any, createdAt: any, statusChangedAt: any }> };
+
+export type AiHubChatMessagesQueryVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+}>;
+
+
+export type AiHubChatMessagesQuery = { aiHubChatMessages: Array<{ role: string, content: string, timestamp: any, toolEventsJson: string | null, authorUserId: any, authorName: string | null }> };
+
+export type AiHubChatsQueryVariables = Exact<{
+  workspaceId: string | number;
+  environment: number;
+  status?: Types.AiHubChatStatus | null | undefined;
+}>;
+
+
+export type AiHubChatsQuery = { aiHubChats: Array<{ id: string, workspaceId: any, userId: any, threadId: string, title: string | null, lastPreview: string | null, messageCount: number, status: Types.AiHubChatStatus, environmentId: any, createdAt: any, updatedAt: any, kind: Types.AiHubChatKind, workflowExecutionId: string | null, projectDeploymentId: any, autoTitled: boolean, aiAgentId: any, visibility: Types.AiHubChatVisibility, participation: Types.AiHubChatParticipation, ownerUserId: any, ownerName: string | null, isOwner: boolean }> };
+
+export type AiHubSharedChatsQueryVariables = Exact<{
+  workspaceId: string | number;
+  environment: number;
+}>;
+
+
+export type AiHubSharedChatsQuery = { aiHubSharedChats: Array<{ id: string, workspaceId: any, userId: any, threadId: string, title: string | null, lastPreview: string | null, messageCount: number, status: Types.AiHubChatStatus, environmentId: any, createdAt: any, updatedAt: any, kind: Types.AiHubChatKind, workflowExecutionId: string | null, projectDeploymentId: any, autoTitled: boolean, aiAgentId: any, visibility: Types.AiHubChatVisibility, participation: Types.AiHubChatParticipation, ownerUserId: any, ownerName: string | null, isOwner: boolean }> };
+
+export type AppendAiHubChatAssistantMessageMutationVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+  content: string;
+}>;
+
+
+export type AppendAiHubChatAssistantMessageMutation = { appendAiHubChatAssistantMessage: boolean };
+
+export type BulkArchiveWorkflowChatAiHubChatsMutationVariables = Exact<{
+  workspaceId: string | number;
+  environment: number;
+}>;
+
+
+export type BulkArchiveWorkflowChatAiHubChatsMutation = { bulkArchiveWorkflowChatAiHubChats: number };
+
+export type CancelAiHubRunMutationVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+  runId?: string | null | undefined;
+}>;
+
+
+export type CancelAiHubRunMutation = { cancelAiHubRun: boolean };
+
+export type CancelWorkflowChatTurnMutationVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+}>;
+
+
+export type CancelWorkflowChatTurnMutation = { cancelWorkflowChatTurn: boolean };
+
+export type CreateAgentChatAiHubChatMutationVariables = Exact<{
+  workspaceId: string | number;
+  environment: number;
+  workflowExecutionId: string;
+  projectDeploymentId: string | number;
+  title?: string | null | undefined;
+}>;
+
+
+export type CreateAgentChatAiHubChatMutation = { createAgentChatAiHubChat: { id: string, workspaceId: any, userId: any, threadId: string, title: string | null, lastPreview: string | null, messageCount: number, status: Types.AiHubChatStatus, environmentId: any, createdAt: any, updatedAt: any, kind: Types.AiHubChatKind, workflowExecutionId: string | null, projectDeploymentId: any, autoTitled: boolean, aiAgentId: any, visibility: Types.AiHubChatVisibility, participation: Types.AiHubChatParticipation, ownerUserId: any, ownerName: string | null, isOwner: boolean } };
+
+export type CreateAiHubChatMutationVariables = Exact<{
+  workspaceId: string | number;
+  environment: number;
+  threadId: string;
+}>;
+
+
+export type CreateAiHubChatMutation = { createAiHubChat: { id: string, workspaceId: any, userId: any, threadId: string, title: string | null, lastPreview: string | null, messageCount: number, status: Types.AiHubChatStatus, environmentId: any, createdAt: any, updatedAt: any, kind: Types.AiHubChatKind, workflowExecutionId: string | null, projectDeploymentId: any, autoTitled: boolean, aiAgentId: any, visibility: Types.AiHubChatVisibility, participation: Types.AiHubChatParticipation, ownerUserId: any, ownerName: string | null, isOwner: boolean } };
+
+export type CreateWorkflowChatAiHubChatMutationVariables = Exact<{
+  workspaceId: string | number;
+  environment: number;
+  workflowExecutionId: string;
+  projectDeploymentId: string | number;
+  title?: string | null | undefined;
+}>;
+
+
+export type CreateWorkflowChatAiHubChatMutation = { createWorkflowChatAiHubChat: { id: string, workspaceId: any, userId: any, threadId: string, title: string | null, lastPreview: string | null, messageCount: number, status: Types.AiHubChatStatus, environmentId: any, createdAt: any, updatedAt: any, kind: Types.AiHubChatKind, workflowExecutionId: string | null, projectDeploymentId: any, autoTitled: boolean, aiAgentId: any, visibility: Types.AiHubChatVisibility, participation: Types.AiHubChatParticipation, ownerUserId: any, ownerName: string | null, isOwner: boolean } };
+
+export type DeleteAiHubChatMutationVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+}>;
+
+
+export type DeleteAiHubChatMutation = { deleteAiHubChat: boolean };
+
+export type GenerateAiHubChatTitleMutationVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+}>;
+
+
+export type GenerateAiHubChatTitleMutation = { generateAiHubChatTitle: { id: string, workspaceId: any, userId: any, threadId: string, title: string | null, lastPreview: string | null, messageCount: number, status: Types.AiHubChatStatus, environmentId: any, createdAt: any, updatedAt: any, kind: Types.AiHubChatKind, workflowExecutionId: string | null, projectDeploymentId: any, autoTitled: boolean, aiAgentId: any, visibility: Types.AiHubChatVisibility, participation: Types.AiHubChatParticipation, ownerUserId: any, ownerName: string | null, isOwner: boolean } };
+
+export type TruncateAiHubChatMessagesMutationVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+  fromMessageIndex: number;
+}>;
+
+
+export type TruncateAiHubChatMessagesMutation = { truncateAiHubChatMessages: number };
+
+export type UpdateAiHubChatMutationVariables = Exact<{
+  input: Types.AiHubChatPatchInput;
+}>;
+
+
+export type UpdateAiHubChatMutation = { updateAiHubChat: { id: string, workspaceId: any, userId: any, threadId: string, title: string | null, lastPreview: string | null, messageCount: number, status: Types.AiHubChatStatus, environmentId: any, createdAt: any, updatedAt: any, kind: Types.AiHubChatKind, workflowExecutionId: string | null, projectDeploymentId: any, autoTitled: boolean, aiAgentId: any, visibility: Types.AiHubChatVisibility, participation: Types.AiHubChatParticipation, ownerUserId: any, ownerName: string | null, isOwner: boolean } };
+
+export type AddAiHubMcpServerMutationVariables = Exact<{
+  workspaceId: string | number;
+  name: string;
+  url: string;
+  authToken?: string | null | undefined;
+  environment: number;
+}>;
+
+
+export type AddAiHubMcpServerMutation = { addAiHubMcpServer: string };
+
+export type AiHubMcpServerToolsQueryVariables = Exact<{
+  workspaceId: string | number;
+  mcpServerId: string | number;
+}>;
+
+
+export type AiHubMcpServerToolsQuery = { aiHubMcpServerTools: Array<{ description: string | null, enabled: boolean, name: string }> };
+
+export type AiHubMcpServersQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiHubMcpServersQuery = { aiHubMcpServers: Array<{ enabled: boolean, hasAuthToken: boolean, id: string, name: string, url: string }> };
+
+export type RemoveAiHubMcpServerMutationVariables = Exact<{
+  workspaceId: string | number;
+  mcpServerId: string | number;
+}>;
+
+
+export type RemoveAiHubMcpServerMutation = { removeAiHubMcpServer: boolean };
+
+export type SetAiHubMcpServerEnabledMutationVariables = Exact<{
+  workspaceId: string | number;
+  mcpServerId: string | number;
+  enabled: boolean;
+}>;
+
+
+export type SetAiHubMcpServerEnabledMutation = { setAiHubMcpServerEnabled: boolean };
+
+export type SetAiHubMcpServerToolEnabledMutationVariables = Exact<{
+  workspaceId: string | number;
+  mcpServerId: string | number;
+  toolName: string;
+  enabled: boolean;
+}>;
+
+
+export type SetAiHubMcpServerToolEnabledMutation = { setAiHubMcpServerToolEnabled: boolean };
+
+export type AiHubToolApprovalDefaultToolNamesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type AiHubToolApprovalDefaultToolNamesQuery = { aiHubToolApprovalDefaultToolNames: Array<string> };
+
+export type AiHubToolApprovalRulesQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiHubToolApprovalRulesQuery = { aiHubToolApprovalRules: Array<{ id: string, workspaceId: any, toolKind: Types.AiHubToolKind, componentName: string | null, toolName: string, mode: Types.AiHubToolApprovalRuleMode }> };
+
+export type AiHubToolApprovalsQueryVariables = Exact<{
+  workspaceId: string | number;
+  chatId: string | number;
+}>;
+
+
+export type AiHubToolApprovalsQuery = { aiHubToolApprovals: Array<{ id: string, chatId: string, toolName: string, componentName: string | null, status: Types.AiHubToolApprovalStatus, decidedByUserId: any, decidedAt: any, comment: string | null, expiresAt: any, executionError: string | null }> };
+
+export type CreateAiHubToolApprovalRuleMutationVariables = Exact<{
+  workspaceId: string | number;
+  toolKind: Types.AiHubToolKind;
+  componentName?: string | null | undefined;
+  toolName: string;
+  mode: Types.AiHubToolApprovalRuleMode;
+}>;
+
+
+export type CreateAiHubToolApprovalRuleMutation = { createAiHubToolApprovalRule: { id: string, workspaceId: any, toolKind: Types.AiHubToolKind, componentName: string | null, toolName: string, mode: Types.AiHubToolApprovalRuleMode } };
+
+export type DeleteAiHubToolApprovalRuleMutationVariables = Exact<{
+  workspaceId: string | number;
+  ruleId: string | number;
+}>;
+
+
+export type DeleteAiHubToolApprovalRuleMutation = { deleteAiHubToolApprovalRule: boolean };
+
+export type ResolveAiHubToolApprovalMutationVariables = Exact<{
+  workspaceId: string | number;
+  approvalId: string | number;
+  approved: boolean;
+  comment?: string | null | undefined;
+}>;
+
+
+export type ResolveAiHubToolApprovalMutation = { resolveAiHubToolApproval: { continuationStarted: boolean, runId: string | null, approval: { id: string, status: Types.AiHubToolApprovalStatus, executionError: string | null } } };
+
+export type AiHubWorkspaceSettingsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiHubWorkspaceSettingsQuery = { aiHubWorkspaceSettings: { workspaceId: string, voiceWebhookUrl: string | null } | null };
+
+export type UpdateAiHubVoiceWebhookUrlMutationVariables = Exact<{
+  input: Types.UpdateAiHubVoiceWebhookUrlInput;
+}>;
+
+
+export type UpdateAiHubVoiceWebhookUrlMutation = { updateAiHubVoiceWebhookUrl: { workspaceId: string, voiceWebhookUrl: string | null } | null };
+
 export type AiAutoMemoriesQueryVariables = Exact<{
   workspaceId: string | number;
   environment: number;
@@ -366,6 +808,865 @@ export type UpdateAiSkillTagsMutationVariables = Exact<{
 
 export type UpdateAiSkillTagsMutation = { updateAiSkillTags: { id: string } };
 
+export type AuditEventsQueryVariables = Exact<{
+  principal?: string | null | undefined;
+  eventType?: string | null | undefined;
+  fromDate?: any;
+  toDate?: any;
+  dataSearch?: string | null | undefined;
+  page?: number | null | undefined;
+  size?: number | null | undefined;
+}>;
+
+
+export type AuditEventsQuery = { auditEvents: { number: number, size: number, totalElements: number, totalPages: number, content: Array<{ eventDate: any, eventType: string, id: string, principal: string | null, data: Array<{ key: string, value: string }> }> } };
+
+export type AuditEventTypesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type AuditEventTypesQuery = { auditEventTypes: Array<string> };
+
+export type AiDatasetsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiDatasetsQuery = { aiDatasets: Array<{ archivedDate: any, createdDate: any, description: string | null, id: string, name: string, tags: string | null, workspaceId: string }> };
+
+export type AiDatasetVersionsQueryVariables = Exact<{
+  datasetId: string | number;
+}>;
+
+
+export type AiDatasetVersionsQuery = { aiDatasetVersions: Array<{ createdDate: any, datasetId: string, frozen: boolean, id: string, itemCount: number, label: string | null }> };
+
+export type AiDatasetItemsQueryVariables = Exact<{
+  versionId: string | number;
+}>;
+
+
+export type AiDatasetItemsQuery = { aiDatasetItems: Array<{ createdDate: any, datasetVersionId: string, expectedOutput: string | null, id: string, input: string, metadata: string | null, sourceTraceId: string | null }> };
+
+export type AiEvalRulesQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiEvalRulesQuery = { aiEvalRules: Array<{ createdDate: any, delaySeconds: number | null, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, model: string, name: string, projectId: string | null, promptTemplate: string, samplingRate: number, scoreConfigId: string, version: number | null, workspaceId: string } | null> | null };
+
+export type AiEvalRuleQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type AiEvalRuleQuery = { aiEvalRule: { createdDate: any, delaySeconds: number | null, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, model: string, name: string, projectId: string | null, promptTemplate: string, samplingRate: number, scoreConfigId: string, version: number | null, workspaceId: string } | null };
+
+export type AiEvalExecutionsQueryVariables = Exact<{
+  evalRuleId: string | number;
+}>;
+
+
+export type AiEvalExecutionsQuery = { aiEvalExecutions: Array<{ createdDate: any, errorMessage: string | null, evalRuleId: string, id: string, scoreId: string | null, status: Types.AiEvalExecutionStatus, traceId: string } | null> | null };
+
+export type CreateAiEvalRuleMutationVariables = Exact<{
+  delaySeconds?: number | null | undefined;
+  enabled: boolean;
+  filters?: string | null | undefined;
+  model: string;
+  name: string;
+  projectId?: string | number | null | undefined;
+  promptTemplate: string;
+  samplingRate: number;
+  scoreConfigId: string | number;
+  workspaceId: string | number;
+}>;
+
+
+export type CreateAiEvalRuleMutation = { createAiEvalRule: { id: string, name: string } | null };
+
+export type DeleteAiEvalRuleMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAiEvalRuleMutation = { deleteAiEvalRule: boolean | null };
+
+export type RunAiEvalRuleOnHistoricalTracesMutationVariables = Exact<{
+  ruleId: string | number;
+  startDate: any;
+  endDate: any;
+}>;
+
+
+export type RunAiEvalRuleOnHistoricalTracesMutation = { runAiEvalRuleOnHistoricalTraces: number | null };
+
+export type UpdateAiEvalRuleMutationVariables = Exact<{
+  delaySeconds?: number | null | undefined;
+  enabled: boolean;
+  filters?: string | null | undefined;
+  id: string | number;
+  model: string;
+  name: string;
+  promptTemplate: string;
+  samplingRate: number;
+  scoreConfigId: string | number;
+}>;
+
+
+export type UpdateAiEvalRuleMutation = { updateAiEvalRule: { id: string, name: string } | null };
+
+export type AiEvalScoreConfigsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiEvalScoreConfigsQuery = { aiEvalScoreConfigs: Array<{ categories: string | null, createdDate: any, dataType: Types.AiEvalScoreDataType | null, description: string | null, id: string, lastModifiedDate: any, maxValue: number | null, minValue: number | null, name: string, version: number | null, workspaceId: string } | null> | null };
+
+export type AiEvalScoreConfigQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type AiEvalScoreConfigQuery = { aiEvalScoreConfig: { categories: string | null, createdDate: any, dataType: Types.AiEvalScoreDataType | null, description: string | null, id: string, lastModifiedDate: any, maxValue: number | null, minValue: number | null, name: string, version: number | null, workspaceId: string } | null };
+
+export type CreateAiEvalScoreConfigMutationVariables = Exact<{
+  categories?: string | null | undefined;
+  dataType?: Types.AiEvalScoreDataType | null | undefined;
+  description?: string | null | undefined;
+  maxValue?: number | null | undefined;
+  minValue?: number | null | undefined;
+  name: string;
+  workspaceId: string | number;
+}>;
+
+
+export type CreateAiEvalScoreConfigMutation = { createAiEvalScoreConfig: { id: string, name: string } | null };
+
+export type DeleteAiEvalScoreConfigMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAiEvalScoreConfigMutation = { deleteAiEvalScoreConfig: boolean | null };
+
+export type UpdateAiEvalScoreConfigMutationVariables = Exact<{
+  categories?: string | null | undefined;
+  dataType?: Types.AiEvalScoreDataType | null | undefined;
+  description?: string | null | undefined;
+  id: string | number;
+  maxValue?: number | null | undefined;
+  minValue?: number | null | undefined;
+  name: string;
+}>;
+
+
+export type UpdateAiEvalScoreConfigMutation = { updateAiEvalScoreConfig: { id: string, name: string } | null };
+
+export type AiEvalScoresQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiEvalScoresQuery = { aiEvalScores: Array<{ comment: string | null, createdBy: string | null, createdDate: any, dataType: Types.AiEvalScoreDataType | null, evalRuleId: string | null, id: string, name: string, source: Types.AiEvalScoreSource, spanId: string | null, stringValue: string | null, traceId: string, value: number | null, workspaceId: string } | null> | null };
+
+export type AiEvalScoresByTraceQueryVariables = Exact<{
+  traceId: string | number;
+}>;
+
+
+export type AiEvalScoresByTraceQuery = { aiEvalScoresByTrace: Array<{ comment: string | null, createdBy: string | null, createdDate: any, dataType: Types.AiEvalScoreDataType | null, evalRuleId: string | null, id: string, name: string, source: Types.AiEvalScoreSource, spanId: string | null, stringValue: string | null, traceId: string, value: number | null, workspaceId: string } | null> | null };
+
+export type CreateAiEvalScoreMutationVariables = Exact<{
+  comment?: string | null | undefined;
+  dataType: Types.AiEvalScoreDataType;
+  name: string;
+  source: Types.AiEvalScoreSource;
+  spanId?: string | number | null | undefined;
+  stringValue?: string | null | undefined;
+  traceId: string | number;
+  value?: number | null | undefined;
+  workspaceId: string | number;
+}>;
+
+
+export type CreateAiEvalScoreMutation = { createAiEvalScore: { id: string, name: string } | null };
+
+export type DeleteAiEvalScoreMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAiEvalScoreMutation = { deleteAiEvalScore: boolean | null };
+
+export type AiEvalScoreAnalyticsQueryVariables = Exact<{
+  workspaceId: string | number;
+  startDate: any;
+  endDate: any;
+}>;
+
+
+export type AiEvalScoreAnalyticsQuery = { aiEvalScoreAnalytics: Array<{ average: number | null, count: number | null, dataType: Types.AiEvalScoreDataType | null, max: number | null, min: number | null, name: string | null, distribution: Array<{ count: number | null, value: string | null } | null> | null } | null> | null };
+
+export type AiEvalScoreTrendQueryVariables = Exact<{
+  workspaceId: string | number;
+  name: string;
+  startDate: any;
+  endDate: any;
+}>;
+
+
+export type AiEvalScoreTrendQuery = { aiEvalScoreTrend: Array<{ average: number | null, count: number, day: any } | null> | null };
+
+export type AiExperimentComparisonQueryVariables = Exact<{
+  experimentIds: Array<string | number> | string | number;
+}>;
+
+
+export type AiExperimentComparisonQuery = { experimentComparison: { aggregateScoreDeltas: Array<{ scoreName: string, deltas: Array<{ average: number | null, count: number, experimentId: string }> }>, experiments: Array<{ averageLatencyMs: number | null, completedRuns: number, failedRuns: number, id: string, model: string | null, totalCost: number | null, totalRuns: number }>, rows: Array<{ datasetItemId: string, runsByExperiment: Array<{ cost: number | null, experimentId: string, latencyMs: number | null, runId: string, status: string, traceId: string | null, scores: Array<{ dataType: string, name: string, stringValue: string | null, value: number | null }> }> }> } | null };
+
+export type AiExperimentsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiExperimentsQuery = { aiExperiments: Array<{ completedDate: any, completedRuns: number, createdDate: any, datasetVersionId: string, failedRuns: number, id: string, metadata: string | null, model: string | null, promptVersionId: string | null, startedDate: any, status: string, stopRequested: boolean, totalRuns: number }> };
+
+export type AiExperimentRunsQueryVariables = Exact<{
+  experimentId: string | number;
+}>;
+
+
+export type AiExperimentRunsQuery = { aiExperimentRuns: Array<{ cost: number | null, createdDate: any, datasetItemId: string, errorMessage: string | null, experimentId: string, id: string, latencyMs: number | null, status: string, traceId: string | null }> };
+
+export type AiExperimentRunByTraceIdQueryVariables = Exact<{
+  traceId: string | number;
+}>;
+
+
+export type AiExperimentRunByTraceIdQuery = { aiExperimentRunByTraceId: { cost: number | null, createdDate: any, datasetItemId: string, errorMessage: string | null, experimentId: string, id: string, latencyMs: number | null, status: string, traceId: string | null } | null };
+
+export type AiGatewayBudgetQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiGatewayBudgetQuery = { aiGatewayBudget: { alertThreshold: number, amount: string, createdDate: any, enabled: boolean, enforcementMode: Types.AiGatewayBudgetEnforcementMode, id: string, lastModifiedDate: any, period: Types.AiGatewayBudgetPeriod, version: number | null } | null };
+
+export type CreateAiGatewayBudgetMutationVariables = Exact<{
+  input: Types.CreateAiGatewayBudgetInput;
+}>;
+
+
+export type CreateAiGatewayBudgetMutation = { createAiGatewayBudget: { alertThreshold: number, amount: string, createdDate: any, enabled: boolean, enforcementMode: Types.AiGatewayBudgetEnforcementMode, id: string, lastModifiedDate: any, period: Types.AiGatewayBudgetPeriod, version: number | null } | null };
+
+export type UpdateAiGatewayBudgetMutationVariables = Exact<{
+  id: string | number;
+  input: Types.UpdateAiGatewayBudgetInput;
+}>;
+
+
+export type UpdateAiGatewayBudgetMutation = { updateAiGatewayBudget: { alertThreshold: number, amount: string, createdDate: any, enabled: boolean, enforcementMode: Types.AiGatewayBudgetEnforcementMode, id: string, lastModifiedDate: any, period: Types.AiGatewayBudgetPeriod, version: number | null } | null };
+
+export type DeleteAiGatewayBudgetMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAiGatewayBudgetMutation = { deleteAiGatewayBudget: boolean | null };
+
+export type AiGatewayModelsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type AiGatewayModelsQuery = { aiGatewayModels: Array<{ alias: string | null, capabilities: string | null, contextWindow: number | null, createdDate: any, enabled: boolean, id: string, inputCostPerMTokens: number | null, lastModifiedDate: any, name: string, outputCostPerMTokens: number | null, providerId: string, version: number | null } | null> | null };
+
+export type AiGatewayModelsByProviderQueryVariables = Exact<{
+  providerId: string | number;
+}>;
+
+
+export type AiGatewayModelsByProviderQuery = { aiGatewayModelsByProvider: Array<{ alias: string | null, capabilities: string | null, contextWindow: number | null, createdDate: any, enabled: boolean, id: string, inputCostPerMTokens: number | null, lastModifiedDate: any, name: string, outputCostPerMTokens: number | null, providerId: string, version: number | null } | null> | null };
+
+export type CreateAiGatewayModelMutationVariables = Exact<{
+  input: Types.CreateAiGatewayModelInput;
+}>;
+
+
+export type CreateAiGatewayModelMutation = { createAiGatewayModel: { alias: string | null, capabilities: string | null, contextWindow: number | null, createdDate: any, enabled: boolean, id: string, inputCostPerMTokens: number | null, lastModifiedDate: any, name: string, outputCostPerMTokens: number | null, providerId: string, version: number | null } | null };
+
+export type UpdateAiGatewayModelMutationVariables = Exact<{
+  id: string | number;
+  input: Types.UpdateAiGatewayModelInput;
+}>;
+
+
+export type UpdateAiGatewayModelMutation = { updateAiGatewayModel: { alias: string | null, capabilities: string | null, contextWindow: number | null, createdDate: any, enabled: boolean, id: string, inputCostPerMTokens: number | null, lastModifiedDate: any, name: string, outputCostPerMTokens: number | null, providerId: string, version: number | null } | null };
+
+export type DeleteAiGatewayModelMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAiGatewayModelMutation = { deleteAiGatewayModel: boolean | null };
+
+export type PlaygroundChatCompletionMutationVariables = Exact<{
+  input: Types.PlaygroundChatCompletionInput;
+}>;
+
+
+export type PlaygroundChatCompletionMutation = { playgroundChatCompletion: { completionTokens: number | null, content: string | null, cost: number | null, finishReason: string | null, latencyMs: number | null, model: string | null, promptTokens: number | null, totalTokens: number | null, traceId: string | null } | null };
+
+export type AiGatewayProjectsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiGatewayProjectsQuery = { aiGatewayProjects: Array<{ cachingEnabled: boolean | null, cacheTtlMinutes: number | null, compressionEnabled: boolean | null, createdDate: any, description: string | null, id: string, lastModifiedDate: any, logRetentionDays: number | null, name: string, retryMaxAttempts: number | null, routingPolicyId: string | null, slug: string, timeoutSeconds: number | null, version: number | null }> };
+
+export type CreateAiGatewayProjectMutationVariables = Exact<{
+  input: Types.CreateAiGatewayProjectInput;
+}>;
+
+
+export type CreateAiGatewayProjectMutation = { createAiGatewayProject: { id: string, name: string, slug: string } | null };
+
+export type UpdateAiGatewayProjectMutationVariables = Exact<{
+  id: string | number;
+  input: Types.UpdateAiGatewayProjectInput;
+}>;
+
+
+export type UpdateAiGatewayProjectMutation = { updateAiGatewayProject: { id: string, name: string, slug: string } | null };
+
+export type DeleteAiGatewayProjectMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAiGatewayProjectMutation = { deleteAiGatewayProject: boolean | null };
+
+export type AiGatewayProvidersQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type AiGatewayProvidersQuery = { aiGatewayProviders: Array<{ baseUrl: string | null, config: string | null, createdBy: string | null, createdDate: any, enabled: boolean, id: string, lastModifiedBy: string | null, lastModifiedDate: any, name: string, type: Types.AiGatewayProviderType, version: number | null } | null> | null };
+
+export type AiGatewayProviderQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type AiGatewayProviderQuery = { aiGatewayProvider: { baseUrl: string | null, config: string | null, createdBy: string | null, createdDate: any, enabled: boolean, id: string, lastModifiedBy: string | null, lastModifiedDate: any, name: string, type: Types.AiGatewayProviderType, version: number | null } | null };
+
+export type CreateAiGatewayProviderMutationVariables = Exact<{
+  input: Types.CreateAiGatewayProviderInput;
+}>;
+
+
+export type CreateAiGatewayProviderMutation = { createAiGatewayProvider: { baseUrl: string | null, config: string | null, createdBy: string | null, createdDate: any, enabled: boolean, id: string, lastModifiedBy: string | null, lastModifiedDate: any, name: string, type: Types.AiGatewayProviderType, version: number | null } | null };
+
+export type UpdateAiGatewayProviderMutationVariables = Exact<{
+  id: string | number;
+  input: Types.UpdateAiGatewayProviderInput;
+}>;
+
+
+export type UpdateAiGatewayProviderMutation = { updateAiGatewayProvider: { baseUrl: string | null, config: string | null, createdBy: string | null, createdDate: any, enabled: boolean, id: string, lastModifiedBy: string | null, lastModifiedDate: any, name: string, type: Types.AiGatewayProviderType, version: number | null } | null };
+
+export type DeleteAiGatewayProviderMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAiGatewayProviderMutation = { deleteAiGatewayProvider: boolean | null };
+
+export type AiGatewayRateLimitsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiGatewayRateLimitsQuery = { aiGatewayRateLimits: Array<{ createdDate: any, enabled: boolean, id: string, lastModifiedDate: any, limitType: Types.AiGatewayRateLimitType, limitValue: number, name: string, projectId: string | null, propertyKey: string | null, scope: Types.AiGatewayRateLimitScope, version: number | null, windowSeconds: number }> };
+
+export type CreateAiGatewayRateLimitMutationVariables = Exact<{
+  input: Types.CreateAiGatewayRateLimitInput;
+}>;
+
+
+export type CreateAiGatewayRateLimitMutation = { createAiGatewayRateLimit: { createdDate: any, enabled: boolean, id: string, lastModifiedDate: any, limitType: Types.AiGatewayRateLimitType, limitValue: number, name: string, projectId: string | null, propertyKey: string | null, scope: Types.AiGatewayRateLimitScope, version: number | null, windowSeconds: number } | null };
+
+export type UpdateAiGatewayRateLimitMutationVariables = Exact<{
+  id: string | number;
+  input: Types.UpdateAiGatewayRateLimitInput;
+}>;
+
+
+export type UpdateAiGatewayRateLimitMutation = { updateAiGatewayRateLimit: { createdDate: any, enabled: boolean, id: string, lastModifiedDate: any, limitType: Types.AiGatewayRateLimitType, limitValue: number, name: string, projectId: string | null, propertyKey: string | null, scope: Types.AiGatewayRateLimitScope, version: number | null, windowSeconds: number } | null };
+
+export type DeleteAiGatewayRateLimitMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAiGatewayRateLimitMutation = { deleteAiGatewayRateLimit: boolean | null };
+
+export type AiGatewayRequestLogsQueryVariables = Exact<{
+  startDate: any;
+  endDate: any;
+}>;
+
+
+export type AiGatewayRequestLogsQuery = { aiGatewayRequestLogs: Array<{ apiKeyId: string | null, cacheHit: boolean | null, cost: string | null, createdDate: any, errorMessage: string | null, id: string, inputTokens: number | null, latencyMs: number | null, outputTokens: number | null, requestId: string, requestedModel: string | null, routedModel: string | null, routedProvider: string | null, routingPolicyId: string | null, routingStrategy: string | null, status: number | null } | null> | null };
+
+export type AiGatewayRoutingPoliciesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type AiGatewayRoutingPoliciesQuery = { aiGatewayRoutingPolicies: Array<{ config: string | null, createdDate: any, enabled: boolean, fallbackModel: string | null, id: string, lastModifiedDate: any, name: string, strategy: Types.AiGatewayRoutingStrategyType, version: number | null, deployments: Array<{ enabled: boolean, id: string, maxRpm: number | null, maxTpm: number | null, modelId: string, priorityOrder: number, routingPolicyId: string, weight: number } | null> | null } | null> | null };
+
+export type CreateAiGatewayRoutingPolicyMutationVariables = Exact<{
+  input: Types.CreateAiGatewayRoutingPolicyInput;
+}>;
+
+
+export type CreateAiGatewayRoutingPolicyMutation = { createAiGatewayRoutingPolicy: { config: string | null, createdDate: any, enabled: boolean, fallbackModel: string | null, id: string, lastModifiedDate: any, name: string, strategy: Types.AiGatewayRoutingStrategyType, version: number | null } | null };
+
+export type UpdateAiGatewayRoutingPolicyMutationVariables = Exact<{
+  id: string | number;
+  input: Types.UpdateAiGatewayRoutingPolicyInput;
+}>;
+
+
+export type UpdateAiGatewayRoutingPolicyMutation = { updateAiGatewayRoutingPolicy: { config: string | null, createdDate: any, enabled: boolean, fallbackModel: string | null, id: string, lastModifiedDate: any, name: string, strategy: Types.AiGatewayRoutingStrategyType, version: number | null } | null };
+
+export type DeleteAiGatewayRoutingPolicyMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAiGatewayRoutingPolicyMutation = { deleteAiGatewayRoutingPolicy: boolean | null };
+
+export type AiGatewaySpendSummariesQueryVariables = Exact<{
+  startDate: any;
+  endDate: any;
+}>;
+
+
+export type AiGatewaySpendSummariesQuery = { aiGatewaySpendSummaries: Array<{ apiKeyId: string | null, createdDate: any, id: string, model: string | null, periodEnd: any, periodStart: any, provider: string | null, requestCount: number | null, totalCost: string | null, totalInputTokens: any, totalOutputTokens: any } | null> | null };
+
+export type AiGatewayWorkspaceSettingsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiGatewayWorkspaceSettingsQuery = { aiGatewayWorkspaceSettings: { cacheEnabled: boolean | null, cacheTtlSeconds: number | null, defaultRoutingPolicyId: string | null, logRetentionDays: number | null, redactPii: boolean | null, retryCount: number | null, softBudgetWarningPct: number | null, timeoutMs: number | null, workspaceId: string } | null };
+
+export type UpdateAiGatewayWorkspaceSettingsMutationVariables = Exact<{
+  input: Types.AiGatewayWorkspaceSettingsInput;
+}>;
+
+
+export type UpdateAiGatewayWorkspaceSettingsMutation = { updateAiGatewayWorkspaceSettings: { cacheEnabled: boolean | null, cacheTtlSeconds: number | null, defaultRoutingPolicyId: string | null, logRetentionDays: number | null, redactPii: boolean | null, retryCount: number | null, softBudgetWarningPct: number | null, timeoutMs: number | null, workspaceId: string } | null };
+
+export type AiObservabilityAlertEventsQueryVariables = Exact<{
+  alertRuleId: string | number;
+}>;
+
+
+export type AiObservabilityAlertEventsQuery = { aiObservabilityAlertEvents: Array<{ alertRuleId: string, createdDate: any, id: string, message: string | null, status: Types.AiObservabilityAlertEventStatus, triggeredValue: number | null } | null> | null };
+
+export type AcknowledgeAiObservabilityAlertEventMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type AcknowledgeAiObservabilityAlertEventMutation = { acknowledgeAiObservabilityAlertEvent: { alertRuleId: string, createdDate: any, id: string, message: string | null, status: Types.AiObservabilityAlertEventStatus, triggeredValue: number | null } | null };
+
+export type AiObservabilityAlertRulesQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiObservabilityAlertRulesQuery = { aiObservabilityAlertRules: Array<{ channelIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, snoozedUntil: any, threshold: number, version: number | null, windowMinutes: number } | null> | null };
+
+export type AiObservabilityAlertRuleQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type AiObservabilityAlertRuleQuery = { aiObservabilityAlertRule: { channelIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, snoozedUntil: any, threshold: number, version: number | null, windowMinutes: number } | null };
+
+export type CreateAiObservabilityAlertRuleMutationVariables = Exact<{
+  input: Types.AiObservabilityAlertRuleInput;
+}>;
+
+
+export type CreateAiObservabilityAlertRuleMutation = { createAiObservabilityAlertRule: { channelIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, threshold: number, version: number | null, windowMinutes: number } | null };
+
+export type UpdateAiObservabilityAlertRuleMutationVariables = Exact<{
+  id: string | number;
+  input: Types.AiObservabilityAlertRuleInput;
+}>;
+
+
+export type UpdateAiObservabilityAlertRuleMutation = { updateAiObservabilityAlertRule: { channelIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, threshold: number, version: number | null, windowMinutes: number } | null };
+
+export type DeleteAiObservabilityAlertRuleMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAiObservabilityAlertRuleMutation = { deleteAiObservabilityAlertRule: boolean | null };
+
+export type TestAiObservabilityAlertRuleMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type TestAiObservabilityAlertRuleMutation = { testAiObservabilityAlertRule: number | null };
+
+export type SnoozeAiObservabilityAlertRuleMutationVariables = Exact<{
+  id: string | number;
+  until: any;
+}>;
+
+
+export type SnoozeAiObservabilityAlertRuleMutation = { snoozeAiObservabilityAlertRule: { id: string, snoozedUntil: any } | null };
+
+export type UnsnoozeAiObservabilityAlertRuleMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type UnsnoozeAiObservabilityAlertRuleMutation = { unsnoozeAiObservabilityAlertRule: { id: string, snoozedUntil: any } | null };
+
+export type AiObservabilityExportJobsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiObservabilityExportJobsQuery = { aiObservabilityExportJobs: Array<{ createdBy: string, createdDate: any, errorMessage: string | null, filePath: string | null, filters: string | null, format: Types.AiObservabilityExportFormat, id: string, projectId: string | null, recordCount: number | null, scope: Types.AiObservabilityExportScope, status: Types.AiObservabilityExportJobStatus, type: Types.AiObservabilityExportJobType } | null> | null };
+
+export type AiObservabilityExportJobQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type AiObservabilityExportJobQuery = { aiObservabilityExportJob: { createdBy: string, createdDate: any, errorMessage: string | null, filePath: string | null, filters: string | null, format: Types.AiObservabilityExportFormat, id: string, projectId: string | null, recordCount: number | null, scope: Types.AiObservabilityExportScope, status: Types.AiObservabilityExportJobStatus, type: Types.AiObservabilityExportJobType } | null };
+
+export type CreateAiObservabilityExportJobMutationVariables = Exact<{
+  workspaceId: string | number;
+  projectId?: string | number | null | undefined;
+  format: Types.AiObservabilityExportFormat;
+  scope: Types.AiObservabilityExportScope;
+  filters?: string | null | undefined;
+}>;
+
+
+export type CreateAiObservabilityExportJobMutation = { createAiObservabilityExportJob: { createdBy: string, createdDate: any, format: Types.AiObservabilityExportFormat, id: string, scope: Types.AiObservabilityExportScope, status: Types.AiObservabilityExportJobStatus, type: Types.AiObservabilityExportJobType } | null };
+
+export type CancelAiObservabilityExportJobMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type CancelAiObservabilityExportJobMutation = { cancelAiObservabilityExportJob: { id: string, status: Types.AiObservabilityExportJobStatus } | null };
+
+export type AiObservabilityNotificationChannelsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiObservabilityNotificationChannelsQuery = { aiObservabilityNotificationChannels: Array<{ config: string, createdDate: any, enabled: boolean, id: string, lastModifiedDate: any, name: string, type: Types.AiObservabilityNotificationChannelType, version: number | null } | null> | null };
+
+export type CreateAiObservabilityNotificationChannelMutationVariables = Exact<{
+  input: Types.AiObservabilityNotificationChannelInput;
+}>;
+
+
+export type CreateAiObservabilityNotificationChannelMutation = { createAiObservabilityNotificationChannel: { config: string, createdDate: any, enabled: boolean, id: string, lastModifiedDate: any, name: string, type: Types.AiObservabilityNotificationChannelType, version: number | null } | null };
+
+export type UpdateAiObservabilityNotificationChannelMutationVariables = Exact<{
+  id: string | number;
+  input: Types.AiObservabilityNotificationChannelInput;
+}>;
+
+
+export type UpdateAiObservabilityNotificationChannelMutation = { updateAiObservabilityNotificationChannel: { config: string, createdDate: any, enabled: boolean, id: string, lastModifiedDate: any, name: string, type: Types.AiObservabilityNotificationChannelType, version: number | null } | null };
+
+export type DeleteAiObservabilityNotificationChannelMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAiObservabilityNotificationChannelMutation = { deleteAiObservabilityNotificationChannel: boolean | null };
+
+export type TestAiObservabilityNotificationChannelMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type TestAiObservabilityNotificationChannelMutation = { testAiObservabilityNotificationChannel: boolean | null };
+
+export type AiObservabilitySessionsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiObservabilitySessionsQuery = { aiObservabilitySessions: Array<{ createdDate: any, id: string, lastModifiedDate: any, name: string | null, projectId: string | null, traceCount: number | null, userId: string | null, version: number | null, workspaceId: string } | null> | null };
+
+export type AiObservabilitySessionQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type AiObservabilitySessionQuery = { aiObservabilitySession: { createdDate: any, id: string, lastModifiedDate: any, name: string | null, projectId: string | null, userId: string | null, version: number | null, workspaceId: string, traces: Array<{ createdDate: any, id: string, name: string | null, source: Types.AiObservabilityTraceSource, status: Types.AiObservabilityTraceStatus, totalCost: number | null, totalInputTokens: number | null, totalLatencyMs: number | null, totalOutputTokens: number | null, userId: string | null } | null> | null } | null };
+
+export type AiObservabilityTracesQueryVariables = Exact<{
+  endDate: any;
+  model?: string | null | undefined;
+  source?: Types.AiObservabilityTraceSource | null | undefined;
+  startDate: any;
+  status?: Types.AiObservabilityTraceStatus | null | undefined;
+  tagId?: string | number | null | undefined;
+  userId?: string | null | undefined;
+  workspaceId: string | number;
+}>;
+
+
+export type AiObservabilityTracesQuery = { aiObservabilityTraces: Array<{ createdDate: any, id: string, input: string | null, lastModifiedDate: any, metadata: string | null, name: string | null, output: string | null, projectId: string | null, sessionId: string | null, source: Types.AiObservabilityTraceSource, status: Types.AiObservabilityTraceStatus, totalCost: number | null, totalInputTokens: number | null, totalLatencyMs: number | null, totalOutputTokens: number | null, userId: string | null, version: number | null, workspaceId: string } | null> | null };
+
+export type AiObservabilityTraceQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type AiObservabilityTraceQuery = { aiObservabilityTrace: { createdDate: any, id: string, input: string | null, lastModifiedDate: any, metadata: string | null, name: string | null, output: string | null, projectId: string | null, sessionId: string | null, source: Types.AiObservabilityTraceSource, status: Types.AiObservabilityTraceStatus, tagIds: Array<string> | null, totalCost: number | null, totalInputTokens: number | null, totalLatencyMs: number | null, totalOutputTokens: number | null, userId: string | null, version: number | null, workspaceId: string, spans: Array<{ cost: number | null, createdDate: any, endTime: any, id: string, input: string | null, inputTokens: number | null, latencyMs: number | null, level: Types.AiObservabilitySpanLevel, metadata: string | null, model: string | null, name: string | null, output: string | null, outputTokens: number | null, parentSpanId: string | null, provider: string | null, startTime: any, status: Types.AiObservabilitySpanStatus, traceId: string, type: Types.AiObservabilitySpanType, version: number | null } | null> | null } | null };
+
+export type SetAiObservabilityTraceTagsMutationVariables = Exact<{
+  traceId: string | number;
+  tagIds: Array<string | number> | string | number;
+}>;
+
+
+export type SetAiObservabilityTraceTagsMutation = { setAiObservabilityTraceTags: { id: string, tagIds: Array<string> | null } | null };
+
+export type AiObservabilityWebhookDeliveriesQueryVariables = Exact<{
+  subscriptionId: string | number;
+}>;
+
+
+export type AiObservabilityWebhookDeliveriesQuery = { aiObservabilityWebhookDeliveries: Array<{ attemptCount: number, createdDate: any, deliveredDate: any, errorMessage: string | null, eventType: string | null, httpStatus: number | null, id: string, status: Types.AiObservabilityWebhookDeliveryStatus, subscriptionId: string } | null> | null };
+
+export type AiObservabilityWebhookSubscriptionsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiObservabilityWebhookSubscriptionsQuery = { aiObservabilityWebhookSubscriptions: Array<{ createdDate: any, enabled: boolean, events: string, id: string, lastModifiedDate: any, lastTriggeredDate: any, name: string, projectId: string | null, url: string, version: number | null } | null> | null };
+
+export type AiObservabilityWebhookSubscriptionQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type AiObservabilityWebhookSubscriptionQuery = { aiObservabilityWebhookSubscription: { createdDate: any, enabled: boolean, events: string, id: string, lastModifiedDate: any, lastTriggeredDate: any, name: string, projectId: string | null, url: string, version: number | null } | null };
+
+export type CreateAiObservabilityWebhookSubscriptionMutationVariables = Exact<{
+  workspaceId: string | number;
+  projectId?: string | number | null | undefined;
+  name: string;
+  url: string;
+  secret?: string | null | undefined;
+  events: string;
+  enabled: boolean;
+}>;
+
+
+export type CreateAiObservabilityWebhookSubscriptionMutation = { createAiObservabilityWebhookSubscription: { createdDate: any, enabled: boolean, events: string, id: string, name: string, url: string, version: number | null } | null };
+
+export type UpdateAiObservabilityWebhookSubscriptionMutationVariables = Exact<{
+  id: string | number;
+  name: string;
+  url: string;
+  secret?: string | null | undefined;
+  events: string;
+  enabled: boolean;
+}>;
+
+
+export type UpdateAiObservabilityWebhookSubscriptionMutation = { updateAiObservabilityWebhookSubscription: { createdDate: any, enabled: boolean, events: string, id: string, name: string, url: string, version: number | null } | null };
+
+export type DeleteAiObservabilityWebhookSubscriptionMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAiObservabilityWebhookSubscriptionMutation = { deleteAiObservabilityWebhookSubscription: boolean | null };
+
+export type TestAiObservabilityWebhookSubscriptionMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type TestAiObservabilityWebhookSubscriptionMutation = { testAiObservabilityWebhookSubscription: boolean | null };
+
+export type AiPromptsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type AiPromptsQuery = { aiPrompts: Array<{ createdDate: any, description: string | null, id: string, lastModifiedDate: any, name: string, projectId: string | null, version: number | null, versions: Array<{ active: boolean, commitMessage: string | null, content: string, createdBy: string, createdDate: any, environment: string | null, id: string, promptId: string, type: Types.AiPromptVersionType, variables: string | null, versionNumber: number, metrics: { avgCostUsd: number | null, avgLatencyMs: number | null, errorRate: number | null, invocationCount: number } | null } | null> | null } | null> | null };
+
+export type AiPromptQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type AiPromptQuery = { aiPrompt: { createdDate: any, description: string | null, id: string, lastModifiedDate: any, name: string, projectId: string | null, version: number | null, versions: Array<{ active: boolean, commitMessage: string | null, content: string, createdBy: string, createdDate: any, environment: string | null, id: string, promptId: string, type: Types.AiPromptVersionType, variables: string | null, versionNumber: number, metrics: { avgCostUsd: number | null, avgLatencyMs: number | null, errorRate: number | null, invocationCount: number } | null } | null> | null } | null };
+
+export type CreateAiPromptMutationVariables = Exact<{
+  input: Types.CreateAiPromptInput;
+}>;
+
+
+export type CreateAiPromptMutation = { createAiPrompt: { createdDate: any, description: string | null, id: string, lastModifiedDate: any, name: string, projectId: string | null, version: number | null } | null };
+
+export type UpdateAiPromptMutationVariables = Exact<{
+  id: string | number;
+  input: Types.UpdateAiPromptInput;
+}>;
+
+
+export type UpdateAiPromptMutation = { updateAiPrompt: { createdDate: any, description: string | null, id: string, lastModifiedDate: any, name: string, projectId: string | null, version: number | null } | null };
+
+export type DeleteAiPromptMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAiPromptMutation = { deleteAiPrompt: boolean | null };
+
+export type CreateAiPromptVersionMutationVariables = Exact<{
+  input: Types.CreateAiPromptVersionInput;
+}>;
+
+
+export type CreateAiPromptVersionMutation = { createAiPromptVersion: { active: boolean, commitMessage: string | null, content: string, createdBy: string, createdDate: any, environment: string | null, id: string, promptId: string, type: Types.AiPromptVersionType, variables: string | null, versionNumber: number } | null };
+
+export type SetActiveAiPromptVersionMutationVariables = Exact<{
+  promptVersionId: string | number;
+  environment: string;
+}>;
+
+
+export type SetActiveAiPromptVersionMutation = { setActiveAiPromptVersion: boolean | null };
+
+export type WorkspaceAiGatewayModelsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type WorkspaceAiGatewayModelsQuery = { workspaceAiGatewayModels: Array<{ alias: string | null, capabilities: string | null, contextWindow: number | null, defaultRoutingPolicyId: string | null, createdDate: any, enabled: boolean, id: string, inputCostPerMTokens: number | null, lastModifiedDate: any, name: string, outputCostPerMTokens: number | null, providerId: string, version: number | null } | null> | null };
+
+export type CreateWorkspaceAiGatewayModelMutationVariables = Exact<{
+  input: Types.CreateWorkspaceAiGatewayModelInput;
+}>;
+
+
+export type CreateWorkspaceAiGatewayModelMutation = { createWorkspaceAiGatewayModel: { alias: string | null, capabilities: string | null, contextWindow: number | null, defaultRoutingPolicyId: string | null, createdDate: any, enabled: boolean, id: string, inputCostPerMTokens: number | null, lastModifiedDate: any, name: string, outputCostPerMTokens: number | null, providerId: string, version: number | null } | null };
+
+export type DeleteWorkspaceAiGatewayModelMutationVariables = Exact<{
+  workspaceId: string | number;
+  modelId: string | number;
+}>;
+
+
+export type DeleteWorkspaceAiGatewayModelMutation = { deleteWorkspaceAiGatewayModel: boolean | null };
+
+export type UpdateWorkspaceAiGatewayModelMutationVariables = Exact<{
+  id: string | number;
+  input: Types.UpdateAiGatewayModelInput;
+}>;
+
+
+export type UpdateWorkspaceAiGatewayModelMutation = { updateWorkspaceAiGatewayModel: { alias: string | null, capabilities: string | null, contextWindow: number | null, defaultRoutingPolicyId: string | null, createdDate: any, enabled: boolean, id: string, inputCostPerMTokens: number | null, lastModifiedDate: any, name: string, outputCostPerMTokens: number | null, providerId: string, version: number | null } | null };
+
+export type WorkspaceAiGatewayProvidersQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type WorkspaceAiGatewayProvidersQuery = { workspaceAiGatewayProviders: Array<{ baseUrl: string | null, config: string | null, createdBy: string | null, createdDate: any, enabled: boolean, id: string, lastModifiedBy: string | null, lastModifiedDate: any, name: string, type: Types.AiGatewayProviderType, version: number | null } | null> | null };
+
+export type CreateWorkspaceAiGatewayProviderMutationVariables = Exact<{
+  input: Types.CreateWorkspaceAiGatewayProviderInput;
+}>;
+
+
+export type CreateWorkspaceAiGatewayProviderMutation = { createWorkspaceAiGatewayProvider: { baseUrl: string | null, config: string | null, createdBy: string | null, createdDate: any, enabled: boolean, id: string, lastModifiedBy: string | null, lastModifiedDate: any, name: string, type: Types.AiGatewayProviderType, version: number | null } | null };
+
+export type DeleteWorkspaceAiGatewayProviderMutationVariables = Exact<{
+  workspaceId: string | number;
+  providerId: string | number;
+}>;
+
+
+export type DeleteWorkspaceAiGatewayProviderMutation = { deleteWorkspaceAiGatewayProvider: boolean | null };
+
+export type UpdateWorkspaceAiGatewayProviderMutationVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+  input: Types.UpdateAiGatewayProviderInput;
+}>;
+
+
+export type UpdateWorkspaceAiGatewayProviderMutation = { updateWorkspaceAiGatewayProvider: { baseUrl: string | null, config: string | null, createdBy: string | null, createdDate: any, enabled: boolean, id: string, lastModifiedBy: string | null, lastModifiedDate: any, name: string, type: Types.AiGatewayProviderType, version: number | null } | null };
+
+export type TestWorkspaceAiGatewayProviderConnectionMutationVariables = Exact<{
+  workspaceId: string | number;
+  providerId: string | number;
+}>;
+
+
+export type TestWorkspaceAiGatewayProviderConnectionMutation = { testWorkspaceAiGatewayProviderConnection: { errorMessage: string | null, latencyMs: number | null, ok: boolean } | null };
+
+export type WorkspaceAiGatewayRequestLogsQueryVariables = Exact<{
+  endDate: any;
+  startDate: any;
+  workspaceId: string | number;
+}>;
+
+
+export type WorkspaceAiGatewayRequestLogsQuery = { workspaceAiGatewayRequestLogs: Array<{ apiKeyId: string | null, cacheHit: boolean | null, cost: string | null, createdDate: any, errorMessage: string | null, id: string, inputTokens: number | null, latencyMs: number | null, outputTokens: number | null, requestId: string, requestedModel: string | null, routedModel: string | null, routedProvider: string | null, routingPolicyId: string | null, routingStrategy: string | null, status: number | null } | null> | null };
+
+export type WorkspaceAiGatewayRoutingPoliciesQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type WorkspaceAiGatewayRoutingPoliciesQuery = { workspaceAiGatewayRoutingPolicies: Array<{ config: string | null, createdDate: any, enabled: boolean, fallbackModel: string | null, id: string, lastModifiedDate: any, name: string, strategy: Types.AiGatewayRoutingStrategyType, version: number | null, deployments: Array<{ enabled: boolean, id: string, maxRpm: number | null, maxTpm: number | null, modelId: string, priorityOrder: number, routingPolicyId: string, weight: number } | null> | null } | null> | null };
+
+export type CreateWorkspaceAiGatewayRoutingPolicyMutationVariables = Exact<{
+  input: Types.CreateWorkspaceAiGatewayRoutingPolicyInput;
+}>;
+
+
+export type CreateWorkspaceAiGatewayRoutingPolicyMutation = { createWorkspaceAiGatewayRoutingPolicy: { config: string | null, createdDate: any, enabled: boolean, fallbackModel: string | null, id: string, lastModifiedDate: any, name: string, strategy: Types.AiGatewayRoutingStrategyType, version: number | null } | null };
+
+export type DeleteWorkspaceAiGatewayRoutingPolicyMutationVariables = Exact<{
+  workspaceId: string | number;
+  routingPolicyId: string | number;
+}>;
+
+
+export type DeleteWorkspaceAiGatewayRoutingPolicyMutation = { deleteWorkspaceAiGatewayRoutingPolicy: boolean | null };
+
+export type UpdateWorkspaceAiGatewayRoutingPolicyMutationVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+  input: Types.UpdateAiGatewayRoutingPolicyInput;
+}>;
+
+
+export type UpdateWorkspaceAiGatewayRoutingPolicyMutation = { updateWorkspaceAiGatewayRoutingPolicy: { config: string | null, createdDate: any, enabled: boolean, fallbackModel: string | null, id: string, lastModifiedDate: any, name: string, strategy: Types.AiGatewayRoutingStrategyType, version: number | null } | null };
+
 export type ApprovalTaskQueryVariables = Exact<{
   id: string | number;
 }>;
@@ -400,6 +1701,102 @@ export type UpdateApprovalTaskMutationVariables = Exact<{
 
 
 export type UpdateApprovalTaskMutation = { updateApprovalTask: { assigneeId: string | null, description: string | null, dueDate: string | null, id: string, name: string, priority: Types.ApprovalTaskPriority, status: Types.ApprovalTaskStatus, version: number } | null };
+
+export type DeleteAssetFileMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteAssetFileMutation = { deleteAssetFile: boolean };
+
+export type DisableAssetFilePublicLinkMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DisableAssetFilePublicLinkMutation = { disableAssetFilePublicLink: { id: string, publicLinkUrl: string | null } };
+
+export type EnableAssetFilePublicLinkMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type EnableAssetFilePublicLinkMutation = { enableAssetFilePublicLink: { id: string, publicLinkUrl: string | null } };
+
+export type GetAssetFileQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type GetAssetFileQuery = { assetFile: { createdBy: string | null, createdDate: any, description: string | null, downloadUrl: string, environmentId: any, format: string | null, generatedByAgentSource: number | null, generatedFromPrompt: string | null, id: string, lastModifiedBy: string | null, lastModifiedDate: any, metadataJson: string | null, mimeType: string, name: string, publicLinkUrl: string | null, sizeBytes: any, source: Types.AssetFileSource, tags: Array<{ id: string, name: string }> } | null };
+
+export type GetAssetFileSignedDownloadUrlQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type GetAssetFileSignedDownloadUrlQuery = { assetFileSignedDownloadUrl: string };
+
+export type GetAssetFileTagsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type GetAssetFileTagsQuery = { assetFileTags: Array<{ id: string, name: string }> };
+
+export type GetAssetFileTextContentQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type GetAssetFileTextContentQuery = { assetFileTextContent: string | null };
+
+export type GetAssetFileVersionsQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type GetAssetFileVersionsQuery = { assetFileVersions: Array<{ createdBy: string | null, createdDate: any, id: string, mimeType: string, sizeBytes: any, versionNumber: number }> };
+
+export type GetAssetFilesQueryVariables = Exact<{
+  workspaceId: string | number;
+  environment?: number | null | undefined;
+  tagIds?: Array<string | number> | string | number | null | undefined;
+  mimeTypePrefix?: string | null | undefined;
+}>;
+
+
+export type GetAssetFilesQuery = { assetFiles: Array<{ createdBy: string | null, createdDate: any, description: string | null, downloadUrl: string, environmentId: any, format: string | null, generatedByAgentSource: number | null, generatedFromPrompt: string | null, id: string, lastModifiedBy: string | null, lastModifiedDate: any, metadataJson: string | null, mimeType: string, name: string, publicLinkUrl: string | null, sizeBytes: any, source: Types.AssetFileSource, tags: Array<{ id: string, name: string }> }> };
+
+export type RestoreAssetFileVersionMutationVariables = Exact<{
+  id: string | number;
+  versionId: string | number;
+}>;
+
+
+export type RestoreAssetFileVersionMutation = { restoreAssetFileVersion: { id: string, lastModifiedDate: any, mimeType: string, name: string, sizeBytes: any } };
+
+export type UpdateAssetFileMutationVariables = Exact<{
+  input: Types.UpdateAssetFileInput;
+}>;
+
+
+export type UpdateAssetFileMutation = { updateAssetFile: { createdBy: string | null, createdDate: any, description: string | null, downloadUrl: string, id: string, lastModifiedBy: string | null, lastModifiedDate: any, mimeType: string, name: string, sizeBytes: any, source: Types.AssetFileSource } };
+
+export type UpdateAssetFileTagsMutationVariables = Exact<{
+  input: Types.UpdateAssetFileTagsInput;
+}>;
+
+
+export type UpdateAssetFileTagsMutation = { updateAssetFileTags: { id: string, tags: Array<{ id: string, name: string }> } };
+
+export type UpdateAssetFileTextContentMutationVariables = Exact<{
+  id: string | number;
+  content: string;
+}>;
+
+
+export type UpdateAssetFileTextContentMutation = { updateAssetFileTextContent: { id: string, lastModifiedDate: any, sizeBytes: any } };
 
 export type A2aEligibleProjectVersionWorkflowsQueryVariables = Exact<{
   projectId: string | number;
@@ -438,6 +1835,31 @@ export type A2aServersQueryVariables = Exact<{ [key: string]: never; }>;
 
 export type A2aServersQuery = { a2aServers: Array<{ authenticationRequired: boolean, description: string | null, enabled: boolean, environmentId: string, id: string, lastModifiedDate: any, name: string, secretKey: string | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
 
+export type AddWorkspaceUserMutationVariables = Exact<{
+  workspaceId: string | number;
+  userId: string | number;
+  role: Types.WorkspaceRole;
+}>;
+
+
+export type AddWorkspaceUserMutation = { addWorkspaceUser: { id: string, workspaceId: string, userId: string, workspaceRole: Types.WorkspaceRole | null, user: { email: string, firstName: string | null, lastName: string | null } | null } };
+
+export type AffectedWorkflowsQueryVariables = Exact<{
+  workspaceId: string | number;
+  userLogin: string;
+}>;
+
+
+export type AffectedWorkflowsQuery = { affectedWorkflows: Array<{ workflowId: string, workflowName: string, connectionIds: Array<string> }> };
+
+export type ConnectionGrantsQueryVariables = Exact<{
+  workspaceId: string | number;
+  connectionId: string | number;
+}>;
+
+
+export type ConnectionGrantsQuery = { connectionGrants: Array<any> };
+
 export type CreateA2aProjectMutationVariables = Exact<{
   input: Types.CreateA2aProjectInput;
 }>;
@@ -459,6 +1881,13 @@ export type CreateMcpProjectMutationVariables = Exact<{
 
 export type CreateMcpProjectMutation = { createMcpProject: { id: string, mcpServerId: string, projectDeploymentId: string, projectVersion: number | null } | null };
 
+export type CreateOrganizationConnectionMutationVariables = Exact<{
+  input: Types.CreateOrganizationConnectionInput;
+}>;
+
+
+export type CreateOrganizationConnectionMutation = { createOrganizationConnection: string };
+
 export type CreateWorkspaceApiKeyMutationVariables = Exact<{
   workspaceId: string | number;
   name: string;
@@ -474,6 +1903,14 @@ export type CreateMcpServerMutationVariables = Exact<{
 
 
 export type CreateMcpServerMutation = { createWorkspaceMcpServer: { id: string, name: string, type: Types.PlatformType, environmentId: string, enabled: boolean } | null };
+
+export type DataStreamCompatibleConnectionsQueryVariables = Exact<{
+  workspaceId: string | number;
+  environmentId: string | number;
+}>;
+
+
+export type DataStreamCompatibleConnectionsQuery = { dataStreamCompatibleConnections: Array<{ id: string, name: string, componentName: string, componentVersion: number }> };
 
 export type DeleteA2aProjectMutationVariables = Exact<{
   id: string | number;
@@ -502,6 +1939,13 @@ export type DeleteMcpProjectWorkflowMutationVariables = Exact<{
 
 
 export type DeleteMcpProjectWorkflowMutation = { deleteMcpProjectWorkflow: boolean | null };
+
+export type DeleteOrganizationConnectionMutationVariables = Exact<{
+  connectionId: string | number;
+}>;
+
+
+export type DeleteOrganizationConnectionMutation = { deleteOrganizationConnection: boolean };
 
 export type DeleteSharedProjectMutationVariables = Exact<{
   id: string | number;
@@ -553,6 +1997,15 @@ export type ExportSharedWorkflowMutationVariables = Exact<{
 
 
 export type ExportSharedWorkflowMutation = { exportSharedWorkflow: boolean };
+
+export type GrantConnectionAccessMutationVariables = Exact<{
+  workspaceId: string | number;
+  connectionId: string | number;
+  userId: string | number;
+}>;
+
+
+export type GrantConnectionAccessMutation = { grantConnectionAccess: boolean };
 
 export type ImportProjectTemplateMutationVariables = Exact<{
   id: string;
@@ -606,6 +2059,27 @@ export type McpProjectsByServerIdQueryVariables = Exact<{
 
 export type McpProjectsByServerIdQuery = { mcpProjectsByServerId: Array<{ id: string, projectDeploymentId: string, mcpServerId: string, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any, version: number | null, projectVersion: number | null, project: { id: string, name: string, category: { id: string | null, name: string | null } | null, tags: Array<{ id: string, name: string } | null> | null } | null, mcpProjectWorkflows: Array<{ id: string, enabled: boolean, mcpProjectId: any, projectDeploymentWorkflowId: any, parameters: any, createdBy: string | null, createdDate: any, lastModifiedBy: string | null, lastModifiedDate: any, version: number | null, projectDeploymentWorkflow: { id: string, enabled: boolean, inputs: any, projectDeploymentId: string, version: number, workflowId: string, connections: Array<{ connectionId: string | null, workflowConnectionKey: string, workflowNodeName: string }> } | null, workflow: { id: string, label: string } | null } | null> | null } | null> | null };
 
+export type MyWorkspaceRoleQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type MyWorkspaceRoleQuery = { myWorkspaceRole: string | null };
+
+export type MyWorkspaceScopesQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type MyWorkspaceScopesQuery = { myWorkspaceScopes: Array<string> };
+
+export type OrganizationConnectionsQueryVariables = Exact<{
+  environmentId?: string | number | null | undefined;
+}>;
+
+
+export type OrganizationConnectionsQuery = { organizationConnections: Array<{ id: string, name: string, componentName: string, environmentId: number, visibility: Types.ResourceVisibility, createdBy: string | null, createdDate: string | null, lastModifiedDate: string | null }> };
+
 export type PreBuiltProjectTemplatesQueryVariables = Exact<{
   query?: string | null | undefined;
   category?: string | null | undefined;
@@ -637,6 +2111,41 @@ export type ProjectTemplateQueryVariables = Exact<{
 
 export type ProjectTemplateQuery = { projectTemplate: { description: string | null, projectVersion: number | null, publicUrl: string | null, components: Array<{ key: string | null, value: Array<{ icon: string | null, name: string, title: string | null, version: number | null, connection: { componentName: string, version: number } | null } | null> }>, project: { name: string } | null, workflows: Array<{ id: string, label: string }> } | null };
 
+export type ReassignAllConnectionsMutationVariables = Exact<{
+  workspaceId: string | number;
+  userLogin: string;
+  newOwnerLogin: string;
+}>;
+
+
+export type ReassignAllConnectionsMutation = { reassignAllConnections: boolean };
+
+export type RemoveWorkspaceUserMutationVariables = Exact<{
+  workspaceId: string | number;
+  userId: string | number;
+}>;
+
+
+export type RemoveWorkspaceUserMutation = { removeWorkspaceUser: boolean };
+
+export type RevokeConnectionAccessMutationVariables = Exact<{
+  workspaceId: string | number;
+  connectionId: string | number;
+  userId: string | number;
+}>;
+
+
+export type RevokeConnectionAccessMutation = { revokeConnectionAccess: boolean };
+
+export type SetConnectionVisibilityMutationVariables = Exact<{
+  workspaceId: string | number;
+  connectionId: string | number;
+  visibility: Types.ResourceVisibility;
+}>;
+
+
+export type SetConnectionVisibilityMutation = { setConnectionVisibility: boolean };
+
 export type SharedProjectQueryVariables = Exact<{
   projectUuid: string;
 }>;
@@ -658,6 +2167,14 @@ export type ToolEligibleProjectVersionWorkflowsQueryVariables = Exact<{
 
 
 export type ToolEligibleProjectVersionWorkflowsQuery = { toolEligibleProjectVersionWorkflows: Array<{ id: string, workflow: { id: string, label: string } }> };
+
+export type UnresolvedConnectionsQueryVariables = Exact<{
+  workspaceId: string | number;
+  userLogin: string;
+}>;
+
+
+export type UnresolvedConnectionsQuery = { unresolvedConnections: Array<{ connectionId: string, connectionName: string, visibility: Types.ResourceVisibility, environmentId: number, dependentWorkflowCount: number }> };
 
 export type UpdateA2aProjectMutationVariables = Exact<{
   id: string | number;
@@ -731,6 +2248,16 @@ export type UpdateMcpServerTagsMutationVariables = Exact<{
 
 export type UpdateMcpServerTagsMutation = { updateMcpServerTags: Array<{ id: string } | null> | null };
 
+export type UpdateOrganizationConnectionMutationVariables = Exact<{
+  connectionId: string | number;
+  name: string;
+  tagIds?: Array<string | number> | string | number | null | undefined;
+  version: number;
+}>;
+
+
+export type UpdateOrganizationConnectionMutation = { updateOrganizationConnection: boolean };
+
 export type UpdateWorkspaceApiKeyMutationVariables = Exact<{
   apiKeyId: string | number;
   name: string;
@@ -746,6 +2273,15 @@ export type UpdateWorkspaceMcpToolEnabledMutationVariables = Exact<{
 
 
 export type UpdateWorkspaceMcpToolEnabledMutation = { updateWorkspaceMcpToolEnabled: { id: string, enabled: boolean } | null };
+
+export type UpdateWorkspaceUserRoleMutationVariables = Exact<{
+  workspaceId: string | number;
+  userId: string | number;
+  role: Types.WorkspaceRole;
+}>;
+
+
+export type UpdateWorkspaceUserRoleMutation = { updateWorkspaceUserRole: { id: string, workspaceRole: Types.WorkspaceRole | null } };
 
 export type WorkflowChatProjectDeploymentWorkflowQueryVariables = Exact<{
   id: string;
@@ -776,7 +2312,7 @@ export type WorkspaceChatWorkflowsQueryVariables = Exact<{
 }>;
 
 
-export type WorkspaceChatWorkflowsQuery = { workspaceChatWorkflows: Array<{ projectDeploymentId: string, projectId: string, projectName: string, workflowExecutionId: string, workflowLabel: string }> };
+export type WorkspaceChatWorkflowsQuery = { workspaceChatWorkflows: Array<{ projectDeploymentId: string, projectId: string, projectName: string, projectWorkflowId: string, workflowExecutionId: string, workflowId: string, workflowLabel: string }> };
 
 export type WorkspaceMcpServerTagsQueryVariables = Exact<{
   workspaceId: string | number;
@@ -791,6 +2327,116 @@ export type WorkspaceMcpServersQueryVariables = Exact<{
 
 
 export type WorkspaceMcpServersQuery = { workspaceMcpServers: Array<{ id: string, name: string, type: Types.PlatformType, environmentId: string, enabled: boolean, enforceToolAuthorization: boolean, authenticationRequired: boolean, url: string, lastModifiedDate: any, mcpComponents: Array<{ id: string, mcpServerId: string, componentName: string, componentVersion: number, title: string | null, mcpTools: Array<{ id: string } | null> | null } | null> | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
+
+export type WorkspaceUsersQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type WorkspaceUsersQuery = { workspaceUsers: Array<{ id: string, workspaceId: string, userId: string, workspaceRole: Types.WorkspaceRole | null, createdDate: string | null, user: { email: string, firstName: string | null, lastName: string | null } | null }> };
+
+export type ContextStoreSourceQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type ContextStoreSourceQuery = { contextStoreSource: { id: string, name: string, entityName: string, description: string | null, idField: string, storedFields: any, indexedFields: any, semanticIndexFields: any, parameters: any, sourceComponentName: string, sourceComponentVersion: number, sourceClusterElementName: string | null, connectionId: string | null, cadence: string, status: Types.ContextStoreSourceStatus, enabled: boolean, lastSyncRunAt: any, lastSyncJobExecutionId: string | null, workflowId: string | null, fullReplaceCadence: string | null, tombstoneStrategy: Types.ContextStoreTombstoneStrategy } | null };
+
+export type ContextStoreSourcesQueryVariables = Exact<{
+  workspaceId: string | number;
+  environmentId: string | number;
+  filter?: Types.ContextStoreSourceFilter | null | undefined;
+}>;
+
+
+export type ContextStoreSourcesQuery = { contextStoreSources: Array<{ id: string, contextStoreId: string, name: string, entityName: string, description: string | null, idField: string, indexedFields: any, sourceComponentName: string, sourceComponentVersion: number, sourceClusterElementName: string | null, connectionId: string | null, cadence: string, status: Types.ContextStoreSourceStatus, enabled: boolean, lastSyncRunAt: any, lastSyncJobExecutionId: string | null, workflowId: string | null }> };
+
+export type ContextStoreTagsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type ContextStoreTagsQuery = { contextStoreTags: Array<{ id: string, name: string }> };
+
+export type ContextStoresQueryVariables = Exact<{
+  workspaceId: string | number;
+  environmentId: string | number;
+}>;
+
+
+export type ContextStoresQuery = { contextStores: Array<{ id: string, name: string, description: string | null, environment: string, tagIds: Array<string>, version: number, tags: Array<{ id: string, name: string }> }> };
+
+export type CreateContextStoreMutationVariables = Exact<{
+  workspaceId: string | number;
+  environmentId: string | number;
+  input: Types.CreateContextStoreInput;
+}>;
+
+
+export type CreateContextStoreMutation = { createContextStore: { id: string, name: string, description: string | null, environment: string, tagIds: Array<string>, version: number } };
+
+export type CreateContextStoreSourceMutationVariables = Exact<{
+  input: Types.CreateContextStoreSourceInput;
+}>;
+
+
+export type CreateContextStoreSourceMutation = { createContextStoreSource: { id: string, name: string, status: Types.ContextStoreSourceStatus, enabled: boolean, cadence: string } };
+
+export type DeleteContextStoreMutationVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+}>;
+
+
+export type DeleteContextStoreMutation = { deleteContextStore: boolean };
+
+export type DeleteContextStoreSourceMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteContextStoreSourceMutation = { deleteContextStoreSource: boolean };
+
+export type RefreshContextStoreSourceMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type RefreshContextStoreSourceMutation = { refreshContextStoreSource: string };
+
+export type SetContextStoreSourceEnabledMutationVariables = Exact<{
+  id: string | number;
+  enabled: boolean;
+}>;
+
+
+export type SetContextStoreSourceEnabledMutation = { setContextStoreSourceEnabled: { id: string, enabled: boolean, status: Types.ContextStoreSourceStatus } };
+
+export type UpdateContextStoreMutationVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+  input: Types.UpdateContextStoreInput;
+}>;
+
+
+export type UpdateContextStoreMutation = { updateContextStore: { id: string, name: string, description: string | null, environment: string, tagIds: Array<string>, version: number } };
+
+export type UpdateContextStoreSourceMutationVariables = Exact<{
+  id: string | number;
+  input: Types.UpdateContextStoreSourceInput;
+}>;
+
+
+export type UpdateContextStoreSourceMutation = { updateContextStoreSource: { id: string, name: string, cadence: string, enabled: boolean, status: Types.ContextStoreSourceStatus } };
+
+export type UpdateContextStoreTagsMutationVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+  tags: Array<Types.TagInput> | Types.TagInput;
+}>;
+
+
+export type UpdateContextStoreTagsMutation = { updateContextStoreTags: Array<{ id: string, name: string }> };
 
 export type AddDataTableColumnMutationVariables = Exact<{
   input: Types.AddColumnInput;
@@ -824,7 +2470,14 @@ export type DataTableRowsPageQueryVariables = Exact<{
 
 export type DataTableRowsPageQuery = { dataTableRowsPage: { hasMore: boolean, nextOffset: number | null, items: Array<{ id: string, values: any }> } };
 
-export type DataTableTagsQueryVariables = Exact<{ [key: string]: never; }>;
+export type DataTableStorageUsageQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type DataTableStorageUsageQuery = { dataTableStorageUsage: { limitBytes: any, percentage: number, unlimited: boolean, usedBytes: any } };
+
+export type DataTableTagsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
 
 
 export type DataTableTagsQuery = { dataTableTags: Array<{ id: string, name: string }> };
@@ -929,6 +2582,13 @@ export type CreateKnowledgeBaseMutationVariables = Exact<{
 
 export type CreateKnowledgeBaseMutation = { createKnowledgeBase: { id: string, name: string } | null };
 
+export type CreateKnowledgeBaseSourceMutationVariables = Exact<{
+  input: Types.CreateKnowledgeBaseSourceInput;
+}>;
+
+
+export type CreateKnowledgeBaseSourceMutation = { createKnowledgeBaseSource: { id: string, name: string, status: Types.KnowledgeBaseSourceStatus, enabled: boolean, cadence: string } };
+
 export type DeleteKnowledgeBaseMutationVariables = Exact<{
   id: string | number;
 }>;
@@ -950,12 +2610,19 @@ export type DeleteKnowledgeBaseDocumentChunkMutationVariables = Exact<{
 
 export type DeleteKnowledgeBaseDocumentChunkMutation = { deleteKnowledgeBaseDocumentChunk: boolean | null };
 
+export type DeleteKnowledgeBaseSourceMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteKnowledgeBaseSourceMutation = { deleteKnowledgeBaseSource: boolean };
+
 export type KnowledgeBaseQueryVariables = Exact<{
   id: string | number;
 }>;
 
 
-export type KnowledgeBaseQuery = { knowledgeBase: { id: string, name: string, description: string | null, maxChunkSize: number | null, minChunkSizeChars: number | null, overlap: number | null, createdDate: any, lastModifiedDate: any, documents: Array<{ id: string, name: string, status: number, tags: Array<string> | null, createdDate: any, document: { name: string, extension: string | null, mimeType: string | null, url: string } | null, chunks: Array<{ id: string, knowledgeBaseDocumentId: string } | null> | null } | null> | null } | null };
+export type KnowledgeBaseQuery = { knowledgeBase: { id: string, name: string, description: string | null, maxChunkSize: number | null, minChunkSizeChars: number | null, overlap: number | null, createdDate: any, lastModifiedDate: any, documents: Array<{ id: string, name: string, status: number, tags: Array<string> | null, createdDate: any, sourceId: string | null, sourceRecordId: string | null, document: { name: string, extension: string | null, mimeType: string | null, url: string } | null, chunks: Array<{ id: string, knowledgeBaseDocumentId: string } | null> | null } | null> | null } | null };
 
 export type KnowledgeBaseDocumentChunksQueryVariables = Exact<{
   id: string | number;
@@ -992,7 +2659,30 @@ export type KnowledgeBaseEmbeddingActiveQueryVariables = Exact<{
 
 export type KnowledgeBaseEmbeddingActiveQuery = { knowledgeBaseEmbeddingActive: boolean };
 
-export type KnowledgeBaseTagsQueryVariables = Exact<{ [key: string]: never; }>;
+export type KnowledgeBaseSourceQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type KnowledgeBaseSourceQuery = { knowledgeBaseSource: { id: string, name: string, knowledgeBaseId: string, sourceComponentName: string, sourceComponentVersion: number, sourceClusterElementName: string | null, connectionId: string | null, cadence: string, status: Types.KnowledgeBaseSourceStatus, enabled: boolean, lastSyncRunAt: any, lastSyncJobExecutionId: string | null, workflowId: string | null } | null };
+
+export type KnowledgeBaseSourcesQueryVariables = Exact<{
+  workspaceId: string | number;
+  environmentId: string | number;
+  filter?: Types.KnowledgeBaseSourceFilter | null | undefined;
+}>;
+
+
+export type KnowledgeBaseSourcesQuery = { knowledgeBaseSources: Array<{ id: string, name: string, knowledgeBaseId: string, sourceComponentName: string, sourceComponentVersion: number, sourceClusterElementName: string | null, connectionId: string | null, cadence: string, status: Types.KnowledgeBaseSourceStatus, enabled: boolean, lastSyncRunAt: any, lastSyncJobExecutionId: string | null, workflowId: string | null }> };
+
+export type KnowledgeBaseStorageUsageQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type KnowledgeBaseStorageUsageQuery = { knowledgeBaseStorageUsage: { limitBytes: any, percentage: number, unlimited: boolean, usedBytes: any } };
+
+export type KnowledgeBaseTagsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
 
 
 export type KnowledgeBaseTagsQuery = { knowledgeBaseTags: Array<{ id: string, name: string }> | null };
@@ -1010,6 +2700,13 @@ export type KnowledgeBasesQueryVariables = Exact<{
 
 export type KnowledgeBasesQuery = { knowledgeBases: Array<{ id: string, name: string, description: string | null, maxChunkSize: number | null, minChunkSizeChars: number | null, overlap: number | null, createdDate: any, lastModifiedDate: any } | null> | null };
 
+export type RefreshKnowledgeBaseSourceMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type RefreshKnowledgeBaseSourceMutation = { refreshKnowledgeBaseSource: string };
+
 export type SearchKnowledgeBaseQueryVariables = Exact<{
   id: string | number;
   query: string;
@@ -1018,6 +2715,14 @@ export type SearchKnowledgeBaseQueryVariables = Exact<{
 
 
 export type SearchKnowledgeBaseQuery = { searchKnowledgeBase: Array<{ id: string, knowledgeBaseDocumentId: string, content: string | null, metadata: any, score: number | null } | null> | null };
+
+export type SetKnowledgeBaseSourceEnabledMutationVariables = Exact<{
+  id: string | number;
+  enabled: boolean;
+}>;
+
+
+export type SetKnowledgeBaseSourceEnabledMutation = { setKnowledgeBaseSourceEnabled: { id: string, enabled: boolean, status: Types.KnowledgeBaseSourceStatus } };
 
 export type UpdateKnowledgeBaseMutationVariables = Exact<{
   id: string | number;
@@ -1041,6 +2746,14 @@ export type UpdateKnowledgeBaseDocumentTagsMutationVariables = Exact<{
 
 
 export type UpdateKnowledgeBaseDocumentTagsMutation = { updateKnowledgeBaseDocumentTags: boolean };
+
+export type UpdateKnowledgeBaseSourceMutationVariables = Exact<{
+  id: string | number;
+  input: Types.UpdateKnowledgeBaseSourceInput;
+}>;
+
+
+export type UpdateKnowledgeBaseSourceMutation = { updateKnowledgeBaseSource: { id: string, name: string, cadence: string, enabled: boolean, status: Types.KnowledgeBaseSourceStatus } };
 
 export type UpdateKnowledgeBaseTagsMutationVariables = Exact<{
   input: Types.UpdateKnowledgeBaseTagsInput;
@@ -1684,6 +3397,17 @@ export type ClusterElementDefinitionQuery = { clusterElementDefinition: { compon
       | { controlType: Types.ControlType, label: string | null, placeholder: string | null, advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType, timeDefaultValue: string | null }
     > } };
 
+export type ClusterElementFieldsQueryVariables = Exact<{
+  componentName: string;
+  componentVersion: number;
+  clusterElementName: string;
+  connectionId?: any;
+  inputParameters?: any;
+}>;
+
+
+export type ClusterElementFieldsQuery = { clusterElementFields: Array<{ name: string, label: string | null, type: string | null }> };
+
 export type ClusterElementMissingRequiredPropertiesQueryVariables = Exact<{
   workflowId: string;
   workflowNodeName: string;
@@ -2015,6 +3739,32 @@ export type WorkflowNodeScriptInputQueryVariables = Exact<{
 
 
 export type WorkflowNodeScriptInputQuery = { workflowNodeScriptInput: any };
+
+export type ConnectionCredentialStoresQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ConnectionCredentialStoresQuery = { connectionCredentialStores: Array<{ type: Types.ConnectionCredentialStoreType, readOnly: boolean }> };
+
+export type RegisterExistingConnectionMutationVariables = Exact<{
+  input: Types.RegisterExistingConnectionInput;
+}>;
+
+
+export type RegisterExistingConnectionMutation = { registerExistingConnection: any };
+
+export type GeneratePropertyValueMutationVariables = Exact<{
+  input: Types.GeneratePropertyValueInput;
+}>;
+
+
+export type GeneratePropertyValueMutation = { generatePropertyValue: { value: string, valid: boolean, message: string | null } };
+
+export type GenerateWorkflowDescriptionMutationVariables = Exact<{
+  input: Types.GenerateWorkflowDescriptionInput;
+}>;
+
+
+export type GenerateWorkflowDescriptionMutation = { generateWorkflowDescription: { value: string } };
 
 export type CustomComponentQueryVariables = Exact<{
   id: string | number;
@@ -2957,6 +4707,1460 @@ export const useUpdateAiAgentScenarioToolSimulationMutation = <
   }
     )};
 
+export const AiHubChatArtifactsDocument = new TypedDocumentString(`
+    query aiHubChatArtifacts($workspaceId: ID!, $environment: Int, $userId: ID, $kind: AiHubChatArtifactKind, $from: Long, $to: Long, $page: Int, $size: Int) {
+  aiHubChatArtifacts(
+    workspaceId: $workspaceId
+    environment: $environment
+    userId: $userId
+    kind: $kind
+    from: $from
+    to: $to
+    page: $page
+    size: $size
+  ) {
+    items {
+      id
+      chatId
+      kind
+      status
+      artifactId
+      artifactName
+      metadataJson
+      environmentId
+      createdAt
+      statusChangedAt
+    }
+    totalCount
+    hasMore
+    pageClamped
+    sizeClamped
+  }
+}
+    `);
+
+export const useAiHubChatArtifactsQuery = <
+      TData = AiHubChatArtifactsQuery,
+      TError = unknown
+    >(
+      variables: AiHubChatArtifactsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubChatArtifactsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubChatArtifactsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubChatArtifactsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubChatArtifacts', variables],
+    queryFn: fetcher<AiHubChatArtifactsQuery, AiHubChatArtifactsQueryVariables>(AiHubChatArtifactsDocument, variables),
+    ...options
+  }
+    )};
+
+export const DeleteAiHubChatArtifactDocument = new TypedDocumentString(`
+    mutation deleteAiHubChatArtifact($input: DeleteAiHubChatArtifactInput!) {
+  deleteAiHubChatArtifact(input: $input)
+}
+    `);
+
+export const useDeleteAiHubChatArtifactMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiHubChatArtifactMutation, TError, DeleteAiHubChatArtifactMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiHubChatArtifactMutation, TError, DeleteAiHubChatArtifactMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiHubChatArtifact'],
+    mutationFn: (variables?: DeleteAiHubChatArtifactMutationVariables) => fetcher<DeleteAiHubChatArtifactMutation, DeleteAiHubChatArtifactMutationVariables>(DeleteAiHubChatArtifactDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RecordReferencedAiHubChatArtifactDocument = new TypedDocumentString(`
+    mutation recordReferencedAiHubChatArtifact($input: RecordReferencedAiHubChatArtifactInput!) {
+  recordReferencedAiHubChatArtifact(input: $input) {
+    id
+    chatId
+    kind
+    status
+    artifactId
+    artifactName
+    environmentId
+    createdAt
+  }
+}
+    `);
+
+export const useRecordReferencedAiHubChatArtifactMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RecordReferencedAiHubChatArtifactMutation, TError, RecordReferencedAiHubChatArtifactMutationVariables, TContext>) => {
+    
+    return useMutation<RecordReferencedAiHubChatArtifactMutation, TError, RecordReferencedAiHubChatArtifactMutationVariables, TContext>(
+      {
+    mutationKey: ['recordReferencedAiHubChatArtifact'],
+    mutationFn: (variables?: RecordReferencedAiHubChatArtifactMutationVariables) => fetcher<RecordReferencedAiHubChatArtifactMutation, RecordReferencedAiHubChatArtifactMutationVariables>(RecordReferencedAiHubChatArtifactDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiHubChatGrantsDocument = new TypedDocumentString(`
+    query aiHubChatGrants($workspaceId: ID!, $chatId: ID!) {
+  aiHubChatGrants(workspaceId: $workspaceId, chatId: $chatId)
+}
+    `);
+
+export const useAiHubChatGrantsQuery = <
+      TData = AiHubChatGrantsQuery,
+      TError = unknown
+    >(
+      variables: AiHubChatGrantsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubChatGrantsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubChatGrantsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubChatGrantsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubChatGrants', variables],
+    queryFn: fetcher<AiHubChatGrantsQuery, AiHubChatGrantsQueryVariables>(AiHubChatGrantsDocument, variables),
+    ...options
+  }
+    )};
+
+export const GrantAiHubChatAccessDocument = new TypedDocumentString(`
+    mutation grantAiHubChatAccess($workspaceId: ID!, $chatId: ID!, $userId: ID!) {
+  grantAiHubChatAccess(
+    workspaceId: $workspaceId
+    chatId: $chatId
+    userId: $userId
+  ) {
+    id
+  }
+}
+    `);
+
+export const useGrantAiHubChatAccessMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<GrantAiHubChatAccessMutation, TError, GrantAiHubChatAccessMutationVariables, TContext>) => {
+    
+    return useMutation<GrantAiHubChatAccessMutation, TError, GrantAiHubChatAccessMutationVariables, TContext>(
+      {
+    mutationKey: ['grantAiHubChatAccess'],
+    mutationFn: (variables?: GrantAiHubChatAccessMutationVariables) => fetcher<GrantAiHubChatAccessMutation, GrantAiHubChatAccessMutationVariables>(GrantAiHubChatAccessDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RevokeAiHubChatAccessDocument = new TypedDocumentString(`
+    mutation revokeAiHubChatAccess($workspaceId: ID!, $chatId: ID!, $userId: ID!) {
+  revokeAiHubChatAccess(
+    workspaceId: $workspaceId
+    chatId: $chatId
+    userId: $userId
+  ) {
+    id
+  }
+}
+    `);
+
+export const useRevokeAiHubChatAccessMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RevokeAiHubChatAccessMutation, TError, RevokeAiHubChatAccessMutationVariables, TContext>) => {
+    
+    return useMutation<RevokeAiHubChatAccessMutation, TError, RevokeAiHubChatAccessMutationVariables, TContext>(
+      {
+    mutationKey: ['revokeAiHubChatAccess'],
+    mutationFn: (variables?: RevokeAiHubChatAccessMutationVariables) => fetcher<RevokeAiHubChatAccessMutation, RevokeAiHubChatAccessMutationVariables>(RevokeAiHubChatAccessDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetAiHubChatVisibilityDocument = new TypedDocumentString(`
+    mutation setAiHubChatVisibility($workspaceId: ID!, $chatId: ID!, $visibility: AiHubChatVisibility!, $participation: AiHubChatParticipation!) {
+  setAiHubChatVisibility(
+    workspaceId: $workspaceId
+    chatId: $chatId
+    visibility: $visibility
+    participation: $participation
+  ) {
+    id
+    visibility
+    participation
+  }
+}
+    `);
+
+export const useSetAiHubChatVisibilityMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetAiHubChatVisibilityMutation, TError, SetAiHubChatVisibilityMutationVariables, TContext>) => {
+    
+    return useMutation<SetAiHubChatVisibilityMutation, TError, SetAiHubChatVisibilityMutationVariables, TContext>(
+      {
+    mutationKey: ['setAiHubChatVisibility'],
+    mutationFn: (variables?: SetAiHubChatVisibilityMutationVariables) => fetcher<SetAiHubChatVisibilityMutation, SetAiHubChatVisibilityMutationVariables>(SetAiHubChatVisibilityDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AddAiHubUserConnectorDocument = new TypedDocumentString(`
+    mutation addAiHubUserConnector($workspaceId: ID!, $componentName: String!, $componentVersion: Int!, $connectionId: ID, $environment: Int!) {
+  addAiHubUserConnector(
+    workspaceId: $workspaceId
+    componentName: $componentName
+    componentVersion: $componentVersion
+    connectionId: $connectionId
+    environment: $environment
+  )
+}
+    `);
+
+export const useAddAiHubUserConnectorMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AddAiHubUserConnectorMutation, TError, AddAiHubUserConnectorMutationVariables, TContext>) => {
+    
+    return useMutation<AddAiHubUserConnectorMutation, TError, AddAiHubUserConnectorMutationVariables, TContext>(
+      {
+    mutationKey: ['addAiHubUserConnector'],
+    mutationFn: (variables?: AddAiHubUserConnectorMutationVariables) => fetcher<AddAiHubUserConnectorMutation, AddAiHubUserConnectorMutationVariables>(AddAiHubUserConnectorDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiHubChatToolableComponentsDocument = new TypedDocumentString(`
+    query aiHubChatToolableComponents($workspaceId: ID!) {
+  aiHubChatToolableComponents(workspaceId: $workspaceId) {
+    componentName
+    componentVersion
+    connectionRequired
+    description
+    icon
+    title
+    tools {
+      description
+      name
+      title
+    }
+  }
+}
+    `);
+
+export const useAiHubChatToolableComponentsQuery = <
+      TData = AiHubChatToolableComponentsQuery,
+      TError = unknown
+    >(
+      variables: AiHubChatToolableComponentsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubChatToolableComponentsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubChatToolableComponentsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubChatToolableComponentsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubChatToolableComponents', variables],
+    queryFn: fetcher<AiHubChatToolableComponentsQuery, AiHubChatToolableComponentsQueryVariables>(AiHubChatToolableComponentsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiHubChatToolsDocument = new TypedDocumentString(`
+    query aiHubChatTools($workspaceId: ID!, $chatId: ID!) {
+  aiHubChatTools(workspaceId: $workspaceId, chatId: $chatId) {
+    clusterElementName
+    componentName
+    componentVersion
+    connectionId
+    chatComponentId
+    chatId
+    chatToolId
+    environment
+    parameters
+    requiresApproval
+  }
+}
+    `);
+
+export const useAiHubChatToolsQuery = <
+      TData = AiHubChatToolsQuery,
+      TError = unknown
+    >(
+      variables: AiHubChatToolsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubChatToolsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubChatToolsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubChatToolsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubChatTools', variables],
+    queryFn: fetcher<AiHubChatToolsQuery, AiHubChatToolsQueryVariables>(AiHubChatToolsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiHubUserConnectorsDocument = new TypedDocumentString(`
+    query aiHubUserConnectors($workspaceId: ID!, $chatId: ID) {
+  aiHubUserConnectors(workspaceId: $workspaceId, chatId: $chatId) {
+    componentName
+    componentVersion
+    connectionId
+    connectionRequired
+    description
+    enabled
+    enabledInChat
+    icon
+    id
+    title
+    tools {
+      description
+      enabled
+      name
+      parameters
+      requiresApproval
+      title
+    }
+  }
+}
+    `);
+
+export const useAiHubUserConnectorsQuery = <
+      TData = AiHubUserConnectorsQuery,
+      TError = unknown
+    >(
+      variables: AiHubUserConnectorsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubUserConnectorsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubUserConnectorsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubUserConnectorsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubUserConnectors', variables],
+    queryFn: fetcher<AiHubUserConnectorsQuery, AiHubUserConnectorsQueryVariables>(AiHubUserConnectorsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AttachAiHubChatToolDocument = new TypedDocumentString(`
+    mutation attachAiHubChatTool($input: AttachAiHubChatToolInput!) {
+  attachAiHubChatTool(input: $input) {
+    clusterElementName
+    componentName
+    componentVersion
+    connectionId
+    chatComponentId
+    chatId
+    chatToolId
+    environment
+    parameters
+  }
+}
+    `);
+
+export const useAttachAiHubChatToolMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AttachAiHubChatToolMutation, TError, AttachAiHubChatToolMutationVariables, TContext>) => {
+    
+    return useMutation<AttachAiHubChatToolMutation, TError, AttachAiHubChatToolMutationVariables, TContext>(
+      {
+    mutationKey: ['attachAiHubChatTool'],
+    mutationFn: (variables?: AttachAiHubChatToolMutationVariables) => fetcher<AttachAiHubChatToolMutation, AttachAiHubChatToolMutationVariables>(AttachAiHubChatToolDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DetachAiHubChatComponentDocument = new TypedDocumentString(`
+    mutation detachAiHubChatComponent($workspaceId: ID!, $chatComponentId: ID!) {
+  detachAiHubChatComponent(
+    workspaceId: $workspaceId
+    chatComponentId: $chatComponentId
+  )
+}
+    `);
+
+export const useDetachAiHubChatComponentMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DetachAiHubChatComponentMutation, TError, DetachAiHubChatComponentMutationVariables, TContext>) => {
+    
+    return useMutation<DetachAiHubChatComponentMutation, TError, DetachAiHubChatComponentMutationVariables, TContext>(
+      {
+    mutationKey: ['detachAiHubChatComponent'],
+    mutationFn: (variables?: DetachAiHubChatComponentMutationVariables) => fetcher<DetachAiHubChatComponentMutation, DetachAiHubChatComponentMutationVariables>(DetachAiHubChatComponentDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RemoveAiHubChatToolDocument = new TypedDocumentString(`
+    mutation removeAiHubChatTool($workspaceId: ID!, $chatToolId: ID!) {
+  removeAiHubChatTool(workspaceId: $workspaceId, chatToolId: $chatToolId)
+}
+    `);
+
+export const useRemoveAiHubChatToolMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RemoveAiHubChatToolMutation, TError, RemoveAiHubChatToolMutationVariables, TContext>) => {
+    
+    return useMutation<RemoveAiHubChatToolMutation, TError, RemoveAiHubChatToolMutationVariables, TContext>(
+      {
+    mutationKey: ['removeAiHubChatTool'],
+    mutationFn: (variables?: RemoveAiHubChatToolMutationVariables) => fetcher<RemoveAiHubChatToolMutation, RemoveAiHubChatToolMutationVariables>(RemoveAiHubChatToolDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RemoveAiHubUserConnectorDocument = new TypedDocumentString(`
+    mutation removeAiHubUserConnector($workspaceId: ID!, $connectorId: ID!) {
+  removeAiHubUserConnector(workspaceId: $workspaceId, connectorId: $connectorId)
+}
+    `);
+
+export const useRemoveAiHubUserConnectorMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RemoveAiHubUserConnectorMutation, TError, RemoveAiHubUserConnectorMutationVariables, TContext>) => {
+    
+    return useMutation<RemoveAiHubUserConnectorMutation, TError, RemoveAiHubUserConnectorMutationVariables, TContext>(
+      {
+    mutationKey: ['removeAiHubUserConnector'],
+    mutationFn: (variables?: RemoveAiHubUserConnectorMutationVariables) => fetcher<RemoveAiHubUserConnectorMutation, RemoveAiHubUserConnectorMutationVariables>(RemoveAiHubUserConnectorDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetAiHubChatConnectorEnabledDocument = new TypedDocumentString(`
+    mutation setAiHubChatConnectorEnabled($workspaceId: ID!, $chatId: ID!, $connectorId: ID!, $enabled: Boolean!) {
+  setAiHubChatConnectorEnabled(
+    workspaceId: $workspaceId
+    chatId: $chatId
+    connectorId: $connectorId
+    enabled: $enabled
+  )
+}
+    `);
+
+export const useSetAiHubChatConnectorEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetAiHubChatConnectorEnabledMutation, TError, SetAiHubChatConnectorEnabledMutationVariables, TContext>) => {
+    
+    return useMutation<SetAiHubChatConnectorEnabledMutation, TError, SetAiHubChatConnectorEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['setAiHubChatConnectorEnabled'],
+    mutationFn: (variables?: SetAiHubChatConnectorEnabledMutationVariables) => fetcher<SetAiHubChatConnectorEnabledMutation, SetAiHubChatConnectorEnabledMutationVariables>(SetAiHubChatConnectorEnabledDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetAiHubChatToolRequiresApprovalDocument = new TypedDocumentString(`
+    mutation setAiHubChatToolRequiresApproval($workspaceId: ID!, $chatToolId: ID!, $requiresApproval: Boolean!) {
+  setAiHubChatToolRequiresApproval(
+    workspaceId: $workspaceId
+    chatToolId: $chatToolId
+    requiresApproval: $requiresApproval
+  ) {
+    chatToolId
+    requiresApproval
+  }
+}
+    `);
+
+export const useSetAiHubChatToolRequiresApprovalMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetAiHubChatToolRequiresApprovalMutation, TError, SetAiHubChatToolRequiresApprovalMutationVariables, TContext>) => {
+    
+    return useMutation<SetAiHubChatToolRequiresApprovalMutation, TError, SetAiHubChatToolRequiresApprovalMutationVariables, TContext>(
+      {
+    mutationKey: ['setAiHubChatToolRequiresApproval'],
+    mutationFn: (variables?: SetAiHubChatToolRequiresApprovalMutationVariables) => fetcher<SetAiHubChatToolRequiresApprovalMutation, SetAiHubChatToolRequiresApprovalMutationVariables>(SetAiHubChatToolRequiresApprovalDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetAiHubUserConnectorEnabledDocument = new TypedDocumentString(`
+    mutation setAiHubUserConnectorEnabled($workspaceId: ID!, $connectorId: ID!, $enabled: Boolean!) {
+  setAiHubUserConnectorEnabled(
+    workspaceId: $workspaceId
+    connectorId: $connectorId
+    enabled: $enabled
+  )
+}
+    `);
+
+export const useSetAiHubUserConnectorEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetAiHubUserConnectorEnabledMutation, TError, SetAiHubUserConnectorEnabledMutationVariables, TContext>) => {
+    
+    return useMutation<SetAiHubUserConnectorEnabledMutation, TError, SetAiHubUserConnectorEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['setAiHubUserConnectorEnabled'],
+    mutationFn: (variables?: SetAiHubUserConnectorEnabledMutationVariables) => fetcher<SetAiHubUserConnectorEnabledMutation, SetAiHubUserConnectorEnabledMutationVariables>(SetAiHubUserConnectorEnabledDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetAiHubUserConnectorToolEnabledDocument = new TypedDocumentString(`
+    mutation setAiHubUserConnectorToolEnabled($workspaceId: ID!, $connectorId: ID!, $toolName: String!, $enabled: Boolean!) {
+  setAiHubUserConnectorToolEnabled(
+    workspaceId: $workspaceId
+    connectorId: $connectorId
+    toolName: $toolName
+    enabled: $enabled
+  )
+}
+    `);
+
+export const useSetAiHubUserConnectorToolEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetAiHubUserConnectorToolEnabledMutation, TError, SetAiHubUserConnectorToolEnabledMutationVariables, TContext>) => {
+    
+    return useMutation<SetAiHubUserConnectorToolEnabledMutation, TError, SetAiHubUserConnectorToolEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['setAiHubUserConnectorToolEnabled'],
+    mutationFn: (variables?: SetAiHubUserConnectorToolEnabledMutationVariables) => fetcher<SetAiHubUserConnectorToolEnabledMutation, SetAiHubUserConnectorToolEnabledMutationVariables>(SetAiHubUserConnectorToolEnabledDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetAiHubUserConnectorToolParametersDocument = new TypedDocumentString(`
+    mutation setAiHubUserConnectorToolParameters($workspaceId: ID!, $connectorId: ID!, $toolName: String!, $parameters: Any!) {
+  setAiHubUserConnectorToolParameters(
+    workspaceId: $workspaceId
+    connectorId: $connectorId
+    toolName: $toolName
+    parameters: $parameters
+  )
+}
+    `);
+
+export const useSetAiHubUserConnectorToolParametersMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetAiHubUserConnectorToolParametersMutation, TError, SetAiHubUserConnectorToolParametersMutationVariables, TContext>) => {
+    
+    return useMutation<SetAiHubUserConnectorToolParametersMutation, TError, SetAiHubUserConnectorToolParametersMutationVariables, TContext>(
+      {
+    mutationKey: ['setAiHubUserConnectorToolParameters'],
+    mutationFn: (variables?: SetAiHubUserConnectorToolParametersMutationVariables) => fetcher<SetAiHubUserConnectorToolParametersMutation, SetAiHubUserConnectorToolParametersMutationVariables>(SetAiHubUserConnectorToolParametersDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetAiHubUserConnectorToolRequiresApprovalDocument = new TypedDocumentString(`
+    mutation setAiHubUserConnectorToolRequiresApproval($workspaceId: ID!, $connectorId: ID!, $toolName: String!, $requiresApproval: Boolean!) {
+  setAiHubUserConnectorToolRequiresApproval(
+    workspaceId: $workspaceId
+    connectorId: $connectorId
+    toolName: $toolName
+    requiresApproval: $requiresApproval
+  )
+}
+    `);
+
+export const useSetAiHubUserConnectorToolRequiresApprovalMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetAiHubUserConnectorToolRequiresApprovalMutation, TError, SetAiHubUserConnectorToolRequiresApprovalMutationVariables, TContext>) => {
+    
+    return useMutation<SetAiHubUserConnectorToolRequiresApprovalMutation, TError, SetAiHubUserConnectorToolRequiresApprovalMutationVariables, TContext>(
+      {
+    mutationKey: ['setAiHubUserConnectorToolRequiresApproval'],
+    mutationFn: (variables?: SetAiHubUserConnectorToolRequiresApprovalMutationVariables) => fetcher<SetAiHubUserConnectorToolRequiresApprovalMutation, SetAiHubUserConnectorToolRequiresApprovalMutationVariables>(SetAiHubUserConnectorToolRequiresApprovalDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiHubChatToolParametersDocument = new TypedDocumentString(`
+    mutation updateAiHubChatToolParameters($workspaceId: ID!, $chatToolId: ID!, $parameters: Any!) {
+  updateAiHubChatToolParameters(
+    workspaceId: $workspaceId
+    chatToolId: $chatToolId
+    parameters: $parameters
+  ) {
+    clusterElementName
+    componentName
+    componentVersion
+    connectionId
+    chatComponentId
+    chatId
+    chatToolId
+    environment
+    parameters
+  }
+}
+    `);
+
+export const useUpdateAiHubChatToolParametersMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiHubChatToolParametersMutation, TError, UpdateAiHubChatToolParametersMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiHubChatToolParametersMutation, TError, UpdateAiHubChatToolParametersMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiHubChatToolParameters'],
+    mutationFn: (variables?: UpdateAiHubChatToolParametersMutationVariables) => fetcher<UpdateAiHubChatToolParametersMutation, UpdateAiHubChatToolParametersMutationVariables>(UpdateAiHubChatToolParametersDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiHubChatArtifactsByAiHubChatDocument = new TypedDocumentString(`
+    query aiHubChatArtifactsByAiHubChat($workspaceId: ID!, $id: ID!) {
+  aiHubChatArtifactsByAiHubChat(workspaceId: $workspaceId, id: $id) {
+    id
+    chatId
+    kind
+    status
+    artifactId
+    artifactName
+    metadataJson
+    environmentId
+    createdAt
+    statusChangedAt
+  }
+}
+    `);
+
+export const useAiHubChatArtifactsByAiHubChatQuery = <
+      TData = AiHubChatArtifactsByAiHubChatQuery,
+      TError = unknown
+    >(
+      variables: AiHubChatArtifactsByAiHubChatQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubChatArtifactsByAiHubChatQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubChatArtifactsByAiHubChatQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubChatArtifactsByAiHubChatQuery, TError, TData>(
+      {
+    queryKey: ['aiHubChatArtifactsByAiHubChat', variables],
+    queryFn: fetcher<AiHubChatArtifactsByAiHubChatQuery, AiHubChatArtifactsByAiHubChatQueryVariables>(AiHubChatArtifactsByAiHubChatDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiHubChatMessagesDocument = new TypedDocumentString(`
+    query aiHubChatMessages($workspaceId: ID!, $id: ID!) {
+  aiHubChatMessages(workspaceId: $workspaceId, id: $id) {
+    role
+    content
+    timestamp
+    toolEventsJson
+    authorUserId
+    authorName
+  }
+}
+    `);
+
+export const useAiHubChatMessagesQuery = <
+      TData = AiHubChatMessagesQuery,
+      TError = unknown
+    >(
+      variables: AiHubChatMessagesQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubChatMessagesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubChatMessagesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubChatMessagesQuery, TError, TData>(
+      {
+    queryKey: ['aiHubChatMessages', variables],
+    queryFn: fetcher<AiHubChatMessagesQuery, AiHubChatMessagesQueryVariables>(AiHubChatMessagesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiHubChatsDocument = new TypedDocumentString(`
+    query aiHubChats($workspaceId: ID!, $environment: Int!, $status: AiHubChatStatus) {
+  aiHubChats(
+    workspaceId: $workspaceId
+    environment: $environment
+    status: $status
+  ) {
+    id
+    workspaceId
+    userId
+    threadId
+    title
+    lastPreview
+    messageCount
+    status
+    environmentId
+    createdAt
+    updatedAt
+    kind
+    workflowExecutionId
+    projectDeploymentId
+    autoTitled
+    aiAgentId
+    visibility
+    participation
+    ownerUserId
+    ownerName
+    isOwner
+  }
+}
+    `);
+
+export const useAiHubChatsQuery = <
+      TData = AiHubChatsQuery,
+      TError = unknown
+    >(
+      variables: AiHubChatsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubChatsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubChatsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubChatsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubChats', variables],
+    queryFn: fetcher<AiHubChatsQuery, AiHubChatsQueryVariables>(AiHubChatsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiHubSharedChatsDocument = new TypedDocumentString(`
+    query aiHubSharedChats($workspaceId: ID!, $environment: Int!) {
+  aiHubSharedChats(workspaceId: $workspaceId, environment: $environment) {
+    id
+    workspaceId
+    userId
+    threadId
+    title
+    lastPreview
+    messageCount
+    status
+    environmentId
+    createdAt
+    updatedAt
+    kind
+    workflowExecutionId
+    projectDeploymentId
+    autoTitled
+    aiAgentId
+    visibility
+    participation
+    ownerUserId
+    ownerName
+    isOwner
+  }
+}
+    `);
+
+export const useAiHubSharedChatsQuery = <
+      TData = AiHubSharedChatsQuery,
+      TError = unknown
+    >(
+      variables: AiHubSharedChatsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubSharedChatsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubSharedChatsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubSharedChatsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubSharedChats', variables],
+    queryFn: fetcher<AiHubSharedChatsQuery, AiHubSharedChatsQueryVariables>(AiHubSharedChatsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AppendAiHubChatAssistantMessageDocument = new TypedDocumentString(`
+    mutation appendAiHubChatAssistantMessage($workspaceId: ID!, $id: ID!, $content: String!) {
+  appendAiHubChatAssistantMessage(
+    workspaceId: $workspaceId
+    id: $id
+    content: $content
+  )
+}
+    `);
+
+export const useAppendAiHubChatAssistantMessageMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AppendAiHubChatAssistantMessageMutation, TError, AppendAiHubChatAssistantMessageMutationVariables, TContext>) => {
+    
+    return useMutation<AppendAiHubChatAssistantMessageMutation, TError, AppendAiHubChatAssistantMessageMutationVariables, TContext>(
+      {
+    mutationKey: ['appendAiHubChatAssistantMessage'],
+    mutationFn: (variables?: AppendAiHubChatAssistantMessageMutationVariables) => fetcher<AppendAiHubChatAssistantMessageMutation, AppendAiHubChatAssistantMessageMutationVariables>(AppendAiHubChatAssistantMessageDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const BulkArchiveWorkflowChatAiHubChatsDocument = new TypedDocumentString(`
+    mutation bulkArchiveWorkflowChatAiHubChats($workspaceId: ID!, $environment: Int!) {
+  bulkArchiveWorkflowChatAiHubChats(
+    workspaceId: $workspaceId
+    environment: $environment
+  )
+}
+    `);
+
+export const useBulkArchiveWorkflowChatAiHubChatsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<BulkArchiveWorkflowChatAiHubChatsMutation, TError, BulkArchiveWorkflowChatAiHubChatsMutationVariables, TContext>) => {
+    
+    return useMutation<BulkArchiveWorkflowChatAiHubChatsMutation, TError, BulkArchiveWorkflowChatAiHubChatsMutationVariables, TContext>(
+      {
+    mutationKey: ['bulkArchiveWorkflowChatAiHubChats'],
+    mutationFn: (variables?: BulkArchiveWorkflowChatAiHubChatsMutationVariables) => fetcher<BulkArchiveWorkflowChatAiHubChatsMutation, BulkArchiveWorkflowChatAiHubChatsMutationVariables>(BulkArchiveWorkflowChatAiHubChatsDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CancelAiHubRunDocument = new TypedDocumentString(`
+    mutation cancelAiHubRun($workspaceId: ID!, $id: ID!, $runId: String) {
+  cancelAiHubRun(workspaceId: $workspaceId, id: $id, runId: $runId)
+}
+    `);
+
+export const useCancelAiHubRunMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CancelAiHubRunMutation, TError, CancelAiHubRunMutationVariables, TContext>) => {
+    
+    return useMutation<CancelAiHubRunMutation, TError, CancelAiHubRunMutationVariables, TContext>(
+      {
+    mutationKey: ['cancelAiHubRun'],
+    mutationFn: (variables?: CancelAiHubRunMutationVariables) => fetcher<CancelAiHubRunMutation, CancelAiHubRunMutationVariables>(CancelAiHubRunDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CancelWorkflowChatTurnDocument = new TypedDocumentString(`
+    mutation cancelWorkflowChatTurn($workspaceId: ID!, $id: ID!) {
+  cancelWorkflowChatTurn(workspaceId: $workspaceId, id: $id)
+}
+    `);
+
+export const useCancelWorkflowChatTurnMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CancelWorkflowChatTurnMutation, TError, CancelWorkflowChatTurnMutationVariables, TContext>) => {
+    
+    return useMutation<CancelWorkflowChatTurnMutation, TError, CancelWorkflowChatTurnMutationVariables, TContext>(
+      {
+    mutationKey: ['cancelWorkflowChatTurn'],
+    mutationFn: (variables?: CancelWorkflowChatTurnMutationVariables) => fetcher<CancelWorkflowChatTurnMutation, CancelWorkflowChatTurnMutationVariables>(CancelWorkflowChatTurnDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateAgentChatAiHubChatDocument = new TypedDocumentString(`
+    mutation createAgentChatAiHubChat($workspaceId: ID!, $environment: Int!, $workflowExecutionId: String!, $projectDeploymentId: ID!, $title: String) {
+  createAgentChatAiHubChat(
+    workspaceId: $workspaceId
+    environment: $environment
+    workflowExecutionId: $workflowExecutionId
+    projectDeploymentId: $projectDeploymentId
+    title: $title
+  ) {
+    id
+    workspaceId
+    userId
+    threadId
+    title
+    lastPreview
+    messageCount
+    status
+    environmentId
+    createdAt
+    updatedAt
+    kind
+    workflowExecutionId
+    projectDeploymentId
+    autoTitled
+    aiAgentId
+    visibility
+    participation
+    ownerUserId
+    ownerName
+    isOwner
+  }
+}
+    `);
+
+export const useCreateAgentChatAiHubChatMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAgentChatAiHubChatMutation, TError, CreateAgentChatAiHubChatMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAgentChatAiHubChatMutation, TError, CreateAgentChatAiHubChatMutationVariables, TContext>(
+      {
+    mutationKey: ['createAgentChatAiHubChat'],
+    mutationFn: (variables?: CreateAgentChatAiHubChatMutationVariables) => fetcher<CreateAgentChatAiHubChatMutation, CreateAgentChatAiHubChatMutationVariables>(CreateAgentChatAiHubChatDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateAiHubChatDocument = new TypedDocumentString(`
+    mutation createAiHubChat($workspaceId: ID!, $environment: Int!, $threadId: String!) {
+  createAiHubChat(
+    workspaceId: $workspaceId
+    environment: $environment
+    threadId: $threadId
+  ) {
+    id
+    workspaceId
+    userId
+    threadId
+    title
+    lastPreview
+    messageCount
+    status
+    environmentId
+    createdAt
+    updatedAt
+    kind
+    workflowExecutionId
+    projectDeploymentId
+    autoTitled
+    aiAgentId
+    visibility
+    participation
+    ownerUserId
+    ownerName
+    isOwner
+  }
+}
+    `);
+
+export const useCreateAiHubChatMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiHubChatMutation, TError, CreateAiHubChatMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiHubChatMutation, TError, CreateAiHubChatMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiHubChat'],
+    mutationFn: (variables?: CreateAiHubChatMutationVariables) => fetcher<CreateAiHubChatMutation, CreateAiHubChatMutationVariables>(CreateAiHubChatDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateWorkflowChatAiHubChatDocument = new TypedDocumentString(`
+    mutation createWorkflowChatAiHubChat($workspaceId: ID!, $environment: Int!, $workflowExecutionId: String!, $projectDeploymentId: ID!, $title: String) {
+  createWorkflowChatAiHubChat(
+    workspaceId: $workspaceId
+    environment: $environment
+    workflowExecutionId: $workflowExecutionId
+    projectDeploymentId: $projectDeploymentId
+    title: $title
+  ) {
+    id
+    workspaceId
+    userId
+    threadId
+    title
+    lastPreview
+    messageCount
+    status
+    environmentId
+    createdAt
+    updatedAt
+    kind
+    workflowExecutionId
+    projectDeploymentId
+    autoTitled
+    aiAgentId
+    visibility
+    participation
+    ownerUserId
+    ownerName
+    isOwner
+  }
+}
+    `);
+
+export const useCreateWorkflowChatAiHubChatMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateWorkflowChatAiHubChatMutation, TError, CreateWorkflowChatAiHubChatMutationVariables, TContext>) => {
+    
+    return useMutation<CreateWorkflowChatAiHubChatMutation, TError, CreateWorkflowChatAiHubChatMutationVariables, TContext>(
+      {
+    mutationKey: ['createWorkflowChatAiHubChat'],
+    mutationFn: (variables?: CreateWorkflowChatAiHubChatMutationVariables) => fetcher<CreateWorkflowChatAiHubChatMutation, CreateWorkflowChatAiHubChatMutationVariables>(CreateWorkflowChatAiHubChatDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiHubChatDocument = new TypedDocumentString(`
+    mutation deleteAiHubChat($workspaceId: ID!, $id: ID!) {
+  deleteAiHubChat(workspaceId: $workspaceId, id: $id)
+}
+    `);
+
+export const useDeleteAiHubChatMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiHubChatMutation, TError, DeleteAiHubChatMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiHubChatMutation, TError, DeleteAiHubChatMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiHubChat'],
+    mutationFn: (variables?: DeleteAiHubChatMutationVariables) => fetcher<DeleteAiHubChatMutation, DeleteAiHubChatMutationVariables>(DeleteAiHubChatDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const GenerateAiHubChatTitleDocument = new TypedDocumentString(`
+    mutation generateAiHubChatTitle($workspaceId: ID!, $id: ID!) {
+  generateAiHubChatTitle(workspaceId: $workspaceId, id: $id) {
+    id
+    workspaceId
+    userId
+    threadId
+    title
+    lastPreview
+    messageCount
+    status
+    environmentId
+    createdAt
+    updatedAt
+    kind
+    workflowExecutionId
+    projectDeploymentId
+    autoTitled
+    aiAgentId
+    visibility
+    participation
+    ownerUserId
+    ownerName
+    isOwner
+  }
+}
+    `);
+
+export const useGenerateAiHubChatTitleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<GenerateAiHubChatTitleMutation, TError, GenerateAiHubChatTitleMutationVariables, TContext>) => {
+    
+    return useMutation<GenerateAiHubChatTitleMutation, TError, GenerateAiHubChatTitleMutationVariables, TContext>(
+      {
+    mutationKey: ['generateAiHubChatTitle'],
+    mutationFn: (variables?: GenerateAiHubChatTitleMutationVariables) => fetcher<GenerateAiHubChatTitleMutation, GenerateAiHubChatTitleMutationVariables>(GenerateAiHubChatTitleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const TruncateAiHubChatMessagesDocument = new TypedDocumentString(`
+    mutation truncateAiHubChatMessages($workspaceId: ID!, $id: ID!, $fromMessageIndex: Int!) {
+  truncateAiHubChatMessages(
+    workspaceId: $workspaceId
+    id: $id
+    fromMessageIndex: $fromMessageIndex
+  )
+}
+    `);
+
+export const useTruncateAiHubChatMessagesMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<TruncateAiHubChatMessagesMutation, TError, TruncateAiHubChatMessagesMutationVariables, TContext>) => {
+    
+    return useMutation<TruncateAiHubChatMessagesMutation, TError, TruncateAiHubChatMessagesMutationVariables, TContext>(
+      {
+    mutationKey: ['truncateAiHubChatMessages'],
+    mutationFn: (variables?: TruncateAiHubChatMessagesMutationVariables) => fetcher<TruncateAiHubChatMessagesMutation, TruncateAiHubChatMessagesMutationVariables>(TruncateAiHubChatMessagesDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiHubChatDocument = new TypedDocumentString(`
+    mutation updateAiHubChat($input: AiHubChatPatchInput!) {
+  updateAiHubChat(input: $input) {
+    id
+    workspaceId
+    userId
+    threadId
+    title
+    lastPreview
+    messageCount
+    status
+    environmentId
+    createdAt
+    updatedAt
+    kind
+    workflowExecutionId
+    projectDeploymentId
+    autoTitled
+    aiAgentId
+    visibility
+    participation
+    ownerUserId
+    ownerName
+    isOwner
+  }
+}
+    `);
+
+export const useUpdateAiHubChatMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiHubChatMutation, TError, UpdateAiHubChatMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiHubChatMutation, TError, UpdateAiHubChatMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiHubChat'],
+    mutationFn: (variables?: UpdateAiHubChatMutationVariables) => fetcher<UpdateAiHubChatMutation, UpdateAiHubChatMutationVariables>(UpdateAiHubChatDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AddAiHubMcpServerDocument = new TypedDocumentString(`
+    mutation addAiHubMcpServer($workspaceId: ID!, $name: String!, $url: String!, $authToken: String, $environment: Int!) {
+  addAiHubMcpServer(
+    workspaceId: $workspaceId
+    name: $name
+    url: $url
+    authToken: $authToken
+    environment: $environment
+  )
+}
+    `);
+
+export const useAddAiHubMcpServerMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AddAiHubMcpServerMutation, TError, AddAiHubMcpServerMutationVariables, TContext>) => {
+    
+    return useMutation<AddAiHubMcpServerMutation, TError, AddAiHubMcpServerMutationVariables, TContext>(
+      {
+    mutationKey: ['addAiHubMcpServer'],
+    mutationFn: (variables?: AddAiHubMcpServerMutationVariables) => fetcher<AddAiHubMcpServerMutation, AddAiHubMcpServerMutationVariables>(AddAiHubMcpServerDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiHubMcpServerToolsDocument = new TypedDocumentString(`
+    query aiHubMcpServerTools($workspaceId: ID!, $mcpServerId: ID!) {
+  aiHubMcpServerTools(workspaceId: $workspaceId, mcpServerId: $mcpServerId) {
+    description
+    enabled
+    name
+  }
+}
+    `);
+
+export const useAiHubMcpServerToolsQuery = <
+      TData = AiHubMcpServerToolsQuery,
+      TError = unknown
+    >(
+      variables: AiHubMcpServerToolsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubMcpServerToolsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubMcpServerToolsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubMcpServerToolsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubMcpServerTools', variables],
+    queryFn: fetcher<AiHubMcpServerToolsQuery, AiHubMcpServerToolsQueryVariables>(AiHubMcpServerToolsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiHubMcpServersDocument = new TypedDocumentString(`
+    query aiHubMcpServers($workspaceId: ID!) {
+  aiHubMcpServers(workspaceId: $workspaceId) {
+    enabled
+    hasAuthToken
+    id
+    name
+    url
+  }
+}
+    `);
+
+export const useAiHubMcpServersQuery = <
+      TData = AiHubMcpServersQuery,
+      TError = unknown
+    >(
+      variables: AiHubMcpServersQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubMcpServersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubMcpServersQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubMcpServersQuery, TError, TData>(
+      {
+    queryKey: ['aiHubMcpServers', variables],
+    queryFn: fetcher<AiHubMcpServersQuery, AiHubMcpServersQueryVariables>(AiHubMcpServersDocument, variables),
+    ...options
+  }
+    )};
+
+export const RemoveAiHubMcpServerDocument = new TypedDocumentString(`
+    mutation removeAiHubMcpServer($workspaceId: ID!, $mcpServerId: ID!) {
+  removeAiHubMcpServer(workspaceId: $workspaceId, mcpServerId: $mcpServerId)
+}
+    `);
+
+export const useRemoveAiHubMcpServerMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RemoveAiHubMcpServerMutation, TError, RemoveAiHubMcpServerMutationVariables, TContext>) => {
+    
+    return useMutation<RemoveAiHubMcpServerMutation, TError, RemoveAiHubMcpServerMutationVariables, TContext>(
+      {
+    mutationKey: ['removeAiHubMcpServer'],
+    mutationFn: (variables?: RemoveAiHubMcpServerMutationVariables) => fetcher<RemoveAiHubMcpServerMutation, RemoveAiHubMcpServerMutationVariables>(RemoveAiHubMcpServerDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetAiHubMcpServerEnabledDocument = new TypedDocumentString(`
+    mutation setAiHubMcpServerEnabled($workspaceId: ID!, $mcpServerId: ID!, $enabled: Boolean!) {
+  setAiHubMcpServerEnabled(
+    workspaceId: $workspaceId
+    mcpServerId: $mcpServerId
+    enabled: $enabled
+  )
+}
+    `);
+
+export const useSetAiHubMcpServerEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetAiHubMcpServerEnabledMutation, TError, SetAiHubMcpServerEnabledMutationVariables, TContext>) => {
+    
+    return useMutation<SetAiHubMcpServerEnabledMutation, TError, SetAiHubMcpServerEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['setAiHubMcpServerEnabled'],
+    mutationFn: (variables?: SetAiHubMcpServerEnabledMutationVariables) => fetcher<SetAiHubMcpServerEnabledMutation, SetAiHubMcpServerEnabledMutationVariables>(SetAiHubMcpServerEnabledDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetAiHubMcpServerToolEnabledDocument = new TypedDocumentString(`
+    mutation setAiHubMcpServerToolEnabled($workspaceId: ID!, $mcpServerId: ID!, $toolName: String!, $enabled: Boolean!) {
+  setAiHubMcpServerToolEnabled(
+    workspaceId: $workspaceId
+    mcpServerId: $mcpServerId
+    toolName: $toolName
+    enabled: $enabled
+  )
+}
+    `);
+
+export const useSetAiHubMcpServerToolEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetAiHubMcpServerToolEnabledMutation, TError, SetAiHubMcpServerToolEnabledMutationVariables, TContext>) => {
+    
+    return useMutation<SetAiHubMcpServerToolEnabledMutation, TError, SetAiHubMcpServerToolEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['setAiHubMcpServerToolEnabled'],
+    mutationFn: (variables?: SetAiHubMcpServerToolEnabledMutationVariables) => fetcher<SetAiHubMcpServerToolEnabledMutation, SetAiHubMcpServerToolEnabledMutationVariables>(SetAiHubMcpServerToolEnabledDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiHubToolApprovalDefaultToolNamesDocument = new TypedDocumentString(`
+    query aiHubToolApprovalDefaultToolNames {
+  aiHubToolApprovalDefaultToolNames
+}
+    `);
+
+export const useAiHubToolApprovalDefaultToolNamesQuery = <
+      TData = AiHubToolApprovalDefaultToolNamesQuery,
+      TError = unknown
+    >(
+      variables?: AiHubToolApprovalDefaultToolNamesQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubToolApprovalDefaultToolNamesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubToolApprovalDefaultToolNamesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubToolApprovalDefaultToolNamesQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['aiHubToolApprovalDefaultToolNames'] : ['aiHubToolApprovalDefaultToolNames', variables],
+    queryFn: fetcher<AiHubToolApprovalDefaultToolNamesQuery, AiHubToolApprovalDefaultToolNamesQueryVariables>(AiHubToolApprovalDefaultToolNamesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiHubToolApprovalRulesDocument = new TypedDocumentString(`
+    query aiHubToolApprovalRules($workspaceId: ID!) {
+  aiHubToolApprovalRules(workspaceId: $workspaceId) {
+    id
+    workspaceId
+    toolKind
+    componentName
+    toolName
+    mode
+  }
+}
+    `);
+
+export const useAiHubToolApprovalRulesQuery = <
+      TData = AiHubToolApprovalRulesQuery,
+      TError = unknown
+    >(
+      variables: AiHubToolApprovalRulesQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubToolApprovalRulesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubToolApprovalRulesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubToolApprovalRulesQuery, TError, TData>(
+      {
+    queryKey: ['aiHubToolApprovalRules', variables],
+    queryFn: fetcher<AiHubToolApprovalRulesQuery, AiHubToolApprovalRulesQueryVariables>(AiHubToolApprovalRulesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiHubToolApprovalsDocument = new TypedDocumentString(`
+    query aiHubToolApprovals($workspaceId: ID!, $chatId: ID!) {
+  aiHubToolApprovals(workspaceId: $workspaceId, chatId: $chatId) {
+    id
+    chatId
+    toolName
+    componentName
+    status
+    decidedByUserId
+    decidedAt
+    comment
+    expiresAt
+    executionError
+  }
+}
+    `);
+
+export const useAiHubToolApprovalsQuery = <
+      TData = AiHubToolApprovalsQuery,
+      TError = unknown
+    >(
+      variables: AiHubToolApprovalsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubToolApprovalsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubToolApprovalsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubToolApprovalsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubToolApprovals', variables],
+    queryFn: fetcher<AiHubToolApprovalsQuery, AiHubToolApprovalsQueryVariables>(AiHubToolApprovalsDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiHubToolApprovalRuleDocument = new TypedDocumentString(`
+    mutation createAiHubToolApprovalRule($workspaceId: ID!, $toolKind: AiHubToolKind!, $componentName: String, $toolName: String!, $mode: AiHubToolApprovalRuleMode!) {
+  createAiHubToolApprovalRule(
+    workspaceId: $workspaceId
+    toolKind: $toolKind
+    componentName: $componentName
+    toolName: $toolName
+    mode: $mode
+  ) {
+    id
+    workspaceId
+    toolKind
+    componentName
+    toolName
+    mode
+  }
+}
+    `);
+
+export const useCreateAiHubToolApprovalRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiHubToolApprovalRuleMutation, TError, CreateAiHubToolApprovalRuleMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiHubToolApprovalRuleMutation, TError, CreateAiHubToolApprovalRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiHubToolApprovalRule'],
+    mutationFn: (variables?: CreateAiHubToolApprovalRuleMutationVariables) => fetcher<CreateAiHubToolApprovalRuleMutation, CreateAiHubToolApprovalRuleMutationVariables>(CreateAiHubToolApprovalRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiHubToolApprovalRuleDocument = new TypedDocumentString(`
+    mutation deleteAiHubToolApprovalRule($workspaceId: ID!, $ruleId: ID!) {
+  deleteAiHubToolApprovalRule(workspaceId: $workspaceId, ruleId: $ruleId)
+}
+    `);
+
+export const useDeleteAiHubToolApprovalRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiHubToolApprovalRuleMutation, TError, DeleteAiHubToolApprovalRuleMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiHubToolApprovalRuleMutation, TError, DeleteAiHubToolApprovalRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiHubToolApprovalRule'],
+    mutationFn: (variables?: DeleteAiHubToolApprovalRuleMutationVariables) => fetcher<DeleteAiHubToolApprovalRuleMutation, DeleteAiHubToolApprovalRuleMutationVariables>(DeleteAiHubToolApprovalRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const ResolveAiHubToolApprovalDocument = new TypedDocumentString(`
+    mutation resolveAiHubToolApproval($workspaceId: ID!, $approvalId: ID!, $approved: Boolean!, $comment: String) {
+  resolveAiHubToolApproval(
+    workspaceId: $workspaceId
+    approvalId: $approvalId
+    approved: $approved
+    comment: $comment
+  ) {
+    continuationStarted
+    runId
+    approval {
+      id
+      status
+      executionError
+    }
+  }
+}
+    `);
+
+export const useResolveAiHubToolApprovalMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<ResolveAiHubToolApprovalMutation, TError, ResolveAiHubToolApprovalMutationVariables, TContext>) => {
+    
+    return useMutation<ResolveAiHubToolApprovalMutation, TError, ResolveAiHubToolApprovalMutationVariables, TContext>(
+      {
+    mutationKey: ['resolveAiHubToolApproval'],
+    mutationFn: (variables?: ResolveAiHubToolApprovalMutationVariables) => fetcher<ResolveAiHubToolApprovalMutation, ResolveAiHubToolApprovalMutationVariables>(ResolveAiHubToolApprovalDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiHubWorkspaceSettingsDocument = new TypedDocumentString(`
+    query aiHubWorkspaceSettings($workspaceId: ID!) {
+  aiHubWorkspaceSettings(workspaceId: $workspaceId) {
+    workspaceId
+    voiceWebhookUrl
+  }
+}
+    `);
+
+export const useAiHubWorkspaceSettingsQuery = <
+      TData = AiHubWorkspaceSettingsQuery,
+      TError = unknown
+    >(
+      variables: AiHubWorkspaceSettingsQueryVariables,
+      options?: Omit<UseQueryOptions<AiHubWorkspaceSettingsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiHubWorkspaceSettingsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiHubWorkspaceSettingsQuery, TError, TData>(
+      {
+    queryKey: ['aiHubWorkspaceSettings', variables],
+    queryFn: fetcher<AiHubWorkspaceSettingsQuery, AiHubWorkspaceSettingsQueryVariables>(AiHubWorkspaceSettingsDocument, variables),
+    ...options
+  }
+    )};
+
+export const UpdateAiHubVoiceWebhookUrlDocument = new TypedDocumentString(`
+    mutation updateAiHubVoiceWebhookUrl($input: UpdateAiHubVoiceWebhookUrlInput!) {
+  updateAiHubVoiceWebhookUrl(input: $input) {
+    workspaceId
+    voiceWebhookUrl
+  }
+}
+    `);
+
+export const useUpdateAiHubVoiceWebhookUrlMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiHubVoiceWebhookUrlMutation, TError, UpdateAiHubVoiceWebhookUrlMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiHubVoiceWebhookUrlMutation, TError, UpdateAiHubVoiceWebhookUrlMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiHubVoiceWebhookUrl'],
+    mutationFn: (variables?: UpdateAiHubVoiceWebhookUrlMutationVariables) => fetcher<UpdateAiHubVoiceWebhookUrlMutation, UpdateAiHubVoiceWebhookUrlMutationVariables>(UpdateAiHubVoiceWebhookUrlDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const AiAutoMemoriesDocument = new TypedDocumentString(`
     query aiAutoMemories($workspaceId: ID!, $environment: Int!, $memoryType: AiAutoMemoryType, $principal: AiAutoMemoryPrincipalInput) {
   aiAutoMemories(
@@ -3447,6 +6651,3390 @@ export const useUpdateAiSkillTagsMutation = <
   }
     )};
 
+export const AuditEventsDocument = new TypedDocumentString(`
+    query AuditEvents($principal: String, $eventType: String, $fromDate: Long, $toDate: Long, $dataSearch: String, $page: Int, $size: Int) {
+  auditEvents(
+    principal: $principal
+    eventType: $eventType
+    fromDate: $fromDate
+    toDate: $toDate
+    dataSearch: $dataSearch
+    page: $page
+    size: $size
+  ) {
+    content {
+      data {
+        key
+        value
+      }
+      eventDate
+      eventType
+      id
+      principal
+    }
+    number
+    size
+    totalElements
+    totalPages
+  }
+}
+    `);
+
+export const useAuditEventsQuery = <
+      TData = AuditEventsQuery,
+      TError = unknown
+    >(
+      variables?: AuditEventsQueryVariables,
+      options?: Omit<UseQueryOptions<AuditEventsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AuditEventsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AuditEventsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['AuditEvents'] : ['AuditEvents', variables],
+    queryFn: fetcher<AuditEventsQuery, AuditEventsQueryVariables>(AuditEventsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AuditEventTypesDocument = new TypedDocumentString(`
+    query AuditEventTypes {
+  auditEventTypes
+}
+    `);
+
+export const useAuditEventTypesQuery = <
+      TData = AuditEventTypesQuery,
+      TError = unknown
+    >(
+      variables?: AuditEventTypesQueryVariables,
+      options?: Omit<UseQueryOptions<AuditEventTypesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AuditEventTypesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AuditEventTypesQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['AuditEventTypes'] : ['AuditEventTypes', variables],
+    queryFn: fetcher<AuditEventTypesQuery, AuditEventTypesQueryVariables>(AuditEventTypesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiDatasetsDocument = new TypedDocumentString(`
+    query aiDatasets($workspaceId: ID!) {
+  aiDatasets: aiEvalDatasets(workspaceId: $workspaceId) {
+    archivedDate
+    createdDate
+    description
+    id
+    name
+    tags
+    workspaceId
+  }
+}
+    `);
+
+export const useAiDatasetsQuery = <
+      TData = AiDatasetsQuery,
+      TError = unknown
+    >(
+      variables: AiDatasetsQueryVariables,
+      options?: Omit<UseQueryOptions<AiDatasetsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiDatasetsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiDatasetsQuery, TError, TData>(
+      {
+    queryKey: ['aiDatasets', variables],
+    queryFn: fetcher<AiDatasetsQuery, AiDatasetsQueryVariables>(AiDatasetsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiDatasetVersionsDocument = new TypedDocumentString(`
+    query aiDatasetVersions($datasetId: ID!) {
+  aiDatasetVersions: aiEvalDatasetVersions(datasetId: $datasetId) {
+    createdDate
+    datasetId
+    frozen
+    id
+    itemCount
+    label
+  }
+}
+    `);
+
+export const useAiDatasetVersionsQuery = <
+      TData = AiDatasetVersionsQuery,
+      TError = unknown
+    >(
+      variables: AiDatasetVersionsQueryVariables,
+      options?: Omit<UseQueryOptions<AiDatasetVersionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiDatasetVersionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiDatasetVersionsQuery, TError, TData>(
+      {
+    queryKey: ['aiDatasetVersions', variables],
+    queryFn: fetcher<AiDatasetVersionsQuery, AiDatasetVersionsQueryVariables>(AiDatasetVersionsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiDatasetItemsDocument = new TypedDocumentString(`
+    query aiDatasetItems($versionId: ID!) {
+  aiDatasetItems: aiEvalDatasetItems(versionId: $versionId) {
+    createdDate
+    datasetVersionId
+    expectedOutput
+    id
+    input
+    metadata
+    sourceTraceId
+  }
+}
+    `);
+
+export const useAiDatasetItemsQuery = <
+      TData = AiDatasetItemsQuery,
+      TError = unknown
+    >(
+      variables: AiDatasetItemsQueryVariables,
+      options?: Omit<UseQueryOptions<AiDatasetItemsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiDatasetItemsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiDatasetItemsQuery, TError, TData>(
+      {
+    queryKey: ['aiDatasetItems', variables],
+    queryFn: fetcher<AiDatasetItemsQuery, AiDatasetItemsQueryVariables>(AiDatasetItemsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiEvalRulesDocument = new TypedDocumentString(`
+    query aiEvalRules($workspaceId: ID!) {
+  aiEvalRules(workspaceId: $workspaceId) {
+    createdDate
+    delaySeconds
+    enabled
+    filters
+    id
+    lastModifiedDate
+    model
+    name
+    projectId
+    promptTemplate
+    samplingRate
+    scoreConfigId
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiEvalRulesQuery = <
+      TData = AiEvalRulesQuery,
+      TError = unknown
+    >(
+      variables: AiEvalRulesQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalRulesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalRulesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalRulesQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalRules', variables],
+    queryFn: fetcher<AiEvalRulesQuery, AiEvalRulesQueryVariables>(AiEvalRulesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiEvalRuleDocument = new TypedDocumentString(`
+    query aiEvalRule($id: ID!) {
+  aiEvalRule(id: $id) {
+    createdDate
+    delaySeconds
+    enabled
+    filters
+    id
+    lastModifiedDate
+    model
+    name
+    projectId
+    promptTemplate
+    samplingRate
+    scoreConfigId
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiEvalRuleQuery = <
+      TData = AiEvalRuleQuery,
+      TError = unknown
+    >(
+      variables: AiEvalRuleQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalRuleQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalRuleQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalRuleQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalRule', variables],
+    queryFn: fetcher<AiEvalRuleQuery, AiEvalRuleQueryVariables>(AiEvalRuleDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiEvalExecutionsDocument = new TypedDocumentString(`
+    query aiEvalExecutions($evalRuleId: ID!) {
+  aiEvalExecutions(evalRuleId: $evalRuleId) {
+    createdDate
+    errorMessage
+    evalRuleId
+    id
+    scoreId
+    status
+    traceId
+  }
+}
+    `);
+
+export const useAiEvalExecutionsQuery = <
+      TData = AiEvalExecutionsQuery,
+      TError = unknown
+    >(
+      variables: AiEvalExecutionsQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalExecutionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalExecutionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalExecutionsQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalExecutions', variables],
+    queryFn: fetcher<AiEvalExecutionsQuery, AiEvalExecutionsQueryVariables>(AiEvalExecutionsDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiEvalRuleDocument = new TypedDocumentString(`
+    mutation createAiEvalRule($delaySeconds: Int, $enabled: Boolean!, $filters: String, $model: String!, $name: String!, $projectId: ID, $promptTemplate: String!, $samplingRate: Float!, $scoreConfigId: ID!, $workspaceId: ID!) {
+  createAiEvalRule(
+    delaySeconds: $delaySeconds
+    enabled: $enabled
+    filters: $filters
+    model: $model
+    name: $name
+    projectId: $projectId
+    promptTemplate: $promptTemplate
+    samplingRate: $samplingRate
+    scoreConfigId: $scoreConfigId
+    workspaceId: $workspaceId
+  ) {
+    id
+    name
+  }
+}
+    `);
+
+export const useCreateAiEvalRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiEvalRuleMutation, TError, CreateAiEvalRuleMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiEvalRuleMutation, TError, CreateAiEvalRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiEvalRule'],
+    mutationFn: (variables?: CreateAiEvalRuleMutationVariables) => fetcher<CreateAiEvalRuleMutation, CreateAiEvalRuleMutationVariables>(CreateAiEvalRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiEvalRuleDocument = new TypedDocumentString(`
+    mutation deleteAiEvalRule($id: ID!) {
+  deleteAiEvalRule(id: $id)
+}
+    `);
+
+export const useDeleteAiEvalRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiEvalRuleMutation, TError, DeleteAiEvalRuleMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiEvalRuleMutation, TError, DeleteAiEvalRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiEvalRule'],
+    mutationFn: (variables?: DeleteAiEvalRuleMutationVariables) => fetcher<DeleteAiEvalRuleMutation, DeleteAiEvalRuleMutationVariables>(DeleteAiEvalRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RunAiEvalRuleOnHistoricalTracesDocument = new TypedDocumentString(`
+    mutation runAiEvalRuleOnHistoricalTraces($ruleId: ID!, $startDate: Long!, $endDate: Long!) {
+  runAiEvalRuleOnHistoricalTraces(
+    ruleId: $ruleId
+    startDate: $startDate
+    endDate: $endDate
+  )
+}
+    `);
+
+export const useRunAiEvalRuleOnHistoricalTracesMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RunAiEvalRuleOnHistoricalTracesMutation, TError, RunAiEvalRuleOnHistoricalTracesMutationVariables, TContext>) => {
+    
+    return useMutation<RunAiEvalRuleOnHistoricalTracesMutation, TError, RunAiEvalRuleOnHistoricalTracesMutationVariables, TContext>(
+      {
+    mutationKey: ['runAiEvalRuleOnHistoricalTraces'],
+    mutationFn: (variables?: RunAiEvalRuleOnHistoricalTracesMutationVariables) => fetcher<RunAiEvalRuleOnHistoricalTracesMutation, RunAiEvalRuleOnHistoricalTracesMutationVariables>(RunAiEvalRuleOnHistoricalTracesDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiEvalRuleDocument = new TypedDocumentString(`
+    mutation updateAiEvalRule($delaySeconds: Int, $enabled: Boolean!, $filters: String, $id: ID!, $model: String!, $name: String!, $promptTemplate: String!, $samplingRate: Float!, $scoreConfigId: ID!) {
+  updateAiEvalRule(
+    delaySeconds: $delaySeconds
+    enabled: $enabled
+    filters: $filters
+    id: $id
+    model: $model
+    name: $name
+    promptTemplate: $promptTemplate
+    samplingRate: $samplingRate
+    scoreConfigId: $scoreConfigId
+  ) {
+    id
+    name
+  }
+}
+    `);
+
+export const useUpdateAiEvalRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiEvalRuleMutation, TError, UpdateAiEvalRuleMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiEvalRuleMutation, TError, UpdateAiEvalRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiEvalRule'],
+    mutationFn: (variables?: UpdateAiEvalRuleMutationVariables) => fetcher<UpdateAiEvalRuleMutation, UpdateAiEvalRuleMutationVariables>(UpdateAiEvalRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiEvalScoreConfigsDocument = new TypedDocumentString(`
+    query aiEvalScoreConfigs($workspaceId: ID!) {
+  aiEvalScoreConfigs(workspaceId: $workspaceId) {
+    categories
+    createdDate
+    dataType
+    description
+    id
+    lastModifiedDate
+    maxValue
+    minValue
+    name
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiEvalScoreConfigsQuery = <
+      TData = AiEvalScoreConfigsQuery,
+      TError = unknown
+    >(
+      variables: AiEvalScoreConfigsQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalScoreConfigsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalScoreConfigsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalScoreConfigsQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalScoreConfigs', variables],
+    queryFn: fetcher<AiEvalScoreConfigsQuery, AiEvalScoreConfigsQueryVariables>(AiEvalScoreConfigsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiEvalScoreConfigDocument = new TypedDocumentString(`
+    query aiEvalScoreConfig($id: ID!) {
+  aiEvalScoreConfig(id: $id) {
+    categories
+    createdDate
+    dataType
+    description
+    id
+    lastModifiedDate
+    maxValue
+    minValue
+    name
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiEvalScoreConfigQuery = <
+      TData = AiEvalScoreConfigQuery,
+      TError = unknown
+    >(
+      variables: AiEvalScoreConfigQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalScoreConfigQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalScoreConfigQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalScoreConfigQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalScoreConfig', variables],
+    queryFn: fetcher<AiEvalScoreConfigQuery, AiEvalScoreConfigQueryVariables>(AiEvalScoreConfigDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiEvalScoreConfigDocument = new TypedDocumentString(`
+    mutation createAiEvalScoreConfig($categories: String, $dataType: AiEvalScoreDataType, $description: String, $maxValue: Float, $minValue: Float, $name: String!, $workspaceId: ID!) {
+  createAiEvalScoreConfig(
+    categories: $categories
+    dataType: $dataType
+    description: $description
+    maxValue: $maxValue
+    minValue: $minValue
+    name: $name
+    workspaceId: $workspaceId
+  ) {
+    id
+    name
+  }
+}
+    `);
+
+export const useCreateAiEvalScoreConfigMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiEvalScoreConfigMutation, TError, CreateAiEvalScoreConfigMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiEvalScoreConfigMutation, TError, CreateAiEvalScoreConfigMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiEvalScoreConfig'],
+    mutationFn: (variables?: CreateAiEvalScoreConfigMutationVariables) => fetcher<CreateAiEvalScoreConfigMutation, CreateAiEvalScoreConfigMutationVariables>(CreateAiEvalScoreConfigDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiEvalScoreConfigDocument = new TypedDocumentString(`
+    mutation deleteAiEvalScoreConfig($id: ID!) {
+  deleteAiEvalScoreConfig(id: $id)
+}
+    `);
+
+export const useDeleteAiEvalScoreConfigMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiEvalScoreConfigMutation, TError, DeleteAiEvalScoreConfigMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiEvalScoreConfigMutation, TError, DeleteAiEvalScoreConfigMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiEvalScoreConfig'],
+    mutationFn: (variables?: DeleteAiEvalScoreConfigMutationVariables) => fetcher<DeleteAiEvalScoreConfigMutation, DeleteAiEvalScoreConfigMutationVariables>(DeleteAiEvalScoreConfigDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiEvalScoreConfigDocument = new TypedDocumentString(`
+    mutation updateAiEvalScoreConfig($categories: String, $dataType: AiEvalScoreDataType, $description: String, $id: ID!, $maxValue: Float, $minValue: Float, $name: String!) {
+  updateAiEvalScoreConfig(
+    categories: $categories
+    dataType: $dataType
+    description: $description
+    id: $id
+    maxValue: $maxValue
+    minValue: $minValue
+    name: $name
+  ) {
+    id
+    name
+  }
+}
+    `);
+
+export const useUpdateAiEvalScoreConfigMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiEvalScoreConfigMutation, TError, UpdateAiEvalScoreConfigMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiEvalScoreConfigMutation, TError, UpdateAiEvalScoreConfigMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiEvalScoreConfig'],
+    mutationFn: (variables?: UpdateAiEvalScoreConfigMutationVariables) => fetcher<UpdateAiEvalScoreConfigMutation, UpdateAiEvalScoreConfigMutationVariables>(UpdateAiEvalScoreConfigDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiEvalScoresDocument = new TypedDocumentString(`
+    query aiEvalScores($workspaceId: ID!) {
+  aiEvalScores(workspaceId: $workspaceId) {
+    comment
+    createdBy
+    createdDate
+    dataType
+    evalRuleId
+    id
+    name
+    source
+    spanId
+    stringValue
+    traceId
+    value
+    workspaceId
+  }
+}
+    `);
+
+export const useAiEvalScoresQuery = <
+      TData = AiEvalScoresQuery,
+      TError = unknown
+    >(
+      variables: AiEvalScoresQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalScoresQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalScoresQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalScoresQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalScores', variables],
+    queryFn: fetcher<AiEvalScoresQuery, AiEvalScoresQueryVariables>(AiEvalScoresDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiEvalScoresByTraceDocument = new TypedDocumentString(`
+    query aiEvalScoresByTrace($traceId: ID!) {
+  aiEvalScoresByTrace(traceId: $traceId) {
+    comment
+    createdBy
+    createdDate
+    dataType
+    evalRuleId
+    id
+    name
+    source
+    spanId
+    stringValue
+    traceId
+    value
+    workspaceId
+  }
+}
+    `);
+
+export const useAiEvalScoresByTraceQuery = <
+      TData = AiEvalScoresByTraceQuery,
+      TError = unknown
+    >(
+      variables: AiEvalScoresByTraceQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalScoresByTraceQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalScoresByTraceQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalScoresByTraceQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalScoresByTrace', variables],
+    queryFn: fetcher<AiEvalScoresByTraceQuery, AiEvalScoresByTraceQueryVariables>(AiEvalScoresByTraceDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiEvalScoreDocument = new TypedDocumentString(`
+    mutation createAiEvalScore($comment: String, $dataType: AiEvalScoreDataType!, $name: String!, $source: AiEvalScoreSource!, $spanId: ID, $stringValue: String, $traceId: ID!, $value: Float, $workspaceId: ID!) {
+  createAiEvalScore(
+    comment: $comment
+    dataType: $dataType
+    name: $name
+    source: $source
+    spanId: $spanId
+    stringValue: $stringValue
+    traceId: $traceId
+    value: $value
+    workspaceId: $workspaceId
+  ) {
+    id
+    name
+  }
+}
+    `);
+
+export const useCreateAiEvalScoreMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiEvalScoreMutation, TError, CreateAiEvalScoreMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiEvalScoreMutation, TError, CreateAiEvalScoreMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiEvalScore'],
+    mutationFn: (variables?: CreateAiEvalScoreMutationVariables) => fetcher<CreateAiEvalScoreMutation, CreateAiEvalScoreMutationVariables>(CreateAiEvalScoreDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiEvalScoreDocument = new TypedDocumentString(`
+    mutation deleteAiEvalScore($id: ID!) {
+  deleteAiEvalScore(id: $id)
+}
+    `);
+
+export const useDeleteAiEvalScoreMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiEvalScoreMutation, TError, DeleteAiEvalScoreMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiEvalScoreMutation, TError, DeleteAiEvalScoreMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiEvalScore'],
+    mutationFn: (variables?: DeleteAiEvalScoreMutationVariables) => fetcher<DeleteAiEvalScoreMutation, DeleteAiEvalScoreMutationVariables>(DeleteAiEvalScoreDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiEvalScoreAnalyticsDocument = new TypedDocumentString(`
+    query aiEvalScoreAnalytics($workspaceId: ID!, $startDate: Long!, $endDate: Long!) {
+  aiEvalScoreAnalytics(
+    workspaceId: $workspaceId
+    startDate: $startDate
+    endDate: $endDate
+  ) {
+    average
+    count
+    dataType
+    distribution {
+      count
+      value
+    }
+    max
+    min
+    name
+  }
+}
+    `);
+
+export const useAiEvalScoreAnalyticsQuery = <
+      TData = AiEvalScoreAnalyticsQuery,
+      TError = unknown
+    >(
+      variables: AiEvalScoreAnalyticsQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalScoreAnalyticsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalScoreAnalyticsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalScoreAnalyticsQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalScoreAnalytics', variables],
+    queryFn: fetcher<AiEvalScoreAnalyticsQuery, AiEvalScoreAnalyticsQueryVariables>(AiEvalScoreAnalyticsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiEvalScoreTrendDocument = new TypedDocumentString(`
+    query aiEvalScoreTrend($workspaceId: ID!, $name: String!, $startDate: Long!, $endDate: Long!) {
+  aiEvalScoreTrend(
+    workspaceId: $workspaceId
+    name: $name
+    startDate: $startDate
+    endDate: $endDate
+  ) {
+    average
+    count
+    day
+  }
+}
+    `);
+
+export const useAiEvalScoreTrendQuery = <
+      TData = AiEvalScoreTrendQuery,
+      TError = unknown
+    >(
+      variables: AiEvalScoreTrendQueryVariables,
+      options?: Omit<UseQueryOptions<AiEvalScoreTrendQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiEvalScoreTrendQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiEvalScoreTrendQuery, TError, TData>(
+      {
+    queryKey: ['aiEvalScoreTrend', variables],
+    queryFn: fetcher<AiEvalScoreTrendQuery, AiEvalScoreTrendQueryVariables>(AiEvalScoreTrendDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiExperimentComparisonDocument = new TypedDocumentString(`
+    query aiExperimentComparison($experimentIds: [ID!]!) {
+  experimentComparison(experimentIds: $experimentIds) {
+    aggregateScoreDeltas {
+      deltas {
+        average
+        count
+        experimentId
+      }
+      scoreName
+    }
+    experiments {
+      averageLatencyMs
+      completedRuns
+      failedRuns
+      id
+      model
+      totalCost
+      totalRuns
+    }
+    rows {
+      datasetItemId
+      runsByExperiment {
+        cost
+        experimentId
+        latencyMs
+        runId
+        scores {
+          dataType
+          name
+          stringValue
+          value
+        }
+        status
+        traceId
+      }
+    }
+  }
+}
+    `);
+
+export const useAiExperimentComparisonQuery = <
+      TData = AiExperimentComparisonQuery,
+      TError = unknown
+    >(
+      variables: AiExperimentComparisonQueryVariables,
+      options?: Omit<UseQueryOptions<AiExperimentComparisonQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiExperimentComparisonQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiExperimentComparisonQuery, TError, TData>(
+      {
+    queryKey: ['aiExperimentComparison', variables],
+    queryFn: fetcher<AiExperimentComparisonQuery, AiExperimentComparisonQueryVariables>(AiExperimentComparisonDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiExperimentsDocument = new TypedDocumentString(`
+    query aiExperiments($workspaceId: ID!) {
+  aiExperiments: aiEvalExperiments(workspaceId: $workspaceId) {
+    completedDate
+    completedRuns
+    createdDate
+    datasetVersionId
+    failedRuns
+    id
+    metadata
+    model
+    promptVersionId
+    startedDate
+    status
+    stopRequested
+    totalRuns
+  }
+}
+    `);
+
+export const useAiExperimentsQuery = <
+      TData = AiExperimentsQuery,
+      TError = unknown
+    >(
+      variables: AiExperimentsQueryVariables,
+      options?: Omit<UseQueryOptions<AiExperimentsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiExperimentsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiExperimentsQuery, TError, TData>(
+      {
+    queryKey: ['aiExperiments', variables],
+    queryFn: fetcher<AiExperimentsQuery, AiExperimentsQueryVariables>(AiExperimentsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiExperimentRunsDocument = new TypedDocumentString(`
+    query aiExperimentRuns($experimentId: ID!) {
+  aiExperimentRuns: aiEvalExperimentRuns(experimentId: $experimentId) {
+    cost
+    createdDate
+    datasetItemId
+    errorMessage
+    experimentId
+    id
+    latencyMs
+    status
+    traceId
+  }
+}
+    `);
+
+export const useAiExperimentRunsQuery = <
+      TData = AiExperimentRunsQuery,
+      TError = unknown
+    >(
+      variables: AiExperimentRunsQueryVariables,
+      options?: Omit<UseQueryOptions<AiExperimentRunsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiExperimentRunsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiExperimentRunsQuery, TError, TData>(
+      {
+    queryKey: ['aiExperimentRuns', variables],
+    queryFn: fetcher<AiExperimentRunsQuery, AiExperimentRunsQueryVariables>(AiExperimentRunsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiExperimentRunByTraceIdDocument = new TypedDocumentString(`
+    query aiExperimentRunByTraceId($traceId: ID!) {
+  aiExperimentRunByTraceId: aiEvalExperimentRunByTraceId(traceId: $traceId) {
+    cost
+    createdDate
+    datasetItemId
+    errorMessage
+    experimentId
+    id
+    latencyMs
+    status
+    traceId
+  }
+}
+    `);
+
+export const useAiExperimentRunByTraceIdQuery = <
+      TData = AiExperimentRunByTraceIdQuery,
+      TError = unknown
+    >(
+      variables: AiExperimentRunByTraceIdQueryVariables,
+      options?: Omit<UseQueryOptions<AiExperimentRunByTraceIdQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiExperimentRunByTraceIdQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiExperimentRunByTraceIdQuery, TError, TData>(
+      {
+    queryKey: ['aiExperimentRunByTraceId', variables],
+    queryFn: fetcher<AiExperimentRunByTraceIdQuery, AiExperimentRunByTraceIdQueryVariables>(AiExperimentRunByTraceIdDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiGatewayBudgetDocument = new TypedDocumentString(`
+    query aiGatewayBudget($workspaceId: ID!) {
+  aiGatewayBudget(workspaceId: $workspaceId) {
+    alertThreshold
+    amount
+    createdDate
+    enabled
+    enforcementMode
+    id
+    lastModifiedDate
+    period
+    version
+  }
+}
+    `);
+
+export const useAiGatewayBudgetQuery = <
+      TData = AiGatewayBudgetQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayBudgetQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayBudgetQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayBudgetQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayBudgetQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayBudget', variables],
+    queryFn: fetcher<AiGatewayBudgetQuery, AiGatewayBudgetQueryVariables>(AiGatewayBudgetDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiGatewayBudgetDocument = new TypedDocumentString(`
+    mutation createAiGatewayBudget($input: CreateAiGatewayBudgetInput!) {
+  createAiGatewayBudget(input: $input) {
+    alertThreshold
+    amount
+    createdDate
+    enabled
+    enforcementMode
+    id
+    lastModifiedDate
+    period
+    version
+  }
+}
+    `);
+
+export const useCreateAiGatewayBudgetMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiGatewayBudgetMutation, TError, CreateAiGatewayBudgetMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiGatewayBudgetMutation, TError, CreateAiGatewayBudgetMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiGatewayBudget'],
+    mutationFn: (variables?: CreateAiGatewayBudgetMutationVariables) => fetcher<CreateAiGatewayBudgetMutation, CreateAiGatewayBudgetMutationVariables>(CreateAiGatewayBudgetDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayBudgetDocument = new TypedDocumentString(`
+    mutation updateAiGatewayBudget($id: ID!, $input: UpdateAiGatewayBudgetInput!) {
+  updateAiGatewayBudget(id: $id, input: $input) {
+    alertThreshold
+    amount
+    createdDate
+    enabled
+    enforcementMode
+    id
+    lastModifiedDate
+    period
+    version
+  }
+}
+    `);
+
+export const useUpdateAiGatewayBudgetMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayBudgetMutation, TError, UpdateAiGatewayBudgetMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayBudgetMutation, TError, UpdateAiGatewayBudgetMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayBudget'],
+    mutationFn: (variables?: UpdateAiGatewayBudgetMutationVariables) => fetcher<UpdateAiGatewayBudgetMutation, UpdateAiGatewayBudgetMutationVariables>(UpdateAiGatewayBudgetDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiGatewayBudgetDocument = new TypedDocumentString(`
+    mutation deleteAiGatewayBudget($id: ID!) {
+  deleteAiGatewayBudget(id: $id)
+}
+    `);
+
+export const useDeleteAiGatewayBudgetMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiGatewayBudgetMutation, TError, DeleteAiGatewayBudgetMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiGatewayBudgetMutation, TError, DeleteAiGatewayBudgetMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiGatewayBudget'],
+    mutationFn: (variables?: DeleteAiGatewayBudgetMutationVariables) => fetcher<DeleteAiGatewayBudgetMutation, DeleteAiGatewayBudgetMutationVariables>(DeleteAiGatewayBudgetDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiGatewayModelsDocument = new TypedDocumentString(`
+    query aiGatewayModels {
+  aiGatewayModels {
+    alias
+    capabilities
+    contextWindow
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useAiGatewayModelsQuery = <
+      TData = AiGatewayModelsQuery,
+      TError = unknown
+    >(
+      variables?: AiGatewayModelsQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayModelsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayModelsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayModelsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['aiGatewayModels'] : ['aiGatewayModels', variables],
+    queryFn: fetcher<AiGatewayModelsQuery, AiGatewayModelsQueryVariables>(AiGatewayModelsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiGatewayModelsByProviderDocument = new TypedDocumentString(`
+    query aiGatewayModelsByProvider($providerId: ID!) {
+  aiGatewayModelsByProvider(providerId: $providerId) {
+    alias
+    capabilities
+    contextWindow
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useAiGatewayModelsByProviderQuery = <
+      TData = AiGatewayModelsByProviderQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayModelsByProviderQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayModelsByProviderQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayModelsByProviderQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayModelsByProviderQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayModelsByProvider', variables],
+    queryFn: fetcher<AiGatewayModelsByProviderQuery, AiGatewayModelsByProviderQueryVariables>(AiGatewayModelsByProviderDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiGatewayModelDocument = new TypedDocumentString(`
+    mutation createAiGatewayModel($input: CreateAiGatewayModelInput!) {
+  createAiGatewayModel(input: $input) {
+    alias
+    capabilities
+    contextWindow
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useCreateAiGatewayModelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiGatewayModelMutation, TError, CreateAiGatewayModelMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiGatewayModelMutation, TError, CreateAiGatewayModelMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiGatewayModel'],
+    mutationFn: (variables?: CreateAiGatewayModelMutationVariables) => fetcher<CreateAiGatewayModelMutation, CreateAiGatewayModelMutationVariables>(CreateAiGatewayModelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayModelDocument = new TypedDocumentString(`
+    mutation updateAiGatewayModel($id: ID!, $input: UpdateAiGatewayModelInput!) {
+  updateAiGatewayModel(id: $id, input: $input) {
+    alias
+    capabilities
+    contextWindow
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useUpdateAiGatewayModelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayModelMutation, TError, UpdateAiGatewayModelMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayModelMutation, TError, UpdateAiGatewayModelMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayModel'],
+    mutationFn: (variables?: UpdateAiGatewayModelMutationVariables) => fetcher<UpdateAiGatewayModelMutation, UpdateAiGatewayModelMutationVariables>(UpdateAiGatewayModelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiGatewayModelDocument = new TypedDocumentString(`
+    mutation deleteAiGatewayModel($id: ID!) {
+  deleteAiGatewayModel(id: $id)
+}
+    `);
+
+export const useDeleteAiGatewayModelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiGatewayModelMutation, TError, DeleteAiGatewayModelMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiGatewayModelMutation, TError, DeleteAiGatewayModelMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiGatewayModel'],
+    mutationFn: (variables?: DeleteAiGatewayModelMutationVariables) => fetcher<DeleteAiGatewayModelMutation, DeleteAiGatewayModelMutationVariables>(DeleteAiGatewayModelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const PlaygroundChatCompletionDocument = new TypedDocumentString(`
+    mutation playgroundChatCompletion($input: PlaygroundChatCompletionInput!) {
+  playgroundChatCompletion(input: $input) {
+    completionTokens
+    content
+    cost
+    finishReason
+    latencyMs
+    model
+    promptTokens
+    totalTokens
+    traceId
+  }
+}
+    `);
+
+export const usePlaygroundChatCompletionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<PlaygroundChatCompletionMutation, TError, PlaygroundChatCompletionMutationVariables, TContext>) => {
+    
+    return useMutation<PlaygroundChatCompletionMutation, TError, PlaygroundChatCompletionMutationVariables, TContext>(
+      {
+    mutationKey: ['playgroundChatCompletion'],
+    mutationFn: (variables?: PlaygroundChatCompletionMutationVariables) => fetcher<PlaygroundChatCompletionMutation, PlaygroundChatCompletionMutationVariables>(PlaygroundChatCompletionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiGatewayProjectsDocument = new TypedDocumentString(`
+    query aiGatewayProjects($workspaceId: ID!) {
+  aiGatewayProjects(workspaceId: $workspaceId) {
+    cachingEnabled
+    cacheTtlMinutes
+    compressionEnabled
+    createdDate
+    description
+    id
+    lastModifiedDate
+    logRetentionDays
+    name
+    retryMaxAttempts
+    routingPolicyId
+    slug
+    timeoutSeconds
+    version
+  }
+}
+    `);
+
+export const useAiGatewayProjectsQuery = <
+      TData = AiGatewayProjectsQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayProjectsQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayProjectsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayProjectsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayProjectsQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayProjects', variables],
+    queryFn: fetcher<AiGatewayProjectsQuery, AiGatewayProjectsQueryVariables>(AiGatewayProjectsDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiGatewayProjectDocument = new TypedDocumentString(`
+    mutation createAiGatewayProject($input: CreateAiGatewayProjectInput!) {
+  createAiGatewayProject(input: $input) {
+    id
+    name
+    slug
+  }
+}
+    `);
+
+export const useCreateAiGatewayProjectMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiGatewayProjectMutation, TError, CreateAiGatewayProjectMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiGatewayProjectMutation, TError, CreateAiGatewayProjectMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiGatewayProject'],
+    mutationFn: (variables?: CreateAiGatewayProjectMutationVariables) => fetcher<CreateAiGatewayProjectMutation, CreateAiGatewayProjectMutationVariables>(CreateAiGatewayProjectDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayProjectDocument = new TypedDocumentString(`
+    mutation updateAiGatewayProject($id: ID!, $input: UpdateAiGatewayProjectInput!) {
+  updateAiGatewayProject(id: $id, input: $input) {
+    id
+    name
+    slug
+  }
+}
+    `);
+
+export const useUpdateAiGatewayProjectMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayProjectMutation, TError, UpdateAiGatewayProjectMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayProjectMutation, TError, UpdateAiGatewayProjectMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayProject'],
+    mutationFn: (variables?: UpdateAiGatewayProjectMutationVariables) => fetcher<UpdateAiGatewayProjectMutation, UpdateAiGatewayProjectMutationVariables>(UpdateAiGatewayProjectDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiGatewayProjectDocument = new TypedDocumentString(`
+    mutation deleteAiGatewayProject($id: ID!) {
+  deleteAiGatewayProject(id: $id)
+}
+    `);
+
+export const useDeleteAiGatewayProjectMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiGatewayProjectMutation, TError, DeleteAiGatewayProjectMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiGatewayProjectMutation, TError, DeleteAiGatewayProjectMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiGatewayProject'],
+    mutationFn: (variables?: DeleteAiGatewayProjectMutationVariables) => fetcher<DeleteAiGatewayProjectMutation, DeleteAiGatewayProjectMutationVariables>(DeleteAiGatewayProjectDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiGatewayProvidersDocument = new TypedDocumentString(`
+    query aiGatewayProviders {
+  aiGatewayProviders {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useAiGatewayProvidersQuery = <
+      TData = AiGatewayProvidersQuery,
+      TError = unknown
+    >(
+      variables?: AiGatewayProvidersQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayProvidersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayProvidersQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayProvidersQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['aiGatewayProviders'] : ['aiGatewayProviders', variables],
+    queryFn: fetcher<AiGatewayProvidersQuery, AiGatewayProvidersQueryVariables>(AiGatewayProvidersDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiGatewayProviderDocument = new TypedDocumentString(`
+    query aiGatewayProvider($id: ID!) {
+  aiGatewayProvider(id: $id) {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useAiGatewayProviderQuery = <
+      TData = AiGatewayProviderQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayProviderQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayProviderQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayProviderQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayProviderQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayProvider', variables],
+    queryFn: fetcher<AiGatewayProviderQuery, AiGatewayProviderQueryVariables>(AiGatewayProviderDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiGatewayProviderDocument = new TypedDocumentString(`
+    mutation createAiGatewayProvider($input: CreateAiGatewayProviderInput!) {
+  createAiGatewayProvider(input: $input) {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useCreateAiGatewayProviderMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiGatewayProviderMutation, TError, CreateAiGatewayProviderMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiGatewayProviderMutation, TError, CreateAiGatewayProviderMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiGatewayProvider'],
+    mutationFn: (variables?: CreateAiGatewayProviderMutationVariables) => fetcher<CreateAiGatewayProviderMutation, CreateAiGatewayProviderMutationVariables>(CreateAiGatewayProviderDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayProviderDocument = new TypedDocumentString(`
+    mutation updateAiGatewayProvider($id: ID!, $input: UpdateAiGatewayProviderInput!) {
+  updateAiGatewayProvider(id: $id, input: $input) {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useUpdateAiGatewayProviderMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayProviderMutation, TError, UpdateAiGatewayProviderMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayProviderMutation, TError, UpdateAiGatewayProviderMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayProvider'],
+    mutationFn: (variables?: UpdateAiGatewayProviderMutationVariables) => fetcher<UpdateAiGatewayProviderMutation, UpdateAiGatewayProviderMutationVariables>(UpdateAiGatewayProviderDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiGatewayProviderDocument = new TypedDocumentString(`
+    mutation deleteAiGatewayProvider($id: ID!) {
+  deleteAiGatewayProvider(id: $id)
+}
+    `);
+
+export const useDeleteAiGatewayProviderMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiGatewayProviderMutation, TError, DeleteAiGatewayProviderMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiGatewayProviderMutation, TError, DeleteAiGatewayProviderMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiGatewayProvider'],
+    mutationFn: (variables?: DeleteAiGatewayProviderMutationVariables) => fetcher<DeleteAiGatewayProviderMutation, DeleteAiGatewayProviderMutationVariables>(DeleteAiGatewayProviderDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiGatewayRateLimitsDocument = new TypedDocumentString(`
+    query aiGatewayRateLimits($workspaceId: ID!) {
+  aiGatewayRateLimits(workspaceId: $workspaceId) {
+    createdDate
+    enabled
+    id
+    lastModifiedDate
+    limitType
+    limitValue
+    name
+    projectId
+    propertyKey
+    scope
+    version
+    windowSeconds
+  }
+}
+    `);
+
+export const useAiGatewayRateLimitsQuery = <
+      TData = AiGatewayRateLimitsQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayRateLimitsQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayRateLimitsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayRateLimitsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayRateLimitsQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayRateLimits', variables],
+    queryFn: fetcher<AiGatewayRateLimitsQuery, AiGatewayRateLimitsQueryVariables>(AiGatewayRateLimitsDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiGatewayRateLimitDocument = new TypedDocumentString(`
+    mutation createAiGatewayRateLimit($input: CreateAiGatewayRateLimitInput!) {
+  createAiGatewayRateLimit(input: $input) {
+    createdDate
+    enabled
+    id
+    lastModifiedDate
+    limitType
+    limitValue
+    name
+    projectId
+    propertyKey
+    scope
+    version
+    windowSeconds
+  }
+}
+    `);
+
+export const useCreateAiGatewayRateLimitMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiGatewayRateLimitMutation, TError, CreateAiGatewayRateLimitMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiGatewayRateLimitMutation, TError, CreateAiGatewayRateLimitMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiGatewayRateLimit'],
+    mutationFn: (variables?: CreateAiGatewayRateLimitMutationVariables) => fetcher<CreateAiGatewayRateLimitMutation, CreateAiGatewayRateLimitMutationVariables>(CreateAiGatewayRateLimitDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayRateLimitDocument = new TypedDocumentString(`
+    mutation updateAiGatewayRateLimit($id: ID!, $input: UpdateAiGatewayRateLimitInput!) {
+  updateAiGatewayRateLimit(id: $id, input: $input) {
+    createdDate
+    enabled
+    id
+    lastModifiedDate
+    limitType
+    limitValue
+    name
+    projectId
+    propertyKey
+    scope
+    version
+    windowSeconds
+  }
+}
+    `);
+
+export const useUpdateAiGatewayRateLimitMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayRateLimitMutation, TError, UpdateAiGatewayRateLimitMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayRateLimitMutation, TError, UpdateAiGatewayRateLimitMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayRateLimit'],
+    mutationFn: (variables?: UpdateAiGatewayRateLimitMutationVariables) => fetcher<UpdateAiGatewayRateLimitMutation, UpdateAiGatewayRateLimitMutationVariables>(UpdateAiGatewayRateLimitDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiGatewayRateLimitDocument = new TypedDocumentString(`
+    mutation deleteAiGatewayRateLimit($id: ID!) {
+  deleteAiGatewayRateLimit(id: $id)
+}
+    `);
+
+export const useDeleteAiGatewayRateLimitMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiGatewayRateLimitMutation, TError, DeleteAiGatewayRateLimitMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiGatewayRateLimitMutation, TError, DeleteAiGatewayRateLimitMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiGatewayRateLimit'],
+    mutationFn: (variables?: DeleteAiGatewayRateLimitMutationVariables) => fetcher<DeleteAiGatewayRateLimitMutation, DeleteAiGatewayRateLimitMutationVariables>(DeleteAiGatewayRateLimitDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiGatewayRequestLogsDocument = new TypedDocumentString(`
+    query aiGatewayRequestLogs($startDate: Long!, $endDate: Long!) {
+  aiGatewayRequestLogs(startDate: $startDate, endDate: $endDate) {
+    apiKeyId
+    cacheHit
+    cost
+    createdDate
+    errorMessage
+    id
+    inputTokens
+    latencyMs
+    outputTokens
+    requestId
+    requestedModel
+    routedModel
+    routedProvider
+    routingPolicyId
+    routingStrategy
+    status
+  }
+}
+    `);
+
+export const useAiGatewayRequestLogsQuery = <
+      TData = AiGatewayRequestLogsQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayRequestLogsQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayRequestLogsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayRequestLogsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayRequestLogsQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayRequestLogs', variables],
+    queryFn: fetcher<AiGatewayRequestLogsQuery, AiGatewayRequestLogsQueryVariables>(AiGatewayRequestLogsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiGatewayRoutingPoliciesDocument = new TypedDocumentString(`
+    query aiGatewayRoutingPolicies {
+  aiGatewayRoutingPolicies {
+    config
+    createdDate
+    deployments {
+      enabled
+      id
+      maxRpm
+      maxTpm
+      modelId
+      priorityOrder
+      routingPolicyId
+      weight
+    }
+    enabled
+    fallbackModel
+    id
+    lastModifiedDate
+    name
+    strategy
+    version
+  }
+}
+    `);
+
+export const useAiGatewayRoutingPoliciesQuery = <
+      TData = AiGatewayRoutingPoliciesQuery,
+      TError = unknown
+    >(
+      variables?: AiGatewayRoutingPoliciesQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayRoutingPoliciesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayRoutingPoliciesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayRoutingPoliciesQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['aiGatewayRoutingPolicies'] : ['aiGatewayRoutingPolicies', variables],
+    queryFn: fetcher<AiGatewayRoutingPoliciesQuery, AiGatewayRoutingPoliciesQueryVariables>(AiGatewayRoutingPoliciesDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiGatewayRoutingPolicyDocument = new TypedDocumentString(`
+    mutation createAiGatewayRoutingPolicy($input: CreateAiGatewayRoutingPolicyInput!) {
+  createAiGatewayRoutingPolicy(input: $input) {
+    config
+    createdDate
+    enabled
+    fallbackModel
+    id
+    lastModifiedDate
+    name
+    strategy
+    version
+  }
+}
+    `);
+
+export const useCreateAiGatewayRoutingPolicyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiGatewayRoutingPolicyMutation, TError, CreateAiGatewayRoutingPolicyMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiGatewayRoutingPolicyMutation, TError, CreateAiGatewayRoutingPolicyMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiGatewayRoutingPolicy'],
+    mutationFn: (variables?: CreateAiGatewayRoutingPolicyMutationVariables) => fetcher<CreateAiGatewayRoutingPolicyMutation, CreateAiGatewayRoutingPolicyMutationVariables>(CreateAiGatewayRoutingPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayRoutingPolicyDocument = new TypedDocumentString(`
+    mutation updateAiGatewayRoutingPolicy($id: ID!, $input: UpdateAiGatewayRoutingPolicyInput!) {
+  updateAiGatewayRoutingPolicy(id: $id, input: $input) {
+    config
+    createdDate
+    enabled
+    fallbackModel
+    id
+    lastModifiedDate
+    name
+    strategy
+    version
+  }
+}
+    `);
+
+export const useUpdateAiGatewayRoutingPolicyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayRoutingPolicyMutation, TError, UpdateAiGatewayRoutingPolicyMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayRoutingPolicyMutation, TError, UpdateAiGatewayRoutingPolicyMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayRoutingPolicy'],
+    mutationFn: (variables?: UpdateAiGatewayRoutingPolicyMutationVariables) => fetcher<UpdateAiGatewayRoutingPolicyMutation, UpdateAiGatewayRoutingPolicyMutationVariables>(UpdateAiGatewayRoutingPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiGatewayRoutingPolicyDocument = new TypedDocumentString(`
+    mutation deleteAiGatewayRoutingPolicy($id: ID!) {
+  deleteAiGatewayRoutingPolicy(id: $id)
+}
+    `);
+
+export const useDeleteAiGatewayRoutingPolicyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiGatewayRoutingPolicyMutation, TError, DeleteAiGatewayRoutingPolicyMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiGatewayRoutingPolicyMutation, TError, DeleteAiGatewayRoutingPolicyMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiGatewayRoutingPolicy'],
+    mutationFn: (variables?: DeleteAiGatewayRoutingPolicyMutationVariables) => fetcher<DeleteAiGatewayRoutingPolicyMutation, DeleteAiGatewayRoutingPolicyMutationVariables>(DeleteAiGatewayRoutingPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiGatewaySpendSummariesDocument = new TypedDocumentString(`
+    query aiGatewaySpendSummaries($startDate: Long!, $endDate: Long!) {
+  aiGatewaySpendSummaries(startDate: $startDate, endDate: $endDate) {
+    apiKeyId
+    createdDate
+    id
+    model
+    periodEnd
+    periodStart
+    provider
+    requestCount
+    totalCost
+    totalInputTokens
+    totalOutputTokens
+  }
+}
+    `);
+
+export const useAiGatewaySpendSummariesQuery = <
+      TData = AiGatewaySpendSummariesQuery,
+      TError = unknown
+    >(
+      variables: AiGatewaySpendSummariesQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewaySpendSummariesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewaySpendSummariesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewaySpendSummariesQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewaySpendSummaries', variables],
+    queryFn: fetcher<AiGatewaySpendSummariesQuery, AiGatewaySpendSummariesQueryVariables>(AiGatewaySpendSummariesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiGatewayWorkspaceSettingsDocument = new TypedDocumentString(`
+    query aiGatewayWorkspaceSettings($workspaceId: ID!) {
+  aiGatewayWorkspaceSettings(workspaceId: $workspaceId) {
+    cacheEnabled
+    cacheTtlSeconds
+    defaultRoutingPolicyId
+    logRetentionDays
+    redactPii
+    retryCount
+    softBudgetWarningPct
+    timeoutMs
+    workspaceId
+  }
+}
+    `);
+
+export const useAiGatewayWorkspaceSettingsQuery = <
+      TData = AiGatewayWorkspaceSettingsQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayWorkspaceSettingsQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayWorkspaceSettingsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayWorkspaceSettingsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayWorkspaceSettingsQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayWorkspaceSettings', variables],
+    queryFn: fetcher<AiGatewayWorkspaceSettingsQuery, AiGatewayWorkspaceSettingsQueryVariables>(AiGatewayWorkspaceSettingsDocument, variables),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayWorkspaceSettingsDocument = new TypedDocumentString(`
+    mutation updateAiGatewayWorkspaceSettings($input: AiGatewayWorkspaceSettingsInput!) {
+  updateAiGatewayWorkspaceSettings(input: $input) {
+    cacheEnabled
+    cacheTtlSeconds
+    defaultRoutingPolicyId
+    logRetentionDays
+    redactPii
+    retryCount
+    softBudgetWarningPct
+    timeoutMs
+    workspaceId
+  }
+}
+    `);
+
+export const useUpdateAiGatewayWorkspaceSettingsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayWorkspaceSettingsMutation, TError, UpdateAiGatewayWorkspaceSettingsMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayWorkspaceSettingsMutation, TError, UpdateAiGatewayWorkspaceSettingsMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayWorkspaceSettings'],
+    mutationFn: (variables?: UpdateAiGatewayWorkspaceSettingsMutationVariables) => fetcher<UpdateAiGatewayWorkspaceSettingsMutation, UpdateAiGatewayWorkspaceSettingsMutationVariables>(UpdateAiGatewayWorkspaceSettingsDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiObservabilityAlertEventsDocument = new TypedDocumentString(`
+    query aiObservabilityAlertEvents($alertRuleId: ID!) {
+  aiObservabilityAlertEvents(alertRuleId: $alertRuleId) {
+    alertRuleId
+    createdDate
+    id
+    message
+    status
+    triggeredValue
+  }
+}
+    `);
+
+export const useAiObservabilityAlertEventsQuery = <
+      TData = AiObservabilityAlertEventsQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityAlertEventsQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityAlertEventsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityAlertEventsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityAlertEventsQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityAlertEvents', variables],
+    queryFn: fetcher<AiObservabilityAlertEventsQuery, AiObservabilityAlertEventsQueryVariables>(AiObservabilityAlertEventsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AcknowledgeAiObservabilityAlertEventDocument = new TypedDocumentString(`
+    mutation acknowledgeAiObservabilityAlertEvent($id: ID!) {
+  acknowledgeAiObservabilityAlertEvent(id: $id) {
+    alertRuleId
+    createdDate
+    id
+    message
+    status
+    triggeredValue
+  }
+}
+    `);
+
+export const useAcknowledgeAiObservabilityAlertEventMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AcknowledgeAiObservabilityAlertEventMutation, TError, AcknowledgeAiObservabilityAlertEventMutationVariables, TContext>) => {
+    
+    return useMutation<AcknowledgeAiObservabilityAlertEventMutation, TError, AcknowledgeAiObservabilityAlertEventMutationVariables, TContext>(
+      {
+    mutationKey: ['acknowledgeAiObservabilityAlertEvent'],
+    mutationFn: (variables?: AcknowledgeAiObservabilityAlertEventMutationVariables) => fetcher<AcknowledgeAiObservabilityAlertEventMutation, AcknowledgeAiObservabilityAlertEventMutationVariables>(AcknowledgeAiObservabilityAlertEventDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiObservabilityAlertRulesDocument = new TypedDocumentString(`
+    query aiObservabilityAlertRules($workspaceId: ID!) {
+  aiObservabilityAlertRules(workspaceId: $workspaceId) {
+    channelIds
+    condition
+    cooldownMinutes
+    createdDate
+    enabled
+    filters
+    id
+    lastModifiedDate
+    metric
+    name
+    projectId
+    snoozedUntil
+    threshold
+    version
+    windowMinutes
+  }
+}
+    `);
+
+export const useAiObservabilityAlertRulesQuery = <
+      TData = AiObservabilityAlertRulesQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityAlertRulesQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityAlertRulesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityAlertRulesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityAlertRulesQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityAlertRules', variables],
+    queryFn: fetcher<AiObservabilityAlertRulesQuery, AiObservabilityAlertRulesQueryVariables>(AiObservabilityAlertRulesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    query aiObservabilityAlertRule($id: ID!) {
+  aiObservabilityAlertRule(id: $id) {
+    channelIds
+    condition
+    cooldownMinutes
+    createdDate
+    enabled
+    filters
+    id
+    lastModifiedDate
+    metric
+    name
+    projectId
+    snoozedUntil
+    threshold
+    version
+    windowMinutes
+  }
+}
+    `);
+
+export const useAiObservabilityAlertRuleQuery = <
+      TData = AiObservabilityAlertRuleQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityAlertRuleQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityAlertRuleQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityAlertRuleQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityAlertRuleQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityAlertRule', variables],
+    queryFn: fetcher<AiObservabilityAlertRuleQuery, AiObservabilityAlertRuleQueryVariables>(AiObservabilityAlertRuleDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    mutation createAiObservabilityAlertRule($input: AiObservabilityAlertRuleInput!) {
+  createAiObservabilityAlertRule(input: $input) {
+    channelIds
+    condition
+    cooldownMinutes
+    createdDate
+    enabled
+    filters
+    id
+    lastModifiedDate
+    metric
+    name
+    projectId
+    threshold
+    version
+    windowMinutes
+  }
+}
+    `);
+
+export const useCreateAiObservabilityAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiObservabilityAlertRuleMutation, TError, CreateAiObservabilityAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiObservabilityAlertRuleMutation, TError, CreateAiObservabilityAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiObservabilityAlertRule'],
+    mutationFn: (variables?: CreateAiObservabilityAlertRuleMutationVariables) => fetcher<CreateAiObservabilityAlertRuleMutation, CreateAiObservabilityAlertRuleMutationVariables>(CreateAiObservabilityAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    mutation updateAiObservabilityAlertRule($id: ID!, $input: AiObservabilityAlertRuleInput!) {
+  updateAiObservabilityAlertRule(id: $id, input: $input) {
+    channelIds
+    condition
+    cooldownMinutes
+    createdDate
+    enabled
+    filters
+    id
+    lastModifiedDate
+    metric
+    name
+    projectId
+    threshold
+    version
+    windowMinutes
+  }
+}
+    `);
+
+export const useUpdateAiObservabilityAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiObservabilityAlertRuleMutation, TError, UpdateAiObservabilityAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiObservabilityAlertRuleMutation, TError, UpdateAiObservabilityAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiObservabilityAlertRule'],
+    mutationFn: (variables?: UpdateAiObservabilityAlertRuleMutationVariables) => fetcher<UpdateAiObservabilityAlertRuleMutation, UpdateAiObservabilityAlertRuleMutationVariables>(UpdateAiObservabilityAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    mutation deleteAiObservabilityAlertRule($id: ID!) {
+  deleteAiObservabilityAlertRule(id: $id)
+}
+    `);
+
+export const useDeleteAiObservabilityAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiObservabilityAlertRuleMutation, TError, DeleteAiObservabilityAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiObservabilityAlertRuleMutation, TError, DeleteAiObservabilityAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiObservabilityAlertRule'],
+    mutationFn: (variables?: DeleteAiObservabilityAlertRuleMutationVariables) => fetcher<DeleteAiObservabilityAlertRuleMutation, DeleteAiObservabilityAlertRuleMutationVariables>(DeleteAiObservabilityAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const TestAiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    mutation testAiObservabilityAlertRule($id: ID!) {
+  testAiObservabilityAlertRule(id: $id)
+}
+    `);
+
+export const useTestAiObservabilityAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<TestAiObservabilityAlertRuleMutation, TError, TestAiObservabilityAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<TestAiObservabilityAlertRuleMutation, TError, TestAiObservabilityAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['testAiObservabilityAlertRule'],
+    mutationFn: (variables?: TestAiObservabilityAlertRuleMutationVariables) => fetcher<TestAiObservabilityAlertRuleMutation, TestAiObservabilityAlertRuleMutationVariables>(TestAiObservabilityAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SnoozeAiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    mutation snoozeAiObservabilityAlertRule($id: ID!, $until: Long!) {
+  snoozeAiObservabilityAlertRule(id: $id, until: $until) {
+    id
+    snoozedUntil
+  }
+}
+    `);
+
+export const useSnoozeAiObservabilityAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SnoozeAiObservabilityAlertRuleMutation, TError, SnoozeAiObservabilityAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<SnoozeAiObservabilityAlertRuleMutation, TError, SnoozeAiObservabilityAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['snoozeAiObservabilityAlertRule'],
+    mutationFn: (variables?: SnoozeAiObservabilityAlertRuleMutationVariables) => fetcher<SnoozeAiObservabilityAlertRuleMutation, SnoozeAiObservabilityAlertRuleMutationVariables>(SnoozeAiObservabilityAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UnsnoozeAiObservabilityAlertRuleDocument = new TypedDocumentString(`
+    mutation unsnoozeAiObservabilityAlertRule($id: ID!) {
+  unsnoozeAiObservabilityAlertRule(id: $id) {
+    id
+    snoozedUntil
+  }
+}
+    `);
+
+export const useUnsnoozeAiObservabilityAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UnsnoozeAiObservabilityAlertRuleMutation, TError, UnsnoozeAiObservabilityAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<UnsnoozeAiObservabilityAlertRuleMutation, TError, UnsnoozeAiObservabilityAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['unsnoozeAiObservabilityAlertRule'],
+    mutationFn: (variables?: UnsnoozeAiObservabilityAlertRuleMutationVariables) => fetcher<UnsnoozeAiObservabilityAlertRuleMutation, UnsnoozeAiObservabilityAlertRuleMutationVariables>(UnsnoozeAiObservabilityAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiObservabilityExportJobsDocument = new TypedDocumentString(`
+    query aiObservabilityExportJobs($workspaceId: ID!) {
+  aiObservabilityExportJobs(workspaceId: $workspaceId) {
+    createdBy
+    createdDate
+    errorMessage
+    filePath
+    filters
+    format
+    id
+    projectId
+    recordCount
+    scope
+    status
+    type
+  }
+}
+    `);
+
+export const useAiObservabilityExportJobsQuery = <
+      TData = AiObservabilityExportJobsQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityExportJobsQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityExportJobsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityExportJobsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityExportJobsQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityExportJobs', variables],
+    queryFn: fetcher<AiObservabilityExportJobsQuery, AiObservabilityExportJobsQueryVariables>(AiObservabilityExportJobsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilityExportJobDocument = new TypedDocumentString(`
+    query aiObservabilityExportJob($id: ID!) {
+  aiObservabilityExportJob(id: $id) {
+    createdBy
+    createdDate
+    errorMessage
+    filePath
+    filters
+    format
+    id
+    projectId
+    recordCount
+    scope
+    status
+    type
+  }
+}
+    `);
+
+export const useAiObservabilityExportJobQuery = <
+      TData = AiObservabilityExportJobQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityExportJobQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityExportJobQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityExportJobQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityExportJobQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityExportJob', variables],
+    queryFn: fetcher<AiObservabilityExportJobQuery, AiObservabilityExportJobQueryVariables>(AiObservabilityExportJobDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiObservabilityExportJobDocument = new TypedDocumentString(`
+    mutation createAiObservabilityExportJob($workspaceId: ID!, $projectId: ID, $format: AiObservabilityExportFormat!, $scope: AiObservabilityExportScope!, $filters: String) {
+  createAiObservabilityExportJob(
+    workspaceId: $workspaceId
+    projectId: $projectId
+    format: $format
+    scope: $scope
+    filters: $filters
+  ) {
+    createdBy
+    createdDate
+    format
+    id
+    scope
+    status
+    type
+  }
+}
+    `);
+
+export const useCreateAiObservabilityExportJobMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiObservabilityExportJobMutation, TError, CreateAiObservabilityExportJobMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiObservabilityExportJobMutation, TError, CreateAiObservabilityExportJobMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiObservabilityExportJob'],
+    mutationFn: (variables?: CreateAiObservabilityExportJobMutationVariables) => fetcher<CreateAiObservabilityExportJobMutation, CreateAiObservabilityExportJobMutationVariables>(CreateAiObservabilityExportJobDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CancelAiObservabilityExportJobDocument = new TypedDocumentString(`
+    mutation cancelAiObservabilityExportJob($id: ID!) {
+  cancelAiObservabilityExportJob(id: $id) {
+    id
+    status
+  }
+}
+    `);
+
+export const useCancelAiObservabilityExportJobMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CancelAiObservabilityExportJobMutation, TError, CancelAiObservabilityExportJobMutationVariables, TContext>) => {
+    
+    return useMutation<CancelAiObservabilityExportJobMutation, TError, CancelAiObservabilityExportJobMutationVariables, TContext>(
+      {
+    mutationKey: ['cancelAiObservabilityExportJob'],
+    mutationFn: (variables?: CancelAiObservabilityExportJobMutationVariables) => fetcher<CancelAiObservabilityExportJobMutation, CancelAiObservabilityExportJobMutationVariables>(CancelAiObservabilityExportJobDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiObservabilityNotificationChannelsDocument = new TypedDocumentString(`
+    query aiObservabilityNotificationChannels($workspaceId: ID!) {
+  aiObservabilityNotificationChannels(workspaceId: $workspaceId) {
+    config
+    createdDate
+    enabled
+    id
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useAiObservabilityNotificationChannelsQuery = <
+      TData = AiObservabilityNotificationChannelsQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityNotificationChannelsQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityNotificationChannelsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityNotificationChannelsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityNotificationChannelsQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityNotificationChannels', variables],
+    queryFn: fetcher<AiObservabilityNotificationChannelsQuery, AiObservabilityNotificationChannelsQueryVariables>(AiObservabilityNotificationChannelsDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
+    mutation createAiObservabilityNotificationChannel($input: AiObservabilityNotificationChannelInput!) {
+  createAiObservabilityNotificationChannel(input: $input) {
+    config
+    createdDate
+    enabled
+    id
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useCreateAiObservabilityNotificationChannelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiObservabilityNotificationChannelMutation, TError, CreateAiObservabilityNotificationChannelMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiObservabilityNotificationChannelMutation, TError, CreateAiObservabilityNotificationChannelMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiObservabilityNotificationChannel'],
+    mutationFn: (variables?: CreateAiObservabilityNotificationChannelMutationVariables) => fetcher<CreateAiObservabilityNotificationChannelMutation, CreateAiObservabilityNotificationChannelMutationVariables>(CreateAiObservabilityNotificationChannelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
+    mutation updateAiObservabilityNotificationChannel($id: ID!, $input: AiObservabilityNotificationChannelInput!) {
+  updateAiObservabilityNotificationChannel(id: $id, input: $input) {
+    config
+    createdDate
+    enabled
+    id
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useUpdateAiObservabilityNotificationChannelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiObservabilityNotificationChannelMutation, TError, UpdateAiObservabilityNotificationChannelMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiObservabilityNotificationChannelMutation, TError, UpdateAiObservabilityNotificationChannelMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiObservabilityNotificationChannel'],
+    mutationFn: (variables?: UpdateAiObservabilityNotificationChannelMutationVariables) => fetcher<UpdateAiObservabilityNotificationChannelMutation, UpdateAiObservabilityNotificationChannelMutationVariables>(UpdateAiObservabilityNotificationChannelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
+    mutation deleteAiObservabilityNotificationChannel($id: ID!) {
+  deleteAiObservabilityNotificationChannel(id: $id)
+}
+    `);
+
+export const useDeleteAiObservabilityNotificationChannelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiObservabilityNotificationChannelMutation, TError, DeleteAiObservabilityNotificationChannelMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiObservabilityNotificationChannelMutation, TError, DeleteAiObservabilityNotificationChannelMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiObservabilityNotificationChannel'],
+    mutationFn: (variables?: DeleteAiObservabilityNotificationChannelMutationVariables) => fetcher<DeleteAiObservabilityNotificationChannelMutation, DeleteAiObservabilityNotificationChannelMutationVariables>(DeleteAiObservabilityNotificationChannelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const TestAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
+    mutation testAiObservabilityNotificationChannel($id: ID!) {
+  testAiObservabilityNotificationChannel(id: $id)
+}
+    `);
+
+export const useTestAiObservabilityNotificationChannelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<TestAiObservabilityNotificationChannelMutation, TError, TestAiObservabilityNotificationChannelMutationVariables, TContext>) => {
+    
+    return useMutation<TestAiObservabilityNotificationChannelMutation, TError, TestAiObservabilityNotificationChannelMutationVariables, TContext>(
+      {
+    mutationKey: ['testAiObservabilityNotificationChannel'],
+    mutationFn: (variables?: TestAiObservabilityNotificationChannelMutationVariables) => fetcher<TestAiObservabilityNotificationChannelMutation, TestAiObservabilityNotificationChannelMutationVariables>(TestAiObservabilityNotificationChannelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiObservabilitySessionsDocument = new TypedDocumentString(`
+    query aiObservabilitySessions($workspaceId: ID!) {
+  aiObservabilitySessions(workspaceId: $workspaceId) {
+    createdDate
+    id
+    lastModifiedDate
+    name
+    projectId
+    traceCount
+    userId
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiObservabilitySessionsQuery = <
+      TData = AiObservabilitySessionsQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilitySessionsQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilitySessionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilitySessionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilitySessionsQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilitySessions', variables],
+    queryFn: fetcher<AiObservabilitySessionsQuery, AiObservabilitySessionsQueryVariables>(AiObservabilitySessionsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilitySessionDocument = new TypedDocumentString(`
+    query aiObservabilitySession($id: ID!) {
+  aiObservabilitySession(id: $id) {
+    createdDate
+    id
+    lastModifiedDate
+    name
+    projectId
+    traces {
+      createdDate
+      id
+      name
+      source
+      status
+      totalCost
+      totalInputTokens
+      totalLatencyMs
+      totalOutputTokens
+      userId
+    }
+    userId
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiObservabilitySessionQuery = <
+      TData = AiObservabilitySessionQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilitySessionQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilitySessionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilitySessionQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilitySessionQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilitySession', variables],
+    queryFn: fetcher<AiObservabilitySessionQuery, AiObservabilitySessionQueryVariables>(AiObservabilitySessionDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilityTracesDocument = new TypedDocumentString(`
+    query aiObservabilityTraces($endDate: Long!, $model: String, $source: AiObservabilityTraceSource, $startDate: Long!, $status: AiObservabilityTraceStatus, $tagId: ID, $userId: String, $workspaceId: ID!) {
+  aiObservabilityTraces(
+    endDate: $endDate
+    model: $model
+    source: $source
+    startDate: $startDate
+    status: $status
+    tagId: $tagId
+    userId: $userId
+    workspaceId: $workspaceId
+  ) {
+    createdDate
+    id
+    input
+    lastModifiedDate
+    metadata
+    name
+    output
+    projectId
+    sessionId
+    source
+    status
+    totalCost
+    totalInputTokens
+    totalLatencyMs
+    totalOutputTokens
+    userId
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiObservabilityTracesQuery = <
+      TData = AiObservabilityTracesQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityTracesQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityTracesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityTracesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityTracesQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityTraces', variables],
+    queryFn: fetcher<AiObservabilityTracesQuery, AiObservabilityTracesQueryVariables>(AiObservabilityTracesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilityTraceDocument = new TypedDocumentString(`
+    query aiObservabilityTrace($id: ID!) {
+  aiObservabilityTrace(id: $id) {
+    createdDate
+    id
+    input
+    lastModifiedDate
+    metadata
+    name
+    output
+    projectId
+    sessionId
+    source
+    spans {
+      cost
+      createdDate
+      endTime
+      id
+      input
+      inputTokens
+      latencyMs
+      level
+      metadata
+      model
+      name
+      output
+      outputTokens
+      parentSpanId
+      provider
+      startTime
+      status
+      traceId
+      type
+      version
+    }
+    status
+    tagIds
+    totalCost
+    totalInputTokens
+    totalLatencyMs
+    totalOutputTokens
+    userId
+    version
+    workspaceId
+  }
+}
+    `);
+
+export const useAiObservabilityTraceQuery = <
+      TData = AiObservabilityTraceQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityTraceQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityTraceQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityTraceQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityTraceQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityTrace', variables],
+    queryFn: fetcher<AiObservabilityTraceQuery, AiObservabilityTraceQueryVariables>(AiObservabilityTraceDocument, variables),
+    ...options
+  }
+    )};
+
+export const SetAiObservabilityTraceTagsDocument = new TypedDocumentString(`
+    mutation setAiObservabilityTraceTags($traceId: ID!, $tagIds: [ID!]!) {
+  setAiObservabilityTraceTags(traceId: $traceId, tagIds: $tagIds) {
+    id
+    tagIds
+  }
+}
+    `);
+
+export const useSetAiObservabilityTraceTagsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetAiObservabilityTraceTagsMutation, TError, SetAiObservabilityTraceTagsMutationVariables, TContext>) => {
+    
+    return useMutation<SetAiObservabilityTraceTagsMutation, TError, SetAiObservabilityTraceTagsMutationVariables, TContext>(
+      {
+    mutationKey: ['setAiObservabilityTraceTags'],
+    mutationFn: (variables?: SetAiObservabilityTraceTagsMutationVariables) => fetcher<SetAiObservabilityTraceTagsMutation, SetAiObservabilityTraceTagsMutationVariables>(SetAiObservabilityTraceTagsDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiObservabilityWebhookDeliveriesDocument = new TypedDocumentString(`
+    query aiObservabilityWebhookDeliveries($subscriptionId: ID!) {
+  aiObservabilityWebhookDeliveries(subscriptionId: $subscriptionId) {
+    attemptCount
+    createdDate
+    deliveredDate
+    errorMessage
+    eventType
+    httpStatus
+    id
+    status
+    subscriptionId
+  }
+}
+    `);
+
+export const useAiObservabilityWebhookDeliveriesQuery = <
+      TData = AiObservabilityWebhookDeliveriesQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityWebhookDeliveriesQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityWebhookDeliveriesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityWebhookDeliveriesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityWebhookDeliveriesQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityWebhookDeliveries', variables],
+    queryFn: fetcher<AiObservabilityWebhookDeliveriesQuery, AiObservabilityWebhookDeliveriesQueryVariables>(AiObservabilityWebhookDeliveriesDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilityWebhookSubscriptionsDocument = new TypedDocumentString(`
+    query aiObservabilityWebhookSubscriptions($workspaceId: ID!) {
+  aiObservabilityWebhookSubscriptions(workspaceId: $workspaceId) {
+    createdDate
+    enabled
+    events
+    id
+    lastModifiedDate
+    lastTriggeredDate
+    name
+    projectId
+    url
+    version
+  }
+}
+    `);
+
+export const useAiObservabilityWebhookSubscriptionsQuery = <
+      TData = AiObservabilityWebhookSubscriptionsQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityWebhookSubscriptionsQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityWebhookSubscriptionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityWebhookSubscriptionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityWebhookSubscriptionsQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityWebhookSubscriptions', variables],
+    queryFn: fetcher<AiObservabilityWebhookSubscriptionsQuery, AiObservabilityWebhookSubscriptionsQueryVariables>(AiObservabilityWebhookSubscriptionsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiObservabilityWebhookSubscriptionDocument = new TypedDocumentString(`
+    query aiObservabilityWebhookSubscription($id: ID!) {
+  aiObservabilityWebhookSubscription(id: $id) {
+    createdDate
+    enabled
+    events
+    id
+    lastModifiedDate
+    lastTriggeredDate
+    name
+    projectId
+    url
+    version
+  }
+}
+    `);
+
+export const useAiObservabilityWebhookSubscriptionQuery = <
+      TData = AiObservabilityWebhookSubscriptionQuery,
+      TError = unknown
+    >(
+      variables: AiObservabilityWebhookSubscriptionQueryVariables,
+      options?: Omit<UseQueryOptions<AiObservabilityWebhookSubscriptionQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityWebhookSubscriptionQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiObservabilityWebhookSubscriptionQuery, TError, TData>(
+      {
+    queryKey: ['aiObservabilityWebhookSubscription', variables],
+    queryFn: fetcher<AiObservabilityWebhookSubscriptionQuery, AiObservabilityWebhookSubscriptionQueryVariables>(AiObservabilityWebhookSubscriptionDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiObservabilityWebhookSubscriptionDocument = new TypedDocumentString(`
+    mutation createAiObservabilityWebhookSubscription($workspaceId: ID!, $projectId: ID, $name: String!, $url: String!, $secret: String, $events: String!, $enabled: Boolean!) {
+  createAiObservabilityWebhookSubscription(
+    workspaceId: $workspaceId
+    projectId: $projectId
+    name: $name
+    url: $url
+    secret: $secret
+    events: $events
+    enabled: $enabled
+  ) {
+    createdDate
+    enabled
+    events
+    id
+    name
+    url
+    version
+  }
+}
+    `);
+
+export const useCreateAiObservabilityWebhookSubscriptionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiObservabilityWebhookSubscriptionMutation, TError, CreateAiObservabilityWebhookSubscriptionMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiObservabilityWebhookSubscriptionMutation, TError, CreateAiObservabilityWebhookSubscriptionMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiObservabilityWebhookSubscription'],
+    mutationFn: (variables?: CreateAiObservabilityWebhookSubscriptionMutationVariables) => fetcher<CreateAiObservabilityWebhookSubscriptionMutation, CreateAiObservabilityWebhookSubscriptionMutationVariables>(CreateAiObservabilityWebhookSubscriptionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiObservabilityWebhookSubscriptionDocument = new TypedDocumentString(`
+    mutation updateAiObservabilityWebhookSubscription($id: ID!, $name: String!, $url: String!, $secret: String, $events: String!, $enabled: Boolean!) {
+  updateAiObservabilityWebhookSubscription(
+    id: $id
+    name: $name
+    url: $url
+    secret: $secret
+    events: $events
+    enabled: $enabled
+  ) {
+    createdDate
+    enabled
+    events
+    id
+    name
+    url
+    version
+  }
+}
+    `);
+
+export const useUpdateAiObservabilityWebhookSubscriptionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiObservabilityWebhookSubscriptionMutation, TError, UpdateAiObservabilityWebhookSubscriptionMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiObservabilityWebhookSubscriptionMutation, TError, UpdateAiObservabilityWebhookSubscriptionMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiObservabilityWebhookSubscription'],
+    mutationFn: (variables?: UpdateAiObservabilityWebhookSubscriptionMutationVariables) => fetcher<UpdateAiObservabilityWebhookSubscriptionMutation, UpdateAiObservabilityWebhookSubscriptionMutationVariables>(UpdateAiObservabilityWebhookSubscriptionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiObservabilityWebhookSubscriptionDocument = new TypedDocumentString(`
+    mutation deleteAiObservabilityWebhookSubscription($id: ID!) {
+  deleteAiObservabilityWebhookSubscription(id: $id)
+}
+    `);
+
+export const useDeleteAiObservabilityWebhookSubscriptionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiObservabilityWebhookSubscriptionMutation, TError, DeleteAiObservabilityWebhookSubscriptionMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiObservabilityWebhookSubscriptionMutation, TError, DeleteAiObservabilityWebhookSubscriptionMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiObservabilityWebhookSubscription'],
+    mutationFn: (variables?: DeleteAiObservabilityWebhookSubscriptionMutationVariables) => fetcher<DeleteAiObservabilityWebhookSubscriptionMutation, DeleteAiObservabilityWebhookSubscriptionMutationVariables>(DeleteAiObservabilityWebhookSubscriptionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const TestAiObservabilityWebhookSubscriptionDocument = new TypedDocumentString(`
+    mutation testAiObservabilityWebhookSubscription($id: ID!) {
+  testAiObservabilityWebhookSubscription(id: $id)
+}
+    `);
+
+export const useTestAiObservabilityWebhookSubscriptionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<TestAiObservabilityWebhookSubscriptionMutation, TError, TestAiObservabilityWebhookSubscriptionMutationVariables, TContext>) => {
+    
+    return useMutation<TestAiObservabilityWebhookSubscriptionMutation, TError, TestAiObservabilityWebhookSubscriptionMutationVariables, TContext>(
+      {
+    mutationKey: ['testAiObservabilityWebhookSubscription'],
+    mutationFn: (variables?: TestAiObservabilityWebhookSubscriptionMutationVariables) => fetcher<TestAiObservabilityWebhookSubscriptionMutation, TestAiObservabilityWebhookSubscriptionMutationVariables>(TestAiObservabilityWebhookSubscriptionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiPromptsDocument = new TypedDocumentString(`
+    query aiPrompts($workspaceId: ID!) {
+  aiPrompts(workspaceId: $workspaceId) {
+    createdDate
+    description
+    id
+    lastModifiedDate
+    name
+    projectId
+    version
+    versions {
+      active
+      commitMessage
+      content
+      createdBy
+      createdDate
+      environment
+      id
+      metrics {
+        avgCostUsd
+        avgLatencyMs
+        errorRate
+        invocationCount
+      }
+      promptId
+      type
+      variables
+      versionNumber
+    }
+  }
+}
+    `);
+
+export const useAiPromptsQuery = <
+      TData = AiPromptsQuery,
+      TError = unknown
+    >(
+      variables: AiPromptsQueryVariables,
+      options?: Omit<UseQueryOptions<AiPromptsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiPromptsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiPromptsQuery, TError, TData>(
+      {
+    queryKey: ['aiPrompts', variables],
+    queryFn: fetcher<AiPromptsQuery, AiPromptsQueryVariables>(AiPromptsDocument, variables),
+    ...options
+  }
+    )};
+
+export const AiPromptDocument = new TypedDocumentString(`
+    query aiPrompt($id: ID!) {
+  aiPrompt(id: $id) {
+    createdDate
+    description
+    id
+    lastModifiedDate
+    name
+    projectId
+    version
+    versions {
+      active
+      commitMessage
+      content
+      createdBy
+      createdDate
+      environment
+      id
+      metrics {
+        avgCostUsd
+        avgLatencyMs
+        errorRate
+        invocationCount
+      }
+      promptId
+      type
+      variables
+      versionNumber
+    }
+  }
+}
+    `);
+
+export const useAiPromptQuery = <
+      TData = AiPromptQuery,
+      TError = unknown
+    >(
+      variables: AiPromptQueryVariables,
+      options?: Omit<UseQueryOptions<AiPromptQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiPromptQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiPromptQuery, TError, TData>(
+      {
+    queryKey: ['aiPrompt', variables],
+    queryFn: fetcher<AiPromptQuery, AiPromptQueryVariables>(AiPromptDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateAiPromptDocument = new TypedDocumentString(`
+    mutation createAiPrompt($input: CreateAiPromptInput!) {
+  createAiPrompt(input: $input) {
+    createdDate
+    description
+    id
+    lastModifiedDate
+    name
+    projectId
+    version
+  }
+}
+    `);
+
+export const useCreateAiPromptMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiPromptMutation, TError, CreateAiPromptMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiPromptMutation, TError, CreateAiPromptMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiPrompt'],
+    mutationFn: (variables?: CreateAiPromptMutationVariables) => fetcher<CreateAiPromptMutation, CreateAiPromptMutationVariables>(CreateAiPromptDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAiPromptDocument = new TypedDocumentString(`
+    mutation updateAiPrompt($id: ID!, $input: UpdateAiPromptInput!) {
+  updateAiPrompt(id: $id, input: $input) {
+    createdDate
+    description
+    id
+    lastModifiedDate
+    name
+    projectId
+    version
+  }
+}
+    `);
+
+export const useUpdateAiPromptMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiPromptMutation, TError, UpdateAiPromptMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiPromptMutation, TError, UpdateAiPromptMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiPrompt'],
+    mutationFn: (variables?: UpdateAiPromptMutationVariables) => fetcher<UpdateAiPromptMutation, UpdateAiPromptMutationVariables>(UpdateAiPromptDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAiPromptDocument = new TypedDocumentString(`
+    mutation deleteAiPrompt($id: ID!) {
+  deleteAiPrompt(id: $id)
+}
+    `);
+
+export const useDeleteAiPromptMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAiPromptMutation, TError, DeleteAiPromptMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAiPromptMutation, TError, DeleteAiPromptMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteAiPrompt'],
+    mutationFn: (variables?: DeleteAiPromptMutationVariables) => fetcher<DeleteAiPromptMutation, DeleteAiPromptMutationVariables>(DeleteAiPromptDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateAiPromptVersionDocument = new TypedDocumentString(`
+    mutation createAiPromptVersion($input: CreateAiPromptVersionInput!) {
+  createAiPromptVersion(input: $input) {
+    active
+    commitMessage
+    content
+    createdBy
+    createdDate
+    environment
+    id
+    promptId
+    type
+    variables
+    versionNumber
+  }
+}
+    `);
+
+export const useCreateAiPromptVersionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateAiPromptVersionMutation, TError, CreateAiPromptVersionMutationVariables, TContext>) => {
+    
+    return useMutation<CreateAiPromptVersionMutation, TError, CreateAiPromptVersionMutationVariables, TContext>(
+      {
+    mutationKey: ['createAiPromptVersion'],
+    mutationFn: (variables?: CreateAiPromptVersionMutationVariables) => fetcher<CreateAiPromptVersionMutation, CreateAiPromptVersionMutationVariables>(CreateAiPromptVersionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetActiveAiPromptVersionDocument = new TypedDocumentString(`
+    mutation setActiveAiPromptVersion($promptVersionId: ID!, $environment: String!) {
+  setActiveAiPromptVersion(
+    promptVersionId: $promptVersionId
+    environment: $environment
+  )
+}
+    `);
+
+export const useSetActiveAiPromptVersionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetActiveAiPromptVersionMutation, TError, SetActiveAiPromptVersionMutationVariables, TContext>) => {
+    
+    return useMutation<SetActiveAiPromptVersionMutation, TError, SetActiveAiPromptVersionMutationVariables, TContext>(
+      {
+    mutationKey: ['setActiveAiPromptVersion'],
+    mutationFn: (variables?: SetActiveAiPromptVersionMutationVariables) => fetcher<SetActiveAiPromptVersionMutation, SetActiveAiPromptVersionMutationVariables>(SetActiveAiPromptVersionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const WorkspaceAiGatewayModelsDocument = new TypedDocumentString(`
+    query workspaceAiGatewayModels($workspaceId: ID!) {
+  workspaceAiGatewayModels(workspaceId: $workspaceId) {
+    alias
+    capabilities
+    contextWindow
+    defaultRoutingPolicyId
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useWorkspaceAiGatewayModelsQuery = <
+      TData = WorkspaceAiGatewayModelsQuery,
+      TError = unknown
+    >(
+      variables: WorkspaceAiGatewayModelsQueryVariables,
+      options?: Omit<UseQueryOptions<WorkspaceAiGatewayModelsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkspaceAiGatewayModelsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkspaceAiGatewayModelsQuery, TError, TData>(
+      {
+    queryKey: ['workspaceAiGatewayModels', variables],
+    queryFn: fetcher<WorkspaceAiGatewayModelsQuery, WorkspaceAiGatewayModelsQueryVariables>(WorkspaceAiGatewayModelsDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateWorkspaceAiGatewayModelDocument = new TypedDocumentString(`
+    mutation createWorkspaceAiGatewayModel($input: CreateWorkspaceAiGatewayModelInput!) {
+  createWorkspaceAiGatewayModel(input: $input) {
+    alias
+    capabilities
+    contextWindow
+    defaultRoutingPolicyId
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useCreateWorkspaceAiGatewayModelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateWorkspaceAiGatewayModelMutation, TError, CreateWorkspaceAiGatewayModelMutationVariables, TContext>) => {
+    
+    return useMutation<CreateWorkspaceAiGatewayModelMutation, TError, CreateWorkspaceAiGatewayModelMutationVariables, TContext>(
+      {
+    mutationKey: ['createWorkspaceAiGatewayModel'],
+    mutationFn: (variables?: CreateWorkspaceAiGatewayModelMutationVariables) => fetcher<CreateWorkspaceAiGatewayModelMutation, CreateWorkspaceAiGatewayModelMutationVariables>(CreateWorkspaceAiGatewayModelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteWorkspaceAiGatewayModelDocument = new TypedDocumentString(`
+    mutation deleteWorkspaceAiGatewayModel($workspaceId: ID!, $modelId: ID!) {
+  deleteWorkspaceAiGatewayModel(workspaceId: $workspaceId, modelId: $modelId)
+}
+    `);
+
+export const useDeleteWorkspaceAiGatewayModelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteWorkspaceAiGatewayModelMutation, TError, DeleteWorkspaceAiGatewayModelMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteWorkspaceAiGatewayModelMutation, TError, DeleteWorkspaceAiGatewayModelMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteWorkspaceAiGatewayModel'],
+    mutationFn: (variables?: DeleteWorkspaceAiGatewayModelMutationVariables) => fetcher<DeleteWorkspaceAiGatewayModelMutation, DeleteWorkspaceAiGatewayModelMutationVariables>(DeleteWorkspaceAiGatewayModelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateWorkspaceAiGatewayModelDocument = new TypedDocumentString(`
+    mutation updateWorkspaceAiGatewayModel($id: ID!, $input: UpdateAiGatewayModelInput!) {
+  updateWorkspaceAiGatewayModel(id: $id, input: $input) {
+    alias
+    capabilities
+    contextWindow
+    defaultRoutingPolicyId
+    createdDate
+    enabled
+    id
+    inputCostPerMTokens
+    lastModifiedDate
+    name
+    outputCostPerMTokens
+    providerId
+    version
+  }
+}
+    `);
+
+export const useUpdateWorkspaceAiGatewayModelMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateWorkspaceAiGatewayModelMutation, TError, UpdateWorkspaceAiGatewayModelMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateWorkspaceAiGatewayModelMutation, TError, UpdateWorkspaceAiGatewayModelMutationVariables, TContext>(
+      {
+    mutationKey: ['updateWorkspaceAiGatewayModel'],
+    mutationFn: (variables?: UpdateWorkspaceAiGatewayModelMutationVariables) => fetcher<UpdateWorkspaceAiGatewayModelMutation, UpdateWorkspaceAiGatewayModelMutationVariables>(UpdateWorkspaceAiGatewayModelDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const WorkspaceAiGatewayProvidersDocument = new TypedDocumentString(`
+    query workspaceAiGatewayProviders($workspaceId: ID!) {
+  workspaceAiGatewayProviders(workspaceId: $workspaceId) {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useWorkspaceAiGatewayProvidersQuery = <
+      TData = WorkspaceAiGatewayProvidersQuery,
+      TError = unknown
+    >(
+      variables: WorkspaceAiGatewayProvidersQueryVariables,
+      options?: Omit<UseQueryOptions<WorkspaceAiGatewayProvidersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkspaceAiGatewayProvidersQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkspaceAiGatewayProvidersQuery, TError, TData>(
+      {
+    queryKey: ['workspaceAiGatewayProviders', variables],
+    queryFn: fetcher<WorkspaceAiGatewayProvidersQuery, WorkspaceAiGatewayProvidersQueryVariables>(WorkspaceAiGatewayProvidersDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateWorkspaceAiGatewayProviderDocument = new TypedDocumentString(`
+    mutation createWorkspaceAiGatewayProvider($input: CreateWorkspaceAiGatewayProviderInput!) {
+  createWorkspaceAiGatewayProvider(input: $input) {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useCreateWorkspaceAiGatewayProviderMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateWorkspaceAiGatewayProviderMutation, TError, CreateWorkspaceAiGatewayProviderMutationVariables, TContext>) => {
+    
+    return useMutation<CreateWorkspaceAiGatewayProviderMutation, TError, CreateWorkspaceAiGatewayProviderMutationVariables, TContext>(
+      {
+    mutationKey: ['createWorkspaceAiGatewayProvider'],
+    mutationFn: (variables?: CreateWorkspaceAiGatewayProviderMutationVariables) => fetcher<CreateWorkspaceAiGatewayProviderMutation, CreateWorkspaceAiGatewayProviderMutationVariables>(CreateWorkspaceAiGatewayProviderDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteWorkspaceAiGatewayProviderDocument = new TypedDocumentString(`
+    mutation deleteWorkspaceAiGatewayProvider($workspaceId: ID!, $providerId: ID!) {
+  deleteWorkspaceAiGatewayProvider(
+    workspaceId: $workspaceId
+    providerId: $providerId
+  )
+}
+    `);
+
+export const useDeleteWorkspaceAiGatewayProviderMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteWorkspaceAiGatewayProviderMutation, TError, DeleteWorkspaceAiGatewayProviderMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteWorkspaceAiGatewayProviderMutation, TError, DeleteWorkspaceAiGatewayProviderMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteWorkspaceAiGatewayProvider'],
+    mutationFn: (variables?: DeleteWorkspaceAiGatewayProviderMutationVariables) => fetcher<DeleteWorkspaceAiGatewayProviderMutation, DeleteWorkspaceAiGatewayProviderMutationVariables>(DeleteWorkspaceAiGatewayProviderDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateWorkspaceAiGatewayProviderDocument = new TypedDocumentString(`
+    mutation updateWorkspaceAiGatewayProvider($workspaceId: ID!, $id: ID!, $input: UpdateAiGatewayProviderInput!) {
+  updateWorkspaceAiGatewayProvider(
+    workspaceId: $workspaceId
+    id: $id
+    input: $input
+  ) {
+    baseUrl
+    config
+    createdBy
+    createdDate
+    enabled
+    id
+    lastModifiedBy
+    lastModifiedDate
+    name
+    type
+    version
+  }
+}
+    `);
+
+export const useUpdateWorkspaceAiGatewayProviderMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateWorkspaceAiGatewayProviderMutation, TError, UpdateWorkspaceAiGatewayProviderMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateWorkspaceAiGatewayProviderMutation, TError, UpdateWorkspaceAiGatewayProviderMutationVariables, TContext>(
+      {
+    mutationKey: ['updateWorkspaceAiGatewayProvider'],
+    mutationFn: (variables?: UpdateWorkspaceAiGatewayProviderMutationVariables) => fetcher<UpdateWorkspaceAiGatewayProviderMutation, UpdateWorkspaceAiGatewayProviderMutationVariables>(UpdateWorkspaceAiGatewayProviderDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const TestWorkspaceAiGatewayProviderConnectionDocument = new TypedDocumentString(`
+    mutation testWorkspaceAiGatewayProviderConnection($workspaceId: ID!, $providerId: ID!) {
+  testWorkspaceAiGatewayProviderConnection(
+    workspaceId: $workspaceId
+    providerId: $providerId
+  ) {
+    errorMessage
+    latencyMs
+    ok
+  }
+}
+    `);
+
+export const useTestWorkspaceAiGatewayProviderConnectionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<TestWorkspaceAiGatewayProviderConnectionMutation, TError, TestWorkspaceAiGatewayProviderConnectionMutationVariables, TContext>) => {
+    
+    return useMutation<TestWorkspaceAiGatewayProviderConnectionMutation, TError, TestWorkspaceAiGatewayProviderConnectionMutationVariables, TContext>(
+      {
+    mutationKey: ['testWorkspaceAiGatewayProviderConnection'],
+    mutationFn: (variables?: TestWorkspaceAiGatewayProviderConnectionMutationVariables) => fetcher<TestWorkspaceAiGatewayProviderConnectionMutation, TestWorkspaceAiGatewayProviderConnectionMutationVariables>(TestWorkspaceAiGatewayProviderConnectionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const WorkspaceAiGatewayRequestLogsDocument = new TypedDocumentString(`
+    query workspaceAiGatewayRequestLogs($endDate: Long!, $startDate: Long!, $workspaceId: ID!) {
+  workspaceAiGatewayRequestLogs(
+    endDate: $endDate
+    startDate: $startDate
+    workspaceId: $workspaceId
+  ) {
+    apiKeyId
+    cacheHit
+    cost
+    createdDate
+    errorMessage
+    id
+    inputTokens
+    latencyMs
+    outputTokens
+    requestId
+    requestedModel
+    routedModel
+    routedProvider
+    routingPolicyId
+    routingStrategy
+    status
+  }
+}
+    `);
+
+export const useWorkspaceAiGatewayRequestLogsQuery = <
+      TData = WorkspaceAiGatewayRequestLogsQuery,
+      TError = unknown
+    >(
+      variables: WorkspaceAiGatewayRequestLogsQueryVariables,
+      options?: Omit<UseQueryOptions<WorkspaceAiGatewayRequestLogsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkspaceAiGatewayRequestLogsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkspaceAiGatewayRequestLogsQuery, TError, TData>(
+      {
+    queryKey: ['workspaceAiGatewayRequestLogs', variables],
+    queryFn: fetcher<WorkspaceAiGatewayRequestLogsQuery, WorkspaceAiGatewayRequestLogsQueryVariables>(WorkspaceAiGatewayRequestLogsDocument, variables),
+    ...options
+  }
+    )};
+
+export const WorkspaceAiGatewayRoutingPoliciesDocument = new TypedDocumentString(`
+    query workspaceAiGatewayRoutingPolicies($workspaceId: ID!) {
+  workspaceAiGatewayRoutingPolicies(workspaceId: $workspaceId) {
+    config
+    createdDate
+    deployments {
+      enabled
+      id
+      maxRpm
+      maxTpm
+      modelId
+      priorityOrder
+      routingPolicyId
+      weight
+    }
+    enabled
+    fallbackModel
+    id
+    lastModifiedDate
+    name
+    strategy
+    version
+  }
+}
+    `);
+
+export const useWorkspaceAiGatewayRoutingPoliciesQuery = <
+      TData = WorkspaceAiGatewayRoutingPoliciesQuery,
+      TError = unknown
+    >(
+      variables: WorkspaceAiGatewayRoutingPoliciesQueryVariables,
+      options?: Omit<UseQueryOptions<WorkspaceAiGatewayRoutingPoliciesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkspaceAiGatewayRoutingPoliciesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkspaceAiGatewayRoutingPoliciesQuery, TError, TData>(
+      {
+    queryKey: ['workspaceAiGatewayRoutingPolicies', variables],
+    queryFn: fetcher<WorkspaceAiGatewayRoutingPoliciesQuery, WorkspaceAiGatewayRoutingPoliciesQueryVariables>(WorkspaceAiGatewayRoutingPoliciesDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateWorkspaceAiGatewayRoutingPolicyDocument = new TypedDocumentString(`
+    mutation createWorkspaceAiGatewayRoutingPolicy($input: CreateWorkspaceAiGatewayRoutingPolicyInput!) {
+  createWorkspaceAiGatewayRoutingPolicy(input: $input) {
+    config
+    createdDate
+    enabled
+    fallbackModel
+    id
+    lastModifiedDate
+    name
+    strategy
+    version
+  }
+}
+    `);
+
+export const useCreateWorkspaceAiGatewayRoutingPolicyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateWorkspaceAiGatewayRoutingPolicyMutation, TError, CreateWorkspaceAiGatewayRoutingPolicyMutationVariables, TContext>) => {
+    
+    return useMutation<CreateWorkspaceAiGatewayRoutingPolicyMutation, TError, CreateWorkspaceAiGatewayRoutingPolicyMutationVariables, TContext>(
+      {
+    mutationKey: ['createWorkspaceAiGatewayRoutingPolicy'],
+    mutationFn: (variables?: CreateWorkspaceAiGatewayRoutingPolicyMutationVariables) => fetcher<CreateWorkspaceAiGatewayRoutingPolicyMutation, CreateWorkspaceAiGatewayRoutingPolicyMutationVariables>(CreateWorkspaceAiGatewayRoutingPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteWorkspaceAiGatewayRoutingPolicyDocument = new TypedDocumentString(`
+    mutation deleteWorkspaceAiGatewayRoutingPolicy($workspaceId: ID!, $routingPolicyId: ID!) {
+  deleteWorkspaceAiGatewayRoutingPolicy(
+    workspaceId: $workspaceId
+    routingPolicyId: $routingPolicyId
+  )
+}
+    `);
+
+export const useDeleteWorkspaceAiGatewayRoutingPolicyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteWorkspaceAiGatewayRoutingPolicyMutation, TError, DeleteWorkspaceAiGatewayRoutingPolicyMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteWorkspaceAiGatewayRoutingPolicyMutation, TError, DeleteWorkspaceAiGatewayRoutingPolicyMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteWorkspaceAiGatewayRoutingPolicy'],
+    mutationFn: (variables?: DeleteWorkspaceAiGatewayRoutingPolicyMutationVariables) => fetcher<DeleteWorkspaceAiGatewayRoutingPolicyMutation, DeleteWorkspaceAiGatewayRoutingPolicyMutationVariables>(DeleteWorkspaceAiGatewayRoutingPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateWorkspaceAiGatewayRoutingPolicyDocument = new TypedDocumentString(`
+    mutation updateWorkspaceAiGatewayRoutingPolicy($workspaceId: ID!, $id: ID!, $input: UpdateAiGatewayRoutingPolicyInput!) {
+  updateWorkspaceAiGatewayRoutingPolicy(
+    workspaceId: $workspaceId
+    id: $id
+    input: $input
+  ) {
+    config
+    createdDate
+    enabled
+    fallbackModel
+    id
+    lastModifiedDate
+    name
+    strategy
+    version
+  }
+}
+    `);
+
+export const useUpdateWorkspaceAiGatewayRoutingPolicyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateWorkspaceAiGatewayRoutingPolicyMutation, TError, UpdateWorkspaceAiGatewayRoutingPolicyMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateWorkspaceAiGatewayRoutingPolicyMutation, TError, UpdateWorkspaceAiGatewayRoutingPolicyMutationVariables, TContext>(
+      {
+    mutationKey: ['updateWorkspaceAiGatewayRoutingPolicy'],
+    mutationFn: (variables?: UpdateWorkspaceAiGatewayRoutingPolicyMutationVariables) => fetcher<UpdateWorkspaceAiGatewayRoutingPolicyMutation, UpdateWorkspaceAiGatewayRoutingPolicyMutationVariables>(UpdateWorkspaceAiGatewayRoutingPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const ApprovalTaskDocument = new TypedDocumentString(`
     query approvalTask($id: ID!) {
   approvalTask(id: $id) {
@@ -3588,6 +10176,364 @@ export const useUpdateApprovalTaskMutation = <
       {
     mutationKey: ['updateApprovalTask'],
     mutationFn: (variables?: UpdateApprovalTaskMutationVariables) => fetcher<UpdateApprovalTaskMutation, UpdateApprovalTaskMutationVariables>(UpdateApprovalTaskDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteAssetFileDocument = new TypedDocumentString(`
+    mutation DeleteAssetFile($id: ID!) {
+  deleteAssetFile(id: $id)
+}
+    `);
+
+export const useDeleteAssetFileMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteAssetFileMutation, TError, DeleteAssetFileMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteAssetFileMutation, TError, DeleteAssetFileMutationVariables, TContext>(
+      {
+    mutationKey: ['DeleteAssetFile'],
+    mutationFn: (variables?: DeleteAssetFileMutationVariables) => fetcher<DeleteAssetFileMutation, DeleteAssetFileMutationVariables>(DeleteAssetFileDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DisableAssetFilePublicLinkDocument = new TypedDocumentString(`
+    mutation DisableAssetFilePublicLink($id: ID!) {
+  disableAssetFilePublicLink(id: $id) {
+    id
+    publicLinkUrl
+  }
+}
+    `);
+
+export const useDisableAssetFilePublicLinkMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DisableAssetFilePublicLinkMutation, TError, DisableAssetFilePublicLinkMutationVariables, TContext>) => {
+    
+    return useMutation<DisableAssetFilePublicLinkMutation, TError, DisableAssetFilePublicLinkMutationVariables, TContext>(
+      {
+    mutationKey: ['DisableAssetFilePublicLink'],
+    mutationFn: (variables?: DisableAssetFilePublicLinkMutationVariables) => fetcher<DisableAssetFilePublicLinkMutation, DisableAssetFilePublicLinkMutationVariables>(DisableAssetFilePublicLinkDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const EnableAssetFilePublicLinkDocument = new TypedDocumentString(`
+    mutation EnableAssetFilePublicLink($id: ID!) {
+  enableAssetFilePublicLink(id: $id) {
+    id
+    publicLinkUrl
+  }
+}
+    `);
+
+export const useEnableAssetFilePublicLinkMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<EnableAssetFilePublicLinkMutation, TError, EnableAssetFilePublicLinkMutationVariables, TContext>) => {
+    
+    return useMutation<EnableAssetFilePublicLinkMutation, TError, EnableAssetFilePublicLinkMutationVariables, TContext>(
+      {
+    mutationKey: ['EnableAssetFilePublicLink'],
+    mutationFn: (variables?: EnableAssetFilePublicLinkMutationVariables) => fetcher<EnableAssetFilePublicLinkMutation, EnableAssetFilePublicLinkMutationVariables>(EnableAssetFilePublicLinkDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const GetAssetFileDocument = new TypedDocumentString(`
+    query GetAssetFile($id: ID!) {
+  assetFile(id: $id) {
+    createdBy
+    createdDate
+    description
+    downloadUrl
+    environmentId
+    format
+    generatedByAgentSource
+    generatedFromPrompt
+    id
+    lastModifiedBy
+    lastModifiedDate
+    metadataJson
+    mimeType
+    name
+    publicLinkUrl
+    sizeBytes
+    source
+    tags {
+      id
+      name
+    }
+  }
+}
+    `);
+
+export const useGetAssetFileQuery = <
+      TData = GetAssetFileQuery,
+      TError = unknown
+    >(
+      variables: GetAssetFileQueryVariables,
+      options?: Omit<UseQueryOptions<GetAssetFileQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetAssetFileQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<GetAssetFileQuery, TError, TData>(
+      {
+    queryKey: ['GetAssetFile', variables],
+    queryFn: fetcher<GetAssetFileQuery, GetAssetFileQueryVariables>(GetAssetFileDocument, variables),
+    ...options
+  }
+    )};
+
+export const GetAssetFileSignedDownloadUrlDocument = new TypedDocumentString(`
+    query GetAssetFileSignedDownloadUrl($id: ID!) {
+  assetFileSignedDownloadUrl(id: $id)
+}
+    `);
+
+export const useGetAssetFileSignedDownloadUrlQuery = <
+      TData = GetAssetFileSignedDownloadUrlQuery,
+      TError = unknown
+    >(
+      variables: GetAssetFileSignedDownloadUrlQueryVariables,
+      options?: Omit<UseQueryOptions<GetAssetFileSignedDownloadUrlQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetAssetFileSignedDownloadUrlQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<GetAssetFileSignedDownloadUrlQuery, TError, TData>(
+      {
+    queryKey: ['GetAssetFileSignedDownloadUrl', variables],
+    queryFn: fetcher<GetAssetFileSignedDownloadUrlQuery, GetAssetFileSignedDownloadUrlQueryVariables>(GetAssetFileSignedDownloadUrlDocument, variables),
+    ...options
+  }
+    )};
+
+export const GetAssetFileTagsDocument = new TypedDocumentString(`
+    query GetAssetFileTags($workspaceId: ID!) {
+  assetFileTags(workspaceId: $workspaceId) {
+    id
+    name
+  }
+}
+    `);
+
+export const useGetAssetFileTagsQuery = <
+      TData = GetAssetFileTagsQuery,
+      TError = unknown
+    >(
+      variables: GetAssetFileTagsQueryVariables,
+      options?: Omit<UseQueryOptions<GetAssetFileTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetAssetFileTagsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<GetAssetFileTagsQuery, TError, TData>(
+      {
+    queryKey: ['GetAssetFileTags', variables],
+    queryFn: fetcher<GetAssetFileTagsQuery, GetAssetFileTagsQueryVariables>(GetAssetFileTagsDocument, variables),
+    ...options
+  }
+    )};
+
+export const GetAssetFileTextContentDocument = new TypedDocumentString(`
+    query GetAssetFileTextContent($id: ID!) {
+  assetFileTextContent(id: $id)
+}
+    `);
+
+export const useGetAssetFileTextContentQuery = <
+      TData = GetAssetFileTextContentQuery,
+      TError = unknown
+    >(
+      variables: GetAssetFileTextContentQueryVariables,
+      options?: Omit<UseQueryOptions<GetAssetFileTextContentQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetAssetFileTextContentQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<GetAssetFileTextContentQuery, TError, TData>(
+      {
+    queryKey: ['GetAssetFileTextContent', variables],
+    queryFn: fetcher<GetAssetFileTextContentQuery, GetAssetFileTextContentQueryVariables>(GetAssetFileTextContentDocument, variables),
+    ...options
+  }
+    )};
+
+export const GetAssetFileVersionsDocument = new TypedDocumentString(`
+    query GetAssetFileVersions($id: ID!) {
+  assetFileVersions(id: $id) {
+    createdBy
+    createdDate
+    id
+    mimeType
+    sizeBytes
+    versionNumber
+  }
+}
+    `);
+
+export const useGetAssetFileVersionsQuery = <
+      TData = GetAssetFileVersionsQuery,
+      TError = unknown
+    >(
+      variables: GetAssetFileVersionsQueryVariables,
+      options?: Omit<UseQueryOptions<GetAssetFileVersionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetAssetFileVersionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<GetAssetFileVersionsQuery, TError, TData>(
+      {
+    queryKey: ['GetAssetFileVersions', variables],
+    queryFn: fetcher<GetAssetFileVersionsQuery, GetAssetFileVersionsQueryVariables>(GetAssetFileVersionsDocument, variables),
+    ...options
+  }
+    )};
+
+export const GetAssetFilesDocument = new TypedDocumentString(`
+    query GetAssetFiles($workspaceId: ID!, $environment: Int, $tagIds: [ID!], $mimeTypePrefix: String) {
+  assetFiles(
+    workspaceId: $workspaceId
+    environment: $environment
+    tagIds: $tagIds
+    mimeTypePrefix: $mimeTypePrefix
+  ) {
+    createdBy
+    createdDate
+    description
+    downloadUrl
+    environmentId
+    format
+    generatedByAgentSource
+    generatedFromPrompt
+    id
+    lastModifiedBy
+    lastModifiedDate
+    metadataJson
+    mimeType
+    name
+    publicLinkUrl
+    sizeBytes
+    source
+    tags {
+      id
+      name
+    }
+  }
+}
+    `);
+
+export const useGetAssetFilesQuery = <
+      TData = GetAssetFilesQuery,
+      TError = unknown
+    >(
+      variables: GetAssetFilesQueryVariables,
+      options?: Omit<UseQueryOptions<GetAssetFilesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<GetAssetFilesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<GetAssetFilesQuery, TError, TData>(
+      {
+    queryKey: ['GetAssetFiles', variables],
+    queryFn: fetcher<GetAssetFilesQuery, GetAssetFilesQueryVariables>(GetAssetFilesDocument, variables),
+    ...options
+  }
+    )};
+
+export const RestoreAssetFileVersionDocument = new TypedDocumentString(`
+    mutation RestoreAssetFileVersion($id: ID!, $versionId: ID!) {
+  restoreAssetFileVersion(id: $id, versionId: $versionId) {
+    id
+    lastModifiedDate
+    mimeType
+    name
+    sizeBytes
+  }
+}
+    `);
+
+export const useRestoreAssetFileVersionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RestoreAssetFileVersionMutation, TError, RestoreAssetFileVersionMutationVariables, TContext>) => {
+    
+    return useMutation<RestoreAssetFileVersionMutation, TError, RestoreAssetFileVersionMutationVariables, TContext>(
+      {
+    mutationKey: ['RestoreAssetFileVersion'],
+    mutationFn: (variables?: RestoreAssetFileVersionMutationVariables) => fetcher<RestoreAssetFileVersionMutation, RestoreAssetFileVersionMutationVariables>(RestoreAssetFileVersionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAssetFileDocument = new TypedDocumentString(`
+    mutation UpdateAssetFile($input: UpdateAssetFileInput!) {
+  updateAssetFile(input: $input) {
+    createdBy
+    createdDate
+    description
+    downloadUrl
+    id
+    lastModifiedBy
+    lastModifiedDate
+    mimeType
+    name
+    sizeBytes
+    source
+  }
+}
+    `);
+
+export const useUpdateAssetFileMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAssetFileMutation, TError, UpdateAssetFileMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAssetFileMutation, TError, UpdateAssetFileMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateAssetFile'],
+    mutationFn: (variables?: UpdateAssetFileMutationVariables) => fetcher<UpdateAssetFileMutation, UpdateAssetFileMutationVariables>(UpdateAssetFileDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAssetFileTagsDocument = new TypedDocumentString(`
+    mutation UpdateAssetFileTags($input: UpdateAssetFileTagsInput!) {
+  updateAssetFileTags(input: $input) {
+    id
+    tags {
+      id
+      name
+    }
+  }
+}
+    `);
+
+export const useUpdateAssetFileTagsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAssetFileTagsMutation, TError, UpdateAssetFileTagsMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAssetFileTagsMutation, TError, UpdateAssetFileTagsMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateAssetFileTags'],
+    mutationFn: (variables?: UpdateAssetFileTagsMutationVariables) => fetcher<UpdateAssetFileTagsMutation, UpdateAssetFileTagsMutationVariables>(UpdateAssetFileTagsDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateAssetFileTextContentDocument = new TypedDocumentString(`
+    mutation UpdateAssetFileTextContent($id: ID!, $content: String!) {
+  updateAssetFileTextContent(id: $id, content: $content) {
+    id
+    lastModifiedDate
+    sizeBytes
+  }
+}
+    `);
+
+export const useUpdateAssetFileTextContentMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAssetFileTextContentMutation, TError, UpdateAssetFileTextContentMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAssetFileTextContentMutation, TError, UpdateAssetFileTextContentMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateAssetFileTextContent'],
+    mutationFn: (variables?: UpdateAssetFileTextContentMutationVariables) => fetcher<UpdateAssetFileTextContentMutation, UpdateAssetFileTextContentMutationVariables>(UpdateAssetFileTextContentDocument, variables)(),
     ...options
   }
     )};
@@ -3767,6 +10713,83 @@ export const useA2aServersQuery = <
   }
     )};
 
+export const AddWorkspaceUserDocument = new TypedDocumentString(`
+    mutation AddWorkspaceUser($workspaceId: ID!, $userId: ID!, $role: WorkspaceRole!) {
+  addWorkspaceUser(workspaceId: $workspaceId, userId: $userId, role: $role) {
+    id
+    workspaceId
+    userId
+    workspaceRole
+    user {
+      email
+      firstName
+      lastName
+    }
+  }
+}
+    `);
+
+export const useAddWorkspaceUserMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AddWorkspaceUserMutation, TError, AddWorkspaceUserMutationVariables, TContext>) => {
+    
+    return useMutation<AddWorkspaceUserMutation, TError, AddWorkspaceUserMutationVariables, TContext>(
+      {
+    mutationKey: ['AddWorkspaceUser'],
+    mutationFn: (variables?: AddWorkspaceUserMutationVariables) => fetcher<AddWorkspaceUserMutation, AddWorkspaceUserMutationVariables>(AddWorkspaceUserDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AffectedWorkflowsDocument = new TypedDocumentString(`
+    query affectedWorkflows($workspaceId: ID!, $userLogin: String!) {
+  affectedWorkflows(workspaceId: $workspaceId, userLogin: $userLogin) {
+    workflowId
+    workflowName
+    connectionIds
+  }
+}
+    `);
+
+export const useAffectedWorkflowsQuery = <
+      TData = AffectedWorkflowsQuery,
+      TError = unknown
+    >(
+      variables: AffectedWorkflowsQueryVariables,
+      options?: Omit<UseQueryOptions<AffectedWorkflowsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AffectedWorkflowsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AffectedWorkflowsQuery, TError, TData>(
+      {
+    queryKey: ['affectedWorkflows', variables],
+    queryFn: fetcher<AffectedWorkflowsQuery, AffectedWorkflowsQueryVariables>(AffectedWorkflowsDocument, variables),
+    ...options
+  }
+    )};
+
+export const ConnectionGrantsDocument = new TypedDocumentString(`
+    query ConnectionGrants($workspaceId: ID!, $connectionId: ID!) {
+  connectionGrants(workspaceId: $workspaceId, connectionId: $connectionId)
+}
+    `);
+
+export const useConnectionGrantsQuery = <
+      TData = ConnectionGrantsQuery,
+      TError = unknown
+    >(
+      variables: ConnectionGrantsQueryVariables,
+      options?: Omit<UseQueryOptions<ConnectionGrantsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ConnectionGrantsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ConnectionGrantsQuery, TError, TData>(
+      {
+    queryKey: ['ConnectionGrants', variables],
+    queryFn: fetcher<ConnectionGrantsQuery, ConnectionGrantsQueryVariables>(ConnectionGrantsDocument, variables),
+    ...options
+  }
+    )};
+
 export const CreateA2aProjectDocument = new TypedDocumentString(`
     mutation createA2aProject($input: CreateA2aProjectInput!) {
   createA2aProject(input: $input) {
@@ -3833,6 +10856,25 @@ export const useCreateMcpProjectMutation = <
   }
     )};
 
+export const CreateOrganizationConnectionDocument = new TypedDocumentString(`
+    mutation createOrganizationConnection($input: CreateOrganizationConnectionInput!) {
+  createOrganizationConnection(input: $input)
+}
+    `);
+
+export const useCreateOrganizationConnectionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateOrganizationConnectionMutation, TError, CreateOrganizationConnectionMutationVariables, TContext>) => {
+    
+    return useMutation<CreateOrganizationConnectionMutation, TError, CreateOrganizationConnectionMutationVariables, TContext>(
+      {
+    mutationKey: ['createOrganizationConnection'],
+    mutationFn: (variables?: CreateOrganizationConnectionMutationVariables) => fetcher<CreateOrganizationConnectionMutation, CreateOrganizationConnectionMutationVariables>(CreateOrganizationConnectionDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const CreateWorkspaceApiKeyDocument = new TypedDocumentString(`
     mutation createWorkspaceApiKey($workspaceId: ID!, $name: String!, $environmentId: ID!) {
   createWorkspaceApiKey(
@@ -3877,6 +10919,36 @@ export const useCreateMcpServerMutation = <
       {
     mutationKey: ['createMcpServer'],
     mutationFn: (variables?: CreateMcpServerMutationVariables) => fetcher<CreateMcpServerMutation, CreateMcpServerMutationVariables>(CreateMcpServerDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DataStreamCompatibleConnectionsDocument = new TypedDocumentString(`
+    query dataStreamCompatibleConnections($workspaceId: ID!, $environmentId: ID!) {
+  dataStreamCompatibleConnections(
+    workspaceId: $workspaceId
+    environmentId: $environmentId
+  ) {
+    id
+    name
+    componentName
+    componentVersion
+  }
+}
+    `);
+
+export const useDataStreamCompatibleConnectionsQuery = <
+      TData = DataStreamCompatibleConnectionsQuery,
+      TError = unknown
+    >(
+      variables: DataStreamCompatibleConnectionsQueryVariables,
+      options?: Omit<UseQueryOptions<DataStreamCompatibleConnectionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<DataStreamCompatibleConnectionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<DataStreamCompatibleConnectionsQuery, TError, TData>(
+      {
+    queryKey: ['dataStreamCompatibleConnections', variables],
+    queryFn: fetcher<DataStreamCompatibleConnectionsQuery, DataStreamCompatibleConnectionsQueryVariables>(DataStreamCompatibleConnectionsDocument, variables),
     ...options
   }
     )};
@@ -3953,6 +11025,25 @@ export const useDeleteMcpProjectWorkflowMutation = <
       {
     mutationKey: ['deleteMcpProjectWorkflow'],
     mutationFn: (variables?: DeleteMcpProjectWorkflowMutationVariables) => fetcher<DeleteMcpProjectWorkflowMutation, DeleteMcpProjectWorkflowMutationVariables>(DeleteMcpProjectWorkflowDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteOrganizationConnectionDocument = new TypedDocumentString(`
+    mutation deleteOrganizationConnection($connectionId: ID!) {
+  deleteOrganizationConnection(connectionId: $connectionId)
+}
+    `);
+
+export const useDeleteOrganizationConnectionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteOrganizationConnectionMutation, TError, DeleteOrganizationConnectionMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteOrganizationConnectionMutation, TError, DeleteOrganizationConnectionMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteOrganizationConnection'],
+    mutationFn: (variables?: DeleteOrganizationConnectionMutationVariables) => fetcher<DeleteOrganizationConnectionMutation, DeleteOrganizationConnectionMutationVariables>(DeleteOrganizationConnectionDocument, variables)(),
     ...options
   }
     )};
@@ -4086,6 +11177,29 @@ export const useExportSharedWorkflowMutation = <
       {
     mutationKey: ['exportSharedWorkflow'],
     mutationFn: (variables?: ExportSharedWorkflowMutationVariables) => fetcher<ExportSharedWorkflowMutation, ExportSharedWorkflowMutationVariables>(ExportSharedWorkflowDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const GrantConnectionAccessDocument = new TypedDocumentString(`
+    mutation GrantConnectionAccess($workspaceId: ID!, $connectionId: ID!, $userId: ID!) {
+  grantConnectionAccess(
+    workspaceId: $workspaceId
+    connectionId: $connectionId
+    userId: $userId
+  )
+}
+    `);
+
+export const useGrantConnectionAccessMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<GrantConnectionAccessMutation, TError, GrantConnectionAccessMutationVariables, TContext>) => {
+    
+    return useMutation<GrantConnectionAccessMutation, TError, GrantConnectionAccessMutationVariables, TContext>(
+      {
+    mutationKey: ['GrantConnectionAccess'],
+    mutationFn: (variables?: GrantConnectionAccessMutationVariables) => fetcher<GrantConnectionAccessMutation, GrantConnectionAccessMutationVariables>(GrantConnectionAccessDocument, variables)(),
     ...options
   }
     )};
@@ -4308,6 +11422,81 @@ export const useMcpProjectsByServerIdQuery = <
   }
     )};
 
+export const MyWorkspaceRoleDocument = new TypedDocumentString(`
+    query MyWorkspaceRole($workspaceId: ID!) {
+  myWorkspaceRole(workspaceId: $workspaceId)
+}
+    `);
+
+export const useMyWorkspaceRoleQuery = <
+      TData = MyWorkspaceRoleQuery,
+      TError = unknown
+    >(
+      variables: MyWorkspaceRoleQueryVariables,
+      options?: Omit<UseQueryOptions<MyWorkspaceRoleQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<MyWorkspaceRoleQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<MyWorkspaceRoleQuery, TError, TData>(
+      {
+    queryKey: ['MyWorkspaceRole', variables],
+    queryFn: fetcher<MyWorkspaceRoleQuery, MyWorkspaceRoleQueryVariables>(MyWorkspaceRoleDocument, variables),
+    ...options
+  }
+    )};
+
+export const MyWorkspaceScopesDocument = new TypedDocumentString(`
+    query MyWorkspaceScopes($workspaceId: ID!) {
+  myWorkspaceScopes(workspaceId: $workspaceId)
+}
+    `);
+
+export const useMyWorkspaceScopesQuery = <
+      TData = MyWorkspaceScopesQuery,
+      TError = unknown
+    >(
+      variables: MyWorkspaceScopesQueryVariables,
+      options?: Omit<UseQueryOptions<MyWorkspaceScopesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<MyWorkspaceScopesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<MyWorkspaceScopesQuery, TError, TData>(
+      {
+    queryKey: ['MyWorkspaceScopes', variables],
+    queryFn: fetcher<MyWorkspaceScopesQuery, MyWorkspaceScopesQueryVariables>(MyWorkspaceScopesDocument, variables),
+    ...options
+  }
+    )};
+
+export const OrganizationConnectionsDocument = new TypedDocumentString(`
+    query organizationConnections($environmentId: ID) {
+  organizationConnections(environmentId: $environmentId) {
+    id
+    name
+    componentName
+    environmentId
+    visibility
+    createdBy
+    createdDate
+    lastModifiedDate
+  }
+}
+    `);
+
+export const useOrganizationConnectionsQuery = <
+      TData = OrganizationConnectionsQuery,
+      TError = unknown
+    >(
+      variables?: OrganizationConnectionsQueryVariables,
+      options?: Omit<UseQueryOptions<OrganizationConnectionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<OrganizationConnectionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<OrganizationConnectionsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['organizationConnections'] : ['organizationConnections', variables],
+    queryFn: fetcher<OrganizationConnectionsQuery, OrganizationConnectionsQueryVariables>(OrganizationConnectionsDocument, variables),
+    ...options
+  }
+    )};
+
 export const PreBuiltProjectTemplatesDocument = new TypedDocumentString(`
     query preBuiltProjectTemplates($query: String, $category: String) {
   preBuiltProjectTemplates(query: $query, category: $category) {
@@ -4470,6 +11659,94 @@ export const useProjectTemplateQuery = <
   }
     )};
 
+export const ReassignAllConnectionsDocument = new TypedDocumentString(`
+    mutation reassignAllConnections($workspaceId: ID!, $userLogin: String!, $newOwnerLogin: String!) {
+  reassignAllConnections(
+    workspaceId: $workspaceId
+    userLogin: $userLogin
+    newOwnerLogin: $newOwnerLogin
+  )
+}
+    `);
+
+export const useReassignAllConnectionsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<ReassignAllConnectionsMutation, TError, ReassignAllConnectionsMutationVariables, TContext>) => {
+    
+    return useMutation<ReassignAllConnectionsMutation, TError, ReassignAllConnectionsMutationVariables, TContext>(
+      {
+    mutationKey: ['reassignAllConnections'],
+    mutationFn: (variables?: ReassignAllConnectionsMutationVariables) => fetcher<ReassignAllConnectionsMutation, ReassignAllConnectionsMutationVariables>(ReassignAllConnectionsDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RemoveWorkspaceUserDocument = new TypedDocumentString(`
+    mutation RemoveWorkspaceUser($workspaceId: ID!, $userId: ID!) {
+  removeWorkspaceUser(workspaceId: $workspaceId, userId: $userId)
+}
+    `);
+
+export const useRemoveWorkspaceUserMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RemoveWorkspaceUserMutation, TError, RemoveWorkspaceUserMutationVariables, TContext>) => {
+    
+    return useMutation<RemoveWorkspaceUserMutation, TError, RemoveWorkspaceUserMutationVariables, TContext>(
+      {
+    mutationKey: ['RemoveWorkspaceUser'],
+    mutationFn: (variables?: RemoveWorkspaceUserMutationVariables) => fetcher<RemoveWorkspaceUserMutation, RemoveWorkspaceUserMutationVariables>(RemoveWorkspaceUserDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RevokeConnectionAccessDocument = new TypedDocumentString(`
+    mutation RevokeConnectionAccess($workspaceId: ID!, $connectionId: ID!, $userId: ID!) {
+  revokeConnectionAccess(
+    workspaceId: $workspaceId
+    connectionId: $connectionId
+    userId: $userId
+  )
+}
+    `);
+
+export const useRevokeConnectionAccessMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RevokeConnectionAccessMutation, TError, RevokeConnectionAccessMutationVariables, TContext>) => {
+    
+    return useMutation<RevokeConnectionAccessMutation, TError, RevokeConnectionAccessMutationVariables, TContext>(
+      {
+    mutationKey: ['RevokeConnectionAccess'],
+    mutationFn: (variables?: RevokeConnectionAccessMutationVariables) => fetcher<RevokeConnectionAccessMutation, RevokeConnectionAccessMutationVariables>(RevokeConnectionAccessDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetConnectionVisibilityDocument = new TypedDocumentString(`
+    mutation SetConnectionVisibility($workspaceId: ID!, $connectionId: ID!, $visibility: ResourceVisibility!) {
+  setConnectionVisibility(
+    workspaceId: $workspaceId
+    connectionId: $connectionId
+    visibility: $visibility
+  )
+}
+    `);
+
+export const useSetConnectionVisibilityMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetConnectionVisibilityMutation, TError, SetConnectionVisibilityMutationVariables, TContext>) => {
+    
+    return useMutation<SetConnectionVisibilityMutation, TError, SetConnectionVisibilityMutationVariables, TContext>(
+      {
+    mutationKey: ['SetConnectionVisibility'],
+    mutationFn: (variables?: SetConnectionVisibilityMutationVariables) => fetcher<SetConnectionVisibilityMutation, SetConnectionVisibilityMutationVariables>(SetConnectionVisibilityDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const SharedProjectDocument = new TypedDocumentString(`
     query sharedProject($projectUuid: String!) {
   sharedProject(projectUuid: $projectUuid) {
@@ -4551,6 +11828,34 @@ export const useToolEligibleProjectVersionWorkflowsQuery = <
       {
     queryKey: ['toolEligibleProjectVersionWorkflows', variables],
     queryFn: fetcher<ToolEligibleProjectVersionWorkflowsQuery, ToolEligibleProjectVersionWorkflowsQueryVariables>(ToolEligibleProjectVersionWorkflowsDocument, variables),
+    ...options
+  }
+    )};
+
+export const UnresolvedConnectionsDocument = new TypedDocumentString(`
+    query unresolvedConnections($workspaceId: ID!, $userLogin: String!) {
+  unresolvedConnections(workspaceId: $workspaceId, userLogin: $userLogin) {
+    connectionId
+    connectionName
+    visibility
+    environmentId
+    dependentWorkflowCount
+  }
+}
+    `);
+
+export const useUnresolvedConnectionsQuery = <
+      TData = UnresolvedConnectionsQuery,
+      TError = unknown
+    >(
+      variables: UnresolvedConnectionsQueryVariables,
+      options?: Omit<UseQueryOptions<UnresolvedConnectionsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<UnresolvedConnectionsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<UnresolvedConnectionsQuery, TError, TData>(
+      {
+    queryKey: ['unresolvedConnections', variables],
+    queryFn: fetcher<UnresolvedConnectionsQuery, UnresolvedConnectionsQueryVariables>(UnresolvedConnectionsDocument, variables),
     ...options
   }
     )};
@@ -4754,6 +12059,30 @@ export const useUpdateMcpServerTagsMutation = <
   }
     )};
 
+export const UpdateOrganizationConnectionDocument = new TypedDocumentString(`
+    mutation updateOrganizationConnection($connectionId: ID!, $name: String!, $tagIds: [ID!], $version: Int!) {
+  updateOrganizationConnection(
+    connectionId: $connectionId
+    name: $name
+    tagIds: $tagIds
+    version: $version
+  )
+}
+    `);
+
+export const useUpdateOrganizationConnectionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateOrganizationConnectionMutation, TError, UpdateOrganizationConnectionMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateOrganizationConnectionMutation, TError, UpdateOrganizationConnectionMutationVariables, TContext>(
+      {
+    mutationKey: ['updateOrganizationConnection'],
+    mutationFn: (variables?: UpdateOrganizationConnectionMutationVariables) => fetcher<UpdateOrganizationConnectionMutation, UpdateOrganizationConnectionMutationVariables>(UpdateOrganizationConnectionDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const UpdateWorkspaceApiKeyDocument = new TypedDocumentString(`
     mutation updateWorkspaceApiKey($apiKeyId: ID!, $name: String!) {
   updateWorkspaceApiKey(apiKeyId: $apiKeyId, name: $name)
@@ -4791,6 +12120,28 @@ export const useUpdateWorkspaceMcpToolEnabledMutation = <
       {
     mutationKey: ['updateWorkspaceMcpToolEnabled'],
     mutationFn: (variables?: UpdateWorkspaceMcpToolEnabledMutationVariables) => fetcher<UpdateWorkspaceMcpToolEnabledMutation, UpdateWorkspaceMcpToolEnabledMutationVariables>(UpdateWorkspaceMcpToolEnabledDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateWorkspaceUserRoleDocument = new TypedDocumentString(`
+    mutation UpdateWorkspaceUserRole($workspaceId: ID!, $userId: ID!, $role: WorkspaceRole!) {
+  updateWorkspaceUserRole(workspaceId: $workspaceId, userId: $userId, role: $role) {
+    id
+    workspaceRole
+  }
+}
+    `);
+
+export const useUpdateWorkspaceUserRoleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateWorkspaceUserRoleMutation, TError, UpdateWorkspaceUserRoleMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateWorkspaceUserRoleMutation, TError, UpdateWorkspaceUserRoleMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateWorkspaceUserRole'],
+    mutationFn: (variables?: UpdateWorkspaceUserRoleMutationVariables) => fetcher<UpdateWorkspaceUserRoleMutation, UpdateWorkspaceUserRoleMutationVariables>(UpdateWorkspaceUserRoleDocument, variables)(),
     ...options
   }
     )};
@@ -4919,7 +12270,9 @@ export const WorkspaceChatWorkflowsDocument = new TypedDocumentString(`
     projectDeploymentId
     projectId
     projectName
+    projectWorkflowId
     workflowExecutionId
+    workflowId
     workflowLabel
   }
 }
@@ -5008,6 +12361,393 @@ export const useWorkspaceMcpServersQuery = <
       {
     queryKey: ['workspaceMcpServers', variables],
     queryFn: fetcher<WorkspaceMcpServersQuery, WorkspaceMcpServersQueryVariables>(WorkspaceMcpServersDocument, variables),
+    ...options
+  }
+    )};
+
+export const WorkspaceUsersDocument = new TypedDocumentString(`
+    query WorkspaceUsers($workspaceId: ID!) {
+  workspaceUsers(workspaceId: $workspaceId) {
+    id
+    workspaceId
+    userId
+    workspaceRole
+    user {
+      email
+      firstName
+      lastName
+    }
+    createdDate
+  }
+}
+    `);
+
+export const useWorkspaceUsersQuery = <
+      TData = WorkspaceUsersQuery,
+      TError = unknown
+    >(
+      variables: WorkspaceUsersQueryVariables,
+      options?: Omit<UseQueryOptions<WorkspaceUsersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkspaceUsersQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkspaceUsersQuery, TError, TData>(
+      {
+    queryKey: ['WorkspaceUsers', variables],
+    queryFn: fetcher<WorkspaceUsersQuery, WorkspaceUsersQueryVariables>(WorkspaceUsersDocument, variables),
+    ...options
+  }
+    )};
+
+export const ContextStoreSourceDocument = new TypedDocumentString(`
+    query contextStoreSource($id: ID!) {
+  contextStoreSource(id: $id) {
+    id
+    name
+    entityName
+    description
+    idField
+    storedFields
+    indexedFields
+    semanticIndexFields
+    parameters
+    sourceComponentName
+    sourceComponentVersion
+    sourceClusterElementName
+    connectionId
+    cadence
+    status
+    enabled
+    lastSyncRunAt
+    lastSyncJobExecutionId
+    workflowId
+    fullReplaceCadence
+    tombstoneStrategy
+  }
+}
+    `);
+
+export const useContextStoreSourceQuery = <
+      TData = ContextStoreSourceQuery,
+      TError = unknown
+    >(
+      variables: ContextStoreSourceQueryVariables,
+      options?: Omit<UseQueryOptions<ContextStoreSourceQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ContextStoreSourceQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ContextStoreSourceQuery, TError, TData>(
+      {
+    queryKey: ['contextStoreSource', variables],
+    queryFn: fetcher<ContextStoreSourceQuery, ContextStoreSourceQueryVariables>(ContextStoreSourceDocument, variables),
+    ...options
+  }
+    )};
+
+export const ContextStoreSourcesDocument = new TypedDocumentString(`
+    query contextStoreSources($workspaceId: ID!, $environmentId: ID!, $filter: ContextStoreSourceFilter) {
+  contextStoreSources(
+    workspaceId: $workspaceId
+    environmentId: $environmentId
+    filter: $filter
+  ) {
+    id
+    contextStoreId
+    name
+    entityName
+    description
+    idField
+    indexedFields
+    sourceComponentName
+    sourceComponentVersion
+    sourceClusterElementName
+    connectionId
+    cadence
+    status
+    enabled
+    lastSyncRunAt
+    lastSyncJobExecutionId
+    workflowId
+  }
+}
+    `);
+
+export const useContextStoreSourcesQuery = <
+      TData = ContextStoreSourcesQuery,
+      TError = unknown
+    >(
+      variables: ContextStoreSourcesQueryVariables,
+      options?: Omit<UseQueryOptions<ContextStoreSourcesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ContextStoreSourcesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ContextStoreSourcesQuery, TError, TData>(
+      {
+    queryKey: ['contextStoreSources', variables],
+    queryFn: fetcher<ContextStoreSourcesQuery, ContextStoreSourcesQueryVariables>(ContextStoreSourcesDocument, variables),
+    ...options
+  }
+    )};
+
+export const ContextStoreTagsDocument = new TypedDocumentString(`
+    query contextStoreTags($workspaceId: ID!) {
+  contextStoreTags(workspaceId: $workspaceId) {
+    id
+    name
+  }
+}
+    `);
+
+export const useContextStoreTagsQuery = <
+      TData = ContextStoreTagsQuery,
+      TError = unknown
+    >(
+      variables: ContextStoreTagsQueryVariables,
+      options?: Omit<UseQueryOptions<ContextStoreTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ContextStoreTagsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ContextStoreTagsQuery, TError, TData>(
+      {
+    queryKey: ['contextStoreTags', variables],
+    queryFn: fetcher<ContextStoreTagsQuery, ContextStoreTagsQueryVariables>(ContextStoreTagsDocument, variables),
+    ...options
+  }
+    )};
+
+export const ContextStoresDocument = new TypedDocumentString(`
+    query contextStores($workspaceId: ID!, $environmentId: ID!) {
+  contextStores(workspaceId: $workspaceId, environmentId: $environmentId) {
+    id
+    name
+    description
+    environment
+    tagIds
+    tags {
+      id
+      name
+    }
+    version
+  }
+}
+    `);
+
+export const useContextStoresQuery = <
+      TData = ContextStoresQuery,
+      TError = unknown
+    >(
+      variables: ContextStoresQueryVariables,
+      options?: Omit<UseQueryOptions<ContextStoresQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ContextStoresQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ContextStoresQuery, TError, TData>(
+      {
+    queryKey: ['contextStores', variables],
+    queryFn: fetcher<ContextStoresQuery, ContextStoresQueryVariables>(ContextStoresDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateContextStoreDocument = new TypedDocumentString(`
+    mutation createContextStore($workspaceId: ID!, $environmentId: ID!, $input: CreateContextStoreInput!) {
+  createContextStore(
+    workspaceId: $workspaceId
+    environmentId: $environmentId
+    input: $input
+  ) {
+    id
+    name
+    description
+    environment
+    tagIds
+    version
+  }
+}
+    `);
+
+export const useCreateContextStoreMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateContextStoreMutation, TError, CreateContextStoreMutationVariables, TContext>) => {
+    
+    return useMutation<CreateContextStoreMutation, TError, CreateContextStoreMutationVariables, TContext>(
+      {
+    mutationKey: ['createContextStore'],
+    mutationFn: (variables?: CreateContextStoreMutationVariables) => fetcher<CreateContextStoreMutation, CreateContextStoreMutationVariables>(CreateContextStoreDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateContextStoreSourceDocument = new TypedDocumentString(`
+    mutation createContextStoreSource($input: CreateContextStoreSourceInput!) {
+  createContextStoreSource(input: $input) {
+    id
+    name
+    status
+    enabled
+    cadence
+  }
+}
+    `);
+
+export const useCreateContextStoreSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateContextStoreSourceMutation, TError, CreateContextStoreSourceMutationVariables, TContext>) => {
+    
+    return useMutation<CreateContextStoreSourceMutation, TError, CreateContextStoreSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['createContextStoreSource'],
+    mutationFn: (variables?: CreateContextStoreSourceMutationVariables) => fetcher<CreateContextStoreSourceMutation, CreateContextStoreSourceMutationVariables>(CreateContextStoreSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteContextStoreDocument = new TypedDocumentString(`
+    mutation deleteContextStore($workspaceId: ID!, $id: ID!) {
+  deleteContextStore(workspaceId: $workspaceId, id: $id)
+}
+    `);
+
+export const useDeleteContextStoreMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteContextStoreMutation, TError, DeleteContextStoreMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteContextStoreMutation, TError, DeleteContextStoreMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteContextStore'],
+    mutationFn: (variables?: DeleteContextStoreMutationVariables) => fetcher<DeleteContextStoreMutation, DeleteContextStoreMutationVariables>(DeleteContextStoreDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteContextStoreSourceDocument = new TypedDocumentString(`
+    mutation deleteContextStoreSource($id: ID!) {
+  deleteContextStoreSource(id: $id)
+}
+    `);
+
+export const useDeleteContextStoreSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteContextStoreSourceMutation, TError, DeleteContextStoreSourceMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteContextStoreSourceMutation, TError, DeleteContextStoreSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteContextStoreSource'],
+    mutationFn: (variables?: DeleteContextStoreSourceMutationVariables) => fetcher<DeleteContextStoreSourceMutation, DeleteContextStoreSourceMutationVariables>(DeleteContextStoreSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const RefreshContextStoreSourceDocument = new TypedDocumentString(`
+    mutation refreshContextStoreSource($id: ID!) {
+  refreshContextStoreSource(id: $id)
+}
+    `);
+
+export const useRefreshContextStoreSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RefreshContextStoreSourceMutation, TError, RefreshContextStoreSourceMutationVariables, TContext>) => {
+    
+    return useMutation<RefreshContextStoreSourceMutation, TError, RefreshContextStoreSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['refreshContextStoreSource'],
+    mutationFn: (variables?: RefreshContextStoreSourceMutationVariables) => fetcher<RefreshContextStoreSourceMutation, RefreshContextStoreSourceMutationVariables>(RefreshContextStoreSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SetContextStoreSourceEnabledDocument = new TypedDocumentString(`
+    mutation setContextStoreSourceEnabled($id: ID!, $enabled: Boolean!) {
+  setContextStoreSourceEnabled(id: $id, enabled: $enabled) {
+    id
+    enabled
+    status
+  }
+}
+    `);
+
+export const useSetContextStoreSourceEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetContextStoreSourceEnabledMutation, TError, SetContextStoreSourceEnabledMutationVariables, TContext>) => {
+    
+    return useMutation<SetContextStoreSourceEnabledMutation, TError, SetContextStoreSourceEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['setContextStoreSourceEnabled'],
+    mutationFn: (variables?: SetContextStoreSourceEnabledMutationVariables) => fetcher<SetContextStoreSourceEnabledMutation, SetContextStoreSourceEnabledMutationVariables>(SetContextStoreSourceEnabledDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateContextStoreDocument = new TypedDocumentString(`
+    mutation updateContextStore($workspaceId: ID!, $id: ID!, $input: UpdateContextStoreInput!) {
+  updateContextStore(workspaceId: $workspaceId, id: $id, input: $input) {
+    id
+    name
+    description
+    environment
+    tagIds
+    version
+  }
+}
+    `);
+
+export const useUpdateContextStoreMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateContextStoreMutation, TError, UpdateContextStoreMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateContextStoreMutation, TError, UpdateContextStoreMutationVariables, TContext>(
+      {
+    mutationKey: ['updateContextStore'],
+    mutationFn: (variables?: UpdateContextStoreMutationVariables) => fetcher<UpdateContextStoreMutation, UpdateContextStoreMutationVariables>(UpdateContextStoreDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateContextStoreSourceDocument = new TypedDocumentString(`
+    mutation updateContextStoreSource($id: ID!, $input: UpdateContextStoreSourceInput!) {
+  updateContextStoreSource(id: $id, input: $input) {
+    id
+    name
+    cadence
+    enabled
+    status
+  }
+}
+    `);
+
+export const useUpdateContextStoreSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateContextStoreSourceMutation, TError, UpdateContextStoreSourceMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateContextStoreSourceMutation, TError, UpdateContextStoreSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['updateContextStoreSource'],
+    mutationFn: (variables?: UpdateContextStoreSourceMutationVariables) => fetcher<UpdateContextStoreSourceMutation, UpdateContextStoreSourceMutationVariables>(UpdateContextStoreSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateContextStoreTagsDocument = new TypedDocumentString(`
+    mutation updateContextStoreTags($workspaceId: ID!, $id: ID!, $tags: [TagInput!]!) {
+  updateContextStoreTags(workspaceId: $workspaceId, id: $id, tags: $tags) {
+    id
+    name
+  }
+}
+    `);
+
+export const useUpdateContextStoreTagsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateContextStoreTagsMutation, TError, UpdateContextStoreTagsMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateContextStoreTagsMutation, TError, UpdateContextStoreTagsMutationVariables, TContext>(
+      {
+    mutationKey: ['updateContextStoreTags'],
+    mutationFn: (variables?: UpdateContextStoreTagsMutationVariables) => fetcher<UpdateContextStoreTagsMutation, UpdateContextStoreTagsMutationVariables>(UpdateContextStoreTagsDocument, variables)(),
     ...options
   }
     )};
@@ -5109,9 +12849,36 @@ export const useDataTableRowsPageQuery = <
   }
     )};
 
+export const DataTableStorageUsageDocument = new TypedDocumentString(`
+    query DataTableStorageUsage {
+  dataTableStorageUsage {
+    limitBytes
+    percentage
+    unlimited
+    usedBytes
+  }
+}
+    `);
+
+export const useDataTableStorageUsageQuery = <
+      TData = DataTableStorageUsageQuery,
+      TError = unknown
+    >(
+      variables?: DataTableStorageUsageQueryVariables,
+      options?: Omit<UseQueryOptions<DataTableStorageUsageQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<DataTableStorageUsageQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<DataTableStorageUsageQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['DataTableStorageUsage'] : ['DataTableStorageUsage', variables],
+    queryFn: fetcher<DataTableStorageUsageQuery, DataTableStorageUsageQueryVariables>(DataTableStorageUsageDocument, variables),
+    ...options
+  }
+    )};
+
 export const DataTableTagsDocument = new TypedDocumentString(`
-    query dataTableTags {
-  dataTableTags {
+    query dataTableTags($workspaceId: ID!) {
+  dataTableTags(workspaceId: $workspaceId) {
     id
     name
   }
@@ -5122,13 +12889,13 @@ export const useDataTableTagsQuery = <
       TData = DataTableTagsQuery,
       TError = unknown
     >(
-      variables?: DataTableTagsQueryVariables,
+      variables: DataTableTagsQueryVariables,
       options?: Omit<UseQueryOptions<DataTableTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<DataTableTagsQuery, TError, TData>['queryKey'] }
     ) => {
     
     return useQuery<DataTableTagsQuery, TError, TData>(
       {
-    queryKey: variables === undefined ? ['dataTableTags'] : ['dataTableTags', variables],
+    queryKey: ['dataTableTags', variables],
     queryFn: fetcher<DataTableTagsQuery, DataTableTagsQueryVariables>(DataTableTagsDocument, variables),
     ...options
   }
@@ -5437,6 +13204,31 @@ export const useCreateKnowledgeBaseMutation = <
   }
     )};
 
+export const CreateKnowledgeBaseSourceDocument = new TypedDocumentString(`
+    mutation createKnowledgeBaseSource($input: CreateKnowledgeBaseSourceInput!) {
+  createKnowledgeBaseSource(input: $input) {
+    id
+    name
+    status
+    enabled
+    cadence
+  }
+}
+    `);
+
+export const useCreateKnowledgeBaseSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateKnowledgeBaseSourceMutation, TError, CreateKnowledgeBaseSourceMutationVariables, TContext>) => {
+    
+    return useMutation<CreateKnowledgeBaseSourceMutation, TError, CreateKnowledgeBaseSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['createKnowledgeBaseSource'],
+    mutationFn: (variables?: CreateKnowledgeBaseSourceMutationVariables) => fetcher<CreateKnowledgeBaseSourceMutation, CreateKnowledgeBaseSourceMutationVariables>(CreateKnowledgeBaseSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const DeleteKnowledgeBaseDocument = new TypedDocumentString(`
     mutation deleteKnowledgeBase($id: ID!) {
   deleteKnowledgeBase(id: $id)
@@ -5494,6 +13286,25 @@ export const useDeleteKnowledgeBaseDocumentChunkMutation = <
   }
     )};
 
+export const DeleteKnowledgeBaseSourceDocument = new TypedDocumentString(`
+    mutation deleteKnowledgeBaseSource($id: ID!) {
+  deleteKnowledgeBaseSource(id: $id)
+}
+    `);
+
+export const useDeleteKnowledgeBaseSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteKnowledgeBaseSourceMutation, TError, DeleteKnowledgeBaseSourceMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteKnowledgeBaseSourceMutation, TError, DeleteKnowledgeBaseSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteKnowledgeBaseSource'],
+    mutationFn: (variables?: DeleteKnowledgeBaseSourceMutationVariables) => fetcher<DeleteKnowledgeBaseSourceMutation, DeleteKnowledgeBaseSourceMutationVariables>(DeleteKnowledgeBaseSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const KnowledgeBaseDocument = new TypedDocumentString(`
     query knowledgeBase($id: ID!) {
   knowledgeBase(id: $id) {
@@ -5515,6 +13326,8 @@ export const KnowledgeBaseDocument = new TypedDocumentString(`
       status
       tags
       createdDate
+      sourceId
+      sourceRecordId
       chunks {
         id
         knowledgeBaseDocumentId
@@ -5665,9 +13478,112 @@ export const useKnowledgeBaseEmbeddingActiveQuery = <
   }
     )};
 
+export const KnowledgeBaseSourceDocument = new TypedDocumentString(`
+    query knowledgeBaseSource($id: ID!) {
+  knowledgeBaseSource(id: $id) {
+    id
+    name
+    knowledgeBaseId
+    sourceComponentName
+    sourceComponentVersion
+    sourceClusterElementName
+    connectionId
+    cadence
+    status
+    enabled
+    lastSyncRunAt
+    lastSyncJobExecutionId
+    workflowId
+  }
+}
+    `);
+
+export const useKnowledgeBaseSourceQuery = <
+      TData = KnowledgeBaseSourceQuery,
+      TError = unknown
+    >(
+      variables: KnowledgeBaseSourceQueryVariables,
+      options?: Omit<UseQueryOptions<KnowledgeBaseSourceQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<KnowledgeBaseSourceQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<KnowledgeBaseSourceQuery, TError, TData>(
+      {
+    queryKey: ['knowledgeBaseSource', variables],
+    queryFn: fetcher<KnowledgeBaseSourceQuery, KnowledgeBaseSourceQueryVariables>(KnowledgeBaseSourceDocument, variables),
+    ...options
+  }
+    )};
+
+export const KnowledgeBaseSourcesDocument = new TypedDocumentString(`
+    query knowledgeBaseSources($workspaceId: ID!, $environmentId: ID!, $filter: KnowledgeBaseSourceFilter) {
+  knowledgeBaseSources(
+    workspaceId: $workspaceId
+    environmentId: $environmentId
+    filter: $filter
+  ) {
+    id
+    name
+    knowledgeBaseId
+    sourceComponentName
+    sourceComponentVersion
+    sourceClusterElementName
+    connectionId
+    cadence
+    status
+    enabled
+    lastSyncRunAt
+    lastSyncJobExecutionId
+    workflowId
+  }
+}
+    `);
+
+export const useKnowledgeBaseSourcesQuery = <
+      TData = KnowledgeBaseSourcesQuery,
+      TError = unknown
+    >(
+      variables: KnowledgeBaseSourcesQueryVariables,
+      options?: Omit<UseQueryOptions<KnowledgeBaseSourcesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<KnowledgeBaseSourcesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<KnowledgeBaseSourcesQuery, TError, TData>(
+      {
+    queryKey: ['knowledgeBaseSources', variables],
+    queryFn: fetcher<KnowledgeBaseSourcesQuery, KnowledgeBaseSourcesQueryVariables>(KnowledgeBaseSourcesDocument, variables),
+    ...options
+  }
+    )};
+
+export const KnowledgeBaseStorageUsageDocument = new TypedDocumentString(`
+    query KnowledgeBaseStorageUsage {
+  knowledgeBaseStorageUsage {
+    limitBytes
+    percentage
+    unlimited
+    usedBytes
+  }
+}
+    `);
+
+export const useKnowledgeBaseStorageUsageQuery = <
+      TData = KnowledgeBaseStorageUsageQuery,
+      TError = unknown
+    >(
+      variables?: KnowledgeBaseStorageUsageQueryVariables,
+      options?: Omit<UseQueryOptions<KnowledgeBaseStorageUsageQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<KnowledgeBaseStorageUsageQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<KnowledgeBaseStorageUsageQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['KnowledgeBaseStorageUsage'] : ['KnowledgeBaseStorageUsage', variables],
+    queryFn: fetcher<KnowledgeBaseStorageUsageQuery, KnowledgeBaseStorageUsageQueryVariables>(KnowledgeBaseStorageUsageDocument, variables),
+    ...options
+  }
+    )};
+
 export const KnowledgeBaseTagsDocument = new TypedDocumentString(`
-    query knowledgeBaseTags {
-  knowledgeBaseTags {
+    query knowledgeBaseTags($workspaceId: ID!) {
+  knowledgeBaseTags(workspaceId: $workspaceId) {
     id
     name
   }
@@ -5678,13 +13594,13 @@ export const useKnowledgeBaseTagsQuery = <
       TData = KnowledgeBaseTagsQuery,
       TError = unknown
     >(
-      variables?: KnowledgeBaseTagsQueryVariables,
+      variables: KnowledgeBaseTagsQueryVariables,
       options?: Omit<UseQueryOptions<KnowledgeBaseTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<KnowledgeBaseTagsQuery, TError, TData>['queryKey'] }
     ) => {
     
     return useQuery<KnowledgeBaseTagsQuery, TError, TData>(
       {
-    queryKey: variables === undefined ? ['knowledgeBaseTags'] : ['knowledgeBaseTags', variables],
+    queryKey: ['knowledgeBaseTags', variables],
     queryFn: fetcher<KnowledgeBaseTagsQuery, KnowledgeBaseTagsQueryVariables>(KnowledgeBaseTagsDocument, variables),
     ...options
   }
@@ -5749,6 +13665,25 @@ export const useKnowledgeBasesQuery = <
   }
     )};
 
+export const RefreshKnowledgeBaseSourceDocument = new TypedDocumentString(`
+    mutation refreshKnowledgeBaseSource($id: ID!) {
+  refreshKnowledgeBaseSource(id: $id)
+}
+    `);
+
+export const useRefreshKnowledgeBaseSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RefreshKnowledgeBaseSourceMutation, TError, RefreshKnowledgeBaseSourceMutationVariables, TContext>) => {
+    
+    return useMutation<RefreshKnowledgeBaseSourceMutation, TError, RefreshKnowledgeBaseSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['refreshKnowledgeBaseSource'],
+    mutationFn: (variables?: RefreshKnowledgeBaseSourceMutationVariables) => fetcher<RefreshKnowledgeBaseSourceMutation, RefreshKnowledgeBaseSourceMutationVariables>(RefreshKnowledgeBaseSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const SearchKnowledgeBaseDocument = new TypedDocumentString(`
     query searchKnowledgeBase($id: ID!, $query: String!, $metadataFilters: String) {
   searchKnowledgeBase(id: $id, query: $query, metadataFilters: $metadataFilters) {
@@ -5773,6 +13708,29 @@ export const useSearchKnowledgeBaseQuery = <
       {
     queryKey: ['searchKnowledgeBase', variables],
     queryFn: fetcher<SearchKnowledgeBaseQuery, SearchKnowledgeBaseQueryVariables>(SearchKnowledgeBaseDocument, variables),
+    ...options
+  }
+    )};
+
+export const SetKnowledgeBaseSourceEnabledDocument = new TypedDocumentString(`
+    mutation setKnowledgeBaseSourceEnabled($id: ID!, $enabled: Boolean!) {
+  setKnowledgeBaseSourceEnabled(id: $id, enabled: $enabled) {
+    id
+    enabled
+    status
+  }
+}
+    `);
+
+export const useSetKnowledgeBaseSourceEnabledMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SetKnowledgeBaseSourceEnabledMutation, TError, SetKnowledgeBaseSourceEnabledMutationVariables, TContext>) => {
+    
+    return useMutation<SetKnowledgeBaseSourceEnabledMutation, TError, SetKnowledgeBaseSourceEnabledMutationVariables, TContext>(
+      {
+    mutationKey: ['setKnowledgeBaseSourceEnabled'],
+    mutationFn: (variables?: SetKnowledgeBaseSourceEnabledMutationVariables) => fetcher<SetKnowledgeBaseSourceEnabledMutation, SetKnowledgeBaseSourceEnabledMutationVariables>(SetKnowledgeBaseSourceEnabledDocument, variables)(),
     ...options
   }
     )};
@@ -5845,6 +13803,31 @@ export const useUpdateKnowledgeBaseDocumentTagsMutation = <
       {
     mutationKey: ['updateKnowledgeBaseDocumentTags'],
     mutationFn: (variables?: UpdateKnowledgeBaseDocumentTagsMutationVariables) => fetcher<UpdateKnowledgeBaseDocumentTagsMutation, UpdateKnowledgeBaseDocumentTagsMutationVariables>(UpdateKnowledgeBaseDocumentTagsDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateKnowledgeBaseSourceDocument = new TypedDocumentString(`
+    mutation updateKnowledgeBaseSource($id: ID!, $input: UpdateKnowledgeBaseSourceInput!) {
+  updateKnowledgeBaseSource(id: $id, input: $input) {
+    id
+    name
+    cadence
+    enabled
+    status
+  }
+}
+    `);
+
+export const useUpdateKnowledgeBaseSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateKnowledgeBaseSourceMutation, TError, UpdateKnowledgeBaseSourceMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateKnowledgeBaseSourceMutation, TError, UpdateKnowledgeBaseSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['updateKnowledgeBaseSource'],
+    mutationFn: (variables?: UpdateKnowledgeBaseSourceMutationVariables) => fetcher<UpdateKnowledgeBaseSourceMutation, UpdateKnowledgeBaseSourceMutationVariables>(UpdateKnowledgeBaseSourceDocument, variables)(),
     ...options
   }
     )};
@@ -8413,6 +16396,38 @@ export const useClusterElementDefinitionQuery = <
   }
     )};
 
+export const ClusterElementFieldsDocument = new TypedDocumentString(`
+    query clusterElementFields($componentName: String!, $componentVersion: Int!, $clusterElementName: String!, $connectionId: Long, $inputParameters: Map) {
+  clusterElementFields(
+    componentName: $componentName
+    componentVersion: $componentVersion
+    clusterElementName: $clusterElementName
+    connectionId: $connectionId
+    inputParameters: $inputParameters
+  ) {
+    name
+    label
+    type
+  }
+}
+    `);
+
+export const useClusterElementFieldsQuery = <
+      TData = ClusterElementFieldsQuery,
+      TError = unknown
+    >(
+      variables: ClusterElementFieldsQueryVariables,
+      options?: Omit<UseQueryOptions<ClusterElementFieldsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ClusterElementFieldsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ClusterElementFieldsQuery, TError, TData>(
+      {
+    queryKey: ['clusterElementFields', variables],
+    queryFn: fetcher<ClusterElementFieldsQuery, ClusterElementFieldsQueryVariables>(ClusterElementFieldsDocument, variables),
+    ...options
+  }
+    )};
+
 export const ClusterElementMissingRequiredPropertiesDocument = new TypedDocumentString(`
     query ClusterElementMissingRequiredProperties($workflowId: String!, $workflowNodeName: String!, $clusterElementType: String!, $clusterElementWorkflowNodeName: String!) {
   clusterElementMissingRequiredProperties(
@@ -9633,6 +17648,94 @@ export const useWorkflowNodeScriptInputQuery = <
       {
     queryKey: ['workflowNodeScriptInput', variables],
     queryFn: fetcher<WorkflowNodeScriptInputQuery, WorkflowNodeScriptInputQueryVariables>(WorkflowNodeScriptInputDocument, variables),
+    ...options
+  }
+    )};
+
+export const ConnectionCredentialStoresDocument = new TypedDocumentString(`
+    query ConnectionCredentialStores {
+  connectionCredentialStores {
+    type
+    readOnly
+  }
+}
+    `);
+
+export const useConnectionCredentialStoresQuery = <
+      TData = ConnectionCredentialStoresQuery,
+      TError = unknown
+    >(
+      variables?: ConnectionCredentialStoresQueryVariables,
+      options?: Omit<UseQueryOptions<ConnectionCredentialStoresQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ConnectionCredentialStoresQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ConnectionCredentialStoresQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['ConnectionCredentialStores'] : ['ConnectionCredentialStores', variables],
+    queryFn: fetcher<ConnectionCredentialStoresQuery, ConnectionCredentialStoresQueryVariables>(ConnectionCredentialStoresDocument, variables),
+    ...options
+  }
+    )};
+
+export const RegisterExistingConnectionDocument = new TypedDocumentString(`
+    mutation RegisterExistingConnection($input: RegisterExistingConnectionInput!) {
+  registerExistingConnection(input: $input)
+}
+    `);
+
+export const useRegisterExistingConnectionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<RegisterExistingConnectionMutation, TError, RegisterExistingConnectionMutationVariables, TContext>) => {
+    
+    return useMutation<RegisterExistingConnectionMutation, TError, RegisterExistingConnectionMutationVariables, TContext>(
+      {
+    mutationKey: ['RegisterExistingConnection'],
+    mutationFn: (variables?: RegisterExistingConnectionMutationVariables) => fetcher<RegisterExistingConnectionMutation, RegisterExistingConnectionMutationVariables>(RegisterExistingConnectionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const GeneratePropertyValueDocument = new TypedDocumentString(`
+    mutation generatePropertyValue($input: GeneratePropertyValueInput!) {
+  generatePropertyValue(input: $input) {
+    value
+    valid
+    message
+  }
+}
+    `);
+
+export const useGeneratePropertyValueMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<GeneratePropertyValueMutation, TError, GeneratePropertyValueMutationVariables, TContext>) => {
+    
+    return useMutation<GeneratePropertyValueMutation, TError, GeneratePropertyValueMutationVariables, TContext>(
+      {
+    mutationKey: ['generatePropertyValue'],
+    mutationFn: (variables?: GeneratePropertyValueMutationVariables) => fetcher<GeneratePropertyValueMutation, GeneratePropertyValueMutationVariables>(GeneratePropertyValueDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const GenerateWorkflowDescriptionDocument = new TypedDocumentString(`
+    mutation generateWorkflowDescription($input: GenerateWorkflowDescriptionInput!) {
+  generateWorkflowDescription(input: $input) {
+    value
+  }
+}
+    `);
+
+export const useGenerateWorkflowDescriptionMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<GenerateWorkflowDescriptionMutation, TError, GenerateWorkflowDescriptionMutationVariables, TContext>) => {
+    
+    return useMutation<GenerateWorkflowDescriptionMutation, TError, GenerateWorkflowDescriptionMutationVariables, TContext>(
+      {
+    mutationKey: ['generateWorkflowDescription'],
+    mutationFn: (variables?: GenerateWorkflowDescriptionMutationVariables) => fetcher<GenerateWorkflowDescriptionMutation, GenerateWorkflowDescriptionMutationVariables>(GenerateWorkflowDescriptionDocument, variables)(),
     ...options
   }
     )};
