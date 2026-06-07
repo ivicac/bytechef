@@ -50,6 +50,7 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -579,7 +580,8 @@ class AbstractAiAgentChatActionTest {
         TestAiAgentChatAction action = new TestAiAgentChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
 
-        List<Advisor> advisors = action.getAdvisors(clusterElementMap, Map.of(), chatModel, actionContext);
+        List<Advisor> advisors = action.getAdvisors(
+            clusterElementMap, Map.of(), chatModel, actionContext, Optional.empty());
 
         ToolCallingAdvisor toolCallAdvisor = findToolCallAdvisor(advisors);
 
@@ -603,12 +605,10 @@ class AbstractAiAgentChatActionTest {
 
         BaseChatMemoryAdvisor chatMemoryAdvisor = mock(BaseChatMemoryAdvisor.class);
 
-        ChatMemoryFunction chatMemoryFunction = mock(ChatMemoryFunction.class);
-
-        when(chatMemoryFunction.apply(any(), any(), any(), any()))
-            .thenReturn(new ChatMemoryFunction.Result(chatMemoryAdvisor, null));
-        when(clusterElementDefinitionService.<ChatMemoryFunction>getClusterElement(
-            eq("memoryComponent"), eq(1), eq("memoryElement"))).thenReturn(chatMemoryFunction);
+        // The memory Result is now built by the caller (getChatClientRequestSpec) and passed into getAdvisors, so the
+        // test supplies it directly instead of stubbing the chat-memory cluster-element resolution.
+        Optional<ChatMemoryFunction.Result> chatMemoryResult =
+            Optional.of(new ChatMemoryFunction.Result(chatMemoryAdvisor, null));
 
         ComponentConnection memoryConnection = new ComponentConnection(
             "memoryComponent", 1, 2L, Map.of(), null);
@@ -621,7 +621,8 @@ class AbstractAiAgentChatActionTest {
         TestAiAgentChatAction action = new TestAiAgentChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
 
-        List<Advisor> advisors = action.getAdvisors(clusterElementMap, connectionParameters, chatModel, actionContext);
+        List<Advisor> advisors = action.getAdvisors(
+            clusterElementMap, connectionParameters, chatModel, actionContext, chatMemoryResult);
 
         int chatMemoryIndex = advisors.indexOf(chatMemoryAdvisor);
         ToolCallingAdvisor toolCallAdvisor = findToolCallAdvisor(advisors);
