@@ -43,6 +43,7 @@ import com.bytechef.platform.component.context.ContextFactory;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsToolFunction;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
+import com.bytechef.platform.component.domain.Field;
 import com.bytechef.platform.component.domain.Property;
 import java.util.List;
 import java.util.Map;
@@ -323,6 +324,75 @@ class ClusterElementDefinitionServiceTest {
             chatMemoryType, "CHAT_MEMORY", Optional.of(List.of(string("url"))));
 
         assertEquals(List.of("url"), getPropertyNames(result));
+    }
+
+    @Test
+    void testExecuteFieldsReturnsMappedFieldsWhenClusterElementImplementsFieldsProvider() {
+        String clusterElementName = "airtableSource";
+
+        FieldsProvider fieldsProvider = mock(FieldsProvider.class);
+
+        when(fieldsProvider.getFields(any(Parameters.class), any(Parameters.class), any(ClusterElementContext.class)))
+            .thenReturn(List.of(
+                new FieldDefinition("name", "Name", String.class),
+                new FieldDefinition("score", "Score", Integer.class)));
+
+        com.bytechef.component.definition.ClusterElementDefinition<?> elementDefinition =
+            mock(com.bytechef.component.definition.ClusterElementDefinition.class);
+
+        when(elementDefinition.getName()).thenReturn(clusterElementName);
+        when(elementDefinition.getElement()).thenAnswer(ignored -> fieldsProvider);
+
+        ComponentDefinition componentDefinition = mock(ComponentDefinition.class);
+
+        when(componentDefinition.getClusterElements()).thenReturn(Optional.of(List.of(elementDefinition)));
+        when(componentDefinitionRegistry.getComponentDefinition(COMPONENT_NAME, COMPONENT_VERSION))
+            .thenReturn(componentDefinition);
+
+        ClusterElementContext clusterElementContext = mock(ClusterElementContext.class);
+
+        when(contextFactory.createClusterElementContext(
+            eq(COMPONENT_NAME), eq(COMPONENT_VERSION), eq(clusterElementName), isNull(), anyBoolean()))
+                .thenReturn(clusterElementContext);
+
+        List<Field> result = clusterElementDefinitionService.executeFields(
+            COMPONENT_NAME, COMPONENT_VERSION, clusterElementName, Map.of("baseId", "appXYZ"), null);
+
+        assertEquals(2, result.size());
+        assertEquals("name", result.get(0)
+            .name());
+        assertEquals("Name", result.get(0)
+            .label());
+        assertEquals("String", result.get(0)
+            .type());
+        assertEquals("score", result.get(1)
+            .name());
+        assertEquals("Integer", result.get(1)
+            .type());
+    }
+
+    @Test
+    void testExecuteFieldsReturnsEmptyWhenClusterElementDoesNotImplementFieldsProvider() {
+        String clusterElementName = "csvSource";
+
+        Object nonFieldsProvider = new Object();
+
+        com.bytechef.component.definition.ClusterElementDefinition<?> elementDefinition =
+            mock(com.bytechef.component.definition.ClusterElementDefinition.class);
+
+        when(elementDefinition.getName()).thenReturn(clusterElementName);
+        when(elementDefinition.getElement()).thenAnswer(ignored -> nonFieldsProvider);
+
+        ComponentDefinition componentDefinition = mock(ComponentDefinition.class);
+
+        when(componentDefinition.getClusterElements()).thenReturn(Optional.of(List.of(elementDefinition)));
+        when(componentDefinitionRegistry.getComponentDefinition(COMPONENT_NAME, COMPONENT_VERSION))
+            .thenReturn(componentDefinition);
+
+        List<Field> result = clusterElementDefinitionService.executeFields(
+            COMPONENT_NAME, COMPONENT_VERSION, clusterElementName, Map.of(), null);
+
+        assertEquals(List.of(), result);
     }
 
     private ClusterElementDefinition getToolClusterElementDefinition(
