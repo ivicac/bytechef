@@ -9,6 +9,7 @@ const workflow = {
     description: 'Sends mail',
     label: 'Mailer',
     lastModifiedDate: '2026-02-11T09:30:00Z',
+    permissionExpression: null,
     triggers: [{icon: '<svg />', name: 'manual', title: 'Manual'}],
     workflowUuid: 'wf-1',
 };
@@ -20,6 +21,7 @@ const renderRow = () =>
                 <ul>
                     <AutomationWorkflowProjectWorkflowListItem
                         onDeleteWorkflow={vi.fn()}
+                        onEditWorkflow={vi.fn()}
                         onSelectWorkflow={vi.fn()}
                         workflow={workflow}
                     />
