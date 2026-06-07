@@ -14,24 +14,19 @@
  * limitations under the License.
  */
 
-package com.bytechef.component.ai.agent.utils;
+package com.bytechef.platform.ai.auto.memory.repository.jdbc;
 
-import com.bytechef.platform.ai.skill.facade.AiSkillFacade;
-import com.bytechef.test.jsonasssert.JsonFileAssert;
-import java.util.List;
-import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
+import com.bytechef.platform.ai.auto.memory.WorkspaceAiAutoMemory;
+import com.bytechef.platform.ai.auto.memory.repository.WorkspaceAiAutoMemoryRepository;
+import org.springframework.data.repository.CrudRepository;
+import org.springframework.stereotype.Repository;
 
 /**
+ * Spring Data JDBC binding for {@code workspace_ai_auto_memory}. Backs {@link WorkspaceAiAutoMemoryRepository}.
+ *
  * @author Ivica Cardic
  */
-public class AiAgentUtilsComponentHandlerTest {
-
-    @Test
-    public void testGetComponentDefinition() {
-        JsonFileAssert.assertEquals(
-            "definition/ai_agent-utils_v1.json",
-            new AiAgentUtilsComponentHandler(Mockito.mock(AiSkillFacade.class), List.of(), null, null)
-                .getDefinition());
-    }
+@Repository
+public interface JdbcWorkspaceAiAutoMemoryRepository
+    extends CrudRepository<WorkspaceAiAutoMemory, Long>, WorkspaceAiAutoMemoryRepository {
 }
