@@ -46,8 +46,7 @@ public class WorkflowExecutionAgentToolCallback implements ToolCallback {
             subagent. Use this to inspect or diagnose a run — why it failed, which task errored, what a task's
             input/output was — and, in BUILD mode, to fix the underlying workflow. Pass the user request verbatim;
             the subagent resolves the execution and does its own analysis. Returns the synthesised analysis (ASK) or
-            the applied fix plus rationale (BUILD). Include the workflow execution ID if known; otherwise describe
-            the run and the subagent resolves it by listing recent executions.""";
+            the applied fix plus rationale (BUILD).""";
 
     private static final String INPUT_SCHEMA =
         """
@@ -62,17 +61,17 @@ public class WorkflowExecutionAgentToolCallback implements ToolCallback {
                 "required": ["request"]
             }""";
 
-    private final IntelligentToolChatClientFactory chatClientFactory;
+    private final ChatClient workflowExecutionChatClient;
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public WorkflowExecutionAgentToolCallback(IntelligentToolChatClientFactory chatClientFactory) {
-        this.chatClientFactory = chatClientFactory;
+    public WorkflowExecutionAgentToolCallback(ChatClient workflowExecutionChatClient) {
+        this.workflowExecutionChatClient = workflowExecutionChatClient;
     }
 
     @Override
     public ToolDefinition getToolDefinition() {
         return ToolDefinition.builder()
-            .name("debugWorkflowExecution")
+            .name("workflow_execution_agent")
             .description(DESCRIPTION)
             .inputSchema(INPUT_SCHEMA)
             .build();
@@ -96,13 +95,11 @@ public class WorkflowExecutionAgentToolCallback implements ToolCallback {
             AgentBinding parent = CurrentAgentContext.current();
             AgentType parentAgent = parent != null ? parent.agentName() : null;
 
-            Map<String, Object> parentContext = toolContext == null ? Map.of() : toolContext.getContext();
+            Map<String, Object> forwardedContext = toolContext == null ? Map.of() : toolContext.getContext();
 
-            ChatClient workflowExecutionChatClient = chatClientFactory.get();
-
-            String result = CurrentAgentContext.callWith(CopilotAgentType.DEBUG_WORKFLOW_EXECUTION, parentAgent,
+            String result = CurrentAgentContext.callWith(CopilotAgentType.WORKFLOW_EXECUTION_AGENT, parentAgent,
                 () -> workflowExecutionChatClient.prompt(input.request())
-                    .toolContext(parentContext)
+                    .toolContext(forwardedContext)
                     .call()
                     .content());
 
@@ -117,14 +114,14 @@ public class WorkflowExecutionAgentToolCallback implements ToolCallback {
             return result;
         } catch (JacksonException exception) {
             log.warn(
-                "debugWorkflowExecution rejected malformed tool input: {} — first 200 chars of input: {}",
+                "workflow_execution_agent rejected malformed tool input: {} — first 200 chars of input: {}",
                 exception.getMessage(),
                 toolInput == null ? "<null>" : toolInput.substring(0, Math.min(toolInput.length(), 200)));
 
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (RuntimeException exception) {
             return ToolErrors.runtimeFailure(
-                WorkflowExecutionAgentToolCallback.class, "debugWorkflowExecution", exception);
+                WorkflowExecutionAgentToolCallback.class, "workflow_execution_agent", exception);
         }
     }
 
