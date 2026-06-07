@@ -18,12 +18,14 @@ package com.bytechef.platform.component.facade;
 
 import static com.bytechef.platform.component.facade.FacadeTestComponentHandler.CHANNEL_ID;
 import static com.bytechef.platform.component.facade.FacadeTestComponentHandler.COMPONENT_NAME;
+import static com.bytechef.platform.component.facade.FacadeTestComponentHandler.NO_CONNECTION;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bytechef.component.definition.Authorization.AuthorizationType;
 import com.bytechef.platform.component.config.ComponentRegistryConfiguration;
 import com.bytechef.platform.component.config.ComponentRegistryConfigurationSharedMocks;
+import com.bytechef.platform.component.domain.Field;
 import com.bytechef.platform.component.domain.Property;
 import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.repository.ConnectionRepository;
@@ -141,6 +143,27 @@ class ClusterElementDefinitionFacadeIntTest {
         assertThat(properties)
             .extracting(Property::getName)
             .containsExactly("C1_unresolved");
+    }
+
+    @Test
+    void testExecuteFieldsResolvesConnectionAndDelegatesToService() {
+        Connection connection = saveConnection("C1");
+
+        List<Field> fields = clusterElementDefinitionFacade.executeFields(
+            COMPONENT_NAME, 1, "fields", Map.of("baseId", "appXYZ"), connection.getId());
+
+        assertThat(fields).containsExactly(new Field("C1", "Name", "String"), new Field("score", "Score", "Integer"));
+    }
+
+    @Test
+    void testExecuteFieldsWithoutConnectionIdPassesNullConnection() {
+        saveConnection("C1");
+
+        List<Field> fields = clusterElementDefinitionFacade.executeFields(COMPONENT_NAME, 1, "fields", Map.of(), null);
+
+        assertThat(fields)
+            .extracting(Field::name)
+            .containsExactly(NO_CONNECTION, "score");
     }
 
     private Connection saveConnection(String channelId) {

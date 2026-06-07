@@ -36,6 +36,8 @@ import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.Property.ValueProperty;
 import com.bytechef.component.definition.TriggerDefinition.TriggerType;
 import com.bytechef.component.definition.TriggerDefinition.WebhookEnableOutput;
+import com.bytechef.component.definition.datastream.FieldDefinition;
+import com.bytechef.component.definition.datastream.FieldsProvider;
 import com.bytechef.platform.component.definition.ClusterElementContextAware;
 import java.util.List;
 import java.util.Map;
@@ -58,6 +60,7 @@ public class FacadeTestComponentHandler implements ComponentHandler {
     public static final String CHANNEL_ID = "channelId";
     public static final String NO_CONNECTION = "none";
 
+    public static final ClusterElementType FIELDS = new ClusterElementType("FIELDS", "fields", "Fields");
     public static final ClusterElementType PROBE = new ClusterElementType("PROBE", "probe", "Probe");
     public static final ClusterElementType SOURCE = new ClusterElementType("SOURCE", "source", "Source");
 
@@ -84,7 +87,11 @@ public class FacadeTestComponentHandler implements ComponentHandler {
             clusterElement("source")
                 .title("Source")
                 .type(SOURCE)
-                .object(() -> "source"))
+                .object(() -> "source"),
+            clusterElement("fields")
+                .title("Fields")
+                .type(FIELDS)
+                .object(() -> new ChannelFieldsProvider()))
         .triggers(
             trigger("newEvent")
                 .type(TriggerType.DYNAMIC_WEBHOOK)
@@ -174,6 +181,18 @@ public class FacadeTestComponentHandler implements ComponentHandler {
         }
 
         return List.of(string(getChannelId(connectionParameters) + "_" + resolvedSource));
+    }
+
+    private static final class ChannelFieldsProvider implements FieldsProvider {
+
+        @Override
+        public List<FieldDefinition> getFields(
+            Parameters inputParameters, Parameters connectionParameters, ClusterElementContext context) {
+
+            return List.of(
+                new FieldDefinition(getChannelId(connectionParameters), "Name"),
+                new FieldDefinition("score", "Score", Integer.class));
+        }
     }
 
     private void recordInvocation(String operation, Parameters connectionParameters) {

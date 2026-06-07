@@ -20,7 +20,8 @@ import com.bytechef.atlas.configuration.converter.StringToWorkflowTaskConverter;
 import com.bytechef.atlas.configuration.converter.WorkflowTaskToStringConverter;
 import com.bytechef.commons.data.jdbc.converter.EncryptedMapWrapperToStringConverter;
 import com.bytechef.commons.data.jdbc.converter.EncryptedStringToMapWrapperConverter;
-import com.bytechef.commons.data.jdbc.converter.MapWrapperToStringConverter;
+import com.bytechef.commons.data.jdbc.converter.MapWrapperToPGObjectConverter;
+import com.bytechef.commons.data.jdbc.converter.PGobjectToMapWrapperConverter;
 import com.bytechef.commons.data.jdbc.converter.StringToMapWrapperConverter;
 import com.bytechef.encryption.Encryption;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -51,7 +52,8 @@ public class JdbcConfiguration extends AbstractJdbcConfiguration {
         return Arrays.asList(
             new EncryptedMapWrapperToStringConverter(encryption, objectMapper),
             new EncryptedStringToMapWrapperConverter(encryption, objectMapper),
-            new MapWrapperToStringConverter(objectMapper),
+            new MapWrapperToPGObjectConverter(objectMapper),
+            new PGobjectToMapWrapperConverter(objectMapper),
             new StringToMapWrapperConverter(objectMapper),
             new StringToWorkflowTaskConverter(objectMapper),
             new WorkflowTaskToStringConverter(objectMapper));

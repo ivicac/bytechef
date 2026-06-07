@@ -17,6 +17,7 @@
 package com.bytechef.automation.configuration.repository;
 
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
+import com.bytechef.automation.configuration.domain.SystemProjects;
 import com.bytechef.automation.configuration.ownership.ProjectDeploymentOwner;
 import com.bytechef.automation.configuration.ownership.ProjectOwner;
 import com.bytechef.automation.configuration.service.ProjectOwnershipService;
@@ -29,6 +30,10 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  * @author Ivica Cardic
  */
 public class CustomProjectDeploymentRepositoryImpl implements CustomProjectDeploymentRepository {
+
+    private static final String API_COLLECTION_NAME_PREFIX = "__API_COLLECTION__";
+    private static final String CONTEXT_STORE_NAME_PREFIX = "__CONTEXT_STORE__";
+    private static final String MCP_SERVER_NAME_PREFIX = "__MCP_SERVER__";
 
     private final JdbcClient jdbcClient;
     private final ProjectOwnershipService projectOwnershipService;
@@ -103,6 +108,10 @@ public class CustomProjectDeploymentRepositoryImpl implements CustomProjectDeplo
         }
 
         query += "WHERE " + String.join(" AND ", conditions) + " ";
+        query += "AND (NOT " + startsWith("project_deployment.name", API_COLLECTION_NAME_PREFIX) + " AND NOT " +
+            startsWith("project_deployment.name", MCP_SERVER_NAME_PREFIX) + " AND NOT " +
+            startsWith("project_deployment.name", SystemProjects.A2A_SERVER_DEPLOYMENT_NAME_PREFIX) + " AND NOT " +
+            startsWith("project.name", CONTEXT_STORE_NAME_PREFIX) + ") ";
 
         query += "ORDER BY LOWER(project_deployment.name) ASC, project_deployment.project_version ASC, " +
             "project_deployment.environment ASC";
@@ -123,5 +132,13 @@ public class CustomProjectDeploymentRepositoryImpl implements CustomProjectDeplo
         }
 
         return projectDeployments;
+    }
+
+    private static String startsWith(String column, String prefix) {
+        String escapedPrefix = prefix.replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_");
+
+        return column + " LIKE '" + escapedPrefix + "%' ESCAPE '\\'";
     }
 }

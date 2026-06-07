@@ -7,6 +7,7 @@ dependencies {
     implementation("org.springframework.boot:spring-boot")
     implementation("org.springframework.boot:spring-boot-jackson")
     implementation(project(":server:libs:atlas:atlas-coordinator:atlas-coordinator-api"))
+    implementation(project(":server:libs:atlas:atlas-execution:atlas-execution-api"))
     implementation(project(":server:libs:config:app-config"))
     implementation(project(":server:libs:config:cache-config"))
     implementation(project(":server:libs:core:commons:commons-util"))
@@ -17,6 +18,7 @@ dependencies {
     implementation(project(":server:libs:platform:platform-file-storage:platform-file-storage-impl"))
     implementation(project(":server:libs:platform:platform-component:platform-component-context:platform-component-context-api"))
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-api"))
+    implementation(project(":server:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-token-service"))
 
     testImplementation("io.lettuce:lettuce-core")
     testImplementation("org.springframework.data:spring-data-redis")

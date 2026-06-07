@@ -68,6 +68,7 @@ public class CustomProjectRepositoryImpl implements CustomProjectRepository {
 
         query += "WHERE " + projectOwnershipService.getExcludeProjectsCondition(
             EnumSet.allOf(ProjectOwner.class), "project.id") + " ";
+        query += "AND project.name NOT LIKE '__CONTEXT_STORE__%' ";
 
         if (apiCollections != null) {
             if (apiCollections) {
