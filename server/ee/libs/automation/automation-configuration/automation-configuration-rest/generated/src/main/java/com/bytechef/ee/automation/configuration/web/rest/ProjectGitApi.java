@@ -82,7 +82,6 @@ public interface ProjectGitApi {
 
     }
 
-
     String PATH_GET_PROJECT_REMOTE_BRANCHES = "/projects/{id}/git/remote-branches";
     /**
      * GET /projects/{id}/git/remote-branches : Get remote branches of a project git repository.
@@ -122,7 +121,6 @@ public interface ProjectGitApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_WORKSPACE_PROJECT_GIT_CONFIGURATIONS = "/workspaces/{id}/project-git-configurations";
     /**
@@ -164,7 +162,6 @@ public interface ProjectGitApi {
 
     }
 
-
     String PATH_PULL_PROJECT_FROM_GIT = "/projects/{id}/git/pull";
     /**
      * POST /projects/{id}/git/pull : Pulls project from git repository.
@@ -192,7 +189,6 @@ public interface ProjectGitApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_UPDATE_PROJECT_GIT_CONFIGURATION = "/projects/{id}/project-git-configuration";
     /**

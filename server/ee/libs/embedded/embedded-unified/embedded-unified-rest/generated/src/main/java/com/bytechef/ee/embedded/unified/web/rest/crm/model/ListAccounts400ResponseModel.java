@@ -16,7 +16,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-
 import java.util.*;
 import jakarta.annotation.Generated;
 
@@ -28,7 +27,6 @@ import jakarta.annotation.Generated;
 @Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-23T21:34:34.742723+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 public class ListAccounts400ResponseModel {
 
-  @Valid
   private List<@Valid ErrorsInnerModel> errors = new ArrayList<>();
 
   public ListAccounts400ResponseModel errors(List<@Valid ErrorsInnerModel> errors) {

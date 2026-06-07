@@ -19,7 +19,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-
 import java.util.*;
 import jakarta.annotation.Generated;
 
@@ -50,7 +49,6 @@ public class CreateUpdateOpportunityModel {
 
   private JsonNullable<String> pipeline = JsonNullable.<String>undefined();
 
-  @Valid
   private Map<String, Object> customFields = new HashMap<>();
 
   public CreateUpdateOpportunityModel amount(Integer amount) {
@@ -63,7 +61,7 @@ public class CreateUpdateOpportunityModel {
    * @return amount
    */
   
-  @Schema(name = "amount", example = "100000", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "amount", example = "100000", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("amount")
   public JsonNullable<Integer> getAmount() {
     return amount;
@@ -83,7 +81,7 @@ public class CreateUpdateOpportunityModel {
    * @return closeDate
    */
   
-  @Schema(name = "closeDate", example = "2022-02-10T00:00:00Z", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "closeDate", example = "2022-02-10T00:00:00Z", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("closeDate")
   public JsonNullable<String> getCloseDate() {
     return closeDate;
@@ -103,7 +101,7 @@ public class CreateUpdateOpportunityModel {
    * @return description
    */
   
-  @Schema(name = "description", example = "Wants to use open source unified API for third-party integrations", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "description", example = "Wants to use open source unified API for third-party integrations", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("description")
   public JsonNullable<String> getDescription() {
     return description;
@@ -123,7 +121,7 @@ public class CreateUpdateOpportunityModel {
    * @return name
    */
   
-  @Schema(name = "name", example = "Needs Integrations", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "name", example = "Needs Integrations", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("name")
   public JsonNullable<String> getName() {
     return name;
@@ -164,7 +162,7 @@ public class CreateUpdateOpportunityModel {
    * @return lastActivityDate
    */
   @Valid 
-  @Schema(name = "lastActivityDate", example = "2022-02-27T00:00Z", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "lastActivityDate", example = "2022-02-27T00:00Z", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("lastActivityDate")
   public JsonNullable<OffsetDateTime> getLastActivityDate() {
     return lastActivityDate;
@@ -184,7 +182,7 @@ public class CreateUpdateOpportunityModel {
    * @return accountId
    */
   
-  @Schema(name = "accountId", example = "64571bff-48ea-4469-9fa0-ee1a0bab38bd", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "accountId", example = "64571bff-48ea-4469-9fa0-ee1a0bab38bd", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("accountId")
   public JsonNullable<String> getAccountId() {
     return accountId;
@@ -204,7 +202,7 @@ public class CreateUpdateOpportunityModel {
    * @return ownerId
    */
   
-  @Schema(name = "ownerId", example = "9f3e97fd-4d5d-4efc-959d-bbebfac079f5", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "ownerId", example = "9f3e97fd-4d5d-4efc-959d-bbebfac079f5", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("ownerId")
   public JsonNullable<String> getOwnerId() {
     return ownerId;
@@ -224,7 +222,7 @@ public class CreateUpdateOpportunityModel {
    * @return pipeline
    */
   
-  @Schema(name = "pipeline", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "pipeline", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("pipeline")
   public JsonNullable<String> getPipeline() {
     return pipeline;

@@ -20,7 +20,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-
 import java.util.*;
 import jakarta.annotation.Generated;
 
@@ -54,7 +53,6 @@ public class AccountModel {
 
   private JsonNullable<String> type = JsonNullable.<String>undefined();
 
-  @Valid
   private Map<String, Object> customFields = new HashMap<>();
 
   private JsonNullable<String> remoteId = JsonNullable.<String>undefined();
@@ -77,7 +75,7 @@ public class AccountModel {
    * @return accountNumber
    */
   
-  @Schema(name = "accountNumber", example = "1000", description = "The account number", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "accountNumber", example = "1000", description = "The account number", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("accountNumber")
   public JsonNullable<String> getAccountNumber() {
     return accountNumber;
@@ -97,7 +95,7 @@ public class AccountModel {
    * @return companyInfoId
    */
   
-  @Schema(name = "companyInfoId", example = "01a-99f1eefd-c98e-ed464fba8c-e64a867", description = "The ID of the associated company info", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "companyInfoId", example = "01a-99f1eefd-c98e-ed464fba8c-e64a867", description = "The ID of the associated company info", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("companyInfoId")
   public JsonNullable<String> getCompanyInfoId() {
     return companyInfoId;
@@ -117,7 +115,7 @@ public class AccountModel {
    * @return classification
    */
   
-  @Schema(name = "classification", example = "Asset", description = "The classification of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "classification", example = "Asset", description = "The classification of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("classification")
   public JsonNullable<String> getClassification() {
     return classification;
@@ -137,7 +135,7 @@ public class AccountModel {
    * @return currentBalance
    */
   @Valid 
-  @Schema(name = "currentBalance", example = "10000", description = "The current balance of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "currentBalance", example = "10000", description = "The current balance of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("currentBalance")
   public JsonNullable<BigDecimal> getCurrentBalance() {
     return currentBalance;
@@ -157,7 +155,7 @@ public class AccountModel {
    * @return currency
    */
   
-  @Schema(name = "currency", example = "USD", description = "The currency of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "currency", example = "USD", description = "The currency of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("currency")
   public JsonNullable<String> getCurrency() {
     return currency;
@@ -177,7 +175,7 @@ public class AccountModel {
    * @return description
    */
   
-  @Schema(name = "description", example = "Main cash account for daily operations", description = "A description of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "description", example = "Main cash account for daily operations", description = "A description of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("description")
   public JsonNullable<String> getDescription() {
     return description;
@@ -197,7 +195,7 @@ public class AccountModel {
    * @return id
    */
   
-  @Schema(name = "id", example = "801f9ede-c698-4e66-a7fc-48d19eebaa4f", description = "The ID of the account record", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "id", example = "801f9ede-c698-4e66-a7fc-48d19eebaa4f", description = "The ID of the account record", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("id")
   public JsonNullable<String> getId() {
     return id;
@@ -217,7 +215,7 @@ public class AccountModel {
    * @return name
    */
   
-  @Schema(name = "name", example = "Cash", description = "The name of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "name", example = "Cash", description = "The name of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("name")
   public JsonNullable<String> getName() {
     return name;
@@ -237,7 +235,7 @@ public class AccountModel {
    * @return parentAccountId
    */
   
-  @Schema(name = "parentAccountId", example = "8049a64c9-68ec6781eae-94fe-ebdda-1ff", description = "The ID of the parent account", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "parentAccountId", example = "8049a64c9-68ec6781eae-94fe-ebdda-1ff", description = "The ID of the parent account", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("parentAccountId")
   public JsonNullable<String> getParentAccountId() {
     return parentAccountId;
@@ -257,7 +255,7 @@ public class AccountModel {
    * @return status
    */
   
-  @Schema(name = "status", example = "Active", description = "The status of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "status", example = "Active", description = "The status of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("status")
   public JsonNullable<String> getStatus() {
     return status;
@@ -277,7 +275,7 @@ public class AccountModel {
    * @return type
    */
   
-  @Schema(name = "type", example = "Current Asset", description = "The type of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "type", example = "Current Asset", description = "The type of the account", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("type")
   public JsonNullable<String> getType() {
     return type;
@@ -326,7 +324,7 @@ public class AccountModel {
    * @return remoteId
    */
   
-  @Schema(name = "remoteId", example = "account_1234", description = "The remote ID of the account in the context of the 3rd Party", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "remoteId", example = "account_1234", description = "The remote ID of the account in the context of the 3rd Party", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("remoteId")
   public JsonNullable<String> getRemoteId() {
     return remoteId;
@@ -346,7 +344,7 @@ public class AccountModel {
    * @return remoteData
    */
   
-  @Schema(name = "remoteData", example = "{raw_data={additional_field=some value}}", description = "The remote data of the account in the context of the 3rd Party", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "remoteData", example = "{raw_data={additional_field=some value}}", description = "The remote data of the account in the context of the 3rd Party", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("remoteData")
   public JsonNullable<Object> getRemoteData() {
     return remoteData;
@@ -366,7 +364,7 @@ public class AccountModel {
    * @return createdDate
    */
   @Valid 
-  @Schema(name = "createdDate", example = "2022-02-27T00:00Z", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "createdDate", example = "2022-02-27T00:00Z", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("createdDate")
   public JsonNullable<OffsetDateTime> getCreatedDate() {
     return createdDate;

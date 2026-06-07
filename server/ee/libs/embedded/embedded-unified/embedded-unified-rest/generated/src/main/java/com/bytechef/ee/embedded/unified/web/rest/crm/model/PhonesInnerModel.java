@@ -13,7 +13,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-
 import java.util.*;
 import jakarta.annotation.Generated;
 
@@ -89,8 +88,8 @@ public class PhonesInnerModel {
    * Get phoneNumber
    * @return phoneNumber
    */
-  @NotNull 
-  @Schema(name = "phoneNumber", example = "+14151234567", requiredMode = Schema.RequiredMode.REQUIRED)
+  /* @Present */ 
+  @Schema(name = "phoneNumber", example = "+14151234567", requiredMode = Schema.RequiredMode.REQUIRED, nullable = true)
   @JsonProperty("phoneNumber")
   public JsonNullable<String> getPhoneNumber() {
     return phoneNumber;

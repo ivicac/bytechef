@@ -84,7 +84,6 @@ public interface SigningKeyApi {
 
     }
 
-
     String PATH_DELETE_SIGNING_KEY = "/signing-keys/{id}";
     /**
      * DELETE /signing-keys/{id} : Delete an Signing key
@@ -112,7 +111,6 @@ public interface SigningKeyApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_SIGNING_KEY = "/signing-keys/{id}";
     /**
@@ -154,7 +152,6 @@ public interface SigningKeyApi {
 
     }
 
-
     String PATH_GET_SIGNING_KEYS = "/signing-keys";
     /**
      * GET /signing-keys : Get Signing keys
@@ -194,7 +191,6 @@ public interface SigningKeyApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_UPDATE_SIGNING_KEY = "/signing-keys/{id}";
     /**

@@ -82,7 +82,6 @@ public interface WorkspaceApi {
 
     }
 
-
     String PATH_DELETE_WORKSPACE = "/workspaces/{id}";
     /**
      * DELETE /workspaces/{id} : Delete a workspace
@@ -110,7 +109,6 @@ public interface WorkspaceApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_WORKSPACE = "/workspaces/{id}";
     /**
@@ -152,7 +150,6 @@ public interface WorkspaceApi {
 
     }
 
-
     String PATH_GET_WORKSPACES = "/workspaces";
     /**
      * GET /workspaces : Get workspaces
@@ -191,7 +188,6 @@ public interface WorkspaceApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_UPDATE_WORKSPACE = "/workspaces/{id}";
     /**

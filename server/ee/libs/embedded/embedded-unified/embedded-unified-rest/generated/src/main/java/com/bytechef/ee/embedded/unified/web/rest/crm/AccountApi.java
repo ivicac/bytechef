@@ -174,7 +174,6 @@ public interface AccountApi {
 
     }
 
-
     String PATH_GET_ACCOUNT = "/accounts/{account_id}";
     /**
      * GET /accounts/{account_id} : Get account
@@ -291,7 +290,6 @@ public interface AccountApi {
 
     }
 
-
     String PATH_LIST_ACCOUNTS = "/accounts";
     /**
      * GET /accounts : List accounts
@@ -401,7 +399,6 @@ public interface AccountApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_UPDATE_ACCOUNT = "/accounts/{account_id}";
     /**

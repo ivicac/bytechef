@@ -26,7 +26,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-
 import java.util.*;
 import jakarta.annotation.Generated;
 
@@ -51,20 +50,16 @@ public class CreateUpdateAccountModel {
 
   private JsonNullable<String> website = JsonNullable.<String>undefined();
 
-  @Valid
   private List<@Valid AddressesInnerModel> addresses = new ArrayList<>();
 
-  @Valid
   private List<@Valid EmailsInnerModel> emails = new ArrayList<>();
 
-  @Valid
   private List<@Valid PhonesInnerModel> phones = new ArrayList<>();
 
   private JsonNullable<String> ownerId = JsonNullable.<String>undefined();
 
   private JsonNullable<LifecycleStageModel> lifecycleStage = JsonNullable.<LifecycleStageModel>undefined();
 
-  @Valid
   private Map<String, Object> customFields = new HashMap<>();
 
   public CreateUpdateAccountModel description(String description) {
@@ -77,7 +72,7 @@ public class CreateUpdateAccountModel {
    * @return description
    */
   
-  @Schema(name = "description", example = "Integration API", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "description", example = "Integration API", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("description")
   public JsonNullable<String> getDescription() {
     return description;
@@ -97,7 +92,7 @@ public class CreateUpdateAccountModel {
    * @return industry
    */
   
-  @Schema(name = "industry", example = "API's", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "industry", example = "API's", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("industry")
   public JsonNullable<String> getIndustry() {
     return industry;
@@ -117,7 +112,7 @@ public class CreateUpdateAccountModel {
    * @return lastActivityDate
    */
   @Valid 
-  @Schema(name = "lastActivityDate", example = "2022-02-27T00:00Z", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "lastActivityDate", example = "2022-02-27T00:00Z", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("lastActivityDate")
   public JsonNullable<OffsetDateTime> getLastActivityDate() {
     return lastActivityDate;
@@ -137,7 +132,7 @@ public class CreateUpdateAccountModel {
    * @return name
    */
   
-  @Schema(name = "name", example = "Sample Customer", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "name", example = "Sample Customer", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("name")
   public JsonNullable<String> getName() {
     return name;
@@ -157,7 +152,7 @@ public class CreateUpdateAccountModel {
    * @return numberOfEmployees
    */
   
-  @Schema(name = "numberOfEmployees", example = "276000", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "numberOfEmployees", example = "276000", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("numberOfEmployees")
   public JsonNullable<Integer> getNumberOfEmployees() {
     return numberOfEmployees;
@@ -284,7 +279,7 @@ public class CreateUpdateAccountModel {
    * @return ownerId
    */
   
-  @Schema(name = "ownerId", example = "9f3e97fd-4d5d-4efc-959d-bbebfac079f5", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "ownerId", example = "9f3e97fd-4d5d-4efc-959d-bbebfac079f5", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("ownerId")
   public JsonNullable<String> getOwnerId() {
     return ownerId;
@@ -304,7 +299,7 @@ public class CreateUpdateAccountModel {
    * @return lifecycleStage
    */
   @Valid 
-  @Schema(name = "lifecycleStage", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "lifecycleStage", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("lifecycleStage")
   public JsonNullable<LifecycleStageModel> getLifecycleStage() {
     return lifecycleStage;

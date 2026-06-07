@@ -23,10 +23,9 @@ import jakarta.annotation.Generated;
  */
 
 @JsonTypeName("executeAction_request")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-23T21:34:31.392269+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-10T23:08:14.930517+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 public class ExecuteActionRequestModel {
 
-  @Valid
   private Map<String, Object> input = new HashMap<>();
 
   public ExecuteActionRequestModel() {
