@@ -28,6 +28,7 @@ import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.agent.SampleOutputSpringAIAgent;
 import com.bytechef.ai.copilot.agent.SkillsSpringAIAgent;
 import com.bytechef.ai.copilot.agent.WorkflowEditorSpringAIAgent;
+import com.bytechef.ai.copilot.agent.WorkflowExecutionSpringAIAgent;
 import com.bytechef.ai.copilot.connection.CopilotConnectionLister;
 import com.bytechef.ai.copilot.constant.CopilotConstants;
 import com.bytechef.ai.copilot.tool.AskUserQuestionToolCallback;
@@ -119,6 +120,8 @@ public class CopilotConfiguration {
     private final Resource promptSampleOutputBuildResource;
     private final WorkflowValidatorTools workflowValidatorTools;
     private final WorkflowInstructionTools workflowInstructionTools;
+    private final Resource promptWorkflowExecutionAskResource;
+    private final Resource promptWorkflowExecutionBuildResource;
     private final State state = new State();
 
     private final ConnectionDefinitionService connectionDefinitionService;
@@ -148,6 +151,8 @@ public class CopilotConfiguration {
         @Value("classpath:prompt_sample_output_ask.txt") Resource promptSampleOutputAskResource,
         @Value("classpath:prompt_sample_output_build.txt") Resource promptSampleOutputBuildResource,
         WorkflowValidatorTools workflowValidatorTools, WorkflowInstructionTools workflowInstructionTools,
+        @Value("classpath:prompt_workflow_execution_ask.txt") Resource promptWorkflowExecutionAskResource,
+        @Value("classpath:prompt_workflow_execution_build.txt") Resource promptWorkflowExecutionBuildResource,
         ConnectionDefinitionService connectionDefinitionService, WorkspaceConnectionFacade workspaceConnectionFacade,
         ComponentDefinitionService componentDefinitionService, ActionDefinitionService actionDefinitionService,
         ActionDefinitionFacade actionDefinitionFacade, TriggerDefinitionService triggerDefinitionService,
@@ -178,6 +183,8 @@ public class CopilotConfiguration {
         this.promptJsonSchemaBuilderBuildResource = promptJsonSchemaBuilderBuildResource;
         this.promptSampleOutputAskResource = promptSampleOutputAskResource;
         this.promptSampleOutputBuildResource = promptSampleOutputBuildResource;
+        this.promptWorkflowExecutionAskResource = promptWorkflowExecutionAskResource;
+        this.promptWorkflowExecutionBuildResource = promptWorkflowExecutionBuildResource;
     }
 
     @Bean
@@ -546,6 +553,33 @@ public class CopilotConfiguration {
     }
 
     @Bean
+    WorkflowExecutionSpringAIAgent workflowExecutionAskSpringAIAgent(
+        ChatMemory chatMemory, ChatModel chatModel, WorkflowExecutionTools workflowExecutionTools,
+        ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools,
+        Optional<FirecrawlTools> firecrawlTools,
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider) throws AGUIException {
+
+        String name = Source.WORKFLOW_EXECUTION.name() + "_" + Mode.ASK.name();
+
+        List<Object> tools = new ArrayList<>(
+            List.of(
+                workflowExecutionTools, readProjectWorkflowTools, componentTools, workflowValidatorTools,
+                workflowInstructionTools));
+
+        firecrawlTools.ifPresent(tools::add);
+
+        return WorkflowExecutionSpringAIAgent.builder()
+            .agentId(name.toLowerCase())
+            .chatMemory(chatMemory)
+            .chatModel(chatModel)
+            .systemMessage(getSystemPrompt(promptWorkflowExecutionAskResource))
+            .tools(tools)
+            .state(state)
+            .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
+            .build();
+    }
+
+    @Bean
     SampleOutputSpringAIAgent sampleOutputBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, SecurityContextRehydrator securityContextRehydrator,
         ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider) throws AGUIException {
@@ -565,6 +599,35 @@ public class CopilotConfiguration {
             .build();
     }
 
+    @Bean
+    WorkflowExecutionSpringAIAgent workflowExecutionBuildSpringAIAgent(
+        ChatMemory chatMemory, ChatModel chatModel, WorkflowExecutionTools workflowExecutionTools,
+        ProjectWorkflowTools projectWorkflowTools, ScriptTools scriptTools, TaskTools taskTools,
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider) throws AGUIException {
+
+        String name = Source.WORKFLOW_EXECUTION.name() + "_" + Mode.BUILD.name();
+
+        List<Object> tools = new ArrayList<>(
+            List.of(
+                workflowExecutionTools, projectWorkflowTools, scriptTools, taskTools, workflowValidatorTools,
+                workflowInstructionTools));
+
+        return WorkflowExecutionSpringAIAgent.builder()
+            .agentId(name.toLowerCase())
+            .chatMemory(chatMemory)
+            .chatModel(chatModel)
+            .systemMessage(getSystemPrompt(promptWorkflowExecutionBuildResource))
+            .tools(tools)
+            .state(state)
+            .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
+            .build();
+    }
+
+    /**
+     * Stateless Code Editor ASK sub-agent {@link ChatClient}, consumed by {@code CodeEditorAgentToolCallback} on the AI
+     * Hub ASK agent. Same system prompt and tool catalog as {@link #codeEditorAskSpringAIAgent} (Firecrawl tools added
+     * when present in the deployment), no {@link ChatMemory}.
+     */
     @Bean
     ChatClient codeEditorAskSubAgentChatClient(
         ChatModel chatModel, ReadProjectWorkflowTools readProjectWorkflowTools,
@@ -743,13 +806,40 @@ public class CopilotConfiguration {
             .build();
     }
 
+    /**
+     * Stateless Workflow Execution ASK sub-agent {@link ChatClient}, consumed by
+     * {@code WorkflowExecutionAgentToolCallback} on the AI Hub ASK agent. Same system prompt and tool catalog as
+     * {@link #workflowExecutionAskSpringAIAgent} (Firecrawl tools added when present in the deployment), no
+     * {@link ChatMemory}.
+     */
     @Bean
-    IntelligentToolChatClientFactory skillsBuildSubAgentChatClientFactory(
-        @Qualifier("skillsBuildSubAgentChatClient") ChatClient skillsBuildSubAgentChatClient) {
+    ChatClient workflowExecutionAskSubAgentChatClient(
+        ChatModel chatModel, WorkflowExecutionTools workflowExecutionTools,
+        ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools,
+        Optional<FirecrawlTools> firecrawlTools) {
 
-        return () -> skillsBuildSubAgentChatClient;
+        ChatClient.Builder builder = ChatClient.builder(chatModel)
+            .defaultSystem(getSystemPrompt(promptWorkflowExecutionAskResource));
+
+        if (firecrawlTools.isPresent()) {
+            builder.defaultTools(
+                workflowExecutionTools, readProjectWorkflowTools, componentTools, workflowValidatorTools,
+                workflowInstructionTools, firecrawlTools.get());
+        } else {
+            builder.defaultTools(
+                workflowExecutionTools, readProjectWorkflowTools, componentTools, workflowValidatorTools,
+                workflowInstructionTools);
+        }
+
+        return builder.build();
     }
 
+    /**
+     * Stateless Workflow Execution BUILD sub-agent {@link ChatClient}, consumed by
+     * {@code WorkflowExecutionAgentToolCallback} on the AI Hub BUILD agent. Mirrors
+     * {@link #workflowExecutionBuildSpringAIAgent}'s tool catalog (write-capable project-workflow / script / task
+     * tools), no {@link ChatMemory}.
+     */
     @Bean
     ChatClient workflowExecutionBuildSubAgentChatClient(
         ChatModel chatModel, WorkflowExecutionTools workflowExecutionTools, ProjectWorkflowTools projectWorkflowTools,
@@ -761,13 +851,6 @@ public class CopilotConfiguration {
                 workflowExecutionTools, projectWorkflowTools, scriptTools, taskTools, workflowValidatorTools,
                 workflowInstructionTools)
             .build();
-    }
-
-    @Bean
-    IntelligentToolChatClientFactory workflowExecutionBuildSubAgentChatClientFactory(
-        @Qualifier("workflowExecutionBuildSubAgentChatClient") ChatClient workflowExecutionBuildSubAgentChatClient) {
-
-        return () -> workflowExecutionBuildSubAgentChatClient;
     }
 
     private String getSystemPrompt(Resource systemPromptResource) {
