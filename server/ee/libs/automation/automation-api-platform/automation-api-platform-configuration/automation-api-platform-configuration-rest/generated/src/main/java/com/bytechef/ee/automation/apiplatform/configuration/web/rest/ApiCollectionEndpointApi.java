@@ -83,7 +83,6 @@ public interface ApiCollectionEndpointApi {
 
     }
 
-
     String PATH_DELETE_API_COLLECTION_ENDPOINT = "/api-collection-endpoints/{id}";
     /**
      * DELETE /api-collection-endpoints/{id} : Delete an API collection endpoint
@@ -111,7 +110,6 @@ public interface ApiCollectionEndpointApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_API_COLLECTION_ENDPOINT = "/api-collection-endpoints/{id}";
     /**
@@ -152,7 +150,6 @@ public interface ApiCollectionEndpointApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_UPDATE_API_COLLECTION_ENDPOINT = "/api-collection-endpoints/{id}";
     /**

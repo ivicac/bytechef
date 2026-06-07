@@ -27,15 +27,13 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "EmbeddingRequest", description = "An embedding request.")
 @JsonTypeName("EmbeddingRequest")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-04-27T13:29:16.334179+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-31T21:39:20.281418+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 public class EmbeddingRequestModel {
 
   private String model;
 
-  @Valid
   private List<String> input = new ArrayList<>();
 
-  @Valid
   private Map<String, String> tags = new HashMap<>();
 
   public EmbeddingRequestModel() {

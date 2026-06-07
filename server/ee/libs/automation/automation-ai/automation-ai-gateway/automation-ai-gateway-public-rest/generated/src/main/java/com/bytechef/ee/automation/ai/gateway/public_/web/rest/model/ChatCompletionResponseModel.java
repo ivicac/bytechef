@@ -27,7 +27,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "ChatCompletionResponse", description = "A chat completion response.")
 @JsonTypeName("ChatCompletionResponse")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-04-27T13:29:16.334179+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-31T21:39:20.281418+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 public class ChatCompletionResponseModel {
 
   private @Nullable String id;
@@ -38,7 +38,6 @@ public class ChatCompletionResponseModel {
 
   private @Nullable String model;
 
-  @Valid
   private List<@Valid ChoiceModel> choices = new ArrayList<>();
 
   private @Nullable UsageModel usage;
@@ -144,7 +143,7 @@ public class ChatCompletionResponseModel {
    * Get choices
    * @return choices
    */
-  @Valid 
+  
   @Schema(name = "choices", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("choices")
   public List<@Valid ChoiceModel> getChoices() {

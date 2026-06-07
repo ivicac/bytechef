@@ -119,7 +119,6 @@ public interface ConnectedUserApi {
 
     }
 
-
     String PATH_ENABLE_CONNECTED_USER = "/connected-users/{id}/enable/{enable}";
     /**
      * PATCH /connected-users/{id}/enable/{enable} : Enable/disable a connected user
@@ -149,7 +148,6 @@ public interface ConnectedUserApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_CONNECTED_USER = "/connected-users/{id}";
     /**
@@ -190,7 +188,6 @@ public interface ConnectedUserApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_CONNECTED_USERS = "/connected-users";
     /**

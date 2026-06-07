@@ -29,12 +29,11 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "ChatCompletionRequest", description = "A chat completion request.")
 @JsonTypeName("ChatCompletionRequest")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-04-27T13:29:16.334179+02:00[Europe/Zagreb]", comments = "Generator version: 7.21.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-31T21:39:20.281418+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 public class ChatCompletionRequestModel {
 
   private String model;
 
-  @Valid
   private List<@Valid ChatMessageModel> messages = new ArrayList<>();
 
   private @Nullable Double temperature;
@@ -51,10 +50,8 @@ public class ChatCompletionRequestModel {
 
   private @Nullable Object toolChoice;
 
-  @Valid
   private List<@Valid ToolModel> tools = new ArrayList<>();
 
-  @Valid
   private Map<String, String> tags = new HashMap<>();
 
   public ChatCompletionRequestModel() {
@@ -107,7 +104,7 @@ public class ChatCompletionRequestModel {
    * The messages to generate chat completions for.
    * @return messages
    */
-  @NotNull @Valid 
+  @NotNull 
   @Schema(name = "messages", description = "The messages to generate chat completions for.", requiredMode = Schema.RequiredMode.REQUIRED)
   @JsonProperty("messages")
   public List<@Valid ChatMessageModel> getMessages() {
@@ -283,7 +280,7 @@ public class ChatCompletionRequestModel {
    * A list of tools the model may call.
    * @return tools
    */
-  @Valid 
+  
   @Schema(name = "tools", description = "A list of tools the model may call.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("tools")
   public List<@Valid ToolModel> getTools() {
