@@ -7,6 +7,7 @@
 Name | Type
 ------------ | -------------
 `active` | boolean
+`managed` | boolean
 `authorizationType` | [AuthorizationType](AuthorizationType.md)
 `authorizationParameters` | { [key: string]: any; }
 `baseUri` | string
@@ -16,13 +17,13 @@ Name | Type
 `createdBy` | string
 `createdDate` | Date
 `credentialStatus` | [CredentialStatus](CredentialStatus.md)
+`credentialStoreType` | string
 `environmentId` | number
 `id` | number
 `lastModifiedBy` | string
 `lastModifiedDate` | Date
 `name` | string
 `parameters` | { [key: string]: any; }
-`sharedProjectIds` | Array&lt;number&gt;
 `tags` | [Array&lt;Tag&gt;](Tag.md)
 `status` | string
 `visibility` | string
@@ -38,6 +39,7 @@ import type { Connection } from ''
 // TODO: Update the object below with actual values
 const example = {
   "active": null,
+  "managed": null,
   "authorizationType": null,
   "authorizationParameters": null,
   "baseUri": null,
@@ -47,13 +49,13 @@ const example = {
   "createdBy": null,
   "createdDate": null,
   "credentialStatus": null,
+  "credentialStoreType": null,
   "environmentId": null,
   "id": null,
   "lastModifiedBy": null,
   "lastModifiedDate": null,
   "name": null,
   "parameters": null,
-  "sharedProjectIds": null,
   "tags": null,
   "status": null,
   "visibility": null,

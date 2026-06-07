@@ -46,6 +46,12 @@ export interface ConnectionBase {
      */
     readonly active?: boolean;
     /**
+     * True when this connection is system-managed (e.g. an enabled AI provider) and cannot be edited or deleted.
+     * @type {boolean}
+     * @memberof ConnectionBase
+     */
+    readonly managed?: boolean;
+    /**
      * 
      */
     authorizationType?: AuthorizationType;
@@ -82,6 +88,12 @@ export interface ConnectionBase {
      */
     credentialStatus?: CredentialStatus;
     /**
+     * Backend that stores the credential payload. Defaults to DATABASE.
+     * @type {ConnectionBaseCredentialStoreTypeEnum}
+     * @memberof ConnectionBase
+     */
+    credentialStoreType?: ConnectionBaseCredentialStoreTypeEnum;
+    /**
      * The id of an environment.
      */
     environmentId?: number;
@@ -106,12 +118,6 @@ export interface ConnectionBase {
      */
     parameters: { [key: string]: any; };
     /**
-     * IDs of projects this connection is shared with. Typically populated when visibility is PROJECT.
-     * @type {Array<number>}
-     * @memberof ConnectionBase
-     */
-    readonly sharedProjectIds?: Array<number>;
-    /**
      * 
      */
     tags?: Array<Tag>;
@@ -122,7 +128,7 @@ export interface ConnectionBase {
      */
     readonly status?: ConnectionBaseStatusEnum;
     /**
-     * Visibility scope controlling which users can see and use a connection. Accepted on create: PRIVATE (default) or WORKSPACE — setting WORKSPACE requires ROLE_ADMIN. PROJECT and ORGANIZATION are assigned by share / organization flows, not by direct client request. On CE or embedded surfaces the server always forces PRIVATE regardless of the request body.
+     * Visibility scope controlling which users can see and use a connection. Accepted on create: PRIVATE (default) or WORKSPACE — setting WORKSPACE requires ROLE_ADMIN. ORGANIZATION is assigned by organization flows, not by direct client request. On CE or embedded surfaces the server always forces PRIVATE regardless of the request body.
      * @type {ConnectionBaseVisibilityEnum}
      * @memberof ConnectionBase
      */
@@ -133,6 +139,16 @@ export interface ConnectionBase {
     version?: number;
 }
 
+
+/**
+ * @export
+ */
+export const ConnectionBaseCredentialStoreTypeEnum = {
+    Database: 'DATABASE',
+    AwsSecretsManager: 'AWS_SECRETS_MANAGER',
+    HashicorpVault: 'HASHICORP_VAULT'
+} as const;
+export type ConnectionBaseCredentialStoreTypeEnum = typeof ConnectionBaseCredentialStoreTypeEnum[keyof typeof ConnectionBaseCredentialStoreTypeEnum];
 
 /**
  * @export
@@ -149,7 +165,6 @@ export type ConnectionBaseStatusEnum = typeof ConnectionBaseStatusEnum[keyof typ
  */
 export const ConnectionBaseVisibilityEnum = {
     Private: 'PRIVATE',
-    Project: 'PROJECT',
     Workspace: 'WORKSPACE',
     Organization: 'ORGANIZATION'
 } as const;
@@ -178,6 +193,7 @@ export function ConnectionBaseFromJSONTyped(json: any, ignoreDiscriminator: bool
     return {
         
         'active': json['active'] == null ? undefined : json['active'],
+        'managed': json['managed'] == null ? undefined : json['managed'],
         'authorizationType': json['authorizationType'] == null ? undefined : AuthorizationTypeFromJSON(json['authorizationType']),
         'authorizationParameters': json['authorizationParameters'] == null ? undefined : json['authorizationParameters'],
         'baseUri': json['baseUri'] == null ? undefined : json['baseUri'],
@@ -187,13 +203,13 @@ export function ConnectionBaseFromJSONTyped(json: any, ignoreDiscriminator: bool
         'createdBy': json['createdBy'] == null ? undefined : json['createdBy'],
         'createdDate': json['createdDate'] == null ? undefined : (parseDateTime(json['createdDate'])),
         'credentialStatus': json['credentialStatus'] == null ? undefined : CredentialStatusFromJSON(json['credentialStatus']),
+        'credentialStoreType': json['credentialStoreType'] == null ? undefined : json['credentialStoreType'],
         'environmentId': json['environmentId'] == null ? undefined : json['environmentId'],
         'id': json['id'] == null ? undefined : json['id'],
         'lastModifiedBy': json['lastModifiedBy'] == null ? undefined : json['lastModifiedBy'],
         'lastModifiedDate': json['lastModifiedDate'] == null ? undefined : (parseDateTime(json['lastModifiedDate'])),
         'name': json['name'],
         'parameters': json['parameters'],
-        'sharedProjectIds': json['sharedProjectIds'] == null ? undefined : json['sharedProjectIds'],
         'tags': json['tags'] == null ? undefined : ((json['tags'] as Array<any>).map(TagFromJSON)),
         'status': json['status'] == null ? undefined : json['status'],
         'visibility': json['visibility'] == null ? undefined : json['visibility'],
@@ -205,7 +221,7 @@ export function ConnectionBaseToJSON(json: any): ConnectionBase {
     return ConnectionBaseToJSONTyped(json, false);
 }
 
-export function ConnectionBaseToJSONTyped(value?: Omit<ConnectionBase, 'active'|'authorizationParameters'|'connectionParameters'|'createdBy'|'createdDate'|'id'|'lastModifiedBy'|'lastModifiedDate'|'sharedProjectIds'|'status'> | null, ignoreDiscriminator: boolean = false): any {
+export function ConnectionBaseToJSONTyped(value?: Omit<ConnectionBase, 'active'|'managed'|'authorizationParameters'|'connectionParameters'|'createdBy'|'createdDate'|'id'|'lastModifiedBy'|'lastModifiedDate'|'status'> | null, ignoreDiscriminator: boolean = false): any {
     if (value == null) {
         return value;
     }
@@ -217,6 +233,7 @@ export function ConnectionBaseToJSONTyped(value?: Omit<ConnectionBase, 'active'|
         'componentName': value['componentName'],
         'connectionVersion': value['connectionVersion'],
         'credentialStatus': CredentialStatusToJSON(value['credentialStatus']),
+        'credentialStoreType': value['credentialStoreType'],
         'environmentId': value['environmentId'],
         'name': value['name'],
         'parameters': value['parameters'],
