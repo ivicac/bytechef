@@ -15,16 +15,19 @@ const workflow = {
     description: 'Sends mail',
     label: 'Mailer',
     lastModifiedDate: '2026-02-11T09:30:00Z',
+    permissionExpression: null,
     triggers: [],
     workflowUuid: 'wf-1',
 };
 
 const project = {
     categoryId: null,
+    codeWorkflowProject: false,
     description: null,
     id: 'project-1',
     lastPublishedVersion: null,
     name: 'Project One',
+    permissionExpression: null,
     published: false,
     tagIds: [],
     version: 1,
