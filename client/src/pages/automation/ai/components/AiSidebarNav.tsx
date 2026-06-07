@@ -9,6 +9,8 @@ interface SectionDefinitionI {
     label: string;
 }
 
+const AI_SECTIONS: SectionDefinitionI[] = [{id: 'memories', label: 'Memories'}];
+
 const GATEWAY_SECTIONS: SectionDefinitionI[] = [
     {id: 'providers', label: 'Providers'},
     {id: 'models', label: 'Models'},
@@ -29,6 +31,8 @@ const GATEWAY_SECTIONS: SectionDefinitionI[] = [
     {id: 'exports', label: 'Exports'},
 ];
 
+const aiPath = (id: string) => `${AI_BASE_PATH}/${id}`;
+
 const gatewayPath = (id: string) => `${AI_BASE_PATH}/gateway?section=${id}`;
 
 interface AiSidebarNavPropsI {
@@ -45,25 +49,39 @@ const AiSidebarNav = ({currentSection}: AiSidebarNavPropsI) => {
 
     const showGateway = edition === EditionType.EE && gatewayEnabled;
 
-    if (!showGateway) {
-        return null;
-    }
-
     return (
-        <LeftSidebarNav
-            body={
-                <>
-                    {GATEWAY_SECTIONS.map((section) => (
-                        <LeftSidebarNavItem
-                            item={{current: currentSection === section.id, name: section.label}}
-                            key={section.id}
-                            toLink={gatewayPath(section.id)}
-                        />
-                    ))}
-                </>
-            }
-            title="Gateway"
-        />
+        <>
+            <LeftSidebarNav
+                body={
+                    <>
+                        {AI_SECTIONS.map((section) => (
+                            <LeftSidebarNavItem
+                                item={{current: currentSection === section.id, name: section.label}}
+                                key={section.id}
+                                toLink={aiPath(section.id)}
+                            />
+                        ))}
+                    </>
+                }
+            />
+
+            {showGateway && (
+                <LeftSidebarNav
+                    body={
+                        <>
+                            {GATEWAY_SECTIONS.map((section) => (
+                                <LeftSidebarNavItem
+                                    item={{current: currentSection === section.id, name: section.label}}
+                                    key={section.id}
+                                    toLink={gatewayPath(section.id)}
+                                />
+                            ))}
+                        </>
+                    }
+                    title="Gateway"
+                />
+            )}
+        </>
     );
 };
 
