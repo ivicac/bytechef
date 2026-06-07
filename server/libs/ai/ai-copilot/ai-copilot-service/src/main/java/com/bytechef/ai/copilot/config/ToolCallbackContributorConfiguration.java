@@ -16,6 +16,12 @@
 
 package com.bytechef.ai.copilot.config;
 
+import com.bytechef.ai.copilot.tool.ClusterElementAgentToolCallback;
+import com.bytechef.ai.copilot.tool.CodeEditorAgentToolCallback;
+import com.bytechef.ai.copilot.tool.ConverterAgentToolCallback;
+import com.bytechef.ai.copilot.tool.SkillsAgentToolCallback;
+import com.bytechef.ai.copilot.tool.WorkflowEditorAgentToolCallback;
+import com.bytechef.ai.copilot.tool.WorkflowExecutionAgentToolCallback;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolCatalog;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
@@ -55,7 +61,13 @@ public class ToolCallbackContributorConfiguration {
     @Bean
     McpServerToolCallbackContributor copilotAgentToolCallbackContributor(
         ObjectProvider<SkillsTools> skillsToolsProvider,
-        IntelligentToolCatalog intelligentToolCatalog, WorkspaceScopeResolver workspaceScopeResolver) {
+        @Qualifier("workflowEditorBuildSubAgentChatClient") ObjectProvider<ChatClient> workflowEditorProvider,
+        @Qualifier("codeEditorBuildSubAgentChatClient") ObjectProvider<ChatClient> codeEditorProvider,
+        @Qualifier("clusterElementBuildSubAgentChatClient") ObjectProvider<ChatClient> clusterElementProvider,
+        @Qualifier("skillsBuildSubAgentChatClient") ObjectProvider<ChatClient> skillsProvider,
+        @Qualifier("workflowExecutionBuildSubAgentChatClient") ObjectProvider<ChatClient> workflowExecutionProvider,
+        @Qualifier("converterBuildSubAgentChatClientSupplier") //
+        ObjectProvider<Supplier<ChatClient>> converterSupplierProvider) {
 
         return () -> {
             List<ToolCallback> toolCallbacks = new ArrayList<>();
@@ -63,97 +75,19 @@ public class ToolCallbackContributorConfiguration {
             skillsToolsProvider.ifAvailable(
                 skillsTools -> toolCallbacks.addAll(List.of(ToolCallbacks.from(skillsTools))));
 
-            toolCallbacks.addAll(
-                intelligentToolCatalog.getByNames(
-                    INTELLIGENT_TOOL_NAMES, IntelligentToolVariant.BUILD, (chatClient, definition) -> chatClient,
-                    (toolCallback, definition) -> new WorkspaceScopedSubAgentToolCallback(
-                        toolCallback, workspaceScopeResolver)));
-
-            return toolCallbacks;
-        };
-    }
-
-    @Bean
-    McpServerToolCallbackContributor mcpServerCrudMcpContributor(
-        ObjectProvider<McpServerToolCallbacksFactory> mcpServerToolCallbacksFactoryProvider,
-        WorkspaceScopeResolver workspaceScopeResolver) {
-
-        return () -> {
-            McpServerToolCallbacksFactory mcpServerToolCallbacksFactory = mcpServerToolCallbacksFactoryProvider
-                .getIfAvailable();
-
-            if (mcpServerToolCallbacksFactory == null) {
-                return List.of();
-            }
-
-            List<ToolCallback> toolCallbacks = new ArrayList<>();
-
-            for (ToolCallback toolCallback : mcpServerToolCallbacksFactory.writeToolCallbacks()) {
-                String name = toolCallback.getToolDefinition()
-                    .name();
-
-                if (MCP_PROJECT_WORKFLOW_PARAMETERS_TOOL_NAME.equals(name)) {
-                    continue;
-                }
-
-                toolCallbacks.add(
-                    WORKSPACE_SCOPED_MCP_TOOL_NAMES.contains(name)
-                        ? new WorkspaceScopedFlatToolCallback(toolCallback, workspaceScopeResolver)
-                        : toolCallback);
-            }
-
-            return toolCallbacks;
-        };
-    }
-
-    @Bean
-    McpServerToolCallbackContributor deploymentFlatCrudMcpContributor(
-        ObjectProvider<DeploymentToolCallbacksFactory> deploymentToolCallbacksFactoryProvider,
-        WorkspaceScopeResolver workspaceScopeResolver) {
-
-        return () -> {
-            DeploymentToolCallbacksFactory deploymentToolCallbacksFactory = deploymentToolCallbacksFactoryProvider
-                .getIfAvailable();
-
-            if (deploymentToolCallbacksFactory == null) {
-                return List.of();
-            }
-
-            List<ToolCallback> toolCallbacks = new ArrayList<>();
-
-            for (ToolCallback toolCallback : deploymentToolCallbacksFactory.writeToolCallbacks()) {
-                String name = toolCallback.getToolDefinition()
-                    .name();
-
-                toolCallbacks.add(
-                    WORKSPACE_SCOPED_DEPLOYMENT_TOOL_NAMES.contains(name)
-                        ? new WorkspaceScopedFlatToolCallback(toolCallback, workspaceScopeResolver)
-                        : toolCallback);
-            }
-
-            return toolCallbacks;
-        };
-    }
-
-    @Bean
-    McpServerToolCallbackContributor knowledgeBaseFlatCrudMcpContributor(
-        ObjectProvider<KnowledgeBaseToolCallbacksFactory> knowledgeBaseToolCallbacksFactoryProvider,
-        WorkspaceScopeResolver workspaceScopeResolver) {
-
-        return () -> {
-            KnowledgeBaseToolCallbacksFactory knowledgeBaseToolCallbacksFactory =
-                knowledgeBaseToolCallbacksFactoryProvider
-                    .getIfAvailable();
-
-            if (knowledgeBaseToolCallbacksFactory == null) {
-                return List.of();
-            }
-
-            List<ToolCallback> toolCallbacks = new ArrayList<>();
-
-            for (ToolCallback toolCallback : knowledgeBaseToolCallbacksFactory.writeToolCallbacks()) {
-                toolCallbacks.add(new WorkspaceScopedFlatToolCallback(toolCallback, workspaceScopeResolver));
-            }
+            workflowEditorProvider.ifAvailable(
+                chatClient -> toolCallbacks.add(new WorkflowEditorAgentToolCallback(chatClient)));
+            codeEditorProvider.ifAvailable(
+                chatClient -> toolCallbacks.add(new CodeEditorAgentToolCallback(chatClient)));
+            clusterElementProvider.ifAvailable(
+                chatClient -> toolCallbacks.add(new ClusterElementAgentToolCallback(chatClient)));
+            skillsProvider.ifAvailable(
+                chatClient -> toolCallbacks.add(new SkillsAgentToolCallback(chatClient)));
+            workflowExecutionProvider.ifAvailable(
+                chatClient -> toolCallbacks.add(new WorkflowExecutionAgentToolCallback(chatClient)));
+            converterSupplierProvider.ifAvailable(
+                converterChatClientSupplier -> toolCallbacks.add(
+                    new ConverterAgentToolCallback(converterChatClientSupplier)));
 
             return toolCallbacks;
         };
