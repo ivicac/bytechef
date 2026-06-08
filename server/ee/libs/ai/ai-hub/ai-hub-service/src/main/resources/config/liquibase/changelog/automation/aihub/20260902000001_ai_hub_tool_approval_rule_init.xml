@@ -4,35 +4,26 @@
                    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
                    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
     <!--
-        User-registered external MCP (Model Context Protocol) servers. Scoped per (user, workspace,
-        environment) like the user-global "added connectors" in ai_hub_chat_component. The AI Hub agent
-        connects OUT to `url` as an MCP client; `auth_token` holds an optional bearer token encrypted at
-        rest (never returned to the client). Tool discovery + agent bridging land in a follow-up increment.
+        Per-workspace rules that require or exempt a catalog tool or component action from the AI Hub tool
+        approval gate. A null component_name means the rule applies to every component; the COALESCE in the
+        unique index below is what makes that null collapse correctly instead of always being distinct.
     -->
-    <changeSet id="20260702000001" author="Ivica Cardic">
-        <createTable tableName="ai_hub_mcp_server">
+    <changeSet id="20260902000001" author="Ivica Cardic">
+        <createTable tableName="ai_hub_tool_approval_rule">
             <column name="id" type="BIGINT" autoIncrement="true">
                 <constraints primaryKey="true" nullable="false"/>
-            </column>
-            <column name="user_id" type="BIGINT">
-                <constraints nullable="false"/>
             </column>
             <column name="workspace_id" type="BIGINT">
                 <constraints nullable="false"/>
             </column>
-            <column name="environment" type="INTEGER">
+            <column name="tool_kind" type="INT">
                 <constraints nullable="false"/>
             </column>
-            <column name="name" type="VARCHAR(255)">
+            <column name="component_name" type="VARCHAR(255)"/>
+            <column name="tool_name" type="VARCHAR(255)">
                 <constraints nullable="false"/>
             </column>
-            <column name="url" type="VARCHAR(1024)">
-                <constraints nullable="false"/>
-            </column>
-            <column name="auth_token" type="VARCHAR(2048)">
-                <constraints nullable="true"/>
-            </column>
-            <column name="enabled" type="BOOLEAN" defaultValueBoolean="true">
+            <column name="mode" type="INT">
                 <constraints nullable="false"/>
             </column>
             <column name="created_by" type="VARCHAR(50)"/>
@@ -48,9 +39,12 @@
             </column>
         </createTable>
 
-        <createIndex tableName="ai_hub_mcp_server"
-                     indexName="idx_ai_hub_mcp_server_user_workspace">
-            <column name="user_id"/>
+        <sql>
+            CREATE UNIQUE INDEX uk_ai_hub_tool_approval_rule ON ai_hub_tool_approval_rule
+                (workspace_id, tool_kind, COALESCE(component_name, ''), tool_name)
+        </sql>
+
+        <createIndex tableName="ai_hub_tool_approval_rule" indexName="idx_ai_hub_tool_approval_rule_workspace">
             <column name="workspace_id"/>
         </createIndex>
     </changeSet>

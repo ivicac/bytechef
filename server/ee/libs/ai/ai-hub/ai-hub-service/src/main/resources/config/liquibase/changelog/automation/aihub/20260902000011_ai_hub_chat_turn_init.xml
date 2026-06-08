@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+    <changeSet id="20260902000011" author="Ivica Cardic">
+        <createTable tableName="ai_hub_chat_turn">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="chat_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="user_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <!-- Nullable: a turn recorded outside the normal dispatch path (migration, manual repair) may carry
+                 no AG-UI run id. -->
+            <column name="run_id" type="VARCHAR(255)"/>
+            <column name="created_date" type="TIMESTAMP">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <createIndex tableName="ai_hub_chat_turn" indexName="idx_ai_hub_chat_turn_chat">
+            <column name="chat_id"/>
+            <column name="created_date"/>
+        </createIndex>
+
+        <rollback>
+            <dropIndex tableName="ai_hub_chat_turn" indexName="idx_ai_hub_chat_turn_chat"/>
+            <dropTable tableName="ai_hub_chat_turn"/>
+        </rollback>
+    </changeSet>
+</databaseChangeLog>
