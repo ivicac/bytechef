@@ -2,7 +2,7 @@
   "actions": null,
   "clusterElements": [ {
     "name": "sessionRepository",
-    "description": "Stores session events in the application database.",
+    "description": "Stores session events using the application's configured session backend.",
     "element": { },
     "help": null,
     "outputDefinition": null,

@@ -18,6 +18,7 @@ package com.bytechef.component.ai.agent.chat.memory.builtin.session.cluster;
 
 import static com.bytechef.platform.component.definition.ai.agent.SessionRepositoryFunction.SESSION_REPOSITORY;
 
+import com.bytechef.component.ai.agent.chat.memory.builtin.session.util.TenantRoutingS3SessionRepository;
 import com.bytechef.component.ai.agent.chat.memory.jdbc.session.util.SessionChatMemoryUtils;
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ComponentDsl;
@@ -27,6 +28,7 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.ai.session.InMemorySessionRepository;
 import org.springframework.ai.session.SessionRepository;
 import org.springframework.jdbc.core.JdbcTemplate;
+import software.amazon.awssdk.services.s3.S3Client;
 
 /**
  * @author Ivica Cardic
@@ -34,21 +36,41 @@ import org.springframework.jdbc.core.JdbcTemplate;
 public class BuiltInSessionChatMemory {
 
     public static ClusterElementDefinition<SessionRepositoryFunction> of(@Nullable JdbcTemplate jdbcTemplate) {
-        DataSource dataSource = jdbcTemplate == null ? null : jdbcTemplate.getDataSource();
+        return of(jdbcTemplate, null, null, "");
+    }
 
-        SessionRepository sessionRepository = dataSource == null
-            ? InMemorySessionRepository.builder()
-                .build()
-            : SessionChatMemoryUtils.getSessionRepository(dataSource);
+    public static ClusterElementDefinition<SessionRepositoryFunction> of(
+        @Nullable JdbcTemplate jdbcTemplate, @Nullable S3Client s3Client, @Nullable String bucketPrefix,
+        String keyPrefix) {
+
+        SessionRepository sessionRepository = resolve(jdbcTemplate, s3Client, bucketPrefix, keyPrefix);
 
         return ComponentDsl.<SessionRepositoryFunction>clusterElement("sessionRepository")
             .title("Built-in Session Repository")
-            .description("Stores session events in the application database.")
+            .description("Stores session events using the application's configured session backend.")
             .type(SESSION_REPOSITORY)
             .object(
                 () -> (inputParameters, connectionParameters, extensions, componentConnections) -> sessionRepository);
     }
 
     private BuiltInSessionChatMemory() {
+    }
+
+    private static SessionRepository resolve(
+        @Nullable JdbcTemplate jdbcTemplate, @Nullable S3Client s3Client, @Nullable String bucketPrefix,
+        String keyPrefix) {
+
+        if (s3Client != null && bucketPrefix != null) {
+            return new TenantRoutingS3SessionRepository(s3Client, bucketPrefix, keyPrefix);
+        }
+
+        DataSource dataSource = jdbcTemplate == null ? null : jdbcTemplate.getDataSource();
+
+        if (dataSource == null) {
+            return InMemorySessionRepository.builder()
+                .build();
+        }
+
+        return SessionChatMemoryUtils.getSessionRepository(dataSource);
     }
 }

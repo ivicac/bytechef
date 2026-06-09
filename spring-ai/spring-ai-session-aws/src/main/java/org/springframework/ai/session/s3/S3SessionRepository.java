@@ -16,6 +16,7 @@
 
 package org.springframework.ai.session.s3;
 
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -371,6 +372,7 @@ public final class S3SessionRepository implements SessionRepository {
                 documents.add(jsonMapper.readValue(response.asByteArray(), StoredSession.class));
             } catch (NoSuchKeyException noSuchKeyException) {
                 // object deleted between list and get — skip
+                continue;
             }
         }
 
@@ -422,6 +424,7 @@ public final class S3SessionRepository implements SessionRepository {
         private Builder() {
         }
 
+        @SuppressFBWarnings("EI_EXPOSE_REP2")
         public Builder s3Client(S3Client s3Client) {
             this.s3Client = s3Client;
 
@@ -440,6 +443,7 @@ public final class S3SessionRepository implements SessionRepository {
             return this;
         }
 
+        @SuppressFBWarnings("EI_EXPOSE_REP2")
         public Builder jsonMapper(JsonMapper jsonMapper) {
             this.jsonMapper = jsonMapper;
 

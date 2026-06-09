@@ -14,18 +14,20 @@
  * limitations under the License.
  */
 
-package com.bytechef.component.ai.agent.chat.memory.builtin.session;
+package com.bytechef.component.ai.agent.chat.memory.aws.session.constant;
 
-import com.bytechef.test.jsonasssert.JsonFileAssert;
-import org.junit.jupiter.api.Test;
-import org.springframework.mock.env.MockEnvironment;
+/**
+ * @author Ivica Cardic
+ */
+public class AwsSessionChatMemoryConstants {
 
-public class BuiltInSessionChatMemoryComponentHandlerTest {
+    public static final String ACCESS_KEY_ID = "accessKeyId";
+    public static final String AWS_SESSION_CHAT_MEMORY = "awsSessionChatMemory";
+    public static final String BUCKET = "bucket";
+    public static final String KEY_PREFIX = "keyPrefix";
+    public static final String REGION = "region";
+    public static final String SECRET_ACCESS_KEY = "secretAccessKey";
 
-    @Test
-    public void testGetComponentDefinition() {
-        JsonFileAssert.assertEquals(
-            "definition/builtInSessionChatMemory_v1.json",
-            new BuiltInSessionChatMemoryComponentHandler(null, new MockEnvironment()).getDefinition());
+    private AwsSessionChatMemoryConstants() {
     }
 }

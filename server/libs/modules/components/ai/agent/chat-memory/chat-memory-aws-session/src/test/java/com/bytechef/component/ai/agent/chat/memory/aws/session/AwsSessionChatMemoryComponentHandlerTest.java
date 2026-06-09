@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-package com.bytechef.component.ai.agent.chat.memory.builtin.session;
+package com.bytechef.component.ai.agent.chat.memory.aws.session;
 
 import com.bytechef.test.jsonasssert.JsonFileAssert;
 import org.junit.jupiter.api.Test;
-import org.springframework.mock.env.MockEnvironment;
 
-public class BuiltInSessionChatMemoryComponentHandlerTest {
+/**
+ * @author Ivica Cardic
+ */
+public class AwsSessionChatMemoryComponentHandlerTest {
 
     @Test
     public void testGetComponentDefinition() {
         JsonFileAssert.assertEquals(
-            "definition/builtInSessionChatMemory_v1.json",
-            new BuiltInSessionChatMemoryComponentHandler(null, new MockEnvironment()).getDefinition());
+            "definition/awsSessionChatMemory_v1.json", new AwsSessionChatMemoryComponentHandler().getDefinition());
     }
 }

@@ -23,10 +23,12 @@ import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.messages.AssistantMessage.ToolCall;
 import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.chat.messages.MessageType;
 import org.springframework.ai.chat.messages.SystemMessage;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
+import org.springframework.ai.chat.messages.ToolResponseMessage.ToolResponse;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.session.Session;
 import org.springframework.ai.session.SessionEvent;
@@ -69,6 +71,11 @@ record StoredSession(
         String id, String sessionId, long timestampEpochMilli, String messageType, String messageContent,
         @Nullable String messageData, boolean synthetic, @Nullable String branch,
         Map<String, Object> metadata) {
+
+        private static final TypeReference<List<ToolCall>> TOOL_CALL_LIST_TYPE =
+            new TypeReference<List<ToolCall>>() {};
+        private static final TypeReference<List<ToolResponse>> TOOL_RESPONSE_LIST_TYPE =
+            new TypeReference<List<ToolResponse>>() {};
 
         static StoredEvent fromEvent(SessionEvent event, JsonMapper jsonMapper) {
             Message message = event.getMessage();
@@ -113,8 +120,7 @@ record StoredSession(
                 case SYSTEM -> new SystemMessage(messageContent);
                 case ASSISTANT -> {
                     if (messageData != null && !messageData.isBlank()) {
-                        List<AssistantMessage.ToolCall> toolCalls = jsonMapper.readValue(
-                            messageData, new TypeReference<List<AssistantMessage.ToolCall>>() {});
+                        List<ToolCall> toolCalls = jsonMapper.readValue(messageData, TOOL_CALL_LIST_TYPE);
 
                         yield AssistantMessage.builder()
                             .content(messageContent)
@@ -125,10 +131,9 @@ record StoredSession(
                     yield new AssistantMessage(messageContent);
                 }
                 case TOOL -> {
-                    List<ToolResponseMessage.ToolResponse> responses =
+                    List<ToolResponse> responses =
                         (messageData != null && !messageData.isBlank())
-                            ? jsonMapper.readValue(
-                                messageData, new TypeReference<List<ToolResponseMessage.ToolResponse>>() {})
+                            ? jsonMapper.readValue(messageData, TOOL_RESPONSE_LIST_TYPE)
                             : List.of();
 
                     yield ToolResponseMessage.builder()
