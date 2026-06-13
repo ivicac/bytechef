@@ -26,9 +26,8 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowSe
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.platform.configuration.domain.Environment;
-import com.bytechef.platform.connection.audit.ConnectionAuditEvent;
-import com.bytechef.platform.connection.audit.ConnectionAuditPublisher;
 import com.bytechef.platform.connection.domain.Connection;
+import com.bytechef.platform.connection.event.ConnectionWorkflowPausedEvent;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessor;
@@ -38,6 +37,7 @@ import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 /**
@@ -48,7 +48,7 @@ public class ProjectDeploymentJobPrincipalAccessor implements JobPrincipalAccess
 
     private static final Logger log = LoggerFactory.getLogger(ProjectDeploymentJobPrincipalAccessor.class);
 
-    private final ConnectionAuditPublisher connectionAuditPublisher;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final ConnectionService connectionService;
     private final ProjectDeploymentService projectDeploymentService;
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
@@ -57,12 +57,12 @@ public class ProjectDeploymentJobPrincipalAccessor implements JobPrincipalAccess
 
     @SuppressFBWarnings("EI")
     public ProjectDeploymentJobPrincipalAccessor(
-        ConnectionAuditPublisher connectionAuditPublisher, ConnectionService connectionService,
+        ApplicationEventPublisher applicationEventPublisher, ConnectionService connectionService,
         ProjectDeploymentService projectDeploymentService,
         ProjectDeploymentWorkflowService projectDeploymentWorkflowService, ProjectService projectService,
         ProjectWorkflowService projectWorkflowService) {
 
-        this.connectionAuditPublisher = connectionAuditPublisher;
+        this.applicationEventPublisher = applicationEventPublisher;
         this.connectionService = connectionService;
         this.projectDeploymentService = projectDeploymentService;
         this.projectDeploymentWorkflowService = projectDeploymentWorkflowService;
@@ -177,18 +177,20 @@ public class ProjectDeploymentJobPrincipalAccessor implements JobPrincipalAccess
             return;
         }
 
-        // Audit emission is informational; validation is load-bearing. We publish WORKFLOW_PAUSED
-        // first for observability, but catch failures per row so a broken audit pipeline cannot
-        // swallow the inactive-connection exception that must always reach the caller.
+        // Audit emission is informational; validation is load-bearing. We emit the WORKFLOW_PAUSED domain
+        // event first for observability, but catch failures per row so a broken audit pipeline (the EE
+        // listener runs synchronously on this thread) cannot swallow the inactive-connection exception that
+        // must always reach the caller.
         for (Connection connection : inactiveConnections) {
             try {
-                connectionAuditPublisher.publish(
-                    ConnectionAuditEvent.WORKFLOW_PAUSED, connection.getId(),
-                    Map.of(
-                        "projectDeploymentId", jobPrincipalId,
-                        "workflowId", workflowId,
-                        "connectionStatus", connection.getStatus()
-                            .name()));
+                applicationEventPublisher.publishEvent(
+                    new ConnectionWorkflowPausedEvent(
+                        connection.getId(),
+                        Map.of(
+                            "projectDeploymentId", jobPrincipalId,
+                            "workflowId", workflowId,
+                            "connectionStatus", connection.getStatus()
+                                .name())));
             } catch (RuntimeException auditException) {
                 log.warn(
                     "Failed to publish WORKFLOW_PAUSED audit for connection id={} (validation still enforced)",
