@@ -46,6 +46,7 @@ import org.mockito.Mock;
 import org.mockito.MockedStatic;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.context.ApplicationEventPublisher;
 
 /**
  * @version ee
@@ -57,6 +58,9 @@ class WorkspaceConnectionFacadeImplTest {
 
     private static final long WORKSPACE_ID = 1L;
     private static final String CURRENT_USER = "admin@example.com";
+
+    @Mock
+    private ApplicationEventPublisher applicationEventPublisher;
 
     @Mock
     private ConnectionFacade connectionFacade;
@@ -98,9 +102,10 @@ class WorkspaceConnectionFacadeImplTest {
         when(emptyProvider.getIfAvailable()).thenReturn(null);
 
         workspaceConnectionFacade = new WorkspaceConnectionFacadeImpl(
-            connectionFacade, connectionLifecycleFacade, connectionService, connectionVisibilityResolver, emptyProvider,
-            projectDeploymentWorkflowService, projectService, userService,
-            workflowTestConfigurationService, workspaceConnectionService, workspaceFacade);
+            applicationEventPublisher, connectionFacade, connectionLifecycleFacade, connectionService,
+            connectionVisibilityResolver, emptyProvider, projectDeploymentWorkflowService,
+            projectService, userService, workflowTestConfigurationService, workspaceConnectionService,
+            workspaceFacade);
     }
 
     @Test

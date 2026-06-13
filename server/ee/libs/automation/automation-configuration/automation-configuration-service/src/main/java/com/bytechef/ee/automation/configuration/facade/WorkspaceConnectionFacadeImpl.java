@@ -7,8 +7,8 @@
 
 package com.bytechef.ee.automation.configuration.facade;
 
-import static com.bytechef.platform.connection.audit.ConnectionAuditEvent.CONNECTION_DEMOTED;
-import static com.bytechef.platform.connection.audit.ConnectionAuditEvent.CONNECTION_PROMOTED;
+import static com.bytechef.ee.platform.connection.audit.ConnectionAuditEvent.CONNECTION_DEMOTED;
+import static com.bytechef.ee.platform.connection.audit.ConnectionAuditEvent.CONNECTION_PROMOTED;
 
 import com.bytechef.automation.configuration.domain.WorkspaceConnection;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
@@ -19,11 +19,11 @@ import com.bytechef.automation.configuration.service.WorkspaceConnectionService;
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.ee.automation.configuration.dto.BulkPromoteResultDTO;
 import com.bytechef.ee.automation.configuration.dto.BulkPromoteResultDTO.BulkPromoteFailureDTO;
+import com.bytechef.ee.platform.connection.audit.AuditConnection;
+import com.bytechef.ee.platform.connection.audit.AuditConnection.AuditData;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
-import com.bytechef.platform.connection.audit.AuditConnection;
-import com.bytechef.platform.connection.audit.AuditConnection.AuditData;
 import com.bytechef.platform.connection.domain.ConnectionVisibility;
 import com.bytechef.platform.connection.exception.ConnectionErrorType;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
@@ -40,6 +40,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -75,17 +76,18 @@ public class WorkspaceConnectionFacadeImpl
         "CT_CONSTRUCTOR_THROW", "EI", "EI2"
     })
     public WorkspaceConnectionFacadeImpl(
-        ConnectionFacade connectionFacade, ConnectionLifecycleFacade connectionLifecycleFacade,
-        ConnectionService connectionService, ConnectionVisibilityResolver connectionVisibilityResolver,
+        ApplicationEventPublisher applicationEventPublisher, ConnectionFacade connectionFacade,
+        ConnectionLifecycleFacade connectionLifecycleFacade, ConnectionService connectionService,
+        ConnectionVisibilityResolver connectionVisibilityResolver,
         ObjectProvider<MeterRegistry> meterRegistryProvider,
         ProjectDeploymentWorkflowService projectDeploymentWorkflowService, ProjectService projectService,
         UserService userService, WorkflowTestConfigurationService workflowTestConfigurationService,
         WorkspaceConnectionService workspaceConnectionService, WorkspaceFacade workspaceFacade) {
 
         super(
-            connectionFacade, connectionLifecycleFacade, connectionService, connectionVisibilityResolver,
-            meterRegistryProvider, projectDeploymentWorkflowService, projectService, userService,
-            workflowTestConfigurationService, workspaceConnectionService, workspaceFacade);
+            applicationEventPublisher, connectionFacade, connectionLifecycleFacade, connectionService,
+            connectionVisibilityResolver, meterRegistryProvider, projectDeploymentWorkflowService, projectService,
+            userService, workflowTestConfigurationService, workspaceConnectionService, workspaceFacade);
     }
 
     /**
