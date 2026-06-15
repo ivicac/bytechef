@@ -20,6 +20,7 @@ import static com.bytechef.component.definition.ai.agent.BaseToolFunction.TOOLS;
 
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.commons.util.MapUtils;
+import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.ClusterElementContext;
 import com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType;
@@ -220,9 +221,36 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
     }
 
     @Override
+    @WithTokenRefresh(errorTypeClass = ClusterElementDefinitionErrorType.class, errorTypeField = "EXECUTE_PERFORM")
+    public Object executeTool(
+        @ComponentNameParam String componentName, int componentVersion, String clusterElementName,
+        Map<String, ?> inputParameters, @ConnectionParam @Nullable ComponentConnection componentConnection,
+        boolean editorEnvironment, @Nullable ActionContext agentActionContext) {
+
+        ClusterElementContext clusterElementContext = contextFactory.createClusterElementContext(
+            componentName, componentVersion, clusterElementName, componentConnection, editorEnvironment,
+            agentActionContext);
+
+        return doExecuteTool(
+            componentName, componentVersion, clusterElementName, inputParameters, componentConnection,
+            clusterElementContext);
+    }
+
+    @Override
     public Object executeTool(
         String componentName, int componentVersion, String clusterElementName, Map<String, ?> inputParameters,
         Map<String, ?> extensions, Map<String, ComponentConnection> componentConnections, boolean editorEnvironment) {
+
+        return executeTool(
+            componentName, componentVersion, clusterElementName, inputParameters, extensions, componentConnections,
+            editorEnvironment, null);
+    }
+
+    @Override
+    public Object executeTool(
+        String componentName, int componentVersion, String clusterElementName, Map<String, ?> inputParameters,
+        Map<String, ?> extensions, Map<String, ComponentConnection> componentConnections, boolean editorEnvironment,
+        @Nullable ActionContext agentActionContext) {
 
         ComponentConnection firstConnection = componentConnections.isEmpty()
             ? null : componentConnections.values()
@@ -230,7 +258,8 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
                 .next();
 
         ClusterElementContext clusterElementContext = contextFactory.createClusterElementContext(
-            componentName, componentVersion, clusterElementName, firstConnection, editorEnvironment);
+            componentName, componentVersion, clusterElementName, firstConnection, editorEnvironment,
+            agentActionContext);
 
         return doExecuteTool(
             componentName, componentVersion, clusterElementName, inputParameters, extensions, componentConnections,

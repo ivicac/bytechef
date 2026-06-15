@@ -19,6 +19,7 @@ package com.bytechef.component.ai.agent.facade;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.evaluator.Evaluator;
+import com.bytechef.platform.ai.constant.AiAgentToolContextKey;
 import com.bytechef.platform.ai.tool.FromAiResult;
 import com.bytechef.platform.ai.tool.facade.AbstractToolFacade;
 import com.bytechef.platform.ai.tool.util.FromAiInputSchemaUtils;
@@ -31,8 +32,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.function.Function;
+import java.util.function.BiFunction;
 import org.jspecify.annotations.Nullable;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
@@ -123,11 +125,11 @@ public class AiAgentToolFacade extends AbstractToolFacade {
         return builder.build();
     }
 
-    private Function<Map<String, Object>, Object> getFromAiToolCallbackFunction(
+    private BiFunction<Map<String, Object>, ToolContext, Object> getFromAiToolCallbackFunction(
         String componentName, int componentVersion, String clusterElementName, Map<String, ?> parameters,
         @Nullable ComponentConnection componentConnection, ActionContext context) {
 
-        return request -> {
+        return (request, toolContext) -> {
             Map<String, Object> resolvedParameters = new HashMap<>();
 
             for (Map.Entry<String, ?> entry : parameters.entrySet()) {
@@ -136,7 +138,12 @@ public class AiAgentToolFacade extends AbstractToolFacade {
 
             Map<String, Object> toolParameters = MapUtils.concat(request, resolvedParameters);
 
-            if (context instanceof ActionContextAware actionContextAware) {
+            ActionContext agentActionContext = toolContext == null
+                ? null
+                : (ActionContext) toolContext.getContext()
+                    .get(AiAgentToolContextKey.ACTION_CONTEXT);
+
+            if (agentActionContext == null && context instanceof ActionContextAware actionContextAware) {
                 return clusterElementDefinitionService.executeTool(
                     componentName, componentVersion, clusterElementName, toolParameters, componentConnection,
                     actionContextAware);
@@ -144,15 +151,15 @@ public class AiAgentToolFacade extends AbstractToolFacade {
 
             return clusterElementDefinitionService.executeTool(
                 componentName, componentVersion, clusterElementName, toolParameters, componentConnection,
-                context.isEditorEnvironment());
+                context.isEditorEnvironment(), agentActionContext);
         };
     }
 
-    private Function<Map<String, Object>, Object> getMultipleConnectionsToolCallbackFunction(
+    private BiFunction<Map<String, Object>, ToolContext, Object> getMultipleConnectionsToolCallbackFunction(
         String componentName, int componentVersion, String clusterElementName, Map<String, ?> parameters,
         Map<String, ?> extensions, Map<String, ComponentConnection> componentConnections, ActionContext context) {
 
-        return request -> {
+        return (request, toolContext) -> {
             Map<String, Object> resolvedParameters = new HashMap<>();
 
             for (Map.Entry<String, ?> entry : parameters.entrySet()) {
@@ -161,7 +168,12 @@ public class AiAgentToolFacade extends AbstractToolFacade {
 
             Map<String, Object> toolParameters = MapUtils.concat(request, resolvedParameters);
 
-            if (context instanceof ActionContextAware actionContextAware) {
+            ActionContext agentActionContext = toolContext == null
+                ? null
+                : (ActionContext) toolContext.getContext()
+                    .get(AiAgentToolContextKey.ACTION_CONTEXT);
+
+            if (agentActionContext == null && context instanceof ActionContextAware actionContextAware) {
                 return clusterElementDefinitionService.executeTool(
                     componentName, componentVersion, clusterElementName, toolParameters, extensions,
                     componentConnections, actionContextAware);
@@ -169,7 +181,7 @@ public class AiAgentToolFacade extends AbstractToolFacade {
 
             return clusterElementDefinitionService.executeTool(
                 componentName, componentVersion, clusterElementName, toolParameters, extensions, componentConnections,
-                context.isEditorEnvironment());
+                context.isEditorEnvironment(), agentActionContext);
         };
     }
 
