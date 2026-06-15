@@ -24,6 +24,7 @@ import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionDefinition.BaseOutputFunction;
 import com.bytechef.component.definition.ActionDefinition.BasePerformFunction;
+import com.bytechef.component.definition.ActionDefinition.BaseResumePerformFunction;
 import com.bytechef.component.definition.ActionDefinition.BeforeResumeFunction;
 import com.bytechef.component.definition.ActionDefinition.BeforeSuspendConsumer;
 import com.bytechef.component.definition.ActionDefinition.BeforeTimeoutResumeFunction;
@@ -250,7 +251,7 @@ public class ActionDefinitionServiceImpl implements ActionDefinitionService {
         com.bytechef.component.definition.ActionDefinition actionDefinition = componentDefinitionRegistry
             .getActionDefinition(componentName, componentVersion, actionName);
 
-        Optional<ResumePerformFunction> resumePerformOptional = actionDefinition.getResumePerform();
+        Optional<? extends BaseResumePerformFunction> resumePerformOptional = actionDefinition.getResumePerform();
 
         ActionContext actionContext = null;
 
@@ -298,8 +299,8 @@ public class ActionDefinitionServiceImpl implements ActionDefinitionService {
                     taskExecutionId, workflowId, firstComponentConnection, environmentId, type, editorEnvironment);
 
                 return executeResumePerform(
-                    actionDefinition, resumePerformOptional.get(), inputParameters, continueParameters, resumeData,
-                    suspendExpiresAt, firstComponentConnection, actionContext);
+                    actionDefinition, (ResumePerformFunction) resumePerformOptional.get(), inputParameters,
+                    continueParameters, resumeData, suspendExpiresAt, firstComponentConnection, actionContext);
             }
         } finally {
             if (actionContext instanceof LogEntryBufferAware logEntryBufferAware) {
