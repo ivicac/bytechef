@@ -6,6 +6,7 @@ dependencies {
     implementation(project(":server:libs:config:app-config"))
     implementation(project(":server:libs:core:commons:commons-util"))
     implementation(project(":server:libs:platform:platform-api"))
+    implementation(project(":server:ee:libs:platform:platform-audit:platform-audit-service"))
     implementation(project(":server:ee:libs:platform:platform-audit:platform-audit-api"))
 
     testImplementation("com.zaxxer:HikariCP")

@@ -48,6 +48,11 @@ public class AuditEventService {
         return persistenceAuditEventRepository.findDistinctEventTypes();
     }
 
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void save(PersistentAuditEvent persistentAuditEvent) {
+        persistenceAuditEventRepository.save(persistentAuditEvent);
+    }
+
     @Transactional(propagation = Propagation.NESTED)
     public void saveAll(List<PersistentAuditEvent> persistentAuditEvents) {
         persistenceAuditEventRepository.saveAll(persistentAuditEvents);
