@@ -28,6 +28,7 @@ import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
 /**
@@ -49,21 +50,25 @@ public class ApiKeyGraphQlController {
     }
 
     @QueryMapping(name = "adminApiKeys")
+    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
     public List<ApiKey> adminApiKeys(@Argument Long environmentId) {
         return apiKeyFacade.getAdminApiKeys(environmentId);
     }
 
     @QueryMapping(name = "apiKeys")
+    @PreAuthorize("isAuthenticated()")
     public List<ApiKey> apiKeys(@Argument Long environmentId, @Argument PlatformType type) {
         return apiKeyFacade.getApiKeys(environmentId, type);
     }
 
     @QueryMapping(name = "apiKey")
+    @PreAuthorize("hasPermission(#id, 'ApiKey:ResourceOwner', 'SELF')")
     public ApiKey apiKey(@Argument long id) {
         return apiKeyFacade.getApiKey(id);
     }
 
     @MutationMapping(name = "createApiKey")
+    @PreAuthorize("isAuthenticated()")
     public String createApiKey(@Argument String name, @Argument long environmentId, @Argument PlatformType type) {
         ApiKey apiKey = new ApiKey();
 
@@ -76,6 +81,7 @@ public class ApiKeyGraphQlController {
     }
 
     @MutationMapping(name = "updateApiKey")
+    @PreAuthorize("hasPermission(#id, 'ApiKey:ResourceOwner', 'SELF')")
     public Boolean updateApiKey(@Argument long id, @Argument String name) {
         ApiKey apiKey = new ApiKey();
 
@@ -88,6 +94,7 @@ public class ApiKeyGraphQlController {
     }
 
     @MutationMapping(name = "deleteApiKey")
+    @PreAuthorize("hasPermission(#id, 'ApiKey:ResourceOwner', 'SELF')")
     public Boolean deleteApiKey(@Argument long id) {
         apiKeyFacade.delete(id);
 
