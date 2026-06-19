@@ -33,7 +33,7 @@ public interface ApiKeyService {
 
     boolean exists(String secretKey, long environmentId);
 
-    Optional<ApiKey> fetchApiKey(String secretKey);
+    Optional<ApiKey> fetchApiKey(long id);
 
     ApiKey getApiKey(String secretKey);
 
