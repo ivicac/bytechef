@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bytechef.automation.knowledgebase.web.graphql;
+package com.bytechef.automation.knowledgebase.facade;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -23,48 +23,51 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
- * Pins the {@code @PreAuthorize} expressions that workspace-scope knowledge-base operations (T21). Reads require
- * VIEWER, writes require EDITOR; per-id ops resolve the owning workspace via the {@code KnowledgeBase:ResourceRole}
- * token, while list/create take a {@code workspaceId} argument directly.
+ * Pins the {@code @PreAuthorize} expressions that workspace-scope knowledge-base operations (T21), enforced at the
+ * facade tier. Per-id ops resolve the owning workspace via {@code KnowledgeBase:ResourceRole}; list/create take a
+ * {@code workspaceId} argument.
  *
  * @author Ivica Cardic
  */
-class KnowledgeBaseGraphQlControllerAuthorizationTest {
+class WorkspaceKnowledgeBaseFacadeAuthorizationTest {
 
     @Test
-    void testKnowledgeBasesRequiresWorkspaceViewer() {
-        assertExpression("knowledgeBases", "hasPermission(#workspaceId, 'WorkspaceRole', 'VIEWER')");
+    void testGetWorkspaceKnowledgeBasesRequiresViewer() {
+        assertExpression("getWorkspaceKnowledgeBases", "hasPermission(#workspaceId, 'WorkspaceRole', 'VIEWER')");
     }
 
     @Test
-    void testKnowledgeBaseRequiresResourceViewer() {
-        assertExpression("knowledgeBase", "hasPermission(#id, 'KnowledgeBase:ResourceRole', 'VIEWER')");
+    void testGetKnowledgeBaseRequiresResourceViewer() {
+        assertExpression("getKnowledgeBase", "hasPermission(#knowledgeBaseId, 'KnowledgeBase:ResourceRole', 'VIEWER')");
     }
 
     @Test
-    void testSearchKnowledgeBaseRequiresResourceViewer() {
-        assertExpression("searchKnowledgeBase", "hasPermission(#id, 'KnowledgeBase:ResourceRole', 'VIEWER')");
+    void testSearchRequiresResourceViewer() {
+        assertExpression("searchKnowledgeBase",
+            "hasPermission(#knowledgeBaseId, 'KnowledgeBase:ResourceRole', 'VIEWER')");
     }
 
     @Test
-    void testCreateKnowledgeBaseRequiresWorkspaceEditor() {
-        assertExpression("createKnowledgeBase", "hasPermission(#workspaceId, 'WorkspaceRole', 'EDITOR')");
+    void testCreateRequiresWorkspaceEditor() {
+        assertExpression("createWorkspaceKnowledgeBase", "hasPermission(#workspaceId, 'WorkspaceRole', 'EDITOR')");
     }
 
     @Test
-    void testUpdateKnowledgeBaseRequiresResourceEditor() {
-        assertExpression("updateKnowledgeBase", "hasPermission(#id, 'KnowledgeBase:ResourceRole', 'EDITOR')");
+    void testUpdateRequiresResourceEditor() {
+        assertExpression("updateKnowledgeBase",
+            "hasPermission(#knowledgeBaseId, 'KnowledgeBase:ResourceRole', 'EDITOR')");
     }
 
     @Test
-    void testDeleteKnowledgeBaseRequiresResourceEditor() {
-        assertExpression("deleteKnowledgeBase", "hasPermission(#id, 'KnowledgeBase:ResourceRole', 'EDITOR')");
+    void testDeleteRequiresResourceEditor() {
+        assertExpression(
+            "deleteWorkspaceKnowledgeBase", "hasPermission(#knowledgeBaseId, 'KnowledgeBase:ResourceRole', 'EDITOR')");
     }
 
     private static void assertExpression(String methodName, String expression) {
         Method method = null;
 
-        for (Method candidate : KnowledgeBaseGraphQlController.class.getDeclaredMethods()) {
+        for (Method candidate : WorkspaceKnowledgeBaseFacadeImpl.class.getDeclaredMethods()) {
             if (candidate.getName()
                 .equals(methodName)) {
                 method = candidate;
