@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bytechef.platform.security.web.graphql;
+package com.bytechef.platform.security.facade;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -23,37 +23,48 @@ import org.junit.jupiter.api.Test;
 import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
- * Pins the {@code @PreAuthorize} expressions that close the personal API-key IDOR (T19). Per-id operations are
- * owner-isolated via {@code ApiKey:ResourceOwner}; {@code adminApiKeys} is tenant-admin only.
+ * Pins the {@code @PreAuthorize} expressions that close personal API-key IDOR (T19), enforced at the facade tier (moved
+ * off {@code ApiKeyGraphQlController}). Per-id ops are owner-isolated via {@code ApiKey:ResourceOwner};
+ * {@code getAdminApiKeys} is tenant-admin only; create/list require authentication.
  *
  * @author Ivica Cardic
  */
-class ApiKeyGraphQlControllerAuthorizationTest {
+class ApiKeyFacadeAuthorizationTest {
 
     @Test
-    void testApiKeyRequiresOwner() {
-        assertExpression("apiKey", "hasPermission(#id, 'ApiKey:ResourceOwner', 'SELF')");
+    void testGetApiKeyRequiresOwner() {
+        assertExpression("getApiKey", "hasPermission(#id, 'ApiKey:ResourceOwner', 'SELF')");
     }
 
     @Test
-    void testUpdateApiKeyRequiresOwner() {
-        assertExpression("updateApiKey", "hasPermission(#id, 'ApiKey:ResourceOwner', 'SELF')");
+    void testDeleteRequiresOwner() {
+        assertExpression("delete", "hasPermission(#id, 'ApiKey:ResourceOwner', 'SELF')");
     }
 
     @Test
-    void testDeleteApiKeyRequiresOwner() {
-        assertExpression("deleteApiKey", "hasPermission(#id, 'ApiKey:ResourceOwner', 'SELF')");
+    void testUpdateRequiresOwner() {
+        assertExpression("update", "hasPermission(#apiKey.id, 'ApiKey:ResourceOwner', 'SELF')");
     }
 
     @Test
-    void testAdminApiKeysRequiresTenantAdmin() {
-        assertExpression("adminApiKeys", "hasPermission('Tenant', 'ADMIN')");
+    void testGetAdminApiKeysRequiresTenantAdmin() {
+        assertExpression("getAdminApiKeys", "hasPermission('Tenant', 'ADMIN')");
+    }
+
+    @Test
+    void testCreateRequiresAuthenticated() {
+        assertExpression("create", "isAuthenticated()");
+    }
+
+    @Test
+    void testGetApiKeysRequiresAuthenticated() {
+        assertExpression("getApiKeys", "isAuthenticated()");
     }
 
     private static void assertExpression(String methodName, String expression) {
         Method method = null;
 
-        for (Method candidate : ApiKeyGraphQlController.class.getDeclaredMethods()) {
+        for (Method candidate : ApiKeyFacadeImpl.class.getDeclaredMethods()) {
             if (candidate.getName()
                 .equals(methodName)) {
                 method = candidate;
