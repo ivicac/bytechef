@@ -14,6 +14,7 @@ import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.tenant.domain.TenantKey;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -47,8 +48,15 @@ public class ApiClientServiceImpl implements ApiClientService {
     }
 
     @Override
+    @PreAuthorize("hasPermission(#id, 'ApiClient:ResourceOwner', 'SELF')")
     public void delete(long id) {
         apiClientRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ApiClient> fetchApiClient(long id) {
+        return apiClientRepository.findById(id);
     }
 
     @Override
@@ -59,6 +67,7 @@ public class ApiClientServiceImpl implements ApiClientService {
 
     @Override
     @Transactional(readOnly = true)
+    @PreAuthorize("hasPermission(#id, 'ApiClient:ResourceOwner', 'SELF')")
     public ApiClient getApiClient(long id) {
         return OptionalUtils.get(apiClientRepository.findById(id));
     }
@@ -70,6 +79,7 @@ public class ApiClientServiceImpl implements ApiClientService {
     }
 
     @Override
+    @PreAuthorize("hasPermission(#apiClient.id, 'ApiClient:ResourceOwner', 'SELF')")
     public ApiClient update(ApiClient apiClient) {
         Assert.notNull(apiClient.getId(), "id");
         Assert.notNull(apiClient.getName(), "name");
