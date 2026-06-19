@@ -103,15 +103,23 @@ Edition behavior:
 
 | Method | CE behavior | EE behavior |
 |---|---|---|
-| `hasResourceScope(type, id, scope)` | resolver yields `ownerUserId` → `isCurrentUser(ownerUserId)`; **else `false`** (fail-closed) | resolver yields `workspaceId` → `hasWorkspaceScope(workspaceId, scope)`; else `false` |
-| `isResourceOwner(type, id)` | **`true`** (permissive — EE-only enforcement for now) | resolver yields `ownerUserId` → `isCurrentUser(ownerUserId)`; else `false`. Tenant admin always `true`. |
+| `hasResourceScope(type, id, scope)` | tenant admin → `true`; else resolver yields `ownerUserId` → `isCurrentUser(ownerUserId)`; **else `false`** (fail-closed) | tenant admin → `true`; else resolver yields `workspaceId` → `hasWorkspaceScope(workspaceId, scope)`; else `false` |
+| `isResourceOwner(type, id)` | **`true`** (permissive — EE-only enforcement for now) | tenant admin → `true`; else resolver yields `ownerUserId` → `isCurrentUser(ownerUserId)`; else `false`. |
 
 Notes:
 
-- `hasResourceScope` CE fallback is **fail-closed `false`**, not permissive. Collaborative resources
-  that want CE-permissive behavior keep using the existing `WorkspaceScope` / `ProjectScope` tokens
-  (which delegate to `hasWorkspaceScope*`, permissive in CE). The new `ResourceScope` token is for
-  resources we *do* want owner-enforced in CE.
+- `hasResourceScope` CE fallback is **fail-closed `false`**, not permissive. Rationale: this is a
+  security primitive whose whole purpose is to remove fail-open-by-omission; a predicate that returns
+  `true` under uncertainty re-creates the IDOR (a resolver bug would silently degrade an owned secret
+  to "anyone can read"). The empty-`ownerUserId` branch is only reached when the resource does not
+  exist (deny is unambiguously correct) or is genuinely orphaned (null `createdBy`/`userId` from a
+  system/seed insert, or a deleted owner) — rare, since `@CreatedBy`/`userId` populate on every normal
+  insert. **Tenant-admin bypass** (added to the CE path here, symmetric with EE) is the escape hatch:
+  an admin can always reach and reassign an orphaned resource, so fail-closed never permanently locks
+  the tenant out.
+- Collaborative resources that want CE-permissive behavior keep using the existing `WorkspaceScope` /
+  `ProjectScope` tokens (which delegate to `hasWorkspaceScope*`, permissive in CE). The new
+  `ResourceScope` token is for resources we *do* want owner-enforced in CE.
 - `isResourceOwner` is **EE-only for now** per the per-domain ruling: CE returns `true`. This defers
   CE enforcement of platform API keys; SigningKey/ApiClient live in EE-only modules so the CE branch
   is moot for them.
@@ -223,8 +231,8 @@ void delete(long id);
 
 | Token | CE | EE |
 |---|---|---|
-| `X:ResourceScope` | owner-isolation if owner known, else deny | workspace-scope (admin bypass) |
-| `X:ResourceOwner` | allow (deferred) | `isCurrentUser` (admin bypass) |
+| `X:ResourceScope` | admin bypass; else owner-isolation if owner known, else deny (fail-closed) | admin bypass; else workspace-scope |
+| `X:ResourceOwner` | allow (deferred) | admin bypass; else `isCurrentUser` |
 | existing `WorkspaceScope`/`ProjectScope` | allow (permissive) | workspace-scope |
 
 ## 8. Testing strategy
