@@ -29,6 +29,7 @@ import java.util.List;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -49,6 +50,7 @@ public class ApiKeyFacadeImpl implements ApiKeyFacade {
     }
 
     @Override
+    @PreAuthorize("isAuthenticated()")
     public ApiKey create(ApiKey apiKey, PlatformType type) {
         checkPlatformUser();
 
