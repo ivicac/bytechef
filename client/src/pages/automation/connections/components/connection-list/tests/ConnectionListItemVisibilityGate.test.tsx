@@ -46,9 +46,6 @@ vi.mock('@/shared/queries/automation/connections.queries', () => ({
 
 vi.mock('@/shared/queries/platform/componentDefinitions.queries', () => ({
     ComponentDefinitionKeys: {componentDefinitions: ['component-definitions']},
-    useGetConnectionComponentDefinitionQuery: () => ({
-        data: {icon: 'data:image/svg+xml,<svg/>', name: 'demo', title: 'Demo', version: 1},
-    }),
 }));
 
 // ConnectionDialog pulls in many unrelated stores; the gate test doesn't need it.
