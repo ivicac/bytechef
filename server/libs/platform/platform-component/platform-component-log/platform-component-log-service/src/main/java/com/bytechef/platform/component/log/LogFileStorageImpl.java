@@ -35,6 +35,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicReference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import tools.jackson.core.type.TypeReference;
 
 /**
@@ -137,6 +138,7 @@ public class LogFileStorageImpl implements LogFileStorage {
     }
 
     @Override
+    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'VIEWER')")
     public List<LogEntry> readLogEntries(long jobId, long taskExecutionId) {
         awaitPendingWrites(jobId);
 
@@ -153,6 +155,7 @@ public class LogFileStorageImpl implements LogFileStorage {
     }
 
     @Override
+    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'VIEWER')")
     public List<LogEntry> readLogEntriesByJobId(long jobId) {
         awaitPendingWrites(jobId);
 
@@ -169,6 +172,7 @@ public class LogFileStorageImpl implements LogFileStorage {
     }
 
     @Override
+    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'VIEWER')")
     public boolean logsExist(long jobId) {
         awaitPendingWrites(jobId);
 
@@ -178,6 +182,7 @@ public class LogFileStorageImpl implements LogFileStorage {
     }
 
     @Override
+    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'EDITOR')")
     public void deleteLogEntries(long jobId) {
         awaitPendingWrites(jobId);
 
