@@ -14,6 +14,7 @@ import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import java.util.List;
 import org.apache.commons.lang3.Validate;
 import org.springframework.data.domain.Sort;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -35,6 +36,7 @@ public class AppEventServiceImpl implements AppEventService {
     }
 
     @Override
+    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
     public AppEvent create(AppEvent appEvent) {
         Assert.notNull(appEvent, "'appEvent' must not be null");
         Assert.isTrue(appEvent.getId() == null, "'id' must be null");
@@ -45,11 +47,8 @@ public class AppEventServiceImpl implements AppEventService {
     }
 
     @Override
-    public boolean delete(long id) {
-        if (!appEventRepository.existsById(id)) {
-            return false;
-        }
-
+    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
+    public void delete(long id) {
         appEventRepository.deleteById(id);
 
         return true;
@@ -68,6 +67,7 @@ public class AppEventServiceImpl implements AppEventService {
     }
 
     @Override
+    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
     public AppEvent update(AppEvent appEvent) {
         Assert.notNull(appEvent, "'appEvent' must not be null");
 
