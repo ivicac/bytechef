@@ -61,6 +61,7 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
 /**
@@ -107,6 +108,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasWorkflowScope(#workflowId, 'WORKFLOW_EDIT')")
     public ParameterResultDTO deleteClusterElementParameter(
         String workflowId, String workflowNodeName, String clusterElementTypeName,
         String clusterElementWorkflowNodeName, String parameterPath, long environmentId) {
@@ -156,6 +158,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasWorkflowScope(#workflowId, 'WORKFLOW_EDIT')")
     public ParameterResultDTO deleteWorkflowNodeParameter(
         String workflowId, String workflowNodeName, String parameterPath,
         long environmentId) {
@@ -239,6 +242,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasWorkflowScope(#workflowId, 'WORKFLOW_VIEW')")
     public DisplayConditionResultDTO getClusterElementDisplayConditions(
         String workflowId, String workflowNodeName, String clusterElementTypeName,
         String clusterElementWorkflowNodeName, long environmentId) {
@@ -269,6 +273,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasWorkflowScope(#workflowId, 'WORKFLOW_VIEW')")
     public Set<String> getClusterElementMissingRequiredProperties(
         String workflowId, String workflowNodeName, String clusterElementTypeName,
         String clusterElementWorkflowNodeName) {
@@ -284,6 +289,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasWorkflowScope(#workflowId, 'WORKFLOW_VIEW')")
     public DisplayConditionResultDTO getWorkflowNodeDisplayConditions(
         String workflowId, String workflowNodeName, long environmentId) {
 
@@ -314,6 +320,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasWorkflowScope(#workflowId, 'WORKFLOW_VIEW')")
     public Set<String> getWorkflowNodeMissingRequiredProperties(String workflowId, String workflowNodeName) {
         Workflow workflow = workflowService.getWorkflow(workflowId);
 
@@ -326,6 +333,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasWorkflowScope(#workflowId, 'WORKFLOW_EDIT')")
     public ParameterResultDTO updateClusterElementParameter(
         String workflowId, String workflowNodeName, String clusterElementTypeName,
         String clusterElementWorkflowNodeName, String parameterPath, Object value, String type,
@@ -378,6 +386,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
+    @PreAuthorize("@permissionService.hasWorkflowScope(#workflowId, 'WORKFLOW_EDIT')")
     public ParameterResultDTO updateWorkflowNodeParameter(
         String workflowId, String workflowNodeName, String parameterPath, Object value, String type,
         boolean includeInMetadata, long environmentId) {
