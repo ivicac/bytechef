@@ -25,7 +25,14 @@ import java.util.concurrent.CompletableFuture;
  */
 public interface JobCompletionAwaiter {
 
-    Duration DEFAULT_SYNC_TIMEOUT = Duration.ofSeconds(300);
-
+    /**
+     * Returns a future that completes with the job once it reaches a terminal status ({@code COMPLETED},
+     * {@code FAILED}, or {@code STOPPED}; suspend maps to {@code STOPPED}). Completes exceptionally with
+     * {@link java.util.concurrent.TimeoutException} if {@code timeout} elapses first.
+     *
+     * @param jobId   the id of the job to await
+     * @param timeout the maximum time to wait for the job to reach a terminal status
+     * @return a future resolving with the completed job
+     */
     CompletableFuture<Job> await(long jobId, Duration timeout);
 }

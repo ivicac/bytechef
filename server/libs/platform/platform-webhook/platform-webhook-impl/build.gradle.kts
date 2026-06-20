@@ -34,5 +34,6 @@ dependencies {
     testImplementation("org.testcontainers:junit-jupiter")
     testImplementation(project(":server:libs:atlas:atlas-execution:atlas-execution-repository:atlas-execution-repository-memory"))
     testImplementation(project(":server:libs:core:message:message-broker:message-broker-redis"))
+    testImplementation(project(":server:libs:platform:platform-coordinator"))
     testImplementation(project(":server:libs:test:test-support"))
 }
