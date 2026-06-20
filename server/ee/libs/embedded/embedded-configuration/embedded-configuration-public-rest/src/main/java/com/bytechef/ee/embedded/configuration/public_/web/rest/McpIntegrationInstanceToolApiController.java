@@ -73,7 +73,9 @@ class McpIntegrationInstanceToolApiController {
     public ResponseEntity<Void> enableMcpIntegrationInstanceTool(
         @PathVariable String externalUserId, @PathVariable Long id, @PathVariable Long mcpToolId) {
 
-        updateMcpIntegrationInstanceToolEnabled(externalUserId, id, mcpToolId, true);
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
+        mcpIntegrationInstanceToolFacade.enableMcpIntegrationInstanceTool(id, mcpToolId, true);
 
         return ResponseEntity.noContent()
             .build();
@@ -83,7 +85,9 @@ class McpIntegrationInstanceToolApiController {
     public ResponseEntity<Void> disableMcpIntegrationInstanceTool(
         @PathVariable String externalUserId, @PathVariable Long id, @PathVariable Long mcpToolId) {
 
-        updateMcpIntegrationInstanceToolEnabled(externalUserId, id, mcpToolId, false);
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
+        mcpIntegrationInstanceToolFacade.enableMcpIntegrationInstanceTool(id, mcpToolId, false);
 
         return ResponseEntity.noContent()
             .build();

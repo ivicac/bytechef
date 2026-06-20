@@ -91,7 +91,9 @@ class McpIntegrationInstanceWorkflowApiController {
     public ResponseEntity<Void> enableMcpIntegrationInstanceWorkflow(
         @PathVariable String externalUserId, @PathVariable Long id, @PathVariable String workflowUuid) {
 
-        updateMcpIntegrationInstanceWorkflowEnabled(externalUserId, id, workflowUuid, true);
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
+        mcpIntegrationInstanceWorkflowFacade.enableMcpIntegrationInstanceWorkflow(id, workflowUuid, true);
 
         return ResponseEntity.noContent()
             .build();
@@ -101,7 +103,9 @@ class McpIntegrationInstanceWorkflowApiController {
     public ResponseEntity<Void> disableMcpIntegrationInstanceWorkflow(
         @PathVariable String externalUserId, @PathVariable Long id, @PathVariable String workflowUuid) {
 
-        updateMcpIntegrationInstanceWorkflowEnabled(externalUserId, id, workflowUuid, false);
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
+        mcpIntegrationInstanceWorkflowFacade.enableMcpIntegrationInstanceWorkflow(id, workflowUuid, false);
 
         return ResponseEntity.noContent()
             .build();

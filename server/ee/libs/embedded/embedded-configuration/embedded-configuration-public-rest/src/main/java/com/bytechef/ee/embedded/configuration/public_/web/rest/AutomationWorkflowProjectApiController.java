@@ -70,6 +70,8 @@ public class AutomationWorkflowProjectApiController implements AutomationWorkflo
     public ResponseEntity<List<AutomationWorkflowProjectModel>> getProjects(
         String externalUserId, EnvironmentModel xEnvironment) {
 
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         List<AutomationWorkflowProjectModel> models = automationWorkflowProjectFacade
             .getPublishedProjects(externalUserId, getEnvironment(xEnvironment))
             .stream()
