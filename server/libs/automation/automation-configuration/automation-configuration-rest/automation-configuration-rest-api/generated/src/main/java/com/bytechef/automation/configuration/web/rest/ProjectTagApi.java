@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-03T14:37:43.821704+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-04T23:11:11.834950+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 @Validated
 @Tag(name = "project-tag", description = "The Automation Project Tag Internal API")
 public interface ProjectTagApi {
@@ -45,7 +45,7 @@ public interface ProjectTagApi {
 
     String PATH_GET_PROJECT_TAGS = "/workspaces/{id}/project-tags";
     /**
-     * GET /workspaces/{id}/project-tags : Get project tags for a workspace.
+     * GET /workspaces/{id}/project-tags : Get project tags
      * Get project tags for a workspace.
      *
      * @param id The id of a workspace. (required)

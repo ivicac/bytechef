@@ -25,6 +25,9 @@ import {
 } from '../models/UpdateTagsRequest';
 
 export interface GetProjectTagsRequest {
+    /**
+     * The id of a workspace.
+     */
     id: number;
 }
 
@@ -58,6 +61,7 @@ export class ProjectTagApi extends runtime.BaseAPI {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
+
 
         let urlPath = `/workspaces/{id}/project-tags`;
         urlPath = urlPath.replace('{id}', encodeURIComponent(String(requestParameters['id'])));
