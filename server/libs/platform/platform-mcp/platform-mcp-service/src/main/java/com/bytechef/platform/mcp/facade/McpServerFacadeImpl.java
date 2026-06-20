@@ -60,7 +60,7 @@ public class McpServerFacadeImpl implements McpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpComponent.mcpServerId, 'McpServer', 'MCP_EDIT')")
+    @PreAuthorize("hasPermission(#mcpComponent.mcpServerId, 'McpServer:ResourceRole', 'EDITOR')")
     public McpComponent create(McpComponent mcpComponent, List<McpTool> mcpTools) {
         McpComponent savedComponent = mcpComponentService.create(mcpComponent);
 
@@ -76,7 +76,7 @@ public class McpServerFacadeImpl implements McpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpComponentId, 'McpComponent', 'MCP_EDIT')")
+    @PreAuthorize("hasPermission(#mcpComponentId, 'McpComponent:ResourceRole', 'EDITOR')")
     public void deleteMcpComponent(long mcpComponentId) {
         for (McpTool mcpTool : mcpToolService.getMcpComponentMcpTools(mcpComponentId)) {
             mcpToolService.delete(mcpTool);
@@ -139,9 +139,9 @@ public class McpServerFacadeImpl implements McpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpComponent.id, 'McpComponent', 'MCP_EDIT')")
-    public McpComponent update(
-        McpComponent mcpComponent, @Nullable Set<String> requiredAuthorities, List<McpTool> mcpTools) {
+    @PreAuthorize("hasPermission(#mcpComponent.id, 'McpComponent:ResourceRole', 'EDITOR')")
+    public McpComponent update(McpComponent mcpComponent, List<McpTool> mcpTools) {
+        McpComponent updatedComponent = mcpComponentService.update(mcpComponent);
 
         McpComponent updatedComponent = mcpComponentService.update(mcpComponent, requiredAuthorities);
 
