@@ -6452,7 +6452,6 @@ export type Query = {
   mcpProjects?: Maybe<Array<Maybe<McpProject>>>;
   mcpProjectsByServerId?: Maybe<Array<Maybe<McpProject>>>;
   mcpServer?: Maybe<McpServer>;
-  mcpServers?: Maybe<Array<Maybe<McpServer>>>;
   mcpTool?: Maybe<McpTool>;
   mcpTools?: Maybe<Array<Maybe<McpTool>>>;
   mcpToolsByComponentId?: Maybe<Array<Maybe<McpTool>>>;
@@ -7609,12 +7608,6 @@ export type QueryMcpProjectsByServerIdArgs = {
 
 export type QueryMcpServerArgs = {
   id?: InputMaybe<Scalars['ID']['input']>;
-};
-
-
-export type QueryMcpServersArgs = {
-  orderBy?: InputMaybe<McpServerOrderBy>;
-  type: PlatformType;
 };
 
 
