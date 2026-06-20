@@ -99,7 +99,7 @@ public class McpServerFacadeImpl implements McpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_EDIT')")
+    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer:ResourceRole', 'EDITOR')")
     public void deleteMcpServer(long mcpServerId) {
         checkMcpServerSharedAdministration(mcpServerId);
 
@@ -234,26 +234,7 @@ public class McpServerFacadeImpl implements McpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpTool.id, 'McpTool', 'MCP_EDIT')")
-    public void deleteMcpTool(McpTool mcpTool) {
-        checkMcpComponentSharedAdministration(mcpTool.getMcpComponentId());
-
-        mcpToolService.delete(mcpTool);
-    }
-
-    @Override
-    @PreAuthorize("hasPermission(#id, 'McpServer', 'MCP_EDIT')")
-    public McpServer updateMcpServer(
-        long id, @Nullable String name, @Nullable Boolean enabled, @Nullable Boolean enforceToolAuthorization,
-        @Nullable Boolean authenticationRequired) {
-
-        checkMcpServerSharedAdministration(id);
-
-        return mcpServerService.update(id, name, enabled, enforceToolAuthorization, authenticationRequired);
-    }
-
-    @Override
-    @PreAuthorize("hasPermission(#id, 'McpServer', 'MCP_EDIT')")
+    @PreAuthorize("hasPermission(#id, 'McpServer:ResourceRole', 'EDITOR')")
     public List<Tag> updateMcpServerTags(long id, List<Tag> tags) {
         checkMcpServerSharedAdministration(id);
 
