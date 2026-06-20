@@ -40,10 +40,6 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Set;
-import java.util.regex.Pattern;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -74,7 +70,7 @@ public class NotificationFacadeImpl implements NotificationFacade {
     }
 
     @Override
-    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
     public List<NotificationDTO> getNotifications() {
         return notificationService.getNotifications()
             .stream()
@@ -83,12 +79,7 @@ public class NotificationFacadeImpl implements NotificationFacade {
     }
 
     @Override
-    @Audited(event = NotificationAuditEvents.NOTIFICATION_CREATED, data = {
-        @AuditData(key = "notificationId", value = "#result?.id"),
-        @AuditData(key = "name", value = "#notification.name"),
-        @AuditData(key = "type", value = "#notification.type")
-    })
-    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
     public NotificationDTO createNotification(Notification notification) {
         validateNotification(notification);
 
@@ -108,12 +99,7 @@ public class NotificationFacadeImpl implements NotificationFacade {
     }
 
     @Override
-    @Audited(event = NotificationAuditEvents.NOTIFICATION_UPDATED, data = {
-        @AuditData(key = "notificationId", value = "#notification.id"),
-        @AuditData(key = "name", value = "#notification.name"),
-        @AuditData(key = "type", value = "#notification.type")
-    })
-    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
     public NotificationDTO updateNotification(Notification notification) {
         validateNotification(notification);
 
