@@ -32,6 +32,11 @@ public class RemoteWorkspaceConnectionFacadeClient implements WorkspaceConnectio
     }
 
     @Override
+    public List<Tag> getConnectionTags(long workspaceId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public long registerExisting(
         long workspaceId, ConnectionDTO connectionDTO, CredentialStoreType storeType, String credentialRef) {
 
