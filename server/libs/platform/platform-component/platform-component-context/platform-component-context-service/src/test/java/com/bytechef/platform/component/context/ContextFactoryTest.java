@@ -42,6 +42,7 @@ import com.bytechef.platform.file.storage.TempFileStorage;
 import io.micrometer.tracing.Tracer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationEventPublisher;
@@ -70,7 +71,8 @@ class ContextFactoryTest {
         contextFactory = new ContextFactoryImpl(
             mock(ApplicationContext.class), applicationProperties, mock(CacheManager.class), mock(DataStorage.class),
             editorLogFileStorage, mock(EditorTempFileStorage.class), mock(ApplicationEventPublisher.class),
-            logFileStorage, mock(TempFileStorage.class), mock(Tracer.class), triggerLogFileStorage);
+            mock(ObjectProvider.class), mock(ObjectProvider.class), logFileStorage, mock(TempFileStorage.class),
+            mock(Tracer.class), triggerLogFileStorage);
     }
 
     @Test

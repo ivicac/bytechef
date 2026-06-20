@@ -16,6 +16,7 @@
 
 package com.bytechef.platform.component.context;
 
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ClusterElementContext;
 import com.bytechef.component.definition.Context;
@@ -31,9 +32,11 @@ import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.storage.DataStorage;
 import com.bytechef.platform.file.storage.EditorTempFileStorage;
 import com.bytechef.platform.file.storage.TempFileStorage;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.tracing.Tracer;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.cache.CacheManager;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.ApplicationEventPublisher;
@@ -46,11 +49,18 @@ import org.springframework.stereotype.Component;
 public class ContextFactoryImpl implements ContextFactory {
 
     private final ApplicationContext applicationContext;
+    private final ObjectProvider<ApprovalTokens> approvalTokensProvider;
     private final CacheManager cacheManager;
     private final DataStorage dataStorage;
     private final EditorLogFileStorage editorLogFileStorage;
     private final EditorTempFileStorage editorTempFileStorage;
     private final ApplicationEventPublisher eventPublisher;
+    /**
+     * Phase 17b: lazy provider so app variants that don't include atlas-execution's JobService (e.g. lightweight EE
+     * microservices that just need ActionContext for ad-hoc tool runs) still wire this factory. When the bean is
+     * absent, {@link ActionContextAware#getJobMetadata()} returns {@code Map.of()}.
+     */
+    private final ObjectProvider<JobService> jobServiceProvider;
     private final LogFileStorage logFileStorage;
     private final TempFileStorage tempFileStorage;
     private final TriggerLogFileStorage triggerLogFileStorage;
@@ -61,12 +71,15 @@ public class ContextFactoryImpl implements ContextFactory {
     public ContextFactoryImpl(
         ApplicationContext applicationContext, ApplicationProperties applicationProperties, CacheManager cacheManager,
         DataStorage dataStorage, EditorLogFileStorage editorLogFileStorage, EditorTempFileStorage editorTempFileStorage,
-        ApplicationEventPublisher eventPublisher, LogFileStorage logFileStorage,
+        ApplicationEventPublisher eventPublisher, ObjectProvider<JobService> jobServiceProvider,
+        ObjectProvider<ApprovalTokens> approvalTokensProvider, LogFileStorage logFileStorage,
         TempFileStorage tempFileStorage, Tracer tracer, TriggerLogFileStorage triggerLogFileStorage) {
 
         this.applicationContext = applicationContext;
+        this.approvalTokensProvider = approvalTokensProvider;
         this.cacheManager = cacheManager;
         this.dataStorage = dataStorage;
+        this.jobServiceProvider = jobServiceProvider;
         this.editorLogFileStorage = editorLogFileStorage;
         this.editorTempFileStorage = editorTempFileStorage;
         this.eventPublisher = eventPublisher;
@@ -87,7 +100,8 @@ public class ContextFactoryImpl implements ContextFactory {
         return ActionContextImpl
             .builder(
                 componentName, componentVersion, actionName, editorEnvironment, cacheManager, dataStorage,
-                eventPublisher, getHttpClientExecutor(editorEnvironment), getTempFileStorage(editorEnvironment))
+                eventPublisher, getHttpClientExecutor(editorEnvironment), getTempFileStorage(editorEnvironment),
+                jobServiceProvider.getIfAvailable(), approvalTokensProvider.getIfAvailable())
             .componentConnection(componentConnection)
             .environmentId(environmentId)
             .jobId(jobId)
