@@ -60,6 +60,8 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
 
     const {enabled: visibilityFeatureEnabled, workspaceId: currentWorkspaceId} = useVisibilityFeatureEnabled();
 
+    const connectionTagsQueryResult = useGetConnectionTagsQuery(currentWorkspaceId!);
+
     const queryClient = useQueryClient();
 
     const invalidateConnections = () => {
@@ -90,7 +92,7 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                 queryKey: ConnectionKeys.connections,
             });
             queryClient.invalidateQueries({
-                queryKey: ConnectionKeys.connectionTags,
+                queryKey: ConnectionKeys.connectionTags(currentWorkspaceId!),
             });
 
             setShowDeleteDialog(false);
@@ -111,7 +113,7 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                 queryKey: ConnectionKeys.connections,
             });
             queryClient.invalidateQueries({
-                queryKey: ConnectionKeys.connectionTags,
+                queryKey: ConnectionKeys.connectionTags(currentWorkspaceId!),
             });
 
             setShowDisconnectDialog(false);
@@ -126,7 +128,7 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                 queryKey: ConnectionKeys.connections,
             });
             queryClient.invalidateQueries({
-                queryKey: ConnectionKeys.connectionTags,
+                queryKey: ConnectionKeys.connectionTags(currentWorkspaceId!),
             });
         },
     });
@@ -403,10 +405,10 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                     <ConnectionDialog
                         componentDefinitions={componentDefinitions}
                         connection={connection}
-                        connectionTagsQueryKey={ConnectionKeys.connectionTags}
+                        connectionTagsQueryKey={ConnectionKeys.connectionTags(currentWorkspaceId!)}
                         connectionsQueryKey={ConnectionKeys.connections}
                         onClose={() => setShowEditDialog(false)}
-                        useGetConnectionTagsQuery={useGetConnectionTagsQuery}
+                        useGetConnectionTagsQuery={() => connectionTagsQueryResult}
                         useUpdateConnectionMutation={useUpdateConnectionMutation}
                     />
                 )}

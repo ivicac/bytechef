@@ -147,6 +147,8 @@ const ToolConfigDialog = ({
         target != null
     );
 
+    const connectionTagsQueryResult = useGetConnectionTagsQuery(workspaceId);
+
     const formValues = form.watch();
 
     const submitDisabled = pending || (connections.length > 1 && !formValues.connectionId);
@@ -264,7 +266,7 @@ const ToolConfigDialog = ({
                                         <ConnectionDialog
                                             componentDefinition={targetComponentDefinition}
                                             componentDefinitions={componentDefinitions}
-                                            connectionTagsQueryKey={ConnectionKeys.connectionTags}
+                                            connectionTagsQueryKey={ConnectionKeys.connectionTags(workspaceId)}
                                             connectionsQueryKey={ConnectionKeys.connections}
                                             onClose={() => setShowCreateConnection(false)}
                                             onConnectionCreate={(newId) => {
@@ -278,7 +280,7 @@ const ToolConfigDialog = ({
                                                 setShowCreateConnection(false);
                                             }}
                                             useCreateConnectionMutation={useCreateConnectionMutation}
-                                            useGetConnectionTagsQuery={useGetConnectionTagsQuery}
+                                            useGetConnectionTagsQuery={() => connectionTagsQueryResult}
                                         />
                                     )}
                                 </TabsContent>
