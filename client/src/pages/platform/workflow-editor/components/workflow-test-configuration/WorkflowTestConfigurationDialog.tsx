@@ -65,6 +65,7 @@ const WorkflowTestConfigurationDialog = ({
 
     const {
         ConnectionKeys,
+        connectionTagsQueryKey,
         useCreateConnectionMutation,
         useGetComponentDefinitionsQuery,
         useGetConnectionTagsQuery,
@@ -287,7 +288,7 @@ const WorkflowTestConfigurationDialog = ({
                             <ConnectionDialog
                                 componentDefinition={componentDefinition}
                                 componentDefinitions={componentDefinitions}
-                                connectionTagsQueryKey={ConnectionKeys!.connectionTags}
+                                connectionTagsQueryKey={connectionTagsQueryKey}
                                 connectionsQueryKey={ConnectionKeys!.connections}
                                 onClose={() => setShowNewConnectionDialog(false)}
                                 useCreateConnectionMutation={useCreateConnectionMutation}
