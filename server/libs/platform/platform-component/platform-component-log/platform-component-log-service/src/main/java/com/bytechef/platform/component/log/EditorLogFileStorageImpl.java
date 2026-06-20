@@ -19,6 +19,7 @@ package com.bytechef.platform.component.log;
 import com.bytechef.file.storage.service.FileStorageService;
 import com.bytechef.platform.component.log.domain.LogEntry;
 import java.util.List;
+import org.springframework.security.access.prepost.PreAuthorize;
 
 /**
  * @author Ivica Cardic
@@ -49,16 +50,19 @@ public class EditorLogFileStorageImpl implements EditorLogFileStorage {
     }
 
     @Override
+    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'VIEWER')")
     public boolean logsExist(long jobId) {
         return logFileStorage.logsExist(jobId);
     }
 
     @Override
+    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'VIEWER')")
     public List<LogEntry> readLogEntries(long jobId, long taskExecutionId) {
         return logFileStorage.readLogEntries(jobId, taskExecutionId);
     }
 
     @Override
+    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'VIEWER')")
     public List<LogEntry> readLogEntriesByJobId(long jobId) {
         return logFileStorage.readLogEntriesByJobId(jobId);
     }
