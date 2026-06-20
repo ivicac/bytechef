@@ -56,6 +56,8 @@ import com.bytechef.platform.component.service.TriggerDefinitionService;
 import com.bytechef.platform.component.service.TriggerDefinitionServiceImpl;
 import com.bytechef.platform.configuration.cache.WorkflowCacheManager;
 import com.bytechef.platform.configuration.cache.WorkflowCacheManagerImpl;
+import com.bytechef.platform.configuration.facade.WorkflowEvaluationInputsFacade;
+import com.bytechef.platform.configuration.facade.WorkflowEvaluationInputsFacadeImpl;
 import com.bytechef.platform.configuration.facade.WorkflowNodeOutputFacade;
 import com.bytechef.platform.configuration.facade.WorkflowNodeOutputFacadeImpl;
 import com.bytechef.platform.configuration.repository.WorkflowNodeTestOutputRepository;
@@ -66,6 +68,7 @@ import com.bytechef.platform.configuration.service.WorkflowNodeTestOutputService
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationServiceImpl;
 import com.bytechef.platform.file.storage.TempFileStorage;
+import com.bytechef.platform.variable.WorkflowVariablesResolver;
 import com.bytechef.platform.workflow.task.dispatcher.TaskDispatcherDefinitionFactory;
 import com.bytechef.platform.workflow.task.dispatcher.TaskDispatcherDefinitionRegistry;
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
@@ -76,6 +79,7 @@ import com.bytechef.task.dispatcher.loop.LoopTaskDispatcherDefinitionFactory;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -150,7 +154,7 @@ public class TestWorkflowExecutorIntTestConfiguration {
     ActionDefinitionService actionDefinitionService(
         ComponentDefinitionRegistry componentDefinitionRegistry, ContextFactory contextFactory) {
 
-        return new ActionDefinitionServiceImpl(componentDefinitionRegistry, contextFactory);
+        return new ActionDefinitionServiceImpl(componentDefinitionRegistry, contextFactory, List.of());
     }
 
     @Bean
@@ -160,10 +164,11 @@ public class TestWorkflowExecutorIntTestConfiguration {
 
     @Bean
     ClusterElementDefinitionService clusterElementDefinitionService(
-        ComponentDefinitionRegistry componentDefinitionRegistry, ContextFactory contextFactory) {
+        ComponentDefinitionRegistry componentDefinitionRegistry, ContextFactory contextFactory,
+        ObjectProvider<MeterRegistry> meterRegistryProvider) {
 
         return new ClusterElementDefinitionServiceImpl(
-            componentDefinitionRegistry, contextFactory, mock(ObjectProvider.class));
+            componentDefinitionRegistry, contextFactory, List.of(), meterRegistryProvider);
     }
 
     @Bean
@@ -177,7 +182,7 @@ public class TestWorkflowExecutorIntTestConfiguration {
     ComponentDefinitionService componentDefinitionService(
         ComponentDefinitionRegistry componentDefinitionRegistry, ContextFactory contextFactory) {
 
-        return new ComponentDefinitionServiceImpl(List.of(), componentDefinitionRegistry, contextFactory);
+        return new ComponentDefinitionServiceImpl(List.of(), componentDefinitionRegistry, contextFactory, List.of());
     }
 
     @Bean
@@ -311,12 +316,22 @@ public class TestWorkflowExecutorIntTestConfiguration {
         ComponentDefinitionRegistry componentDefinitionRegistry, ContextFactory contextFactory,
         ApplicationEventPublisher applicationEventPublisher) {
 
-        return new TriggerDefinitionServiceImpl(componentDefinitionRegistry, contextFactory, applicationEventPublisher);
+        return new TriggerDefinitionServiceImpl(
+            componentDefinitionRegistry, contextFactory, applicationEventPublisher, List.of());
     }
 
     @Bean
     WorkflowCacheManager workflowCacheManager(CacheManager cacheManager, WorkflowService workflowService) {
         return new WorkflowCacheManagerImpl(cacheManager, workflowService);
+    }
+
+    @Bean
+    WorkflowEvaluationInputsFacade workflowEvaluationInputsFacade(
+        ObjectProvider<WorkflowVariablesResolver> workflowVariablesResolverObjectProvider,
+        WorkflowTestConfigurationService workflowTestConfigurationService) {
+
+        return new WorkflowEvaluationInputsFacadeImpl(
+            workflowVariablesResolverObjectProvider, workflowTestConfigurationService);
     }
 
     @Bean
@@ -326,22 +341,24 @@ public class TestWorkflowExecutorIntTestConfiguration {
         ClusterElementDefinitionService clusterElementDefinitionService, Evaluator evaluator,
         TaskDispatcherDefinitionService taskDispatcherDefinitionService,
         TriggerDefinitionFacade triggerDefinitionFacade, TriggerDefinitionService triggerDefinitionService,
-        WorkflowCacheManager workflowCacheManager, WorkflowService workflowService,
-        WorkflowNodeTestOutputService workflowNodeTestOutputService,
+        WorkflowCacheManager workflowCacheManager, WorkflowEvaluationInputsFacade workflowEvaluationInputsFacade,
+        WorkflowService workflowService, WorkflowNodeTestOutputService workflowNodeTestOutputService,
         WorkflowTestConfigurationService workflowTestConfigurationService) {
 
         return new WorkflowNodeOutputFacadeImpl(
             actionDefinitionFacade, actionDefinitionService, clusterElementDefinitionFacade,
             clusterElementDefinitionService, evaluator, taskDispatcherDefinitionService, triggerDefinitionFacade,
-            triggerDefinitionService, workflowCacheManager, workflowService, workflowNodeTestOutputService,
-            workflowTestConfigurationService);
+            triggerDefinitionService, workflowCacheManager, workflowEvaluationInputsFacade, workflowService,
+            workflowNodeTestOutputService, workflowTestConfigurationService);
     }
 
     @Bean
     WorkflowNodeTestOutputService workflowNodeTestOutputService(
-        CacheManager cacheManager, WorkflowNodeTestOutputRepository workflowNodeTestOutputRepository) {
+        CacheManager cacheManager, WorkflowCacheManager workflowCacheManager,
+        WorkflowNodeTestOutputRepository workflowNodeTestOutputRepository) {
 
-        return new WorkflowNodeTestOutputServiceImpl(cacheManager, workflowNodeTestOutputRepository);
+        return new WorkflowNodeTestOutputServiceImpl(
+            cacheManager, workflowCacheManager, workflowNodeTestOutputRepository);
     }
 
     @Bean
