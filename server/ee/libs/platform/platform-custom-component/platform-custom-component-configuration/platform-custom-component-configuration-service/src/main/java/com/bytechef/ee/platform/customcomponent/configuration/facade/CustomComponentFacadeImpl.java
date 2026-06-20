@@ -63,6 +63,7 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
     }
 
     @Override
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
     public void delete(Long id) {
         CustomComponent customComponent = customComponentService.getCustomComponent(id);
 
@@ -73,6 +74,7 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
 
     @Transactional(readOnly = true)
     @Override
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
     public CustomComponentDefinitionRecord getCustomComponentDefinition(Long id) {
         CustomComponent customComponent = customComponentService.getCustomComponent(id);
 
@@ -99,6 +101,7 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
 
     @Transactional(readOnly = true)
     @Override
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
     public List<CustomComponent> getCustomComponents() {
         return customComponentService.getCustomComponents();
     }
