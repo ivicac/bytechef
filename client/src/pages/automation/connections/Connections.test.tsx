@@ -23,7 +23,8 @@ vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
         selector({application: {edition: 'EE'}}),
 }));
 
-vi.mock('@/shared/middleware/graphql', () => ({
+vi.mock('@/shared/middleware/graphql', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/shared/middleware/graphql')>()),
     useEnvironmentsQuery: () => ({data: {environments: hoisted.environments}}),
 }));
 
@@ -32,7 +33,7 @@ vi.mock('@/shared/queries/automation/componentDefinitions.queries', () => ({
 }));
 
 vi.mock('@/shared/queries/automation/connections.queries', () => ({
-    ConnectionKeys: {connectionTags: ['connectionTags'], connections: ['connections']},
+    ConnectionKeys: {connectionTags: (id: number) => ['connectionTags', id], connections: ['connections']},
     useGetConnectionTagsQuery: () => ({data: [], error: null, isLoading: false}),
     useGetWorkspaceConnectionsQuery: () => ({data: hoisted.connections, error: null, isLoading: false}),
 }));
