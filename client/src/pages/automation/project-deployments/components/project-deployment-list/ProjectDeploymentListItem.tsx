@@ -8,6 +8,7 @@ import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import ProjectDeploymentListItemDropdownMenu from '@/pages/automation/project-deployments/components/project-deployment-list/ProjectDeploymentListItemDropdownMenu';
 import useOpenInProject from '@/pages/automation/project-deployments/hooks/useOpenInProject';
 import {useProjectDeploymentsEnabledStore} from '@/pages/automation/project-deployments/stores/useProjectDeploymentsEnabledStore';
+import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {useAnalytics} from '@/shared/hooks/useAnalytics';
 import {ProjectDeployment, Tag} from '@/shared/middleware/automation/configuration';
 import {useUpdateProjectDeploymentTagsMutation} from '@/shared/mutations/automation/projectDeploymentTags.mutations';
@@ -40,6 +41,8 @@ const ProjectDeploymentListItem = ({projectDeployment, remainingTags}: ProjectDe
         ({setProjectDeploymentEnabled}) => setProjectDeploymentEnabled
     );
 
+    const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+
     const {captureProjectDeploymentEnabled} = useAnalytics();
 
     const {canOpenInProject, openProject} = useOpenInProject();
@@ -49,14 +52,18 @@ const ProjectDeploymentListItem = ({projectDeployment, remainingTags}: ProjectDe
     const deleteProjectDeploymentMutation = useDeleteProjectDeploymentMutation({
         onSuccess: () => {
             queryClient.invalidateQueries({queryKey: ProjectDeploymentKeys.projectDeployments});
-            queryClient.invalidateQueries({queryKey: ProjectDeploymentTagKeys.projectDeploymentTags});
+            queryClient.invalidateQueries({
+                queryKey: ProjectDeploymentTagKeys.projectDeploymentTags(currentWorkspaceId!),
+            });
         },
     });
 
     const updateProjectDeploymentTagsMutation = useUpdateProjectDeploymentTagsMutation({
         onSuccess: () => {
             queryClient.invalidateQueries({queryKey: ProjectDeploymentKeys.projectDeployments});
-            queryClient.invalidateQueries({queryKey: ProjectDeploymentTagKeys.projectDeploymentTags});
+            queryClient.invalidateQueries({
+                queryKey: ProjectDeploymentTagKeys.projectDeploymentTags(currentWorkspaceId!),
+            });
         },
     });
 

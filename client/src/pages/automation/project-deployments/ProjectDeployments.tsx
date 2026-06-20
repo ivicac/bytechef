@@ -116,7 +116,11 @@ const ProjectDeployments = () => {
         triggerDefinitions: true,
     });
 
-    const {data: tags, error: tagsError, isLoading: tagsIsLoading} = useGetProjectDeploymentTagsQuery();
+    const {
+        data: tags,
+        error: tagsError,
+        isLoading: tagsIsLoading,
+    } = useGetProjectDeploymentTagsQuery(currentWorkspaceId!);
 
     const {data: taskDispatcherDefinitions} = useGetTaskDispatcherDefinitionsQuery();
 
