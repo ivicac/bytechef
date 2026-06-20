@@ -74,6 +74,7 @@ const ConnectionTabConnectionSelect = ({
 
     const {
         ConnectionKeys,
+        connectionTagsQueryKey,
         useCreateConnectionMutation,
         useGetComponentDefinitionsQuery,
         useGetConnectionTagsQuery,
@@ -456,7 +457,7 @@ const ConnectionTabConnectionSelect = ({
                 <ConnectionDialog
                     componentDefinition={componentDefinition}
                     componentDefinitions={componentDefinitions}
-                    connectionTagsQueryKey={ConnectionKeys!.connectionTags}
+                    connectionTagsQueryKey={connectionTagsQueryKey}
                     connectionsQueryKey={ConnectionKeys!.connections}
                     onClose={() => setShowConnectionDialog(false)}
                     onConnectionCreate={handleOnConnectionCreate}

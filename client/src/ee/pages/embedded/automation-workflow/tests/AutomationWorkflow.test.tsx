@@ -139,7 +139,7 @@ vi.mock('@/shared/mutations/automation/workflows.mutations', () => ({
 }));
 
 vi.mock('@/shared/queries/automation/connections.queries', () => ({
-    ConnectionKeys: {},
+    ConnectionKeys: {connectionTags: (id: number) => ['connectionTags', id]},
     useGetConnectionTagsQuery: () => ({data: []}),
     useGetWorkspaceConnectionsQuery: () => ({data: []}),
 }));
