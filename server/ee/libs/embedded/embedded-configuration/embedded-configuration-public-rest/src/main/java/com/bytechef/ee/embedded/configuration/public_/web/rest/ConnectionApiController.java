@@ -33,6 +33,7 @@ import java.util.Set;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.InitBinder;
@@ -67,8 +68,15 @@ public class ConnectionApiController implements ConnectionApi {
     }
 
     @Override
+    @PreAuthorize("#externalUserId == authentication.name")
     public ResponseEntity<List<ConnectionModel>> getConnections(
         String externalUserId, String componentName, EnvironmentModel xEnvironment, List<Long> connectionIds) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
+        // The authenticated embedded principal's name IS the connected user's externalId (see
+        // EmbeddedApiKeyAuthenticationProvider). The path externalUserId must match it, otherwise a caller
+        // authenticated for one end user could read another end user's connections (IDOR).
         Environment environment = getEnvironment(xEnvironment);
 
         Set<Long> ownedConnectionIds = connectedUserConnectionFacade.getOwnedConnectionIds(
