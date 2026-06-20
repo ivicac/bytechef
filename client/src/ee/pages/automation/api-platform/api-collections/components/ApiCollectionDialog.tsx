@@ -104,7 +104,7 @@ const ApiCollectionDialog = ({apiCollection, onClose, triggerNode}: ApiCollectio
         });
 
         queryClient.invalidateQueries({
-            queryKey: ApiCollectionTagKeys.apiCollectionTags,
+            queryKey: ApiCollectionTagKeys.apiCollectionTags(currentWorkspaceId!),
         });
 
         closeDialog();
