@@ -7597,6 +7597,11 @@ export type QueryMcpProjectsArgs = {
 };
 
 
+export type QueryMcpProjectsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type QueryMcpProjectsByServerIdArgs = {
   mcpServerId?: InputMaybe<Scalars['ID']['input']>;
 };
