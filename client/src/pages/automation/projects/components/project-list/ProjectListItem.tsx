@@ -132,7 +132,7 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
                 queryKey: ProjectCategoryKeys.projectCategories(currentWorkspaceId!),
             });
             queryClient.invalidateQueries({
-                queryKey: ProjectTagKeys.projectTags,
+                queryKey: ProjectTagKeys.projectTags(currentWorkspaceId!),
             });
 
             setShowDeleteDialog(false);
@@ -186,7 +186,7 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
         onSuccess: () => {
             queryClient.invalidateQueries({queryKey: ProjectKeys.projects});
             queryClient.invalidateQueries({
-                queryKey: ProjectTagKeys.projectTags,
+                queryKey: ProjectTagKeys.projectTags(currentWorkspaceId!),
             });
         },
     });
