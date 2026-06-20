@@ -60,20 +60,22 @@ public interface WebhookWorkflowExecutor {
         WorkflowExecutionId workflowExecutionId, WebhookRequest webhookRequest, SseStreamBridge sseStreamBridge);
 
     /**
-     * Executes a webhook workflow synchronously based on the provided workflow execution identifier and webhook
-     * request. Used for the non-streaming chat reply path: the workflow runs to completion, the
-     * {@code chat/responseToRequest} step's {@code WebhookResponse} is collected via the task-execution-complete
-     * callback, and the final outputs map is returned. For streaming AI agent workflows, callers should route through
-     * {@link #executeAsync(WorkflowExecutionId, WebhookRequest, SseStreamBridge)} instead so per-token deltas reach the
-     * bridge as the AI agent produces them.
+     * Executes a webhook workflow synchronously in-process through the embedded {@code JobSyncExecutor} and returns an
+     * already-completed future with the workflow outputs. The engine runs on the calling thread over an in-memory
+     * message broker while each task is handed to the worker (in-process in the monolith, over the remote task handler
+     * in a distributed deployment), so a synchronous reply never waits on a broker round trip. The
+     * {@code WebhookResponse} of the {@code chat/responseToRequest} step is collected through the per-task
+     * task-execution-complete callback; when several complete, the last one wins. For streaming AI agent workflows,
+     * callers should route through {@link #executeAsync(WorkflowExecutionId, WebhookRequest, SseStreamBridge)} instead
+     * so per-token deltas reach the bridge as the AI agent produces them.
      *
      * @param workflowExecutionId the unique identifier of the workflow execution, including details such as tenant,
      *                            type, and trigger
      * @param webhookRequest      the webhook request containing headers, parameters, and body relevant to the execution
-     * @return the result of the synchronous execution, or {@code null} if no result is returned
+     * @return an already-completed future with the result of the execution, or {@code null} if no result is returned
      */
-    @Nullable
-    Object executeSync(WorkflowExecutionId workflowExecutionId, WebhookRequest webhookRequest);
+    CompletableFuture<@Nullable Object> executeSync(
+        WorkflowExecutionId workflowExecutionId, WebhookRequest webhookRequest);
 
     /**
      * Executes a workflow with streaming output. Events are pushed to {@code sseStreamBridge} as the workflow runs;

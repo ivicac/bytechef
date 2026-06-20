@@ -71,7 +71,7 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
     private final JobSyncExecutor jobSyncExecutor;
     private final PrincipalJobFacade principalJobFacade;
     private final SseStreamBridgeRegistry sseStreamBridgeRegistry;
-    private final TaskFileStorage taskFileStorage;
+    private final TaskFileStorage syncJobTaskFileStorage;
     private final TriggerDefinitionService triggerDefinitionService;
     private final WebhookWorkflowSyncExecutor webhookWorkflowSyncExecutor;
     private final WorkflowService workflowService;
@@ -80,8 +80,8 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
     public WebhookWorkflowExecutorImpl(
         ApplicationEventPublisher eventPublisher, JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry,
         JobSyncExecutor jobSyncExecutor, PrincipalJobFacade principalJobFacade,
-        SseStreamBridgeRegistry sseStreamBridgeRegistry, WebhookWorkflowSyncExecutor webhookWorkflowSyncExecutor,
-        TaskFileStorage taskFileStorage, TriggerDefinitionService triggerDefinitionService,
+        SseStreamBridgeRegistry sseStreamBridgeRegistry, TaskFileStorage syncJobTaskFileStorage,
+        TriggerDefinitionService triggerDefinitionService, WebhookWorkflowSyncExecutor webhookWorkflowSyncExecutor,
         WorkflowService workflowService) {
 
         this.eventPublisher = eventPublisher;
@@ -89,7 +89,7 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
         this.jobSyncExecutor = jobSyncExecutor;
         this.principalJobFacade = principalJobFacade;
         this.sseStreamBridgeRegistry = sseStreamBridgeRegistry;
-        this.taskFileStorage = taskFileStorage;
+        this.syncJobTaskFileStorage = syncJobTaskFileStorage;
         this.triggerDefinitionService = triggerDefinitionService;
         this.webhookWorkflowSyncExecutor = webhookWorkflowSyncExecutor;
         this.workflowService = workflowService;
@@ -144,7 +144,9 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
     }
 
     @Override
-    public @Nullable Object executeSync(WorkflowExecutionId workflowExecutionId, WebhookRequest webhookRequest) {
+    public CompletableFuture<@Nullable Object> executeSync(
+        WorkflowExecutionId workflowExecutionId, WebhookRequest webhookRequest) {
+
         Object outputs;
 
         TriggerOutput triggerOutput = webhookWorkflowSyncExecutor.execute(workflowExecutionId, webhookRequest);
@@ -158,7 +160,7 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
             for (Object triggerOutputValue : triggerOutputValues) {
                 AtomicReference<@Nullable Object> collectedWebhookResponse = new AtomicReference<>();
 
-                Job job = executeSyncJob(
+                Job job = runSyncJob(
                     workflowExecutionId, workflowId, inputMap, triggerOutputValue, collectedWebhookResponse);
 
                 Object webhookResponse = collectedWebhookResponse.get();
@@ -167,18 +169,18 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
                     long jobId = Validate.notNull(job.getId(), "id");
 
                     job.setOutputs(
-                        taskFileStorage.storeJobOutputs(
+                        syncJobTaskFileStorage.storeJobOutputs(
                             jobId, Map.of(MetadataConstants.WEBHOOK_RESPONSE, webhookResponse)));
                 }
 
-                outputsList.add(taskFileStorage.readJobOutputs(job.getOutputs()));
+                outputsList.add(syncJobTaskFileStorage.readJobOutputs(job.getOutputs()));
             }
 
             outputs = outputsList;
         } else {
             AtomicReference<@Nullable Object> collectedWebhookResponse = new AtomicReference<>();
 
-            Job job = executeSyncJob(
+            Job job = runSyncJob(
                 workflowExecutionId, workflowId, inputMap, triggerOutput.value(), collectedWebhookResponse);
 
             Object webhookResponse = collectedWebhookResponse.get();
@@ -187,16 +189,16 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
                 long jobId = Validate.notNull(job.getId(), "id");
 
                 job.setOutputs(
-                    taskFileStorage.storeJobOutputs(
+                    syncJobTaskFileStorage.storeJobOutputs(
                         jobId, Map.of(MetadataConstants.WEBHOOK_RESPONSE, webhookResponse)));
 
-                outputs = taskFileStorage.readJobOutputs(job.getOutputs());
+                outputs = syncJobTaskFileStorage.readJobOutputs(job.getOutputs());
             } else {
-                outputs = job.getOutputs() == null ? null : taskFileStorage.readJobOutputs(job.getOutputs());
+                outputs = job.getOutputs() == null ? null : syncJobTaskFileStorage.readJobOutputs(job.getOutputs());
             }
         }
 
-        return outputs;
+        return CompletableFuture.completedFuture(outputs);
     }
 
     @Override
@@ -251,34 +253,6 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
             workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getWorkflowUuid());
     }
 
-    /**
-     * Runs a single sync job and, if a stream bridge is supplied, registers it with {@link JobSyncExecutor}'s SSE
-     * bridge cache as part of the job-creation step so streaming task outputs (e.g. {@code openAi/v1/streamAsk}'s
-     * per-token Flux chunks) flow to the bridge while the job runs. Without this registration, the in-process
-     * {@code SseStreamTaskExecutionPostOutputProcessor} sees no listener and the streamed events are silently dropped —
-     * the user sees an empty assistant reply for any sync chat workflow whose AI agent uses the streaming variant.
-     *
-     * <p>
-     * Bridge registration happens inside the {@code JobFactoryFunction} wrapper rather than after
-     * {@code jobSyncExecutor.execute} returns, because by the time {@code execute} returns the job has already finished
-     * — too late for tasks to find a registered bridge. Wrapping the factory inserts the registration at the only
-     * window between "jobId exists" and "first task starts": after {@code createSyncJob} returns the id, before
-     * {@code awaitJob} dispatches tasks. Tested by the bridge agent's E2E test suite.
-     * </p>
-     */
-    private Job executeSyncJob(
-        WorkflowExecutionId workflowExecutionId, String workflowId, Map<String, ?> inputMap, Object triggerOutputValue,
-        AtomicReference<@Nullable Object> collectedWebhookResponse) {
-
-        return jobSyncExecutor.execute(
-            createJobParameters(workflowExecutionId, workflowId, inputMap, triggerOutputValue),
-            jobParameters -> principalJobFacade.createSyncJob(
-                jobParameters, workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getType()),
-            true,
-            taskExecutionCompleteEvent -> collectWebhookResponse(
-                taskExecutionCompleteEvent, collectedWebhookResponse));
-    }
-
     @Override
     public WebhookValidateResponse validateAndExecuteAsync(
         WorkflowExecutionId workflowExecutionId, WebhookRequest webhookRequest) {
@@ -299,6 +273,25 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
         return webhookWorkflowSyncExecutor.validateOnEnable(workflowExecutionId, webhookRequest);
     }
 
+    /**
+     * Runs a single job in-process through {@link JobSyncExecutor} and blocks until it completes. The job row is
+     * created without coordinator dispatch via {@code createJobWithoutDispatch}; {@code JobSyncExecutor} then drives it
+     * to completion over an in-memory message broker. The {@code WebhookResponse} is captured through the per-task
+     * task-execution-complete callback rather than read back from the persisted task output.
+     */
+    private Job runSyncJob(
+        WorkflowExecutionId workflowExecutionId, String workflowId, Map<String, ?> inputMap, Object triggerOutputValue,
+        AtomicReference<@Nullable Object> collectedWebhookResponse) {
+
+        return jobSyncExecutor.execute(
+            createJobParameters(workflowExecutionId, workflowId, inputMap, triggerOutputValue),
+            jobParameters -> principalJobFacade.createJobWithoutDispatch(
+                jobParameters, workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getType()),
+            true,
+            taskExecutionCompleteEvent -> collectWebhookResponse(
+                taskExecutionCompleteEvent, collectedWebhookResponse));
+    }
+
     private void collectWebhookResponse(
         TaskExecutionCompleteEvent taskExecutionCompleteEvent,
         AtomicReference<@Nullable Object> collectedWebhookResponse) {
@@ -315,7 +308,7 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
             FileEntry outputFileEntry = taskExecution.getOutput();
 
             if (outputFileEntry != null) {
-                collectedWebhookResponse.set(taskFileStorage.readTaskExecutionOutput(outputFileEntry));
+                collectedWebhookResponse.set(syncJobTaskFileStorage.readTaskExecutionOutput(outputFileEntry));
             }
         }
     }
