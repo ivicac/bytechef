@@ -26,6 +26,11 @@ public interface ApprovalTokens {
 
     String toSignedToken(String innerToken, Duration ttl);
 
+    /**
+     * Mints a signed token using the configured default TTL.
+     */
+    String toSignedToken(String innerToken);
+
     Optional<String> toSignedTokenIfConfigured(String innerToken);
 
     Optional<String> parseSignedToken(String token);
