@@ -117,11 +117,11 @@ const dummyMutation = {} as unknown as UseMutationResult<unknown, Error, unknown
 const editorProviderValue = {
     ConnectionKeys: {
         connection: () => [],
-        connectionTags: [],
         connections: [],
         filteredConnections: () => [],
     },
     cancelWorkflowQueries: () => {},
+    connectionTagsQueryKey: [],
     deleteClusterElementParameterMutation: dummyMutation as unknown as UseMutationResult<
         DeleteClusterElementParameter200Response,
         Error,
