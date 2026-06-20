@@ -92,6 +92,9 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
     public ResponseEntity<String> createProjectWorkflow(
         String externalUserId, CreateFrontendProjectWorkflowRequestModel createFrontendProjectWorkflowRequestModel,
         EnvironmentModel xEnvironment) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         return workflowUuidResponse(
             connectedUserProjectFacade.createProjectWorkflow(
                 externalUserId,
@@ -113,6 +116,9 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
     @Override
     public ResponseEntity<Void> deleteProjectWorkflow(
         String externalUserId, String workflowUuid, EnvironmentModel xEnvironment) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         connectedUserProjectFacade.deleteProjectWorkflow(
             externalUserId, workflowUuid, getEnvironment(xEnvironment));
 
@@ -130,6 +136,9 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
     @Override
     public ResponseEntity<Void> disableProjectWorkflow(
         String externalUserId, String workflowUuid, EnvironmentModel xEnvironment) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         return doDisableProjectWorkflow(
             OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found"), workflowUuid, xEnvironment);
     }
@@ -145,6 +154,9 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
     @Override
     public ResponseEntity<EnableConnectedUserWorkflowResponseModel> enableProjectWorkflow(
         String externalUserId, String workflowUuid, EnvironmentModel xEnvironment) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         return doEnableProjectWorkflow(
             OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found"), workflowUuid, xEnvironment);
     }
@@ -200,6 +212,9 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
     @Override
     public ResponseEntity<ConnectedUserProjectWorkflowModel> getProjectWorkflow(
         String externalUserId, String workflowUuid, EnvironmentModel xEnvironment) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         return ResponseEntity.ok(
             conversionService.convert(
                 connectedUserProjectFacade.getConnectedUserProjectWorkflow(
@@ -210,6 +225,9 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
     @Override
     public ResponseEntity<List<ConnectedUserProjectWorkflowModel>> getProjectWorkflows(
         String externalUserId, EnvironmentModel xEnvironment) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         return ResponseEntity.ok(
             connectedUserProjectFacade.getConnectedUserProjectWorkflows(externalUserId, getEnvironment(xEnvironment))
                 .stream()
@@ -236,6 +254,9 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
         String externalUserId, String workflowUuid,
         PublishFrontendProjectWorkflowRequestModel publishFrontendProjectWorkflowRequestModel,
         EnvironmentModel xEnvironment) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         connectedUserProjectFacade.publishProjectWorkflow(
             externalUserId, workflowUuid,
             publishFrontendProjectWorkflowRequestModel.getDescription(), (long) getEnvironment(xEnvironment).ordinal());
@@ -307,6 +328,9 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
         String externalUserId, String workflowUuid,
         CreateFrontendProjectWorkflowRequestModel createFrontendProjectWorkflowRequestModel,
         EnvironmentModel xEnvironment) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         connectedUserProjectFacade.updateProjectWorkflow(
             externalUserId, workflowUuid,
             createFrontendProjectWorkflowRequestModel.getDefinition(), getEnvironment(xEnvironment));
@@ -320,6 +344,9 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
         String externalUserId, String workflowUuid, String workflowNodeName, String componentName,
         UpdateFrontendWorkflowConfigurationConnectionRequestModel updateFrontendWorkflowConfigurationConnectionRequestModel,
         EnvironmentModel xEnvironment) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         Environment environment = xEnvironment == null
             ? Environment.PRODUCTION : environmentService.getEnvironment(xEnvironment.name());
 
@@ -349,6 +376,9 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
     @Override
     public ResponseEntity<String> copyWorkflowTemplate(
         String externalUserId, String workflowUuid, EnvironmentModel xEnvironment) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         try {
             return workflowUuidResponse(
                 connectedUserProjectFacade.copyWorkflowTemplate(
@@ -373,6 +403,9 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
     public ResponseEntity<String> createProjectWorkflowFromPrompt(
         String externalUserId, CreateFrontendProjectWorkflowFromPromptRequestModel requestModel,
         EnvironmentModel xEnvironment) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         return workflowUuidResponse(
             connectedUserProjectFacade.createProjectWorkflow(
                 externalUserId, requestModel.getPrompt(), requestModel.getSystemPrompt(), getEnvironment(xEnvironment),
@@ -394,6 +427,9 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
     public ResponseEntity<String> updateProjectWorkflowFromPrompt(
         String externalUserId, String workflowUuid, CreateFrontendProjectWorkflowFromPromptRequestModel requestModel,
         EnvironmentModel xEnvironment) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
+
         return workflowUuidResponse(
             connectedUserProjectFacade.updateProjectWorkflow(
                 externalUserId, workflowUuid, requestModel.getPrompt(), requestModel.getSystemPrompt(),
