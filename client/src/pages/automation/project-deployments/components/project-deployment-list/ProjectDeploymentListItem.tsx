@@ -8,6 +8,8 @@ import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import ProjectDeploymentListItemDropdownMenu from '@/pages/automation/project-deployments/components/project-deployment-list/ProjectDeploymentListItemDropdownMenu';
 import useOpenInProject from '@/pages/automation/project-deployments/hooks/useOpenInProject';
 import {useProjectDeploymentsEnabledStore} from '@/pages/automation/project-deployments/stores/useProjectDeploymentsEnabledStore';
+import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
+import {ENVIRONMENT_CONFIGS} from '@/shared/constants/environmentConfigs';
 import {useAnalytics} from '@/shared/hooks/useAnalytics';
 import {ProjectDeployment, Tag} from '@/shared/middleware/automation/configuration';
 import {useUpdateProjectDeploymentTagsMutation} from '@/shared/mutations/automation/projectDeploymentTags.mutations';
@@ -19,7 +21,7 @@ import {ProjectDeploymentTagKeys} from '@/shared/queries/automation/projectDeplo
 import {ProjectDeploymentKeys} from '@/shared/queries/automation/projectDeployments.queries';
 import {ProjectKeys} from '@/shared/queries/automation/projects.queries';
 import {useQueryClient} from '@tanstack/react-query';
-import {ChevronDownIcon, Layers3Icon, SquareArrowOutUpRightIcon} from 'lucide-react';
+import {ChevronDownIcon, SquareArrowOutUpRightIcon} from 'lucide-react';
 import {useCallback, useRef, useState} from 'react';
 
 import TagList from '../../../../../shared/components/TagList';
@@ -29,6 +31,7 @@ interface ProjectDeploymentListItemProps {
     hideOpenInProject?: boolean;
     projectDeployment: ProjectDeployment;
     remainingTags?: Tag[];
+    showEnvironment?: boolean;
     showTags?: boolean;
 }
 
@@ -36,6 +39,7 @@ const ProjectDeploymentListItem = ({
     hideOpenInProject,
     projectDeployment,
     remainingTags,
+    showEnvironment,
     showTags = true,
 }: ProjectDeploymentListItemProps) => {
     const [showEditDialog, setShowEditDialog] = useState(false);
@@ -48,6 +52,8 @@ const ProjectDeploymentListItem = ({
         ({setProjectDeploymentEnabled}) => setProjectDeploymentEnabled
     );
 
+    const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+
     const {captureProjectDeploymentEnabled} = useAnalytics();
 
     const {openProject} = useOpenInProject();
@@ -57,7 +63,9 @@ const ProjectDeploymentListItem = ({
     const deleteProjectDeploymentMutation = useDeleteProjectDeploymentMutation({
         onSuccess: () => {
             queryClient.invalidateQueries({queryKey: ProjectDeploymentKeys.projectDeployments});
-            queryClient.invalidateQueries({queryKey: ProjectDeploymentTagKeys.projectDeploymentTags});
+            queryClient.invalidateQueries({
+                queryKey: ProjectDeploymentTagKeys.projectDeploymentTags(currentWorkspaceId!),
+            });
             void queryClient.invalidateQueries({queryKey: ProjectKeys.projects});
         },
     });
@@ -65,7 +73,9 @@ const ProjectDeploymentListItem = ({
     const updateProjectDeploymentTagsMutation = useUpdateProjectDeploymentTagsMutation({
         onSuccess: () => {
             queryClient.invalidateQueries({queryKey: ProjectDeploymentKeys.projectDeployments});
-            queryClient.invalidateQueries({queryKey: ProjectDeploymentTagKeys.projectDeploymentTags});
+            queryClient.invalidateQueries({
+                queryKey: ProjectDeploymentTagKeys.projectDeploymentTags(currentWorkspaceId!),
+            });
         },
     });
 
@@ -126,6 +136,12 @@ const ProjectDeploymentListItem = ({
 
     const showOpenProject = !hideOpenInProject && projectDeployment.projectId != null;
 
+    const environmentConfig =
+        showEnvironment && projectDeployment.environmentId != null
+            ? ENVIRONMENT_CONFIGS[projectDeployment.environmentId]
+            : undefined;
+    const EnvironmentIcon = environmentConfig?.icon;
+
     const handleOpenProjectClick = () => {
         if (projectDeployment.projectId != null) {
             openProject(projectDeployment.projectId);
@@ -142,10 +158,14 @@ const ProjectDeploymentListItem = ({
                     <div className="flex-1">
                         <div className="flex items-center justify-between">
                             <div className="flex w-full items-center gap-2">
-                                <Layers3Icon
-                                    aria-hidden="true"
-                                    className="size-6 shrink-0 text-content-neutral-secondary"
-                                />
+                                {environmentConfig && EnvironmentIcon && (
+                                    <Badge
+                                        icon={<EnvironmentIcon className="size-3" />}
+                                        label={environmentConfig.shortLabel}
+                                        styleType={environmentConfig.styleType}
+                                        weight="semibold"
+                                    />
+                                )}
 
                                 {projectDeployment.description ? (
                                     <Tooltip>

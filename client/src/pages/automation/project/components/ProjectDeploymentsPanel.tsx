@@ -63,7 +63,7 @@ const ProjectDeploymentsPanel = ({
         enabled
     );
 
-    const {data: tags} = useGetProjectDeploymentTagsQuery();
+    const {data: tags} = useGetProjectDeploymentTagsQuery(currentWorkspaceId!);
 
     const {data: taskDispatcherDefinitions} = useGetTaskDispatcherDefinitionsQuery();
 
