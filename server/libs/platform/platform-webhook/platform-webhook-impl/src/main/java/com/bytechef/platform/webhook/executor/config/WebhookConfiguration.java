@@ -117,8 +117,8 @@ public class WebhookConfiguration {
                     childJobPrincipalFactory, contextService, counterService, coordinatorEventPublisher, evaluator,
                     jobService, subflowResolver, taskExecutionService, taskFileStorage),
                 taskExecutionService, syncWorkerExecutor, taskHandlerRegistry, taskFileStorage, 300, workflowService),
-            principalJobFacade, sseStreamBridgeRegistry, triggerSyncExecutor, taskFileStorage,
-            triggerDefinitionService, workflowService);
+            principalJobFacade, sseStreamBridgeRegistry, taskFileStorage, triggerDefinitionService,
+            triggerSyncExecutor, workflowService);
     }
 
     private static ApplicationEventPublisher createEventPublisher(MessageBroker messageBroker) {
