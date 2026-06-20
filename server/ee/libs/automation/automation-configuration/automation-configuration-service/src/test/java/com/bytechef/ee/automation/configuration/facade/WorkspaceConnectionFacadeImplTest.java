@@ -35,6 +35,7 @@ import com.bytechef.platform.connection.exception.ConnectionErrorType;
 import com.bytechef.platform.connection.facade.ConnectionFacade;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.security.util.SecurityUtils;
+import com.bytechef.platform.tag.service.TagService;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
 import com.bytechef.platform.workflow.execution.facade.ConnectionLifecycleFacade;
@@ -81,6 +82,9 @@ class WorkspaceConnectionFacadeImplTest {
     private ProjectService projectService;
 
     @Mock
+    private TagService tagService;
+
+    @Mock
     private UserService userService;
 
     @Mock
@@ -104,7 +108,7 @@ class WorkspaceConnectionFacadeImplTest {
         workspaceConnectionFacade = new WorkspaceConnectionFacadeImpl(
             applicationEventPublisher, connectionFacade, connectionLifecycleFacade, connectionService,
             connectionVisibilityResolver, emptyProvider, projectDeploymentWorkflowService,
-            projectService, userService, workflowTestConfigurationService, workspaceConnectionService,
+            projectService, tagService, userService, workflowTestConfigurationService, workspaceConnectionService,
             workspaceFacade);
     }
 
