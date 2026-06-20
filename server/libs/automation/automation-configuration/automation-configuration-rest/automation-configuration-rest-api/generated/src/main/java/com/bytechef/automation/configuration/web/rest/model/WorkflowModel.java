@@ -32,7 +32,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "Workflow", description = "The blueprint that describe the execution of a job.")
 @JsonTypeName("Workflow")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-03T17:34:59.729452+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-10T23:45:23.938186+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 public class WorkflowModel implements com.bytechef.platform.configuration.web.rest.model.WorkflowModelAware {
 
   private @Nullable String createdBy;
@@ -50,7 +50,6 @@ public class WorkflowModel implements com.bytechef.platform.configuration.web.re
 
   private @Nullable String id;
 
-  @Valid
   private List<@Valid WorkflowInputModel> inputs = new ArrayList<>();
 
   private @Nullable Integer inputsCount;
@@ -62,7 +61,6 @@ public class WorkflowModel implements com.bytechef.platform.configuration.web.re
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   private @Nullable OffsetDateTime lastModifiedDate;
 
-  @Valid
   private List<@Valid WorkflowOutputModel> outputs = new ArrayList<>();
 
   /**
@@ -108,16 +106,12 @@ public class WorkflowModel implements com.bytechef.platform.configuration.web.re
 
   private @Nullable Integer maxRetries;
 
-  @Valid
   private List<String> workflowTaskComponentNames = new ArrayList<>();
 
-  @Valid
   private List<String> workflowTriggerComponentNames = new ArrayList<>();
 
-  @Valid
   private List<@Valid WorkflowTaskModel> tasks = new ArrayList<>();
 
-  @Valid
   private List<@Valid WorkflowTriggerModel> triggers = new ArrayList<>();
 
   private @Nullable Integer version;
