@@ -96,6 +96,7 @@ const Integration = () => {
                                 value={{
                                     ConnectionKeys: ConnectionKeys,
                                     cancelWorkflowQueries,
+                                    connectionTagsQueryKey: ConnectionKeys.connectionTags,
                                     deleteClusterElementParameterMutation,
                                     deleteWorkflowNodeParameterMutation,
                                     invalidateWorkflowQueries,
