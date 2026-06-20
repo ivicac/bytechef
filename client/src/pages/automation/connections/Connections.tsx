@@ -70,7 +70,9 @@ export const Connections = () => {
         hasActiveFilter
     );
 
-    const {data: tags, error: tagsError, isLoading: tagsIsLoading} = useGetConnectionTagsQuery();
+    const connectionTagsQueryResult = useGetConnectionTagsQuery(currentWorkspaceId!);
+
+    const {data: tags, error: tagsError, isLoading: tagsIsLoading} = connectionTagsQueryResult;
 
     const isAnyLoading = componentsLoading || connectionsIsLoading || tagsIsLoading || unfilteredConnectionsIsLoading;
 
@@ -93,11 +95,11 @@ export const Connections = () => {
                                         environmentId: currentEnvironmentId,
                                     } as Connection
                                 }
-                                connectionTagsQueryKey={ConnectionKeys.connectionTags}
+                                connectionTagsQueryKey={ConnectionKeys.connectionTags(currentWorkspaceId!)}
                                 connectionsQueryKey={ConnectionKeys.connections}
                                 triggerNode={<Button label="New Connection" />}
                                 useCreateConnectionMutation={useCreateConnectionMutation}
-                                useGetConnectionTagsQuery={useGetConnectionTagsQuery}
+                                useGetConnectionTagsQuery={() => connectionTagsQueryResult}
                             />
                         )
                     }
@@ -151,11 +153,11 @@ export const Connections = () => {
                                             environmentId: currentEnvironmentId,
                                         } as Connection
                                     }
-                                    connectionTagsQueryKey={ConnectionKeys.connectionTags}
+                                    connectionTagsQueryKey={ConnectionKeys.connectionTags(currentWorkspaceId!)}
                                     connectionsQueryKey={ConnectionKeys.connections}
                                     triggerNode={<Button label="Create Connection" />}
                                     useCreateConnectionMutation={useCreateConnectionMutation}
-                                    useGetConnectionTagsQuery={useGetConnectionTagsQuery}
+                                    useGetConnectionTagsQuery={() => connectionTagsQueryResult}
                                 />
                             )
                         }
