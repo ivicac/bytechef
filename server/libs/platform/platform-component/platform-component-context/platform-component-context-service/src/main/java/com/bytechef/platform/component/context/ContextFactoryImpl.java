@@ -31,6 +31,7 @@ import com.bytechef.platform.component.log.LogFileStorageWriter;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.storage.DataStorage;
 import com.bytechef.platform.file.storage.TempFileStorage;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.tracing.Tracer;
 import org.jspecify.annotations.Nullable;
@@ -47,6 +48,7 @@ import org.springframework.stereotype.Component;
 public class ContextFactoryImpl implements ContextFactory {
 
     private final ApplicationContext applicationContext;
+    private final ObjectProvider<ApprovalTokens> approvalTokensProvider;
     private final CacheManager cacheManager;
     private final DataStorage dataStorage;
     private final EditorLogFileStorageWriter editorLogFileStorageWriter;
@@ -68,9 +70,11 @@ public class ContextFactoryImpl implements ContextFactory {
         ApplicationContext applicationContext, ApplicationProperties applicationProperties, CacheManager cacheManager,
         DataStorage dataStorage, ApplicationEventPublisher eventPublisher,
         FileStorageServiceRegistry fileStorageServiceRegistry, ObjectProvider<JobService> jobServiceProvider,
-        LogFileStorage logFileStorage, TempFileStorage tempFileStorage, Tracer tracer) {
+        ObjectProvider<ApprovalTokens> approvalTokensProvider, LogFileStorage logFileStorage,
+        TempFileStorage tempFileStorage, Tracer tracer) {
 
         this.applicationContext = applicationContext;
+        this.approvalTokensProvider = approvalTokensProvider;
         this.cacheManager = cacheManager;
         this.dataStorage = dataStorage;
         this.jobServiceProvider = jobServiceProvider;
@@ -100,7 +104,7 @@ public class ContextFactoryImpl implements ContextFactory {
             .builder(
                 componentName, componentVersion, actionName, editorEnvironment, cacheManager, dataStorage,
                 eventPublisher, getHttpClientExecutor(editorEnvironment), getTempFileStorage(editorEnvironment),
-                jobServiceProvider.getIfAvailable())
+                jobServiceProvider.getIfAvailable(), approvalTokensProvider.getIfAvailable())
             .componentConnection(componentConnection)
             .environmentId(environmentId)
             .jobId(jobId)
