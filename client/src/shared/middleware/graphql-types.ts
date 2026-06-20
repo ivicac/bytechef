@@ -5789,6 +5789,7 @@ export type Query = {
   editorJobFileLogs: LogPage;
   editorJobFileLogsExist: Scalars['Boolean']['output'];
   editorTaskExecutionFileLogs: Array<LogEntry>;
+  embeddedMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   embeddedMcpServers?: Maybe<Array<Maybe<McpServer>>>;
   endpointDiscoveryStatus?: Maybe<EndpointDiscoveryResult>;
   environments?: Maybe<Array<Maybe<Environment>>>;
@@ -5837,7 +5838,6 @@ export type Query = {
   mcpProjects?: Maybe<Array<Maybe<McpProject>>>;
   mcpProjectsByServerId?: Maybe<Array<Maybe<McpProject>>>;
   mcpServer?: Maybe<McpServer>;
-  mcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   mcpServers?: Maybe<Array<Maybe<McpServer>>>;
   mcpTool?: Maybe<McpTool>;
   mcpTools?: Maybe<Array<Maybe<McpTool>>>;
@@ -5885,6 +5885,7 @@ export type Query = {
   workspaceAiGatewayRoutingPolicies?: Maybe<Array<Maybe<AiGatewayRoutingPolicy>>>;
   workspaceApiKeys: Array<ApiKey>;
   workspaceChatWorkflows: Array<ChatWorkflow>;
+  workspaceMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   workspaceMcpServers?: Maybe<Array<Maybe<McpServer>>>;
   workspaceProjectDeployments: Array<ProjectDeployment>;
   /** List all users of a workspace. Requires at least VIEWER workspace role. */
@@ -6814,11 +6815,6 @@ export type QueryMcpServerArgs = {
 };
 
 
-export type QueryMcpServerTagsArgs = {
-  type: PlatformType;
-};
-
-
 export type QueryMcpServersArgs = {
   orderBy?: InputMaybe<McpServerOrderBy>;
   type: PlatformType;
@@ -7045,6 +7041,11 @@ export type QueryWorkspaceApiKeysArgs = {
 
 export type QueryWorkspaceChatWorkflowsArgs = {
   environmentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkspaceMcpServerTagsArgs = {
   workspaceId: Scalars['ID']['input'];
 };
 
