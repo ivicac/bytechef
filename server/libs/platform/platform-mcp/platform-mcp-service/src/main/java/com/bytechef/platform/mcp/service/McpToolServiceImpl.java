@@ -43,12 +43,7 @@ public class McpToolServiceImpl implements McpToolService {
     }
 
     @Override
-    @Audited(event = McpToolAuditEvents.MCP_TOOL_CREATED, mapper = McpComponentAuditMapper.class, data = {
-        @AuditData(key = "mcpToolId", value = "#result?.id"),
-        @AuditData(key = "mcpComponentId", value = "#mcpTool.mcpComponentId"),
-        @AuditData(key = "name", value = "#mcpTool.name")
-    })
-    @PreAuthorize("hasPermission(#mcpTool.mcpComponentId, 'McpComponent', 'MCP_EDIT')")
+    @PreAuthorize("hasPermission(#mcpTool.mcpComponentId, 'McpComponent:ResourceRole', 'EDITOR')")
     public McpTool create(McpTool mcpTool) {
         return mcpToolRepository.save(mcpTool);
     }
@@ -73,13 +68,13 @@ public class McpToolServiceImpl implements McpToolService {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpToolId, 'McpTool', 'MCP_VIEW')")
+    @PreAuthorize("hasPermission(#mcpToolId, 'McpTool:ResourceRole', 'VIEWER')")
     public Optional<McpTool> fetchMcpTool(long mcpToolId) {
         return mcpToolRepository.findById(mcpToolId);
     }
 
     @Override
-    @PreAuthorize("isTenantAdmin()")
+    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
     public List<McpTool> getMcpTools() {
         return mcpToolRepository.findAll();
     }

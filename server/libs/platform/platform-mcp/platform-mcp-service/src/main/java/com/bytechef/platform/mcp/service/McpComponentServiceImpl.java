@@ -54,13 +54,7 @@ public class McpComponentServiceImpl implements McpComponentService {
     }
 
     @Override
-    @Audited(event = McpComponentAuditEvents.MCP_COMPONENT_CREATED, mapper = McpComponentAuditMapper.class, data = {
-        @AuditData(key = "mcpComponentId", value = "#result?.id"),
-        @AuditData(key = "mcpServerId", value = "#mcpComponent.mcpServerId"),
-        @AuditData(key = "componentName", value = "#mcpComponent.componentName"),
-        @AuditData(key = "componentVersion", value = "#mcpComponent.componentVersion")
-    })
-    @PreAuthorize("hasPermission(#mcpComponent.mcpServerId, 'McpServer', 'MCP_EDIT')")
+    @PreAuthorize("hasPermission(#mcpComponent.mcpServerId, 'McpServer:ResourceRole', 'EDITOR')")
     public McpComponent create(McpComponent mcpComponent) {
         return mcpComponentRepository.save(mcpComponent);
     }
@@ -148,7 +142,7 @@ public class McpComponentServiceImpl implements McpComponentService {
     }
 
     @Override
-    @PreAuthorize("isTenantAdmin()")
+    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
     public List<McpComponent> getMcpComponents() {
         return mcpComponentRepository.findAll();
     }
