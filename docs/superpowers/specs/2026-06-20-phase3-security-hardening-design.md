@@ -12,9 +12,9 @@ This spec closes the final Phase 3 hardening findings from the gecko security re
 The two tasks are distinct domains but are grouped here as a single Phase 3 spec, with
 one implementation plan to follow.
 
-One T27 sub-item — the TipTap XSS (finding 7.6) in `PropertyMentionsInputEditor` — is
-**already mitigated** in the current tree and is documented below as verified-done rather
-than re-implemented. Everything else is net-new work.
+Two sub-items — the TipTap XSS (finding 7.6) and the `EMBED_INIT` postMessage origin
+check — are **already mitigated** in the current tree and are documented below as
+verified-done rather than re-implemented. Everything else is net-new work.
 
 ### Verified-done (no further work)
 
@@ -28,6 +28,14 @@ than re-implemented. Everything else is net-new work.
     in `<p>${valueLine}</p>` without escaping for control types *outside*
     TEXT_AREA/TEXT/FORMULA_MODE on the newline branch. Confirm no RICH_TEXT-adjacent type
     reaches this branch; escape if it can.
+
+- **`EMBED_INIT` postMessage origin** — `useWorkflowBuilder.ts:138-154` now reads a
+  `VITE_EMBEDDED_PARENT_ORIGINS` allowlist, checks `event.source === window.parent`, and
+  gates on `isAllowedOrigin(event.origin)` before writing `jwtToken` to `sessionStorage`.
+  - **Residual to confirm:** when `VITE_EMBEDDED_PARENT_ORIGINS` is unset the allowlist is
+    empty and `isAllowedOrigin` returns `true` (open by default). This is a deliberate
+    dev/unconfigured fallback; confirm production deployments set the variable. No code
+    change planned.
 
 ## T26 — Auth & session hardening
 
@@ -90,17 +98,11 @@ registered accounts.
   when present; always return HTTP 200 regardless. Do not surface
   `UserNotFoundException` to the caller.
 
-### 4. `EMBED_INIT` postMessage origin (client)
+### 4. `EMBED_INIT` postMessage origin (client) — VERIFIED-DONE
 
-**Problem:** `useWorkflowBuilder.ts` accepts an `EMBED_INIT` `postMessage` and writes
-`event.data.params.jwtToken` into `sessionStorage` with no origin check — any page that
-embeds/frames the builder can inject a JWT.
-
-**Approach:** Trusted-origin allowlist.
-
-**Changes:**
-- Validate `event.origin` against a configured allowlist of trusted parent origins before
-  reading `jwtToken`. Silently drop messages from untrusted origins.
+See the Verified-done section above. The trusted-origin allowlist, source check, and
+gate-before-store are already present in `useWorkflowBuilder.ts`. No work in this plan
+beyond confirming the unconfigured-allowlist fallback is acceptable for production.
 
 ## T27 — Output encoding, file-path safety & shared-state isolation
 
