@@ -205,8 +205,9 @@ public class ApiCollectionFacadeImpl implements ApiCollectionFacade {
     }
 
     @Override
-    public List<Tag> getApiCollectionTags() {
-        List<ApiCollection> apiCollections = apiCollectionService.getApiCollections(null, null, null, null);
+    @PreAuthorize("hasPermission(#workspaceId, 'WorkspaceRole', 'VIEWER')")
+    public List<Tag> getApiCollectionTags(long workspaceId) {
+        List<ApiCollection> apiCollections = apiCollectionService.getApiCollections(workspaceId, null, null, null);
 
         return tagService.getTags(
             apiCollections.stream()
