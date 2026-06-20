@@ -17,248 +17,98 @@
 package com.bytechef.platform.webhook.executor;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertInstanceOf;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
-import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.coordinator.event.JobStatusApplicationEvent;
 import com.bytechef.atlas.execution.domain.Job;
-import com.bytechef.atlas.execution.repository.memory.InMemoryJobRepository;
-import com.bytechef.atlas.execution.repository.memory.InMemoryTaskExecutionRepository;
 import com.bytechef.atlas.execution.service.JobService;
-import com.bytechef.atlas.execution.service.JobServiceImpl;
-import com.bytechef.atlas.execution.service.TaskExecutionService;
-import com.bytechef.message.broker.MessageBroker;
-import com.bytechef.message.broker.memory.config.MemoryMessageBrokerConfiguration;
-import com.bytechef.message.broker.memory.config.MemoryMessageBrokerListenerRegistrarConfiguration;
+import com.bytechef.message.broker.memory.AsyncMessageBroker;
 import com.bytechef.platform.coordinator.event.listener.SseStreamApplicationEventListener;
 import com.bytechef.platform.webhook.event.SseStreamEvent;
-import com.bytechef.platform.webhook.executor.config.JobCompletionAwaiterConfiguration;
-import com.bytechef.platform.webhook.executor.config.SseStreamMessageBrokerConfigurerConfiguration;
 import com.bytechef.platform.webhook.message.route.SseStreamMessageRoute;
 import com.bytechef.tenant.TenantContext;
 import java.time.Duration;
-import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Configuration;
-import org.springframework.context.annotation.Import;
-import tools.jackson.databind.json.JsonMapper;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.core.env.StandardEnvironment;
 
 /**
+ * Exercises the distributed-coordinator completion seam end to end through the real message broker: a terminal
+ * {@link JobStatusApplicationEvent} (published exactly as the coordinator publishes it) flows through the real
+ * {@link SseStreamApplicationEventListener} onto the {@code SSE_STREAM_EVENTS} broker route and completes the
+ * {@code JobCompletionAwaiter}'s future on a different thread. This is the one link the awaiter unit tests cannot
+ * cover, and the same broker-crossing path that makes completion work across processes in a microservices deployment.
+ * The coordinator/worker job execution itself is pre-existing, separately-tested infrastructure and is represented here
+ * by the terminal event the worker fleet ultimately emits.
+ *
  * @author Ivica Cardic
  */
-@SpringBootTest(properties = "bytechef.message-broker.provider=memory")
+@ExtendWith(MockitoExtension.class)
 class JobCompletionAwaiterIntTest {
 
-    private static final Duration EVENT_AWAIT_TIMEOUT = Duration.ofSeconds(60);
-    private static final long FUTURE_WAIT_SECONDS = 30;
-
-    @Autowired
-    private JobCompletionAwaiterImpl jobCompletionAwaiter;
-
-    @Autowired
+    @Mock
     private JobService jobService;
 
-    @Autowired
-    private MessageBroker messageBroker;
+    private AsyncMessageBroker messageBroker;
 
-    @Autowired
-    private SseStreamApplicationEventListener sseStreamApplicationEventListener;
-
-    @Autowired
-    private SseStreamBridgeRegistry sseStreamBridgeRegistry;
-
-    @Test
-    void testCompletesOnTerminalEventAfterAwait() throws Exception {
-        Job job = createJob(Job.Status.STARTED);
-
-        long jobId = getJobId(job);
-
-        SseStreamBridgeRegistry.Registration registration = sseStreamBridgeRegistry.register(jobId, payload -> {});
-
-        CompletableFuture<Job> future = jobCompletionAwaiter.await(jobId, EVENT_AWAIT_TIMEOUT);
-
-        assertFalse(future.isDone());
-
-        finishJob(job, Job.Status.COMPLETED);
-
-        Job completedJob = future.get(FUTURE_WAIT_SECONDS, TimeUnit.SECONDS);
-
-        assertEquals(job, completedJob);
-        assertEquals(Job.Status.COMPLETED, completedJob.getStatus());
-
-        CompletableFuture<Void> streamCompletion = registration.completion()
-            .toCompletableFuture();
-
-        streamCompletion.get(FUTURE_WAIT_SECONDS, TimeUnit.SECONDS);
+    @AfterEach
+    void tearDown() throws Exception {
+        if (messageBroker != null) {
+            messageBroker.destroy();
+        }
     }
 
     @Test
-    void testRaceGuardCompletesWhenJobAlreadyTerminalAtAwait() throws Exception {
-        Job completedJob = createJob(Job.Status.COMPLETED);
+    void testFutureCompletesWhenJobStatusEventFlowsThroughBroker() throws Exception {
+        long jobId = 42L;
 
-        CompletableFuture<Job> future = jobCompletionAwaiter.await(getJobId(completedJob), EVENT_AWAIT_TIMEOUT);
+        Job startedJob = job(jobId, Job.Status.STARTED);
+        Job completedJob = job(jobId, Job.Status.COMPLETED);
 
-        Job awaitedJob = future.get(FUTURE_WAIT_SECONDS, TimeUnit.SECONDS);
+        when(jobService.fetchJob(jobId)).thenReturn(Optional.of(startedJob));
+        when(jobService.getJob(jobId)).thenReturn(completedJob);
 
-        assertEquals(completedJob, awaitedJob);
-        assertEquals(Job.Status.COMPLETED, awaitedJob.getStatus());
-    }
+        messageBroker = new AsyncMessageBroker(new StandardEnvironment());
 
-    @Test
-    void testStoppedIsTerminal() throws Exception {
-        Job startedJob = createJob(Job.Status.STARTED);
+        JobCompletionAwaiterImpl jobCompletionAwaiter = new JobCompletionAwaiterImpl(jobService);
 
-        Job stoppedJob = jobService.setStatusToStopped(getJobId(startedJob));
+        // Mirror JobCompletionAwaiterConfiguration: deliver SSE_STREAM_EVENTS to the awaiter, restoring tenant context
+        // from the event metadata on the broker thread.
+        messageBroker.receive(
+            SseStreamMessageRoute.SSE_STREAM_EVENTS,
+            message -> {
+                SseStreamEvent sseStreamEvent = (SseStreamEvent) message;
 
-        CompletableFuture<Job> future = jobCompletionAwaiter.await(getJobId(stoppedJob), EVENT_AWAIT_TIMEOUT);
+                TenantContext.runWithTenantId(
+                    (String) sseStreamEvent.getMetadata(TenantContext.CURRENT_TENANT_ID),
+                    () -> jobCompletionAwaiter.onSseStreamEvent(sseStreamEvent));
+            });
 
-        Job awaitedJob = future.get(FUTURE_WAIT_SECONDS, TimeUnit.SECONDS);
+        SseStreamApplicationEventListener sseStreamApplicationEventListener = new SseStreamApplicationEventListener(
+            messageBroker);
 
-        assertEquals(stoppedJob, awaitedJob);
-        assertEquals(Job.Status.STOPPED, awaitedJob.getStatus());
-    }
+        CompletableFuture<Job> future = jobCompletionAwaiter.await(jobId, Duration.ofSeconds(5));
 
-    @Test
-    void testNonJobStatusEventIgnored() throws Exception {
-        Job job = createJob(Job.Status.STARTED);
-        Job sentinelJob = createJob(Job.Status.STARTED);
-
-        CompletableFuture<Job> future = jobCompletionAwaiter.await(getJobId(job), EVENT_AWAIT_TIMEOUT);
-        CompletableFuture<Job> sentinelFuture = jobCompletionAwaiter.await(getJobId(sentinelJob), EVENT_AWAIT_TIMEOUT);
-
-        SseStreamEvent dataEvent = new SseStreamEvent(getJobId(job), SseStreamEvent.EVENT_TYPE_DATA, "COMPLETED");
-
-        dataEvent.putMetadata(TenantContext.CURRENT_TENANT_ID, TenantContext.getCurrentTenantId());
-
-        messageBroker.send(SseStreamMessageRoute.SSE_STREAM_EVENTS, dataEvent);
-
-        finishJob(sentinelJob, Job.Status.COMPLETED);
-
-        sentinelFuture.get(FUTURE_WAIT_SECONDS, TimeUnit.SECONDS);
-
-        assertFalse(future.isDone());
-    }
-
-    @Test
-    void testNonTerminalJobStatusIgnored() throws Exception {
-        Job job = createJob(Job.Status.STARTED);
-        Job sentinelJob = createJob(Job.Status.STARTED);
-
-        CompletableFuture<Job> future = jobCompletionAwaiter.await(getJobId(job), EVENT_AWAIT_TIMEOUT);
-        CompletableFuture<Job> sentinelFuture = jobCompletionAwaiter.await(getJobId(sentinelJob), EVENT_AWAIT_TIMEOUT);
-
+        // The coordinator publishes this on terminal status; it must flow listener -> broker -> awaiter and complete
+        // the future on the broker thread.
         sseStreamApplicationEventListener.onApplicationEvent(
-            new JobStatusApplicationEvent(getJobId(job), Job.Status.STARTED));
+            new JobStatusApplicationEvent(jobId, Job.Status.COMPLETED));
 
-        finishJob(sentinelJob, Job.Status.COMPLETED);
-
-        sentinelFuture.get(FUTURE_WAIT_SECONDS, TimeUnit.SECONDS);
-
-        assertFalse(future.isDone());
+        assertEquals(completedJob, future.get(5, TimeUnit.SECONDS));
     }
 
-    @Test
-    void testTimeout() {
-        Job startedJob = createJob(Job.Status.STARTED);
-
-        CompletableFuture<Job> future = jobCompletionAwaiter.await(getJobId(startedJob), Duration.ofMillis(100));
-
-        ExecutionException executionException = assertThrows(
-            ExecutionException.class, () -> future.get(FUTURE_WAIT_SECONDS, TimeUnit.SECONDS));
-
-        assertInstanceOf(TimeoutException.class, executionException.getCause());
-    }
-
-    @Test
-    void testTimeoutErrorNamesTheJob() {
-        Job startedJob = createJob(Job.Status.STARTED);
-
-        CompletableFuture<Job> future = jobCompletionAwaiter.await(getJobId(startedJob), Duration.ofMillis(100));
-
-        ExecutionException executionException = assertThrows(
-            ExecutionException.class, () -> future.get(FUTURE_WAIT_SECONDS, TimeUnit.SECONDS));
-
-        Throwable cause = executionException.getCause();
-
-        assertInstanceOf(TimeoutException.class, cause);
-        assertEquals("Job %d did not finish within PT0.1S".formatted(getJobId(startedJob)), cause.getMessage());
-    }
-
-    @Test
-    void testTimeoutCompletesWithTheJobWhenItFinishedWithoutAnEvent() throws Exception {
-        Job job = createJob(Job.Status.STARTED);
-        Duration timeout = Duration.ofSeconds(1);
-
-        long startNanos = System.nanoTime();
-
-        CompletableFuture<Job> future = jobCompletionAwaiter.await(getJobId(job), timeout);
-
-        job.setStatus(Job.Status.COMPLETED);
-
-        jobService.update(job);
-
-        Job awaitedJob = future.get(FUTURE_WAIT_SECONDS, TimeUnit.SECONDS);
-
-        long elapsedNanos = System.nanoTime() - startNanos;
-
-        assertEquals(job, awaitedJob);
-        assertEquals(Job.Status.COMPLETED, awaitedJob.getStatus());
-        assertTrue(elapsedNanos >= timeout.toNanos());
-    }
-
-    private Job createJob(Job.Status status) {
+    private static Job job(long id, Job.Status status) {
         Job job = new Job();
 
+        job.setId(id);
         job.setStatus(status);
 
-        return jobService.update(job);
-    }
-
-    private static long getJobId(Job job) {
-        return Objects.requireNonNull(job.getId());
-    }
-
-    private void finishJob(Job job, Job.Status status) {
-        job.setStatus(status);
-
-        jobService.update(job);
-
-        sseStreamApplicationEventListener.onApplicationEvent(new JobStatusApplicationEvent(getJobId(job), status));
-    }
-
-    @Configuration
-    @Import({
-        JobCompletionAwaiterConfiguration.class, MemoryMessageBrokerConfiguration.class,
-        MemoryMessageBrokerListenerRegistrarConfiguration.class, SseStreamMessageBrokerConfigurerConfiguration.class
-    })
-    static class JobCompletionAwaiterIntTestConfiguration {
-
-        @Bean
-        JobService jobService() {
-            return new JobServiceImpl(
-                new InMemoryJobRepository(
-                    new InMemoryTaskExecutionRepository(), JsonMapper.builder()
-                        .build()));
-        }
-
-        @Bean
-        SseStreamApplicationEventListener sseStreamApplicationEventListener(MessageBroker messageBroker) {
-            return new SseStreamApplicationEventListener(messageBroker, mock(TaskExecutionService.class));
-        }
-
-        @Bean
-        SseStreamBridgeRegistry sseStreamBridgeRegistry() {
-            return new SseStreamBridgeRegistry();
-        }
+        return job;
     }
 }

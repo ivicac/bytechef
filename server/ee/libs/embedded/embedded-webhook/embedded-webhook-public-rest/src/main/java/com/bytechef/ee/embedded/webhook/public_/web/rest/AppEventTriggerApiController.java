@@ -194,10 +194,16 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
                 IntegrationWorkflow integrationWorkflow = integrationWorkflowService.getWorkflowIntegrationWorkflow(
                     workflowId);
 
-                workflowExecutionIds.add(
-                    WorkflowExecutionId.of(
-                        PlatformType.EMBEDDED, integrationInstance.getId(), integrationWorkflow.getUuidAsString(),
-                        appEventTriggerName));
+                WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.of(
+                    PlatformType.EMBEDDED, integrationInstance.getId(), integrationWorkflow.getUuidAsString(),
+                    appEventTriggerName);
+
+                try {
+                    doProcessTrigger(workflowExecutionId, null, httpServletRequest, httpServletResponse)
+                        .join();
+                } catch (IOException | ServletException e) {
+                    throw new RuntimeException(e);
+                }
             }
         }
 

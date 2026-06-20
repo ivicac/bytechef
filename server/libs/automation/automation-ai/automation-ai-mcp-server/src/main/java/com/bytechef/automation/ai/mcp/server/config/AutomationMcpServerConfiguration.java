@@ -43,6 +43,7 @@ import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
 import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.security.util.SecurityUtils;
+import com.bytechef.platform.security.web.config.SecurityConfigurerContributor;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
@@ -63,6 +64,8 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.security.config.annotation.web.HttpSecurityBuilder;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.ServerResponse;
 
@@ -98,24 +101,17 @@ public class AutomationMcpServerConfiguration {
 
     @Bean
     AutomationMcpToolFacade mcpToolFacade(
-        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
         ClusterElementDefinitionFacade clusterElementDefinitionFacade,
         ClusterElementDefinitionService clusterElementDefinitionService, TaskFileStorage durableTaskFileStorage,
-        Evaluator evaluator, JobCompletionAwaiter jobCompletionAwaiter, JobResumeFacade jobResumeFacade,
-        JobService jobService, McpComponentService mcpComponentService, McpProjectService mcpProjectService,
+        Evaluator evaluator, JobCompletionAwaiter jobCompletionAwaiter, McpComponentService mcpComponentService,
         McpProjectWorkflowService mcpProjectWorkflowService, McpServerService mcpServerService,
-        McpToolService mcpToolService, PrincipalJobFacade principalJobFacade,
-        ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
-        @Value("${bytechef.public-url:#{null}}") @Nullable String publicUrl,
-        TaskExecutionService taskExecutionService, ToolExecutionRecorder toolExecutionRecorder,
-        WorkflowService workflowService, WorkspaceMcpServerService workspaceMcpServerService) {
+        PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
+        TaskExecutionService taskExecutionService, WorkflowService workflowService) {
 
         return new AutomationMcpToolFacade(
-            approvalTokensObjectProvider, clusterElementDefinitionFacade, clusterElementDefinitionService, evaluator,
-            jobCompletionAwaiter, jobResumeFacade, jobService, mcpComponentService, mcpProjectService,
-            mcpProjectWorkflowService, mcpServerService, mcpToolService, principalJobFacade,
-            projectDeploymentWorkflowService, publicUrl, taskExecutionService,
-            durableTaskFileStorage, toolExecutionRecorder, workflowService, workspaceMcpServerService);
+            clusterElementDefinitionFacade, clusterElementDefinitionService, evaluator, jobCompletionAwaiter,
+            mcpComponentService, mcpProjectWorkflowService, mcpServerService, principalJobFacade,
+            projectDeploymentWorkflowService, taskExecutionService, durableTaskFileStorage, workflowService);
     }
 
     @Bean
@@ -229,13 +225,17 @@ public class AutomationMcpServerConfiguration {
         return tools;
     }
 
-    private static <T> T readMcpServerConfiguration(Supplier<T> read) {
-        try {
-            return AutomationAuthorizationContext.callSkippingChecks(read::get);
-        } catch (RuntimeException | Error exception) {
-            throw exception;
-        } catch (Throwable throwable) {
-            throw new IllegalStateException(throwable);
-        }
+    @Bean
+    SecurityConfigurerContributor automationMcpServerSecurityConfigurerContributor(McpServerService mcpServerService) {
+        return new SecurityConfigurerContributor() {
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public <T extends AbstractHttpConfigurer<T, B>, B extends HttpSecurityBuilder<B>> T
+                getSecurityConfigurerAdapter() {
+
+                return (T) new AutomationMcpServerSecurityConfigurer(mcpServerService);
+            }
+        };
     }
 }

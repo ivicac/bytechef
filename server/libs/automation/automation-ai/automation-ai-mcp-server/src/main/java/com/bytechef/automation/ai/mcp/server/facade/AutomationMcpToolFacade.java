@@ -48,6 +48,7 @@ import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.constant.JobInputConstants;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.definition.WorkflowNodeType;
 import com.bytechef.platform.mcp.domain.McpComponent;
 import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.domain.McpTool;
@@ -94,11 +95,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
 
     private final ClusterElementDefinitionFacade clusterElementDefinitionFacade;
     private final ClusterElementDefinitionService clusterElementDefinitionService;
-    private final ObjectProvider<ApprovalTokens> approvalTokensObjectProvider;
     private final JobCompletionAwaiter jobCompletionAwaiter;
-    private final JobResumeFacade jobResumeFacade;
-    private final JobService jobService;
-    private final @Nullable String publicUrl;
     private final McpComponentService mcpComponentService;
     private final McpProjectService mcpProjectService;
     private final McpProjectWorkflowService mcpProjectWorkflowService;
@@ -117,8 +114,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
         ClusterElementDefinitionFacade clusterElementDefinitionFacade,
         ClusterElementDefinitionService clusterElementDefinitionService, Evaluator evaluator,
-        JobCompletionAwaiter jobCompletionAwaiter, JobResumeFacade jobResumeFacade, JobService jobService,
-        McpComponentService mcpComponentService, McpProjectService mcpProjectService,
+        JobCompletionAwaiter jobCompletionAwaiter, McpComponentService mcpComponentService,
         McpProjectWorkflowService mcpProjectWorkflowService, McpServerService mcpServerService,
         McpToolService mcpToolService, PrincipalJobFacade principalJobFacade,
         ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
@@ -132,9 +128,6 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         this.clusterElementDefinitionFacade = clusterElementDefinitionFacade;
         this.clusterElementDefinitionService = clusterElementDefinitionService;
         this.jobCompletionAwaiter = jobCompletionAwaiter;
-        this.jobResumeFacade = jobResumeFacade;
-        this.jobService = jobService;
-        this.publicUrl = publicUrl;
         this.mcpComponentService = mcpComponentService;
         this.mcpProjectService = mcpProjectService;
         this.mcpProjectWorkflowService = mcpProjectWorkflowService;
@@ -331,6 +324,11 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
             long jobId = principalJobFacade.createJob(
                 new JobParametersDTO(projectDeploymentWorkflow.getWorkflowId(), inputs),
                 projectDeploymentWorkflow.getProjectDeploymentId(), PlatformType.AUTOMATION);
+
+            Job job = jobCompletionAwaiter.await(jobId, Duration.ofSeconds(300))
+                .join();
+
+            JobExecutionErrors.checkForError(job, taskExecutionService);
 
             return toolExecutionRecorder.record(
                 ToolExecutionEvent

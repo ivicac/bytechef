@@ -160,7 +160,21 @@ public class RequestTriggerApiController extends AbstractWebhookTriggerControlle
         WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.of(
             PlatformType.EMBEDDED, integrationInstance.getId(), workflowUuid, findRequestTriggerName(workflow));
 
-        return dispatch(workflowExecutionId);
+        ResponseEntity<Object> responseEntity;
+
+        if (webhookWorkflowExecutor.isWorkflowDisabled(workflowExecutionId)) {
+            responseEntity = ResponseEntity.ok()
+                .build();
+        } else {
+            try {
+                responseEntity = doProcessTrigger(workflowExecutionId, null, httpServletRequest, httpServletResponse)
+                    .join();
+            } catch (IOException | ServletException e) {
+                throw new RuntimeException(e);
+            }
+        }
+
+        return responseEntity;
     }
 
     private Optional<List<ConnectedUserProjectWorkflow>> fetchConnectedUserProjectWorkflows(long connectedUserId) {

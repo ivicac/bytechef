@@ -56,7 +56,6 @@ import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.constant.JobInputConstants;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.definition.WorkflowNodeType;
-import com.bytechef.platform.job.sync.executor.JobSyncExecutor;
 import com.bytechef.platform.mcp.domain.McpComponent;
 import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.domain.McpTool;
@@ -110,7 +109,6 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
     private final IntegrationInstanceService integrationInstanceService;
     private final IntegrationService integrationService;
     private final JobCompletionAwaiter jobCompletionAwaiter;
-    private final JobSyncExecutor jobSyncExecutor;
     private final McpComponentService mcpComponentService;
     private final McpIntegrationInstanceToolService mcpIntegrationInstanceToolService;
     private final IntegrationInstanceWorkflowService integrationInstanceWorkflowService;
@@ -131,7 +129,7 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
         IntegrationInstanceConfigurationWorkflowService integrationInstanceConfigurationWorkflowService,
         IntegrationInstanceService integrationInstanceService,
         IntegrationInstanceWorkflowService integrationInstanceWorkflowService, IntegrationService integrationService,
-        JobCompletionAwaiter jobCompletionAwaiter, JobSyncExecutor jobSyncExecutor, JwtTokenService jwtTokenService,
+        JobCompletionAwaiter jobCompletionAwaiter, JwtTokenService jwtTokenService,
         McpComponentService mcpComponentService,
         McpIntegrationInstanceConfigurationWorkflowService mcpIntegrationInstanceConfigurationWorkflowService,
         McpIntegrationInstanceToolService mcpIntegrationInstanceToolService,
@@ -150,7 +148,6 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
         this.integrationInstanceService = integrationInstanceService;
         this.integrationService = integrationService;
         this.jobCompletionAwaiter = jobCompletionAwaiter;
-        this.jobSyncExecutor = jobSyncExecutor;
         this.mcpComponentService = mcpComponentService;
         this.integrationInstanceWorkflowService = integrationInstanceWorkflowService;
         this.mcpIntegrationInstanceToolService = mcpIntegrationInstanceToolService;
@@ -409,19 +406,14 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
             inputs.put(triggerName, triggerInputs);
             inputs.put(JobInputConstants.TRIGGER_NAME_INPUT, triggerName);
 
-            JobParametersDTO jobParametersDTO = new JobParametersDTO(
-                integrationInstanceConfigurationWorkflow.getWorkflowId(), inputs);
+            long jobId = principalJobFacade.createJob(
+                new JobParametersDTO(integrationInstanceConfigurationWorkflow.getWorkflowId(), inputs),
+                integrationInstanceId, PlatformType.EMBEDDED);
 
-            Job job = suspendable
-                ? executeSuspendableJob(jobParametersDTO, integrationInstanceId)
-                : executeSyncJob(jobParametersDTO, integrationInstanceId);
-
-            if (job.getStatus() == Job.Status.STOPPED) {
-                return describeStoppedJob(job);
-            }
+            Job job = jobCompletionAwaiter.await(jobId, Duration.ofSeconds(300))
+                .join();
 
             JobExecutionErrors.checkForError(job, taskExecutionService);
-            JobExecutionErrors.checkCompleted(job);
 
             if (job.getOutputs() == null) {
                 return null;

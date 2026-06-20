@@ -18,7 +18,6 @@ package com.bytechef.platform.webhook.executor.config;
 
 import static com.bytechef.tenant.TenantContext.CURRENT_TENANT_ID;
 
-import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.message.broker.config.MessageBrokerConfigurer;
 import com.bytechef.platform.webhook.event.SseStreamEvent;
 import com.bytechef.platform.webhook.executor.SseStreamBridgeRegistry;
@@ -29,10 +28,14 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
+ * Consumes the {@code SSE_STREAM_EVENTS} broker route and relays each event to the node-local
+ * {@link SseStreamBridgeRegistry}, which holds the live SSE emitters for webhook requests this node is serving. This is
+ * the consumer side of the SSE stream, so it must run wherever the webhook HTTP request (and its bridge) lives — not
+ * gated on the coordinator, which in a distributed topology is a different process that only publishes onto the route.
+ *
  * @author Ivica Cardic
  */
 @Configuration
-@ConditionalOnCoordinator
 public class SseStreamMessageBrokerConfigurerConfiguration {
 
     @Bean

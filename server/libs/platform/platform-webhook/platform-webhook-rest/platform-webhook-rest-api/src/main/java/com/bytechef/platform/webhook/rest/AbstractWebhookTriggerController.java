@@ -34,9 +34,11 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.io.UncheckedIOException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -86,12 +88,11 @@ public abstract class AbstractWebhookTriggerController {
         this.webhookWorkflowExecutor = webhookWorkflowExecutor;
     }
 
-    protected ResponseEntity<Object> doProcessTrigger(
+    protected CompletableFuture<ResponseEntity<Object>> doProcessTrigger(
         WorkflowExecutionId workflowExecutionId, @Nullable WebhookRequest webhookRequest,
         HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse)
         throws IOException, ServletException {
 
-        ResponseEntity<Object> responseEntity;
         WebhookTriggerFlags webhookTriggerFlags = webhookWorkflowExecutor.getWebhookTriggerFlags(workflowExecutionId);
 
         if (webhookRequest == null) {
@@ -112,13 +113,17 @@ public abstract class AbstractWebhookTriggerController {
             WebhookValidateResponse webhookValidateResponse = webhookTriggerFlags.workflowSyncValidation()
                 ? webhookWorkflowExecutor.validate(workflowExecutionId, webhookRequest) : WebhookValidateResponse.ok();
 
-            if (webhookValidateResponse.status() == HttpStatus.OK.value()) {
-                responseEntity = executeSync(
-                    workflowExecutionId, webhookRequest.asValidated(), httpServletRequest, httpServletResponse);
-            } else {
-                responseEntity = toResponseEntity(webhookValidateResponse);
+            if (webhookValidateResponse.status() != HttpStatus.OK.value()) {
+                return CompletableFuture.completedFuture(toResponseEntity(webhookValidateResponse));
             }
-        } else if (webhookTriggerFlags.workflowSyncValidation()) {
+
+            return executeSync(
+                workflowExecutionId, webhookRequest.asValidated(), httpServletRequest, httpServletResponse);
+        }
+
+        ResponseEntity<Object> responseEntity;
+
+        if (webhookTriggerFlags.workflowSyncValidation()) {
             responseEntity = validateAndExecuteAsync(workflowExecutionId, webhookRequest);
         } else {
             webhookWorkflowExecutor.executeAsync(workflowExecutionId, webhookRequest);
@@ -127,7 +132,7 @@ public abstract class AbstractWebhookTriggerController {
                 .build();
         }
 
-        return responseEntity;
+        return CompletableFuture.completedFuture(responseEntity);
     }
 
     protected WebhookRequest getWebhookRequest(
@@ -226,17 +231,26 @@ public abstract class AbstractWebhookTriggerController {
         return responseEntity;
     }
 
-    private ResponseEntity<Object> executeSync(
+    private CompletableFuture<ResponseEntity<Object>> executeSync(
         WorkflowExecutionId workflowExecutionId, WebhookRequest webhookRequest,
-        HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) throws IOException {
+        HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse) {
 
-        Object outputs = webhookWorkflowExecutor.executeSync(workflowExecutionId, webhookRequest);
+        // The job runs on the distributed coordinator; the future completes when it reaches a terminal status,
+        // so the controller can stay non-blocking (async-servlet) while the workflow runs.
+        return webhookWorkflowExecutor.executeSync(workflowExecutionId, webhookRequest)
+            .thenApply(outputs -> {
+                if (outputs instanceof Map<?, ?> responseMap &&
+                    responseMap.containsKey(MetadataConstants.WEBHOOK_RESPONSE)) {
 
-        if (outputs instanceof Map<?, ?> responseMap && responseMap.containsKey(MetadataConstants.WEBHOOK_RESPONSE)) {
-            return processWebhookResponse(httpServletRequest, httpServletResponse, responseMap);
-        }
+                    try {
+                        return processWebhookResponse(httpServletRequest, httpServletResponse, responseMap);
+                    } catch (IOException ioException) {
+                        throw new UncheckedIOException(ioException);
+                    }
+                }
 
-        return ResponseEntity.ok(outputs);
+                return ResponseEntity.ok(outputs);
+            });
     }
 
     private static ResponseEntity<Object> toResponseEntity(WebhookValidateResponse webhookValidateResponse) {
