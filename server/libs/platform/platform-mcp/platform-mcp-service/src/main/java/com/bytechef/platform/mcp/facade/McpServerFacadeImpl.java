@@ -86,7 +86,7 @@ public class McpServerFacadeImpl implements McpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_EDIT')")
+    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer:ResourceRole', 'EDITOR')")
     public void deleteMcpServer(long mcpServerId) {
         for (McpComponent mcpComponent : mcpComponentService.getMcpServerMcpComponents(mcpServerId)) {
             mcpToolService.getMcpComponentMcpTools(mcpComponent.getId())
@@ -170,7 +170,7 @@ public class McpServerFacadeImpl implements McpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#id, 'McpServer', 'MCP_EDIT')")
+    @PreAuthorize("hasPermission(#id, 'McpServer:ResourceRole', 'EDITOR')")
     public List<Tag> updateMcpServerTags(long id, List<Tag> tags) {
         List<Tag> validatedTags = checkTags(tags);
 

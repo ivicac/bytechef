@@ -61,7 +61,7 @@ public class McpServerServiceImpl implements McpServerService {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_VIEW')")
+    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer:ResourceRole', 'VIEWER')")
     public McpServer getMcpServer(long mcpServerId) {
         return mcpServerRepository.findById(mcpServerId)
             .orElseThrow(() -> new IllegalArgumentException("MCP server with id " + mcpServerId + " not found"));
@@ -128,31 +128,7 @@ public class McpServerServiceImpl implements McpServerService {
     }
 
     @Override
-    @PreAuthorize("isTenantAdmin()")
-    public McpServer rotateSecretKey(long mcpServerId) {
-        McpServer mcpServer = mcpServerRepository.findById(mcpServerId)
-            .orElseThrow(() -> new IllegalArgumentException("MCP server with id " + mcpServerId + " not found"));
-
-        mcpServer.setSecretKey(String.valueOf(TenantKey.of()));
-
-        return mcpServerRepository.save(mcpServer);
-    }
-
-    private void checkAuthenticationRequiredForEnforcement(McpServer mcpServer) {
-        if (!mcpServer.isAuthenticationRequired() && mcpServer.isEnforceToolAuthorization()) {
-            throw new IllegalArgumentException(
-                "enforceToolAuthorization requires authenticationRequired to be enabled");
-        }
-    }
-
-    private void checkEnablement(long mcpServerId) {
-        for (McpServerEnablementValidator mcpServerEnablementValidator : mcpServerEnablementValidators) {
-            mcpServerEnablementValidator.validateEnablement(mcpServerId);
-        }
-    }
-
-    @Override
-    @PreAuthorize("hasPermission(#id, 'McpServer', 'MCP_EDIT')")
+    @PreAuthorize("hasPermission(#id, 'McpServer:ResourceRole', 'EDITOR')")
     public McpServer update(long id, String name, Boolean enabled) {
         return update(id, name, enabled, null, null);
     }
