@@ -76,22 +76,7 @@ public class WorkspaceMcpServerFacadeImpl implements WorkspaceMcpServerFacade {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'MCP_VIEW')")
-    public List<McpProject> getWorkspaceMcpProjects(Long workspaceId) {
-        Set<Long> mcpServerIds = workspaceMcpServerService.getWorkspaceMcpServers(workspaceId)
-            .stream()
-            .map(WorkspaceMcpServer::getMcpServerId)
-            .collect(Collectors.toSet());
-
-        return mcpServerIds.stream()
-            .flatMap(mcpServerId -> mcpProjectService.getMcpServerMcpProjects(mcpServerId)
-                .stream())
-            .toList();
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'MCP_VIEW')")
+    @PreAuthorize("hasPermission(#workspaceId, 'WorkspaceRole', 'VIEWER')")
     public List<McpServer> getWorkspaceMcpServers(Long workspaceId) {
         List<WorkspaceMcpServer> workspaceMcpServers = workspaceMcpServerService.getWorkspaceMcpServers(workspaceId);
 
@@ -101,15 +86,9 @@ public class WorkspaceMcpServerFacadeImpl implements WorkspaceMcpServerFacade {
     }
 
     @Override
-    @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'MCP_VIEW')")
-    public List<Tag> getWorkspaceMcpServerTags(Long workspaceId) {
-        List<Long> tagIds = workspaceMcpServerService.getWorkspaceMcpServers(workspaceId)
-            .stream()
-            .map(workspaceMcpServer -> mcpServerService.getMcpServer(workspaceMcpServer.getMcpServerId()))
-            .flatMap(mcpServer -> CollectionUtils.stream(mcpServer.getTagIds()))
-            .distinct()
-            .toList();
+    @PreAuthorize("hasPermission(#workspaceId, 'WorkspaceRole', 'EDITOR')")
+    public McpServer createWorkspaceMcpServer(
+        String name, PlatformType type, Environment environment, Boolean enabled, Long workspaceId) {
 
         if (tagIds.isEmpty()) {
             return List.of();
@@ -146,23 +125,7 @@ public class WorkspaceMcpServerFacadeImpl implements WorkspaceMcpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_EDIT')")
-    public McpServer updateWorkspaceMcpServer(Long mcpServerId, String name, Boolean enabled) {
-        return mcpServerService.update(mcpServerId, name, enabled);
-    }
-
-    @Override
-    @PreAuthorize("hasPermission(#mcpToolId, 'McpTool', 'MCP_EDIT')")
-    public McpTool updateWorkspaceMcpToolEnabled(long mcpToolId, boolean enabled) {
-        getAutomationMcpTool(mcpToolId);
-
-        mcpToolService.updateEnabled(mcpToolId, enabled);
-
-        return getAutomationMcpTool(mcpToolId);
-    }
-
-    @Override
-    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_EDIT')")
+    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer:ResourceRole', 'EDITOR')")
     public void deleteWorkspaceMcpServer(Long mcpServerId) {
         for (McpProject mcpProject : mcpProjectService.getMcpServerMcpProjects(mcpServerId)) {
             mcpProjectFacade.deleteMcpProject(mcpProject.getId());
