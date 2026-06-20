@@ -44,7 +44,7 @@ const AutomationWorkflow = () => {
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
-    const connectionTagsQueryResult = useGetConnectionTagsQuery();
+    const connectionTagsQueryResult = useGetConnectionTagsQuery(currentWorkspaceId!);
 
     const {setWorkflow, workflow} = useWorkflowDataStore(
         useShallow((state) => ({
@@ -180,6 +180,7 @@ const AutomationWorkflow = () => {
                                 value={{
                                     ConnectionKeys: ConnectionKeys,
                                     cancelWorkflowQueries,
+                                    connectionTagsQueryKey: ConnectionKeys.connectionTags(currentWorkspaceId!),
                                     deleteClusterElementParameterMutation,
                                     deleteWorkflowNodeParameterMutation,
                                     invalidateWorkflowQueries,

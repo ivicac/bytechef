@@ -86,6 +86,7 @@ const WorkflowBuilder = () => {
                             value={{
                                 ConnectionKeys: ConnectionKeys,
                                 cancelWorkflowQueries,
+                                connectionTagsQueryKey: ConnectionKeys.connectionTags,
                                 deleteClusterElementParameterMutation,
                                 deleteWorkflowNodeParameterMutation,
                                 invalidateWorkflowQueries,
