@@ -67,6 +67,7 @@ const AssetFiles = lazy(() => import('@/pages/automation/asset-files/AssetFiles'
 const AiHub = lazy(() => import('@/pages/automation/ai-hub/AiHub'));
 const ContextStoreSources = lazy(() => import('@/pages/automation/context-store/ContextStoreSources'));
 const ContextStores = lazy(() => import('@/pages/automation/context-store/ContextStores'));
+const AiAutoMemoriesPage = lazy(() => import('@/pages/automation/ai/memories/Memories'));
 const AiHubPersonalAgentsPage = lazy(() => import('@/pages/automation/ai-hub/personal-agents/AiHubPersonalAgents'));
 const AiHubPersonalAgentFormPage = lazy(
     () => import('@/pages/automation/ai-hub/personal-agents/AiHubPersonalAgentForm')
@@ -96,6 +97,7 @@ const IdentityProvidersPage = lazy(
 const AutomationWorkflows = lazy(() => import('@/ee/pages/embedded/automation-workflows/AutomationWorkflows'));
 const AutomationWorkflow = lazy(() => import('@/ee/pages/embedded/automation-workflow/AutomationWorkflow'));
 const ConnectedUsers = lazy(() => import('@/ee/pages/embedded/connected-users/ConnectedUsers'));
+const ComponentPolicies = lazy(() => import('@/ee/pages/settings/platform/component-policies/ComponentPolicies'));
 const CustomComponents = lazy(() => import('@/ee/pages/settings/platform/custom-components/CustomComponents'));
 const EmbeddedConnections = lazy(() =>
     import('@/ee/pages/embedded/connections/Connections').then((module) => ({default: module.Connections}))
@@ -334,6 +336,18 @@ const platformSettingsRoutes = {
                 <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                     <EEVersion>
                         <LazyLoadWrapper>
+                            <ComponentPolicies />
+                        </LazyLoadWrapper>
+                    </EEVersion>
+                </PrivateRoute>
+            ),
+            path: 'component-policies',
+        },
+        {
+            element: (
+                <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                    <EEVersion>
+                        <LazyLoadWrapper>
                             <CustomComponents />
                         </LazyLoadWrapper>
                     </EEVersion>
@@ -486,6 +500,10 @@ const platformSettingsRoutes = {
         {
             href: 'mcp-server',
             title: 'MCP Server',
+        },
+        {
+            href: 'component-policies',
+            title: 'Component Policies',
         },
         {
             href: 'custom-components',
@@ -916,6 +934,18 @@ export const getRouter = (queryClient: QueryClient) =>
                                         </PrivateRoute>
                                     ),
                                     path: 'ai-hub/tasks/:taskId',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <AiAutoMemoriesPage />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'ai/memories',
                                 },
                                 {
                                     element: (
