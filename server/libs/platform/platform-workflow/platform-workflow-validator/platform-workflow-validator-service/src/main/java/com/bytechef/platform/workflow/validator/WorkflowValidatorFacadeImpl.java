@@ -64,6 +64,7 @@ import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.JsonNode;
@@ -177,6 +178,7 @@ public class WorkflowValidatorFacadeImpl implements WorkflowValidatorFacade {
     }
 
     @Override
+    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
     public WorkflowValidationResult validateWorkflowById(String workflowId) {
         return validateWorkflowById(workflowId, Environment.DEVELOPMENT.ordinal());
     }
