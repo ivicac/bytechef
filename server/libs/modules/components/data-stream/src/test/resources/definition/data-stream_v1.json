@@ -18,6 +18,7 @@
     "processErrorResponse": null,
     "properties": [ ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Stream Data",
     "workflowNodeDescription": null
   } ],
