@@ -22,6 +22,7 @@ import com.bytechef.jdbc.config.AuditingJdbcConfiguration;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
 import com.bytechef.platform.mail.MailService;
 import com.bytechef.tenant.service.TenantService;
+import com.bytechef.tenant.single.SingleTenantService;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import org.mockito.Mockito;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
@@ -65,6 +66,6 @@ public class UserIntTestConfiguration extends AbstractJdbcConfiguration {
 
     @Bean
     TenantService tenantService() {
-        return Mockito.mock(TenantService.class);
+        return new SingleTenantService();
     }
 }
