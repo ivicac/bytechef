@@ -35,6 +35,7 @@ import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.facade.ComponentConnectionFacade;
+import com.bytechef.platform.configuration.facade.WebhookTriggerTestFacade;
 import com.bytechef.platform.configuration.facade.WorkflowFacade;
 import com.bytechef.platform.configuration.facade.WorkflowFacadeImpl;
 import com.bytechef.platform.file.storage.SharedTemplateFileStorage;
@@ -106,6 +107,11 @@ public class ProjectIntTestConfiguration {
             });
 
         return sharedTemplateFileStorage;
+    }
+
+    @Bean
+    WebhookTriggerTestFacade webhookTriggerTestFacade() {
+        return mock(WebhookTriggerTestFacade.class);
     }
 
     @Bean
