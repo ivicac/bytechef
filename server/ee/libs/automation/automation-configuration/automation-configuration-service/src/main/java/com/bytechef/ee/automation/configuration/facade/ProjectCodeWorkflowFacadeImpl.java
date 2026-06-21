@@ -61,6 +61,11 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
         this.projectCodeWorkflowService = projectCodeWorkflowService;
     }
 
+    /**
+     * Deploying a code workflow loads and executes the uploaded artifact (a JAR or polyglot script) on the server, so
+     * it is restricted to administrators. The guard lives here on the facade so it protects every caller, not only the
+     * REST entry point.
+     */
     @Override
     @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
     public void save(long workspaceId, byte[] bytes, Language language) {
