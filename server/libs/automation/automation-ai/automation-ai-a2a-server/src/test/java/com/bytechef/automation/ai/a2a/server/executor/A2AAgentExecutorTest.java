@@ -510,10 +510,10 @@ class A2AAgentExecutorTest {
         when(jobCompletionAwaiter.await(anyLong(), any())).thenReturn(jobFuture);
 
         A2AAgentRun agentRun =
-            TenantContext.callWithTenantId("tenant-1", () -> threadedA2AAgentExecutor.start(request(null)));
+            TenantContext.callWithTenantId("tenant_1", () -> threadedA2AAgentExecutor.start(request(null)));
 
         Thread brokerThread = new Thread(
-            () -> TenantContext.runWithTenantId("tenant-2", () -> jobFuture.complete(job)), "broker-thread");
+            () -> TenantContext.runWithTenantId("tenant_2", () -> jobFuture.complete(job)), "broker-thread");
 
         brokerThread.start();
         brokerThread.join();
@@ -521,7 +521,7 @@ class A2AAgentExecutorTest {
         assertThat(agentRun.result()
             .join()).isInstanceOfSatisfying(
                 Completed.class, completed -> assertThat(completed.text()).isEqualTo("{\"answer\":42}"));
-        assertThat(readingTenantId.get()).isEqualTo("tenant-1");
+        assertThat(readingTenantId.get()).isEqualTo("tenant_1");
         assertThat(readingThreadName.get()).isEqualTo("a2a-run-completion-test");
     }
 
