@@ -37,6 +37,7 @@ import com.bytechef.platform.notification.delivery.WebhookRetry;
 import java.time.Duration;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -73,7 +74,7 @@ class WebhookTaskStartedApplicationEventListenerIntTest {
         jdbcTemplate.update("DELETE FROM task_execution");
         jdbcTemplate.update("DELETE FROM job");
 
-        listener = new WebhookTaskStartedApplicationEventListener(jobService, webhookDeliveryService);
+        listener = new WebhookTaskStartedApplicationEventListener(jobService, webhookDeliveryService, false, Set.of());
 
         when(webhookDeliveryService.submit(any())).thenReturn(new CompletableFuture<>());
     }

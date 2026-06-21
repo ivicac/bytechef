@@ -46,7 +46,8 @@ import com.bytechef.tenant.service.TenantService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Optional;
-import org.springframework.beans.factory.ObjectProvider;
+import java.util.Set;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
@@ -93,9 +94,10 @@ public class PlatformCoordinatorConfiguration {
 
     @Bean
     WebhookTaskStartedApplicationEventListener taskStartedWebhookEventListener(
-        WebhookDeliveryService webhookDeliveryService) {
+        @Value("${bytechef.security.ssrf.enabled:true}") boolean ssrfEnabled,
+        @Value("${bytechef.security.ssrf.allowed-hosts:}") Set<String> ssrfAllowedHosts) {
 
-        return new WebhookTaskStartedApplicationEventListener(jobService, webhookDeliveryService);
+        return new WebhookTaskStartedApplicationEventListener(jobService, ssrfEnabled, ssrfAllowedHosts);
     }
 
     @Bean

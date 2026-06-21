@@ -25,10 +25,12 @@ import com.bytechef.atlas.coordinator.event.listener.ApplicationEventListener;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.commons.util.JsonUtils;
+import com.bytechef.commons.util.UrlValidator;
 import com.bytechef.platform.notification.delivery.WebhookDelivery;
 import com.bytechef.platform.notification.delivery.WebhookDeliveryService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
+import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -42,13 +44,18 @@ public class WebhookTaskStartedApplicationEventListener implements ApplicationEv
     private static final Logger log = LoggerFactory.getLogger(WebhookTaskStartedApplicationEventListener.class);
 
     private final JobService jobService;
+    private final boolean ssrfEnabled;
+    private final Set<String> ssrfAllowedHosts;
     private final WebhookDeliveryService webhookDeliveryService;
 
     @SuppressFBWarnings("EI2")
     public WebhookTaskStartedApplicationEventListener(
-        JobService jobService, WebhookDeliveryService webhookDeliveryService) {
+        JobService jobService, WebhookDeliveryService webhookDeliveryService, boolean ssrfEnabled,
+        Set<String> ssrfAllowedHosts) {
 
         this.jobService = jobService;
+        this.ssrfEnabled = ssrfEnabled;
+        this.ssrfAllowedHosts = ssrfAllowedHosts;
         this.webhookDeliveryService = webhookDeliveryService;
     }
 
@@ -67,6 +74,12 @@ public class WebhookTaskStartedApplicationEventListener implements ApplicationEv
 
             for (Job.Webhook webhook : job.getWebhooks()) {
                 if (TaskStartedApplicationEvent.TASK_STARTED.equals(webhook.type())) {
+                    if (!isAllowedWebhookUrl(webhook.url())) {
+                        log.warn("Skipping webhook delivery to disallowed url={}", webhook.url());
+
+                        continue;
+                    }
+
                     Map<String, Object> webhookEvent = webhook.toMap();
 
                     webhookEvent.put(WorkflowConstants.EVENT, taskStartedApplicationEvent);
@@ -89,5 +102,9 @@ public class WebhookTaskStartedApplicationEventListener implements ApplicationEv
                 }
             }
         }
+    }
+
+    boolean isAllowedWebhookUrl(String url) {
+        return !ssrfEnabled || UrlValidator.isValid(url, ssrfAllowedHosts);
     }
 }
