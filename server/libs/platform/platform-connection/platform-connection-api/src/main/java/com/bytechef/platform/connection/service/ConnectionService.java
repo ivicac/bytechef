@@ -41,14 +41,6 @@ public interface ConnectionService {
 
     Connection getConnection(long id);
 
-    /**
-     * Returns the connection, or empty when no connection has that id.
-     *
-     * <p>
-     * The {@link Optional} counterpart to {@link #getConnection(long)}, for callers where absence is an expected answer
-     * rather than an error — an authorization check, for instance, must treat "does not exist" and "not yours"
-     * identically, and cannot do that if the two arrive as an exception and a boolean.
-     */
     Optional<Connection> fetchConnection(long id);
 
     List<Connection> getConnections(PlatformType type);
@@ -61,6 +53,15 @@ public interface ConnectionService {
         String componentName, Integer connectionVersion, Long tagId, Long environmentId, PlatformType type);
 
     List<Connection> getConnections(List<Long> connectionIds);
+
+    /**
+     * Returns the read-only, system-managed AI-provider connections projected from enabled AI providers (see
+     * {@link com.bytechef.platform.connection.repository.AiProviderConnectionRepository}). These are
+     * platform/environment-scoped, carry negative ids, and are always {@code AUTOMATION} + {@code managed=true}.
+     * Returns an empty list when no projector is registered.
+     */
+    List<Connection> getAiProviderConnections(
+        @Nullable String componentName, @Nullable Integer connectionVersion, @Nullable Integer environmentId);
 
     Connection update(long id, List<Long> tagIds);
 
@@ -96,4 +97,5 @@ public interface ConnectionService {
     List<Connection> getInactiveConnections(List<Long> connectionIds);
 
     void validateConnectionsActive(List<Long> connectionIds);
+
 }

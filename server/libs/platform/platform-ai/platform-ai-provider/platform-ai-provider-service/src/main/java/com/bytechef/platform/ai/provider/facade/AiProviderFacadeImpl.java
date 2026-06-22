@@ -34,6 +34,7 @@ import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Property;
 import com.bytechef.platform.configuration.domain.Property.Scope;
 import com.bytechef.platform.configuration.service.PropertyService;
+import com.bytechef.platform.connection.aiprovider.AiProviderConnectionSource;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Arrays;
@@ -54,6 +55,7 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AiProviderFacadeImpl implements AiProviderFacade {
 
+    private final AiProviderConnectionSource aiProviderConnectionSource;
     private final ComponentDefinitionService componentDefinitionService;
     private final OllamaModelClient ollamaModelClient;
     private final PropertyService propertyService;
@@ -61,9 +63,11 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
 
     @SuppressFBWarnings("EI")
     public AiProviderFacadeImpl(
+        AiProviderConnectionSource aiProviderConnectionSource,
         ComponentDefinitionService componentDefinitionService, OllamaModelClient ollamaModelClient,
         PropertyService propertyService, ApplicationProperties applicationProperties) {
 
+        this.aiProviderConnectionSource = aiProviderConnectionSource;
         this.componentDefinitionService = componentDefinitionService;
         this.ollamaModelClient = ollamaModelClient;
         this.propertyService = propertyService;
@@ -118,8 +122,10 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
                     .findFirst()
                     .orElse(null);
 
-                boolean enabled =
-                    property != null ? property.isEnabled() : isConfiguredInApplicationProperties(provider);
+                boolean enabled = aiProviderConnectionSource.getSupportedProviders()
+                    .contains(provider)
+                        ? aiProviderConnectionSource.isEnabled(provider, environment)
+                        : property != null ? property.isEnabled() : isConfiguredInApplicationProperties(provider);
 
                 List<AiProviderCatalogItemDTO.Model> models = enabled && provider == Provider.OLLAMA
                     ? readOllamaChatModels(componentDefinition, environment)

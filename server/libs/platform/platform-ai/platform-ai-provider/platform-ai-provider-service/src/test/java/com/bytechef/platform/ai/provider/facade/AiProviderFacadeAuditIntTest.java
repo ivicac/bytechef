@@ -33,6 +33,7 @@ import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Property.Scope;
 import com.bytechef.platform.configuration.repository.PropertyRepository;
 import com.bytechef.platform.configuration.service.PropertyService;
+import com.bytechef.platform.connection.aiprovider.AiProviderConnectionSource;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import java.util.List;
 import java.util.Map;
@@ -71,6 +72,9 @@ class AiProviderFacadeAuditIntTest {
     private static final String ADMIN_LOGIN = "admin";
     private static final int ENVIRONMENT = 0;
     private static final String SECRET_URL = "https://user:pw@ollama.example.com:8443/api?token=t#f";
+
+    @MockitoBean
+    private AiProviderConnectionSource aiProviderConnectionSource;
 
     @Autowired
     private AiProviderFacade aiProviderFacade;

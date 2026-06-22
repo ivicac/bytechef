@@ -32,6 +32,7 @@ import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Property;
 import com.bytechef.platform.configuration.domain.Property.Scope;
 import com.bytechef.platform.configuration.service.PropertyService;
+import com.bytechef.platform.connection.aiprovider.AiProviderConnectionSource;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
@@ -63,8 +64,14 @@ class AiProviderFacadeDefaultModelTest {
     void setUp() {
         applicationProperties = mock(ApplicationProperties.class, RETURNS_DEEP_STUBS);
 
+        AiProviderConnectionSource aiProviderConnectionSource = mock(AiProviderConnectionSource.class);
+
+        lenient().when(aiProviderConnectionSource.getSupportedProviders())
+            .thenReturn(List.of());
+
         facade = new AiProviderFacadeImpl(
-            componentDefinitionService, mock(OllamaModelClient.class), propertyService, applicationProperties);
+            aiProviderConnectionSource, componentDefinitionService, mock(OllamaModelClient.class), propertyService,
+            applicationProperties);
     }
 
     @Test
