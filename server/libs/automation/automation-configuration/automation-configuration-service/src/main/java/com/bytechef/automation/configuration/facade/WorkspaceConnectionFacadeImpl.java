@@ -250,17 +250,20 @@ public class WorkspaceConnectionFacadeImpl implements WorkspaceConnectionFacade 
         List<Long> connectionIds = CollectionUtils.map(
             workspaceConnectionService.getWorkspaceConnections(workspaceId), WorkspaceConnection::getConnectionId);
 
-        if (connectionIds.isEmpty()) {
-            return List.of();
-        }
+        List<ConnectionDTO> workspaceConnections = connectionIds.isEmpty()
+            ? List.of()
+            : connectionVisibilityResolver.filterVisible(
+                connectionFacade.getConnections(
+                    componentName, connectionVersion, connectionIds, tagId, environmentId, PlatformType.AUTOMATION),
+                workspaceId);
 
-        List<ConnectionDTO> allConnections = connectionFacade.getConnections(
-            componentName, connectionVersion, connectionIds, tagId, environmentId, PlatformType.AUTOMATION);
+        // AI-provider connections are platform/environment-scoped and system-managed: they are not in the
+        // workspace_connection join table and bypass visibility resolution, so they surface as read-only,
+        // non-deletable connections in every workspace (CE and EE).
+        List<ConnectionDTO> aiProviderConnections = connectionFacade.getAiProviderConnections(
+            componentName, connectionVersion, environmentId, tagId);
 
-        // The visibility-scoping decision is edition-specific: CE resolves PRIVATE-only (creator/admin), EE the full
-        // WORKSPACE / ORGANIZATION model. Delegated to the ConnectionVisibilityResolver SPI so no EE-licensed
-        // visibility logic lives in this CE facade.
-        return connectionVisibilityResolver.filterVisible(allConnections, workspaceId);
+        return CollectionUtils.concat(workspaceConnections, aiProviderConnections);
     }
 
     /**
