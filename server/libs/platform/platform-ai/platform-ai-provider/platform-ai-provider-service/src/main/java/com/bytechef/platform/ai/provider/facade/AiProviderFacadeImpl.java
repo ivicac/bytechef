@@ -29,6 +29,7 @@ import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Property;
 import com.bytechef.platform.configuration.domain.Property.Scope;
 import com.bytechef.platform.configuration.service.PropertyService;
+import com.bytechef.platform.connection.aiprovider.AiProviderConnectionSource;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Arrays;
@@ -48,15 +49,18 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class AiProviderFacadeImpl implements AiProviderFacade {
 
+    private final AiProviderConnectionSource aiProviderConnectionSource;
     private final ComponentDefinitionService componentDefinitionService;
     private final PropertyService propertyService;
     private final ApplicationProperties applicationProperties;
 
     @SuppressFBWarnings("EI")
     public AiProviderFacadeImpl(
+        AiProviderConnectionSource aiProviderConnectionSource,
         ComponentDefinitionService componentDefinitionService, PropertyService propertyService,
         ApplicationProperties applicationProperties) {
 
+        this.aiProviderConnectionSource = aiProviderConnectionSource;
         this.componentDefinitionService = componentDefinitionService;
         this.propertyService = propertyService;
         this.applicationProperties = applicationProperties;
@@ -104,7 +108,10 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
                     .findFirst()
                     .orElse(null);
 
-                boolean enabled = property != null ? property.isEnabled() : hasConfigApiKey(provider);
+                boolean enabled = aiProviderConnectionSource.getSupportedProviders()
+                    .contains(provider)
+                        ? aiProviderConnectionSource.isEnabled(provider, environment)
+                        : ((property != null && property.isEnabled()) || hasConfigApiKey(provider));
 
                 List<AiProviderCatalogItemDTO.Model> models = readChatModels(componentDefinition);
 
@@ -148,7 +155,6 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
     }
 
     @Override
-    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
     @Transactional(readOnly = true)
     public AiDefaultModelWithApiKeyDTO getAiDefaultChatModelApiKey(int environmentId) {
         return resolveWithApiKey(getAiDefaultChatModel(environmentId), environmentId);
