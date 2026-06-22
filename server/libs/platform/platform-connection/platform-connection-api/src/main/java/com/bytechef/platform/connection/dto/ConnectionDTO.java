@@ -39,9 +39,13 @@ public record ConnectionDTO(
     String baseUri, String componentName, Map<String, ?> connectionParameters, int connectionVersion, String createdBy,
     Instant createdDate, CredentialStatus credentialStatus, @Nullable CredentialStoreType credentialStoreType,
     int environmentId, Long id, String lastModifiedBy, Instant lastModifiedDate, String name, Map<String, ?> parameters,
-    ConnectionStatus status, List<Tag> tags, int version, ResourceVisibility visibility) {
+    ConnectionStatus status, List<Tag> tags, int version, ResourceVisibility visibility, boolean managed) {
 
     public ConnectionDTO {
+        // status and visibility are load-bearing for authorization and audit; null here would cascade
+        // into silent defaults downstream (e.g. ConnectionFacadeImpl persists whatever visibility the
+        // DTO carries). The Builder supplies safe defaults (ACTIVE / PRIVATE); direct canonical-ctor
+        // callers must explicitly pick a value.
         Objects.requireNonNull(status, "status");
         Objects.requireNonNull(visibility, "visibility");
     }
@@ -49,13 +53,15 @@ public record ConnectionDTO(
     public ConnectionDTO(
         boolean active, Map<String, ?> authorizationParameters, String baseUri, Connection connection,
         Map<String, ?> connectionParameters, List<Tag> tags) {
+
         this(
             active, connection.getAuthorizationType(), authorizationParameters, baseUri, connection.getComponentName(),
             connectionParameters, connection.getConnectionVersion(), connection.getCreatedBy(),
             connection.getCreatedDate(), connection.getCredentialStatus(), connection.getCredentialStoreType(),
             connection.getEnvironmentId(), connection.getId(), connection.getLastModifiedBy(),
             connection.getLastModifiedDate(), connection.getName(), connection.getParameters(),
-            connection.getStatus(), tags, connection.getVersion(), connection.getVisibility());
+            connection.getStatus(), tags, connection.getVersion(), connection.getVisibility(),
+            connection.isManaged());
     }
 
     public Connection toConnection() {
@@ -85,6 +91,11 @@ public record ConnectionDTO(
         return new Builder();
     }
 
+    /**
+     * Seeds a new {@link Builder} from every component of {@code connectionDTO}. Prefer this over open-coding the
+     * canonical constructor when only a subset of fields needs to change on an existing {@link ConnectionDTO} — a
+     * positional record construction rots the moment a new component is added.
+     */
     public static Builder builder(ConnectionDTO connectionDTO) {
         Builder builder = new Builder();
 
@@ -98,15 +109,18 @@ public record ConnectionDTO(
         builder.createdBy = connectionDTO.createdBy();
         builder.createdDate = connectionDTO.createdDate();
         builder.credentialStatus = connectionDTO.credentialStatus();
+        builder.credentialStoreType = connectionDTO.credentialStoreType();
         builder.environmentId = connectionDTO.environmentId();
         builder.id = connectionDTO.id();
         builder.lastModifiedBy = connectionDTO.lastModifiedBy();
         builder.lastModifiedDate = connectionDTO.lastModifiedDate();
+        builder.managed = connectionDTO.managed();
         builder.name = connectionDTO.name();
         builder.parameters = connectionDTO.parameters();
         builder.status = connectionDTO.status();
         builder.tags = connectionDTO.tags();
         builder.version = connectionDTO.version();
+        builder.visibility = connectionDTO.visibility();
 
         return builder;
     }
@@ -127,6 +141,7 @@ public record ConnectionDTO(
         private Long id;
         private String lastModifiedBy;
         private Instant lastModifiedDate;
+        private boolean managed;
         private String name;
         private Map<String, ?> parameters;
         private ConnectionStatus status = ConnectionStatus.ACTIVE;
@@ -227,6 +242,12 @@ public record ConnectionDTO(
             return this;
         }
 
+        public Builder managed(boolean managed) {
+            this.managed = managed;
+
+            return this;
+        }
+
         public Builder name(String name) {
             this.name = name;
 
@@ -267,7 +288,7 @@ public record ConnectionDTO(
             return new ConnectionDTO(
                 active, authorizationType, authorizationParameters, baseUri, componentName, connectionParameters,
                 connectionVersion, createdBy, createdDate, credentialStatus, credentialStoreType, environmentId, id,
-                lastModifiedBy, lastModifiedDate, name, parameters, status, tags, version, visibility);
+                lastModifiedBy, lastModifiedDate, name, parameters, status, tags, version, visibility, managed);
         }
     }
 }

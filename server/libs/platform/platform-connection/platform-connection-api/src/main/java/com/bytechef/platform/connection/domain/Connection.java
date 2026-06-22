@@ -105,6 +105,9 @@ public final class Connection implements CredentialSecret {
     @Transient
     private boolean credentialStatusUpdated;
 
+    @Transient
+    private boolean managed;
+
     @Column("parameters")
     private EncryptedMapWrapper parameters;
 
@@ -123,7 +126,6 @@ public final class Connection implements CredentialSecret {
     public Connection() {
         this.parameters = new EncryptedMapWrapper(Collections.emptyMap());
         this.status = ConnectionStatus.ACTIVE.ordinal();
-        this.visibility = ResourceVisibility.PRIVATE.ordinal();
     }
 
     public static Builder builder() {
@@ -286,13 +288,6 @@ public final class Connection implements CredentialSecret {
         this.componentName = componentName;
     }
 
-    /**
-     * Overrides the auditing-populated creator login. Only the reassignment flow should call this directly; Spring Data
-     * auditing populates {@code createdBy} automatically for normal creates. Callers must also transition the
-     * connection's status (e.g. via {@code ConnectionService#updateConnectionStatus}) so that provenance and status
-     * stay in sync — otherwise a successful reassignment leaves {@code PENDING_REASSIGNMENT} in place and an operator
-     * cannot tell the flow completed.
-     */
     public void setCreatedBy(String createdBy) {
         this.createdBy = createdBy;
     }
@@ -360,6 +355,14 @@ public final class Connection implements CredentialSecret {
 
     public boolean isCredentialsStatusUpdated() {
         return credentialStatusUpdated;
+    }
+
+    public boolean isManaged() {
+        return managed;
+    }
+
+    public void setManaged(boolean managed) {
+        this.managed = managed;
     }
 
     public void setName(String name) {

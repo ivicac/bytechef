@@ -21,10 +21,12 @@ import com.bytechef.commons.util.FormatUtils;
 import com.bytechef.commons.util.OptionalUtils;
 import com.bytechef.component.definition.Authorization.AuthorizationType;
 import com.bytechef.exception.ConfigurationException;
+import com.bytechef.platform.connection.domain.AiProviderConnectionId;
 import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.domain.Connection.CredentialStatus;
 import com.bytechef.platform.connection.domain.ConnectionStatus;
 import com.bytechef.platform.connection.exception.ConnectionErrorType;
+import com.bytechef.platform.connection.repository.AiProviderConnectionRepository;
 import com.bytechef.platform.connection.repository.ConnectionRepository;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.credential.store.CredentialStore;
@@ -34,6 +36,8 @@ import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.platform.security.util.SecurityUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -43,6 +47,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
@@ -59,11 +64,16 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     private final List<CredentialStore> credentialStores;
     private final ConnectionRepository connectionRepository;
+    private final ObjectProvider<AiProviderConnectionRepository> aiProviderConnectionRepositoryProvider;
 
     @SuppressFBWarnings("EI2")
-    public ConnectionServiceImpl(List<CredentialStore> credentialStores, ConnectionRepository connectionRepository) {
+    public ConnectionServiceImpl(
+        List<CredentialStore> credentialStores, ConnectionRepository connectionRepository,
+        ObjectProvider<AiProviderConnectionRepository> aiProviderConnectionRepositoryProvider) {
+
         this.credentialStores = credentialStores;
         this.connectionRepository = connectionRepository;
+        this.aiProviderConnectionRepositoryProvider = aiProviderConnectionRepositoryProvider;
     }
 
     @Override
@@ -116,6 +126,8 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     public void delete(long id) {
+        rejectIfAiProviderConnection(id);
+
         Connection connection = connectionRepository.findById(id)
             .orElseThrow(() -> new NoSuchElementException("Connection not found: " + id));
 
@@ -135,6 +147,15 @@ public class ConnectionServiceImpl implements ConnectionService {
     @Override
     @Transactional(readOnly = true)
     public Connection getConnection(long id) {
+        if (AiProviderConnectionId.isAiProviderConnectionId(id)) {
+            AiProviderConnectionRepository repository = aiProviderConnectionRepository();
+
+            if (repository != null) {
+                return repository.findById(id)
+                    .orElseThrow(() -> new NoSuchElementException("Connection does not exist for id=" + id));
+            }
+        }
+
         return populateParameters(
             OptionalUtils.get(connectionRepository.findById(id), "Connection does not exist for id=" + id));
     }
@@ -155,9 +176,11 @@ public class ConnectionServiceImpl implements ConnectionService {
     @Override
     @Transactional(readOnly = true)
     public List<Connection> getConnections(PlatformType type) {
-        return populateAll(
+        List<Connection> connections = populateAll(
             CollectionUtils.filter(
                 connectionRepository.findAll(Sort.by("name", "id")), connection -> connection.getType() == type));
+
+        return mergeByName(connections, projectedConnections(type, null, null, null));
     }
 
     @Override
@@ -169,9 +192,11 @@ public class ConnectionServiceImpl implements ConnectionService {
     @Override
     @Transactional(readOnly = true)
     public List<Connection> getConnections(String componentName, int version, PlatformType type) {
-        return populateAll(
+        List<Connection> connections = populateAll(
             connectionRepository.findAllByComponentNameAndConnectionVersionAndTypeOrderByName(
                 componentName, version, type.ordinal()));
+
+        return mergeByName(connections, projectedConnections(type, componentName, version, null));
     }
 
     @Override
@@ -208,12 +233,48 @@ public class ConnectionServiceImpl implements ConnectionService {
                 .toList();
         }
 
-        return populateAll(CollectionUtils.toList(connections));
+        List<Connection> result = populateAll(CollectionUtils.toList(connections));
+
+        if (tagId != null) {
+            return result;
+        }
+
+        return mergeByName(result, projectedConnections(type, componentName, connectionVersion, environmentId));
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<Connection> getAiProviderConnections(
+        String componentName, Integer connectionVersion, Integer environmentId) {
+
+        AiProviderConnectionRepository repository = aiProviderConnectionRepository();
+
+        if (repository == null) {
+            return List.of();
+        }
+
+        return repository.find(componentName, connectionVersion, environmentId);
     }
 
     @Override
     public List<Connection> getConnections(List<Long> connectionIds) {
-        return populateAll(connectionRepository.findAllByIdIn(connectionIds));
+        List<Long> realIds = connectionIds.stream()
+            .filter(id -> id != null && !AiProviderConnectionId.isAiProviderConnectionId(id))
+            .toList();
+
+        List<Connection> connections = populateAll(connectionRepository.findAllByIdIn(realIds));
+
+        List<Long> virtualIds = connectionIds.stream()
+            .filter(id -> id != null && AiProviderConnectionId.isAiProviderConnectionId(id))
+            .toList();
+
+        AiProviderConnectionRepository repository = aiProviderConnectionRepository();
+
+        if (repository != null && !virtualIds.isEmpty()) {
+            return mergeByName(connections, repository.findAllByIdIn(virtualIds));
+        }
+
+        return connections;
     }
 
     @Override
@@ -239,6 +300,8 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     public Connection update(long id, List<Long> tagIds) {
+        rejectIfAiProviderConnection(id);
+
         Connection connection = getConnection(id);
 
         validateOwnerOrAdmin(connection);
@@ -256,6 +319,8 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     public Connection update(long id, String name, List<Long> tagIds, int version) {
+        rejectIfAiProviderConnection(id);
+
         Connection curConnection = getConnection(id);
 
         validateOwnerOrAdmin(curConnection);
@@ -281,6 +346,8 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     public Connection updateConnectionCredentialStatus(long connectionId, CredentialStatus status) {
+        rejectIfAiProviderConnection(connectionId);
+
         Assert.notNull(status, "'status' must not be null");
 
         Connection connection = getConnection(connectionId);
@@ -310,6 +377,8 @@ public class ConnectionServiceImpl implements ConnectionService {
         // cleared SecurityContext — a service-level ADMIN guard would throw AccessDeniedException
         // for the listener path and leave orphaned connections stuck in ACTIVE. Mirrors the
         // convention already applied to updateVisibility.
+        rejectIfAiProviderConnection(connectionId);
+
         Assert.notNull(status, "'status' must not be null");
 
         Connection connection = connectionRepository.findById(connectionId)
@@ -326,6 +395,8 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     public Connection updateCreatedBy(long id, String newCreatedBy) {
+        rejectIfAiProviderConnection(id);
+
         // No @PreAuthorize here by design — see updateConnectionStatus for the rationale. The
         // listener-driven reassignment path needs to run without an authenticated principal.
         Connection connection = connectionRepository.findById(id)
@@ -338,6 +409,8 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     public Connection updateVisibility(long id, ResourceVisibility visibility) {
+        rejectIfAiProviderConnection(id);
+
         // No @PreAuthorize here by design. The caller (WorkspaceConnectionFacadeImpl) performs the
         // admin-OR-creator check so the orphan-recovery demote path works when no admins remain.
         // A service-level ADMIN guard would block that flow even though the facade authorised it.
@@ -351,6 +424,8 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     public Connection updateConnectionParameters(long connectionId, Map<String, ?> parameters) {
+        rejectIfAiProviderConnection(connectionId);
+
         Assert.notNull(parameters, "'parameters' must not be null");
 
         Connection connection = getConnection(connectionId);
@@ -429,6 +504,46 @@ public class ConnectionServiceImpl implements ConnectionService {
             "Workflow execution blocked: %d non-ACTIVE connection(s): %s. Reassign or reactivate to resume."
                 .formatted(inactive.size(), detail),
             ConnectionErrorType.CONNECTION_NOT_ACTIVE);
+    }
+
+    @Nullable
+    private AiProviderConnectionRepository aiProviderConnectionRepository() {
+        return aiProviderConnectionRepositoryProvider.getIfAvailable();
+    }
+
+    private List<Connection> projectedConnections(
+        PlatformType type, @Nullable String componentName, @Nullable Integer connectionVersion,
+        @Nullable Long environmentId) {
+
+        AiProviderConnectionRepository repository = aiProviderConnectionRepository();
+
+        if (repository == null || type != PlatformType.AUTOMATION) {
+            return List.of();
+        }
+
+        return repository.find(
+            componentName, connectionVersion, environmentId == null ? null : environmentId.intValue());
+    }
+
+    private static List<Connection> mergeByName(List<Connection> connections, List<Connection> projected) {
+        if (projected.isEmpty()) {
+            return connections;
+        }
+
+        List<Connection> merged = new ArrayList<>(connections);
+
+        merged.addAll(projected);
+        merged.sort(Comparator.comparing(Connection::getName, String.CASE_INSENSITIVE_ORDER));
+
+        return merged;
+    }
+
+    private static void rejectIfAiProviderConnection(long id) {
+        if (AiProviderConnectionId.isAiProviderConnectionId(id)) {
+            throw new ConfigurationException(
+                "Connection id=%s is an AI provider connection and is read-only".formatted(id),
+                ConnectionErrorType.AI_PROVIDER_CONNECTION_READ_ONLY);
+        }
     }
 
     private CredentialStore getStore(CredentialStoreType type) {
