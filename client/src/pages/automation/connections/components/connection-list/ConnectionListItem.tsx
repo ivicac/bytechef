@@ -344,7 +344,9 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                                 )}
                             </div>
 
-                            <ConnectionListItemDropdownMenu onEditClick={() => setShowEditDialog(true)}>
+                            <ConnectionListItemDropdownMenu
+                                onEditClick={connection.managed ? undefined : () => setShowEditDialog(true)}
+                            >
                                 {connection.active === true && (
                                     <DropdownMenuItem
                                         icon={<Link2OffIcon />}
@@ -353,21 +355,23 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                                     />
                                 )}
 
-                                <div
-                                    title={
-                                        connection.active === true
-                                            ? 'Disconnect from all workflows first to enable deletion'
-                                            : 'Delete the connection'
-                                    }
-                                >
-                                    <DropdownMenuItem
-                                        disabled={connection.active}
-                                        icon={<Trash2Icon />}
-                                        label="Delete"
-                                        onClick={() => setShowDeleteDialog(true)}
-                                        variant="destructive"
-                                    />
-                                </div>
+                                {!connection.managed && (
+                                    <div
+                                        title={
+                                            connection.active === true
+                                                ? 'Disconnect from all workflows first to enable deletion'
+                                                : 'Delete the connection'
+                                        }
+                                    >
+                                        <DropdownMenuItem
+                                            disabled={connection.active}
+                                            icon={<Trash2Icon />}
+                                            label="Delete"
+                                            onClick={() => setShowDeleteDialog(true)}
+                                            variant="destructive"
+                                        />
+                                    </div>
+                                )}
                             </ConnectionListItemDropdownMenu>
                         </div>
                     </div>
