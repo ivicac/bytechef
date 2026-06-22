@@ -46,6 +46,12 @@ export interface ConnectionBase {
      */
     readonly active?: boolean;
     /**
+     * True when this connection is system-managed (e.g. an enabled AI provider) and cannot be edited or deleted.
+     * @type {boolean}
+     * @memberof ConnectionBase
+     */
+    readonly managed?: boolean;
+    /**
      * 
      */
     authorizationType?: AuthorizationType;
@@ -187,6 +193,7 @@ export function ConnectionBaseFromJSONTyped(json: any, ignoreDiscriminator: bool
     return {
         
         'active': json['active'] == null ? undefined : json['active'],
+        'managed': json['managed'] == null ? undefined : json['managed'],
         'authorizationType': json['authorizationType'] == null ? undefined : AuthorizationTypeFromJSON(json['authorizationType']),
         'authorizationParameters': json['authorizationParameters'] == null ? undefined : json['authorizationParameters'],
         'baseUri': json['baseUri'] == null ? undefined : json['baseUri'],
@@ -214,7 +221,7 @@ export function ConnectionBaseToJSON(json: any): ConnectionBase {
     return ConnectionBaseToJSONTyped(json, false);
 }
 
-export function ConnectionBaseToJSONTyped(value?: Omit<ConnectionBase, 'active'|'authorizationParameters'|'connectionParameters'|'createdBy'|'createdDate'|'id'|'lastModifiedBy'|'lastModifiedDate'|'status'> | null, ignoreDiscriminator: boolean = false): any {
+export function ConnectionBaseToJSONTyped(value?: Omit<ConnectionBase, 'active'|'managed'|'authorizationParameters'|'connectionParameters'|'createdBy'|'createdDate'|'id'|'lastModifiedBy'|'lastModifiedDate'|'status'> | null, ignoreDiscriminator: boolean = false): any {
     if (value == null) {
         return value;
     }
