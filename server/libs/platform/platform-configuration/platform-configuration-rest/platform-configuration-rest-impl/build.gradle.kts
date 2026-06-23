@@ -49,7 +49,6 @@ dependencies {
     implementation(project(":server:libs:platform:platform-security-web:platform-security-web-api"))
     implementation(project(":server:libs:platform:platform-tag:platform-tag-api"))
     implementation(project(":server:libs:platform:platform-tag:platform-tag-service"))
-    implementation(project(":server:libs:platform:platform-ai:platform-ai-stt-service"))
     implementation(project(":server:libs:platform:platform-webhook:platform-webhook-rest:platform-webhook-rest-api"))
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-test:platform-workflow-test-api"))
 
