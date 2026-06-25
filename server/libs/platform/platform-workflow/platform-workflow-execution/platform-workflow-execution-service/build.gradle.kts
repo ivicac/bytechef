@@ -11,6 +11,7 @@ dependencies {
     implementation(project(":server:libs:core:tenant:tenant-api"))
     implementation(project(":server:libs:platform:platform-component:platform-component-api"))
     implementation(project(":server:libs:platform:platform-scheduler:platform-scheduler-api"))
+    implementation(project(":server:libs:licence:licence-api"))
 
     testImplementation(project(":server:libs:test:test-support"))
     testImplementation(project(":server:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-token-service"))
