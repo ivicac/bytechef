@@ -99,6 +99,7 @@ const IntegrationInstanceConfigurations = lazy(
 );
 const Integration = lazy(() => import('@/ee/pages/embedded/integration/Integration'));
 const Integrations = lazy(() => import('@/ee/pages/embedded/integrations/Integrations'));
+const License = lazy(() => import('@/ee/pages/settings/platform/license/License'));
 const SigningKeys = lazy(() => import('@/ee/pages/settings/embedded/signing-keys/SigningKeys'));
 const WorkspaceApiKeys = lazy(() => import('@/ee/pages/settings/automation/workspace-api-keys/WorkspaceApiKeys'));
 const Workspaces = lazy(() => import('@/ee/pages/settings/automation/workspaces/Workspaces'));
@@ -368,6 +369,18 @@ const platformSettingsRoutes = {
             ),
             path: 'admin-api-keys',
         },
+        {
+            element: (
+                <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN]}>
+                    <EEVersion>
+                        <LazyLoadWrapper>
+                            <License />
+                        </LazyLoadWrapper>
+                    </EEVersion>
+                </PrivateRoute>
+            ),
+            path: 'license',
+        },
     ],
     navItems: [
         {
@@ -414,6 +427,10 @@ const platformSettingsRoutes = {
         {
             href: 'admin-api-keys',
             title: 'Admin API Keys',
+        },
+        {
+            href: 'license',
+            title: 'License',
         },
     ],
 };
