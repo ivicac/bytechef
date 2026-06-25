@@ -11,6 +11,7 @@ import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.ee.embedded.configuration.facade.WebhookTriggerTestAdminFacade;
 import com.bytechef.ee.embedded.configuration.web.rest.model.StartWebhookTriggerTest200ResponseModel;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.security.web.authentication.PrincipalEnvironment;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -36,8 +37,10 @@ public class WebhookTriggerTestApiController implements WebhookTriggerTestApi {
     public ResponseEntity<StartWebhookTriggerTest200ResponseModel> startWebhookTriggerTest(
         String workflowId, Long environmentId, String triggerName) {
 
+        long effectiveEnvironmentId = resolveRequiredEnvironmentId(environmentId);
+
         String webhookUrl = webhookTriggerTestAdminFacade.startWebhookTriggerTest(
-            workflowId, triggerName, environmentId);
+            workflowId, triggerName, effectiveEnvironmentId);
 
         return ResponseEntity.ok(
             new StartWebhookTriggerTest200ResponseModel()
@@ -46,10 +49,19 @@ public class WebhookTriggerTestApiController implements WebhookTriggerTestApi {
 
     @Override
     public ResponseEntity<Void> stopWebhookTriggerTest(String workflowId, Long environmentId, String triggerName) {
-        webhookTriggerTestAdminFacade.stopWebhookTriggerTest(
-            workflowId, triggerName, environmentId);
+        long effectiveEnvironmentId = resolveRequiredEnvironmentId(environmentId);
+
+        webhookTriggerTestAdminFacade.stopWebhookTriggerTest(workflowId, triggerName, effectiveEnvironmentId);
 
         return ResponseEntity.noContent()
             .build();
+    }
+
+    private static long resolveRequiredEnvironmentId(Long environmentId) {
+        if (environmentId == null) {
+            throw new IllegalArgumentException("environmentId is required");
+        }
+
+        return PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId.longValue());
     }
 }

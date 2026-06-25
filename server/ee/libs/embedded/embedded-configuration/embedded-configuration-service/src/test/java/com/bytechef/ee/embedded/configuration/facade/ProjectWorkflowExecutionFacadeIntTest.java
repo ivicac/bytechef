@@ -12,6 +12,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.execution.facade.JobFacade;
@@ -22,6 +24,7 @@ import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
+import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.automation.workflow.execution.facade.ProjectWorkflowExecutionFacade;
 import com.bytechef.automation.workflow.execution.facade.ProjectWorkflowExecutionFacadeImpl;
@@ -71,6 +74,7 @@ import com.bytechef.platform.workflow.execution.service.WorkflowExecutionRowServ
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -142,6 +146,9 @@ class ProjectWorkflowExecutionFacadeIntTest {
     @Autowired
     private ProjectWorkflowExecutionFacade projectWorkflowExecutionFacade;
 
+    @MockitoBean
+    private PermissionService permissionService;
+
     @Autowired
     private ProjectWorkflowService projectWorkflowService;
 
@@ -155,6 +162,9 @@ class ProjectWorkflowExecutionFacadeIntTest {
     void beforeEach() {
         matchedJobIds.clear();
         executionRows.clear();
+
+        when(permissionService.getMyWorkspaceScopeEnvironments(anyLong(), anyString()))
+            .thenReturn(EnumSet.allOf(Environment.class));
 
         when(workflowExecutionRowService.getWorkflowExecutionRows(
             any(), any(), any(), anyList(), any(), anyList(), anyBoolean(), anyList(), anyInt()))
@@ -256,8 +266,8 @@ class ProjectWorkflowExecutionFacadeIntTest {
                 """
                     INSERT INTO project_deployment
                         (project_id, project_version, name, enabled, environment, created_date, created_by,
-                         last_modified_date, last_modified_by, version)
-                    VALUES (?, 1, ?, true, 2, now(), 'test', now(), 'test', 0)
+                         last_modified_date, last_modified_by, version, uuid)
+                    VALUES (?, 1, ?, true, 2, now(), 'test', now(), 'test', 0, gen_random_uuid())
                     RETURNING id
                     """,
                 Long.class, projectId, name),

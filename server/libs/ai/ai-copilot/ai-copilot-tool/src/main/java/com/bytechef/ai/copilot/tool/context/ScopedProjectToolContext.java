@@ -47,12 +47,6 @@ public final class ScopedProjectToolContext {
     }
 
     public static boolean isConfined(@Nullable ToolContext toolContext) {
-        if (fetchScopedProjectId(toolContext) != null) {
-            return true;
-        }
-
-        AgentToolInvocationContext invocationContext = AgentToolInvocationContext.fromToolContext(toolContext);
-
-        return invocationContext != null && invocationContext.skipAutomationAuthorization();
+        return fetchScopedProjectId(toolContext) != null;
     }
 }
