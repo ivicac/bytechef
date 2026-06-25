@@ -15,6 +15,7 @@ dependencies {
     implementation(project(":server:libs:platform:platform-component:platform-component-api"))
     implementation(project(":server:libs:platform:platform-data-storage:platform-data-storage-api"))
     implementation(project(":server:libs:platform:platform-scheduler:platform-scheduler-api"))
+    implementation(project(":server:libs:licence:licence-api"))
 
     testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-api"))
     testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-converter"))

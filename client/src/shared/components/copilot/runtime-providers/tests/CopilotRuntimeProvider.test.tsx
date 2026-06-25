@@ -17,6 +17,8 @@ const {FakeHttpAgent, agents} = vi.hoisted(() => {
     class FakeHttpAgent {
         messages: AgentMessageI[] = [];
 
+        abortRun = vi.fn();
+
         addMessage = (message: AgentMessageI) => {
             this.messages = [...this.messages, message];
         };

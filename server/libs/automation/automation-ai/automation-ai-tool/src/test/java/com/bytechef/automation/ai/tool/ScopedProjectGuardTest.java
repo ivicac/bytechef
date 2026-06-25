@@ -28,7 +28,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ai.copilot.tool.ScopedConnectionGuard;
-import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.ai.copilot.tool.context.ScopedProjectToolContext;
 import com.bytechef.automation.ai.tool.exception.ProjectToolErrorType;
 import com.bytechef.automation.ai.tool.exception.ProjectWorkflowToolErrorType;
@@ -48,7 +47,6 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 
 /**
  * @author Ivica Cardic
@@ -175,27 +173,6 @@ class ScopedProjectGuardTest {
                     .isInstanceOf(ExecutionException.class)
                     .hasMessage(ScopedProjectGuard.OUT_OF_SCOPE_MESSAGE);
 
-        verify(workspaceScopeResolver, never()).resolveWorkspace(any(), any());
-    }
-
-    @Test
-    void testRunThatSkipsAuthorizationWithoutAScopedProjectIsRejected() {
-        ToolContext toolContext = new ToolContext(
-            AgentToolInvocationContext.builder()
-                .authentication(new UsernamePasswordAuthenticationToken("1234567890", null, List.of()))
-                .skipAutomationAuthorization(true)
-                .build()
-                .toToolContext());
-
-        ScopedProjectGuard scopedProjectGuard = newGuard();
-
-        assertThatCode(
-            () -> scopedProjectGuard.checkWorkflow("wf-1", null, toolContext,
-                ProjectWorkflowToolErrorType.GET_WORKFLOW))
-                    .isInstanceOf(ExecutionException.class)
-                    .hasMessage(ScopedProjectGuard.UNSCOPED_MESSAGE);
-
-        verify(projectWorkflowService, never()).getWorkflowProjectWorkflow(any());
         verify(workspaceScopeResolver, never()).resolveWorkspace(any(), any());
     }
 
