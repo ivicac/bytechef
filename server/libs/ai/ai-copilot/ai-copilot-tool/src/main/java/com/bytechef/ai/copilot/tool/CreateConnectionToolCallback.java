@@ -109,8 +109,8 @@ public class CreateConnectionToolCallback implements ToolCallback {
             String resolvedFromComponentName = null;
 
             if (componentDefinition.isEmpty()) {
-                String resolvedComponentName = ComponentSlugUtils.resolveSingleMatch(
-                    componentName, componentDefinitionService);
+                String resolvedComponentName =
+                    ComponentSlugUtils.resolveSingleMatch(componentName, componentDefinitionService);
 
                 if (resolvedComponentName == null) {
                     return toolError(ComponentSlugUtils.unknownComponentMessage(componentName,
