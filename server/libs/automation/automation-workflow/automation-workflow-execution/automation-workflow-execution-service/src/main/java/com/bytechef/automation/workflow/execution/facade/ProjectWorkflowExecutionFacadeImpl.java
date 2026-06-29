@@ -149,7 +149,7 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#id, 'Job:ResourceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#id, 'Job', 'EXECUTION_VIEW')")
     public WorkflowExecutionDTO getWorkflowExecution(long id) {
         Job job = jobService.getJob(id);
 
@@ -193,7 +193,7 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#id, 'Job:ResourceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#id, 'Job', 'EXECUTION_VIEW')")
     public TaskExecutionDTO getWorkflowExecutionTaskExecution(long id, long taskExecutionId) {
         TaskExecution taskExecution = taskExecutionService.getTaskExecution(taskExecutionId);
 
@@ -223,7 +223,7 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#workspaceId, 'WorkspaceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'EXECUTION_VIEW')")
     public Page<WorkflowExecutionDTO> getWorkflowExecutions(
         Boolean embedded, Long environmentId, Status jobStatus, Instant jobStartDate, Instant jobEndDate,
         Long projectId, Long projectDeploymentId, Long connectedUserId, String workflowId, Integer projectVersion,

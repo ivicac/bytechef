@@ -50,19 +50,19 @@ public class EditorLogFileStorageImpl implements EditorLogFileStorage {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#jobId, 'Job', 'EXECUTION_VIEW')")
     public boolean logsExist(long jobId) {
         return logFileStorage.logsExist(jobId);
     }
 
     @Override
-    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#jobId, 'Job', 'EXECUTION_VIEW')")
     public List<LogEntry> readLogEntries(long jobId, long taskExecutionId) {
         return logFileStorage.readLogEntries(jobId, taskExecutionId);
     }
 
     @Override
-    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#jobId, 'Job', 'EXECUTION_VIEW')")
     public List<LogEntry> readLogEntriesByJobId(long jobId) {
         return logFileStorage.readLogEntriesByJobId(jobId);
     }

@@ -42,7 +42,7 @@ public class McpComponentServiceImpl implements McpComponentService {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpComponent.mcpServerId, 'McpServer:ResourceRole', 'EDITOR')")
+    @PreAuthorize("hasPermission(#mcpComponent.mcpServerId, 'McpServer', 'MCP_EDIT')")
     public McpComponent create(McpComponent mcpComponent) {
         return mcpComponentRepository.save(mcpComponent);
     }
@@ -79,7 +79,7 @@ public class McpComponentServiceImpl implements McpComponentService {
     }
 
     @Override
-    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
+    @PreAuthorize("isTenantAdmin()")
     public List<McpComponent> getMcpComponents() {
         return mcpComponentRepository.findAll();
     }

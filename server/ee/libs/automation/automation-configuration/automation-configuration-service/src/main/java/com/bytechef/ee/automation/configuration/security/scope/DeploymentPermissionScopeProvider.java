@@ -19,11 +19,14 @@ import org.springframework.stereotype.Component;
  * @author Ivica Cardic
  */
 @Component
-@ConditionalOnEEVersion
 public class DeploymentPermissionScopeProvider implements PermissionScopeProvider {
 
     @Override
     public Set<ScopeDefinition> scopeDefinitions() {
-        return Set.of(new ScopeDefinition(DeploymentPermissionScope.DEPLOYMENT_PUSH, WorkspaceRole.EDITOR));
+        return Set.of(
+            new ScopeDefinition("DEPLOYMENT_VIEW", WorkspaceRole.VIEWER),
+            new ScopeDefinition("DEPLOYMENT_PUSH", WorkspaceRole.EDITOR),
+            new ScopeDefinition("DEPLOYMENT_PULL", WorkspaceRole.EDITOR),
+            new ScopeDefinition("DEPLOYMENT_EDIT", WorkspaceRole.EDITOR));
     }
 }

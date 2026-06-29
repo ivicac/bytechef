@@ -49,34 +49,42 @@ import org.springframework.transaction.annotation.Transactional;
 @Transactional
 public class WorkspaceMcpServerFacadeImpl implements WorkspaceMcpServerFacade {
 
-    private final McpComponentService mcpComponentService;
-    private final McpProjectFacade mcpProjectFacade;
     private final McpProjectService mcpProjectService;
     private final McpServerFacade mcpServerFacade;
     private final McpServerService mcpServerService;
-    private final McpToolService mcpToolService;
     private final TagService tagService;
     private final WorkspaceMcpServerService workspaceMcpServerService;
 
     @SuppressFBWarnings("EI")
     public WorkspaceMcpServerFacadeImpl(
-        McpComponentService mcpComponentService, McpProjectFacade mcpProjectFacade,
         McpProjectService mcpProjectService, McpServerFacade mcpServerFacade, McpServerService mcpServerService,
-        McpToolService mcpToolService, TagService tagService, WorkspaceMcpServerService workspaceMcpServerService) {
+        TagService tagService, WorkspaceMcpServerService workspaceMcpServerService) {
 
-        this.mcpComponentService = mcpComponentService;
-        this.mcpProjectFacade = mcpProjectFacade;
         this.mcpProjectService = mcpProjectService;
         this.mcpServerFacade = mcpServerFacade;
         this.mcpServerService = mcpServerService;
-        this.mcpToolService = mcpToolService;
         this.tagService = tagService;
         this.workspaceMcpServerService = workspaceMcpServerService;
     }
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#workspaceId, 'WorkspaceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'MCP_VIEW')")
+    public List<McpProject> getWorkspaceMcpProjects(Long workspaceId) {
+        Set<Long> mcpServerIds = workspaceMcpServerService.getWorkspaceMcpServers(workspaceId)
+            .stream()
+            .map(WorkspaceMcpServer::getMcpServerId)
+            .collect(Collectors.toSet());
+
+        return mcpServerIds.stream()
+            .flatMap(mcpServerId -> mcpProjectService.getMcpServerMcpProjects(mcpServerId)
+                .stream())
+            .toList();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'MCP_VIEW')")
     public List<McpServer> getWorkspaceMcpServers(Long workspaceId) {
         List<WorkspaceMcpServer> workspaceMcpServers = workspaceMcpServerService.getWorkspaceMcpServers(workspaceId);
 
@@ -86,7 +94,25 @@ public class WorkspaceMcpServerFacadeImpl implements WorkspaceMcpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workspaceId, 'WorkspaceRole', 'EDITOR')")
+    @Transactional(readOnly = true)
+    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'MCP_VIEW')")
+    public List<Tag> getWorkspaceMcpServerTags(Long workspaceId) {
+        List<Long> tagIds = workspaceMcpServerService.getWorkspaceMcpServers(workspaceId)
+            .stream()
+            .map(workspaceMcpServer -> mcpServerService.getMcpServer(workspaceMcpServer.getMcpServerId()))
+            .flatMap(mcpServer -> CollectionUtils.stream(mcpServer.getTagIds()))
+            .distinct()
+            .toList();
+
+        if (tagIds.isEmpty()) {
+            return List.of();
+        }
+
+        return tagService.getTags(tagIds);
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'MCP_CREATE')")
     public McpServer createWorkspaceMcpServer(
         String name, PlatformType type, Environment environment, Boolean enabled, Long workspaceId) {
 
@@ -125,7 +151,7 @@ public class WorkspaceMcpServerFacadeImpl implements WorkspaceMcpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer:ResourceRole', 'EDITOR')")
+    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_EDIT')")
     public void deleteWorkspaceMcpServer(Long mcpServerId) {
         for (McpProject mcpProject : mcpProjectService.getMcpServerMcpProjects(mcpServerId)) {
             mcpProjectFacade.deleteMcpProject(mcpProject.getId());
