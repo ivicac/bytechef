@@ -180,7 +180,7 @@ public class WorkspaceConnectionFacadeImpl implements WorkspaceConnectionFacade 
     }
 
     @Override
-    @PreAuthorize("hasPermission(#connectionId, 'Connection:ResourceScope', 'CONNECTION_DELETE')")
+    @PreAuthorize("hasPermission(#connectionId, 'Connection', 'CONNECTION_DELETE')")
     public void delete(long connectionId) {
         // Cancel any pending OAuth refresh job before deleting any rows. If this fails, abort: a leftover
         // scheduled refresh that fires against a deleted connection wakes up the scheduler with no row to
@@ -208,14 +208,14 @@ public class WorkspaceConnectionFacadeImpl implements WorkspaceConnectionFacade 
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#connectionId, 'Connection:ResourceScope', 'CONNECTION_VIEW')")
+    @PreAuthorize("hasPermission(#connectionId, 'Connection', 'CONNECTION_VIEW')")
     public ConnectionDTO getConnection(long connectionId) {
         return connectionFacade.getConnection(connectionId);
     }
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#workspaceId, 'WorkspaceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'CONNECTION_VIEW')")
     public List<Tag> getConnectionTags(long workspaceId) {
         List<Long> connectionIds = CollectionUtils.map(
             workspaceConnectionService.getWorkspaceConnections(workspaceId), WorkspaceConnection::getConnectionId);
@@ -230,20 +230,20 @@ public class WorkspaceConnectionFacadeImpl implements WorkspaceConnectionFacade 
     }
 
     @Override
-    @PreAuthorize("hasPermission(#connectionId, 'Connection:ResourceScope', 'CONNECTION_EDIT')")
+    @PreAuthorize("hasPermission(#connectionId, 'Connection', 'CONNECTION_EDIT')")
     public void update(long connectionId, String name, List<Tag> tags, int version) {
         connectionFacade.update(connectionId, name, tags, version);
     }
 
     @Override
-    @PreAuthorize("hasPermission(#connectionId, 'Connection:ResourceScope', 'CONNECTION_EDIT')")
+    @PreAuthorize("hasPermission(#connectionId, 'Connection', 'CONNECTION_EDIT')")
     public void updateTags(long connectionId, List<Tag> tags) {
         connectionFacade.update(connectionId, tags);
     }
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#workspaceId, 'WorkspaceScope', 'CONNECTION_VIEW')")
+    @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'CONNECTION_VIEW')")
     public List<ConnectionDTO> getConnections(
         long workspaceId, String componentName, Integer connectionVersion, Long environmentId, Long tagId) {
 
