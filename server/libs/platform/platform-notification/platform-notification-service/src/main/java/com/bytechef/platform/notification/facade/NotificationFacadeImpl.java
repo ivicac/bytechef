@@ -32,7 +32,6 @@ import com.bytechef.platform.notification.handler.NotificationTestResult;
 import com.bytechef.platform.notification.handler.WebhookBodyTemplate;
 import com.bytechef.platform.notification.service.NotificationEventService;
 import com.bytechef.platform.notification.service.NotificationService;
-import com.bytechef.platform.security.constant.AuthorityConstants;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -40,6 +39,10 @@ import java.time.Instant;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.regex.Pattern;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -70,7 +73,7 @@ public class NotificationFacadeImpl implements NotificationFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
+    @PreAuthorize("isTenantAdmin()")
     public List<NotificationDTO> getNotifications() {
         return notificationService.getNotifications()
             .stream()
@@ -79,7 +82,12 @@ public class NotificationFacadeImpl implements NotificationFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
+    @Audited(event = NotificationAuditEvents.NOTIFICATION_CREATED, data = {
+        @AuditData(key = "notificationId", value = "#result?.id"),
+        @AuditData(key = "name", value = "#notification.name"),
+        @AuditData(key = "type", value = "#notification.type")
+    })
+    @PreAuthorize("isTenantAdmin()")
     public NotificationDTO createNotification(Notification notification) {
         validateNotification(notification);
 
@@ -99,7 +107,12 @@ public class NotificationFacadeImpl implements NotificationFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
+    @Audited(event = NotificationAuditEvents.NOTIFICATION_UPDATED, data = {
+        @AuditData(key = "notificationId", value = "#notification.id"),
+        @AuditData(key = "name", value = "#notification.name"),
+        @AuditData(key = "type", value = "#notification.type")
+    })
+    @PreAuthorize("isTenantAdmin()")
     public NotificationDTO updateNotification(Notification notification) {
         validateNotification(notification);
 
@@ -123,7 +136,7 @@ public class NotificationFacadeImpl implements NotificationFacade {
     }
 
     @Override
-    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    @PreAuthorize("isTenantAdmin()")
     @Audited(event = NotificationAuditEvents.NOTIFICATION_SIGNING_SECRET_REGENERATED, data = {
         @AuditData(key = "notificationId", value = "#id")
     })
@@ -147,7 +160,7 @@ public class NotificationFacadeImpl implements NotificationFacade {
     @Audited(event = NotificationAuditEvents.NOTIFICATION_DELETED, data = {
         @AuditData(key = "notificationId", value = "#id")
     })
-    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    @PreAuthorize("isTenantAdmin()")
     public void deleteNotification(long id) {
         notificationService.delete(id);
     }
@@ -157,7 +170,7 @@ public class NotificationFacadeImpl implements NotificationFacade {
         @AuditData(key = "notificationId", value = "#notification.id"),
         @AuditData(key = "type", value = "#notification.type")
     })
-    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    @PreAuthorize("isTenantAdmin()")
     @SuppressWarnings({
         "rawtypes", "unchecked"
     })
@@ -208,7 +221,7 @@ public class NotificationFacadeImpl implements NotificationFacade {
     }
 
     @Override
-    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    @PreAuthorize("isTenantAdmin()")
     public List<NotificationEvent> getNotificationEvents() {
         return notificationEventService.getNotificationEvents();
     }

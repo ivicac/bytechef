@@ -244,7 +244,7 @@ public class ConnectedUserFacadeImpl implements ConnectedUserFacade {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("isTenantAdmin()")
-    public ConnectedUserDTO getConnectedUserDTO(long id) {
+    public ConnectedUserDTO getConnectedUser(long id) {
         ConnectedUser connectedUser = connectedUserService.getConnectedUser(id);
 
         List<IntegrationInstance> integrationInstances = integrationInstanceService
@@ -264,14 +264,7 @@ public class ConnectedUserFacadeImpl implements ConnectedUserFacade {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("isTenantAdmin()")
-    public ConnectedUser getConnectedUser(long id) {
-        return connectedUserService.getConnectedUser(id);
-    }
-
-    @Override
-    @Transactional(readOnly = true)
-    @PreAuthorize("isTenantAdmin()")
-    public Page<ConnectedUserDTO> getConnectedUserDTOs(
+    public Page<ConnectedUserDTO> getConnectedUsers(
         Long environmentId, String search, CredentialStatus credentialStatus, LocalDate createDateFrom,
         LocalDate createDateTo, Long integrationId, int pageNumber) {
 
@@ -304,7 +297,14 @@ public class ConnectedUserFacadeImpl implements ConnectedUserFacade {
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("isTenantAdmin()")
-    public Page<ConnectedUser> getConnectedUsers(
+    public ConnectedUser getConnectedUserEntity(long id) {
+        return connectedUserService.getConnectedUser(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    @PreAuthorize("isTenantAdmin()")
+    public Page<ConnectedUser> getConnectedUserEntities(
         Long environmentId, String name, LocalDate createDateFrom, LocalDate createDateTo, Long integrationId,
         int pageNumber) {
 

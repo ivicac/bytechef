@@ -183,7 +183,12 @@ public class McpProjectFacadeImpl implements McpProjectFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpProjectId, 'McpProject:ResourceRole', 'EDITOR')")
+    @Audited(event = McpProjectAuditEvents.MCP_PROJECT_UPDATED, data = {
+        @AuditData(key = "mcpProjectId", value = "#mcpProjectId"),
+        @AuditData(key = "mcpServerId", value = "#result?.mcpServerId"),
+        @AuditData(key = "workflowIds", value = "#selectedWorkflowIds")
+    })
+    @PreAuthorize("hasPermission(#mcpProjectId, 'McpProject', 'MCP_EDIT')")
     public McpProject updateMcpProject(long mcpProjectId, List<String> selectedWorkflowIds) {
         return updateMcpProject(mcpProjectId, selectedWorkflowIds, List.of());
     }
@@ -297,7 +302,13 @@ public class McpProjectFacadeImpl implements McpProjectFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpProjectId, 'McpProject:ResourceRole', 'EDITOR')")
+    @Audited(event = McpProjectAuditEvents.MCP_PROJECT_CLONED, data = {
+        @AuditData(key = "sourceMcpProjectId", value = "#mcpProjectId"),
+        @AuditData(key = "mcpServerId", value = "#targetMcpServerId"),
+        @AuditData(key = "mcpProjectId", value = "#result?.id")
+    })
+    @PreAuthorize("hasPermission(#mcpProjectId, 'McpProject', 'MCP_EDIT') and " +
+        "hasPermission(#targetMcpServerId, 'McpServer', 'MCP_EDIT')")
     public McpProject cloneMcpProject(long mcpProjectId, long targetMcpServerId) {
         McpProject source = mcpProjectService.fetchMcpProject(mcpProjectId)
             .orElseThrow(() -> new IllegalArgumentException("McpProject not found: " + mcpProjectId));

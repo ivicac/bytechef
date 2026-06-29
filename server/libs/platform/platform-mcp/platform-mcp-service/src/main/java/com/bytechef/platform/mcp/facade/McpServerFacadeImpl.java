@@ -67,7 +67,7 @@ public class McpServerFacadeImpl implements McpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpComponent.mcpServerId, 'McpServer:ResourceRole', 'EDITOR')")
+    @PreAuthorize("hasPermission(#mcpComponent.mcpServerId, 'McpServer', 'MCP_EDIT')")
     public McpComponent create(McpComponent mcpComponent, List<McpTool> mcpTools) {
         checkMcpServerSharedAdministration(mcpComponent.getMcpServerId());
 
@@ -75,7 +75,23 @@ public class McpServerFacadeImpl implements McpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpComponentId, 'McpComponent:ResourceRole', 'EDITOR')")
+    @PreAuthorize("hasPermission(#mcpTool.mcpComponentId, 'McpComponent', 'MCP_EDIT')")
+    public McpTool createMcpTool(McpTool mcpTool) {
+        checkMcpComponentSharedAdministration(mcpTool.getMcpComponentId());
+
+        return mcpToolService.create(mcpTool);
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#mcpComponent.mcpServerId, 'McpServer', 'MCP_EDIT')")
+    public McpComponent createMcpComponent(McpComponent mcpComponent) {
+        checkMcpServerSharedAdministration(mcpComponent.getMcpServerId());
+
+        return mcpComponentService.create(mcpComponent);
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#mcpComponentId, 'McpComponent', 'MCP_EDIT')")
     public void deleteMcpComponent(long mcpComponentId) {
         checkMcpComponentSharedAdministration(mcpComponentId);
 
@@ -83,7 +99,7 @@ public class McpServerFacadeImpl implements McpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer:ResourceRole', 'EDITOR')")
+    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_EDIT')")
     public void deleteMcpServer(long mcpServerId) {
         checkMcpServerSharedAdministration(mcpServerId);
 
@@ -178,17 +194,66 @@ public class McpServerFacadeImpl implements McpServerFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpComponent.id, 'McpComponent:ResourceRole', 'EDITOR')")
-    public McpComponent update(McpComponent mcpComponent, List<McpTool> mcpTools) {
-        McpComponent updatedComponent = mcpComponentService.update(mcpComponent);
+    @PreAuthorize("isTenantAdmin()")
+    public List<McpTool> getMcpTools() {
+        Set<Long> sharedAdministrationMcpComponentIds = getMcpComponents().stream()
+            .map(McpComponent::getId)
+            .collect(Collectors.toSet());
 
+        return mcpToolService.getMcpTools()
+            .stream()
+            .filter(mcpTool -> sharedAdministrationMcpComponentIds.contains(mcpTool.getMcpComponentId()))
+            .toList();
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#mcpToolId, 'McpTool', 'MCP_VIEW')")
+    public Optional<McpTool> fetchMcpTool(long mcpToolId) {
+        Optional<McpTool> mcpToolOptional = mcpToolService.fetchMcpTool(mcpToolId);
+
+        mcpToolOptional.ifPresent(mcpTool -> checkMcpComponentSharedAdministration(mcpTool.getMcpComponentId()));
+
+        return mcpToolOptional;
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_EDIT')")
+    public McpServer rotateMcpServerSecretKey(long mcpServerId) {
+        checkMcpServerSharedAdministration(mcpServerId);
+
+        return mcpServerService.rotateSecretKey(mcpServerId);
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#mcpComponent.id, 'McpComponent', 'MCP_EDIT')")
+    public McpComponent update(
+        McpComponent mcpComponent, @Nullable Set<String> requiredAuthorities, List<McpTool> mcpTools) {
         checkMcpComponentSharedAdministration(Objects.requireNonNull(mcpComponent.getId()));
 
         return mcpComponentService.update(mcpComponent, requiredAuthorities, mcpTools);
     }
 
     @Override
-    @PreAuthorize("hasPermission(#id, 'McpServer:ResourceRole', 'EDITOR')")
+    @PreAuthorize("hasPermission(#mcpTool.id, 'McpTool', 'MCP_EDIT')")
+    public void deleteMcpTool(McpTool mcpTool) {
+        checkMcpComponentSharedAdministration(mcpTool.getMcpComponentId());
+
+        mcpToolService.delete(mcpTool);
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#id, 'McpServer', 'MCP_EDIT')")
+    public McpServer updateMcpServer(
+        long id, @Nullable String name, @Nullable Boolean enabled, @Nullable Boolean enforceToolAuthorization,
+        @Nullable Boolean authenticationRequired) {
+
+        checkMcpServerSharedAdministration(id);
+
+        return mcpServerService.update(id, name, enabled, enforceToolAuthorization, authenticationRequired);
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#id, 'McpServer', 'MCP_EDIT')")
     public List<Tag> updateMcpServerTags(long id, List<Tag> tags) {
         checkMcpServerSharedAdministration(id);
 

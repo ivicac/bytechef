@@ -43,13 +43,18 @@ public class McpToolServiceImpl implements McpToolService {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpTool.mcpComponentId, 'McpComponent:ResourceRole', 'EDITOR')")
+    @Audited(event = McpToolAuditEvents.MCP_TOOL_CREATED, mapper = McpComponentAuditMapper.class, data = {
+        @AuditData(key = "mcpToolId", value = "#result?.id"),
+        @AuditData(key = "mcpComponentId", value = "#mcpTool.mcpComponentId"),
+        @AuditData(key = "name", value = "#mcpTool.name")
+    })
+    @PreAuthorize("hasPermission(#mcpTool.mcpComponentId, 'McpComponent', 'MCP_EDIT')")
     public McpTool create(McpTool mcpTool) {
         return mcpToolRepository.save(mcpTool);
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpTool.id, 'McpTool:ResourceRole', 'EDITOR')")
+    @PreAuthorize("hasPermission(#mcpTool.id, 'McpTool', 'MCP_EDIT')")
     public McpTool update(McpTool mcpTool) {
         McpTool currentMcpTool = OptionalUtils.get(mcpToolRepository.findById(mcpTool.getId()));
 
@@ -62,19 +67,19 @@ public class McpToolServiceImpl implements McpToolService {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpTool.id, 'McpTool:ResourceRole', 'EDITOR')")
+    @PreAuthorize("hasPermission(#mcpTool.id, 'McpTool', 'MCP_EDIT')")
     public void delete(McpTool mcpTool) {
         mcpToolRepository.delete(mcpTool);
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpToolId, 'McpTool:ResourceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#mcpToolId, 'McpTool', 'MCP_VIEW')")
     public Optional<McpTool> fetchMcpTool(long mcpToolId) {
         return mcpToolRepository.findById(mcpToolId);
     }
 
     @Override
-    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
+    @PreAuthorize("isTenantAdmin()")
     public List<McpTool> getMcpTools() {
         return mcpToolRepository.findAll();
     }

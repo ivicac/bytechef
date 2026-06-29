@@ -36,7 +36,7 @@ public class AppEventServiceImpl implements AppEventService {
     }
 
     @Override
-    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
+    @PreAuthorize("isTenantAdmin()")
     public AppEvent create(AppEvent appEvent) {
         Assert.notNull(appEvent, "'appEvent' must not be null");
         Assert.isTrue(appEvent.getId() == null, "'id' must be null");
@@ -47,8 +47,12 @@ public class AppEventServiceImpl implements AppEventService {
     }
 
     @Override
-    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
-    public void delete(long id) {
+    @PreAuthorize("isTenantAdmin()")
+    public boolean delete(long id) {
+        if (!appEventRepository.existsById(id)) {
+            return false;
+        }
+
         appEventRepository.deleteById(id);
 
         return true;
@@ -67,7 +71,7 @@ public class AppEventServiceImpl implements AppEventService {
     }
 
     @Override
-    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
+    @PreAuthorize("isTenantAdmin()")
     public AppEvent update(AppEvent appEvent) {
         Assert.notNull(appEvent, "'appEvent' must not be null");
 

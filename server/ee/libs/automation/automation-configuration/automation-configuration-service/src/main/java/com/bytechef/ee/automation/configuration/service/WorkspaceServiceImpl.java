@@ -60,7 +60,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     }
 
     @Override
-    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
+    @PreAuthorize("isTenantAdmin()")
     public Workspace create(Workspace workspace) {
         Assert.notNull(workspace, "'workspace' must not be null");
         Assert.isTrue(workspace.getId() == null, "'workspace.id' must be null");
@@ -88,7 +88,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     }
 
     @Override
-    @PreAuthorize("hasPermission('Tenant', 'ADMIN')")
+    @PreAuthorize("isTenantAdmin()")
     public void delete(long id) {
         if (id == Workspace.DEFAULT_WORKSPACE_ID) {
             throw new ConfigurationException(
@@ -102,7 +102,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         // going away).
         //
         // The (userId, workspaceId) eviction pairs are collected before the deletes. The @PreAuthorize on this method
-        // already routes the delete through PermissionAuditAspect, so the workspace-wide blast radius is audited as a
+        // already routes the delete through AuditAspect, so the workspace-wide blast radius is audited as a
         // single DENIED/ALLOWED event before any row is touched.
         List<WorkspaceUser> members = workspaceUserRepository.findAllByWorkspaceId(id);
         List<UserWorkspacePair> cacheEvictionTargets = new ArrayList<>();
@@ -142,13 +142,13 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#id, 'WorkspaceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#id, 'Workspace', 'WORKSPACE_VIEW')")
     public Workspace getWorkspace(long id) {
         return OptionalUtils.get(workspaceRepository.findById(id));
     }
 
     @Override
-    @PreAuthorize("hasPermission(#workspace.id, 'WorkspaceRole', 'ADMIN')")
+    @PreAuthorize("hasPermission(#workspace.id, 'Workspace', 'WORKSPACE_MANAGE')")
     public Workspace update(Workspace workspace) {
         Assert.notNull(workspace, "'workspace' must not be null");
         Assert.isTrue(workspace.getId() != null, "'workspace.id' must not be null");
