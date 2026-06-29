@@ -61,7 +61,7 @@ public class McpServerServiceImpl implements McpServerService {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer:ResourceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_VIEW')")
     public McpServer getMcpServer(long mcpServerId) {
         return mcpServerRepository.findById(mcpServerId)
             .orElseThrow(() -> new IllegalArgumentException("MCP server with id " + mcpServerId + " not found"));
@@ -128,7 +128,7 @@ public class McpServerServiceImpl implements McpServerService {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#id, 'McpServer:ResourceRole', 'EDITOR')")
+    @PreAuthorize("hasPermission(#id, 'McpServer', 'MCP_EDIT')")
     public McpServer update(long id, String name, Boolean enabled) {
         return update(id, name, enabled, null, null);
     }

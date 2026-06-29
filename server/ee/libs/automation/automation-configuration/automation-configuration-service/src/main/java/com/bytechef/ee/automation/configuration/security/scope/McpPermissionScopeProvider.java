@@ -19,14 +19,13 @@ import org.springframework.stereotype.Component;
  * @author Ivica Cardic
  */
 @Component
-@ConditionalOnEEVersion
 public class McpPermissionScopeProvider implements PermissionScopeProvider {
 
     @Override
     public Set<ScopeDefinition> scopeDefinitions() {
         return Set.of(
-            new ScopeDefinition(McpPermissionScope.MCP_VIEW, WorkspaceRole.VIEWER),
-            new ScopeDefinition(McpPermissionScope.MCP_CREATE, WorkspaceRole.EDITOR),
-            new ScopeDefinition(McpPermissionScope.MCP_EDIT, WorkspaceRole.EDITOR));
+            new ScopeDefinition("MCP_VIEW", WorkspaceRole.VIEWER),
+            new ScopeDefinition("MCP_CREATE", WorkspaceRole.EDITOR),
+            new ScopeDefinition("MCP_EDIT", WorkspaceRole.EDITOR));
     }
 }

@@ -25,7 +25,6 @@ import java.util.Base64;
 import java.util.List;
 import java.util.Optional;
 import org.apache.commons.lang3.Validate;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -84,7 +83,6 @@ public class SigningKeyServiceImpl implements SigningKeyService {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#id, 'SigningKey:ResourceOwner', 'SELF')")
     public void delete(long id) {
         signingKeyRepository.deleteById(id);
     }
@@ -106,7 +104,6 @@ public class SigningKeyServiceImpl implements SigningKeyService {
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("hasPermission(#id, 'SigningKey:ResourceOwner', 'SELF')")
     public SigningKey getSigningKey(long id) {
         return signingKeyRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("Signing key not found for id: " + id));
@@ -119,7 +116,6 @@ public class SigningKeyServiceImpl implements SigningKeyService {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#signingKey.id, 'SigningKey:ResourceOwner', 'SELF')")
     public SigningKey update(SigningKey signingKey) {
         Assert.notNull(signingKey, "'signingKey' must not be null");
 
