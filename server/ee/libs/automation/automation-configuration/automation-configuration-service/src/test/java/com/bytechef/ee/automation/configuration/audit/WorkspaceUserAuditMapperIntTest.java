@@ -34,7 +34,11 @@ import org.springframework.boot.test.context.SpringBootTest;
  *
  * @author Ivica Cardic
  */
-@SpringBootTest(classes = WorkspacePermissionIntTestConfiguration.class, properties = "bytechef.edition=ee")
+@SpringBootTest(
+    classes = WorkspacePermissionIntTestConfiguration.class,
+    properties = {
+        "bytechef.edition=ee", "spring.liquibase.contexts=mono,dev"
+    })
 class WorkspaceUserAuditMapperIntTest {
 
     private static final long USER_ID = 2L;

@@ -15,6 +15,7 @@ import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.automation.configuration.audit.WorkspaceAuditEvents;
 import com.bytechef.ee.automation.configuration.config.WorkspacePermissionIntTestConfiguration;
 import com.bytechef.ee.automation.configuration.repository.WorkspaceRepository;
+import com.bytechef.ee.automation.configuration.repository.WorkspaceUserRepository;
 import com.bytechef.ee.automation.configuration.service.WorkspaceServiceImpl;
 import com.bytechef.ee.platform.audit.aspect.AuditAspect;
 import com.bytechef.ee.platform.audit.aspect.AuditCaptureAspect;
@@ -54,7 +55,7 @@ import org.springframework.security.core.context.SecurityContextImpl;
         WorkspacePermissionIntTestConfiguration.class, AdminWorkspaceFacadeAuditIntTest.AuditConfiguration.class
     },
     properties = {
-        "bytechef.edition=ee", "bytechef.audit.enabled=true"
+        "bytechef.edition=ee", "bytechef.audit.enabled=true", "spring.liquibase.contexts=mono,dev"
     })
 class AdminWorkspaceFacadeAuditIntTest {
 
@@ -71,6 +72,9 @@ class AdminWorkspaceFacadeAuditIntTest {
     @Autowired
     private WorkspaceRepository workspaceRepository;
 
+    @Autowired
+    private WorkspaceUserRepository workspaceUserRepository;
+
     @BeforeEach
     void beforeEach() {
         SecurityContextHolder.setContext(
@@ -85,7 +89,11 @@ class AdminWorkspaceFacadeAuditIntTest {
     void afterEach() {
         SecurityContextHolder.clearContext();
 
-        workspaceIds.forEach(workspaceRepository::deleteById);
+        for (long workspaceId : workspaceIds) {
+            workspaceUserRepository.deleteAll(workspaceUserRepository.findAllByWorkspaceId(workspaceId));
+
+            workspaceRepository.deleteById(workspaceId);
+        }
 
         workspaceIds.clear();
 

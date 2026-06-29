@@ -19,6 +19,7 @@ package com.bytechef.automation.configuration.facade;
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.WorkspaceService;
+import com.bytechef.platform.annotation.ConditionalOnCEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -30,6 +31,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 @Transactional
+@ConditionalOnCEVersion
 public class WorkspaceFacadeImpl implements WorkspaceFacade {
 
     private final PermissionService permissionService;
@@ -43,8 +45,19 @@ public class WorkspaceFacadeImpl implements WorkspaceFacade {
 
     @Override
     @Transactional(readOnly = true)
+    @PreAuthorize("isAuthenticated()")
+    public List<Workspace> getMyWorkspaces() {
+        return getMemberWorkspaces();
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     @PreAuthorize("isTenantAdmin() or isCurrentUser(#id)")
     public List<Workspace> getUserWorkspaces(long id) {
+        return getMemberWorkspaces();
+    }
+
+    private List<Workspace> getMemberWorkspaces() {
         List<Workspace> workspaces = workspaceService.getWorkspaces();
 
         if (permissionService.isTenantAdmin()) {
