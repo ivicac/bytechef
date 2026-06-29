@@ -138,7 +138,7 @@ public class LogFileStorageImpl implements LogFileStorage {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#jobId, 'Job', 'EXECUTION_VIEW')")
     public List<LogEntry> readLogEntries(long jobId, long taskExecutionId) {
         awaitPendingWrites(jobId);
 
@@ -155,7 +155,7 @@ public class LogFileStorageImpl implements LogFileStorage {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#jobId, 'Job', 'EXECUTION_VIEW')")
     public List<LogEntry> readLogEntriesByJobId(long jobId) {
         awaitPendingWrites(jobId);
 
@@ -172,7 +172,7 @@ public class LogFileStorageImpl implements LogFileStorage {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'VIEWER')")
+    @PreAuthorize("hasPermission(#jobId, 'Job', 'EXECUTION_VIEW')")
     public boolean logsExist(long jobId) {
         awaitPendingWrites(jobId);
 
@@ -182,7 +182,7 @@ public class LogFileStorageImpl implements LogFileStorage {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#jobId, 'Job:ResourceRole', 'EDITOR')")
+    @PreAuthorize("hasPermission(#jobId, 'Job', 'EXECUTION_DELETE')")
     public void deleteLogEntries(long jobId) {
         awaitPendingWrites(jobId);
 
