@@ -13,7 +13,7 @@ import {
     Workflow,
 } from '@/shared/middleware/platform/configuration';
 import {ClickedDefinitionType, NodeDataType} from '@/shared/types';
-import {Node, NodeChange, XYPosition, useReactFlow} from '@xyflow/react';
+import {Node, NodeChange, XYPosition, useNodesInitialized, useReactFlow} from '@xyflow/react';
 import {DragEventHandler, useCallback, useEffect, useMemo, useRef} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
@@ -56,6 +56,7 @@ interface UseWorkflowEditorCanvasParamsI {
     componentDefinitions: ComponentDefinitionBasic[];
     customCanvasWidth?: number;
     fitViewOnLoad?: boolean;
+    fitViewOnWorkflowChange?: boolean;
     leftSidebarOpen?: boolean;
     readOnlyLayoutDirection?: LayoutDirectionType;
     readOnlyWorkflow?: Workflow;
@@ -66,6 +67,7 @@ const useWorkflowEditorCanvas = ({
     componentDefinitions,
     customCanvasWidth,
     fitViewOnLoad,
+    fitViewOnWorkflowChange,
     leftSidebarOpen,
     readOnlyLayoutDirection,
     readOnlyWorkflow,
@@ -98,7 +100,11 @@ const useWorkflowEditorCanvas = ({
     const copilotPanelOpen = useCopilotPanelStore((state) => state.copilotPanelOpen);
     const resetWorkflowLayout = useWorkflowEditorStore((state) => state.resetWorkflowLayout);
 
-    const {setViewport} = useReactFlow();
+    const {fitView, setViewport} = useReactFlow();
+
+    // True once React Flow has measured every node's dimensions — fitView is a no-op before this, so we
+    // gate the embedded fit-to-view on it (see the fitViewOnWorkflowChange effect below).
+    const nodesInitialized = useNodesInitialized();
 
     const {invalidateWorkflowQueries: editorInvalidateWorkflowQueries, updateWorkflowMutation} = useWorkflowEditor();
 
@@ -169,8 +175,7 @@ const useWorkflowEditorCanvas = ({
         }
 
         let droppedNode = componentDefinitions.find((node) => node.name === droppedNodeName) as
-            | ClickedDefinitionType
-            | undefined;
+            ClickedDefinitionType | undefined;
 
         if (!droppedNode) {
             const taskDispatcherNode = taskDispatcherDefinitions.find((node) => node.name === droppedNodeName);
@@ -591,7 +596,7 @@ const useWorkflowEditorCanvas = ({
             setCurrentWorkflowUuid(workflowUuid, extractLayoutDirection(workflow.definition));
         }
 
-        if (fitViewOnLoad) {
+        if (fitViewOnLoad || fitViewOnWorkflowChange) {
             return;
         }
 
@@ -612,6 +617,15 @@ const useWorkflowEditorCanvas = ({
         );
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [workflowUuid]);
+
+    useEffect(() => {
+        if (!fitViewOnWorkflowChange || !nodesInitialized) {
+            return;
+        }
+
+        fitView({maxZoom: 1, minZoom: 0.2, padding: 0.2});
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [fitViewOnWorkflowChange, nodesInitialized, workflowUuid, customCanvasWidth]);
 
     return {
         edgeTypes,
