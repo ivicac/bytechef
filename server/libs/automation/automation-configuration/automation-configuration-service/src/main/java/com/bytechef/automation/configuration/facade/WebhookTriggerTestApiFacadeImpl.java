@@ -41,13 +41,13 @@ class WebhookTriggerTestApiFacadeImpl implements WebhookTriggerTestApiFacade {
     }
 
     @Override
-    @PreAuthorize("@permissionService.hasWorkflowScope(#workflowId, 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
     public String enableTrigger(String workflowId, @Nullable String triggerName, long environmentId) {
         return webhookTriggerTestFacade.enableTrigger(workflowId, triggerName, environmentId, PlatformType.AUTOMATION);
     }
 
     @Override
-    @PreAuthorize("@permissionService.hasWorkflowScope(#workflowId, 'WORKFLOW_EDIT')")
+    @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
     public void disableTrigger(String workflowId, @Nullable String triggerName, long environmentId) {
         webhookTriggerTestFacade.disableTrigger(workflowId, triggerName, environmentId, PlatformType.AUTOMATION);
     }
