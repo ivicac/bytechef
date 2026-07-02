@@ -21,13 +21,26 @@ import java.time.Duration;
 import java.util.concurrent.CompletableFuture;
 
 /**
- * Awaits the terminal status of a distributed-coordinator job. The completion signal is the broker-published
- * {@code SSE_STREAM_EVENTS} job-status event (the only completion signal that crosses process boundaries), so this
- * replaces the embedded {@code JobSyncExecutor}'s in-process latch for synchronous webhook and MCP-tool execution.
+ * Awaits the terminal status of a job run by the real (possibly distributed) coordinator. The completion signal is the
+ * broker-published {@code SSE_STREAM_EVENTS} job-status event (the only completion signal that crosses process
+ * boundaries).
+ *
+ * <p>
+ * Use it for synchronous callers whose job must outlive the request: the MCP tool and A2A surfaces, where a run can
+ * suspend for an approval and be resumed later through {@code JobResumeFacade} — only a persisted, coordinator-driven
+ * job can be resumed. Request-scoped runs that always finish within the call (synchronous webhooks and the API
+ * Platform, the editor's Test button, simulation) use the in-process {@code JobSyncExecutor} instead.
  *
  * @author Ivica Cardic
  */
 public interface JobCompletionAwaiter {
+
+    /**
+     * Default maximum wait for a synchronous job before it times out. Shared by every synchronous caller — the MCP and
+     * A2A surfaces awaiting here, and the webhook sync path waiting on {@code JobSyncExecutor} — so the bound cannot
+     * drift between paths. A tenant plan's {@code syncRunTimeout} may tighten it, never extend it.
+     */
+    Duration DEFAULT_SYNC_TIMEOUT = Duration.ofSeconds(300);
 
     /**
      * Returns a future that completes with the job once it reaches a terminal status ({@code COMPLETED},
