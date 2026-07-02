@@ -325,7 +325,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
                 new JobParametersDTO(projectDeploymentWorkflow.getWorkflowId(), inputs),
                 projectDeploymentWorkflow.getProjectDeploymentId(), PlatformType.AUTOMATION);
 
-            Job job = jobCompletionAwaiter.await(jobId, Duration.ofSeconds(300))
+            Job job = jobCompletionAwaiter.await(jobId, JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT)
                 .join();
 
             JobExecutionErrors.checkForError(job, taskExecutionService);
