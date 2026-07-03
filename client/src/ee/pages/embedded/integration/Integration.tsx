@@ -111,6 +111,7 @@ const Integration = () => {
                             >
                                 {integrationId && (
                                     <WorkflowEditorLayout
+                                        internalOnlyVisible={true}
                                         leftSidebarOpen={leftSidebarOpen}
                                         runDisabled={runDisabled}
                                         showWorkflowInputs={true}
