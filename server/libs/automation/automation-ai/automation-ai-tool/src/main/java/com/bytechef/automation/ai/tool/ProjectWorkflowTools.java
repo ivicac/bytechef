@@ -80,19 +80,21 @@ public class ProjectWorkflowTools {
     private final ComponentDefinitionService componentDefinitionService;
     private final ProjectWorkflowFacade projectWorkflowFacade;
     private final ProjectWorkflowService projectWorkflowService;
-    private final ScopedProjectGuard scopedProjectGuard;
+    private final ObjectProvider<WorkflowArtifactRecorder> workflowArtifactRecorderProvider;
     private final ObjectProvider<WorkflowTestConfigurationFacade> workflowTestConfigurationFacadeProvider;
 
     @SuppressFBWarnings("EI")
     public ProjectWorkflowTools(
-        ComponentDefinitionService componentDefinitionService, ProjectWorkflowFacade projectWorkflowFacade,
-        ProjectWorkflowService projectWorkflowService, ScopedProjectGuard scopedProjectGuard,
-        ObjectProvider<WorkflowTestConfigurationFacade> workflowTestConfigurationFacadeProvider) {
+        ProjectService projectService, ProjectWorkflowFacade projectWorkflowFacade,
+        ProjectWorkflowService projectWorkflowService,
+        ObjectProvider<WorkflowArtifactRecorder> workflowArtifactRecorderProvider,
+        ObjectProvider<WorkflowTestConfigurationFacade> workflowTestConfigurationFacadeProvider,
+        WorkspaceScopeResolver workspaceScopeResolver) {
 
         this.componentDefinitionService = componentDefinitionService;
         this.projectWorkflowFacade = projectWorkflowFacade;
         this.projectWorkflowService = projectWorkflowService;
-        this.scopedProjectGuard = scopedProjectGuard;
+        this.workflowArtifactRecorderProvider = workflowArtifactRecorderProvider;
         this.workflowTestConfigurationFacadeProvider = workflowTestConfigurationFacadeProvider;
     }
 
@@ -249,6 +251,10 @@ public class ProjectWorkflowTools {
             }
 
             capturePersistedWorkflow(
+                toolContext, true, projectWorkflow.getWorkflowId(), projectWorkflow.getProjectId(),
+                projectWorkflow.getId(), extractWorkflowName(definition));
+
+            recordWorkflowArtifact(
                 toolContext, true, projectWorkflow.getWorkflowId(), projectWorkflow.getProjectId(),
                 projectWorkflow.getId(), extractWorkflowName(definition));
 
@@ -485,6 +491,9 @@ public class ProjectWorkflowTools {
 
             capturePersistedWorkflow(
                 toolContext, false, workflowId, projectId, projectWorkflowDTO.getProjectWorkflowId(), workflowName);
+
+            recordWorkflowArtifact(
+                toolContext, false, workflowId, projectId, projectWorkflowDTO.getProjectWorkflowId(), workflowName);
         } catch (RuntimeException exception) {
             log.warn("Failed to capture updated workflow (workflowId={})", workflowId, exception);
         }
@@ -522,6 +531,24 @@ public class ProjectWorkflowTools {
         entry.put("name", workflowName);
 
         captures.add(entry);
+    }
+
+    private void recordWorkflowArtifact(
+        @Nullable ToolContext toolContext, boolean created, String workflowId, long projectId,
+        @Nullable Long projectWorkflowId, String workflowName) {
+
+        WorkflowArtifactRecorder workflowArtifactRecorder = workflowArtifactRecorderProvider.getIfAvailable();
+
+        if (workflowArtifactRecorder == null) {
+            return;
+        }
+
+        try {
+            workflowArtifactRecorder.recordWorkflowArtifact(
+                toolContext, created, workflowId, projectId, projectWorkflowId, workflowName);
+        } catch (RuntimeException exception) {
+            log.warn("Failed to record workflow artifact (workflowId={})", workflowId, exception);
+        }
     }
 
     private static String extractWorkflowName(String definition) {
