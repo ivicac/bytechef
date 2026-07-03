@@ -75,16 +75,24 @@ const WorkflowEditor = ({
         }))
     );
 
-    const {edgeTypes, handleNodeDragStart, handleNodeDragStop, handleNodesChange, nodeTypes, onDragOver, onDrop} =
-        useWorkflowEditorCanvas({
-            componentDefinitions,
-            customCanvasWidth,
-            fitViewOnLoad: fitsViewOnLoad,
-            fitViewOnWorkflowChange,
-            leftSidebarOpen,
-            readOnlyWorkflow,
-            taskDispatcherDefinitions,
-        });
+    const {
+        edgeTypes,
+        handleAddStickyNote,
+        handleNodeDragStart,
+        handleNodeDragStop,
+        handleNodesChange,
+        nodeTypes,
+        onDragOver,
+        onDrop,
+    } = useWorkflowEditorCanvas({
+        componentDefinitions,
+        customCanvasWidth,
+        fitViewOnLoad: fitsViewOnLoad,
+        fitViewOnWorkflowChange,
+        leftSidebarOpen,
+        readOnlyWorkflow,
+        taskDispatcherDefinitions,
+    });
 
     useEffect(() => {
         if (!fitsViewOnLoad || !nodesInitialized) {
@@ -133,7 +141,11 @@ const WorkflowEditor = ({
                     {!readOnlyWorkflow && nodes.length > 0 && <WorkflowIssuesNote fallback={<NodeActionsHint />} />}
 
                     {!preview && (
-                        <WorkflowEditorToolbar enableUndoRedo={enableUndoRedo} readOnly={!!readOnlyWorkflow} />
+                        <WorkflowEditorToolbar
+                            enableUndoRedo={enableUndoRedo}
+                            onAddStickyNote={readOnlyWorkflow ? undefined : handleAddStickyNote}
+                            readOnly={!!readOnlyWorkflow}
+                        />
                     )}
                 </ReactFlow>
             </div>
