@@ -1,0 +1,659 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the ByteChef Enterprise license (the "Enterprise License");
+ * you may not use this file except in compliance with the Enterprise License.
+ */
+
+package com.bytechef.ee.ai.hub.web.graphql;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.bytechef.automation.configuration.domain.Workspace;
+import com.bytechef.automation.configuration.facade.WorkspaceFacade;
+import com.bytechef.ee.ai.hub.chat.AiHubChat;
+import com.bytechef.ee.ai.hub.chat.AiHubChatArtifactService;
+import com.bytechef.ee.ai.hub.chat.AiHubChatService;
+import com.bytechef.ee.ai.hub.chat.AiHubChatService.AiHubChatMessage;
+import com.bytechef.ee.ai.hub.chat.AiHubChatService.AiHubChatPatch;
+import com.bytechef.ee.ai.hub.chat.AiHubChatStatus;
+import com.bytechef.ee.ai.hub.chat.TitleGenerationService;
+import com.bytechef.ee.ai.hub.exception.ForbiddenException;
+import com.bytechef.ee.ai.hub.exception.NotFoundException;
+import com.bytechef.platform.security.domain.ResourceVisibility;
+import com.bytechef.platform.user.domain.User;
+import com.bytechef.platform.user.service.UserService;
+import java.time.Instant;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import org.junit.jupiter.api.Test;
+
+/**
+ * @version ee
+ *
+ * @author Ivica Cardic
+ */
+class AiHubChatGraphQlControllerTest {
+
+    @Test
+    void testGenerateTitleShortCircuitsWhenAlreadyTitled() {
+        // Idempotency invariant: the client fires generate-title on every untitled turn; once a title lands,
+        // every subsequent call must short-circuit before calling the LLM. Without this guard the model bill
+        // grows linearly with chat length even though the title never changes.
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(10L);
+        when(userService.getCurrentUser()).thenReturn(user);
+
+        Workspace workspace7 = buildWorkspace(7L);
+
+        when(workspaceFacade.getUserWorkspaces(10L)).thenReturn(List.of(workspace7));
+
+        AiHubChat existing = mock(AiHubChat.class);
+
+        // isAutoTitled false — the chat has been authoritatively titled (LLM regenerated, or user
+        // renamed). The handler should short-circuit before loading messages or calling the LLM.
+        when(existing.isAutoTitled()).thenReturn(false);
+        when(chatService.getById(42L, 7L, 10L)).thenReturn(existing);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        AiHubChat result = controller.generateAiHubChatTitle(7L, 42L);
+
+        assertThat(result).isSameAs(existing);
+        verify(titleGenerationService, never()).generateTitle(any(), anyLong());
+        verify(chatService, never()).patch(anyLong(), anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void testGenerateTitlePersistsModelOutput() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(10L);
+        when(userService.getCurrentUser()).thenReturn(user);
+
+        Workspace workspace7 = buildWorkspace(7L);
+
+        when(workspaceFacade.getUserWorkspaces(10L)).thenReturn(List.of(workspace7));
+
+        AiHubChat existing = mock(AiHubChat.class);
+
+        // isAutoTitled true — the LLM is free to regenerate. Mockito's default for primitive boolean is
+        // false (which would short-circuit the handler), so we have to stub it explicitly.
+        when(existing.isAutoTitled()).thenReturn(true);
+        when(chatService.getById(42L, 7L, 10L)).thenReturn(existing);
+        when(chatService.loadMessages(42L, 7L, 10L)).thenReturn(List.of());
+        when(titleGenerationService.generateTitle(List.of(), 7L)).thenReturn("Fresh title");
+
+        AiHubChat patched = mock(AiHubChat.class);
+
+        when(chatService.patch(eq(42L), eq(7L), eq(10L), any(AiHubChatPatch.class)))
+            .thenReturn(patched);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        AiHubChat result = controller.generateAiHubChatTitle(7L, 42L);
+
+        assertThat(result).isSameAs(patched);
+    }
+
+    @Test
+    void testGenerateTitleSwallowsBlankModelOutputWithoutPatch() {
+        // Defensive invariant: when the upstream model returns a blank/over-length title the service returns
+        // empty string, and we must NOT round-trip an empty patch — that would burn a write and emit a
+        // misleading audit row. Pin: the existing row is returned untouched and patch is never called.
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(10L);
+        when(userService.getCurrentUser()).thenReturn(user);
+
+        Workspace workspace7 = buildWorkspace(7L);
+
+        when(workspaceFacade.getUserWorkspaces(10L)).thenReturn(List.of(workspace7));
+
+        AiHubChat existing = mock(AiHubChat.class);
+
+        when(existing.isAutoTitled()).thenReturn(true);
+        when(chatService.getById(42L, 7L, 10L)).thenReturn(existing);
+        when(chatService.loadMessages(42L, 7L, 10L)).thenReturn(List.of());
+        when(titleGenerationService.generateTitle(List.of(), 7L)).thenReturn("");
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        AiHubChat result = controller.generateAiHubChatTitle(7L, 42L);
+
+        assertThat(result).isSameAs(existing);
+        verify(chatService, never()).patch(anyLong(), anyLong(), anyLong(), any());
+    }
+
+    @Test
+    void testListRejectsCallerOutsideWorkspace() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(10L);
+        when(userService.getCurrentUser()).thenReturn(user);
+
+        Workspace foreignWorkspace = buildWorkspace(99L);
+
+        when(workspaceFacade.getUserWorkspaces(10L)).thenReturn(List.of(foreignWorkspace));
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        assertThatThrownBy(() -> controller.aiHubChats(7L, 0, AiHubChatStatus.ACTIVE))
+            .isInstanceOf(ForbiddenException.class)
+            .hasMessageContaining("Workspace is not accessible");
+
+        verify(chatService, never()).list(anyLong(), anyLong(), any(Integer.class), any());
+    }
+
+    @Test
+    void testCreateWorkflowChatChatDelegatesWithTitle() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(10L);
+        when(userService.getCurrentUser()).thenReturn(user);
+
+        Workspace workspace7 = buildWorkspace(7L);
+
+        when(workspaceFacade.getUserWorkspaces(10L)).thenReturn(List.of(workspace7));
+
+        AiHubChat created = mock(AiHubChat.class);
+
+        when(chatService.createWorkflowChat(7L, 10L, 0, "exec-id", 99L, "Project A — Reply Bot"))
+            .thenReturn(created);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        AiHubChat result =
+            controller.createWorkflowChatAiHubChat(7L, 0, "exec-id", 99L, "Project A — Reply Bot");
+
+        // Pin the controller as a thin pass-through. The service-layer tests cover the always-new
+        // semantics (every call inserts a new row); this test pins that the GraphQL surface forwards every
+        // argument straight through (including the optional title) without filtering or mutation, and that
+        // the verified workspace id flows from the membership check rather than the request body.
+        assertThat(result).isSameAs(created);
+        verify(chatService).createWorkflowChat(7L, 10L, 0, "exec-id", 99L, "Project A — Reply Bot");
+    }
+
+    @Test
+    void testCreateWorkflowChatChatForwardsNullTitle() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(10L);
+        when(userService.getCurrentUser()).thenReturn(user);
+
+        Workspace workspace7 = buildWorkspace(7L);
+
+        when(workspaceFacade.getUserWorkspaces(10L)).thenReturn(List.of(workspace7));
+
+        AiHubChat created = mock(AiHubChat.class);
+
+        when(chatService.createWorkflowChat(7L, 10L, 0, "exec-id", 99L, null)).thenReturn(created);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        AiHubChat result =
+            controller.createWorkflowChatAiHubChat(7L, 0, "exec-id", 99L, null);
+
+        // Null title is a valid input (the schema marks the argument optional). The controller MUST forward
+        // null verbatim — substituting an empty string would change the service-layer call signature and
+        // could cause a future find-or-create-style branch to misbehave.
+        assertThat(result).isSameAs(created);
+        verify(chatService).createWorkflowChat(7L, 10L, 0, "exec-id", 99L, null);
+    }
+
+    @Test
+    void testCreateWorkflowChatChatRejectsNonMemberWorkspace() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(10L);
+        when(userService.getCurrentUser()).thenReturn(user);
+
+        // User is a member of workspace 7 but is asking to create in workspace 99 — the membership guard
+        // must throw before the service layer ever sees the request. Without this test, a regression that
+        // skipped the WorkspaceAccessGuard call would silently let cross-tenant chat creation
+        // through.
+        Workspace workspace7 = buildWorkspace(7L);
+
+        when(workspaceFacade.getUserWorkspaces(10L)).thenReturn(List.of(workspace7));
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        assertThatThrownBy(
+            () -> controller.createWorkflowChatAiHubChat(99L, 0, "exec-id", 1L, "Title"))
+                .isInstanceOf(ForbiddenException.class);
+
+        verify(chatService, never())
+            .createWorkflowChat(anyLong(), anyLong(), anyInt(), anyString(), anyLong(), any());
+    }
+
+    @Test
+    void testListDefaultsStatusToActive() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(10L);
+        when(userService.getCurrentUser()).thenReturn(user);
+
+        Workspace workspace7 = buildWorkspace(7L);
+
+        when(workspaceFacade.getUserWorkspaces(10L)).thenReturn(List.of(workspace7));
+        when(chatService.list(7L, 10L, 0, AiHubChatStatus.ACTIVE)).thenReturn(List.of());
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        controller.aiHubChats(7L, 0, null);
+
+        verify(chatService).list(7L, 10L, 0, AiHubChatStatus.ACTIVE);
+    }
+
+    @Test
+    void testSharedChatsDelegatesToServiceWithCallerWorkspaceAndUser() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(10L);
+        when(userService.getCurrentUser()).thenReturn(user);
+
+        Workspace workspace7 = buildWorkspace(7L);
+
+        when(workspaceFacade.getUserWorkspaces(10L)).thenReturn(List.of(workspace7));
+
+        AiHubChat shared = mock(AiHubChat.class);
+
+        when(chatService.listSharedWithMe(7L, 10L, 0)).thenReturn(List.of(shared));
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        List<AiHubChat> result = controller.aiHubSharedChats(7L, 0);
+
+        assertThat(result).containsExactly(shared);
+    }
+
+    @Test
+    void testSharedChatsRejectsCallerOutsideWorkspace() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(10L);
+        when(userService.getCurrentUser()).thenReturn(user);
+
+        Workspace foreignWorkspace = buildWorkspace(99L);
+
+        when(workspaceFacade.getUserWorkspaces(10L)).thenReturn(List.of(foreignWorkspace));
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        assertThatThrownBy(() -> controller.aiHubSharedChats(7L, 0))
+            .isInstanceOf(ForbiddenException.class)
+            .hasMessageContaining("Workspace is not accessible");
+
+        verify(chatService, never()).listSharedWithMe(anyLong(), anyLong(), anyInt());
+    }
+
+    @Test
+    void testChatWorkspaceIdResolvesFromTheEntityColumn() {
+        // Schema declares AiHubChat.workspaceId: Long!. The @SchemaMapping resolver reads the loaded row's own
+        // workspace_id column, otherwise GraphQL returns null and trips the non-null contract on every
+        // list/create/update response.
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        AiHubChat chat = new AiHubChat(10L);
+
+        chat.setId(42L);
+        chat.setWorkspaceId(7L);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        long workspaceId = controller.chatWorkspaceId(chat);
+
+        assertThat(workspaceId).isEqualTo(7L);
+    }
+
+    @Test
+    void testChatWorkspaceIdFailsLoudlyForWorkspaceLessChat() {
+        // A null workspace_id is the state the missing membership row used to represent: the chat is unreachable
+        // through every workspace-scoped path, so the resolver must fail rather than break the non-null contract.
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        AiHubChat chat = new AiHubChat(10L);
+
+        chat.setId(42L);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        assertThatThrownBy(() -> controller.chatWorkspaceId(chat))
+            .isInstanceOf(NotFoundException.class);
+    }
+
+    @Test
+    void testChatOwnerNameResolvesTheOwnersLogin() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        AiHubChat chat = new AiHubChat(10L);
+        User owner = mock(User.class);
+
+        when(owner.getLogin()).thenReturn("ivica");
+        when(userService.fetchUser(10L)).thenReturn(Optional.of(owner));
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        assertThat(controller.chatOwnerName(List.of(chat))).isEqualTo(Map.of(chat, "ivica"));
+    }
+
+    @Test
+    void testChatOwnerNameReturnsNullWhenTheOwnerCannotBeResolved() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        AiHubChat chat = new AiHubChat(10L);
+
+        when(userService.fetchUser(10L)).thenReturn(Optional.empty());
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        // Left out rather than mapped to null: spring-graphql streams a batch result through Reactor, which rejects
+        // null elements and fails the whole batch. A missing key resolves to a null ownerName.
+        assertThat(controller.chatOwnerName(List.of(chat))).isEmpty();
+    }
+
+    @Test
+    void testChatIsOwnerTrueForTheOwningUser() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        AiHubChat chat = new AiHubChat(10L);
+        User currentUser = mock(User.class);
+
+        when(currentUser.getId()).thenReturn(10L);
+        when(userService.getCurrentUser()).thenReturn(currentUser);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        assertThat(controller.chatIsOwner(chat)).isTrue();
+    }
+
+    @Test
+    void testChatIsOwnerFalseForANonOwner() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        AiHubChat chat = new AiHubChat(10L);
+        User currentUser = mock(User.class);
+
+        when(currentUser.getId()).thenReturn(99L);
+        when(userService.getCurrentUser()).thenReturn(currentUser);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        assertThat(controller.chatIsOwner(chat)).isFalse();
+    }
+
+    /**
+     * The client selects {@code ownerName} unconditionally on {@code aiHubChats}, so the per-row resolver this replaced
+     * cost one {@code fetchUser} per chat on every sidebar load. Pins the batched shape: five chats over two distinct
+     * owners cost two user lookups, not five.
+     */
+    @Test
+    void testOwnerNameResolvesOncePerDistinctUserForTheWholeBatch() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        List<AiHubChat> chats = List.of(
+            new AiHubChat(10L), new AiHubChat(10L), new AiHubChat(99L), new AiHubChat(10L), new AiHubChat(99L));
+
+        User owner = mock(User.class);
+        User sharer = mock(User.class);
+
+        when(owner.getLogin()).thenReturn("ivica");
+        when(sharer.getLogin()).thenReturn("ana");
+        when(userService.fetchUser(10L)).thenReturn(Optional.of(owner));
+        when(userService.fetchUser(99L)).thenReturn(Optional.of(sharer));
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        // Transient chats compare by identity, so every row keeps its own entry.
+        Map<AiHubChat, String> ownerNames = controller.chatOwnerName(chats);
+
+        assertThat(ownerNames).hasSize(5);
+        assertThat(chats.stream()
+            .map(ownerNames::get)
+            .toList()).containsExactly("ivica", "ivica", "ana", "ivica", "ana");
+
+        // Five rows, two distinct owners: two lookups.
+        verify(userService, times(1)).fetchUser(10L);
+        verify(userService, times(1)).fetchUser(99L);
+    }
+
+    @Test
+    void testChatVisibilityMapsPrivateToTheNarrowedSchemaEnum() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        AiHubChat chat = new AiHubChat(10L);
+
+        chat.setVisibility(ResourceVisibility.PRIVATE);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        assertThat(controller.chatVisibility(chat)).isEqualTo(AiHubChatVisibility.PRIVATE);
+    }
+
+    @Test
+    void testChatVisibilityMapsWorkspaceToTheNarrowedSchemaEnum() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        AiHubChat chat = new AiHubChat(10L);
+
+        chat.setVisibility(ResourceVisibility.WORKSPACE);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        assertThat(controller.chatVisibility(chat)).isEqualTo(AiHubChatVisibility.WORKSPACE);
+    }
+
+    @Test
+    void testMessageAuthorNameResolvesTheAuthorsLogin() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User author = mock(User.class);
+
+        when(author.getLogin()).thenReturn("participant");
+        when(userService.fetchUser(31L)).thenReturn(Optional.of(author));
+
+        AiHubChatMessage message = new AiHubChatMessage("USER", "hi", Instant.EPOCH, null, 31L);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        assertThat(controller.messageAuthorName(List.of(message))).isEqualTo(Map.of(message, "participant"));
+    }
+
+    @Test
+    void testMessageAuthorNameReturnsNullWhenAuthorUserIdIsNull() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        AiHubChatMessage message = new AiHubChatMessage("ASSISTANT", "hi", Instant.EPOCH, null, null);
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        // Assistant rows are left out: a null element would fail the whole batch in Reactor.
+        assertThat(controller.messageAuthorName(List.of(message))).isEmpty();
+
+        // A message with no author contributes no lookup at all.
+        verify(userService, never()).fetchUser(anyLong());
+    }
+
+    /**
+     * {@code AiHubChatMessage} is a record, so two rows with the same role, content, timestamp, tool events and author
+     * are {@code equals} and share one map entry. That is correct, not lossy: DataLoader resolves each row with
+     * {@code map.get(row)}, and equal rows carry the same author id. Pins that a transcript containing a genuinely
+     * repeated message still gets an author for every row.
+     */
+    @Test
+    void testAuthorNameResolvesEveryRowWhenTwoMessagesAreEqual() {
+        UserService userService = mock(UserService.class);
+        AiHubChatArtifactService artifactService = mock(AiHubChatArtifactService.class);
+        AiHubChatService chatService = mock(AiHubChatService.class);
+        TitleGenerationService titleGenerationService = mock(TitleGenerationService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        Instant timestamp = Instant.parse("2026-09-03T10:00:00Z");
+        AiHubChatMessage first = new AiHubChatMessage("user", "ping", timestamp, null, 42L);
+        AiHubChatMessage duplicate = new AiHubChatMessage("user", "ping", timestamp, null, 42L);
+
+        assertThat(first).isEqualTo(duplicate);
+
+        User author = mock(User.class);
+
+        when(author.getLogin()).thenReturn("participant");
+        when(userService.fetchUser(42L)).thenReturn(Optional.of(author));
+
+        AiHubChatGraphQlController controller = new AiHubChatGraphQlController(
+            artifactService, chatService, titleGenerationService, userService, workspaceFacade);
+
+        Map<AiHubChatMessage, String> authorNames = controller.messageAuthorName(List.of(first, duplicate));
+
+        assertThat(authorNames.get(first)).isEqualTo("participant");
+        assertThat(authorNames.get(duplicate)).isEqualTo("participant");
+
+        // Two equal rows, one distinct author: one lookup.
+        verify(userService, times(1)).fetchUser(42L);
+    }
+
+    private static Workspace buildWorkspace(long id) {
+        Workspace workspace = mock(Workspace.class);
+
+        when(workspace.getId()).thenReturn(id);
+
+        return workspace;
+    }
+}

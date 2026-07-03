@@ -1,0 +1,551 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the ByteChef Enterprise license (the "Enterprise License");
+ * you may not use this file except in compliance with the Enterprise License.
+ */
+
+package com.bytechef.ee.ai.hub.toolsearch;
+
+import com.bytechef.component.definition.ai.agent.BaseToolFunction;
+import com.bytechef.ee.ai.hub.util.ToolNameNormalizer;
+import com.bytechef.platform.component.domain.ClusterElementDefinition;
+import com.bytechef.platform.component.service.ClusterElementDefinitionService;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
+import java.util.HexFormat;
+import java.util.List;
+import java.util.Objects;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.ai.tool.toolsearch.ToolReference;
+import org.springframework.ai.tool.toolsearch.index.vectorstore.VectorToolIndex;
+import org.springframework.dao.EmptyResultDataAccessException;
+import org.springframework.jdbc.core.JdbcTemplate;
+
+/**
+ * Loads tool catalogs into a {@link VectorToolIndex}. Two indexing modes exist:
+ *
+ * <ul>
+ * <li><b>Workspace catalog (v1).</b> {@link #populate()} re-indexes every tool-typed cluster element under the single
+ * {@link #CATALOG_SESSION_ID} session. Used as the default search corpus when a chat turn isn't bound to a
+ * chat-specific tool subset (e.g. brand-new chat that hasn't attached anything yet).</li>
+ * <li><b>Per-chat subset (v2).</b> {@link #populateForChat(long, Collection)} re-indexes the supplied tool list under a
+ * chat-scoped session id ({@link #chatSessionId(long)}). Used when a chat has been seeded from a task's tool template
+ * or has had tools attached/detached, so search queries on that chat only return its in-scope tools instead of the
+ * workspace-wide catalog. Pairs with {@link #clearChatSession(long)} on chat deletion to keep the vector store from
+ * accumulating orphaned per-chat rows.</li>
+ * </ul>
+ *
+ * <p>
+ * <b>Why per-chat sessions matter:</b> the workspace-wide catalog can grow into the thousands of tool entries once a
+ * workspace connects 50+ components. Even with top-K=5 search, the LLM's tool picks become noisier — Slack's
+ * sendMessage and a custom Webhook's POST both surface for "send a message". A task that pre-attaches the three tools
+ * the task's purpose actually needs (e.g. "summarize PRs": GitHub list-prs, GitHub get-pr-diff, Linear create-issue)
+ * gives the LLM exactly those three to choose from, eliminating the noise. The session-id partition is how we tell the
+ * {@link VectorToolIndex} "search this subset, not the workspace catalog" without re-architecting the underlying
+ * pgvector store.
+ * </p>
+ *
+ * <p>
+ * <b>Re-index semantics:</b> each populate call clears its target session — both the index's in-memory document-id map
+ * via {@link VectorToolIndex#clearIndex(String)} and, durably, every stored row carrying that session id — then
+ * re-indexes the whole entry list in one batched {@code indexTools} call. Two implications:
+ * </p>
+ * <ul>
+ * <li>The durable half of that clear is load-bearing, not belt-and-braces. {@code clearIndex} deletes only the ids held
+ * in a map that starts empty on every boot, and {@code indexTools} assigns a fresh random UUID per row, so a re-index
+ * after a restart cannot collide with — and so never replaces — the previous run's rows. Session ids are NOT
+ * single-use: {@link #CATALOG_SESSION_ID} and the two global ids are constants re-issued on every boot, and a chat's id
+ * is stable for its lifetime. Survivors therefore keep matching searches, and each re-index used to append another full
+ * copy. Since search returns a fixed top-K, N copies of one tool displace N-1 distinct tools from the results — this
+ * was a retrieval-quality bug, not merely wasted storage.</li>
+ * <li>Re-embedding the catalog on each boot costs cents at the {@code text-embedding-3-small} price point. The
+ * {@link #populate()} path short-circuits when the current catalog's content hash matches the hash stored in
+ * {@link #META_TABLE_NAME} from the previous successful populate — so cold-start cost drops to one tiny SQL query when
+ * the catalog hasn't changed, and the 90-second embedding spin only happens on first boot or after a component
+ * description / tool list actually changes. Per-chat subset re-indexes ({@link #populateForChat}) skip the hash check
+ * because those are 5–20 entries, on-demand, and the savings vs the bookkeeping aren't worth it.</li>
+ * </ul>
+ *
+ * <p>
+ * Tool name shape exposed to the LLM: <code>componentName_clusterElementName</code>. This is the lookup key the advisor
+ * uses to dispatch when the LLM picks a discovered tool by name; it MUST match the {@code toolName} on the registered
+ * {@link ClusterElementToolCallback} (see {@link ToolSearchAdvisorConfiguration}). The same normalization applies
+ * whether the entry is indexed under the workspace catalog or a chat subset.
+ * </p>
+ *
+ * @version ee
+ *
+ * @author Ivica Cardic
+ */
+public class ToolSearchCatalogFeeder {
+
+    /**
+     * Session id for the workspace-wide tool catalog — the default search corpus used for chats that don't have an
+     * explicit tool subset attached. v1 used this as the only session id; v2 keeps it as the fallback while adding
+     * per-chat sessions on top.
+     */
+    public static final String CATALOG_SESSION_ID = "ai_hub_tool_catalog";
+
+    /**
+     * Per-mode persistent sessions for the AI Hub global static tool beans (project/workflow/component/chat/...).
+     * Embedded once at startup via {@link #populateGlobalTools(String, List)} and unioned into the per-mode searcher so
+     * they are discoverable without being re-embedded on every user turn. Split per mode because the ASK read-only
+     * variants and the BUILD full set share tool names (e.g. {@code listProjects}) and would collide in one session.
+     */
+    public static final String GLOBAL_ASK_SESSION_ID = CATALOG_SESSION_ID + ":global:ask";
+
+    public static final String GLOBAL_BUILD_SESSION_ID = CATALOG_SESSION_ID + ":global:build";
+
+    /**
+     * Prefix for per-chat session ids, joined with the chat primary key via {@code :}. Keeping the prefix distinct from
+     * the workspace catalog id prevents collisions and makes the partition obvious in pgvector traces — a search trace
+     * showing {@code session_id = ai_hub_tool_catalog:chat:42} immediately pinpoints which chat drove the corpus.
+     */
+    private static final String CHAT_SESSION_PREFIX = CATALOG_SESSION_ID + ":chat:";
+
+    /**
+     * Per-session bookkeeping for the catalog-hash skip. Explicitly schema-qualified to the same fixed schema the
+     * tool-search {@code PgVectorStore} writes to (see the constructor's {@code qualifiedMetaTableName}), so it stays
+     * co-located with the vector rows and, like them, lives in one shared schema for all tenants rather than following
+     * the connection's per-tenant search_path. Created on first {@link #populate()} via {@code CREATE TABLE IF NOT
+     * EXISTS} so deployments don't need a separate Liquibase migration plumbed into the pgvector datasource — same
+     * pattern Spring AI's {@code PgVectorStore} uses for its own table.
+     */
+    static final String META_TABLE_NAME = "ai_hub_tool_search_catalog_meta";
+
+    private static final Logger log = LoggerFactory.getLogger(ToolSearchCatalogFeeder.class);
+
+    private final ClusterElementDefinitionService clusterElementDefinitionService;
+    private final VectorToolIndex vectorToolIndex;
+    private final JdbcTemplate pgVectorJdbcTemplate;
+    private final String qualifiedMetaTableName;
+    private final String qualifiedVectorTableName;
+
+    private volatile boolean metaTableEnsured;
+
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
+    public ToolSearchCatalogFeeder(
+        ClusterElementDefinitionService clusterElementDefinitionService, VectorToolIndex vectorToolIndex,
+        JdbcTemplate pgVectorJdbcTemplate, String schemaName, String vectorTableName) {
+
+        this.clusterElementDefinitionService = clusterElementDefinitionService;
+        this.vectorToolIndex = vectorToolIndex;
+        this.pgVectorJdbcTemplate = pgVectorJdbcTemplate;
+        this.qualifiedVectorTableName = schemaName + "." + vectorTableName;
+
+        // Schema-qualify the bookkeeping table to the SAME fixed schema the tool-search PgVectorStore writes its vector
+        // rows to (default "public"). PgVectorStore always emits schema.table SQL, so its rows are tenant-independent;
+        // this table is referenced by bare name, which would otherwise resolve through the connection's per-tenant
+        // search_path and scatter the hash bookkeeping into per-tenant schemas. Qualifying it makes the whole catalog
+        // live in one shared schema for all tenants, by construction — independent of the caller's tenant binding.
+        this.qualifiedMetaTableName = schemaName + "." + META_TABLE_NAME;
+    }
+
+    /**
+     * Returns the session id used to index the given chat's tool subset. Stable across calls so
+     * {@link #populateForChat(long, Collection)} and {@link #clearChatSession(long)} agree on which pgvector partition
+     * to write/clear.
+     */
+    public static String chatSessionId(long chatId) {
+        return CHAT_SESSION_PREFIX + chatId;
+    }
+
+    /**
+     * Re-populates the global tool catalog — the platform-wide set of tool-eligible cluster elements, shared across all
+     * tenants under the single {@link #CATALOG_SESSION_ID} partition (not per-workspace or per-tenant). Skips the
+     * embedding-and-write loop entirely when the catalog's content hash matches the hash recorded by the previous
+     * successful populate — saving 90 seconds and several hundred embedding API calls on every cold start where the
+     * catalog is unchanged. Idempotent: every call either short-circuits on hash match, or clears the session's
+     * in-memory tool-id tracking and re-indexes every tool-eligible cluster element in one batched {@code indexTools}
+     * call.
+     */
+    @SuppressFBWarnings("UNSAFE_HASH_EQUALS")
+    public void populate() {
+        List<ClusterElementDefinition> toolDefinitions =
+            clusterElementDefinitionService.getClusterElementDefinitionStubs(BaseToolFunction.TOOLS);
+
+        // Compute the canonical hash from (toolName, summary) pairs sorted by toolName. Skipping entries with no
+        // summary mirrors the indexCatalog loop — they never make it into pgvector, so they must not influence the
+        // hash either or we'd thrash repopulate every boot.
+        List<CatalogEntry> entries = new ArrayList<>();
+
+        for (ClusterElementDefinition toolDefinition : toolDefinitions) {
+            String summary = buildSummary(toolDefinition);
+
+            if (summary == null || summary.isBlank()) {
+                continue;
+            }
+
+            String toolName = ToolNameNormalizer.toToolName(
+                toolDefinition.getComponentName(), toolDefinition.getName());
+
+            entries.add(new CatalogEntry(toolName, summary));
+        }
+
+        String currentHash = computeCatalogHash(entries);
+
+        ensureMetaTable();
+
+        Optional<String> storedHash = readStoredHash(CATALOG_SESSION_ID);
+
+        if (storedHash.isPresent() && storedHash.get()
+            .equals(currentHash)) {
+
+            log.info(
+                "Tool search catalog unchanged (hash matches {} indexed entries under session {}); skipping re-embedding",
+                entries.size(), CATALOG_SESSION_ID);
+
+            return;
+        }
+
+        int indexed = indexCatalog(CATALOG_SESSION_ID, toolDefinitions);
+
+        writeStoredHash(CATALOG_SESSION_ID, currentHash, indexed);
+
+        log.info(
+            "Tool search catalog populated: indexed {} of {} tool-typed cluster elements under session {}",
+            indexed, toolDefinitions.size(), CATALOG_SESSION_ID);
+    }
+
+    /**
+     * Re-populates a chat-scoped tool subset. The supplied {@code chatTools} list is expected to be the tools currently
+     * bound to the chat (typically pulled from {@code AiHubChatToolFacade.listChatTools(chatId)} mapped to the
+     * component-typed cluster-element triple). Resolution from binding to cluster-element definition happens here so
+     * the caller doesn't need a {@code ClusterElementDefinitionService} reference.
+     *
+     * <p>
+     * <b>Safe to re-call:</b> the index is cleared and re-built on every invocation. Call sites:
+     * </p>
+     * <ul>
+     * <li>AiHubChat creation (after the task's template tools have been copied) — populates the initial subset.</li>
+     * <li>Tool attached/detached on the chat — refreshes the subset so the next search sees the change before the next
+     * chat turn.</li>
+     * <li>AiHubChat delete — pair with {@link #clearChatSession(long)} to release the entries.</li>
+     * </ul>
+     *
+     * <p>
+     * Bindings whose cluster element no longer exists in the catalog (component upgrade dropped the action) are logged
+     * at WARN and skipped. Re-attempting the populate after the user removes the dead binding will produce a clean
+     * subset.
+     * </p>
+     *
+     * @param chatId    the chat primary key
+     * @param chatTools the chat's currently bound tools as (componentName, componentVersion, clusterElementName)
+     *                  triples; an empty collection clears the session
+     */
+    public void populateForChat(long chatId, Collection<ChatToolReference> chatTools) {
+        String sessionId = chatSessionId(chatId);
+
+        if (chatTools == null || chatTools.isEmpty()) {
+            // No subset to index — clear so a previously-populated session doesn't leak into search results after
+            // the user has detached every tool. Equivalent to calling clearChatSession explicitly; provided
+            // here so call sites don't have to special-case the empty-collection branch.
+            clearSession(sessionId);
+
+            if (log.isDebugEnabled()) {
+                log.debug(
+                    "AiHubChat {} has no attached tools; cleared session {} (search will fall back to catalog)",
+                    chatId, sessionId);
+            }
+
+            return;
+        }
+
+        List<ClusterElementDefinition> resolvedDefinitions = new ArrayList<>(chatTools.size());
+
+        for (ChatToolReference reference : chatTools) {
+            try {
+                ClusterElementDefinition definition = clusterElementDefinitionService.getClusterElementDefinition(
+                    reference.componentName(), reference.componentVersion(), reference.clusterElementName());
+
+                resolvedDefinitions.add(definition);
+            } catch (RuntimeException exception) {
+                // Component upgrade dropped the action, OR the binding was attached against a component version
+                // that no longer ships. Log + skip rather than fail the populate — the user's other bound tools
+                // still get indexed and the chat remains usable.
+                log.warn(
+                    "Skipping chat tool {}/{} v{} for chat {} — cluster element no longer in catalog",
+                    reference.componentName(), reference.clusterElementName(), reference.componentVersion(),
+                    chatId, exception);
+            }
+        }
+
+        int indexed = indexCatalog(sessionId, resolvedDefinitions);
+
+        log.info(
+            "Tool search subset populated for chat {}: indexed {} of {} attached tools under session {}",
+            chatId, indexed, chatTools.size(), sessionId);
+    }
+
+    /**
+     * Re-populates a persistent global static-tool session from the supplied tool callbacks. Mirrors
+     * {@link #populate()} (hash-skip + clear-then-index) but sources its {@code (name, summary)} entries from
+     * {@link ToolCallback} definitions rather than cluster-element definitions. Called once per mode at startup so the
+     * AI Hub static tool beans embed a single time instead of being re-embedded by the advisor's per-turn self-index.
+     *
+     * @param sessionId     the persistent session id ({@link #GLOBAL_ASK_SESSION_ID} or
+     *                      {@link #GLOBAL_BUILD_SESSION_ID})
+     * @param toolCallbacks the static tool callbacks to index; entries with a blank description are skipped
+     */
+    @SuppressFBWarnings("UNSAFE_HASH_EQUALS")
+    public void populateGlobalTools(String sessionId, List<ToolCallback> toolCallbacks) {
+        List<CatalogEntry> entries = new ArrayList<>();
+
+        for (ToolCallback toolCallback : toolCallbacks) {
+            ToolDefinition toolDefinition = toolCallback.getToolDefinition();
+            String summary = toolDefinition.description();
+
+            if (summary == null || summary.isBlank()) {
+                continue;
+            }
+
+            entries.add(new CatalogEntry(toolDefinition.name(), summary));
+        }
+
+        String currentHash = computeCatalogHash(entries);
+
+        ensureMetaTable();
+
+        Optional<String> storedHash = readStoredHash(sessionId);
+
+        if (storedHash.isPresent() && storedHash.get()
+            .equals(currentHash)) {
+
+            log.info(
+                "Global tool session unchanged (hash matches {} entries under session {}); skipping re-embedding",
+                entries.size(), sessionId);
+
+            return;
+        }
+
+        int indexed = indexEntries(sessionId, entries);
+
+        writeStoredHash(sessionId, currentHash, indexed);
+
+        log.info(
+            "Global tool session populated: indexed {} of {} static tools under session {}",
+            indexed, toolCallbacks.size(), sessionId);
+    }
+
+    /**
+     * Removes every entry from the given chat's session. Used on chat deletion to keep the vector store from
+     * accumulating orphaned per-chat rows. Idempotent — calling with an unknown chat id is a benign no-op (no-op clear
+     * in the underlying searcher).
+     */
+    public void clearChatSession(long chatId) {
+        String sessionId = chatSessionId(chatId);
+
+        clearSession(sessionId);
+
+        if (log.isDebugEnabled()) {
+            log.debug("Cleared tool search session {} for chat {}", sessionId, chatId);
+        }
+    }
+
+    /**
+     * Shared indexing routine used by both the workspace-catalog and per-chat paths. Builds the filtered
+     * {@link CatalogEntry} list (skipping cluster elements with a blank summary) then delegates to
+     * {@link #indexEntries(String, List)} for the clear-then-index work. Returns the number of entries actually
+     * indexed.
+     */
+    private int indexCatalog(String sessionId, List<ClusterElementDefinition> toolDefinitions) {
+        List<CatalogEntry> entries = new ArrayList<>();
+
+        for (ClusterElementDefinition toolDefinition : toolDefinitions) {
+            String toolName = ToolNameNormalizer.toToolName(
+                toolDefinition.getComponentName(), toolDefinition.getName());
+            String summary = buildSummary(toolDefinition);
+
+            if (summary == null || summary.isBlank()) {
+                // No description means the embedding would be the bare component+action name — search quality
+                // collapses. Skip rather than poison the index with high-noise vectors. Component author should
+                // add a description if they want their tool discoverable from chat.
+                log.debug("Skipping tool-typed cluster element {} (no description)", toolName);
+
+                continue;
+            }
+
+            entries.add(new CatalogEntry(toolName, summary));
+        }
+
+        return indexEntries(sessionId, entries);
+    }
+
+    /**
+     * Shared clear-then-index routine. Clears the target persistent session (restart-safe, by metadata) then issues a
+     * single batched {@link VectorToolIndex#indexTools(String, List)} for the whole entry list. Batching matters: the
+     * underlying {@code VectorStore.add} runs its {@code BatchingStrategy} over the full document list and embeds each
+     * batch in one request, so a several-hundred-entry catalog collapses from one embedding HTTP round-trip per tool to
+     * a handful — cutting first-boot latency and embedding-endpoint request-rate pressure. Used by the workspace
+     * catalog, per-chat subset, and global tool paths.
+     */
+    private int indexEntries(String sessionId, List<CatalogEntry> entries) {
+        clearSession(sessionId);
+
+        if (entries.isEmpty()) {
+            return 0;
+        }
+
+        List<ToolReference> references = entries.stream()
+            .map(entry -> ToolReference.builder()
+                .toolName(entry.toolName())
+                .summary(entry.summary())
+                .build())
+            .toList();
+
+        vectorToolIndex.indexTools(sessionId, references);
+
+        return references.size();
+    }
+
+    /**
+     * Clears every row previously indexed under {@code sessionId}, including rows written by an earlier JVM run.
+     *
+     * <p>
+     * {@link VectorToolIndex#clearIndex(String)} alone is NOT restart-safe: it deletes only the ids held in its own
+     * in-memory {@code sessionToolIds} map, which starts empty on every boot. Since {@code indexTools} assigns a fresh
+     * {@code UUID.randomUUID()} to each row, a re-index after a restart cannot collide with — and so never replaces —
+     * the previous run's rows. Every re-index therefore appended a complete duplicate set, and because the hash check
+     * skips unchanged sessions, the copy count per session tracked how often that session's catalog had changed
+     * (observed in a dev database: 1 copy for an unchanged session, 4 and ~9 for two that had churned).
+     * </p>
+     *
+     * <p>
+     * Duplicates are not merely wasted rows: {@code searchTool} returns top-k, so N identical rows for one tool
+     * displace N-1 distinct tools that would otherwise have surfaced, degrading retrieval with every re-index.
+     * </p>
+     *
+     * <p>
+     * The metadata delete is the durable clear; the {@code clearIndex} call is kept so the index's in-memory
+     * bookkeeping for this session is dropped too, rather than retaining ids for rows that no longer exist.
+     * </p>
+     */
+    @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
+    private void clearSession(String sessionId) {
+        vectorToolIndex.clearIndex(sessionId);
+
+        int deleted = pgVectorJdbcTemplate.update(
+            "DELETE FROM " + qualifiedVectorTableName + " WHERE metadata->>'sessionId' = ?", sessionId);
+
+        if (deleted > 0 && log.isDebugEnabled()) {
+            log.debug("Cleared {} stale tool search rows for session {}", deleted, sessionId);
+        }
+    }
+
+    /**
+     * Combines the human-readable description with the title (when present) to give the embedding model maximum surface
+     * area for semantic matching. The component author's description is the load-bearing piece — title is a short label
+     * and may not contain enough signal alone.
+     */
+    private static String buildSummary(ClusterElementDefinition toolDefinition) {
+        String description = toolDefinition.getDescription();
+        String title = toolDefinition.getTitle();
+
+        if (description != null && !description.isBlank()) {
+            return title != null && !title.isBlank() ? title + ". " + description : description;
+        }
+
+        return title != null && !title.isBlank() ? title : null;
+    }
+
+    /**
+     * Lightweight DTO for {@link #populateForChat(long, Collection)} input. Decouples the feeder from the chat-tool
+     * persistence shape — callers can adapt {@code AiHubChatToolBinding} (full join including connection/parameters)
+     * into this triple without dragging the binding's connection-typed dependencies into the feeder's API surface.
+     */
+    public record ChatToolReference(String componentName, int componentVersion, String clusterElementName) {
+
+        public ChatToolReference {
+            Objects.requireNonNull(componentName, "componentName");
+            Objects.requireNonNull(clusterElementName, "clusterElementName");
+        }
+    }
+
+    /**
+     * Hash-input pair. Kept as a record so the canonical sort + serialisation is centralised here rather than scattered
+     * across populate(). Hash recipe: SHA-256 over the UTF-8 bytes of {@code toolName \0 summary \0} for each entry, in
+     * {@code toolName} order. The NUL separator is safe because tool names and summaries are plain text from component
+     * metadata and never contain NUL.
+     */
+    record CatalogEntry(String toolName, String summary) {
+    }
+
+    static String computeCatalogHash(List<CatalogEntry> entries) {
+        List<CatalogEntry> sorted = new ArrayList<>(entries);
+
+        sorted.sort(Comparator.comparing(CatalogEntry::toolName));
+
+        try {
+            MessageDigest digest = MessageDigest.getInstance("SHA-256");
+
+            for (CatalogEntry entry : sorted) {
+                digest.update(entry.toolName()
+                    .getBytes(StandardCharsets.UTF_8));
+                digest.update((byte) 0);
+                digest.update(entry.summary()
+                    .getBytes(StandardCharsets.UTF_8));
+                digest.update((byte) 0);
+            }
+
+            return HexFormat.of()
+                .formatHex(digest.digest());
+        } catch (NoSuchAlgorithmException exception) {
+            // SHA-256 is mandated by every JDK we run on; surfacing this would be a deployment defect, not a runtime
+            // condition the caller can recover from. Wrap so it propagates as a clear runtime exception.
+            throw new IllegalStateException("SHA-256 not available", exception);
+        }
+    }
+
+    // qualifiedMetaTableName is derived from the trusted pgvector schema config, never user input, but the field
+    // concatenation trips the Spring-JDBC injection detector the way a constant did not.
+    @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
+    private void ensureMetaTable() {
+        if (metaTableEnsured) {
+            return;
+        }
+
+        pgVectorJdbcTemplate.execute(
+            "CREATE TABLE IF NOT EXISTS " + qualifiedMetaTableName + " ("
+                + "session_id TEXT PRIMARY KEY,"
+                + "catalog_hash TEXT NOT NULL,"
+                + "tool_count INTEGER NOT NULL,"
+                + "last_indexed_at TIMESTAMPTZ NOT NULL DEFAULT NOW())");
+
+        metaTableEnsured = true;
+    }
+
+    @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
+    private Optional<String> readStoredHash(String sessionId) {
+        try {
+            String hash = pgVectorJdbcTemplate.queryForObject(
+                "SELECT catalog_hash FROM " + qualifiedMetaTableName + " WHERE session_id = ?",
+                String.class, sessionId);
+
+            return Optional.ofNullable(hash);
+        } catch (EmptyResultDataAccessException exception) {
+            return Optional.empty();
+        }
+    }
+
+    @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
+    private void writeStoredHash(String sessionId, String hash, int toolCount) {
+        pgVectorJdbcTemplate.update(
+            "INSERT INTO " + qualifiedMetaTableName + " (session_id, catalog_hash, tool_count, last_indexed_at)"
+                + " VALUES (?, ?, ?, NOW())"
+                + " ON CONFLICT (session_id) DO UPDATE"
+                + " SET catalog_hash = EXCLUDED.catalog_hash,"
+                + "     tool_count = EXCLUDED.tool_count,"
+                + "     last_indexed_at = NOW()",
+            sessionId, hash, toolCount);
+    }
+}
