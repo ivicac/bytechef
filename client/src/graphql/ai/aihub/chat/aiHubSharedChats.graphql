@@ -1,0 +1,25 @@
+query aiHubSharedChats($workspaceId: ID!, $environment: Int!) {
+    aiHubSharedChats(workspaceId: $workspaceId, environment: $environment) {
+        id
+        workspaceId
+        userId
+        threadId
+        title
+        lastPreview
+        messageCount
+        status
+        environmentId
+        createdAt
+        updatedAt
+        kind
+        workflowExecutionId
+        projectDeploymentId
+        autoTitled
+        aiAgentId
+        visibility
+        participation
+        ownerUserId
+        ownerName
+        isOwner
+    }
+}
