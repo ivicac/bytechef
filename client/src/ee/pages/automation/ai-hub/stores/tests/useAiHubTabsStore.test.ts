@@ -1,0 +1,888 @@
+import {aiHubComposerStore} from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
+import {act, renderHook} from '@testing-library/react';
+import {beforeEach, describe, expect, it} from 'vitest';
+
+import {aiHubTabsStore, attachTab, inferDefaultViewMode, useAiHubTabsStore} from '../useAiHubTabsStore';
+
+describe('useAiHubTabsStore', () => {
+    beforeEach(() => {
+        aiHubTabsStore.setState({
+            // activeChatId / snapshotsByChatId were previously left to leak between cases. The home -> chat
+            // hand-off only fires on the undefined -> chatId transition, so a case that starts with a chat
+            // id left over from its predecessor silently exercises the chat -> chat path instead.
+            activeChatId: undefined,
+            activeTabId: undefined,
+            attachedTabIds: [],
+            chatsSidebarCollapsed: true,
+            openTabs: [],
+            rightPanelOpen: false,
+            snapshotsByChatId: {},
+        });
+    });
+
+    it('opens a new tab, sets it active, and opens the right panel', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let tabId = '';
+
+        act(() => {
+            tabId = result.current.openFileTab('42', 'spec.md');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+
+        const tab = result.current.openTabs[0]!;
+
+        expect(tab.kind).toBe('file');
+
+        if (tab.kind === 'file') {
+            expect(tab.fileId).toBe('42');
+            expect(tab.viewMode).toBe('preview');
+        }
+
+        expect(tab.name).toBe('spec.md');
+        expect(result.current.activeTabId).toBe(tabId);
+        expect(result.current.rightPanelOpen).toBe(true);
+    });
+
+    it('focuses an existing tab when the same fileId is opened again', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let firstTabId = '';
+
+        act(() => {
+            firstTabId = result.current.openFileTab('42', 'spec.md');
+            result.current.openFileTab('43', 'notes.md');
+        });
+
+        expect(result.current.openTabs).toHaveLength(2);
+        expect(result.current.activeTabId).not.toBe(firstTabId);
+
+        act(() => {
+            result.current.openFileTab('42', 'spec.md');
+        });
+
+        expect(result.current.openTabs).toHaveLength(2);
+        expect(result.current.activeTabId).toBe(firstTabId);
+    });
+
+    it('removes a tab and picks the neighboring tab as active', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let firstTabId = '';
+        let secondTabId = '';
+        let thirdTabId = '';
+
+        act(() => {
+            firstTabId = result.current.openFileTab('1', 'a.md');
+            secondTabId = result.current.openFileTab('2', 'b.md');
+            thirdTabId = result.current.openFileTab('3', 'c.md');
+            result.current.setActiveTab(secondTabId);
+        });
+
+        act(() => {
+            result.current.closeTab(secondTabId);
+        });
+
+        expect(result.current.openTabs.map((tab) => tab.id)).toEqual([firstTabId, thirdTabId]);
+        expect(result.current.activeTabId).toBe(thirdTabId);
+    });
+
+    it('clears activeTabId when the last tab is closed', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let tabId = '';
+
+        act(() => {
+            tabId = result.current.openFileTab('1', 'a.md');
+        });
+
+        act(() => {
+            result.current.closeTab(tabId);
+        });
+
+        expect(result.current.openTabs).toHaveLength(0);
+        expect(result.current.activeTabId).toBeUndefined();
+        expect(result.current.rightPanelOpen).toBe(true);
+    });
+
+    it('updates view mode only for the target file tab', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let firstTabId = '';
+        let secondTabId = '';
+
+        act(() => {
+            firstTabId = result.current.openFileTab('1', 'a.md');
+            secondTabId = result.current.openFileTab('2', 'b.md');
+        });
+
+        act(() => {
+            result.current.setViewMode(firstTabId, 'split');
+        });
+
+        const firstTab = result.current.openTabs.find((tab) => tab.id === firstTabId)!;
+        const secondTab = result.current.openTabs.find((tab) => tab.id === secondTabId)!;
+
+        if (firstTab.kind === 'file') {
+            expect(firstTab.viewMode).toBe('split');
+        }
+
+        if (secondTab.kind === 'file') {
+            expect(secondTab.viewMode).toBe('preview');
+        }
+    });
+
+    // --- Workflow tab tests ---
+
+    it('opens a workflow tab with kind: workflow and correct fields', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let tabId = '';
+
+        act(() => {
+            tabId = result.current.openWorkflowTab('wf-1', 'proj-1', 10, 'My Workflow');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+
+        const tab = result.current.openTabs[0]!;
+
+        expect(tab.kind).toBe('workflow');
+        expect(tab.id).toBe(tabId);
+        expect(tab.name).toBe('My Workflow');
+
+        if (tab.kind === 'workflow') {
+            expect(tab.workflowId).toBe('wf-1');
+            expect(tab.projectId).toBe('proj-1');
+            expect(tab.projectWorkflowId).toBe(10);
+        }
+
+        expect(result.current.activeTabId).toBe(tabId);
+        expect(result.current.rightPanelOpen).toBe(true);
+    });
+
+    it('re-points the existing project-scoped workflow tab when another workflow of the same project opens', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let firstTabId = '';
+
+        act(() => {
+            firstTabId = result.current.openWorkflowTab('wf-1', 'proj-1', 10, 'My Workflow');
+            result.current.openWorkflowTab('wf-2', 'proj-1', 11, 'Other Workflow');
+        });
+
+        // Same project → a single tab, re-pointed to the most recently opened workflow (same tab id).
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.activeTabId).toBe(firstTabId);
+
+        const tab = result.current.openTabs[0]!;
+
+        if (tab.kind === 'workflow') {
+            expect(tab.workflowId).toBe('wf-2');
+            expect(tab.projectWorkflowId).toBe(11);
+            expect(tab.name).toBe('Other Workflow');
+        }
+    });
+
+    // --- DataTable tab tests ---
+
+    it('opens a dataTable tab with kind: dataTable and correct fields', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let tabId = '';
+
+        act(() => {
+            tabId = result.current.openDataTableTab('dt-1', 'My Table');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+
+        const tab = result.current.openTabs[0]!;
+
+        expect(tab.kind).toBe('dataTable');
+        expect(tab.id).toBe(tabId);
+        expect(tab.name).toBe('My Table');
+
+        if (tab.kind === 'dataTable') {
+            expect(tab.dataTableId).toBe('dt-1');
+        }
+
+        expect(result.current.activeTabId).toBe(tabId);
+        expect(result.current.rightPanelOpen).toBe(true);
+    });
+
+    it('focuses an existing dataTable tab when the same dataTableId is opened again', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let firstTabId = '';
+
+        act(() => {
+            firstTabId = result.current.openDataTableTab('dt-1', 'My Table');
+            result.current.openDataTableTab('dt-2', 'Other Table');
+        });
+
+        expect(result.current.openTabs).toHaveLength(2);
+        expect(result.current.activeTabId).not.toBe(firstTabId);
+
+        act(() => {
+            result.current.openDataTableTab('dt-1', 'My Table');
+        });
+
+        expect(result.current.openTabs).toHaveLength(2);
+        expect(result.current.activeTabId).toBe(firstTabId);
+    });
+
+    // --- Skill tab tests ---
+
+    it('opens a skill tab and dedups by skillId', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let firstId = '';
+
+        act(() => {
+            firstId = result.current.openSkillTab('7', 'Triage');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.openTabs[0]).toMatchObject({kind: 'skill', name: 'Triage', skillId: '7'});
+
+        act(() => {
+            result.current.openSkillTab('7', 'Triage');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.activeTabId).toBe(firstId);
+    });
+
+    // --- CustomComponent tab tests ---
+
+    it('opens a customComponent tab and dedups by customComponentId', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let firstId = '';
+
+        act(() => {
+            firstId = result.current.openCustomComponentTab('cc-1', 'My Custom Component');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.openTabs[0]).toMatchObject({
+            customComponentId: 'cc-1',
+            kind: 'customComponent',
+            name: 'My Custom Component',
+        });
+
+        act(() => {
+            result.current.openCustomComponentTab('cc-1', 'My Custom Component');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.activeTabId).toBe(firstId);
+    });
+
+    // --- CodeWorkflow tab tests ---
+
+    it('opens a codeWorkflow tab and dedups by projectId', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let firstId = '';
+
+        act(() => {
+            firstId = result.current.openCodeWorkflowTab('proj-1', 'java', 'My Code Workflow');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.openTabs[0]).toMatchObject({
+            id: 'codeWorkflow-proj-1',
+            kind: 'codeWorkflow',
+            language: 'java',
+            name: 'My Code Workflow',
+            projectId: 'proj-1',
+        });
+        expect(firstId).toBe('codeWorkflow-proj-1');
+
+        act(() => {
+            result.current.openCodeWorkflowTab('proj-1', 'java', 'My Code Workflow');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.activeTabId).toBe(firstId);
+    });
+
+    // --- KnowledgeBase tab tests ---
+
+    it('opens a knowledgeBase tab with kind: knowledgeBase and correct fields', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let tabId = '';
+
+        act(() => {
+            tabId = result.current.openKnowledgeBaseTab('kb-1', 'My KB');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+
+        const tab = result.current.openTabs[0]!;
+
+        expect(tab.kind).toBe('knowledgeBase');
+        expect(tab.id).toBe(tabId);
+        expect(tab.name).toBe('My KB');
+
+        if (tab.kind === 'knowledgeBase') {
+            expect(tab.knowledgeBaseId).toBe('kb-1');
+        }
+
+        expect(result.current.activeTabId).toBe(tabId);
+        expect(result.current.rightPanelOpen).toBe(true);
+    });
+
+    it('focuses an existing knowledgeBase tab when the same knowledgeBaseId is opened again', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let firstTabId = '';
+
+        act(() => {
+            firstTabId = result.current.openKnowledgeBaseTab('kb-1', 'My KB');
+            result.current.openKnowledgeBaseTab('kb-2', 'Other KB');
+        });
+
+        expect(result.current.openTabs).toHaveLength(2);
+        expect(result.current.activeTabId).not.toBe(firstTabId);
+
+        act(() => {
+            result.current.openKnowledgeBaseTab('kb-1', 'My KB');
+        });
+
+        expect(result.current.openTabs).toHaveLength(2);
+        expect(result.current.activeTabId).toBe(firstTabId);
+    });
+
+    // --- AiAgent tab tests ---
+
+    it('opens an aiAgent tab with kind: aiAgent and correct fields', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let tabId = '';
+
+        act(() => {
+            tabId = result.current.openAiAgentTab('agent-1', 'Support Agent');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+
+        const tab = result.current.openTabs[0]!;
+
+        expect(tab.kind).toBe('aiAgent');
+        expect(tab.id).toBe(tabId);
+        expect(tab.name).toBe('Support Agent');
+
+        if (tab.kind === 'aiAgent') {
+            expect(tab.aiAgentId).toBe('agent-1');
+        }
+
+        expect(result.current.activeTabId).toBe(tabId);
+        expect(result.current.rightPanelOpen).toBe(true);
+    });
+
+    it('focuses an existing aiAgent tab when the same aiAgentId is opened again', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let firstTabId = '';
+
+        act(() => {
+            firstTabId = result.current.openAiAgentTab('agent-1', 'Support Agent');
+            result.current.openAiAgentTab('agent-2', 'Sales Agent');
+        });
+
+        expect(result.current.openTabs).toHaveLength(2);
+        expect(result.current.activeTabId).not.toBe(firstTabId);
+
+        act(() => {
+            result.current.openAiAgentTab('agent-1', 'Support Agent');
+        });
+
+        expect(result.current.openTabs).toHaveLength(2);
+        expect(result.current.activeTabId).toBe(firstTabId);
+    });
+
+    // --- Mixed-kind tests ---
+
+    it('can have all four kinds open simultaneously', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        act(() => {
+            result.current.openFileTab('f-1', 'readme.md');
+            result.current.openWorkflowTab('wf-1', 'proj-1', 10, 'My Workflow');
+            result.current.openDataTableTab('dt-1', 'My Table');
+            result.current.openKnowledgeBaseTab('kb-1', 'My KB');
+        });
+
+        expect(result.current.openTabs).toHaveLength(4);
+
+        const kinds = result.current.openTabs.map((tab) => tab.kind);
+
+        expect(kinds).toContain('file');
+        expect(kinds).toContain('workflow');
+        expect(kinds).toContain('dataTable');
+        expect(kinds).toContain('knowledgeBase');
+    });
+
+    it('opening a workflow tab after a file tab preserves both', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let fileTabId = '';
+
+        act(() => {
+            fileTabId = result.current.openFileTab('f-1', 'readme.md');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+
+        act(() => {
+            result.current.openWorkflowTab('wf-1', 'proj-1', 10, 'My Workflow');
+        });
+
+        expect(result.current.openTabs).toHaveLength(2);
+        expect(result.current.openTabs[0]!.id).toBe(fileTabId);
+        expect(result.current.openTabs[0]!.kind).toBe('file');
+        expect(result.current.openTabs[1]!.kind).toBe('workflow');
+    });
+
+    it('closing active workflow tab when a file tab exists makes the file tab active', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let fileTabId = '';
+        let workflowTabId = '';
+
+        act(() => {
+            fileTabId = result.current.openFileTab('f-1', 'readme.md');
+            workflowTabId = result.current.openWorkflowTab('wf-1', 'proj-1', 10, 'My Workflow');
+        });
+
+        expect(result.current.activeTabId).toBe(workflowTabId);
+
+        act(() => {
+            result.current.closeTab(workflowTabId);
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.activeTabId).toBe(fileTabId);
+    });
+
+    // --- setViewMode on non-file tab is a no-op ---
+
+    it('setViewMode on a workflow tab is a no-op', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let workflowTabId = '';
+
+        act(() => {
+            workflowTabId = result.current.openWorkflowTab('wf-1', 'proj-1', 10, 'My Workflow');
+        });
+
+        const tabsBefore = result.current.openTabs.slice();
+
+        act(() => {
+            result.current.setViewMode(workflowTabId, 'split');
+        });
+
+        expect(result.current.openTabs).toEqual(tabsBefore);
+    });
+
+    // --- inferDefaultViewMode is called only for file tabs ---
+
+    it('non-file tabs do not have a viewMode field (confirming inferDefaultViewMode is not applied)', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        act(() => {
+            result.current.openWorkflowTab('wf-1', 'proj-1', 10, 'My Workflow');
+            result.current.openDataTableTab('dt-1', 'My Table');
+            result.current.openKnowledgeBaseTab('kb-1', 'My KB');
+        });
+
+        for (const tab of result.current.openTabs) {
+            expect(tab.kind).not.toBe('file');
+            expect('viewMode' in tab).toBe(false);
+        }
+    });
+
+    it('file tabs have viewMode set by inferDefaultViewMode', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        act(() => {
+            result.current.openFileTab('f-1', 'readme.md');
+        });
+
+        const tab = result.current.openTabs[0]!;
+
+        expect(tab.kind).toBe('file');
+
+        if (tab.kind === 'file') {
+            expect(tab.viewMode).toBe('preview');
+        }
+    });
+
+    describe('setActiveChatId — home → chat hand-off', () => {
+        it('inherits tabs and rightPanelOpen from home view when first chat is created', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            // Simulate the user ATTACHING a file in the home composer (no active chat yet). attachTab is
+            // what marks the tab as an attachment, which is what the hand-off below keys on.
+            act(() => {
+                attachTab(() => result.current.openFileTab('42', 'spec.md'));
+            });
+
+            expect(result.current.activeChatId).toBeUndefined();
+            expect(result.current.openTabs).toHaveLength(1);
+            expect(result.current.rightPanelOpen).toBe(true);
+
+            // User hits Enter — chat is auto-created, transition to a real chat id.
+            act(() => {
+                result.current.setActiveChatId(1);
+            });
+
+            // Tabs and right panel state must carry over — without this, the artifact the user attached
+            // on home would be lost when the chat panel mounts.
+            expect(result.current.activeChatId).toBe(1);
+            expect(result.current.openTabs).toHaveLength(1);
+            expect(result.current.rightPanelOpen).toBe(true);
+        });
+
+        /*
+         * The hand-off carries home-view tabs into the chat the first prompt creates, and
+         * useRecordReferencedArtifacts then persists every carried tab as an artifact of that chat. Not
+         * every home-view tab is an attachment though: AiHubFilePicker opens one for plain browsing, and a
+         * chip whose ✕ was clicked leaves none behind. Those tabs are the user looking around before they
+         * started the chat — inheriting them filed unrelated resources as attachments of a chat that never
+         * referenced them.
+         */
+        it('drops home-view tabs that were never attached in the composer', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            // Browsing a file through AiHubFilePicker opens a tab but adds no chip.
+            act(() => {
+                result.current.openFileTab('99', 'CleanShot 2026-06-01.png');
+            });
+
+            expect(result.current.openTabs).toHaveLength(1);
+
+            act(() => {
+                result.current.setActiveChatId(1);
+            });
+
+            expect(result.current.activeChatId).toBe(1);
+            expect(result.current.openTabs).toHaveLength(0);
+            expect(result.current.activeTabId).toBeUndefined();
+        });
+
+        it('keeps the attached tabs and drops the browsed ones in the same hand-off', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            act(() => {
+                attachTab(() => result.current.openDataTableTab('dt-1', 'invoices'));
+
+                result.current.openFileTab('99', 'CleanShot 2026-06-01.png');
+            });
+
+            expect(result.current.openTabs).toHaveLength(2);
+
+            act(() => {
+                result.current.setActiveChatId(1);
+            });
+
+            expect(result.current.openTabs).toHaveLength(1);
+            expect(result.current.openTabs[0]).toMatchObject({dataTableId: 'dt-1', kind: 'dataTable'});
+            // The browsed file was the active tab (opened last); the active id has to fall back to a tab
+            // that still exists, or the panel renders blank with no way back.
+            expect(result.current.activeTabId).toBe(result.current.openTabs[0]!.id);
+        });
+
+        /*
+         * The hand-off must not depend on the composer's chips still being present. onNew wipes them with
+         * aiHubComposerStore.clear() the instant a message is sent, and AiHub.tsx's mirror effect only
+         * calls setActiveChatId on the commit AFTER that — so a hand-off that read the chips saw an empty
+         * list and dropped every tab, the attached ones included. Marking at attach time is what makes the
+         * order irrelevant; this case pins that.
+         */
+        it('keeps attached tabs even though the chips are cleared before the hand-off runs', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            act(() => {
+                attachTab(() => result.current.openDataTableTab('dt-1', 'invoices'));
+            });
+
+            act(() => {
+                aiHubComposerStore.getState().clear();
+
+                result.current.setActiveChatId(1);
+            });
+
+            expect(result.current.openTabs).toHaveLength(1);
+        });
+
+        /*
+         * A chat -> chat switch restores from that chat's snapshot and never consults the composer, so the
+         * attachment filter must not reach beyond the one undefined -> chatId transition it exists for.
+         */
+        it('does not filter a restored snapshot on a chat to chat switch', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            act(() => {
+                result.current.setActiveChatId(1);
+
+                result.current.openFileTab('99', 'notes.md');
+            });
+
+            act(() => {
+                result.current.setActiveChatId(2);
+            });
+
+            expect(result.current.openTabs).toHaveLength(0);
+
+            act(() => {
+                result.current.setActiveChatId(1);
+            });
+
+            expect(result.current.openTabs).toHaveLength(1);
+        });
+
+        it('restores the right panel per chat on switch (closed for chats with no snapshot)', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            // Land in conv-1 with one tab (opening a tab also opens the right panel).
+            act(() => {
+                result.current.setActiveChatId(1);
+                result.current.openFileTab('42', 'a.md');
+            });
+
+            expect(result.current.openTabs).toHaveLength(1);
+            expect(result.current.rightPanelOpen).toBe(true);
+
+            // Switch to conv-2 — it has no snapshot yet, so it lands with no tabs and the panel closed.
+            act(() => {
+                result.current.setActiveChatId(2);
+            });
+
+            expect(result.current.openTabs).toHaveLength(0);
+            expect(result.current.rightPanelOpen).toBe(false);
+
+            // Switch back to conv-1 — its snapshot is restored as the user left it: the tab is back AND the
+            // panel reopens, since the resource-panel state is snapshotted per chat.
+            act(() => {
+                result.current.setActiveChatId(1);
+            });
+
+            expect(result.current.openTabs).toHaveLength(1);
+            expect(result.current.rightPanelOpen).toBe(true);
+        });
+
+        it('lets the user re-open the panel after a switch by opening a tab', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            act(() => {
+                result.current.setActiveChatId(1);
+                result.current.openFileTab('42', 'a.md');
+                result.current.setActiveChatId(2);
+            });
+
+            // Switching closed the panel...
+            expect(result.current.rightPanelOpen).toBe(false);
+
+            // ...and opening a tab in the new chat re-opens it.
+            act(() => {
+                result.current.openFileTab('7', 'b.md');
+            });
+
+            expect(result.current.rightPanelOpen).toBe(true);
+        });
+    });
+
+    describe('chatsSidebarCollapsed', () => {
+        it('starts open (not collapsed), like the sidebar on every other page', () => {
+            aiHubTabsStore.getState().reset();
+
+            expect(aiHubTabsStore.getState().chatsSidebarCollapsed).toBe(false);
+        });
+
+        it('setChatsSidebarCollapsed toggles the hidden flag and clears any peek', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            act(() => {
+                result.current.setChatsSidebarPeeking(true);
+                result.current.setChatsSidebarCollapsed(false);
+            });
+
+            expect(result.current.chatsSidebarCollapsed).toBe(false);
+            expect(result.current.chatsSidebarPeeking).toBe(false);
+
+            act(() => {
+                result.current.setChatsSidebarCollapsed(true);
+            });
+
+            expect(result.current.chatsSidebarCollapsed).toBe(true);
+        });
+
+        it('opening or closing the resource panel leaves the sidebar state alone', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            // Sidebar open, resource panel opens: the sidebar must NOT collapse (the header toggle is
+            // always there to close it by hand).
+            act(() => {
+                result.current.setChatsSidebarCollapsed(false);
+                result.current.setRightPanelOpen(true);
+            });
+
+            expect(result.current.chatsSidebarCollapsed).toBe(false);
+
+            // Sidebar hidden, resource panel closes: the sidebar must stay hidden.
+            act(() => {
+                result.current.setChatsSidebarCollapsed(true);
+                result.current.setChatsSidebarPeeking(true);
+                result.current.setRightPanelOpen(false);
+            });
+
+            expect(result.current.chatsSidebarCollapsed).toBe(true);
+            expect(result.current.chatsSidebarPeeking).toBe(true);
+        });
+
+        it('switching chats leaves the sidebar state alone', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            act(() => {
+                result.current.setActiveChatId(1);
+                result.current.setChatsSidebarCollapsed(true);
+            });
+
+            act(() => {
+                result.current.setActiveChatId(2);
+            });
+
+            expect(result.current.chatsSidebarCollapsed).toBe(true);
+
+            act(() => {
+                result.current.setChatsSidebarCollapsed(false);
+                result.current.setActiveChatId(undefined);
+                result.current.setActiveChatId(3);
+            });
+
+            expect(result.current.chatsSidebarCollapsed).toBe(false);
+        });
+    });
+
+    describe('openWorkflowExecutionTab', () => {
+        it('opens a workflowExecution tab with the correct fields and opens the right panel', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            let tabId = '';
+
+            act(() => {
+                tabId = result.current.openWorkflowExecutionTab(501, 'Run #501');
+            });
+
+            expect(result.current.openTabs).toHaveLength(1);
+
+            const tab = result.current.openTabs[0]!;
+
+            expect(tab.kind).toBe('workflowExecution');
+            expect(tab.id).toBe(tabId);
+            expect(tab.name).toBe('Run #501');
+
+            if (tab.kind === 'workflowExecution') {
+                expect(tab.workflowExecutionId).toBe(501);
+            }
+
+            expect(result.current.activeTabId).toBe(tabId);
+            expect(result.current.rightPanelOpen).toBe(true);
+        });
+
+        it('focuses an existing tab when the same workflowExecutionId is opened again', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            let firstTabId = '';
+
+            act(() => {
+                firstTabId = result.current.openWorkflowExecutionTab(501, 'Run #501');
+                result.current.openWorkflowExecutionTab(502, 'Run #502');
+            });
+
+            expect(result.current.openTabs).toHaveLength(2);
+            expect(result.current.activeTabId).not.toBe(firstTabId);
+
+            act(() => {
+                result.current.openWorkflowExecutionTab(501, 'Run #501');
+            });
+
+            expect(result.current.openTabs).toHaveLength(2);
+            expect(result.current.activeTabId).toBe(firstTabId);
+        });
+    });
+
+    describe('inferDefaultViewMode', () => {
+        it('returns preview for markdown files', () => {
+            expect(inferDefaultViewMode('spec.md')).toBe('preview');
+            expect(inferDefaultViewMode('notes.MARKDOWN')).toBe('preview');
+        });
+
+        it('returns preview for html files', () => {
+            expect(inferDefaultViewMode('index.html')).toBe('preview');
+            expect(inferDefaultViewMode('page.htm')).toBe('preview');
+        });
+
+        it('returns editor for code and data files', () => {
+            expect(inferDefaultViewMode('config.json')).toBe('editor');
+            expect(inferDefaultViewMode('script.py')).toBe('editor');
+            expect(inferDefaultViewMode('data.csv')).toBe('editor');
+            expect(inferDefaultViewMode('notes.txt')).toBe('editor');
+        });
+
+        it('returns preview for unknown extensions (shows metadata placeholder)', () => {
+            expect(inferDefaultViewMode('image.png')).toBe('preview');
+            expect(inferDefaultViewMode('archive.zip')).toBe('preview');
+        });
+    });
+});
+
+describe('openWorkflowTab project-scoped dedup', () => {
+    beforeEach(() => {
+        aiHubTabsStore.setState({
+            activeChatId: undefined,
+            activeTabId: undefined,
+            chatsSidebarCollapsed: true,
+            openTabs: [],
+            rightPanelOpen: false,
+            snapshotsByChatId: {},
+        });
+    });
+
+    it('opens a single tab per project and re-points it when another workflow of the same project opens', () => {
+        const store = aiHubTabsStore.getState();
+
+        store.openWorkflowTab('wf-a', 'project-1', 11, 'Workflow A');
+        store.openWorkflowTab('wf-b', 'project-1', 12, 'Workflow B');
+
+        const workflowTabs = aiHubTabsStore.getState().openTabs.filter((tab) => tab.kind === 'workflow');
+
+        expect(workflowTabs).toHaveLength(1);
+
+        const tab = workflowTabs[0]!;
+
+        if (tab.kind === 'workflow') {
+            expect(tab.projectId).toBe('project-1');
+            expect(tab.workflowId).toBe('wf-b');
+            expect(tab.projectWorkflowId).toBe(12);
+            expect(tab.name).toBe('Workflow B');
+        }
+    });
+
+    it('opens separate tabs for workflows from different projects', () => {
+        const store = aiHubTabsStore.getState();
+
+        store.openWorkflowTab('wf-a', 'project-1', 11, 'Workflow A');
+        store.openWorkflowTab('wf-c', 'project-2', 21, 'Workflow C');
+
+        const workflowTabs = aiHubTabsStore.getState().openTabs.filter((tab) => tab.kind === 'workflow');
+
+        expect(workflowTabs).toHaveLength(2);
+    });
+});
