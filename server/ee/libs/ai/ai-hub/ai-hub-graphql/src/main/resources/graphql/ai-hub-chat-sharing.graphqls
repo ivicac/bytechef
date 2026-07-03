@@ -1,0 +1,30 @@
+extend type Query {
+    """Users currently granted access to a chat beyond its owner. Owner-or-admin only."""
+    aiHubChatGrants(workspaceId: ID!, chatId: ID!): [Long!]!
+}
+
+extend type Mutation {
+    """Changes a chat's visibility and participation in one write. Owner-or-admin only; rejects a visibility
+    rung the chat resource type does not support."""
+    setAiHubChatVisibility(workspaceId: ID!, chatId: ID!, visibility: AiHubChatVisibility!, participation: AiHubChatParticipation!): AiHubChat!
+    """Grants a named workspace member access to a chat. The grantee must already be a member of the
+    workspace."""
+    grantAiHubChatAccess(workspaceId: ID!, chatId: ID!, userId: ID!): AiHubChat!
+    """Revokes a named user's access to a chat. No membership check runs — someone removed from the
+    workspace must still be revocable."""
+    revokeAiHubChatAccess(workspaceId: ID!, chatId: ID!, userId: ID!): AiHubChat!
+}
+
+"""Whether a person a chat has been shared with may only follow it live, or may also contribute turns."""
+enum AiHubChatParticipation {
+    VIEW
+    PARTICIPATE
+}
+
+"""The visibility rungs an AI Hub chat can carry. Deliberately narrower than the platform's
+ResourceVisibility: a chat belongs to at most one workspace, so ORGANIZATION is not a rung a chat can
+legally carry, and publishing it would advertise a value the server always rejects."""
+enum AiHubChatVisibility {
+    PRIVATE
+    WORKSPACE
+}

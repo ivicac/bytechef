@@ -720,10 +720,12 @@ public class ApplicationProperties {
         private Copilot copilot = new Copilot();
         private Firecrawl firecrawl = new Firecrawl();
         private Gateway gateway = new Gateway();
+        private Hub hub = new Hub();
         private KnowledgeBase knowledgeBase = new KnowledgeBase();
         private Mcp mcp = new Mcp();
         private Memory memory = new Memory();
         private Provider provider = new Provider();
+        private Stt stt = new Stt();
         private Vectorstore vectorstore = new Vectorstore();
 
         public Copilot getCopilot() {
@@ -736,6 +738,10 @@ public class ApplicationProperties {
 
         public Gateway getGateway() {
             return gateway;
+        }
+
+        public Hub getHub() {
+            return hub;
         }
 
         public KnowledgeBase getKnowledgeBase() {
@@ -754,6 +760,10 @@ public class ApplicationProperties {
             return provider;
         }
 
+        public Stt getStt() {
+            return stt;
+        }
+
         public Vectorstore getVectorstore() {
             return vectorstore;
         }
@@ -768,6 +778,10 @@ public class ApplicationProperties {
 
         public void setGateway(Gateway gateway) {
             this.gateway = gateway;
+        }
+
+        public void setHub(Hub hub) {
+            this.hub = hub;
         }
 
         public void setKnowledgeBase(KnowledgeBase knowledgeBase) {
@@ -786,13 +800,17 @@ public class ApplicationProperties {
             this.provider = provider;
         }
 
+        public void setStt(Stt stt) {
+            this.stt = stt;
+        }
+
         public void setVectorstore(Vectorstore vectorstore) {
             this.vectorstore = vectorstore;
         }
 
         /**
-         * AI memory configuration. Cross-cutting concern shared by copilot and agents — not owned by any single product
-         * surface. Stores conversation history for chat-style interactions.
+         * AI memory configuration. Cross-cutting concern shared by copilot, agents, and hub surfaces — not owned by any
+         * single product surface. Stores conversation history for chat-style interactions.
          */
         public static class Memory {
 
@@ -914,10 +932,7 @@ public class ApplicationProperties {
         }
 
         /**
-         * AI Hub properties. Mirrors the {@link Copilot} flag pattern: a single {@code enabled} switch toggles the
-         * whole hub surface (REST/GraphQL controllers, JDBC repositories, service beans). Kept as a sibling of
-         * {@code copilot} rather than nested inside it because AI Hub is its own product surface — workflow-chat
-         * dispatch and personal-agent management live here even on deployments where the LLM copilot is disabled.
+         * AI Hub properties.
          */
         public static class Hub {
 
@@ -926,12 +941,43 @@ public class ApplicationProperties {
              */
             private boolean enabled;
 
+            private McpServer mcpServer = new McpServer();
+
             public boolean isEnabled() {
                 return enabled;
             }
 
             public void setEnabled(boolean enabled) {
                 this.enabled = enabled;
+            }
+
+            public McpServer getMcpServer() {
+                return mcpServer;
+            }
+
+            public void setMcpServer(McpServer mcpServer) {
+                this.mcpServer = mcpServer;
+            }
+
+            /**
+             * Configuration for user-registered external MCP (Model Context Protocol) servers.
+             */
+            public static class McpServer {
+
+                /**
+                 * Hostnames that bypass the SSRF guard for custom MCP server URLs (e.g. "localhost" for self-hosted/dev
+                 * MCP servers). Empty by default, so loopback/private/cloud-metadata targets are blocked; add hosts
+                 * here to permit specific internal MCP servers.
+                 */
+                private List<String> allowedHosts = List.of();
+
+                public List<String> getAllowedHosts() {
+                    return allowedHosts;
+                }
+
+                public void setAllowedHosts(List<String> allowedHosts) {
+                    this.allowedHosts = allowedHosts;
+                }
             }
         }
 
@@ -1034,6 +1080,131 @@ public class ApplicationProperties {
                     public void setApiKey(String apiKey) {
                         this.apiKey = apiKey;
                     }
+                }
+            }
+        }
+
+        /**
+         * Speech-to-text (STT) configuration. Selects the active transcription provider and holds per-provider endpoint
+         * overrides. Provider API keys are supplied per workflow connection, not here.
+         */
+        public static class Stt {
+
+            /**
+             * STT provider type.
+             */
+            public enum Provider {
+                /**
+                 * OpenAI transcription provider
+                 */
+                OPENAI,
+                /**
+                 * Deepgram transcription provider
+                 */
+                DEEPGRAM,
+                /**
+                 * ElevenLabs transcription provider
+                 */
+                ELEVENLABS
+            }
+
+            /**
+             * Active STT provider
+             */
+            private Provider provider = Provider.OPENAI;
+
+            private Openai openai = new Openai();
+
+            private Deepgram deepgram = new Deepgram();
+
+            private Elevenlabs elevenlabs = new Elevenlabs();
+
+            public Provider getProvider() {
+                return provider;
+            }
+
+            public void setProvider(Provider provider) {
+                this.provider = provider;
+            }
+
+            public Openai getOpenai() {
+                return openai;
+            }
+
+            public void setOpenai(Openai openai) {
+                this.openai = openai;
+            }
+
+            public Deepgram getDeepgram() {
+                return deepgram;
+            }
+
+            public void setDeepgram(Deepgram deepgram) {
+                this.deepgram = deepgram;
+            }
+
+            public Elevenlabs getElevenlabs() {
+                return elevenlabs;
+            }
+
+            public void setElevenlabs(Elevenlabs elevenlabs) {
+                this.elevenlabs = elevenlabs;
+            }
+
+            /**
+             * OpenAI STT endpoint configuration.
+             */
+            public static class Openai {
+
+                /**
+                 * OpenAI STT API base URL
+                 */
+                private String baseUrl = "https://api.openai.com";
+
+                public String getBaseUrl() {
+                    return baseUrl;
+                }
+
+                public void setBaseUrl(String baseUrl) {
+                    this.baseUrl = baseUrl;
+                }
+            }
+
+            /**
+             * Deepgram STT endpoint configuration.
+             */
+            public static class Deepgram {
+
+                /**
+                 * Deepgram STT API base URL
+                 */
+                private String baseUrl = "https://api.deepgram.com";
+
+                public String getBaseUrl() {
+                    return baseUrl;
+                }
+
+                public void setBaseUrl(String baseUrl) {
+                    this.baseUrl = baseUrl;
+                }
+            }
+
+            /**
+             * ElevenLabs STT endpoint configuration.
+             */
+            public static class Elevenlabs {
+
+                /**
+                 * ElevenLabs STT API base URL
+                 */
+                private String baseUrl = "https://api.elevenlabs.io";
+
+                public String getBaseUrl() {
+                    return baseUrl;
+                }
+
+                public void setBaseUrl(String baseUrl) {
+                    this.baseUrl = baseUrl;
                 }
             }
         }
@@ -1456,6 +1627,11 @@ public class ApplicationProperties {
             private Stability stability = new Stability();
 
             /**
+             * Speech-to-text model configuration grouped by provider
+             */
+            private Stt stt = new Stt();
+
+            /**
              * Google Vertex AI Gemini configuration
              */
             private VertexGemini vertexGemini = new VertexGemini();
@@ -1536,6 +1712,10 @@ public class ApplicationProperties {
                 return stability;
             }
 
+            public Stt getStt() {
+                return stt;
+            }
+
             public VertexGemini getVertexGemini() {
                 return vertexGemini;
             }
@@ -1614,6 +1794,10 @@ public class ApplicationProperties {
 
             public void setStability(Stability stability) {
                 this.stability = stability;
+            }
+
+            public void setStt(Stt stt) {
+                this.stt = stt;
             }
 
             public void setVertexGemini(VertexGemini vertexGemini) {
@@ -2725,6 +2909,165 @@ public class ApplicationProperties {
 
                         /**
                          * Image model name (e.g., dall-e-3)
+                         */
+                        private String model;
+
+                        public String getModel() {
+                            return model;
+                        }
+
+                        public void setModel(String model) {
+                            this.model = model;
+                        }
+                    }
+                }
+            }
+
+            /**
+             * Speech-to-text (STT) model configuration grouped by provider.
+             */
+            public static class Stt {
+
+                /**
+                 * Deepgram STT model configuration
+                 */
+                private Deepgram deepgram = new Deepgram();
+
+                /**
+                 * ElevenLabs STT model configuration
+                 */
+                private Elevenlabs elevenlabs = new Elevenlabs();
+
+                /**
+                 * OpenAI STT model configuration
+                 */
+                private OpenAi openAi = new OpenAi();
+
+                public Deepgram getDeepgram() {
+                    return deepgram;
+                }
+
+                public void setDeepgram(Deepgram deepgram) {
+                    this.deepgram = deepgram;
+                }
+
+                public Elevenlabs getElevenlabs() {
+                    return elevenlabs;
+                }
+
+                public void setElevenlabs(Elevenlabs elevenlabs) {
+                    this.elevenlabs = elevenlabs;
+                }
+
+                public OpenAi getOpenAi() {
+                    return openAi;
+                }
+
+                public void setOpenAi(OpenAi openAi) {
+                    this.openAi = openAi;
+                }
+
+                /**
+                 * Deepgram STT model configuration.
+                 */
+                public static class Deepgram {
+
+                    /**
+                     * STT model options
+                     */
+                    private Options options = new Options();
+
+                    public Options getOptions() {
+                        return options;
+                    }
+
+                    public void setOptions(Options options) {
+                        this.options = options;
+                    }
+
+                    /**
+                     * Deepgram STT model options.
+                     */
+                    public static class Options {
+
+                        /**
+                         * STT model name (e.g., nova-3)
+                         */
+                        private String model;
+
+                        public String getModel() {
+                            return model;
+                        }
+
+                        public void setModel(String model) {
+                            this.model = model;
+                        }
+                    }
+                }
+
+                /**
+                 * ElevenLabs STT model configuration.
+                 */
+                public static class Elevenlabs {
+
+                    /**
+                     * STT model options
+                     */
+                    private Options options = new Options();
+
+                    public Options getOptions() {
+                        return options;
+                    }
+
+                    public void setOptions(Options options) {
+                        this.options = options;
+                    }
+
+                    /**
+                     * ElevenLabs STT model options.
+                     */
+                    public static class Options {
+
+                        /**
+                         * STT model name (e.g., scribe_v1)
+                         */
+                        private String model;
+
+                        public String getModel() {
+                            return model;
+                        }
+
+                        public void setModel(String model) {
+                            this.model = model;
+                        }
+                    }
+                }
+
+                /**
+                 * OpenAI STT model configuration.
+                 */
+                public static class OpenAi {
+
+                    /**
+                     * STT model options
+                     */
+                    private Options options = new Options();
+
+                    public Options getOptions() {
+                        return options;
+                    }
+
+                    public void setOptions(Options options) {
+                        this.options = options;
+                    }
+
+                    /**
+                     * OpenAI STT model options.
+                     */
+                    public static class Options {
+
+                        /**
+                         * STT model name (e.g., gpt-4o-mini-transcribe)
                          */
                         private String model;
 
