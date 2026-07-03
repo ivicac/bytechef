@@ -5,6 +5,8 @@ bytechef:
     firecrawl:
       base-url: https://api.firecrawl.dev/v2
       enabled: false
+    hub:
+      enabled: false
     knowledge-base:
       enabled: false
     memory:

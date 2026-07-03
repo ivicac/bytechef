@@ -623,6 +623,7 @@ public class ApplicationProperties {
         private Copilot copilot = new Copilot();
         private Firecrawl firecrawl = new Firecrawl();
         private Gateway gateway = new Gateway();
+        private Hub hub = new Hub();
         private KnowledgeBase knowledgeBase = new KnowledgeBase();
         private Mcp mcp = new Mcp();
         private Memory memory = new Memory();
@@ -640,6 +641,10 @@ public class ApplicationProperties {
 
         public Gateway getGateway() {
             return gateway;
+        }
+
+        public Hub getHub() {
+            return hub;
         }
 
         public KnowledgeBase getKnowledgeBase() {
@@ -678,6 +683,10 @@ public class ApplicationProperties {
             this.gateway = gateway;
         }
 
+        public void setHub(Hub hub) {
+            this.hub = hub;
+        }
+
         public void setKnowledgeBase(KnowledgeBase knowledgeBase) {
             this.knowledgeBase = knowledgeBase;
         }
@@ -703,8 +712,8 @@ public class ApplicationProperties {
         }
 
         /**
-         * AI memory configuration. Cross-cutting concern shared by copilot and agents — not owned by any single product
-         * surface. Stores conversation history for chat-style interactions.
+         * AI memory configuration. Cross-cutting concern shared by copilot, agents, and hub surfaces — not owned by any
+         * single product surface. Stores conversation history for chat-style interactions.
          */
         public static class Memory {
 
@@ -826,10 +835,7 @@ public class ApplicationProperties {
         }
 
         /**
-         * AI Hub properties. Mirrors the {@link Copilot} flag pattern: a single {@code enabled} switch toggles the
-         * whole hub surface (REST/GraphQL controllers, JDBC repositories, service beans). Kept as a sibling of
-         * {@code copilot} rather than nested inside it because AI Hub is its own product surface — workflow-chat
-         * dispatch and personal-agent management live here even on deployments where the LLM copilot is disabled.
+         * AI Hub properties.
          */
         public static class Hub {
 
@@ -838,12 +844,43 @@ public class ApplicationProperties {
              */
             private boolean enabled;
 
+            private McpServer mcpServer = new McpServer();
+
             public boolean isEnabled() {
                 return enabled;
             }
 
             public void setEnabled(boolean enabled) {
                 this.enabled = enabled;
+            }
+
+            public McpServer getMcpServer() {
+                return mcpServer;
+            }
+
+            public void setMcpServer(McpServer mcpServer) {
+                this.mcpServer = mcpServer;
+            }
+
+            /**
+             * Configuration for user-registered external MCP (Model Context Protocol) servers.
+             */
+            public static class McpServer {
+
+                /**
+                 * Hostnames that bypass the SSRF guard for custom MCP server URLs (e.g. "localhost" for self-hosted/dev
+                 * MCP servers). Empty by default, so loopback/private/cloud-metadata targets are blocked; add hosts
+                 * here to permit specific internal MCP servers.
+                 */
+                private List<String> allowedHosts = List.of();
+
+                public List<String> getAllowedHosts() {
+                    return allowedHosts;
+                }
+
+                public void setAllowedHosts(List<String> allowedHosts) {
+                    this.allowedHosts = allowedHosts;
+                }
             }
         }
 
