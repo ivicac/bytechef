@@ -1,0 +1,535 @@
+import {aiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
+import {ARTIFACT_OPEN_TOOL_NAMES} from '@/ee/pages/automation/ai-hub/messages/AiHubToolCallRenderer';
+import {aiHubStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubStore';
+import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
+import {toToolResultDataPart} from '@/shared/components/ai-chat/messages/toToolResultDataPart';
+import {reportMutationError} from '@/shared/error/useReportQueryError';
+import {ThreadMessageLike} from '@assistant-ui/react';
+import {useCallback} from 'react';
+import {useNavigate} from 'react-router-dom';
+
+import {
+    AiHubChatArtifactI,
+    AiHubChatI,
+    AiHubChatMessageI,
+    AiHubToolApprovalI,
+    getChatArtifacts,
+    getChatMessages,
+    getToolApprovals,
+} from '../api/chats.api';
+
+interface RestoredToolEventI {
+    arguments?: string;
+    id?: string;
+    kind: string;
+    name?: string;
+    response?: string;
+}
+
+// Interactive prompt cards must not resurrect once the conversation moved past them — re-showing an
+// already-answered askUserQuestion wizard (the answered-state store is ephemeral) or a connection picker
+// would invite duplicate answers. Informational cards (citations) restore everywhere.
+const INTERACTIVE_DATA_PART_TYPES = new Set([
+    'data-ask-user-question',
+    'data-create-connection',
+    'data-select-connection',
+    'data-select-property-option',
+]);
+
+function parseRestoredToolEvents(toolEventsJson: string | null): RestoredToolEventI[] {
+    if (!toolEventsJson) {
+        return [];
+    }
+
+    try {
+        const parsed = JSON.parse(toolEventsJson);
+
+        return Array.isArray(parsed)
+            ? parsed.filter((event): event is RestoredToolEventI => event != null && typeof event === 'object')
+            : [];
+    } catch {
+        console.warn('[AiHubChats] Unparseable toolEventsJson, skipping tool-card restore for this row');
+
+        return [];
+    }
+}
+
+type RestoredPartType = Exclude<ThreadMessageLike['content'], string>[number];
+
+/**
+ * Rebuild the message parts for the tool activity persisted alongside a transcript row: one `tool-call`
+ * part per call (renders the collapsible tool card via AiHubToolCallFallback, subject to the show-tool-calls
+ * toggle) plus, when the call has a persisted result that maps to an interactive/informational card
+ * (askUserQuestion and friends), the same data part the live stream would have appended. `allowInteractive`
+ * is true only for rows after the last user message — a pending question card comes back answerable, while
+ * questions the user already moved past stay as transcript text.
+ */
+function buildRestoredToolParts(
+    events: RestoredToolEventI[],
+    {allowInteractive, rowIndex}: {allowInteractive: boolean; rowIndex: number}
+): RestoredPartType[] {
+    const resultsById = new Map<string, RestoredToolEventI>();
+
+    for (const event of events) {
+        if (event.kind === 'result' && event.id) {
+            resultsById.set(event.id, event);
+        }
+    }
+
+    const parts: RestoredPartType[] = [];
+
+    events.forEach((event, eventIndex) => {
+        if (event.kind !== 'call' || !event.name) {
+            return;
+        }
+
+        // Artifact link cards are rebuilt from the durable artifact rows (buildArtifactLinkMessages) —
+        // restoring them here too would render each link twice.
+        if (ARTIFACT_OPEN_TOOL_NAMES.has(event.name)) {
+            return;
+        }
+
+        const resultEvent = event.id ? resultsById.get(event.id) : undefined;
+
+        let args: Record<string, unknown> | undefined;
+
+        if (event.arguments) {
+            try {
+                const parsedArguments = JSON.parse(event.arguments);
+
+                args =
+                    parsedArguments != null && typeof parsedArguments === 'object'
+                        ? (parsedArguments as Record<string, unknown>)
+                        : undefined;
+            } catch {
+                args = undefined;
+            }
+        }
+
+        let result: unknown;
+
+        if (resultEvent?.response) {
+            try {
+                result = JSON.parse(resultEvent.response);
+            } catch {
+                result = resultEvent.response;
+            }
+        }
+
+        parts.push({
+            args: args ?? {},
+            argsText: event.arguments ?? '',
+            result,
+            toolCallId: event.id || `restored-tool-${rowIndex}-${eventIndex}`,
+            toolName: event.name,
+            type: 'tool-call' as const,
+        } as RestoredPartType);
+
+        if (resultEvent?.response) {
+            const dataPart = toToolResultDataPart(event.name, resultEvent.response);
+
+            if (dataPart?.ok && (allowInteractive || !INTERACTIVE_DATA_PART_TYPES.has(dataPart.type))) {
+                parts.push({data: dataPart.data, type: dataPart.type as `data-${string}`} as RestoredPartType);
+            }
+        }
+    });
+
+    return parts;
+}
+
+/**
+ * Builds the `metadata.custom` payload {@link AiHubMessage}'s author label reads off a restored USER row —
+ * `authorUserId`/`authorName`, resolved server-side from the recorded turn (see the `aiHubChatMessages`
+ * query's fields of the same name). `undefined` when the server resolved neither (a channel-born chat's
+ * turns never go through the REST dispatch path that records them), so the message carries no `metadata` at
+ * all rather than one full of nulls.
+ */
+function buildAuthorMetadata(message: AiHubChatMessageI): ThreadMessageLike['metadata'] {
+    if (message.authorUserId == null && message.authorName == null) {
+        return undefined;
+    }
+
+    return {custom: {authorName: message.authorName, authorUserId: message.authorUserId}};
+}
+
+/**
+ * Map the server transcript rows to thread messages, reattaching the persisted tool activity. Assistant rows
+ * get their tool parts appended after the text; a USER row's tool activity (tool turns that ran before the
+ * next assistant text landed) hoists into a synthetic assistant message right after it, since tool-call parts
+ * only render on assistant messages.
+ */
+function mapServerMessages(messages: AiHubChatMessageI[]): ThreadMessageLike[] {
+    const lastUserRowIndex = messages.reduce(
+        (lastIndex, message, index) => (mapServerRoleToClient(message.role) === 'user' ? index : lastIndex),
+        -1
+    );
+
+    const mapped: ThreadMessageLike[] = [];
+
+    messages.forEach((serverMessage, rowIndex) => {
+        const clientRole = mapServerRoleToClient(serverMessage.role);
+
+        if (clientRole === null) {
+            return;
+        }
+
+        const toolParts = buildRestoredToolParts(parseRestoredToolEvents(serverMessage.toolEventsJson), {
+            allowInteractive: rowIndex >= lastUserRowIndex,
+            rowIndex,
+        });
+
+        if (clientRole !== 'assistant') {
+            // A conditional spread rather than an unconditional `metadata: buildAuthorMetadata(...)` — the
+            // latter would set the key to `undefined` on every SYSTEM row and on a USER row with no
+            // resolvable author, which reads differently from "this message has no metadata at all" (the
+            // shape every message built via addMessage() during a live turn already has).
+            const authorMetadata = clientRole === 'user' ? buildAuthorMetadata(serverMessage) : undefined;
+
+            mapped.push({
+                content: serverMessage.content,
+                role: clientRole,
+                ...(authorMetadata ? {metadata: authorMetadata} : {}),
+            } as ThreadMessageLike);
+
+            if (toolParts.length > 0) {
+                mapped.push({content: toolParts, role: 'assistant'} as ThreadMessageLike);
+            }
+
+            return;
+        }
+
+        if (toolParts.length === 0) {
+            mapped.push({content: serverMessage.content, role: clientRole} as ThreadMessageLike);
+
+            return;
+        }
+
+        const parts: RestoredPartType[] = [];
+
+        if (serverMessage.content && serverMessage.content.trim()) {
+            parts.push({text: serverMessage.content, type: 'text' as const});
+        }
+
+        parts.push(...toolParts);
+
+        mapped.push({content: parts, role: 'assistant'} as ThreadMessageLike);
+    });
+
+    return mapped;
+}
+
+/**
+ * Stitches settled tool-approval outcomes onto the restored `data-tool-approval-request` parts
+ * {@link buildRestoredToolParts} rebuilt from persisted tool-call results. That restoration only sees the
+ * original gated request — the tool call's own result never carries its eventual decision, since the gate
+ * suspends before the tool runs — so a card would otherwise render its Approve/Reject buttons forever, even for
+ * an approval decided days ago. Approvals with `status === 'PENDING'` are left untouched: the card must keep
+ * rendering interactively for those, since there is at most one pending approval per chat and it may still be
+ * several messages back if the user kept chatting while it waited.
+ */
+function applyToolApprovalStatuses(
+    messages: ThreadMessageLike[],
+    approvalsById: Map<number, AiHubToolApprovalI>
+): ThreadMessageLike[] {
+    if (approvalsById.size === 0) {
+        return messages;
+    }
+
+    return messages.map((message) => {
+        if (message.role !== 'assistant' || !Array.isArray(message.content)) {
+            return message;
+        }
+
+        let changed = false;
+
+        const content = message.content.map((part) => {
+            if (
+                typeof part !== 'object' ||
+                part === null ||
+                (part as {type?: unknown}).type !== 'data-tool-approval-request'
+            ) {
+                return part;
+            }
+
+            const data = (part as {data: Record<string, unknown>}).data;
+            const approvalId = typeof data.approvalId === 'number' ? data.approvalId : null;
+            const approval = approvalId != null ? approvalsById.get(approvalId) : undefined;
+
+            if (!approval || approval.status === 'PENDING') {
+                return part;
+            }
+
+            changed = true;
+
+            return {
+                ...part,
+                data: {
+                    ...data,
+                    executionError: approval.executionError ?? undefined,
+                    resolvedBy: approval.decidedByUserId != null ? String(approval.decidedByUserId) : undefined,
+                    resolvedStatus: approval.status,
+                },
+            };
+        });
+
+        return changed ? ({...message, content} as ThreadMessageLike) : message;
+    });
+}
+
+function mapServerRoleToClient(role: string): 'user' | 'assistant' | 'system' | null {
+    const normalized = role.toLowerCase();
+
+    if (normalized === 'tool') {
+        return null;
+    }
+
+    if (normalized === 'user' || normalized === 'assistant' || normalized === 'system') {
+        return normalized;
+    }
+
+    // Server schema drift (a new role shipped without a client update) would otherwise drop the message
+    // silently. Warn so it surfaces in the console instead of vanishing into the filter() call.
+    console.warn(`[AiHubChats] Unknown message role from server: "${role}"`);
+
+    return null;
+}
+
+function parseArtifactMetadata(metadataJson: string | null): Record<string, string> {
+    if (!metadataJson) {
+        return {};
+    }
+
+    try {
+        const parsed = JSON.parse(metadataJson);
+
+        return parsed != null && typeof parsed === 'object' ? (parsed as Record<string, string>) : {};
+    } catch {
+        return {};
+    }
+}
+
+/**
+ * Map a durable {@link AiHubChatArtifactI} back to the `open*Tab` tool call that originally rendered its
+ * clickable link card in the transcript. The `*_REFERENCED` kinds correspond to a tab the user opened.
+ *
+ * Workflows are special: the build/edit flow records a single WORKFLOW_CREATED/WORKFLOW_UPDATED row (server
+ * dedups "one workflow -> one row" and preserves that kind even after a later openWorkflowTab), yet the agent
+ * almost always opens the built workflow in the right panel — so a live card WAS shown. Those rows carry the
+ * same projectId/projectWorkflowId metadata as WORKFLOW_REFERENCED, so we reconstruct them too; otherwise a
+ * freshly built workflow's link card vanishes on reload. Other audit rows (row/column edits, memory) never
+ * rendered a card and return null. The `args` shape mirrors what `openArtifactTab` in AiHubToolCallRenderer
+ * expects, so the rehydrated card opens the same tab a live click would.
+ */
+function artifactToOpenToolCall(
+    artifact: AiHubChatArtifactI
+): {args: Record<string, unknown>; toolName: string} | null {
+    const metadata = parseArtifactMetadata(artifact.metadataJson);
+
+    switch (artifact.kind) {
+        case 'AI_AGENT_REFERENCED':
+            return {
+                args: {aiAgentId: artifact.artifactId, name: artifact.artifactName},
+                toolName: 'openAiAgentTab',
+            };
+        case 'CODE_WORKFLOW_REFERENCED':
+            // Same shape as CUSTOM_COMPONENT_REFERENCED below — artifactId IS the projectId. The `language`
+            // openCodeWorkflowTab needs isn't stashed on the artifact (the recorder only stores projectId +
+            // name), so this rehydrated tool-call args blob omits it rather than paying for a project fetch
+            // per artifact on every chat switch. Both openCustomComponentTab and openCodeWorkflowTab have
+            // ARTIFACT_OPEN_META entries, so the card still renders as a clickable ArtifactLink, not plain
+            // JSON — AiHubToolCallRenderer's openArtifactTab resolves the missing language lazily on click,
+            // the same project-fetch-then-open flow as the sidebar's live quick-open
+            // (AiHubChatsSidebar.openCodeWorkflowArtifact).
+            return {
+                args: {name: artifact.artifactName, projectId: artifact.artifactId},
+                toolName: 'openCodeWorkflowTab',
+            };
+        case 'CUSTOM_COMPONENT_REFERENCED':
+            return {
+                args: {customComponentId: artifact.artifactId, name: artifact.artifactName},
+                toolName: 'openCustomComponentTab',
+            };
+        case 'DATA_TABLE_REFERENCED':
+            return {
+                args: {dataTableId: artifact.artifactId, name: artifact.artifactName},
+                toolName: 'openDataTableTab',
+            };
+        case 'FILE_REFERENCED':
+            return {args: {fileId: artifact.artifactId, name: artifact.artifactName}, toolName: 'openFileTab'};
+        case 'KB_REFERENCED':
+            return {
+                args: {knowledgeBaseId: artifact.artifactId, name: artifact.artifactName},
+                toolName: 'openKnowledgeBaseTab',
+            };
+        case 'SKILL_REFERENCED':
+            return {
+                args: {name: artifact.artifactName, skillId: artifact.artifactId},
+                toolName: 'openSkillTab',
+            };
+        case 'WORKFLOW_CREATED':
+        case 'WORKFLOW_REFERENCED':
+        case 'WORKFLOW_UPDATED':
+            return {
+                args: {
+                    name: artifact.artifactName,
+                    projectId: metadata['projectId'],
+                    projectWorkflowId: Number(metadata['projectWorkflowId'] ?? 0),
+                    workflowId: artifact.artifactId,
+                },
+                toolName: 'openWorkflowTab',
+            };
+        default:
+            return null;
+    }
+}
+
+/**
+ * Rebuild the artifact link cards that streamed live but were lost on reload. The cards are tool-call UI
+ * (fed by an ephemeral store), never persisted in chat memory — but the underlying open is durably recorded
+ * as an `ai_hub_chat_artifact` row. We synthesise one assistant message whose content is a `tool-call` part
+ * per openable artifact; MessagePrimitive.Parts renders those via AiHubToolCallFallback -> ArtifactLink, the
+ * same path as the live card. Appended after the text transcript (the cards were the last thing shown).
+ */
+function buildArtifactLinkMessages(artifacts: AiHubChatArtifactI[]): ThreadMessageLike[] {
+    const seen = new Set<string>();
+
+    const parts = artifacts
+        .map((artifact) => ({artifact, openCall: artifactToOpenToolCall(artifact)}))
+        .filter(
+            (
+                entry
+            ): entry is {artifact: AiHubChatArtifactI; openCall: {args: Record<string, unknown>; toolName: string}} =>
+                entry.openCall !== null
+        )
+        .filter(({openCall}) => {
+            const key = `${openCall.toolName}|${JSON.stringify(openCall.args)}`;
+
+            if (seen.has(key)) {
+                return false;
+            }
+
+            seen.add(key);
+
+            return true;
+        })
+        .map(({artifact, openCall}) => ({
+            args: openCall.args,
+            argsText: JSON.stringify(openCall.args),
+            result: {opened: true},
+            // Non-empty, stable id: the renderer drops orphan tool-call parts with an empty toolCallId, and a
+            // per-artifact id keeps React keys stable across re-renders.
+            toolCallId: `rehydrated-artifact-${artifact.id}`,
+            toolName: openCall.toolName,
+            type: 'tool-call' as const,
+        }));
+
+    if (parts.length === 0) {
+        return [];
+    }
+
+    return [{content: parts, role: 'assistant'} as ThreadMessageLike];
+}
+
+/**
+ * Fetches a chat's history, artifacts, and tool approvals and maps them to the same
+ * {@code ThreadMessageLike[]} shape {@link useSwitchChat} loads into {@code aiHubStore.messages}. Extracted
+ * so the runtime provider's focused-chat poll — which refetches the transcript when another
+ * participant's turn finishes while this client wasn't attached to it — can reuse the exact same
+ * fetch-and-map pipeline rather than a second, divergent one. Artifacts and tool approvals degrade to empty
+ * on their own failure — only the primary message fetch can reject this promise.
+ */
+export async function loadChatTranscript({
+    chatId,
+    workspaceId,
+}: {
+    chatId: number;
+    workspaceId: number;
+}): Promise<ThreadMessageLike[]> {
+    const [messages, artifacts, toolApprovals] = await Promise.all([
+        getChatMessages({chatId, workspaceId}),
+        getChatArtifacts({chatId, workspaceId}).catch((): AiHubChatArtifactI[] => []),
+        getToolApprovals({chatId, workspaceId}).catch((): AiHubToolApprovalI[] => []),
+    ]);
+
+    const toolApprovalsById = new Map(toolApprovals.map((approval) => [approval.id, approval]));
+
+    const mappedMessages: ThreadMessageLike[] = applyToolApprovalStatuses(
+        mapServerMessages(messages),
+        toolApprovalsById
+    );
+
+    // Chat memory persists only plain text, so the artifact link cards that streamed live are gone on
+    // reload. Rebuild them from the durable artifact rows and append after the transcript.
+    const artifactLinkMessages = buildArtifactLinkMessages(artifacts);
+
+    return [...mappedMessages, ...artifactLinkMessages];
+}
+
+/**
+ * Returns whether the switch succeeded so callers can keep their dialog open on failure instead of closing
+ * mid-error. The hook intentionally does NOT mutate command center/chat state on failure — a partial overwrite
+ * would leave the user typing into a phantom thread; reportMutationError surfaces the failure as a toast and the
+ * caller should show a banner if they want a non-toast indication.
+ *
+ * Memoised with `useCallback` keyed only on `currentWorkspaceId` so callers (notably the URL <-> store sync
+ * effects in AiHub.tsx) can put it in their dependency array without re-running on every render. A
+ * fresh closure each render pulled the URL->store effect into a feedback loop that flashed the chat
+ * view on click and then reset back to the home view.
+ */
+export function useSwitchChat() {
+    const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
+    const navigate = useNavigate();
+
+    return useCallback(
+        async (chat: AiHubChatI): Promise<boolean> => {
+            // Switch the UI to the chat IMMEDIATELY — set the thread id + select the chat + navigate before
+            // fetching the conversation history. Awaiting getChatMessages first made the whole click block
+            // on a network round-trip (instant when the messages were cached, several seconds on a cold
+            // fetch — the intermittent lag the user saw). The thread renders empty for the brief moment
+            // until the messages below resolve.
+            aiHubStore.setState({
+                chatId: chat.threadId,
+                messages: [],
+                messagesLoading: true,
+            });
+
+            aiHubChatsStore.getState().setCurrentChatId(chat.id);
+
+            // Navigate explicitly so the switch works from any CC page (not just /ai-hub
+            // itself, which has its own store→URL sync effect). On the canonical /ai-hub
+            // route this navigate is idempotent — AiHub.tsx's effect would fire next render
+            // and find URL already matches the store, no-op. From /tasks (which has no
+            // such effect), this is the only thing that flips the route to the selected chat.
+            // Without it, clicking a chat row from that page updated the stores silently and left
+            // the user staring at the unchanged list.
+            navigate(`/automation/ai-hub/chats/${chat.id}`);
+
+            try {
+                const loadedMessages = await loadChatTranscript({chatId: chat.id, workspaceId: currentWorkspaceId});
+
+                // Apply only if the user is still on this chat — a slower fetch for chat A must not clobber
+                // the thread (or clear the loading flag) after the user has already clicked chat B.
+                if (aiHubStore.getState().chatId === chat.threadId) {
+                    aiHubStore.setState({
+                        messages: loadedMessages,
+                        messagesLoading: false,
+                    });
+                }
+
+                return true;
+            } catch (error) {
+                if (aiHubStore.getState().chatId === chat.threadId) {
+                    aiHubStore.setState({messagesLoading: false});
+                }
+
+                // Without surfacing this, the user keeps typing into what they think is the new chat
+                // but is in fact still the previous one. Routing through reportMutationError keeps the toast
+                // wording consistent with the other chat mutations in useChats.
+                reportMutationError('Switch chat', error instanceof Error ? error : new Error(String(error)));
+
+                return false;
+            }
+        },
+        [currentWorkspaceId, navigate]
+    );
+}

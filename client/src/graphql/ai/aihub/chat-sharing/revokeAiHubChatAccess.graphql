@@ -1,0 +1,5 @@
+mutation revokeAiHubChatAccess($workspaceId: ID!, $chatId: ID!, $userId: ID!) {
+    revokeAiHubChatAccess(workspaceId: $workspaceId, chatId: $chatId, userId: $userId) {
+        id
+    }
+}

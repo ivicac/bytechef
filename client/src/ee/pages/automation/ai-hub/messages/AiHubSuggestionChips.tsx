@@ -1,0 +1,76 @@
+import {Button} from '@/components/ui/button';
+import {useAui} from '@assistant-ui/react';
+import {FC} from 'react';
+import {twMerge} from 'tailwind-merge';
+
+// Sample questions surfaced on the empty chat states (home panel + empty thread). Each one maps to a
+// capability the BUILD agent actually has today — workflow building with a data-table target, the
+// research subagent with persistence via the flat createAssetFile tool, typed data-table creation with
+// seed rows, createKnowledgeBase + addKnowledgeBaseDocument, and createAiAgent + addAiAgentChannel with
+// channelType "schedule" (which needs no connection) — so a click always lands on a runnable path
+// rather than a "not supported yet" reply.
+//
+// Each stays at or under ~85 characters so the pill renders on ONE row inside the home panel's max-w-2xl
+// column. That ceiling is measured, not estimated: at text-sm in this column the 85-character
+// knowledge-base line below renders on a single row, while the phrasings that used to run 92-105
+// characters wrapped to a second line and left the stack of chips looking ragged. Keep new entries under
+// it — but do use the room, since the wording is also the prompt the agent receives.
+const SUGGESTED_QUESTIONS: string[] = [
+    'Build a lead enrichment workflow that scores inbound signups into a data table',
+    'Research our top 5 competitors and save a battle card for each one',
+    'Create a contacts data table with name, email, and company columns and sample rows',
+    'Create a knowledge base for our product docs and add a getting-started document to it',
+    "Create an agent that summarizes yesterday's executions every morning",
+];
+
+interface AiHubSuggestionChipsProps {
+    className?: string;
+}
+
+// Clickable sample-question chips. Clicking appends the question as a user message on the assistant-ui
+// thread runtime — the same path the composer uses — so AiHubRuntimeProvider.onNew fires, auto-creates
+// the chat when needed, and streams the turn. Must render inside AssistantRuntimeProvider.
+const AiHubSuggestionChips: FC<AiHubSuggestionChipsProps> = ({className}) => {
+    const aui = useAui();
+
+    return (
+        <div className={twMerge('flex w-full flex-wrap items-center justify-center gap-2 px-4', className)}>
+            {SUGGESTED_QUESTIONS.map((question) => (
+                // `max-w-full min-w-0` belongs HERE, not only on the Button: this wrapper is the flex item,
+                // and a flex item defaults to `min-width: auto`, which refuses to shrink below its content.
+                // The Button's own `max-w-full` then resolves against a wrapper that is already wider than
+                // the row, so the pill overflowed the column instead of truncating — visible as chips
+                // running out past both edges of the chat area once the resource panel narrowed it.
+                <div
+                    className="max-w-full min-w-0 animate-in duration-200 fill-mode-both fade-in slide-in-from-bottom-2"
+                    key={question}
+                >
+                    <Button
+                        // max-w-full + ellipsis rather than wrapping: on a viewport narrower than the copy budget
+                        // above, a chip degrades to a truncated single row (full text still on the title tooltip)
+                        // instead of reflowing to two lines and re-introducing the ragged stack.
+                        className="h-auto max-w-full overflow-hidden rounded-full border border-border/60 px-3.5 py-1.5 text-sm font-normal text-ellipsis whitespace-nowrap text-foreground transition-colors hover:bg-muted"
+                        onClick={() =>
+                            aui.thread.append({
+                                content: [{text: question, type: 'text'}],
+                                role: 'user',
+                            })
+                        }
+                        title={question}
+                        variant="ghost"
+                    >
+                        {/* The text needs its own block to truncate in. Button is an inline-flex container
+                            with justify-center, and `text-overflow: ellipsis` does not apply to a flex
+                            container — the bare text node becomes an anonymous flex item, gets centred, and
+                            overflows equally at BOTH ends with no ellipsis. Which looked exactly like the
+                            box overflowing, and hid the fact that clamping the box had already worked. */}
+
+                        <span className="min-w-0 truncate">{question}</span>
+                    </Button>
+                </div>
+            ))}
+        </div>
+    );
+};
+
+export default AiHubSuggestionChips;

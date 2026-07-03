@@ -30,9 +30,12 @@ interface ProjectHeaderProps {
     bottomResizablePanelRef: RefObject<PanelImperativeHandle | null>;
     chatTrigger?: boolean;
     embedded?: boolean;
+    onWorkflowChange?: (projectWorkflowId: number) => void;
     projectId: number;
     projectWorkflowId: number;
     runDisabled: boolean;
+    showPublishDeploy?: boolean;
+    showWorkflowSelect?: boolean;
     updateWorkflowMutation: UpdateWorkflowMutationType;
 }
 
@@ -40,9 +43,12 @@ const ProjectHeader = ({
     bottomResizablePanelRef,
     chatTrigger,
     embedded,
+    onWorkflowChange,
     projectId,
     projectWorkflowId,
     runDisabled,
+    showPublishDeploy,
+    showWorkflowSelect,
     updateWorkflowMutation,
 }: ProjectHeaderProps) => {
     const copilotLayoutShifted = useCopilotLayoutShifted();
@@ -100,19 +106,38 @@ const ProjectHeader = ({
             )}
         >
             <div className="flex items-center gap-2">
-                <LeftSidebarButton onLeftSidebarOpenClick={() => setProjectLeftSidebarOpen(!projectLeftSidebarOpen)} />
+                {/* The embedded AI Hub workflow editor opens each workflow as its own resource-panel tab and
+                 * has no project tree, so the breadcrumb, workflow selector, and the project-sidebar toggle
+                 * are all redundant there — hidden behind `embedded`. The full-screen Project page keeps them. */}
 
-                {projectWorkflows && (
-                    <ProjectBreadcrumb
-                        itemSelect={
-                            <ProjectItemSelect
-                                currentLabel={workflow?.label}
-                                currentProjectWorkflowId={projectWorkflowId}
-                                onWorkflowValueChange={handleProjectWorkflowValueChange}
-                                projectWorkflows={projectWorkflows}
+                {!embedded && (
+                    <>
+                        <LeftSidebarButton
+                            onLeftSidebarOpenClick={() => setProjectLeftSidebarOpen(!projectLeftSidebarOpen)}
+                        />
+
+                        {projectWorkflows && (
+                            <ProjectBreadcrumb
+                                itemSelect={
+                                    <ProjectItemSelect
+                                        currentLabel={workflow?.label}
+                                        currentProjectWorkflowId={projectWorkflowId}
+                                        onWorkflowValueChange={handleProjectWorkflowValueChange}
+                                        projectWorkflows={projectWorkflows}
+                                    />
+                                }
+                                project={project}
                             />
-                        }
-                        project={project}
+                        )}
+                    </>
+                )}
+
+                {embedded && showWorkflowSelect && projectWorkflows && (
+                    <ProjectItemSelect
+                        currentLabel={workflow?.label}
+                        currentProjectWorkflowId={projectWorkflowId}
+                        onWorkflowValueChange={onWorkflowChange ?? handleProjectWorkflowValueChange}
+                        projectWorkflows={projectWorkflows}
                     />
                 )}
 
@@ -128,24 +153,28 @@ const ProjectHeader = ({
                     workflowIsRunning={workflowIsRunning}
                 />
 
-                <ButtonGroup>
-                    <PublishPopover
-                        disabled={!hasUnpublishedChanges}
-                        isPending={publishProjectMutationIsPending}
-                        onPublishProjectSubmit={handlePublishProjectSubmit}
-                    />
+                {(!embedded || showPublishDeploy) && (
+                    <ButtonGroup>
+                        <PublishPopover
+                            disabled={!hasUnpublishedChanges}
+                            isPending={publishProjectMutationIsPending}
+                            onPublishProjectSubmit={handlePublishProjectSubmit}
+                        />
 
-                    <DeployButton project={project} />
-                </ButtonGroup>
+                        <DeployButton project={project} />
+                    </ButtonGroup>
+                )}
 
                 <OutputPanelButton onShowOutputClick={handleShowOutputClick} />
 
-                <SettingsMenu
-                    bottomResizablePanelRef={bottomResizablePanelRef}
-                    project={project}
-                    updateWorkflowMutation={updateWorkflowMutation}
-                    workflow={workflow}
-                />
+                {!embedded && (
+                    <SettingsMenu
+                        bottomResizablePanelRef={bottomResizablePanelRef}
+                        project={project}
+                        updateWorkflowMutation={updateWorkflowMutation}
+                        workflow={workflow}
+                    />
+                )}
             </div>
         </header>
     );
