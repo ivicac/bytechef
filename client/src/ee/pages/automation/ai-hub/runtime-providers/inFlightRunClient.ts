@@ -1,0 +1,399 @@
+/**
+ * Client-side adapter for the AI Hub's `/attach`, `/status`, and `/presence` endpoints. Lets the runtime
+ * provider resume streaming after a page refresh, hydrate sidebar pulses for chats the user has running in
+ * other threads, and drive the presence heartbeat for shared chats.
+ *
+ * <p>
+ * The matching server-side machinery lives in
+ * <code>server/ee/libs/ai/ai-hub/ai-hub-rest/src/main/java/com/bytechef/ee/ai/hub/web/rest/AiHubApiController.java</code>
+ * (the {@code status}/{@code presence} endpoints) and
+ * <code>server/ee/libs/ai/ai-hub/ai-hub-service/src/main/java/com/bytechef/ee/ai/hub/agent/InFlightAiHubRunRegistry.java</code>
+ * (the run-lifecycle and replay-buffer semantics {@code attach} relies on).
+ * </p>
+ */
+import {getCookie} from '@/shared/util/cookie-utils';
+import {type AgentSubscriber, EventType} from '@ag-ui/client';
+
+const STATUS_ENDPOINT = '/api/platform/internal/ai/chat/ai_hub/status';
+
+// The probe passes every visible chat's threadId as a repeated `threadIds` query param. Sent as one
+// request, a large chat list overflows the servlet container's max request-line length and Tomcat
+// rejects it with an HTML 400 *before* the controller runs. Chunking keeps each URL comfortably under
+// common limits: at ~47 chars per id (`&threadIds=<uuid>`), 40 ids ≈ 1.9 KB of query string.
+const STATUS_BATCH_SIZE = 40;
+const ATTACH_ENDPOINT = (threadId: string) =>
+    `/api/platform/internal/ai/chat/ai_hub/${encodeURIComponent(threadId)}/attach`;
+const PRESENCE_ENDPOINT = (threadId: string) =>
+    `/api/platform/internal/ai/chat/ai_hub/${encodeURIComponent(threadId)}/presence`;
+
+/**
+ * One user's presence on a thread, mirroring the server's {@code AiHubPresenceRegistry.PresenceEntry}.
+ * {@code lastSeen} arrives as an ISO-8601 instant string (Jackson's default {@code Instant} serialization —
+ * unlike {@code ThreadStatusI.updatedAt}, the server does not hand-convert this one to epoch millis), not a
+ * number.
+ */
+export interface PresenceEntryI {
+    lastSeen: string;
+    state: 'TYPING' | 'VIEWING';
+    userId: number;
+    userName: string;
+}
+
+/**
+ * Per-thread answer to the {@code /status} poll, mirroring the server's {@code AiHubApiController.ThreadStatus}
+ * record field for field: {@code inFlight, runningUserId, runningUserName, messageCount, updatedAt, presence}.
+ * A thread the caller cannot view (or that no longer exists) is omitted from the {@code /status} response map
+ * entirely rather than reported here with a falsy value — see {@link probeThreadStatus}.
+ */
+export interface ThreadStatusI {
+    inFlight: boolean;
+    messageCount: number;
+    presence: PresenceEntryI[];
+    runningUserId: number | null;
+    runningUserName: string | null;
+    updatedAt: number;
+}
+
+export interface AttachOptionsI {
+    threadId: string;
+    /**
+     * The same subscriber shape that the AG-UI SDK's HttpAgent dispatches into. Reusing it avoids duplicating
+     * the considerable assistant-message / tool-call / tab-open routing logic that lives in {@link
+     * buildAiHubSubscriber}.
+     */
+    subscriber: AgentSubscriber;
+    /**
+     * Fires when the attach EventSource closes for ANY reason — terminal event (RUN_FINISHED / RUN_ERROR),
+     * network error, or caller-side disposer. The runtime provider uses this to release its
+     * {@code isAgentRunning} flag and clear the sidebar pulse.
+     *
+     * <p>{@code eventsReceived} says whether the stream delivered at least one parsable AG-UI event before
+     * closing. It is the only signal that separates a stream that did its job from one that never opened —
+     * `EventSource.onerror` cannot read the response status, so an attach 404 (the run lives on another
+     * instance) is indistinguishable from a network blip from inside this adapter. The caller uses it to
+     * stop re-attaching to a thread it can never reach.</p>
+     */
+    onClose?: (eventsReceived: boolean) => void;
+}
+
+/**
+ * Opens an EventSource on the AI Hub attach endpoint and forwards each event into the supplied AG-UI
+ * subscriber. Returns a disposer the caller invokes on chat switch / unmount.
+ *
+ * <p>
+ * The AG-UI SDK's HttpAgent maintains a {@code textMessageBuffer} and a per-tool-call argument buffer that
+ * many subscriber handlers read; this function reconstructs those locally so handlers see the same params
+ * regardless of which transport (HttpAgent for live POST runs, or this EventSource for attach) delivered the
+ * event.
+ * </p>
+ */
+export function attachToInFlightRun({onClose, subscriber, threadId}: AttachOptionsI): () => void {
+    const eventSource = new EventSource(ATTACH_ENDPOINT(threadId));
+
+    let textMessageBuffer = '';
+    const toolCallBufferById = new Map<string, string>();
+    const toolCallNameById = new Map<string, string>();
+    let closed = false;
+    let eventsReceived = false;
+
+    const close = () => {
+        if (closed) {
+            return;
+        }
+
+        closed = true;
+
+        eventSource.close();
+        onClose?.(eventsReceived);
+    };
+
+    eventSource.onmessage = (rawEvent) => {
+        // Server emits each event as `data:  {json}` (leading space mirrors the upstream AgUiService format).
+        // EventSource strips the `data: ` prefix but the inner leading whitespace remains, so trim before parse.
+        const trimmed = typeof rawEvent.data === 'string' ? rawEvent.data.trimStart() : '';
+
+        if (!trimmed) {
+            return;
+        }
+
+        let parsedEvent: Record<string, unknown>;
+
+        try {
+            parsedEvent = JSON.parse(trimmed);
+        } catch (error) {
+            console.error('[AiHub attach] failed to parse AG-UI event from attach stream', error);
+
+            return;
+        }
+
+        eventsReceived = true;
+
+        // Dispatch handlers expect `AgentSubscriberParams` (messages / state / agent / input) alongside the
+        // event. The existing AI Hub handlers don't actually read those four fields — their guards key off
+        // the global store directly — so passing empty placeholders is functionally equivalent and avoids
+        // duplicating the SDK's internal state machine here. The cast keeps TypeScript happy without
+        // forging values the runtime would otherwise validate.
+        const baseParams = {
+            agent: undefined,
+            input: undefined,
+            messages: [],
+            state: {},
+        };
+
+        void dispatchEvent(parsedEvent, baseParams);
+
+        const type = parsedEvent.type;
+
+        if (type === EventType.RUN_FINISHED || type === EventType.RUN_ERROR) {
+            close();
+        }
+    };
+
+    eventSource.onerror = (errorEvent) => {
+        // EventSource fires onerror on (1) explicit close from server end, (2) network blip with retry, (3)
+        // 4xx/5xx response. The browser-built-in retry would just hammer a 404 forever after the run
+        // terminates, so we close decisively and let the caller decide whether to re-probe.
+        console.debug('[AiHub attach] event source error; closing', errorEvent);
+
+        close();
+    };
+
+    async function dispatchEvent(
+        event: Record<string, unknown>,
+        baseParams: {agent: unknown; input: unknown; messages: never[]; state: Record<string, never>}
+    ): Promise<void> {
+        const type = event.type;
+
+        // The subscriber handler param shape varies per event type. Each case constructs only the shape its
+        // target handler reads; the others fall back to baseParams via spread.
+        try {
+            switch (type) {
+                case EventType.TEXT_MESSAGE_START: {
+                    textMessageBuffer = '';
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await subscriber.onTextMessageStartEvent?.({event, ...baseParams} as any);
+
+                    break;
+                }
+                case EventType.TEXT_MESSAGE_CONTENT: {
+                    const previousBuffer = textMessageBuffer;
+
+                    textMessageBuffer += (event as {delta?: string}).delta ?? '';
+
+                    await subscriber.onTextMessageContentEvent?.({
+                        event,
+                        textMessageBuffer: previousBuffer,
+                        ...baseParams,
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    } as any);
+
+                    break;
+                }
+                case EventType.TEXT_MESSAGE_END: {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await subscriber.onTextMessageEndEvent?.({event, ...baseParams} as any);
+
+                    textMessageBuffer = '';
+
+                    break;
+                }
+                case EventType.TOOL_CALL_START: {
+                    const toolCallId = (event as {toolCallId: string}).toolCallId;
+                    const toolCallName = (event as {toolCallName?: string}).toolCallName ?? '';
+
+                    toolCallNameById.set(toolCallId, toolCallName);
+                    toolCallBufferById.set(toolCallId, '');
+
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await subscriber.onToolCallStartEvent?.({event, ...baseParams} as any);
+
+                    break;
+                }
+                case EventType.TOOL_CALL_ARGS: {
+                    const toolCallId = (event as {toolCallId: string}).toolCallId;
+                    const delta = (event as {delta?: string}).delta ?? '';
+                    const accumulated = (toolCallBufferById.get(toolCallId) ?? '') + delta;
+
+                    toolCallBufferById.set(toolCallId, accumulated);
+
+                    let partial: Record<string, unknown> = {};
+
+                    try {
+                        partial = JSON.parse(accumulated);
+                    } catch {
+                        // Mid-stream delta isn't a valid JSON object yet — handlers tolerate this.
+                    }
+
+                    await subscriber.onToolCallArgsEvent?.({
+                        event,
+                        partialToolCallArgs: partial,
+                        toolCallBuffer: accumulated,
+                        toolCallName: toolCallNameById.get(toolCallId) ?? '',
+                        ...baseParams,
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    } as any);
+
+                    break;
+                }
+                case EventType.TOOL_CALL_END: {
+                    const toolCallId = (event as {toolCallId: string}).toolCallId;
+                    const finalBuffer = toolCallBufferById.get(toolCallId) ?? '';
+
+                    toolCallBufferById.delete(toolCallId);
+
+                    let toolCallArgs: Record<string, unknown> = {};
+
+                    try {
+                        toolCallArgs = finalBuffer.length > 0 ? JSON.parse(finalBuffer) : {};
+                    } catch {
+                        toolCallArgs = {};
+                    }
+
+                    await subscriber.onToolCallEndEvent?.({
+                        event,
+                        toolCallArgs,
+                        toolCallName: toolCallNameById.get(toolCallId) ?? '',
+                        ...baseParams,
+                        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    } as any);
+
+                    break;
+                }
+                case EventType.TOOL_CALL_RESULT: {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await subscriber.onToolCallResultEvent?.({event, ...baseParams} as any);
+
+                    break;
+                }
+                case EventType.RUN_STARTED: {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await subscriber.onRunStartedEvent?.({event, ...baseParams} as any);
+
+                    break;
+                }
+                case EventType.RUN_FINISHED: {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await subscriber.onRunFinishedEvent?.({event, ...baseParams} as any);
+
+                    break;
+                }
+                case EventType.RUN_ERROR: {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await subscriber.onRunErrorEvent?.({event, ...baseParams} as any);
+
+                    break;
+                }
+                case EventType.CUSTOM: {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    await subscriber.onCustomEvent?.({event, ...baseParams} as any);
+
+                    break;
+                }
+                // Other AG-UI event types (THINKING_*, REASONING_*, STEP_*) aren't surfaced in the AI Hub
+                // UI today. Add cases here if a future renderer needs them.
+                default:
+                    break;
+            }
+        } catch (handlerError) {
+            // A faulty subscriber handler must not blow up the EventSource — otherwise a tab-open failure
+            // mid-replay would abort the rest of the stream, leaving the assistant message half-rendered.
+            console.error('[AiHub attach] subscriber handler threw', handlerError);
+        }
+    }
+
+    return close;
+}
+
+/**
+ * Returns a `{threadId: ThreadStatusI}` map. A thread the caller cannot view, or that no longer exists, is
+ * omitted from the map entirely — never reported with a falsy/default status — so a missing key means "not
+ * yours, or gone", not "idle". Network errors degrade silently to "no statuses" — better to render a static
+ * history than to surface a transient probe failure as a permanent block.
+ *
+ * <p>Thread ids are probed in batches (see {@link STATUS_BATCH_SIZE}) so a large chat list doesn't overflow
+ * the request-line length limit. Batches run concurrently and each degrades independently: a single failed
+ * batch contributes no entries rather than failing the whole probe.</p>
+ */
+export async function probeThreadStatus(threadIds: ReadonlyArray<string>): Promise<Record<string, ThreadStatusI>> {
+    if (threadIds.length === 0) {
+        return {};
+    }
+
+    const batches: Array<ReadonlyArray<string>> = [];
+
+    for (let index = 0; index < threadIds.length; index += STATUS_BATCH_SIZE) {
+        batches.push(threadIds.slice(index, index + STATUS_BATCH_SIZE));
+    }
+
+    const batchResults = await Promise.all(batches.map((batch) => probeStatusBatch(batch)));
+
+    return Object.assign({}, ...batchResults) as Record<string, ThreadStatusI>;
+}
+
+async function probeStatusBatch(threadIds: ReadonlyArray<string>): Promise<Record<string, ThreadStatusI>> {
+    const params = new URLSearchParams();
+
+    threadIds.forEach((threadId) => params.append('threadIds', threadId));
+
+    try {
+        const response = await fetch(`${STATUS_ENDPOINT}?${params.toString()}`, {
+            credentials: 'include',
+        });
+
+        if (!response.ok) {
+            console.warn('[AiHub attach] status probe returned non-OK status', response.status);
+
+            return {};
+        }
+
+        return (await response.json()) as Record<string, ThreadStatusI>;
+    } catch (error) {
+        console.warn('[AiHub attach] status probe failed', error);
+
+        return {};
+    }
+}
+
+/**
+ * Thin boolean projection of {@link probeThreadStatus} for callers that only care whether a run is in
+ * flight (the runtime provider's mount-time resume probe, and its tests). A thread {@link
+ * probeThreadStatus} omits resolves to {@code false} here rather than being absent from the map.
+ */
+export async function probeInFlightStatus(threadIds: ReadonlyArray<string>): Promise<Record<string, boolean>> {
+    const statusByThreadId = await probeThreadStatus(threadIds);
+
+    return Object.fromEntries(
+        Object.entries(statusByThreadId).map(([threadId, status]) => [threadId, status.inFlight])
+    );
+}
+
+/**
+ * Records or clears the caller's presence on {@code threadId}. Called on an interval while a shared chat is
+ * open (heartbeat), on composer focus/typing (state {@code 'TYPING'}), and once more with {@code 'LEFT'} when
+ * the client explicitly signals it is leaving (chat switch, unmount, tab close). A dropped heartbeat must not
+ * surface to the user — the next one due 20s later self-heals it — so it is only logged here.
+ *
+ * <p>The local try/catch is not what keeps a failure off screen: {@code useFetchInterceptor} patches
+ * {@code window.fetch} globally and toasts every non-2xx regardless of what the caller does with the response.
+ * Silence depends on this endpoint being listed in that module's {@code handlesErrorInline}, which is where the
+ * suppression actually lives.</p>
+ */
+export async function sendPresence(threadId: string, state: 'LEFT' | 'TYPING' | 'VIEWING'): Promise<void> {
+    try {
+        const response = await fetch(PRESENCE_ENDPOINT(threadId), {
+            body: JSON.stringify({state}),
+            credentials: 'include',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-XSRF-TOKEN': getCookie('XSRF-TOKEN') || '',
+            },
+            method: 'POST',
+        });
+
+        if (!response.ok) {
+            console.warn('[AiHub presence] heartbeat returned non-OK status', response.status);
+        }
+    } catch (error) {
+        console.warn('[AiHub presence] heartbeat failed', error);
+    }
+}
