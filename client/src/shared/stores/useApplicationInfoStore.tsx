@@ -16,6 +16,9 @@ export interface ApplicationInfoI {
         gateway: {
             enabled: boolean;
         };
+        hub: {
+            enabled: boolean;
+        };
         knowledgeBase: {
             enabled: boolean;
         };
@@ -78,6 +81,9 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                     gateway: {
                         enabled: false,
                     },
+                    hub: {
+                        enabled: false,
+                    },
                     knowledgeBase: {
                         enabled: false,
                     },
@@ -133,6 +139,9 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                                 },
                                 gateway: {
                                     enabled: json.ai.gateway?.enabled === 'true',
+                                },
+                                hub: {
+                                    enabled: json.ai.hub?.enabled === 'true',
                                 },
                                 knowledgeBase: {
                                     enabled: json.ai.knowledgeBase?.enabled === 'true',

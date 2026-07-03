@@ -1,0 +1,10 @@
+query aiHubChatMessages($workspaceId: ID!, $id: ID!) {
+    aiHubChatMessages(workspaceId: $workspaceId, id: $id) {
+        role
+        content
+        timestamp
+        toolEventsJson
+        authorUserId
+        authorName
+    }
+}
