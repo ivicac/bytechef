@@ -186,6 +186,7 @@ const AutomationWorkflow = () => {
                             >
                                 {workflow.id && (
                                     <WorkflowEditorLayout
+                                        internalOnlyVisible={true}
                                         leftSidebarOpen={leftSidebarOpen}
                                         runDisabled={runDisabled}
                                         showWorkflowInputs={true}
