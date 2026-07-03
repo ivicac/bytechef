@@ -106,6 +106,9 @@ class ProjectWorkflowToolsTest {
     private ObjectProvider<WorkflowTestConfigurationFacade> testConfigurationFacadeProvider;
 
     @Mock
+    private ObjectProvider<WorkflowArtifactRecorder> workflowArtifactRecorderProvider;
+
+    @Mock
     private WorkflowTestConfigurationFacade workflowTestConfigurationFacade;
 
     @Mock
@@ -1052,7 +1055,7 @@ class ProjectWorkflowToolsTest {
             new ScopedProjectGuard(
                 projectOwnershipService, projectService, projectWorkflowService, scopedConnectionGuard,
                 workspaceScopeResolver),
-            testConfigurationFacadeProvider);
+            workflowArtifactRecorderProvider, testConfigurationFacadeProvider);
     }
 
     private static ProjectWorkflow buildProjectWorkflow(long id, long projectId, String workflowId) {
