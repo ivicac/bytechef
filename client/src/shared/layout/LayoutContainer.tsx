@@ -9,11 +9,19 @@ interface SidebarContentLayoutProps {
     className?: string;
     footer?: ReactNode;
     header?: ReactNode;
+    leftSidebarAnimate?: boolean;
     leftSidebarBody?: ReactNode;
     leftSidebarClass?: string;
     leftSidebarHeader?: ReactNode;
     leftSidebarHidden?: boolean;
+    leftSidebarOnMouseEnter?: () => void;
+    leftSidebarOnMouseLeave?: () => void;
     leftSidebarOpen?: boolean;
+    /** Float the left sidebar OVER the content instead of reserving space for it. The aside still slides
+     * in (as when `leftSidebarOpen`), but no content padding is applied, so nothing reflows. Used for the
+     * AI Hub tasks-sidebar hover "peek". Independent of `leftSidebarOpen` so a page can overlay the
+     * sidebar while its docked (space-reserving) form stays closed. */
+    leftSidebarOverlay?: boolean;
     leftSidebarWidth?: '56' | '64' | '72' | '96' | '112';
     rightSidebarBody?: ReactNode;
     rightSidebarClass?: string;
@@ -44,11 +52,15 @@ const LayoutContainer = ({
     className,
     footer,
     header,
+    leftSidebarAnimate = true,
     leftSidebarBody,
     leftSidebarClass,
     leftSidebarHeader,
     leftSidebarHidden = false,
+    leftSidebarOnMouseEnter,
+    leftSidebarOnMouseLeave,
     leftSidebarOpen,
+    leftSidebarOverlay = false,
     leftSidebarWidth = '64',
     rightSidebarBody,
     rightSidebarClass,
@@ -76,8 +88,13 @@ const LayoutContainer = ({
     const leftSidebarIsOpen =
         !leftSidebarHidden && (isLeftSidebarControlled ? leftSidebarOpen : uncontrolledLeftSidebarOpen);
 
-    const [leftAsideMounted, setLeftAsideMounted] = useState(leftSidebarIsOpen);
-    const [leftAsideSlidIn, setLeftAsideSlidIn] = useState(leftSidebarIsOpen);
+    // The aside is shown either docked (reserves space via content padding) or as a floating overlay
+    // (the AI Hub peek). Mount + slide track this combined flag; only the content padding below stays
+    // keyed on `leftSidebarIsOpen` so an overlay never reflows the content.
+    const asideVisible = leftSidebarIsOpen || leftSidebarOverlay;
+
+    const [leftAsideMounted, setLeftAsideMounted] = useState(asideVisible);
+    const [leftAsideSlidIn, setLeftAsideSlidIn] = useState(asideVisible);
     const [leftSidebarTransitionEnabled, setLeftSidebarTransitionEnabled] = useState(!leftSidebarHidden);
 
     const ownLeftSidebarToggle = useMemo(
@@ -109,8 +126,17 @@ const LayoutContainer = ({
 
     // Keep the left sidebar mounted for 300ms after it closes so it can slide out before unmounting.
     useEffect(() => {
-        if (!leftSidebarIsOpen) {
+        if (!asideVisible) {
             setLeftAsideSlidIn(false);
+
+            // Sidebar closed. When animation is OFF (e.g. AI Hub's instant collapse to the rail), KEEP the
+            // off-screen aside mounted at `-translate-x-full` rather than unmounting it. That way the next
+            // animated reopen slides it in from the left edge instead of popping in from a fresh mount (a fresh
+            // mount has no prior position to transition from). When animation is ON, unmount after the
+            // slide-out completes as before.
+            if (!leftSidebarAnimate) {
+                return;
+            }
 
             const timerId = setTimeout(() => setLeftAsideMounted(false), 300);
 
@@ -119,7 +145,7 @@ const LayoutContainer = ({
 
         setLeftAsideMounted(true);
 
-        if (!leftSidebarTransitionEnabled) {
+        if (!leftSidebarAnimate || !leftSidebarTransitionEnabled) {
             setLeftAsideSlidIn(true);
 
             return;
@@ -130,7 +156,7 @@ const LayoutContainer = ({
         });
 
         return () => cancelAnimationFrame(frameId);
-    }, [leftSidebarIsOpen, leftSidebarTransitionEnabled]);
+    }, [asideVisible, leftSidebarAnimate, leftSidebarTransitionEnabled]);
 
     // A page hides its sidebar until it has loaded, so revealing it must not slide the content over. Enable the
     // padding transition only a frame after the sidebar first shows, once its padding has painted without one.
@@ -162,11 +188,18 @@ const LayoutContainer = ({
                         className={twMerge(
                             'hidden border-r border-r-border/50 bg-muted/50 lg:flex lg:flex-col',
                             'lg:fixed lg:inset-y-0',
-                            'transition-transform duration-300 ease-in-out',
-                            leftSidebarIsOpen && leftAsideSlidIn ? 'lg:translate-x-0' : 'lg:-translate-x-full',
+                            leftSidebarAnimate && 'transition-transform duration-300 ease-in-out',
+                            asideVisible && leftAsideSlidIn ? 'lg:translate-x-0' : 'lg:-translate-x-full',
+                            // Floating peek: lift above the content and cast a shadow so it reads as an overlay
+                            // rather than part of the flow (it reserves no space). The docked sidebar's
+                            // `bg-muted/50` is semi-transparent — fine over the opaque page, but it would let
+                            // the content bleed through when floating, so force an OPAQUE background here.
+                            leftSidebarOverlay && 'z-40 bg-muted shadow-lg',
                             leftSidebarClass,
                             leftSidebarWidths[leftSidebarWidth][0]
                         )}
+                        onMouseEnter={leftSidebarOnMouseEnter}
+                        onMouseLeave={leftSidebarOnMouseLeave}
                     >
                         <LeftSidebarToggleContext.Provider value={leftAsideToggle}>
                             {leftSidebarNav}
@@ -192,6 +225,7 @@ const LayoutContainer = ({
                     className={twMerge(
                         'size-full',
                         !leftSidebarHidden &&
+                            leftSidebarAnimate &&
                             leftSidebarTransitionEnabled &&
                             'transition-[padding] duration-300 ease-in-out',
                         topHeader && 'flex flex-col',

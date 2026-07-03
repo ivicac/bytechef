@@ -20,6 +20,7 @@ import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {useQueryClient} from '@tanstack/react-query';
 import {
     ActivityIcon,
+    FileTextIcon,
     FolderIcon,
     HammerIcon,
     HistoryIcon,
@@ -65,6 +66,11 @@ const executionsNavigationGroup: NavigationGroupType = {icon: ActivityIcon, name
 const serversNavigationGroup: NavigationGroupType = {icon: RadioTowerIcon, name: 'Servers'};
 
 const automationNavigation: NavigationType[] = [
+    {
+        href: '/automation/ai-hub',
+        icon: MessagesSquareIcon,
+        name: 'AI Hub',
+    },
     {
         href: '/automation/projects',
         icon: FolderIcon,
@@ -114,6 +120,11 @@ const automationNavigation: NavigationType[] = [
         href: '/automation/knowledge-bases',
         icon: VectorSquareIcon,
         name: 'Knowledge Base',
+    },
+    {
+        href: '/automation/asset-files',
+        icon: FileTextIcon,
+        name: 'Files',
     },
     {href: '/automation/chats', icon: MessagesSquareIcon, name: 'Chats'},
 ];
@@ -231,8 +242,8 @@ function App() {
             return ai.knowledgeBase.enabled;
         }
 
-        if (navItem.href === '/automation/executions/tool-invocations') {
-            return edition === EditionType.EE;
+        if (navItem.href === '/automation/ai-hub') {
+            return edition === EditionType.EE && ai.hub.enabled;
         }
 
         return true;

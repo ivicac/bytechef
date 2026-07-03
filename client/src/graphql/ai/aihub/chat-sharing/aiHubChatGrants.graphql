@@ -1,0 +1,3 @@
+query aiHubChatGrants($workspaceId: ID!, $chatId: ID!) {
+    aiHubChatGrants(workspaceId: $workspaceId, chatId: $chatId)
+}
