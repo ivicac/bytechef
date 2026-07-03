@@ -153,8 +153,7 @@ public class SpringAIAgent extends LocalAgent {
             log.error("Agent '{}' could not resolve the latest user message for threadId={} runId={}",
                 this.agentId, threadId, runId, e);
 
-            this.emitEvent(runStartedEvent(threadId, runId), subscriber);
-            this.onError(input, e, subscriber);
+            this.onError(input, e.getMessage(), subscriber);
             return;
         }
 
@@ -185,20 +184,24 @@ public class SpringAIAgent extends LocalAgent {
                 .chatResponse()
                 .contextCapture()
                 .subscribe(
-                    evt -> onEvent(subscriber, evt, assistantMessage, textMessageStream),
+                    evt -> onEvent(subscriber, evt, assistantMessage, messageId, deferredEvents),
                     err -> {
+                        // The streamed chat response errored before completing. Without this log the only trace of
+                        // the failure is the bare getMessage() forwarded to the client as a RUN_ERROR event — Reactor
+                        // treats the error as handled, so the real exception (class + cause chain + stack) is
+                        // otherwise dropped, making every streaming failure undiagnosable server-side.
                         log.error(
                             "Agent '{}' chat stream failed for threadId={} runId={}: {}",
                             this.agentId, threadId, runId, err.toString(), err);
 
-                        this.onError(input, err, subscriber);
+                        this.onError(input, err.getMessage(), subscriber);
                     },
-                    () -> onComplete(input, assistantMessage, subscriber, textMessageStream, deferredEvents)
+                    () -> onComplete(input, assistantMessage, subscriber, messageId, deferredEvents)
                 );
-        } catch (AGUIException | RuntimeException e) {
+        } catch (AGUIException e) {
             log.error("Agent '{}' failed to start chat stream for threadId={} runId={}", this.agentId, threadId, runId, e);
 
-            this.onError(input, e, subscriber);
+            this.onError(input, e.getMessage(), subscriber);
         }
     }
 
@@ -342,6 +345,22 @@ public class SpringAIAgent extends LocalAgent {
         subscriber.onNewMessage(assistantMessage);
 
         this.emitEvent(runFinishedEvent(input.threadId(), input.runId()), subscriber);
+        subscriber.onRunFinalized(new AgentSubscriberParams(input.messages(), state, this, input));
+    }
+
+    /**
+     * Emits a terminal {@link com.agui.core.event.RunErrorEvent} and then finalizes the run, mirroring
+     * {@link #onComplete}'s terminal sequence (emit terminal event → {@code onRunFinalized}). A failed stream must
+     * release the subscriber's run lifecycle exactly like a successful one: without the {@code onRunFinalized} call a
+     * host subscriber that owns an event sink (e.g. the AI Hub in-flight run registry) never completes that sink after
+     * an error, leaving the SSE stream open until a TTL backstop fires. {@code onRunFinalized} (a clean complete) is
+     * the right terminal hook rather than {@code onRunFailed} (sink error) because the failure has already been
+     * communicated in-band via the RUN_ERROR event — erroring the sink afterward would be redundant and would abort
+     * the stream the client has already finished reading. This matches the emit-error-then-finalize pattern used by
+     * the sibling {@code AgUiStreamBridge.onError}.
+     */
+    private void onError(RunAgentInput input, String message, AgentSubscriber subscriber) {
+        this.emitEvent(runErrorEvent(message), subscriber);
         subscriber.onRunFinalized(new AgentSubscriberParams(input.messages(), state, this, input));
     }
 
