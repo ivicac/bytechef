@@ -817,7 +817,6 @@ public class ApplicationProperties {
 
         private AgentUtils agentUtils = new AgentUtils();
         private AutoMemory autoMemory = new AutoMemory();
-        private Brave brave = new Brave();
         private Copilot copilot = new Copilot();
         private Firecrawl firecrawl = new Firecrawl();
         private Gateway gateway = new Gateway();
@@ -826,6 +825,7 @@ public class ApplicationProperties {
         private Mcp mcp = new Mcp();
         private Memory memory = new Memory();
         private Provider provider = new Provider();
+        private Stt stt = new Stt();
         private Vectorstore vectorstore = new Vectorstore();
 
         public AgentUtils getAgentUtils() {
@@ -834,10 +834,6 @@ public class ApplicationProperties {
 
         public AutoMemory getAutoMemory() {
             return autoMemory;
-        }
-
-        public Brave getBrave() {
-            return brave;
         }
 
         public Copilot getCopilot() {
@@ -872,6 +868,10 @@ public class ApplicationProperties {
             return provider;
         }
 
+        public Stt getStt() {
+            return stt;
+        }
+
         public Vectorstore getVectorstore() {
             return vectorstore;
         }
@@ -882,10 +882,6 @@ public class ApplicationProperties {
 
         public void setAutoMemory(AutoMemory autoMemory) {
             this.autoMemory = autoMemory;
-        }
-
-        public void setBrave(Brave brave) {
-            this.brave = brave;
         }
 
         public void setCopilot(Copilot copilot) {
@@ -918,6 +914,10 @@ public class ApplicationProperties {
 
         public void setProvider(Provider provider) {
             this.provider = provider;
+        }
+
+        public void setStt(Stt stt) {
+            this.stt = stt;
         }
 
         public void setVectorstore(Vectorstore vectorstore) {
@@ -1332,10 +1332,7 @@ public class ApplicationProperties {
         }
 
         /**
-         * AI Hub properties. Mirrors the {@link Copilot} flag pattern: a single {@code enabled} switch toggles the
-         * whole hub surface (REST/GraphQL controllers, JDBC repositories, service beans). Kept as a sibling of
-         * {@code copilot} rather than nested inside it because AI Hub is its own product surface — workflow-chat
-         * dispatch and personal-agent management live here even on deployments where the LLM copilot is disabled.
+         * AI Hub properties.
          */
         public static class Hub {
 
@@ -1344,12 +1341,43 @@ public class ApplicationProperties {
              */
             private boolean enabled;
 
+            private McpServer mcpServer = new McpServer();
+
             public boolean isEnabled() {
                 return enabled;
             }
 
             public void setEnabled(boolean enabled) {
                 this.enabled = enabled;
+            }
+
+            public McpServer getMcpServer() {
+                return mcpServer;
+            }
+
+            public void setMcpServer(McpServer mcpServer) {
+                this.mcpServer = mcpServer;
+            }
+
+            /**
+             * Configuration for user-registered external MCP (Model Context Protocol) servers.
+             */
+            public static class McpServer {
+
+                /**
+                 * Hostnames that bypass the SSRF guard for custom MCP server URLs (e.g. "localhost" for self-hosted/dev
+                 * MCP servers). Empty by default, so loopback/private/cloud-metadata targets are blocked; add hosts
+                 * here to permit specific internal MCP servers.
+                 */
+                private List<String> allowedHosts = List.of();
+
+                public List<String> getAllowedHosts() {
+                    return allowedHosts;
+                }
+
+                public void setAllowedHosts(List<String> allowedHosts) {
+                    this.allowedHosts = allowedHosts;
+                }
             }
         }
 
@@ -1434,34 +1462,127 @@ public class ApplicationProperties {
         }
 
         /**
-         * Brave Search API configuration.
+         * Speech-to-text (STT) configuration. Selects the active transcription provider and holds per-provider endpoint
+         * overrides. Provider API keys are supplied per workflow connection, not here.
          */
-        public static class Brave {
+        public static class Stt {
 
             /**
-             * Brave Search API key
+             * STT provider type.
              */
-            private String apiKey;
+            public enum Provider {
+                /**
+                 * OpenAI transcription provider
+                 */
+                OPENAI,
+                /**
+                 * Deepgram transcription provider
+                 */
+                DEEPGRAM,
+                /**
+                 * ElevenLabs transcription provider
+                 */
+                ELEVENLABS
+            }
 
             /**
-             * Whether Brave Search is enabled
+             * Active STT provider
              */
-            private boolean enabled;
+            private Provider provider = Provider.OPENAI;
 
-            public String getApiKey() {
-                return apiKey;
+            private Openai openai = new Openai();
+
+            private Deepgram deepgram = new Deepgram();
+
+            private Elevenlabs elevenlabs = new Elevenlabs();
+
+            public Provider getProvider() {
+                return provider;
             }
 
-            public void setApiKey(String apiKey) {
-                this.apiKey = apiKey;
+            public void setProvider(Provider provider) {
+                this.provider = provider;
             }
 
-            public boolean isEnabled() {
-                return enabled;
+            public Openai getOpenai() {
+                return openai;
             }
 
-            public void setEnabled(boolean enabled) {
-                this.enabled = enabled;
+            public void setOpenai(Openai openai) {
+                this.openai = openai;
+            }
+
+            public Deepgram getDeepgram() {
+                return deepgram;
+            }
+
+            public void setDeepgram(Deepgram deepgram) {
+                this.deepgram = deepgram;
+            }
+
+            public Elevenlabs getElevenlabs() {
+                return elevenlabs;
+            }
+
+            public void setElevenlabs(Elevenlabs elevenlabs) {
+                this.elevenlabs = elevenlabs;
+            }
+
+            /**
+             * OpenAI STT endpoint configuration.
+             */
+            public static class Openai {
+
+                /**
+                 * OpenAI STT API base URL
+                 */
+                private String baseUrl = "https://api.openai.com";
+
+                public String getBaseUrl() {
+                    return baseUrl;
+                }
+
+                public void setBaseUrl(String baseUrl) {
+                    this.baseUrl = baseUrl;
+                }
+            }
+
+            /**
+             * Deepgram STT endpoint configuration.
+             */
+            public static class Deepgram {
+
+                /**
+                 * Deepgram STT API base URL
+                 */
+                private String baseUrl = "https://api.deepgram.com";
+
+                public String getBaseUrl() {
+                    return baseUrl;
+                }
+
+                public void setBaseUrl(String baseUrl) {
+                    this.baseUrl = baseUrl;
+                }
+            }
+
+            /**
+             * ElevenLabs STT endpoint configuration.
+             */
+            public static class Elevenlabs {
+
+                /**
+                 * ElevenLabs STT API base URL
+                 */
+                private String baseUrl = "https://api.elevenlabs.io";
+
+                public String getBaseUrl() {
+                    return baseUrl;
+                }
+
+                public void setBaseUrl(String baseUrl) {
+                    this.baseUrl = baseUrl;
+                }
             }
         }
 
@@ -1624,11 +1745,6 @@ public class ApplicationProperties {
             private boolean enabled;
 
             /**
-             * Maximum total size in bytes of all knowledge base documents in a tenant. 0 means unlimited. Default 1 GB.
-             */
-            private long maxSizeBytes;
-
-            /**
              * OCR configuration
              */
             private Ocr ocr = new Ocr();
@@ -1644,14 +1760,6 @@ public class ApplicationProperties {
 
             public void setEnabled(boolean enabled) {
                 this.enabled = enabled;
-            }
-
-            public long getMaxSizeBytes() {
-                return maxSizeBytes;
-            }
-
-            public void setMaxSizeBytes(long maxSizeBytes) {
-                this.maxSizeBytes = maxSizeBytes;
             }
 
             public Ocr getOcr() {
@@ -1896,6 +2004,11 @@ public class ApplicationProperties {
             private Stability stability = new Stability();
 
             /**
+             * Speech-to-text model configuration grouped by provider
+             */
+            private Stt stt = new Stt();
+
+            /**
              * Google Vertex AI Gemini configuration
              */
             private VertexGemini vertexGemini = new VertexGemini();
@@ -1976,6 +2089,10 @@ public class ApplicationProperties {
                 return stability;
             }
 
+            public Stt getStt() {
+                return stt;
+            }
+
             public VertexGemini getVertexGemini() {
                 return vertexGemini;
             }
@@ -2054,6 +2171,10 @@ public class ApplicationProperties {
 
             public void setStability(Stability stability) {
                 this.stability = stability;
+            }
+
+            public void setStt(Stt stt) {
+                this.stt = stt;
             }
 
             public void setVertexGemini(VertexGemini vertexGemini) {
@@ -3165,6 +3286,165 @@ public class ApplicationProperties {
 
                         /**
                          * Image model name (e.g., dall-e-3)
+                         */
+                        private String model;
+
+                        public String getModel() {
+                            return model;
+                        }
+
+                        public void setModel(String model) {
+                            this.model = model;
+                        }
+                    }
+                }
+            }
+
+            /**
+             * Speech-to-text (STT) model configuration grouped by provider.
+             */
+            public static class Stt {
+
+                /**
+                 * Deepgram STT model configuration
+                 */
+                private Deepgram deepgram = new Deepgram();
+
+                /**
+                 * ElevenLabs STT model configuration
+                 */
+                private Elevenlabs elevenlabs = new Elevenlabs();
+
+                /**
+                 * OpenAI STT model configuration
+                 */
+                private OpenAi openAi = new OpenAi();
+
+                public Deepgram getDeepgram() {
+                    return deepgram;
+                }
+
+                public void setDeepgram(Deepgram deepgram) {
+                    this.deepgram = deepgram;
+                }
+
+                public Elevenlabs getElevenlabs() {
+                    return elevenlabs;
+                }
+
+                public void setElevenlabs(Elevenlabs elevenlabs) {
+                    this.elevenlabs = elevenlabs;
+                }
+
+                public OpenAi getOpenAi() {
+                    return openAi;
+                }
+
+                public void setOpenAi(OpenAi openAi) {
+                    this.openAi = openAi;
+                }
+
+                /**
+                 * Deepgram STT model configuration.
+                 */
+                public static class Deepgram {
+
+                    /**
+                     * STT model options
+                     */
+                    private Options options = new Options();
+
+                    public Options getOptions() {
+                        return options;
+                    }
+
+                    public void setOptions(Options options) {
+                        this.options = options;
+                    }
+
+                    /**
+                     * Deepgram STT model options.
+                     */
+                    public static class Options {
+
+                        /**
+                         * STT model name (e.g., nova-3)
+                         */
+                        private String model;
+
+                        public String getModel() {
+                            return model;
+                        }
+
+                        public void setModel(String model) {
+                            this.model = model;
+                        }
+                    }
+                }
+
+                /**
+                 * ElevenLabs STT model configuration.
+                 */
+                public static class Elevenlabs {
+
+                    /**
+                     * STT model options
+                     */
+                    private Options options = new Options();
+
+                    public Options getOptions() {
+                        return options;
+                    }
+
+                    public void setOptions(Options options) {
+                        this.options = options;
+                    }
+
+                    /**
+                     * ElevenLabs STT model options.
+                     */
+                    public static class Options {
+
+                        /**
+                         * STT model name (e.g., scribe_v1)
+                         */
+                        private String model;
+
+                        public String getModel() {
+                            return model;
+                        }
+
+                        public void setModel(String model) {
+                            this.model = model;
+                        }
+                    }
+                }
+
+                /**
+                 * OpenAI STT model configuration.
+                 */
+                public static class OpenAi {
+
+                    /**
+                     * STT model options
+                     */
+                    private Options options = new Options();
+
+                    public Options getOptions() {
+                        return options;
+                    }
+
+                    public void setOptions(Options options) {
+                        this.options = options;
+                    }
+
+                    /**
+                     * OpenAI STT model options.
+                     */
+                    public static class Options {
+
+                        /**
+                         * STT model name (e.g., gpt-4o-mini-transcribe)
                          */
                         private String model;
 
@@ -5634,7 +5914,7 @@ public class ApplicationProperties {
     }
 
     /**
-     * Outbound webhook delivery, such as job status, task started, notification and Slack webhooks.
+     * Outbound webhook delivery, such as job status, task started, notification, Slack and approval reminder webhooks.
      */
     public static class WebhookDelivery {
 
@@ -5846,22 +6126,42 @@ public class ApplicationProperties {
              */
             private Agent agent = new Agent();
 
+            private ApprovalEscalation approvalEscalation = new ApprovalEscalation();
+
             private ApprovalExpiry approvalExpiry = new ApprovalExpiry();
+
+            private ApprovalReminder approvalReminder = new ApprovalReminder();
 
             public Agent getAgent() {
                 return agent;
+            }
+
+            public ApprovalEscalation getApprovalEscalation() {
+                return approvalEscalation;
             }
 
             public ApprovalExpiry getApprovalExpiry() {
                 return approvalExpiry;
             }
 
+            public ApprovalReminder getApprovalReminder() {
+                return approvalReminder;
+            }
+
             public void setAgent(Agent agent) {
                 this.agent = agent;
             }
 
+            public void setApprovalEscalation(ApprovalEscalation approvalEscalation) {
+                this.approvalEscalation = approvalEscalation;
+            }
+
             public void setApprovalExpiry(ApprovalExpiry approvalExpiry) {
                 this.approvalExpiry = approvalExpiry;
+            }
+
+            public void setApprovalReminder(ApprovalReminder approvalReminder) {
+                this.approvalReminder = approvalReminder;
             }
 
             /**
@@ -5883,6 +6183,29 @@ public class ApplicationProperties {
                 }
             }
 
+            public static class ApprovalEscalation {
+
+                private Duration after;
+
+                private boolean enabled;
+
+                public Duration getAfter() {
+                    return after;
+                }
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setAfter(Duration after) {
+                    this.after = after;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+            }
+
             public static class ApprovalExpiry {
 
                 private boolean enabled;
@@ -5893,6 +6216,29 @@ public class ApplicationProperties {
 
                 public void setEnabled(boolean enabled) {
                     this.enabled = enabled;
+                }
+            }
+
+            public static class ApprovalReminder {
+
+                private boolean enabled;
+
+                private Duration leadTime;
+
+                public Duration getLeadTime() {
+                    return leadTime;
+                }
+
+                public boolean isEnabled() {
+                    return enabled;
+                }
+
+                public void setEnabled(boolean enabled) {
+                    this.enabled = enabled;
+                }
+
+                public void setLeadTime(Duration leadTime) {
+                    this.leadTime = leadTime;
                 }
             }
         }

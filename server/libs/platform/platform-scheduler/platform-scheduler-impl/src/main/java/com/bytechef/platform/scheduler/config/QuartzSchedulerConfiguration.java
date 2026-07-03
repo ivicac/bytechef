@@ -18,9 +18,11 @@ package com.bytechef.platform.scheduler.config;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.platform.scheduler.AgentScheduler;
 import com.bytechef.platform.scheduler.AlertScheduler;
 import com.bytechef.platform.scheduler.ConnectionRefreshScheduler;
 import com.bytechef.platform.scheduler.ExportScheduler;
+import com.bytechef.platform.scheduler.QuartzAgentScheduler;
 import com.bytechef.platform.scheduler.QuartzAlertScheduler;
 import com.bytechef.platform.scheduler.QuartzConnectionRefreshScheduler;
 import com.bytechef.platform.scheduler.QuartzExportScheduler;
@@ -85,6 +87,11 @@ public class QuartzSchedulerConfiguration {
     @Bean
     ExportScheduler quartzExportScheduler(@Lazy Scheduler scheduler) {
         return new QuartzExportScheduler(scheduler);
+    }
+
+    @Bean
+    AgentScheduler quartzAgentScheduler(@Lazy Scheduler scheduler) {
+        return new QuartzAgentScheduler(scheduler);
     }
 
     @Bean

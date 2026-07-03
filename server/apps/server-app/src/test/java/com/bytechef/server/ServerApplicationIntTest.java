@@ -30,6 +30,8 @@ import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade
 import com.bytechef.automation.knowledgebase.service.WorkspaceKnowledgeBaseService;
 import com.bytechef.ee.ai.copilot.web.rest.CopilotApiController;
 import com.bytechef.ee.automation.configuration.service.WorkspaceScopeCacheService;
+import com.bytechef.ee.platform.contextstore.clickhouse.ClickHouseTableMigrator;
+import com.bytechef.ee.platform.contextstore.clickhouse.ClickHouseTableProvisioner;
 import com.bytechef.platform.component.log.JdbcLogFileStorage;
 import com.bytechef.platform.component.log.LogFileStorage;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentChunkFacade;
@@ -78,7 +80,9 @@ import org.springframework.test.context.TestPropertySource;
 /**
  * @author Ivica Cardic
  */
-@SpringBootTest(properties = "bytechef.ai.vectorstore.pgvector.dimensions=768")
+@SpringBootTest(
+    properties = "bytechef.ai.vectorstore.pgvector.dimensions=768",
+    webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import({
     PostgreSQLContainerConfiguration.class, ServerApplicationIntTest.ServerApplicationIntTestConfiguration.class
 })
@@ -125,6 +129,20 @@ class ServerApplicationIntTest {
         assertThat(applicationContext.getBeanNamesForType(CopilotVectorStoreService.class)).isEmpty();
         assertThat(applicationContext.getBeanNamesForType(CopilotPgVectorConfiguration.class)).isEmpty();
         assertThat(applicationContext.getBeanNamesForType(CopilotApiController.class)).isEmpty();
+    }
+
+    @Test
+    void testClickHouseContextStoreBeansAbsentWhenUrlNotConfigured() {
+        // Phase 16: the ClickHouse module is on the runtime classpath, but with
+        // bytechef.context-store.clickhouse.url unset the conditional cascade keeps every ClickHouse bean out of the
+        // context. Router falls back to the Postgres adapter for all sources. Pins the "default deployment"
+        // contract: pulling the module in doesn't impose any startup cost or side-effect for operators who haven't
+        // opted in.
+        assertThat(applicationContext.getBeanNamesForType(ClickHouseTableProvisioner.class)).isEmpty();
+        assertThat(applicationContext.getBeanNamesForType(ClickHouseTableMigrator.class)).isEmpty();
+        assertThat(applicationContext.getBeansOfType(javax.sql.DataSource.class))
+            .doesNotContainKey("clickHouseDataSource");
+        assertThat(applicationContext.containsBean("contextStoreRecordClickHouseRepository")).isFalse();
     }
 
     @Test
