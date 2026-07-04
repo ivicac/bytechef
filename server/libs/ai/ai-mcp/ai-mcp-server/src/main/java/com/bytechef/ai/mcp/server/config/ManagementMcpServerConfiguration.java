@@ -21,15 +21,25 @@ import com.bytechef.automation.ai.tool.ClusterElementTools;
 import com.bytechef.automation.ai.tool.ProjectTools;
 import com.bytechef.automation.ai.tool.ProjectWorkflowTools;
 import com.bytechef.automation.ai.tool.ScriptTools;
+import com.bytechef.commons.util.JsonUtils;
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.tool.ComponentTools;
 import com.bytechef.platform.ai.tool.TaskDispatcherTools;
 import com.bytechef.platform.ai.tool.TaskTools;
+import com.bytechef.platform.configuration.service.PropertyService;
+import com.bytechef.platform.mcp.server.McpAppWorkflowEditor;
+import com.bytechef.platform.security.web.config.SecurityConfigurerContributor;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.modelcontextprotocol.server.McpAsyncServer;
 import io.modelcontextprotocol.server.McpServer;
+import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.mcp.McpToolUtils;
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcStreamableServerTransportProvider;
 import org.springframework.ai.support.ToolCallbacks;
@@ -54,46 +64,17 @@ import org.springframework.web.servlet.function.ServerResponse;
 @ConditionalOnProperty(name = "bytechef.ai.mcp.server.enabled", havingValue = "true", matchIfMissing = true)
 public class ManagementMcpServerConfiguration {
 
-    private static final String INSTRUCTIONS =
-        """
-            ByteChef management server. Two kinds of tools: ordinary tools are deterministic CRUD — call them \
-            directly; intelligent tools (buildWorkflow, importWorkflow, configureClusterElement, \
-            writeScript, authorSkill, debugWorkflowExecution, configureMcpServer) run an inner AI agent and \
-            may take minutes — call them for judgment work, not for CRUD.
-            To build a workflow: createProject (if needed) → createProjectWorkflow → buildWorkflow with \
-            the workflowId and a plain-language instruction. To import an external workflow (n8n, Make, \
-            Zapier, Workato): createProject (if needed) → createProjectWorkflow → importWorkflow with the \
-            workflowId and the source definition — it has no project/workflow-creation tools of its own. \
-            Each intelligent-tool call is independent and re-reads current state (e.g. the workflow) rather \
-            than remembering earlier calls, so iterate by \
-            calling the tool again with the next instruction and restate any context it still needs.
-            To expose workflows over MCP: createMcpServer(name, environment, enabled?) — leave enabled unset \
-            or false, since a server with any unmapped attached workflow cannot be enabled — then \
-            createMcpProject(mcpServerId, projectId, projectVersion, workflowIds) to attach a published \
-            project version's workflows (the server must already exist; this tool does not create one), then \
-            configureMcpServer(mcpServerId) to synthesize each attached workflow's tool mapping (tool name, \
-            tool description, fromAi(...) input expressions), then updateMcpServer(mcpServerId, enabled=true) \
-            to bring it online. That last call FAILS with a typed error naming the still-unmapped workflows \
-            if any attached workflow lacks a toolName or a required fromAi mapping — that is the enable-guard \
-            working as intended, not a bug; complete the mapping and retry. listMcpServers resolves a \
-            user-named server to its numeric id, cloneMcpProject(mcpProjectId, targetMcpServerId) duplicates \
-            an existing MCP project's exposed workflows onto another server, and \
-            listMcpProjectWorkflows(mcpServerId) shows each attached workflow's current mapping state. \
-            configureMcpServer never creates the server, attaches workflows to it, or enables it — those are \
-            the flat tools above.
-            listMcpServers, createMcpServer and listMcpProjectWorkflows additionally accept an optional \
-            workspaceId (and environment) since MCP servers are workspace-scoped: omit it when the account \
-            has exactly one \
-            workspace, otherwise retry with an explicit workspaceId from the workspace_required error's \
-            'workspaces' field.
-            The project, workflow and script tools (listProjects, searchProjects, getProject, createProject, \
-            listWorkflows, searchWorkflows, getWorkflow, createProjectWorkflow, updateWorkflow, \
-            updateScriptComponentCode, updateWorkflowRootProperties, updateClusterElementTask and the rest) \
-            likewise act within a single workspace and accept an \
-            optional workspaceId: they only list projects and workflows of that workspace and reject a project \
-            or workflow id that belongs to another one.
-            Most tools require workspace context: if a tool returns a workspace_required error, retry with one \
-            of the workspaceId values listed in its 'workspaces' field.""";
+    // Workflow tools whose results (or, for create, whose input argument) carry the nested workflow definition. They
+    // are marked with the MCP App workflow editor UI so hosts render the canvas alongside the conversation, and their
+    // results gain structuredContent.definition — the payload the editor widget consumes.
+    private static final Set<String> WORKFLOW_EDITOR_TOOL_NAMES =
+        Set.of("getWorkflow", "createProjectWorkflow", "updateWorkflow");
+
+    private static final Set<String> READ_ONLY_WORKFLOW_EDITOR_TOOL_NAMES = Set.of("getWorkflow");
+
+    private static final String DEFINITION = "definition";
+
+    private static final Logger log = LoggerFactory.getLogger(ManagementMcpServerConfiguration.class);
 
     private final ComponentTools componentTools;
     private final ProjectTools projectTools;
@@ -134,7 +115,7 @@ public class ManagementMcpServerConfiguration {
     }
 
     @Bean
-    McpAsyncServer mcpAsyncServer() {
+    McpAsyncServer mcpAsyncServer(ApplicationProperties applicationProperties) {
         return McpServer.async(webMvcStreamableHttpServerTransportProvider())
             .serverInfo("mcp-server", "1.0.0")
             .instructions(INSTRUCTIONS)
@@ -145,8 +126,136 @@ public class ManagementMcpServerConfiguration {
                     .prompts(true)
                     .logging()
                     .build())
-            .tools(McpToolUtils.toAsyncToolSpecifications(toolCallbackProvider().getToolCallbacks()))
+            .tools(attachWorkflowEditorUi(
+                McpToolUtils.toAsyncToolSpecifications(toolCallbackProvider().getToolCallbacks())))
+            .resources(McpAppWorkflowEditor.getResourceSpecifications(applicationProperties.getPublicUrl()))
             .build();
+    }
+
+    /**
+     * Marks the workflow tools with the MCP App workflow editor UI ({@code _meta.ui.resourceUri}) and wraps their call
+     * handlers so results carry the nested workflow definition as {@code structuredContent.definition}. Spring AI's
+     * {@code McpToolUtils} conversion exposes no metadata hook and the converted {@code Tool} is immutable, so the
+     * affected tools are rebuilt with the metadata attached.
+     */
+    static List<McpServerFeatures.AsyncToolSpecification> attachWorkflowEditorUi(
+        List<McpServerFeatures.AsyncToolSpecification> toolSpecifications) {
+
+        return toolSpecifications.stream()
+            .map(toolSpecification -> {
+                McpSchema.Tool tool = toolSpecification.tool();
+
+                return WORKFLOW_EDITOR_TOOL_NAMES.contains(tool.name())
+                    ? toWorkflowEditorToolSpecification(toolSpecification)
+                    : toolSpecification;
+            })
+            .toList();
+    }
+
+    private static McpServerFeatures.AsyncToolSpecification toWorkflowEditorToolSpecification(
+        McpServerFeatures.AsyncToolSpecification toolSpecification) {
+
+        McpSchema.Tool tool = toolSpecification.tool();
+
+        McpSchema.Tool.Builder toolBuilder = McpSchema.Tool.builder(tool.name(), tool.inputSchema())
+            .description(tool.description())
+            .meta(McpAppWorkflowEditor.getToolMeta());
+
+        if (tool.title() != null) {
+            toolBuilder.title(tool.title());
+        }
+
+        if (tool.outputSchema() != null) {
+            toolBuilder.outputSchema(tool.outputSchema());
+        }
+
+        if (tool.icons() != null) {
+            toolBuilder.icons(tool.icons());
+        }
+
+        if (READ_ONLY_WORKFLOW_EDITOR_TOOL_NAMES.contains(tool.name())) {
+            toolBuilder.annotations(McpSchema.ToolAnnotations.builder()
+                .readOnlyHint(true)
+                .build());
+        } else if (tool.annotations() != null) {
+            toolBuilder.annotations(tool.annotations());
+        }
+
+        var delegateCallHandler = toolSpecification.callHandler();
+
+        return new McpServerFeatures.AsyncToolSpecification(
+            toolBuilder.build(),
+            (exchange, callToolRequest) -> delegateCallHandler.apply(exchange, callToolRequest)
+                .map(callToolResult -> withDefinitionStructuredContent(callToolRequest, callToolResult)));
+    }
+
+    static McpSchema.CallToolResult withDefinitionStructuredContent(
+        McpSchema.CallToolRequest callToolRequest, McpSchema.CallToolResult callToolResult) {
+
+        if (Boolean.TRUE.equals(callToolResult.isError()) || callToolResult.structuredContent() != null) {
+            return callToolResult;
+        }
+
+        Map<String, ?> definition = extractDefinition(callToolRequest, callToolResult);
+
+        if (definition == null) {
+            return callToolResult;
+        }
+
+        return McpSchema.CallToolResult.builder()
+            .content(callToolResult.content())
+            .structuredContent(Map.of(DEFINITION, definition))
+            .build();
+    }
+
+    private static Map<String, ?> extractDefinition(
+        McpSchema.CallToolRequest callToolRequest, McpSchema.CallToolResult callToolResult) {
+
+        // getWorkflow/updateWorkflow return WorkflowInfo whose 'definition' field holds the nested definition JSON.
+        McpSchema.TextContent firstTextContent = callToolResult.content()
+            .stream()
+            .filter(McpSchema.TextContent.class::isInstance)
+            .map(McpSchema.TextContent.class::cast)
+            .findFirst()
+            .orElse(null);
+
+        if (firstTextContent != null) {
+            try {
+                Map<String, ?> resultMap = JsonUtils.readMap(firstTextContent.text());
+
+                Map<String, ?> definition = toDefinitionMap(resultMap.get(DEFINITION));
+
+                if (definition != null) {
+                    return definition;
+                }
+            } catch (Exception exception) {
+                if (log.isTraceEnabled()) {
+                    log.trace("Tool result text is not a JSON object; skipping definition extraction", exception);
+                }
+            }
+        }
+
+        // createProjectWorkflow's result omits the definition; it is the tool call's input argument.
+        Map<String, Object> arguments = callToolRequest.arguments();
+
+        return arguments == null ? null : toDefinitionMap(arguments.get(DEFINITION));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, ?> toDefinitionMap(Object definition) {
+        try {
+            if (definition instanceof String string && !string.isBlank()) {
+                return JsonUtils.readMap(string);
+            }
+
+            if (definition instanceof Map<?, ?> map) {
+                return (Map<String, ?>) map;
+            }
+        } catch (Exception exception) {
+            log.warn("Workflow definition is not valid JSON; structuredContent.definition will be omitted", exception);
+        }
+
+        return null;
     }
 
     ToolCallbackProvider toolCallbackProvider() {
@@ -161,5 +270,19 @@ public class ManagementMcpServerConfiguration {
         }
 
         return ToolCallbackProvider.from(toolCallbacks);
+    }
+
+    @Bean
+    SecurityConfigurerContributor mcpServerSecurityConfigurerContributor(PropertyService propertyService) {
+        return new SecurityConfigurerContributor() {
+
+            @Override
+            @SuppressWarnings("unchecked")
+            public <T extends AbstractHttpConfigurer<T, B>, B extends HttpSecurityBuilder<B>> T
+                getSecurityConfigurerAdapter() {
+
+                return (T) new ManagementMcpServerSecurityConfigurer(propertyService);
+            }
+        };
     }
 }
