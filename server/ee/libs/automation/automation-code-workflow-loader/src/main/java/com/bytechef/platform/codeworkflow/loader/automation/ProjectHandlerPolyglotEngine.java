@@ -32,8 +32,6 @@ import org.graalvm.polyglot.Value;
  */
 class ProjectHandlerPolyglotEngine {
 
-    private static Engine engine;
-
     static ProjectHandler load(String languageId, String script) {
         if (engine == null) {
             engine = Engine.create();

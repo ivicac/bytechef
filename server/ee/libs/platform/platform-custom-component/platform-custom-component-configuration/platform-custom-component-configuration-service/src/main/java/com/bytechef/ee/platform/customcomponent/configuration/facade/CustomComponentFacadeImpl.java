@@ -12,7 +12,7 @@ import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.component.definition.TriggerDefinition;
-import com.bytechef.ee.platform.customcomponent.configuration.audit.CustomComponentAuditEvents;
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.platform.customcomponent.configuration.domain.CustomComponent;
 import com.bytechef.ee.platform.customcomponent.configuration.domain.CustomComponent.Language;
 import com.bytechef.ee.platform.customcomponent.configuration.exception.CustomComponentErrorType;
@@ -51,15 +51,19 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
     private final CacheManager cacheManager;
     private final CustomComponentService customComponentService;
     private final CustomComponentFileStorage customComponentFileStorage;
+    private final boolean javaEnabled;
 
     @SuppressFBWarnings("EI")
     public CustomComponentFacadeImpl(
-        CacheManager cacheManager,
+        ApplicationProperties applicationProperties, CacheManager cacheManager,
         CustomComponentService customComponentService, CustomComponentFileStorage customComponentFileStorage) {
 
         this.cacheManager = cacheManager;
         this.customComponentService = customComponentService;
         this.customComponentFileStorage = customComponentFileStorage;
+        this.javaEnabled = applicationProperties.getComponent()
+            .getCustomComponent()
+            .isJavaEnabled();
     }
 
     @Override
@@ -114,11 +118,11 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         @AuditData(key = "language", value = "#language")
     })
     @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
-    public CustomComponent save(byte[] bytes, Language language) {
-        if (language == Language.RUBY) {
+    public void save(byte[] bytes, Language language) {
+        if (!javaEnabled && language == Language.JAVA) {
             throw new ConfigurationException(
-                "Uploading of Ruby custom components is temporarily disabled",
-                CustomComponentErrorType.LANGUAGE_NOT_SUPPORTED);
+                "Uploading of Java custom components is disabled",
+                CustomComponentErrorType.JAVA_CUSTOM_COMPONENT_UPLOAD_DISABLED);
         }
 
         try {

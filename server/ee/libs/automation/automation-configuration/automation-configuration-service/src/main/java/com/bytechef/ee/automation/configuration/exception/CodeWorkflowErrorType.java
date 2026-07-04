@@ -17,7 +17,7 @@ import com.bytechef.exception.AbstractErrorType;
  */
 public class CodeWorkflowErrorType extends AbstractErrorType {
 
-    public static final CodeWorkflowErrorType LANGUAGE_NOT_SUPPORTED = new CodeWorkflowErrorType(101);
+    public static final CodeWorkflowErrorType JAVA_CODE_WORKFLOW_UPLOAD_DISABLED = new CodeWorkflowErrorType(100);
 
     private CodeWorkflowErrorType(int errorKey) {
         super(CodeWorkflowContainer.class, errorKey);

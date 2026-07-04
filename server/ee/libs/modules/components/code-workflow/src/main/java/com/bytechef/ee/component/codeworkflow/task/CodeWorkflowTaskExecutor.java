@@ -9,9 +9,12 @@ package com.bytechef.ee.component.codeworkflow.task;
 
 import com.bytechef.automation.project.ProjectHandler;
 import com.bytechef.commons.util.EncodingUtils;
+import com.bytechef.config.ApplicationProperties;
+import com.bytechef.ee.embedded.codeworkflow.loader.IntegrationHandlerLoader;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer;
 import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowContainerService;
 import com.bytechef.ee.platform.codeworkflow.file.storage.CodeWorkflowFileStorage;
+import com.bytechef.embedded.integration.IntegrationHandler;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.codeworkflow.loader.automation.ProjectHandlerLoader;
 import com.bytechef.platform.constant.PlatformType;
@@ -38,8 +41,8 @@ public class CodeWorkflowTaskExecutor {
 
     @SuppressFBWarnings("EI")
     public CodeWorkflowTaskExecutor(
-        CacheManager cacheManager, CodeWorkflowFileStorage codeWorkflowFileStorage,
-        CodeWorkflowContainerService codeWorkflowContainerService) {
+        ApplicationProperties applicationProperties, CacheManager cacheManager,
+        CodeWorkflowFileStorage codeWorkflowFileStorage, CodeWorkflowContainerService codeWorkflowContainerService) {
 
         this.cacheManager = cacheManager;
         this.codeWorkflowFileStorage = codeWorkflowFileStorage;
@@ -82,9 +85,14 @@ public class CodeWorkflowTaskExecutor {
                 EncodingUtils.base64EncodeToString(codeWorkflowContainer.toString()), cacheManager);
 
             workflows = projectHandler.getWorkflows();
-        }
+        } else if (PlatformType.EMBEDDED.equals(type)) {
+            IntegrationHandler integrationHandler = IntegrationHandlerLoader.loadIntegrationHandler(
+                codeWorkflowFileStorage.getCodeWorkflowFileURL(codeWorkflowContainer.getWorkflows()),
+                codeWorkflowContainer.getLanguage(),
+                EncodingUtils.base64EncodeToString(codeWorkflowContainer.toString()), cacheManager);
 
-        // } else {TODO integration}
+            workflows = integrationHandler.getWorkflows();
+        }
 
         return workflows;
     }

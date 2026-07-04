@@ -3985,9 +3985,22 @@ public class ApplicationProperties {
     public static class Component {
 
         /**
+         * Custom component configuration
+         */
+        private CustomComponent customComponent = new CustomComponent();
+
+        /**
          * Component registry configuration
          */
         private Registry registry = new Registry();
+
+        public CustomComponent getCustomComponent() {
+            return customComponent;
+        }
+
+        public void setCustomComponent(CustomComponent customComponent) {
+            this.customComponent = customComponent;
+        }
 
         public Registry getRegistry() {
             return registry;
@@ -3995,6 +4008,27 @@ public class ApplicationProperties {
 
         public void setRegistry(Registry registry) {
             this.registry = registry;
+        }
+
+        /**
+         * Custom component settings.
+         */
+        public static class CustomComponent {
+
+            /**
+             * Whether uploading of Java (jar) custom components is enabled. When disabled, Java custom component upload
+             * requests are rejected while other languages (JavaScript, Python, Ruby) and previously uploaded Java
+             * custom components continue to work.
+             */
+            private boolean javaEnabled = true;
+
+            public boolean isJavaEnabled() {
+                return javaEnabled;
+            }
+
+            public void setJavaEnabled(boolean javaEnabled) {
+                this.javaEnabled = javaEnabled;
+            }
         }
 
         /**
@@ -6425,9 +6459,9 @@ public class ApplicationProperties {
     public static class Workflow {
 
         /**
-         * Workflow execution configuration
+         * Code workflow configuration
          */
-        private Execution execution = new Execution();
+        private CodeWorkflow codeWorkflow = new CodeWorkflow();
 
         /**
          * Output storage configuration for workflow results
@@ -6444,8 +6478,8 @@ public class ApplicationProperties {
          */
         private TestOutput testOutput = new TestOutput();
 
-        public Execution getExecution() {
-            return execution;
+        public CodeWorkflow getCodeWorkflow() {
+            return codeWorkflow;
         }
 
         public OutputStorage getOutputStorage() {
@@ -6460,8 +6494,8 @@ public class ApplicationProperties {
             return testOutput;
         }
 
-        public void setExecution(Execution execution) {
-            this.execution = execution;
+        public void setCodeWorkflow(CodeWorkflow codeWorkflow) {
+            this.codeWorkflow = codeWorkflow;
         }
 
         public void setOutputStorage(OutputStorage outputStorage) {
@@ -6496,70 +6530,23 @@ public class ApplicationProperties {
         }
 
         /**
-         * Workflow execution configuration.
+         * Code workflow settings.
          */
-        public static class Execution {
+        public static class CodeWorkflow {
 
             /**
-             * AI agent execution configuration
+             * Whether uploading of Java (jar) code workflows is enabled. When disabled, Java code workflow upload
+             * requests are rejected while other languages (JavaScript, Python, Ruby) and previously uploaded Java code
+             * workflows continue to work.
              */
-            private Agent agent = new Agent();
+            private boolean javaEnabled = true;
 
-            private ApprovalEscalation approvalEscalation = new ApprovalEscalation();
-
-            private ApprovalExpiry approvalExpiry = new ApprovalExpiry();
-
-            private ApprovalReminder approvalReminder = new ApprovalReminder();
-
-            public Agent getAgent() {
-                return agent;
+            public boolean isJavaEnabled() {
+                return javaEnabled;
             }
 
-            public ApprovalEscalation getApprovalEscalation() {
-                return approvalEscalation;
-            }
-
-            public ApprovalExpiry getApprovalExpiry() {
-                return approvalExpiry;
-            }
-
-            public ApprovalReminder getApprovalReminder() {
-                return approvalReminder;
-            }
-
-            public void setAgent(Agent agent) {
-                this.agent = agent;
-            }
-
-            public void setApprovalEscalation(ApprovalEscalation approvalEscalation) {
-                this.approvalEscalation = approvalEscalation;
-            }
-
-            public void setApprovalExpiry(ApprovalExpiry approvalExpiry) {
-                this.approvalExpiry = approvalExpiry;
-            }
-
-            public void setApprovalReminder(ApprovalReminder approvalReminder) {
-                this.approvalReminder = approvalReminder;
-            }
-
-            /**
-             * AI agent execution configuration.
-             */
-            public static class Agent {
-
-                /**
-                 * Maximum nesting depth of sub-workflows called by AI agent tools
-                 */
-                private int maxSubflowDepth;
-
-                public int getMaxSubflowDepth() {
-                    return maxSubflowDepth;
-                }
-
-                public void setMaxSubflowDepth(int maxSubflowDepth) {
-                    this.maxSubflowDepth = maxSubflowDepth;
-                }
+            public void setJavaEnabled(boolean javaEnabled) {
+                this.javaEnabled = javaEnabled;
             }
 
             public static class ApprovalEscalation {
