@@ -33,6 +33,9 @@ info:
       host: ${post-hog.host:}
   application:
     edition: ${bytechef.edition:}
+  component:
+    customComponent:
+      javaEnabled: ${bytechef.component.custom-component.java-enabled:true}
   featureFlags: ${bytechef.feature-flags}
   helpHub:
     enabled: ${bytechef.help-hub.enabled}
@@ -46,6 +49,9 @@ info:
   userGuiding:
     containerId: ${bytechef.user-guiding.container-id:}
     enabled: ${bytechef.user-guiding.enabled}
+  workflow:
+    codeWorkflow:
+      javaEnabled: ${bytechef.workflow.code-workflow.java-enabled:true}
 
 logging:
   level:

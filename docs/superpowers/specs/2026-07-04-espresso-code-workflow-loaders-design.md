@@ -3,6 +3,12 @@
 **Date:** 2026-07-04
 **Status:** Approved
 
+> **Addendum (2026-07-05):** After implementation, the in-process classloader path was restored behind
+> `bytechef.workflow.code-workflow.java-loader` (`class-loader` default / `espresso` opt-in), mirroring the
+> custom-component flag — whose default also changed to `class-loader`. `ProjectHandlerClassLoader` is back and a new
+> `IntegrationHandlerClassLoader` covers the embedded side. The Espresso path and everything else in this spec is
+> unchanged; the sandbox is now opt-in rather than default.
+
 ## Problem
 
 Code workflows uploaded as Java JARs are loaded through `ProjectHandlerClassLoader`
