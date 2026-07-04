@@ -3398,9 +3398,22 @@ public class ApplicationProperties {
     public static class Component {
 
         /**
+         * Custom component configuration
+         */
+        private CustomComponent customComponent = new CustomComponent();
+
+        /**
          * Component registry configuration
          */
         private Registry registry = new Registry();
+
+        public CustomComponent getCustomComponent() {
+            return customComponent;
+        }
+
+        public void setCustomComponent(CustomComponent customComponent) {
+            this.customComponent = customComponent;
+        }
 
         public Registry getRegistry() {
             return registry;
@@ -3408,6 +3421,27 @@ public class ApplicationProperties {
 
         public void setRegistry(Registry registry) {
             this.registry = registry;
+        }
+
+        /**
+         * Custom component settings.
+         */
+        public static class CustomComponent {
+
+            /**
+             * Whether uploading of Java (jar) custom components is enabled. When disabled, Java custom component upload
+             * requests are rejected while other languages (JavaScript, Python, Ruby) and previously uploaded Java
+             * custom components continue to work.
+             */
+            private boolean javaEnabled = true;
+
+            public boolean isJavaEnabled() {
+                return javaEnabled;
+            }
+
+            public void setJavaEnabled(boolean javaEnabled) {
+                this.javaEnabled = javaEnabled;
+            }
         }
 
         /**
@@ -5460,6 +5494,11 @@ public class ApplicationProperties {
     public static class Workflow {
 
         /**
+         * Code workflow configuration
+         */
+        private CodeWorkflow codeWorkflow = new CodeWorkflow();
+
+        /**
          * Output storage configuration for workflow results
          */
         private OutputStorage outputStorage = new OutputStorage();
@@ -5469,6 +5508,10 @@ public class ApplicationProperties {
          */
         private Repository repository = new Repository();
 
+        public CodeWorkflow getCodeWorkflow() {
+            return codeWorkflow;
+        }
+
         public OutputStorage getOutputStorage() {
             return outputStorage;
         }
@@ -5477,12 +5520,37 @@ public class ApplicationProperties {
             return repository;
         }
 
+        public void setCodeWorkflow(CodeWorkflow codeWorkflow) {
+            this.codeWorkflow = codeWorkflow;
+        }
+
         public void setOutputStorage(OutputStorage outputStorage) {
             this.outputStorage = outputStorage;
         }
 
         public void setRepository(Repository repository) {
             this.repository = repository;
+        }
+
+        /**
+         * Code workflow settings.
+         */
+        public static class CodeWorkflow {
+
+            /**
+             * Whether uploading of Java (jar) code workflows is enabled. When disabled, Java code workflow upload
+             * requests are rejected while other languages (JavaScript, Python, Ruby) and previously uploaded Java code
+             * workflows continue to work.
+             */
+            private boolean javaEnabled = true;
+
+            public boolean isJavaEnabled() {
+                return javaEnabled;
+            }
+
+            public void setJavaEnabled(boolean javaEnabled) {
+                this.javaEnabled = javaEnabled;
+            }
         }
 
         /**

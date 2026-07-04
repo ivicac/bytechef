@@ -69,8 +69,8 @@ public class CustomComponentDynamicComponentHandlerRegistry implements DynamicCo
         URL url = customComponentFileStorage.getCustomComponentFileURL(customComponent.getComponent());
 
         ComponentHandler componentHandler = ComponentHandlerLoader.loadComponentHandler(
-            url, customComponent.getLanguage(), EncodingUtils.base64EncodeToString(customComponent.toString()),
-            cacheManager);
+            url, customComponent.getLanguage(),
+            EncodingUtils.base64EncodeToString(customComponent.toString()), cacheManager);
 
         ComponentDefinition componentDefinition = componentHandler.getDefinition();
 

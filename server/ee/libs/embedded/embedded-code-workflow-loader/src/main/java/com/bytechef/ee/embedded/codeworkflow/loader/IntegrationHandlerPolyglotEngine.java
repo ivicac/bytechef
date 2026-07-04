@@ -5,10 +5,10 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.platform.codeworkflow.loader.automation;
+package com.bytechef.ee.embedded.codeworkflow.loader;
 
-import com.bytechef.automation.project.ProjectHandler;
-import com.bytechef.automation.project.definition.ProjectDefinition;
+import com.bytechef.embedded.integration.IntegrationHandler;
+import com.bytechef.embedded.integration.definition.IntegrationDefinition;
 import com.bytechef.workflow.definition.Input;
 import com.bytechef.workflow.definition.Output;
 import com.bytechef.workflow.definition.Parameter;
@@ -30,9 +30,9 @@ import org.graalvm.polyglot.Value;
  *
  * @author Ivica Cardic
  */
-class ProjectHandlerPolyglotEngine {
+class IntegrationHandlerPolyglotEngine {
 
-    static ProjectHandler load(String languageId, String script) {
+    static IntegrationHandler load(String languageId, String script) {
         if (engine == null) {
             engine = Engine.create();
         }
@@ -40,7 +40,12 @@ class ProjectHandlerPolyglotEngine {
         try (Context polyglotContext = getContext()) {
             Value value = polyglotContext.eval(languageId, script);
 
-            String name = Objects.requireNonNull(getMember(value, "name"));
+            String componentName = Objects.requireNonNull(getMember(value, "componentName"));
+
+            Value componentVersionValue = value.getMember("componentVersion");
+
+            int componentVersion = componentVersionValue.asInt();
+
             String description = getMember(value, "description");
             String version = getMember(value, "version");
 
@@ -54,7 +59,8 @@ class ProjectHandlerPolyglotEngine {
                             (String) workflow.get("name"), (List<?>) workflow.get("tasks"), languageId, script)))
                     .toList();
 
-            return () -> new PolyglotProjectDefinition(name, description, version, workflows);
+            return () -> new PolyglotIntegrationDefinition(
+                componentName, componentVersion, description, version, workflows);
         }
     }
 
@@ -145,13 +151,24 @@ class ProjectHandlerPolyglotEngine {
         }
     }
 
-    private record PolyglotProjectDefinition(
-        String name, String description, String version, List<WorkflowDefinition> workflows)
-        implements ProjectDefinition {
+    private record PolyglotIntegrationDefinition(
+        String componentName, int componentVersion, String description, String version,
+        List<WorkflowDefinition> workflows)
+        implements IntegrationDefinition {
 
         @Override
         public Optional<String> getCategory() {
             return Optional.empty();
+        }
+
+        @Override
+        public String getComponentName() {
+            return componentName;
+        }
+
+        @Override
+        public int getComponentVersion() {
+            return componentVersion;
         }
 
         @Override
@@ -160,8 +177,13 @@ class ProjectHandlerPolyglotEngine {
         }
 
         @Override
-        public String getName() {
-            return name;
+        public boolean isMultipleInstances() {
+            return false;
+        }
+
+        @Override
+        public Optional<List<String>> getTags() {
+            return Optional.empty();
         }
 
         @Override
@@ -170,13 +192,8 @@ class ProjectHandlerPolyglotEngine {
         }
 
         @Override
-        public List<WorkflowDefinition> getWorkflows() {
-            return List.copyOf(workflows);
-        }
-
-        @Override
-        public Optional<List<String>> getTags() {
-            return Optional.empty();
+        public Optional<List<WorkflowDefinition>> getWorkflows() {
+            return Optional.ofNullable(workflows);
         }
     }
 

@@ -5,10 +5,10 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.platform.codeworkflow.loader.automation;
+package com.bytechef.ee.embedded.codeworkflow.loader;
 
-import com.bytechef.automation.project.ProjectHandler;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
+import com.bytechef.embedded.integration.IntegrationHandler;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.InputStream;
@@ -26,20 +26,20 @@ import org.springframework.cache.CacheManager;
  *
  * @author Ivica Cardic
  */
-public class ProjectHandlerLoader {
+public class IntegrationHandlerLoader {
 
     /**
      * <b>Security Note:</b> Path traversal is intentional. The URL is derived from internal code workflow container
      * configuration, not from untrusted user input.
      */
     @SuppressFBWarnings("PATH_TRAVERSAL_IN")
-    public static ProjectHandler loadProjectHandler(
+    public static IntegrationHandler loadIntegrationHandler(
         URL url, Language language, String cacheKey, CacheManager cacheManager) {
 
         try {
             return switch (language) {
-                case JAVA -> loadJavaProjectHandler(url, cacheKey, cacheManager);
-                case JAVASCRIPT, PYTHON, RUBY -> ProjectHandlerPolyglotEngine.load(
+                case JAVA -> loadJavaIntegrationHandler(url, cacheKey, cacheManager);
+                case JAVASCRIPT, PYTHON, RUBY -> IntegrationHandlerPolyglotEngine.load(
                     getLanguageId(language), Files.readString(toLocalPath(url)));
             };
         } catch (Exception e) {
@@ -47,13 +47,13 @@ public class ProjectHandlerLoader {
         }
     }
 
-    private static ProjectHandler loadJavaProjectHandler(URL url, String cacheKey, CacheManager cacheManager)
+    private static IntegrationHandler loadJavaIntegrationHandler(URL url, String cacheKey, CacheManager cacheManager)
         throws IOException {
 
-        try (ProjectHandlerClassLoader projectHandlerClassLoader = ProjectHandlerClassLoader.of(
+        try (IntegrationHandlerClassLoader integrationHandlerClassLoader = IntegrationHandlerClassLoader.of(
             url, cacheKey, cacheManager)) {
 
-            return projectHandlerClassLoader.loadWorkflowHandler();
+            return integrationHandlerClassLoader.loadIntegrationHandler();
         }
     }
 

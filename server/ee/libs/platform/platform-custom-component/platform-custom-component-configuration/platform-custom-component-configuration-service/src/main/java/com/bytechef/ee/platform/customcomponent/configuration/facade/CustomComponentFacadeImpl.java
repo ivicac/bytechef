@@ -12,11 +12,14 @@ import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.component.definition.TriggerDefinition;
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.platform.customcomponent.configuration.domain.CustomComponent;
 import com.bytechef.ee.platform.customcomponent.configuration.domain.CustomComponent.Language;
+import com.bytechef.ee.platform.customcomponent.configuration.exception.CustomComponentErrorType;
 import com.bytechef.ee.platform.customcomponent.configuration.service.CustomComponentService;
 import com.bytechef.ee.platform.customcomponent.file.storage.CustomComponentFileStorage;
 import com.bytechef.ee.platform.customcomponent.loader.ComponentHandlerLoader;
+import com.bytechef.exception.ConfigurationException;
 import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.security.constant.AuthorityConstants;
@@ -47,15 +50,19 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
     private final CacheManager cacheManager;
     private final CustomComponentService customComponentService;
     private final CustomComponentFileStorage customComponentFileStorage;
+    private final boolean javaEnabled;
 
     @SuppressFBWarnings("EI")
     public CustomComponentFacadeImpl(
-        CacheManager cacheManager,
+        ApplicationProperties applicationProperties, CacheManager cacheManager,
         CustomComponentService customComponentService, CustomComponentFileStorage customComponentFileStorage) {
 
         this.cacheManager = cacheManager;
         this.customComponentService = customComponentService;
         this.customComponentFileStorage = customComponentFileStorage;
+        this.javaEnabled = applicationProperties.getComponent()
+            .getCustomComponent()
+            .isJavaEnabled();
     }
 
     @Override
@@ -107,6 +114,12 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
     @Override
     @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
     public void save(byte[] bytes, Language language) {
+        if (!javaEnabled && language == Language.JAVA) {
+            throw new ConfigurationException(
+                "Uploading of Java custom components is disabled",
+                CustomComponentErrorType.JAVA_CUSTOM_COMPONENT_UPLOAD_DISABLED);
+        }
+
         try {
             ComponentDefinition componentDefinition = loadComponentDefinition(language, bytes);
 

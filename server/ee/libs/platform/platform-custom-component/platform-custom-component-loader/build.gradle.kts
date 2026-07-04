@@ -3,6 +3,7 @@ dependencies {
 
     api(project(":server:ee:libs:platform:platform-custom-component:platform-custom-component-configuration:platform-custom-component-configuration-api"))
 
+    implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation(rootProject.libs.org.graalvm.polyglot.polyglot)
     implementation(rootProject.libs.org.graalvm.polyglot.java)
     implementation(rootProject.libs.org.graalvm.polyglot.js)
