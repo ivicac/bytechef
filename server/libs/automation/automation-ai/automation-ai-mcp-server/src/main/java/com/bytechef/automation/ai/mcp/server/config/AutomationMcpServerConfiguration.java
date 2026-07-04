@@ -29,6 +29,7 @@ import com.bytechef.automation.ai.mcp.service.WorkspaceMcpServerService;
 import com.bytechef.automation.configuration.security.AutomationAuthorizationContext;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.commons.util.CollectionUtils;
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
@@ -38,6 +39,7 @@ import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.domain.McpTool;
 import com.bytechef.platform.mcp.server.FilterableMcpAsyncServer;
 import com.bytechef.platform.mcp.server.FilterableMcpServerBuilder;
+import com.bytechef.platform.mcp.server.McpAppWorkflowViewer;
 import com.bytechef.platform.mcp.server.McpToolAuthorizationEvaluator;
 import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
@@ -116,8 +118,9 @@ public class AutomationMcpServerConfiguration {
 
     @Bean
     FilterableMcpAsyncServer automationMcpAsyncServer(
-        McpComponentService mcpComponentService, McpProjectService mcpProjectService,
-        McpServerService mcpServerService, McpToolService mcpToolService, AutomationMcpToolFacade mcpToolFacade,
+        ApplicationProperties applicationProperties, McpComponentService mcpComponentService,
+        McpProjectService mcpProjectService, McpServerService mcpServerService, McpToolService mcpToolService,
+        AutomationMcpToolFacade mcpToolFacade,
         ObjectProvider<McpServerWorkspaceToolCallbackContributor> workspaceToolProviders,
         WorkspaceMcpServerService workspaceMcpServerService) {
 
@@ -130,6 +133,8 @@ public class AutomationMcpServerConfiguration {
                     .prompts(true)
                     .logging()
                     .build())
+            .resourceSpecifications(
+                McpAppWorkflowViewer.getResourceSpecifications(applicationProperties.getPublicUrl()))
             .toolFilter((exchange) -> {
                 McpTransportContext mcpTransportContext = exchange.transportContext();
 
