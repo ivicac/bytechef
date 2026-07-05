@@ -565,12 +565,11 @@ describe('getElkLayoutElements', () => {
 
         expect(Math.abs((leftPlaceholderCenter + rightPlaceholderCenter) / 2 - conditionCenter)).toBeLessThanOrEqual(1);
 
-        // The top ghost bar sits exactly the uniform inter-rank gap (ELK_SPACING, 50px) below
-        // the condition's rank footprint. The bar is pinned to the top edge of its own reserved
-        // footprint, so the reserved label/button space falls below the bar toward the branches.
-        const conditionRankBottom = positionOf(result.nodes, 'condition_1').y + NODE_HEIGHT;
+        // The visible edge from the condition icon to the frame's top ghost bar is
+        // exactly the uniform 50px gap
+        const conditionBottom = positionOf(result.nodes, 'condition_1').y + 72;
         const topGhostBarY = positionOf(result.nodes, 'condition_1-condition-top-ghost').y;
 
-        expect(topGhostBarY - conditionRankBottom).toBe(50);
+        expect(topGhostBarY - conditionBottom).toBe(50);
     });
 });
