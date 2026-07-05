@@ -148,7 +148,11 @@ Reference: n8n "Add notes and documentation" docs. Gaps closed in v2:
   definition widens from a preset union to `string` — preset name or `#rrggbb`. Custom colors
   render via inline `backgroundColor`; the note computes text/prose inversion from relative
   luminance so dark custom colors stay readable.
-- n8n's `@[youtube](video-id)` embed and `#full-width` image suffix are proprietary
-  markdown-it plugins — intentionally NOT ported (standard markdown images/links work).
+- **YouTube embeds**: n8n's `@[youtube](video-id)` marker syntax is supported (added 2026-07-05).
+  The marker argument may be a raw video id or a common YouTube URL (watch/youtu.be/embed/shorts);
+  it renders as a `youtube-nocookie.com` iframe between markdown segments. The video id is
+  validated against a strict charset before interpolation into the embed URL; unresolvable
+  markers stay as plain text. n8n's `#full-width` image suffix remains unported (a proprietary
+  markdown-it plugin; standard markdown images work).
 - n8n adds notes through its nodes panel; ByteChef's panel is server-driven component
   definitions, so the toolbar "Add note" button remains the entry point (deliberate deviation).
