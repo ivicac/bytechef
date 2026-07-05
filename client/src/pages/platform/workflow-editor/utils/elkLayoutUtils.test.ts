@@ -1,10 +1,14 @@
-import {NODE_HEIGHT} from '@/shared/constants';
 import {Edge, Node} from '@xyflow/react';
 import {describe, expect, it} from 'vitest';
 
 import {buildElkGraph, getElkLayoutElements, getFrameId} from './elkLayoutUtils';
 
 import type {ElkNode} from 'elkjs/lib/elk-api';
+
+// The distance between consecutive node origins on the main axis: the 72px
+// icon anchor box plus the uniform 50px gap. Identical for every consecutive
+// pair, at every nesting depth, in both TB and LR — the engine's core invariant.
+const CHAIN_STEP = 72 + 50;
 
 const taskNode = (
     id: string,
@@ -293,8 +297,8 @@ describe('getElkLayoutElements', () => {
         const firstGap = positionOf(result.nodes, 'task2').y - positionOf(result.nodes, 'task1').y;
         const secondGap = positionOf(result.nodes, 'task3').y - positionOf(result.nodes, 'task2').y;
 
-        expect(firstGap).toBe(NODE_HEIGHT + 50);
-        expect(secondGap).toBe(NODE_HEIGHT + 50);
+        expect(firstGap).toBe(CHAIN_STEP);
+        expect(secondGap).toBe(CHAIN_STEP);
     });
 
     it('spaces an LR chain uniformly on the x axis', async () => {
@@ -313,8 +317,8 @@ describe('getElkLayoutElements', () => {
         const secondGap = positionOf(result.nodes, 'task3').x - positionOf(result.nodes, 'task2').x;
 
         // LR footprint width is 120 (see getDagreNodeSize) + 50 spacing
-        expect(firstGap).toBe(170);
-        expect(secondGap).toBe(170);
+        expect(firstGap).toBe(CHAIN_STEP);
+        expect(secondGap).toBe(CHAIN_STEP);
     });
 
     it('uses the same gap inside a nested condition branch as at the root', async () => {
@@ -344,8 +348,8 @@ describe('getElkLayoutElements', () => {
         const rootGap = positionOf(result.nodes, 'condition_1').y - positionOf(result.nodes, 'task1').y;
         const branchGap = positionOf(result.nodes, 'childTrue2').y - positionOf(result.nodes, 'childTrue1').y;
 
-        expect(branchGap).toBe(NODE_HEIGHT + 50);
-        expect(rootGap).toBe(NODE_HEIGHT + 50);
+        expect(branchGap).toBe(CHAIN_STEP);
+        expect(rootGap).toBe(CHAIN_STEP);
     });
 
     it('drops synthetic frame nodes from the result', async () => {
@@ -425,8 +429,8 @@ describe('getElkLayoutElements', () => {
         const rootGap = positionOf(result.nodes, 'condition_1').y - positionOf(result.nodes, 'task1').y;
         const innermostGap = positionOf(result.nodes, 'deepChild2').y - positionOf(result.nodes, 'deepChild1').y;
 
-        expect(innermostGap).toBe(NODE_HEIGHT + 50);
-        expect(rootGap).toBe(NODE_HEIGHT + 50);
+        expect(innermostGap).toBe(CHAIN_STEP);
+        expect(rootGap).toBe(CHAIN_STEP);
     });
 
     it('uses the same gap inside a nested condition branch as at the root (LR)', async () => {
@@ -462,8 +466,8 @@ describe('getElkLayoutElements', () => {
         const rootGap = positionOf(result.nodes, 'condition_1').x - positionOf(result.nodes, 'task1').x;
         const branchGap = positionOf(result.nodes, 'childTrue2').x - positionOf(result.nodes, 'childTrue1').x;
 
-        expect(branchGap).toBe(170);
-        expect(rootGap).toBe(170);
+        expect(branchGap).toBe(CHAIN_STEP);
+        expect(rootGap).toBe(CHAIN_STEP);
     });
 
     it('honors saved node positions', async () => {

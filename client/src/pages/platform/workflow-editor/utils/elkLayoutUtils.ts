@@ -1,6 +1,5 @@
 import {
     LayoutDirectionType,
-    NODE_HEIGHT,
     PLACEHOLDER_NODE_HEIGHT,
     PLACEHOLDER_NODE_WIDTH,
     TRIGGER_PLACEHOLDER_NODE_ID,
@@ -24,12 +23,14 @@ export const ELK_ROOT_ID = '__root__';
 
 const ELK_SPACING = 50;
 
-// Rendered cross-axis size of a condition ghost bar (the thin top/bottom
-// connector rendered by TaskDispatcherTopGhostNode/BottomGhostNode). The ghost
-// element itself is a 2px hairline, but it spans 72px on the cross axis (see
-// `w-[72px]`/`h-[72px]` in TaskDispatcherTopGhostNode.tsx), matching
-// PLACEHOLDER_DOM_CROSS_SIZE in postDagreConstraints.ts.
-const GHOST_RENDERED_CROSS_SIZE = 72;
+// Size of a node's visual anchor: the 72px icon box whose edges carry the
+// connection handles (see `w-[72px]` in TaskDispatcherTopGhostNode.tsx and the
+// icon button in WorkflowNode.tsx, matching PLACEHOLDER_DOM_CROSS_SIZE in
+// postDagreConstraints.ts). Ghost bars span the same 72px on the cross axis.
+const NODE_ANCHOR_SIZE = 72;
+
+// Main-axis size of a ghost bar's rendered hairline.
+const GHOST_BAR_THICKNESS = 2;
 
 const FRAME_ID_SUFFIX = '__frame';
 
@@ -51,26 +52,34 @@ const getElkLayoutOptions = (direction: LayoutDirectionType): Record<string, str
     'elk.spacing.nodeNode': String(ELK_SPACING),
 });
 
-// Dagre reserves a double rank gap around ghost bars (minlen: 2) so the
-// TRUE/FALSE case labels and the edge "+" buttons have room to render; the
-// ELK path mirrors that by giving ghost bars a main-axis footprint instead of
-// dagre's zero-height box (the 2px bar renders centered inside it).
-const GHOST_MAIN_AXIS_FOOTPRINT = 50;
-
+/**
+ * ELK footprint of a node. Cross-axis sizes come from the shared dagre size
+ * function (they control how far apart parallel branch chains sit), but the
+ * MAIN-axis footprint equals the node's rendered DOM size — 72px icon boxes
+ * for tasks/triggers/conditions, 2px ghost bars, 28px placeholders. With the
+ * footprint equal to the DOM box, the uniform layer gap (ELK_SPACING) is also
+ * the exact visible edge length between ANY pair of consecutive elements, at
+ * every nesting depth — the core consistency guarantee of the ELK engine.
+ */
 function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: number; width: number} {
     const {height, width} = getDagreNodeSize(node, direction);
 
     const isGhostNode = node.type === 'taskDispatcherTopGhostNode' || node.type === 'taskDispatcherBottomGhostNode';
+    const isSmallNode = node.type === 'placeholder' || node.type === 'triggerPlaceholder';
 
-    if (!isGhostNode) {
-        return {height, width};
+    let mainAxisSize = NODE_ANCHOR_SIZE;
+
+    if (isGhostNode) {
+        mainAxisSize = GHOST_BAR_THICKNESS;
+    } else if (isSmallNode) {
+        mainAxisSize = direction === 'TB' ? height : width;
     }
 
     if (direction === 'TB') {
-        return {height: GHOST_MAIN_AXIS_FOOTPRINT, width};
+        return {height: mainAxisSize, width};
     }
 
-    return {height, width: GHOST_MAIN_AXIS_FOOTPRINT};
+    return {height, width: mainAxisSize};
 }
 
 /**
@@ -334,25 +343,25 @@ function getRenderedNodeSize(node: Node, direction: LayoutDirectionType): {heigh
 
     if (direction === 'LR') {
         if (isGhostNode) {
-            return {height: GHOST_RENDERED_CROSS_SIZE, width: 2};
+            return {height: NODE_ANCHOR_SIZE, width: GHOST_BAR_THICKNESS};
         }
 
         if (isSmallNode) {
             return {height: PLACEHOLDER_NODE_HEIGHT, width: PLACEHOLDER_NODE_WIDTH};
         }
 
-        return {height: 72, width: 72};
+        return {height: NODE_ANCHOR_SIZE, width: NODE_ANCHOR_SIZE};
     }
 
     if (isGhostNode) {
-        return {height: 2, width: GHOST_RENDERED_CROSS_SIZE};
+        return {height: GHOST_BAR_THICKNESS, width: NODE_ANCHOR_SIZE};
     }
 
     if (isSmallNode) {
         return {height: PLACEHOLDER_NODE_HEIGHT, width: PLACEHOLDER_NODE_WIDTH};
     }
 
-    return {height: NODE_HEIGHT, width: 72};
+    return {height: NODE_ANCHOR_SIZE, width: NODE_ANCHOR_SIZE};
 }
 
 type AbsoluteBoxType = {height: number; width: number; x: number; y: number};
