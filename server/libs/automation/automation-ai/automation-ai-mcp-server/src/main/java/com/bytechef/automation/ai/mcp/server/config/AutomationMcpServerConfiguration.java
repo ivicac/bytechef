@@ -196,15 +196,14 @@ public class AutomationMcpServerConfiguration {
 
         List<McpServerFeatures.AsyncToolSpecification> tools = new ArrayList<>();
 
-        authorizedComponents(
-            mcpServer, mcpComponentService.getMcpServerMcpComponents(mcpServer.getId()), principalAuthorities)
-                .stream()
-                .flatMap(
-                    mcpComponent -> CollectionUtils.stream(
-                        mcpToolService.getMcpComponentMcpTools(mcpComponent.getId())))
-                .filter(McpTool::isEnabled)
-                .map(mcpTool -> McpToolUtils.toAsyncToolSpecification(mcpToolFacade.getFunctionToolCallback(mcpTool)))
-                .forEach(tools::add);
+        mcpComponentService.getMcpServerMcpComponents(mcpServer.getId())
+            .stream()
+            .flatMap(
+                mcpComponent -> CollectionUtils.stream(
+                    mcpToolService.getMcpComponentMcpTools(mcpComponent.getId())))
+            .filter(McpTool::isEnabled)
+            .map(mcpTool -> McpToolUtils.toAsyncToolSpecification(mcpToolFacade.getFunctionToolCallback(mcpTool)))
+            .forEach(tools::add);
 
         if (!isUnscopedToolSourceAuthorized(mcpServer, principalAuthorities)) {
             return tools;
