@@ -29,6 +29,7 @@ dependencies {
     implementation(project(":server:libs:platform:platform-security-web:platform-security-web-impl"))
     implementation(project(":server:libs:platform:platform-tool-execution:platform-tool-execution-api"))
     implementation(project(":server:libs:platform:platform-user:platform-user-api"))
+    testImplementation(project(":server:ee:libs:platform:platform-user:platform-user-api"))
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-api"))
 
     implementation(project(":server:ee:libs:embedded:embedded-configuration:embedded-configuration-api"))
