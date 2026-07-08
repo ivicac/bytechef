@@ -36,12 +36,15 @@ public enum CopilotAgentType implements AgentType {
     CLUSTER_ELEMENT_BUILD("cluster_element_build", false),
     CLUSTER_ELEMENT("cluster_element", true),
     SKILLS("skills", false),
-    CONFIGURE_CLUSTER_ELEMENT("configureClusterElement", false),
-    WRITE_SCRIPT("writeScript", false),
-    BUILD_WORKFLOW("buildWorkflow", false),
-    IMPORT_WORKFLOW("importWorkflow", false),
-    DEBUG_WORKFLOW_EXECUTION("debugWorkflowExecution", false),
-    CONFIGURE_MCP_SERVER("configureMcpServer", false);
+    CLUSTER_ELEMENT_AGENT("cluster_element_agent", false),
+    CODE_EDITOR_AGENT("code_editor_agent", false),
+    WORKFLOW_EDITOR_AGENT("workflow_editor_agent", false),
+    CONVERTER_AGENT("converter_agent", false),
+    WORKFLOW_EXECUTION_AGENT("workflow_execution_agent", false),
+    JSON_SCHEMA_BUILDER_ASK("json_schema_builder_ask", false),
+    JSON_SCHEMA_BUILDER_BUILD("json_schema_builder_build", false),
+    JSON_SCHEMA_BUILDER("json_schema_builder", true),
+    JSON_SCHEMA_BUILDER_AGENT("json_schema_builder_agent", false);
 
     private final String key;
     private final boolean fallback;

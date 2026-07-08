@@ -9,10 +9,9 @@ package com.bytechef.ee.ai.copilot.property;
 
 /**
  * @version ee
- *
  * @author Ivica Cardic
  */
 public enum PropertyCopilotMode {
 
-    TEXT, FORMULA, JSON_SCHEMA
+    TEXT, FORMULA
 }
