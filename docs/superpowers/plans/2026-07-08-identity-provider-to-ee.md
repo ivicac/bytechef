@@ -1,5 +1,7 @@
 # Relocate `identity_provider` CE→EE + rename `mcp`→`mcp_embedded` — Implementation Plan
 
+> **STATUS: ✅ IMPLEMENTED (2026-07-09).** E1 rename landed earlier (in the squashed history). E2–E7 executed: EE `platform-user-api` (domain + event + service iface) and `platform-user-service` (impl + repository + JDBC-repo autoconfig + 6 changelogs on the same classpath path) created; all EE consumers repointed; `SsoDiscoveryController` → EE `security-sso-config`; `CustomOidcUserService` split into CE `SocialOidcUserService` (social login) + EE `CustomOidcUserService` (SSO); `server-app` wired for the EE service. Full-repo compile (main+test) + affected tests + static analysis + edition greps all green.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: superpowers:executing-plans (or subagent-driven-development). Steps use checkbox syntax.
 
 **Goal:** Move the entire `identity_provider` capability (SSO login config + MCP federation config) from CE to EE, and rename the misnamed `mcp` embedded-surface field to `mcp_embedded`, per `docs/superpowers/specs/2026-07-08-identity-provider-to-ee-design.md`.

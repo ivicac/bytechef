@@ -1,7 +1,7 @@
 # Relocate `identity_provider` (SSO + MCP federation) CE→EE — Design
 
 **Date:** 2026-07-08
-**Status:** Design — awaiting review (decisions locked; mechanics for review)
+**Status:** Implemented (2026-07-09). Entity (`IdentityProvider` + `IdentityProviderDomain` + `IdentityProviderAuthorityMapping`), `IdentityProviderChangedEvent`, `IdentityProviderService` (+ impl, repository, JDBC-repo autoconfig) and the 6 Liquibase changelogs relocated to new EE `platform-user-api` + `platform-user-service` modules (same classpath changelog path). All EE consumers repointed. `SsoDiscoveryController` moved to EE `security-sso-config`. `CustomOidcUserService` split: CE `SocialOidcUserService` (social login) + EE `CustomOidcUserService` (SSO/IdP). `server-app` wired for the EE service. Verified: full-repo compile (main+test); EE `IdentityProviderServiceIntTest` 4, EE security-web 10 unit + 15 int, embedded 18 + 7 int, automation 4 int, server-app boot 5; static analysis green on the new modules; no CE module references `com.bytechef.ee.platform.user`.
 **Relates to:** `2026-07-08-mcp-oauth2-base-to-ce-design.md`. That work drew the line "the `IdentityProvider` *data model* is CE, only the *federation behavior* is EE." This reverses the data-model half: the whole entity becomes EE, collapsing the compromise into one rule.
 
 ## Decisions (locked)
