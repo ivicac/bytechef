@@ -149,6 +149,10 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
     public @Nullable FunctionToolCallback<Map<String, Object>, Object> getFunctionToolCallback(
         McpTool mcpTool, String externalUserId, Environment environment, String tenantId) {
 
+        if (!mcpTool.isEnabled()) {
+            return null;
+        }
+
         Long integrationInstanceId = fetchIntegrationInstanceId(
             externalUserId, mcpTool.getMcpComponentId(), environment);
 
