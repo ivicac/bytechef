@@ -8,12 +8,10 @@
 package com.bytechef.ee.platform.user.service;
 
 import com.bytechef.ee.platform.user.domain.IdentityProvider;
+import com.bytechef.ee.platform.user.event.IdentityProviderChangedEvent;
 import com.bytechef.ee.platform.user.repository.IdentityProviderRepository;
 import com.bytechef.encryption.Encryption;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
-import com.bytechef.platform.user.domain.IdentityProvider;
-import com.bytechef.platform.user.event.IdentityProviderChangedEvent;
-import com.bytechef.platform.user.repository.IdentityProviderRepository;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.context.ApplicationEventPublisher;
