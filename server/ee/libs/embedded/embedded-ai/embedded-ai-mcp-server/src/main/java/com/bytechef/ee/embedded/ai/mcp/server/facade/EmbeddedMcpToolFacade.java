@@ -165,6 +165,10 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
             return null;
         }
 
+        if (!mcpTool.isEnabled()) {
+            return null;
+        }
+
         Long integrationInstanceId = fetchIntegrationInstanceId(
             externalUserId, mcpTool.getMcpComponentId(), environment);
 
