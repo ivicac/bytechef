@@ -1718,6 +1718,16 @@ export enum ComponentOperationType {
   Trigger = 'TRIGGER'
 }
 
+export type ComponentPolicy = {
+  __typename?: 'ComponentPolicy';
+  description?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  icon?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  title?: Maybe<Scalars['String']['output']>;
+  version: Scalars['Int']['output'];
+};
+
 export type ConnectedUser = {
   __typename?: 'ConnectedUser';
   createdBy?: Maybe<Scalars['String']['output']>;
@@ -2322,6 +2332,14 @@ export type DataTableSearchResult = SearchResult & {
   type: SearchAssetType;
 };
 
+export type DataTableStorageUsage = {
+  __typename?: 'DataTableStorageUsage';
+  limitBytes: Scalars['Long']['output'];
+  percentage: Scalars['Float']['output'];
+  unlimited: Scalars['Boolean']['output'];
+  usedBytes: Scalars['Long']['output'];
+};
+
 export type DataTableTagsEntry = {
   __typename?: 'DataTableTagsEntry';
   tableId: Scalars['ID']['output'];
@@ -2917,6 +2935,14 @@ export enum KnowledgeBaseSourceStatus {
   Preview = 'PREVIEW',
   Ready = 'READY'
 }
+
+export type KnowledgeBaseStorageUsage = {
+  __typename?: 'KnowledgeBaseStorageUsage';
+  limitBytes: Scalars['Long']['output'];
+  percentage: Scalars['Float']['output'];
+  unlimited: Scalars['Boolean']['output'];
+  usedBytes: Scalars['Long']['output'];
+};
 
 export type KnowledgeBaseTagsEntry = {
   __typename?: 'KnowledgeBaseTagsEntry';
@@ -3584,6 +3610,8 @@ export type Mutation = {
   updateAutomationWorkflowProject: Scalars['Boolean']['output'];
   updateAutomationWorkflowProjectWorkflow: Scalars['Boolean']['output'];
   updateAutomationWorkflowProjectWorkflowPermissionExpression: Scalars['Boolean']['output'];
+  /** Enables or disables a component tenant-wide. Admin-only. */
+  updateComponentPolicy: ComponentPolicy;
   updateContextStore: ContextStore;
   updateContextStoreSource: ContextStoreSource;
   /**
@@ -5064,6 +5092,12 @@ export type MutationUpdateAutomationWorkflowProjectWorkflowPermissionExpressionA
 };
 
 
+export type MutationUpdateComponentPolicyArgs = {
+  enabled: Scalars['Boolean']['input'];
+  name: Scalars['String']['input'];
+};
+
+
 export type MutationUpdateContextStoreArgs = {
   id: Scalars['ID']['input'];
   input: UpdateContextStoreInput;
@@ -5736,6 +5770,11 @@ export type Query = {
   componentDefinitionSearch: Array<ComponentDefinition>;
   componentDefinitionVersions: Array<ComponentDefinition>;
   componentDefinitions: Array<ComponentDefinition>;
+  /**
+   * Lists every registry component with its tenant-wide visibility flag. Components with no policy row are reported
+   * enabled. Admin-only.
+   */
+  componentPolicies: Array<ComponentPolicy>;
   componentPropertyDisplayConditions: Scalars['Map']['output'];
   connectedUser?: Maybe<ConnectedUser>;
   connectedUserMcpServers: Array<ConnectedUserMcpServer>;
@@ -5782,6 +5821,7 @@ export type Query = {
   dataStreamCompatibleConnections: Array<DataStreamCompatibleConnection>;
   dataTableRows: Array<DataTableRow>;
   dataTableRowsPage: DataTableRowPage;
+  dataTableStorageUsage: DataTableStorageUsage;
   dataTableTags: Array<Tag>;
   dataTableTagsByTable: Array<DataTableTagsEntry>;
   dataTableWebhooks: Array<DataTableWebhook>;
@@ -5813,6 +5853,7 @@ export type Query = {
   knowledgeBaseEmbeddingActive: Scalars['Boolean']['output'];
   knowledgeBaseSource?: Maybe<KnowledgeBaseSource>;
   knowledgeBaseSources: Array<KnowledgeBaseSource>;
+  knowledgeBaseStorageUsage: KnowledgeBaseStorageUsage;
   knowledgeBaseTags?: Maybe<Array<Tag>>;
   knowledgeBaseTagsByKnowledgeBase?: Maybe<Array<KnowledgeBaseTagsEntry>>;
   knowledgeBases?: Maybe<Array<Maybe<KnowledgeBase>>>;
@@ -6606,6 +6647,11 @@ export type QueryDataTableRowsPageArgs = {
 };
 
 
+export type QueryDataTableTagsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type QueryDataTableWebhooksArgs = {
   environmentId: Scalars['ID']['input'];
   tableId: Scalars['ID']['input'];
@@ -6734,6 +6780,11 @@ export type QueryKnowledgeBaseSourceArgs = {
 export type QueryKnowledgeBaseSourcesArgs = {
   environmentId: Scalars['ID']['input'];
   filter?: InputMaybe<KnowledgeBaseSourceFilter>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryKnowledgeBaseTagsArgs = {
   workspaceId: Scalars['ID']['input'];
 };
 
