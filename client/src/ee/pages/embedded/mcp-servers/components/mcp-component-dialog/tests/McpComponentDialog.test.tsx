@@ -17,13 +17,18 @@ vi.mock('../hooks/useMcpComponentDialog', () => ({
     default: () => ({
         currentStep: hoisted.state.currentStep,
         existingTools: [],
+        handleAddRequiredAuthority: vi.fn(),
         handleBack: vi.fn(),
         handleClose: vi.fn(),
         handleComponentSelect: vi.fn(),
         handleOpenChange: hoisted.handleOpenChange,
+        handleRemoveRequiredAuthority: vi.fn(),
         handleSave: hoisted.handleSave,
+        requiredAuthorities: [],
+        requiredAuthorityInput: '',
         selectedComponent: undefined,
         selectedTools: hoisted.state.selectedTools,
+        setRequiredAuthorityInput: vi.fn(),
         setSelectedTools: vi.fn(),
     }),
 }));
