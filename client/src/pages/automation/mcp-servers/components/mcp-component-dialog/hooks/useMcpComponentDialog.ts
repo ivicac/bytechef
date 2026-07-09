@@ -33,6 +33,8 @@ const useMcpComponentDialog = ({mcpComponent, mcpServerId, onOpenChange, open}: 
     );
     const [selectedTools, setSelectedTools] = useState<SelectedToolType[]>([]);
     const [selectedConnection, setSelectedConnection] = useState<Connection | null>(null);
+    const [requiredAuthorities, setRequiredAuthorities] = useState<string[]>(mcpComponent?.requiredAuthorities ?? []);
+    const [requiredAuthorityInput, setRequiredAuthorityInput] = useState('');
 
     const {data: existingTools} = useMcpToolsByComponentIdQuery(
         {
@@ -67,6 +69,21 @@ const useMcpComponentDialog = ({mcpComponent, mcpServerId, onOpenChange, open}: 
         setCurrentStep('tools');
     };
 
+    const handleAddRequiredAuthority = () => {
+        const trimmed = requiredAuthorityInput.trim();
+
+        if (trimmed && !requiredAuthorities.includes(trimmed)) {
+            setRequiredAuthorities([...requiredAuthorities, trimmed]);
+            setRequiredAuthorityInput('');
+        }
+    };
+
+    const handleRemoveRequiredAuthority = (requiredAuthority: string) => {
+        setRequiredAuthorities(
+            requiredAuthorities.filter((existingAuthority) => existingAuthority !== requiredAuthority)
+        );
+    };
+
     const handleClose = () => {
         if (onOpenChange) {
             onOpenChange(false);
@@ -82,6 +99,8 @@ const useMcpComponentDialog = ({mcpComponent, mcpServerId, onOpenChange, open}: 
                   } as ComponentDefinitionBasic)
                 : null
         );
+        setRequiredAuthorities(mcpComponent?.requiredAuthorities ?? []);
+        setRequiredAuthorityInput('');
 
         if (!mcpComponent) {
             setSelectedTools([]);
@@ -107,6 +126,8 @@ const useMcpComponentDialog = ({mcpComponent, mcpServerId, onOpenChange, open}: 
 
             setSelectedTools([]);
             setSelectedConnection(null);
+            setRequiredAuthorities(mcpComponent?.requiredAuthorities ?? []);
+            setRequiredAuthorityInput('');
         };
 
         if (mcpComponent?.id) {
@@ -118,6 +139,7 @@ const useMcpComponentDialog = ({mcpComponent, mcpServerId, onOpenChange, open}: 
                         componentVersion: selectedComponent.version,
                         connectionId: selectedConnection?.id?.toString() || undefined,
                         mcpServerId,
+                        requiredAuthorities,
                         tools: selectedTools.map((tool) => ({
                             name: tool.name,
                             parameters: {},
@@ -135,6 +157,7 @@ const useMcpComponentDialog = ({mcpComponent, mcpServerId, onOpenChange, open}: 
                         componentVersion: selectedComponent.version,
                         connectionId: selectedConnection?.id?.toString() || undefined,
                         mcpServerId,
+                        requiredAuthorities,
                         tools: selectedTools.map((tool) => ({
                             name: tool.name,
                             parameters: {},
@@ -179,6 +202,8 @@ const useMcpComponentDialog = ({mcpComponent, mcpServerId, onOpenChange, open}: 
                   } as ComponentDefinitionBasic)
                 : null
         );
+        setRequiredAuthorities(mcpComponent?.requiredAuthorities ?? []);
+        setRequiredAuthorityInput('');
 
         if (!mcpComponent) {
             setSelectedTools([]);
@@ -189,14 +214,19 @@ const useMcpComponentDialog = ({mcpComponent, mcpServerId, onOpenChange, open}: 
     return {
         currentStep,
         existingTools,
+        handleAddRequiredAuthority,
         handleBack,
         handleClose,
         handleComponentSelect,
         handleOpenChange,
+        handleRemoveRequiredAuthority,
         handleSave,
+        requiredAuthorities,
+        requiredAuthorityInput,
         selectedComponent,
         selectedConnection,
         selectedTools,
+        setRequiredAuthorityInput,
         setSelectedConnection,
         setSelectedTools,
     };
