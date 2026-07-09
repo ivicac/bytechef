@@ -66,6 +66,7 @@ const config: CodegenConfig = {
     schema: [
         '../server/libs/platform/platform-workflow/platform-workflow-validator/platform-workflow-validator-graphql/src/main/resources/graphql/*.graphqls',
         '../server/libs/platform/platform-configuration/platform-configuration-graphql/src/main/resources/graphql/*.graphqls',
+        '../server/ee/libs/platform/platform-configuration/platform-configuration-graphql/src/main/resources/graphql/*.graphqls',
         '../server/libs/platform/platform-connection/platform-connection-graphql/src/main/resources/graphql/*.graphqls',
         '../server/libs/automation/automation-data-table/**/src/main/resources/graphql/*.graphqls',
         '../server/libs/automation/automation-knowledge-base/automation-knowledge-base-graphql/src/main/resources/graphql/**/*.graphqls',
@@ -83,7 +84,7 @@ const config: CodegenConfig = {
         '../server/libs/ai/ai-mcp/ai-mcp-server-configuration/ai-mcp-server-configuration-graphql/src/main/resources/graphql/*.graphqls',
         '../server/libs/platform/platform-user/platform-user-graphql/src/main/resources/graphql/*.graphqls',
         '../server/ee/libs/platform/platform-user/platform-user-graphql/src/main/resources/graphql/*.graphqls',
-        '../server/ee/libs/platform/platform-tool-invocation-log/platform-tool-invocation-log-graphql/src/main/resources/graphql/*.graphqls',
+        '../server/libs/platform/platform-oauth2-authorization-server/src/main/resources/graphql/*.graphqls',
         '../server/ee/libs/platform/platform-api-connector/platform-api-connector-configuration/platform-api-connector-configuration-graphql/src/main/resources/graphql/*.graphqls',
         '../server/ee/libs/ai/ai-copilot/ai-copilot-graphql/src/main/resources/graphql/*.graphqls',
         '../server/ee/libs/platform/platform-component-policy/platform-component-policy-graphql/src/main/resources/graphql/*.graphqls',
