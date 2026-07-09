@@ -1905,18 +1905,14 @@ export enum ComponentOperationType {
   Trigger = 'TRIGGER'
 }
 
-export type ConfigurationMoveResult = {
-  __typename?: 'ConfigurationMoveResult';
-  movedConnectedUserIds: Array<Scalars['ID']['output']>;
-  needsAttentionConnectedUserIds: Array<Scalars['ID']['output']>;
-  skipped: Array<ConfigurationMoveSkipped>;
-};
-
-export type ConfigurationMoveSkipped = {
-  __typename?: 'ConfigurationMoveSkipped';
-  connectedUserId: Scalars['ID']['output'];
-  reason: Scalars['String']['output'];
-  workflowLabels: Array<Scalars['String']['output']>;
+export type ComponentPolicy = {
+  __typename?: 'ComponentPolicy';
+  description?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  icon?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  title?: Maybe<Scalars['String']['output']>;
+  version: Scalars['Int']['output'];
 };
 
 export type ConnectedUser = {
@@ -3853,6 +3849,8 @@ export type Mutation = {
   updateAutomationWorkflowProjectConfigurationWorkflow: Scalars['Boolean']['output'];
   updateAutomationWorkflowProjectWorkflow: Scalars['Boolean']['output'];
   updateAutomationWorkflowProjectWorkflowPermissionExpression: Scalars['Boolean']['output'];
+  /** Enables or disables a component tenant-wide. Admin-only. */
+  updateComponentPolicy: ComponentPolicy;
   updateContextStore: ContextStore;
   updateContextStoreSource: ContextStoreSource;
   /**
@@ -5526,6 +5524,12 @@ export type MutationUpdateAutomationWorkflowProjectWorkflowPermissionExpressionA
 };
 
 
+export type MutationUpdateComponentPolicyArgs = {
+  enabled: Scalars['Boolean']['input'];
+  name: Scalars['String']['input'];
+};
+
+
 export type MutationUpdateContextStoreArgs = {
   id: Scalars['ID']['input'];
   input: UpdateContextStoreInput;
@@ -6344,6 +6348,11 @@ export type Query = {
   componentDefinitionSearch: Array<ComponentDefinition>;
   componentDefinitionVersions: Array<ComponentDefinition>;
   componentDefinitions: Array<ComponentDefinition>;
+  /**
+   * Lists every registry component with its tenant-wide visibility flag. Components with no policy row are reported
+   * enabled. Admin-only.
+   */
+  componentPolicies: Array<ComponentPolicy>;
   componentPropertyDisplayConditions: Scalars['Map']['output'];
   connectedUser?: Maybe<ConnectedUser>;
   connectedUserCodeWorkflowReferences: Array<ConnectedUserCodeWorkflowReference>;
@@ -6399,6 +6408,7 @@ export type Query = {
   editorJobFileLogs: LogPage;
   editorJobFileLogsExist: Scalars['Boolean']['output'];
   editorTaskExecutionFileLogs: Array<LogEntry>;
+  embeddedMcpComponentsByServerId?: Maybe<Array<Maybe<McpComponent>>>;
   embeddedMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   embeddedMcpServers?: Maybe<Array<Maybe<McpServer>>>;
   embeddedMcpToolsByComponentId?: Maybe<Array<Maybe<McpTool>>>;
@@ -7588,11 +7598,6 @@ export type QueryMcpProjectWorkflowPropertiesArgs = {
 
 export type QueryMcpProjectWorkflowsByMcpProjectIdArgs = {
   mcpProjectId?: InputMaybe<Scalars['ID']['input']>;
-};
-
-
-export type QueryMcpProjectsArgs = {
-  workspaceId: Scalars['ID']['input'];
 };
 
 
