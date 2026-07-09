@@ -20,6 +20,7 @@ interface UploadCustomComponentDialogProps {
 
 const UploadCustomComponentDialog = ({trigger}: UploadCustomComponentDialogProps) => {
     const {
+        acceptedExtensions,
         canSubmit,
         formatFileSize,
         handleFileChange,
@@ -32,6 +33,11 @@ const UploadCustomComponentDialog = ({trigger}: UploadCustomComponentDialogProps
         uploading,
     } = useUploadCustomComponentDialog();
 
+    const acceptedExtensionsLabel = acceptedExtensions
+        .split(',')
+        .map((extension) => extension.replace('.', '').toUpperCase())
+        .join(', ');
+
     return (
         <Dialog onOpenChange={handleOpenChange} open={open}>
             <DialogTrigger asChild>
@@ -41,7 +47,7 @@ const UploadCustomComponentDialog = ({trigger}: UploadCustomComponentDialogProps
             <DialogContent size="md">
                 <DialogMain>
                     <DialogHeader
-                        description="Upload a custom component JAR file to deploy it to the platform."
+                        description="Upload a custom component file to deploy it to the platform."
                         title="Import Custom Component"
                     />
 
@@ -63,10 +69,10 @@ const UploadCustomComponentDialog = ({trigger}: UploadCustomComponentDialogProps
 
                                     <p className="text-sm text-gray-600">Drop files here or click to browse</p>
 
-                                    <p className="mt-1 text-xs text-gray-400">.JAR, .JS, .PY, .RB files</p>
+                                    <p className="mt-1 text-xs text-gray-400">{acceptedExtensionsLabel} files</p>
 
                                     <input
-                                        accept=".jar,.js,.py,.rb"
+                                        accept={acceptedExtensions}
                                         className="hidden"
                                         disabled={uploading}
                                         id="component-file-upload"

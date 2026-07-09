@@ -37,6 +37,11 @@ export interface ApplicationInfoI {
         customerPortalUrl: string | undefined;
         enabled: boolean;
     };
+    component: {
+        customComponent: {
+            javaEnabled: boolean;
+        };
+    };
     contextStore: {
         enabled: boolean;
     };
@@ -62,6 +67,11 @@ export interface ApplicationInfoI {
     userGuiding: {
         containerId: string | undefined;
         enabled: boolean;
+    };
+    workflow: {
+        codeWorkflow: {
+            javaEnabled: boolean;
+        };
     };
 
     getApplicationInfo: () => Promise<void>;
@@ -102,6 +112,11 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                 billing: {
                     customerPortalUrl: undefined,
                     enabled: false,
+                },
+                component: {
+                    customComponent: {
+                        javaEnabled: true,
+                    },
                 },
                 contextStore: {
                     enabled: false,
@@ -162,6 +177,11 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                                 customerPortalUrl: json.billing?.customerPortalUrl || undefined,
                                 enabled: json.billing?.enabled === 'true',
                             },
+                            component: {
+                                customComponent: {
+                                    javaEnabled: json.component?.customComponent?.javaEnabled !== 'false',
+                                },
+                            },
                             contextStore: {
                                 enabled: json.contextStore?.enabled === 'true',
                             },
@@ -182,6 +202,11 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                             userGuiding: {
                                 containerId: json.userGuiding?.containerId,
                                 enabled: json.userGuiding?.enabled === 'true',
+                            },
+                            workflow: {
+                                codeWorkflow: {
+                                    javaEnabled: json.workflow?.codeWorkflow?.javaEnabled !== 'false',
+                                },
                             },
                         }));
                     }
@@ -207,6 +232,11 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                 userGuiding: {
                     containerId: undefined,
                     enabled: false,
+                },
+                workflow: {
+                    codeWorkflow: {
+                        javaEnabled: true,
+                    },
                 },
             };
         },
