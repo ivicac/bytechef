@@ -157,29 +157,7 @@ const McpServerDialog = ({
                                     )}
                                 />
 
-                                <FormField
-                                    control={form.control}
-                                    name="authenticationRequired"
-                                    render={({field}) => (
-                                        <FormItem>
-                                            <FormLabel>Require authentication</FormLabel>
-
-                                            <div className="flex items-center gap-2">
-                                                <FormControl>
-                                                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
-                                                </FormControl>
-
-                                                <FormDescription>
-                                                    Require an API key or OAuth token in addition to the server URL.
-                                                </FormDescription>
-                                            </div>
-
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-
-                                {mcpServer && ff_6383 && (
+                                {mcpServer && (
                                     <FormField
                                         control={form.control}
                                         name="enforceToolAuthorization"
@@ -189,7 +167,6 @@ const McpServerDialog = ({
                                                     <FormControl>
                                                         <Checkbox
                                                             checked={field.value}
-                                                            disabled={!authenticationRequired}
                                                             onCheckedChange={field.onChange}
                                                         />
                                                     </FormControl>
