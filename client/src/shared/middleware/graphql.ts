@@ -1866,7 +1866,9 @@ export type McpProjectWorkflowPropertiesQuery = { mcpProjectWorkflowProperties: 
     | { advancedOption: boolean | null, description: string | null, displayCondition: string | null, expressionEnabled: boolean | null, hidden: boolean | null, name: string | null, required: boolean | null, type: Types.PropertyType }
    | null> | null };
 
-export type McpProjectsQueryVariables = Exact<{ [key: string]: never; }>;
+export type McpProjectsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
 
 
 export type McpProjectsQuery = { mcpProjects: Array<{ id: string, mcpServerId: string, project: { id: string, name: string } | null } | null> | null };
@@ -2085,6 +2087,13 @@ export type WorkspaceChatWorkflowsQueryVariables = Exact<{
 
 export type WorkspaceChatWorkflowsQuery = { workspaceChatWorkflows: Array<{ projectDeploymentId: string, projectId: string, projectName: string, projectWorkflowId: string, workflowExecutionId: string, workflowId: string, workflowLabel: string }> };
 
+export type WorkspaceMcpServerTagsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type WorkspaceMcpServerTagsQuery = { workspaceMcpServerTags: Array<{ id: string, name: string } | null> | null };
+
 export type WorkspaceMcpServersQueryVariables = Exact<{
   workspaceId: string | number;
 }>;
@@ -2234,7 +2243,9 @@ export type DataTableRowsPageQueryVariables = Exact<{
 
 export type DataTableRowsPageQuery = { dataTableRowsPage: { hasMore: boolean, nextOffset: number | null, items: Array<{ id: string, values: any }> } };
 
-export type DataTableTagsQueryVariables = Exact<{ [key: string]: never; }>;
+export type DataTableTagsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
 
 
 export type DataTableTagsQuery = { dataTableTags: Array<{ id: string, name: string }> };
@@ -2432,7 +2443,9 @@ export type KnowledgeBaseSourcesQueryVariables = Exact<{
 
 export type KnowledgeBaseSourcesQuery = { knowledgeBaseSources: Array<{ id: string, name: string, knowledgeBaseId: string, sourceComponentName: string, sourceComponentVersion: number, sourceClusterElementName: string | null, connectionId: string | null, cadence: string, status: Types.KnowledgeBaseSourceStatus, enabled: boolean, lastSyncRunAt: any, lastSyncJobExecutionId: string | null, workflowId: string | null }> };
 
-export type KnowledgeBaseTagsQueryVariables = Exact<{ [key: string]: never; }>;
+export type KnowledgeBaseTagsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
 
 
 export type KnowledgeBaseTagsQuery = { knowledgeBaseTags: Array<{ id: string, name: string }> | null };
@@ -2701,6 +2714,11 @@ export type DuplicateAutomationWorkflowProjectWorkflowMutationVariables = Exact<
 
 export type DuplicateAutomationWorkflowProjectWorkflowMutation = { duplicateAutomationWorkflowProjectWorkflow: string };
 
+export type EmbeddedMcpServerTagsQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type EmbeddedMcpServerTagsQuery = { embeddedMcpServerTags: Array<{ id: string, name: string } | null> | null };
+
 export type EmbeddedMcpServersQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -2968,6 +2986,19 @@ export type TaskExecutionFileLogsQueryVariables = Exact<{
 
 export type TaskExecutionFileLogsQuery = { taskExecutionFileLogs: Array<{ timestamp: string, level: Types.LogLevel, componentName: string, componentOperationName: string | null, taskExecutionId: string, message: string, exceptionType: string | null, exceptionMessage: string | null, stackTrace: string | null }> };
 
+export type ComponentPoliciesQueryVariables = Exact<{ [key: string]: never; }>;
+
+
+export type ComponentPoliciesQuery = { componentPolicies: Array<{ name: string, title: string | null, description: string | null, icon: string | null, version: number, enabled: boolean }> };
+
+export type UpdateComponentPolicyMutationVariables = Exact<{
+  name: string;
+  enabled: boolean;
+}>;
+
+
+export type UpdateComponentPolicyMutation = { updateComponentPolicy: { name: string, title: string | null, icon: string | null, version: number, enabled: boolean } };
+
 export type AdminApiKeysQueryVariables = Exact<{
   environmentId: string | number;
 }>;
@@ -3217,20 +3248,6 @@ export type McpComponentsByServerIdQueryVariables = Exact<{
 
 
 export type McpComponentsByServerIdQuery = { mcpComponentsByServerId: Array<{ id: string, componentName: string, componentVersion: number, title: string | null, connectionId: string | null, lastModifiedDate: any, mcpServerId: string, version: number | null, mcpTools: Array<{ id: string, mcpComponentId: string, name: string, parameters: any, title: string | null, version: number | null } | null> | null } | null> | null };
-
-export type McpServerTagsQueryVariables = Exact<{
-  type: Types.PlatformType;
-}>;
-
-
-export type McpServerTagsQuery = { mcpServerTags: Array<{ id: string, name: string } | null> | null };
-
-export type McpServersQueryVariables = Exact<{
-  type: Types.PlatformType;
-}>;
-
-
-export type McpServersQuery = { mcpServers: Array<{ id: string, name: string, type: Types.PlatformType, environmentId: string, enabled: boolean, secretKey: string, lastModifiedDate: any, mcpComponents: Array<{ id: string, mcpServerId: string, componentName: string, componentVersion: number, title: string | null } | null> | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
 
 export type McpToolsByComponentIdQueryVariables = Exact<{
   mcpComponentId: string | number;
@@ -10421,8 +10438,8 @@ export const useMcpProjectWorkflowPropertiesQuery = <
     )};
 
 export const McpProjectsDocument = new TypedDocumentString(`
-    query mcpProjects {
-  mcpProjects {
+    query mcpProjects($workspaceId: ID!) {
+  mcpProjects(workspaceId: $workspaceId) {
     id
     mcpServerId
     project {
@@ -10437,13 +10454,13 @@ export const useMcpProjectsQuery = <
       TData = McpProjectsQuery,
       TError = unknown
     >(
-      variables?: McpProjectsQueryVariables,
+      variables: McpProjectsQueryVariables,
       options?: Omit<UseQueryOptions<McpProjectsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<McpProjectsQuery, TError, TData>['queryKey'] }
     ) => {
     
     return useQuery<McpProjectsQuery, TError, TData>(
       {
-    queryKey: variables === undefined ? ['mcpProjects'] : ['mcpProjects', variables],
+    queryKey: ['mcpProjects', variables],
     queryFn: fetcher<McpProjectsQuery, McpProjectsQueryVariables>(McpProjectsDocument, variables),
     ...options
   }
@@ -11245,6 +11262,31 @@ export const useWorkspaceChatWorkflowsQuery = <
   }
     )};
 
+export const WorkspaceMcpServerTagsDocument = new TypedDocumentString(`
+    query workspaceMcpServerTags($workspaceId: ID!) {
+  workspaceMcpServerTags(workspaceId: $workspaceId) {
+    id
+    name
+  }
+}
+    `);
+
+export const useWorkspaceMcpServerTagsQuery = <
+      TData = WorkspaceMcpServerTagsQuery,
+      TError = unknown
+    >(
+      variables: WorkspaceMcpServerTagsQueryVariables,
+      options?: Omit<UseQueryOptions<WorkspaceMcpServerTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkspaceMcpServerTagsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkspaceMcpServerTagsQuery, TError, TData>(
+      {
+    queryKey: ['workspaceMcpServerTags', variables],
+    queryFn: fetcher<WorkspaceMcpServerTagsQuery, WorkspaceMcpServerTagsQueryVariables>(WorkspaceMcpServerTagsDocument, variables),
+    ...options
+  }
+    )};
+
 export const WorkspaceMcpServersDocument = new TypedDocumentString(`
     query workspaceMcpServers($workspaceId: ID!) {
   workspaceMcpServers(workspaceId: $workspaceId) {
@@ -11771,8 +11813,8 @@ export const useDataTableRowsPageQuery = <
     )};
 
 export const DataTableTagsDocument = new TypedDocumentString(`
-    query dataTableTags {
-  dataTableTags {
+    query dataTableTags($workspaceId: ID!) {
+  dataTableTags(workspaceId: $workspaceId) {
     id
     name
   }
@@ -11783,13 +11825,13 @@ export const useDataTableTagsQuery = <
       TData = DataTableTagsQuery,
       TError = unknown
     >(
-      variables?: DataTableTagsQueryVariables,
+      variables: DataTableTagsQueryVariables,
       options?: Omit<UseQueryOptions<DataTableTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<DataTableTagsQuery, TError, TData>['queryKey'] }
     ) => {
     
     return useQuery<DataTableTagsQuery, TError, TData>(
       {
-    queryKey: variables === undefined ? ['dataTableTags'] : ['dataTableTags', variables],
+    queryKey: ['dataTableTags', variables],
     queryFn: fetcher<DataTableTagsQuery, DataTableTagsQueryVariables>(DataTableTagsDocument, variables),
     ...options
   }
@@ -12449,8 +12491,8 @@ export const useKnowledgeBaseSourcesQuery = <
     )};
 
 export const KnowledgeBaseTagsDocument = new TypedDocumentString(`
-    query knowledgeBaseTags {
-  knowledgeBaseTags {
+    query knowledgeBaseTags($workspaceId: ID!) {
+  knowledgeBaseTags(workspaceId: $workspaceId) {
     id
     name
   }
@@ -12461,13 +12503,13 @@ export const useKnowledgeBaseTagsQuery = <
       TData = KnowledgeBaseTagsQuery,
       TError = unknown
     >(
-      variables?: KnowledgeBaseTagsQueryVariables,
+      variables: KnowledgeBaseTagsQueryVariables,
       options?: Omit<UseQueryOptions<KnowledgeBaseTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<KnowledgeBaseTagsQuery, TError, TData>['queryKey'] }
     ) => {
     
     return useQuery<KnowledgeBaseTagsQuery, TError, TData>(
       {
-    queryKey: variables === undefined ? ['knowledgeBaseTags'] : ['knowledgeBaseTags', variables],
+    queryKey: ['knowledgeBaseTags', variables],
     queryFn: fetcher<KnowledgeBaseTagsQuery, KnowledgeBaseTagsQueryVariables>(KnowledgeBaseTagsDocument, variables),
     ...options
   }
@@ -13330,6 +13372,31 @@ export const useDuplicateAutomationWorkflowProjectWorkflowMutation = <
       {
     mutationKey: ['duplicateAutomationWorkflowProjectWorkflow'],
     mutationFn: (variables?: DuplicateAutomationWorkflowProjectWorkflowMutationVariables) => fetcher<DuplicateAutomationWorkflowProjectWorkflowMutation, DuplicateAutomationWorkflowProjectWorkflowMutationVariables>(DuplicateAutomationWorkflowProjectWorkflowDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const EmbeddedMcpServerTagsDocument = new TypedDocumentString(`
+    query embeddedMcpServerTags {
+  embeddedMcpServerTags {
+    id
+    name
+  }
+}
+    `);
+
+export const useEmbeddedMcpServerTagsQuery = <
+      TData = EmbeddedMcpServerTagsQuery,
+      TError = unknown
+    >(
+      variables?: EmbeddedMcpServerTagsQueryVariables,
+      options?: Omit<UseQueryOptions<EmbeddedMcpServerTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EmbeddedMcpServerTagsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EmbeddedMcpServerTagsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['embeddedMcpServerTags'] : ['embeddedMcpServerTags', variables],
+    queryFn: fetcher<EmbeddedMcpServerTagsQuery, EmbeddedMcpServerTagsQueryVariables>(EmbeddedMcpServerTagsDocument, variables),
     ...options
   }
     )};
@@ -14433,6 +14500,60 @@ export const useTaskExecutionFileLogsQuery = <
       {
     queryKey: ['taskExecutionFileLogs', variables],
     queryFn: fetcher<TaskExecutionFileLogsQuery, TaskExecutionFileLogsQueryVariables>(TaskExecutionFileLogsDocument, variables),
+    ...options
+  }
+    )};
+
+export const ComponentPoliciesDocument = new TypedDocumentString(`
+    query ComponentPolicies {
+  componentPolicies {
+    name
+    title
+    description
+    icon
+    version
+    enabled
+  }
+}
+    `);
+
+export const useComponentPoliciesQuery = <
+      TData = ComponentPoliciesQuery,
+      TError = unknown
+    >(
+      variables?: ComponentPoliciesQueryVariables,
+      options?: Omit<UseQueryOptions<ComponentPoliciesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ComponentPoliciesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ComponentPoliciesQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['ComponentPolicies'] : ['ComponentPolicies', variables],
+    queryFn: fetcher<ComponentPoliciesQuery, ComponentPoliciesQueryVariables>(ComponentPoliciesDocument, variables),
+    ...options
+  }
+    )};
+
+export const UpdateComponentPolicyDocument = new TypedDocumentString(`
+    mutation UpdateComponentPolicy($name: String!, $enabled: Boolean!) {
+  updateComponentPolicy(name: $name, enabled: $enabled) {
+    name
+    title
+    icon
+    version
+    enabled
+  }
+}
+    `);
+
+export const useUpdateComponentPolicyMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateComponentPolicyMutation, TError, UpdateComponentPolicyMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateComponentPolicyMutation, TError, UpdateComponentPolicyMutationVariables, TContext>(
+      {
+    mutationKey: ['UpdateComponentPolicy'],
+    mutationFn: (variables?: UpdateComponentPolicyMutationVariables) => fetcher<UpdateComponentPolicyMutation, UpdateComponentPolicyMutationVariables>(UpdateComponentPolicyDocument, variables)(),
     ...options
   }
     )};
@@ -15612,72 +15733,6 @@ export const useMcpComponentsByServerIdQuery = <
       {
     queryKey: ['mcpComponentsByServerId', variables],
     queryFn: fetcher<McpComponentsByServerIdQuery, McpComponentsByServerIdQueryVariables>(McpComponentsByServerIdDocument, variables),
-    ...options
-  }
-    )};
-
-export const McpServerTagsDocument = new TypedDocumentString(`
-    query mcpServerTags($type: PlatformType!) {
-  mcpServerTags(type: $type) {
-    id
-    name
-  }
-}
-    `);
-
-export const useMcpServerTagsQuery = <
-      TData = McpServerTagsQuery,
-      TError = unknown
-    >(
-      variables: McpServerTagsQueryVariables,
-      options?: Omit<UseQueryOptions<McpServerTagsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<McpServerTagsQuery, TError, TData>['queryKey'] }
-    ) => {
-    
-    return useQuery<McpServerTagsQuery, TError, TData>(
-      {
-    queryKey: ['mcpServerTags', variables],
-    queryFn: fetcher<McpServerTagsQuery, McpServerTagsQueryVariables>(McpServerTagsDocument, variables),
-    ...options
-  }
-    )};
-
-export const McpServersDocument = new TypedDocumentString(`
-    query mcpServers($type: PlatformType!) {
-  mcpServers(type: $type, orderBy: NAME_ASC) {
-    id
-    name
-    type
-    environmentId
-    enabled
-    secretKey
-    mcpComponents {
-      id
-      mcpServerId
-      componentName
-      componentVersion
-      title
-    }
-    tags {
-      id
-      name
-    }
-    lastModifiedDate
-  }
-}
-    `);
-
-export const useMcpServersQuery = <
-      TData = McpServersQuery,
-      TError = unknown
-    >(
-      variables: McpServersQueryVariables,
-      options?: Omit<UseQueryOptions<McpServersQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<McpServersQuery, TError, TData>['queryKey'] }
-    ) => {
-    
-    return useQuery<McpServersQuery, TError, TData>(
-      {
-    queryKey: ['mcpServers', variables],
-    queryFn: fetcher<McpServersQuery, McpServersQueryVariables>(McpServersDocument, variables),
     ...options
   }
     )};
