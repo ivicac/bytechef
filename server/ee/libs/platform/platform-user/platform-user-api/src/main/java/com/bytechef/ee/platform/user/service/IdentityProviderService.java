@@ -28,6 +28,8 @@ public interface IdentityProviderService {
 
     Optional<IdentityProvider> fetchByScimApiKey(String scimApiKey);
 
+    Optional<IdentityProvider> fetchMcpIdentityProvider();
+
     IdentityProvider getIdentityProvider(long id);
 
     List<IdentityProvider> getIdentityProviders();

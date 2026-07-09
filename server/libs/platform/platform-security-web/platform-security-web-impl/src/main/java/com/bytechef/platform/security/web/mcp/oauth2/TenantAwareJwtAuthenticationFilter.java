@@ -65,6 +65,7 @@ public class TenantAwareJwtAuthenticationFilter extends OncePerRequestFilter {
 
     private static final String SCOPE_AUTHORITY_PREFIX = "SCOPE_";
 
+    private final @Nullable McpFederatedIssuerAuthenticator mcpFederatedIssuerAuthenticator;
     private final McpAudienceValidator mcpAudienceValidator;
     private final McpEndpointRequestMatcher mcpEndpointRequestMatcher;
     private final McpTenantProtectedResourceMetadataAuthenticationEntryPoint mcpAuthenticationEntryPoint;
@@ -83,10 +84,12 @@ public class TenantAwareJwtAuthenticationFilter extends OncePerRequestFilter {
         McpResourceServerProperties mcpResourceServerProperties, UserService userService,
         AuthorityService authorityService, List<McpEndpoint> mcpEndpoints,
         List<McpServerSecretVerifier> mcpServerSecretVerifiers,
-        @Nullable SelfIssuedTokenRevocationChecker selfIssuedTokenRevocationChecker, @Nullable String publicUrl) {
+        @Nullable SelfIssuedTokenRevocationChecker selfIssuedTokenRevocationChecker, @Nullable String publicUrl,
+        @Nullable McpFederatedIssuerAuthenticator mcpFederatedIssuerAuthenticator) {
 
         this.authorityService = authorityService;
         this.mcpAudienceValidator = mcpAudienceValidator;
+        this.mcpFederatedIssuerAuthenticator = mcpFederatedIssuerAuthenticator;
         this.mcpEndpointRequestMatcher = new McpEndpointRequestMatcher(mcpEndpoints);
         this.mcpAuthenticationEntryPoint = new McpTenantProtectedResourceMetadataAuthenticationEntryPoint(
             mcpEndpointRequestMatcher, publicUrl);
@@ -192,18 +195,14 @@ public class TenantAwareJwtAuthenticationFilter extends OncePerRequestFilter {
             }
         }
 
-        if (staticIssuer.isEmpty()) {
-            reject(
-                request, response, HttpServletResponse.SC_UNAUTHORIZED, jwtAuthenticationToken, tenantId,
-                new BadCredentialsException("Untrusted token issuer"));
+        McpJwtIdentity mcpJwtIdentity;
 
-            return;
+        if (staticIssuer.isPresent()) {
+            mcpJwtIdentity = authenticateStaticIssuer(
+                request, response, jwtAuthenticationToken, jwt, staticIssuer.get(), mcpEndpoint.get(), tenantId);
+        } else {
+            mcpJwtIdentity = authenticateFederatedIssuer(request, response, jwtAuthenticationToken, jwt, tenantId);
         }
-
-        Issuer issuer = staticIssuer.get();
-
-        McpJwtIdentity mcpJwtIdentity = authenticateStaticIssuer(
-            request, response, jwtAuthenticationToken, jwt, issuer, mcpEndpoint.get(), tenantId);
 
         if (mcpJwtIdentity == null) {
             return;
@@ -215,10 +214,13 @@ public class TenantAwareJwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
+        Issuer issuer = staticIssuer.orElse(null);
+
         List<GrantedAuthority> authorities;
 
         try {
-            authorities = issuer.isSelf() ? getSelfIssuedAuthorities(mcpJwtIdentity) : mcpJwtIdentity.authorities();
+            authorities = issuer != null && issuer.isSelf()
+                ? getSelfIssuedAuthorities(mcpJwtIdentity) : mcpJwtIdentity.authorities();
         } catch (RuntimeException runtimeException) {
             rejectServiceUnavailable(
                 request, response, jwtAuthenticationToken, mcpJwtIdentity.tenantId(), "Authority lookup failed",
@@ -243,6 +245,25 @@ public class TenantAwareJwtAuthenticationFilter extends OncePerRequestFilter {
 
         TenantContext.runWithTenantId(
             mcpJwtIdentity.tenantId(), () -> filterChain.doFilter(request, response));
+    }
+
+    @Nullable
+    private McpJwtIdentity authenticateFederatedIssuer(
+        HttpServletRequest request, HttpServletResponse response, JwtAuthenticationToken jwtAuthenticationToken,
+        Jwt jwt, String tenantId) {
+
+        Optional<McpJwtIdentity> federatedIdentity = mcpFederatedIssuerAuthenticator == null
+            ? Optional.empty() : mcpFederatedIssuerAuthenticator.authenticate(jwt, request, tenantId);
+
+        if (federatedIdentity.isEmpty()) {
+            reject(
+                request, response, HttpServletResponse.SC_UNAUTHORIZED, jwtAuthenticationToken, tenantId,
+                new BadCredentialsException("Untrusted token issuer"));
+
+            return null;
+        }
+
+        return federatedIdentity.get();
     }
 
     @Nullable

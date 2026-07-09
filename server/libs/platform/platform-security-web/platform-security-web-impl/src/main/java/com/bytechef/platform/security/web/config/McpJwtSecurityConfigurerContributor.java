@@ -22,6 +22,7 @@ import com.bytechef.platform.security.web.mcp.McpEndpoint;
 import com.bytechef.platform.security.web.mcp.McpServerSecretVerifier;
 import com.bytechef.platform.security.web.mcp.SelfIssuedTokenRevocationChecker;
 import com.bytechef.platform.security.web.mcp.oauth2.McpAudienceValidator;
+import com.bytechef.platform.security.web.mcp.oauth2.McpFederatedIssuerAuthenticator;
 import com.bytechef.platform.security.web.mcp.oauth2.McpJwtIdentityMapper;
 import com.bytechef.platform.security.web.mcp.oauth2.TenantAwareJwtAuthenticationFilter;
 import com.bytechef.platform.user.service.AuthorityService;
@@ -51,6 +52,7 @@ public class McpJwtSecurityConfigurerContributor
 
     private final AuthorityService authorityService;
     private final ObjectProvider<McpEndpoint> mcpEndpointProvider;
+    private final ObjectProvider<McpFederatedIssuerAuthenticator> mcpFederatedIssuerAuthenticatorProvider;
     private final McpResourceServerProperties mcpResourceServerProperties;
     private final ObjectProvider<McpServerSecretVerifier> mcpServerSecretVerifierProvider;
     private final @Nullable String publicUrl;
@@ -65,10 +67,12 @@ public class McpJwtSecurityConfigurerContributor
         AuthorityService authorityService, ObjectProvider<McpEndpoint> mcpEndpointProvider,
         ObjectProvider<McpServerSecretVerifier> mcpServerSecretVerifierProvider,
         ObjectProvider<SelfIssuedTokenRevocationChecker> selfIssuedTokenRevocationCheckerProvider,
-        ApplicationProperties applicationProperties) {
+        ApplicationProperties applicationProperties,
+        ObjectProvider<McpFederatedIssuerAuthenticator> mcpFederatedIssuerAuthenticatorProvider) {
 
         this.authorityService = authorityService;
         this.mcpEndpointProvider = mcpEndpointProvider;
+        this.mcpFederatedIssuerAuthenticatorProvider = mcpFederatedIssuerAuthenticatorProvider;
         this.mcpResourceServerProperties = mcpResourceServerProperties;
         this.mcpServerSecretVerifierProvider = mcpServerSecretVerifierProvider;
         this.publicUrl = applicationProperties.getPublicUrl();
@@ -114,7 +118,7 @@ public class McpJwtSecurityConfigurerContributor
             authorityService, mcpEndpoints,
             mcpServerSecretVerifierProvider.orderedStream()
                 .toList(),
-            selfIssuedTokenRevocationChecker, publicUrl);
+            selfIssuedTokenRevocationChecker, publicUrl, mcpFederatedIssuerAuthenticatorProvider.getIfAvailable());
 
         if (applicationEventPublisher != null) {
             if (authenticationEventPublisher == null) {

@@ -22,6 +22,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import com.bytechef.platform.security.web.config.McpResourceServerProperties.Issuer;
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.core.GrantedAuthority;
@@ -131,6 +132,67 @@ class McpJwtIdentityMapperTest {
             .isThrownBy(
                 () -> mcpJwtIdentityMapper.map(
                     jwt, issuer, Set.of(new SimpleGrantedAuthority("SCOPE_mcp:automation")), "acme"));
+    }
+
+    @Test
+    void testTenantIssuerMapsGroupsThroughAuthorityMap() {
+        McpTenantIssuer tenantIssuer = new McpTenantIssuer(
+            "https://idp.test", false, null, Map.of("sales", "ROLE_SALES", "admins", "ROLE_ADMIN"));
+
+        Jwt jwt = jwtBuilder()
+            .subject("jane@customer.com")
+            .claim("groups", List.of("sales", "unmapped"))
+            .build();
+
+        McpJwtIdentity mcpJwtIdentity = mcpJwtIdentityMapper.mapTenantIssuer(jwt, tenantIssuer, "customer-tenant");
+
+        assertThat(mcpJwtIdentity.tenantId()).isEqualTo("customer-tenant");
+        assertThat(mcpJwtIdentity.login()).isEqualTo("jane@customer.com");
+        assertThat(authorityNames(mcpJwtIdentity)).containsExactly("ROLE_SALES");
+    }
+
+    @Test
+    void testTenantIssuerReadsConfiguredAuthoritiesClaim() {
+        McpTenantIssuer tenantIssuer = new McpTenantIssuer(
+            "https://idp.test", false, "roles", Map.of("sales", "ROLE_SALES"));
+
+        Jwt jwt = jwtBuilder()
+            .subject("jane@customer.com")
+            .claim("roles", List.of("sales"))
+            .claim("groups", List.of("admins"))
+            .build();
+
+        McpJwtIdentity mcpJwtIdentity = mcpJwtIdentityMapper.mapTenantIssuer(jwt, tenantIssuer, "customer-tenant");
+
+        assertThat(authorityNames(mcpJwtIdentity)).containsExactly("ROLE_SALES");
+    }
+
+    @Test
+    void testTenantIssuerFallsBackToRawGroupsWhenNoMapping() {
+        McpTenantIssuer tenantIssuer = new McpTenantIssuer("https://idp.test", false, null, Map.of());
+
+        Jwt jwt = jwtBuilder()
+            .subject("jane@customer.com")
+            .claim("groups", List.of("editors", "viewers"))
+            .build();
+
+        McpJwtIdentity mcpJwtIdentity = mcpJwtIdentityMapper.mapTenantIssuer(jwt, tenantIssuer, "customer-tenant");
+
+        assertThat(authorityNames(mcpJwtIdentity)).containsExactlyInAnyOrder("editors", "viewers");
+    }
+
+    @Test
+    void testTenantIssuerWithoutGroupsClaimYieldsNoAuthorities() {
+        McpTenantIssuer tenantIssuer = new McpTenantIssuer(
+            "https://idp.test", false, null, Map.of("sales", "ROLE_SALES"));
+
+        Jwt jwt = jwtBuilder()
+            .subject("jane@customer.com")
+            .build();
+
+        McpJwtIdentity mcpJwtIdentity = mcpJwtIdentityMapper.mapTenantIssuer(jwt, tenantIssuer, "customer-tenant");
+
+        assertThat(mcpJwtIdentity.authorities()).isEmpty();
     }
 
     @Test

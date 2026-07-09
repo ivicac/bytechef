@@ -38,6 +38,7 @@ import com.bytechef.platform.security.web.mcp.McpEndpoint;
 import com.bytechef.platform.security.web.mcp.McpServerSecretVerifier;
 import com.bytechef.platform.security.web.mcp.SelfIssuedTokenRevocationChecker;
 import com.bytechef.platform.security.web.mcp.TestMcpEndpoint;
+import com.bytechef.platform.security.web.mcp.oauth2.McpFederatedIssuerAuthenticator;
 import com.bytechef.platform.security.web.mcp.oauth2.McpJwtDecoderFactory;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.AuthorityService;
@@ -414,11 +415,13 @@ class McpOAuth2EndToEndIntTest {
             McpResourceServerProperties mcpResourceServerProperties, UserService userService,
             ObjectProvider<McpEndpoint> mcpEndpointProvider,
             ObjectProvider<McpServerSecretVerifier> mcpServerSecretVerifierProvider,
-            ObjectProvider<SelfIssuedTokenRevocationChecker> selfIssuedTokenRevocationCheckerProvider) {
+            ObjectProvider<SelfIssuedTokenRevocationChecker> selfIssuedTokenRevocationCheckerProvider,
+            ObjectProvider<McpFederatedIssuerAuthenticator> mcpFederatedIssuerAuthenticatorProvider) {
 
             return new McpJwtSecurityConfigurerContributor(
                 mcpResourceServerProperties, userService, mock(AuthorityService.class), mcpEndpointProvider,
-                mcpServerSecretVerifierProvider, selfIssuedTokenRevocationCheckerProvider, new ApplicationProperties());
+                mcpServerSecretVerifierProvider, selfIssuedTokenRevocationCheckerProvider, new ApplicationProperties(),
+                mcpFederatedIssuerAuthenticatorProvider);
         }
 
         @Bean

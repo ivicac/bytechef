@@ -20,6 +20,7 @@ import com.bytechef.platform.security.web.config.McpResourceServerProperties.Iss
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.Strings;
 import org.springframework.security.core.GrantedAuthority;
@@ -33,6 +34,13 @@ import org.springframework.security.oauth2.jwt.Jwt;
  * @author Ivica Cardic
  */
 public class McpJwtIdentityMapper {
+
+    /**
+     * The default OIDC group-membership claim carried by a per-tenant external IdP token when the provider does not
+     * configure one. Its values are mapped to ByteChef authorities through the identity provider's group-to-authority
+     * map.
+     */
+    private static final String DEFAULT_GROUPS_CLAIM = "groups";
 
     private static final List<String> RESERVED_AUTHORITY_PREFIXES = List.of("ROLE_", "SCOPE_");
 
@@ -68,6 +76,37 @@ public class McpJwtIdentityMapper {
             .forEach(authorities::add);
 
         return new McpJwtIdentity(urlTenantId, getSubject(jwt), authorities);
+    }
+
+    /**
+     * Derives the identity for a token from a per-tenant external identity provider. The tenant is the URL-anchored
+     * {@code urlTenantId}; authorities come from the token's {@code groups} claim mapped through the provider's
+     * group-to-authority map. When the provider defines no mapping, the raw group values are used as authorities so a
+     * provider can opt out of remapping; a group with no matching entry is dropped (deny by default).
+     */
+    public McpJwtIdentity mapTenantIssuer(Jwt jwt, McpTenantIssuer tenantIssuer, String urlTenantId) {
+        List<GrantedAuthority> authorities = new ArrayList<>();
+
+        String groupsClaim = StringUtils.isNotBlank(tenantIssuer.authoritiesClaim())
+            ? tenantIssuer.authoritiesClaim()
+            : DEFAULT_GROUPS_CLAIM;
+
+        List<String> groups = jwt.getClaimAsStringList(groupsClaim);
+        Map<String, String> authorityMappings = tenantIssuer.authorityMappings();
+
+        if (groups != null) {
+            for (String group : groups) {
+                String authority = authorityMappings.get(group);
+
+                if (authority != null) {
+                    authorities.add(new SimpleGrantedAuthority(authority));
+                } else if (authorityMappings.isEmpty()) {
+                    authorities.add(new SimpleGrantedAuthority(group));
+                }
+            }
+        }
+
+        return new McpJwtIdentity(urlTenantId, getSubject(jwt), List.copyOf(authorities));
     }
 
     private static boolean isMatchingTenant(String claimTenantId, String urlTenantId) {

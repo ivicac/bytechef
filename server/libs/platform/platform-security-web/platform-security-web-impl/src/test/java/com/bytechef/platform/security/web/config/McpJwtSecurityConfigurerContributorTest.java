@@ -26,6 +26,7 @@ import com.bytechef.platform.security.web.mcp.McpEndpoint;
 import com.bytechef.platform.security.web.mcp.McpServerSecretVerifier;
 import com.bytechef.platform.security.web.mcp.SelfIssuedTokenRevocationChecker;
 import com.bytechef.platform.security.web.mcp.TestMcpEndpoint;
+import com.bytechef.platform.security.web.mcp.oauth2.McpFederatedIssuerAuthenticator;
 import com.bytechef.platform.user.service.AuthorityService;
 import com.bytechef.platform.user.service.UserService;
 import java.util.List;
@@ -90,6 +91,7 @@ class McpJwtSecurityConfigurerContributorTest {
             staticListableBeanFactory.getBeanProvider(McpEndpoint.class),
             staticListableBeanFactory.getBeanProvider(McpServerSecretVerifier.class),
             staticListableBeanFactory.getBeanProvider(SelfIssuedTokenRevocationChecker.class),
-            new ApplicationProperties());
+            new ApplicationProperties(),
+            staticListableBeanFactory.getBeanProvider(McpFederatedIssuerAuthenticator.class));
     }
 }

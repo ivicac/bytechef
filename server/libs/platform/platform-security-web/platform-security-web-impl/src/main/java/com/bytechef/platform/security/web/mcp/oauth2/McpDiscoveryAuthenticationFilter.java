@@ -35,16 +35,13 @@ public class McpDiscoveryAuthenticationFilter extends OncePerRequestFilter {
     private static final String AUTHORIZATION_HEADER_NAME = "Authorization";
 
     private final AuthenticationEntryPoint authenticationEntryPoint;
-    private final Predicate<HttpServletRequest> authenticationRequiredPredicate;
     private final RequestMatcher mcpRequestMatcher;
 
     public McpDiscoveryAuthenticationFilter(
-        RequestMatcher mcpRequestMatcher, AuthenticationEntryPoint authenticationEntryPoint,
-        Predicate<HttpServletRequest> authenticationRequiredPredicate) {
+        RequestMatcher mcpRequestMatcher, AuthenticationEntryPoint authenticationEntryPoint) {
 
         this.mcpRequestMatcher = mcpRequestMatcher;
         this.authenticationEntryPoint = authenticationEntryPoint;
-        this.authenticationRequiredPredicate = authenticationRequiredPredicate;
     }
 
     @Override
@@ -52,9 +49,7 @@ public class McpDiscoveryAuthenticationFilter extends OncePerRequestFilter {
         HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
         throws ServletException, IOException {
 
-        if (mcpRequestMatcher.matches(request) && request.getHeader(AUTHORIZATION_HEADER_NAME) == null
-            && authenticationRequiredPredicate.test(request)) {
-
+        if (mcpRequestMatcher.matches(request) && request.getHeader(AUTHORIZATION_HEADER_NAME) == null) {
             authenticationEntryPoint.commence(
                 request, response, new InsufficientAuthenticationException("Authentication is required"));
 
