@@ -18,7 +18,10 @@ package com.bytechef.platform.security.web.mcp.oauth2;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -30,6 +33,23 @@ class IssuerLocationMcpJwtDecoderFactoryTest {
 
     private final IssuerLocationMcpJwtDecoderFactory issuerLocationMcpJwtDecoderFactory =
         new IssuerLocationMcpJwtDecoderFactory(Set.of(STATIC_ISSUER_URI));
+
+    @AfterEach
+    void afterEach() {
+        McpTenantTrustContext.clear();
+    }
+
+    @Test
+    void testRejectsUntrustedIssuerWhenNoTenantTrustContext() {
+        assertThat(issuerLocationMcpJwtDecoderFactory.createJwtDecoder("https://attacker.test")).isNull();
+    }
+
+    @Test
+    void testRejectsUntrustedIssuerWhenTenantTrustContextListsAnotherIssuer() {
+        McpTenantTrustContext.set(List.of(new McpTenantIssuer("https://idp.customer.test", false, null, Map.of())));
+
+        assertThat(issuerLocationMcpJwtDecoderFactory.createJwtDecoder("https://attacker.test")).isNull();
+    }
 
     @Test
     void testRejectsUntrustedIssuer() {

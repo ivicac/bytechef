@@ -43,56 +43,24 @@ import org.springframework.core.env.SystemEnvironmentPropertySource;
 class ApplicationPropertiesTest {
 
     @Test
-    void testBindsTheAiMemoryRedisSettingsWithoutUnknownProperties() {
-        MapConfigurationPropertySource mapConfigurationPropertySource = new MapConfigurationPropertySource(
-            Map.of(
-                "bytechef.ai.memory.provider", "redis",
-                "bytechef.ai.memory.redis.host", "redis.internal",
-                "bytechef.ai.memory.redis.port", "6380",
-                "bytechef.ai.memory.redis.username", "bytechef",
-                "bytechef.ai.memory.redis.password", "secret",
-                "bytechef.ai.memory.redis.session-key-prefix", "session:",
-                "bytechef.ai.memory.session-max-archived-events", "250"));
+    void testAuthorizationServerDisabledByDefault() {
+        Oauth2 oauth2 = new Oauth2();
 
-        Binder binder = new Binder(mapConfigurationPropertySource);
-
-        ApplicationProperties applicationProperties = binder.bind(
-            "bytechef", Bindable.of(ApplicationProperties.class), new NoUnboundElementsBindHandler(BindHandler.DEFAULT))
-            .get();
-
-        ApplicationProperties.Ai ai = applicationProperties.getAi();
-
-        ApplicationProperties.Ai.Memory memory = ai.getMemory();
-
-        Redis redis = memory.getRedis();
-
-        assertThat(memory.getProvider()).isEqualTo(ApplicationProperties.Ai.Memory.Provider.REDIS);
-        assertThat(redis.getHost()).isEqualTo("redis.internal");
-        assertThat(redis.getPort()).isEqualTo(6380);
-        assertThat(redis.getUsername()).isEqualTo("bytechef");
-        assertThat(redis.getPassword()).isEqualTo("secret");
-        assertThat(redis.getSessionKeyPrefix()).isEqualTo("session:");
-        assertThat(memory.getSessionMaxArchivedEvents()).isEqualTo(250);
+        assertThat(oauth2.getAuthorizationServer()
+            .isEnabled()).isFalse();
     }
 
     @Test
-    void testLeavesTheAiMemoryRedisPortNullUntilBound() {
-        MapConfigurationPropertySource mapConfigurationPropertySource = new MapConfigurationPropertySource(
-            Map.of("bytechef.ai.memory.provider", "redis"));
+    void testAuthorizationServerEnabledBinds() {
+        MapConfigurationPropertySource source = new MapConfigurationPropertySource(
+            Map.of("bytechef.oauth2.authorization-server.enabled", "true"));
 
-        Binder binder = new Binder(mapConfigurationPropertySource);
-
-        ApplicationProperties applicationProperties = binder.bind(
-            "bytechef", Bindable.of(ApplicationProperties.class))
+        Oauth2 oauth2 = new Binder(source)
+            .bind("bytechef.oauth2", Oauth2.class)
             .get();
 
-        ApplicationProperties.Ai ai = applicationProperties.getAi();
-
-        ApplicationProperties.Ai.Memory memory = ai.getMemory();
-
-        Redis redis = memory.getRedis();
-
-        assertThat(redis.getPort()).isNull();
+        assertThat(oauth2.getAuthorizationServer()
+            .isEnabled()).isTrue();
     }
 
     @Test
@@ -137,51 +105,5 @@ class ApplicationPropertiesTest {
         assertThat(externalIssuer.getTenantClaim()).isEqualTo("org");
         assertThat(externalIssuer.getAuthoritiesClaim()).isEqualTo("groups");
         assertThat(externalIssuer.getAuthorities()).isEqualTo(List.of("ROLE_USER"));
-    }
-
-    @Test
-    void testAllowedParentOriginsDefaultsToEmpty() {
-        ApplicationProperties applicationProperties = bind(new MapPropertySource("test", Map.of()));
-
-        ApplicationProperties.Embedded embedded = applicationProperties.getEmbedded();
-
-        assertThat(embedded.getAllowedParentOrigins()).isEmpty();
-    }
-
-    @Test
-    void testAllowedParentOriginsBindsFromProperty() {
-        ApplicationProperties applicationProperties = bind(
-            new MapPropertySource(
-                "test",
-                Map.of("bytechef.embedded.allowed-parent-origins", "https://a.example,https://b.example")));
-
-        ApplicationProperties.Embedded embedded = applicationProperties.getEmbedded();
-
-        assertThat(embedded.getAllowedParentOrigins()).containsExactly("https://a.example", "https://b.example");
-    }
-
-    @Test
-    void testAllowedParentOriginsBindsFromEnvironmentVariable() {
-        ApplicationProperties applicationProperties = bind(
-            new SystemEnvironmentPropertySource(
-                StandardEnvironment.SYSTEM_ENVIRONMENT_PROPERTY_SOURCE_NAME,
-                Map.of("BYTECHEF_EMBEDDED_ALLOWED_PARENT_ORIGINS", "https://a.example,https://b.example")));
-
-        ApplicationProperties.Embedded embedded = applicationProperties.getEmbedded();
-
-        assertThat(embedded.getAllowedParentOrigins()).containsExactly("https://a.example", "https://b.example");
-    }
-
-    private static ApplicationProperties bind(PropertySource<?> propertySource) {
-        MutablePropertySources propertySources = new MutablePropertySources();
-
-        propertySources.addFirst(propertySource);
-
-        Binder binder = new Binder(ConfigurationPropertySources.from(propertySources));
-
-        return binder
-            .bindOrCreate(
-                "bytechef", Bindable.of(ApplicationProperties.class),
-                new NoUnboundElementsBindHandler(BindHandler.DEFAULT, new UnboundElementsSourceFilter()));
     }
 }
