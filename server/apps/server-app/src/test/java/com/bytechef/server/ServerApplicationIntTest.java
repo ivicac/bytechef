@@ -35,6 +35,7 @@ import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentChunkSer
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentTagService;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseService;
+import com.bytechef.platform.oauth2.authorizationserver.config.Oauth2AuthorizationServerConfiguration;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -88,9 +89,14 @@ class ServerApplicationIntTest {
         // opted in.
         assertThat(applicationContext.getBeanNamesForType(ClickHouseTableProvisioner.class)).isEmpty();
         assertThat(applicationContext.getBeanNamesForType(ClickHouseTableMigrator.class)).isEmpty();
-        assertThat(applicationContext.getBeansOfType(javax.sql.DataSource.class))
+        assertThat(applicationContext.getBeansOfType(DataSource.class))
             .doesNotContainKey("clickHouseDataSource");
         assertThat(applicationContext.containsBean("contextStoreRecordClickHouseRepository")).isFalse();
+    }
+
+    @Test
+    void testAuthorizationServerBeansNotPresentWhenDisabled() {
+        assertThat(applicationContext.getBeanNamesForType(Oauth2AuthorizationServerConfiguration.class)).isEmpty();
     }
 
     @Test
