@@ -10,12 +10,9 @@ import {
     DialogTrigger,
 } from '@/components/Dialog';
 import {Input} from '@/components/Input/Input';
-import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
-import {
-    McpServer,
-    useCreateEmbeddedMcpServerMutation,
-    useUpdateEmbeddedMcpServerMutation,
-} from '@/shared/middleware/graphql';
+import {Checkbox} from '@/components/ui/checkbox';
+import {Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
+import {McpServer, useCreateEmbeddedMcpServerMutation, useUpdateMcpServerMutation} from '@/shared/middleware/graphql';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {useQueryClient} from '@tanstack/react-query';
@@ -25,6 +22,7 @@ import {z} from 'zod';
 
 const formSchema = z.object({
     enabled: z.boolean(),
+    enforceToolAuthorization: z.boolean(),
     name: z.string().min(1, {message: 'Name is required'}),
 });
 
@@ -51,6 +49,7 @@ const McpServerDialog = ({
     const form = useForm<FormValuesType>({
         defaultValues: {
             enabled: mcpServer?.enabled !== undefined ? mcpServer.enabled : false,
+            enforceToolAuthorization: mcpServer?.enforceToolAuthorization ?? false,
             name: mcpServer?.name || '',
         },
         resolver: zodResolver(formSchema),
@@ -68,6 +67,7 @@ const McpServerDialog = ({
                     id: mcpServer.id,
                     input: {
                         enabled: values.enabled,
+                        enforceToolAuthorization: values.enforceToolAuthorization,
                         name: values.name,
                     },
                 },
@@ -132,6 +132,36 @@ const McpServerDialog = ({
                                         </FormItem>
                                     )}
                                 />
+
+                                {mcpServer && (
+                                    <FormField
+                                        control={form.control}
+                                        name="enforceToolAuthorization"
+                                        render={({field}) => (
+                                            <FormItem>
+                                                <div className="flex items-center space-x-2">
+                                                    <FormControl>
+                                                        <Checkbox
+                                                            checked={field.value}
+                                                            onCheckedChange={field.onChange}
+                                                        />
+                                                    </FormControl>
+
+                                                    <FormLabel className="font-normal">
+                                                        Enforce tool authorization
+                                                    </FormLabel>
+                                                </div>
+
+                                                <FormDescription>
+                                                    Expose a component&apos;s tools only to callers holding one of the
+                                                    component&apos;s required authorities (deny by default).
+                                                </FormDescription>
+
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                )}
                             </DialogBody>
 
                             <DialogFooter>
