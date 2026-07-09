@@ -17,6 +17,7 @@
 package com.bytechef.platform.security.web.mcp.oauth2;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -66,7 +67,7 @@ class TenantAwareJwtAuthenticationFilterTest {
     private final TenantAwareJwtAuthenticationFilter tenantAwareJwtAuthenticationFilter =
         new TenantAwareJwtAuthenticationFilter(
             new McpAudienceValidator(), new McpJwtIdentityMapper(), mcpResourceServerProperties(), userService,
-            List.of(mcpServerSecretVerifier));
+            List.of(mcpServerSecretVerifier), null);
 
     @AfterEach
     void afterEach() {
@@ -222,7 +223,7 @@ class TenantAwareJwtAuthenticationFilterTest {
     void testRejectsSelfIssuerTokenWhenByteChefUserIsNotActive() throws Exception {
         TenantAwareJwtAuthenticationFilter filter = new TenantAwareJwtAuthenticationFilter(
             new McpAudienceValidator(), new McpJwtIdentityMapper(), selfIssuerProperties(), userService,
-            List.of(mcpServerSecretVerifier));
+            List.of(mcpServerSecretVerifier), null);
 
         when(userService.fetchUserByLogin("admin@localhost.com")).thenReturn(Optional.empty());
 
@@ -244,7 +245,7 @@ class TenantAwareJwtAuthenticationFilterTest {
     void testAllowsSelfIssuerTokenWhenByteChefUserIsActive() throws Exception {
         TenantAwareJwtAuthenticationFilter filter = new TenantAwareJwtAuthenticationFilter(
             new McpAudienceValidator(), new McpJwtIdentityMapper(), selfIssuerProperties(), userService,
-            List.of(mcpServerSecretVerifier));
+            List.of(mcpServerSecretVerifier), null);
 
         User user = mock(User.class);
 
@@ -285,6 +286,82 @@ class TenantAwareJwtAuthenticationFilterTest {
 
         assertThat(response.getStatus()).isEqualTo(200);
         assertThat(authentication.get()).isSameAs(apiKeyAuthentication);
+    }
+
+    @Test
+    void testDelegatesNonStaticIssuerToFederatedAuthenticator() throws Exception {
+        McpFederatedIssuerAuthenticator federatedIssuerAuthenticator = mock(McpFederatedIssuerAuthenticator.class);
+
+        when(federatedIssuerAuthenticator.authenticate(any(), any(), any()))
+            .thenReturn(
+                Optional.of(
+                    new McpJwtIdentity(
+                        "acme", "user@customer.test", List.of(new SimpleGrantedAuthority("ROLE_USER")))));
+
+        TenantAwareJwtAuthenticationFilter filter = new TenantAwareJwtAuthenticationFilter(
+            new McpAudienceValidator(), new McpJwtIdentityMapper(), mcpResourceServerProperties(), userService,
+            List.of(request -> Optional.of(true)), federatedIssuerAuthenticator);
+
+        String path = automationPath("acme");
+
+        authenticate(jwtNonStaticIssuer(), "SCOPE_mcp:automation");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        AtomicReference<String> tenantId = new AtomicReference<>();
+        AtomicReference<Authentication> authentication = new AtomicReference<>();
+
+        FilterChain filterChain = (servletRequest, servletResponse) -> {
+            tenantId.set(TenantContext.getCurrentTenantId());
+            authentication.set(SecurityContextHolder.getContext()
+                .getAuthentication());
+        };
+
+        filter.doFilter(request(path), response, filterChain);
+
+        assertThat(response.getStatus()).isEqualTo(200);
+        assertThat(tenantId.get()).isEqualTo("acme");
+        assertThat(authentication.get()
+            .getName()).isEqualTo("user@customer.test");
+        assertThat(authorityNames(authentication.get())).containsExactly("ROLE_USER");
+    }
+
+    @Test
+    void testRejectsNonStaticIssuerWhenFederatedAuthenticatorReturnsEmpty() throws Exception {
+        McpFederatedIssuerAuthenticator federatedIssuerAuthenticator = mock(McpFederatedIssuerAuthenticator.class);
+
+        when(federatedIssuerAuthenticator.authenticate(any(), any(), any())).thenReturn(Optional.empty());
+
+        TenantAwareJwtAuthenticationFilter filter = new TenantAwareJwtAuthenticationFilter(
+            new McpAudienceValidator(), new McpJwtIdentityMapper(), mcpResourceServerProperties(), userService,
+            List.of(request -> Optional.of(true)), federatedIssuerAuthenticator);
+
+        authenticate(jwtNonStaticIssuer(), "SCOPE_mcp:automation");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        AtomicBoolean chainInvoked = new AtomicBoolean();
+
+        filter.doFilter(
+            request(automationPath("acme")), response, (servletRequest, servletResponse) -> chainInvoked.set(true));
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(chainInvoked).isFalse();
+    }
+
+    @Test
+    void testRejectsNonStaticIssuerWhenNoFederatedAuthenticator() throws Exception {
+        authenticate(jwtNonStaticIssuer(), "SCOPE_mcp:automation");
+
+        MockHttpServletResponse response = new MockHttpServletResponse();
+
+        AtomicBoolean chainInvoked = new AtomicBoolean();
+
+        tenantAwareJwtAuthenticationFilter.doFilter(
+            request(automationPath("acme")), response, (servletRequest, servletResponse) -> chainInvoked.set(true));
+
+        assertThat(response.getStatus()).isEqualTo(401);
+        assertThat(chainInvoked).isFalse();
     }
 
     @Test
@@ -351,7 +428,7 @@ class TenantAwareJwtAuthenticationFilterTest {
     void testRejectsForgedMcpServerSecret() throws Exception {
         TenantAwareJwtAuthenticationFilter filter = new TenantAwareJwtAuthenticationFilter(
             new McpAudienceValidator(), new McpJwtIdentityMapper(), mcpResourceServerProperties(), userService,
-            List.of(request -> Optional.of(false)));
+            List.of(request -> Optional.of(false)), null);
 
         String path = managementPath("victim");
 
@@ -371,7 +448,7 @@ class TenantAwareJwtAuthenticationFilterTest {
     void testRejectsMcpServerSecretNoVerifierClaims() throws Exception {
         TenantAwareJwtAuthenticationFilter filter = new TenantAwareJwtAuthenticationFilter(
             new McpAudienceValidator(), new McpJwtIdentityMapper(), mcpResourceServerProperties(), userService,
-            List.of(request -> Optional.empty()));
+            List.of(request -> Optional.empty()), null);
 
         String path = automationPath("acme");
 
@@ -393,7 +470,7 @@ class TenantAwareJwtAuthenticationFilterTest {
             new McpAudienceValidator(), new McpJwtIdentityMapper(), mcpResourceServerProperties(), userService,
             List.of(request -> {
                 throw new IllegalStateException("lookup failed");
-            }));
+            }), null);
 
         String path = automationPath("acme");
 

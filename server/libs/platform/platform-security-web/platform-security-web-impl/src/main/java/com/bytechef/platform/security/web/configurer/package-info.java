@@ -15,6 +15,6 @@
  */
 
 @NullMarked
-package com.bytechef.ee.platform.security.web.configurer;
+package com.bytechef.platform.security.web.configurer;
 
 import org.jspecify.annotations.NullMarked;

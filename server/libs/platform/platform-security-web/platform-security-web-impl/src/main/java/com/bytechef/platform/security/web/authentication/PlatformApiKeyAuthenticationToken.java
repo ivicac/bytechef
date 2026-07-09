@@ -25,14 +25,14 @@ public class PlatformApiKeyAuthenticationToken extends AbstractApiKeyAuthenticat
 
     private String secretKey;
 
-    public PlatformApiKeyAuthenticationToken(long environment, String secretKey, String tenantId) {
+    public PlatformApiKeyAuthenticationToken(int environment, String secretKey, String tenantId) {
         super(environment, tenantId);
 
         this.secretKey = secretKey;
     }
 
-    public PlatformApiKeyAuthenticationToken(long environment, User user) {
-        super(environment, user);
+    public PlatformApiKeyAuthenticationToken(long environmentId, User user) {
+        super(environmentId, user);
     }
 
     public String getSecretKey() {

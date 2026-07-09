@@ -20,13 +20,15 @@ import com.bytechef.platform.security.web.mcp.McpAuthenticationEntryPoint;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.util.UrlUtils;
 import org.springframework.web.util.UriComponentsBuilder;
 
 /**
  * @author Ivica Cardic
  */
-public class McpTenantProtectedResourceMetadataAuthenticationEntryPoint implements McpAuthenticationEntryPoint {
+public class McpTenantProtectedResourceMetadataAuthenticationEntryPoint
+    implements McpAuthenticationEntryPoint, AuthenticationEntryPoint {
 
     private static final String WELL_KNOWN_PREFIX = "/.well-known/oauth-protected-resource";
 

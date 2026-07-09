@@ -38,6 +38,20 @@ public class McpAudienceValidator {
         return containsUrl(audiences, requestUrl);
     }
 
+    /**
+     * Audience check for a per-tenant identity provider's token. Because trust is scoped to the single tenant that
+     * configured the provider, an unbound token cannot be replayed across tenants, so audience binding is optional -
+     * enforced only when the provider opts in via {@code validateMcpAudience}, in which case the token's {@code aud}
+     * must contain the endpoint URL (RFC 8707).
+     */
+    public boolean isTenantAudienceValid(Jwt jwt, McpTenantIssuer tenantIssuer, String requestUrl) {
+        if (!tenantIssuer.validateAudience()) {
+            return true;
+        }
+
+        return containsUrl(jwt.getAudience(), requestUrl);
+    }
+
     private static boolean containsUrl(List<String> audiences, String requestUrl) {
         if (audiences == null) {
             return false;

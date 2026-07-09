@@ -18,6 +18,7 @@ package com.bytechef.platform.security.web.config;
 
 import com.bytechef.platform.security.web.mcp.McpServerSecretVerifier;
 import com.bytechef.platform.security.web.mcp.oauth2.McpAudienceValidator;
+import com.bytechef.platform.security.web.mcp.oauth2.McpFederatedIssuerAuthenticator;
 import com.bytechef.platform.security.web.mcp.oauth2.McpJwtIdentityMapper;
 import com.bytechef.platform.security.web.mcp.oauth2.TenantAwareJwtAuthenticationFilter;
 import com.bytechef.platform.user.service.UserService;
@@ -33,6 +34,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 @Configuration
 public class McpJwtSecurityConfigurerContributor implements SecurityConfigurerContributor {
 
+    private final ObjectProvider<McpFederatedIssuerAuthenticator> mcpFederatedIssuerAuthenticatorProvider;
     private final McpResourceServerProperties mcpResourceServerProperties;
     private final ObjectProvider<McpServerSecretVerifier> mcpServerSecretVerifierProvider;
     private final UserService userService;
@@ -40,8 +42,10 @@ public class McpJwtSecurityConfigurerContributor implements SecurityConfigurerCo
     @SuppressFBWarnings("EI2")
     public McpJwtSecurityConfigurerContributor(
         McpResourceServerProperties mcpResourceServerProperties, UserService userService,
-        ObjectProvider<McpServerSecretVerifier> mcpServerSecretVerifierProvider) {
+        ObjectProvider<McpServerSecretVerifier> mcpServerSecretVerifierProvider,
+        ObjectProvider<McpFederatedIssuerAuthenticator> mcpFederatedIssuerAuthenticatorProvider) {
 
+        this.mcpFederatedIssuerAuthenticatorProvider = mcpFederatedIssuerAuthenticatorProvider;
         this.mcpResourceServerProperties = mcpResourceServerProperties;
         this.mcpServerSecretVerifierProvider = mcpServerSecretVerifierProvider;
         this.userService = userService;
@@ -60,6 +64,7 @@ public class McpJwtSecurityConfigurerContributor implements SecurityConfigurerCo
             new TenantAwareJwtAuthenticationFilter(
                 new McpAudienceValidator(), new McpJwtIdentityMapper(), mcpResourceServerProperties, userService,
                 mcpServerSecretVerifierProvider.orderedStream()
-                    .toList()));
+                    .toList(),
+                mcpFederatedIssuerAuthenticatorProvider.getIfAvailable()));
     }
 }

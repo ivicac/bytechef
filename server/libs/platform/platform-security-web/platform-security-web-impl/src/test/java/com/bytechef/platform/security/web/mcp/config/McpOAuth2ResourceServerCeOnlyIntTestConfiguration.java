@@ -32,6 +32,7 @@ import com.bytechef.platform.security.web.config.McpResourceServerProperties;
 import com.bytechef.platform.security.web.config.McpResourceServerProperties.Issuer;
 import com.bytechef.platform.security.web.mcp.McpAuthenticationRequiredResolver;
 import com.bytechef.platform.security.web.mcp.McpServerSecretVerifier;
+import com.bytechef.platform.security.web.mcp.oauth2.McpFederatedIssuerAuthenticator;
 import com.bytechef.platform.security.web.mcp.oauth2.McpJwtDecoderFactory;
 import com.bytechef.platform.user.service.AuthorityService;
 import com.bytechef.platform.user.service.UserService;
@@ -139,24 +140,17 @@ public class McpOAuth2ResourceServerCeOnlyIntTestConfiguration {
     @Bean
     McpJwtSecurityConfigurerContributor mcpJwtSecurityConfigurerContributor(
         McpResourceServerProperties mcpResourceServerProperties, UserService userService,
-        ObjectProvider<McpServerSecretVerifier> mcpServerSecretVerifierProvider) {
+        ObjectProvider<McpFederatedIssuerAuthenticator> mcpFederatedIssuerAuthenticatorProvider) {
 
         return new McpJwtSecurityConfigurerContributor(
-            mcpResourceServerProperties, userService, mcpServerSecretVerifierProvider);
-    }
-
-    @Bean
-    McpServerSecretVerifier managementMcpServerSecretVerifier(PropertyService propertyService) {
-        return new ManagementMcpServerSecretVerifier(propertyService);
+            mcpResourceServerProperties, userService, mcpFederatedIssuerAuthenticatorProvider);
     }
 
     @Bean
     McpDiscoverySecurityConfigurerContributor mcpDiscoverySecurityConfigurerContributor(
-        McpResourceServerProperties mcpResourceServerProperties,
-        ObjectProvider<McpAuthenticationRequiredResolver> mcpAuthenticationRequiredResolverProvider) {
+        McpResourceServerProperties mcpResourceServerProperties) {
 
-        return new McpDiscoverySecurityConfigurerContributor(
-            mcpResourceServerProperties, mcpAuthenticationRequiredResolverProvider);
+        return new McpDiscoverySecurityConfigurerContributor(mcpResourceServerProperties);
     }
 
     @Bean

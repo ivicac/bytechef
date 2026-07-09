@@ -60,6 +60,7 @@ public class TenantAwareJwtAuthenticationFilter extends OncePerRequestFilter {
         RegexRequestMatcher.regexMatcher("^/api/automation/.+/mcp");
     private final RequestMatcher managementRequestMatcher =
         RegexRequestMatcher.regexMatcher("^/api/management/.+/mcp");
+    private final @Nullable McpFederatedIssuerAuthenticator federatedIssuerAuthenticator;
     private final McpAudienceValidator mcpAudienceValidator;
     private final McpJwtIdentityMapper mcpJwtIdentityMapper;
     private final McpResourceServerProperties mcpResourceServerProperties;
@@ -70,8 +71,10 @@ public class TenantAwareJwtAuthenticationFilter extends OncePerRequestFilter {
     public TenantAwareJwtAuthenticationFilter(
         McpAudienceValidator mcpAudienceValidator, McpJwtIdentityMapper mcpJwtIdentityMapper,
         McpResourceServerProperties mcpResourceServerProperties, UserService userService,
-        List<McpServerSecretVerifier> mcpServerSecretVerifiers) {
+        List<McpServerSecretVerifier> mcpServerSecretVerifiers,
+        @Nullable McpFederatedIssuerAuthenticator federatedIssuerAuthenticator) {
 
+        this.federatedIssuerAuthenticator = federatedIssuerAuthenticator;
         this.mcpAudienceValidator = mcpAudienceValidator;
         this.mcpJwtIdentityMapper = mcpJwtIdentityMapper;
         this.mcpResourceServerProperties = mcpResourceServerProperties;
@@ -114,14 +117,24 @@ public class TenantAwareJwtAuthenticationFilter extends OncePerRequestFilter {
 
         Optional<Issuer> staticIssuer = mcpResourceServerProperties.findIssuer(issuerUri);
 
-        if (staticIssuer.isEmpty()) {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+        McpJwtIdentity mcpJwtIdentity;
 
-            return;
+        if (staticIssuer.isPresent()) {
+            mcpJwtIdentity = authenticateStaticIssuer(
+                request, response, jwtAuthenticationToken, jwt, staticIssuer.get(), urlTenantId);
+        } else {
+            Optional<McpJwtIdentity> federatedIdentity = federatedIssuerAuthenticator == null
+                ? Optional.empty()
+                : federatedIssuerAuthenticator.authenticate(jwt, request, urlTenantId);
+
+            if (federatedIdentity.isEmpty()) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+
+                return;
+            }
+
+            mcpJwtIdentity = federatedIdentity.get();
         }
-
-        McpJwtIdentity mcpJwtIdentity = authenticateStaticIssuer(
-            request, response, jwtAuthenticationToken, jwt, staticIssuer.get(), urlTenantId);
 
         if (mcpJwtIdentity == null) {
             return;

@@ -29,6 +29,7 @@ import com.bytechef.platform.security.audit.ApiKeyAuditPublisher;
 import com.bytechef.platform.security.domain.ApiKey;
 import com.bytechef.platform.security.repository.ApiKeyRepository;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -40,6 +41,41 @@ class ApiKeyServiceTest {
     private final ApiKeyAuditPublisher apiKeyAuditPublisher = mock(ApiKeyAuditPublisher.class);
     private final ApiKeyRepository apiKeyRepository = mock(ApiKeyRepository.class);
     private final ApiKeyService apiKeyService = new ApiKeyServiceImpl(apiKeyAuditPublisher, apiKeyRepository);
+
+    @Test
+    void testFetchApiKeyReturnsMatchingApiKey() {
+        ApiKey apiKey = new ApiKey();
+
+        when(apiKeyRepository.findBySecretKey("secret")).thenReturn(Optional.of(apiKey));
+
+        assertThat(apiKeyService.fetchApiKey("secret")).contains(apiKey);
+    }
+
+    @Test
+    void testFetchApiKeyReturnsEmptyWhenMissing() {
+        when(apiKeyRepository.findBySecretKey("missing")).thenReturn(Optional.empty());
+
+        assertThat(apiKeyService.fetchApiKey("missing")).isEmpty();
+    }
+
+    @Test
+    void testUpdateLastUsedDateSetsTimestampAndSaves() {
+        ApiKey apiKey = new ApiKey();
+
+        apiKey.setId(17L);
+
+        when(apiKeyRepository.findById(17L)).thenReturn(Optional.of(apiKey));
+
+        apiKeyService.updateLastUsedDate(17L);
+
+        ArgumentCaptor<ApiKey> apiKeyArgumentCaptor = ArgumentCaptor.forClass(ApiKey.class);
+
+        verify(apiKeyRepository).save(apiKeyArgumentCaptor.capture());
+
+        ApiKey savedApiKey = apiKeyArgumentCaptor.getValue();
+
+        assertThat(savedApiKey.getLastUsedDate()).isNotNull();
+    }
 
     @Test
     @SuppressWarnings("unchecked")
