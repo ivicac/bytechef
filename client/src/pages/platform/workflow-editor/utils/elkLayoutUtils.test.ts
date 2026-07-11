@@ -901,11 +901,11 @@ describe('getElkLayoutElements with loops', () => {
 
         expect(Math.abs(childCenter - loopCenter)).toBeLessThanOrEqual(1);
 
-        // Rail sits the dagre ring width (145 − 35) left of the top bar
+        // Rail hugs the body content (icons start at the bar's left end, hug pad 20)
         const railX = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x;
         const topBarX = positionOf(result.nodes, 'loop_1-loop-top-ghost').x;
 
-        expect(railX).toBe(topBarX - 110);
+        expect(railX).toBe(topBarX - 20);
 
         // Loop boxes get the same top-bar pull as conditions; uniform chain step inside
         const loopBottom = positionOf(result.nodes, 'loop_1').y + 72;
@@ -931,10 +931,17 @@ describe('getElkLayoutElements with loops', () => {
 
         const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
 
+        // The "+" sits ON the ring's right edge (bar right end), and the rail
+        // aligns with the bar's left end — a symmetric box around the loop axis
         const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
         const placeholderCenter = positionOf(result.nodes, 'loop_1-loop-placeholder-0').x + 36;
 
-        expect(Math.abs(placeholderCenter - loopCenter)).toBeLessThanOrEqual(1);
+        expect(placeholderCenter - loopCenter).toBe(36);
+
+        const railX = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x;
+        const topBarX = positionOf(result.nodes, 'loop_1-loop-top-ghost').x;
+
+        expect(railX).toBe(topBarX);
 
         const topGhostBarY = positionOf(result.nodes, 'loop_1-loop-top-ghost').y;
         const bottomGhostBarY = positionOf(result.nodes, 'loop_1-loop-bottom-ghost').y;

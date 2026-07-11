@@ -69,13 +69,9 @@ const LEFT_RAIL_TICK_SIZE = 16;
 
 const LEFT_GHOST_ID_SUFFIX = '-taskDispatcher-left-ghost';
 
-// Dagre-parity rail ring geometry (see constrainLeftGhostPositions in
-// postDagreConstraints.ts): the rail sits at least RAIL_RING_OFFSET (minus the
-// TB handle-center correction) left of the top bar, hugs the leftmost body
-// content at RAIL_CONTENT_PADDING, and nested rings indent by
-// RAIL_NESTED_RING_INDENT — positioned innermost-first.
-const RAIL_RING_OFFSET = 145;
-const RAIL_HANDLE_CENTER_DIFFERENCE = NODE_ANCHOR_SIZE / 2 - GHOST_BAR_THICKNESS / 2;
+// Rail ring geometry: the rail aligns with the bar's LEFT END (straight left
+// edge, clean corners — mirroring the placeholder pinned to the bar's right
+// end), moving further left only when body content or nested rings require it.
 const RAIL_CONTENT_PADDING = 20;
 const RAIL_NESTED_RING_INDENT = 50;
 
@@ -713,10 +709,21 @@ export const getElkLayoutElements = async ({
                 const auxRenderedSize = getRenderedNodeSize(candidateNode, direction);
                 const auxMainSize = mainAxis === 'x' ? auxRenderedSize.width : auxRenderedSize.height;
 
-                candidateNode.position = {
+                const auxPosition: {x: number; y: number} = {
                     ...candidateNode.position,
                     [mainAxis]: frameMainCenter - auxMainSize / 2,
                 };
+
+                // A loop's "+" placeholder sits ON the ring's right edge (the bar's
+                // right end), so the edge runs straight through it instead of
+                // jogging around an axis-centered "+"
+                if (candidateNode.type === 'placeholder' && (node.data as NodeDataType).componentName === 'loop') {
+                    const auxCrossSize = crossAxis === 'x' ? auxRenderedSize.width : auxRenderedSize.height;
+
+                    auxPosition[crossAxis] = dispatcherCrossCenter + NODE_ANCHOR_SIZE / 2 - auxCrossSize / 2;
+                }
+
+                candidateNode.position = auxPosition;
             });
         });
 
@@ -775,9 +782,6 @@ export const getElkLayoutElements = async ({
                 (descendantIdsByRailId.get(secondRail.id)?.size || 0)
         );
 
-        const maxRingWidth = direction === 'LR' ? RAIL_RING_OFFSET : RAIL_RING_OFFSET - RAIL_HANDLE_CENTER_DIFFERENCE;
-        const railCenteringOffset = direction === 'LR' ? RAIL_HANDLE_CENTER_DIFFERENCE : 0;
-
         railNodes.forEach((railNode) => {
             const railDispatcherId = (railNode.data as NodeDataType).taskDispatcherId;
 
@@ -806,24 +810,29 @@ export const getElkLayoutElements = async ({
 
                 if (candidateNode.type === 'taskDispatcherLeftGhostNode') {
                     leftmostChildRailCross = Math.min(leftmostChildRailCross, candidateNode.position[crossAxis]);
-                } else {
+                } else if (
+                    candidateNode.type !== 'taskDispatcherTopGhostNode' &&
+                    candidateNode.type !== 'taskDispatcherBottomGhostNode'
+                ) {
+                    // Ghost bars span the anchor width from the bar-aligned rail
+                    // position by construction — only real body content pushes the
+                    // rail further out
                     leftmostContentCross = Math.min(leftmostContentCross, candidateNode.position[crossAxis]);
                 }
             });
 
-            const cappedCross = topBarNode.position[crossAxis] - maxRingWidth;
+            // Bar-left-end alignment gives a straight left edge with clean corners;
+            // body content pushes the rail out by its hug padding, nested rings by
+            // their indent
+            const barAlignedCross = topBarNode.position[crossAxis];
             const contentRequired =
-                leftmostContentCross === Infinity
-                    ? Infinity
-                    : leftmostContentCross - RAIL_CONTENT_PADDING - railCenteringOffset;
+                leftmostContentCross === Infinity ? Infinity : leftmostContentCross - RAIL_CONTENT_PADDING;
             const nestingRequired =
-                leftmostChildRailCross === Infinity
-                    ? Infinity
-                    : leftmostChildRailCross - RAIL_NESTED_RING_INDENT - railCenteringOffset;
+                leftmostChildRailCross === Infinity ? Infinity : leftmostChildRailCross - RAIL_NESTED_RING_INDENT;
 
             railNode.position = {
                 ...railNode.position,
-                [crossAxis]: Math.min(cappedCross, contentRequired, nestingRequired),
+                [crossAxis]: Math.min(barAlignedCross, contentRequired, nestingRequired),
             };
         });
 
