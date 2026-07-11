@@ -140,7 +140,7 @@ public class AiHubScheduledChatDispatcher {
         state.set("threadId", threadId);
 
         // environmentId read by AiHubSpringAIAgent.buildInvocationContext for memory-index scoping.
-        state.set("environmentId", (long) environmentId);
+        state.set(AiHubStateKeys.ENVIRONMENT_ID, (long) environmentId);
 
         // The scheduler's environmentId comes from the persisted task row (server-trusted), so it doubles as the
         // verified key the catalog resolver reads — keeping scheduled AI Hub runs able to resolve catalog models.

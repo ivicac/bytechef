@@ -22,6 +22,7 @@ import com.bytechef.ai.agent.tool.AgentTypeRegistry;
 import com.bytechef.ai.agent.tool.CurrentAgentContext;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
+import com.bytechef.commons.util.NumberUtils;
 import com.bytechef.ee.ai.hub.progress.SubagentProgressEmitter;
 import com.bytechef.ee.ai.hub.tool.AiHubToolInvocationContext;
 import com.bytechef.ee.ai.hub.util.AiHubStateKeys;
@@ -169,7 +170,8 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
     private static @Nullable Integer environmentOrdinal(RunAgentInput input) {
         State state = input.state();
 
-        Long environmentId = state == null ? null : asLong(state.get(AiHubStateKeys.VERIFIED_ENVIRONMENT_ID));
+        Long environmentId =
+            state == null ? null : NumberUtils.asLong(state.get(AiHubStateKeys.VERIFIED_ENVIRONMENT_ID));
 
         if (environmentId == null || environmentId < 0 || environmentId >= Environment.values().length) {
             return null;
@@ -277,9 +279,9 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
         // checks workspace membership and task ownership BEFORE this method runs and rewrites the verified
         // values into reserved keys; tool callbacks then operate against authenticated-session data, not user-
         // controlled request body.
-        Long workspaceId = state == null ? null : asLong(state.get(AiHubStateKeys.VERIFIED_WORKSPACE_ID));
-        Long userId = state == null ? null : asLong(state.get(AiHubStateKeys.AUTHENTICATED_USER_ID));
-        Long rawEnvironmentId = state == null ? null : asLong(state.get("environmentId"));
+        Long workspaceId = state == null ? null : NumberUtils.asLong(state.get(AiHubStateKeys.VERIFIED_WORKSPACE_ID));
+        Long userId = state == null ? null : NumberUtils.asLong(state.get(AiHubStateKeys.AUTHENTICATED_USER_ID));
+        Long rawEnvironmentId = state == null ? null : NumberUtils.asLong(state.get(AiHubStateKeys.ENVIRONMENT_ID));
         long environmentId = rawEnvironmentId != null ? rawEnvironmentId : 0L;
         Short sourceOrdinal = Source.AI_HUB.toAgentSourceOrdinal();
         String lastUserPrompt = lastUserPrompt(input.messages());
@@ -398,7 +400,7 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
             return;
         }
 
-        Long workspaceId = state == null ? null : asLong(state.get(AiHubStateKeys.VERIFIED_WORKSPACE_ID));
+        Long workspaceId = state == null ? null : NumberUtils.asLong(state.get(AiHubStateKeys.VERIFIED_WORKSPACE_ID));
 
         if (workspaceId == null) {
             return;
@@ -406,7 +408,7 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
 
         // Prefer the controller-verified userId; fall back to threadId-based resolution only as belt-and-braces
         // (the controller already enforces ownership, so the verified userId should always be present).
-        Long userId = asLong(state.get(AiHubStateKeys.AUTHENTICATED_USER_ID));
+        Long userId = NumberUtils.asLong(state.get(AiHubStateKeys.AUTHENTICATED_USER_ID));
 
         if (userId == null) {
             String threadId = asString(state.get(AiHubStateKeys.VERIFIED_THREAD_ID));
@@ -420,7 +422,7 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
 
         // Match how buildInvocationContext reads environmentId so the memory index sees the same env partition the
         // tool callbacks will write into for this turn.
-        Long rawEnvironmentId = asLong(state.get("environmentId"));
+        Long rawEnvironmentId = NumberUtils.asLong(state.get(AiHubStateKeys.ENVIRONMENT_ID));
         int environment = rawEnvironmentId != null ? rawEnvironmentId.intValue() : 0;
 
         // Memory index is best-effort context enrichment. A broken row, DB outage, or NPE in the resolver must not
@@ -484,34 +486,6 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
         }
 
         return stringBuilder.toString();
-    }
-
-    private static Long asLong(Object value) {
-        if (value == null) {
-            return null;
-        }
-
-        if (value instanceof Long longValue) {
-            return longValue;
-        }
-
-        if (value instanceof Number numberValue) {
-            return numberValue.longValue();
-        }
-
-        if (value instanceof String stringValue && !stringValue.isBlank()) {
-            try {
-                return Long.parseLong(stringValue);
-            } catch (NumberFormatException exception) {
-                // Distinguish "value missing" from "value present but malformed" so a stray client-supplied
-                // environmentId="abc" surfaces in the log instead of being indistinguishable from a missing key.
-                log.warn("Malformed numeric state value: '{}' is not parseable as Long", stringValue);
-
-                return null;
-            }
-        }
-
-        return null;
     }
 
     private static String lastUserPrompt(List<BaseMessage> messages) {

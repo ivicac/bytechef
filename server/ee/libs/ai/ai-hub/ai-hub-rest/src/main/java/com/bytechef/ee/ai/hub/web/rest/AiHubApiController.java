@@ -309,7 +309,7 @@ public class AiHubApiController {
             state.set("threadId", verifiedThreadId);
         }
 
-        Long rawEnvironmentId = readLong(agUiParameters, "environmentId");
+        Long rawEnvironmentId = readLong(agUiParameters, AiHubStateKeys.ENVIRONMENT_ID);
 
         long environmentId =
             rawEnvironmentId != null && rawEnvironmentId >= 0 && rawEnvironmentId < Environment.values().length
