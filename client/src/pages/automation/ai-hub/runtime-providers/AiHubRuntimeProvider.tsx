@@ -6,6 +6,7 @@ import {
     isTaskRunning,
     useAiHubRunStateStore,
 } from '@/pages/automation/ai-hub/runtime-providers/stores/useAiHubRunStateStore';
+import {sanitizeAssistantMessages} from '@/pages/automation/ai-hub/runtime-providers/stripLeakedToolMarkup';
 import {
     WorkflowStreamCompleteType,
     fetchWorkflowResponse,
@@ -27,6 +28,8 @@ import {
     isRunningToolCall,
     useAiChatToolCallStore,
 } from '@/shared/components/ai-chat/stores/useAiChatToolCallStore';
+import {ProjectWorkflowKeys} from '@/shared/queries/automation/projectWorkflows.queries';
+import {WorkflowTestConfigurationKeys} from '@/shared/queries/platform/workflowTestConfigurations.queries';
 import {environmentStore} from '@/shared/stores/useEnvironmentStore';
 import {AskUserQuestionEventI, formatAskUserQuestionMessage} from '@/shared/util/assistant-message-utils';
 import {getCookie} from '@/shared/util/cookie-utils';
@@ -44,7 +47,7 @@ import {
     useExternalStoreRuntime,
 } from '@assistant-ui/react';
 import {useQueryClient} from '@tanstack/react-query';
-import {ReactNode, useEffect, useMemo, useRef} from 'react';
+import {ReactNode, useCallback, useEffect, useMemo, useRef} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {toast} from 'sonner';
 import {useShallow} from 'zustand/react/shallow';
@@ -212,6 +215,7 @@ interface BuildSubscriberDepsI {
      * provider component, which calls {@code useNavigate()} at render time.
      */
     navigate?: (path: string) => void;
+    onWorkflowMutated?: () => void;
     /**
      * Lifecycle hook fired when the AG-UI run terminates (RUN_FINISHED or RUN_ERROR). Used by the runtime
      * provider as a SAFETY NET to flip {@code isAgentRunning} back to false the moment the server says the
@@ -319,6 +323,7 @@ export const buildAiHubSubscriber = ({
     assistantMessageIndex = 0,
     getLastUserMessage,
     navigate,
+    onWorkflowMutated,
     runLifecycle,
     taskId: subscriberTaskId,
     workflowStreamLifecycle,
@@ -529,6 +534,10 @@ export const buildAiHubSubscriber = ({
                 });
 
                 return;
+            }
+
+            if (toolCallName === 'workflow_editor_agent' || toolCallName === 'converter_agent') {
+                onWorkflowMutated?.();
             }
 
             if (toolCallName === 'openFileTab') {
@@ -1125,8 +1134,12 @@ export const projectMessagesWithToolCalls = (
     messages: ThreadMessageLike[],
     toolCallEntries: ToolCallEntryI[]
 ): ThreadMessageLike[] => {
+    // Defense-in-depth: strip any tool-call markup a model leaked into assistant text (role-playing a tool call as
+    // text instead of emitting a real tool_use) before it reaches the renderer. Reference-stable on clean input.
+    const sanitizedMessages = sanitizeAssistantMessages(messages);
+
     if (toolCallEntries.length === 0) {
-        return messages;
+        return sanitizedMessages;
     }
 
     const callsByMessage = new Map<number, ToolCallEntryI[]>();
@@ -1167,7 +1180,7 @@ export const projectMessagesWithToolCalls = (
         callsByMessage.set(messageIndex, Array.from(seen.values()));
     }
 
-    return messages.map((message, index) => {
+    return sanitizedMessages.map((message, index) => {
         const calls = callsByMessage.get(index);
 
         if (!calls || calls.length === 0 || message.role !== 'assistant') {
@@ -1353,6 +1366,11 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
     const queryClient = useQueryClient();
     const navigate = useNavigate();
 
+    const handleWorkflowMutated = useCallback(() => {
+        queryClient.invalidateQueries({queryKey: WorkflowTestConfigurationKeys.workflowTestConfigurations});
+        queryClient.invalidateQueries({queryKey: ProjectWorkflowKeys.workflows});
+    }, [queryClient]);
+
     const projectedMessages = useMemo(
         () => projectMessagesWithToolCalls(messages, Object.values(toolCalls)),
         [messages, toolCalls]
@@ -1425,9 +1443,15 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
             // message means the replay's text deltas overwrite/extend it cleanly.
             const currentMessages = useAiHubStore.getState().messages;
             const lastMessage = currentMessages[currentMessages.length - 1];
-            const trailingAssistantPresent = lastMessage != null && lastMessage.role === 'assistant';
+            // Content-aware: only reuse a trailing assistant that is a plain TEXT message (string content) — that's
+            // the in-flight turn's partial reply the replay can cleanly extend. A trailing assistant with ARRAY
+            // content is an artifact-link / tool-call card rebuilt from task artifacts on reload; reusing it (or
+            // letting appendToLastAssistantMessage's scan skip past it onto an earlier turn) would render the resumed
+            // reply above the user's message. In that case add a fresh placeholder so the stream anchors at the end.
+            const trailingTextAssistantPresent =
+                lastMessage != null && lastMessage.role === 'assistant' && typeof lastMessage.content === 'string';
 
-            if (!trailingAssistantPresent) {
+            if (!trailingTextAssistantPresent) {
                 useAiHubStore.getState().addMessage({content: '', role: 'assistant'});
             }
 
@@ -1447,6 +1471,7 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
                 // mislead — the user can scroll up to see their actual message.
                 getLastUserMessage: () => '(resumed turn)',
                 navigate,
+                onWorkflowMutated: handleWorkflowMutated,
                 runLifecycle: {
                     onSettle: () => aiHubRunStateStore.getState().setTaskRunning(taskId, false),
                 },
@@ -1632,6 +1657,7 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
             assistantMessageIndex,
             getLastUserMessage,
             navigate,
+            onWorkflowMutated: handleWorkflowMutated,
             runLifecycle: {
                 // Fires on RUN_ERROR only. Aborts the per-turn workflow-stream AbortController so any
                 // still-in-flight runChatWorkflow sub-stream drains itself — without this, a failed
@@ -1782,6 +1808,7 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
             assistantMessageIndex,
             getLastUserMessage: () => lastUserInput,
             navigate,
+            onWorkflowMutated: handleWorkflowMutated,
             runLifecycle: {
                 // Mirror onNew — abort the per-turn controller on RUN_ERROR so workflow streams stop.
                 onError: () => turnController.abort(),

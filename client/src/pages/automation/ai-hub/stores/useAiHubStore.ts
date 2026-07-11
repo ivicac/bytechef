@@ -58,6 +58,16 @@ export const aiHubStore = create<AiHubStateI>()(
                 for (let i = messages.length - 1; i >= 0; i--) {
                     const message = messages[i] as ThreadMessageLike;
 
+                    // Stop at the most recent user message. The streaming reply belongs to the current turn, which
+                    // begins after that message, so a fresh assistant is pushed at the end rather than reusing one
+                    // found before it. Without this boundary a resumed stream — when the trailing message is an
+                    // artifact-link card (array content) or the user's message itself after a task-switch reload —
+                    // would walk past both and overwrite a PRIOR turn's assistant, rendering the reply above the
+                    // user's message.
+                    if (message.role === 'user') {
+                        break;
+                    }
+
                     if (message.role === 'assistant' && typeof message.content === 'string') {
                         messages[i] = {...message, content: text} as ThreadMessageLike;
 
