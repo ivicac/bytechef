@@ -75,11 +75,9 @@ const LEFT_GHOST_ID_SUFFIX = '-taskDispatcher-left-ghost';
 const RAIL_CONTENT_PADDING = 20;
 const RAIL_NESTED_RING_INDENT = 50;
 
-// An EMPTY loop renders with the same proportions as an empty condition box:
-// the "+" placeholder sits on the ring's right edge at +half-width and the
-// rail mirrors it at −half-width, giving the same 250px-wide rounded box that
-// empty condition branches produce (their case columns sit at the same offset).
-const LOOP_RING_HALF_WIDTH = (CASE_PLACEHOLDER_CROSS_FOOTPRINT + ELK_SIBLING_SPACING) / 2;
+// An EMPTY loop renders as a compact symmetric ring: the "+" placeholder sits
+// on the right edge at +half-width and the rail mirrors it at −half-width.
+const LOOP_RING_HALF_WIDTH = 90;
 
 const FRAME_ID_SUFFIX = '__frame';
 

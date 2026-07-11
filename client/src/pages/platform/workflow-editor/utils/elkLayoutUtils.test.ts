@@ -936,11 +936,11 @@ describe('getElkLayoutElements with loops', () => {
         const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
         const placeholderCenter = positionOf(result.nodes, 'loop_1-loop-placeholder-0').x + 36;
 
-        expect(placeholderCenter - loopCenter).toBe(125);
+        expect(placeholderCenter - loopCenter).toBe(90);
 
         const railCenter = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x + 1;
 
-        expect(loopCenter - railCenter).toBe(125);
+        expect(loopCenter - railCenter).toBe(90);
 
         const topGhostBarY = positionOf(result.nodes, 'loop_1-loop-top-ghost').y;
         const bottomGhostBarY = positionOf(result.nodes, 'loop_1-loop-bottom-ghost').y;
