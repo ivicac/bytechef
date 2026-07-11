@@ -217,6 +217,7 @@ export type NodeDataType = {
     mapData?: MapDataType;
     mapId?: string;
     maxRetries?: number;
+    onErrorCase?: 'mainBranch' | 'onErrorBranch';
     onErrorData?: OnErrorDataType;
     onErrorId?: string;
     metadata?: {

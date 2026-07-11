@@ -103,9 +103,10 @@ function isFrameDispatcherNode(node: Node): boolean {
     return nodeData.taskDispatcher === true && ELK_FRAME_DISPATCHER_COMPONENT_NAMES.includes(nodeData.componentName);
 }
 
-// Fork-join aux node ids use the camelCase segment 'forkJoin', not the
-// componentName 'fork-join' (see createForkJoinNode).
-const GHOST_ID_SEGMENT_BY_COMPONENT_NAME: Record<string, string> = {'fork-join': 'forkJoin'};
+// Fork-join and on-error aux node ids use camelCase segments ('forkJoin',
+// 'onError'), not their kebab-case componentNames (see createForkJoinNode,
+// createOnErrorNode).
+const GHOST_ID_SEGMENT_BY_COMPONENT_NAME: Record<string, string> = {'fork-join': 'forkJoin', 'on-error': 'onError'};
 
 function getGhostIdSegment(componentName: string): string {
     return GHOST_ID_SEGMENT_BY_COMPONENT_NAME[componentName] || componentName;
@@ -255,7 +256,8 @@ function getOwningDispatcherId(node: Node): string | undefined {
         nodeData.parallelData?.parallelId ||
         nodeData.forkJoinData?.forkJoinId ||
         nodeData.eachData?.eachId ||
-        nodeData.mapData?.mapId
+        nodeData.mapData?.mapId ||
+        nodeData.onErrorData?.onErrorId
     );
 }
 
@@ -464,6 +466,21 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
             // carry an explicit branchIndex; the trailing add-a-branch
             // placeholder gets branchCount and so ranks last naturally
             return memberData.forkJoinData?.branchIndex ?? memberData.branchIndex ?? Number.MAX_SAFE_INTEGER;
+        }
+
+        if (scopeComponentName === 'on-error') {
+            // TRY (mainBranch) left of CATCH (onErrorBranch), like TRUE/FALSE
+            const onErrorCase = memberData.onErrorCase || memberData.onErrorData?.onErrorCase;
+
+            if (onErrorCase === 'mainBranch') {
+                return 0;
+            }
+
+            if (onErrorCase === 'onErrorBranch') {
+                return 1;
+            }
+
+            return -1;
         }
 
         const conditionCase = memberData.conditionCase || memberData.conditionData?.conditionCase;

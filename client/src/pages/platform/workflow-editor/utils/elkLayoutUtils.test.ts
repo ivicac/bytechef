@@ -2318,3 +2318,168 @@ describe('getElkLayoutElements with each and map', () => {
         );
     });
 });
+
+describe('getElkLayoutElements with on-error', () => {
+    // Mirrors createOnErrorNode: camelCase 'onError' aux segments, side
+    // placeholders carrying top-level onErrorCase, bottom ghost WITH onErrorId
+    const onErrorNode = (id: string, extraData: Record<string, unknown> = {}): Node => ({
+        data: {
+            componentName: 'on-error',
+            taskDispatcher: true,
+            taskDispatcherId: id,
+            workflowNodeName: id,
+            ...extraData,
+        },
+        id,
+        position: {x: 0, y: 0},
+        type: 'workflow',
+    });
+
+    const onErrorGhostNodes = (onErrorId: string): Node[] => [
+        {
+            data: {onErrorId, taskDispatcherId: onErrorId},
+            id: `${onErrorId}-onError-top-ghost`,
+            position: {x: 0, y: 0},
+            type: 'taskDispatcherTopGhostNode',
+        },
+        {
+            data: {isNestedBottomGhost: false, onErrorId, taskDispatcherId: onErrorId},
+            id: `${onErrorId}-onError-bottom-ghost`,
+            position: {x: 0, y: 0},
+            type: 'taskDispatcherBottomGhostNode',
+        },
+    ];
+
+    const onErrorPlaceholderNode = (onErrorId: string, side: 'left' | 'right'): Node => ({
+        data: {
+            label: '+',
+            onErrorCase: side === 'left' ? 'mainBranch' : 'onErrorBranch',
+            onErrorId,
+            taskDispatcherId: onErrorId,
+        },
+        id: `${onErrorId}-onError-${side}-placeholder-0`,
+        position: {x: 0, y: 0},
+        type: 'placeholder',
+    });
+
+    const onErrorChildNode = (id: string, onErrorId: string, onErrorCase: 'mainBranch' | 'onErrorBranch'): Node => ({
+        data: {
+            componentName: 'mailchimp',
+            onErrorData: {index: 0, onErrorCase, onErrorId},
+            workflowNodeName: id,
+        },
+        id,
+        position: {x: 0, y: 0},
+        type: 'workflow',
+    });
+
+    it('keeps the TRY branch left of CATCH with uniform gaps', async () => {
+        const nodes: Node[] = [
+            taskNode('task1'),
+            onErrorNode('on-error_1'),
+            ...onErrorGhostNodes('on-error_1'),
+            onErrorChildNode('tryChild', 'on-error_1', 'mainBranch'),
+            onErrorChildNode('catchChild', 'on-error_1', 'onErrorBranch'),
+            taskNode('task2'),
+        ];
+
+        const edges: Edge[] = [
+            edge('task1', 'on-error_1'),
+            edge('on-error_1', 'on-error_1-onError-top-ghost'),
+            edge('on-error_1-onError-top-ghost', 'tryChild'),
+            edge('tryChild', 'on-error_1-onError-bottom-ghost'),
+            edge('on-error_1-onError-top-ghost', 'catchChild'),
+            edge('catchChild', 'on-error_1-onError-bottom-ghost'),
+            edge('on-error_1-onError-bottom-ghost', 'task2'),
+        ];
+
+        expect(collectScopeEdgeViolations(buildElkGraph(nodes, edges, 'TB'))).toEqual([]);
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        // mainBranch (TRY) left of onErrorBranch (CATCH)
+        expect(positionOf(result.nodes, 'tryChild').x).toBeLessThan(positionOf(result.nodes, 'catchChild').x);
+
+        // Parent centered on the two-entry mean
+        const parentCenter = positionOf(result.nodes, 'on-error_1').x + 36;
+        const entryMean =
+            (positionOf(result.nodes, 'tryChild').x + 36 + positionOf(result.nodes, 'catchChild').x + 36) / 2;
+
+        expect(Math.abs(parentCenter - entryMean)).toBeLessThanOrEqual(1);
+
+        // Uniform rhythm: pulled box gap, entry gap, exit gaps
+        const parentBottom = positionOf(result.nodes, 'on-error_1').y + 72;
+        const topBarY = positionOf(result.nodes, 'on-error_1-onError-top-ghost').y;
+        const bottomBarY = positionOf(result.nodes, 'on-error_1-onError-bottom-ghost').y;
+
+        expect(topBarY - parentBottom).toBe(TOP_BOX_GAP);
+        expect(positionOf(result.nodes, 'tryChild').y - (topBarY + 2)).toBe(BAR_TO_CHILD_GAP);
+        expect(bottomBarY - (positionOf(result.nodes, 'tryChild').y + 72)).toBe(BOX_GAP);
+        expect(positionOf(result.nodes, 'task2').y - (bottomBarY + 2)).toBe(CHAIN_GAP);
+    });
+
+    it('centers an empty CATCH side placeholder mid-frame on its own side', async () => {
+        const nodes: Node[] = [
+            onErrorNode('on-error_1'),
+            ...onErrorGhostNodes('on-error_1'),
+            onErrorChildNode('tryChild', 'on-error_1', 'mainBranch'),
+            onErrorPlaceholderNode('on-error_1', 'right'),
+        ];
+
+        const edges: Edge[] = [
+            edge('on-error_1', 'on-error_1-onError-top-ghost'),
+            edge('on-error_1-onError-top-ghost', 'tryChild'),
+            edge('tryChild', 'on-error_1-onError-bottom-ghost'),
+            edge('on-error_1-onError-top-ghost', 'on-error_1-onError-right-placeholder-0'),
+            edge('on-error_1-onError-right-placeholder-0', 'on-error_1-onError-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        // Placeholder right of the TRY chain, mid-frame on the main axis
+        expect(positionOf(result.nodes, 'on-error_1-onError-right-placeholder-0').x).toBeGreaterThan(
+            positionOf(result.nodes, 'tryChild').x
+        );
+
+        const topBarY = positionOf(result.nodes, 'on-error_1-onError-top-ghost').y;
+        const bottomBarY = positionOf(result.nodes, 'on-error_1-onError-bottom-ghost').y;
+        const placeholderMainCenter = positionOf(result.nodes, 'on-error_1-onError-right-placeholder-0').y + 14;
+
+        expect(Math.abs(placeholderMainCenter - (topBarY + bottomBarY + 2) / 2)).toBeLessThanOrEqual(1);
+    });
+
+    it('lays out an on-error inside a loop body on the ring right side', async () => {
+        const nodes: Node[] = [
+            loopNode('loop_1'),
+            ...loopAuxNodes('loop_1'),
+            onErrorNode('on-error_1', {loopData: {index: 0, loopId: 'loop_1'}}),
+            ...onErrorGhostNodes('on-error_1'),
+            onErrorPlaceholderNode('on-error_1', 'left'),
+            onErrorPlaceholderNode('on-error_1', 'right'),
+        ];
+
+        const edges: Edge[] = [
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'on-error_1'),
+            edge('on-error_1', 'on-error_1-onError-top-ghost'),
+            edge('on-error_1-onError-top-ghost', 'on-error_1-onError-left-placeholder-0'),
+            edge('on-error_1-onError-left-placeholder-0', 'on-error_1-onError-bottom-ghost'),
+            edge('on-error_1-onError-top-ghost', 'on-error_1-onError-right-placeholder-0'),
+            edge('on-error_1-onError-right-placeholder-0', 'on-error_1-onError-bottom-ghost'),
+            edge('on-error_1-onError-bottom-ghost', 'loop_1-loop-bottom-ghost'),
+        ];
+
+        expect(collectScopeEdgeViolations(buildElkGraph(nodes, edges, 'TB'))).toEqual([]);
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        // The on-error node sits on the loop ring's right side and keeps its
+        // own pulled box gap
+        expect(positionOf(result.nodes, 'on-error_1').x - positionOf(result.nodes, 'loop_1').x).toBe(100);
+
+        const onErrorBottom = positionOf(result.nodes, 'on-error_1').y + 72;
+        const onErrorTopBarY = positionOf(result.nodes, 'on-error_1-onError-top-ghost').y;
+
+        expect(onErrorTopBarY - onErrorBottom).toBe(TOP_BOX_GAP);
+    });
+});

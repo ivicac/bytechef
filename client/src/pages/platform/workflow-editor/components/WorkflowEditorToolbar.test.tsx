@@ -83,14 +83,14 @@ describe('WorkflowEditorToolbar - layout engine button', () => {
         expect(screen.getByLabelText('Switch to standard layout engine')).toBeInTheDocument();
     });
 
-    it('is disabled when the workflow contains an unsupported dispatcher', () => {
+    it('is disabled when the workflow contains a cluster root', () => {
         useWorkflowDataStore.setState({
             nodes: [
                 {
-                    data: {componentName: 'on-error', taskDispatcher: true, taskDispatcherId: 'on-error_1'},
-                    id: 'on-error_1',
+                    data: {clusterRoot: true, componentName: 'aiAgent', workflowNodeName: 'aiAgent_1'},
+                    id: 'aiAgent_1',
                     position: {x: 0, y: 0},
-                    type: 'workflow',
+                    type: 'clusterRoot',
                 },
             ],
         });
