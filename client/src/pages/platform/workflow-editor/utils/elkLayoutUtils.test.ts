@@ -675,6 +675,45 @@ describe('getElkLayoutElements', () => {
         expect(outerBottomBarY - (innerBottomBarY + 2)).toBe(BOX_GAP);
     });
 
+    it('centers a short branch chain between the bars when its sibling is taller', async () => {
+        // dagre parity (centerDispatcherChildrenOnMainAxis): the FALSE branch's
+        // lone task floats centered in the frame interior instead of hugging the
+        // top bar; the tall TRUE chain keeps its designed 94/66 gaps
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            taskNode('childTrue1', {conditionCase: 'caseTrue', conditionId: 'condition_1'}),
+            taskNode('childTrue2', {conditionCase: 'caseTrue', conditionId: 'condition_1'}),
+            taskNode('childTrue3', {conditionCase: 'caseTrue', conditionId: 'condition_1'}),
+            taskNode('childFalse1', {conditionCase: 'caseFalse', conditionId: 'condition_1'}),
+        ];
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'childTrue1'),
+            edge('childTrue1', 'childTrue2'),
+            edge('childTrue2', 'childTrue3'),
+            edge('childTrue3', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'childFalse1'),
+            edge('childFalse1', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1200, direction: 'TB', edges, nodes});
+
+        const topGhostBarY = positionOf(result.nodes, 'condition_1-condition-top-ghost').y;
+        const bottomGhostBarY = positionOf(result.nodes, 'condition_1-condition-bottom-ghost').y;
+
+        // Tall TRUE chain keeps the designed asymmetric gaps
+        expect(positionOf(result.nodes, 'childTrue1').y - (topGhostBarY + 2)).toBe(BAR_TO_CHILD_GAP);
+        expect(bottomGhostBarY - (positionOf(result.nodes, 'childTrue3').y + 72)).toBe(BOX_GAP);
+
+        // Short FALSE chain floats centered in the interior
+        const interiorCenter = (topGhostBarY + 2 + bottomGhostBarY) / 2;
+        const falseChildCenter = positionOf(result.nodes, 'childFalse1').y + 36;
+
+        expect(Math.abs(falseChildCenter - interiorCenter)).toBeLessThanOrEqual(1);
+    });
+
     it('pins a trailing placeholder after a condition onto the chain axis', async () => {
         const {edges, nodes} = singleConditionFixture();
 
@@ -796,11 +835,12 @@ describe('getElkLayoutElements', () => {
         expect(Math.abs(topGhostCenter - (400 + 36))).toBeLessThanOrEqual(1);
     });
 
-    it('top-aligns sibling frames of unequal depth so box gaps stay uniform', async () => {
+    it('floats a shallow sibling frame centered while keeping its box gap uniform', async () => {
         // condition_1's TRUE branch holds a shallow nested condition (empty
-        // branches) while the FALSE branch holds a deeper one — ELK's default
-        // within-layer centering would push the shallower frame down the band,
-        // inflating its condition→box gap
+        // branches) while the FALSE branch holds a deeper one — the shallow
+        // subtree floats centered in the outer interior as one rigid unit
+        // (dagre parity: centerDispatcherChildrenOnMainAxis), so its
+        // condition→box gap must stay the uniform TOP_BOX_GAP throughout
         const nodes: Node[] = [
             conditionNode('condition_1'),
             ...conditionGhostNodes('condition_1'),
@@ -840,10 +880,20 @@ describe('getElkLayoutElements', () => {
 
         expect(shallowTopGhostBarY - shallowConditionBottom).toBe(TOP_BOX_GAP);
 
-        // ...and both sibling frames' bars start at the same height
-        const deepTopGhostBarY = positionOf(result.nodes, 'condition_2-condition-top-ghost').y;
+        // ...the deep defining chain keeps the designed entry gap...
+        const outerTopGhostBarY = positionOf(result.nodes, 'condition_1-condition-top-ghost').y;
 
-        expect(Math.abs(shallowTopGhostBarY - deepTopGhostBarY)).toBeLessThanOrEqual(1);
+        expect(positionOf(result.nodes, 'condition_2').y - (outerTopGhostBarY + 2)).toBe(BAR_TO_CHILD_GAP);
+
+        // ...and the shallow subtree floats centered in the outer interior
+        const outerBottomGhostBarY = positionOf(result.nodes, 'condition_1-condition-bottom-ghost').y;
+        const outerInteriorCenter = (outerTopGhostBarY + 2 + outerBottomGhostBarY) / 2;
+
+        const shallowSubtreeStart = positionOf(result.nodes, 'condition_4').y;
+        const shallowSubtreeEnd = positionOf(result.nodes, 'condition_4-condition-bottom-ghost').y + 2;
+        const shallowSubtreeCenter = (shallowSubtreeStart + shallowSubtreeEnd) / 2;
+
+        expect(Math.abs(shallowSubtreeCenter - outerInteriorCenter)).toBeLessThanOrEqual(1);
     });
 });
 

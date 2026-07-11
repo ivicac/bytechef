@@ -16,7 +16,7 @@ import {
     getLayoutElements,
     positionTriggerPlaceholder,
 } from './layoutUtils';
-import {applySavedPositions} from './postDagreConstraints';
+import {applySavedPositions, isNodePositioned} from './postDagreConstraints';
 
 import type {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 
@@ -112,6 +112,52 @@ function getGhostIds(dispatcherNode: Node): {bottomGhostId: string; topGhostId: 
         bottomGhostId: `${dispatcherNode.id}-${ghostIdSegment}-bottom-ghost`,
         topGhostId: `${dispatcherNode.id}-${ghostIdSegment}-top-ghost`,
     };
+}
+
+/**
+ * Walks a frame's chain from its first child to the frame's bottom bar,
+ * following continuation edges — a nested frame's continuation leaves from its
+ * BOTTOM GHOST, not from the dispatcher node itself. Returns the chain's main
+ * nodes, or undefined when the walk does not cleanly reach the bottom bar
+ * (malformed states are left untouched).
+ */
+function collectChainMainNodes(
+    firstChainNode: Node,
+    bottomGhostId: string,
+    nodesById: Map<string, Node>,
+    edges: Edge[]
+): Node[] | undefined {
+    const chainNodes: Node[] = [];
+    const visitedNodeIds = new Set<string>();
+
+    let currentNode: Node | undefined = firstChainNode;
+
+    while (currentNode && !visitedNodeIds.has(currentNode.id)) {
+        visitedNodeIds.add(currentNode.id);
+        chainNodes.push(currentNode);
+
+        const continuationSourceId = isFrameDispatcherNode(currentNode)
+            ? getGhostIds(currentNode).bottomGhostId
+            : currentNode.id;
+
+        const continuationEdge = edges.find(
+            (candidateEdge) =>
+                candidateEdge.source === continuationSourceId &&
+                nodesById.get(candidateEdge.target)?.type !== 'placeholder'
+        );
+
+        if (!continuationEdge) {
+            return undefined;
+        }
+
+        if (continuationEdge.target === bottomGhostId) {
+            return chainNodes;
+        }
+
+        currentNode = nodesById.get(continuationEdge.target);
+    }
+
+    return undefined;
 }
 
 // Crossing minimization is free to swap the two branch chains of a condition,
@@ -828,11 +874,7 @@ export const getElkLayoutElements = async ({
             });
         });
 
-        // Loop-back rails are decorations excluded from the ELK graph; position
-        // them per dagre's constrainLeftGhostPositions: at least the base ring
-        // width left of the top bar, further left if the body content or nested
-        // rails require it. Innermost-first so nested rings indent outward.
-        const nodesById = new Map(nodes.map((node) => [node.id, node]));
+        const layoutedNodesById = new Map(allNodes.map((layoutedNode) => [layoutedNode.id, layoutedNode]));
 
         const isDescendantOfDispatcher = (candidateNode: Node, dispatcherId: string): boolean => {
             const visitedOwnerIds = new Set<string>();
@@ -846,7 +888,7 @@ export const getElkLayoutElements = async ({
 
                 visitedOwnerIds.add(currentOwnerId);
 
-                const ownerNode = nodesById.get(currentOwnerId);
+                const ownerNode = layoutedNodesById.get(currentOwnerId);
 
                 if (!ownerNode) {
                     return false;
@@ -858,6 +900,122 @@ export const getElkLayoutElements = async ({
             return false;
         };
 
+        // dagre parity (centerDispatcherChildrenOnMainAxis): a chain shorter
+        // than its tallest sibling floats centered between the bars instead of
+        // sitting wherever ELK's layer assignment quantized it (layer snapping
+        // plus the top-bar pull leave short chains off-center). The frame's
+        // DEFINING (tallest) chain is never moved — it already sits at the
+        // designed asymmetric bar gaps, which the interior derives from.
+        // Shifts are rigid over each chain's whole subtree, so processing order
+        // across nesting levels does not matter; chains carrying saved
+        // positions still define the tallest extent but are never moved.
+        nodes.forEach((node) => {
+            if (!isFrameDispatcherNode(node)) {
+                return;
+            }
+
+            const {bottomGhostId, topGhostId} = getGhostIds(node);
+
+            const topGhostNode = layoutedNodesById.get(topGhostId);
+            const bottomGhostNode = layoutedNodesById.get(bottomGhostId);
+
+            if (!topGhostNode || !bottomGhostNode) {
+                return;
+            }
+
+            const mainAxis = crossAxis === 'x' ? 'y' : 'x';
+            const interiorCenter =
+                (topGhostNode.position[mainAxis] + GHOST_BAR_THICKNESS + bottomGhostNode.position[mainAxis]) / 2;
+
+            const frameChains: Array<{end: number; memberNodes: Set<Node>; start: number}> = [];
+
+            edges.forEach((entryEdge) => {
+                if (entryEdge.source !== topGhostId) {
+                    return;
+                }
+
+                const firstChainNode = layoutedNodesById.get(entryEdge.target);
+
+                if (
+                    !firstChainNode ||
+                    firstChainNode.type === 'placeholder' ||
+                    firstChainNode.type === 'taskDispatcherLeftGhostNode'
+                ) {
+                    return;
+                }
+
+                const chainNodes = collectChainMainNodes(firstChainNode, bottomGhostId, layoutedNodesById, edges);
+
+                if (!chainNodes) {
+                    return;
+                }
+
+                const chainMemberNodes = new Set<Node>(chainNodes);
+
+                chainNodes.forEach((chainNode) => {
+                    if (!isFrameDispatcherNode(chainNode)) {
+                        return;
+                    }
+
+                    allNodes.forEach((candidateNode) => {
+                        if (isDescendantOfDispatcher(candidateNode, chainNode.id)) {
+                            chainMemberNodes.add(candidateNode);
+                        }
+                    });
+                });
+
+                let chainStart = Infinity;
+                let chainEnd = -Infinity;
+
+                chainMemberNodes.forEach((memberNode) => {
+                    const memberRenderedSize = getRenderedNodeSize(memberNode, direction);
+                    const memberMainSize = mainAxis === 'x' ? memberRenderedSize.width : memberRenderedSize.height;
+
+                    chainStart = Math.min(chainStart, memberNode.position[mainAxis]);
+                    chainEnd = Math.max(chainEnd, memberNode.position[mainAxis] + memberMainSize);
+                });
+
+                frameChains.push({end: chainEnd, memberNodes: chainMemberNodes, start: chainStart});
+            });
+
+            if (frameChains.length < 2) {
+                return;
+            }
+
+            const maxChainExtent = Math.max(...frameChains.map((frameChain) => frameChain.end - frameChain.start));
+
+            frameChains.forEach((frameChain) => {
+                if (frameChain.end - frameChain.start >= maxChainExtent - 1) {
+                    return;
+                }
+
+                const chainHasSavedPosition = [...frameChain.memberNodes].some((memberNode) =>
+                    isNodePositioned((memberNode.data as NodeDataType).metadata)
+                );
+
+                if (chainHasSavedPosition) {
+                    return;
+                }
+
+                const chainShift = interiorCenter - (frameChain.start + frameChain.end) / 2;
+
+                if (Math.abs(chainShift) < 1) {
+                    return;
+                }
+
+                frameChain.memberNodes.forEach((memberNode) => {
+                    memberNode.position = {
+                        ...memberNode.position,
+                        [mainAxis]: memberNode.position[mainAxis] + chainShift,
+                    };
+                });
+            });
+        });
+
+        // Loop-back rails are decorations excluded from the ELK graph; position
+        // them per dagre's constrainLeftGhostPositions: at least the base ring
+        // width left of the top bar, further left if the body content or nested
+        // rails require it. Innermost-first so nested rings indent outward.
         const railNodes = allNodes.filter((candidateNode) => candidateNode.type === 'taskDispatcherLeftGhostNode');
 
         const descendantIdsByRailId = new Map<string, Set<string>>();
