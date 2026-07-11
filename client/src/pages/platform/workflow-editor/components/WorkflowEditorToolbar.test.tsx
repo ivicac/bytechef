@@ -87,8 +87,8 @@ describe('WorkflowEditorToolbar - layout engine button', () => {
         useWorkflowDataStore.setState({
             nodes: [
                 {
-                    data: {componentName: 'loop', taskDispatcher: true, taskDispatcherId: 'loop_1'},
-                    id: 'loop_1',
+                    data: {componentName: 'branch', taskDispatcher: true, taskDispatcherId: 'branch_1'},
+                    id: 'branch_1',
                     position: {x: 0, y: 0},
                     type: 'workflow',
                 },

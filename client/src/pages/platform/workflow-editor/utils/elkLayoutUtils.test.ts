@@ -93,7 +93,77 @@ const conditionPlaceholderNode = (conditionId: string, side: 'left' | 'right'): 
     type: 'placeholder',
 });
 
+const loopNode = (
+    id: string,
+    owner?: {conditionCase: 'caseTrue' | 'caseFalse'; conditionId: string} | {loopId: string}
+): Node => ({
+    data: {
+        componentName: 'loop',
+        ...(owner && 'conditionId' in owner
+            ? {
+                  conditionData: {
+                      conditionCase: owner.conditionCase,
+                      conditionId: owner.conditionId,
+                      index: 0,
+                  },
+              }
+            : {}),
+        ...(owner && 'loopId' in owner ? {loopData: {index: 0, loopId: owner.loopId}} : {}),
+        taskDispatcher: true,
+        taskDispatcherId: id,
+        workflowNodeName: id,
+    },
+    id,
+    position: {x: 0, y: 0},
+    type: 'workflow',
+});
+
+const loopChildTaskNode = (id: string, loopId: string): Node => ({
+    data: {componentName: 'mailchimp', loopData: {index: 0, loopId}, workflowNodeName: id},
+    id,
+    position: {x: 0, y: 0},
+    type: 'workflow',
+});
+
+// Mirrors createLoopNode: top ghost, loop-back rail ghost, bottom ghost — the
+// bottom ghost genuinely has no loopId in its data, only taskDispatcherId
+const loopAuxNodes = (loopId: string): Node[] => [
+    {
+        data: {loopId, taskDispatcherId: loopId},
+        id: `${loopId}-loop-top-ghost`,
+        position: {x: 0, y: 0},
+        type: 'taskDispatcherTopGhostNode',
+    },
+    {
+        data: {loopId, taskDispatcherId: loopId},
+        id: `${loopId}-taskDispatcher-left-ghost`,
+        position: {x: 0, y: 0},
+        type: 'taskDispatcherLeftGhostNode',
+    },
+    {
+        data: {taskDispatcherId: loopId},
+        id: `${loopId}-loop-bottom-ghost`,
+        position: {x: 0, y: 0},
+        type: 'taskDispatcherBottomGhostNode',
+    },
+];
+
+const loopPlaceholderNode = (loopId: string): Node => ({
+    data: {label: '+', loopId, taskDispatcherId: loopId},
+    id: `${loopId}-loop-placeholder-0`,
+    position: {x: 0, y: 0},
+    type: 'placeholder',
+});
+
 const edge = (source: string, target: string): Edge => ({id: `${source}=>${target}`, source, target});
+
+// Base loop wiring per createLoopEdges: loop→top, top→rail→bottom (rail), plus
+// top→content→bottom supplied by the caller
+const loopStructureEdges = (loopId: string): Edge[] => [
+    edge(loopId, `${loopId}-loop-top-ghost`),
+    edge(`${loopId}-loop-top-ghost`, `${loopId}-taskDispatcher-left-ghost`),
+    edge(`${loopId}-taskDispatcher-left-ghost`, `${loopId}-loop-bottom-ghost`),
+];
 
 const childIds = (elkNode: ElkNode | undefined): string[] => (elkNode?.children ?? []).map((child) => child.id).sort();
 
@@ -774,5 +844,253 @@ describe('getElkLayoutElements', () => {
         const deepTopGhostBarY = positionOf(result.nodes, 'condition_2-condition-top-ghost').y;
 
         expect(Math.abs(shallowTopGhostBarY - deepTopGhostBarY)).toBeLessThanOrEqual(1);
+    });
+});
+
+describe('getElkLayoutElements with loops', () => {
+    const populatedLoopFixture = () => {
+        const nodes: Node[] = [
+            taskNode('task1'),
+            loopNode('loop_1'),
+            ...loopAuxNodes('loop_1'),
+            loopChildTaskNode('loopChild1', 'loop_1'),
+            loopChildTaskNode('loopChild2', 'loop_1'),
+            taskNode('task2'),
+        ];
+
+        const edges: Edge[] = [
+            edge('task1', 'loop_1'),
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'loopChild1'),
+            edge('loopChild1', 'loopChild2'),
+            edge('loopChild2', 'loop_1-loop-bottom-ghost'),
+            edge('loop_1-loop-bottom-ghost', 'task2'),
+        ];
+
+        return {edges, nodes};
+    };
+
+    it('wraps loop members in a frame and keeps the loop node outside it', () => {
+        const {edges, nodes} = populatedLoopFixture();
+
+        const graph = buildElkGraph(nodes, edges, 'TB');
+
+        expect(childIds(graph)).toEqual(['loop_1', getFrameId('loop_1'), 'task1', 'task2']);
+
+        const frame = findChild(graph, getFrameId('loop_1'));
+
+        expect(childIds(frame)).toEqual([
+            'loopChild1',
+            'loopChild2',
+            'loop_1-loop-bottom-ghost',
+            'loop_1-loop-top-ghost',
+            'loop_1-taskDispatcher-left-ghost',
+        ]);
+
+        expect(collectScopeEdgeViolations(graph)).toEqual([]);
+    });
+
+    it('centers the loop body under the loop node with the rail to the left', async () => {
+        const {edges, nodes} = populatedLoopFixture();
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        // Content chain sits on the loop axis; the rail is not an entry
+        const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
+        const childCenter = positionOf(result.nodes, 'loopChild1').x + 36;
+
+        expect(Math.abs(childCenter - loopCenter)).toBeLessThanOrEqual(1);
+
+        // Rail hangs left of the content chain
+        const railCenter = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x + 1;
+
+        expect(railCenter).toBeLessThan(childCenter);
+
+        // No label pull on loops: symmetric box gaps, uniform chain step inside
+        const loopBottom = positionOf(result.nodes, 'loop_1').y + 72;
+        const topGhostBarY = positionOf(result.nodes, 'loop_1-loop-top-ghost').y;
+        const bottomGhostBarY = positionOf(result.nodes, 'loop_1-loop-bottom-ghost').y;
+        const firstChildTop = positionOf(result.nodes, 'loopChild1').y;
+        const secondChildTop = positionOf(result.nodes, 'loopChild2').y;
+
+        expect(topGhostBarY - loopBottom).toBe(BOX_GAP);
+        expect(firstChildTop - (topGhostBarY + 2)).toBe(BOX_GAP);
+        expect(secondChildTop - firstChildTop).toBe(CHAIN_STEP);
+        expect(bottomGhostBarY - (secondChildTop + 72)).toBe(BOX_GAP);
+    });
+
+    it('centers an empty loop placeholder inside the frame', async () => {
+        const nodes: Node[] = [loopNode('loop_1'), ...loopAuxNodes('loop_1'), loopPlaceholderNode('loop_1')];
+
+        const edges: Edge[] = [
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'loop_1-loop-placeholder-0'),
+            edge('loop_1-loop-placeholder-0', 'loop_1-loop-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
+        const placeholderCenter = positionOf(result.nodes, 'loop_1-loop-placeholder-0').x + 36;
+
+        expect(Math.abs(placeholderCenter - loopCenter)).toBeLessThanOrEqual(1);
+
+        const topGhostBarY = positionOf(result.nodes, 'loop_1-loop-top-ghost').y;
+        const bottomGhostBarY = positionOf(result.nodes, 'loop_1-loop-bottom-ghost').y;
+        const placeholderMainCenter = positionOf(result.nodes, 'loop_1-loop-placeholder-0').y + 14;
+
+        expect(Math.abs(placeholderMainCenter - (topGhostBarY + bottomGhostBarY + 2) / 2)).toBeLessThanOrEqual(1);
+    });
+
+    it('keeps a loop on its branch side inside a condition and centers its body', async () => {
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            loopNode('loop_1', {conditionCase: 'caseTrue', conditionId: 'condition_1'}),
+            ...loopAuxNodes('loop_1'),
+            loopChildTaskNode('loopChild1', 'loop_1'),
+            taskNode('childFalse1', {conditionCase: 'caseFalse', conditionId: 'condition_1'}),
+        ];
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'loop_1'),
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'loopChild1'),
+            edge('loopChild1', 'loop_1-loop-bottom-ghost'),
+            edge('loop_1-loop-bottom-ghost', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'childFalse1'),
+            edge('childFalse1', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        // Loop (caseTrue) stays left of the FALSE branch child
+        expect(positionOf(result.nodes, 'loop_1').x).toBeLessThan(positionOf(result.nodes, 'childFalse1').x);
+
+        // The loop body centers under the loop node even when nested
+        const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
+        const loopChildCenter = positionOf(result.nodes, 'loopChild1').x + 36;
+
+        expect(Math.abs(loopChildCenter - loopCenter)).toBeLessThanOrEqual(1);
+
+        // Uniform box gap at nesting depth, no label pull on the loop
+        const loopBottom = positionOf(result.nodes, 'loop_1').y + 72;
+        const loopTopBarY = positionOf(result.nodes, 'loop_1-loop-top-ghost').y;
+
+        expect(loopTopBarY - loopBottom).toBe(BOX_GAP);
+    });
+
+    it('lays out a condition nested inside a loop body', async () => {
+        const nodes: Node[] = [
+            loopNode('loop_1'),
+            ...loopAuxNodes('loop_1'),
+            conditionNode('condition_1', undefined),
+            ...conditionGhostNodes('condition_1'),
+            conditionPlaceholderNode('condition_1', 'left'),
+            conditionPlaceholderNode('condition_1', 'right'),
+        ];
+
+        (nodes[4].data as Record<string, unknown>).loopData = {index: 0, loopId: 'loop_1'};
+
+        const edges: Edge[] = [
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'condition_1'),
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'condition_1-condition-left-placeholder-0'),
+            edge('condition_1-condition-top-ghost', 'condition_1-condition-right-placeholder-0'),
+            edge('condition_1-condition-left-placeholder-0', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-right-placeholder-0', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-bottom-ghost', 'loop_1-loop-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        expect(collectScopeEdgeViolations(buildElkGraph(nodes, edges, 'TB'))).toEqual([]);
+
+        // The nested condition centers on the loop axis, and its own frame keeps
+        // the condition label pull
+        const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
+        const conditionCenter = positionOf(result.nodes, 'condition_1').x + 36;
+
+        expect(Math.abs(conditionCenter - loopCenter)).toBeLessThanOrEqual(1);
+
+        const conditionBottom = positionOf(result.nodes, 'condition_1').y + 72;
+        const conditionTopBarY = positionOf(result.nodes, 'condition_1-condition-top-ghost').y;
+
+        expect(conditionTopBarY - conditionBottom).toBe(TOP_BOX_GAP);
+    });
+
+    it('keeps uniform gaps in a loop nested inside a loop', async () => {
+        const nodes: Node[] = [
+            loopNode('loop_1'),
+            ...loopAuxNodes('loop_1'),
+            loopNode('loop_2', {loopId: 'loop_1'}),
+            ...loopAuxNodes('loop_2'),
+            loopChildTaskNode('innerChild', 'loop_2'),
+        ];
+
+        const edges: Edge[] = [
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'loop_2'),
+            ...loopStructureEdges('loop_2'),
+            edge('loop_2-loop-top-ghost', 'innerChild'),
+            edge('innerChild', 'loop_2-loop-bottom-ghost'),
+            edge('loop_2-loop-bottom-ghost', 'loop_1-loop-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        const outerLoopBottom = positionOf(result.nodes, 'loop_1').y + 72;
+        const outerTopBarY = positionOf(result.nodes, 'loop_1-loop-top-ghost').y;
+        const innerLoopBottom = positionOf(result.nodes, 'loop_2').y + 72;
+        const innerTopBarY = positionOf(result.nodes, 'loop_2-loop-top-ghost').y;
+
+        expect(outerTopBarY - outerLoopBottom).toBe(BOX_GAP);
+        expect(innerTopBarY - innerLoopBottom).toBe(BOX_GAP);
+
+        // Merge stub inner bottom bar → outer bottom bar keeps the box gap
+        const innerBottomBarY = positionOf(result.nodes, 'loop_2-loop-bottom-ghost').y;
+        const outerBottomBarY = positionOf(result.nodes, 'loop_1-loop-bottom-ghost').y;
+
+        expect(outerBottomBarY - (innerBottomBarY + 2)).toBe(BOX_GAP);
+    });
+
+    it('lays out childless dispatchers as plain chain nodes inside a loop', async () => {
+        const loopBreakNode: Node = {
+            data: {
+                componentName: 'loopBreak',
+                loopData: {index: 0, loopId: 'loop_1'},
+                taskDispatcher: true,
+                taskDispatcherId: 'loopBreak_1',
+                workflowNodeName: 'loopBreak_1',
+            },
+            id: 'loopBreak_1',
+            position: {x: 0, y: 0},
+            type: 'workflow',
+        };
+
+        const nodes: Node[] = [
+            loopNode('loop_1'),
+            ...loopAuxNodes('loop_1'),
+            loopChildTaskNode('loopChild1', 'loop_1'),
+            loopBreakNode,
+        ];
+
+        const edges: Edge[] = [
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'loopChild1'),
+            edge('loopChild1', 'loopBreak_1'),
+            edge('loopBreak_1', 'loop_1-loop-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        // loopBreak gets no frame and steps like an ordinary task
+        expect(result.nodes.map((node) => node.id)).not.toContain(getFrameId('loopBreak_1'));
+
+        const chainStep = positionOf(result.nodes, 'loopBreak_1').y - positionOf(result.nodes, 'loopChild1').y;
+
+        expect(chainStep).toBe(CHAIN_STEP);
     });
 });

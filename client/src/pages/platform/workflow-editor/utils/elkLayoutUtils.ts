@@ -8,6 +8,7 @@ import {NodeDataType} from '@/shared/types';
 import {Edge, Node} from '@xyflow/react';
 
 import {getCrossAxis} from './directionUtils';
+import {ELK_FRAME_DISPATCHER_COMPONENT_NAMES} from './isElkLayoutSupported';
 import {
     GetLayoutElementsProps,
     filterAndDedupeLayoutEdges,
@@ -61,10 +62,34 @@ const GHOST_BAR_THICKNESS = 2;
 // instead of one as wide as a fully populated frame.
 const CASE_PLACEHOLDER_CROSS_FOOTPRINT = 200;
 
+// The loop-back rail tick rendered by TaskDispatcherLeftGhostNode: a 2×16px
+// element (`w-0.5 h-4` in TB) — the rail LINE itself is drawn by the edges
+// running top ghost → left ghost → bottom ghost.
+const LEFT_RAIL_TICK_SIZE = 16;
+
+const LEFT_GHOST_ID_SUFFIX = '-taskDispatcher-left-ghost';
+
 const FRAME_ID_SUFFIX = '__frame';
 
-export function getFrameId(conditionId: string): string {
-    return `${conditionId}${FRAME_ID_SUFFIX}`;
+export function getFrameId(dispatcherId: string): string {
+    return `${dispatcherId}${FRAME_ID_SUFFIX}`;
+}
+
+function isFrameDispatcherNode(node: Node): boolean {
+    const nodeData = node.data as NodeDataType;
+
+    return nodeData.taskDispatcher === true && ELK_FRAME_DISPATCHER_COMPONENT_NAMES.includes(nodeData.componentName);
+}
+
+// Ghost bar ids embed the dispatcher kind: `<id>-condition-top-ghost`,
+// `<id>-loop-bottom-ghost`, ...
+function getGhostIds(dispatcherNode: Node): {bottomGhostId: string; topGhostId: string} {
+    const componentName = (dispatcherNode.data as NodeDataType).componentName;
+
+    return {
+        bottomGhostId: `${dispatcherNode.id}-${componentName}-bottom-ghost`,
+        topGhostId: `${dispatcherNode.id}-${componentName}-top-ghost`,
+    };
 }
 
 // Crossing minimization is free to swap the two branch chains of a condition,
@@ -109,6 +134,8 @@ function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: nu
         mainAxisSize = GHOST_BAR_THICKNESS;
     } else if (node.type === 'taskDispatcherBottomGhostNode') {
         mainAxisSize = GHOST_BAR_THICKNESS + BOTTOM_BAR_EXIT_EXTENSION;
+    } else if (node.type === 'taskDispatcherLeftGhostNode') {
+        mainAxisSize = LEFT_RAIL_TICK_SIZE;
     } else if (node.type === 'placeholder') {
         // DOM box is 28px tall but 72px wide (mx-[22px] margins around the "+"),
         // so the main-axis footprint differs by direction
@@ -121,6 +148,10 @@ function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: nu
 
     if (node.type === 'placeholder') {
         crossAxisSize = CASE_PLACEHOLDER_CROSS_FOOTPRINT;
+    } else if (node.type === 'taskDispatcherLeftGhostNode') {
+        // The loop-back rail occupies a narrow column left of the loop body, not
+        // a full 240px task column
+        crossAxisSize = NODE_ANCHOR_SIZE;
     }
 
     if (direction === 'TB') {
@@ -131,25 +162,23 @@ function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: nu
 }
 
 /**
- * Returns the id of the condition that owns this node inside its frame, or
- * undefined for root-scope nodes. Auxiliary nodes (top/bottom ghosts, case
- * placeholders) reference their condition via conditionId + taskDispatcherId;
- * the condition task node itself also carries taskDispatcherId (its own name)
- * but must stay OUTSIDE its frame, hence the node.id check. Task children —
- * including nested condition nodes — carry conditionData.conditionId.
+ * Returns the id of the dispatcher that owns this node inside its frame, or
+ * undefined for root-scope nodes. Auxiliary nodes (ghost bars, rail ghosts,
+ * placeholders) carry the owning dispatcher's id in taskDispatcherId, while a
+ * dispatcher node itself carries its OWN id there and must stay OUTSIDE its
+ * frame — hence the id inequality check. This must not rely on per-dispatcher
+ * id fields (the loop bottom ghost has no loopId, only taskDispatcherId).
+ * Child tasks — including nested dispatcher nodes — carry
+ * conditionData.conditionId / loopData.loopId.
  */
-function getOwningConditionId(node: Node): string | undefined {
+function getOwningDispatcherId(node: Node): string | undefined {
     const nodeData = node.data as NodeDataType;
 
-    if (
-        nodeData.conditionId &&
-        nodeData.taskDispatcherId === nodeData.conditionId &&
-        node.id !== nodeData.conditionId
-    ) {
-        return nodeData.conditionId;
+    if (nodeData.taskDispatcherId && nodeData.taskDispatcherId !== node.id) {
+        return nodeData.taskDispatcherId;
     }
 
-    return nodeData.conditionData?.conditionId;
+    return nodeData.conditionData?.conditionId || nodeData.loopData?.loopId;
 }
 
 /**
@@ -165,19 +194,13 @@ function getOwningConditionId(node: Node): string | undefined {
 export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDirectionType): ElkNode {
     const nodesById = new Map(nodes.map((node) => [node.id, node]));
 
-    const conditionIds = nodes
-        .filter((node) => {
-            const nodeData = node.data as NodeDataType;
+    const frameDispatcherIds = nodes.filter((node) => isFrameDispatcherNode(node)).map((node) => node.id);
 
-            return nodeData.taskDispatcher === true && nodeData.componentName === 'condition';
-        })
-        .map((node) => node.id);
+    const frameDispatcherIdSet = new Set(frameDispatcherIds);
 
-    const conditionIdSet = new Set(conditionIds);
-
-    // A node's owning condition id may reference a condition that no longer
+    // A node's owning dispatcher id may reference a dispatcher that no longer
     // exists in the node list (e.g. stale conditionData left behind after the
-    // condition itself was deleted). Falling back to the root scope here
+    // dispatcher itself was deleted). Falling back to the root scope here
     // guarantees the node still gets an ELK box and a laid-out position
     // instead of silently keeping its stale coordinates.
     const getScope = (nodeId: string): string => {
@@ -187,13 +210,13 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
             return ELK_ROOT_ID;
         }
 
-        const owningConditionId = getOwningConditionId(node);
+        const owningDispatcherId = getOwningDispatcherId(node);
 
-        if (!owningConditionId || !conditionIdSet.has(owningConditionId)) {
+        if (!owningDispatcherId || !frameDispatcherIdSet.has(owningDispatcherId)) {
             return ELK_ROOT_ID;
         }
 
-        return owningConditionId;
+        return owningDispatcherId;
     };
 
     // Scope chain from a scope up to the root, e.g. ['condition_2', 'condition_1', '__root__']
@@ -232,22 +255,22 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
 
     // Representative of a node at a given (ancestor) scope: the node itself when it
     // lives directly in that scope, otherwise the frame of its topmost enclosing
-    // condition below that scope.
+    // dispatcher below that scope.
     const getRepresentativeInScope = (nodeId: string, scope: string): string => {
         if (getScope(nodeId) === scope) {
             return nodeId;
         }
 
-        let enclosingConditionId = getScope(nodeId);
+        let enclosingDispatcherId = getScope(nodeId);
 
         // Guards against cyclic ownership from malformed state (e.g. duplicate node names
-        // producing conditions that reference each other as their owning scope): once a scope
-        // is seen twice we stop walking and represent the last valid condition reached instead
+        // producing dispatchers that reference each other as their owning scope): once a scope
+        // is seen twice we stop walking and represent the last valid dispatcher reached instead
         // of looping forever.
-        const visitedScopes = new Set([enclosingConditionId]);
+        const visitedScopes = new Set([enclosingDispatcherId]);
 
-        while (getScope(enclosingConditionId) !== scope) {
-            const nextScope = getScope(enclosingConditionId);
+        while (getScope(enclosingDispatcherId) !== scope) {
+            const nextScope = getScope(enclosingDispatcherId);
 
             if (visitedScopes.has(nextScope)) {
                 break;
@@ -255,10 +278,10 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
 
             visitedScopes.add(nextScope);
 
-            enclosingConditionId = nextScope;
+            enclosingDispatcherId = nextScope;
         }
 
-        return getFrameId(enclosingConditionId);
+        return getFrameId(enclosingDispatcherId);
     };
 
     const elkEdgesByScope = new Map<string, ElkExtendedEdge[]>();
@@ -333,17 +356,17 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
             });
         });
 
-        conditionIds.forEach((conditionId) => {
-            if (getScope(conditionId) !== scope) {
+        frameDispatcherIds.forEach((dispatcherId) => {
+            if (getScope(dispatcherId) !== scope) {
                 return;
             }
 
             memberEntries.push({
-                caseRank: getConditionCaseRank(nodesById.get(conditionId)),
+                caseRank: getConditionCaseRank(nodesById.get(dispatcherId)),
                 child: {
-                    children: buildScopeChildren(conditionId),
-                    edges: elkEdgesByScope.get(conditionId) || [],
-                    id: getFrameId(conditionId),
+                    children: buildScopeChildren(dispatcherId),
+                    edges: elkEdgesByScope.get(dispatcherId) || [],
+                    id: getFrameId(dispatcherId),
                     layoutOptions: {...getElkLayoutOptions(direction), ...getChildAlignmentOptions(direction)},
                 },
             });
@@ -397,6 +420,11 @@ function getRenderedNodeSize(node: Node, direction: LayoutDirectionType): {heigh
             return {height: NODE_ANCHOR_SIZE, width: GHOST_BAR_THICKNESS};
         }
 
+        if (node.type === 'taskDispatcherLeftGhostNode') {
+            // `h-0.5 w-4` in TaskDispatcherLeftGhostNode.tsx
+            return {height: GHOST_BAR_THICKNESS, width: LEFT_RAIL_TICK_SIZE};
+        }
+
         if (node.type === 'placeholder') {
             // The 28px "+" square renders with mx-[22px] margins (PlaceholderNode.tsx),
             // so the node's DOM box is 72px wide with the "+" at its center
@@ -412,6 +440,11 @@ function getRenderedNodeSize(node: Node, direction: LayoutDirectionType): {heigh
 
     if (isGhostNode) {
         return {height: GHOST_BAR_THICKNESS, width: NODE_ANCHOR_SIZE};
+    }
+
+    if (node.type === 'taskDispatcherLeftGhostNode') {
+        // `h-4 w-0.5` in TaskDispatcherLeftGhostNode.tsx
+        return {height: LEFT_RAIL_TICK_SIZE, width: GHOST_BAR_THICKNESS};
     }
 
     if (node.type === 'placeholder') {
@@ -446,6 +479,12 @@ export const getElkLayoutElements = async ({
 
         const layoutedGraph = await elk.layout(buildElkGraph(nodes, edges, direction));
 
+        const frameDispatcherKindById = new Map(
+            nodes
+                .filter((node) => isFrameDispatcherNode(node))
+                .map((node) => [node.id, (node.data as NodeDataType).componentName])
+        );
+
         // Flatten ELK's parent-relative coordinates to absolute footprint boxes
         const absoluteBoxes = new Map<string, AbsoluteBoxType>();
 
@@ -454,25 +493,27 @@ export const getElkLayoutElements = async ({
                 let absoluteX = offsetX + (child.x || 0);
                 let absoluteY = offsetY + (child.y || 0);
 
-                // ELK anchors the condition→frame edge anywhere along the wide frame
+                // ELK anchors the dispatcher→frame edge anywhere along the wide frame
                 // boundary, so a straight edge does not imply aligned centers. Shift each
-                // frame (and thereby its whole subtree) so the condition node sits midway
-                // between its two branch ENTRY axes — with branches of unequal width, the
+                // frame (and thereby its whole subtree) so the dispatcher node sits midway
+                // between its branch ENTRY axes — with branches of unequal width, the
                 // frame's bounding-box center drifts toward the wider subtree, so the box
-                // center is only the fallback anchor. The condition is flattened before
-                // its frame because nodes precede frames within a rank in
-                // buildScopeChildren's member order.
+                // center is only the fallback anchor. A loop's rail ghost is not an entry
+                // (the loop body must center under the loop node, rail hanging left). The
+                // dispatcher is flattened before its frame because nodes precede frames
+                // within a rank in buildScopeChildren's member order.
                 if (child.id.endsWith(FRAME_ID_SUFFIX)) {
-                    const conditionId = child.id.slice(0, -FRAME_ID_SUFFIX.length);
-                    const conditionBox = absoluteBoxes.get(conditionId);
+                    const dispatcherId = child.id.slice(0, -FRAME_ID_SUFFIX.length);
+                    const dispatcherBox = absoluteBoxes.get(dispatcherId);
+                    const dispatcherKind = frameDispatcherKindById.get(dispatcherId);
 
-                    if (conditionBox) {
-                        const conditionCenter =
+                    if (dispatcherBox && dispatcherKind) {
+                        const dispatcherCenter =
                             direction === 'TB'
-                                ? conditionBox.x + conditionBox.width / 2
-                                : conditionBox.y + conditionBox.height / 2;
+                                ? dispatcherBox.x + dispatcherBox.width / 2
+                                : dispatcherBox.y + dispatcherBox.height / 2;
 
-                        const topGhostId = `${conditionId}-condition-top-ghost`;
+                        const topGhostId = `${dispatcherId}-${dispatcherKind}-top-ghost`;
                         const branchEntryCenters: number[] = [];
 
                         (child.edges || []).forEach((frameEdge) => {
@@ -481,6 +522,10 @@ export const getElkLayoutElements = async ({
                             }
 
                             (frameEdge.targets || []).forEach((entryId) => {
+                                if (entryId.endsWith(LEFT_GHOST_ID_SUFFIX)) {
+                                    return;
+                                }
+
                                 const entryChild = (child.children || []).find(
                                     (frameChild) => frameChild.id === entryId
                                 );
@@ -504,9 +549,9 @@ export const getElkLayoutElements = async ({
                                 : (direction === 'TB' ? child.width || 0 : child.height || 0) / 2;
 
                         if (direction === 'TB') {
-                            absoluteX += conditionCenter - absoluteX - frameAnchor;
+                            absoluteX += dispatcherCenter - absoluteX - frameAnchor;
                         } else {
-                            absoluteY += conditionCenter - absoluteY - frameAnchor;
+                            absoluteY += dispatcherCenter - absoluteY - frameAnchor;
                         }
                     }
                 }
@@ -576,30 +621,30 @@ export const getElkLayoutElements = async ({
             return {...node, position};
         });
 
-        // Deterministic fixup: center each condition's ghosts on the condition
-        // node's own rendered cross-axis center. ELK's frame box is sized to the
-        // widest branch, and the condition task node itself lives OUTSIDE that
-        // frame (see buildElkGraph), so ELK has no reason to line the ghosts up
-        // with it — this pins the ghost bar exactly under/over the condition node.
+        // Deterministic fixup: center each frame dispatcher's ghost bars on the
+        // dispatcher node's own rendered cross-axis center. ELK's frame box is
+        // sized to the widest branch, and the dispatcher node itself lives
+        // OUTSIDE that frame (see buildElkGraph), so ELK has no reason to line
+        // the ghosts up with it — this pins the bars exactly under/over the node.
         nodes.forEach((node) => {
-            const nodeData = node.data as NodeDataType;
-
-            if (nodeData.taskDispatcher !== true || nodeData.componentName !== 'condition') {
+            if (!isFrameDispatcherNode(node)) {
                 return;
             }
 
-            const conditionNode = allNodes.find((candidateNode) => candidateNode.id === node.id);
+            const dispatcherNode = allNodes.find((candidateNode) => candidateNode.id === node.id);
 
-            if (!conditionNode) {
+            if (!dispatcherNode) {
                 return;
             }
 
-            const conditionRenderedSize = getRenderedNodeSize(node, direction);
-            const conditionCrossCenter =
-                conditionNode.position[crossAxis] +
-                (crossAxis === 'x' ? conditionRenderedSize.width : conditionRenderedSize.height) / 2;
+            const {bottomGhostId, topGhostId} = getGhostIds(node);
 
-            [`${node.id}-condition-top-ghost`, `${node.id}-condition-bottom-ghost`].forEach((ghostId) => {
+            const dispatcherRenderedSize = getRenderedNodeSize(node, direction);
+            const dispatcherCrossCenter =
+                dispatcherNode.position[crossAxis] +
+                (crossAxis === 'x' ? dispatcherRenderedSize.width : dispatcherRenderedSize.height) / 2;
+
+            [topGhostId, bottomGhostId].forEach((ghostId) => {
                 const ghostNode = allNodes.find((candidateNode) => candidateNode.id === ghostId);
 
                 if (!ghostNode) {
@@ -611,68 +656,69 @@ export const getElkLayoutElements = async ({
 
                 ghostNode.position = {
                     ...ghostNode.position,
-                    [crossAxis]: conditionCrossCenter - ghostCrossSize / 2,
+                    [crossAxis]: dispatcherCrossCenter - ghostCrossSize / 2,
                 };
             });
 
-            // Center this condition's empty-branch case placeholders midway between
-            // the two ghost bars on the main axis (dagre parity:
-            // centerDispatcherPlaceholdersOnMainAxis) — ELK's layering otherwise
-            // parks them at whatever layer the sibling branch's depth dictates.
             const mainAxis = crossAxis === 'x' ? 'y' : 'x';
 
-            const topGhostNode = allNodes.find(
-                (candidateNode) => candidateNode.id === `${node.id}-condition-top-ghost`
-            );
-            const bottomGhostNode = allNodes.find(
-                (candidateNode) => candidateNode.id === `${node.id}-condition-bottom-ghost`
-            );
+            const topGhostNode = allNodes.find((candidateNode) => candidateNode.id === topGhostId);
+            const bottomGhostNode = allNodes.find((candidateNode) => candidateNode.id === bottomGhostId);
 
             if (!topGhostNode || !bottomGhostNode) {
                 return;
             }
 
-            topGhostNode.position = {
-                ...topGhostNode.position,
-                [mainAxis]: topGhostNode.position[mainAxis] - TOP_BAR_LABEL_PULL,
-            };
+            // The label pull attaches the TRUE/FALSE case labels to the box top —
+            // loops have no case labels, so their boxes keep the symmetric gap.
+            if ((node.data as NodeDataType).componentName === 'condition') {
+                topGhostNode.position = {
+                    ...topGhostNode.position,
+                    [mainAxis]: topGhostNode.position[mainAxis] - TOP_BAR_LABEL_PULL,
+                };
+            }
 
+            // Center the dispatcher's aux members — empty-branch placeholders and
+            // the loop-back rail tick — midway between the two ghost bars on the
+            // main axis (dagre parity: centerDispatcherPlaceholdersOnMainAxis).
+            // ELK's layering otherwise parks them at whatever layer the sibling
+            // chain's depth dictates.
             const frameMainCenter =
                 (topGhostNode.position[mainAxis] + bottomGhostNode.position[mainAxis] + GHOST_BAR_THICKNESS) / 2;
 
             allNodes.forEach((candidateNode) => {
                 const candidateData = candidateNode.data as NodeDataType;
 
-                if (
-                    candidateNode.type !== 'placeholder' ||
-                    candidateData.conditionId !== node.id ||
-                    !candidateData.conditionCase
-                ) {
+                const isCenterableAuxNode =
+                    candidateNode.type === 'placeholder' || candidateNode.type === 'taskDispatcherLeftGhostNode';
+
+                if (!isCenterableAuxNode || candidateData.taskDispatcherId !== node.id) {
                     return;
                 }
 
-                const placeholderRenderedSize = getRenderedNodeSize(candidateNode, direction);
-                const placeholderMainSize =
-                    mainAxis === 'x' ? placeholderRenderedSize.width : placeholderRenderedSize.height;
+                const auxRenderedSize = getRenderedNodeSize(candidateNode, direction);
+                const auxMainSize = mainAxis === 'x' ? auxRenderedSize.width : auxRenderedSize.height;
 
                 candidateNode.position = {
                     ...candidateNode.position,
-                    [mainAxis]: frameMainCenter - placeholderMainSize / 2,
+                    [mainAxis]: frameMainCenter - auxMainSize / 2,
                 };
             });
         });
 
-        // A trailing "+" placeholder fed by a condition's bottom ghost was aligned
+        // A trailing "+" placeholder fed by a dispatcher's bottom ghost was aligned
         // by ELK against the frame's PRE-shift box, so the entry-axis frame shift
         // leaves it off the chain — pin it back onto the bottom bar's axis.
         edges.forEach((currentEdge) => {
-            if (!currentEdge.source.endsWith('-condition-bottom-ghost')) {
+            if (!currentEdge.source.endsWith('-bottom-ghost')) {
                 return;
             }
 
             const targetNode = allNodes.find((candidateNode) => candidateNode.id === currentEdge.target);
 
-            if (!targetNode || targetNode.type !== 'placeholder' || (targetNode.data as NodeDataType).conditionCase) {
+            const targetData = targetNode?.data as NodeDataType | undefined;
+
+            if (!targetNode || targetNode.type !== 'placeholder' || targetData?.taskDispatcherId) {
                 return;
             }
 

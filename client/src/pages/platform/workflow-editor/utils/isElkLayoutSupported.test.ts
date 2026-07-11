@@ -33,8 +33,27 @@ describe('isElkLayoutSupported', () => {
         expect(isElkLayoutSupported(nodes)).toBe(true);
     });
 
-    it('rejects any non-condition dispatcher', () => {
-        for (const componentName of ['branch', 'each', 'forkJoin', 'loop', 'map', 'parallel']) {
+    it('supports loop dispatchers, including loops nested in conditions', () => {
+        const nodes = [
+            taskNode('task1'),
+            dispatcherNode('condition_1', 'condition'),
+            dispatcherNode('loop_1', 'loop'),
+            dispatcherNode('loop_2', 'loop'),
+        ];
+
+        expect(isElkLayoutSupported(nodes)).toBe(true);
+    });
+
+    it('supports childless dispatchers as plain nodes', () => {
+        for (const componentName of ['loopBreak', 'subflow', 'terminate']) {
+            expect(
+                isElkLayoutSupported([dispatcherNode('loop_1', 'loop'), dispatcherNode('leaf_1', componentName)])
+            ).toBe(true);
+        }
+    });
+
+    it('rejects any unsupported dispatcher', () => {
+        for (const componentName of ['branch', 'each', 'fork-join', 'map', 'on-error', 'parallel']) {
             expect(isElkLayoutSupported([taskNode('task1'), dispatcherNode('dispatcher_1', componentName)])).toBe(
                 false
             );
