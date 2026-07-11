@@ -1502,11 +1502,15 @@ export const getElkLayoutElements = async ({
 
         // Close the ring on the right: with the interior running straight down
         // the spine, a populated ring would be an open left lobe — the bars
-        // just end mid-air on the right. Mirror the rail with a synthetic tick
-        // (same hairline node type) and two smoothstep edges so the ring reads
-        // as a closed box. An EMPTY ring already closes through its "+"
-        // placeholder and gets no mirror.
+        // just end mid-air on the right. Synthesize a right tick (same hairline
+        // node type) and two smoothstep edges so the ring reads as a closed
+        // box. The tick HUGS its own side under the same rules as the rail —
+        // max(bar right end, content icons + padding, nested ticks + ring
+        // indent), innermost-first — a MIRROR of the rail's position would land
+        // on nested rings when the interior is asymmetric. An EMPTY ring
+        // already closes through its "+" placeholder and gets no tick.
         const ringEdges: Edge[] = [];
+        const ringTickRightEdgeByDispatcherId = new Map<string, number>();
 
         railNodes.forEach((railNode) => {
             const railDispatcherId = (railNode.data as NodeDataType).taskDispatcherId;
@@ -1532,9 +1536,51 @@ export const getElkLayoutElements = async ({
                 return;
             }
 
-            const dispatcherCrossCenter = dispatcherNode.position[crossAxis] + NODE_ANCHOR_SIZE / 2;
             const railRenderedSize = getRenderedNodeSize(railNode, direction);
             const railCrossSize = crossAxis === 'x' ? railRenderedSize.width : railRenderedSize.height;
+
+            const descendantIds = descendantIdsByRailId.get(railNode.id) || new Set<string>();
+
+            let rightmostContentEdge = -Infinity;
+
+            allNodes.forEach((candidateNode) => {
+                if (
+                    !descendantIds.has(candidateNode.id) ||
+                    candidateNode.type === 'taskDispatcherTopGhostNode' ||
+                    candidateNode.type === 'taskDispatcherBottomGhostNode' ||
+                    candidateNode.type === 'taskDispatcherLeftGhostNode'
+                ) {
+                    return;
+                }
+
+                const renderedSize = getRenderedNodeSize(candidateNode, direction);
+                const renderedCross = crossAxis === 'x' ? renderedSize.width : renderedSize.height;
+
+                rightmostContentEdge = Math.max(
+                    rightmostContentEdge,
+                    candidateNode.position[crossAxis] + renderedCross
+                );
+            });
+
+            let rightmostNestedTickEdge = -Infinity;
+
+            ringTickRightEdgeByDispatcherId.forEach((nestedTickRightEdge, nestedDispatcherId) => {
+                const nestedDispatcherNode = layoutedNodesById.get(nestedDispatcherId);
+
+                if (nestedDispatcherNode && isDescendantOfDispatcher(nestedDispatcherNode, railDispatcherId)) {
+                    rightmostNestedTickEdge = Math.max(rightmostNestedTickEdge, nestedTickRightEdge);
+                }
+            });
+
+            const barRightEnd = dispatcherNode.position[crossAxis] + NODE_ANCHOR_SIZE;
+            const contentRequired =
+                rightmostContentEdge === -Infinity ? -Infinity : rightmostContentEdge + RAIL_CONTENT_PADDING;
+            const nestingRequired =
+                rightmostNestedTickEdge === -Infinity ? -Infinity : rightmostNestedTickEdge + RAIL_NESTED_RING_INDENT;
+
+            const ringTickRightEdge = Math.max(barRightEnd, contentRequired, nestingRequired);
+
+            ringTickRightEdgeByDispatcherId.set(railDispatcherId, ringTickRightEdge);
 
             const ringTickId = `${railDispatcherId}-taskDispatcher-right-rail`;
             const ringMainAxis = crossAxis === 'x' ? 'y' : 'x';
@@ -1543,7 +1589,7 @@ export const getElkLayoutElements = async ({
                 data: {taskDispatcherId: railDispatcherId},
                 id: ringTickId,
                 position: {
-                    [crossAxis]: 2 * dispatcherCrossCenter - railNode.position[crossAxis] - railCrossSize,
+                    [crossAxis]: ringTickRightEdge - railCrossSize,
                     [ringMainAxis]: railNode.position[ringMainAxis],
                 } as {x: number; y: number},
                 type: 'taskDispatcherLeftGhostNode',

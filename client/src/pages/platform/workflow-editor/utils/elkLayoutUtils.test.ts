@@ -1588,6 +1588,31 @@ describe('getElkLayoutElements with branches', () => {
         expect(Math.abs(branchOneCenter - caseOneCenter)).toBeLessThanOrEqual(1);
     });
 
+    it('nests ring right sides with the same clearance rules as rails', async () => {
+        // The right tick must HUG its own side — max(bar right, content icons
+        // + padding, nested ticks + ring indent) — not mirror the rail's
+        // position: with an asymmetric interior (empty TRUE column left, deep
+        // loop right) the mirror lands ON the nested ring's right side,
+        // drawing two coincident lines through the inner loop's labels
+        const {edges, nodes} = deepSiblingFixture();
+
+        const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
+
+        const outerTick = result.nodes.find((resultNode) => resultNode.id === 'loop_1-taskDispatcher-right-rail');
+        const innerTick = result.nodes.find((resultNode) => resultNode.id === 'loop_2-taskDispatcher-right-rail');
+
+        expect(outerTick).toBeDefined();
+        expect(innerTick).toBeDefined();
+
+        // Outer ring clears the inner ring by the nested-ring indent
+        expect(outerTick!.position.x + 2 - (innerTick!.position.x + 2)).toBeGreaterThanOrEqual(49);
+
+        // ...and clears every interior content icon by the hug padding
+        const loop2IconRight = positionOf(result.nodes, 'loop_2').x + 72;
+
+        expect(outerTick!.position.x + 2 - loop2IconRight).toBeGreaterThanOrEqual(19);
+    });
+
     it('compacts sibling columns of unequal depth independently (dagre parity)', async () => {
         // ELK's global layer bands stretch a chain when a deep sibling column
         // shares the scope: frame boxes get parked in balanced middle layers,
