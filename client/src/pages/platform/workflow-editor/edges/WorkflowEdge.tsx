@@ -257,7 +257,6 @@ export default function WorkflowEdge({
                 <BranchCaseLabel
                     caseKey={caseKey}
                     edgeId={id}
-                    hasEdgeButton
                     layoutDirection={layoutDirection}
                     sourceX={sourceX}
                     sourceY={sourceY}

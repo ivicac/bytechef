@@ -6,33 +6,25 @@ describe('computeBranchCaseLabelPosition', () => {
     const defaultCoords = {sourceX: 100, sourceY: 200, targetX: 300, targetY: 400};
 
     describe('LR layout', () => {
-        it('should position at (sourceX, targetY) without edge button', () => {
+        it('should anchor 8px before the split bar, centered on the case row', () => {
             const result = computeBranchCaseLabelPosition({
                 ...defaultCoords,
                 layoutDirection: 'LR',
             });
 
-            expect(result).toEqual({x: 100, y: 400});
+            expect(result).toEqual({x: 92, y: 400});
         });
 
-        it('should offset y by 10px when hasEdgeButton is true', () => {
+        it('should lift the chip above the icon band when the row shares the dispatcher axis', () => {
             const result = computeBranchCaseLabelPosition({
-                ...defaultCoords,
-                hasEdgeButton: true,
                 layoutDirection: 'LR',
+                sourceX: 100,
+                sourceY: 200,
+                targetX: 300,
+                targetY: 210,
             });
 
-            expect(result).toEqual({x: 100, y: 410});
-        });
-
-        it('should not offset y when hasEdgeButton is false', () => {
-            const result = computeBranchCaseLabelPosition({
-                ...defaultCoords,
-                hasEdgeButton: false,
-                layoutDirection: 'LR',
-            });
-
-            expect(result).toEqual({x: 100, y: 400});
+            expect(result).toEqual({x: 92, y: 140});
         });
     });
 
@@ -40,16 +32,6 @@ describe('computeBranchCaseLabelPosition', () => {
         it('should position at (targetX, sourceY + offset)', () => {
             const result = computeBranchCaseLabelPosition({
                 ...defaultCoords,
-                layoutDirection: 'TB',
-            });
-
-            expect(result).toEqual({x: 300, y: 210});
-        });
-
-        it('should always apply offset in TB mode regardless of hasEdgeButton', () => {
-            const result = computeBranchCaseLabelPosition({
-                ...defaultCoords,
-                hasEdgeButton: true,
                 layoutDirection: 'TB',
             });
 
