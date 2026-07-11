@@ -77,6 +77,10 @@ function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: nu
 
     if (isGhostNode) {
         mainAxisSize = GHOST_BAR_THICKNESS;
+    } else if (node.type === 'placeholder') {
+        // DOM box is 28px tall but 72px wide (mx-[22px] margins around the "+"),
+        // so the main-axis footprint differs by direction
+        mainAxisSize = direction === 'TB' ? PLACEHOLDER_NODE_HEIGHT : NODE_ANCHOR_SIZE;
     } else if (isSmallNode) {
         mainAxisSize = direction === 'TB' ? height : width;
     }
@@ -358,6 +362,12 @@ function getRenderedNodeSize(node: Node, direction: LayoutDirectionType): {heigh
             return {height: NODE_ANCHOR_SIZE, width: GHOST_BAR_THICKNESS};
         }
 
+        if (node.type === 'placeholder') {
+            // The 28px "+" square renders with mx-[22px] margins (PlaceholderNode.tsx),
+            // so the node's DOM box is 72px wide with the "+" at its center
+            return {height: PLACEHOLDER_NODE_HEIGHT, width: NODE_ANCHOR_SIZE};
+        }
+
         if (isSmallNode) {
             return {height: PLACEHOLDER_NODE_HEIGHT, width: PLACEHOLDER_NODE_WIDTH};
         }
@@ -367,6 +377,11 @@ function getRenderedNodeSize(node: Node, direction: LayoutDirectionType): {heigh
 
     if (isGhostNode) {
         return {height: GHOST_BAR_THICKNESS, width: NODE_ANCHOR_SIZE};
+    }
+
+    if (node.type === 'placeholder') {
+        // See LR branch: the placeholder's DOM box is 72px wide (mx-[22px] margins)
+        return {height: PLACEHOLDER_NODE_HEIGHT, width: NODE_ANCHOR_SIZE};
     }
 
     if (isSmallNode) {
@@ -587,9 +602,13 @@ export const getElkLayoutElements = async ({
                     return;
                 }
 
+                const placeholderRenderedSize = getRenderedNodeSize(candidateNode, direction);
+                const placeholderMainSize =
+                    mainAxis === 'x' ? placeholderRenderedSize.width : placeholderRenderedSize.height;
+
                 candidateNode.position = {
                     ...candidateNode.position,
-                    [mainAxis]: frameMainCenter - PLACEHOLDER_NODE_HEIGHT / 2,
+                    [mainAxis]: frameMainCenter - placeholderMainSize / 2,
                 };
             });
         });
@@ -618,9 +637,12 @@ export const getElkLayoutElements = async ({
             const barCrossCenter =
                 barNode.position[crossAxis] + (crossAxis === 'x' ? barRenderedSize.width : barRenderedSize.height) / 2;
 
+            const targetRenderedSize = getRenderedNodeSize(targetNode, direction);
+            const targetCrossSize = crossAxis === 'x' ? targetRenderedSize.width : targetRenderedSize.height;
+
             targetNode.position = {
                 ...targetNode.position,
-                [crossAxis]: barCrossCenter - PLACEHOLDER_NODE_WIDTH / 2,
+                [crossAxis]: barCrossCenter - targetCrossSize / 2,
             };
         });
 

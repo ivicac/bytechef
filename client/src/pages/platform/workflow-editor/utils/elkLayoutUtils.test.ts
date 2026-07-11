@@ -532,8 +532,8 @@ describe('getElkLayoutElements', () => {
 
         const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
 
-        // rendered centers: placeholder 28 wide, condition anchor 72 wide
-        const placeholderCenter = positionOf(result.nodes, 'condition_1-condition-left-placeholder-0').x + 14;
+        // rendered centers: both the placeholder DOM box (mx-margins around the +) and the condition anchor are 72 wide
+        const placeholderCenter = positionOf(result.nodes, 'condition_1-condition-left-placeholder-0').x + 36;
         const nestedConditionCenter = positionOf(result.nodes, 'condition_2').x + 36;
 
         expect(placeholderCenter).toBeLessThan(nestedConditionCenter);
@@ -563,7 +563,7 @@ describe('getElkLayoutElements', () => {
         const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
 
         const conditionCenter = positionOf(result.nodes, 'condition_1').x + 36;
-        const trailingPlaceholderCenter = positionOf(result.nodes, 'final-placeholder').x + 14;
+        const trailingPlaceholderCenter = positionOf(result.nodes, 'final-placeholder').x + 36;
 
         expect(Math.abs(trailingPlaceholderCenter - conditionCenter)).toBeLessThanOrEqual(1);
     });
@@ -589,8 +589,8 @@ describe('getElkLayoutElements', () => {
         // The frame box (spanned by the two case placeholders) is centered on the
         // condition's 72px anchor box
         const conditionCenter = positionOf(result.nodes, 'condition_1').x + 36;
-        const leftPlaceholderCenter = positionOf(result.nodes, 'condition_1-condition-left-placeholder-0').x + 14;
-        const rightPlaceholderCenter = positionOf(result.nodes, 'condition_1-condition-right-placeholder-0').x + 14;
+        const leftPlaceholderCenter = positionOf(result.nodes, 'condition_1-condition-left-placeholder-0').x + 36;
+        const rightPlaceholderCenter = positionOf(result.nodes, 'condition_1-condition-right-placeholder-0').x + 36;
 
         expect(Math.abs((leftPlaceholderCenter + rightPlaceholderCenter) / 2 - conditionCenter)).toBeLessThanOrEqual(1);
 
@@ -632,7 +632,7 @@ describe('getElkLayoutElements', () => {
         // Condition sits midway between the populated chain and the empty-branch placeholder
         const conditionCenter = positionOf(result.nodes, 'condition_1').x + 36;
         const loggerCenter = positionOf(result.nodes, 'loggerTask').x + 36;
-        const placeholderCenter = positionOf(result.nodes, 'condition_1-condition-right-placeholder-0').x + 14;
+        const placeholderCenter = positionOf(result.nodes, 'condition_1-condition-right-placeholder-0').x + 36;
 
         expect(Math.abs((loggerCenter + placeholderCenter) / 2 - conditionCenter)).toBeLessThanOrEqual(1);
     });
