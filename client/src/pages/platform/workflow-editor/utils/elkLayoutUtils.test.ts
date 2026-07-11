@@ -2087,3 +2087,234 @@ describe('getElkLayoutElements with parallel and fork-join', () => {
         expect(positionOf(result.nodes, 'parallel_1').x).toBeLessThan(positionOf(result.nodes, 'childFalse1').x);
     });
 });
+
+describe('getElkLayoutElements with each and map', () => {
+    // Mirrors createEachNode/createMapNode: plain 'each'/'map' ghost segments,
+    // the generic '-taskDispatcher-left-ghost' rail id, and the loop quirk of
+    // a bottom ghost carrying only taskDispatcherId (no eachId/mapId)
+    const ringDispatcherNode = (id: string, componentName: string, extraData: Record<string, unknown> = {}): Node => ({
+        data: {componentName, taskDispatcher: true, taskDispatcherId: id, workflowNodeName: id, ...extraData},
+        id,
+        position: {x: 0, y: 0},
+        type: 'workflow',
+    });
+
+    const ringAuxNodes = (dispatcherId: string, segment: string, ownerKey: string): Node[] => [
+        {
+            data: {[ownerKey]: dispatcherId, taskDispatcherId: dispatcherId},
+            id: `${dispatcherId}-${segment}-top-ghost`,
+            position: {x: 0, y: 0},
+            type: 'taskDispatcherTopGhostNode',
+        },
+        {
+            data: {[ownerKey]: dispatcherId, taskDispatcherId: dispatcherId},
+            id: `${dispatcherId}-taskDispatcher-left-ghost`,
+            position: {x: 0, y: 0},
+            type: 'taskDispatcherLeftGhostNode',
+        },
+        {
+            data: {isNestedBottomGhost: false, taskDispatcherId: dispatcherId},
+            id: `${dispatcherId}-${segment}-bottom-ghost`,
+            position: {x: 0, y: 0},
+            type: 'taskDispatcherBottomGhostNode',
+        },
+    ];
+
+    const ringChildNode = (id: string, extraData: Record<string, unknown>): Node => ({
+        data: {componentName: 'mailchimp', workflowNodeName: id, ...extraData},
+        id,
+        position: {x: 0, y: 0},
+        type: 'workflow',
+    });
+
+    const ringStructureEdges = (dispatcherId: string, segment: string): Edge[] => [
+        edge(dispatcherId, `${dispatcherId}-${segment}-top-ghost`),
+        edge(`${dispatcherId}-${segment}-top-ghost`, `${dispatcherId}-taskDispatcher-left-ghost`),
+        edge(`${dispatcherId}-taskDispatcher-left-ghost`, `${dispatcherId}-${segment}-bottom-ghost`),
+    ];
+
+    it('lays out a populated map chain with the loop ring grammar', async () => {
+        const nodes: Node[] = [
+            taskNode('task1'),
+            ringDispatcherNode('map_1', 'map'),
+            ...ringAuxNodes('map_1', 'map', 'mapId'),
+            ringChildNode('mapChild1', {mapData: {index: 0, mapId: 'map_1'}}),
+            ringChildNode('mapChild2', {mapData: {index: 1, mapId: 'map_1'}}),
+            taskNode('task2'),
+        ];
+
+        const edges: Edge[] = [
+            edge('task1', 'map_1'),
+            ...ringStructureEdges('map_1', 'map'),
+            edge('map_1-map-top-ghost', 'mapChild1'),
+            edge('mapChild1', 'mapChild2'),
+            edge('mapChild2', 'map_1-map-bottom-ghost'),
+            edge('map_1-map-bottom-ghost', 'task2'),
+        ];
+
+        expect(collectScopeEdgeViolations(buildElkGraph(nodes, edges, 'TB'))).toEqual([]);
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        // Ring grammar: body on the right edge, rail mirrored left
+        const mapCenter = positionOf(result.nodes, 'map_1').x + 36;
+
+        expect(positionOf(result.nodes, 'mapChild1').x + 36 - mapCenter).toBe(100);
+        expect(mapCenter - (positionOf(result.nodes, 'map_1-taskDispatcher-left-ghost').x + 1)).toBe(100);
+
+        // The uniform main-axis rhythm at every step
+        const mapBottom = positionOf(result.nodes, 'map_1').y + 72;
+        const topBarY = positionOf(result.nodes, 'map_1-map-top-ghost').y;
+        const bottomBarY = positionOf(result.nodes, 'map_1-map-bottom-ghost').y;
+
+        expect(topBarY - mapBottom).toBe(TOP_BOX_GAP);
+        expect(positionOf(result.nodes, 'mapChild1').y - (topBarY + 2)).toBe(BAR_TO_CHILD_GAP);
+        expect(positionOf(result.nodes, 'mapChild2').y - positionOf(result.nodes, 'mapChild1').y).toBe(CHAIN_STEP);
+        expect(bottomBarY - (positionOf(result.nodes, 'mapChild2').y + 72)).toBe(BOX_GAP);
+        expect(positionOf(result.nodes, 'task2').y - (bottomBarY + 2)).toBe(CHAIN_GAP);
+    });
+
+    it('lays out a single each iteratee on the ring right side', async () => {
+        const nodes: Node[] = [
+            ringDispatcherNode('each_1', 'each'),
+            ...ringAuxNodes('each_1', 'each', 'eachId'),
+            ringChildNode('iterateeChild', {eachData: {eachId: 'each_1', index: 0}}),
+        ];
+
+        const edges: Edge[] = [
+            ...ringStructureEdges('each_1', 'each'),
+            edge('each_1-each-top-ghost', 'iterateeChild'),
+            edge('iterateeChild', 'each_1-each-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        const eachCenter = positionOf(result.nodes, 'each_1').x + 36;
+
+        expect(positionOf(result.nodes, 'iterateeChild').x + 36 - eachCenter).toBe(100);
+        expect(eachCenter - (positionOf(result.nodes, 'each_1-taskDispatcher-left-ghost').x + 1)).toBe(100);
+
+        const topBarY = positionOf(result.nodes, 'each_1-each-top-ghost').y;
+
+        expect(topBarY - (positionOf(result.nodes, 'each_1').y + 72)).toBe(TOP_BOX_GAP);
+        expect(positionOf(result.nodes, 'iterateeChild').y - (topBarY + 2)).toBe(BAR_TO_CHILD_GAP);
+    });
+
+    it('renders an empty each as the square ring', async () => {
+        const nodes: Node[] = [
+            ringDispatcherNode('each_1', 'each'),
+            ...ringAuxNodes('each_1', 'each', 'eachId'),
+            {
+                data: {eachId: 'each_1', label: '+', taskDispatcherId: 'each_1'},
+                id: 'each_1-each-placeholder-0',
+                position: {x: 0, y: 0},
+                type: 'placeholder',
+            },
+        ];
+
+        const edges: Edge[] = [
+            ...ringStructureEdges('each_1', 'each'),
+            edge('each_1-each-top-ghost', 'each_1-each-placeholder-0'),
+            edge('each_1-each-placeholder-0', 'each_1-each-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        const topBarY = positionOf(result.nodes, 'each_1-each-top-ghost').y;
+        const bottomBarY = positionOf(result.nodes, 'each_1-each-bottom-ghost').y;
+        const ringHalfWidth = (bottomBarY - topBarY + 2) / 2;
+
+        const eachCenter = positionOf(result.nodes, 'each_1').x + 36;
+
+        expect(positionOf(result.nodes, 'each_1-each-placeholder-0').x + 36 - eachCenter).toBe(ringHalfWidth);
+        expect(eachCenter - (positionOf(result.nodes, 'each_1-taskDispatcher-left-ghost').x + 1)).toBe(ringHalfWidth);
+    });
+
+    it('keeps a map on its branch side inside a condition', async () => {
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            ringDispatcherNode('map_1', 'map', {
+                conditionData: {conditionCase: 'caseTrue', conditionId: 'condition_1', index: 0},
+            }),
+            ...ringAuxNodes('map_1', 'map', 'mapId'),
+            ringChildNode('mapChild1', {mapData: {index: 0, mapId: 'map_1'}}),
+            taskNode('childFalse1', {conditionCase: 'caseFalse', conditionId: 'condition_1'}),
+        ];
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'map_1'),
+            ...ringStructureEdges('map_1', 'map'),
+            edge('map_1-map-top-ghost', 'mapChild1'),
+            edge('mapChild1', 'map_1-map-bottom-ghost'),
+            edge('map_1-map-bottom-ghost', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'childFalse1'),
+            edge('childFalse1', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        expect(collectScopeEdgeViolations(buildElkGraph(nodes, edges, 'TB'))).toEqual([]);
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        // Map (caseTrue) stays left of the FALSE branch child; body offset
+        expect(positionOf(result.nodes, 'map_1').x).toBeLessThan(positionOf(result.nodes, 'childFalse1').x);
+        expect(positionOf(result.nodes, 'mapChild1').x - positionOf(result.nodes, 'map_1').x).toBe(100);
+    });
+
+    it('walks past the dangling fork-join edge from createEachEdges', async () => {
+        // createEachEdges emits a bogus `fork-join_1-fork-join-bottom-ghost`
+        // continuation (real ids use the camelCase 'forkJoin' segment); the
+        // engine must drop the dangling edge and lay out via the correct one
+        const forkJoinAux: Node[] = [
+            {
+                data: {forkJoinId: 'fork-join_1', taskDispatcherId: 'fork-join_1'},
+                id: 'fork-join_1-forkJoin-top-ghost',
+                position: {x: 0, y: 0},
+                type: 'taskDispatcherTopGhostNode',
+            },
+            {
+                data: {taskDispatcherId: 'fork-join_1'},
+                id: 'fork-join_1-forkJoin-bottom-ghost',
+                position: {x: 0, y: 0},
+                type: 'taskDispatcherBottomGhostNode',
+            },
+        ];
+
+        const nodes: Node[] = [
+            ringDispatcherNode('each_1', 'each'),
+            ...ringAuxNodes('each_1', 'each', 'eachId'),
+            ringDispatcherNode('fork-join_1', 'fork-join', {eachData: {eachId: 'each_1', index: 0}}),
+            ...forkJoinAux,
+            ringChildNode('branchChild', {forkJoinData: {branchIndex: 0, forkJoinId: 'fork-join_1', index: 0}}),
+        ];
+
+        const edges: Edge[] = [
+            ...ringStructureEdges('each_1', 'each'),
+            edge('each_1-each-top-ghost', 'fork-join_1'),
+            edge('fork-join_1', 'fork-join_1-forkJoin-top-ghost'),
+            edge('fork-join_1-forkJoin-top-ghost', 'branchChild'),
+            edge('branchChild', 'fork-join_1-forkJoin-bottom-ghost'),
+            // The dangling inline edge with the WRONG segment
+            edge('fork-join_1-fork-join-bottom-ghost', 'each_1-each-bottom-ghost'),
+            // The correct generic continuation
+            edge('fork-join_1-forkJoin-bottom-ghost', 'each_1-each-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        // The nested fork-join sits on each's ring right side, and its bottom
+        // bar merges into each's bottom bar with the standard stub
+        expect(positionOf(result.nodes, 'fork-join_1').x - positionOf(result.nodes, 'each_1').x).toBe(100);
+
+        const forkJoinBottomY = positionOf(result.nodes, 'fork-join_1-forkJoin-bottom-ghost').y;
+        const eachBottomY = positionOf(result.nodes, 'each_1-each-bottom-ghost').y;
+
+        expect(eachBottomY - (forkJoinBottomY + 2)).toBe(BOX_GAP);
+
+        // The dangling edge is gone from the output
+        expect(result.edges.some((resultEdge) => resultEdge.source === 'fork-join_1-fork-join-bottom-ghost')).toBe(
+            false
+        );
+    });
+});

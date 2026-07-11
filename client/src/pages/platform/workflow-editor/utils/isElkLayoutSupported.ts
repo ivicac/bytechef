@@ -2,11 +2,19 @@ import {CHILDLESS_TASK_DISPATCHER_NAMES} from '@/shared/constants';
 import {NodeDataType} from '@/shared/types';
 import {Node} from '@xyflow/react';
 
-// Dispatchers the ELK engine lays out as compound frames (phase 3b: condition,
-// loop, branch, parallel, fork-join). Childless dispatchers (loopBreak,
-// subflow, terminate) own no children and lay out as plain chain nodes, so
-// they are supported without frames.
-export const ELK_FRAME_DISPATCHER_COMPONENT_NAMES = ['branch', 'condition', 'fork-join', 'loop', 'parallel'];
+// Dispatchers the ELK engine lays out as compound frames (phase 3c: condition,
+// loop, branch, parallel, fork-join, each, map). Childless dispatchers
+// (loopBreak, subflow, terminate) own no children and lay out as plain chain
+// nodes, so they are supported without frames.
+export const ELK_FRAME_DISPATCHER_COMPONENT_NAMES = [
+    'branch',
+    'condition',
+    'each',
+    'fork-join',
+    'loop',
+    'map',
+    'parallel',
+];
 
 const SUPPORTED_DISPATCHER_COMPONENT_NAMES = new Set([
     ...CHILDLESS_TASK_DISPATCHER_NAMES,
@@ -16,7 +24,7 @@ const SUPPORTED_DISPATCHER_COMPONENT_NAMES = new Set([
 /**
  * The experimental ELK layout engine supports plain task nodes, the frame
  * dispatchers listed above (arbitrarily nested in each other), and childless
- * dispatchers. Any other dispatcher (each, map, on-error) or a cluster root
+ * dispatchers. Any other dispatcher (on-error) or a cluster root
  * (AI agent, data stream, approval — any task the server flags `clusterRoot`)
  * makes the workflow unsupported: layout falls back to dagre and the toolbar
  * switch is disabled.

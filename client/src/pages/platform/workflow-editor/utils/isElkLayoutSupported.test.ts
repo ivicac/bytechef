@@ -62,12 +62,14 @@ describe('isElkLayoutSupported', () => {
         }
     });
 
-    it('rejects any unsupported dispatcher', () => {
-        for (const componentName of ['each', 'map', 'on-error']) {
-            expect(isElkLayoutSupported([taskNode('task1'), dispatcherNode('dispatcher_1', componentName)])).toBe(
-                false
-            );
+    it('supports each and map dispatchers', () => {
+        for (const componentName of ['each', 'map']) {
+            expect(isElkLayoutSupported([taskNode('task1'), dispatcherNode('dispatcher_1', componentName)])).toBe(true);
         }
+    });
+
+    it('rejects any unsupported dispatcher', () => {
+        expect(isElkLayoutSupported([taskNode('task1'), dispatcherNode('dispatcher_1', 'on-error')])).toBe(false);
     });
 
     it('rejects AI agent cluster roots', () => {

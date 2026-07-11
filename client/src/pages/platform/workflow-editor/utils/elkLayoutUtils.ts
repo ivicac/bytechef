@@ -253,7 +253,9 @@ function getOwningDispatcherId(node: Node): string | undefined {
         nodeData.loopData?.loopId ||
         nodeData.branchData?.branchId ||
         nodeData.parallelData?.parallelId ||
-        nodeData.forkJoinData?.forkJoinId
+        nodeData.forkJoinData?.forkJoinId ||
+        nodeData.eachData?.eachId ||
+        nodeData.mapData?.mapId
     );
 }
 
