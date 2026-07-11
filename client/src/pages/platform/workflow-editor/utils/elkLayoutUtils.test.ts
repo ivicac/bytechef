@@ -564,6 +564,47 @@ describe('getElkLayoutElements', () => {
         expect(Math.abs(placeholderMainCenter - (topGhostBarY + bottomGhostBarY + 2) / 2)).toBeLessThanOrEqual(1);
     });
 
+    it('gives frame exit edges the node-to-node rhythm', async () => {
+        const {edges, nodes} = singleConditionFixture();
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        // Leaving a box reads like a node→node edge: bottom bar → next node = CHAIN_GAP
+        const bottomGhostBarY = positionOf(result.nodes, 'condition_1-condition-bottom-ghost').y;
+        const nextTaskTop = positionOf(result.nodes, 'task2').y;
+
+        expect(nextTaskTop - (bottomGhostBarY + 2)).toBe(CHAIN_GAP);
+    });
+
+    it('keeps merge stubs between nested and enclosing bottom bars at the box gap', async () => {
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            conditionPlaceholderNode('condition_1', 'left'),
+            conditionNode('condition_2', {conditionCase: 'caseFalse', conditionId: 'condition_1'}),
+            ...conditionGhostNodes('condition_2'),
+            taskNode('innerChild', {conditionCase: 'caseTrue', conditionId: 'condition_2'}),
+        ];
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'condition_1-condition-left-placeholder-0'),
+            edge('condition_1-condition-left-placeholder-0', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'condition_2'),
+            edge('condition_2', 'condition_2-condition-top-ghost'),
+            edge('condition_2-condition-top-ghost', 'innerChild'),
+            edge('innerChild', 'condition_2-condition-bottom-ghost'),
+            edge('condition_2-condition-bottom-ghost', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        const innerBottomBarY = positionOf(result.nodes, 'condition_2-condition-bottom-ghost').y;
+        const outerBottomBarY = positionOf(result.nodes, 'condition_1-condition-bottom-ghost').y;
+
+        expect(outerBottomBarY - (innerBottomBarY + 2)).toBe(BOX_GAP);
+    });
+
     it('pins a trailing placeholder after a condition onto the chain axis', async () => {
         const {edges, nodes} = singleConditionFixture();
 

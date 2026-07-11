@@ -41,6 +41,12 @@ const ELK_SIBLING_SPACING = 50;
 // the standard box gap.
 const TOP_BAR_LABEL_PULL = 28;
 
+// Extra footprint below a bottom bar (bar pinned to the footprint start), so
+// edges LEAVING a box read like node→node edges: bar→next node becomes
+// extension + ELK_LAYER_SPACING + slack = 80, and nested→enclosing bottom-bar
+// merge stubs become extension + ELK_LAYER_SPACING = 66 instead of a cramped 52.
+const BOTTOM_BAR_EXIT_EXTENSION = 14;
+
 // Size of a node's visual anchor: the 72px icon box whose edges carry the
 // connection handles (see `w-[72px]` in TaskDispatcherTopGhostNode.tsx and the
 // icon button in WorkflowNode.tsx, matching PLACEHOLDER_DOM_CROSS_SIZE in
@@ -97,12 +103,12 @@ function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: nu
 
     const isSmallNode = node.type === 'placeholder' || node.type === 'triggerPlaceholder';
 
-    const isGhostNode = node.type === 'taskDispatcherTopGhostNode' || node.type === 'taskDispatcherBottomGhostNode';
-
     let mainAxisSize = ANCHOR_MAIN_FOOTPRINT;
 
-    if (isGhostNode) {
+    if (node.type === 'taskDispatcherTopGhostNode') {
         mainAxisSize = GHOST_BAR_THICKNESS;
+    } else if (node.type === 'taskDispatcherBottomGhostNode') {
+        mainAxisSize = GHOST_BAR_THICKNESS + BOTTOM_BAR_EXIT_EXTENSION;
     } else if (node.type === 'placeholder') {
         // DOM box is 28px tall but 72px wide (mx-[22px] margins around the "+"),
         // so the main-axis footprint differs by direction
@@ -555,6 +561,15 @@ export const getElkLayoutElements = async ({
                 x: box.x + (box.width - renderedSize.width) / 2,
                 y: box.y + (box.height - renderedSize.height) / 2,
             };
+
+            // A bottom bar's footprint carries BOTTOM_BAR_EXIT_EXTENSION below the
+            // bar; pin the bar to the footprint start so the extension lengthens
+            // the exit edge instead of splitting around the bar.
+            if (node.type === 'taskDispatcherBottomGhostNode') {
+                const mainAxis = crossAxis === 'x' ? 'y' : 'x';
+
+                position[mainAxis] = box[mainAxis];
+            }
 
             position[crossAxis] += centeringOffset;
 
