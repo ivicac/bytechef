@@ -1373,11 +1373,9 @@ describe('getElkLayoutElements with branches', () => {
         expect(placeholderCenters[2] - placeholderCenters[1]).toBeGreaterThanOrEqual(249);
     });
 
-    it('separates a wide TRUE branch subtree from a deep FALSE loop subtree', async () => {
-        // The latent cross overlap between boxes in disjoint ELK layers becomes
-        // a real edge crossing once chain centering floats the short subtree
-        // into its sibling's band — the deep loop stack's rail and empty TRUE
-        // column must never cross the wide branch subtree's rightmost case
+    // Mirrors the live "condition3" workflow: a wide TRUE branch subtree
+    // (5 cases, one holding a nested branch) beside a deep FALSE loop stack
+    const deepSiblingFixture = () => {
         const nodes: Node[] = [
             conditionNode('condition_3'),
             ...conditionGhostNodes('condition_3'),
@@ -1460,6 +1458,16 @@ describe('getElkLayoutElements with branches', () => {
             edge('loop_1-loop-bottom-ghost', 'condition_3-condition-bottom-ghost'),
         ];
 
+        return {edges, nodes};
+    };
+
+    it('separates a wide TRUE branch subtree from a deep FALSE loop subtree', async () => {
+        // The latent cross overlap between boxes in disjoint ELK layers becomes
+        // a real edge crossing once chain centering floats the short subtree
+        // into its sibling's band — the deep loop stack's rail and empty TRUE
+        // column must never cross the wide branch subtree's rightmost case
+        const {edges, nodes} = deepSiblingFixture();
+
         const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
 
         // Rightmost TRUE-side extent: the case_3 placeholder column footprint
@@ -1476,6 +1484,47 @@ describe('getElkLayoutElements with branches', () => {
 
         expect(falseRailX).toBeGreaterThan(trueRightEdge);
         expect(falsePlaceholderLeft).toBeGreaterThan(trueRightEdge);
+    });
+
+    it('compacts sibling columns of unequal depth independently (dagre parity)', async () => {
+        // ELK's global layer bands stretch a chain when a deep sibling column
+        // shares the scope: frame boxes get parked in balanced middle layers,
+        // leaving hundreds of px between a dispatcher and its own box. Every
+        // chain must instead stack on the designed footprint rhythm, exactly
+        // like dagre's independently compact columns.
+        const {edges, nodes} = deepSiblingFixture();
+
+        const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
+
+        // Every frame box hangs TOP_BOX_GAP below its own dispatcher...
+        for (const [dispatcherId, barId] of [
+            ['branch_1', 'branch_1-branch-top-ghost'],
+            ['branch_2', 'branch_2-branch-top-ghost'],
+            ['loop_3', 'loop_3-loop-top-ghost'],
+            ['loop_1', 'loop_1-loop-top-ghost'],
+            ['condition_5', 'condition_5-condition-top-ghost'],
+            ['loop_2', 'loop_2-loop-top-ghost'],
+        ]) {
+            const dispatcherBottom = positionOf(result.nodes, dispatcherId).y + 72;
+            const barY = positionOf(result.nodes, barId).y;
+
+            expect(barY - dispatcherBottom).toBe(TOP_BOX_GAP);
+        }
+
+        // ...chain steps inside the FALSE stack stay on the designed rhythm...
+        const loop3BottomBarY = positionOf(result.nodes, 'loop_3-loop-bottom-ghost').y;
+
+        expect(positionOf(result.nodes, 'loop_1').y - (loop3BottomBarY + 2)).toBe(CHAIN_GAP);
+
+        const loop1TopBarY = positionOf(result.nodes, 'loop_1-loop-top-ghost').y;
+
+        expect(positionOf(result.nodes, 'condition_5').y - (loop1TopBarY + 2)).toBe(BAR_TO_CHILD_GAP);
+
+        // ...and the last child still closes its frame with the standard gap
+        const accelo1Bottom = positionOf(result.nodes, 'accelo_1').y + 72;
+        const loop1BottomBarY = positionOf(result.nodes, 'loop_1-loop-bottom-ghost').y;
+
+        expect(loop1BottomBarY - accelo1Bottom).toBe(BOX_GAP);
     });
 
     it('orders branch case columns by the params-derived canonical order, not array order', async () => {

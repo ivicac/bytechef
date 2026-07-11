@@ -766,6 +766,164 @@ export const getElkLayoutElements = async ({
             return {...node, position};
         });
 
+        const layoutedNodesById = new Map(allNodes.map((layoutedNode) => [layoutedNode.id, layoutedNode]));
+
+        // Main-axis compaction (dagre parity: independently compact columns).
+        // ELK's global layer bands stretch a chain whenever a deep sibling
+        // column shares the scope — frame boxes get parked in balanced middle
+        // layers, leaving hundreds of px between a dispatcher and its own box.
+        // Restack every chain deterministically on the engine's footprint
+        // rhythm (anchor footprints separated by ELK_LAYER_SPACING, frames
+        // placed recursively as opaque blocks); ELK's output keeps authority
+        // over the cross axis and ordering only.
+        {
+            const mainAxis = crossAxis === 'x' ? 'y' : 'x';
+
+            const footprintMainOf = (node: Node): number => {
+                const footprintSize = getElkNodeSize(node, direction);
+
+                return mainAxis === 'y' ? footprintSize.height : footprintSize.width;
+            };
+
+            const renderedMainOf = (node: Node): number => {
+                const renderedSize = getRenderedNodeSize(node, direction);
+
+                return mainAxis === 'y' ? renderedSize.height : renderedSize.width;
+            };
+
+            // A bottom bar pins to its footprint start (the exit extension
+            // lengthens the exit edge); everything else centers in its footprint
+            const placeNode = (node: Node, footprintStart: number): void => {
+                const renderedOffset =
+                    node.type === 'taskDispatcherBottomGhostNode'
+                        ? 0
+                        : (footprintMainOf(node) - renderedMainOf(node)) / 2;
+
+                node.position = {...node.position, [mainAxis]: footprintStart + renderedOffset};
+            };
+
+            const findContinuationEdge = (sourceId: string): Edge | undefined =>
+                edges.find((candidateEdge) => {
+                    if (candidateEdge.source !== sourceId) {
+                        return false;
+                    }
+
+                    const targetNode = layoutedNodesById.get(candidateEdge.target);
+
+                    return (
+                        targetNode !== undefined &&
+                        targetNode.type !== 'triggerPlaceholder' &&
+                        targetNode.type !== 'taskDispatcherLeftGhostNode'
+                    );
+                });
+
+            // Places a frame's bars and interior chains; returns the bottom
+            // bar's footprint end. Mutual recursion with placeChain handles
+            // arbitrary nesting depth.
+            const placeFrame = (frameDispatcherNode: Node, frameTopFootprintStart: number): number => {
+                const {bottomGhostId, topGhostId} = getGhostIds(frameDispatcherNode);
+
+                const topGhostNode = layoutedNodesById.get(topGhostId);
+                const bottomGhostNode = layoutedNodesById.get(bottomGhostId);
+
+                if (!topGhostNode || !bottomGhostNode) {
+                    return frameTopFootprintStart;
+                }
+
+                placeNode(topGhostNode, frameTopFootprintStart);
+
+                const interiorStart = frameTopFootprintStart + footprintMainOf(topGhostNode) + ELK_LAYER_SPACING;
+
+                let interiorEnd = interiorStart;
+
+                const seenEntryIds = new Set<string>();
+
+                edges.forEach((entryEdge) => {
+                    if (entryEdge.source !== topGhostId || seenEntryIds.has(entryEdge.target)) {
+                        return;
+                    }
+
+                    seenEntryIds.add(entryEdge.target);
+
+                    const entryNode = layoutedNodesById.get(entryEdge.target);
+
+                    if (!entryNode || entryNode.type === 'taskDispatcherLeftGhostNode') {
+                        return;
+                    }
+
+                    interiorEnd = Math.max(interiorEnd, placeChain(entryNode, bottomGhostId, interiorStart));
+                });
+
+                const bottomBarFootprintStart = interiorEnd + ELK_LAYER_SPACING;
+
+                placeNode(bottomGhostNode, bottomBarFootprintStart);
+
+                return bottomBarFootprintStart + footprintMainOf(bottomGhostNode);
+            };
+
+            // Places one chain starting at chainStart; returns its footprint end
+            const placeChain = (entryNode: Node, terminalId: string | undefined, chainStart: number): number => {
+                let cursor = chainStart;
+                let memberEnd = chainStart;
+
+                const visitedNodeIds = new Set<string>();
+
+                let currentNode: Node | undefined = entryNode;
+
+                while (currentNode && !visitedNodeIds.has(currentNode.id)) {
+                    visitedNodeIds.add(currentNode.id);
+
+                    placeNode(currentNode, cursor);
+
+                    memberEnd = cursor + footprintMainOf(currentNode);
+
+                    if (isFrameDispatcherNode(currentNode)) {
+                        memberEnd = placeFrame(currentNode, memberEnd + ELK_LAYER_SPACING);
+                    }
+
+                    const continuationSourceId = isFrameDispatcherNode(currentNode)
+                        ? getGhostIds(currentNode).bottomGhostId
+                        : currentNode.id;
+
+                    const continuationEdge = findContinuationEdge(continuationSourceId);
+
+                    if (!continuationEdge || continuationEdge.target === terminalId) {
+                        return memberEnd;
+                    }
+
+                    currentNode = layoutedNodesById.get(continuationEdge.target);
+                    cursor = memberEnd + ELK_LAYER_SPACING;
+                }
+
+                return memberEnd;
+            };
+
+            // Root chains: nodes that never appear as an edge target (skipping
+            // decorations); each keeps its current footprint start so the
+            // canvas anchor set by ELK/centering is preserved
+            const edgeTargetIds = new Set(edges.map((currentEdge) => currentEdge.target));
+
+            allNodes.forEach((rootCandidate) => {
+                if (
+                    edgeTargetIds.has(rootCandidate.id) ||
+                    rootCandidate.type === 'triggerPlaceholder' ||
+                    rootCandidate.type === 'placeholder' ||
+                    rootCandidate.type === 'taskDispatcherLeftGhostNode' ||
+                    rootCandidate.type === 'taskDispatcherTopGhostNode' ||
+                    rootCandidate.type === 'taskDispatcherBottomGhostNode' ||
+                    rootCandidate.id === TRIGGER_PLACEHOLDER_NODE_ID
+                ) {
+                    return;
+                }
+
+                const rootFootprintStart =
+                    rootCandidate.position[mainAxis] -
+                    (footprintMainOf(rootCandidate) - renderedMainOf(rootCandidate)) / 2;
+
+                placeChain(rootCandidate, undefined, rootFootprintStart);
+            });
+        }
+
         // Deterministic fixup: center each frame dispatcher's ghost bars on the
         // dispatcher node's own rendered cross-axis center. ELK's frame box is
         // sized to the widest branch, and the dispatcher node itself lives
@@ -873,8 +1031,6 @@ export const getElkLayoutElements = async ({
                 candidateNode.position = auxPosition;
             });
         });
-
-        const layoutedNodesById = new Map(allNodes.map((layoutedNode) => [layoutedNode.id, layoutedNode]));
 
         const isDescendantOfDispatcher = (candidateNode: Node, dispatcherId: string): boolean => {
             const visitedOwnerIds = new Set<string>();
