@@ -1486,6 +1486,36 @@ describe('getElkLayoutElements with branches', () => {
         expect(falsePlaceholderLeft).toBeGreaterThan(trueRightEdge);
     });
 
+    it('packs sibling subtrees at the exact gap and re-anchors the parent', async () => {
+        // The separation sweep must PULL in ELK's over-spaced raw cross
+        // placement (computed for the pre-compaction banded layout), not only
+        // push overlaps apart — and after repacking, the parent dispatcher must
+        // sit back on its entries' anchor axis
+        const {edges, nodes} = deepSiblingFixture();
+
+        const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
+
+        const trueRightEdge = Math.max(
+            positionOf(result.nodes, 'branch_1-branch-case_3-placeholder-0').x + 36 + 100,
+            positionOf(result.nodes, 'subflow_1').x + 36 + 120
+        );
+
+        const falseLeftEdge = Math.min(
+            positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x,
+            positionOf(result.nodes, 'condition_5-condition-left-placeholder-0').x + 36 - 100
+        );
+
+        expect(falseLeftEdge - trueRightEdge).toBeGreaterThanOrEqual(49);
+        expect(falseLeftEdge - trueRightEdge).toBeLessThanOrEqual(51);
+
+        // Two entries (even count): the parent centers on their mean
+        const trueEntryCenter = positionOf(result.nodes, 'branch_1').x + 36;
+        const falseEntryCenter = positionOf(result.nodes, 'loop_3').x + 36;
+        const parentCenter = positionOf(result.nodes, 'condition_3').x + 36;
+
+        expect(Math.abs(parentCenter - (trueEntryCenter + falseEntryCenter) / 2)).toBeLessThanOrEqual(1);
+    });
+
     it('compacts sibling columns of unequal depth independently (dagre parity)', async () => {
         // ELK's global layer bands stretch a chain when a deep sibling column
         // shares the scope: frame boxes get parked in balanced middle layers,

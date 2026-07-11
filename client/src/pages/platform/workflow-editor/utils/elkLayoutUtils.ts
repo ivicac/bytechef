@@ -1300,7 +1300,7 @@ export const getElkLayoutElements = async ({
         frameNodesInnermostFirst.forEach((frameNode) => {
             const {bottomGhostId, topGhostId} = getGhostIds(frameNode);
 
-            const entryColumns: Array<{end: number; memberNodes: Set<Node>; start: number}> = [];
+            const entryColumns: Array<{end: number; entryNode: Node; memberNodes: Set<Node>; start: number}> = [];
             const seenEntryIds = new Set<string>();
 
             edges.forEach((entryEdge) => {
@@ -1352,13 +1352,19 @@ export const getElkLayoutElements = async ({
                     const footprintCross = crossAxis === 'x' ? footprintSize.width : footprintSize.height;
 
                     const memberCrossCenter = memberNode.position[crossAxis] + renderedCross / 2;
-                    const memberHalfWidth = Math.max(renderedCross, footprintCross) / 2;
+
+                    // A rail is a hairline decoration hugging its own frame — its
+                    // dagre-derived 240px footprint would inflate the envelope
+                    const memberHalfWidth =
+                        memberNode.type === 'taskDispatcherLeftGhostNode'
+                            ? renderedCross / 2
+                            : Math.max(renderedCross, footprintCross) / 2;
 
                     columnStart = Math.min(columnStart, memberCrossCenter - memberHalfWidth);
                     columnEnd = Math.max(columnEnd, memberCrossCenter + memberHalfWidth);
                 });
 
-                entryColumns.push({end: columnEnd, memberNodes, start: columnStart});
+                entryColumns.push({end: columnEnd, entryNode, memberNodes, start: columnStart});
             });
 
             if (entryColumns.length < 2) {
@@ -1367,14 +1373,15 @@ export const getElkLayoutElements = async ({
 
             entryColumns.sort((firstColumn, secondColumn) => firstColumn.start - secondColumn.start);
 
+            // Repack: EXACT sibling gap between consecutive footprint envelopes,
+            // pulling in ELK's over-spaced raw cross placement (computed for the
+            // pre-compaction banded layout) as well as pushing overlaps apart
             let occupiedEnd = entryColumns[0].end;
 
             entryColumns.slice(1).forEach((entryColumn) => {
-                const requiredStart = occupiedEnd + ELK_SIBLING_SPACING;
+                const columnShift = occupiedEnd + ELK_SIBLING_SPACING - entryColumn.start;
 
-                if (entryColumn.start < requiredStart) {
-                    const columnShift = requiredStart - entryColumn.start;
-
+                if (Math.abs(columnShift) >= 1) {
                     entryColumn.memberNodes.forEach((memberNode) => {
                         memberNode.position = {
                             ...memberNode.position,
@@ -1382,11 +1389,57 @@ export const getElkLayoutElements = async ({
                         };
                     });
 
+                    entryColumn.start += columnShift;
                     entryColumn.end += columnShift;
                 }
 
                 occupiedEnd = Math.max(occupiedEnd, entryColumn.end);
             });
+
+            // Re-anchor: repacking moved the columns off the entry axis the
+            // flatten pass aligned with the dispatcher, so realign the entry
+            // MEDIAN (odd counts, keeping the middle case's edges straight) or
+            // MEAN (even counts) with the dispatcher's anchor center — the bars
+            // stay pinned under the dispatcher.
+            const dispatcherNode = layoutedNodesById.get(frameNode.id);
+
+            if (!dispatcherNode) {
+                return;
+            }
+
+            const entryCenters = entryColumns
+                .map((entryColumn) => {
+                    const renderedSize = getRenderedNodeSize(entryColumn.entryNode, direction);
+
+                    return (
+                        entryColumn.entryNode.position[crossAxis] +
+                        (crossAxis === 'x' ? renderedSize.width : renderedSize.height) / 2
+                    );
+                })
+                .sort((firstCenter, secondCenter) => firstCenter - secondCenter);
+
+            const entryAnchor =
+                entryCenters.length % 2 === 1
+                    ? entryCenters[(entryCenters.length - 1) / 2]
+                    : entryCenters.reduce((sum, entryCenter) => sum + entryCenter, 0) / entryCenters.length;
+
+            const dispatcherRenderedSize = getRenderedNodeSize(dispatcherNode, direction);
+            const dispatcherCrossCenter =
+                dispatcherNode.position[crossAxis] +
+                (crossAxis === 'x' ? dispatcherRenderedSize.width : dispatcherRenderedSize.height) / 2;
+
+            const anchorShift = dispatcherCrossCenter - entryAnchor;
+
+            if (Math.abs(anchorShift) >= 1) {
+                entryColumns.forEach((entryColumn) => {
+                    entryColumn.memberNodes.forEach((memberNode) => {
+                        memberNode.position = {
+                            ...memberNode.position,
+                            [crossAxis]: memberNode.position[crossAxis] + anchorShift,
+                        };
+                    });
+                });
+            }
         });
 
         // A trailing "+" placeholder fed by a dispatcher's bottom ghost was aligned
