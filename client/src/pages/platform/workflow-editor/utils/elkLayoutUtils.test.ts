@@ -907,15 +907,15 @@ describe('getElkLayoutElements with loops', () => {
 
         expect(railX).toBe(topBarX - 110);
 
-        // No label pull on loops: symmetric box gaps, uniform chain step inside
+        // Loop boxes get the same top-bar pull as conditions; uniform chain step inside
         const loopBottom = positionOf(result.nodes, 'loop_1').y + 72;
         const topGhostBarY = positionOf(result.nodes, 'loop_1-loop-top-ghost').y;
         const bottomGhostBarY = positionOf(result.nodes, 'loop_1-loop-bottom-ghost').y;
         const firstChildTop = positionOf(result.nodes, 'loopChild1').y;
         const secondChildTop = positionOf(result.nodes, 'loopChild2').y;
 
-        expect(topGhostBarY - loopBottom).toBe(BOX_GAP);
-        expect(firstChildTop - (topGhostBarY + 2)).toBe(BOX_GAP);
+        expect(topGhostBarY - loopBottom).toBe(TOP_BOX_GAP);
+        expect(firstChildTop - (topGhostBarY + 2)).toBe(BAR_TO_CHILD_GAP);
         expect(secondChildTop - firstChildTop).toBe(CHAIN_STEP);
         expect(bottomGhostBarY - (secondChildTop + 72)).toBe(BOX_GAP);
     });
@@ -975,11 +975,11 @@ describe('getElkLayoutElements with loops', () => {
 
         expect(Math.abs(loopChildCenter - loopCenter)).toBeLessThanOrEqual(1);
 
-        // Uniform box gap at nesting depth, no label pull on the loop
+        // Uniform pulled top gap at nesting depth
         const loopBottom = positionOf(result.nodes, 'loop_1').y + 72;
         const loopTopBarY = positionOf(result.nodes, 'loop_1-loop-top-ghost').y;
 
-        expect(loopTopBarY - loopBottom).toBe(BOX_GAP);
+        expect(loopTopBarY - loopBottom).toBe(TOP_BOX_GAP);
     });
 
     it('lays out a condition nested inside a loop body', async () => {
@@ -1047,8 +1047,8 @@ describe('getElkLayoutElements with loops', () => {
         const innerLoopBottom = positionOf(result.nodes, 'loop_2').y + 72;
         const innerTopBarY = positionOf(result.nodes, 'loop_2-loop-top-ghost').y;
 
-        expect(outerTopBarY - outerLoopBottom).toBe(BOX_GAP);
-        expect(innerTopBarY - innerLoopBottom).toBe(BOX_GAP);
+        expect(outerTopBarY - outerLoopBottom).toBe(TOP_BOX_GAP);
+        expect(innerTopBarY - innerLoopBottom).toBe(TOP_BOX_GAP);
 
         // Merge stub inner bottom bar → outer bottom bar keeps the box gap
         const innerBottomBarY = positionOf(result.nodes, 'loop_2-loop-bottom-ghost').y;

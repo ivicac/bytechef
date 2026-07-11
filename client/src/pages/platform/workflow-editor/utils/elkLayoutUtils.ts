@@ -680,14 +680,13 @@ export const getElkLayoutElements = async ({
                 return;
             }
 
-            // The label pull attaches the TRUE/FALSE case labels to the box top —
-            // loops have no case labels, so their boxes keep the symmetric gap.
-            if ((node.data as NodeDataType).componentName === 'condition') {
-                topGhostNode.position = {
-                    ...topGhostNode.position,
-                    [mainAxis]: topGhostNode.position[mainAxis] - TOP_BAR_LABEL_PULL,
-                };
-            }
+            // Pull the box's top bar toward the dispatcher so the box reads as
+            // attached to its node (and, for conditions, so the TRUE/FALSE labels
+            // sit on the box edge instead of floating).
+            topGhostNode.position = {
+                ...topGhostNode.position,
+                [mainAxis]: topGhostNode.position[mainAxis] - TOP_BAR_LABEL_PULL,
+            };
 
             // Center the dispatcher's aux members — empty-branch placeholders and
             // the loop-back rail tick — midway between the two ghost bars on the
