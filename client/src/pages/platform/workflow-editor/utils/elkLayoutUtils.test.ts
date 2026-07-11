@@ -537,6 +537,13 @@ describe('getElkLayoutElements', () => {
         const nestedConditionCenter = positionOf(result.nodes, 'condition_2').x + 36;
 
         expect(placeholderCenter).toBeLessThan(nestedConditionCenter);
+
+        // Even with a wide caseFalse subtree, the condition sits midway between its
+        // two branch entry axes — NOT over the frame's bounding-box center, which
+        // would drift toward the wider subtree
+        const conditionCenter = positionOf(result.nodes, 'condition_1').x + 36;
+
+        expect(Math.abs((placeholderCenter + nestedConditionCenter) / 2 - conditionCenter)).toBeLessThanOrEqual(1);
     });
 
     it('centers an empty condition frame on the condition node with a uniform gap', async () => {

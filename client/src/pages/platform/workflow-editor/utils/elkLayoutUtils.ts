@@ -393,18 +393,58 @@ export const getElkLayoutElements = async ({
                 let absoluteY = offsetY + (child.y || 0);
 
                 // ELK anchors the condition→frame edge anywhere along the wide frame
-                // boundary, so a straight edge does not imply aligned centers. Center
-                // each frame (and thereby its whole subtree) on its condition node's
-                // anchor; the condition is flattened before its frame because nodes
-                // precede frames within a rank in buildScopeChildren's member order.
+                // boundary, so a straight edge does not imply aligned centers. Shift each
+                // frame (and thereby its whole subtree) so the condition node sits midway
+                // between its two branch ENTRY axes — with branches of unequal width, the
+                // frame's bounding-box center drifts toward the wider subtree, so the box
+                // center is only the fallback anchor. The condition is flattened before
+                // its frame because nodes precede frames within a rank in
+                // buildScopeChildren's member order.
                 if (child.id.endsWith(FRAME_ID_SUFFIX)) {
-                    const conditionBox = absoluteBoxes.get(child.id.slice(0, -FRAME_ID_SUFFIX.length));
+                    const conditionId = child.id.slice(0, -FRAME_ID_SUFFIX.length);
+                    const conditionBox = absoluteBoxes.get(conditionId);
 
                     if (conditionBox) {
+                        const conditionCenter =
+                            direction === 'TB'
+                                ? conditionBox.x + conditionBox.width / 2
+                                : conditionBox.y + conditionBox.height / 2;
+
+                        const topGhostId = `${conditionId}-condition-top-ghost`;
+                        const branchEntryCenters: number[] = [];
+
+                        (child.edges || []).forEach((frameEdge) => {
+                            if (!(frameEdge.sources || []).includes(topGhostId)) {
+                                return;
+                            }
+
+                            (frameEdge.targets || []).forEach((entryId) => {
+                                const entryChild = (child.children || []).find(
+                                    (frameChild) => frameChild.id === entryId
+                                );
+
+                                if (!entryChild) {
+                                    return;
+                                }
+
+                                branchEntryCenters.push(
+                                    direction === 'TB'
+                                        ? (entryChild.x || 0) + (entryChild.width || 0) / 2
+                                        : (entryChild.y || 0) + (entryChild.height || 0) / 2
+                                );
+                            });
+                        });
+
+                        const frameAnchor =
+                            branchEntryCenters.length > 0
+                                ? branchEntryCenters.reduce((sum, entryCenter) => sum + entryCenter, 0) /
+                                  branchEntryCenters.length
+                                : (direction === 'TB' ? child.width || 0 : child.height || 0) / 2;
+
                         if (direction === 'TB') {
-                            absoluteX += conditionBox.x + conditionBox.width / 2 - absoluteX - (child.width || 0) / 2;
+                            absoluteX += conditionCenter - absoluteX - frameAnchor;
                         } else {
-                            absoluteY += conditionBox.y + conditionBox.height / 2 - absoluteY - (child.height || 0) / 2;
+                            absoluteY += conditionCenter - absoluteY - frameAnchor;
                         }
                     }
                 }
