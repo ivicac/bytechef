@@ -931,13 +931,15 @@ describe('getElkLayoutElements with loops', () => {
 
         const rightRailNode = result.nodes.find((resultNode) => resultNode.id === 'loop_1-taskDispatcher-right-rail');
         const railNode = result.nodes.find((resultNode) => resultNode.id === 'loop_1-taskDispatcher-left-ghost');
-        const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
 
         expect(rightRailNode).toBeDefined();
         expect(rightRailNode!.type).toBe('taskDispatcherLeftGhostNode');
 
-        // Mirrored across the dispatcher axis, at the rail's main position
-        expect(rightRailNode!.position.x - loopCenter).toBeCloseTo(loopCenter - (railNode!.position.x + 2), 5);
+        // The right side clears the children's FULL DOM footprint (icon +
+        // label) by the hug padding, and sits at the rail's main position
+        const childDomRight = positionOf(result.nodes, 'loopChild1').x + 240;
+
+        expect(rightRailNode!.position.x + 2).toBe(childDomRight + 20);
         expect(rightRailNode!.position.y).toBe(railNode!.position.y);
 
         const topRingEdge = result.edges.find(

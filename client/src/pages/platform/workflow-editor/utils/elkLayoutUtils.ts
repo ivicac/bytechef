@@ -1553,13 +1553,15 @@ export const getElkLayoutElements = async ({
                     return;
                 }
 
-                const renderedSize = getRenderedNodeSize(candidateNode, direction);
-                const renderedCross = crossAxis === 'x' ? renderedSize.width : renderedSize.height;
+                // Clear the FULL DOM footprint (icon + label — the node div
+                // spans the dagre width rightward from its position), not just
+                // the 72px icon anchor: a continuous ring line slicing through
+                // label text reads broken. In LR the cross axis is vertical and
+                // the dagre height is the 72px anchor, so rings stay tight.
+                const domSize = getDagreNodeSize(candidateNode, direction);
+                const domCross = crossAxis === 'x' ? domSize.width : domSize.height;
 
-                rightmostContentEdge = Math.max(
-                    rightmostContentEdge,
-                    candidateNode.position[crossAxis] + renderedCross
-                );
+                rightmostContentEdge = Math.max(rightmostContentEdge, candidateNode.position[crossAxis] + domCross);
             });
 
             let rightmostNestedTickEdge = -Infinity;
