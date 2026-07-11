@@ -69,6 +69,16 @@ const LEFT_RAIL_TICK_SIZE = 16;
 
 const LEFT_GHOST_ID_SUFFIX = '-taskDispatcher-left-ghost';
 
+// Dagre-parity rail ring geometry (see constrainLeftGhostPositions in
+// postDagreConstraints.ts): the rail sits at least RAIL_RING_OFFSET (minus the
+// TB handle-center correction) left of the top bar, hugs the leftmost body
+// content at RAIL_CONTENT_PADDING, and nested rings indent by
+// RAIL_NESTED_RING_INDENT — positioned innermost-first.
+const RAIL_RING_OFFSET = 145;
+const RAIL_HANDLE_CENTER_DIFFERENCE = NODE_ANCHOR_SIZE / 2 - GHOST_BAR_THICKNESS / 2;
+const RAIL_CONTENT_PADDING = 20;
+const RAIL_NESTED_RING_INDENT = 50;
+
 const FRAME_ID_SUFFIX = '__frame';
 
 export function getFrameId(dispatcherId: string): string {
@@ -134,8 +144,6 @@ function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: nu
         mainAxisSize = GHOST_BAR_THICKNESS;
     } else if (node.type === 'taskDispatcherBottomGhostNode') {
         mainAxisSize = GHOST_BAR_THICKNESS + BOTTOM_BAR_EXIT_EXTENSION;
-    } else if (node.type === 'taskDispatcherLeftGhostNode') {
-        mainAxisSize = LEFT_RAIL_TICK_SIZE;
     } else if (node.type === 'placeholder') {
         // DOM box is 28px tall but 72px wide (mx-[22px] margins around the "+"),
         // so the main-axis footprint differs by direction
@@ -148,10 +156,6 @@ function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: nu
 
     if (node.type === 'placeholder') {
         crossAxisSize = CASE_PLACEHOLDER_CROSS_FOOTPRINT;
-    } else if (node.type === 'taskDispatcherLeftGhostNode') {
-        // The loop-back rail occupies a narrow column left of the loop body, not
-        // a full 240px task column
-        crossAxisSize = NODE_ANCHOR_SIZE;
     }
 
     if (direction === 'TB') {
@@ -292,6 +296,13 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
             return;
         }
 
+        // Loop-back rail ghosts are decorations positioned by a post-layout fixup
+        // (dagre parity: constrainLeftGhostPositions) — they are not part of the
+        // ELK graph, so their edges must not be either
+        if (currentEdge.source.endsWith(LEFT_GHOST_ID_SUFFIX) || currentEdge.target.endsWith(LEFT_GHOST_ID_SUFFIX)) {
+            return;
+        }
+
         const commonScope = getCommonScope(getScope(currentEdge.source), getScope(currentEdge.target));
 
         const sourceRepresentative = getRepresentativeInScope(currentEdge.source, commonScope);
@@ -344,7 +355,7 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
         const memberEntries: Array<{caseRank: number; child: ElkNode}> = [];
 
         nodes.forEach((node) => {
-            if (getScope(node.id) !== scope) {
+            if (getScope(node.id) !== scope || node.type === 'taskDispatcherLeftGhostNode') {
                 return;
             }
 
@@ -704,6 +715,113 @@ export const getElkLayoutElements = async ({
                     [mainAxis]: frameMainCenter - auxMainSize / 2,
                 };
             });
+        });
+
+        // Loop-back rails are decorations excluded from the ELK graph; position
+        // them per dagre's constrainLeftGhostPositions: at least the base ring
+        // width left of the top bar, further left if the body content or nested
+        // rails require it. Innermost-first so nested rings indent outward.
+        const nodesById = new Map(nodes.map((node) => [node.id, node]));
+
+        const isDescendantOfDispatcher = (candidateNode: Node, dispatcherId: string): boolean => {
+            const visitedOwnerIds = new Set<string>();
+
+            let currentOwnerId = getOwningDispatcherId(candidateNode);
+
+            while (currentOwnerId && !visitedOwnerIds.has(currentOwnerId)) {
+                if (currentOwnerId === dispatcherId) {
+                    return true;
+                }
+
+                visitedOwnerIds.add(currentOwnerId);
+
+                const ownerNode = nodesById.get(currentOwnerId);
+
+                if (!ownerNode) {
+                    return false;
+                }
+
+                currentOwnerId = getOwningDispatcherId(ownerNode);
+            }
+
+            return false;
+        };
+
+        const railNodes = allNodes.filter((candidateNode) => candidateNode.type === 'taskDispatcherLeftGhostNode');
+
+        const descendantIdsByRailId = new Map<string, Set<string>>();
+
+        railNodes.forEach((railNode) => {
+            const railDispatcherId = (railNode.data as NodeDataType).taskDispatcherId;
+            const descendantIds = new Set<string>();
+
+            if (railDispatcherId) {
+                allNodes.forEach((candidateNode) => {
+                    if (candidateNode.id !== railNode.id && isDescendantOfDispatcher(candidateNode, railDispatcherId)) {
+                        descendantIds.add(candidateNode.id);
+                    }
+                });
+            }
+
+            descendantIdsByRailId.set(railNode.id, descendantIds);
+        });
+
+        railNodes.sort(
+            (firstRail, secondRail) =>
+                (descendantIdsByRailId.get(firstRail.id)?.size || 0) -
+                (descendantIdsByRailId.get(secondRail.id)?.size || 0)
+        );
+
+        const maxRingWidth = direction === 'LR' ? RAIL_RING_OFFSET : RAIL_RING_OFFSET - RAIL_HANDLE_CENTER_DIFFERENCE;
+        const railCenteringOffset = direction === 'LR' ? RAIL_HANDLE_CENTER_DIFFERENCE : 0;
+
+        railNodes.forEach((railNode) => {
+            const railDispatcherId = (railNode.data as NodeDataType).taskDispatcherId;
+
+            if (!railDispatcherId) {
+                return;
+            }
+
+            const dispatcherKind = frameDispatcherKindById.get(railDispatcherId);
+            const topBarNode = allNodes.find(
+                (candidateNode) => candidateNode.id === `${railDispatcherId}-${dispatcherKind}-top-ghost`
+            );
+
+            if (!topBarNode) {
+                return;
+            }
+
+            const descendantIds = descendantIdsByRailId.get(railNode.id) || new Set<string>();
+
+            let leftmostContentCross = Infinity;
+            let leftmostChildRailCross = Infinity;
+
+            allNodes.forEach((candidateNode) => {
+                if (!descendantIds.has(candidateNode.id)) {
+                    return;
+                }
+
+                if (candidateNode.type === 'taskDispatcherLeftGhostNode') {
+                    leftmostChildRailCross = Math.min(leftmostChildRailCross, candidateNode.position[crossAxis]);
+                } else {
+                    leftmostContentCross = Math.min(leftmostContentCross, candidateNode.position[crossAxis]);
+                }
+            });
+
+            const cappedCross = topBarNode.position[crossAxis] - maxRingWidth;
+            const contentRequired =
+                leftmostContentCross === Infinity
+                    ? Infinity
+                    : leftmostContentCross - RAIL_CONTENT_PADDING - railCenteringOffset;
+            const nestingRequired =
+                leftmostChildRailCross === Infinity
+                    ? Infinity
+                    : leftmostChildRailCross - RAIL_NESTED_RING_INDENT - railCenteringOffset;
+
+            railNode.position = {
+                ...railNode.position,
+                [crossAxis]: Math.min(cappedCross, contentRequired, nestingRequired),
+            };
         });
 
         // A trailing "+" placeholder fed by a dispatcher's bottom ghost was aligned

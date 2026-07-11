@@ -879,12 +879,12 @@ describe('getElkLayoutElements with loops', () => {
 
         const frame = findChild(graph, getFrameId('loop_1'));
 
+        // The loop-back rail is a decoration positioned after layout, not an ELK member
         expect(childIds(frame)).toEqual([
             'loopChild1',
             'loopChild2',
             'loop_1-loop-bottom-ghost',
             'loop_1-loop-top-ghost',
-            'loop_1-taskDispatcher-left-ghost',
         ]);
 
         expect(collectScopeEdgeViolations(graph)).toEqual([]);
@@ -901,10 +901,11 @@ describe('getElkLayoutElements with loops', () => {
 
         expect(Math.abs(childCenter - loopCenter)).toBeLessThanOrEqual(1);
 
-        // Rail hangs left of the content chain
-        const railCenter = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x + 1;
+        // Rail sits the dagre ring width (145 − 35) left of the top bar
+        const railX = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x;
+        const topBarX = positionOf(result.nodes, 'loop_1-loop-top-ghost').x;
 
-        expect(railCenter).toBeLessThan(childCenter);
+        expect(railX).toBe(topBarX - 110);
 
         // No label pull on loops: symmetric box gaps, uniform chain step inside
         const loopBottom = positionOf(result.nodes, 'loop_1').y + 72;
@@ -1054,6 +1055,13 @@ describe('getElkLayoutElements with loops', () => {
         const outerBottomBarY = positionOf(result.nodes, 'loop_1-loop-bottom-ghost').y;
 
         expect(outerBottomBarY - (innerBottomBarY + 2)).toBe(BOX_GAP);
+
+        // Nested rings indent: the outer rail sits RAIL_NESTED_RING_INDENT left
+        // of the inner rail (innermost positioned first, dagre parity)
+        const innerRailX = positionOf(result.nodes, 'loop_2-taskDispatcher-left-ghost').x;
+        const outerRailX = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x;
+
+        expect(outerRailX).toBe(innerRailX - 50);
     });
 
     it('lays out childless dispatchers as plain chain nodes inside a loop', async () => {
