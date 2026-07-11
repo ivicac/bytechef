@@ -75,9 +75,13 @@ const LEFT_GHOST_ID_SUFFIX = '-taskDispatcher-left-ghost';
 const RAIL_CONTENT_PADDING = 20;
 const RAIL_NESTED_RING_INDENT = 50;
 
-// An EMPTY loop renders as a compact symmetric ring: the "+" placeholder sits
-// on the right edge at +half-width and the rail mirrors it at −half-width.
-const LOOP_RING_HALF_WIDTH = 90;
+// An EMPTY loop renders as a SQUARE ring: the "+" placeholder sits on the
+// right edge and the rail mirrors it on the left, each half the ring's own
+// bar-to-bar span off the axis. Derived per direction at fixup time (TB and LR
+// ring heights differ), so the vertical rhythm stays the single source of truth.
+function getEmptyRingHalfWidth(topBarNode: Node, bottomBarNode: Node, mainAxis: 'x' | 'y'): number {
+    return (bottomBarNode.position[mainAxis] - topBarNode.position[mainAxis] + GHOST_BAR_THICKNESS) / 2;
+}
 
 const FRAME_ID_SUFFIX = '__frame';
 
@@ -718,13 +722,13 @@ export const getElkLayoutElements = async ({
                     [mainAxis]: frameMainCenter - auxMainSize / 2,
                 };
 
-                // A loop's "+" placeholder sits ON the ring's right edge at the same
-                // offset as an empty condition's case column, so the edge runs
-                // straight through it and empty loops match empty condition boxes
+                // A loop's "+" placeholder sits ON the ring's right edge, half the
+                // ring's own span off the axis — the ring renders square
                 if (candidateNode.type === 'placeholder' && (node.data as NodeDataType).componentName === 'loop') {
                     const auxCrossSize = crossAxis === 'x' ? auxRenderedSize.width : auxRenderedSize.height;
+                    const ringHalfWidth = getEmptyRingHalfWidth(topGhostNode, bottomGhostNode, mainAxis);
 
-                    auxPosition[crossAxis] = dispatcherCrossCenter + LOOP_RING_HALF_WIDTH - auxCrossSize / 2;
+                    auxPosition[crossAxis] = dispatcherCrossCenter + ringHalfWidth - auxCrossSize / 2;
                 }
 
                 candidateNode.position = auxPosition;
@@ -828,7 +832,7 @@ export const getElkLayoutElements = async ({
             // Bar-left-end alignment gives a straight left edge with clean corners;
             // body content pushes the rail out by its hug padding, nested rings by
             // their indent, and an empty loop mirrors its "+" placeholder so the
-            // ring matches an empty condition box's proportions
+            // ring renders square (half its own bar-to-bar span each side)
             const barAlignedCross = topBarNode.position[crossAxis];
             const contentRequired =
                 leftmostContentCross === Infinity ? Infinity : leftmostContentCross - RAIL_CONTENT_PADDING;
@@ -844,11 +848,19 @@ export const getElkLayoutElements = async ({
                     (candidateNode.data as NodeDataType).taskDispatcherId === railDispatcherId
             );
 
+            const railMainAxis = crossAxis === 'x' ? 'y' : 'x';
+            const bottomBarNode = allNodes.find(
+                (candidateNode) => candidateNode.id === `${railDispatcherId}-${dispatcherKind}-bottom-ghost`
+            );
+
             const dispatcherCenter = topBarNode.position[crossAxis] + NODE_ANCHOR_SIZE / 2;
 
-            const emptyRingMirror = hasOwnPlaceholder
-                ? dispatcherCenter - LOOP_RING_HALF_WIDTH - railCrossSize / 2
-                : Infinity;
+            const emptyRingMirror =
+                hasOwnPlaceholder && bottomBarNode
+                    ? dispatcherCenter -
+                      getEmptyRingHalfWidth(topBarNode, bottomBarNode, railMainAxis) -
+                      railCrossSize / 2
+                    : Infinity;
 
             railNode.position = {
                 ...railNode.position,

@@ -931,22 +931,57 @@ describe('getElkLayoutElements with loops', () => {
 
         const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
 
-        // Empty loop matches an empty condition box's proportions: "+" on the
-        // right edge at +125 and the rail mirroring it at −125
+        // The empty ring renders SQUARE: the "+" sits on the right edge and the
+        // rail mirrors it, each half the ring's own bar-to-bar span off the axis
+        const topGhostBarY = positionOf(result.nodes, 'loop_1-loop-top-ghost').y;
+        const bottomGhostBarY = positionOf(result.nodes, 'loop_1-loop-bottom-ghost').y;
+        const ringHalfWidth = (bottomGhostBarY - topGhostBarY + 2) / 2;
+
         const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
         const placeholderCenter = positionOf(result.nodes, 'loop_1-loop-placeholder-0').x + 36;
 
-        expect(placeholderCenter - loopCenter).toBe(90);
+        expect(placeholderCenter - loopCenter).toBe(ringHalfWidth);
 
         const railCenter = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x + 1;
 
-        expect(loopCenter - railCenter).toBe(90);
+        expect(loopCenter - railCenter).toBe(ringHalfWidth);
 
-        const topGhostBarY = positionOf(result.nodes, 'loop_1-loop-top-ghost').y;
-        const bottomGhostBarY = positionOf(result.nodes, 'loop_1-loop-bottom-ghost').y;
         const placeholderMainCenter = positionOf(result.nodes, 'loop_1-loop-placeholder-0').y + 14;
 
         expect(Math.abs(placeholderMainCenter - (topGhostBarY + bottomGhostBarY + 2) / 2)).toBeLessThanOrEqual(1);
+    });
+
+    it('renders the empty loop ring square in LR too', async () => {
+        const nodes: Node[] = [loopNode('loop_1'), ...loopAuxNodes('loop_1'), loopPlaceholderNode('loop_1')];
+
+        const edges: Edge[] = [
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'loop_1-loop-placeholder-0'),
+            edge('loop_1-loop-placeholder-0', 'loop_1-loop-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({
+            canvasHeight: 800,
+            canvasWidth: 1000,
+            direction: 'LR',
+            edges,
+            nodes,
+        });
+
+        // LR ring span differs from TB (no label pull, wider placeholder
+        // footprint) — the square derives from the direction's own span
+        const topGhostBarX = positionOf(result.nodes, 'loop_1-loop-top-ghost').x;
+        const bottomGhostBarX = positionOf(result.nodes, 'loop_1-loop-bottom-ghost').x;
+        const ringHalfWidth = (bottomGhostBarX - topGhostBarX + 2) / 2;
+
+        const loopCenter = positionOf(result.nodes, 'loop_1').y + 36;
+        const placeholderCenter = positionOf(result.nodes, 'loop_1-loop-placeholder-0').y + 14;
+
+        expect(placeholderCenter - loopCenter).toBe(ringHalfWidth);
+
+        const railCenter = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').y + 1;
+
+        expect(loopCenter - railCenter).toBe(ringHalfWidth);
     });
 
     it('keeps a loop on its branch side inside a condition and centers its body', async () => {
