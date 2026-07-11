@@ -682,11 +682,15 @@ export const getElkLayoutElements = async ({
 
             // Pull the box's top bar toward the dispatcher so the box reads as
             // attached to its node (and, for conditions, so the TRUE/FALSE labels
-            // sit on the box edge instead of floating).
-            topGhostNode.position = {
-                ...topGhostNode.position,
-                [mainAxis]: topGhostNode.position[mainAxis] - TOP_BAR_LABEL_PULL,
-            };
+            // sit on the box edge instead of floating). TB only: in LR the labels
+            // extend 64px along the MAIN axis toward the box (`-right-16` in
+            // WorkflowNode.tsx), so pulling would run the box edge through them.
+            if (direction === 'TB') {
+                topGhostNode.position = {
+                    ...topGhostNode.position,
+                    [mainAxis]: topGhostNode.position[mainAxis] - TOP_BAR_LABEL_PULL,
+                };
+            }
 
             // Center the dispatcher's aux members — empty-branch placeholders and
             // the loop-back rail tick — midway between the two ghost bars on the
