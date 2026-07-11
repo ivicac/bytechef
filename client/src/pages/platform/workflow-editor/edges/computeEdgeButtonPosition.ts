@@ -34,7 +34,14 @@ export default function computeEdgeButtonPosition({
     const isEdgeFromBranchTopGhostNode =
         sourceNodeType === 'taskDispatcherTopGhostNode' && sourceNodeTaskDispatcherId?.startsWith('branch');
 
-    if ((isMainAxisEdge && !isEdgeFromBranchTopGhostNode) || sourceNodeType === 'taskDispatcherBottomGhostNode') {
+    // Merge edges between two bottom ghosts (nested dispatcher → enclosing
+    // dispatcher) bend around the frame corner, so the path center can land on
+    // the horizontal run — those fall through to the pin-to-source-column logic
+    // below. Only continuation edges leaving a bottom ghost keep the path center.
+    const isBottomGhostContinuationEdge =
+        sourceNodeType === 'taskDispatcherBottomGhostNode' && targetNodeType !== 'taskDispatcherBottomGhostNode';
+
+    if ((isMainAxisEdge && !isEdgeFromBranchTopGhostNode) || isBottomGhostContinuationEdge) {
         return {
             x: edgeCenterX,
             y: edgeCenterY,

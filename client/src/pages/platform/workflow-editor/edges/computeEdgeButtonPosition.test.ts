@@ -75,6 +75,24 @@ describe('computeEdgeButtonPosition', () => {
             expect(result).toEqual({x: 1207, y: 861});
         });
 
+        it('should pin the button to the source column for a ghost-to-ghost merge edge in TB mode', () => {
+            // Merge edge from a nested dispatcher's bottom ghost into the enclosing
+            // dispatcher's bottom ghost bends around the frame corner — the path
+            // center would land on the horizontal run, so it pins to the source column
+            const result = computeEdgeButtonPosition(
+                makeParams({
+                    correctedSourceX: 750,
+                    correctedSourceY: 100,
+                    correctedTargetX: 480,
+                    correctedTargetY: 220,
+                    sourceNodeType: 'taskDispatcherBottomGhostNode',
+                    targetNodeType: 'taskDispatcherBottomGhostNode',
+                })
+            );
+
+            expect(result).toEqual({x: 750, y: 160});
+        });
+
         it('should return edge center for bottom ghost source in LR mode', () => {
             const result = computeEdgeButtonPosition(
                 makeParams({
