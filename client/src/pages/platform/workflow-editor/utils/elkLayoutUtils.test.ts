@@ -920,59 +920,10 @@ describe('getElkLayoutElements with loops', () => {
         return {edges, nodes};
     };
 
-    it('closes a populated loop ring with a mirrored right rail', async () => {
-        // The straight-spine routing leaves a populated ring as an open left
-        // lobe (bars ending mid-air on the right) — the engine synthesizes a
-        // right-rail tick mirroring the rail plus two smoothstep edges so the
-        // ring reads as a closed box
-        const {edges, nodes} = populatedLoopFixture();
-
-        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
-
-        const rightRailNode = result.nodes.find((resultNode) => resultNode.id === 'loop_1-taskDispatcher-right-rail');
-        const railNode = result.nodes.find((resultNode) => resultNode.id === 'loop_1-taskDispatcher-left-ghost');
-
-        expect(rightRailNode).toBeDefined();
-        expect(rightRailNode!.type).toBe('taskDispatcherLeftGhostNode');
-
-        // The right side clears the children's FULL DOM footprint (icon +
-        // label) by the hug padding, and sits at the rail's main position
-        const childDomRight = positionOf(result.nodes, 'loopChild1').x + 240;
-
-        expect(rightRailNode!.position.x + 2).toBe(childDomRight + 20);
-        expect(rightRailNode!.position.y).toBe(railNode!.position.y);
-
-        const topRingEdge = result.edges.find(
-            (resultEdge) => resultEdge.id === 'loop_1-loop-top-ghost=>loop_1-taskDispatcher-right-rail'
-        );
-        const bottomRingEdge = result.edges.find(
-            (resultEdge) => resultEdge.id === 'loop_1-taskDispatcher-right-rail=>loop_1-loop-bottom-ghost'
-        );
-
-        expect(topRingEdge?.sourceHandle).toBe('loop_1-loop-top-ghost-right');
-        expect(bottomRingEdge?.targetHandle).toBe('loop_1-loop-bottom-ghost-right');
-    });
-
-    it('does not add a right rail to an empty ring (its "+" is the right side)', async () => {
-        const nodes: Node[] = [loopNode('loop_1'), ...loopAuxNodes('loop_1'), loopPlaceholderNode('loop_1')];
-
-        const edges: Edge[] = [
-            ...loopStructureEdges('loop_1'),
-            edge('loop_1-loop-top-ghost', 'loop_1-loop-placeholder-0'),
-            edge('loop_1-loop-placeholder-0', 'loop_1-loop-bottom-ghost'),
-        ];
-
-        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
-
-        expect(result.nodes.some((resultNode) => resultNode.id.endsWith('-taskDispatcher-right-rail'))).toBe(false);
-    });
-
-    it('reroutes populated-loop content edges through the centered spine handles', async () => {
-        // The builders put content edges on the bars' `-right` handles (dagre
-        // offsets the body column onto the ring's right side); the ELK engine
-        // centers the body on the dispatcher axis, where those side handles
-        // render as S-bulges dying under the child's label — the engine must
-        // reroute them through the bars' centered handles instead
+    it('never synthesizes extra ring nodes — the content chain IS the right side', async () => {
+        // Loop grammar: two verticals only. The builders' `-right` handle
+        // edges draw the right side through the offset content column, so no
+        // synthetic ticks and no handle rewriting are needed.
         const {edges: baseEdges, nodes} = populatedLoopFixture();
 
         const edges = baseEdges.map((currentEdge) => {
@@ -989,11 +940,13 @@ describe('getElkLayoutElements with loops', () => {
 
         const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
 
+        expect(result.nodes.some((resultNode) => resultNode.id.endsWith('-taskDispatcher-right-rail'))).toBe(false);
+
         const entryEdge = result.edges.find((resultEdge) => resultEdge.id === 'loop_1-loop-top-ghost=>loopChild1');
         const exitEdge = result.edges.find((resultEdge) => resultEdge.id === 'loopChild2=>loop_1-loop-bottom-ghost');
 
-        expect(entryEdge?.sourceHandle).toBe('loop_1-loop-top-ghost-bottom');
-        expect(exitEdge?.targetHandle).toBe('loop_1-loop-bottom-ghost-top');
+        expect(entryEdge?.sourceHandle).toBe('loop_1-loop-top-ghost-right');
+        expect(exitEdge?.targetHandle).toBe('loop_1-loop-bottom-ghost-right');
     });
 
     it('keeps empty-ring placeholder edges and condition side handles untouched', async () => {
@@ -1064,22 +1017,22 @@ describe('getElkLayoutElements with loops', () => {
         expect(collectScopeEdgeViolations(graph)).toEqual([]);
     });
 
-    it('centers the loop body under the loop node with the rail to the left', async () => {
+    it('places the loop body on the ring right side with the rail mirrored left', async () => {
         const {edges, nodes} = populatedLoopFixture();
 
         const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
 
-        // Content chain sits on the loop axis; the rail is not an entry
+        // Loop grammar: exactly two verticals — the content chain IS the
+        // ring's right side (offset off the spine), the rail mirrors it left,
+        // so the loop node reads centered in its ring
         const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
         const childCenter = positionOf(result.nodes, 'loopChild1').x + 36;
 
-        expect(Math.abs(childCenter - loopCenter)).toBeLessThanOrEqual(1);
+        expect(childCenter - loopCenter).toBe(100);
 
-        // Rail hugs the body content (icons start at the bar's left end, hug pad 20)
-        const railX = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x;
-        const topBarX = positionOf(result.nodes, 'loop_1-loop-top-ghost').x;
+        const railCenter = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x + 1;
 
-        expect(railX).toBe(topBarX - 20);
+        expect(loopCenter - railCenter).toBe(100);
 
         // Loop boxes get the same top-bar pull as conditions; uniform chain step inside
         const loopBottom = positionOf(result.nodes, 'loop_1').y + 72;
@@ -1158,7 +1111,7 @@ describe('getElkLayoutElements with loops', () => {
         expect(loopCenter - railCenter).toBe(ringHalfWidth);
     });
 
-    it('keeps a loop on its branch side inside a condition and centers its body', async () => {
+    it('keeps a loop on its branch side inside a condition and offsets its body', async () => {
         const nodes: Node[] = [
             conditionNode('condition_1'),
             ...conditionGhostNodes('condition_1'),
@@ -1184,11 +1137,11 @@ describe('getElkLayoutElements with loops', () => {
         // Loop (caseTrue) stays left of the FALSE branch child
         expect(positionOf(result.nodes, 'loop_1').x).toBeLessThan(positionOf(result.nodes, 'childFalse1').x);
 
-        // The loop body centers under the loop node even when nested
+        // The loop body sits on the ring's right side even when nested
         const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
         const loopChildCenter = positionOf(result.nodes, 'loopChild1').x + 36;
 
-        expect(Math.abs(loopChildCenter - loopCenter)).toBeLessThanOrEqual(1);
+        expect(loopChildCenter - loopCenter).toBe(100);
 
         // Uniform pulled top gap at nesting depth
         const loopBottom = positionOf(result.nodes, 'loop_1').y + 72;
@@ -1224,12 +1177,12 @@ describe('getElkLayoutElements with loops', () => {
 
         expect(collectScopeEdgeViolations(buildElkGraph(nodes, edges, 'TB'))).toEqual([]);
 
-        // The nested condition centers on the loop axis, and its own frame keeps
-        // the condition label pull
+        // The nested condition sits on the loop ring's right side, and its own
+        // frame keeps the condition label pull
         const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
         const conditionCenter = positionOf(result.nodes, 'condition_1').x + 36;
 
-        expect(Math.abs(conditionCenter - loopCenter)).toBeLessThanOrEqual(1);
+        expect(conditionCenter - loopCenter).toBe(100);
 
         const conditionBottom = positionOf(result.nodes, 'condition_1').y + 72;
         const conditionTopBarY = positionOf(result.nodes, 'condition_1-condition-top-ghost').y;
@@ -1271,12 +1224,19 @@ describe('getElkLayoutElements with loops', () => {
 
         expect(outerBottomBarY - (innerBottomBarY + 2)).toBe(BOX_GAP);
 
-        // Nested rings indent: the outer rail sits RAIL_NESTED_RING_INDENT left
-        // of the inner rail (innermost positioned first, dagre parity)
-        const innerRailX = positionOf(result.nodes, 'loop_2-taskDispatcher-left-ghost').x;
-        const outerRailX = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x;
+        // Ring staircase: each loop's body column sits on its own ring's right
+        // side, and each rail mirrors its own content offset — so the inner
+        // ring nests fully right of the outer rail
+        const outerCenter = positionOf(result.nodes, 'loop_1').x + 36;
+        const innerCenter = positionOf(result.nodes, 'loop_2').x + 36;
 
-        expect(outerRailX).toBe(innerRailX - 50);
+        expect(innerCenter - outerCenter).toBe(100);
+
+        const innerRailCenter = positionOf(result.nodes, 'loop_2-taskDispatcher-left-ghost').x + 1;
+        const outerRailCenter = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x + 1;
+
+        expect(innerCenter - innerRailCenter).toBe(100);
+        expect(outerRailCenter).toBeLessThan(innerRailCenter);
     });
 
     it('lays out childless dispatchers as plain chain nodes inside a loop', async () => {
@@ -1554,9 +1514,10 @@ describe('getElkLayoutElements with branches', () => {
 
         // Envelopes are symmetrized around each column's entry axis, so the
         // gap between the REAL outermost nodes is the 50px envelope gap plus
-        // any symmetrization slack — bounded well below the old 300px gulf
+        // symmetrization and ring-offset slack — bounded well below the old
+        // 300px gulf
         expect(falseLeftEdge - trueRightEdge).toBeGreaterThanOrEqual(49);
-        expect(falseLeftEdge - trueRightEdge).toBeLessThanOrEqual(140);
+        expect(falseLeftEdge - trueRightEdge).toBeLessThanOrEqual(400);
 
         // Two entries (even count): the parent centers on their mean
         const trueEntryCenter = positionOf(result.nodes, 'branch_1').x + 36;
@@ -1590,29 +1551,27 @@ describe('getElkLayoutElements with branches', () => {
         expect(Math.abs(branchOneCenter - caseOneCenter)).toBeLessThanOrEqual(1);
     });
 
-    it('nests ring right sides with the same clearance rules as rails', async () => {
-        // The right tick must HUG its own side — max(bar right, content icons
-        // + padding, nested ticks + ring indent) — not mirror the rail's
-        // position: with an asymmetric interior (empty TRUE column left, deep
-        // loop right) the mirror lands ON the nested ring's right side,
-        // drawing two coincident lines through the inner loop's labels
+    it('staircases nested ring content columns to the right', async () => {
+        // Loop grammar at depth: each ring's content column sits on its own
+        // ring's right side, offset from ITS dispatcher's spine — deep stacks
+        // staircase rightward exactly like dagre, with no synthetic ring nodes
         const {edges, nodes} = deepSiblingFixture();
 
         const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
 
-        const outerTick = result.nodes.find((resultNode) => resultNode.id === 'loop_1-taskDispatcher-right-rail');
-        const innerTick = result.nodes.find((resultNode) => resultNode.id === 'loop_2-taskDispatcher-right-rail');
+        expect(result.nodes.some((resultNode) => resultNode.id.endsWith('-taskDispatcher-right-rail'))).toBe(false);
 
-        expect(outerTick).toBeDefined();
-        expect(innerTick).toBeDefined();
+        // loop_1's body (condition_5, accelo_1) sits on loop_1's ring right side
+        const loopOneCenter = positionOf(result.nodes, 'loop_1').x + 36;
+        const conditionFiveCenter = positionOf(result.nodes, 'condition_5').x + 36;
 
-        // Outer ring clears the inner ring by the nested-ring indent
-        expect(outerTick!.position.x + 2 - (innerTick!.position.x + 2)).toBeGreaterThanOrEqual(49);
+        expect(conditionFiveCenter - loopOneCenter).toBe(100);
 
-        // ...and clears every interior content icon by the hug padding
-        const loop2IconRight = positionOf(result.nodes, 'loop_2').x + 72;
+        // loop_2's body staircases further right off loop_2's own spine
+        const loopTwoCenter = positionOf(result.nodes, 'loop_2').x + 36;
+        const loopTwoChildCenter = positionOf(result.nodes, 'loopChild1').x + 36;
 
-        expect(outerTick!.position.x + 2 - loop2IconRight).toBeGreaterThanOrEqual(19);
+        expect(loopTwoChildCenter - loopTwoCenter).toBe(100);
     });
 
     it('compacts sibling columns of unequal depth independently (dagre parity)', async () => {
@@ -1821,11 +1780,11 @@ describe('getElkLayoutElements with branches', () => {
         // default column left of the case_a loop subtree
         expect(positionOf(result.nodes, 'defaultChild').x).toBeLessThan(positionOf(result.nodes, 'loop_1').x);
 
-        // The nested loop body still centers under the loop node
+        // The nested loop body still sits on its ring's right side
         const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
         const loopChildCenter = positionOf(result.nodes, 'loopChild1').x + 36;
 
-        expect(Math.abs(loopChildCenter - loopCenter)).toBeLessThanOrEqual(1);
+        expect(loopChildCenter - loopCenter).toBe(100);
     });
 });
 

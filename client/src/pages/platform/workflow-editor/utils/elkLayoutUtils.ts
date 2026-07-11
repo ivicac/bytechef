@@ -75,6 +75,14 @@ const LEFT_GHOST_ID_SUFFIX = '-taskDispatcher-left-ghost';
 const RAIL_CONTENT_PADDING = 20;
 const RAIL_NESTED_RING_INDENT = 50;
 
+// A POPULATED ring dispatcher's body column sits ON the ring's right side
+// (dagre grammar: the loop has exactly two verticals — the loop-back rail on
+// the left and the content chain forming the right edge, nodes interrupting
+// the line so labels hang outside the box). The content column is offset this
+// far right of the dispatcher's spine, and the rail mirrors it on the left so
+// the dispatcher reads centered in its ring.
+const RING_CONTENT_OFFSET = 100;
+
 // An EMPTY loop renders as a SQUARE ring: the "+" placeholder sits on the
 // right edge and the rail mirrors it on the left, each half the ring's own
 // bar-to-bar span off the axis. Derived per direction at fixup time (TB and LR
@@ -616,6 +624,48 @@ export const getElkLayoutElements = async ({
                 .map((node) => [node.id, (node.data as NodeDataType).componentName])
         );
 
+        // POPULATED rail dispatchers get their body column offset onto the
+        // ring's right side; EMPTY ones keep the square ring (the "+" is the
+        // right side there).
+        const inputNodeTypesById = new Map(nodes.map((node) => [node.id, node.type]));
+
+        const offsetRingDispatcherIds = new Set<string>();
+
+        nodes.forEach((node) => {
+            if (node.type !== 'taskDispatcherLeftGhostNode') {
+                return;
+            }
+
+            const railDispatcherId = (node.data as NodeDataType).taskDispatcherId;
+            const railDispatcherNode = railDispatcherId
+                ? nodes.find((candidateNode) => candidateNode.id === railDispatcherId)
+                : undefined;
+
+            if (!railDispatcherId || !railDispatcherNode) {
+                return;
+            }
+
+            const {topGhostId} = getGhostIds(railDispatcherNode);
+
+            const hasContentEntry = edges.some((candidateEdge) => {
+                if (candidateEdge.source !== topGhostId) {
+                    return false;
+                }
+
+                const targetType = inputNodeTypesById.get(candidateEdge.target);
+
+                return (
+                    targetType !== undefined &&
+                    targetType !== 'placeholder' &&
+                    targetType !== 'taskDispatcherLeftGhostNode'
+                );
+            });
+
+            if (hasContentEntry) {
+                offsetRingDispatcherIds.add(railDispatcherId);
+            }
+        });
+
         // Flatten ELK's parent-relative coordinates to absolute footprint boxes
         const absoluteBoxes = new Map<string, AbsoluteBoxType>();
 
@@ -693,10 +743,14 @@ export const getElkLayoutElements = async ({
                                 sortedEntryCenters.length;
                         }
 
+                        // Populated ring dispatchers place the content column
+                        // ON the ring's right side instead of on the spine
+                        const ringOffset = offsetRingDispatcherIds.has(dispatcherId) ? RING_CONTENT_OFFSET : 0;
+
                         if (direction === 'TB') {
-                            absoluteX += dispatcherCenter - absoluteX - frameAnchor;
+                            absoluteX += dispatcherCenter + ringOffset - absoluteX - frameAnchor;
                         } else {
-                            absoluteY += dispatcherCenter - absoluteY - frameAnchor;
+                            absoluteY += dispatcherCenter + ringOffset - absoluteY - frameAnchor;
                         }
                     }
                 }
@@ -1237,18 +1291,24 @@ export const getElkLayoutElements = async ({
                 }
             });
 
-            // Bar-left-end alignment gives a straight left edge with clean corners;
-            // body content pushes the rail out by its hug padding, nested rings by
-            // their indent, and an empty loop mirrors its "+" placeholder so the
-            // ring renders square (half its own bar-to-bar span each side)
-            const barAlignedCross = topBarNode.position[crossAxis];
+            const railRenderedSize = getRenderedNodeSize(railNode, direction);
+            const railCrossSize = crossAxis === 'x' ? railRenderedSize.width : railRenderedSize.height;
+
+            const dispatcherCenter = topBarNode.position[crossAxis] + NODE_ANCHOR_SIZE / 2;
+
+            // A populated ring mirrors its content column (which forms the
+            // ring's RIGHT side) so the dispatcher reads centered; other rails
+            // align with the bar's left end for a straight edge with clean
+            // corners. Body content reaching further left pushes the rail out
+            // by its hug padding, nested rings by their indent, and an empty
+            // ring mirrors its "+" placeholder so the ring renders square.
+            const barAlignedCross = offsetRingDispatcherIds.has(railDispatcherId)
+                ? dispatcherCenter - RING_CONTENT_OFFSET - railCrossSize / 2
+                : topBarNode.position[crossAxis];
             const contentRequired =
                 leftmostContentCross === Infinity ? Infinity : leftmostContentCross - RAIL_CONTENT_PADDING;
             const nestingRequired =
                 leftmostChildRailCross === Infinity ? Infinity : leftmostChildRailCross - RAIL_NESTED_RING_INDENT;
-
-            const railRenderedSize = getRenderedNodeSize(railNode, direction);
-            const railCrossSize = crossAxis === 'x' ? railRenderedSize.width : railRenderedSize.height;
 
             const hasOwnPlaceholder = allNodes.some(
                 (candidateNode) =>
@@ -1261,8 +1321,6 @@ export const getElkLayoutElements = async ({
                 (candidateNode) =>
                     candidateNode.id === `${railDispatcherId}-${getGhostIdSegment(dispatcherKind || '')}-bottom-ghost`
             );
-
-            const dispatcherCenter = topBarNode.position[crossAxis] + NODE_ANCHOR_SIZE / 2;
 
             const emptyRingMirror =
                 hasOwnPlaceholder && bottomBarNode
@@ -1500,187 +1558,7 @@ export const getElkLayoutElements = async ({
         // dispatcher with a saved position carries its whole frame rigidly with it.
         applySavedPositions(allNodes, crossAxis, savedPositionCrossAxisShift);
 
-        // Close the ring on the right: with the interior running straight down
-        // the spine, a populated ring would be an open left lobe — the bars
-        // just end mid-air on the right. Synthesize a right tick (same hairline
-        // node type) and two smoothstep edges so the ring reads as a closed
-        // box. The tick HUGS its own side under the same rules as the rail —
-        // max(bar right end, content icons + padding, nested ticks + ring
-        // indent), innermost-first — a MIRROR of the rail's position would land
-        // on nested rings when the interior is asymmetric. An EMPTY ring
-        // already closes through its "+" placeholder and gets no tick.
-        const ringEdges: Edge[] = [];
-        const ringTickRightEdgeByDispatcherId = new Map<string, number>();
-
-        railNodes.forEach((railNode) => {
-            const railDispatcherId = (railNode.data as NodeDataType).taskDispatcherId;
-
-            if (!railDispatcherId) {
-                return;
-            }
-
-            const dispatcherNode = layoutedNodesById.get(railDispatcherId);
-            const dispatcherKind = frameDispatcherKindById.get(railDispatcherId);
-
-            if (!dispatcherNode || !dispatcherKind) {
-                return;
-            }
-
-            const hasOwnPlaceholder = allNodes.some(
-                (candidateNode) =>
-                    candidateNode.type === 'placeholder' &&
-                    (candidateNode.data as NodeDataType).taskDispatcherId === railDispatcherId
-            );
-
-            if (hasOwnPlaceholder) {
-                return;
-            }
-
-            const railRenderedSize = getRenderedNodeSize(railNode, direction);
-            const railCrossSize = crossAxis === 'x' ? railRenderedSize.width : railRenderedSize.height;
-
-            const descendantIds = descendantIdsByRailId.get(railNode.id) || new Set<string>();
-
-            let rightmostContentEdge = -Infinity;
-
-            allNodes.forEach((candidateNode) => {
-                if (
-                    !descendantIds.has(candidateNode.id) ||
-                    candidateNode.type === 'taskDispatcherTopGhostNode' ||
-                    candidateNode.type === 'taskDispatcherBottomGhostNode' ||
-                    candidateNode.type === 'taskDispatcherLeftGhostNode'
-                ) {
-                    return;
-                }
-
-                // Clear the FULL DOM footprint (icon + label — the node div
-                // spans the dagre width rightward from its position), not just
-                // the 72px icon anchor: a continuous ring line slicing through
-                // label text reads broken. In LR the cross axis is vertical and
-                // the dagre height is the 72px anchor, so rings stay tight.
-                const domSize = getDagreNodeSize(candidateNode, direction);
-                const domCross = crossAxis === 'x' ? domSize.width : domSize.height;
-
-                rightmostContentEdge = Math.max(rightmostContentEdge, candidateNode.position[crossAxis] + domCross);
-            });
-
-            let rightmostNestedTickEdge = -Infinity;
-
-            ringTickRightEdgeByDispatcherId.forEach((nestedTickRightEdge, nestedDispatcherId) => {
-                const nestedDispatcherNode = layoutedNodesById.get(nestedDispatcherId);
-
-                if (nestedDispatcherNode && isDescendantOfDispatcher(nestedDispatcherNode, railDispatcherId)) {
-                    rightmostNestedTickEdge = Math.max(rightmostNestedTickEdge, nestedTickRightEdge);
-                }
-            });
-
-            const barRightEnd = dispatcherNode.position[crossAxis] + NODE_ANCHOR_SIZE;
-            const contentRequired =
-                rightmostContentEdge === -Infinity ? -Infinity : rightmostContentEdge + RAIL_CONTENT_PADDING;
-            const nestingRequired =
-                rightmostNestedTickEdge === -Infinity ? -Infinity : rightmostNestedTickEdge + RAIL_NESTED_RING_INDENT;
-
-            const ringTickRightEdge = Math.max(barRightEnd, contentRequired, nestingRequired);
-
-            ringTickRightEdgeByDispatcherId.set(railDispatcherId, ringTickRightEdge);
-
-            const ringTickId = `${railDispatcherId}-taskDispatcher-right-rail`;
-            const ringMainAxis = crossAxis === 'x' ? 'y' : 'x';
-
-            allNodes.push({
-                data: {taskDispatcherId: railDispatcherId},
-                id: ringTickId,
-                position: {
-                    [crossAxis]: ringTickRightEdge - railCrossSize,
-                    [ringMainAxis]: railNode.position[ringMainAxis],
-                } as {x: number; y: number},
-                type: 'taskDispatcherLeftGhostNode',
-            });
-
-            const ghostIdSegment = getGhostIdSegment(dispatcherKind);
-            const topGhostId = `${railDispatcherId}-${ghostIdSegment}-top-ghost`;
-            const bottomGhostId = `${railDispatcherId}-${ghostIdSegment}-bottom-ghost`;
-
-            ringEdges.push(
-                {
-                    id: `${topGhostId}=>${ringTickId}`,
-                    source: topGhostId,
-                    sourceHandle: `${topGhostId}-right`,
-                    target: ringTickId,
-                    targetHandle: `${ringTickId}-left-ghost-top`,
-                    type: 'smoothstep',
-                },
-                {
-                    id: `${ringTickId}=>${bottomGhostId}`,
-                    source: ringTickId,
-                    sourceHandle: `${ringTickId}-left-ghost-bottom`,
-                    target: bottomGhostId,
-                    targetHandle: `${bottomGhostId}-right`,
-                    type: 'smoothstep',
-                }
-            );
-        });
-
-        const edgesWithRing = [...edges, ...ringEdges];
-
-        // A rail dispatcher's body is centered on its spine, unlike dagre, which
-        // offsets the content column onto the ring's right side — so the content
-        // edges' `-right` bar handles (7px off the spine) would render as 27px
-        // smoothstep S-bulges dying under the child's label. Reroute them through
-        // the bars' centered handles for straight spine lines; the ring stays
-        // closed via the mirrored right rail. Empty-ring placeholder edges keep
-        // the side handles — there the "+" IS the ring's right side.
-        const railDispatcherIds = new Set(
-            railNodes
-                .map((railNode) => (railNode.data as NodeDataType).taskDispatcherId)
-                .filter((dispatcherId): dispatcherId is string => Boolean(dispatcherId))
-        );
-
-        const spineRoutedEdges = edgesWithRing.map((currentEdge) => {
-            const sourceNode =
-                layoutedNodesById.get(currentEdge.source) ??
-                allNodes.find((candidateNode) => candidateNode.id === currentEdge.source);
-            const targetNode =
-                layoutedNodesById.get(currentEdge.target) ??
-                allNodes.find((candidateNode) => candidateNode.id === currentEdge.target);
-
-            if (!sourceNode || !targetNode) {
-                return currentEdge;
-            }
-
-            const isSpineTarget =
-                targetNode.type !== 'placeholder' && targetNode.type !== 'taskDispatcherLeftGhostNode';
-            const isSpineSource =
-                sourceNode.type !== 'placeholder' && sourceNode.type !== 'taskDispatcherLeftGhostNode';
-
-            let routedEdge = currentEdge;
-
-            const sourceData = sourceNode.data as NodeDataType;
-
-            if (
-                sourceNode.type === 'taskDispatcherTopGhostNode' &&
-                sourceData.taskDispatcherId &&
-                railDispatcherIds.has(sourceData.taskDispatcherId) &&
-                isSpineTarget
-            ) {
-                routedEdge = {...routedEdge, sourceHandle: `${currentEdge.source}-bottom`};
-            }
-
-            const targetData = targetNode.data as NodeDataType;
-
-            if (
-                targetNode.type === 'taskDispatcherBottomGhostNode' &&
-                targetData.taskDispatcherId &&
-                railDispatcherIds.has(targetData.taskDispatcherId) &&
-                isSpineSource
-            ) {
-                routedEdge = {...routedEdge, targetHandle: `${currentEdge.target}-top`};
-            }
-
-            return routedEdge;
-        });
-
-        return {edges: filterAndDedupeLayoutEdges(allNodes, spineRoutedEdges), nodes: allNodes};
+        return {edges: filterAndDedupeLayoutEdges(allNodes, edges), nodes: allNodes};
     } catch (error) {
         console.error('ELK layout failed, falling back to dagre', error);
 
