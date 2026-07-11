@@ -14,10 +14,10 @@ const CHAIN_GAP = 80;
 // 14px anchor slack.
 const BOX_GAP = 66;
 
-// The frame's top bar is pulled 20px toward the condition so the TRUE/FALSE
+// The frame's top bar is pulled 28px toward the condition so the TRUE/FALSE
 // labels read as attached to the box (TOP_BAR_LABEL_PULL in elkLayoutUtils).
-const TOP_BOX_GAP = 46;
-const BAR_TO_CHILD_GAP = 86;
+const TOP_BOX_GAP = 38;
+const BAR_TO_CHILD_GAP = 94;
 const CHAIN_STEP = 72 + CHAIN_GAP;
 
 const taskNode = (

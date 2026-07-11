@@ -39,7 +39,7 @@ const ELK_SIBLING_SPACING = 50;
 // ELK_LAYER_SPACING + slack − pull) to keep the labels visually attached to the
 // box instead of floating above it. Only the top side — the bottom edge keeps
 // the standard box gap.
-const TOP_BAR_LABEL_PULL = 20;
+const TOP_BAR_LABEL_PULL = 28;
 
 // Size of a node's visual anchor: the 72px icon box whose edges carry the
 // connection handles (see `w-[72px]` in TaskDispatcherTopGhostNode.tsx and the
