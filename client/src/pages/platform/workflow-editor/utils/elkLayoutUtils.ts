@@ -34,6 +34,13 @@ const ANCHOR_MAIN_FOOTPRINT = 100;
 // Cross-axis gap between sibling branch columns.
 const ELK_SIBLING_SPACING = 50;
 
+// The TRUE/FALSE case labels hang ~28px below a condition's icon, so the frame's
+// top bar is pulled this much toward the condition (condition→bar gap becomes
+// ELK_LAYER_SPACING + slack − pull) to keep the labels visually attached to the
+// box instead of floating above it. Only the top side — the bottom edge keeps
+// the standard box gap.
+const TOP_BAR_LABEL_PULL = 20;
+
 // Size of a node's visual anchor: the 72px icon box whose edges carry the
 // connection handles (see `w-[72px]` in TaskDispatcherTopGhostNode.tsx and the
 // icon button in WorkflowNode.tsx, matching PLACEHOLDER_DOM_CROSS_SIZE in
@@ -609,6 +616,11 @@ export const getElkLayoutElements = async ({
             if (!topGhostNode || !bottomGhostNode) {
                 return;
             }
+
+            topGhostNode.position = {
+                ...topGhostNode.position,
+                [mainAxis]: topGhostNode.position[mainAxis] - TOP_BAR_LABEL_PULL,
+            };
 
             const frameMainCenter =
                 (topGhostNode.position[mainAxis] + bottomGhostNode.position[mainAxis] + GHOST_BAR_THICKNESS) / 2;

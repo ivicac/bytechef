@@ -13,6 +13,11 @@ const CHAIN_GAP = 80;
 // Box-adjacent edges (condition→frame bar, bar→next node): layer gap + one
 // 14px anchor slack.
 const BOX_GAP = 66;
+
+// The frame's top bar is pulled 20px toward the condition so the TRUE/FALSE
+// labels read as attached to the box (TOP_BAR_LABEL_PULL in elkLayoutUtils).
+const TOP_BOX_GAP = 46;
+const BAR_TO_CHILD_GAP = 86;
 const CHAIN_STEP = 72 + CHAIN_GAP;
 
 const taskNode = (
@@ -604,7 +609,7 @@ describe('getElkLayoutElements', () => {
         const conditionBottom = positionOf(result.nodes, 'condition_1').y + 72;
         const topGhostBarY = positionOf(result.nodes, 'condition_1-condition-top-ghost').y;
 
-        expect(topGhostBarY - conditionBottom).toBe(BOX_GAP);
+        expect(topGhostBarY - conditionBottom).toBe(TOP_BOX_GAP);
     });
 
     it('keeps uniform box gaps in a frame with one populated and one empty branch', async () => {
@@ -630,8 +635,8 @@ describe('getElkLayoutElements', () => {
         const loggerTaskTop = positionOf(result.nodes, 'loggerTask').y;
         const bottomGhostBarY = positionOf(result.nodes, 'condition_1-condition-bottom-ghost').y;
 
-        expect(topGhostBarY - conditionBottom).toBe(BOX_GAP);
-        expect(loggerTaskTop - (topGhostBarY + 2)).toBe(BOX_GAP);
+        expect(topGhostBarY - conditionBottom).toBe(TOP_BOX_GAP);
+        expect(loggerTaskTop - (topGhostBarY + 2)).toBe(BAR_TO_CHILD_GAP);
         expect(bottomGhostBarY - (loggerTaskTop + 72)).toBe(BOX_GAP);
 
         // Condition sits midway between the populated chain and the empty-branch placeholder
@@ -671,8 +676,8 @@ describe('getElkLayoutElements', () => {
         const loggerTaskTop = positionOf(result.nodes, 'loggerTask').y;
         const bottomGhostBarY = positionOf(result.nodes, 'condition_1-condition-bottom-ghost').y;
 
-        expect(topGhostBarY - (900 + 72)).toBe(BOX_GAP);
-        expect(loggerTaskTop - (topGhostBarY + 2)).toBe(BOX_GAP);
+        expect(topGhostBarY - (900 + 72)).toBe(TOP_BOX_GAP);
+        expect(loggerTaskTop - (topGhostBarY + 2)).toBe(BAR_TO_CHILD_GAP);
         expect(bottomGhostBarY - (loggerTaskTop + 72)).toBe(BOX_GAP);
 
         const topGhostCenter = positionOf(result.nodes, 'condition_1-condition-top-ghost').x + 36;
@@ -722,7 +727,7 @@ describe('getElkLayoutElements', () => {
         const shallowConditionBottom = positionOf(result.nodes, 'condition_4').y + 72;
         const shallowTopGhostBarY = positionOf(result.nodes, 'condition_4-condition-top-ghost').y;
 
-        expect(shallowTopGhostBarY - shallowConditionBottom).toBe(BOX_GAP);
+        expect(shallowTopGhostBarY - shallowConditionBottom).toBe(TOP_BOX_GAP);
 
         // ...and both sibling frames' bars start at the same height
         const deepTopGhostBarY = positionOf(result.nodes, 'condition_2-condition-top-ghost').y;
