@@ -1314,6 +1314,170 @@ describe('getElkLayoutElements with branches', () => {
         type: 'workflow',
     });
 
+    it('keeps empty case columns at full pitch beside a deep case subtree', async () => {
+        // ELK may park sibling case placeholders in DIFFERENT layers (their
+        // entry/exit edges span the whole frame), and cross positions of
+        // disjoint layers may legally overlap — the placeholder mid-centering
+        // pass then collapses them onto one row, overlapping their case chips.
+        // The separation pass must restore the full footprint pitch.
+        const nodes: Node[] = [
+            branchNode('branch_1', ['case_0', 'case_1', 'case_2', 'case_3']),
+            ...branchGhostNodes('branch_1'),
+            branchCasePlaceholderNode('branch_1', 'default'),
+            branchCasePlaceholderNode('branch_1', 'case_0'),
+            branchCasePlaceholderNode('branch_1', 'case_1'),
+            branchNode('branch_2', ['case_0']),
+            ...branchGhostNodes('branch_2'),
+            branchCasePlaceholderNode('branch_2', 'default'),
+            branchChildTaskNode('subflow_1', 'branch_2', 'case_0'),
+            branchCasePlaceholderNode('branch_1', 'case_3'),
+        ];
+
+        const branch2Node = nodes.find((candidateNode) => candidateNode.id === 'branch_2');
+
+        branch2Node!.data = {
+            ...branch2Node!.data,
+            branchData: {branchId: 'branch_1', caseKey: 'case_2', index: 0},
+        };
+
+        const edges: Edge[] = [
+            edge('branch_1', 'branch_1-branch-top-ghost'),
+            edge('branch_1-branch-top-ghost', 'branch_1-branch-default-placeholder-0'),
+            edge('branch_1-branch-top-ghost', 'branch_1-branch-case_0-placeholder-0'),
+            edge('branch_1-branch-top-ghost', 'branch_1-branch-case_1-placeholder-0'),
+            edge('branch_1-branch-top-ghost', 'branch_2'),
+            edge('branch_1-branch-top-ghost', 'branch_1-branch-case_3-placeholder-0'),
+            edge('branch_1-branch-default-placeholder-0', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-case_0-placeholder-0', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-case_1-placeholder-0', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-case_3-placeholder-0', 'branch_1-branch-bottom-ghost'),
+            edge('branch_2', 'branch_2-branch-top-ghost'),
+            edge('branch_2-branch-top-ghost', 'branch_2-branch-default-placeholder-0'),
+            edge('branch_2-branch-top-ghost', 'subflow_1'),
+            edge('branch_2-branch-default-placeholder-0', 'branch_2-branch-bottom-ghost'),
+            edge('subflow_1', 'branch_2-branch-bottom-ghost'),
+            edge('branch_2-branch-bottom-ghost', 'branch_1-branch-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
+
+        // Case placeholder columns have 200px cross footprints + 50px gap, so
+        // consecutive column centers must sit at least 250 apart
+        const placeholderCenters = [
+            'branch_1-branch-default-placeholder-0',
+            'branch_1-branch-case_0-placeholder-0',
+            'branch_1-branch-case_1-placeholder-0',
+        ].map((placeholderId) => positionOf(result.nodes, placeholderId).x + 36);
+
+        expect(placeholderCenters[1] - placeholderCenters[0]).toBeGreaterThanOrEqual(249);
+        expect(placeholderCenters[2] - placeholderCenters[1]).toBeGreaterThanOrEqual(249);
+    });
+
+    it('separates a wide TRUE branch subtree from a deep FALSE loop subtree', async () => {
+        // The latent cross overlap between boxes in disjoint ELK layers becomes
+        // a real edge crossing once chain centering floats the short subtree
+        // into its sibling's band — the deep loop stack's rail and empty TRUE
+        // column must never cross the wide branch subtree's rightmost case
+        const nodes: Node[] = [
+            conditionNode('condition_3'),
+            ...conditionGhostNodes('condition_3'),
+            branchNode('branch_1', ['case_0', 'case_1', 'case_2', 'case_3']),
+            ...branchGhostNodes('branch_1'),
+            branchCasePlaceholderNode('branch_1', 'default'),
+            branchCasePlaceholderNode('branch_1', 'case_0'),
+            branchCasePlaceholderNode('branch_1', 'case_1'),
+            branchNode('branch_2', ['case_0']),
+            ...branchGhostNodes('branch_2'),
+            branchCasePlaceholderNode('branch_2', 'default'),
+            branchChildTaskNode('subflow_1', 'branch_2', 'case_0'),
+            branchCasePlaceholderNode('branch_1', 'case_3'),
+            loopNode('loop_3'),
+            ...loopAuxNodes('loop_3'),
+            loopChildTaskNode('accelo_2', 'loop_3'),
+            loopNode('loop_1'),
+            ...loopAuxNodes('loop_1'),
+            conditionNode('condition_5'),
+            ...conditionGhostNodes('condition_5'),
+            conditionPlaceholderNode('condition_5', 'left'),
+            loopNode('loop_2'),
+            ...loopAuxNodes('loop_2'),
+            loopChildTaskNode('loopChild1', 'loop_2'),
+            loopChildTaskNode('loopChild2', 'loop_2'),
+            loopChildTaskNode('accelo_1', 'loop_1'),
+        ];
+
+        const setData = (nodeId: string, extraData: Record<string, unknown>) => {
+            const targetNode = nodes.find((candidateNode) => candidateNode.id === nodeId);
+
+            targetNode!.data = {...targetNode!.data, ...extraData};
+        };
+
+        setData('branch_1', {conditionData: {conditionCase: 'caseTrue', conditionId: 'condition_3', index: 0}});
+        setData('branch_2', {branchData: {branchId: 'branch_1', caseKey: 'case_2', index: 0}});
+        setData('loop_3', {conditionData: {conditionCase: 'caseFalse', conditionId: 'condition_3', index: 0}});
+        setData('loop_1', {conditionData: {conditionCase: 'caseFalse', conditionId: 'condition_3', index: 1}});
+        setData('condition_5', {loopData: {index: 0, loopId: 'loop_1'}});
+        setData('loop_2', {conditionData: {conditionCase: 'caseFalse', conditionId: 'condition_5', index: 0}});
+
+        const edges: Edge[] = [
+            edge('condition_3', 'condition_3-condition-top-ghost'),
+            edge('condition_3-condition-top-ghost', 'branch_1'),
+            edge('condition_3-condition-top-ghost', 'loop_3'),
+            edge('branch_1', 'branch_1-branch-top-ghost'),
+            edge('branch_1-branch-top-ghost', 'branch_1-branch-default-placeholder-0'),
+            edge('branch_1-branch-top-ghost', 'branch_1-branch-case_0-placeholder-0'),
+            edge('branch_1-branch-top-ghost', 'branch_1-branch-case_1-placeholder-0'),
+            edge('branch_1-branch-top-ghost', 'branch_2'),
+            edge('branch_1-branch-top-ghost', 'branch_1-branch-case_3-placeholder-0'),
+            edge('branch_1-branch-default-placeholder-0', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-case_0-placeholder-0', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-case_1-placeholder-0', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-case_3-placeholder-0', 'branch_1-branch-bottom-ghost'),
+            edge('branch_2', 'branch_2-branch-top-ghost'),
+            edge('branch_2-branch-top-ghost', 'branch_2-branch-default-placeholder-0'),
+            edge('branch_2-branch-top-ghost', 'subflow_1'),
+            edge('branch_2-branch-default-placeholder-0', 'branch_2-branch-bottom-ghost'),
+            edge('subflow_1', 'branch_2-branch-bottom-ghost'),
+            edge('branch_2-branch-bottom-ghost', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-bottom-ghost', 'condition_3-condition-bottom-ghost'),
+            ...loopStructureEdges('loop_3'),
+            edge('loop_3-loop-top-ghost', 'accelo_2'),
+            edge('accelo_2', 'loop_3-loop-bottom-ghost'),
+            edge('loop_3-loop-bottom-ghost', 'loop_1'),
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'condition_5'),
+            edge('condition_5', 'condition_5-condition-top-ghost'),
+            edge('condition_5-condition-top-ghost', 'condition_5-condition-left-placeholder-0'),
+            edge('condition_5-condition-left-placeholder-0', 'condition_5-condition-bottom-ghost'),
+            edge('condition_5-condition-top-ghost', 'loop_2'),
+            ...loopStructureEdges('loop_2'),
+            edge('loop_2-loop-top-ghost', 'loopChild1'),
+            edge('loopChild1', 'loopChild2'),
+            edge('loopChild2', 'loop_2-loop-bottom-ghost'),
+            edge('loop_2-loop-bottom-ghost', 'condition_5-condition-bottom-ghost'),
+            edge('condition_5-condition-bottom-ghost', 'accelo_1'),
+            edge('accelo_1', 'loop_1-loop-bottom-ghost'),
+            edge('loop_1-loop-bottom-ghost', 'condition_3-condition-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
+
+        // Rightmost TRUE-side extent: the case_3 placeholder column footprint
+        // and the branch_2 subtree's subflow column (240 footprint)
+        const trueRightEdge = Math.max(
+            positionOf(result.nodes, 'branch_1-branch-case_3-placeholder-0').x + 36 + 100,
+            positionOf(result.nodes, 'subflow_1').x + 36 + 120
+        );
+
+        // Leftmost FALSE-side extents: the deep loop's rail and the empty TRUE
+        // column of the nested condition
+        const falseRailX = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x;
+        const falsePlaceholderLeft = positionOf(result.nodes, 'condition_5-condition-left-placeholder-0').x + 36 - 100;
+
+        expect(falseRailX).toBeGreaterThan(trueRightEdge);
+        expect(falsePlaceholderLeft).toBeGreaterThan(trueRightEdge);
+    });
+
     it('orders branch case columns by the params-derived canonical order, not array order', async () => {
         // Ordering trap per spec: the case_a placeholder is created BEFORE all
         // chain tasks in the flat array, but canonically default < case_a < case_b

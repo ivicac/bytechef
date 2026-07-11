@@ -1121,6 +1121,118 @@ export const getElkLayoutElements = async ({
             };
         });
 
+        // dagre parity (separateOverlapping*): ELK may legally place boxes from
+        // DISJOINT layers at overlapping cross positions (a deep sibling's frame
+        // tucked under a shallow neighbour's columns, or case placeholders parked
+        // in different layers), and the main-axis fixups (chain centering,
+        // placeholder mid-centering) then move that content into the same visual
+        // band, materializing the overlap as an edge crossing. Sweep each frame's
+        // entry columns innermost-first and push later columns outward until
+        // their FOOTPRINT envelopes (which cover label widths and placeholder
+        // case chips) clear each other by the sibling gap. Rails ride along in
+        // their dispatcher's member set, so ring geometry shifts rigidly.
+        const frameNodesInnermostFirst = nodes
+            .filter((node) => isFrameDispatcherNode(node))
+            .map((node) => ({
+                descendantCount: allNodes.filter((candidateNode) => isDescendantOfDispatcher(candidateNode, node.id))
+                    .length,
+                node,
+            }))
+            .sort((firstEntry, secondEntry) => firstEntry.descendantCount - secondEntry.descendantCount)
+            .map((entry) => entry.node);
+
+        frameNodesInnermostFirst.forEach((frameNode) => {
+            const {bottomGhostId, topGhostId} = getGhostIds(frameNode);
+
+            const entryColumns: Array<{end: number; memberNodes: Set<Node>; start: number}> = [];
+            const seenEntryIds = new Set<string>();
+
+            edges.forEach((entryEdge) => {
+                if (entryEdge.source !== topGhostId || seenEntryIds.has(entryEdge.target)) {
+                    return;
+                }
+
+                seenEntryIds.add(entryEdge.target);
+
+                const entryNode = layoutedNodesById.get(entryEdge.target);
+
+                if (!entryNode || entryNode.type === 'taskDispatcherLeftGhostNode') {
+                    return;
+                }
+
+                const memberNodes = new Set<Node>();
+
+                if (entryNode.type === 'placeholder') {
+                    memberNodes.add(entryNode);
+                } else {
+                    const chainNodes = collectChainMainNodes(entryNode, bottomGhostId, layoutedNodesById, edges);
+
+                    if (!chainNodes) {
+                        return;
+                    }
+
+                    chainNodes.forEach((chainNode) => {
+                        memberNodes.add(chainNode);
+
+                        if (!isFrameDispatcherNode(chainNode)) {
+                            return;
+                        }
+
+                        allNodes.forEach((candidateNode) => {
+                            if (isDescendantOfDispatcher(candidateNode, chainNode.id)) {
+                                memberNodes.add(candidateNode);
+                            }
+                        });
+                    });
+                }
+
+                let columnStart = Infinity;
+                let columnEnd = -Infinity;
+
+                memberNodes.forEach((memberNode) => {
+                    const renderedSize = getRenderedNodeSize(memberNode, direction);
+                    const renderedCross = crossAxis === 'x' ? renderedSize.width : renderedSize.height;
+                    const footprintSize = getElkNodeSize(memberNode, direction);
+                    const footprintCross = crossAxis === 'x' ? footprintSize.width : footprintSize.height;
+
+                    const memberCrossCenter = memberNode.position[crossAxis] + renderedCross / 2;
+                    const memberHalfWidth = Math.max(renderedCross, footprintCross) / 2;
+
+                    columnStart = Math.min(columnStart, memberCrossCenter - memberHalfWidth);
+                    columnEnd = Math.max(columnEnd, memberCrossCenter + memberHalfWidth);
+                });
+
+                entryColumns.push({end: columnEnd, memberNodes, start: columnStart});
+            });
+
+            if (entryColumns.length < 2) {
+                return;
+            }
+
+            entryColumns.sort((firstColumn, secondColumn) => firstColumn.start - secondColumn.start);
+
+            let occupiedEnd = entryColumns[0].end;
+
+            entryColumns.slice(1).forEach((entryColumn) => {
+                const requiredStart = occupiedEnd + ELK_SIBLING_SPACING;
+
+                if (entryColumn.start < requiredStart) {
+                    const columnShift = requiredStart - entryColumn.start;
+
+                    entryColumn.memberNodes.forEach((memberNode) => {
+                        memberNode.position = {
+                            ...memberNode.position,
+                            [crossAxis]: memberNode.position[crossAxis] + columnShift,
+                        };
+                    });
+
+                    entryColumn.end += columnShift;
+                }
+
+                occupiedEnd = Math.max(occupiedEnd, entryColumn.end);
+            });
+        });
+
         // A trailing "+" placeholder fed by a dispatcher's bottom ghost was aligned
         // by ELK against the frame's PRE-shift box, so the entry-axis frame shift
         // leaves it off the chain — pin it back onto the bottom bar's axis.
