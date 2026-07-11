@@ -565,6 +565,9 @@ export const getElkLayoutElements = async ({
 
         positionTriggerPlaceholder(allNodes, direction);
 
+        // applySavedPositions also propagates a moved dispatcher's delta to its
+        // ghosts, placeholders, and children (iteratively, handling nesting), so a
+        // dispatcher with a saved position carries its whole frame rigidly with it.
         applySavedPositions(allNodes, crossAxis, savedPositionCrossAxisShift);
 
         return {edges: filterAndDedupeLayoutEdges(allNodes, edges), nodes: allNodes};

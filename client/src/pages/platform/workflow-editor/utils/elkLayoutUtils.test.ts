@@ -579,4 +579,77 @@ describe('getElkLayoutElements', () => {
 
         expect(topGhostBarY - conditionBottom).toBe(50);
     });
+
+    it('keeps uniform 50px gaps in a frame with one populated and one empty branch', async () => {
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            taskNode('loggerTask', {conditionCase: 'caseTrue', conditionId: 'condition_1'}),
+            conditionPlaceholderNode('condition_1', 'right'),
+        ];
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'loggerTask'),
+            edge('loggerTask', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'condition_1-condition-right-placeholder-0'),
+            edge('condition_1-condition-right-placeholder-0', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        const conditionBottom = positionOf(result.nodes, 'condition_1').y + 72;
+        const topGhostBarY = positionOf(result.nodes, 'condition_1-condition-top-ghost').y;
+        const loggerTaskTop = positionOf(result.nodes, 'loggerTask').y;
+        const bottomGhostBarY = positionOf(result.nodes, 'condition_1-condition-bottom-ghost').y;
+
+        expect(topGhostBarY - conditionBottom).toBe(50);
+        expect(loggerTaskTop - (topGhostBarY + 2)).toBe(50);
+        expect(bottomGhostBarY - (loggerTaskTop + 72)).toBe(50);
+
+        // Condition sits midway between the populated chain and the empty-branch placeholder
+        const conditionCenter = positionOf(result.nodes, 'condition_1').x + 36;
+        const loggerCenter = positionOf(result.nodes, 'loggerTask').x + 36;
+        const placeholderCenter = positionOf(result.nodes, 'condition_1-condition-right-placeholder-0').x + 14;
+
+        expect(Math.abs((loggerCenter + placeholderCenter) / 2 - conditionCenter)).toBeLessThanOrEqual(1);
+    });
+
+    it('moves the whole frame with a dispatcher that has a saved position', async () => {
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            taskNode('loggerTask', {conditionCase: 'caseTrue', conditionId: 'condition_1'}),
+            conditionPlaceholderNode('condition_1', 'right'),
+        ];
+
+        (nodes[0].data as Record<string, unknown>).metadata = {ui: {nodePosition: {x: 400, y: 900}}};
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'loggerTask'),
+            edge('loggerTask', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'condition_1-condition-right-placeholder-0'),
+            edge('condition_1-condition-right-placeholder-0', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        // The dispatcher honors its saved position...
+        expect(positionOf(result.nodes, 'condition_1')).toEqual({x: 400, y: 900});
+
+        // ...and its ghosts and children shift rigidly with it, keeping the frame's
+        // internal geometry (uniform 50px gaps, ghosts centered on the condition)
+        const topGhostBarY = positionOf(result.nodes, 'condition_1-condition-top-ghost').y;
+        const loggerTaskTop = positionOf(result.nodes, 'loggerTask').y;
+        const bottomGhostBarY = positionOf(result.nodes, 'condition_1-condition-bottom-ghost').y;
+
+        expect(topGhostBarY - (900 + 72)).toBe(50);
+        expect(loggerTaskTop - (topGhostBarY + 2)).toBe(50);
+        expect(bottomGhostBarY - (loggerTaskTop + 72)).toBe(50);
+
+        const topGhostCenter = positionOf(result.nodes, 'condition_1-condition-top-ghost').x + 36;
+
+        expect(Math.abs(topGhostCenter - (400 + 36))).toBeLessThanOrEqual(1);
+    });
 });
