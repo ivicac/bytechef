@@ -186,6 +186,7 @@ export type ClusterElementsType = {
 export type NodeDataType = {
     branchData?: BranchDataType;
     branchId?: string;
+    branchIndex?: number;
     caseKey?: string | number;
     clusterElements?: ClusterElementsType | Array<ClusterElementDefinitionBasic>;
     clusterElementName?: string;

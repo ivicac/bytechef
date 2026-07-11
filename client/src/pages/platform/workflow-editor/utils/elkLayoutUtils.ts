@@ -95,14 +95,22 @@ function isFrameDispatcherNode(node: Node): boolean {
     return nodeData.taskDispatcher === true && ELK_FRAME_DISPATCHER_COMPONENT_NAMES.includes(nodeData.componentName);
 }
 
+// Fork-join aux node ids use the camelCase segment 'forkJoin', not the
+// componentName 'fork-join' (see createForkJoinNode).
+const GHOST_ID_SEGMENT_BY_COMPONENT_NAME: Record<string, string> = {'fork-join': 'forkJoin'};
+
+function getGhostIdSegment(componentName: string): string {
+    return GHOST_ID_SEGMENT_BY_COMPONENT_NAME[componentName] || componentName;
+}
+
 // Ghost bar ids embed the dispatcher kind: `<id>-condition-top-ghost`,
-// `<id>-loop-bottom-ghost`, ...
+// `<id>-loop-bottom-ghost`, `<id>-forkJoin-top-ghost`, ...
 function getGhostIds(dispatcherNode: Node): {bottomGhostId: string; topGhostId: string} {
-    const componentName = (dispatcherNode.data as NodeDataType).componentName;
+    const ghostIdSegment = getGhostIdSegment((dispatcherNode.data as NodeDataType).componentName);
 
     return {
-        bottomGhostId: `${dispatcherNode.id}-${componentName}-bottom-ghost`,
-        topGhostId: `${dispatcherNode.id}-${componentName}-top-ghost`,
+        bottomGhostId: `${dispatcherNode.id}-${ghostIdSegment}-bottom-ghost`,
+        topGhostId: `${dispatcherNode.id}-${ghostIdSegment}-top-ghost`,
     };
 }
 
@@ -186,7 +194,13 @@ function getOwningDispatcherId(node: Node): string | undefined {
         return nodeData.taskDispatcherId;
     }
 
-    return nodeData.conditionData?.conditionId || nodeData.loopData?.loopId || nodeData.branchData?.branchId;
+    return (
+        nodeData.conditionData?.conditionId ||
+        nodeData.loopData?.loopId ||
+        nodeData.branchData?.branchId ||
+        nodeData.parallelData?.parallelId ||
+        nodeData.forkJoinData?.forkJoinId
+    );
 }
 
 // The canonical left-to-right case order of a branch lives ONLY in the
@@ -358,17 +372,42 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
 
         const memberData = memberNode.data as NodeDataType;
 
-        if (scopeDispatcherNode && (scopeDispatcherNode.data as NodeDataType).componentName === 'branch') {
+        // Ghost bars always lead their frame regardless of the scope kind
+        const isGhostBar =
+            memberNode.type === 'taskDispatcherTopGhostNode' || memberNode.type === 'taskDispatcherBottomGhostNode';
+
+        if (isGhostBar) {
+            return -1;
+        }
+
+        const scopeComponentName = scopeDispatcherNode
+            ? (scopeDispatcherNode.data as NodeDataType).componentName
+            : undefined;
+
+        if (scopeComponentName === 'branch') {
             const memberCaseKey = memberData.caseKey ?? memberData.branchData?.caseKey;
 
             if (memberCaseKey === undefined) {
                 return -1;
             }
 
-            const caseOrdinals = getBranchCaseOrdinals(scopeDispatcherNode);
+            const caseOrdinals = getBranchCaseOrdinals(scopeDispatcherNode!);
             const ordinal = caseOrdinals.indexOf(String(memberCaseKey));
 
             return ordinal === -1 ? caseOrdinals.length : ordinal;
+        }
+
+        if (scopeComponentName === 'parallel') {
+            // Parallel children carry their column ordinal; the index-less "+"
+            // placeholder is the trailing add-a-task column
+            return memberData.parallelData?.index ?? Number.MAX_SAFE_INTEGER;
+        }
+
+        if (scopeComponentName === 'fork-join') {
+            // Both children (forkJoinData) and placeholders (top-level field)
+            // carry an explicit branchIndex; the trailing add-a-branch
+            // placeholder gets branchCount and so ranks last naturally
+            return memberData.forkJoinData?.branchIndex ?? memberData.branchIndex ?? Number.MAX_SAFE_INTEGER;
         }
 
         const conditionCase = memberData.conditionCase || memberData.conditionData?.conditionCase;
@@ -559,7 +598,7 @@ export const getElkLayoutElements = async ({
                                 ? dispatcherBox.x + dispatcherBox.width / 2
                                 : dispatcherBox.y + dispatcherBox.height / 2;
 
-                        const topGhostId = `${dispatcherId}-${dispatcherKind}-top-ghost`;
+                        const topGhostId = `${dispatcherId}-${getGhostIdSegment(dispatcherKind)}-top-ghost`;
                         const branchEntryCenters: number[] = [];
 
                         (child.edges || []).forEach((frameEdge) => {
@@ -749,6 +788,15 @@ export const getElkLayoutElements = async ({
             const frameMainCenter =
                 (topGhostNode.position[mainAxis] + bottomGhostNode.position[mainAxis] + GHOST_BAR_THICKNESS) / 2;
 
+            // A rail is only created for empty ring-shaped frames (loop always;
+            // parallel/fork-join when they have no subtasks) — its presence is
+            // what selects the square-ring placeholder treatment
+            const dispatcherHasRail = allNodes.some(
+                (railCandidate) =>
+                    railCandidate.type === 'taskDispatcherLeftGhostNode' &&
+                    (railCandidate.data as NodeDataType).taskDispatcherId === node.id
+            );
+
             allNodes.forEach((candidateNode) => {
                 const candidateData = candidateNode.data as NodeDataType;
 
@@ -767,9 +815,9 @@ export const getElkLayoutElements = async ({
                     [mainAxis]: frameMainCenter - auxMainSize / 2,
                 };
 
-                // A loop's "+" placeholder sits ON the ring's right edge, half the
-                // ring's own span off the axis — the ring renders square
-                if (candidateNode.type === 'placeholder' && (node.data as NodeDataType).componentName === 'loop') {
+                // An empty ring's "+" placeholder sits ON the ring's right edge,
+                // half the ring's own span off the axis — the ring renders square
+                if (candidateNode.type === 'placeholder' && dispatcherHasRail) {
                     const auxCrossSize = crossAxis === 'x' ? auxRenderedSize.width : auxRenderedSize.height;
                     const ringHalfWidth = getEmptyRingHalfWidth(topGhostNode, bottomGhostNode, mainAxis);
 
@@ -844,7 +892,8 @@ export const getElkLayoutElements = async ({
 
             const dispatcherKind = frameDispatcherKindById.get(railDispatcherId);
             const topBarNode = allNodes.find(
-                (candidateNode) => candidateNode.id === `${railDispatcherId}-${dispatcherKind}-top-ghost`
+                (candidateNode) =>
+                    candidateNode.id === `${railDispatcherId}-${getGhostIdSegment(dispatcherKind || '')}-top-ghost`
             );
 
             if (!topBarNode) {
@@ -895,7 +944,8 @@ export const getElkLayoutElements = async ({
 
             const railMainAxis = crossAxis === 'x' ? 'y' : 'x';
             const bottomBarNode = allNodes.find(
-                (candidateNode) => candidateNode.id === `${railDispatcherId}-${dispatcherKind}-bottom-ghost`
+                (candidateNode) =>
+                    candidateNode.id === `${railDispatcherId}-${getGhostIdSegment(dispatcherKind || '')}-bottom-ghost`
             );
 
             const dispatcherCenter = topBarNode.position[crossAxis] + NODE_ANCHOR_SIZE / 2;

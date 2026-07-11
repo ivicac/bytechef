@@ -1359,3 +1359,286 @@ describe('getElkLayoutElements with branches', () => {
         expect(Math.abs(loopChildCenter - loopCenter)).toBeLessThanOrEqual(1);
     });
 });
+
+describe('getElkLayoutElements with parallel and fork-join', () => {
+    const parallelNode = (id: string): Node => ({
+        data: {componentName: 'parallel', taskDispatcher: true, taskDispatcherId: id, workflowNodeName: id},
+        id,
+        position: {x: 0, y: 0},
+        type: 'workflow',
+    });
+
+    // Mirrors createParallelNode: bottom ghost carries only taskDispatcherId
+    const parallelAuxNodes = (parallelId: string, options: {withRail: boolean}): Node[] => [
+        {
+            data: {parallelId, taskDispatcherId: parallelId},
+            id: `${parallelId}-parallel-top-ghost`,
+            position: {x: 0, y: 0},
+            type: 'taskDispatcherTopGhostNode',
+        },
+        ...(options.withRail
+            ? [
+                  {
+                      data: {parallelId, taskDispatcherId: parallelId},
+                      id: `${parallelId}-taskDispatcher-left-ghost`,
+                      position: {x: 0, y: 0},
+                      type: 'taskDispatcherLeftGhostNode',
+                  } as Node,
+              ]
+            : []),
+        {
+            data: {label: '+', parallelId, taskDispatcherId: parallelId},
+            id: `${parallelId}-parallel-placeholder-0`,
+            position: {x: 0, y: 0},
+            type: 'placeholder',
+        },
+        {
+            data: {taskDispatcherId: parallelId},
+            id: `${parallelId}-parallel-bottom-ghost`,
+            position: {x: 0, y: 0},
+            type: 'taskDispatcherBottomGhostNode',
+        },
+    ];
+
+    const parallelChildTaskNode = (id: string, parallelId: string, index: number): Node => ({
+        data: {componentName: 'mailchimp', parallelData: {index, parallelId}, workflowNodeName: id},
+        id,
+        position: {x: 0, y: 0},
+        type: 'workflow',
+    });
+
+    // Mirrors createForkJoinNode: camelCase 'forkJoin' id segment; placeholders
+    // carry a top-level branchIndex
+    const forkJoinNode = (id: string): Node => ({
+        data: {componentName: 'fork-join', taskDispatcher: true, taskDispatcherId: id, workflowNodeName: id},
+        id,
+        position: {x: 0, y: 0},
+        type: 'workflow',
+    });
+
+    const forkJoinAuxNodes = (forkJoinId: string, options: {withRail: boolean}): Node[] => [
+        {
+            data: {forkJoinId, taskDispatcherId: forkJoinId},
+            id: `${forkJoinId}-forkJoin-top-ghost`,
+            position: {x: 0, y: 0},
+            type: 'taskDispatcherTopGhostNode',
+        },
+        ...(options.withRail
+            ? [
+                  {
+                      data: {forkJoinId, taskDispatcherId: forkJoinId},
+                      id: `${forkJoinId}-taskDispatcher-left-ghost`,
+                      position: {x: 0, y: 0},
+                      type: 'taskDispatcherLeftGhostNode',
+                  } as Node,
+              ]
+            : []),
+        {
+            data: {taskDispatcherId: forkJoinId},
+            id: `${forkJoinId}-forkJoin-bottom-ghost`,
+            position: {x: 0, y: 0},
+            type: 'taskDispatcherBottomGhostNode',
+        },
+    ];
+
+    const forkJoinPlaceholderNode = (forkJoinId: string, branchIndex: number): Node => ({
+        data: {branchIndex, forkJoinId, label: '+', taskDispatcherId: forkJoinId},
+        id: `${forkJoinId}-forkJoin-placeholder-${branchIndex}`,
+        position: {x: 0, y: 0},
+        type: 'placeholder',
+    });
+
+    const forkJoinChildTaskNode = (id: string, forkJoinId: string, branchIndex: number, index: number): Node => ({
+        data: {componentName: 'mailchimp', forkJoinData: {branchIndex, forkJoinId, index}, workflowNodeName: id},
+        id,
+        position: {x: 0, y: 0},
+        type: 'workflow',
+    });
+
+    it('orders parallel columns by index with the trailing placeholder last', async () => {
+        const nodes: Node[] = [
+            parallelNode('parallel_1'),
+            ...parallelAuxNodes('parallel_1', {withRail: false}),
+            parallelChildTaskNode('p1', 'parallel_1', 0),
+            parallelChildTaskNode('p2', 'parallel_1', 1),
+            parallelChildTaskNode('p3', 'parallel_1', 2),
+        ];
+
+        const edges: Edge[] = [
+            edge('parallel_1', 'parallel_1-parallel-top-ghost'),
+            edge('parallel_1-parallel-top-ghost', 'p1'),
+            edge('p1', 'parallel_1-parallel-bottom-ghost'),
+            edge('parallel_1-parallel-top-ghost', 'p2'),
+            edge('p2', 'parallel_1-parallel-bottom-ghost'),
+            edge('parallel_1-parallel-top-ghost', 'p3'),
+            edge('p3', 'parallel_1-parallel-bottom-ghost'),
+            edge('parallel_1-parallel-top-ghost', 'parallel_1-parallel-placeholder-0'),
+            edge('parallel_1-parallel-placeholder-0', 'parallel_1-parallel-bottom-ghost'),
+        ];
+
+        expect(collectScopeEdgeViolations(buildElkGraph(nodes, edges, 'TB'))).toEqual([]);
+
+        const result = await getElkLayoutElements({canvasWidth: 2000, direction: 'TB', edges, nodes});
+
+        const p1Center = positionOf(result.nodes, 'p1').x + 36;
+        const p2Center = positionOf(result.nodes, 'p2').x + 36;
+        const p3Center = positionOf(result.nodes, 'p3').x + 36;
+        const placeholderCenter = positionOf(result.nodes, 'parallel_1-parallel-placeholder-0').x + 36;
+
+        expect(p1Center).toBeLessThan(p2Center);
+        expect(p2Center).toBeLessThan(p3Center);
+        expect(p3Center).toBeLessThan(placeholderCenter);
+
+        // Even column count (3 tasks + placeholder): dispatcher on the mean
+        const parallelCenter = positionOf(result.nodes, 'parallel_1').x + 36;
+        const columnMean = (p1Center + p2Center + p3Center + placeholderCenter) / 4;
+
+        expect(Math.abs(columnMean - parallelCenter)).toBeLessThanOrEqual(1);
+
+        const parallelBottom = positionOf(result.nodes, 'parallel_1').y + 72;
+        const topGhostBarY = positionOf(result.nodes, 'parallel_1-parallel-top-ghost').y;
+
+        expect(topGhostBarY - parallelBottom).toBe(TOP_BOX_GAP);
+    });
+
+    it('renders an empty parallel as a square ring', async () => {
+        const nodes: Node[] = [parallelNode('parallel_1'), ...parallelAuxNodes('parallel_1', {withRail: true})];
+
+        const edges: Edge[] = [
+            edge('parallel_1', 'parallel_1-parallel-top-ghost'),
+            edge('parallel_1-parallel-top-ghost', 'parallel_1-taskDispatcher-left-ghost'),
+            edge('parallel_1-taskDispatcher-left-ghost', 'parallel_1-parallel-bottom-ghost'),
+            edge('parallel_1-parallel-top-ghost', 'parallel_1-parallel-placeholder-0'),
+            edge('parallel_1-parallel-placeholder-0', 'parallel_1-parallel-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        const topGhostBarY = positionOf(result.nodes, 'parallel_1-parallel-top-ghost').y;
+        const bottomGhostBarY = positionOf(result.nodes, 'parallel_1-parallel-bottom-ghost').y;
+        const ringHalfWidth = (bottomGhostBarY - topGhostBarY + 2) / 2;
+
+        const parallelCenter = positionOf(result.nodes, 'parallel_1').x + 36;
+        const placeholderCenter = positionOf(result.nodes, 'parallel_1-parallel-placeholder-0').x + 36;
+        const railCenter = positionOf(result.nodes, 'parallel_1-taskDispatcher-left-ghost').x + 1;
+
+        expect(placeholderCenter - parallelCenter).toBe(ringHalfWidth);
+        expect(parallelCenter - railCenter).toBe(ringHalfWidth);
+    });
+
+    it('orders fork-join branch columns by branchIndex with chains inside', async () => {
+        const nodes: Node[] = [
+            forkJoinNode('forkJoin_1'),
+            ...forkJoinAuxNodes('forkJoin_1', {withRail: false}),
+            forkJoinPlaceholderNode('forkJoin_1', 2),
+            forkJoinChildTaskNode('f1', 'forkJoin_1', 0, 0),
+            forkJoinChildTaskNode('f2', 'forkJoin_1', 0, 1),
+            forkJoinChildTaskNode('g1', 'forkJoin_1', 1, 0),
+        ];
+
+        const edges: Edge[] = [
+            edge('forkJoin_1', 'forkJoin_1-forkJoin-top-ghost'),
+            edge('forkJoin_1-forkJoin-top-ghost', 'f1'),
+            edge('f1', 'f2'),
+            edge('f2', 'forkJoin_1-forkJoin-bottom-ghost'),
+            edge('forkJoin_1-forkJoin-top-ghost', 'g1'),
+            edge('g1', 'forkJoin_1-forkJoin-bottom-ghost'),
+            edge('forkJoin_1-forkJoin-top-ghost', 'forkJoin_1-forkJoin-placeholder-2'),
+            edge('forkJoin_1-forkJoin-placeholder-2', 'forkJoin_1-forkJoin-bottom-ghost'),
+        ];
+
+        expect(collectScopeEdgeViolations(buildElkGraph(nodes, edges, 'TB'))).toEqual([]);
+
+        const result = await getElkLayoutElements({canvasWidth: 2000, direction: 'TB', edges, nodes});
+
+        const branch0Center = positionOf(result.nodes, 'f1').x + 36;
+        const branch1Center = positionOf(result.nodes, 'g1').x + 36;
+        const placeholderCenter = positionOf(result.nodes, 'forkJoin_1-forkJoin-placeholder-2').x + 36;
+
+        expect(branch0Center).toBeLessThan(branch1Center);
+        expect(branch1Center).toBeLessThan(placeholderCenter);
+
+        // Odd column count (2 branches + placeholder): median column on the axis
+        const forkJoinCenter = positionOf(result.nodes, 'forkJoin_1').x + 36;
+
+        expect(Math.abs(branch1Center - forkJoinCenter)).toBeLessThanOrEqual(1);
+
+        // Chain rhythm inside branch 0
+        expect(positionOf(result.nodes, 'f2').y - positionOf(result.nodes, 'f1').y).toBe(CHAIN_STEP);
+    });
+
+    it('renders an empty fork-join as a square ring via camelCase ghost ids', async () => {
+        const nodes: Node[] = [
+            forkJoinNode('forkJoin_1'),
+            ...forkJoinAuxNodes('forkJoin_1', {withRail: true}),
+            forkJoinPlaceholderNode('forkJoin_1', 0),
+        ];
+
+        const edges: Edge[] = [
+            edge('forkJoin_1', 'forkJoin_1-forkJoin-top-ghost'),
+            edge('forkJoin_1-forkJoin-top-ghost', 'forkJoin_1-taskDispatcher-left-ghost'),
+            edge('forkJoin_1-taskDispatcher-left-ghost', 'forkJoin_1-forkJoin-bottom-ghost'),
+            edge('forkJoin_1-forkJoin-top-ghost', 'forkJoin_1-forkJoin-placeholder-0'),
+            edge('forkJoin_1-forkJoin-placeholder-0', 'forkJoin_1-forkJoin-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        const topGhostBarY = positionOf(result.nodes, 'forkJoin_1-forkJoin-top-ghost').y;
+        const bottomGhostBarY = positionOf(result.nodes, 'forkJoin_1-forkJoin-bottom-ghost').y;
+        const ringHalfWidth = (bottomGhostBarY - topGhostBarY + 2) / 2;
+
+        const forkJoinCenter = positionOf(result.nodes, 'forkJoin_1').x + 36;
+        const placeholderCenter = positionOf(result.nodes, 'forkJoin_1-forkJoin-placeholder-0').x + 36;
+        const railCenter = positionOf(result.nodes, 'forkJoin_1-taskDispatcher-left-ghost').x + 1;
+
+        // The 38px pulled top gap proves the camelCase ghost ids resolved
+        const forkJoinBottom = positionOf(result.nodes, 'forkJoin_1').y + 72;
+
+        expect(topGhostBarY - forkJoinBottom).toBe(TOP_BOX_GAP);
+        expect(placeholderCenter - forkJoinCenter).toBe(ringHalfWidth);
+        expect(forkJoinCenter - railCenter).toBe(ringHalfWidth);
+    });
+
+    it('lays out a parallel inside a condition branch', async () => {
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            {
+                data: {
+                    componentName: 'parallel',
+                    conditionData: {conditionCase: 'caseTrue', conditionId: 'condition_1', index: 0},
+                    taskDispatcher: true,
+                    taskDispatcherId: 'parallel_1',
+                    workflowNodeName: 'parallel_1',
+                },
+                id: 'parallel_1',
+                position: {x: 0, y: 0},
+                type: 'workflow',
+            },
+            ...parallelAuxNodes('parallel_1', {withRail: false}),
+            parallelChildTaskNode('p1', 'parallel_1', 0),
+            taskNode('childFalse1', {conditionCase: 'caseFalse', conditionId: 'condition_1'}),
+        ];
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'parallel_1'),
+            edge('parallel_1', 'parallel_1-parallel-top-ghost'),
+            edge('parallel_1-parallel-top-ghost', 'p1'),
+            edge('p1', 'parallel_1-parallel-bottom-ghost'),
+            edge('parallel_1-parallel-top-ghost', 'parallel_1-parallel-placeholder-0'),
+            edge('parallel_1-parallel-placeholder-0', 'parallel_1-parallel-bottom-ghost'),
+            edge('parallel_1-parallel-bottom-ghost', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'childFalse1'),
+            edge('childFalse1', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        expect(collectScopeEdgeViolations(buildElkGraph(nodes, edges, 'TB'))).toEqual([]);
+
+        const result = await getElkLayoutElements({canvasWidth: 2000, direction: 'TB', edges, nodes});
+
+        // Parallel (caseTrue) stays left of the FALSE branch child
+        expect(positionOf(result.nodes, 'parallel_1').x).toBeLessThan(positionOf(result.nodes, 'childFalse1').x);
+    });
+});
