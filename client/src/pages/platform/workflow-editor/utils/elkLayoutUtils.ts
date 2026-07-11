@@ -68,6 +68,14 @@ const getElkLayoutOptions = (direction: LayoutDirectionType): Record<string, str
     'elk.spacing.nodeNode': String(ELK_SIBLING_SPACING),
 });
 
+// ELK centers nodes within a layer band on the flow axis, so a shallow frame
+// sitting beside a deeper sibling subtree gets pushed down the band, inflating
+// its condition→box gap. Aligning to the band's flow-axis start keeps every
+// box gap uniform regardless of sibling depth.
+const getChildAlignmentOptions = (direction: LayoutDirectionType): Record<string, string> => ({
+    'elk.alignment': direction === 'TB' ? 'TOP' : 'LEFT',
+});
+
 /**
  * ELK footprint of a node. Cross-axis sizes come from the shared dagre size
  * function (they control how far apart parallel branch chains sit). MAIN-axis
@@ -306,7 +314,10 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
 
             const {height, width} = getElkNodeSize(node, direction);
 
-            memberEntries.push({caseRank: getConditionCaseRank(node), child: {height, id: node.id, width}});
+            memberEntries.push({
+                caseRank: getConditionCaseRank(node),
+                child: {height, id: node.id, layoutOptions: getChildAlignmentOptions(direction), width},
+            });
         });
 
         conditionIds.forEach((conditionId) => {
@@ -320,7 +331,7 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
                     children: buildScopeChildren(conditionId),
                     edges: elkEdgesByScope.get(conditionId) || [],
                     id: getFrameId(conditionId),
-                    layoutOptions: getElkLayoutOptions(direction),
+                    layoutOptions: {...getElkLayoutOptions(direction), ...getChildAlignmentOptions(direction)},
                 },
             });
         });

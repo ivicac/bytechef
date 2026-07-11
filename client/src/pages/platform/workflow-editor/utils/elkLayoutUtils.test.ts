@@ -679,4 +679,54 @@ describe('getElkLayoutElements', () => {
 
         expect(Math.abs(topGhostCenter - (400 + 36))).toBeLessThanOrEqual(1);
     });
+
+    it('top-aligns sibling frames of unequal depth so box gaps stay uniform', async () => {
+        // condition_1's TRUE branch holds a shallow nested condition (empty
+        // branches) while the FALSE branch holds a deeper one — ELK's default
+        // within-layer centering would push the shallower frame down the band,
+        // inflating its condition→box gap
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            conditionNode('condition_4', {conditionCase: 'caseTrue', conditionId: 'condition_1'}),
+            ...conditionGhostNodes('condition_4'),
+            conditionPlaceholderNode('condition_4', 'left'),
+            conditionPlaceholderNode('condition_4', 'right'),
+            conditionNode('condition_2', {conditionCase: 'caseFalse', conditionId: 'condition_1'}),
+            ...conditionGhostNodes('condition_2'),
+            taskNode('loggerTask', {conditionCase: 'caseTrue', conditionId: 'condition_2'}),
+            conditionPlaceholderNode('condition_2', 'right'),
+        ];
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'condition_4'),
+            edge('condition_4', 'condition_4-condition-top-ghost'),
+            edge('condition_4-condition-top-ghost', 'condition_4-condition-left-placeholder-0'),
+            edge('condition_4-condition-top-ghost', 'condition_4-condition-right-placeholder-0'),
+            edge('condition_4-condition-left-placeholder-0', 'condition_4-condition-bottom-ghost'),
+            edge('condition_4-condition-right-placeholder-0', 'condition_4-condition-bottom-ghost'),
+            edge('condition_4-condition-bottom-ghost', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'condition_2'),
+            edge('condition_2', 'condition_2-condition-top-ghost'),
+            edge('condition_2-condition-top-ghost', 'loggerTask'),
+            edge('loggerTask', 'condition_2-condition-bottom-ghost'),
+            edge('condition_2-condition-top-ghost', 'condition_2-condition-right-placeholder-0'),
+            edge('condition_2-condition-right-placeholder-0', 'condition_2-condition-bottom-ghost'),
+            edge('condition_2-condition-bottom-ghost', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        // The shallow frame's bar keeps the uniform box gap to its condition...
+        const shallowConditionBottom = positionOf(result.nodes, 'condition_4').y + 72;
+        const shallowTopGhostBarY = positionOf(result.nodes, 'condition_4-condition-top-ghost').y;
+
+        expect(shallowTopGhostBarY - shallowConditionBottom).toBe(BOX_GAP);
+
+        // ...and both sibling frames' bars start at the same height
+        const deepTopGhostBarY = positionOf(result.nodes, 'condition_2-condition-top-ghost').y;
+
+        expect(Math.abs(shallowTopGhostBarY - deepTopGhostBarY)).toBeLessThanOrEqual(1);
+    });
 });
