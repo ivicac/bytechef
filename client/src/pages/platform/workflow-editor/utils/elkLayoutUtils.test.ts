@@ -1233,6 +1233,57 @@ describe('getElkLayoutElements with branches', () => {
         expect(topGhostBarY - branchBottom).toBe(TOP_BOX_GAP);
     });
 
+    it('pins the middle case column to the branch axis even with an asymmetric outer case', async () => {
+        // dagre parity (alignBranchCaseChildren): the middle case's edges leave
+        // the bar's bottom handle and must run straight — a wide outer subtree
+        // must not drag the middle column off the axis (mean-centering would)
+        const nodes: Node[] = [
+            branchNode('branch_1', ['case_a', 'case_b']),
+            ...branchGhostNodes('branch_1'),
+            {
+                data: {
+                    branchData: {branchId: 'branch_1', caseKey: 'default', index: 0},
+                    componentName: 'condition',
+                    taskDispatcher: true,
+                    taskDispatcherId: 'condition_9',
+                    workflowNodeName: 'condition_9',
+                },
+                id: 'condition_9',
+                position: {x: 0, y: 0},
+                type: 'workflow',
+            },
+            ...conditionGhostNodes('condition_9'),
+            conditionPlaceholderNode('condition_9', 'left'),
+            conditionPlaceholderNode('condition_9', 'right'),
+            branchChildTaskNode('caseAChild', 'branch_1', 'case_a'),
+            branchChildTaskNode('caseBChild', 'branch_1', 'case_b'),
+        ];
+
+        const edges: Edge[] = [
+            edge('branch_1', 'branch_1-branch-top-ghost'),
+            edge('branch_1-branch-top-ghost', 'condition_9'),
+            edge('condition_9', 'condition_9-condition-top-ghost'),
+            edge('condition_9-condition-top-ghost', 'condition_9-condition-left-placeholder-0'),
+            edge('condition_9-condition-top-ghost', 'condition_9-condition-right-placeholder-0'),
+            edge('condition_9-condition-left-placeholder-0', 'condition_9-condition-bottom-ghost'),
+            edge('condition_9-condition-right-placeholder-0', 'condition_9-condition-bottom-ghost'),
+            edge('condition_9-condition-bottom-ghost', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-top-ghost', 'caseAChild'),
+            edge('caseAChild', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-top-ghost', 'caseBChild'),
+            edge('caseBChild', 'branch_1-branch-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 2000, direction: 'TB', edges, nodes});
+
+        // Middle case (case_a) sits exactly on the branch axis despite the wide
+        // default-case condition subtree on the left
+        const branchCenter = positionOf(result.nodes, 'branch_1').x + 36;
+        const caseACenter = positionOf(result.nodes, 'caseAChild').x + 36;
+
+        expect(Math.abs(caseACenter - branchCenter)).toBeLessThanOrEqual(1);
+    });
+
     it('ranks unknown case keys last', async () => {
         const nodes: Node[] = [
             branchNode('branch_1', ['case_a']),

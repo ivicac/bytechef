@@ -588,11 +588,25 @@ export const getElkLayoutElements = async ({
                             });
                         });
 
-                        const frameAnchor =
-                            branchEntryCenters.length > 0
-                                ? branchEntryCenters.reduce((sum, entryCenter) => sum + entryCenter, 0) /
-                                  branchEntryCenters.length
-                                : (direction === 'TB' ? child.width || 0 : child.height || 0) / 2;
+                        // Odd entry counts anchor on the MEDIAN entry axis (dagre
+                        // parity: the middle case's edges leave the bar's bottom
+                        // handle and must run straight, so a wide outer subtree must
+                        // not drag the middle column off the axis). Even counts
+                        // anchor on the mean, centering the dispatcher between the
+                        // two inner columns.
+                        const sortedEntryCenters = [...branchEntryCenters].sort(
+                            (firstCenter, secondCenter) => firstCenter - secondCenter
+                        );
+
+                        let frameAnchor = (direction === 'TB' ? child.width || 0 : child.height || 0) / 2;
+
+                        if (sortedEntryCenters.length % 2 === 1) {
+                            frameAnchor = sortedEntryCenters[(sortedEntryCenters.length - 1) / 2];
+                        } else if (sortedEntryCenters.length > 0) {
+                            frameAnchor =
+                                sortedEntryCenters.reduce((sum, entryCenter) => sum + entryCenter, 0) /
+                                sortedEntryCenters.length;
+                        }
 
                         if (direction === 'TB') {
                             absoluteX += dispatcherCenter - absoluteX - frameAnchor;
