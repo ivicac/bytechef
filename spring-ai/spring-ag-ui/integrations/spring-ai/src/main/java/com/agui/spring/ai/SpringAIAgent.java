@@ -21,6 +21,7 @@ import org.springframework.ai.tool.ToolCallback;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 
 import static com.agui.server.EventFactory.*;
@@ -51,6 +52,12 @@ import static java.util.stream.Collectors.toList;
 public class SpringAIAgent extends LocalAgent {
 
     private static final Logger log = LoggerFactory.getLogger(SpringAIAgent.class);
+
+    static final String OUTPUT_LIMIT_MESSAGE = "The model reached its output token limit before finishing this "
+        + "response, so any change it was about to make was not applied. Try a smaller request, or pick a model with "
+        + "a larger output limit.";
+
+    private static final Set<String> OUTPUT_LIMIT_FINISH_REASONS = Set.of("max_tokens", "length");
 
     /**
      * The Spring AI ChatClient used for processing chat requests and responses.
@@ -162,6 +169,7 @@ public class SpringAIAgent extends LocalAgent {
         );
 
         final List<BaseEvent> deferredEvents = new ArrayList<>();
+        final AtomicReference<String> finishReason = new AtomicReference<>("");
 
         var assistantMessage = new AssistantMessage();
         assistantMessage.setId(messageId);
@@ -171,8 +179,14 @@ public class SpringAIAgent extends LocalAgent {
             getChatRequest(input, content, messageId, deferredEvents, this.createSystemMessage(state, input.context()), subscriber)
                 .stream()
                 .chatResponse()
+                // Capture ThreadLocals registered in the ContextRegistry (environment, tenant, tracing) into the
+                // Reactor Context at this subscription point. A plain lambda subscribe() never captures ThreadLocals
+                // (automatic context propagation only captures at blocking entry points), so without this the
+                // per-request context a host binds around run() is silently dropped once the advisor chain hops to
+                // Schedulers.boundedElastic(). No-op when the context-propagation library is absent.
+                .contextCapture()
                 .subscribe(
-                    evt -> onEvent(subscriber, evt, assistantMessage, messageId, deferredEvents),
+                    evt -> onEvent(subscriber, evt, assistantMessage, messageId, deferredEvents, finishReason),
                     err -> {
                         // The streamed chat response errored before completing. Without this log the only trace of
                         // the failure is the bare getMessage() forwarded to the client as a RUN_ERROR event — Reactor
@@ -184,7 +198,7 @@ public class SpringAIAgent extends LocalAgent {
 
                         this.onError(input, err.getMessage(), subscriber);
                     },
-                    () -> onComplete(input, assistantMessage, subscriber, messageId, deferredEvents)
+                    () -> onComplete(input, assistantMessage, subscriber, messageId, deferredEvents, finishReason)
                 );
         } catch (AGUIException e) {
             log.error("Agent '{}' failed to start chat stream for threadId={} runId={}", this.agentId, threadId, runId, e);
@@ -234,10 +248,17 @@ public class SpringAIAgent extends LocalAgent {
      * @param evt the chat response event from Spring AI
      * @param messageId the unique identifier for the current message
      * @param deferredEvents Events that will be deferred and emitted later
+     * @param finishReason the latest non-empty finish reason reported by the model
      */
-    private void onEvent(AgentSubscriber subscriber, ChatResponse evt, AssistantMessage assistantMessage, String messageId, List<BaseEvent> deferredEvents) {
+    private void onEvent(AgentSubscriber subscriber, ChatResponse evt, AssistantMessage assistantMessage, String messageId, List<BaseEvent> deferredEvents, AtomicReference<String> finishReason) {
         if (evt.getResult() == null) {
             return;
+        }
+
+        String chunkFinishReason = evt.getResult().getMetadata().getFinishReason();
+
+        if (chunkFinishReason != null && !chunkFinishReason.isEmpty()) {
+            finishReason.set(chunkFinishReason);
         }
 
         if (evt.hasToolCalls()) {
@@ -279,8 +300,9 @@ public class SpringAIAgent extends LocalAgent {
      * @param subscriber the event subscriber to notify
      * @param messageId the unique identifier for the current message
      * @param deferredEvents list of tool call events to process after message completion
+     * @param finishReason the finish reason of the model's last response
      */
-    private void onComplete(RunAgentInput input, AssistantMessage assistantMessage, AgentSubscriber subscriber, String messageId, List<BaseEvent> deferredEvents) {
+    private void onComplete(RunAgentInput input, AssistantMessage assistantMessage, AgentSubscriber subscriber, String messageId, List<BaseEvent> deferredEvents, AtomicReference<String> finishReason) {
         this.emitEvent(textMessageEndEvent(messageId), subscriber);
 
         deferredEvents.forEach(deferredEvent -> {
@@ -289,6 +311,16 @@ public class SpringAIAgent extends LocalAgent {
         });
 
         subscriber.onNewMessage(assistantMessage);
+
+        if (OUTPUT_LIMIT_FINISH_REASONS.contains(finishReason.get().toLowerCase(Locale.ROOT))) {
+            log.warn(
+                "Agent '{}' stopped at the model's output token limit (finish reason '{}') for threadId={} runId={}",
+                this.agentId, finishReason.get(), input.threadId(), input.runId());
+
+            this.onError(input, OUTPUT_LIMIT_MESSAGE, subscriber);
+
+            return;
+        }
 
         this.emitEvent(runFinishedEvent(input.threadId(), input.runId()), subscriber);
         subscriber.onRunFinalized(new AgentSubscriberParams(input.messages(), state, this, input));
