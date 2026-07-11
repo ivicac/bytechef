@@ -14,11 +14,12 @@ const SUPPORTED_DISPATCHER_COMPONENT_NAMES = new Set([
 ]);
 
 /**
- * The experimental ELK layout engine supports plain task nodes, the condition
- * and loop task dispatchers (arbitrarily nested in each other), and childless
- * dispatchers. Any other dispatcher (branch, each, fork-join, map, parallel,
- * on-error) or an AI-agent cluster root makes the workflow unsupported: layout
- * falls back to dagre and the toolbar switch is disabled.
+ * The experimental ELK layout engine supports plain task nodes, the frame
+ * dispatchers listed above (arbitrarily nested in each other), and childless
+ * dispatchers. Any other dispatcher (each, map, on-error) or a cluster root
+ * (AI agent, data stream, approval — any task the server flags `clusterRoot`)
+ * makes the workflow unsupported: layout falls back to dagre and the toolbar
+ * switch is disabled.
  *
  * Operates on ReactFlow nodes rather than workflow tasks because dispatcher
  * children are flattened into the node array, so a single scan covers nesting.

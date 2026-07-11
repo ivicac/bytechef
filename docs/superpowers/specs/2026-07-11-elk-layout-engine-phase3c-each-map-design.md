@@ -117,7 +117,9 @@ Engine tests in `elkLayoutUtils.test.ts` (real elkjs, per suite convention):
 ## Out of scope
 
 - `on-error` (next phase; condition-shaped, TRY/CATCH labels).
-- AI-agent cluster roots (needs a radial abstraction, not a frame mapper).
+- Cluster roots — AI agent, data stream, and approval components (any task the
+  server flags `clusterRoot`); these need a cluster-element abstraction, not a
+  frame mapper. The support gate already rejects them generically by node type.
 - Any change to each's single-child UI affordance or its `smoothstep` edge styling.
 - The dead `createLeftGhost` options in `createEachNode.ts`/`createMapNode.ts`.
 - The `createEachEdges` nested-ghost-id bug and its stray "+" button (separate fix;
