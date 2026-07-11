@@ -931,17 +931,16 @@ describe('getElkLayoutElements with loops', () => {
 
         const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
 
-        // The "+" sits ON the ring's right edge (bar right end), and the rail
-        // aligns with the bar's left end — a symmetric box around the loop axis
+        // Empty loop matches an empty condition box's proportions: "+" on the
+        // right edge at +125 and the rail mirroring it at −125
         const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
         const placeholderCenter = positionOf(result.nodes, 'loop_1-loop-placeholder-0').x + 36;
 
-        expect(placeholderCenter - loopCenter).toBe(36);
+        expect(placeholderCenter - loopCenter).toBe(125);
 
-        const railX = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x;
-        const topBarX = positionOf(result.nodes, 'loop_1-loop-top-ghost').x;
+        const railCenter = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x + 1;
 
-        expect(railX).toBe(topBarX);
+        expect(loopCenter - railCenter).toBe(125);
 
         const topGhostBarY = positionOf(result.nodes, 'loop_1-loop-top-ghost').y;
         const bottomGhostBarY = positionOf(result.nodes, 'loop_1-loop-bottom-ghost').y;

@@ -70,10 +70,16 @@ const LEFT_RAIL_TICK_SIZE = 16;
 const LEFT_GHOST_ID_SUFFIX = '-taskDispatcher-left-ghost';
 
 // Rail ring geometry: the rail aligns with the bar's LEFT END (straight left
-// edge, clean corners — mirroring the placeholder pinned to the bar's right
-// end), moving further left only when body content or nested rings require it.
+// edge, clean corners), moving further left only when body content or nested
+// rings require it.
 const RAIL_CONTENT_PADDING = 20;
 const RAIL_NESTED_RING_INDENT = 50;
+
+// An EMPTY loop renders with the same proportions as an empty condition box:
+// the "+" placeholder sits on the ring's right edge at +half-width and the
+// rail mirrors it at −half-width, giving the same 250px-wide rounded box that
+// empty condition branches produce (their case columns sit at the same offset).
+const LOOP_RING_HALF_WIDTH = (CASE_PLACEHOLDER_CROSS_FOOTPRINT + ELK_SIBLING_SPACING) / 2;
 
 const FRAME_ID_SUFFIX = '__frame';
 
@@ -714,13 +720,13 @@ export const getElkLayoutElements = async ({
                     [mainAxis]: frameMainCenter - auxMainSize / 2,
                 };
 
-                // A loop's "+" placeholder sits ON the ring's right edge (the bar's
-                // right end), so the edge runs straight through it instead of
-                // jogging around an axis-centered "+"
+                // A loop's "+" placeholder sits ON the ring's right edge at the same
+                // offset as an empty condition's case column, so the edge runs
+                // straight through it and empty loops match empty condition boxes
                 if (candidateNode.type === 'placeholder' && (node.data as NodeDataType).componentName === 'loop') {
                     const auxCrossSize = crossAxis === 'x' ? auxRenderedSize.width : auxRenderedSize.height;
 
-                    auxPosition[crossAxis] = dispatcherCrossCenter + NODE_ANCHOR_SIZE / 2 - auxCrossSize / 2;
+                    auxPosition[crossAxis] = dispatcherCrossCenter + LOOP_RING_HALF_WIDTH - auxCrossSize / 2;
                 }
 
                 candidateNode.position = auxPosition;
@@ -823,16 +829,32 @@ export const getElkLayoutElements = async ({
 
             // Bar-left-end alignment gives a straight left edge with clean corners;
             // body content pushes the rail out by its hug padding, nested rings by
-            // their indent
+            // their indent, and an empty loop mirrors its "+" placeholder so the
+            // ring matches an empty condition box's proportions
             const barAlignedCross = topBarNode.position[crossAxis];
             const contentRequired =
                 leftmostContentCross === Infinity ? Infinity : leftmostContentCross - RAIL_CONTENT_PADDING;
             const nestingRequired =
                 leftmostChildRailCross === Infinity ? Infinity : leftmostChildRailCross - RAIL_NESTED_RING_INDENT;
 
+            const railRenderedSize = getRenderedNodeSize(railNode, direction);
+            const railCrossSize = crossAxis === 'x' ? railRenderedSize.width : railRenderedSize.height;
+
+            const hasOwnPlaceholder = allNodes.some(
+                (candidateNode) =>
+                    candidateNode.type === 'placeholder' &&
+                    (candidateNode.data as NodeDataType).taskDispatcherId === railDispatcherId
+            );
+
+            const dispatcherCenter = topBarNode.position[crossAxis] + NODE_ANCHOR_SIZE / 2;
+
+            const emptyRingMirror = hasOwnPlaceholder
+                ? dispatcherCenter - LOOP_RING_HALF_WIDTH - railCrossSize / 2
+                : Infinity;
+
             railNode.position = {
                 ...railNode.position,
-                [crossAxis]: Math.min(barAlignedCross, contentRequired, nestingRequired),
+                [crossAxis]: Math.min(barAlignedCross, contentRequired, nestingRequired, emptyRingMirror),
             };
         });
 
