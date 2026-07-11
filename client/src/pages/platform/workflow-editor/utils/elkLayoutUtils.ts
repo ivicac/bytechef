@@ -21,7 +21,14 @@ import type {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 
 export const ELK_ROOT_ID = '__root__';
 
-const ELK_SPACING = 50;
+// The uniform visible edge length between ANY two consecutive elements on the
+// flow axis (footprints equal DOM boxes, so the layer gap IS the edge length).
+// 80 restores dagre's visual rhythm and gives the 28px edge "+" buttons and
+// TRUE/FALSE labels room to breathe inside the gap.
+const ELK_LAYER_SPACING = 80;
+
+// Cross-axis gap between sibling branch columns.
+const ELK_SIBLING_SPACING = 50;
 
 // Size of a node's visual anchor: the 72px icon box whose edges carry the
 // connection handles (see `w-[72px]` in TaskDispatcherTopGhostNode.tsx and the
@@ -52,9 +59,9 @@ const getElkLayoutOptions = (direction: LayoutDirectionType): Record<string, str
     'elk.direction': direction === 'TB' ? 'DOWN' : 'RIGHT',
     'elk.layered.considerModelOrder.strategy': 'NODES_AND_EDGES',
     'elk.layered.crossingMinimization.forceNodeModelOrder': 'true',
-    'elk.layered.spacing.nodeNodeBetweenLayers': String(ELK_SPACING),
+    'elk.layered.spacing.nodeNodeBetweenLayers': String(ELK_LAYER_SPACING),
     'elk.padding': '[top=0,left=0,bottom=0,right=0]',
-    'elk.spacing.nodeNode': String(ELK_SPACING),
+    'elk.spacing.nodeNode': String(ELK_SIBLING_SPACING),
 });
 
 /**
