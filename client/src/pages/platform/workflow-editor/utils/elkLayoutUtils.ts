@@ -32,13 +32,6 @@ const NODE_ANCHOR_SIZE = 72;
 // Main-axis size of a ghost bar's rendered hairline.
 const GHOST_BAR_THICKNESS = 2;
 
-// Vertical clearance under a condition's icon for its TRUE/FALSE case labels
-// (rendered ~28px below the icon box, `-bottom-7` in WorkflowNode.tsx). The top
-// ghost's footprint reserves this on top of the bar and the bar is pinned to
-// the footprint's branch-facing end, so the LABEL bottom gets the same uniform
-// ELK_SPACING to the frame box that every other consecutive pair gets.
-const CONDITION_LABEL_CLEARANCE = 28;
-
 // Cross-axis footprint of a case placeholder column: narrower than a full
 // 240px task column so an empty condition frame renders as a compact box
 // instead of one as wide as a fully populated frame.
@@ -78,11 +71,11 @@ function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: nu
 
     const isSmallNode = node.type === 'placeholder' || node.type === 'triggerPlaceholder';
 
+    const isGhostNode = node.type === 'taskDispatcherTopGhostNode' || node.type === 'taskDispatcherBottomGhostNode';
+
     let mainAxisSize = NODE_ANCHOR_SIZE;
 
-    if (node.type === 'taskDispatcherTopGhostNode') {
-        mainAxisSize = GHOST_BAR_THICKNESS + CONDITION_LABEL_CLEARANCE;
-    } else if (node.type === 'taskDispatcherBottomGhostNode') {
+    if (isGhostNode) {
         mainAxisSize = GHOST_BAR_THICKNESS;
     } else if (isSmallNode) {
         mainAxisSize = direction === 'TB' ? height : width;
@@ -519,23 +512,6 @@ export const getElkLayoutElements = async ({
                 y: box.y + (box.height - renderedSize.height) / 2,
             };
 
-            // The top ghost's footprint reserves CONDITION_LABEL_CLEARANCE for the
-            // TRUE/FALSE labels hanging under the condition icon; the bar itself is
-            // pinned to the footprint's branch-facing end so the clearance lies
-            // between the labels and the frame box. The bottom ghost's footprint
-            // equals the bar, so pinning it to the footprint start is a no-op kept
-            // for symmetry.
-            const isTopGhost = node.type === 'taskDispatcherTopGhostNode';
-            const isBottomGhost = node.type === 'taskDispatcherBottomGhostNode';
-
-            if (isTopGhost || isBottomGhost) {
-                const mainAxis = crossAxis === 'x' ? 'y' : 'x';
-                const footprintSize = mainAxis === 'x' ? box.width : box.height;
-                const renderedMainSize = mainAxis === 'x' ? renderedSize.width : renderedSize.height;
-
-                position[mainAxis] = isTopGhost ? box[mainAxis] + (footprintSize - renderedMainSize) : box[mainAxis];
-            }
-
             position[crossAxis] += centeringOffset;
 
             return {...node, position};
@@ -579,6 +555,73 @@ export const getElkLayoutElements = async ({
                     [crossAxis]: conditionCrossCenter - ghostCrossSize / 2,
                 };
             });
+
+            // Center this condition's empty-branch case placeholders midway between
+            // the two ghost bars on the main axis (dagre parity:
+            // centerDispatcherPlaceholdersOnMainAxis) — ELK's layering otherwise
+            // parks them at whatever layer the sibling branch's depth dictates.
+            const mainAxis = crossAxis === 'x' ? 'y' : 'x';
+
+            const topGhostNode = allNodes.find(
+                (candidateNode) => candidateNode.id === `${node.id}-condition-top-ghost`
+            );
+            const bottomGhostNode = allNodes.find(
+                (candidateNode) => candidateNode.id === `${node.id}-condition-bottom-ghost`
+            );
+
+            if (!topGhostNode || !bottomGhostNode) {
+                return;
+            }
+
+            const frameMainCenter =
+                (topGhostNode.position[mainAxis] + bottomGhostNode.position[mainAxis] + GHOST_BAR_THICKNESS) / 2;
+
+            allNodes.forEach((candidateNode) => {
+                const candidateData = candidateNode.data as NodeDataType;
+
+                if (
+                    candidateNode.type !== 'placeholder' ||
+                    candidateData.conditionId !== node.id ||
+                    !candidateData.conditionCase
+                ) {
+                    return;
+                }
+
+                candidateNode.position = {
+                    ...candidateNode.position,
+                    [mainAxis]: frameMainCenter - PLACEHOLDER_NODE_HEIGHT / 2,
+                };
+            });
+        });
+
+        // A trailing "+" placeholder fed by a condition's bottom ghost was aligned
+        // by ELK against the frame's PRE-shift box, so the entry-axis frame shift
+        // leaves it off the chain — pin it back onto the bottom bar's axis.
+        edges.forEach((currentEdge) => {
+            if (!currentEdge.source.endsWith('-condition-bottom-ghost')) {
+                return;
+            }
+
+            const targetNode = allNodes.find((candidateNode) => candidateNode.id === currentEdge.target);
+
+            if (!targetNode || targetNode.type !== 'placeholder' || (targetNode.data as NodeDataType).conditionCase) {
+                return;
+            }
+
+            const barNode = allNodes.find((candidateNode) => candidateNode.id === currentEdge.source);
+
+            if (!barNode) {
+                return;
+            }
+
+            const barRenderedSize = getRenderedNodeSize(barNode, direction);
+            const barCrossCenter =
+                barNode.position[crossAxis] + (crossAxis === 'x' ? barRenderedSize.width : barRenderedSize.height) / 2;
+
+            targetNode.position = {
+                ...targetNode.position,
+                [crossAxis]: barCrossCenter - PLACEHOLDER_NODE_WIDTH / 2,
+            };
         });
 
         positionTriggerPlaceholder(allNodes, direction);

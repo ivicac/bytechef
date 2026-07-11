@@ -544,6 +544,28 @@ describe('getElkLayoutElements', () => {
         const conditionCenter = positionOf(result.nodes, 'condition_1').x + 36;
 
         expect(Math.abs((placeholderCenter + nestedConditionCenter) / 2 - conditionCenter)).toBeLessThanOrEqual(1);
+
+        // The empty-branch placeholder sits midway between the two ghost bars on
+        // the main axis, however deep the sibling branch is
+        const topGhostBarY = positionOf(result.nodes, 'condition_1-condition-top-ghost').y;
+        const bottomGhostBarY = positionOf(result.nodes, 'condition_1-condition-bottom-ghost').y;
+        const placeholderMainCenter = positionOf(result.nodes, 'condition_1-condition-left-placeholder-0').y + 14;
+
+        expect(Math.abs(placeholderMainCenter - (topGhostBarY + bottomGhostBarY + 2) / 2)).toBeLessThanOrEqual(1);
+    });
+
+    it('pins a trailing placeholder after a condition onto the chain axis', async () => {
+        const {edges, nodes} = singleConditionFixture();
+
+        nodes.push({data: {label: '+'}, id: 'final-placeholder', position: {x: 0, y: 0}, type: 'placeholder'});
+        edges.push(edge('condition_1-condition-bottom-ghost', 'final-placeholder'));
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        const conditionCenter = positionOf(result.nodes, 'condition_1').x + 36;
+        const trailingPlaceholderCenter = positionOf(result.nodes, 'final-placeholder').x + 14;
+
+        expect(Math.abs(trailingPlaceholderCenter - conditionCenter)).toBeLessThanOrEqual(1);
     });
 
     it('centers an empty condition frame on the condition node with a uniform gap', async () => {
@@ -577,7 +599,7 @@ describe('getElkLayoutElements', () => {
         const conditionBottom = positionOf(result.nodes, 'condition_1').y + 72;
         const topGhostBarY = positionOf(result.nodes, 'condition_1-condition-top-ghost').y;
 
-        expect(topGhostBarY - conditionBottom).toBe(50 + 28);
+        expect(topGhostBarY - conditionBottom).toBe(50);
     });
 
     it('keeps uniform 50px gaps in a frame with one populated and one empty branch', async () => {
@@ -603,7 +625,7 @@ describe('getElkLayoutElements', () => {
         const loggerTaskTop = positionOf(result.nodes, 'loggerTask').y;
         const bottomGhostBarY = positionOf(result.nodes, 'condition_1-condition-bottom-ghost').y;
 
-        expect(topGhostBarY - conditionBottom).toBe(50 + 28);
+        expect(topGhostBarY - conditionBottom).toBe(50);
         expect(loggerTaskTop - (topGhostBarY + 2)).toBe(50);
         expect(bottomGhostBarY - (loggerTaskTop + 72)).toBe(50);
 
@@ -644,7 +666,7 @@ describe('getElkLayoutElements', () => {
         const loggerTaskTop = positionOf(result.nodes, 'loggerTask').y;
         const bottomGhostBarY = positionOf(result.nodes, 'condition_1-condition-bottom-ghost').y;
 
-        expect(topGhostBarY - (900 + 72)).toBe(50 + 28);
+        expect(topGhostBarY - (900 + 72)).toBe(50);
         expect(loggerTaskTop - (topGhostBarY + 2)).toBe(50);
         expect(bottomGhostBarY - (loggerTaskTop + 72)).toBe(50);
 
