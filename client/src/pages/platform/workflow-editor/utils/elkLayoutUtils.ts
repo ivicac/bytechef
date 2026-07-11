@@ -32,6 +32,18 @@ const NODE_ANCHOR_SIZE = 72;
 // Main-axis size of a ghost bar's rendered hairline.
 const GHOST_BAR_THICKNESS = 2;
 
+// Vertical clearance under a condition's icon for its TRUE/FALSE case labels
+// (rendered ~28px below the icon box, `-bottom-7` in WorkflowNode.tsx). The top
+// ghost's footprint reserves this on top of the bar and the bar is pinned to
+// the footprint's branch-facing end, so the LABEL bottom gets the same uniform
+// ELK_SPACING to the frame box that every other consecutive pair gets.
+const CONDITION_LABEL_CLEARANCE = 28;
+
+// Cross-axis footprint of a case placeholder column: narrower than a full
+// 240px task column so an empty condition frame renders as a compact box
+// instead of one as wide as a fully populated frame.
+const CASE_PLACEHOLDER_CROSS_FOOTPRINT = 200;
+
 const FRAME_ID_SUFFIX = '__frame';
 
 export function getFrameId(conditionId: string): string {
@@ -64,22 +76,29 @@ const getElkLayoutOptions = (direction: LayoutDirectionType): Record<string, str
 function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: number; width: number} {
     const {height, width} = getDagreNodeSize(node, direction);
 
-    const isGhostNode = node.type === 'taskDispatcherTopGhostNode' || node.type === 'taskDispatcherBottomGhostNode';
     const isSmallNode = node.type === 'placeholder' || node.type === 'triggerPlaceholder';
 
     let mainAxisSize = NODE_ANCHOR_SIZE;
 
-    if (isGhostNode) {
+    if (node.type === 'taskDispatcherTopGhostNode') {
+        mainAxisSize = GHOST_BAR_THICKNESS + CONDITION_LABEL_CLEARANCE;
+    } else if (node.type === 'taskDispatcherBottomGhostNode') {
         mainAxisSize = GHOST_BAR_THICKNESS;
     } else if (isSmallNode) {
         mainAxisSize = direction === 'TB' ? height : width;
     }
 
-    if (direction === 'TB') {
-        return {height: mainAxisSize, width};
+    let crossAxisSize = direction === 'TB' ? width : height;
+
+    if (node.type === 'placeholder') {
+        crossAxisSize = CASE_PLACEHOLDER_CROSS_FOOTPRINT;
     }
 
-    return {height, width: mainAxisSize};
+    if (direction === 'TB') {
+        return {height: mainAxisSize, width: crossAxisSize};
+    }
+
+    return {height: crossAxisSize, width: mainAxisSize};
 }
 
 /**
@@ -500,13 +519,12 @@ export const getElkLayoutElements = async ({
                 y: box.y + (box.height - renderedSize.height) / 2,
             };
 
-            // Ghost bars reserve a full GHOST_MAIN_AXIS_FOOTPRINT rank so the TRUE/FALSE case
-            // labels and edge "+" buttons have room, but that reserved space belongs entirely on
-            // the branch-facing side of the 2px bar, not split evenly around it. Centering (the
-            // default above) would push each bar half a footprint away from its condition/merge,
-            // inflating the condition→ghost gap past the uniform inter-rank ELK_SPACING. Pin the
-            // top ghost bar to the edge nearest the condition and the bottom ghost bar to the edge
-            // nearest the following node so both gaps equal ELK_SPACING.
+            // The top ghost's footprint reserves CONDITION_LABEL_CLEARANCE for the
+            // TRUE/FALSE labels hanging under the condition icon; the bar itself is
+            // pinned to the footprint's branch-facing end so the clearance lies
+            // between the labels and the frame box. The bottom ghost's footprint
+            // equals the bar, so pinning it to the footprint start is a no-op kept
+            // for symmetry.
             const isTopGhost = node.type === 'taskDispatcherTopGhostNode';
             const isBottomGhost = node.type === 'taskDispatcherBottomGhostNode';
 
@@ -515,7 +533,7 @@ export const getElkLayoutElements = async ({
                 const footprintSize = mainAxis === 'x' ? box.width : box.height;
                 const renderedMainSize = mainAxis === 'x' ? renderedSize.width : renderedSize.height;
 
-                position[mainAxis] = isTopGhost ? box[mainAxis] : box[mainAxis] + (footprintSize - renderedMainSize);
+                position[mainAxis] = isTopGhost ? box[mainAxis] + (footprintSize - renderedMainSize) : box[mainAxis];
             }
 
             position[crossAxis] += centeringOffset;
