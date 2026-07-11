@@ -2483,3 +2483,89 @@ describe('getElkLayoutElements with on-error', () => {
         expect(onErrorTopBarY - onErrorBottom).toBe(TOP_BOX_GAP);
     });
 });
+
+describe('getElkLayoutElements with cluster roots', () => {
+    // A cluster root is ONE plain chain node on the main canvas (elements
+    // render inside its DOM); configured roots have a ~240px button with the
+    // chain handles at its center (left 120px)
+    const clusterRootNode = (id: string, configured: boolean, extraData: Record<string, unknown> = {}): Node => ({
+        data: {
+            clusterElements: configured ? {chatMemory: {name: 'memory_1', type: 'x/v1/y'}} : {},
+            clusterRoot: true,
+            componentName: 'aiAgent',
+            workflowNodeName: id,
+            ...extraData,
+        },
+        id,
+        position: {x: 0, y: 0},
+        type: 'clusterRoot',
+    });
+
+    it('keeps the chain handle column straight through a configured root', async () => {
+        const nodes: Node[] = [taskNode('task1'), clusterRootNode('aiAgent_1', true), taskNode('task2')];
+
+        const edges: Edge[] = [edge('task1', 'aiAgent_1'), edge('aiAgent_1', 'task2')];
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        // Handles: regular nodes at position + 36, configured root at
+        // position + 120 — one straight column
+        const taskHandleX = positionOf(result.nodes, 'task1').x + 36;
+
+        expect(positionOf(result.nodes, 'aiAgent_1').x + 120).toBe(taskHandleX);
+        expect(positionOf(result.nodes, 'task2').x + 36).toBe(taskHandleX);
+
+        // The root's bigger rendered box keeps the 80px node→node rhythm on
+        // both sides
+        const rootTop = positionOf(result.nodes, 'aiAgent_1').y;
+        const rootBottom = rootTop + 100;
+
+        expect(rootTop - (positionOf(result.nodes, 'task1').y + 72)).toBe(CHAIN_GAP);
+        expect(positionOf(result.nodes, 'task2').y - rootBottom).toBe(CHAIN_GAP);
+    });
+
+    it('treats an unconfigured root exactly like a plain task node', async () => {
+        const nodes: Node[] = [taskNode('task1'), clusterRootNode('aiAgent_1', false), taskNode('task2')];
+
+        const edges: Edge[] = [edge('task1', 'aiAgent_1'), edge('aiAgent_1', 'task2')];
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        expect(positionOf(result.nodes, 'aiAgent_1').x).toBe(positionOf(result.nodes, 'task1').x);
+        expect(positionOf(result.nodes, 'aiAgent_1').y - (positionOf(result.nodes, 'task1').y + 72)).toBe(CHAIN_GAP);
+        expect(positionOf(result.nodes, 'task2').y - (positionOf(result.nodes, 'aiAgent_1').y + 72)).toBe(CHAIN_GAP);
+    });
+
+    it('keeps a configured root on its branch column inside a condition', async () => {
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            clusterRootNode('aiAgent_1', true, {
+                conditionData: {conditionCase: 'caseTrue', conditionId: 'condition_1', index: 0},
+            }),
+            taskNode('childFalse1', {conditionCase: 'caseFalse', conditionId: 'condition_1'}),
+        ];
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'aiAgent_1'),
+            edge('aiAgent_1', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'childFalse1'),
+            edge('childFalse1', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        expect(collectScopeEdgeViolations(buildElkGraph(nodes, edges, 'TB'))).toEqual([]);
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        // TRUE (root) left of FALSE, frame box gap uniform
+        expect(positionOf(result.nodes, 'aiAgent_1').x + 120).toBeLessThan(
+            positionOf(result.nodes, 'childFalse1').x + 36
+        );
+
+        const topBarY = positionOf(result.nodes, 'condition_1-condition-top-ghost').y;
+
+        expect(topBarY - (positionOf(result.nodes, 'condition_1').y + 72)).toBe(TOP_BOX_GAP);
+        expect(positionOf(result.nodes, 'aiAgent_1').y - (topBarY + 2)).toBe(BAR_TO_CHILD_GAP);
+    });
+});

@@ -23,21 +23,18 @@ const SUPPORTED_DISPATCHER_COMPONENT_NAMES = new Set([
 ]);
 
 /**
- * The experimental ELK layout engine supports plain task nodes, every frame
- * dispatcher listed above (arbitrarily nested in each other), and childless
- * dispatchers. Only cluster roots (AI agent, data stream, approval — any task
- * the server flags `clusterRoot`) make the workflow unsupported: layout falls
- * back to dagre and the toolbar switch is disabled.
+ * The experimental ELK layout engine supports every current workflow shape:
+ * plain task nodes, all frame dispatchers (arbitrarily nested), childless
+ * dispatchers, and cluster roots (AI agent, data stream, approval — one plain
+ * chain node on the main canvas; their elements live in the separate cluster
+ * elements dialog). The gate remains for future unsupported shapes: an
+ * unknown dispatcher falls back to dagre and disables the toolbar switch.
  *
  * Operates on ReactFlow nodes rather than workflow tasks because dispatcher
  * children are flattened into the node array, so a single scan covers nesting.
  */
 export default function isElkLayoutSupported(nodes: Node[]): boolean {
     return nodes.every((node) => {
-        if (node.type === 'clusterRoot') {
-            return false;
-        }
-
         const nodeData = node.data as NodeDataType;
 
         if (nodeData.taskDispatcher && !SUPPORTED_DISPATCHER_COMPONENT_NAMES.has(nodeData.componentName)) {

@@ -1,5 +1,6 @@
 import {
     LayoutDirectionType,
+    NODE_HEIGHT,
     PLACEHOLDER_NODE_HEIGHT,
     PLACEHOLDER_NODE_WIDTH,
     TRIGGER_PLACEHOLDER_NODE_ID,
@@ -16,7 +17,7 @@ import {
     getLayoutElements,
     positionTriggerPlaceholder,
 } from './layoutUtils';
-import {applySavedPositions, isNodePositioned} from './postDagreConstraints';
+import {applySavedPositions, hasConfiguredClusterElements, isNodePositioned} from './postDagreConstraints';
 
 import type {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 
@@ -56,6 +57,11 @@ const NODE_ANCHOR_SIZE = 72;
 
 // Main-axis size of a ghost bar's rendered hairline.
 const GHOST_BAR_THICKNESS = 2;
+
+// Rendered width of a CONFIGURED cluster root's button (icon + element icon
+// row, see min-w-60 in AiAgentNode.tsx) — its chain handles sit at left 120px,
+// the button's center, matching CONFIGURED_CLUSTER_ROOT_HANDLE_OFFSET.
+const CLUSTER_ROOT_RENDERED_MAIN_SIZE = 240;
 
 // Cross-axis footprint of a case placeholder column: narrower than a full
 // 240px task column so an empty condition frame renders as a compact box
@@ -215,6 +221,14 @@ function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: nu
         // DOM box is 28px tall but 72px wide (mx-[22px] margins around the "+"),
         // so the main-axis footprint differs by direction
         mainAxisSize = direction === 'TB' ? PLACEHOLDER_NODE_HEIGHT : NODE_ANCHOR_SIZE;
+    } else if (node.type === 'clusterRoot') {
+        // A configured cluster root's rendered box exceeds the 72px anchor
+        // (icon row inside the button), so its footprint keeps the same 14px
+        // slack per side that gives anchors the 80px node→node read
+        const renderedSize = getRenderedNodeSize(node, direction);
+        const renderedMain = direction === 'TB' ? renderedSize.height : renderedSize.width;
+
+        mainAxisSize = renderedMain + (ANCHOR_MAIN_FOOTPRINT - NODE_ANCHOR_SIZE);
     } else if (isSmallNode) {
         mainAxisSize = direction === 'TB' ? height : width;
     }
@@ -572,6 +586,20 @@ const loadElk = async (): Promise<ElkInstanceType> => {
 function getRenderedNodeSize(node: Node, direction: LayoutDirectionType): {height: number; width: number} {
     const isGhostNode = node.type === 'taskDispatcherTopGhostNode' || node.type === 'taskDispatcherBottomGhostNode';
     const isSmallNode = node.type === 'placeholder' || node.type === 'triggerPlaceholder';
+
+    // A CONFIGURED cluster root renders a ~240px button (element icon row
+    // inside) with its chain handles at left 120px — the button's CENTER — so
+    // centering this rendered box in the footprint keeps handles on the chain
+    // axis with no dagre-style −85/−23 compensation. Unconfigured roots render
+    // the plain 72px icon box. LR cross stays the 72px anchor band (dagre's
+    // −23 offset shows LR chain alignment targets the icon band).
+    if (node.type === 'clusterRoot' && hasConfiguredClusterElements(node)) {
+        if (direction === 'LR') {
+            return {height: NODE_ANCHOR_SIZE, width: CLUSTER_ROOT_RENDERED_MAIN_SIZE};
+        }
+
+        return {height: NODE_HEIGHT, width: CLUSTER_ROOT_RENDERED_MAIN_SIZE};
+    }
 
     if (direction === 'LR') {
         if (isGhostNode) {

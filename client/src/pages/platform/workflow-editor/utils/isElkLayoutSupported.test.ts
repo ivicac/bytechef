@@ -68,7 +68,7 @@ describe('isElkLayoutSupported', () => {
         }
     });
 
-    it('rejects AI agent cluster roots', () => {
+    it('supports cluster roots (AI agent, data stream, approval)', () => {
         const clusterRootNode: Node = {
             data: {clusterRoot: true, componentName: 'aiAgent', workflowNodeName: 'aiAgent_1'},
             id: 'aiAgent_1',
@@ -76,7 +76,13 @@ describe('isElkLayoutSupported', () => {
             type: 'clusterRoot',
         };
 
-        expect(isElkLayoutSupported([taskNode('task1'), clusterRootNode])).toBe(false);
+        expect(isElkLayoutSupported([taskNode('task1'), clusterRootNode])).toBe(true);
+    });
+
+    it('rejects an unknown future dispatcher', () => {
+        expect(isElkLayoutSupported([taskNode('task1'), dispatcherNode('mystery_1', 'mystery-dispatcher')])).toBe(
+            false
+        );
     });
 
     it('supports an empty node list', () => {
