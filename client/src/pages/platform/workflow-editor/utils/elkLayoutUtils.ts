@@ -186,7 +186,19 @@ function getOwningDispatcherId(node: Node): string | undefined {
         return nodeData.taskDispatcherId;
     }
 
-    return nodeData.conditionData?.conditionId || nodeData.loopData?.loopId;
+    return nodeData.conditionData?.conditionId || nodeData.loopData?.loopId || nodeData.branchData?.branchId;
+}
+
+// The canonical left-to-right case order of a branch lives ONLY in the
+// dispatcher's parameters (see createBranchEdges): the default case first,
+// then the custom cases in authored order. Children and placeholders carry
+// just a caseKey — the ordinal is not recoverable from the flat node list.
+function getBranchCaseOrdinals(branchNode: Node): string[] {
+    const parameters = (branchNode.data as NodeDataType).parameters as
+        | {cases?: Array<{key?: string | number}>}
+        | undefined;
+
+    return ['default', ...(parameters?.cases || []).map((caseItem) => String(caseItem.key))];
 }
 
 /**
@@ -331,18 +343,35 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
         elkEdgesByScope.set(commonScope, scopeEdges);
     });
 
-    // Model order is load-bearing: forceNodeModelOrder pins branch sides to the
-    // order members are emitted in, so caseTrue members must precede caseFalse
-    // members regardless of their order in the flat node array (a lone FALSE
-    // placeholder is created before the TRUE chain tasks, for example). Ghosts
-    // rank first; a nested condition's frame inherits its condition's branch.
-    const getConditionCaseRank = (node: Node | undefined): number => {
-        if (!node) {
+    // Model order is load-bearing: forceNodeModelOrder pins case sides to the
+    // order members are emitted in, so members must be emitted in canonical
+    // case order regardless of their position in the flat node array (empty-case
+    // placeholders are created before all chain tasks, for example). Ghosts rank
+    // first; a nested dispatcher's frame inherits its dispatcher node's rank.
+    // Condition ranks are intrinsic (caseTrue < caseFalse); branch ranks need
+    // the scope dispatcher's params-derived ordinal list — unknown or missing
+    // keys rank last, stable, as a fail-safe for malformed state.
+    const getMemberCaseRank = (memberNode: Node | undefined, scopeDispatcherNode: Node | undefined): number => {
+        if (!memberNode) {
             return -1;
         }
 
-        const nodeData = node.data as NodeDataType;
-        const conditionCase = nodeData.conditionCase || nodeData.conditionData?.conditionCase;
+        const memberData = memberNode.data as NodeDataType;
+
+        if (scopeDispatcherNode && (scopeDispatcherNode.data as NodeDataType).componentName === 'branch') {
+            const memberCaseKey = memberData.caseKey ?? memberData.branchData?.caseKey;
+
+            if (memberCaseKey === undefined) {
+                return -1;
+            }
+
+            const caseOrdinals = getBranchCaseOrdinals(scopeDispatcherNode);
+            const ordinal = caseOrdinals.indexOf(String(memberCaseKey));
+
+            return ordinal === -1 ? caseOrdinals.length : ordinal;
+        }
+
+        const conditionCase = memberData.conditionCase || memberData.conditionData?.conditionCase;
 
         if (conditionCase === 'caseTrue') {
             return 0;
@@ -358,6 +387,8 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
     const buildScopeChildren = (scope: string): ElkNode[] => {
         const memberEntries: Array<{caseRank: number; child: ElkNode}> = [];
 
+        const scopeDispatcherNode = nodesById.get(scope);
+
         nodes.forEach((node) => {
             if (getScope(node.id) !== scope || node.type === 'taskDispatcherLeftGhostNode') {
                 return;
@@ -366,7 +397,7 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
             const {height, width} = getElkNodeSize(node, direction);
 
             memberEntries.push({
-                caseRank: getConditionCaseRank(node),
+                caseRank: getMemberCaseRank(node, scopeDispatcherNode),
                 child: {height, id: node.id, layoutOptions: getChildAlignmentOptions(direction), width},
             });
         });
@@ -377,7 +408,7 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
             }
 
             memberEntries.push({
-                caseRank: getConditionCaseRank(nodesById.get(dispatcherId)),
+                caseRank: getMemberCaseRank(nodesById.get(dispatcherId), scopeDispatcherNode),
                 child: {
                     children: buildScopeChildren(dispatcherId),
                     edges: elkEdgesByScope.get(dispatcherId) || [],

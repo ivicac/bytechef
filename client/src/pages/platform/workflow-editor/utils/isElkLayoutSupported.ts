@@ -2,10 +2,11 @@ import {CHILDLESS_TASK_DISPATCHER_NAMES} from '@/shared/constants';
 import {NodeDataType} from '@/shared/types';
 import {Node} from '@xyflow/react';
 
-// Dispatchers the ELK engine lays out as compound frames (phase 2: condition +
-// loop). Childless dispatchers (loopBreak, subflow, terminate) own no children
-// and lay out as plain chain nodes, so they are supported without frames.
-export const ELK_FRAME_DISPATCHER_COMPONENT_NAMES = ['condition', 'loop'];
+// Dispatchers the ELK engine lays out as compound frames (phase 3a: condition,
+// loop, branch). Childless dispatchers (loopBreak, subflow, terminate) own no
+// children and lay out as plain chain nodes, so they are supported without
+// frames.
+export const ELK_FRAME_DISPATCHER_COMPONENT_NAMES = ['branch', 'condition', 'loop'];
 
 const SUPPORTED_DISPATCHER_COMPONENT_NAMES = new Set([
     ...CHILDLESS_TASK_DISPATCHER_NAMES,

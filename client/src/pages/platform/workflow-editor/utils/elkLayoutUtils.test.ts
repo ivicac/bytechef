@@ -1143,3 +1143,168 @@ describe('getElkLayoutElements with loops', () => {
         expect(chainStep).toBe(CHAIN_STEP);
     });
 });
+
+describe('getElkLayoutElements with branches', () => {
+    const branchNode = (id: string, caseKeys: string[]): Node => ({
+        data: {
+            componentName: 'branch',
+            parameters: {cases: caseKeys.map((caseKey) => ({key: caseKey, tasks: []}))},
+            taskDispatcher: true,
+            taskDispatcherId: id,
+            workflowNodeName: id,
+        },
+        id,
+        position: {x: 0, y: 0},
+        type: 'workflow',
+    });
+
+    const branchGhostNodes = (branchId: string): Node[] => [
+        {
+            data: {branchId, taskDispatcherId: branchId},
+            id: `${branchId}-branch-top-ghost`,
+            position: {x: 0, y: 0},
+            type: 'taskDispatcherTopGhostNode',
+        },
+        {
+            data: {branchId, taskDispatcherId: branchId},
+            id: `${branchId}-branch-bottom-ghost`,
+            position: {x: 0, y: 0},
+            type: 'taskDispatcherBottomGhostNode',
+        },
+    ];
+
+    const branchCasePlaceholderNode = (branchId: string, caseKey: string): Node => ({
+        data: {branchId, caseKey, label: '+', taskDispatcherId: branchId},
+        id: `${branchId}-branch-${caseKey}-placeholder-0`,
+        position: {x: 0, y: 0},
+        type: 'placeholder',
+    });
+
+    const branchChildTaskNode = (id: string, branchId: string, caseKey: string): Node => ({
+        data: {branchData: {branchId, caseKey, index: 0}, componentName: 'mailchimp', workflowNodeName: id},
+        id,
+        position: {x: 0, y: 0},
+        type: 'workflow',
+    });
+
+    it('orders branch case columns by the params-derived canonical order, not array order', async () => {
+        // Ordering trap per spec: the case_a placeholder is created BEFORE all
+        // chain tasks in the flat array, but canonically default < case_a < case_b
+        const nodes: Node[] = [
+            branchNode('branch_1', ['case_a', 'case_b']),
+            ...branchGhostNodes('branch_1'),
+            branchCasePlaceholderNode('branch_1', 'case_a'),
+            branchChildTaskNode('defaultChild', 'branch_1', 'default'),
+            branchChildTaskNode('caseBChild', 'branch_1', 'case_b'),
+        ];
+
+        const edges: Edge[] = [
+            edge('branch_1', 'branch_1-branch-top-ghost'),
+            edge('branch_1-branch-top-ghost', 'defaultChild'),
+            edge('defaultChild', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-top-ghost', 'branch_1-branch-case_a-placeholder-0'),
+            edge('branch_1-branch-case_a-placeholder-0', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-top-ghost', 'caseBChild'),
+            edge('caseBChild', 'branch_1-branch-bottom-ghost'),
+        ];
+
+        expect(collectScopeEdgeViolations(buildElkGraph(nodes, edges, 'TB'))).toEqual([]);
+
+        const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
+
+        const defaultCenter = positionOf(result.nodes, 'defaultChild').x + 36;
+        const caseACenter = positionOf(result.nodes, 'branch_1-branch-case_a-placeholder-0').x + 36;
+        const caseBCenter = positionOf(result.nodes, 'caseBChild').x + 36;
+
+        expect(defaultCenter).toBeLessThan(caseACenter);
+        expect(caseACenter).toBeLessThan(caseBCenter);
+
+        // Odd case count: the middle column sits on the branch axis, and the
+        // branch node sits midway between the outer columns
+        const branchCenter = positionOf(result.nodes, 'branch_1').x + 36;
+
+        expect(Math.abs(caseACenter - branchCenter)).toBeLessThanOrEqual(1);
+        expect(Math.abs((defaultCenter + caseBCenter) / 2 - branchCenter)).toBeLessThanOrEqual(1);
+
+        // Standard box gaps at the branch frame
+        const branchBottom = positionOf(result.nodes, 'branch_1').y + 72;
+        const topGhostBarY = positionOf(result.nodes, 'branch_1-branch-top-ghost').y;
+
+        expect(topGhostBarY - branchBottom).toBe(TOP_BOX_GAP);
+    });
+
+    it('ranks unknown case keys last', async () => {
+        const nodes: Node[] = [
+            branchNode('branch_1', ['case_a']),
+            ...branchGhostNodes('branch_1'),
+            branchChildTaskNode('strayChild', 'branch_1', 'zzz_unknown'),
+            branchChildTaskNode('caseAChild', 'branch_1', 'case_a'),
+            branchChildTaskNode('defaultChild', 'branch_1', 'default'),
+        ];
+
+        const edges: Edge[] = [
+            edge('branch_1', 'branch_1-branch-top-ghost'),
+            edge('branch_1-branch-top-ghost', 'defaultChild'),
+            edge('defaultChild', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-top-ghost', 'caseAChild'),
+            edge('caseAChild', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-top-ghost', 'strayChild'),
+            edge('strayChild', 'branch_1-branch-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
+
+        const defaultCenter = positionOf(result.nodes, 'defaultChild').x;
+        const caseACenter = positionOf(result.nodes, 'caseAChild').x;
+        const strayCenter = positionOf(result.nodes, 'strayChild').x;
+
+        expect(defaultCenter).toBeLessThan(caseACenter);
+        expect(caseACenter).toBeLessThan(strayCenter);
+    });
+
+    it('lays out a loop inside a branch case and keeps canonical order', async () => {
+        const nodes: Node[] = [
+            branchNode('branch_1', ['case_a']),
+            ...branchGhostNodes('branch_1'),
+            branchChildTaskNode('defaultChild', 'branch_1', 'default'),
+            {
+                data: {
+                    branchData: {branchId: 'branch_1', caseKey: 'case_a', index: 0},
+                    componentName: 'loop',
+                    taskDispatcher: true,
+                    taskDispatcherId: 'loop_1',
+                    workflowNodeName: 'loop_1',
+                },
+                id: 'loop_1',
+                position: {x: 0, y: 0},
+                type: 'workflow',
+            },
+            ...loopAuxNodes('loop_1'),
+            loopChildTaskNode('loopChild1', 'loop_1'),
+        ];
+
+        const edges: Edge[] = [
+            edge('branch_1', 'branch_1-branch-top-ghost'),
+            edge('branch_1-branch-top-ghost', 'defaultChild'),
+            edge('defaultChild', 'branch_1-branch-bottom-ghost'),
+            edge('branch_1-branch-top-ghost', 'loop_1'),
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'loopChild1'),
+            edge('loopChild1', 'loop_1-loop-bottom-ghost'),
+            edge('loop_1-loop-bottom-ghost', 'branch_1-branch-bottom-ghost'),
+        ];
+
+        expect(collectScopeEdgeViolations(buildElkGraph(nodes, edges, 'TB'))).toEqual([]);
+
+        const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
+
+        // default column left of the case_a loop subtree
+        expect(positionOf(result.nodes, 'defaultChild').x).toBeLessThan(positionOf(result.nodes, 'loop_1').x);
+
+        // The nested loop body still centers under the loop node
+        const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
+        const loopChildCenter = positionOf(result.nodes, 'loopChild1').x + 36;
+
+        expect(Math.abs(loopChildCenter - loopCenter)).toBeLessThanOrEqual(1);
+    });
+});

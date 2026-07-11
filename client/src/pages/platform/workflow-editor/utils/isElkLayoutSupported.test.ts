@@ -52,8 +52,12 @@ describe('isElkLayoutSupported', () => {
         }
     });
 
+    it('supports branch dispatchers', () => {
+        expect(isElkLayoutSupported([taskNode('task1'), dispatcherNode('branch_1', 'branch')])).toBe(true);
+    });
+
     it('rejects any unsupported dispatcher', () => {
-        for (const componentName of ['branch', 'each', 'fork-join', 'map', 'on-error', 'parallel']) {
+        for (const componentName of ['each', 'fork-join', 'map', 'on-error', 'parallel']) {
             expect(isElkLayoutSupported([taskNode('task1'), dispatcherNode('dispatcher_1', componentName)])).toBe(
                 false
             );

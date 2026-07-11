@@ -78,7 +78,7 @@ const WorkflowEditorToolbar = ({
     let layoutEngineTooltip = layoutEngineLabel;
 
     if (!elkLayoutSupported) {
-        layoutEngineTooltip = 'Experimental layout supports only Condition and Loop for now';
+        layoutEngineTooltip = 'Experimental layout supports only Condition, Loop and Branch for now';
     }
 
     const handleZoomIn = useCallback(() => zoomIn({duration: 300}), [zoomIn]);
