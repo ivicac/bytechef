@@ -231,7 +231,7 @@ public class AiHubApiController {
      * access to.
      */
     private long enforceWorkspaceAccess(AgUiParameters agUiParameters, long userId) {
-        Long requestedWorkspaceId = readLong(agUiParameters, "workspaceId");
+        Long requestedWorkspaceId = readLong(agUiParameters, AiHubStateKeys.WORKSPACE_ID);
 
         if (requestedWorkspaceId == null) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Missing workspaceId in request state");
@@ -254,7 +254,7 @@ public class AiHubApiController {
         String threadId = agUiParameters.getThreadId();
 
         if (threadId == null || threadId.isBlank()) {
-            threadId = readString(agUiParameters, "threadId");
+            threadId = readString(agUiParameters, AiHubStateKeys.THREAD_ID);
         }
 
         if (threadId == null || threadId.isBlank()) {
@@ -301,12 +301,12 @@ public class AiHubApiController {
 
         // Defensively overwrite the unverified key paths with verified values so a future regression that reads
         // state.workspaceId or state.userId still gets server-controlled data.
-        state.set("workspaceId", workspaceId);
-        state.set("userId", userId);
+        state.set(AiHubStateKeys.WORKSPACE_ID, workspaceId);
+        state.set(AiHubStateKeys.USER_ID, userId);
 
         if (verifiedThreadId != null) {
             state.set(AiHubStateKeys.VERIFIED_THREAD_ID, verifiedThreadId);
-            state.set("threadId", verifiedThreadId);
+            state.set(AiHubStateKeys.THREAD_ID, verifiedThreadId);
         }
 
         Long rawEnvironmentId = readLong(agUiParameters, AiHubStateKeys.ENVIRONMENT_ID);

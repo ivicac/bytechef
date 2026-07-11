@@ -135,9 +135,9 @@ public class AiHubScheduledChatDispatcher {
 
         // Plain convenience aliases — also written by the controller to ensure any code that reads
         // state.userId / state.workspaceId / state.threadId directly still sees server-controlled values.
-        state.set("userId", userId);
-        state.set("workspaceId", workspaceId);
-        state.set("threadId", threadId);
+        state.set(AiHubStateKeys.USER_ID, userId);
+        state.set(AiHubStateKeys.WORKSPACE_ID, workspaceId);
+        state.set(AiHubStateKeys.THREAD_ID, threadId);
 
         // environmentId read by AiHubSpringAIAgent.buildInvocationContext for memory-index scoping.
         state.set(AiHubStateKeys.ENVIRONMENT_ID, (long) environmentId);
