@@ -93,15 +93,26 @@ public class ToolSearchAdvisorConfiguration {
     /**
      * Tools the system prompt tells the model to call directly by name, so they must stay callable on every iteration
      * rather than being hidden behind a {@code searchTool} hit: the specialist sub-agents (the {@code *_agent}
-     * delegates plus the research / data-analyst / image-generator / slide-builder ChatClient sub-agents) and the core
-     * interaction tools {@code askUserQuestion} and {@code openWorkflowTab}. Names that are absent for a given mode
-     * (e.g. a specialist whose ChatClient bean is disabled) are simply never captured — pinning a missing name is a
-     * no-op. Keep this list small; every entry is sent to the model on every turn, which is the cost the tool-search
-     * advisor otherwise avoids.
+     * delegates plus the research / data-analyst / image-generator / slide-builder ChatClient sub-agents), the core
+     * interaction tools {@code askUserQuestion} and {@code openWorkflowTab}, and the interactive picker tools that
+     * render UI in the chat panel ({@code selectConnection}, {@code createConnection}, {@code selectPropertyOption},
+     * {@code selectTriggerPropertyOption}). The pickers must be pinned like {@code askUserQuestion}: they render only
+     * off a tool-result event, and chat memory does not persist the intermediate {@code searchTool} exchange that once
+     * surfaced them, so on a follow-up turn an unpinned picker is not in the narrowed tool list — the model then
+     * narrates "I've rendered the picker above" without a real call and nothing renders. The auto-memory tools
+     * ({@code MemoryView}, {@code MemoryCreate}, {@code MemoryStrReplace}, {@code MemoryInsert}, {@code MemoryDelete},
+     * {@code MemoryRename}) are pinned for the same reason: {@code AutoMemoryToolsAdvisor} injects them (and the memory
+     * system prompt that instructs the model to use them) before the tool-search loop runs, so without pinning the
+     * narrowing strips them every iteration and the model can never recall or record memories. Names that are absent
+     * for a given mode (e.g. a specialist whose ChatClient bean is disabled, or memory tools in a mode that doesn't
+     * mount the advisor) are simply never captured — pinning a missing name is a no-op. Keep this list small; every
+     * entry is sent to the model on every turn, which is the cost the tool-search advisor otherwise avoids.
      */
     private static final Set<String> ALWAYS_ON_TOOL_NAMES = Set.of(
-        "askUserQuestion", "cluster_element_agent", "code_editor_agent", "converter_agent", "data_analyst",
-        "image_generator", "openWorkflowTab", "research", "skills_agent", "slide_builder", "workflow_editor_agent",
+        "askUserQuestion", "cluster_element_agent", "code_editor_agent", "converter_agent", "createConnection",
+        "data_analyst", "image_generator", "MemoryCreate", "MemoryDelete", "MemoryInsert", "MemoryRename",
+        "MemoryStrReplace", "MemoryView", "openWorkflowTab", "research", "selectConnection", "selectPropertyOption",
+        "selectTriggerPropertyOption", "skills_agent", "slide_builder", "workflow_editor_agent",
         "workflow_execution_agent");
 
     private static final Logger log = LoggerFactory.getLogger(ToolSearchAdvisorConfiguration.class);
