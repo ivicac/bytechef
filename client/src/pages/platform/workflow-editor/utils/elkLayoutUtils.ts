@@ -1364,7 +1364,23 @@ export const getElkLayoutElements = async ({
                     columnEnd = Math.max(columnEnd, memberCrossCenter + memberHalfWidth);
                 });
 
-                entryColumns.push({end: columnEnd, entryNode, memberNodes, start: columnStart});
+                // Symmetrize the envelope around the column's entry axis: an
+                // asymmetric subtree (a narrow default case beside a wide one)
+                // would otherwise produce unequal visible pitches to its two
+                // neighbours after repacking
+                const entryRenderedSize = getRenderedNodeSize(entryNode, direction);
+                const entryAxis =
+                    entryNode.position[crossAxis] +
+                    (crossAxis === 'x' ? entryRenderedSize.width : entryRenderedSize.height) / 2;
+
+                const columnHalfWidth = Math.max(entryAxis - columnStart, columnEnd - entryAxis);
+
+                entryColumns.push({
+                    end: entryAxis + columnHalfWidth,
+                    entryNode,
+                    memberNodes,
+                    start: entryAxis - columnHalfWidth,
+                });
             });
 
             if (entryColumns.length < 2) {

@@ -1505,8 +1505,11 @@ describe('getElkLayoutElements with branches', () => {
             positionOf(result.nodes, 'condition_5-condition-left-placeholder-0').x + 36 - 100
         );
 
+        // Envelopes are symmetrized around each column's entry axis, so the
+        // gap between the REAL outermost nodes is the 50px envelope gap plus
+        // any symmetrization slack — bounded well below the old 300px gulf
         expect(falseLeftEdge - trueRightEdge).toBeGreaterThanOrEqual(49);
-        expect(falseLeftEdge - trueRightEdge).toBeLessThanOrEqual(51);
+        expect(falseLeftEdge - trueRightEdge).toBeLessThanOrEqual(140);
 
         // Two entries (even count): the parent centers on their mean
         const trueEntryCenter = positionOf(result.nodes, 'branch_1').x + 36;
@@ -1514,6 +1517,30 @@ describe('getElkLayoutElements with branches', () => {
         const parentCenter = positionOf(result.nodes, 'condition_3').x + 36;
 
         expect(Math.abs(parentCenter - (trueEntryCenter + falseEntryCenter) / 2)).toBeLessThanOrEqual(1);
+    });
+
+    it('gives a case with an asymmetric subtree equal pitches to both neighbours', async () => {
+        // branch_2's envelope is asymmetric around its axis (200px default
+        // column left, 240px subflow column right) — without symmetrization,
+        // repacking yields visibly unequal gaps to its two neighbour columns
+        const {edges, nodes} = deepSiblingFixture();
+
+        const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
+
+        const caseOneCenter = positionOf(result.nodes, 'branch_1-branch-case_1-placeholder-0').x + 36;
+        const branchTwoCenter = positionOf(result.nodes, 'branch_2').x + 36;
+        const caseThreeCenter = positionOf(result.nodes, 'branch_1-branch-case_3-placeholder-0').x + 36;
+
+        const leftPitch = branchTwoCenter - caseOneCenter;
+        const rightPitch = caseThreeCenter - branchTwoCenter;
+
+        expect(Math.abs(leftPitch - rightPitch)).toBeLessThanOrEqual(1);
+
+        // Five entries (odd count): the branch dispatcher anchors on the MEDIAN
+        // case column (case_1), keeping its middle-case edge straight
+        const branchOneCenter = positionOf(result.nodes, 'branch_1').x + 36;
+
+        expect(Math.abs(branchOneCenter - caseOneCenter)).toBeLessThanOrEqual(1);
     });
 
     it('compacts sibling columns of unequal depth independently (dagre parity)', async () => {
