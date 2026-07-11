@@ -14,10 +14,6 @@ interface ComputeEdgeButtonPositionProps {
     targetNodeType?: string;
 }
 
-// Ghost→ghost merge stubs are only one layer gap tall, so a midpoint-placed
-// button crowds the enclosing frame's corner — tuck it under the source bar.
-const MERGE_BUTTON_SOURCE_OFFSET = 24;
-
 export default function computeEdgeButtonPosition({
     correctedSourceX,
     correctedSourceY,
@@ -55,9 +51,6 @@ export default function computeEdgeButtonPosition({
     let posX;
     let posY;
 
-    const isGhostToGhostMergeEdge =
-        sourceNodeType === 'taskDispatcherBottomGhostNode' && targetNodeType === 'taskDispatcherBottomGhostNode';
-
     if (isHorizontal) {
         posX = Math.min(correctedSourceX, correctedTargetX) + Math.abs(correctedTargetX - correctedSourceX) * 0.5;
 
@@ -67,9 +60,6 @@ export default function computeEdgeButtonPosition({
             if (targetNodeType === 'workflow' && isEdgeFromBranchTopGhostNode) {
                 posX += 15;
             }
-        } else if (isGhostToGhostMergeEdge) {
-            posX = correctedSourceX + MERGE_BUTTON_SOURCE_OFFSET;
-            posY = correctedSourceY;
         } else if (targetNodeType === 'taskDispatcherBottomGhostNode') {
             posY = correctedSourceY;
         } else if (sourceNodeComponentName && TASK_DISPATCHER_NAMES.includes(sourceNodeComponentName)) {
@@ -84,9 +74,6 @@ export default function computeEdgeButtonPosition({
             if (targetNodeType === 'workflow' && isEdgeFromBranchTopGhostNode) {
                 posY += 15;
             }
-        } else if (isGhostToGhostMergeEdge) {
-            posX = correctedSourceX;
-            posY = correctedSourceY + MERGE_BUTTON_SOURCE_OFFSET;
         } else if (targetNodeType === 'taskDispatcherBottomGhostNode') {
             posX = correctedSourceX;
         } else if (sourceNodeComponentName && TASK_DISPATCHER_NAMES.includes(sourceNodeComponentName)) {

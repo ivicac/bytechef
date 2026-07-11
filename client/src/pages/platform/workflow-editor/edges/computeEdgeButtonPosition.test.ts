@@ -75,12 +75,11 @@ describe('computeEdgeButtonPosition', () => {
             expect(result).toEqual({x: 1207, y: 861});
         });
 
-        it('should tuck the button under the source bar for a ghost-to-ghost merge edge in TB mode', () => {
+        it('should center the button on the source column for a ghost-to-ghost merge edge in TB mode', () => {
             // Merge edge from a nested dispatcher's bottom ghost into the enclosing
             // dispatcher's bottom ghost bends around the frame corner — the path
-            // center would land on the horizontal run, and the vertical stub is only
-            // one layer gap tall, so the button pins to the source column just below
-            // the nested frame's bottom bar
+            // center would land on the horizontal run, so the button pins to the
+            // source column, vertically centered on the merge stub
             const result = computeEdgeButtonPosition(
                 makeParams({
                     correctedSourceX: 750,
@@ -92,7 +91,7 @@ describe('computeEdgeButtonPosition', () => {
                 })
             );
 
-            expect(result).toEqual({x: 750, y: 124});
+            expect(result).toEqual({x: 750, y: 160});
         });
 
         it('should return edge center for bottom ghost source in LR mode', () => {
