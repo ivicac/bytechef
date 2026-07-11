@@ -1500,22 +1500,101 @@ export const getElkLayoutElements = async ({
         // dispatcher with a saved position carries its whole frame rigidly with it.
         applySavedPositions(allNodes, crossAxis, savedPositionCrossAxisShift);
 
+        // Close the ring on the right: with the interior running straight down
+        // the spine, a populated ring would be an open left lobe — the bars
+        // just end mid-air on the right. Mirror the rail with a synthetic tick
+        // (same hairline node type) and two smoothstep edges so the ring reads
+        // as a closed box. An EMPTY ring already closes through its "+"
+        // placeholder and gets no mirror.
+        const ringEdges: Edge[] = [];
+
+        railNodes.forEach((railNode) => {
+            const railDispatcherId = (railNode.data as NodeDataType).taskDispatcherId;
+
+            if (!railDispatcherId) {
+                return;
+            }
+
+            const dispatcherNode = layoutedNodesById.get(railDispatcherId);
+            const dispatcherKind = frameDispatcherKindById.get(railDispatcherId);
+
+            if (!dispatcherNode || !dispatcherKind) {
+                return;
+            }
+
+            const hasOwnPlaceholder = allNodes.some(
+                (candidateNode) =>
+                    candidateNode.type === 'placeholder' &&
+                    (candidateNode.data as NodeDataType).taskDispatcherId === railDispatcherId
+            );
+
+            if (hasOwnPlaceholder) {
+                return;
+            }
+
+            const dispatcherCrossCenter = dispatcherNode.position[crossAxis] + NODE_ANCHOR_SIZE / 2;
+            const railRenderedSize = getRenderedNodeSize(railNode, direction);
+            const railCrossSize = crossAxis === 'x' ? railRenderedSize.width : railRenderedSize.height;
+
+            const ringTickId = `${railDispatcherId}-taskDispatcher-right-rail`;
+            const ringMainAxis = crossAxis === 'x' ? 'y' : 'x';
+
+            allNodes.push({
+                data: {taskDispatcherId: railDispatcherId},
+                id: ringTickId,
+                position: {
+                    [crossAxis]: 2 * dispatcherCrossCenter - railNode.position[crossAxis] - railCrossSize,
+                    [ringMainAxis]: railNode.position[ringMainAxis],
+                } as {x: number; y: number},
+                type: 'taskDispatcherLeftGhostNode',
+            });
+
+            const ghostIdSegment = getGhostIdSegment(dispatcherKind);
+            const topGhostId = `${railDispatcherId}-${ghostIdSegment}-top-ghost`;
+            const bottomGhostId = `${railDispatcherId}-${ghostIdSegment}-bottom-ghost`;
+
+            ringEdges.push(
+                {
+                    id: `${topGhostId}=>${ringTickId}`,
+                    source: topGhostId,
+                    sourceHandle: `${topGhostId}-right`,
+                    target: ringTickId,
+                    targetHandle: `${ringTickId}-left-ghost-top`,
+                    type: 'smoothstep',
+                },
+                {
+                    id: `${ringTickId}=>${bottomGhostId}`,
+                    source: ringTickId,
+                    sourceHandle: `${ringTickId}-left-ghost-bottom`,
+                    target: bottomGhostId,
+                    targetHandle: `${bottomGhostId}-right`,
+                    type: 'smoothstep',
+                }
+            );
+        });
+
+        const edgesWithRing = [...edges, ...ringEdges];
+
         // A rail dispatcher's body is centered on its spine, unlike dagre, which
         // offsets the content column onto the ring's right side — so the content
         // edges' `-right` bar handles (7px off the spine) would render as 27px
         // smoothstep S-bulges dying under the child's label. Reroute them through
-        // the bars' centered handles for straight spine lines; the ring stays as
-        // the rail's left lobe. Empty-ring placeholder edges keep the side
-        // handles — there the "+" IS the ring's right side.
+        // the bars' centered handles for straight spine lines; the ring stays
+        // closed via the mirrored right rail. Empty-ring placeholder edges keep
+        // the side handles — there the "+" IS the ring's right side.
         const railDispatcherIds = new Set(
             railNodes
                 .map((railNode) => (railNode.data as NodeDataType).taskDispatcherId)
                 .filter((dispatcherId): dispatcherId is string => Boolean(dispatcherId))
         );
 
-        const spineRoutedEdges = edges.map((currentEdge) => {
-            const sourceNode = layoutedNodesById.get(currentEdge.source);
-            const targetNode = layoutedNodesById.get(currentEdge.target);
+        const spineRoutedEdges = edgesWithRing.map((currentEdge) => {
+            const sourceNode =
+                layoutedNodesById.get(currentEdge.source) ??
+                allNodes.find((candidateNode) => candidateNode.id === currentEdge.source);
+            const targetNode =
+                layoutedNodesById.get(currentEdge.target) ??
+                allNodes.find((candidateNode) => candidateNode.id === currentEdge.target);
 
             if (!sourceNode || !targetNode) {
                 return currentEdge;

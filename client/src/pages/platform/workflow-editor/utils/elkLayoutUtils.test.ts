@@ -920,6 +920,51 @@ describe('getElkLayoutElements with loops', () => {
         return {edges, nodes};
     };
 
+    it('closes a populated loop ring with a mirrored right rail', async () => {
+        // The straight-spine routing leaves a populated ring as an open left
+        // lobe (bars ending mid-air on the right) — the engine synthesizes a
+        // right-rail tick mirroring the rail plus two smoothstep edges so the
+        // ring reads as a closed box
+        const {edges, nodes} = populatedLoopFixture();
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        const rightRailNode = result.nodes.find((resultNode) => resultNode.id === 'loop_1-taskDispatcher-right-rail');
+        const railNode = result.nodes.find((resultNode) => resultNode.id === 'loop_1-taskDispatcher-left-ghost');
+        const loopCenter = positionOf(result.nodes, 'loop_1').x + 36;
+
+        expect(rightRailNode).toBeDefined();
+        expect(rightRailNode!.type).toBe('taskDispatcherLeftGhostNode');
+
+        // Mirrored across the dispatcher axis, at the rail's main position
+        expect(rightRailNode!.position.x - loopCenter).toBeCloseTo(loopCenter - (railNode!.position.x + 2), 5);
+        expect(rightRailNode!.position.y).toBe(railNode!.position.y);
+
+        const topRingEdge = result.edges.find(
+            (resultEdge) => resultEdge.id === 'loop_1-loop-top-ghost=>loop_1-taskDispatcher-right-rail'
+        );
+        const bottomRingEdge = result.edges.find(
+            (resultEdge) => resultEdge.id === 'loop_1-taskDispatcher-right-rail=>loop_1-loop-bottom-ghost'
+        );
+
+        expect(topRingEdge?.sourceHandle).toBe('loop_1-loop-top-ghost-right');
+        expect(bottomRingEdge?.targetHandle).toBe('loop_1-loop-bottom-ghost-right');
+    });
+
+    it('does not add a right rail to an empty ring (its "+" is the right side)', async () => {
+        const nodes: Node[] = [loopNode('loop_1'), ...loopAuxNodes('loop_1'), loopPlaceholderNode('loop_1')];
+
+        const edges: Edge[] = [
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'loop_1-loop-placeholder-0'),
+            edge('loop_1-loop-placeholder-0', 'loop_1-loop-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        expect(result.nodes.some((resultNode) => resultNode.id.endsWith('-taskDispatcher-right-rail'))).toBe(false);
+    });
+
     it('reroutes populated-loop content edges through the centered spine handles', async () => {
         // The builders put content edges on the bars' `-right` handles (dagre
         // offsets the body column onto the ring's right side); the ELK engine
