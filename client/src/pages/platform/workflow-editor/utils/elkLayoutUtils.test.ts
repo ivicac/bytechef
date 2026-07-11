@@ -9,6 +9,10 @@ import type {ElkNode} from 'elkjs/lib/elk-api';
 // icon anchor box plus the uniform CHAIN_GAP. Identical for every consecutive
 // pair, at every nesting depth, in both TB and LR — the engine's core invariant.
 const CHAIN_GAP = 80;
+
+// Box-adjacent edges (condition→frame bar, bar→next node): layer gap + one
+// 14px anchor slack.
+const BOX_GAP = 66;
 const CHAIN_STEP = 72 + CHAIN_GAP;
 
 const taskNode = (
@@ -596,14 +600,14 @@ describe('getElkLayoutElements', () => {
         expect(Math.abs((leftPlaceholderCenter + rightPlaceholderCenter) / 2 - conditionCenter)).toBeLessThanOrEqual(1);
 
         // The visible edge from the condition icon to the frame's top ghost bar is
-        // exactly the uniform CHAIN_GAP
+        // exactly BOX_GAP (layer gap + one anchor slack)
         const conditionBottom = positionOf(result.nodes, 'condition_1').y + 72;
         const topGhostBarY = positionOf(result.nodes, 'condition_1-condition-top-ghost').y;
 
-        expect(topGhostBarY - conditionBottom).toBe(CHAIN_GAP);
+        expect(topGhostBarY - conditionBottom).toBe(BOX_GAP);
     });
 
-    it('keeps uniform CHAIN_GAPs in a frame with one populated and one empty branch', async () => {
+    it('keeps uniform box gaps in a frame with one populated and one empty branch', async () => {
         const nodes: Node[] = [
             conditionNode('condition_1'),
             ...conditionGhostNodes('condition_1'),
@@ -626,9 +630,9 @@ describe('getElkLayoutElements', () => {
         const loggerTaskTop = positionOf(result.nodes, 'loggerTask').y;
         const bottomGhostBarY = positionOf(result.nodes, 'condition_1-condition-bottom-ghost').y;
 
-        expect(topGhostBarY - conditionBottom).toBe(CHAIN_GAP);
-        expect(loggerTaskTop - (topGhostBarY + 2)).toBe(CHAIN_GAP);
-        expect(bottomGhostBarY - (loggerTaskTop + 72)).toBe(CHAIN_GAP);
+        expect(topGhostBarY - conditionBottom).toBe(BOX_GAP);
+        expect(loggerTaskTop - (topGhostBarY + 2)).toBe(BOX_GAP);
+        expect(bottomGhostBarY - (loggerTaskTop + 72)).toBe(BOX_GAP);
 
         // Condition sits midway between the populated chain and the empty-branch placeholder
         const conditionCenter = positionOf(result.nodes, 'condition_1').x + 36;
@@ -667,9 +671,9 @@ describe('getElkLayoutElements', () => {
         const loggerTaskTop = positionOf(result.nodes, 'loggerTask').y;
         const bottomGhostBarY = positionOf(result.nodes, 'condition_1-condition-bottom-ghost').y;
 
-        expect(topGhostBarY - (900 + 72)).toBe(CHAIN_GAP);
-        expect(loggerTaskTop - (topGhostBarY + 2)).toBe(CHAIN_GAP);
-        expect(bottomGhostBarY - (loggerTaskTop + 72)).toBe(CHAIN_GAP);
+        expect(topGhostBarY - (900 + 72)).toBe(BOX_GAP);
+        expect(loggerTaskTop - (topGhostBarY + 2)).toBe(BOX_GAP);
+        expect(bottomGhostBarY - (loggerTaskTop + 72)).toBe(BOX_GAP);
 
         const topGhostCenter = positionOf(result.nodes, 'condition_1-condition-top-ghost').x + 36;
 

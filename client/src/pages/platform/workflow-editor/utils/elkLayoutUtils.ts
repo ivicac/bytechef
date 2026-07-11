@@ -21,11 +21,15 @@ import type {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 
 export const ELK_ROOT_ID = '__root__';
 
-// The uniform visible edge length between ANY two consecutive elements on the
-// flow axis (footprints equal DOM boxes, so the layer gap IS the edge length).
-// 80 restores dagre's visual rhythm and gives the 28px edge "+" buttons and
-// TRUE/FALSE labels room to breathe inside the gap.
-const ELK_LAYER_SPACING = 80;
+// Flow-axis rhythm, mirroring dagre's model: anchor nodes get a 100px footprint
+// with the 72px icon centered inside (14px slack each side) and layers sit 52px
+// apart. Node→node edges therefore read as 14+52+14 = 80px, while box-adjacent
+// edges (condition→frame bar, bar→next node) read as 14+52 = 66px — symmetric
+// around every frame and tight enough that the TRUE/FALSE labels sit 38px off
+// the box instead of floating.
+const ELK_LAYER_SPACING = 52;
+
+const ANCHOR_MAIN_FOOTPRINT = 100;
 
 // Cross-axis gap between sibling branch columns.
 const ELK_SIBLING_SPACING = 50;
@@ -66,12 +70,12 @@ const getElkLayoutOptions = (direction: LayoutDirectionType): Record<string, str
 
 /**
  * ELK footprint of a node. Cross-axis sizes come from the shared dagre size
- * function (they control how far apart parallel branch chains sit), but the
- * MAIN-axis footprint equals the node's rendered DOM size — 72px icon boxes
- * for tasks/triggers/conditions, 2px ghost bars, 28px placeholders. With the
- * footprint equal to the DOM box, the uniform layer gap (ELK_SPACING) is also
- * the exact visible edge length between ANY pair of consecutive elements, at
- * every nesting depth — the core consistency guarantee of the ELK engine.
+ * function (they control how far apart parallel branch chains sit). MAIN-axis
+ * footprints: anchor nodes (tasks/triggers/conditions) get ANCHOR_MAIN_FOOTPRINT
+ * with the 72px icon centered inside; ghost bars and placeholders get exactly
+ * their rendered DOM size. This yields the same visible rhythm at every nesting
+ * depth: node→node edges of ELK_LAYER_SPACING + 2×slack, box-adjacent edges of
+ * ELK_LAYER_SPACING + 1×slack — the consistency guarantee of the ELK engine.
  */
 function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: number; width: number} {
     const {height, width} = getDagreNodeSize(node, direction);
@@ -80,7 +84,7 @@ function getElkNodeSize(node: Node, direction: LayoutDirectionType): {height: nu
 
     const isGhostNode = node.type === 'taskDispatcherTopGhostNode' || node.type === 'taskDispatcherBottomGhostNode';
 
-    let mainAxisSize = NODE_ANCHOR_SIZE;
+    let mainAxisSize = ANCHOR_MAIN_FOOTPRINT;
 
     if (isGhostNode) {
         mainAxisSize = GHOST_BAR_THICKNESS;
