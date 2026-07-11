@@ -1551,6 +1551,23 @@ describe('getElkLayoutElements with branches', () => {
         expect(Math.abs(branchOneCenter - caseOneCenter)).toBeLessThanOrEqual(1);
     });
 
+    it('re-hugs the ring rail after separation moves nested columns', async () => {
+        // Repack/re-anchor shift a nested condition's columns WITHOUT the
+        // enclosing loop's rail (the rail is not one of that frame's column
+        // members), so a hug computed before separation can leave the rail
+        // nearly touching the nested box's left edge — the rail must end up
+        // hugging the FINAL content positions
+        const {edges, nodes} = deepSiblingFixture();
+
+        const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
+
+        const loopOneCenter = positionOf(result.nodes, 'loop_1').x + 36;
+        const truePlaceholderX = positionOf(result.nodes, 'condition_5-condition-left-placeholder-0').x;
+        const railX = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x;
+
+        expect(railX).toBe(Math.min(loopOneCenter - 100 - 1, truePlaceholderX - 20));
+    });
+
     it('staircases nested ring content columns to the right', async () => {
         // Loop grammar at depth: each ring's content column sits on its own
         // ring's right side, offset from ITS dispatcher's spine — deep stacks

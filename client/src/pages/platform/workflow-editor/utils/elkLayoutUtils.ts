@@ -1251,89 +1251,99 @@ export const getElkLayoutElements = async ({
                 (descendantIdsByRailId.get(secondRail.id)?.size || 0)
         );
 
-        railNodes.forEach((railNode) => {
-            const railDispatcherId = (railNode.data as NodeDataType).taskDispatcherId;
+        // Deterministic and idempotent — invoked once here so the separation
+        // pass sees sane rail positions in its envelopes, and again after the
+        // cross-axis passes settle: repack/re-anchor move a nested frame's
+        // columns WITHOUT the enclosing dispatcher's rail (it is not one of
+        // that frame's column members), so a hug computed only on pre-repack
+        // positions can leave the rail nearly touching a nested box edge.
+        const positionRailNodes = () =>
+            railNodes.forEach((railNode) => {
+                const railDispatcherId = (railNode.data as NodeDataType).taskDispatcherId;
 
-            if (!railDispatcherId) {
-                return;
-            }
-
-            const dispatcherKind = frameDispatcherKindById.get(railDispatcherId);
-            const topBarNode = allNodes.find(
-                (candidateNode) =>
-                    candidateNode.id === `${railDispatcherId}-${getGhostIdSegment(dispatcherKind || '')}-top-ghost`
-            );
-
-            if (!topBarNode) {
-                return;
-            }
-
-            const descendantIds = descendantIdsByRailId.get(railNode.id) || new Set<string>();
-
-            let leftmostContentCross = Infinity;
-            let leftmostChildRailCross = Infinity;
-
-            allNodes.forEach((candidateNode) => {
-                if (!descendantIds.has(candidateNode.id)) {
+                if (!railDispatcherId) {
                     return;
                 }
 
-                if (candidateNode.type === 'taskDispatcherLeftGhostNode') {
-                    leftmostChildRailCross = Math.min(leftmostChildRailCross, candidateNode.position[crossAxis]);
-                } else if (
-                    candidateNode.type !== 'taskDispatcherTopGhostNode' &&
-                    candidateNode.type !== 'taskDispatcherBottomGhostNode'
-                ) {
-                    // Ghost bars span the anchor width from the bar-aligned rail
-                    // position by construction — only real body content pushes the
-                    // rail further out
-                    leftmostContentCross = Math.min(leftmostContentCross, candidateNode.position[crossAxis]);
+                const dispatcherKind = frameDispatcherKindById.get(railDispatcherId);
+                const topBarNode = allNodes.find(
+                    (candidateNode) =>
+                        candidateNode.id === `${railDispatcherId}-${getGhostIdSegment(dispatcherKind || '')}-top-ghost`
+                );
+
+                if (!topBarNode) {
+                    return;
                 }
+
+                const descendantIds = descendantIdsByRailId.get(railNode.id) || new Set<string>();
+
+                let leftmostContentCross = Infinity;
+                let leftmostChildRailCross = Infinity;
+
+                allNodes.forEach((candidateNode) => {
+                    if (!descendantIds.has(candidateNode.id)) {
+                        return;
+                    }
+
+                    if (candidateNode.type === 'taskDispatcherLeftGhostNode') {
+                        leftmostChildRailCross = Math.min(leftmostChildRailCross, candidateNode.position[crossAxis]);
+                    } else if (
+                        candidateNode.type !== 'taskDispatcherTopGhostNode' &&
+                        candidateNode.type !== 'taskDispatcherBottomGhostNode'
+                    ) {
+                        // Ghost bars span the anchor width from the bar-aligned rail
+                        // position by construction — only real body content pushes the
+                        // rail further out
+                        leftmostContentCross = Math.min(leftmostContentCross, candidateNode.position[crossAxis]);
+                    }
+                });
+
+                const railRenderedSize = getRenderedNodeSize(railNode, direction);
+                const railCrossSize = crossAxis === 'x' ? railRenderedSize.width : railRenderedSize.height;
+
+                const dispatcherCenter = topBarNode.position[crossAxis] + NODE_ANCHOR_SIZE / 2;
+
+                // A populated ring mirrors its content column (which forms the
+                // ring's RIGHT side) so the dispatcher reads centered; other rails
+                // align with the bar's left end for a straight edge with clean
+                // corners. Body content reaching further left pushes the rail out
+                // by its hug padding, nested rings by their indent, and an empty
+                // ring mirrors its "+" placeholder so the ring renders square.
+                const barAlignedCross = offsetRingDispatcherIds.has(railDispatcherId)
+                    ? dispatcherCenter - RING_CONTENT_OFFSET - railCrossSize / 2
+                    : topBarNode.position[crossAxis];
+                const contentRequired =
+                    leftmostContentCross === Infinity ? Infinity : leftmostContentCross - RAIL_CONTENT_PADDING;
+                const nestingRequired =
+                    leftmostChildRailCross === Infinity ? Infinity : leftmostChildRailCross - RAIL_NESTED_RING_INDENT;
+
+                const hasOwnPlaceholder = allNodes.some(
+                    (candidateNode) =>
+                        candidateNode.type === 'placeholder' &&
+                        (candidateNode.data as NodeDataType).taskDispatcherId === railDispatcherId
+                );
+
+                const railMainAxis = crossAxis === 'x' ? 'y' : 'x';
+                const bottomBarNode = allNodes.find(
+                    (candidateNode) =>
+                        candidateNode.id ===
+                        `${railDispatcherId}-${getGhostIdSegment(dispatcherKind || '')}-bottom-ghost`
+                );
+
+                const emptyRingMirror =
+                    hasOwnPlaceholder && bottomBarNode
+                        ? dispatcherCenter -
+                          getEmptyRingHalfWidth(topBarNode, bottomBarNode, railMainAxis) -
+                          railCrossSize / 2
+                        : Infinity;
+
+                railNode.position = {
+                    ...railNode.position,
+                    [crossAxis]: Math.min(barAlignedCross, contentRequired, nestingRequired, emptyRingMirror),
+                };
             });
 
-            const railRenderedSize = getRenderedNodeSize(railNode, direction);
-            const railCrossSize = crossAxis === 'x' ? railRenderedSize.width : railRenderedSize.height;
-
-            const dispatcherCenter = topBarNode.position[crossAxis] + NODE_ANCHOR_SIZE / 2;
-
-            // A populated ring mirrors its content column (which forms the
-            // ring's RIGHT side) so the dispatcher reads centered; other rails
-            // align with the bar's left end for a straight edge with clean
-            // corners. Body content reaching further left pushes the rail out
-            // by its hug padding, nested rings by their indent, and an empty
-            // ring mirrors its "+" placeholder so the ring renders square.
-            const barAlignedCross = offsetRingDispatcherIds.has(railDispatcherId)
-                ? dispatcherCenter - RING_CONTENT_OFFSET - railCrossSize / 2
-                : topBarNode.position[crossAxis];
-            const contentRequired =
-                leftmostContentCross === Infinity ? Infinity : leftmostContentCross - RAIL_CONTENT_PADDING;
-            const nestingRequired =
-                leftmostChildRailCross === Infinity ? Infinity : leftmostChildRailCross - RAIL_NESTED_RING_INDENT;
-
-            const hasOwnPlaceholder = allNodes.some(
-                (candidateNode) =>
-                    candidateNode.type === 'placeholder' &&
-                    (candidateNode.data as NodeDataType).taskDispatcherId === railDispatcherId
-            );
-
-            const railMainAxis = crossAxis === 'x' ? 'y' : 'x';
-            const bottomBarNode = allNodes.find(
-                (candidateNode) =>
-                    candidateNode.id === `${railDispatcherId}-${getGhostIdSegment(dispatcherKind || '')}-bottom-ghost`
-            );
-
-            const emptyRingMirror =
-                hasOwnPlaceholder && bottomBarNode
-                    ? dispatcherCenter -
-                      getEmptyRingHalfWidth(topBarNode, bottomBarNode, railMainAxis) -
-                      railCrossSize / 2
-                    : Infinity;
-
-            railNode.position = {
-                ...railNode.position,
-                [crossAxis]: Math.min(barAlignedCross, contentRequired, nestingRequired, emptyRingMirror),
-            };
-        });
+        positionRailNodes();
 
         // dagre parity (separateOverlapping*): ELK may legally place boxes from
         // DISJOINT layers at overlapping cross positions (a deep sibling's frame
@@ -1515,6 +1525,9 @@ export const getElkLayoutElements = async ({
                 });
             }
         });
+
+        // Re-hug the rails on the settled cross positions (see positionRailNodes)
+        positionRailNodes();
 
         // A trailing "+" placeholder fed by a dispatcher's bottom ghost was aligned
         // by ELK against the frame's PRE-shift box, so the entry-axis frame shift
