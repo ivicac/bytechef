@@ -47,6 +47,21 @@ Key verified facts:
   chain centering) on `node.type` + `taskDispatcherId`; `eachData.eachId` /
   `mapData.mapId` appear only in the parent-derivation chains and
   `collectNestedDispatcherNodes` membership. No sizing special cases.
+- **Each's `smoothstep` edge typing is invisible to layout.** The engine reads only
+  `edge.source`/`edge.target` (verified: zero reads of `type`/`sourceHandle`/
+  `targetHandle` in `elkLayoutUtils.ts`), and `computeEdgeButtonPosition` only runs
+  for `workflow`-type edges — so each's button-less interior needs nothing from the
+  engine.
+- **Pre-existing dagre-side bug found (masked, out of scope here)**: `createEachEdges`
+  inlines its nested-dispatcher-child wiring with a naive
+  `${childTaskId}-${childTaskId.split('_')[0]}-bottom-ghost` id, which is wrong for
+  `fork-join`/`on-error` children (real ghost ids use camelCase `forkJoin`/`onError`
+  segments — the pattern `createOnErrorEdges` gets right). The dangling edge is
+  silently dropped today and the generic
+  `createEdgeFromTaskDispatcherBottomGhostNode` pass supplies the correct
+  continuation, so BOTH engines lay out correctly — but that surviving generic edge
+  is `workflow`-typed, so a stray "+" button renders on the merge edge inside an
+  otherwise button-less each frame. Tracked as a separate fix.
 
 ## Design
 
@@ -58,8 +73,13 @@ Fourth repetition of the frame-mapper family; the loop mapping applies wholesale
    Refresh the stale doc comment (it still lists branch/fork-join/parallel as
    unsupported); remaining unsupported: `on-error`, cluster roots.
 2. **`getOwningDispatcherId`** in `elkLayoutUtils.ts`: add `eachData?.eachId` and
-   `mapData?.mapId` to the child-ownership chain (aux nodes already resolve via
-   `taskDispatcherId !== node.id`).
+   `mapData?.mapId` to the child-ownership fall-through chain, AFTER the
+   `taskDispatcherId !== node.id` aux-node branch (mirroring the existing
+   `loopData` entry). **This must ship in the same commit as item 1**: with the
+   gate widened but the ownership chain unchanged, each/map children scope to the
+   ELK root — buildElkGraph emits a root-scope cycle, the child renders outside
+   its frame, and nothing throws, so there is no dagre fallback; the layout is
+   silently garbled.
 3. **Nothing else in the engine changes.** Verified generic coverage:
    - Ghost ids: `getGhostIdSegment` passes `each`/`map` through unchanged.
    - Rail: presence-driven square-ring logic (`dispatcherHasRail`) and the rail
@@ -88,6 +108,10 @@ Engine tests in `elkLayoutUtils.test.ts` (real elkjs, per suite convention):
 - **Nesting both ways**: each inside a condition branch keeps branch-side placement;
   a loop as each's iteratee (dispatcher-as-iteratee) chains through the nested bottom
   ghost with uniform merge stubs.
+- **Fork-join as each's iteratee**: layout stays intact when the edge list contains
+  createEachEdges' dangling `-fork-join-bottom-ghost` edge alongside the correct
+  generic `-forkJoin-bottom-ghost` continuation (the engine must drop the dangling
+  one and walk the real one).
 - Support-gate + toolbar tests per items 4–5.
 
 ## Out of scope
@@ -96,3 +120,5 @@ Engine tests in `elkLayoutUtils.test.ts` (real elkjs, per suite convention):
 - AI-agent cluster roots (needs a radial abstraction, not a frame mapper).
 - Any change to each's single-child UI affordance or its `smoothstep` edge styling.
 - The dead `createLeftGhost` options in `createEachNode.ts`/`createMapNode.ts`.
+- The `createEachEdges` nested-ghost-id bug and its stray "+" button (separate fix;
+  use `createOnErrorEdges`' segment-mapping pattern).
