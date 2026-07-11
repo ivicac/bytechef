@@ -439,9 +439,9 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
 
             {data.name.includes('condition') && effectiveDirection === 'LR' && (
                 <div className="absolute top-0 right-0 font-bold text-muted-foreground">
-                    <span className="absolute -top-8 -right-16">TRUE</span>
+                    <span className="absolute -top-8 -right-16 rotate-90">TRUE</span>
 
-                    <span className="absolute top-20 -right-16">FALSE</span>
+                    <span className="absolute top-20 -right-16 rotate-90">FALSE</span>
                 </div>
             )}
 
@@ -455,9 +455,9 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
 
             {data.componentName === 'on-error' && effectiveDirection === 'LR' && (
                 <div className="absolute top-0 right-0 font-bold text-muted-foreground">
-                    <span className="absolute -top-8 -right-16">TRY</span>
+                    <span className="absolute -top-8 -right-16 rotate-90">TRY</span>
 
-                    <span className="absolute top-20 -right-16">CATCH</span>
+                    <span className="absolute top-20 -right-16 rotate-90">CATCH</span>
                 </div>
             )}
         </div>
