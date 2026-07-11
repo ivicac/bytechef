@@ -920,6 +920,83 @@ describe('getElkLayoutElements with loops', () => {
         return {edges, nodes};
     };
 
+    it('reroutes populated-loop content edges through the centered spine handles', async () => {
+        // The builders put content edges on the bars' `-right` handles (dagre
+        // offsets the body column onto the ring's right side); the ELK engine
+        // centers the body on the dispatcher axis, where those side handles
+        // render as S-bulges dying under the child's label — the engine must
+        // reroute them through the bars' centered handles instead
+        const {edges: baseEdges, nodes} = populatedLoopFixture();
+
+        const edges = baseEdges.map((currentEdge) => {
+            if (currentEdge.id === 'loop_1-loop-top-ghost=>loopChild1') {
+                return {...currentEdge, sourceHandle: 'loop_1-loop-top-ghost-right'};
+            }
+
+            if (currentEdge.id === 'loopChild2=>loop_1-loop-bottom-ghost') {
+                return {...currentEdge, targetHandle: 'loop_1-loop-bottom-ghost-right'};
+            }
+
+            return currentEdge;
+        });
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        const entryEdge = result.edges.find((resultEdge) => resultEdge.id === 'loop_1-loop-top-ghost=>loopChild1');
+        const exitEdge = result.edges.find((resultEdge) => resultEdge.id === 'loopChild2=>loop_1-loop-bottom-ghost');
+
+        expect(entryEdge?.sourceHandle).toBe('loop_1-loop-top-ghost-bottom');
+        expect(exitEdge?.targetHandle).toBe('loop_1-loop-bottom-ghost-top');
+    });
+
+    it('keeps empty-ring placeholder edges and condition side handles untouched', async () => {
+        // The empty ring's "+" IS the ring's right side, and condition bars have
+        // no rail — neither may be pulled onto the spine
+        const nodes: Node[] = [
+            loopNode('loop_1'),
+            ...loopAuxNodes('loop_1'),
+            loopPlaceholderNode('loop_1'),
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            taskNode('childTrue1', {conditionCase: 'caseTrue', conditionId: 'condition_1'}),
+        ];
+
+        const edges: Edge[] = [
+            ...loopStructureEdges('loop_1'),
+            {
+                ...edge('loop_1-loop-top-ghost', 'loop_1-loop-placeholder-0'),
+                sourceHandle: 'loop_1-loop-top-ghost-right',
+            },
+            {
+                ...edge('loop_1-loop-placeholder-0', 'loop_1-loop-bottom-ghost'),
+                targetHandle: 'loop_1-loop-bottom-ghost-right',
+            },
+            edge('loop_1-loop-bottom-ghost', 'condition_1'),
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            {
+                ...edge('condition_1-condition-top-ghost', 'childTrue1'),
+                sourceHandle: 'condition_1-condition-top-ghost-left',
+            },
+            edge('childTrue1', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1000, direction: 'TB', edges, nodes});
+
+        const placeholderEntryEdge = result.edges.find(
+            (resultEdge) => resultEdge.id === 'loop_1-loop-top-ghost=>loop_1-loop-placeholder-0'
+        );
+        const placeholderExitEdge = result.edges.find(
+            (resultEdge) => resultEdge.id === 'loop_1-loop-placeholder-0=>loop_1-loop-bottom-ghost'
+        );
+        const conditionEntryEdge = result.edges.find(
+            (resultEdge) => resultEdge.id === 'condition_1-condition-top-ghost=>childTrue1'
+        );
+
+        expect(placeholderEntryEdge?.sourceHandle).toBe('loop_1-loop-top-ghost-right');
+        expect(placeholderExitEdge?.targetHandle).toBe('loop_1-loop-bottom-ghost-right');
+        expect(conditionEntryEdge?.sourceHandle).toBe('condition_1-condition-top-ghost-left');
+    });
+
     it('wraps loop members in a frame and keeps the loop node outside it', () => {
         const {edges, nodes} = populatedLoopFixture();
 

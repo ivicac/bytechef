@@ -1163,7 +1163,60 @@ export const getElkLayoutElements = async ({
         // dispatcher with a saved position carries its whole frame rigidly with it.
         applySavedPositions(allNodes, crossAxis, savedPositionCrossAxisShift);
 
-        return {edges: filterAndDedupeLayoutEdges(allNodes, edges), nodes: allNodes};
+        // A rail dispatcher's body is centered on its spine, unlike dagre, which
+        // offsets the content column onto the ring's right side — so the content
+        // edges' `-right` bar handles (7px off the spine) would render as 27px
+        // smoothstep S-bulges dying under the child's label. Reroute them through
+        // the bars' centered handles for straight spine lines; the ring stays as
+        // the rail's left lobe. Empty-ring placeholder edges keep the side
+        // handles — there the "+" IS the ring's right side.
+        const railDispatcherIds = new Set(
+            railNodes
+                .map((railNode) => (railNode.data as NodeDataType).taskDispatcherId)
+                .filter((dispatcherId): dispatcherId is string => Boolean(dispatcherId))
+        );
+
+        const spineRoutedEdges = edges.map((currentEdge) => {
+            const sourceNode = layoutedNodesById.get(currentEdge.source);
+            const targetNode = layoutedNodesById.get(currentEdge.target);
+
+            if (!sourceNode || !targetNode) {
+                return currentEdge;
+            }
+
+            const isSpineTarget =
+                targetNode.type !== 'placeholder' && targetNode.type !== 'taskDispatcherLeftGhostNode';
+            const isSpineSource =
+                sourceNode.type !== 'placeholder' && sourceNode.type !== 'taskDispatcherLeftGhostNode';
+
+            let routedEdge = currentEdge;
+
+            const sourceData = sourceNode.data as NodeDataType;
+
+            if (
+                sourceNode.type === 'taskDispatcherTopGhostNode' &&
+                sourceData.taskDispatcherId &&
+                railDispatcherIds.has(sourceData.taskDispatcherId) &&
+                isSpineTarget
+            ) {
+                routedEdge = {...routedEdge, sourceHandle: `${currentEdge.source}-bottom`};
+            }
+
+            const targetData = targetNode.data as NodeDataType;
+
+            if (
+                targetNode.type === 'taskDispatcherBottomGhostNode' &&
+                targetData.taskDispatcherId &&
+                railDispatcherIds.has(targetData.taskDispatcherId) &&
+                isSpineSource
+            ) {
+                routedEdge = {...routedEdge, targetHandle: `${currentEdge.target}-top`};
+            }
+
+            return routedEdge;
+        });
+
+        return {edges: filterAndDedupeLayoutEdges(allNodes, spineRoutedEdges), nodes: allNodes};
     } catch (error) {
         console.error('ELK layout failed, falling back to dagre', error);
 
