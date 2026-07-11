@@ -1340,8 +1340,17 @@ export const getElkLayoutElements = async ({
                     ) {
                         // Ghost bars span the anchor width from the bar-aligned rail
                         // position by construction — only real body content pushes the
-                        // rail further out
-                        leftmostContentCross = Math.min(leftmostContentCross, candidateNode.position[crossAxis]);
+                        // rail further out. Hug distances are CENTER-based: a nested
+                        // frame's visible box line runs through its placeholders'
+                        // CENTERS, and placeholder DOMs are 72×28 — an edge-based hug
+                        // that reads 56px in TB collapses to 34px in LR.
+                        const renderedSize = getRenderedNodeSize(candidateNode, direction);
+                        const renderedCross = crossAxis === 'x' ? renderedSize.width : renderedSize.height;
+
+                        leftmostContentCross = Math.min(
+                            leftmostContentCross,
+                            candidateNode.position[crossAxis] + renderedCross / 2
+                        );
                     }
                 });
 
@@ -1360,7 +1369,9 @@ export const getElkLayoutElements = async ({
                     ? dispatcherCenter - RING_CONTENT_OFFSET - railCrossSize / 2
                     : topBarNode.position[crossAxis];
                 const contentRequired =
-                    leftmostContentCross === Infinity ? Infinity : leftmostContentCross - RAIL_CONTENT_PADDING;
+                    leftmostContentCross === Infinity
+                        ? Infinity
+                        : leftmostContentCross - NODE_ANCHOR_SIZE / 2 - RAIL_CONTENT_PADDING;
                 const nestingRequired =
                     leftmostChildRailCross === Infinity ? Infinity : leftmostChildRailCross - RAIL_NESTED_RING_INDENT;
 

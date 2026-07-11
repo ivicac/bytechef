@@ -2569,3 +2569,49 @@ describe('getElkLayoutElements with cluster roots', () => {
         expect(positionOf(result.nodes, 'aiAgent_1').y - (topBarY + 2)).toBe(BAR_TO_CHILD_GAP);
     });
 });
+
+describe('getElkLayoutElements ring hug in LR', () => {
+    it('keeps the rail the same visual distance from a nested box line in LR as in TB', async () => {
+        // The nested condition's visible box line runs through its placeholder
+        // CENTERS; placeholder DOMs are 72x28, so an edge-based hug that reads
+        // 56px in TB collapses to 34px in LR — the hug must be center-based
+        const nodes: Node[] = [
+            loopNode('loop_1'),
+            ...loopAuxNodes('loop_1'),
+            conditionNode('condition_2', undefined),
+            ...conditionGhostNodes('condition_2'),
+            conditionPlaceholderNode('condition_2', 'left'),
+            taskNode('falseChild', {conditionCase: 'caseFalse', conditionId: 'condition_2'}),
+        ];
+
+        (nodes[4].data as Record<string, unknown>).loopData = {index: 0, loopId: 'loop_1'};
+
+        const edges: Edge[] = [
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'condition_2'),
+            edge('condition_2', 'condition_2-condition-top-ghost'),
+            edge('condition_2-condition-top-ghost', 'condition_2-condition-left-placeholder-0'),
+            edge('condition_2-condition-left-placeholder-0', 'condition_2-condition-bottom-ghost'),
+            edge('condition_2-condition-top-ghost', 'falseChild'),
+            edge('falseChild', 'condition_2-condition-bottom-ghost'),
+            edge('condition_2-condition-bottom-ghost', 'loop_1-loop-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({
+            canvasHeight: 900,
+            canvasWidth: 1400,
+            direction: 'LR',
+            edges,
+            nodes,
+        });
+
+        // In LR the cross axis is Y and the placeholder DOM is 28 tall: the
+        // rail line must sit 56px off the placeholder-center box line
+        const placeholderCenterY = positionOf(result.nodes, 'condition_2-condition-left-placeholder-0').y + 14;
+        const railLineY = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').y + 1;
+        const loopCenterY = positionOf(result.nodes, 'loop_1').y + 36;
+
+        expect(railLineY).toBe(Math.min(loopCenterY - 100, placeholderCenterY - 56));
+        expect(placeholderCenterY - railLineY).toBeGreaterThanOrEqual(56);
+    });
+});
