@@ -169,15 +169,7 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
     private static @Nullable Integer environmentOrdinal(RunAgentInput input) {
         State state = input.state();
 
-        if (state == null) {
-            return null;
-        }
-
-        Long environmentId = asLong(state.get(AiHubStateKeys.VERIFIED_ENVIRONMENT_ID));
-
-        if (environmentId == null) {
-            environmentId = asLong(state.get(AiHubStateKeys.ENVIRONMENT_ID));
-        }
+        Long environmentId = state == null ? null : asLong(state.get(AiHubStateKeys.VERIFIED_ENVIRONMENT_ID));
 
         if (environmentId == null || environmentId < 0 || environmentId >= Environment.values().length) {
             return null;

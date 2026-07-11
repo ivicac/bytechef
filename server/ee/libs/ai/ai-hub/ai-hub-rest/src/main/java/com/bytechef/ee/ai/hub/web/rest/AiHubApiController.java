@@ -309,14 +309,15 @@ public class AiHubApiController {
             state.set("threadId", verifiedThreadId);
         }
 
-        Long environmentId = readLong(agUiParameters, "environmentId");
+        Long rawEnvironmentId = readLong(agUiParameters, "environmentId");
 
-        if (environmentId != null && environmentId >= 0 && environmentId < Environment.values().length) {
-            state.set(AiHubStateKeys.VERIFIED_ENVIRONMENT_ID, environmentId);
+        long environmentId =
+            rawEnvironmentId != null && rawEnvironmentId >= 0 && rawEnvironmentId < Environment.values().length
+                ? rawEnvironmentId
+                : 0L;
 
-            // Overwrite the unverified path so downstream reads of state.environmentId get the validated value.
-            state.set("environmentId", environmentId);
-        }
+        state.set(AiHubStateKeys.VERIFIED_ENVIRONMENT_ID, environmentId);
+        state.set(AiHubStateKeys.ENVIRONMENT_ID, environmentId);
 
         state.set(AiHubStateKeys.VERIFIED_TENANT_ID, TenantContext.getCurrentTenantId());
     }
