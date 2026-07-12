@@ -10,17 +10,20 @@ interface ComputeBranchCaseLabelPositionProps {
 
 const EDGE_BUTTON_OFFSET = 10;
 
-// In LR the chip sits ON the row's entry line like TB chips sit on their
-// column's entry edge: right-anchored just past the split bar so it straddles
-// the frame's vertical side and the start of the row line. The 94px entry run
-// holds the row's add-button at run-mid + 15 (left edge = bar + 46), so the
-// chip ends at bar + 44 — clear of the button and far from the row's node.
+// In LR the chip hangs ABOVE its row's entry line (the line stays fully
+// visible), right-anchored just past the split bar so it labels the row start.
+// 44 = the 94px entry run minus the row's add-button, which sits on the line
+// from bar + 46 — the chip's right edge stops before the button's column.
 const LR_ROW_LINE_OVERHANG = 44;
 
-// With an odd case count the middle row shares the dispatcher's axis, so its
-// corridor holds the dispatcher icon (72px band around the axis) — lift that
-// one chip above the icon band instead of overlapping it.
-const LR_AXIS_ROW_LIFT = 60;
+// Gap between the chip's bottom edge and the row line it labels.
+const LR_LINE_GAP = 6;
+
+// With an odd case count the middle row shares the dispatcher's axis, so the
+// space above its line holds the dispatcher icon (36px above the axis) —
+// that row's chip bottom clears the icon band with breathing room. The lift
+// also absorbs the bar's source-handle offset (up to 7px below the axis).
+const LR_AXIS_ROW_LIFT = 56;
 
 const LR_AXIS_ROW_TOLERANCE = 40;
 
@@ -36,7 +39,7 @@ export default function computeBranchCaseLabelPosition({
 
         return {
             x: sourceX + LR_ROW_LINE_OVERHANG,
-            y: isDispatcherAxisRow ? sourceY - LR_AXIS_ROW_LIFT : targetY,
+            y: isDispatcherAxisRow ? sourceY - LR_AXIS_ROW_LIFT : targetY - LR_LINE_GAP,
         };
     }
 
