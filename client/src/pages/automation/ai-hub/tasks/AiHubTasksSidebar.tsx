@@ -71,7 +71,7 @@ import {twMerge} from 'tailwind-merge';
 
 import {AiHubArtifactKindType, AiHubTaskArtifactI, AiHubTaskI, generateAiHubTaskTitle} from './api/tasks.api';
 
-export const TASKS_PAGE_SIZE = 20;
+export const TASKS_PAGE_SIZE = 25;
 
 export function getTasksPage<T>(tasks: T[], visibleCount: number): {hiddenCount: number; visibleTasks: T[]} {
     return {

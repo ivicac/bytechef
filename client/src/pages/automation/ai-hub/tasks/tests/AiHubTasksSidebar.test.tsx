@@ -314,7 +314,7 @@ describe('reconcileProbedTaskActivity', () => {
 });
 
 describe('getTasksPage', () => {
-    const tasks = Array.from({length: 45}, (_, index) => buildTask({id: index + 1}));
+    const tasks = Array.from({length: TASKS_PAGE_SIZE * 2 + 5}, (_, index) => buildTask({id: index + 1}));
 
     it('returns all tasks with no hidden count when the list fits within the visible window', () => {
         const {hiddenCount, visibleTasks} = getTasksPage(tasks.slice(0, 5), TASKS_PAGE_SIZE);
@@ -327,13 +327,13 @@ describe('getTasksPage', () => {
         const {hiddenCount, visibleTasks} = getTasksPage(tasks, TASKS_PAGE_SIZE);
 
         expect(visibleTasks).toHaveLength(TASKS_PAGE_SIZE);
-        expect(hiddenCount).toBe(25);
+        expect(hiddenCount).toBe(TASKS_PAGE_SIZE + 5);
     });
 
     it('reveals the next page after the window grows', () => {
         const {hiddenCount, visibleTasks} = getTasksPage(tasks, TASKS_PAGE_SIZE * 2);
 
-        expect(visibleTasks).toHaveLength(40);
+        expect(visibleTasks).toHaveLength(TASKS_PAGE_SIZE * 2);
         expect(hiddenCount).toBe(5);
     });
 
