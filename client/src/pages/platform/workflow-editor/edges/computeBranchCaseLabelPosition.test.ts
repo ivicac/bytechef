@@ -6,13 +6,13 @@ describe('computeBranchCaseLabelPosition', () => {
     const defaultCoords = {sourceX: 100, sourceY: 200, targetX: 300, targetY: 400};
 
     describe('LR layout', () => {
-        it('should anchor 8px before the split bar, centered on the case row', () => {
+        it('should anchor on the row line 44px past the split bar, before the edge add-button', () => {
             const result = computeBranchCaseLabelPosition({
                 ...defaultCoords,
                 layoutDirection: 'LR',
             });
 
-            expect(result).toEqual({x: 92, y: 400});
+            expect(result).toEqual({x: 144, y: 400});
         });
 
         it('should lift the chip above the icon band when the row shares the dispatcher axis', () => {
@@ -24,7 +24,7 @@ describe('computeBranchCaseLabelPosition', () => {
                 targetY: 210,
             });
 
-            expect(result).toEqual({x: 92, y: 140});
+            expect(result).toEqual({x: 144, y: 140});
         });
     });
 
