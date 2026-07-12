@@ -996,7 +996,15 @@ export default function useLayout({
                     setNodes(nodesWithCurrentPositions);
                     setEdges(elements.edges);
 
-                    cancelAnimationRef.current = animateNodePositions(frozenNodes, targetNodes, setNodes);
+                    // Each tween frame re-renders the whole canvas, so big
+                    // workflows manage only a few frames per second — scale the
+                    // duration with node count so the motion still reads there
+                    // while small canvases stay snappy
+                    const animationDuration = Math.min(300 + targetNodes.length * 3, 800);
+
+                    cancelAnimationRef.current = animateNodePositions(frozenNodes, targetNodes, setNodes, {
+                        duration: animationDuration,
+                    });
                 }
             }
         });

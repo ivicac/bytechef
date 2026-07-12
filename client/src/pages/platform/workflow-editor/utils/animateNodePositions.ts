@@ -128,9 +128,18 @@ export default function animateNodePositions(
     const parentOffsets = buildParentOffsets(targetNodes);
 
     let animationFrameId: number | null = null;
-    const startTime = performance.now();
+
+    // The clock starts at the FIRST frame, not at call time: the caller
+    // typically triggers an expensive full-canvas render right after this
+    // call, and counting that blocking time against the tween made layout
+    // switches finish the animation before a single frame was painted.
+    let startTime: number | null = null;
 
     function tick(currentTime: number) {
+        if (startTime === null) {
+            startTime = currentTime;
+        }
+
         const elapsed = currentTime - startTime;
         const rawProgress = Math.min(elapsed / duration, 1);
         const progress = easeOutCubic(rawProgress);
