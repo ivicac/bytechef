@@ -1401,16 +1401,16 @@ describe('getElkLayoutElements with branches', () => {
 
         const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
 
-        // Case placeholder columns have 200px cross footprints + 50px gap, so
-        // consecutive column centers must sit at least 250 apart
+        // Case placeholder columns have 160px cross footprints + 50px gap, so
+        // consecutive column centers must sit at least 210 apart
         const placeholderCenters = [
             'branch_1-branch-default-placeholder-0',
             'branch_1-branch-case_0-placeholder-0',
             'branch_1-branch-case_1-placeholder-0',
         ].map((placeholderId) => positionOf(result.nodes, placeholderId).x + 36);
 
-        expect(placeholderCenters[1] - placeholderCenters[0]).toBeGreaterThanOrEqual(249);
-        expect(placeholderCenters[2] - placeholderCenters[1]).toBeGreaterThanOrEqual(249);
+        expect(placeholderCenters[1] - placeholderCenters[0]).toBeGreaterThanOrEqual(209);
+        expect(placeholderCenters[2] - placeholderCenters[1]).toBeGreaterThanOrEqual(209);
     });
 
     it('stretches TB branch entries so case chips and add-buttons both fit', async () => {

@@ -77,8 +77,11 @@ const CLUSTER_ROOT_RENDERED_MAIN_SIZE = 240;
 
 // Cross-axis footprint of a case placeholder column: narrower than a full
 // 240px task column so an empty condition frame renders as a compact box
-// instead of one as wide as a fully populated frame.
-const CASE_PLACEHOLDER_CROSS_FOOTPRINT = 200;
+// instead of one as wide as a fully populated frame. Kept just wide enough to
+// clear an empty column's case chip from its neighbours — tighter than this and
+// the chips crowd; wider and empty rows leave large voids beside tall nested
+// frames.
+const CASE_PLACEHOLDER_CROSS_FOOTPRINT = 160;
 
 // The loop-back rail tick rendered by TaskDispatcherLeftGhostNode: a 2×16px
 // element (`w-0.5 h-4` in TB) — the rail LINE itself is drawn by the edges
