@@ -4,7 +4,9 @@ import {aiHubTasksStore} from '@/pages/automation/ai-hub/tasks/stores/useAiHubTa
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import {
+    TASKS_PAGE_SIZE,
     cancelTaskRunIfStreaming,
+    getTasksPage,
     handleArtifactQuickOpen,
     openArtifactInTask,
     reconcileProbedTaskActivity,
@@ -308,5 +310,37 @@ describe('reconcileProbedTaskActivity', () => {
 
         expect(decision.clearRunningFlag).toBe(true);
         expect(decision.clearActivity).toBe(true);
+    });
+});
+
+describe('getTasksPage', () => {
+    const tasks = Array.from({length: 45}, (_, index) => buildTask({id: index + 1}));
+
+    it('returns all tasks with no hidden count when the list fits within the visible window', () => {
+        const {hiddenCount, visibleTasks} = getTasksPage(tasks.slice(0, 5), TASKS_PAGE_SIZE);
+
+        expect(visibleTasks).toHaveLength(5);
+        expect(hiddenCount).toBe(0);
+    });
+
+    it('caps the visible tasks at the window size and reports the remainder as hidden', () => {
+        const {hiddenCount, visibleTasks} = getTasksPage(tasks, TASKS_PAGE_SIZE);
+
+        expect(visibleTasks).toHaveLength(TASKS_PAGE_SIZE);
+        expect(hiddenCount).toBe(25);
+    });
+
+    it('reveals the next page after the window grows', () => {
+        const {hiddenCount, visibleTasks} = getTasksPage(tasks, TASKS_PAGE_SIZE * 2);
+
+        expect(visibleTasks).toHaveLength(40);
+        expect(hiddenCount).toBe(5);
+    });
+
+    it('handles an empty list', () => {
+        const {hiddenCount, visibleTasks} = getTasksPage([], TASKS_PAGE_SIZE);
+
+        expect(visibleTasks).toHaveLength(0);
+        expect(hiddenCount).toBe(0);
     });
 });

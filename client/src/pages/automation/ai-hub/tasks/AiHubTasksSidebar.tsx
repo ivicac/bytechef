@@ -71,6 +71,15 @@ import {twMerge} from 'tailwind-merge';
 
 import {AiHubArtifactKindType, AiHubTaskArtifactI, AiHubTaskI, generateAiHubTaskTitle} from './api/tasks.api';
 
+export const TASKS_PAGE_SIZE = 20;
+
+export function getTasksPage<T>(tasks: T[], visibleCount: number): {hiddenCount: number; visibleTasks: T[]} {
+    return {
+        hiddenCount: Math.max(0, tasks.length - visibleCount),
+        visibleTasks: tasks.slice(0, visibleCount),
+    };
+}
+
 const TasksSidebarSkeleton = () => (
     <>
         {Array.from({length: 2}).map((_, groupIndex) => (
@@ -853,6 +862,7 @@ const AiHubTasksSidebar = () => {
     const [renameState, setRenameState] = useState<RenameDialogStateI | null>(null);
     const [renameInputValue, setRenameInputValue] = useState('');
     const [deleteDialogState, setDeleteDialogState] = useState<DeleteDialogStateI | null>(null);
+    const [visibleCount, setVisibleCount] = useState(TASKS_PAGE_SIZE);
     const renameInputRef = useRef<HTMLInputElement>(null);
 
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
@@ -975,6 +985,15 @@ const AiHubTasksSidebar = () => {
                 (task.lastPreview ?? '').toLowerCase().includes(lowerSearch)
         );
     }, [tasks, searchTerm]);
+
+    const {hiddenCount, visibleTasks} = useMemo(
+        () => getTasksPage(filteredTasks, visibleCount),
+        [filteredTasks, visibleCount]
+    );
+
+    useEffect(() => {
+        setVisibleCount(TASKS_PAGE_SIZE);
+    }, [searchTerm, activeFilter]);
 
     const handleSelectTask = (task: AiHubTaskI) => {
         switchTask(task);
@@ -1117,7 +1136,7 @@ const AiHubTasksSidebar = () => {
         );
 
     return (
-        <div className="flex flex-col gap-2 px-2">
+        <div className="flex flex-col gap-2 px-2 pb-2">
             {/*
              * Three top-level menu items: New Task / Personal Agents / Workflow Chats. Label-only
              * (no leading icons) and aligned at px-2 so labels land at 8 (body p-2) + 8 (item px-2) = 16px
@@ -1283,7 +1302,7 @@ const AiHubTasksSidebar = () => {
                 </div>
             ) : (
                 <div className="flex flex-col gap-0.5">
-                    {filteredTasks.map((task) =>
+                    {visibleTasks.map((task) =>
                         renameState?.taskId === task.id ? (
                             <div className="px-1" key={task.id}>
                                 <Input
@@ -1316,6 +1335,16 @@ const AiHubTasksSidebar = () => {
                                 workspaceId={currentWorkspaceId}
                             />
                         )
+                    )}
+
+                    {hiddenCount > 0 && (
+                        <button
+                            className="rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+                            onClick={() => setVisibleCount((previousCount) => previousCount + TASKS_PAGE_SIZE)}
+                            type="button"
+                        >
+                            {`Show ${Math.min(hiddenCount, TASKS_PAGE_SIZE)} more`}
+                        </button>
                     )}
                 </div>
             )}
