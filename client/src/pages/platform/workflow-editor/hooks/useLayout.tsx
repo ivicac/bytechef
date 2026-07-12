@@ -53,6 +53,7 @@ import createParallelNode from '../utils/createParallelNode';
 import {getElkLayoutElements} from '../utils/elkLayoutUtils';
 import extractDefinitionPositions from '../utils/extractDefinitionPositions';
 import isElkLayoutSupported from '../utils/isElkLayoutSupported';
+import {createLayoutRetryState, onLayoutFailure, onLayoutSuccess} from '../utils/layoutRetryController';
 import {
     buildTriggerNodes,
     collectTaskDispatcherData,
@@ -195,7 +196,7 @@ export default function useLayout({
     const [layoutRetryNonce, setLayoutRetryNonce] = useState(0);
 
     const cancelAnimationRef = useRef<(() => void) | null>(null);
-    const hasRetriedFailedLayoutRef = useRef(false);
+    const layoutRetryStateRef = useRef(createLayoutRetryState());
     const isInitialLayoutRef = useRef(true);
     const initialCanvasCrossDimRef = useRef<number | undefined>(undefined);
     const initialDirectionRef = useRef<LayoutDirectionType | undefined>(undefined);
@@ -1032,7 +1033,7 @@ export default function useLayout({
                 // Cleared only after the nodes are applied without throwing, so a
                 // throw from the body above (not just a rejected layout promise)
                 // still re-arms the retry guard rather than looping forever.
-                hasRetriedFailedLayoutRef.current = false;
+                onLayoutSuccess(layoutRetryStateRef.current);
             })
             .catch((error) => {
                 if (isCancelled) {
@@ -1044,9 +1045,7 @@ export default function useLayout({
                 // direction/engine — surface it and retry at most once.
                 console.error('Workflow layout failed', error);
 
-                if (!hasRetriedFailedLayoutRef.current) {
-                    hasRetriedFailedLayoutRef.current = true;
-
+                if (onLayoutFailure(layoutRetryStateRef.current)) {
                     setLayoutRetryNonce((nonce) => nonce + 1);
                 }
             });
