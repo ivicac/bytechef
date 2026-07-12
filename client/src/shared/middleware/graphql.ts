@@ -696,6 +696,13 @@ export type DeleteAiSkillMutationVariables = Exact<{
 
 export type DeleteAiSkillMutation = { deleteAiSkill: boolean };
 
+export type GenerateAiSkillMutationVariables = Exact<{
+  prompt: string;
+}>;
+
+
+export type GenerateAiSkillMutation = { generateAiSkill: { id: string, name: string, description: string | null, createdDate: any, lastModifiedDate: any } };
+
 export type UpdateAiSkillMutationVariables = Exact<{
   id: string | number;
   name: string;
@@ -6038,6 +6045,31 @@ export const useDeleteAiSkillMutation = <
       {
     mutationKey: ['deleteAiSkill'],
     mutationFn: (variables?: DeleteAiSkillMutationVariables) => fetcher<DeleteAiSkillMutation, DeleteAiSkillMutationVariables>(DeleteAiSkillDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const GenerateAiSkillDocument = new TypedDocumentString(`
+    mutation generateAiSkill($prompt: String!) {
+  generateAiSkill(prompt: $prompt) {
+    id
+    name
+    description
+    createdDate
+    lastModifiedDate
+  }
+}
+    `);
+
+export const useGenerateAiSkillMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<GenerateAiSkillMutation, TError, GenerateAiSkillMutationVariables, TContext>) => {
+    
+    return useMutation<GenerateAiSkillMutation, TError, GenerateAiSkillMutationVariables, TContext>(
+      {
+    mutationKey: ['generateAiSkill'],
+    mutationFn: (variables?: GenerateAiSkillMutationVariables) => fetcher<GenerateAiSkillMutation, GenerateAiSkillMutationVariables>(GenerateAiSkillDocument, variables)(),
     ...options
   }
     )};

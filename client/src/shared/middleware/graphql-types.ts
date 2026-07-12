@@ -3491,6 +3491,8 @@ export type Mutation = {
    * Throws when the upstream model is unavailable so the client can surface a retryable error.
    */
   generateAiHubTaskTitle: AiHubTask;
+  /** Generate a complete skill from a single natural-language prompt using the autonomous skills agent. */
+  generateAiSkill: AiSkill;
   generateFromDocumentation: ApiConnector;
   generatePropertyValue: GeneratePropertyValuePayload;
   generateSpecification: GenerateSpecificationResponse;
@@ -4517,6 +4519,11 @@ export type MutationExportSharedWorkflowArgs = {
 export type MutationGenerateAiHubTaskTitleArgs = {
   id: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationGenerateAiSkillArgs = {
+  prompt: Scalars['String']['input'];
 };
 
 
