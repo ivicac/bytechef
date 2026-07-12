@@ -12,7 +12,7 @@ describe('computeBranchCaseLabelPosition', () => {
                 layoutDirection: 'LR',
             });
 
-            expect(result).toEqual({x: 144, y: 388});
+            expect(result).toEqual({anchor: 'above', x: 144, y: 388});
         });
 
         it('should lift the chip above the icon band when the row shares the dispatcher axis', () => {
@@ -24,7 +24,31 @@ describe('computeBranchCaseLabelPosition', () => {
                 targetY: 210,
             });
 
-            expect(result).toEqual({x: 144, y: 144});
+            expect(result).toEqual({anchor: 'above', x: 144, y: 144});
+        });
+
+        it('should drop below the line for the row under the dispatcher label text', () => {
+            const result = computeBranchCaseLabelPosition({
+                layoutDirection: 'LR',
+                sourceX: 100,
+                sourceY: 200,
+                targetX: 300,
+                targetY: 325,
+            });
+
+            expect(result).toEqual({anchor: 'below', x: 144, y: 337});
+        });
+
+        it('should stay above the line for the row just above the axis', () => {
+            const result = computeBranchCaseLabelPosition({
+                layoutDirection: 'LR',
+                sourceX: 100,
+                sourceY: 200,
+                targetX: 300,
+                targetY: 75,
+            });
+
+            expect(result).toEqual({anchor: 'above', x: 144, y: 63});
         });
     });
 
@@ -35,7 +59,7 @@ describe('computeBranchCaseLabelPosition', () => {
                 layoutDirection: 'TB',
             });
 
-            expect(result).toEqual({x: 300, y: 210});
+            expect(result).toEqual({anchor: 'center', x: 300, y: 210});
         });
     });
 });

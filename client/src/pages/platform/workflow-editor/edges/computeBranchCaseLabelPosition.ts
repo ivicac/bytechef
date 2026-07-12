@@ -8,6 +8,8 @@ interface ComputeBranchCaseLabelPositionProps {
     targetY: number;
 }
 
+export type BranchCaseLabelAnchorType = 'above' | 'below' | 'center';
+
 const EDGE_BUTTON_OFFSET = 10;
 
 // In LR the chip hangs ABOVE its row's entry line (the line stays fully
@@ -16,7 +18,7 @@ const EDGE_BUTTON_OFFSET = 10;
 // from bar + 46 — the chip's right edge stops before the button's column.
 const LR_ROW_LINE_OVERHANG = 44;
 
-// Gap between the chip's bottom edge and the row line it labels.
+// Gap between the chip's edge and the row line it labels.
 const LR_LINE_GAP = 12;
 
 // With an odd case count the middle row shares the dispatcher's axis, so the
@@ -27,23 +29,40 @@ const LR_AXIS_ROW_LIFT = 56;
 
 const LR_AXIS_ROW_TOLERANCE = 40;
 
+// The dispatcher's name/label text hangs below its icon to roughly this far
+// past the axis. The chip of the row just BELOW the axis would run through
+// that text if placed above its line, so it drops below the line instead.
+const LR_LABEL_BAND = 160;
+
 export default function computeBranchCaseLabelPosition({
     layoutDirection,
     sourceX,
     sourceY,
     targetX,
     targetY,
-}: ComputeBranchCaseLabelPositionProps): {x: number; y: number} {
+}: ComputeBranchCaseLabelPositionProps): {anchor: BranchCaseLabelAnchorType; x: number; y: number} {
     if (layoutDirection === 'LR') {
-        const isDispatcherAxisRow = Math.abs(targetY - sourceY) < LR_AXIS_ROW_TOLERANCE;
+        const rowOffset = targetY - sourceY;
+        const isDispatcherAxisRow = Math.abs(rowOffset) < LR_AXIS_ROW_TOLERANCE;
+        const isRowBelowDispatcherLabel = !isDispatcherAxisRow && rowOffset > 0 && rowOffset < LR_LABEL_BAND;
+
+        if (isRowBelowDispatcherLabel) {
+            return {
+                anchor: 'below',
+                x: sourceX + LR_ROW_LINE_OVERHANG,
+                y: targetY + LR_LINE_GAP,
+            };
+        }
 
         return {
+            anchor: 'above',
             x: sourceX + LR_ROW_LINE_OVERHANG,
             y: isDispatcherAxisRow ? sourceY - LR_AXIS_ROW_LIFT : targetY - LR_LINE_GAP,
         };
     }
 
     return {
+        anchor: 'center',
         x: targetX,
         y: sourceY + EDGE_BUTTON_OFFSET,
     };

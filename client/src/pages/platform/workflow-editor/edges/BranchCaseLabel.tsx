@@ -50,10 +50,16 @@ export default function BranchCaseLabel({
         targetY,
     });
 
-    // TB centers the chip on its case column; LR anchors the chip's
-    // bottom-right corner so it hangs above the row line, ending at the
-    // computed point just past the split bar (see computeBranchCaseLabelPosition).
-    const selfAnchor = layoutDirection === 'LR' ? 'translate(-100%, -100%)' : 'translate(-50%, -50%)';
+    // TB centers the chip on its case column; LR anchors the chip's right
+    // edge past the split bar with the chip above (or, for the row under the
+    // dispatcher's label text, below) its row line — the anchor comes from
+    // computeBranchCaseLabelPosition.
+    const selfAnchorByPlacement: Record<typeof labelPosition.anchor, string> = {
+        above: 'translate(-100%, -100%)',
+        below: 'translate(-100%, 0%)',
+        center: 'translate(-50%, -50%)',
+    };
+    const selfAnchor = selfAnchorByPlacement[labelPosition.anchor];
 
     return (
         <EdgeLabelRenderer key={`${edgeId}-case-label`}>
