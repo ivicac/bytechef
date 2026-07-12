@@ -441,9 +441,9 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                 <div className="absolute top-0 right-0 font-bold text-muted-foreground">
                     {/* equal widths + centered text keep both rotated labels on one vertical axis */}
 
-                    <span className="absolute -top-8 -right-16 w-14 -rotate-90 text-center">TRUE</span>
+                    <span className="absolute -top-8 -right-20 w-14 -rotate-90 text-center">TRUE</span>
 
-                    <span className="absolute top-20 -right-16 w-14 -rotate-90 text-center">FALSE</span>
+                    <span className="absolute top-20 -right-20 w-14 -rotate-90 text-center">FALSE</span>
                 </div>
             )}
 
@@ -459,9 +459,9 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                 <div className="absolute top-0 right-0 font-bold text-muted-foreground">
                     {/* equal widths + centered text keep both rotated labels on one vertical axis */}
 
-                    <span className="absolute -top-8 -right-16 w-14 -rotate-90 text-center">TRY</span>
+                    <span className="absolute -top-8 -right-20 w-14 -rotate-90 text-center">TRY</span>
 
-                    <span className="absolute top-20 -right-16 w-14 -rotate-90 text-center">CATCH</span>
+                    <span className="absolute top-20 -right-20 w-14 -rotate-90 text-center">CATCH</span>
                 </div>
             )}
         </div>
