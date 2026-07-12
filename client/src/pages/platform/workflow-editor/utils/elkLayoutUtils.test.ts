@@ -1413,6 +1413,32 @@ describe('getElkLayoutElements with branches', () => {
         expect(placeholderCenters[2] - placeholderCenters[1]).toBeGreaterThanOrEqual(249);
     });
 
+    it('stretches TB branch entries so case chips and add-buttons both fit', async () => {
+        const nodes: Node[] = [
+            branchNode('branch_1', ['case_0']),
+            ...branchGhostNodes('branch_1'),
+            branchChildTaskNode('child1', 'branch_1', 'case_0'),
+            branchChildTaskNode('child2', 'branch_1', 'default'),
+        ];
+
+        const edges: Edge[] = [
+            edge('branch_1', 'branch_1-branch-top-ghost'),
+            edge('branch_1-branch-top-ghost', 'child1'),
+            edge('branch_1-branch-top-ghost', 'child2'),
+            edge('child1', 'branch_1-branch-bottom-ghost'),
+            edge('child2', 'branch_1-branch-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1200, direction: 'TB', edges, nodes});
+
+        const topGhostBarY = positionOf(result.nodes, 'branch_1-branch-top-ghost').y;
+
+        // Branch entries stack [case chip][add-button] before the node, so they
+        // get 26px on top of the standard 94px frame entry
+        expect(positionOf(result.nodes, 'child1').y - (topGhostBarY + 2)).toBe(BAR_TO_CHILD_GAP + 26);
+        expect(positionOf(result.nodes, 'child2').y - (topGhostBarY + 2)).toBe(BAR_TO_CHILD_GAP + 26);
+    });
+
     // Mirrors the live "condition3" workflow: a wide TRUE branch subtree
     // (5 cases, one holding a nested branch) beside a deep FALSE loop stack
     const deepSiblingFixture = () => {

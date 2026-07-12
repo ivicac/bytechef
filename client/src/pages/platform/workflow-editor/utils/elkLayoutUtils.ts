@@ -49,6 +49,12 @@ const TOP_BAR_LABEL_PULL = 28;
 // ELK_LAYER_SPACING + inset + slack = 94, matching TB's post-pull entry.
 const LR_FRAME_ENTRY_INSET = 28;
 
+// TB branch entries stack [case chip][add-button] between the bar and the
+// column's first node; the standard 94px run makes the chip and the button
+// kiss on rows whose chain defines the frame height. The extra inset stretches
+// tight branch entries to 120: chip 16..52, button 63..87, node at 120.
+const TB_BRANCH_ENTRY_INSET = 26;
+
 // Extra footprint below a bottom bar (bar pinned to the footprint start), so
 // edges LEAVING a box read like node→node edges: bar→next node becomes
 // extension + ELK_LAYER_SPACING + slack = 80, and nested→enclosing bottom-bar
@@ -939,11 +945,14 @@ export const getElkLayoutElements = async ({
 
                 placeNode(topGhostNode, frameTopFootprintStart);
 
+                const isBranchFrame = (frameDispatcherNode.data as NodeDataType).componentName === 'branch';
+
                 const interiorStart =
                     frameTopFootprintStart +
                     footprintMainOf(topGhostNode) +
                     ELK_LAYER_SPACING +
-                    (direction === 'LR' ? LR_FRAME_ENTRY_INSET : 0);
+                    (direction === 'LR' ? LR_FRAME_ENTRY_INSET : 0) +
+                    (direction === 'TB' && isBranchFrame ? TB_BRANCH_ENTRY_INSET : 0);
 
                 let interiorEnd = interiorStart;
 
