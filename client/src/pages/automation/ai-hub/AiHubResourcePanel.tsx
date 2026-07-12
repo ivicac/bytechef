@@ -7,7 +7,6 @@ import AiHubFileViewer from '@/pages/automation/ai-hub/AiHubFileViewer';
 import AiHubKnowledgeBaseViewer from '@/pages/automation/ai-hub/AiHubKnowledgeBaseViewer';
 import AiHubWorkflowExecutionViewer from '@/pages/automation/ai-hub/AiHubWorkflowExecutionViewer';
 import AiHubWorkflowViewer from '@/pages/automation/ai-hub/AiHubWorkflowViewer';
-import WorkflowTabLabel from '@/pages/automation/ai-hub/WorkflowTabLabel';
 import {AiHubTabType, AiHubViewModeType, useAiHubTabsStore} from '@/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import {DownloadIcon, ExternalLinkIcon, PanelRightCloseIcon, PlusIcon, XIcon} from 'lucide-react';
 import {Link} from 'react-router-dom';
@@ -138,11 +137,7 @@ const AiHubResourcePanel = () => {
                                         title={tab.name}
                                         type="button"
                                     >
-                                        {tab.kind === 'workflow' ? (
-                                            <WorkflowTabLabel fallbackName={tab.name} projectId={tab.projectId} />
-                                        ) : (
-                                            tab.name
-                                        )}
+                                        {tab.name}
                                     </button>
 
                                     <button
