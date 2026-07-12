@@ -401,6 +401,39 @@ describe('getElkLayoutElements', () => {
         expect(secondGap).toBe(CHAIN_STEP);
     });
 
+    it('gives LR frame entries the same bar-to-child run as TB', async () => {
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            taskNode('childTrue1', {conditionCase: 'caseTrue', conditionId: 'condition_1'}),
+            taskNode('childFalse1', {conditionCase: 'caseFalse', conditionId: 'condition_1'}),
+        ];
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'childTrue1'),
+            edge('childTrue1', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'childFalse1'),
+            edge('childFalse1', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({
+            canvasHeight: 800,
+            canvasWidth: 1200,
+            direction: 'LR',
+            edges,
+            nodes,
+        });
+
+        const topGhostBarX = positionOf(result.nodes, 'condition_1-condition-top-ghost').x;
+
+        // LR can't pull the bar toward the dispatcher (the rotated TRUE/FALSE
+        // labels own that gap), so the interior inset supplies the same 94px
+        // entry run instead — room for the edge add-button before the node
+        expect(positionOf(result.nodes, 'childTrue1').x - (topGhostBarX + 2)).toBe(BAR_TO_CHILD_GAP);
+        expect(positionOf(result.nodes, 'childFalse1').x - (topGhostBarX + 2)).toBe(BAR_TO_CHILD_GAP);
+    });
+
     it('uses the same gap inside a nested condition branch as at the root', async () => {
         const nodes: Node[] = [
             taskNode('task1'),
