@@ -43,6 +43,12 @@ const ELK_SIBLING_SPACING = 50;
 // the standard box gap.
 const TOP_BAR_LABEL_PULL = 28;
 
+// LR frames can't borrow TB's label pull (the rotated TRUE/FALSE labels own the
+// node→bar gap), so the room for the edge add-button between the bar and a
+// row's first node comes from insetting the interior instead: entry edges read
+// ELK_LAYER_SPACING + inset + slack = 94, matching TB's post-pull entry.
+const LR_FRAME_ENTRY_INSET = 28;
+
 // Extra footprint below a bottom bar (bar pinned to the footprint start), so
 // edges LEAVING a box read like node→node edges: bar→next node becomes
 // extension + ELK_LAYER_SPACING + slack = 80, and nested→enclosing bottom-bar
@@ -933,7 +939,11 @@ export const getElkLayoutElements = async ({
 
                 placeNode(topGhostNode, frameTopFootprintStart);
 
-                const interiorStart = frameTopFootprintStart + footprintMainOf(topGhostNode) + ELK_LAYER_SPACING;
+                const interiorStart =
+                    frameTopFootprintStart +
+                    footprintMainOf(topGhostNode) +
+                    ELK_LAYER_SPACING +
+                    (direction === 'LR' ? LR_FRAME_ENTRY_INSET : 0);
 
                 let interiorEnd = interiorStart;
 
