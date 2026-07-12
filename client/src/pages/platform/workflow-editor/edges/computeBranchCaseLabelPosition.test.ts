@@ -12,7 +12,7 @@ describe('computeBranchCaseLabelPosition', () => {
                 layoutDirection: 'LR',
             });
 
-            expect(result).toEqual({x: 144, y: 394});
+            expect(result).toEqual({x: 144, y: 388});
         });
 
         it('should lift the chip above the icon band when the row shares the dispatcher axis', () => {

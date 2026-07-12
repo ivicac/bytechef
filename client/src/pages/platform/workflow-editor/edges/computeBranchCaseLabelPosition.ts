@@ -17,7 +17,7 @@ const EDGE_BUTTON_OFFSET = 10;
 const LR_ROW_LINE_OVERHANG = 44;
 
 // Gap between the chip's bottom edge and the row line it labels.
-const LR_LINE_GAP = 6;
+const LR_LINE_GAP = 12;
 
 // With an odd case count the middle row shares the dispatcher's axis, so the
 // space above its line holds the dispatcher icon (36px above the axis) —
