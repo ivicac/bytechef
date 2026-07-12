@@ -36,5 +36,7 @@ export default function RoundedSmoothStepEdge({
         targetY,
     });
 
-    return <BaseEdge className="fill-none stroke-gray-300 stroke-2" id={id} path={edgePath} style={style} />;
+    return (
+        <BaseEdge className="fill-none stroke-stroke-neutral-tertiary stroke-2" id={id} path={edgePath} style={style} />
+    );
 }
