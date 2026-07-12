@@ -180,6 +180,29 @@ public class AiHubSpringAIAgent extends SpringAIAgent {
         return environmentId.intValue();
     }
 
+    /**
+     * Publishes the environment id into the advisor request context so embedding-bearing advisors can rebind the right
+     * {@link EnvironmentContext} on their own {@code Schedulers.boundedElastic()} threads. The base agent's
+     * {@code .contextCapture()} covers chat-model resolution, but the tool-search advisor embeds (session indexing and
+     * {@code searchTool} query embedding) on an inner scheduler hop the outer capture does not reach — leaving the
+     * embedding thread on the {@link Environment#PRODUCTION} fallback, which fails when only a non-prod provider is
+     * activated. {@link com.bytechef.ee.ai.hub.toolsearch.PinnedToolSearchToolCallingAdvisor} reads this param and
+     * rebinds the environment there (mirrors the copilot {@code WorkflowEditorSpringAIAgent} +
+     * {@code EnvironmentAwareQuestionAnswerAdvisor} pattern).
+     */
+    @Override
+    protected Map<String, Object> advisorParams(RunAgentInput input) {
+        State state = input.state();
+
+        Long environmentId = state == null ? null : NumberUtils.asLong(state.get(AiHubStateKeys.ENVIRONMENT_ID));
+
+        if (environmentId == null || environmentId < 0 || environmentId >= Environment.values().length) {
+            return Map.of();
+        }
+
+        return Map.of(AiHubStateKeys.ENVIRONMENT_ID, environmentId);
+    }
+
     @Override
     protected Map<String, Object> toolContext(RunAgentInput input) {
         AiHubToolInvocationContext aiHubContext = buildInvocationContext(input);
