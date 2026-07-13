@@ -1,0 +1,55 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.bytechef.component.mem0;
+
+import static com.bytechef.component.definition.ComponentDsl.component;
+import static com.bytechef.component.definition.ComponentDsl.tool;
+
+import com.bytechef.component.ComponentHandler;
+import com.bytechef.component.definition.ComponentCategory;
+import com.bytechef.component.definition.ComponentDefinition;
+import com.bytechef.component.mem0.action.Mem0AddMemoryAction;
+import com.bytechef.component.mem0.action.Mem0SearchMemoriesAction;
+import com.bytechef.component.mem0.connection.Mem0Connection;
+import com.google.auto.service.AutoService;
+
+/**
+ * @author Ivica Cardic
+ */
+@AutoService(ComponentHandler.class)
+public class Mem0ComponentHandler implements ComponentHandler {
+
+    private static final ComponentDefinition COMPONENT_DEFINITION = component("mem0")
+        .title("Mem0")
+        .version(1)
+        .description("Mem0 is a memory layer for AI applications and agents.")
+        .customAction(true)
+        .icon("path:assets/mem0.svg")
+        .categories(ComponentCategory.ARTIFICIAL_INTELLIGENCE)
+        .connection(Mem0Connection.CONNECTION_DEFINITION)
+        .actions(
+            Mem0AddMemoryAction.ACTION_DEFINITION,
+            Mem0SearchMemoriesAction.ACTION_DEFINITION)
+        .clusterElements(
+            tool(Mem0AddMemoryAction.ACTION_DEFINITION),
+            tool(Mem0SearchMemoriesAction.ACTION_DEFINITION));
+
+    @Override
+    public ComponentDefinition getDefinition() {
+        return COMPONENT_DEFINITION;
+    }
+}

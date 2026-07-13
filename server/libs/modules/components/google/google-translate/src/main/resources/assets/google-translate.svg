@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <rect width="512" height="512" rx="96" fill="#4285f4"/>
+  <text x="180" y="250" font-family="Arial, sans-serif" font-size="160" font-weight="bold" text-anchor="middle" fill="#ffffff">A</text>
+  <text x="330" y="390" font-family="'Noto Sans JP', sans-serif" font-size="150" font-weight="bold" text-anchor="middle" fill="#ffffff">文</text>
+</svg>

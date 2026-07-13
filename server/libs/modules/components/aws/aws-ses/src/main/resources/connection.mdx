@@ -1,0 +1,8 @@
+## Connection Setup
+
+### Create AWS Credentials for SES
+
+1. Open the [AWS IAM console](https://console.aws.amazon.com/iam/) and create a user with the `AmazonSESFullAccess` policy (or a narrower sending policy).
+2. Create an access key for the user and copy the **Access Key ID** and **Secret Access Key** into the connection.
+3. Enter the region where your SES identities are verified (e.g. us-east-1).
+4. Verify the sender email address or domain in the [SES console](https://console.aws.amazon.com/ses/).

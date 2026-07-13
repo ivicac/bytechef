@@ -1,0 +1,75 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.bytechef.component.paypal.action;
+
+import static com.bytechef.component.definition.ComponentDsl.action;
+import static com.bytechef.component.definition.ComponentDsl.array;
+import static com.bytechef.component.definition.ComponentDsl.integer;
+import static com.bytechef.component.definition.ComponentDsl.object;
+import static com.bytechef.component.definition.ComponentDsl.outputSchema;
+import static com.bytechef.component.definition.ComponentDsl.string;
+import static com.bytechef.component.definition.Context.Http.responseType;
+
+import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
+import com.bytechef.component.definition.Context;
+import com.bytechef.component.definition.Context.Http.ResponseType;
+import com.bytechef.component.definition.Parameters;
+
+/**
+ * @author Ivica Cardic
+ */
+public class PaypalListInvoicesAction {
+
+    public static final ModifiableActionDefinition ACTION_DEFINITION = action("listInvoices")
+        .title("List Invoices")
+        .description("Returns the invoices created in your PayPal account.")
+        .properties(
+            integer("pageSize")
+                .label("Page Size")
+                .description("The number of invoices to return per page.")
+                .defaultValue(20)
+                .required(false))
+        .output(
+            outputSchema(
+                object()
+                    .properties(
+                        integer("total_items"),
+                        array("items")
+                            .items(
+                                object()
+                                    .properties(
+                                        string("id"),
+                                        string("status"),
+                                        object("detail")
+                                            .properties(
+                                                string("invoice_number"),
+                                                string("currency_code")))))))
+        .perform(PaypalListInvoicesAction::perform);
+
+    private PaypalListInvoicesAction() {
+    }
+
+    public static Object perform(Parameters inputParameters, Parameters connectionParameters, Context context) {
+        return context.http(http -> http.get("/v2/invoicing/invoices"))
+            .queryParameters(
+                "page_size", inputParameters.getInteger("pageSize", 20),
+                "total_required", true)
+            .configuration(responseType(ResponseType.JSON))
+            .execute()
+            .getBody();
+    }
+}
