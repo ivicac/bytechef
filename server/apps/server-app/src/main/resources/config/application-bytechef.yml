@@ -63,6 +63,9 @@ bytechef:
         openai:
           options:
             model: gpt-4o-mini-transcribe
+    session:
+      # Agent session repository backend (jdbc | aws | redis | in_memory) default: jdbc
+      provider: jdbc
     stt:
       # Active speech-to-text provider (openai | deepgram | elevenlabs)
       provider: openai

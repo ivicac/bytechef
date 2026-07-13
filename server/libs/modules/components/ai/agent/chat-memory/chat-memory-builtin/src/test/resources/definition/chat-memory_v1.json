@@ -946,14 +946,14 @@
   } ],
   "clusterElements": [ {
     "name": "chatMemory",
-    "description": "Memory is retrieved from the application database and added as prior messages in the conversation.",
+    "description": "Memory is retrieved from the application's session store and added as prior messages in the conversation, including prior tool calls and their results.",
     "element": { },
     "help": null,
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ {
       "advancedOption": null,
-      "controlType": "SELECT",
+      "controlType": "TEXT",
       "defaultValue": null,
       "description": "The unique identifier for the conversation.",
       "displayCondition": null,
@@ -967,10 +967,7 @@
       "minLength": null,
       "name": "conversationId",
       "options": null,
-      "optionsDataSource": {
-        "options": { },
-        "optionsLookupDependsOn": null
-      },
+      "optionsDataSource": null,
       "optionsLoadedDynamically": null,
       "placeholder": null,
       "regex": null,

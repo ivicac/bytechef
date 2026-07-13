@@ -14,29 +14,39 @@
  * limitations under the License.
  */
 
-package com.bytechef.component.ai.agent.chat.memory.builtin.session.cluster;
+package com.bytechef.component.ai.agent.chat.memory.redis.session.cluster;
 
 import static com.bytechef.platform.component.definition.ai.agent.SessionRepositoryFunction.SESSION_REPOSITORY;
 
+import com.bytechef.component.ai.agent.chat.memory.redis.session.util.RedisSessionChatMemoryUtils;
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ComponentDsl;
+import com.bytechef.component.definition.Parameters;
+import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ai.agent.SessionRepositoryFunction;
+import java.util.Map;
 import org.springframework.ai.session.SessionRepository;
 
 /**
  * @author Ivica Cardic
  */
-public class BuiltInSessionChatMemory {
+public class RedisSessionChatMemory {
 
-    public static ClusterElementDefinition<SessionRepositoryFunction> of(SessionRepository sessionRepository) {
+    public static ClusterElementDefinition<SessionRepositoryFunction> of() {
         return ComponentDsl.<SessionRepositoryFunction>clusterElement("sessionRepository")
-            .title("Built-in Session Repository")
-            .description("Stores session events using the application's configured session backend.")
+            .title("Redis Session Repository")
+            .description("Stores session events as JSON documents in Redis.")
             .type(SESSION_REPOSITORY)
-            .object(
-                () -> (inputParameters, connectionParameters, extensions, componentConnections) -> sessionRepository);
+            .object(() -> RedisSessionChatMemory::apply);
     }
 
-    private BuiltInSessionChatMemory() {
+    private RedisSessionChatMemory() {
+    }
+
+    private static SessionRepository apply(
+        Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
+        Map<String, ComponentConnection> componentConnections) {
+
+        return RedisSessionChatMemoryUtils.getSessionRepository(connectionParameters);
     }
 }

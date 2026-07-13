@@ -14,18 +14,19 @@
  * limitations under the License.
  */
 
-package com.bytechef.component.ai.agent.chat.memory.builtin;
+package com.bytechef.component.ai.agent.chat.memory.redis.session;
 
 import com.bytechef.test.jsonasssert.JsonFileAssert;
 import org.junit.jupiter.api.Test;
-import org.springframework.mock.env.MockEnvironment;
 
-public class ChatMemoryComponentHandlerTest {
+/**
+ * @author Ivica Cardic
+ */
+public class RedisSessionChatMemoryComponentHandlerTest {
 
     @Test
     public void testGetComponentDefinition() {
         JsonFileAssert.assertEquals(
-            "definition/chat-memory_v1.json",
-            new ChatMemoryComponentHandler(null, null, new MockEnvironment()).getDefinition());
+            "definition/redisSessionChatMemory_v1.json", new RedisSessionChatMemoryComponentHandler().getDefinition());
     }
 }

@@ -25,10 +25,19 @@ import com.bytechef.component.ai.agent.chat.memory.builtin.action.ChatMemoryDele
 import com.bytechef.component.ai.agent.chat.memory.builtin.action.ChatMemoryGetMessagesAction;
 import com.bytechef.component.ai.agent.chat.memory.builtin.action.ChatMemoryListConversationsAction;
 import com.bytechef.component.ai.agent.chat.memory.builtin.cluster.ChatMemory;
+import com.bytechef.component.ai.agent.chat.memory.builtin.session.util.BuiltInSessionRepositoryFactory;
+import com.bytechef.component.ai.agent.chat.memory.builtin.session.util.BuiltInSessionRepositoryFactory.BuiltInSessionRepository;
 import com.bytechef.component.definition.ComponentCategory;
 import com.bytechef.component.definition.ComponentDefinition;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import jakarta.annotation.PreDestroy;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.memory.ChatMemoryRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.env.Environment;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Component;
 
 /**
@@ -37,10 +46,24 @@ import org.springframework.stereotype.Component;
 @Component(CHAT_MEMORY + "_v1_ComponentHandler")
 public class ChatMemoryComponentHandler implements ComponentHandler {
 
+    private static final Logger log = LoggerFactory.getLogger(ChatMemoryComponentHandler.class);
+
     private final ComponentDefinition componentDefinition;
+    private final AutoCloseable closeable;
 
     @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
-    public ChatMemoryComponentHandler(ChatMemoryRepository chatMemoryRepository) {
+    public ChatMemoryComponentHandler(
+        ChatMemoryRepository chatMemoryRepository, @Autowired(required = false) @Nullable JdbcTemplate jdbcTemplate,
+        Environment environment) {
+
+        // The memory cluster element is built on session memory (event-sourced, persists tool messages) over the
+        // application's configured session backend — bytechef.ai.session.provider, jdbc by default. The actions
+        // keep operating on the legacy chat-memory repository store.
+        BuiltInSessionRepository builtInSessionRepository = BuiltInSessionRepositoryFactory.create(
+            environment, jdbcTemplate);
+
+        this.closeable = builtInSessionRepository.closeable();
+
         this.componentDefinition = component(CHAT_MEMORY)
             .title("Chat Memory")
             .description("Built-in chat memory.")
@@ -51,7 +74,18 @@ public class ChatMemoryComponentHandler implements ComponentHandler {
                 ChatMemoryGetMessagesAction.of(chatMemoryRepository),
                 ChatMemoryDeleteAction.of(chatMemoryRepository),
                 ChatMemoryListConversationsAction.of(chatMemoryRepository))
-            .clusterElements(ChatMemory.of(chatMemoryRepository));
+            .clusterElements(ChatMemory.of(builtInSessionRepository.sessionRepository()));
+    }
+
+    @PreDestroy
+    public void destroy() {
+        if (closeable != null) {
+            try {
+                closeable.close();
+            } catch (Exception exception) {
+                log.warn("Failed to close built-in session repository client", exception);
+            }
+        }
     }
 
     @Override
