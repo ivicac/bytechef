@@ -17,9 +17,11 @@
 package com.bytechef.component.ai.agent.chat.memory.builtin.cluster;
 
 import static com.bytechef.component.ai.agent.chat.memory.builtin.constant.ChatMemoryConstants.CONVERSATION_ID;
+import static com.bytechef.component.ai.agent.chat.memory.builtin.constant.ChatMemoryConstants.DEFAULT_USER_ID;
 import static com.bytechef.component.definition.ComponentDsl.string;
 import static com.bytechef.platform.component.definition.ai.agent.ChatMemoryFunction.CHAT_MEMORY;
 
+import com.bytechef.component.ai.agent.chat.memory.builtin.util.ChatMemoryUtils;
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.platform.component.definition.ai.agent.ChatMemoryFunction;
@@ -48,6 +50,7 @@ public class ChatMemory {
                 string(CONVERSATION_ID)
                     .label("Conversation ID")
                     .description("The unique identifier for the conversation.")
+                    .options(ChatMemoryUtils.getFirstMessages(sessionRepository))
                     .required(true))
             .type(CHAT_MEMORY)
             .object(() -> (inputParameters, connectionParameters, extensions, componentConnections) -> apply(
@@ -62,7 +65,10 @@ public class ChatMemory {
             .sessionRepository(sessionRepository)
             .build();
 
+        // The default user id keeps advisor-created sessions listable by the component's actions and options lookup,
+        // which query by user id (SessionRepository has no list-all API).
         SessionMemoryAdvisor sessionMemoryAdvisor = SessionMemoryAdvisor.builder(sessionService)
+            .defaultUserId(DEFAULT_USER_ID)
             .order(ChatMemoryFunction.TOOL_MESSAGE_PERSISTENCE_ADVISOR_ORDER)
             .build();
 

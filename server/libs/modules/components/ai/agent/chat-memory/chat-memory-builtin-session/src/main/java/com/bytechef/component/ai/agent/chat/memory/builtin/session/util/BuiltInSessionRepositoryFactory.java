@@ -36,7 +36,7 @@ import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.S3ClientBuilder;
 
 /**
- * Resolves the built-in {@link SessionRepository} from the application's {@code bytechef.ai.session.provider}
+ * Resolves the built-in {@link SessionRepository} from the application's {@code bytechef.ai.memory.provider}
  * configuration: {@code jdbc} (default — backed by the application database), {@code aws} (S3), {@code redis}, or
  * {@code in_memory}. When the provider is jdbc but no {@link DataSource} is available (lightweight app variants), the
  * repository degrades to in-memory so the component still starts.
@@ -59,7 +59,7 @@ public final class BuiltInSessionRepositoryFactory {
     }
 
     public static BuiltInSessionRepository create(Environment environment, @Nullable JdbcTemplate jdbcTemplate) {
-        String provider = environment.getProperty("bytechef.ai.session.provider", "jdbc");
+        String provider = environment.getProperty("bytechef.ai.memory.provider", "jdbc");
 
         return switch (provider) {
             case "aws" -> createS3SessionRepository(environment);
@@ -91,7 +91,7 @@ public final class BuiltInSessionRepositoryFactory {
         return new BuiltInSessionRepository(
             RedisSessionRepository.builder()
                 .jedis(jedisPooled)
-                .keyPrefix(environment.getProperty("bytechef.ai.session.redis.key-prefix", "bytechef-session:"))
+                .keyPrefix(environment.getProperty("bytechef.ai.memory.redis.key-prefix", "bytechef-session:"))
                 .build(),
             jedisPooled);
     }
@@ -99,22 +99,22 @@ public final class BuiltInSessionRepositoryFactory {
     private static BuiltInSessionRepository createS3SessionRepository(Environment environment) {
         S3Client s3Client = buildS3Client(environment);
 
-        String bucketPrefix = environment.getProperty("bytechef.ai.session.aws.bucket-prefix", "bytechef-session");
-        String keyPrefix = environment.getProperty("bytechef.ai.session.aws.key-prefix", "");
+        String bucketPrefix = environment.getProperty("bytechef.ai.memory.aws.bucket-prefix", "bytechef-session");
+        String keyPrefix = environment.getProperty("bytechef.ai.memory.aws.key-prefix", "");
 
         return new BuiltInSessionRepository(
             new TenantRoutingS3SessionRepository(s3Client, bucketPrefix, keyPrefix), s3Client);
     }
 
     private static JedisPooled buildJedisPooled(Environment environment) {
-        String host = environment.getProperty("bytechef.ai.session.redis.host", "localhost");
-        int port = environment.getProperty("bytechef.ai.session.redis.port", Integer.class, 6379);
-        String username = environment.getProperty("bytechef.ai.session.redis.username");
-        String password = environment.getProperty("bytechef.ai.session.redis.password");
+        String host = environment.getProperty("bytechef.ai.memory.redis.host", "localhost");
+        int port = environment.getProperty("bytechef.ai.memory.redis.port", Integer.class, 6379);
+        String username = environment.getProperty("bytechef.ai.memory.redis.username");
+        String password = environment.getProperty("bytechef.ai.memory.redis.password");
 
         if (username != null && !username.isBlank() && (password == null || password.isBlank())) {
             throw new IllegalArgumentException(
-                "bytechef.ai.session.redis.password is required when a username is configured");
+                "bytechef.ai.memory.redis.password is required when a username is configured");
         }
 
         if (password == null || password.isBlank()) {
@@ -134,14 +134,14 @@ public final class BuiltInSessionRepositoryFactory {
     private static S3Client buildS3Client(Environment environment) {
         S3ClientBuilder builder = S3Client.builder();
 
-        String region = environment.getProperty("bytechef.ai.session.aws.region");
+        String region = environment.getProperty("bytechef.ai.memory.aws.region");
 
         if (region != null && !region.isBlank()) {
             builder.region(Region.of(region));
         }
 
-        String accessKeyId = environment.getProperty("bytechef.ai.session.aws.access-key-id");
-        String secretAccessKey = environment.getProperty("bytechef.ai.session.aws.secret-access-key");
+        String accessKeyId = environment.getProperty("bytechef.ai.memory.aws.access-key-id");
+        String secretAccessKey = environment.getProperty("bytechef.ai.memory.aws.secret-access-key");
 
         if (accessKeyId != null && !accessKeyId.isBlank() && secretAccessKey != null && !secretAccessKey.isBlank()) {
             builder.credentialsProvider(

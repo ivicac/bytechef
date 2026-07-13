@@ -34,7 +34,7 @@ import jakarta.annotation.PreDestroy;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.ai.chat.memory.ChatMemoryRepository;
+import org.springframework.ai.session.SessionRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -53,16 +53,16 @@ public class ChatMemoryComponentHandler implements ComponentHandler {
 
     @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
     public ChatMemoryComponentHandler(
-        ChatMemoryRepository chatMemoryRepository, @Autowired(required = false) @Nullable JdbcTemplate jdbcTemplate,
-        Environment environment) {
+        @Autowired(required = false) @Nullable JdbcTemplate jdbcTemplate, Environment environment) {
 
-        // The memory cluster element is built on session memory (event-sourced, persists tool messages) over the
-        // application's configured session backend — bytechef.ai.session.provider, jdbc by default. The actions
-        // keep operating on the legacy chat-memory repository store.
+        // Both the memory cluster element and the actions operate on session memory (event-sourced, persists tool
+        // messages) over the application's configured session backend — bytechef.ai.memory.provider, jdbc by default.
         BuiltInSessionRepository builtInSessionRepository = BuiltInSessionRepositoryFactory.create(
             environment, jdbcTemplate);
 
         this.closeable = builtInSessionRepository.closeable();
+
+        SessionRepository sessionRepository = builtInSessionRepository.sessionRepository();
 
         this.componentDefinition = component(CHAT_MEMORY)
             .title("Chat Memory")
@@ -70,11 +70,11 @@ public class ChatMemoryComponentHandler implements ComponentHandler {
             .icon("path:assets/chat-memory.svg")
             .categories(ComponentCategory.ARTIFICIAL_INTELLIGENCE)
             .actions(
-                ChatMemoryAddMessagesAction.of(chatMemoryRepository),
-                ChatMemoryGetMessagesAction.of(chatMemoryRepository),
-                ChatMemoryDeleteAction.of(chatMemoryRepository),
-                ChatMemoryListConversationsAction.of(chatMemoryRepository))
-            .clusterElements(ChatMemory.of(builtInSessionRepository.sessionRepository()));
+                ChatMemoryAddMessagesAction.of(sessionRepository),
+                ChatMemoryGetMessagesAction.of(sessionRepository),
+                ChatMemoryDeleteAction.of(sessionRepository),
+                ChatMemoryListConversationsAction.of(sessionRepository))
+            .clusterElements(ChatMemory.of(sessionRepository));
     }
 
     @PreDestroy

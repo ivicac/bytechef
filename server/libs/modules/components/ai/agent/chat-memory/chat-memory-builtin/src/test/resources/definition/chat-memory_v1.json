@@ -953,7 +953,7 @@
     "processErrorResponse": null,
     "properties": [ {
       "advancedOption": null,
-      "controlType": "TEXT",
+      "controlType": "SELECT",
       "defaultValue": null,
       "description": "The unique identifier for the conversation.",
       "displayCondition": null,
@@ -967,7 +967,10 @@
       "minLength": null,
       "name": "conversationId",
       "options": null,
-      "optionsDataSource": null,
+      "optionsDataSource": {
+        "options": { },
+        "optionsLookupDependsOn": null
+      },
       "optionsLoadedDynamically": null,
       "placeholder": null,
       "regex": null,

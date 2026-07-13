@@ -45,7 +45,7 @@ class BuiltInSessionRepositoryFactoryTest {
     @Test
     void testInMemoryProvider() {
         MockEnvironment environment = new MockEnvironment()
-            .withProperty("bytechef.ai.session.provider", "in_memory");
+            .withProperty("bytechef.ai.memory.provider", "in_memory");
 
         BuiltInSessionRepository builtInSessionRepository = BuiltInSessionRepositoryFactory.create(environment, null);
 
@@ -56,9 +56,9 @@ class BuiltInSessionRepositoryFactoryTest {
     @Test
     void testRedisProvider() throws Exception {
         MockEnvironment environment = new MockEnvironment()
-            .withProperty("bytechef.ai.session.provider", "redis")
-            .withProperty("bytechef.ai.session.redis.host", "localhost")
-            .withProperty("bytechef.ai.session.redis.port", "6379");
+            .withProperty("bytechef.ai.memory.provider", "redis")
+            .withProperty("bytechef.ai.memory.redis.host", "localhost")
+            .withProperty("bytechef.ai.memory.redis.port", "6379");
 
         BuiltInSessionRepository builtInSessionRepository = BuiltInSessionRepositoryFactory.create(environment, null);
 
@@ -76,8 +76,8 @@ class BuiltInSessionRepositoryFactoryTest {
     @Test
     void testRedisProviderRequiresPasswordWhenUsernameIsConfigured() {
         MockEnvironment environment = new MockEnvironment()
-            .withProperty("bytechef.ai.session.provider", "redis")
-            .withProperty("bytechef.ai.session.redis.username", "user");
+            .withProperty("bytechef.ai.memory.provider", "redis")
+            .withProperty("bytechef.ai.memory.redis.username", "user");
 
         assertThrows(
             IllegalArgumentException.class, () -> BuiltInSessionRepositoryFactory.create(environment, null));
@@ -86,10 +86,10 @@ class BuiltInSessionRepositoryFactoryTest {
     @Test
     void testAwsProvider() throws Exception {
         MockEnvironment environment = new MockEnvironment()
-            .withProperty("bytechef.ai.session.provider", "aws")
-            .withProperty("bytechef.ai.session.aws.region", "us-east-1")
-            .withProperty("bytechef.ai.session.aws.access-key-id", "test-access-key")
-            .withProperty("bytechef.ai.session.aws.secret-access-key", "test-secret-key");
+            .withProperty("bytechef.ai.memory.provider", "aws")
+            .withProperty("bytechef.ai.memory.aws.region", "us-east-1")
+            .withProperty("bytechef.ai.memory.aws.access-key-id", "test-access-key")
+            .withProperty("bytechef.ai.memory.aws.secret-access-key", "test-secret-key");
 
         BuiltInSessionRepository builtInSessionRepository = BuiltInSessionRepositoryFactory.create(environment, null);
 
