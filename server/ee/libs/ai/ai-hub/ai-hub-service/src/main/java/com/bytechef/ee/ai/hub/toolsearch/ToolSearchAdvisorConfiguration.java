@@ -10,6 +10,7 @@ package com.bytechef.ee.ai.hub.toolsearch;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.component.definition.ai.agent.BaseToolFunction;
 import com.bytechef.ee.ai.hub.agent.AiHubToolCallbackWrappers;
+import com.bytechef.ee.ai.hub.config.AiHubPgVectorConfiguration;
 import com.bytechef.ee.ai.hub.util.ToolNameNormalizer;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
@@ -27,6 +28,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.client.advisor.toolsearch.ToolSearchToolCallingAdvisor;
 import org.springframework.ai.chat.memory.ChatMemory;
+import org.springframework.ai.embedding.BatchingStrategy;
+import org.springframework.ai.embedding.EmbeddingModel;
 import org.springframework.ai.model.tool.DefaultToolCallingManager;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.tool.ToolCallback;
@@ -37,6 +40,8 @@ import org.springframework.ai.tool.resolution.ToolCallbackResolver;
 import org.springframework.ai.tool.toolsearch.ToolIndex;
 import org.springframework.ai.tool.toolsearch.index.vectorstore.VectorToolIndex;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.ai.vectorstore.observation.VectorStoreObservationConvention;
+import org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStoreProperties;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -44,6 +49,7 @@ import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.event.EventListener;
+import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Wires up the Tool Search Tool advisor for the AI Hub. The advisor exposes one meta-tool ({@code searchTool}) to the
@@ -129,10 +135,33 @@ public class ToolSearchAdvisorConfiguration {
         // The pgvector datasource — same JdbcTemplate the vector store uses, so the meta table lives in the same
         // schema and benefits from the same connection pool. Co-locating "all tool-search state" in one schema keeps
         // backups + cleanup straightforward.
-        @Qualifier("pgVectorJdbcTemplate") org.springframework.jdbc.core.JdbcTemplate pgVectorJdbcTemplate) {
+        @Qualifier("pgVectorJdbcTemplate") JdbcTemplate pgVectorJdbcTemplate,
+        @Qualifier("copilotEmbeddingModel") ObjectProvider<EmbeddingModel> copilotEmbeddingModelProvider,
+        PgVectorStoreProperties properties, ObjectProvider<ObservationRegistry> observationRegistry,
+        ObjectProvider<VectorStoreObservationConvention> customObservationConvention,
+        BatchingStrategy batchingStrategy) {
+
+        // Loading (indexing the global catalog, the per-mode global static tools, and per-task subsets) embeds with the
+        // fixed-key copilotEmbeddingModel so boot-time indexing never depends on a per-environment embedding provider
+        // being activated — the same split copilot docs use. The search advisors keep reading through the
+        // @Primary/per-environment CatalogEmbeddingModel over the same ai_hub_tool_search_* table; both must resolve to
+        // the same underlying embedding model for the vectors to be comparable. When copilotEmbeddingModel is absent
+        // (Copilot disabled, no bytechef.ai.copilot.embedding.* key, or a standalone AI Hub app without the Copilot
+        // module), fall back to the reader index so behavior is unchanged.
+        EmbeddingModel copilotEmbeddingModel = copilotEmbeddingModelProvider.getIfAvailable();
+
+        VectorToolIndex loaderVectorToolIndex = toolSearchVectorToolIndex;
+
+        if (copilotEmbeddingModel != null) {
+            VectorStore loaderVectorStore = AiHubPgVectorConfiguration.buildToolSearchVectorStore(
+                pgVectorJdbcTemplate, copilotEmbeddingModel, properties, observationRegistry,
+                customObservationConvention, batchingStrategy);
+
+            loaderVectorToolIndex = new VectorToolIndex(loaderVectorStore);
+        }
 
         return new ToolSearchCatalogFeeder(
-            clusterElementDefinitionService, toolSearchVectorToolIndex, pgVectorJdbcTemplate);
+            clusterElementDefinitionService, loaderVectorToolIndex, pgVectorJdbcTemplate);
     }
 
     /**
