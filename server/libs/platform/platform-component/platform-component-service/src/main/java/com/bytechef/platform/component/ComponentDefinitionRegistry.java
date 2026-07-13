@@ -20,6 +20,7 @@ import static com.bytechef.component.definition.ComponentDsl.component;
 import static com.bytechef.component.definition.ComponentDsl.trigger;
 
 import com.bytechef.commons.util.CollectionUtils;
+import com.bytechef.commons.util.MemoizationUtils;
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionDefinition;
@@ -64,6 +65,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * Registry of all component definitions, loaded <b>lazily</b>: constructing the registry is cheap (it only captures its
+ * collaborators), and the expensive work — asking every {@code ComponentHandler} for its definition, validating every
+ * action/trigger property tree, and indexing the definitions by name and version — is deferred to the first method call
+ * that actually needs a definition. Application startup therefore never pays for building the component catalog; the
+ * first caller (typically the first components-list or workflow request) pays it exactly once, and every call
+ * afterwards hits the memoized index.
+ *
  * @author Ivica Cardic
  * @author Igor Beslic
  */
@@ -86,13 +94,29 @@ public class ComponentDefinitionRegistry {
         .actions(ComponentDsl.action("missing")
             .title("Missing Action"));
 
-    private final Map<String, Map<Integer, ComponentDefinition>> componentDefinitionsMap = new HashMap<>();
+    private final Supplier<Map<String, Map<Integer, ComponentDefinition>>> componentDefinitionsMapSupplier;
     private final List<DynamicComponentHandlerRegistry> dynamicComponentHandlerRegistries;
 
     public ComponentDefinitionRegistry(
         ApplicationProperties applicationProperties, List<ComponentHandler> componentHandlers,
         Supplier<List<ComponentHandlerEntry>> componentHandlerEntriesSupplier,
         List<DynamicComponentHandlerRegistry> dynamicComponentHandlerRegistries) {
+
+        this.componentDefinitionsMapSupplier = MemoizationUtils.memoize(
+            () -> loadComponentDefinitionsMap(
+                applicationProperties, componentHandlers, componentHandlerEntriesSupplier));
+        this.dynamicComponentHandlerRegistries = dynamicComponentHandlerRegistries;
+    }
+
+    /**
+     * Builds the name/version index of all component definitions. Invoked at most once, on the first registry access
+     * (guarded by the memoizing supplier), NOT at construction/startup time.
+     */
+    private static Map<String, Map<Integer, ComponentDefinition>> loadComponentDefinitionsMap(
+        ApplicationProperties applicationProperties, List<ComponentHandler> componentHandlers,
+        Supplier<List<ComponentHandlerEntry>> componentHandlerEntriesSupplier) {
+
+        long startTime = System.currentTimeMillis();
 
         List<ComponentHandler> mergedComponentHandlers = CollectionUtils.concat(
             componentHandlers,
@@ -118,13 +142,21 @@ public class ComponentDefinitionRegistry {
 
         validate(componentDefinitions);
 
+        Map<String, Map<Integer, ComponentDefinition>> componentDefinitionsMap = new HashMap<>();
+
         for (ComponentDefinition componentDefinition : componentDefinitions) {
-            this.componentDefinitionsMap
+            componentDefinitionsMap
                 .computeIfAbsent(StringUtils.upperCase(componentDefinition.getName()), key -> new HashMap<>())
                 .put(componentDefinition.getVersion(), componentDefinition);
         }
 
-        this.dynamicComponentHandlerRegistries = dynamicComponentHandlerRegistries;
+        if (log.isInfoEnabled()) {
+            log.info(
+                "Loaded, validated and indexed {} component definitions in {} ms", componentDefinitions.size(),
+                System.currentTimeMillis() - startTime);
+        }
+
+        return componentDefinitionsMap;
     }
 
     public Optional<Authorization> fetchAuthorization(
@@ -149,8 +181,8 @@ public class ComponentDefinitionRegistry {
                 componentDefinition = filteredComponentDefinitions.getLast();
             }
         } else {
-            Map<Integer, ComponentDefinition> componentDefinitionMap = componentDefinitionsMap.get(
-                StringUtils.upperCase(name));
+            Map<Integer, ComponentDefinition> componentDefinitionMap = componentDefinitionsMapSupplier.get()
+                .get(StringUtils.upperCase(name));
 
             if (componentDefinitionMap != null) {
                 componentDefinition = componentDefinitionMap.get(version);
@@ -185,7 +217,8 @@ public class ComponentDefinitionRegistry {
     public List<ComponentDefinition> getComponentDefinitions() {
         return CollectionUtils.sort(
             CollectionUtils.concat(
-                componentDefinitionsMap.values()
+                componentDefinitionsMapSupplier.get()
+                    .values()
                     .stream()
                     .flatMap(map -> CollectionUtils.stream(map.values()))
                     .toList(),
@@ -306,8 +339,8 @@ public class ComponentDefinitionRegistry {
     }
 
     public List<ComponentDefinition> getComponentDefinitions(String name) {
-        Map<Integer, ComponentDefinition> integerComponentDefinitionMap = componentDefinitionsMap.get(
-            StringUtils.upperCase(name));
+        Map<Integer, ComponentDefinition> integerComponentDefinitionMap = componentDefinitionsMapSupplier.get()
+            .get(StringUtils.upperCase(name));
 
         List<ComponentDefinition> filteredComponentDefinitions = List.of();
 
@@ -371,7 +404,8 @@ public class ComponentDefinitionRegistry {
 
     public List<ComponentDefinition> getStaticComponentDefinitions() {
         return CollectionUtils.sort(
-            componentDefinitionsMap.values()
+            componentDefinitionsMapSupplier.get()
+                .values()
                 .stream()
                 .flatMap(map -> CollectionUtils.stream(map.values()))
                 .toList(),
@@ -542,7 +576,7 @@ public class ComponentDefinitionRegistry {
         return firstSubPropertyName;
     }
 
-    private void validate(List<ComponentDefinition> componentDefinitions) {
+    private static void validate(List<ComponentDefinition> componentDefinitions) {
         for (ComponentDefinition componentDefinition : componentDefinitions) {
             List<? extends ActionDefinition> actionDefinitions = componentDefinition.getActions()
                 .orElse(List.of());
