@@ -747,6 +747,37 @@ describe('getElkLayoutElements', () => {
         expect(Math.abs(falseChildCenter - interiorCenter)).toBeLessThanOrEqual(1);
     });
 
+    it('keeps a short chain at the entry bar when the interior is far taller than the chain', async () => {
+        const trueChildren = Array.from({length: 7}, (unused, index) =>
+            taskNode(`childTrue${index + 1}`, {conditionCase: 'caseTrue', conditionId: 'condition_1'})
+        );
+
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            ...trueChildren,
+            taskNode('childFalse1', {conditionCase: 'caseFalse', conditionId: 'condition_1'}),
+        ];
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'childTrue1'),
+            ...trueChildren.slice(0, -1).map((childNode, index) => edge(childNode.id, `childTrue${index + 2}`)),
+            edge('childTrue7', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'childFalse1'),
+            edge('childFalse1', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1200, direction: 'TB', edges, nodes});
+
+        const topGhostBarY = positionOf(result.nodes, 'condition_1-condition-top-ghost').y;
+
+        // Beyond CHAIN_CENTERING_MAX_SLACK the short chain is NOT centered —
+        // it hugs the entry bar like the tall chain, avoiding a floating
+        // island between two huge voids
+        expect(positionOf(result.nodes, 'childFalse1').y - (topGhostBarY + 2)).toBe(BAR_TO_CHILD_GAP);
+    });
+
     it('pins a trailing placeholder after a condition onto the chain axis', async () => {
         const {edges, nodes} = singleConditionFixture();
 

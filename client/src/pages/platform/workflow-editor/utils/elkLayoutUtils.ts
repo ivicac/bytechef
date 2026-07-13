@@ -17,7 +17,12 @@ import {
     getLayoutElements,
     positionTriggerPlaceholder,
 } from './layoutUtils';
-import {applySavedPositions, hasConfiguredClusterElements, isNodePositioned} from './postDagreConstraints';
+import {
+    CHAIN_CENTERING_MAX_SLACK,
+    applySavedPositions,
+    hasConfiguredClusterElements,
+    isNodePositioned,
+} from './postDagreConstraints';
 
 import type {ElkExtendedEdge, ElkNode} from 'elkjs/lib/elk-api';
 
@@ -1137,6 +1142,19 @@ export const getElkLayoutElements = async ({
                 const auxRenderedSize = getRenderedNodeSize(candidateNode, direction);
                 const auxMainSize = mainAxis === 'x' ? auxRenderedSize.width : auxRenderedSize.height;
 
+                // Placeholders in oversized frames keep their compaction spot at
+                // the entry bar (see CHAIN_CENTERING_MAX_SLACK); rail ticks stay
+                // centered — the ring line spans the frame either way
+                const frameInteriorExtent =
+                    bottomGhostNode.position[mainAxis] - (topGhostNode.position[mainAxis] + GHOST_BAR_THICKNESS);
+
+                if (
+                    candidateNode.type === 'placeholder' &&
+                    frameInteriorExtent - auxMainSize > CHAIN_CENTERING_MAX_SLACK
+                ) {
+                    return;
+                }
+
                 const auxPosition: {x: number; y: number} = {
                     ...candidateNode.position,
                     [mainAxis]: frameMainCenter - auxMainSize / 2,
@@ -1273,6 +1291,14 @@ export const getElkLayoutElements = async ({
                 );
 
                 if (chainHasSavedPosition) {
+                    return;
+                }
+
+                const interiorExtent =
+                    bottomGhostNode.position[mainAxis] - (topGhostNode.position[mainAxis] + GHOST_BAR_THICKNESS);
+                const chainSlack = interiorExtent - (frameChain.end - frameChain.start);
+
+                if (chainSlack > CHAIN_CENTERING_MAX_SLACK) {
                     return;
                 }
 
