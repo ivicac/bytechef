@@ -2719,3 +2719,126 @@ describe('getElkLayoutElements ring hug in LR', () => {
         expect(placeholderCenterY - railLineY).toBeGreaterThanOrEqual(56);
     });
 });
+
+describe('no-crossing lanes', () => {
+    // A frame column owns more than its nodes: its chip, entry drop,
+    // connectors and trailing edge all render on the entry axis (a 45px
+    // half-width spine spanning the whole frame), node titles extend 200px
+    // right of the 72px icon, and a nested frame's rectangle is opaque. These
+    // tests pin the packing consequences of that box model — the guarantees
+    // behind "no edge crossings at all".
+
+    it('reserves the one-sided label extent between adjacent single-task columns', async () => {
+        const {edges, nodes} = singleConditionFixture();
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        const trueCenter = positionOf(result.nodes, 'childTrue1').x + 36;
+        const falseCenter = positionOf(result.nodes, 'childFalse1').x + 36;
+
+        // Binding pair: the left column's label edge (center + 36 + 200)
+        // against the right column's footprint edge (center − 120) at the
+        // exact 50px gap — 236 + 50 + 120 = 406. A centered-footprint model
+        // would pack these at 290 and let the right column's edges run
+        // through the left column's title text.
+        expect(falseCenter - trueCenter).toBeGreaterThanOrEqual(405);
+        expect(falseCenter - trueCenter).toBeLessThanOrEqual(407);
+    });
+
+    it('keeps a short chain clear of a deep sibling subtree for the FULL frame height', async () => {
+        // condition_1: TRUE = chain into a nested condition (wide, deep),
+        // FALSE = one task. Band-blind tucking would slide the FALSE task in
+        // beside the TRUE entry — and its trailing edge (running on its axis
+        // all the way down to condition_1's bottom bar) would slice through
+        // the nested condition's case content.
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            taskNode('childTrue1', {conditionCase: 'caseTrue', conditionId: 'condition_1'}),
+            conditionNode('condition_2', {conditionCase: 'caseTrue', conditionId: 'condition_1'}),
+            ...conditionGhostNodes('condition_2'),
+            taskNode('nestedTrue', {conditionCase: 'caseTrue', conditionId: 'condition_2'}),
+            taskNode('nestedFalse', {conditionCase: 'caseFalse', conditionId: 'condition_2'}),
+            taskNode('childFalse1', {conditionCase: 'caseFalse', conditionId: 'condition_1'}),
+        ];
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'childTrue1'),
+            edge('childTrue1', 'condition_2'),
+            edge('condition_2', 'condition_2-condition-top-ghost'),
+            edge('condition_2-condition-top-ghost', 'nestedTrue'),
+            edge('condition_2-condition-top-ghost', 'nestedFalse'),
+            edge('nestedTrue', 'condition_2-condition-bottom-ghost'),
+            edge('nestedFalse', 'condition_2-condition-bottom-ghost'),
+            edge('condition_2-condition-bottom-ghost', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'childFalse1'),
+            edge('childFalse1', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        const falseAxis = positionOf(result.nodes, 'childFalse1').x + 36;
+
+        // The FALSE column's spine lane [axis ± 45] spans condition_1's whole
+        // frame, so EVERY TRUE-side node — including the nested condition's
+        // cases living in bands far below the single FALSE task — must clear
+        // it by the sibling gap on the label-extended side
+        for (const trueSideId of ['childTrue1', 'condition_2', 'nestedTrue', 'nestedFalse']) {
+            const trueCenter = positionOf(result.nodes, trueSideId).x + 36;
+
+            if (falseAxis > trueCenter) {
+                expect(falseAxis - 45 - (trueCenter + 236)).toBeGreaterThanOrEqual(49);
+            } else {
+                expect(trueCenter - 120 - (falseAxis + 45)).toBeGreaterThanOrEqual(49);
+            }
+        }
+    });
+
+    it('treats a nested frame rectangle as opaque even where it has no content', async () => {
+        // The nested condition's TRUE case is a bare placeholder — its column
+        // band is nearly empty, exactly where band-blind packing would tuck
+        // the outer FALSE task INSIDE the nested frame's drawn rectangle
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            conditionNode('condition_2', {conditionCase: 'caseTrue', conditionId: 'condition_1'}),
+            ...conditionGhostNodes('condition_2'),
+            conditionPlaceholderNode('condition_2', 'left'),
+            taskNode('nestedFalse1', {conditionCase: 'caseFalse', conditionId: 'condition_2'}),
+            taskNode('nestedFalse2', {conditionCase: 'caseFalse', conditionId: 'condition_2'}),
+            taskNode('childFalse1', {conditionCase: 'caseFalse', conditionId: 'condition_1'}),
+        ];
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'condition_2'),
+            edge('condition_2', 'condition_2-condition-top-ghost'),
+            edge('condition_2-condition-top-ghost', 'condition_2-condition-left-placeholder-0'),
+            edge('condition_2-condition-left-placeholder-0', 'condition_2-condition-bottom-ghost'),
+            edge('condition_2-condition-top-ghost', 'nestedFalse1'),
+            edge('nestedFalse1', 'nestedFalse2'),
+            edge('nestedFalse2', 'condition_2-condition-bottom-ghost'),
+            edge('condition_2-condition-bottom-ghost', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'childFalse1'),
+            edge('childFalse1', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        const outerFalseCenter = positionOf(result.nodes, 'childFalse1').x + 36;
+
+        // Rectangle bounds from the nested frame's own members, using the
+        // same label-extended box model the pack reserves
+        const placeholderCenter = positionOf(result.nodes, 'condition_2-condition-left-placeholder-0').x + 36;
+        const nestedChainCenters = [
+            positionOf(result.nodes, 'nestedFalse1').x + 36,
+            positionOf(result.nodes, 'nestedFalse2').x + 36,
+        ];
+
+        const rectangleStart = Math.min(placeholderCenter - 100, ...nestedChainCenters.map((center) => center - 120));
+        const rectangleEnd = Math.max(placeholderCenter + 100, ...nestedChainCenters.map((center) => center + 236));
+
+        expect(outerFalseCenter - 120 > rectangleEnd || outerFalseCenter + 236 < rectangleStart).toBe(true);
+    });
+});
