@@ -88,13 +88,6 @@ const CLUSTER_ROOT_RENDERED_MAIN_SIZE = 240;
 // frames.
 const CASE_PLACEHOLDER_CROSS_FOOTPRINT = 160;
 
-// A column envelope is mirrored around its entry axis so neighbours sit at
-// even visible pitches — but the mirrored (phantom) side is capped at this
-// much beyond the column's real extent. Small asymmetries (a chip or a narrow
-// default case) stay perfectly symmetric; kilometre-deep subtrees don't
-// reserve their own width again as empty space.
-const ENVELOPE_SYMMETRY_MAX_PADDING = 200;
-
 // The loop-back rail tick rendered by TaskDispatcherLeftGhostNode: a 2×16px
 // element (`w-0.5 h-4` in TB) — the rail LINE itself is drawn by the edges
 // running top ghost → left ghost → bottom ghost.
@@ -1481,7 +1474,12 @@ export const getElkLayoutElements = async ({
         frameNodesInnermostFirst.forEach((frameNode) => {
             const {bottomGhostId, topGhostId} = getGhostIds(frameNode);
 
-            const entryColumns: Array<{end: number; entryNode: Node; memberNodes: Set<Node>; start: number}> = [];
+            const entryColumns: Array<{
+                entryAxis: number;
+                entryNode: Node;
+                memberBoxes: Array<{crossEnd: number; crossStart: number; mainEnd: number; mainStart: number}>;
+                memberNodes: Set<Node>;
+            }> = [];
             const seenEntryIds = new Set<string>();
 
             edges.forEach((entryEdge) => {
@@ -1523,12 +1521,18 @@ export const getElkLayoutElements = async ({
                     });
                 }
 
-                let columnStart = Infinity;
-                let columnEnd = -Infinity;
+                // Every member becomes a 2-D box: FOOTPRINT width on the cross
+                // axis (covers label text and case chips) and RENDERED extent on
+                // the main axis (the band it actually occupies between the bars)
+                const memberBoxes: Array<{crossEnd: number; crossStart: number; mainEnd: number; mainStart: number}> =
+                    [];
+
+                const mainAxis = crossAxis === 'x' ? 'y' : 'x';
 
                 memberNodes.forEach((memberNode) => {
                     const renderedSize = getRenderedNodeSize(memberNode, direction);
                     const renderedCross = crossAxis === 'x' ? renderedSize.width : renderedSize.height;
+                    const renderedMain = mainAxis === 'x' ? renderedSize.width : renderedSize.height;
                     const footprintSize = getElkNodeSize(memberNode, direction);
                     const footprintCross = crossAxis === 'x' ? footprintSize.width : footprintSize.height;
 
@@ -1541,32 +1545,24 @@ export const getElkLayoutElements = async ({
                             ? renderedCross / 2
                             : Math.max(renderedCross, footprintCross) / 2;
 
-                    columnStart = Math.min(columnStart, memberCrossCenter - memberHalfWidth);
-                    columnEnd = Math.max(columnEnd, memberCrossCenter + memberHalfWidth);
+                    memberBoxes.push({
+                        crossEnd: memberCrossCenter + memberHalfWidth,
+                        crossStart: memberCrossCenter - memberHalfWidth,
+                        mainEnd: memberNode.position[mainAxis] + renderedMain,
+                        mainStart: memberNode.position[mainAxis],
+                    });
                 });
 
-                // Symmetrize the envelope around the column's entry axis: an
-                // asymmetric subtree (a narrow default case beside a wide one)
-                // would otherwise produce unequal visible pitches to its two
-                // neighbours after repacking. The symmetry padding is CAPPED:
-                // deep production subtrees can be thousands of pixels asymmetric,
-                // and uncapped mirroring reserves that much phantom space beside
-                // them — compounding through nesting levels into a canvas tens of
-                // thousands of pixels wide.
                 const entryRenderedSize = getRenderedNodeSize(entryNode, direction);
                 const entryAxis =
                     entryNode.position[crossAxis] +
                     (crossAxis === 'x' ? entryRenderedSize.width : entryRenderedSize.height) / 2;
 
-                const leftHalfWidth = entryAxis - columnStart;
-                const rightHalfWidth = columnEnd - entryAxis;
-                const columnHalfWidth = Math.max(leftHalfWidth, rightHalfWidth);
-
                 entryColumns.push({
-                    end: entryAxis + Math.min(columnHalfWidth, rightHalfWidth + ENVELOPE_SYMMETRY_MAX_PADDING),
+                    entryAxis,
                     entryNode,
+                    memberBoxes,
                     memberNodes,
-                    start: entryAxis - Math.min(columnHalfWidth, leftHalfWidth + ENVELOPE_SYMMETRY_MAX_PADDING),
                 });
             });
 
@@ -1574,15 +1570,39 @@ export const getElkLayoutElements = async ({
                 return;
             }
 
-            entryColumns.sort((firstColumn, secondColumn) => firstColumn.start - secondColumn.start);
+            entryColumns.sort((firstColumn, secondColumn) => firstColumn.entryAxis - secondColumn.entryAxis);
 
-            // Repack: EXACT sibling gap between consecutive footprint envelopes,
-            // pulling in ELK's over-spaced raw cross placement (computed for the
-            // pre-compaction banded layout) as well as pushing overlaps apart
-            let occupiedEnd = entryColumns[0].end;
+            // Repack: EXACT sibling gap between the closest pair of boxes that
+            // overlap on the MAIN axis — dagre's separateOverlapping* semantics.
+            // A 1-D envelope pack reserved each subtree's maximum width against
+            // its siblings over the frame's whole height, so a short chain was
+            // pushed past the full width of a deep neighbour even where that
+            // neighbour is narrow; the reservation then compounded through every
+            // nesting level into a canvas tens of thousands of pixels wide.
+            // Band-aware clearance both pushes real overlaps apart and pulls
+            // ELK's over-spaced raw placement in, letting a short chain tuck in
+            // beside a deep subtree whose bulk lives in bands it never touches.
+            const placedBoxes = [...entryColumns[0].memberBoxes];
 
             entryColumns.slice(1).forEach((entryColumn) => {
-                const columnShift = occupiedEnd + ELK_SIBLING_SPACING - entryColumn.start;
+                let minClearance = Infinity;
+
+                entryColumn.memberBoxes.forEach((columnBox) => {
+                    placedBoxes.forEach((placedBox) => {
+                        const bandOverlap =
+                            Math.min(columnBox.mainEnd, placedBox.mainEnd) -
+                            Math.max(columnBox.mainStart, placedBox.mainStart);
+
+                        if (bandOverlap > 0) {
+                            minClearance = Math.min(minClearance, columnBox.crossStart - placedBox.crossEnd);
+                        }
+                    });
+                });
+
+                // Sibling chains always share at least the entry band under the
+                // top bar, so a finite clearance exists in practice; a column
+                // laid out entirely band-disjoint keeps its ELK position
+                const columnShift = minClearance === Infinity ? 0 : ELK_SIBLING_SPACING - minClearance;
 
                 if (Math.abs(columnShift) >= 1) {
                     entryColumn.memberNodes.forEach((memberNode) => {
@@ -1592,11 +1612,15 @@ export const getElkLayoutElements = async ({
                         };
                     });
 
-                    entryColumn.start += columnShift;
-                    entryColumn.end += columnShift;
+                    entryColumn.memberBoxes.forEach((columnBox) => {
+                        columnBox.crossStart += columnShift;
+                        columnBox.crossEnd += columnShift;
+                    });
+
+                    entryColumn.entryAxis += columnShift;
                 }
 
-                occupiedEnd = Math.max(occupiedEnd, entryColumn.end);
+                placedBoxes.push(...entryColumn.memberBoxes);
             });
 
             // Re-anchor: repacking moved the columns off the entry axis the

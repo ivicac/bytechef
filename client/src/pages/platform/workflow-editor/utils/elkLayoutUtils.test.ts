@@ -1602,11 +1602,11 @@ describe('getElkLayoutElements with branches', () => {
             positionOf(result.nodes, 'condition_5-condition-left-placeholder-0').x + 36 - 100
         );
 
-        // Envelopes are symmetrized around each column's entry axis, so the
-        // gap between the REAL outermost nodes is the 50px envelope gap plus
-        // symmetrization and ring-offset slack — bounded well below the old
-        // 300px gulf
-        expect(falseLeftEdge - trueRightEdge).toBeGreaterThanOrEqual(49);
+        // The exact 50px gap is enforced between the closest BAND-overlapping
+        // pair of footprint boxes; this measured proxy pair (the rail's band is
+        // a thin tick) may legitimately sit a little closer — the pins guard
+        // strict separation and the pull-in from the old 300px gulf
+        expect(falseLeftEdge - trueRightEdge).toBeGreaterThanOrEqual(40);
         expect(falseLeftEdge - trueRightEdge).toBeLessThanOrEqual(400);
 
         // Two entries (even count): the parent centers on their mean
@@ -1617,10 +1617,14 @@ describe('getElkLayoutElements with branches', () => {
         expect(Math.abs(parentCenter - (trueEntryCenter + falseEntryCenter) / 2)).toBeLessThanOrEqual(1);
     });
 
-    it('gives a case with an asymmetric subtree equal pitches to both neighbours', async () => {
-        // branch_2's envelope is asymmetric around its axis (200px default
-        // column left, 240px subflow column right) — without symmetrization,
-        // repacking yields visibly unequal gaps to its two neighbour columns
+    it('packs a case with an asymmetric subtree band-tight against both neighbours', async () => {
+        // branch_2's subtree is asymmetric around its axis (200px default
+        // column left, 240px subflow column right). Band-aware packing places
+        // each neighbour at the exact gap from the boxes it actually shares a
+        // band with, so the two pitches differ by at most the subtree's own
+        // box asymmetry — never by phantom mirrored space (the old symmetrized
+        // envelopes reserved a subtree's full asymmetry as empty canvas, which
+        // compounded through nesting levels on production workflows)
         const {edges, nodes} = deepSiblingFixture();
 
         const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
@@ -1632,7 +1636,7 @@ describe('getElkLayoutElements with branches', () => {
         const leftPitch = branchTwoCenter - caseOneCenter;
         const rightPitch = caseThreeCenter - branchTwoCenter;
 
-        expect(Math.abs(leftPitch - rightPitch)).toBeLessThanOrEqual(1);
+        expect(Math.abs(leftPitch - rightPitch)).toBeLessThanOrEqual(60);
 
         // Five entries (odd count): the branch dispatcher anchors on the MEDIAN
         // case column (case_1), keeping its middle-case edge straight
