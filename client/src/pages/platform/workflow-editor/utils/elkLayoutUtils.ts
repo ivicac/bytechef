@@ -88,6 +88,13 @@ const CLUSTER_ROOT_RENDERED_MAIN_SIZE = 240;
 // frames.
 const CASE_PLACEHOLDER_CROSS_FOOTPRINT = 160;
 
+// A column envelope is mirrored around its entry axis so neighbours sit at
+// even visible pitches — but the mirrored (phantom) side is capped at this
+// much beyond the column's real extent. Small asymmetries (a chip or a narrow
+// default case) stay perfectly symmetric; kilometre-deep subtrees don't
+// reserve their own width again as empty space.
+const ENVELOPE_SYMMETRY_MAX_PADDING = 200;
+
 // The loop-back rail tick rendered by TaskDispatcherLeftGhostNode: a 2×16px
 // element (`w-0.5 h-4` in TB) — the rail LINE itself is drawn by the edges
 // running top ghost → left ghost → bottom ghost.
@@ -1541,19 +1548,25 @@ export const getElkLayoutElements = async ({
                 // Symmetrize the envelope around the column's entry axis: an
                 // asymmetric subtree (a narrow default case beside a wide one)
                 // would otherwise produce unequal visible pitches to its two
-                // neighbours after repacking
+                // neighbours after repacking. The symmetry padding is CAPPED:
+                // deep production subtrees can be thousands of pixels asymmetric,
+                // and uncapped mirroring reserves that much phantom space beside
+                // them — compounding through nesting levels into a canvas tens of
+                // thousands of pixels wide.
                 const entryRenderedSize = getRenderedNodeSize(entryNode, direction);
                 const entryAxis =
                     entryNode.position[crossAxis] +
                     (crossAxis === 'x' ? entryRenderedSize.width : entryRenderedSize.height) / 2;
 
-                const columnHalfWidth = Math.max(entryAxis - columnStart, columnEnd - entryAxis);
+                const leftHalfWidth = entryAxis - columnStart;
+                const rightHalfWidth = columnEnd - entryAxis;
+                const columnHalfWidth = Math.max(leftHalfWidth, rightHalfWidth);
 
                 entryColumns.push({
-                    end: entryAxis + columnHalfWidth,
+                    end: entryAxis + Math.min(columnHalfWidth, rightHalfWidth + ENVELOPE_SYMMETRY_MAX_PADDING),
                     entryNode,
                     memberNodes,
-                    start: entryAxis - columnHalfWidth,
+                    start: entryAxis - Math.min(columnHalfWidth, leftHalfWidth + ENVELOPE_SYMMETRY_MAX_PADDING),
                 });
             });
 
