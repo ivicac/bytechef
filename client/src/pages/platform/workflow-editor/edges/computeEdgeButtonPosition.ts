@@ -41,6 +41,28 @@ export default function computeEdgeButtonPosition({
     const isBottomGhostContinuationEdge =
         sourceNodeType === 'taskDispatcherBottomGhostNode' && targetNodeType !== 'taskDispatcherBottomGhostNode';
 
+    // A trailing edge (chain end → its frame's bottom bar) bends right beside
+    // the bar, so its path center sits on the bottom jog next to foreign
+    // columns — the "+" belongs midway down the column's own vertical run
+    const isExitEdgeToBottomGhost =
+        targetNodeType === 'taskDispatcherBottomGhostNode' &&
+        sourceNodeType !== 'taskDispatcherBottomGhostNode' &&
+        sourceNodeType !== 'taskDispatcherTopGhostNode';
+
+    if (isExitEdgeToBottomGhost) {
+        if (isHorizontal) {
+            return {
+                x: Math.min(correctedSourceX, correctedTargetX) + Math.abs(correctedTargetX - correctedSourceX) * 0.5,
+                y: correctedSourceY,
+            };
+        }
+
+        return {
+            x: correctedSourceX,
+            y: Math.min(correctedSourceY, correctedTargetY) + Math.abs(correctedTargetY - correctedSourceY) * 0.5,
+        };
+    }
+
     if ((isMainAxisEdge && !isEdgeFromBranchTopGhostNode) || isBottomGhostContinuationEdge) {
         return {
             x: edgeCenterX,

@@ -19,6 +19,13 @@ import BranchCaseLabel from './BranchCaseLabel';
 import computeEdgeButtonPosition from './computeEdgeButtonPosition';
 import computeEdgeCorrectedCoordinates from './computeEdgeCorrectedCoordinates';
 
+// How far before the bottom bar an exit edge bends. Content always keeps at
+// least a full layer gap (52px) above its frame's bottom bar, so a corner this
+// close to the bar puts the horizontal leg in a strip that is empty by
+// construction — the default midpoint corner put that leg mid-frame, slicing
+// through sibling case content on its way to the bar.
+const EXIT_EDGE_JOG_OFFSET = 16;
+
 export default function WorkflowEdge({
     data,
     id,
@@ -89,9 +96,19 @@ export default function WorkflowEdge({
               ? {centerX: correctedSourceX + TRIGGER_FAN_IN_BUS_OFFSET}
               : {};
 
+    const isExitEdgeToBottomGhost = !isTriggerFanIn && targetNode?.type === 'taskDispatcherBottomGhostNode';
+
+    const exitJogCenter =
+        isExitEdgeToBottomGhost && !isHorizontal && correctedTargetY - correctedSourceY > EXIT_EDGE_JOG_OFFSET * 3
+            ? {centerY: correctedTargetY - EXIT_EDGE_JOG_OFFSET}
+            : isExitEdgeToBottomGhost && isHorizontal && correctedTargetX - correctedSourceX > EXIT_EDGE_JOG_OFFSET * 3
+              ? {centerX: correctedTargetX - EXIT_EDGE_JOG_OFFSET}
+              : {};
+
     const [edgePath, edgeCenterX, edgeCenterY] = getSmoothStepPath({
         borderRadius: 10,
         ...busCenter,
+        ...exitJogCenter,
         sourcePosition: correctedSourcePosition,
         sourceX: correctedSourceX,
         sourceY: correctedSourceY,

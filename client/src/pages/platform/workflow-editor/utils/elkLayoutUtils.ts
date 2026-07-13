@@ -88,6 +88,59 @@ const CLUSTER_ROOT_RENDERED_MAIN_SIZE = 240;
 // frames.
 const CASE_PLACEHOLDER_CROSS_FOOTPRINT = 160;
 
+// Half-width of the vertical lane a case column's edges occupy on its entry
+// axis: the case chip (~90px wide, centered), the top-bar entry drop, the
+// connectors between chain nodes and the trailing edge down to the bottom bar
+// all render on this axis. Reserved for the column's full frame height so no
+// sibling content is ever packed onto a drawn edge.
+const COLUMN_SPINE_HALF_WIDTH = 45;
+
+// In TB a node's title/description block renders to the RIGHT of its 72px
+// icon, reaching up to ~236px past the icon's center (measured 272px DOM on
+// long labels) — while the dagre footprint models the node as 240px CENTERED
+// on the icon (±120). Packing against the centered footprint under-reserves
+// the label side by ~116px, so a neighbour's vertical edge run placed at the
+// exact 50px gap sliced straight through the label text.
+const NODE_LABEL_CROSS_OVERHANG = 200;
+
+/**
+ * Cross-axis bounds of a node for collision purposes: footprint half-width on
+ * both sides (covers chips and general slack), extended on the label side in
+ * TB where the rendered title block outgrows the footprint. Rails stay
+ * hairline. LR labels extend along the MAIN axis, so no cross extension there.
+ */
+function getMemberCrossBounds(
+    memberNode: Node,
+    direction: LayoutDirectionType,
+    crossAxis: 'x' | 'y'
+): {crossEnd: number; crossStart: number} {
+    const renderedSize = getRenderedNodeSize(memberNode, direction);
+    const renderedCross = crossAxis === 'x' ? renderedSize.width : renderedSize.height;
+    const footprintSize = getElkNodeSize(memberNode, direction);
+    const footprintCross = crossAxis === 'x' ? footprintSize.width : footprintSize.height;
+
+    const memberCrossCenter = memberNode.position[crossAxis] + renderedCross / 2;
+
+    if (memberNode.type === 'taskDispatcherLeftGhostNode') {
+        return {crossEnd: memberCrossCenter + renderedCross / 2, crossStart: memberCrossCenter - renderedCross / 2};
+    }
+
+    const memberHalfWidth = Math.max(renderedCross, footprintCross) / 2;
+
+    const hasSideLabel =
+        crossAxis === 'x' &&
+        memberNode.type !== 'placeholder' &&
+        memberNode.type !== 'triggerPlaceholder' &&
+        memberNode.type !== 'taskDispatcherTopGhostNode' &&
+        memberNode.type !== 'taskDispatcherBottomGhostNode';
+
+    const labelSideHalfWidth = hasSideLabel
+        ? Math.max(memberHalfWidth, renderedCross / 2 + NODE_LABEL_CROSS_OVERHANG)
+        : memberHalfWidth;
+
+    return {crossEnd: memberCrossCenter + labelSideHalfWidth, crossStart: memberCrossCenter - memberHalfWidth};
+}
+
 // The loop-back rail tick rendered by TaskDispatcherLeftGhostNode: a 2×16px
 // element (`w-0.5 h-4` in TB) — the rail LINE itself is drawn by the edges
 // running top ghost → left ghost → bottom ghost.
@@ -1531,23 +1584,13 @@ export const getElkLayoutElements = async ({
 
                 memberNodes.forEach((memberNode) => {
                     const renderedSize = getRenderedNodeSize(memberNode, direction);
-                    const renderedCross = crossAxis === 'x' ? renderedSize.width : renderedSize.height;
                     const renderedMain = mainAxis === 'x' ? renderedSize.width : renderedSize.height;
-                    const footprintSize = getElkNodeSize(memberNode, direction);
-                    const footprintCross = crossAxis === 'x' ? footprintSize.width : footprintSize.height;
 
-                    const memberCrossCenter = memberNode.position[crossAxis] + renderedCross / 2;
-
-                    // A rail is a hairline decoration hugging its own frame — its
-                    // dagre-derived 240px footprint would inflate the envelope
-                    const memberHalfWidth =
-                        memberNode.type === 'taskDispatcherLeftGhostNode'
-                            ? renderedCross / 2
-                            : Math.max(renderedCross, footprintCross) / 2;
+                    const {crossEnd, crossStart} = getMemberCrossBounds(memberNode, direction, crossAxis);
 
                     memberBoxes.push({
-                        crossEnd: memberCrossCenter + memberHalfWidth,
-                        crossStart: memberCrossCenter - memberHalfWidth,
+                        crossEnd,
+                        crossStart,
                         mainEnd: memberNode.position[mainAxis] + renderedMain,
                         mainStart: memberNode.position[mainAxis],
                     });
@@ -1557,6 +1600,70 @@ export const getElkLayoutElements = async ({
                 const entryAxis =
                     entryNode.position[crossAxis] +
                     (crossAxis === 'x' ? entryRenderedSize.width : entryRenderedSize.height) / 2;
+
+                // No-crossing lanes. A column is more than its nodes: its case
+                // chip and entry drop hang from the top bar, its exit edge runs
+                // from the last node down to the bottom bar, and connector
+                // segments run between nodes — all on the entry axis. Reserve a
+                // full-height spine so no sibling content is ever placed where
+                // those edges are drawn (a tucked-in chain would otherwise read
+                // as its trailing edge slicing through the neighbour's nodes).
+                const frameTopGhostNode = layoutedNodesById.get(topGhostId);
+                const frameBottomGhostNode = layoutedNodesById.get(bottomGhostId);
+
+                if (frameTopGhostNode && frameBottomGhostNode) {
+                    memberBoxes.push({
+                        crossEnd: entryAxis + COLUMN_SPINE_HALF_WIDTH,
+                        crossStart: entryAxis - COLUMN_SPINE_HALF_WIDTH,
+                        mainEnd: frameBottomGhostNode.position[mainAxis] + GHOST_BAR_THICKNESS,
+                        mainStart: frameTopGhostNode.position[mainAxis],
+                    });
+                }
+
+                // A nested frame's rectangle is opaque: its outline, interior
+                // whitespace, rails and internal case spines all live inside
+                // it, so sibling content may never be packed into the bands
+                // where the rectangle merely LOOKS empty. Innermost-first
+                // ordering means every nested frame is already packed tight
+                // when its rectangle is measured here.
+                memberNodes.forEach((memberNode) => {
+                    if (!isFrameDispatcherNode(memberNode)) {
+                        return;
+                    }
+
+                    const nestedGhostIds = getGhostIds(memberNode);
+                    const nestedTopGhostNode = layoutedNodesById.get(nestedGhostIds.topGhostId);
+                    const nestedBottomGhostNode = layoutedNodesById.get(nestedGhostIds.bottomGhostId);
+
+                    if (!nestedTopGhostNode || !nestedBottomGhostNode) {
+                        return;
+                    }
+
+                    let rectangleStart = Infinity;
+                    let rectangleEnd = -Infinity;
+
+                    memberNodes.forEach((candidateNode) => {
+                        if (!isDescendantOfDispatcher(candidateNode, memberNode.id)) {
+                            return;
+                        }
+
+                        const candidateBounds = getMemberCrossBounds(candidateNode, direction, crossAxis);
+
+                        rectangleStart = Math.min(rectangleStart, candidateBounds.crossStart);
+                        rectangleEnd = Math.max(rectangleEnd, candidateBounds.crossEnd);
+                    });
+
+                    if (rectangleStart === Infinity) {
+                        return;
+                    }
+
+                    memberBoxes.push({
+                        crossEnd: rectangleEnd,
+                        crossStart: rectangleStart,
+                        mainEnd: nestedBottomGhostNode.position[mainAxis] + GHOST_BAR_THICKNESS,
+                        mainStart: nestedTopGhostNode.position[mainAxis],
+                    });
+                });
 
                 entryColumns.push({
                     entryAxis,
@@ -1580,8 +1687,11 @@ export const getElkLayoutElements = async ({
             // neighbour is narrow; the reservation then compounded through every
             // nesting level into a canvas tens of thousands of pixels wide.
             // Band-aware clearance both pushes real overlaps apart and pulls
-            // ELK's over-spaced raw placement in, letting a short chain tuck in
-            // beside a deep subtree whose bulk lives in bands it never touches.
+            // ELK's over-spaced raw placement in. The box set enforces a strict
+            // no-crossing contract: node boxes cover content, the axis spine
+            // covers every edge the column draws, and nested frame rectangles
+            // are opaque — a column tucks in beside a neighbour ONLY where
+            // doing so cannot put content on a drawn line or inside a box.
             const placedBoxes = [...entryColumns[0].memberBoxes];
 
             entryColumns.slice(1).forEach((entryColumn) => {

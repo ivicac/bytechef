@@ -1603,10 +1603,11 @@ describe('getElkLayoutElements with branches', () => {
         );
 
         // The exact 50px gap is enforced between the closest BAND-overlapping
-        // pair of footprint boxes; this measured proxy pair (the rail's band is
-        // a thin tick) may legitimately sit a little closer — the pins guard
-        // strict separation and the pull-in from the old 300px gulf
-        expect(falseLeftEdge - trueRightEdge).toBeGreaterThanOrEqual(40);
+        // pair of boxes (which now includes the column's axis spine and the
+        // loop's opaque rectangle); this measured proxy pair may legitimately
+        // sit closer — the pins guard strict separation and the pull-in from
+        // the old 300px gulf
+        expect(falseLeftEdge - trueRightEdge).toBeGreaterThan(0);
         expect(falseLeftEdge - trueRightEdge).toBeLessThanOrEqual(400);
 
         // Two entries (even count): the parent centers on their mean
@@ -1636,7 +1637,13 @@ describe('getElkLayoutElements with branches', () => {
         const leftPitch = branchTwoCenter - caseOneCenter;
         const rightPitch = caseThreeCenter - branchTwoCenter;
 
-        expect(Math.abs(leftPitch - rightPitch)).toBeLessThanOrEqual(60);
+        // Pitch asymmetry is bounded by the subtree's own box asymmetry PLUS
+        // the one-sided label reservation (NODE_LABEL_CROSS_OVERHANG): titles
+        // render only to the RIGHT of the icon, so the right neighbour packs
+        // against the label edge while the left neighbour packs against the
+        // footprint — collision honesty is deliberately chosen over symmetric
+        // pitches (a symmetric model let edges slice through label text)
+        expect(Math.abs(leftPitch - rightPitch)).toBeLessThanOrEqual(170);
 
         // Five entries (odd count): the branch dispatcher anchors on the MEDIAN
         // case column (case_1), keeping its middle-case edge straight
@@ -1758,12 +1765,15 @@ describe('getElkLayoutElements with branches', () => {
         expect(defaultCenter).toBeLessThan(caseACenter);
         expect(caseACenter).toBeLessThan(caseBCenter);
 
-        // Odd case count: the middle column sits on the branch axis, and the
-        // branch node sits midway between the outer columns
+        // Odd case count: the middle column sits exactly on the branch axis.
+        // The outer columns are NOT mirror images — the left neighbour packs
+        // against defaultChild's one-sided label reservation while the right
+        // neighbour packs against the placeholder's symmetric box, so their
+        // mean sits up to half the label overhang off the axis
         const branchCenter = positionOf(result.nodes, 'branch_1').x + 36;
 
         expect(Math.abs(caseACenter - branchCenter)).toBeLessThanOrEqual(1);
-        expect(Math.abs((defaultCenter + caseBCenter) / 2 - branchCenter)).toBeLessThanOrEqual(1);
+        expect(Math.abs((defaultCenter + caseBCenter) / 2 - branchCenter)).toBeLessThanOrEqual(60);
 
         // Standard box gaps at the branch frame
         const branchBottom = positionOf(result.nodes, 'branch_1').y + 72;
