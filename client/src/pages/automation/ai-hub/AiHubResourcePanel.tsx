@@ -7,6 +7,7 @@ import AiHubFileViewer from '@/pages/automation/ai-hub/AiHubFileViewer';
 import AiHubKnowledgeBaseViewer from '@/pages/automation/ai-hub/AiHubKnowledgeBaseViewer';
 import AiHubWorkflowExecutionViewer from '@/pages/automation/ai-hub/AiHubWorkflowExecutionViewer';
 import AiHubWorkflowViewer from '@/pages/automation/ai-hub/AiHubWorkflowViewer';
+import WorkflowTabLabel from '@/pages/automation/ai-hub/WorkflowTabLabel';
 import {AiHubTabType, AiHubViewModeType, useAiHubTabsStore} from '@/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import {DownloadIcon, ExternalLinkIcon, PanelRightCloseIcon, PlusIcon, XIcon} from 'lucide-react';
 import {Link} from 'react-router-dom';
@@ -131,14 +132,22 @@ const AiHubResourcePanel = () => {
                                     )}
                                     key={tab.id}
                                 >
-                                    <button
-                                        className="max-w-40 truncate"
-                                        onClick={() => setActiveTab(tab.id)}
-                                        title={tab.name}
-                                        type="button"
-                                    >
-                                        {tab.name}
-                                    </button>
+                                    {tab.kind === 'workflow' ? (
+                                        <WorkflowTabLabel
+                                            name={tab.name}
+                                            onClick={() => setActiveTab(tab.id)}
+                                            projectId={tab.projectId}
+                                        />
+                                    ) : (
+                                        <button
+                                            className="max-w-40 truncate"
+                                            onClick={() => setActiveTab(tab.id)}
+                                            title={tab.name}
+                                            type="button"
+                                        >
+                                            {tab.name}
+                                        </button>
+                                    )}
 
                                     <button
                                         aria-label={`Close ${tab.name}`}
