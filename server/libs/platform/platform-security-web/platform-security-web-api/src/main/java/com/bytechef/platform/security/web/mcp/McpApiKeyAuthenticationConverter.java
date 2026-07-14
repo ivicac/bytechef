@@ -55,8 +55,12 @@ public class McpApiKeyAuthenticationConverter implements AuthenticationConverter
 
         String servletPath = request.getServletPath();
 
+        // Strip the base prefix and the transport endpoint suffix. Streamable HTTP uses /mcp; HTTP+SSE uses /sse (the
+        // stream) and /message (client-to-server POSTs).
         String mcpServerSecretKey = servletPath.replace(pathPrefix, "")
-            .replace("/mcp", "");
+            .replace("/mcp", "")
+            .replace("/sse", "")
+            .replace("/message", "");
 
         return ApiKeyAuthenticationToken.unauthenticated(
             new McpApiKeyCredentials(getEnvironment(request), mcpServerSecretKey, secretKey));
