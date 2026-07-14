@@ -5871,6 +5871,7 @@ export type Query = {
   jobFileLogsExist: Scalars['Boolean']['output'];
   knowledgeBase?: Maybe<KnowledgeBase>;
   knowledgeBaseDocument?: Maybe<KnowledgeBaseDocument>;
+  knowledgeBaseDocumentChunks?: Maybe<Array<Maybe<KnowledgeBaseDocumentChunk>>>;
   knowledgeBaseDocumentStatus?: Maybe<DocumentStatusUpdate>;
   knowledgeBaseDocumentTags?: Maybe<Array<Scalars['String']['output']>>;
   knowledgeBaseDocumentTagsByDocument?: Maybe<Array<KnowledgeBaseDocumentTagsEntry>>;
@@ -6749,6 +6750,11 @@ export type QueryKnowledgeBaseArgs = {
 
 
 export type QueryKnowledgeBaseDocumentArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryKnowledgeBaseDocumentChunksArgs = {
   id: Scalars['ID']['input'];
 };
 

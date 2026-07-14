@@ -2374,7 +2374,14 @@ export type KnowledgeBaseQueryVariables = Exact<{
 }>;
 
 
-export type KnowledgeBaseQuery = { knowledgeBase: { id: string, name: string, description: string | null, maxChunkSize: number | null, minChunkSizeChars: number | null, overlap: number | null, createdDate: any, lastModifiedDate: any, documents: Array<{ id: string, name: string, status: number, tags: Array<string> | null, createdDate: any, sourceId: string | null, sourceRecordId: string | null, document: { name: string, extension: string | null, mimeType: string | null, url: string } | null, chunks: Array<{ id: string, knowledgeBaseDocumentId: string, content: string | null, metadata: any } | null> | null } | null> | null } | null };
+export type KnowledgeBaseQuery = { knowledgeBase: { id: string, name: string, description: string | null, maxChunkSize: number | null, minChunkSizeChars: number | null, overlap: number | null, createdDate: any, lastModifiedDate: any, documents: Array<{ id: string, name: string, status: number, tags: Array<string> | null, createdDate: any, sourceId: string | null, sourceRecordId: string | null, document: { name: string, extension: string | null, mimeType: string | null, url: string } | null, chunks: Array<{ id: string, knowledgeBaseDocumentId: string } | null> | null } | null> | null } | null };
+
+export type KnowledgeBaseDocumentChunksQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type KnowledgeBaseDocumentChunksQuery = { knowledgeBaseDocumentChunks: Array<{ id: string, knowledgeBaseDocumentId: string, content: string | null, metadata: any } | null> | null };
 
 export type KnowledgeBaseDocumentStatusQueryVariables = Exact<{
   id: string | number;
@@ -12253,8 +12260,6 @@ export const KnowledgeBaseDocument = new TypedDocumentString(`
       chunks {
         id
         knowledgeBaseDocumentId
-        content
-        metadata
       }
     }
     createdDate
@@ -12275,6 +12280,33 @@ export const useKnowledgeBaseQuery = <
       {
     queryKey: ['knowledgeBase', variables],
     queryFn: fetcher<KnowledgeBaseQuery, KnowledgeBaseQueryVariables>(KnowledgeBaseDocument, variables),
+    ...options
+  }
+    )};
+
+export const KnowledgeBaseDocumentChunksDocument = new TypedDocumentString(`
+    query knowledgeBaseDocumentChunks($id: ID!) {
+  knowledgeBaseDocumentChunks(id: $id) {
+    id
+    knowledgeBaseDocumentId
+    content
+    metadata
+  }
+}
+    `);
+
+export const useKnowledgeBaseDocumentChunksQuery = <
+      TData = KnowledgeBaseDocumentChunksQuery,
+      TError = unknown
+    >(
+      variables: KnowledgeBaseDocumentChunksQueryVariables,
+      options?: Omit<UseQueryOptions<KnowledgeBaseDocumentChunksQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<KnowledgeBaseDocumentChunksQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<KnowledgeBaseDocumentChunksQuery, TError, TData>(
+      {
+    queryKey: ['knowledgeBaseDocumentChunks', variables],
+    queryFn: fetcher<KnowledgeBaseDocumentChunksQuery, KnowledgeBaseDocumentChunksQueryVariables>(KnowledgeBaseDocumentChunksDocument, variables),
     ...options
   }
     )};
