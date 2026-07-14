@@ -16,7 +16,6 @@
 
 package com.bytechef.platform.mcp.server;
 
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.modelcontextprotocol.json.McpJsonMapper;
 import io.modelcontextprotocol.json.TypeRef;
 import io.modelcontextprotocol.json.schema.JsonSchemaValidator;
@@ -30,6 +29,8 @@ import io.modelcontextprotocol.spec.McpSchema;
 import io.modelcontextprotocol.spec.McpSchema.CallToolResult;
 import io.modelcontextprotocol.spec.McpSchema.ErrorCodes;
 import io.modelcontextprotocol.spec.McpSchema.Tool;
+import io.modelcontextprotocol.spec.McpServerSession;
+import io.modelcontextprotocol.spec.McpServerTransportProvider;
 import io.modelcontextprotocol.spec.McpStreamableServerTransportProvider;
 import io.modelcontextprotocol.util.ToolInputValidator;
 import java.time.Duration;
@@ -38,6 +39,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Function;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -85,6 +87,12 @@ public class FilterableMcpAsyncServer {
 
     private final List<McpServerFeatures.AsyncResourceSpecification> resourceSpecifications;
 
+    private final Duration requestTimeout;
+
+    private final Map<String, McpRequestHandler<?>> requestHandlers;
+
+    private final Map<String, McpNotificationHandler> notificationHandlers;
+
     /**
      * Create a new FilterableMcpAsyncServer and install its session factory on the given transport provider.
      *
@@ -99,13 +107,12 @@ public class FilterableMcpAsyncServer {
      * @param toolFilter             The tool filter function, or null to serve no tools.
      * @param resourceSpecifications Static resources served to every session, or null to serve none.
      */
-    @SuppressFBWarnings("EI")
     FilterableMcpAsyncServer(
-        McpStreamableServerTransportProvider transportProvider, McpJsonMapper jsonMapper,
-        McpSchema.Implementation serverInfo, McpSchema.ServerCapabilities serverCapabilities, String instructions,
-        Duration requestTimeout, JsonSchemaValidator jsonSchemaValidator, boolean validateToolInputs,
+        McpJsonMapper jsonMapper, McpSchema.Implementation serverInfo,
+        McpSchema.ServerCapabilities serverCapabilities, String instructions, Duration requestTimeout,
+        JsonSchemaValidator jsonSchemaValidator, boolean validateToolInputs,
         Function<McpAsyncServerExchange, List<McpServerFeatures.AsyncToolSpecification>> toolFilter,
-        List<McpServerFeatures.AsyncResourceSpecification> resourceSpecifications) {
+        List<McpServerFeatures.AsyncResourceSpecification> resourceSpecifications, List<String> protocolVersions) {
 
         this.jsonMapper = jsonMapper;
         this.serverInfo = serverInfo;
@@ -115,18 +122,37 @@ public class FilterableMcpAsyncServer {
                 .build()
             : null;
         this.instructions = instructions;
+        this.requestTimeout = requestTimeout;
         this.jsonSchemaValidator = jsonSchemaValidator;
         this.validateToolInputs = validateToolInputs;
         this.toolFilter = toolFilter != null ? toolFilter : exchange -> List.of();
         this.resourceSpecifications = resourceSpecifications != null ? List.copyOf(resourceSpecifications) : List.of();
-        this.protocolVersions = transportProvider.protocolVersions();
+        this.protocolVersions = protocolVersions;
 
-        Map<String, McpRequestHandler<?>> requestHandlers = prepareRequestHandlers();
-        Map<String, McpNotificationHandler> notificationHandlers = prepareNotificationHandlers();
+        this.requestHandlers = prepareRequestHandlers();
+        this.notificationHandlers = prepareNotificationHandlers();
+    }
 
+    /**
+     * Installs the filtering core's session factory on a Streamable HTTP transport provider.
+     */
+    public void attachStreamable(McpStreamableServerTransportProvider transportProvider) {
         transportProvider.setSessionFactory(new DefaultMcpStreamableServerSessionFactory(requestTimeout,
             this::asyncInitializeRequestHandler, requestHandlers, notificationHandlers, sessionId -> Mono.empty(),
-            this.jsonSchemaValidator));
+            jsonSchemaValidator));
+    }
+
+    /**
+     * Installs the filtering core's session factory on an HTTP+SSE transport provider. The same core may be attached to
+     * many SSE providers (e.g. one per secret key); the request/notification handlers are stateless and resolve the
+     * caller's tools per request from the {@link McpAsyncServerExchange} transport context.
+     */
+    public void attachSse(McpServerTransportProvider transportProvider) {
+        transportProvider.setSessionFactory(sessionTransport -> new McpServerSession(
+            UUID.randomUUID()
+                .toString(),
+            requestTimeout, sessionTransport, this::asyncInitializeRequestHandler, requestHandlers,
+            notificationHandlers, Mono::empty, jsonSchemaValidator));
     }
 
     private Map<String, McpRequestHandler<?>> prepareRequestHandlers() {

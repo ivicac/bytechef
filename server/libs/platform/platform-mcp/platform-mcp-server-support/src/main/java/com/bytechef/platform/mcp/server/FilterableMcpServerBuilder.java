@@ -104,9 +104,13 @@ public class FilterableMcpServerBuilder {
     }
 
     public FilterableMcpAsyncServer build() {
-        return new FilterableMcpAsyncServer(
-            transportProvider, McpJsonDefaults.getMapper(), serverInfo, serverCapabilities, instructions,
-            requestTimeout, McpJsonDefaults.getSchemaValidator(), validateToolInputs, toolFilter,
-            resourceSpecifications);
+        FilterableMcpAsyncServer filterableMcpAsyncServer = new FilterableMcpAsyncServer(
+            McpJsonDefaults.getMapper(), serverInfo, serverCapabilities, instructions, requestTimeout,
+            McpJsonDefaults.getSchemaValidator(), validateToolInputs, toolFilter, resourceSpecifications,
+            transportProvider.protocolVersions());
+
+        filterableMcpAsyncServer.attachStreamable(transportProvider);
+
+        return filterableMcpAsyncServer;
     }
 }
