@@ -22,6 +22,13 @@ export interface ApplicationInfoI {
         knowledgeBase: {
             enabled: boolean;
         };
+        mcp: {
+            server: {
+                sse: {
+                    enabled: boolean;
+                };
+            };
+        };
     };
     analytics: {
         enabled: boolean;
@@ -96,6 +103,13 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                     knowledgeBase: {
                         enabled: false,
                     },
+                    mcp: {
+                        server: {
+                            sse: {
+                                enabled: true,
+                            },
+                        },
+                    },
                 },
                 analytics: {
                     enabled: false,
@@ -158,6 +172,13 @@ export const applicationInfoStore = createStore<ApplicationInfoI>()(
                                 },
                                 knowledgeBase: {
                                     enabled: json.ai.knowledgeBase?.enabled === 'true',
+                                },
+                                mcp: {
+                                    server: {
+                                        sse: {
+                                            enabled: json.ai.mcp?.server?.sse?.enabled !== 'false',
+                                        },
+                                    },
                                 },
                             },
                             analytics: {
