@@ -4,15 +4,14 @@ import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import McpServerConfigurationCode from '@/shared/components/mcp-server/McpServerConfigurationCode';
 import {InfoCircledIcon} from '@radix-ui/react-icons';
 
-const McpServerConfiguration = ({mcpServerUrl, onRefresh}: {mcpServerUrl: string; onRefresh: () => void}) => {
-    const codeSnippet1 = `{
+const buildMcpRemoteSnippet = (url: string) => `{
   "mcpServers": {
     "ByteChef": {
       "command": "npx",
       "args": [
         "-y",
         "mcp-remote",
-        "${mcpServerUrl}",
+        "${url}",
         "--header",
         "Authorization: Bearer YOUR_API_KEY"
       ]
@@ -20,18 +19,37 @@ const McpServerConfiguration = ({mcpServerUrl, onRefresh}: {mcpServerUrl: string
   }
 }`;
 
-    const codeSnippet2 = `{
+const buildUrlSnippet = (url: string) => `{
   "mcpServers": {
     "ByteChef": {
       "headers": {
         "Authorization": "Bearer YOUR_API_KEY"
       },
-      "url": "${mcpServerUrl}"
+      "url": "${url}"
     }
   }
 }`;
 
-    const codeSnippet3 = mcpServerUrl;
+const toSseUrl = (mcpServerUrl: string) => mcpServerUrl.replace(/\/mcp$/, '/sse');
+
+const TransportSnippets = ({
+    httpSnippet,
+    onRefresh,
+    sseSnippet,
+}: {
+    httpSnippet: string;
+    onRefresh: () => void;
+    sseSnippet: string;
+}) => (
+    <div className="space-y-3">
+        <McpServerConfigurationCode codeSnippet={httpSnippet} label="Streamable HTTP" onRefresh={onRefresh} />
+
+        <McpServerConfigurationCode codeSnippet={sseSnippet} label="SSE" onRefresh={onRefresh} />
+    </div>
+);
+
+const McpServerConfiguration = ({mcpServerUrl, onRefresh}: {mcpServerUrl: string; onRefresh: () => void}) => {
+    const sseServerUrl = toSseUrl(mcpServerUrl);
 
     return (
         <Tabs defaultValue="claude">
@@ -84,8 +102,12 @@ const McpServerConfiguration = ({mcpServerUrl, onRefresh}: {mcpServerUrl: string
                                     </AlertTitle>
                                 </Alert>
 
-                                {codeSnippet3 && (
-                                    <McpServerConfigurationCode codeSnippet={codeSnippet3} onRefresh={onRefresh} />
+                                {mcpServerUrl && (
+                                    <TransportSnippets
+                                        httpSnippet={mcpServerUrl}
+                                        onRefresh={onRefresh}
+                                        sseSnippet={sseServerUrl}
+                                    />
                                 )}
                             </div>
                         </div>
@@ -129,7 +151,11 @@ const McpServerConfiguration = ({mcpServerUrl, onRefresh}: {mcpServerUrl: string
                                     valid API key are rejected.
                                 </p>
 
-                                <McpServerConfigurationCode codeSnippet={codeSnippet1} onRefresh={onRefresh} />
+                                <TransportSnippets
+                                    httpSnippet={buildMcpRemoteSnippet(mcpServerUrl)}
+                                    onRefresh={onRefresh}
+                                    sseSnippet={buildMcpRemoteSnippet(sseServerUrl)}
+                                />
                             </div>
                         </div>
                     </div>
@@ -174,7 +200,11 @@ const McpServerConfiguration = ({mcpServerUrl, onRefresh}: {mcpServerUrl: string
                                     valid API key are rejected.
                                 </p>
 
-                                <McpServerConfigurationCode codeSnippet={codeSnippet2} onRefresh={onRefresh} />
+                                <TransportSnippets
+                                    httpSnippet={buildUrlSnippet(mcpServerUrl)}
+                                    onRefresh={onRefresh}
+                                    sseSnippet={buildUrlSnippet(sseServerUrl)}
+                                />
                             </div>
                         </div>
                     </div>
@@ -223,7 +253,11 @@ const McpServerConfiguration = ({mcpServerUrl, onRefresh}: {mcpServerUrl: string
                                     valid API key are rejected.
                                 </p>
 
-                                <McpServerConfigurationCode codeSnippet={codeSnippet2} onRefresh={onRefresh} />
+                                <TransportSnippets
+                                    httpSnippet={buildUrlSnippet(mcpServerUrl)}
+                                    onRefresh={onRefresh}
+                                    sseSnippet={buildUrlSnippet(sseServerUrl)}
+                                />
                             </div>
                         </div>
                     </div>
@@ -246,8 +280,12 @@ const McpServerConfiguration = ({mcpServerUrl, onRefresh}: {mcpServerUrl: string
                                     Authorization: Bearer header.
                                 </p>
 
-                                {codeSnippet3 && (
-                                    <McpServerConfigurationCode codeSnippet={codeSnippet3} onRefresh={onRefresh} />
+                                {mcpServerUrl && (
+                                    <TransportSnippets
+                                        httpSnippet={mcpServerUrl}
+                                        onRefresh={onRefresh}
+                                        sseSnippet={sseServerUrl}
+                                    />
                                 )}
                             </div>
                         </div>
