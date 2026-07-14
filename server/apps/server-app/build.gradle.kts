@@ -459,3 +459,32 @@ val buildComponentJars by tasks.registering {
         println("📝 Now set useComponentJars=true in gradle.properties and refresh Gradle in IntelliJ")
     }
 }
+
+// Generates the build-time component index (META-INF/bytechef/component-index.json) consumed by
+// ComponentDefinitionRegistry: the components-list view is served from this index without loading a single
+// component handler, and individual components are loaded on demand via the recorded provider class names.
+// When the index is absent (e.g. tests, apps that don't run this task), the registry falls back to full loading.
+val generateComponentIndex by tasks.registering(JavaExec::class) {
+    group = "build"
+    description = "Generate the component index consumed by ComponentDefinitionRegistry"
+
+    val outputDir = layout.buildDirectory.dir("generated/component-index")
+    val outputFile = outputDir.map { it.file("META-INF/bytechef/component-index.json") }
+
+    // Only the dependency jars — the generator class and every component come from the runtime classpath
+    // configuration; using the app's own compiled output here would create a compileJava <-> processResources cycle.
+    classpath = files(configurations.runtimeClasspath.get())
+    mainClass.set("com.bytechef.platform.component.index.ComponentIndexGenerator")
+
+    argumentProviders.add(CommandLineArgumentProvider { listOf(outputFile.get().asFile.absolutePath) })
+
+    // Only component jars influence the index content, so unrelated code changes don't re-run the sweep.
+    inputs.files(
+        configurations.runtimeClasspath.get()
+            .filter { it.path.contains("components") })
+    outputs.dir(outputDir)
+}
+
+tasks.named<ProcessResources>("processResources") {
+    from(generateComponentIndex)
+}

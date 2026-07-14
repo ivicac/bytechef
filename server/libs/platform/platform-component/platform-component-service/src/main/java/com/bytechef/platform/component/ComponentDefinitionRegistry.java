@@ -48,17 +48,27 @@ import com.bytechef.config.ApplicationProperties.Component.Registry;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.component.exception.ComponentErrorType;
 import com.bytechef.platform.component.handler.DynamicComponentHandlerRegistry;
+import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader;
 import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader.ComponentHandlerEntry;
+import com.bytechef.platform.component.handler.loader.DefaultComponentHandlerLoader;
+import com.bytechef.platform.component.index.ComponentIndex;
+import com.bytechef.platform.component.jdbc.handler.loader.JdbcComponentHandlerLoader;
+import com.bytechef.platform.component.oas.handler.loader.OpenApiComponentHandlerLoader;
 import com.bytechef.platform.util.PropertyUtils;
 import edu.umd.cs.findbugs.annotations.Nullable;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -94,18 +104,44 @@ public class ComponentDefinitionRegistry {
         .actions(ComponentDsl.action("missing")
             .title("Missing Action"));
 
+    private static final List<ComponentHandlerLoader> COMPONENT_HANDLER_LOADERS = List.of(
+        new DefaultComponentHandlerLoader(), new JdbcComponentHandlerLoader(), new OpenApiComponentHandlerLoader());
+
+    private final ApplicationProperties applicationProperties;
+    private final Supplier<List<ComponentDefinition>> allComponentDefinitionsSupplier;
     private final Supplier<Map<String, Map<Integer, ComponentDefinition>>> componentDefinitionsMapSupplier;
+    private final List<ComponentHandler> componentHandlers;
+    private final Supplier<Optional<ComponentIndex>> componentIndexSupplier;
     private final List<DynamicComponentHandlerRegistry> dynamicComponentHandlerRegistries;
+    private final Map<String, List<ComponentDefinition>> loadedComponentDefinitionsByName = new ConcurrentHashMap<>();
+    private final Supplier<List<ComponentDefinition>> stubComponentDefinitionsSupplier;
 
     public ComponentDefinitionRegistry(
         ApplicationProperties applicationProperties, List<ComponentHandler> componentHandlers,
         Supplier<List<ComponentHandlerEntry>> componentHandlerEntriesSupplier,
         List<DynamicComponentHandlerRegistry> dynamicComponentHandlerRegistries) {
 
+        this(
+            applicationProperties, componentHandlers, componentHandlerEntriesSupplier,
+            dynamicComponentHandlerRegistries,
+            MemoizationUtils.memoize(() -> ComponentIndex.load(ComponentDefinitionRegistry.class.getClassLoader())));
+    }
+
+    ComponentDefinitionRegistry(
+        ApplicationProperties applicationProperties, List<ComponentHandler> componentHandlers,
+        Supplier<List<ComponentHandlerEntry>> componentHandlerEntriesSupplier,
+        List<DynamicComponentHandlerRegistry> dynamicComponentHandlerRegistries,
+        Supplier<Optional<ComponentIndex>> componentIndexSupplier) {
+
+        this.applicationProperties = applicationProperties;
+        this.componentHandlers = componentHandlers;
+        this.allComponentDefinitionsSupplier = MemoizationUtils.memoize(this::loadAllComponentDefinitions);
         this.componentDefinitionsMapSupplier = MemoizationUtils.memoize(
             () -> loadComponentDefinitionsMap(
                 applicationProperties, componentHandlers, componentHandlerEntriesSupplier));
+        this.componentIndexSupplier = componentIndexSupplier;
         this.dynamicComponentHandlerRegistries = dynamicComponentHandlerRegistries;
+        this.stubComponentDefinitionsSupplier = MemoizationUtils.memoize(this::loadStubComponentDefinitions);
     }
 
     /**
@@ -159,6 +195,175 @@ public class ComponentDefinitionRegistry {
         return componentDefinitionsMap;
     }
 
+    private List<String> getExcludedComponentNames() {
+        ApplicationProperties.Component component = applicationProperties.getComponent();
+
+        Registry registry = component.getRegistry();
+
+        List<String> exclude = registry.getExclude();
+
+        return exclude == null ? List.of() : exclude;
+    }
+
+    private boolean isExcluded(String componentName) {
+        return CollectionUtils.contains(getExcludedComponentNames(), componentName);
+    }
+
+    /**
+     * Resolves all definitions (all versions) of a single component by name, loading ONLY that component: constants
+     * (manual/missing), Spring-declared handler beans, and — via the build-time index — just the matching
+     * {@code ServiceLoader} providers, leaving every other component untouched. Loaded definitions are validated once
+     * and cached. Callers must only use this when the component index is present.
+     */
+    private List<ComponentDefinition> getComponentDefinitionsFromIndex(String name, ComponentIndex componentIndex) {
+        if (isExcluded(name)) {
+            return List.of();
+        }
+
+        if (name.equalsIgnoreCase(MANUAL_COMPONENT_DEFINITION.getName())) {
+            return List.of(MANUAL_COMPONENT_DEFINITION);
+        }
+
+        if (name.equalsIgnoreCase(MISSING_COMPONENT_DEFINITION.getName())) {
+            return List.of(MISSING_COMPONENT_DEFINITION);
+        }
+
+        return loadedComponentDefinitionsByName.computeIfAbsent(
+            StringUtils.upperCase(name), key -> loadComponentDefinitionsByName(name, componentIndex));
+    }
+
+    private List<ComponentDefinition> loadComponentDefinitionsByName(String name, ComponentIndex componentIndex) {
+        List<ComponentDefinition> componentDefinitions = new ArrayList<>();
+
+        for (ComponentHandler componentHandler : componentHandlers) {
+            ComponentDefinition componentDefinition = componentHandler.getDefinition();
+
+            if (name.equalsIgnoreCase(componentDefinition.getName())) {
+                componentDefinitions.add(componentDefinition);
+            }
+        }
+
+        for (ComponentIndex.Entry entry : componentIndex.entries()) {
+            if (!name.equalsIgnoreCase(entry.name())) {
+                continue;
+            }
+
+            ComponentHandlerLoader componentHandlerLoader = getComponentHandlerLoader(entry.loaderKind());
+
+            ComponentDefinition componentDefinition = componentHandlerLoader
+                .loadComponentHandler(entry.providerClassName())
+                .map(componentHandlerEntry -> componentHandlerEntry.componentHandler()
+                    .getDefinition())
+                .orElse(null);
+
+            if (componentDefinition == null) {
+                log.warn(
+                    "Component index entry '{}' v{} points to provider '{}' which is not present on the classpath",
+                    entry.name(), entry.version(), entry.providerClassName());
+
+                continue;
+            }
+
+            validate(List.of(componentDefinition));
+
+            componentDefinitions.add(componentDefinition);
+        }
+
+        componentDefinitions.sort(Comparator.comparing(ComponentDefinition::getVersion));
+
+        if (log.isDebugEnabled() && !componentDefinitions.isEmpty()) {
+            log.debug("Loaded component '{}' on demand ({} version(s))", name, componentDefinitions.size());
+        }
+
+        return componentDefinitions;
+    }
+
+    private static ComponentHandlerLoader getComponentHandlerLoader(String loaderKind) {
+        return COMPONENT_HANDLER_LOADERS.stream()
+            .filter(componentHandlerLoader -> Objects.equals(componentHandlerLoader.getKind(), loaderKind))
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException("Unknown component loader kind: " + loaderKind));
+    }
+
+    /**
+     * Full definitions of every component, resolved through the index with per-component caching. Only used when the
+     * index is present; consumers that deep-read definitions (connections list, cluster elements, unified API) get
+     * complete, executable definitions — never stubs.
+     */
+    private List<ComponentDefinition> loadAllComponentDefinitions() {
+        ComponentIndex componentIndex = getRequiredComponentIndex();
+
+        List<ComponentDefinition> componentDefinitions = new ArrayList<>();
+
+        Set<String> names = new LinkedHashSet<>();
+
+        for (ComponentHandler componentHandler : componentHandlers) {
+            ComponentDefinition componentDefinition = componentHandler.getDefinition();
+
+            names.add(componentDefinition.getName());
+        }
+
+        for (ComponentIndex.Entry entry : componentIndex.entries()) {
+            names.add(entry.name());
+        }
+
+        for (String name : names) {
+            componentDefinitions.addAll(getComponentDefinitionsFromIndex(name, componentIndex));
+        }
+
+        if (!isExcluded(MANUAL_COMPONENT_DEFINITION.getName())) {
+            componentDefinitions.add(MANUAL_COMPONENT_DEFINITION);
+        }
+
+        if (!isExcluded(MISSING_COMPONENT_DEFINITION.getName())) {
+            componentDefinitions.add(MISSING_COMPONENT_DEFINITION);
+        }
+
+        return componentDefinitions;
+    }
+
+    /**
+     * List-view definitions: lightweight stubs built from the build-time index (plus the real definitions of
+     * Spring-declared handlers, which exist as beans anyway, and the synthetic manual/missing components). Served ONLY
+     * by {@link #getStaticComponentDefinitions()} for the components-list view; no properties, no executable functions.
+     */
+    private List<ComponentDefinition> loadStubComponentDefinitions() {
+        ComponentIndex componentIndex = getRequiredComponentIndex();
+
+        List<ComponentDefinition> componentDefinitions = new ArrayList<>();
+
+        for (ComponentHandler componentHandler : componentHandlers) {
+            componentDefinitions.add(componentHandler.getDefinition());
+        }
+
+        for (ComponentIndex.Entry entry : componentIndex.entries()) {
+            componentDefinitions.add(ComponentIndex.toStubComponentDefinition(entry));
+        }
+
+        componentDefinitions.add(MANUAL_COMPONENT_DEFINITION);
+        componentDefinitions.add(MISSING_COMPONENT_DEFINITION);
+
+        List<String> excludedComponentNames = getExcludedComponentNames();
+
+        if (!excludedComponentNames.isEmpty()) {
+            componentDefinitions = componentDefinitions.stream()
+                .filter(componentDefinition -> !CollectionUtils.contains(
+                    excludedComponentNames, componentDefinition.getName()))
+                .toList();
+        }
+
+        return CollectionUtils.sort(componentDefinitions, this::compare);
+    }
+
+    private ComponentIndex getRequiredComponentIndex() {
+        return componentIndexSupplier.get()
+            .orElseThrow(() -> new IllegalStateException("Component index is not present"));
+    }
+
+    private Optional<ComponentIndex> fetchComponentIndex() {
+        return componentIndexSupplier.get();
+    }
+
     public Optional<Authorization> fetchAuthorization(
         String componentName, int connectionVersion, AuthorizationType authorizationType) {
 
@@ -181,11 +386,21 @@ public class ComponentDefinitionRegistry {
                 componentDefinition = filteredComponentDefinitions.getLast();
             }
         } else {
-            Map<Integer, ComponentDefinition> componentDefinitionMap = componentDefinitionsMapSupplier.get()
-                .get(StringUtils.upperCase(name));
+            Optional<ComponentIndex> componentIndexOptional = fetchComponentIndex();
 
-            if (componentDefinitionMap != null) {
-                componentDefinition = componentDefinitionMap.get(version);
+            if (componentIndexOptional.isPresent()) {
+                componentDefinition = getComponentDefinitionsFromIndex(name, componentIndexOptional.get())
+                    .stream()
+                    .filter(curComponentDefinition -> curComponentDefinition.getVersion() == version)
+                    .findFirst()
+                    .orElse(null);
+            } else {
+                Map<Integer, ComponentDefinition> componentDefinitionMap = componentDefinitionsMapSupplier.get()
+                    .get(StringUtils.upperCase(name));
+
+                if (componentDefinitionMap != null) {
+                    componentDefinition = componentDefinitionMap.get(version);
+                }
             }
 
             if (componentDefinition == null) {
@@ -215,13 +430,21 @@ public class ComponentDefinitionRegistry {
     }
 
     public List<ComponentDefinition> getComponentDefinitions() {
+        List<ComponentDefinition> staticComponentDefinitions;
+
+        if (fetchComponentIndex().isPresent()) {
+            staticComponentDefinitions = allComponentDefinitionsSupplier.get();
+        } else {
+            staticComponentDefinitions = componentDefinitionsMapSupplier.get()
+                .values()
+                .stream()
+                .flatMap(map -> CollectionUtils.stream(map.values()))
+                .toList();
+        }
+
         return CollectionUtils.sort(
             CollectionUtils.concat(
-                componentDefinitionsMapSupplier.get()
-                    .values()
-                    .stream()
-                    .flatMap(map -> CollectionUtils.stream(map.values()))
-                    .toList(),
+                staticComponentDefinitions,
                 dynamicComponentHandlerRegistries.stream()
                     .flatMap(dynamicComponentHandlerRegistry -> CollectionUtils.stream(
                         dynamicComponentHandlerRegistry.getComponentHandlers()))
@@ -339,15 +562,21 @@ public class ComponentDefinitionRegistry {
     }
 
     public List<ComponentDefinition> getComponentDefinitions(String name) {
-        Map<Integer, ComponentDefinition> integerComponentDefinitionMap = componentDefinitionsMapSupplier.get()
-            .get(StringUtils.upperCase(name));
-
         List<ComponentDefinition> filteredComponentDefinitions = List.of();
 
-        if (integerComponentDefinitionMap != null) {
-            filteredComponentDefinitions = integerComponentDefinitionMap.values()
-                .stream()
-                .toList();
+        Optional<ComponentIndex> componentIndexOptional = fetchComponentIndex();
+
+        if (componentIndexOptional.isPresent()) {
+            filteredComponentDefinitions = getComponentDefinitionsFromIndex(name, componentIndexOptional.get());
+        } else {
+            Map<Integer, ComponentDefinition> integerComponentDefinitionMap = componentDefinitionsMapSupplier.get()
+                .get(StringUtils.upperCase(name));
+
+            if (integerComponentDefinitionMap != null) {
+                filteredComponentDefinitions = integerComponentDefinitionMap.values()
+                    .stream()
+                    .toList();
+            }
         }
 
         if (filteredComponentDefinitions.isEmpty()) {
@@ -402,7 +631,17 @@ public class ComponentDefinitionRegistry {
             .toList();
     }
 
+    /**
+     * Definitions backing the components-list view. When the build-time component index is present, this returns
+     * lightweight stubs carrying only the list-view metadata (identity, texts, icon, categories, counts) — no property
+     * trees and no executable functions — without loading a single component handler. Detail and execution paths never
+     * see these stubs: they resolve full definitions per component on demand.
+     */
     public List<ComponentDefinition> getStaticComponentDefinitions() {
+        if (fetchComponentIndex().isPresent()) {
+            return stubComponentDefinitionsSupplier.get();
+        }
+
         return CollectionUtils.sort(
             componentDefinitionsMapSupplier.get()
                 .values()
