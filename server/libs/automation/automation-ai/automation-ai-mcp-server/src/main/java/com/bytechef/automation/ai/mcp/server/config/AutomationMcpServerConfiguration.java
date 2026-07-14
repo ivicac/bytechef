@@ -57,7 +57,6 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.function.RouterFunction;
-import org.springframework.web.servlet.function.RouterFunctions;
 import org.springframework.web.servlet.function.ServerResponse;
 
 /**
@@ -117,16 +116,8 @@ public class AutomationMcpServerConfiguration {
     RouterFunction<ServerResponse> automationMcpSseRouterFunction(
         McpSseProviderRegistry automationMcpSseProviderRegistry) {
 
-        return RouterFunctions.route()
-            .GET(
-                "/api/automation/{secretKey}/sse",
-                serverRequest -> automationMcpSseProviderRegistry.route(
-                    serverRequest, serverRequest.pathVariable(SECRET_KEY)))
-            .POST(
-                "/api/automation/{secretKey}/message",
-                serverRequest -> automationMcpSseProviderRegistry.route(
-                    serverRequest, serverRequest.pathVariable(SECRET_KEY)))
-            .build();
+        return automationMcpSseProviderRegistry.toRouterFunction(
+            "/api/automation/{secretKey}/sse", "/api/automation/{secretKey}/message");
     }
 
     @Bean

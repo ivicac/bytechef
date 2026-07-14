@@ -29,7 +29,9 @@ import com.bytechef.platform.user.service.UserService;
  */
 public class AutomationMcpServerSecurityConfigurer extends McpApiKeyHttpConfigurer {
 
-    private static final String PATH_PATTERN = "^/api/automation/.+/(mcp|sse|message)";
+    // RegexRequestMatcher matches servletPath + "?" + queryString with Matcher#matches(), so the trailing (\?.*)?
+    // is required for the SSE message endpoint, which the client calls as /message?sessionId=...
+    private static final String PATH_PATTERN = "^/api/automation/.+/(mcp|sse|message)(\\?.*)?";
 
     public AutomationMcpServerSecurityConfigurer(
         ApiKeyService apiKeyService, AuthorityService authorityService, McpServerService mcpServerService,

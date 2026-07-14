@@ -34,6 +34,7 @@ import com.bytechef.tenant.domain.TenantKey;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import io.modelcontextprotocol.client.McpClient;
 import io.modelcontextprotocol.client.McpSyncClient;
+import io.modelcontextprotocol.client.transport.HttpClientSseClientTransport;
 import io.modelcontextprotocol.client.transport.HttpClientStreamableHttpTransport;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.net.URI;
@@ -134,6 +135,26 @@ class AutomationMcpServerSecurityIntTest {
     }
 
     @Test
+    void testInitializeAndListToolsOverSseWithValidApiKey() {
+        String secretKey = seedApiKey(PlatformType.AUTOMATION, ENVIRONMENT);
+
+        mockMcpServer(ENVIRONMENT);
+
+        try (McpSyncClient mcpSyncClient = createSseMcpSyncClient(MCP_SERVER_SECRET_KEY, secretKey)) {
+            McpSchema.InitializeResult initializeResult = mcpSyncClient.initialize();
+
+            assertThat(initializeResult).isNotNull();
+            assertThat(initializeResult.serverInfo()
+                .name()).isEqualTo("automation-mcp-server");
+
+            McpSchema.ListToolsResult listToolsResult = mcpSyncClient.listTools();
+
+            assertThat(listToolsResult).isNotNull();
+            assertThat(listToolsResult.tools()).isEmpty();
+        }
+    }
+
+    @Test
     void testInitializeWithoutBearerTokenReturnsUnauthorizedWithEmptyBody() throws Exception {
         seedApiKey(PlatformType.AUTOMATION, ENVIRONMENT);
 
@@ -210,6 +231,21 @@ class AutomationMcpServerSecurityIntTest {
 
                 if (environmentHeader != null) {
                     httpRequestBuilder.header("X-ENVIRONMENT", environmentHeader);
+                }
+            })
+            .build();
+
+        return McpClient.sync(transport)
+            .requestTimeout(Duration.ofSeconds(30))
+            .build();
+    }
+
+    private McpSyncClient createSseMcpSyncClient(String pathSecret, String bearerSecret) {
+        HttpClientSseClientTransport transport = HttpClientSseClientTransport.builder("http://localhost:" + port)
+            .sseEndpoint("/api/automation/" + pathSecret + "/sse")
+            .httpRequestCustomizer((httpRequestBuilder, method, uri, body, transportContext) -> {
+                if (bearerSecret != null) {
+                    httpRequestBuilder.header("Authorization", "Bearer " + bearerSecret);
                 }
             })
             .build();

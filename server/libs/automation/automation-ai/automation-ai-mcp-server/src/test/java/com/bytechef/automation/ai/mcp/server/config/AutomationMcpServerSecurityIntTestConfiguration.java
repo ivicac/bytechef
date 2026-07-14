@@ -20,7 +20,9 @@ import static org.mockito.Mockito.mock;
 
 import com.bytechef.automation.ai.mcp.server.security.web.configurer.AutomationMcpServerSecurityConfigurer;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
+import com.bytechef.platform.mcp.server.FilterableMcpAsyncServer;
 import com.bytechef.platform.mcp.server.FilterableMcpServerBuilder;
+import com.bytechef.platform.mcp.server.McpSseProviderRegistry;
 import com.bytechef.platform.mcp.service.McpServerService;
 import com.bytechef.platform.security.service.ApiKeyService;
 import com.bytechef.platform.user.service.AuthorityService;
@@ -30,6 +32,7 @@ import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.util.List;
 import java.util.Map;
+import org.springframework.ai.mcp.server.webmvc.transport.WebMvcSseServerTransportProvider;
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcStreamableServerTransportProvider;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.context.annotation.Bean;
@@ -97,7 +100,7 @@ public class AutomationMcpServerSecurityIntTestConfiguration {
     }
 
     @Bean
-    Object automationMcpAsyncServer(WebMvcStreamableServerTransportProvider transportProvider) {
+    FilterableMcpAsyncServer automationMcpAsyncServer(WebMvcStreamableServerTransportProvider transportProvider) {
         return new FilterableMcpServerBuilder(transportProvider)
             .serverInfo("automation-mcp-server", "1.0.0")
             .capabilities(
@@ -106,6 +109,29 @@ public class AutomationMcpServerSecurityIntTestConfiguration {
                     .build())
             .toolFilter(exchange -> List.of())
             .build();
+    }
+
+    @Bean
+    McpSseProviderRegistry automationMcpSseProviderRegistry(FilterableMcpAsyncServer automationMcpAsyncServer) {
+        return new McpSseProviderRegistry(secretKey -> {
+            WebMvcSseServerTransportProvider transportProvider = WebMvcSseServerTransportProvider.builder()
+                .sseEndpoint("/api/automation/" + secretKey + "/sse")
+                .messageEndpoint("/api/automation/" + secretKey + "/message")
+                .contextExtractor(serverRequest -> McpTransportContext.create(Map.of(SECRET_KEY, secretKey)))
+                .build();
+
+            automationMcpAsyncServer.attachSse(transportProvider);
+
+            return transportProvider;
+        });
+    }
+
+    @Bean
+    RouterFunction<ServerResponse> automationMcpSseRouterFunction(
+        McpSseProviderRegistry automationMcpSseProviderRegistry) {
+
+        return automationMcpSseProviderRegistry.toRouterFunction(
+            "/api/automation/{secretKey}/sse", "/api/automation/{secretKey}/message");
     }
 
     @Bean
