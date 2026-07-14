@@ -27,11 +27,13 @@ import com.bytechef.platform.ai.tool.ComponentTools;
 import com.bytechef.platform.ai.tool.TaskDispatcherTools;
 import com.bytechef.platform.ai.tool.TaskTools;
 import com.bytechef.platform.mcp.server.McpAppWorkflowEditor;
+import com.bytechef.platform.mcp.server.McpSseProviderRegistry;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.modelcontextprotocol.server.McpAsyncServer;
 import io.modelcontextprotocol.server.McpServer;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -39,6 +41,7 @@ import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.mcp.McpToolUtils;
+import org.springframework.ai.mcp.server.webmvc.transport.WebMvcSseServerTransportProvider;
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcStreamableServerTransportProvider;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
@@ -127,6 +130,47 @@ public class ManagementMcpServerConfiguration {
                 McpToolUtils.toAsyncToolSpecifications(toolCallbackProvider().getToolCallbacks())))
             .resources(McpAppWorkflowEditor.getResourceSpecifications(applicationProperties.getPublicUrl()))
             .build();
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+        prefix = "bytechef.ai.mcp.server.sse", name = "enabled", havingValue = "true", matchIfMissing = true)
+    McpSseProviderRegistry mcpSseProviderRegistry(ApplicationProperties applicationProperties) {
+        List<McpServerFeatures.AsyncToolSpecification> toolSpecifications = attachWorkflowEditorUi(
+            McpToolUtils.toAsyncToolSpecifications(toolCallbackProvider().getToolCallbacks()));
+        List<McpServerFeatures.AsyncResourceSpecification> resourceSpecifications =
+            McpAppWorkflowEditor.getResourceSpecifications(applicationProperties.getPublicUrl());
+
+        return new McpSseProviderRegistry(secretKey -> {
+            WebMvcSseServerTransportProvider transportProvider = WebMvcSseServerTransportProvider.builder()
+                .sseEndpoint("/api/management/" + secretKey + "/sse")
+                .messageEndpoint("/api/management/" + secretKey + "/message")
+                .keepAliveInterval(Duration.ofSeconds(30))
+                .build();
+
+            McpServer.async(transportProvider)
+                .serverInfo("mcp-server", "1.0.0")
+                .capabilities(
+                    McpSchema.ServerCapabilities.builder()
+                        .resources(false, true)
+                        .tools(true)
+                        .prompts(true)
+                        .logging()
+                        .build())
+                .tools(toolSpecifications)
+                .resources(resourceSpecifications)
+                .build();
+
+            return transportProvider;
+        });
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+        prefix = "bytechef.ai.mcp.server.sse", name = "enabled", havingValue = "true", matchIfMissing = true)
+    RouterFunction<ServerResponse> mcpSseRouterFunction(McpSseProviderRegistry mcpSseProviderRegistry) {
+        return mcpSseProviderRegistry.toRouterFunction(
+            "/api/management/{secretKey}/sse", "/api/management/{secretKey}/message");
     }
 
     /**
