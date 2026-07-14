@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.component.slack.SlackComponentHandler;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader.ComponentHandlerEntry;
 import com.bytechef.platform.component.index.ComponentIndex;
 import com.bytechef.platform.component.index.ComponentIndexGenerator;
 import java.net.URL;
@@ -29,6 +30,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -45,14 +48,26 @@ public class ComponentDefinitionRegistryIndexTest {
     Path tempDir;
 
     private static ComponentDefinitionRegistry createRegistry(ComponentIndex componentIndex) {
+        return createRegistry(componentIndex, List.of(), List::of);
+    }
+
+    private static ComponentDefinitionRegistry createRegistry(
+        ComponentIndex componentIndex, List<String> excludeComponentNames,
+        Supplier<List<ComponentHandlerEntry>> componentHandlerEntriesSupplier) {
+
         ApplicationProperties applicationProperties = new ApplicationProperties();
         ApplicationProperties.Component component = new ApplicationProperties.Component();
 
-        component.setRegistry(new ApplicationProperties.Component.Registry());
+        ApplicationProperties.Component.Registry registry = new ApplicationProperties.Component.Registry();
+
+        registry.setExclude(excludeComponentNames);
+
+        component.setRegistry(registry);
         applicationProperties.setComponent(component);
 
         return new ComponentDefinitionRegistry(
-            applicationProperties, List.of(), List::of, List.of(), () -> Optional.of(componentIndex));
+            applicationProperties, List.of(), componentHandlerEntriesSupplier, List.of(),
+            () -> Optional.of(componentIndex));
     }
 
     private static ComponentIndex createSlackIndex() {
@@ -135,6 +150,173 @@ public class ComponentDefinitionRegistryIndexTest {
         ComponentDefinitionRegistry componentDefinitionRegistry = createRegistry(createSlackIndex());
 
         assertThat(componentDefinitionRegistry.getComponentDefinitions("nonexistent")).isEmpty();
+    }
+
+    @Test
+    public void testGetComponentDefinitionsReturnsFullDefinitionsNotStubs() {
+        ComponentDefinitionRegistry componentDefinitionRegistry = createRegistry(createSlackIndex());
+
+        List<ComponentDefinition> componentDefinitions = componentDefinitionRegistry.getComponentDefinitions();
+
+        assertThat(componentDefinitions)
+            .extracting(ComponentDefinition::getName)
+            .contains("slack", "manual", "missing");
+
+        ComponentDefinition slackComponentDefinition = componentDefinitions.stream()
+            .filter(componentDefinition -> "slack".equals(componentDefinition.getName()))
+            .findFirst()
+            .orElseThrow();
+
+        // The deep-read list loads the real component on demand — actions carry full property trees, unlike the
+        // stub list served by getStaticComponentDefinitions().
+        assertThat(slackComponentDefinition.getActions()
+            .orElseThrow()
+            .stream()
+            .anyMatch(actionDefinition -> !actionDefinition.getProperties()
+                .orElse(List.of())
+                .isEmpty()))
+                    .isTrue();
+    }
+
+    @Test
+    public void testFetchComponentDefinitionByVersionFromIndex() {
+        ComponentDefinitionRegistry componentDefinitionRegistry = createRegistry(createSlackIndex());
+
+        assertThat(componentDefinitionRegistry.fetchComponentDefinition("slack", 1)).isPresent();
+        assertThat(componentDefinitionRegistry.fetchComponentDefinition("slack", 99)).isEmpty();
+        assertThat(componentDefinitionRegistry.fetchComponentDefinition("slack", null)
+            .orElseThrow()
+            .getVersion()).isEqualTo(1);
+    }
+
+    @Test
+    public void testHasComponentDefinitionFromIndex() {
+        ComponentDefinitionRegistry componentDefinitionRegistry = createRegistry(createSlackIndex());
+
+        assertThat(componentDefinitionRegistry.hasComponentDefinition("slack", 1)).isTrue();
+        assertThat(componentDefinitionRegistry.hasComponentDefinition("slack", null)).isTrue();
+        assertThat(componentDefinitionRegistry.hasComponentDefinition("nonexistent", null)).isFalse();
+    }
+
+    @Test
+    public void testExcludedComponentIsHiddenFromIndexPaths() {
+        ComponentDefinitionRegistry componentDefinitionRegistry = createRegistry(
+            createSlackIndex(), List.of("slack"), List::of);
+
+        assertThat(componentDefinitionRegistry.getStaticComponentDefinitions())
+            .extracting(ComponentDefinition::getName)
+            .doesNotContain("slack");
+
+        assertThat(componentDefinitionRegistry.getComponentDefinitions("slack")).isEmpty();
+    }
+
+    @Test
+    public void testIndexEntryWithMissingProviderClassIsSkipped() {
+        ComponentIndex componentIndex = new ComponentIndex(
+            List.of(
+                new ComponentIndex.Entry(
+                    "ghost", 1, "Ghost", null, null, null, null, null, null, null, null, null,
+                    "com.bytechef.component.ghost.DoesNotExistComponentHandler", "default")));
+
+        ComponentDefinitionRegistry componentDefinitionRegistry = createRegistry(componentIndex);
+
+        // The stub list still shows the indexed component...
+        assertThat(componentDefinitionRegistry.getStaticComponentDefinitions())
+            .extracting(ComponentDefinition::getName)
+            .contains("ghost");
+
+        // ...but resolving it degrades to empty instead of throwing, since the provider is not on the classpath.
+        assertThat(componentDefinitionRegistry.getComponentDefinitions("ghost")).isEmpty();
+    }
+
+    @Test
+    public void testIndexPathsNeverInvokeBulkEntriesSupplier() {
+        AtomicInteger bulkLoadCount = new AtomicInteger();
+
+        Supplier<List<ComponentHandlerEntry>> countingSupplier = () -> {
+            bulkLoadCount.incrementAndGet();
+
+            return List.of();
+        };
+
+        ComponentDefinitionRegistry componentDefinitionRegistry = createRegistry(
+            createSlackIndex(), List.of(), countingSupplier);
+
+        // Construction, the stub list, per-component loads and the deep-read list are all served by the index —
+        // the bulk ServiceLoader sweep must never run.
+        componentDefinitionRegistry.getStaticComponentDefinitions();
+        componentDefinitionRegistry.getComponentDefinition("slack", 1);
+        componentDefinitionRegistry.getComponentDefinitions();
+
+        assertThat(bulkLoadCount.get()).isZero();
+    }
+
+    @Test
+    public void testGetActionDefinitionThroughIndexPath() {
+        ComponentDefinitionRegistry componentDefinitionRegistry = createRegistry(createSlackIndex());
+
+        ComponentDefinition slackComponentDefinition = componentDefinitionRegistry.getComponentDefinition("slack", 1);
+
+        String actionName = slackComponentDefinition.getActions()
+            .orElseThrow()
+            .getFirst()
+            .getName();
+
+        assertThat(componentDefinitionRegistry.getActionDefinition("slack", 1, actionName)
+            .getName()).isEqualTo(actionName);
+    }
+
+    @Test
+    public void testStubCarriesListViewMetadataFromSyntheticEntry() {
+        // Stub building never loads the provider, so a synthetic entry with a bogus provider class is safe here.
+        ComponentIndex componentIndex = new ComponentIndex(
+            List.of(
+                new ComponentIndex.Entry(
+                    "fake", 3, "Fake", "A fake component.", "path:assets/fake.svg",
+                    List.of(new ComponentIndex.CategorySummary("communication", "Communication")),
+                    List.of("tag1"),
+                    new ComponentIndex.ConnectionSummary(2, false),
+                    List.of(new ComponentIndex.ItemSummary("doIt", "Do It", "Does it.")),
+                    List.of(new ComponentIndex.TriggerSummary("onEvent", "On Event", null, "STATIC_WEBHOOK")),
+                    List.of(
+                        new ComponentIndex.ClusterElementSummary(
+                            "myTool", "My Tool", null, "TOOLS", "tools", "Tools", true, false)),
+                    List.of("channel"), "does.not.Matter", "default")));
+
+        ComponentDefinitionRegistry componentDefinitionRegistry = createRegistry(componentIndex);
+
+        ComponentDefinition stub = componentDefinitionRegistry.getStaticComponentDefinitions()
+            .stream()
+            .filter(componentDefinition -> "fake".equals(componentDefinition.getName()))
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(stub.getVersion()).isEqualTo(3);
+        assertThat(stub.getTitle()).contains("Fake");
+        assertThat(stub.getIcon()).contains("path:assets/fake.svg");
+        assertThat(stub.getComponentCategories()
+            .orElseThrow()
+            .getFirst()
+            .name()).isEqualTo("communication");
+        assertThat(stub.getConnection()
+            .orElseThrow()
+            .getVersion()).isEqualTo(2);
+        assertThat(stub.getConnection()
+            .orElseThrow()
+            .getAuthorizationRequired()).contains(false);
+        assertThat(stub.getActions()
+            .orElseThrow()).hasSize(1);
+        assertThat(stub.getTriggers()
+            .orElseThrow()
+            .getFirst()
+            .getType()).isEqualTo(com.bytechef.component.definition.TriggerDefinition.TriggerType.STATIC_WEBHOOK);
+        assertThat(stub.getClusterElements()
+            .orElseThrow()
+            .getFirst()
+            .getType()
+            .key()).isEqualTo("tools");
+        assertThat(stub.getInputs()
+            .orElseThrow()).hasSize(1);
     }
 
     @Test
