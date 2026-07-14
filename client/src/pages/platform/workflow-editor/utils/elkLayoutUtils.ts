@@ -127,18 +127,28 @@ function getMemberCrossBounds(
 
     const memberHalfWidth = Math.max(renderedCross, footprintCross) / 2;
 
-    const hasSideLabel =
-        crossAxis === 'x' &&
-        memberNode.type !== 'placeholder' &&
-        memberNode.type !== 'triggerPlaceholder' &&
-        memberNode.type !== 'taskDispatcherTopGhostNode' &&
-        memberNode.type !== 'taskDispatcherBottomGhostNode';
+    const hasSideLabel = crossAxis === 'x' && hasSideLabelForCollision(memberNode);
 
     const labelSideHalfWidth = hasSideLabel
         ? Math.max(memberHalfWidth, renderedCross / 2 + NODE_LABEL_CROSS_OVERHANG)
         : memberHalfWidth;
 
     return {crossEnd: memberCrossCenter + labelSideHalfWidth, crossStart: memberCrossCenter - memberHalfWidth};
+}
+
+/**
+ * Whether a node renders the title/description block beside its icon — the
+ * block extends along the label direction (right of the icon in both TB and
+ * LR) and must be reserved in collision boxes.
+ */
+function hasSideLabelForCollision(memberNode: Node): boolean {
+    return (
+        memberNode.type !== 'placeholder' &&
+        memberNode.type !== 'triggerPlaceholder' &&
+        memberNode.type !== 'taskDispatcherTopGhostNode' &&
+        memberNode.type !== 'taskDispatcherBottomGhostNode' &&
+        memberNode.type !== 'taskDispatcherLeftGhostNode'
+    );
 }
 
 // The loop-back rail tick rendered by TaskDispatcherLeftGhostNode: a 2×16px
@@ -1646,6 +1656,11 @@ export const getElkLayoutElements = async ({
 
                     const {crossEnd, crossStart} = getMemberCrossBounds(memberNode, direction, crossAxis);
 
+                    // In LR the title block extends along the MAIN axis, but
+                    // ELK already spaces LR layers by footprint widths that
+                    // include the label — extending the band here as well
+                    // doubled the LR cross spread for no measurable gain
+                    // (audits show zero label overlaps at rendered-size bands)
                     memberBoxes.push({
                         crossEnd,
                         crossStart,
