@@ -378,9 +378,9 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
     }
 
     /**
-     * Runs a single job in-process through {@link JobSyncExecutor} and blocks until it completes. The job row is created
-     * without coordinator dispatch via {@code createJobWithoutDispatch}; {@code JobSyncExecutor} then drives it to
-     * completion over an in-memory message broker. The {@code WebhookResponse} is captured through the per-task
+     * Runs a single job in-process through {@link JobSyncExecutor} and blocks until it completes. The job row is
+     * created without coordinator dispatch via {@code createJobWithoutDispatch}; {@code JobSyncExecutor} then drives it
+     * to completion over an in-memory message broker. The {@code WebhookResponse} is captured through the per-task
      * task-execution-complete callback rather than read back from the persisted task output. Used only by the API
      * Platform request path.
      */

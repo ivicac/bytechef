@@ -78,11 +78,11 @@ public interface WebhookWorkflowExecutor {
 
     /**
      * Executes a webhook workflow synchronously in-process through the embedded {@code JobSyncExecutor} and returns an
-     * already-completed future with the workflow outputs. Unlike {@link #executeSync(WorkflowExecutionId,
-     * WebhookRequest)}, the job does not run on the distributed coordinator: it runs to completion on the calling thread
-     * via an in-memory message broker, and the {@code WebhookResponse} is collected through a per-task
-     * task-execution-complete callback rather than read back from the persisted task output. Reserved for the API
-     * Platform request path, which requires the SyncJob execution semantics.
+     * already-completed future with the workflow outputs. Unlike
+     * {@link #executeSync(WorkflowExecutionId, WebhookRequest)}, the job does not run on the distributed coordinator:
+     * it runs to completion on the calling thread via an in-memory message broker, and the {@code WebhookResponse} is
+     * collected through a per-task task-execution-complete callback rather than read back from the persisted task
+     * output. Reserved for the API Platform request path, which requires the SyncJob execution semantics.
      *
      * @param workflowExecutionId the unique identifier of the workflow execution, including details such as tenant,
      *                            type, and trigger

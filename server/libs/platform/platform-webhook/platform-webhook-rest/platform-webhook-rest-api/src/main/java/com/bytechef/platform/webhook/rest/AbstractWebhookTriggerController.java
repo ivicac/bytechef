@@ -149,8 +149,8 @@ public abstract class AbstractWebhookTriggerController {
     /**
      * Whether the synchronous execution branch should run the workflow in-process through the embedded SyncJob executor
      * ({@link WebhookWorkflowExecutor#executeSyncJob}) instead of the distributed coordinator path
-     * ({@link WebhookWorkflowExecutor#executeSync}). Defaults to {@code false}; the API Platform handler overrides it to
-     * {@code true}.
+     * ({@link WebhookWorkflowExecutor#executeSync}). Defaults to {@code false}; the API Platform handler overrides it
+     * to {@code true}.
      */
     protected boolean useSyncJobExecution() {
         return false;
