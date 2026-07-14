@@ -1160,7 +1160,8 @@ describe('getElkLayoutElements with loops', () => {
         });
 
         // LR ring span differs from TB (no label pull, wider placeholder
-        // footprint) — the square derives from the direction's own span
+        // footprint) — the square derives from the direction's own span. The
+        // content side flips in LR: the "+" rides the TOP edge, rail below.
         const topGhostBarX = positionOf(result.nodes, 'loop_1-loop-top-ghost').x;
         const bottomGhostBarX = positionOf(result.nodes, 'loop_1-loop-bottom-ghost').x;
         const ringHalfWidth = (bottomGhostBarX - topGhostBarX + 2) / 2;
@@ -1168,11 +1169,11 @@ describe('getElkLayoutElements with loops', () => {
         const loopCenter = positionOf(result.nodes, 'loop_1').y + 36;
         const placeholderCenter = positionOf(result.nodes, 'loop_1-loop-placeholder-0').y + 14;
 
-        expect(placeholderCenter - loopCenter).toBe(ringHalfWidth);
+        expect(loopCenter - placeholderCenter).toBe(ringHalfWidth);
 
         const railCenter = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').y + 1;
 
-        expect(loopCenter - railCenter).toBe(ringHalfWidth);
+        expect(railCenter - loopCenter).toBe(ringHalfWidth);
     });
 
     it('keeps a loop on its branch side inside a condition and offsets its body', async () => {
@@ -2711,15 +2712,15 @@ describe('getElkLayoutElements ring hug in LR', () => {
             nodes,
         });
 
-        // In LR the cross axis is Y and the placeholder DOM is 28 tall: the
-        // rail NODE must sit 106px (36 anchor half + 70 content padding) off
-        // the placeholder-center box line, so its 2px line center is 1px in
-        const placeholderCenterY = positionOf(result.nodes, 'condition_2-condition-left-placeholder-0').y + 14;
+        // The ring content flips to the TOP edge in LR, so the rail mirrors
+        // to the BOTTOM: it hugs the bottom-most content center at 106px
+        // (36 anchor half + 70 content padding), its 2px line centered 1px in
+        const falseChildCenterY = positionOf(result.nodes, 'falseChild').y + 36;
         const railLineY = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').y + 1;
         const loopCenterY = positionOf(result.nodes, 'loop_1').y + 36;
 
-        expect(railLineY).toBe(Math.min(loopCenterY - 100, placeholderCenterY - 105));
-        expect(placeholderCenterY - railLineY).toBeGreaterThanOrEqual(105);
+        expect(railLineY).toBe(Math.max(loopCenterY + 100, falseChildCenterY + 105));
+        expect(railLineY - falseChildCenterY).toBeGreaterThanOrEqual(105);
     });
 });
 
@@ -2917,5 +2918,88 @@ describe('ring corridor rhythm', () => {
         // The sibling can never sit closer than the ring-bound minimum; in
         // this fixture its own entry-band label pitch governs (further out)
         expect(leftGap).toBeGreaterThanOrEqual(95);
+    });
+});
+
+describe('LR ring content side', () => {
+    it('puts a populated ring body on the TOP edge in LR, rail on the bottom', async () => {
+        const nodes: Node[] = [
+            loopNode('loop_1'),
+            ...loopAuxNodes('loop_1'),
+            loopChildTaskNode('loopChild1', 'loop_1'),
+        ];
+
+        const edges: Edge[] = [
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'loopChild1'),
+            edge('loopChild1', 'loop_1-loop-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({
+            canvasHeight: 900,
+            canvasWidth: 1400,
+            direction: 'LR',
+            edges,
+            nodes,
+        });
+
+        const loopCenterY = positionOf(result.nodes, 'loop_1').y + 36;
+        const childCenterY = positionOf(result.nodes, 'loopChild1').y + 36;
+        const railLineY = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').y + 1;
+
+        // Content column rides the ring's TOP side, mirrored by the rail below
+        expect(childCenterY).toBe(loopCenterY - 100);
+        expect(railLineY).toBe(loopCenterY + 100);
+    });
+
+    it('puts an empty ring "+" placeholder on the TOP edge in LR', async () => {
+        const nodes: Node[] = [loopNode('loop_1'), ...loopAuxNodes('loop_1'), loopPlaceholderNode('loop_1')];
+
+        const edges: Edge[] = [
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'loop_1-loop-placeholder-0'),
+            edge('loop_1-loop-placeholder-0', 'loop_1-loop-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({
+            canvasHeight: 900,
+            canvasWidth: 1400,
+            direction: 'LR',
+            edges,
+            nodes,
+        });
+
+        const loopCenterY = positionOf(result.nodes, 'loop_1').y + 36;
+        const placeholderCenterY = positionOf(result.nodes, 'loop_1-loop-placeholder-0').y + 14;
+        const railLineY = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').y + 1;
+
+        // The "+" sits on the ring's TOP edge, the rail mirrors it below —
+        // the ring renders square around the dispatcher spine
+        expect(placeholderCenterY).toBeLessThan(loopCenterY);
+        expect(railLineY).toBeGreaterThan(loopCenterY);
+        expect(Math.abs(loopCenterY - placeholderCenterY - (railLineY - loopCenterY))).toBeLessThanOrEqual(2);
+    });
+
+    it('keeps the TB ring body on the RIGHT side unchanged', async () => {
+        const nodes: Node[] = [
+            loopNode('loop_1'),
+            ...loopAuxNodes('loop_1'),
+            loopChildTaskNode('loopChild1', 'loop_1'),
+        ];
+
+        const edges: Edge[] = [
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'loopChild1'),
+            edge('loopChild1', 'loop_1-loop-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        const loopCenterX = positionOf(result.nodes, 'loop_1').x + 36;
+        const childCenterX = positionOf(result.nodes, 'loopChild1').x + 36;
+        const railLineX = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x + 1;
+
+        expect(childCenterX).toBe(loopCenterX + 100);
+        expect(railLineX).toBe(loopCenterX - 100);
     });
 });

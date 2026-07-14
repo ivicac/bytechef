@@ -169,6 +169,19 @@ const RAIL_NESTED_RING_INDENT = 50;
 // the dispatcher reads centered in its ring.
 const RING_CONTENT_OFFSET = 100;
 
+// Which side of the dispatcher spine the ring CONTENT rides on the cross
+// axis. In TB the content column is on the ring's right (+cross). Mapping
+// that sign verbatim to LR put children and the "+" placeholder on the ring's
+// BOTTOM edge — they read better hanging off the TOP edge, so the side flips
+// (and the loop-back rail mirrors to the bottom) for the iteration rings.
+// Parallel and fork-join keep the TB sign: their bars' side handles double as
+// branch attachments, so flipping them would cross the branch fan.
+const LR_TOP_EDGE_RING_COMPONENTS = new Set(['loop', 'each', 'map']);
+
+function getRingContentSign(direction: LayoutDirectionType, dispatcherComponentName: string): 1 | -1 {
+    return direction === 'LR' && LR_TOP_EDGE_RING_COMPONENTS.has(dispatcherComponentName) ? -1 : 1;
+}
+
 // An EMPTY loop renders as a SQUARE ring: the "+" placeholder sits on the
 // right edge and the rail mirrors it on the left, each half the ring's own
 // bar-to-bar span off the axis. Derived per direction at fixup time (TB and LR
@@ -871,8 +884,11 @@ export const getElkLayoutElements = async ({
                         }
 
                         // Populated ring dispatchers place the content column
-                        // ON the ring's right side instead of on the spine
-                        const ringOffset = offsetRingDispatcherIds.has(dispatcherId) ? RING_CONTENT_OFFSET : 0;
+                        // ON the ring's content side instead of on the spine
+                        // (right in TB, top in LR)
+                        const ringOffset = offsetRingDispatcherIds.has(dispatcherId)
+                            ? getRingContentSign(direction, dispatcherId.split('_')[0]) * RING_CONTENT_OFFSET
+                            : 0;
 
                         if (direction === 'TB') {
                             absoluteX += dispatcherCenter + ringOffset - absoluteX - frameAnchor;
@@ -1220,13 +1236,15 @@ export const getElkLayoutElements = async ({
                     [mainAxis]: frameMainCenter - auxMainSize / 2,
                 };
 
-                // An empty ring's "+" placeholder sits ON the ring's right edge,
-                // half the ring's own span off the axis — the ring renders square
+                // An empty ring's "+" placeholder sits ON the ring's content
+                // edge (right in TB, top in LR), half the ring's own span off
+                // the axis — the ring renders square
                 if (candidateNode.type === 'placeholder' && dispatcherHasRail) {
                     const auxCrossSize = crossAxis === 'x' ? auxRenderedSize.width : auxRenderedSize.height;
                     const ringHalfWidth = getEmptyRingHalfWidth(topGhostNode, bottomGhostNode, mainAxis);
+                    const ringSign = getRingContentSign(direction, (node.data as NodeDataType).componentName);
 
-                    auxPosition[crossAxis] = dispatcherCrossCenter + ringHalfWidth - auxCrossSize / 2;
+                    auxPosition[crossAxis] = dispatcherCrossCenter + ringSign * ringHalfWidth - auxCrossSize / 2;
                 }
 
                 candidateNode.position = auxPosition;
@@ -1432,8 +1450,16 @@ export const getElkLayoutElements = async ({
 
                 const descendantIds = descendantIdsByRailId.get(railNode.id) || new Set<string>();
 
-                let leftmostContentCross = Infinity;
-                let leftmostChildRailCross = Infinity;
+                // The rail sits on the side OPPOSITE the ring content (left in
+                // TB, bottom in LR for iteration rings), so it tracks the
+                // content extreme on its own side: min of the cross centers
+                // for +1 signs, max for the LR-flipped rings.
+                const ringContentSign = getRingContentSign(direction, dispatcherKind || '');
+                const pickFarther = (first: number, second: number) =>
+                    ringContentSign === 1 ? Math.min(first, second) : Math.max(first, second);
+
+                let farthestContentCross = ringContentSign === 1 ? Infinity : -Infinity;
+                let farthestChildRailCross = ringContentSign === 1 ? Infinity : -Infinity;
 
                 allNodes.forEach((candidateNode) => {
                     if (!descendantIds.has(candidateNode.id)) {
@@ -1441,7 +1467,7 @@ export const getElkLayoutElements = async ({
                     }
 
                     if (candidateNode.type === 'taskDispatcherLeftGhostNode') {
-                        leftmostChildRailCross = Math.min(leftmostChildRailCross, candidateNode.position[crossAxis]);
+                        farthestChildRailCross = pickFarther(farthestChildRailCross, candidateNode.position[crossAxis]);
                     } else if (
                         candidateNode.type !== 'taskDispatcherTopGhostNode' &&
                         candidateNode.type !== 'taskDispatcherBottomGhostNode'
@@ -1455,8 +1481,8 @@ export const getElkLayoutElements = async ({
                         const renderedSize = getRenderedNodeSize(candidateNode, direction);
                         const renderedCross = crossAxis === 'x' ? renderedSize.width : renderedSize.height;
 
-                        leftmostContentCross = Math.min(
-                            leftmostContentCross,
+                        farthestContentCross = pickFarther(
+                            farthestContentCross,
                             candidateNode.position[crossAxis] + renderedCross / 2
                         );
                     }
@@ -1467,22 +1493,15 @@ export const getElkLayoutElements = async ({
 
                 const dispatcherCenter = topBarNode.position[crossAxis] + NODE_ANCHOR_SIZE / 2;
 
+                const hasFarthestContent = Number.isFinite(farthestContentCross);
+                const hasChildRail = Number.isFinite(farthestChildRailCross);
+
                 // A populated ring mirrors its content column (which forms the
-                // ring's RIGHT side) so the dispatcher reads centered; other rails
-                // align with the bar's left end for a straight edge with clean
-                // corners. Body content reaching further left pushes the rail out
+                // ring's content side) so the dispatcher reads centered; other
+                // rails align with the bar's end for a straight edge with clean
+                // corners. Body content reaching further out pushes the rail out
                 // by its hug padding, nested rings by their indent, and an empty
                 // ring mirrors its "+" placeholder so the ring renders square.
-                const barAlignedCross = offsetRingDispatcherIds.has(railDispatcherId)
-                    ? dispatcherCenter - RING_CONTENT_OFFSET - railCrossSize / 2
-                    : topBarNode.position[crossAxis];
-                const contentRequired =
-                    leftmostContentCross === Infinity
-                        ? Infinity
-                        : leftmostContentCross - NODE_ANCHOR_SIZE / 2 - RAIL_CONTENT_PADDING;
-                const nestingRequired =
-                    leftmostChildRailCross === Infinity ? Infinity : leftmostChildRailCross - RAIL_NESTED_RING_INDENT;
-
                 const hasOwnPlaceholder = allNodes.some(
                     (candidateNode) =>
                         candidateNode.type === 'placeholder' &&
@@ -1496,16 +1515,48 @@ export const getElkLayoutElements = async ({
                         `${railDispatcherId}-${getGhostIdSegment(dispatcherKind || '')}-bottom-ghost`
                 );
 
-                const emptyRingMirror =
-                    hasOwnPlaceholder && bottomBarNode
-                        ? dispatcherCenter -
-                          getEmptyRingHalfWidth(topBarNode, bottomBarNode, railMainAxis) -
-                          railCrossSize / 2
+                let railCross: number;
+
+                if (ringContentSign === 1) {
+                    const barAlignedCross = offsetRingDispatcherIds.has(railDispatcherId)
+                        ? dispatcherCenter - RING_CONTENT_OFFSET - railCrossSize / 2
+                        : topBarNode.position[crossAxis];
+                    const contentRequired = hasFarthestContent
+                        ? farthestContentCross - NODE_ANCHOR_SIZE / 2 - RAIL_CONTENT_PADDING
                         : Infinity;
+                    const nestingRequired = hasChildRail ? farthestChildRailCross - RAIL_NESTED_RING_INDENT : Infinity;
+                    const emptyRingMirror =
+                        hasOwnPlaceholder && bottomBarNode
+                            ? dispatcherCenter -
+                              getEmptyRingHalfWidth(topBarNode, bottomBarNode, railMainAxis) -
+                              railCrossSize / 2
+                            : Infinity;
+
+                    railCross = Math.min(barAlignedCross, contentRequired, nestingRequired, emptyRingMirror);
+                } else {
+                    const topBarRenderedSize = getRenderedNodeSize(topBarNode, direction);
+                    const topBarCross = crossAxis === 'x' ? topBarRenderedSize.width : topBarRenderedSize.height;
+
+                    const barAlignedCross = offsetRingDispatcherIds.has(railDispatcherId)
+                        ? dispatcherCenter + RING_CONTENT_OFFSET - railCrossSize / 2
+                        : topBarNode.position[crossAxis] + topBarCross - railCrossSize;
+                    const contentRequired = hasFarthestContent
+                        ? farthestContentCross + NODE_ANCHOR_SIZE / 2 + RAIL_CONTENT_PADDING - railCrossSize
+                        : -Infinity;
+                    const nestingRequired = hasChildRail ? farthestChildRailCross + RAIL_NESTED_RING_INDENT : -Infinity;
+                    const emptyRingMirror =
+                        hasOwnPlaceholder && bottomBarNode
+                            ? dispatcherCenter +
+                              getEmptyRingHalfWidth(topBarNode, bottomBarNode, railMainAxis) -
+                              railCrossSize / 2
+                            : -Infinity;
+
+                    railCross = Math.max(barAlignedCross, contentRequired, nestingRequired, emptyRingMirror);
+                }
 
                 railNode.position = {
                     ...railNode.position,
-                    [crossAxis]: Math.min(barAlignedCross, contentRequired, nestingRequired, emptyRingMirror),
+                    [crossAxis]: railCross,
                 };
             });
 
