@@ -147,11 +147,13 @@ public class ToolSearchCatalogFeeder {
     }
 
     /**
-     * Re-populates the workspace-wide tool catalog. Skips the embedding-and-write loop entirely when the catalog's
-     * content hash matches the hash recorded by the previous successful populate — saving 90 seconds and several
-     * hundred embedding API calls on every cold start where the catalog is unchanged. Idempotent: every call either
-     * short-circuits on hash match, or clears the session's in-memory tool-id tracking and re-issues an
-     * {@code indexTool} per cluster element marked tool-eligible by its component author.
+     * Re-populates the global tool catalog — the platform-wide set of tool-eligible cluster elements, shared across all
+     * tenants under the single {@link #CATALOG_SESSION_ID} partition (not per-workspace or per-tenant). Skips the
+     * embedding-and-write loop entirely when the catalog's content hash matches the hash recorded by the previous
+     * successful populate — saving 90 seconds and several hundred embedding API calls on every cold start where the
+     * catalog is unchanged. Idempotent: every call either short-circuits on hash match, or clears the session's
+     * in-memory tool-id tracking and re-issues an {@code indexTool} per cluster element marked tool-eligible by its
+     * component author.
      */
     @SuppressFBWarnings("UNSAFE_HASH_EQUALS")
     public void populate() {

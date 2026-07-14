@@ -130,38 +130,31 @@ public class ToolSearchAdvisorConfiguration {
     }
 
     @Bean
+    @Nullable
     ToolSearchCatalogFeeder toolSearchCatalogFeeder(
-        ClusterElementDefinitionService clusterElementDefinitionService, VectorToolIndex toolSearchVectorToolIndex,
-        // The pgvector datasource — same JdbcTemplate the vector store uses, so the meta table lives in the same
-        // schema and benefits from the same connection pool. Co-locating "all tool-search state" in one schema keeps
-        // backups + cleanup straightforward.
+        ClusterElementDefinitionService clusterElementDefinitionService,
         @Qualifier("pgVectorJdbcTemplate") JdbcTemplate pgVectorJdbcTemplate,
         @Qualifier("copilotEmbeddingModel") ObjectProvider<EmbeddingModel> copilotEmbeddingModelProvider,
         PgVectorStoreProperties properties, ObjectProvider<ObservationRegistry> observationRegistry,
         ObjectProvider<VectorStoreObservationConvention> customObservationConvention,
         BatchingStrategy batchingStrategy) {
 
-        // Loading (indexing the global catalog, the per-mode global static tools, and per-task subsets) embeds with the
-        // fixed-key copilotEmbeddingModel so boot-time indexing never depends on a per-environment embedding provider
-        // being activated — the same split copilot docs use. The search advisors keep reading through the
-        // @Primary/per-environment CatalogEmbeddingModel over the same ai_hub_tool_search_* table; both must resolve to
-        // the same underlying embedding model for the vectors to be comparable. When copilotEmbeddingModel is absent
-        // (Copilot disabled, no bytechef.ai.copilot.embedding.* key, or a standalone AI Hub app without the Copilot
-        // module), fall back to the reader index so behavior is unchanged.
         EmbeddingModel copilotEmbeddingModel = copilotEmbeddingModelProvider.getIfAvailable();
 
-        VectorToolIndex loaderVectorToolIndex = toolSearchVectorToolIndex;
+        if (copilotEmbeddingModel == null) {
+            log.info(
+                "Tool search catalog indexing disabled: no fixed-key copilot embedding model. Set "
+                    + "bytechef.ai.copilot.embedding.provider + .api-key to enable it.");
 
-        if (copilotEmbeddingModel != null) {
-            VectorStore loaderVectorStore = AiHubPgVectorConfiguration.buildToolSearchVectorStore(
-                pgVectorJdbcTemplate, copilotEmbeddingModel, properties, observationRegistry,
-                customObservationConvention, batchingStrategy);
-
-            loaderVectorToolIndex = new VectorToolIndex(loaderVectorStore);
+            return null;
         }
 
+        VectorStore loaderVectorStore = AiHubPgVectorConfiguration.buildToolSearchVectorStore(
+            pgVectorJdbcTemplate, copilotEmbeddingModel, properties, observationRegistry, customObservationConvention,
+            batchingStrategy);
+
         return new ToolSearchCatalogFeeder(
-            clusterElementDefinitionService, loaderVectorToolIndex, pgVectorJdbcTemplate);
+            clusterElementDefinitionService, new VectorToolIndex(loaderVectorStore), pgVectorJdbcTemplate);
     }
 
     /**
@@ -368,7 +361,12 @@ public class ToolSearchAdvisorConfiguration {
     @EventListener(ApplicationReadyEvent.class)
     public void populateCatalogOnAppReady(ApplicationReadyEvent event) {
         ToolSearchCatalogFeeder feeder = event.getApplicationContext()
-            .getBean(ToolSearchCatalogFeeder.class);
+            .getBeanProvider(ToolSearchCatalogFeeder.class)
+            .getIfAvailable();
+
+        if (feeder == null) {
+            return;
+        }
 
         feeder.populate();
 
