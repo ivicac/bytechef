@@ -39,7 +39,9 @@ import org.springframework.security.web.context.SecurityContextHolderFilter;
  */
 public class EmbeddedMcpServerSecurityConfigurer extends AbstractApiKeyHttpConfigurer {
 
-    private static final String PATH_PATTERN = "^/api/embedded/.+/mcp";
+    // RegexRequestMatcher matches servletPath + "?" + queryString with Matcher#matches(), so the trailing (\?.*)?
+    // is required for the SSE message endpoint, which the client calls as /message?sessionId=...
+    private static final String PATH_PATTERN = "^/api/embedded/.+/(mcp|sse|message)(\\?.*)?";
 
     private final EmbeddedMcpServerOAuth2AuthenticationConverter embeddedMcpServerOAuth2AuthenticationConverter;
     private final EmbeddedMcpServerOAuth2AuthenticationProvider embeddedMcpServerOAuth2AuthenticationProvider;

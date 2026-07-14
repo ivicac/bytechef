@@ -49,7 +49,7 @@ import org.springframework.security.web.util.UrlUtils;
  */
 public class EmbeddedMcpServerOAuth2AuthenticationConverter extends AbstractApiKeyAuthenticationConverter {
 
-    private static final Pattern PATH_PATTERN = Pattern.compile("^/api/embedded/(.+)/mcp");
+    private static final Pattern PATH_PATTERN = Pattern.compile("^/api/embedded/(.+)/(mcp|sse|message)");
 
     private final EmbeddedMcpTrustedIssuerResolver embeddedMcpTrustedIssuerResolver;
     private final McpJwtDecoderFactory mcpJwtDecoderFactory;
