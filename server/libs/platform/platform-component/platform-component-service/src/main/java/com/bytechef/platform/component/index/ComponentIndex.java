@@ -20,12 +20,13 @@ import static com.bytechef.component.definition.ComponentDsl.action;
 import static com.bytechef.component.definition.ComponentDsl.clusterElement;
 import static com.bytechef.component.definition.ComponentDsl.component;
 import static com.bytechef.component.definition.ComponentDsl.connection;
-import static com.bytechef.component.definition.ComponentDsl.propertyGroup;
 import static com.bytechef.component.definition.ComponentDsl.trigger;
 
+import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType;
 import com.bytechef.component.definition.ComponentCategory;
 import com.bytechef.component.definition.ComponentDefinition;
+import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
 import com.bytechef.component.definition.ComponentDsl.ModifiableClusterElementDefinition;
 import com.bytechef.component.definition.ComponentDsl.ModifiableComponentDefinition;
@@ -183,7 +184,7 @@ public record ComponentIndex(List<Entry> entries) {
                 entry.clusterElements()
                     .stream()
                     .map(ComponentIndex::toStubClusterElementDefinition)
-                    .toArray(com.bytechef.component.definition.ClusterElementDefinition<?>[]::new));
+                    .toArray(ClusterElementDefinition<?>[]::new));
         }
 
         if (entry.inputs() != null && !entry.inputs()
@@ -192,7 +193,7 @@ public record ComponentIndex(List<Entry> entries) {
             componentDefinition.inputs(
                 entry.inputs()
                     .stream()
-                    .map(inputName -> propertyGroup(inputName))
+                    .map(ComponentDsl::propertyGroup)
                     .toArray(ModifiablePropertyGroup[]::new));
         }
 

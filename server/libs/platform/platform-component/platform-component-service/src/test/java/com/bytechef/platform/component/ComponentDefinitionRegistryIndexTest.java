@@ -320,6 +320,33 @@ public class ComponentDefinitionRegistryIndexTest {
     }
 
     @Test
+    public void testGetStaticComponentDefinitionsFallsBackToFullLoadingOnBrokenStub() {
+        // An unknown trigger-type name makes stub building throw; the list must degrade to full definitions
+        // instead of propagating the failure to the components-list view.
+        ComponentIndex brokenComponentIndex = new ComponentIndex(
+            List.of(
+                new ComponentIndex.Entry(
+                    "slack", 1, "Slack", null, null, null, null, null, null,
+                    List.of(new ComponentIndex.TriggerSummary("newMessage", null, null, "NOT_A_REAL_TRIGGER_TYPE")),
+                    null, null, SlackComponentHandler.class.getName(), "default")));
+
+        ComponentDefinitionRegistry componentDefinitionRegistry = createRegistry(brokenComponentIndex);
+
+        List<ComponentDefinition> componentDefinitions = componentDefinitionRegistry.getStaticComponentDefinitions();
+
+        ComponentDefinition slackComponentDefinition = componentDefinitions.stream()
+            .filter(componentDefinition -> "slack".equals(componentDefinition.getName()))
+            .findFirst()
+            .orElseThrow();
+
+        // The fallback serves the real, fully loaded definition — actions carry property trees, unlike stubs.
+        assertThat(slackComponentDefinition.getActions()
+            .orElse(List.of()))
+                .anySatisfy(actionDefinition -> assertThat(actionDefinition.getProperties()
+                    .orElse(List.of())).isNotEmpty());
+    }
+
+    @Test
     public void testGeneratorRoundTrip() throws Exception {
         Path indexPath = tempDir.resolve("META-INF/bytechef/component-index.json");
 

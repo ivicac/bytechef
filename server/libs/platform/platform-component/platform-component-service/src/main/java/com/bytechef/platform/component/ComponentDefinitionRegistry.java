@@ -50,6 +50,7 @@ import com.bytechef.platform.component.exception.ComponentErrorType;
 import com.bytechef.platform.component.handler.DynamicComponentHandlerRegistry;
 import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader;
 import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader.ComponentHandlerEntry;
+import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader.ProviderEntry;
 import com.bytechef.platform.component.handler.loader.DefaultComponentHandlerLoader;
 import com.bytechef.platform.component.index.ComponentIndex;
 import com.bytechef.platform.component.jdbc.handler.loader.JdbcComponentHandlerLoader;
@@ -69,6 +70,7 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import java.util.function.Supplier;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -216,6 +218,15 @@ public class ComponentDefinitionRegistry {
      * and cached. Callers must only use this when the component index is present.
      */
     private List<ComponentDefinition> getComponentDefinitionsFromIndex(String name, ComponentIndex componentIndex) {
+        return getComponentDefinitionsFromIndex(
+            name, componentIndex,
+            entry -> getComponentHandlerLoader(entry.loaderKind()).loadComponentHandler(entry.providerClassName()));
+    }
+
+    private List<ComponentDefinition> getComponentDefinitionsFromIndex(
+        String name, ComponentIndex componentIndex,
+        Function<ComponentIndex.Entry, Optional<ComponentHandlerEntry>> componentHandlerEntryResolver) {
+
         if (isExcluded(name)) {
             return List.of();
         }
@@ -229,16 +240,22 @@ public class ComponentDefinitionRegistry {
         }
 
         return loadedComponentDefinitionsByName.computeIfAbsent(
-            StringUtils.upperCase(name), key -> loadComponentDefinitionsByName(name, componentIndex));
+            StringUtils.upperCase(name),
+            key -> loadComponentDefinitionsByName(name, componentIndex, componentHandlerEntryResolver));
     }
 
-    private List<ComponentDefinition> loadComponentDefinitionsByName(String name, ComponentIndex componentIndex) {
+    private List<ComponentDefinition> loadComponentDefinitionsByName(
+        String name, ComponentIndex componentIndex,
+        Function<ComponentIndex.Entry, Optional<ComponentHandlerEntry>> componentHandlerEntryResolver) {
+
         List<ComponentDefinition> componentDefinitions = new ArrayList<>();
 
         for (ComponentHandler componentHandler : componentHandlers) {
             ComponentDefinition componentDefinition = componentHandler.getDefinition();
 
             if (name.equalsIgnoreCase(componentDefinition.getName())) {
+                validate(List.of(componentDefinition));
+
                 componentDefinitions.add(componentDefinition);
             }
         }
@@ -248,10 +265,7 @@ public class ComponentDefinitionRegistry {
                 continue;
             }
 
-            ComponentHandlerLoader componentHandlerLoader = getComponentHandlerLoader(entry.loaderKind());
-
-            ComponentDefinition componentDefinition = componentHandlerLoader
-                .loadComponentHandler(entry.providerClassName())
+            ComponentDefinition componentDefinition = componentHandlerEntryResolver.apply(entry)
                 .map(componentHandlerEntry -> componentHandlerEntry.componentHandler()
                     .getDefinition())
                 .orElse(null);
@@ -293,6 +307,31 @@ public class ComponentDefinitionRegistry {
     private List<ComponentDefinition> loadAllComponentDefinitions() {
         ComponentIndex componentIndex = getRequiredComponentIndex();
 
+        // Resolving the full catalog through per-component loadComponentHandler calls would re-scan every
+        // ServiceLoader provider-config file once per component (~O(N^2) scans), so prefetch all handlers with a
+        // single sweep per loader kind and resolve index entries from that map instead.
+        Set<String> loaderKinds = new LinkedHashSet<>();
+
+        for (ComponentIndex.Entry entry : componentIndex.entries()) {
+            loaderKinds.add(entry.loaderKind());
+        }
+
+        Map<String, ComponentHandlerEntry> componentHandlerEntriesByProviderClassName = new HashMap<>();
+
+        for (ComponentHandlerLoader componentHandlerLoader : COMPONENT_HANDLER_LOADERS) {
+            if (!loaderKinds.contains(componentHandlerLoader.getKind())) {
+                continue;
+            }
+
+            for (ProviderEntry providerEntry : componentHandlerLoader.loadProviderEntries()) {
+                componentHandlerEntriesByProviderClassName.put(
+                    providerEntry.providerClassName(), providerEntry.componentHandlerEntry());
+            }
+        }
+
+        Function<ComponentIndex.Entry, Optional<ComponentHandlerEntry>> componentHandlerEntryResolver =
+            entry -> Optional.ofNullable(componentHandlerEntriesByProviderClassName.get(entry.providerClassName()));
+
         List<ComponentDefinition> componentDefinitions = new ArrayList<>();
 
         Set<String> names = new LinkedHashSet<>();
@@ -308,7 +347,8 @@ public class ComponentDefinitionRegistry {
         }
 
         for (String name : names) {
-            componentDefinitions.addAll(getComponentDefinitionsFromIndex(name, componentIndex));
+            componentDefinitions.addAll(
+                getComponentDefinitionsFromIndex(name, componentIndex, componentHandlerEntryResolver));
         }
 
         if (!isExcluded(MANUAL_COMPONENT_DEFINITION.getName())) {
@@ -337,7 +377,18 @@ public class ComponentDefinitionRegistry {
         }
 
         for (ComponentIndex.Entry entry : componentIndex.entries()) {
-            componentDefinitions.add(ComponentIndex.toStubComponentDefinition(entry));
+            try {
+                componentDefinitions.add(ComponentIndex.toStubComponentDefinition(entry));
+            } catch (RuntimeException exception) {
+                // A stale or hand-edited index (e.g. an enum name that no longer exists) must not break the
+                // components list — degrade to serving full definitions, the same shape the no-index fallback uses.
+                log.warn(
+                    "Failed to build the list-view stub for component '{}' v{} from the index; falling back to full "
+                        + "component loading for the components list",
+                    entry.name(), entry.version(), exception);
+
+                return CollectionUtils.sort(allComponentDefinitionsSupplier.get(), this::compare);
+            }
         }
 
         componentDefinitions.add(MANUAL_COMPONENT_DEFINITION);

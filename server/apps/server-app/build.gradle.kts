@@ -478,10 +478,12 @@ val generateComponentIndex by tasks.registering(JavaExec::class) {
 
     argumentProviders.add(CommandLineArgumentProvider { listOf(outputFile.get().asFile.absolutePath) })
 
-    // Only component jars influence the index content, so unrelated code changes don't re-run the sweep.
+    // Component jars influence the index content; platform-component-service carries the generator and the
+    // index format itself, so changes to either must re-run the sweep (a stale-format index would silently
+    // disable lazy loading until a clean build).
     inputs.files(
         configurations.runtimeClasspath.get()
-            .filter { it.path.contains("components") })
+            .filter { it.path.contains("components") || it.path.contains("platform-component-service") })
     outputs.dir(outputDir)
 }
 
