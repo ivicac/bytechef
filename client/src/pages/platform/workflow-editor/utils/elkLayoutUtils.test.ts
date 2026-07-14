@@ -1666,7 +1666,9 @@ describe('getElkLayoutElements with branches', () => {
         const truePlaceholderX = positionOf(result.nodes, 'condition_5-condition-left-placeholder-0').x;
         const railX = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x;
 
-        expect(railX).toBe(Math.min(loopOneCenter - 100 - 1, truePlaceholderX - 20));
+        // Content hug = 36px anchor half + 44px RAIL_CONTENT_PADDING off the
+        // placeholder center (its x + 36), i.e. its origin x - 44
+        expect(railX).toBe(Math.min(loopOneCenter - 100 - 1, truePlaceholderX - 44));
     });
 
     it('staircases nested ring content columns to the right', async () => {
@@ -2678,7 +2680,7 @@ describe('getElkLayoutElements ring hug in LR', () => {
     it('keeps the rail the same visual distance from a nested box line in LR as in TB', async () => {
         // The nested condition's visible box line runs through its placeholder
         // CENTERS; placeholder DOMs are 72x28, so an edge-based hug that reads
-        // 56px in TB collapses to 34px in LR — the hug must be center-based
+        // 80px in TB collapses to 58px in LR — the hug must be center-based
         const nodes: Node[] = [
             loopNode('loop_1'),
             ...loopAuxNodes('loop_1'),
@@ -2710,13 +2712,14 @@ describe('getElkLayoutElements ring hug in LR', () => {
         });
 
         // In LR the cross axis is Y and the placeholder DOM is 28 tall: the
-        // rail line must sit 56px off the placeholder-center box line
+        // rail NODE must sit 80px (36 anchor half + 44 content padding) off
+        // the placeholder-center box line, so its 2px line center is 1px in
         const placeholderCenterY = positionOf(result.nodes, 'condition_2-condition-left-placeholder-0').y + 14;
         const railLineY = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').y + 1;
         const loopCenterY = positionOf(result.nodes, 'loop_1').y + 36;
 
-        expect(railLineY).toBe(Math.min(loopCenterY - 100, placeholderCenterY - 56));
-        expect(placeholderCenterY - railLineY).toBeGreaterThanOrEqual(56);
+        expect(railLineY).toBe(Math.min(loopCenterY - 100, placeholderCenterY - 79));
+        expect(placeholderCenterY - railLineY).toBeGreaterThanOrEqual(79);
     });
 });
 

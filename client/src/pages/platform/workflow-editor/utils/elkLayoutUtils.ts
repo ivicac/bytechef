@@ -150,8 +150,11 @@ const LEFT_GHOST_ID_SUFFIX = '-taskDispatcher-left-ghost';
 
 // Rail ring geometry: the rail aligns with the bar's LEFT END (straight left
 // edge, clean corners), moving further left only when body content or nested
-// rings require it.
-const RAIL_CONTENT_PADDING = 20;
+// rings require it. The content padding sets the air between the ring line
+// and a deep case's trailing edge (which runs on the content's center axis):
+// hug distance from center = 36px anchor half + this padding. At 20 the two
+// parallel lines sat only 56px apart over spans of thousands of pixels.
+const RAIL_CONTENT_PADDING = 44;
 const RAIL_NESTED_RING_INDENT = 50;
 
 // A POPULATED ring dispatcher's body column sits ON the ring's right side
@@ -1444,7 +1447,7 @@ export const getElkLayoutElements = async ({
                         // rail further out. Hug distances are CENTER-based: a nested
                         // frame's visible box line runs through its placeholders'
                         // CENTERS, and placeholder DOMs are 72×28 — an edge-based hug
-                        // that reads 56px in TB collapses to 34px in LR.
+                        // that reads 80px in TB collapses to 58px in LR.
                         const renderedSize = getRenderedNodeSize(candidateNode, direction);
                         const renderedCross = crossAxis === 'x' ? renderedSize.width : renderedSize.height;
 
