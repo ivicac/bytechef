@@ -2845,3 +2845,77 @@ describe('no-crossing lanes', () => {
         expect(outerFalseCenter - 120 > rectangleEnd || outerFalseCenter + 236 < rectangleStart).toBe(true);
     });
 });
+
+describe('ring corridor rhythm', () => {
+    it('centers the ring line between a sibling trailing edge and the loop content trailing edge', async () => {
+        // Three long parallel verticals: the sibling case's trailing edge, the
+        // loop ring, and the loop's leftmost content trailing edge. The ring
+        // must read as the MIDDLE line of a near-even rhythm — its content hug
+        // (36 + RAIL_CONTENT_PADDING = 106) against the 96px a neighbour packs
+        // off the ring line (45px spine + 50px gap + the hairline).
+        const conditionInLoop: Node = {
+            data: {
+                componentName: 'condition',
+                loopData: {index: 0, loopId: 'loop_1'},
+                taskDispatcher: true,
+                taskDispatcherId: 'condition_2',
+                workflowNodeName: 'condition_2',
+            },
+            id: 'condition_2',
+            position: {x: 0, y: 0},
+            type: 'workflow',
+        };
+
+        const nodes: Node[] = [
+            conditionNode('condition_1'),
+            ...conditionGhostNodes('condition_1'),
+            taskNode('sibling1', {conditionCase: 'caseTrue', conditionId: 'condition_1'}),
+            taskNode('chainTask1', {conditionCase: 'caseFalse', conditionId: 'condition_1'}),
+            loopNode('loop_1', {conditionCase: 'caseFalse', conditionId: 'condition_1'}),
+            ...loopAuxNodes('loop_1'),
+            conditionInLoop,
+            ...conditionGhostNodes('condition_2'),
+            conditionPlaceholderNode('condition_2', 'left'),
+            taskNode('nestedFalse1', {conditionCase: 'caseFalse', conditionId: 'condition_2'}),
+            taskNode('nestedFalse2', {conditionCase: 'caseFalse', conditionId: 'condition_2'}),
+        ];
+
+        const edges: Edge[] = [
+            edge('condition_1', 'condition_1-condition-top-ghost'),
+            edge('condition_1-condition-top-ghost', 'sibling1'),
+            edge('sibling1', 'condition_1-condition-bottom-ghost'),
+            edge('condition_1-condition-top-ghost', 'chainTask1'),
+            edge('chainTask1', 'loop_1'),
+            ...loopStructureEdges('loop_1'),
+            edge('loop_1-loop-top-ghost', 'condition_2'),
+            edge('condition_2', 'condition_2-condition-top-ghost'),
+            edge('condition_2-condition-top-ghost', 'condition_2-condition-left-placeholder-0'),
+            edge('condition_2-condition-left-placeholder-0', 'condition_2-condition-bottom-ghost'),
+            edge('condition_2-condition-top-ghost', 'nestedFalse1'),
+            edge('nestedFalse1', 'nestedFalse2'),
+            edge('nestedFalse2', 'condition_2-condition-bottom-ghost'),
+            edge('condition_2-condition-bottom-ghost', 'loop_1-loop-bottom-ghost'),
+            edge('loop_1-loop-bottom-ghost', 'condition_1-condition-bottom-ghost'),
+        ];
+
+        const result = await getElkLayoutElements({canvasWidth: 1600, direction: 'TB', edges, nodes});
+
+        const siblingAxis = positionOf(result.nodes, 'sibling1').x + 36;
+        const ringLine = positionOf(result.nodes, 'loop_1-taskDispatcher-left-ghost').x + 1;
+        const contentLine = positionOf(result.nodes, 'condition_2-condition-left-placeholder-0').x + 36;
+
+        const leftGap = ringLine - siblingAxis;
+        const rightGap = contentLine - ringLine;
+
+        // Content-bound hug: exactly 106 off the leftmost content center —
+        // the corridor-splitting distance (a ring-bound neighbour packs 96px
+        // off the ring line, a footprint-bound one 215px off the content axis,
+        // so 106 reads as the middle line in both rhythms)
+        expect(rightGap).toBeGreaterThanOrEqual(104);
+        expect(rightGap).toBeLessThanOrEqual(107);
+
+        // The sibling can never sit closer than the ring-bound minimum; in
+        // this fixture its own entry-band label pitch governs (further out)
+        expect(leftGap).toBeGreaterThanOrEqual(95);
+    });
+});
