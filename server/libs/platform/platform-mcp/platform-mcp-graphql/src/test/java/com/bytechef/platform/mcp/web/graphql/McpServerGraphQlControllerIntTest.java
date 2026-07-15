@@ -16,8 +16,10 @@
 
 package com.bytechef.platform.mcp.web.graphql;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -34,6 +36,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.graphql.test.autoconfigure.GraphQlTest;
+import org.springframework.graphql.execution.ErrorType;
 import org.springframework.graphql.test.tester.GraphQlTester;
 import org.springframework.test.context.ContextConfiguration;
 
@@ -164,6 +167,95 @@ public class McpServerGraphQlControllerIntTest {
             .path("updateMcpServer.enabled")
             .entity(Boolean.class)
             .isEqualTo(false);
+    }
+
+    @Test
+    void testUpdateMcpServerAuthenticationRequired() {
+        // Given
+        McpServer mockServer = createMockMcpServer(
+            1L, "Test Server", PlatformType.AUTOMATION, Environment.DEVELOPMENT, true);
+
+        when(mcpServerService.update(eq(1L), eq("Test Server"), eq(true))).thenReturn(mockServer);
+
+        McpServer updatedMockServer = createMockMcpServer(
+            1L, "Test Server", PlatformType.AUTOMATION, Environment.DEVELOPMENT, true);
+
+        updatedMockServer.setAuthenticationRequired(false);
+
+        when(mcpServerService.update(any(McpServer.class))).thenReturn(updatedMockServer);
+
+        // When & Then
+        this.graphQlTester
+            .document("""
+                mutation {
+                    updateMcpServer(id: "1", input: {
+                        name: "Test Server",
+                        enabled: true,
+                        authenticationRequired: false
+                    }) {
+                        id
+                        authenticationRequired
+                    }
+                }
+                """)
+            .execute()
+            .path("updateMcpServer.id")
+            .entity(String.class)
+            .isEqualTo("1")
+            .path("updateMcpServer.authenticationRequired")
+            .entity(Boolean.class)
+            .isEqualTo(false);
+    }
+
+    /**
+     * Mirrors the invariant enforced by {@code McpServerServiceImpl.update(McpServer)} (Task 2):
+     * {@code authenticationRequired == false && enforceToolAuthorization == true} is rejected. The controller applies
+     * the two flags via two sequential {@code mcpServerService.update(McpServer)} calls, so the mock is stubbed per
+     * argument state to mirror that sequence: the first call (turning {@code enforceToolAuthorization} on, with
+     * {@code authenticationRequired} still {@code true}) succeeds, and the second call (turning
+     * {@code authenticationRequired} off while {@code enforceToolAuthorization} is now {@code true}) throws, exactly as
+     * the real service would.
+     */
+    @Test
+    void testUpdateMcpServerRejectsInvariantViolation() {
+        // Given
+        McpServer mockServer = createMockMcpServer(
+            1L, "Test Server", PlatformType.AUTOMATION, Environment.DEVELOPMENT, true);
+
+        when(mcpServerService.update(eq(1L), eq("Test Server"), eq(true))).thenReturn(mockServer);
+
+        when(mcpServerService.update(argThat(
+            server -> server != null && server.isEnforceToolAuthorization() && server.isAuthenticationRequired())))
+                .thenAnswer(invocation -> invocation.getArgument(0));
+
+        when(mcpServerService.update(argThat(
+            server -> server != null && server.isEnforceToolAuthorization() && !server.isAuthenticationRequired())))
+                .thenThrow(new IllegalArgumentException(
+                    "enforceToolAuthorization requires authenticationRequired to be enabled"));
+
+        // When & Then
+        this.graphQlTester
+            .document("""
+                mutation {
+                    updateMcpServer(id: "1", input: {
+                        name: "Test Server",
+                        enabled: true,
+                        enforceToolAuthorization: true,
+                        authenticationRequired: false
+                    }) {
+                        id
+                    }
+                }
+                """)
+            .execute()
+            .errors()
+            .satisfy(errors -> {
+                assertThat(errors).hasSize(1);
+                assertThat(errors.get(0)
+                    .getErrorType()).isEqualTo(ErrorType.INTERNAL_ERROR);
+            })
+            .path("updateMcpServer")
+            .valueIsNull();
     }
 
     @Test
