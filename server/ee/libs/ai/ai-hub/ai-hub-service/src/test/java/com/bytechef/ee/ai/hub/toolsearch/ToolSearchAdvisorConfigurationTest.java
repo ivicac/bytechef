@@ -20,6 +20,7 @@ import com.bytechef.ee.ai.hub.toolsearch.ToolSearchAdvisorConfiguration.AiHubClu
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.connection.service.ConnectionService;
 import java.util.List;
+import java.util.Map;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -46,7 +47,7 @@ class ToolSearchAdvisorConfigurationTest {
         // exactly the startup cost this bean is meant to avoid (the advisor beans inject it eagerly).
         verify(clusterElementDefinitionService, never()).getClusterElementDefinitionStubs(any());
 
-        List<?> resolved = callbacks.callbacks()
+        Map<?, ?> resolved = callbacks.callbacks()
             .get();
 
         // First use resolves the catalog once...

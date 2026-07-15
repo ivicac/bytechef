@@ -78,7 +78,7 @@ public final class PinnedToolSearchToolCallingAdvisor extends ToolSearchToolCall
         ToolSearchToolCallingAdvisor.class.getName() + ".cachedToolCallbacks";
 
     private final Set<String> pinnedToolNames;
-    private final Supplier<List<ToolCallback>> catalogToolCallbacksSupplier;
+    private final Supplier<Map<String, ToolCallback>> catalogToolCallbacksSupplier;
     private final Runnable catalogWarmUp;
 
     /**
@@ -92,9 +92,11 @@ public final class PinnedToolSearchToolCallingAdvisor extends ToolSearchToolCall
      * would inject the same intra-turn messages twice (see {@code buildModeAdvisor}).
      *
      * <p>
-     * The searchable catalog is supplied as a memoised {@link Supplier}, not a materialised list, so the advisor can be
-     * constructed at Spring startup without forcing the full component definition catalog to load. The supplier is
-     * resolved lazily on the first {@code seedCatalogToolCallbacks} (i.e. the first chat turn); see {@code
+     * The searchable catalog is supplied as a memoised {@link Supplier} of a name-keyed {@link Map}, not a materialised
+     * list, so the advisor can be constructed at Spring startup without forcing the full component definition catalog
+     * to load, and so seeding never needs to call {@link ToolCallback#getToolDefinition()} to learn a callback's name.
+     * The supplier is resolved lazily on the first {@code seedCatalogToolCallbacks} (i.e. the first chat turn); see
+     * {@code
      * buildModeAdvisor} and {@link LazyToolCallingManager} for the matching lazy delegate the base manager wraps.
      * </p>
      *
@@ -107,7 +109,7 @@ public final class PinnedToolSearchToolCallingAdvisor extends ToolSearchToolCall
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public PinnedToolSearchToolCallingAdvisor(
         ToolCallingManager toolCallingManager, ToolIndex toolIndex, int maxResults, String sessionIdKeyName,
-        Set<String> pinnedToolNames, Supplier<List<ToolCallback>> catalogToolCallbacksSupplier,
+        Set<String> pinnedToolNames, Supplier<Map<String, ToolCallback>> catalogToolCallbacksSupplier,
         Runnable catalogWarmUp) {
 
         super(
@@ -254,9 +256,16 @@ public final class PinnedToolSearchToolCallingAdvisor extends ToolSearchToolCall
      * never overwriting an options-listed callback of the same name) reaches the same map {@code prepareIteration}
      * reads.
      * </p>
+     *
+     * <p>
+     * {@code catalogToolCallbacksSupplier} hands back the tool name pre-keyed (see {@code buildModeAdvisor}), so this
+     * merge never calls {@link ToolCallback#getToolDefinition()} — which, for a lazy
+     * {@link ClusterElementToolCallback}, would force its input schema (and component) to load on every seeding pass. A
+     * schema materializes only when the model actually invokes the tool.
+     * </p>
      */
     private void seedCatalogToolCallbacks(ChatClientRequest chatClientRequest) {
-        List<ToolCallback> catalogToolCallbacks = catalogToolCallbacksSupplier.get();
+        Map<String, ToolCallback> catalogToolCallbacks = catalogToolCallbacksSupplier.get();
 
         if (catalogToolCallbacks.isEmpty()) {
             return;
@@ -272,11 +281,8 @@ public final class PinnedToolSearchToolCallingAdvisor extends ToolSearchToolCall
         @SuppressWarnings("unchecked")
         Map<String, ToolCallback> cachedToolCallbacks = (Map<String, ToolCallback>) cached;
 
-        for (ToolCallback toolCallback : catalogToolCallbacks) {
-            cachedToolCallbacks.putIfAbsent(
-                toolCallback.getToolDefinition()
-                    .name(),
-                toolCallback);
+        for (Map.Entry<String, ToolCallback> entry : catalogToolCallbacks.entrySet()) {
+            cachedToolCallbacks.putIfAbsent(entry.getKey(), entry.getValue());
         }
     }
 

@@ -18,8 +18,8 @@ import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.connection.service.ConnectionService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.observation.ObservationRegistry;
-import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -36,7 +36,6 @@ import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.execution.DefaultToolExecutionExceptionProcessor;
 import org.springframework.ai.tool.execution.ToolExecutionExceptionProcessor;
-import org.springframework.ai.tool.resolution.StaticToolCallbackResolver;
 import org.springframework.ai.tool.toolsearch.ToolIndex;
 import org.springframework.ai.tool.toolsearch.index.vectorstore.VectorToolIndex;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -65,7 +64,7 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * cluster element. Driven lazily by {@link ToolSearchCatalogWarmup} on the first chat turn (not at startup) for a
  * deterministic fresh-slate-then-load semantic (see feeder javadoc for re-index trade-offs).</li>
  * <li>For each tool-typed cluster element the configuration also constructs a {@link ClusterElementToolCallback} and
- * registers it with a {@link StaticToolCallbackResolver}-backed {@link DefaultToolCallingManager}. This is the registry
+ * registers it with a {@link MapToolCallbackResolver}-backed {@link DefaultToolCallingManager}. This is the registry
  * the advisor uses to dispatch when the LLM picks a discovered tool by name — the tool name string MUST match what
  * {@link ToolNameNormalizer#toToolName(String, String)} produces in the feeder.</li>
  * <li>{@link ToolSearchToolCallingAdvisor} ties searcher + manager together; this is the bean that gets attached to the
@@ -203,9 +202,8 @@ public class ToolSearchAdvisorConfiguration {
         // the build-time component index that keeps boot lazy. The supplier is resolved on the first chat turn instead.
         return new AiHubClusterElementToolCallbacks(
             MemoizationUtils.memoize(
-                () -> new ArrayList<>(
-                    buildClusterElementToolCallbacks(clusterElementDefinitionService, connectionService)
-                        .values())));
+                () -> new LinkedHashMap<String, ToolCallback>(
+                    buildClusterElementToolCallbacks(clusterElementDefinitionService, connectionService))));
     }
 
     /**
@@ -249,7 +247,7 @@ public class ToolSearchAdvisorConfiguration {
 
     private static ToolSearchToolCallingAdvisor buildModeAdvisor(
         VectorToolIndex vectorToolIndex, VectorStore toolSearchPgVectorStore,
-        Supplier<List<ToolCallback>> clusterElementCallbacksSupplier,
+        Supplier<Map<String, ToolCallback>> clusterElementCallbacksMapSupplier,
         ObservationRegistry observationRegistry, @Nullable AiHubGlobalToolCatalog globalToolCatalog,
         SecurityContextRehydrator securityContextRehydrator, ToolSearchCatalogWarmup toolSearchCatalogWarmup) {
 
@@ -269,36 +267,42 @@ public class ToolSearchAdvisorConfiguration {
                     + "static tools). automation-ai-hub should contribute one.");
         }
 
-        // Memoised so the searchable catalog is materialised exactly once, on first use, and shared by both the lazy
-        // tool-calling manager (dispatch) and the advisor (surfacing discovered tools). Building it enumerates every
-        // tool-typed cluster element, forcing the full component definition catalog to load — deferring it here keeps
-        // Spring startup off that path. The per-mode global static tools are cheap by comparison but are folded into
-        // the
-        // same supplier so both consumers see one consistent list.
-        Supplier<List<ToolCallback>> callbackListSupplier = MemoizationUtils.memoize(() -> {
-            List<ToolCallback> callbackList = new ArrayList<>(clusterElementCallbacksSupplier.get());
+        // Keyed by the tool name — cluster-element names come free from the index stub when the callback is built
+        // (buildClusterElementToolCallbacks returns a name->callback map), and the per-mode global tools have eager
+        // (cheap) definitions. Keeping the map, rather than flattening to a list, lets both the resolver and the
+        // advisor look tools up by name WITHOUT calling getToolDefinition() — which for a lazy
+        // ClusterElementToolCallback
+        // would force its input schema (and component) to load. So a schema materialises only when the model invokes a
+        // surfaced tool.
+        Supplier<Map<String, ToolCallback>> callbackMapSupplier = MemoizationUtils.memoize(() -> {
+            Map<String, ToolCallback> callbackMap =
+                new LinkedHashMap<>(clusterElementCallbacksMapSupplier.get());
 
             if (globalToolCatalog != null) {
                 for (ToolCallback toolCallback : globalToolCatalog.toolCallbacks()) {
-                    // Discovered global tools resolve through this StaticToolCallbackResolver and execute directly on a
-                    // Reactor scheduler thread. Mirror AiHubSpringAIAgent.wrapToolCallback so tenant-scoped and
-                    // @PreAuthorize-protected service calls run under the invoking tenant + principal (and empty
-                    // results
-                    // are guarded).
-                    callbackList.add(AiHubToolCallbackWrappers.wrap(toolCallback, securityContextRehydrator));
+                    // Discovered global tools resolve through this resolver and execute directly on a Reactor scheduler
+                    // thread. Mirror AiHubSpringAIAgent.wrapToolCallback so tenant-scoped and @PreAuthorize-protected
+                    // service calls run under the invoking tenant + principal (and empty results are guarded).
+                    ToolCallback wrapped = AiHubToolCallbackWrappers.wrap(toolCallback, securityContextRehydrator);
+
+                    callbackMap.put(
+                        wrapped.getToolDefinition()
+                            .name(),
+                        wrapped);
                 }
             }
 
-            return callbackList;
+            return callbackMap;
         });
 
         ToolExecutionExceptionProcessor exceptionProcessor = new DefaultToolExecutionExceptionProcessor(false);
 
-        // Lazy so constructing this advisor at startup does not build the resolver (which would resolve the catalog
-        // supplier). The delegate is built on the first resolveToolDefinitions/executeToolCalls of the first chat turn.
+        // Lazy so constructing this advisor at startup does not build the resolver. MapToolCallbackResolver keys off
+        // the
+        // pre-known names, so building it never calls getToolDefinition() (unlike StaticToolCallbackResolver).
         ToolCallingManager toolCallingManager = new LazyToolCallingManager(
             () -> new DefaultToolCallingManager(
-                observationRegistry, new StaticToolCallbackResolver(callbackListSupplier.get()), exceptionProcessor));
+                observationRegistry, new MapToolCallbackResolver(callbackMapSupplier.get()), exceptionProcessor));
 
         // PinnedToolSearchToolCallingAdvisor pins ALWAYS_ON_TOOL_NAMES so they stay callable without a preceding
         // searchTool hit — the system prompt instructs the model to call those specialists/core tools directly by name,
@@ -317,7 +321,7 @@ public class ToolSearchAdvisorConfiguration {
         // Session id read from the conversation id (mirrors the vendored advisor, which derived its search session from
         // ChatMemory.CONVERSATION_ID); MultiSessionToolIndex unions it with the catalog and per-mode global sessions.
         //
-        // callbackList (cluster elements + per-mode global static tools, the same set registered with the resolver
+        // callbackMap (cluster elements + per-mode global static tools, the same set registered with the resolver
         // above) is also handed to the advisor so a tool the model DISCOVERS via searchTool can be surfaced as callable
         // on the next iteration. The base advisor surfaces a discovered tool only when its callback is present in the
         // cachedToolCallbacks map it builds from the agent's options tool list — and the searchable catalog is
@@ -325,7 +329,7 @@ public class ToolSearchAdvisorConfiguration {
         // tools resolve to nothing, the model can never call them, and it loops re-issuing searchTool until it bails.
         return new PinnedToolSearchToolCallingAdvisor(
             toolCallingManager, searcher, MAX_SEARCH_RESULTS, ChatMemory.CONVERSATION_ID, ALWAYS_ON_TOOL_NAMES,
-            callbackListSupplier, toolSearchCatalogWarmup::warmUp);
+            callbackMapSupplier, toolSearchCatalogWarmup::warmUp);
     }
 
     private static @Nullable AiHubGlobalToolCatalog findCatalog(
@@ -394,6 +398,6 @@ public class ToolSearchAdvisorConfiguration {
      * (see {@link #aiHubClusterElementToolCallbacks}). Wrapped in a record so Spring does not auto-collect every
      * {@link ToolCallback} bean when the advisors inject it.
      */
-    record AiHubClusterElementToolCallbacks(Supplier<List<ToolCallback>> callbacks) {
+    record AiHubClusterElementToolCallbacks(Supplier<Map<String, ToolCallback>> callbacks) {
     }
 }

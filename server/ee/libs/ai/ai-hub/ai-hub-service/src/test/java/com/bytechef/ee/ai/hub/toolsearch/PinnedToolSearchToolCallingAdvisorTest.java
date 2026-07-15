@@ -12,15 +12,21 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.ee.ai.hub.util.AiHubStateKeys;
+import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.context.EnvironmentContext;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.connection.service.ConnectionService;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClientRequest;
 import org.springframework.ai.chat.memory.ChatMemory;
@@ -207,7 +213,7 @@ class PinnedToolSearchToolCallingAdvisorTest {
             () -> {
                 catalogResolutions.incrementAndGet();
 
-                return List.of(toolCallback("searchProjects"));
+                return Map.of("searchProjects", toolCallback("searchProjects"));
             },
             () -> {});
 
@@ -227,7 +233,7 @@ class PinnedToolSearchToolCallingAdvisorTest {
         AtomicInteger warmUps = new AtomicInteger();
 
         PinnedToolSearchToolCallingAdvisor advisor = new PinnedToolSearchToolCallingAdvisor(
-            toolCallingManager, toolIndex, 5, ChatMemory.CONVERSATION_ID, Set.of(), List::of,
+            toolCallingManager, toolIndex, 5, ChatMemory.CONVERSATION_ID, Set.of(), Map::of,
             warmUps::incrementAndGet);
 
         // The pgvector index warm-up must not run at construction (that would force the catalog load at startup)...
@@ -239,6 +245,29 @@ class PinnedToolSearchToolCallingAdvisorTest {
         assertThat(warmUps).hasValue(1);
     }
 
+    @Test
+    void testSeedingCatalogDoesNotForceLazyToolSchemas() {
+        when(toolCallingManager.resolveToolDefinitions(any())).thenReturn(List.of());
+
+        ClusterElementDefinitionService clusterElementDefinitionService =
+            mock(ClusterElementDefinitionService.class);
+        ConnectionService connectionService = mock(ConnectionService.class);
+
+        ClusterElementToolCallback lazyCallback = new ClusterElementToolCallback(
+            "slack_sendMessage", "Send a Slack message", "slack", 1, "sendMessage",
+            clusterElementDefinitionService, connectionService);
+
+        PinnedToolSearchToolCallingAdvisor advisor = new PinnedToolSearchToolCallingAdvisor(
+            toolCallingManager, toolIndex, 5, ChatMemory.CONVERSATION_ID, Set.of(),
+            () -> Map.of("slack_sendMessage", lazyCallback), () -> {});
+
+        advisor.doInitializeLoop(newRequest(toolCallback("askUserQuestion")), null);
+
+        // Seeding the catalog into the base advisor's cache must key off the map, never resolve the lazy callback's
+        // component — verify the schema source (the definition service) was never touched.
+        verifyNoInteractions(clusterElementDefinitionService);
+    }
+
     private PinnedToolSearchToolCallingAdvisor newAdvisor(Set<String> pinnedToolNames) {
         return newAdvisor(pinnedToolNames, List.of());
     }
@@ -246,9 +275,15 @@ class PinnedToolSearchToolCallingAdvisorTest {
     private PinnedToolSearchToolCallingAdvisor newAdvisor(
         Set<String> pinnedToolNames, List<ToolCallback> catalogToolCallbacks) {
 
+        Map<String, ToolCallback> catalogToolCallbacksByName = catalogToolCallbacks.stream()
+            .collect(Collectors.toMap(
+                toolCallback -> toolCallback.getToolDefinition()
+                    .name(),
+                toolCallback -> toolCallback, (first, second) -> first, LinkedHashMap::new));
+
         return new PinnedToolSearchToolCallingAdvisor(
             toolCallingManager, toolIndex, 5, ChatMemory.CONVERSATION_ID, pinnedToolNames,
-            () -> catalogToolCallbacks, () -> {});
+            () -> catalogToolCallbacksByName, () -> {});
     }
 
     private static ChatClientRequest newRequest(ToolCallback... toolCallbacks) {
