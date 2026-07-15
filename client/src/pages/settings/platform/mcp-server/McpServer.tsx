@@ -49,13 +49,15 @@ const McpServer = () => {
     return (
         <LayoutContainer header={<Header centerTitle position="main" title="MCP Server" />} leftSidebarOpen={false}>
             <div className="max-w-(--breakpoint-lg) p-4 3xl:mx-auto 3xl:w-4/5">
-                <div className="mb-4">
-                    <Switch
-                        checked={authenticationRequiredData?.managementMcpServerAuthenticationRequired ?? true}
-                        label="Require authentication"
-                        onCheckedChange={handleAuthenticationRequiredChange}
-                    />
-                </div>
+                {authenticationRequiredData !== undefined && (
+                    <div className="mb-4">
+                        <Switch
+                            checked={authenticationRequiredData.managementMcpServerAuthenticationRequired}
+                            label="Require authentication"
+                            onCheckedChange={handleAuthenticationRequiredChange}
+                        />
+                    </div>
+                )}
 
                 {mcpServerUrl && <McpServerConfiguration mcpServerUrl={mcpServerUrl} onRefresh={handleRefresh} />}
             </div>
