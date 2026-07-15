@@ -182,7 +182,13 @@ public class McpServerGraphQlControllerIntTest {
 
         updatedMockServer.setAuthenticationRequired(false);
 
-        when(mcpServerService.update(any(McpServer.class))).thenReturn(updatedMockServer);
+        // Constrain the matcher to the flag the controller must thread onto the domain object. Using a bare
+        // any(McpServer.class) here would make the test vacuous: it would still pass if the controller dropped the
+        // mcpServer.setAuthenticationRequired(input.authenticationRequired()) call, since the mock returns a pre-baked
+        // server regardless. Matching on !isAuthenticationRequired() (plus the explicit verify below) proves the
+        // controller actually passed the input flag through.
+        when(mcpServerService.update(argThat(server -> server != null && !server.isAuthenticationRequired())))
+            .thenReturn(updatedMockServer);
 
         // When & Then
         this.graphQlTester
@@ -205,6 +211,8 @@ public class McpServerGraphQlControllerIntTest {
             .path("updateMcpServer.authenticationRequired")
             .entity(Boolean.class)
             .isEqualTo(false);
+
+        verify(mcpServerService).update(argThat(server -> server != null && !server.isAuthenticationRequired()));
     }
 
     /**
@@ -251,6 +259,13 @@ public class McpServerGraphQlControllerIntTest {
             .errors()
             .satisfy(errors -> {
                 assertThat(errors).hasSize(1);
+
+                // Pins current (non-ideal) behavior: the service throws a bare IllegalArgumentException, which falls
+                // through GlobalDataFetcherExceptionResolver unmapped and surfaces as a generic INTERNAL_ERROR (500).
+                // Proper BAD_REQUEST classification (map the invariant violation to a client error) is a tracked
+                // follow-up outside this task's scope — the exception resolver is shared, and the client already
+                // prevents this flag combination. When that follow-up lands, expect to update this assertion to
+                // ErrorType.BAD_REQUEST.
                 assertThat(errors.get(0)
                     .getErrorType()).isEqualTo(ErrorType.INTERNAL_ERROR);
             })
