@@ -63,7 +63,7 @@ class AiHubTaskServiceTest {
     private com.bytechef.ee.ai.hub.task.repository.WorkspaceAiHubTaskRepository workspaceTaskRepository;
 
     @Mock
-    private org.springframework.beans.factory.ObjectProvider<com.bytechef.ee.ai.hub.memory.AiHubSessionMemory> aiHubSessionMemoryProvider;
+    private ObjectProvider<com.bytechef.ee.ai.hub.memory.AiHubSessionMemory> aiHubSessionMemoryProvider;
 
     @Mock
     private com.bytechef.ee.ai.hub.memory.AiHubSessionMemory aiHubSessionMemory;

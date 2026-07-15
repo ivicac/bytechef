@@ -110,7 +110,7 @@ class ToolSearchCatalogFeederGlobalToolsTest {
         feeder.populateGlobalTools(
             "ai_hub_tool_catalog:global:ask", List.of(toolCallback("listProjects", "List all projects")));
 
-        org.mockito.ArgumentCaptor<String> hashCaptor = org.mockito.ArgumentCaptor.forClass(String.class);
+        ArgumentCaptor<String> hashCaptor = ArgumentCaptor.forClass(String.class);
 
         verify(pgVectorJdbcTemplate).update(any(), eq("ai_hub_tool_catalog:global:ask"), hashCaptor.capture(), any());
 

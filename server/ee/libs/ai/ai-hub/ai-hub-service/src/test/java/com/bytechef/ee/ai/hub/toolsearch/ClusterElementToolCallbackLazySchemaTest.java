@@ -53,10 +53,10 @@ class ClusterElementToolCallbackLazySchemaTest {
             .name()).isEqualTo("slack_sendMessage");
 
         // Accessing the schema twice resolves the component exactly once (memoized).
-        callback.getToolDefinition()
-            .inputSchema();
-        callback.getToolDefinition()
-            .inputSchema();
+        assertThat(callback.getToolDefinition()
+            .inputSchema()).isNotNull();
+        assertThat(callback.getToolDefinition()
+            .inputSchema()).isNotNull();
 
         verify(clusterElementDefinitionService, times(1)).getClusterElementDefinition("slack", 1, "sendMessage");
     }
