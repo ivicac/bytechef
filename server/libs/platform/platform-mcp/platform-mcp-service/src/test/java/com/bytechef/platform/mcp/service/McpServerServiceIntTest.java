@@ -207,6 +207,21 @@ public class McpServerServiceIntTest {
     }
 
     @Test
+    void testUpdatePersistsEnforceToolAuthorization() {
+        McpServer mcpServer = mcpServerService.create(
+            "auth-enforce-persist", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
+
+        mcpServer.setAuthenticationRequired(true);
+        mcpServer.setEnforceToolAuthorization(true);
+
+        mcpServerService.update(mcpServer);
+
+        McpServer loaded = mcpServerService.getMcpServer(mcpServer.getSecretKey());
+
+        assertThat(loaded.isEnforceToolAuthorization()).isTrue();
+    }
+
+    @Test
     void testUpdateRejectsNoAuthWithToolAuthorization() {
         McpServer mcpServer = mcpServerService.create(
             "auth-invariant", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
