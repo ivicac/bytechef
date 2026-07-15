@@ -19,6 +19,7 @@ import com.bytechef.platform.configuration.context.EnvironmentContext;
 import com.bytechef.platform.configuration.domain.Environment;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.client.ChatClientRequest;
@@ -193,6 +194,31 @@ class PinnedToolSearchToolCallingAdvisorTest {
         assertThat(EnvironmentContext.fetchCurrentEnvironment()).isNull();
     }
 
+    @Test
+    void testCatalogSupplierIsNotResolvedUntilFirstLoopInitialization() {
+        when(toolCallingManager.resolveToolDefinitions(any())).thenReturn(List.of());
+
+        AtomicInteger catalogResolutions = new AtomicInteger();
+
+        // Mirrors the memoised supplier the config hands the advisor; the count records how many times the catalog
+        // (which forces the full component definition load) was materialised.
+        PinnedToolSearchToolCallingAdvisor advisor = new PinnedToolSearchToolCallingAdvisor(
+            toolCallingManager, toolIndex, 5, ChatMemory.CONVERSATION_ID, Set.of(),
+            () -> {
+                catalogResolutions.incrementAndGet();
+
+                return List.of(toolCallback("searchProjects"));
+            });
+
+        // Construction must not touch the catalog — that is the whole point of the deferral, so boot stays lazy.
+        assertThat(catalogResolutions).hasValue(0);
+
+        advisor.doInitializeLoop(newRequest(toolCallback("askUserQuestion")), null);
+
+        // The first chat turn's loop initialization resolves it exactly once.
+        assertThat(catalogResolutions).hasValue(1);
+    }
+
     private PinnedToolSearchToolCallingAdvisor newAdvisor(Set<String> pinnedToolNames) {
         return newAdvisor(pinnedToolNames, List.of());
     }
@@ -201,7 +227,8 @@ class PinnedToolSearchToolCallingAdvisorTest {
         Set<String> pinnedToolNames, List<ToolCallback> catalogToolCallbacks) {
 
         return new PinnedToolSearchToolCallingAdvisor(
-            toolCallingManager, toolIndex, 5, ChatMemory.CONVERSATION_ID, pinnedToolNames, catalogToolCallbacks);
+            toolCallingManager, toolIndex, 5, ChatMemory.CONVERSATION_ID, pinnedToolNames,
+            () -> catalogToolCallbacks);
     }
 
     private static ChatClientRequest newRequest(ToolCallback... toolCallbacks) {

@@ -78,7 +78,7 @@ public final class PinnedToolSearchToolCallingAdvisor extends ToolSearchToolCall
         ToolSearchToolCallingAdvisor.class.getName() + ".cachedToolCallbacks";
 
     private final Set<String> pinnedToolNames;
-    private final List<ToolCallback> catalogToolCallbacks;
+    private final Supplier<List<ToolCallback>> catalogToolCallbacksSupplier;
 
     /**
      * Constructs the advisor with the search-loop collaborators {@code buildModeAdvisor} already owns. The remaining
@@ -89,11 +89,18 @@ public final class PinnedToolSearchToolCallingAdvisor extends ToolSearchToolCall
      * memory advisor INSIDE the tool loop (order greater than this advisor's), which persists and rehydrates the full
      * tool request/response transcript on every iteration — keeping the advisor's own history enabled on top of that
      * would inject the same intra-turn messages twice (see {@code buildModeAdvisor}).
+     *
+     * <p>
+     * The searchable catalog is supplied as a memoised {@link Supplier}, not a materialised list, so the advisor can be
+     * constructed at Spring startup without forcing the full component definition catalog to load. The supplier is
+     * resolved lazily on the first {@code seedCatalogToolCallbacks} (i.e. the first chat turn); see {@code
+     * buildModeAdvisor} and {@link LazyToolCallingManager} for the matching lazy delegate the base manager wraps.
+     * </p>
      */
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public PinnedToolSearchToolCallingAdvisor(
         ToolCallingManager toolCallingManager, ToolIndex toolIndex, int maxResults, String sessionIdKeyName,
-        Set<String> pinnedToolNames, List<ToolCallback> catalogToolCallbacks) {
+        Set<String> pinnedToolNames, Supplier<List<ToolCallback>> catalogToolCallbacksSupplier) {
 
         super(
             toolCallingManager, DEFAULT_ORDER, DEFAULT_TOOL_EXECUTION_ELIGIBILITY_CHECKER, toolIndex,
@@ -101,7 +108,7 @@ public final class PinnedToolSearchToolCallingAdvisor extends ToolSearchToolCall
             new LruEvictionStrategy(1000));
 
         this.pinnedToolNames = Set.copyOf(pinnedToolNames);
-        this.catalogToolCallbacks = List.copyOf(catalogToolCallbacks);
+        this.catalogToolCallbacksSupplier = catalogToolCallbacksSupplier;
     }
 
     @Override
@@ -232,6 +239,8 @@ public final class PinnedToolSearchToolCallingAdvisor extends ToolSearchToolCall
      * </p>
      */
     private void seedCatalogToolCallbacks(ChatClientRequest chatClientRequest) {
+        List<ToolCallback> catalogToolCallbacks = catalogToolCallbacksSupplier.get();
+
         if (catalogToolCallbacks.isEmpty()) {
             return;
         }
