@@ -19,6 +19,7 @@ package com.bytechef.platform.component.service;
 import static com.bytechef.component.definition.ComponentDsl.clusterElement;
 import static com.bytechef.component.definition.ComponentDsl.component;
 import static com.bytechef.component.definition.ComponentDsl.string;
+import static com.bytechef.component.definition.ai.agent.BaseToolFunction.TOOLS;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -31,9 +32,11 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.withSettings;
 
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ClusterElementContext;
@@ -45,6 +48,7 @@ import com.bytechef.component.definition.datastream.FieldsProvider;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.ComponentDefinitionRegistry;
 import com.bytechef.platform.component.context.ContextFactory;
+import com.bytechef.platform.component.definition.ClusterRootComponentDefinition;
 import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsToolFunction;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
 import com.bytechef.platform.component.domain.Field;
@@ -480,6 +484,35 @@ class ClusterElementDefinitionServiceTest {
         // Stub path must consult only the static (index-stub) definitions, never the full catalog.
         verify(componentDefinitionRegistry).getStaticComponentDefinitions();
         verifyNoMoreInteractions(componentDefinitionRegistry);
+    }
+
+    @Test
+    void testGetRootClusterElementDefinitionsUsesStubEnumeration() {
+        com.bytechef.component.definition.ClusterElementDefinition<?> elementDefinition =
+            createMatchableClusterElementDefinition("sendMessage", TOOLS);
+
+        // getClusterElementType casts the registry result to ClusterRootComponentDefinition, so the root fixture
+        // must implement both ComponentDefinition (for the cluster-element list) and ClusterRootComponentDefinition
+        // (so type resolution stays on the single-root-component path and never falls into the nested-root
+        // getComponentDefinitions() fallback).
+        ComponentDefinition rootComponentDefinition = mock(
+            ComponentDefinition.class, withSettings().extraInterfaces(ClusterRootComponentDefinition.class));
+
+        when(rootComponentDefinition.getName()).thenReturn("aiAgent");
+        when(rootComponentDefinition.getVersion()).thenReturn(1);
+        when(rootComponentDefinition.getIcon()).thenReturn(Optional.empty());
+        when(rootComponentDefinition.getClusterElements()).thenReturn(Optional.of(List.of(elementDefinition)));
+        when(((ClusterRootComponentDefinition) rootComponentDefinition).getClusterElementTypes())
+            .thenReturn(List.of(TOOLS));
+
+        when(componentDefinitionRegistry.getComponentDefinition("aiAgent", 1)).thenReturn(rootComponentDefinition);
+        when(componentDefinitionRegistry.getStaticComponentDefinitions()).thenReturn(List.of(rootComponentDefinition));
+
+        clusterElementDefinitionService.getRootClusterElementDefinitions("aiAgent", 1, "TOOLS");
+
+        // The cluster-element LIST must be enumerated from the index stubs, never the full catalog.
+        verify(componentDefinitionRegistry).getStaticComponentDefinitions();
+        verify(componentDefinitionRegistry, never()).getComponentDefinitions();
     }
 
     private com.bytechef.component.definition.ClusterElementDefinition<?> createMatchableClusterElementDefinition(

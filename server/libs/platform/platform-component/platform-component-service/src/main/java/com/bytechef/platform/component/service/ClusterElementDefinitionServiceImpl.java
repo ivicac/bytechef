@@ -568,7 +568,7 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
         ClusterElementType clusterElementType = getClusterElementType(
             rootComponentName, rootComponentVersion, clusterElementTypeName);
 
-        return getClusterElementDefinitions(clusterElementType);
+        return getClusterElementDefinitionStubs(clusterElementType);
     }
 
     private static ConvertResult convert(
