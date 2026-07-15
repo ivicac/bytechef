@@ -436,8 +436,20 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
 
     @Override
     public List<ClusterElementDefinition> getClusterElementDefinitions(ClusterElementType clusterElementType) {
-        return componentDefinitionRegistry.getComponentDefinitions()
-            .stream()
+        return collectClusterElementDefinitions(
+            componentDefinitionRegistry.getComponentDefinitions(), clusterElementType);
+    }
+
+    @Override
+    public List<ClusterElementDefinition> getClusterElementDefinitionStubs(ClusterElementType clusterElementType) {
+        return collectClusterElementDefinitions(
+            componentDefinitionRegistry.getStaticComponentDefinitions(), clusterElementType);
+    }
+
+    private static List<ClusterElementDefinition> collectClusterElementDefinitions(
+        List<ComponentDefinition> componentDefinitions, ClusterElementType clusterElementType) {
+
+        return componentDefinitions.stream()
             .filter(componentDefinition -> componentDefinition.getClusterElements()
                 .isPresent())
             .flatMap(componentDefinition -> CollectionUtils.stream(

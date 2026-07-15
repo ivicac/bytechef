@@ -16,7 +16,10 @@
 
 package com.bytechef.platform.component.service;
 
+import static com.bytechef.component.definition.ComponentDsl.clusterElement;
+import static com.bytechef.component.definition.ComponentDsl.component;
 import static com.bytechef.component.definition.ComponentDsl.string;
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -29,6 +32,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.ActionContext;
@@ -443,6 +447,39 @@ class ClusterElementDefinitionServiceTest {
         // A tool that statically declares both override keys (e.g. HttpClientTool with required(true)) gets nothing
         // injected; its own properties are returned unchanged, preserving order.
         assertEquals(List.of("toolName", "toolDescription", "uri"), propertyNames);
+    }
+
+    @Test
+    void testGetClusterElementDefinitionStubsReadsFromStaticDefinitionsOnly() {
+        ClusterElementType toolsType = new ClusterElementType("TOOLS", "tools", "Tools");
+
+        ComponentDefinition componentDefinition = component("myComponent")
+            .version(1)
+            .icon("path:assets/icon.svg")
+            .clusterElements(
+                clusterElement("sendMessage")
+                    .type(toolsType)
+                    .title("Send Message")
+                    .description("Sends a message")
+                    .properties(string("text")));
+
+        when(componentDefinitionRegistry.getStaticComponentDefinitions()).thenReturn(List.of(componentDefinition));
+
+        List<ClusterElementDefinition> stubs = clusterElementDefinitionService.getClusterElementDefinitionStubs(
+            toolsType);
+
+        assertThat(stubs).singleElement()
+            .satisfies(stub -> {
+                assertThat(stub.getComponentName()).isEqualTo("myComponent");
+                assertThat(stub.getComponentVersion()).isEqualTo(1);
+                assertThat(stub.getName()).isEqualTo("sendMessage");
+                assertThat(stub.getTitle()).isEqualTo("Send Message");
+                assertThat(stub.getDescription()).isEqualTo("Sends a message");
+            });
+
+        // Stub path must consult only the static (index-stub) definitions, never the full catalog.
+        verify(componentDefinitionRegistry).getStaticComponentDefinitions();
+        verifyNoMoreInteractions(componentDefinitionRegistry);
     }
 
     private com.bytechef.component.definition.ClusterElementDefinition<?> createMatchableClusterElementDefinition(
