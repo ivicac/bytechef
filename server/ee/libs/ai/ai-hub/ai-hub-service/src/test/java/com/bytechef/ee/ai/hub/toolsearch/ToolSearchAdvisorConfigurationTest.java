@@ -36,15 +36,15 @@ class ToolSearchAdvisorConfigurationTest {
 
     @Test
     void testClusterElementToolCallbacksBeanDefersCatalogLoadUntilFirstUse() {
-        when(clusterElementDefinitionService.getClusterElementDefinitions(BaseToolFunction.TOOLS))
+        when(clusterElementDefinitionService.getClusterElementDefinitionStubs(BaseToolFunction.TOOLS))
             .thenReturn(List.of());
 
         AiHubClusterElementToolCallbacks callbacks = configuration.aiHubClusterElementToolCallbacks(
             clusterElementDefinitionService, connectionService);
 
-        // Building the bean must not enumerate cluster elements: that call forces the full component definition catalog
-        // to load, which is exactly the startup cost this bean is meant to avoid (the advisor beans inject it eagerly).
-        verify(clusterElementDefinitionService, never()).getClusterElementDefinitions(any());
+        // Building the bean must not enumerate cluster elements: that call forces the stub catalog to load, which is
+        // exactly the startup cost this bean is meant to avoid (the advisor beans inject it eagerly).
+        verify(clusterElementDefinitionService, never()).getClusterElementDefinitionStubs(any());
 
         List<?> resolved = callbacks.callbacks()
             .get();
@@ -52,12 +52,12 @@ class ToolSearchAdvisorConfigurationTest {
         // First use resolves the catalog once...
         assertThat(resolved).isEmpty();
 
-        verify(clusterElementDefinitionService, times(1)).getClusterElementDefinitions(BaseToolFunction.TOOLS);
+        verify(clusterElementDefinitionService, times(1)).getClusterElementDefinitionStubs(BaseToolFunction.TOOLS);
 
         // ...and the memoised supplier does not re-query on subsequent access.
         callbacks.callbacks()
             .get();
 
-        verify(clusterElementDefinitionService, times(1)).getClusterElementDefinitions(BaseToolFunction.TOOLS);
+        verify(clusterElementDefinitionService, times(1)).getClusterElementDefinitionStubs(BaseToolFunction.TOOLS);
     }
 }

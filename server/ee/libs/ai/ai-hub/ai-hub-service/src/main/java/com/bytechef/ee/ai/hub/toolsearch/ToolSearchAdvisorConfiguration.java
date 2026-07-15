@@ -15,7 +15,6 @@ import com.bytechef.ee.ai.hub.config.AiHubPgVectorConfiguration;
 import com.bytechef.ee.ai.hub.util.ToolNameNormalizer;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
-import com.bytechef.platform.component.util.JsonSchemaGeneratorUtils;
 import com.bytechef.platform.connection.service.ConnectionService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.observation.ObservationRegistry;
@@ -346,7 +345,7 @@ public class ToolSearchAdvisorConfiguration {
         ClusterElementDefinitionService clusterElementDefinitionService, ConnectionService connectionService) {
 
         List<ClusterElementDefinition> toolDefinitions =
-            clusterElementDefinitionService.getClusterElementDefinitions(BaseToolFunction.TOOLS);
+            clusterElementDefinitionService.getClusterElementDefinitionStubs(BaseToolFunction.TOOLS);
 
         Map<String, ClusterElementToolCallback> callbacks = new HashMap<>(toolDefinitions.size());
 
@@ -358,23 +357,8 @@ public class ToolSearchAdvisorConfiguration {
             // echo the search-summary content. Title prefix makes it more readable in tool-call traces.
             String description = formatToolDescription(toolDefinition);
 
-            String inputSchema;
-
-            try {
-                inputSchema = JsonSchemaGeneratorUtils.generateInputSchema(
-                    toolDefinition.getProperties());
-            } catch (RuntimeException exception) {
-                // A single tool with a malformed property tree should not poison the entire catalog. Log and skip.
-                log.warn(
-                    "Skipping cluster element '{}' (component {}@{}) — failed to generate input schema: {}",
-                    toolDefinition.getName(), toolDefinition.getComponentName(),
-                    toolDefinition.getComponentVersion(), exception.toString());
-
-                continue;
-            }
-
             ClusterElementToolCallback callback = new ClusterElementToolCallback(
-                toolName, description, inputSchema, toolDefinition.getComponentName(),
+                toolName, description, toolDefinition.getComponentName(),
                 toolDefinition.getComponentVersion(), toolDefinition.getName(),
                 clusterElementDefinitionService, connectionService);
 
