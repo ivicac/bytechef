@@ -1999,7 +1999,7 @@ export type UpdateMcpServerMutationVariables = Exact<{
 }>;
 
 
-export type UpdateMcpServerMutation = { updateMcpServer: { id: string, name: string, enabled: boolean, enforceToolAuthorization: boolean } | null };
+export type UpdateMcpServerMutation = { updateMcpServer: { id: string, name: string, enabled: boolean, enforceToolAuthorization: boolean, authenticationRequired: boolean } | null };
 
 export type UpdateMcpServerTagsMutationVariables = Exact<{
   id: string | number;
@@ -2079,7 +2079,7 @@ export type WorkspaceMcpServersQueryVariables = Exact<{
 }>;
 
 
-export type WorkspaceMcpServersQuery = { workspaceMcpServers: Array<{ id: string, name: string, type: Types.PlatformType, environmentId: string, enabled: boolean, enforceToolAuthorization: boolean, url: string, lastModifiedDate: any, mcpComponents: Array<{ id: string, mcpServerId: string, componentName: string, componentVersion: number, title: string | null } | null> | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
+export type WorkspaceMcpServersQuery = { workspaceMcpServers: Array<{ id: string, name: string, type: Types.PlatformType, environmentId: string, enabled: boolean, enforceToolAuthorization: boolean, authenticationRequired: boolean, url: string, lastModifiedDate: any, mcpComponents: Array<{ id: string, mcpServerId: string, componentName: string, componentVersion: number, title: string | null } | null> | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
 
 export type WorkspaceUsersQueryVariables = Exact<{
   workspaceId: string | number;
@@ -2708,7 +2708,7 @@ export type EmbeddedMcpServerTagsQuery = { embeddedMcpServerTags: Array<{ id: st
 export type EmbeddedMcpServersQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type EmbeddedMcpServersQuery = { embeddedMcpServers: Array<{ id: string, enabled: boolean, enforceToolAuthorization: boolean, environmentId: string, lastModifiedDate: any, name: string, type: Types.PlatformType, url: string, mcpComponents: Array<{ componentName: string, componentVersion: number, connectionId: string | null, id: string, lastModifiedDate: any, mcpServerId: string, title: string | null, mcpTools: Array<{ id: string, enabled: boolean, mcpComponentId: string, name: string, title: string | null, parameters: any } | null> | null } | null> | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
+export type EmbeddedMcpServersQuery = { embeddedMcpServers: Array<{ id: string, enabled: boolean, enforceToolAuthorization: boolean, authenticationRequired: boolean, environmentId: string, lastModifiedDate: any, name: string, type: Types.PlatformType, url: string, mcpComponents: Array<{ componentName: string, componentVersion: number, connectionId: string | null, id: string, lastModifiedDate: any, mcpServerId: string, title: string | null, mcpTools: Array<{ id: string, enabled: boolean, mcpComponentId: string, name: string, title: string | null, parameters: any } | null> | null } | null> | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
 
 export type EnableConnectedUserMcpServerMutationVariables = Exact<{
   connectedUserId: string | number;
@@ -10996,6 +10996,7 @@ export const UpdateMcpServerDocument = new TypedDocumentString(`
     name
     enabled
     enforceToolAuthorization
+    authenticationRequired
   }
 }
     `);
@@ -11262,6 +11263,7 @@ export const WorkspaceMcpServersDocument = new TypedDocumentString(`
     environmentId
     enabled
     enforceToolAuthorization
+    authenticationRequired
     url
     mcpComponents {
       id
@@ -13428,6 +13430,7 @@ export const EmbeddedMcpServersDocument = new TypedDocumentString(`
     id
     enabled
     enforceToolAuthorization
+    authenticationRequired
     environmentId
     lastModifiedDate
     mcpComponents {

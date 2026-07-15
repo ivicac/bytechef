@@ -3163,6 +3163,7 @@ export type McpProjectWorkflowUpdateInput = {
 
 export type McpServer = {
   __typename?: 'McpServer';
+  authenticationRequired: Scalars['Boolean']['output'];
   createdBy?: Maybe<Scalars['String']['output']>;
   createdDate?: Maybe<Scalars['Long']['output']>;
   enabled: Scalars['Boolean']['output'];
@@ -3197,6 +3198,7 @@ export enum McpServerOrderBy {
 }
 
 export type McpServerUpdateInput = {
+  authenticationRequired?: InputMaybe<Scalars['Boolean']['input']>;
   enabled?: InputMaybe<Scalars['Boolean']['input']>;
   enforceToolAuthorization?: InputMaybe<Scalars['Boolean']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;

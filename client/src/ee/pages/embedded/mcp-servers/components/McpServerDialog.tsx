@@ -17,11 +17,12 @@ import {McpServer, useCreateEmbeddedMcpServerMutation, useUpdateMcpServerMutatio
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {zodResolver} from '@hookform/resolvers/zod';
 import {useQueryClient} from '@tanstack/react-query';
-import {ReactNode, useState} from 'react';
+import {ReactNode, useEffect, useState} from 'react';
 import {useForm} from 'react-hook-form';
 import {z} from 'zod';
 
 const formSchema = z.object({
+    authenticationRequired: z.boolean(),
     enabled: z.boolean(),
     enforceToolAuthorization: z.boolean(),
     name: z.string().min(1, {message: 'Name is required'}),
@@ -49,12 +50,15 @@ const McpServerDialog = ({
 
     const form = useForm<FormValuesType>({
         defaultValues: {
+            authenticationRequired: mcpServer?.authenticationRequired ?? true,
             enabled: mcpServer?.enabled !== undefined ? mcpServer.enabled : false,
             enforceToolAuthorization: mcpServer?.enforceToolAuthorization ?? false,
             name: mcpServer?.name || '',
         },
         resolver: zodResolver(formSchema),
     });
+
+    const authenticationRequired = form.watch('authenticationRequired');
 
     const queryClient = useQueryClient();
 
@@ -67,6 +71,7 @@ const McpServerDialog = ({
                 {
                     id: mcpServer.id,
                     input: {
+                        authenticationRequired: values.authenticationRequired,
                         enabled: values.enabled,
                         enforceToolAuthorization: values.enforceToolAuthorization,
                         name: values.name,
@@ -99,6 +104,12 @@ const McpServerDialog = ({
 
         form.reset({});
     };
+
+    useEffect(() => {
+        if (!authenticationRequired) {
+            form.setValue('enforceToolAuthorization', false);
+        }
+    }, [authenticationRequired, form]);
 
     return (
         <Dialog onOpenChange={setOpen} open={open}>
@@ -140,12 +151,41 @@ const McpServerDialog = ({
                         {mcpServer && (
                             <FormField
                                 control={form.control}
-                                name="enforceToolAuthorization"
+                                name="authenticationRequired"
                                 render={({field}) => (
                                     <FormItem>
                                         <div className="flex items-center space-x-2">
                                             <FormControl>
                                                 <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                            </FormControl>
+
+                                            <FormLabel className="font-normal">Require authentication</FormLabel>
+                                        </div>
+
+                                        <FormDescription>
+                                            Require an API key or OAuth token in addition to the server URL. Existing
+                                            servers default to off.
+                                        </FormDescription>
+
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+
+                        {mcpServer && (
+                            <FormField
+                                control={form.control}
+                                name="enforceToolAuthorization"
+                                render={({field}) => (
+                                    <FormItem>
+                                        <div className="flex items-center space-x-2">
+                                            <FormControl>
+                                                <Checkbox
+                                                    checked={field.value}
+                                                    disabled={!authenticationRequired}
+                                                    onCheckedChange={field.onChange}
+                                                />
                                             </FormControl>
 
                                             <FormLabel className="font-normal">Enforce tool authorization</FormLabel>
