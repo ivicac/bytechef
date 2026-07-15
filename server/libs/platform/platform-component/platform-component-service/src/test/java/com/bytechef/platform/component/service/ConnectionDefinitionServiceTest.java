@@ -76,6 +76,30 @@ public class ConnectionDefinitionServiceTest {
             });
     }
 
+    @Test
+    void testGetConnectionDefinitionsUsesStubEnumeration() {
+        ComponentDefinition connectableComponentDefinition = component("slack")
+            .version(1)
+            .title("Slack")
+            .connection(connection().version(3))
+            .actions(action("sendMessage"));
+
+        when(componentDefinitionRegistry.getStaticComponentDefinitions())
+            .thenReturn(List.of(connectableComponentDefinition));
+
+        List<ConnectionDefinition> connectionDefinitions = connectionDefinitionService.getConnectionDefinitions();
+
+        // The no-arg connections list must come from index stubs, never the full catalog.
+        verify(componentDefinitionRegistry).getStaticComponentDefinitions();
+        verify(componentDefinitionRegistry, never()).getComponentDefinitions();
+
+        assertThat(connectionDefinitions).singleElement()
+            .satisfies(connectionDefinition -> {
+                assertThat(connectionDefinition.getComponentName()).isEqualTo("slack");
+                assertThat(connectionDefinition.getVersion()).isEqualTo(3);
+            });
+    }
+
     @Disabled
     @Test
     public void testConnectionExists() {
