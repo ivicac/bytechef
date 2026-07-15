@@ -26,11 +26,13 @@ import com.bytechef.platform.mcp.config.PlatformMcpIntTestConfiguration;
 import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.repository.McpServerRepository;
 import java.util.List;
+import javax.sql.DataSource;
 import org.apache.commons.lang3.Validate;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
@@ -38,6 +40,9 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  */
 @SpringBootTest(classes = PlatformMcpIntTestConfiguration.class)
 public class McpServerServiceIntTest {
+
+    @Autowired
+    private DataSource dataSource;
 
     @MockitoBean
     private MailService mailService;
@@ -161,6 +166,29 @@ public class McpServerServiceIntTest {
         assertThat(serversDesc).hasSize(2);
         assertThat(serversDesc.get(0)).isEqualTo(server2);
         assertThat(serversDesc.get(1)).isEqualTo(server1);
+    }
+
+    @Test
+    void testNewMcpServerDefaultsAuthenticationRequiredTrue() {
+        McpServer mcpServer = mcpServerService.create(
+            "auth-default", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
+
+        McpServer loaded = mcpServerService.getMcpServer(mcpServer.getSecretKey());
+
+        assertThat(loaded.isAuthenticationRequired()).isTrue();
+    }
+
+    @Test
+    void testLegacyRowLoadsAuthenticationRequiredFalse() {
+        McpServer mcpServer = mcpServerService.create(
+            "auth-legacy", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
+
+        new JdbcTemplate(dataSource).update(
+            "UPDATE mcp_server SET authentication_required = false WHERE id = ?", mcpServer.getId());
+
+        McpServer loaded = mcpServerService.getMcpServer(mcpServer.getSecretKey());
+
+        assertThat(loaded.isAuthenticationRequired()).isFalse();
     }
 
     private McpServer getMcpServer() {
