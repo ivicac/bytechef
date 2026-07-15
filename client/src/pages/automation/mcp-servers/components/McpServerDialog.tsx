@@ -65,12 +65,12 @@ const McpServerDialog = ({
         resolver: zodResolver(formSchema),
     });
 
-    const authenticationRequired = form.watch('authenticationRequired');
-
     const queryClient = useQueryClient();
 
     const createMcpServerMutation = useCreateMcpServerMutation();
     const updateMcpServerMutation = useUpdateMcpServerMutation();
+
+    const authenticationRequired = form.watch('authenticationRequired');
 
     const onSubmit = async (values: FormValuesType) => {
         if (mcpServer) {
