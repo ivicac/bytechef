@@ -10,4 +10,11 @@
             </column>
         </addColumn>
     </changeSet>
+
+    <changeSet id="20260715000001-2" author="Ivica Cardic">
+        <update tableName="mcp_server">
+            <column name="authentication_required" valueBoolean="true"/>
+            <where>enforce_tool_authorization = true</where>
+        </update>
+    </changeSet>
 </databaseChangeLog>
