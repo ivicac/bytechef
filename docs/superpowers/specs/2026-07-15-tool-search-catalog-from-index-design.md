@@ -188,9 +188,31 @@ property-tree validation defers to first use).
 - `ai-hub-graphql`: `AiHubTaskToolGraphQlController` (switch its two list call sites to the stub
   method).
 
-## Follow-ups (separate specs)
+## Follow-ups
 
-- Cluster-element list aggregate — reuses §1 directly (same facet).
-- Connections list aggregate — same recipe with a `connections()` index query (index already has
-  `ConnectionSummary`).
-- Unified API — evaluate separately; likely needs full definitions.
+### Cluster-element list & connections list — audited STUB-SAFE (implemented)
+
+A consumer audit (client field-selection + server callers) confirmed both can be served from the
+existing `getStaticComponentDefinitions()` index stubs — no new index query, no generator change.
+
+- **Cluster-element list.** `ClusterElementDefinitionServiceImpl.getRootClusterElementDefinitions`
+  delegates to the full-load `getClusterElementDefinitions(type)`; switch it to the §1
+  `getClusterElementDefinitionStubs(type)`. Only two callers: the GraphQL `clusterElementDefinitions`
+  query (**zero client consumers**) and the REST `getRootComponentClusterElementDefinitions` →
+  `useCreateJudgeDialog`, which reads only `componentName`/`componentVersion`/`title`. Caveat: the
+  REST `ClusterElementDefinitionBasicModel` also carries `help` and
+  `outputDefined`/`outputFunctionDefined`/`outputSchemaDefined`; from a stub these are null/false. No
+  live consumer reads them, but the response shape for those fields changes on the list — documented,
+  not hidden.
+- **Connections list.** `ConnectionDefinitionServiceImpl.getConnectionDefinitions()` (no-arg, full
+  catalog) and the `ScriptComponentDefinition` branch of `getConnectableComponentDefinitions` both
+  call `getComponentDefinitions()`; switch both to `getStaticComponentDefinitions()`. The no-arg
+  method has **no live UI caller** (EE worker RPC plumbing only). The per-component method feeds one
+  surface (`ConnectionDialog`) which reads only `componentName`/`componentTitle`; full auth detail is
+  fetched separately via the single-`ConnectionDefinition` detail query on the connect step. Risk to
+  cover in tests: `toConnectionDefinition(...)` must build cleanly from a stub component's
+  summary-only connection (no auth types/properties).
+
+### Deferred
+
+- Unified API — aggregates full action schemas; likely needs full definitions. Evaluate separately.
