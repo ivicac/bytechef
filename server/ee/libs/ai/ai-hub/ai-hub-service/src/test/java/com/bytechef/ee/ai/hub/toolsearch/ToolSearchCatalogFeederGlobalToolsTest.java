@@ -139,7 +139,7 @@ class ToolSearchCatalogFeederGlobalToolsTest {
 
         // Population must read the index-stub enumeration, never the full-load catalog method.
         verify(clusterElementDefinitionService).getClusterElementDefinitionStubs(BaseToolFunction.TOOLS);
-        verify(clusterElementDefinitionService, org.mockito.Mockito.never())
+        verify(clusterElementDefinitionService, never())
             .getClusterElementDefinitions(BaseToolFunction.TOOLS);
     }
 }

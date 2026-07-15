@@ -8,7 +8,6 @@
 package com.bytechef.ee.ai.hub.toolsearch;
 
 import edu.umd.cs.findbugs.annotations.Nullable;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.resolution.ToolCallbackResolver;
@@ -29,7 +28,6 @@ final class MapToolCallbackResolver implements ToolCallbackResolver {
 
     private final Map<String, ToolCallback> toolCallbacks;
 
-    @SuppressFBWarnings("EI_EXPOSE_REP2")
     MapToolCallbackResolver(Map<String, ToolCallback> toolCallbacks) {
         this.toolCallbacks = Map.copyOf(toolCallbacks);
     }
