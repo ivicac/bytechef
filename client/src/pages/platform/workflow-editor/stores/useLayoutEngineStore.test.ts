@@ -7,18 +7,18 @@ describe('useLayoutEngineStore persistence', () => {
         localStorage.clear();
     });
 
-    it('defaults to dagre with no persisted state', async () => {
-        const {default: useLayoutEngineStore} = await import('./useLayoutEngineStore');
-
-        expect(useLayoutEngineStore.getState().layoutEngine).toBe('dagre');
-    });
-
-    it('hydrates a persisted elk selection on load', async () => {
-        localStorage.setItem('bytechef.layout-engine', JSON.stringify({state: {layoutEngine: 'elk'}, version: 0}));
-
+    it('defaults to elk with no persisted state', async () => {
         const {default: useLayoutEngineStore} = await import('./useLayoutEngineStore');
 
         expect(useLayoutEngineStore.getState().layoutEngine).toBe('elk');
+    });
+
+    it('hydrates a persisted dagre selection on load', async () => {
+        localStorage.setItem('bytechef.layout-engine', JSON.stringify({state: {layoutEngine: 'dagre'}, version: 0}));
+
+        const {default: useLayoutEngineStore} = await import('./useLayoutEngineStore');
+
+        expect(useLayoutEngineStore.getState().layoutEngine).toBe('dagre');
     });
 
     it('writes the selection back to localStorage on change', async () => {
