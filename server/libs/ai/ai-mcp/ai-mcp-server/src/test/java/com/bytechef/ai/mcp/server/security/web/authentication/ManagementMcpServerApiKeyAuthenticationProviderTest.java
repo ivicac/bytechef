@@ -123,6 +123,23 @@ class ManagementMcpServerApiKeyAuthenticationProviderTest {
         verify(apiKeyService, never()).updateLastUsedDate(anyLong());
     }
 
+    @Test
+    void testAuthenticateWithMissingAuthenticationRequiredKeyReturnsAnonymous() {
+        Property property = mock(Property.class);
+
+        when(property.get("secretKey")).thenReturn("server-secret");
+        when(property.get("authenticationRequired")).thenReturn(null);
+        when(propertyService.getProperty("mcp.server", Property.Scope.PLATFORM, null)).thenReturn(property);
+
+        Authentication authentication = managementMcpServerApiKeyAuthenticationProvider.authenticate(
+            getUnauthenticatedToken(Environment.PRODUCTION, "server-secret"));
+
+        assertThat(authentication).isInstanceOf(McpAnonymousAuthenticationToken.class);
+        assertThat(authentication.isAuthenticated()).isTrue();
+        assertThat(authentication.getAuthorities()).isEmpty();
+        verify(apiKeyService, never()).updateLastUsedDate(anyLong());
+    }
+
     private ApiKeyAuthenticationToken getUnauthenticatedToken(Environment environment, String mcpServerSecretKey) {
         return ApiKeyAuthenticationToken.unauthenticated(
             new McpApiKeyCredentials(environment, mcpServerSecretKey, "api-secret"));
