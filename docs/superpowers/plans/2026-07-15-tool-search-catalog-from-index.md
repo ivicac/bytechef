@@ -372,6 +372,13 @@ Expected: FAIL — no `ClusterElementToolCallback(String, String, String, int, S
 
 - [ ] **Step 3: Make the input schema lazy in `ClusterElementToolCallback`**
 
+`ClusterElementToolCallback` has no logger today; add one (the class has a `private static final
+TypeReference<...> MAP_TYPE` field at line 63 — add the logger alongside it):
+
+```java
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(ClusterElementToolCallback.class);
+```
+
 In `ClusterElementToolCallback.java`, replace the field declaration at line 67:
 
 ```java
@@ -407,10 +414,32 @@ Add a new lazy constructor (place it alongside the existing two constructors, be
         this.pinnedConnectionId = null;
         this.pinnedParameters = Map.of();
         this.inputSchemaSupplier = com.bytechef.commons.util.MemoizationUtils.memoize(
-            () -> com.bytechef.platform.component.util.JsonSchemaGeneratorUtils.generateInputSchema(
+            () -> generateInputSchema(
+                clusterElementDefinitionService, componentName, componentVersion, clusterElementName));
+    }
+
+    /**
+     * Generates the tool's input JSON schema by loading only this one component. Relocates the former build-time
+     * malformed-tool guard (which used to skip a tool whose schema failed to generate) to the lazy point: a single
+     * tool with an unbuildable property tree degrades to an empty-object schema and is logged, rather than throwing and
+     * failing the chat turn when the tool is surfaced.
+     */
+    private static String generateInputSchema(
+        ClusterElementDefinitionService clusterElementDefinitionService, String componentName, int componentVersion,
+        String clusterElementName) {
+
+        try {
+            return com.bytechef.platform.component.util.JsonSchemaGeneratorUtils.generateInputSchema(
                 clusterElementDefinitionService
                     .getClusterElementDefinition(componentName, componentVersion, clusterElementName)
-                    .getProperties()));
+                    .getProperties());
+        } catch (RuntimeException exception) {
+            log.warn(
+                "Failed to generate input schema for tool '{}' (component {}@{}); surfacing with an empty schema",
+                clusterElementName, componentName, componentVersion, exception);
+
+            return "{\"type\":\"object\",\"properties\":{}}";
+        }
     }
 ```
 
@@ -475,8 +504,10 @@ Then remove the eager `inputSchema` generation block and its try/catch (the line
 
 Remove the now-unused import of `JsonSchemaGeneratorUtils` if this file no longer references it, and
 delete the local `inputSchema` variable and the `continue`-on-failure branch that guarded schema
-generation (the lazy path surfaces a malformed schema at first use, logged by the generator's own
-caller; a broken single tool no longer blocks map construction).
+generation. That malformed-tool guard is not lost — it moves into `ClusterElementToolCallback`'s lazy
+`generateInputSchema` (Step 3), which logs and degrades a single unbuildable tool to an empty-object
+schema at surface time instead of skipping it at build time. Map construction no longer touches
+schemas, so it cannot fail on one.
 
 - [ ] **Step 5: Run the tests to verify they pass**
 
