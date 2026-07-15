@@ -46,10 +46,8 @@ import org.springframework.ai.vectorstore.pgvector.autoconfigure.PgVectorStorePr
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.boot.context.event.ApplicationReadyEvent;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.context.event.EventListener;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -65,8 +63,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * <li>{@link VectorToolIndex} wraps {@code toolSearchPgVectorStore} (the sibling pgvector store dedicated to tool
  * embeddings).</li>
  * <li>{@link ToolSearchCatalogFeeder} populates the searcher's index with one {@code ToolReference} per tool-typed
- * cluster element. Re-runs on every {@link ApplicationReadyEvent} for a deterministic fresh-slate-then-load semantic
- * (see feeder javadoc for re-index trade-offs).</li>
+ * cluster element. Driven lazily by {@link ToolSearchCatalogWarmup} on the first chat turn (not at startup) for a
+ * deterministic fresh-slate-then-load semantic (see feeder javadoc for re-index trade-offs).</li>
  * <li>For each tool-typed cluster element the configuration also constructs a {@link ClusterElementToolCallback} and
  * registers it with a {@link StaticToolCallbackResolver}-backed {@link DefaultToolCallingManager}. This is the registry
  * the advisor uses to dispatch when the LLM picks a discovered tool by name — the tool name string MUST match what
@@ -155,7 +153,25 @@ public class ToolSearchAdvisorConfiguration {
             batchingStrategy);
 
         return new ToolSearchCatalogFeeder(
-            clusterElementDefinitionService, new VectorToolIndex(loaderVectorStore), pgVectorJdbcTemplate);
+            clusterElementDefinitionService, new VectorToolIndex(loaderVectorStore), pgVectorJdbcTemplate,
+            properties.getSchemaName());
+    }
+
+    /**
+     * One-shot warm-up shared by both per-mode advisors, invoked on the first chat turn (see
+     * {@link ToolSearchCatalogWarmup}). Resolving the feeder and global catalogs through {@link ObjectProvider} keeps
+     * this bean cheap to construct — it captures references only; the catalog is enumerated on first warm-up, not here.
+     * The feeder is absent when no fixed-key copilot embedding model is configured, in which case the warm-up no-ops.
+     */
+    @Bean
+    ToolSearchCatalogWarmup toolSearchCatalogWarmup(
+        ObjectProvider<ToolSearchCatalogFeeder> toolSearchCatalogFeederProvider,
+        ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider) {
+
+        return new ToolSearchCatalogWarmup(
+            toolSearchCatalogFeederProvider.getIfAvailable(),
+            globalToolCatalogProvider.orderedStream()
+                .toList());
     }
 
     /**
@@ -208,12 +224,12 @@ public class ToolSearchAdvisorConfiguration {
         @Qualifier("toolSearchPgVectorStore") VectorStore toolSearchPgVectorStore,
         AiHubClusterElementToolCallbacks clusterElementToolCallbacks, ObservationRegistry observationRegistry,
         ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider,
-        SecurityContextRehydrator securityContextRehydrator) {
+        SecurityContextRehydrator securityContextRehydrator, ToolSearchCatalogWarmup toolSearchCatalogWarmup) {
 
         return buildModeAdvisor(
             toolSearchVectorToolIndex, toolSearchPgVectorStore, clusterElementToolCallbacks.callbacks(),
             observationRegistry, findCatalog(globalToolCatalogProvider, ToolSearchCatalogFeeder.GLOBAL_ASK_SESSION_ID),
-            securityContextRehydrator);
+            securityContextRehydrator, toolSearchCatalogWarmup);
     }
 
     @Bean
@@ -223,20 +239,20 @@ public class ToolSearchAdvisorConfiguration {
         @Qualifier("toolSearchPgVectorStore") VectorStore toolSearchPgVectorStore,
         AiHubClusterElementToolCallbacks clusterElementToolCallbacks, ObservationRegistry observationRegistry,
         ObjectProvider<AiHubGlobalToolCatalog> globalToolCatalogProvider,
-        SecurityContextRehydrator securityContextRehydrator) {
+        SecurityContextRehydrator securityContextRehydrator, ToolSearchCatalogWarmup toolSearchCatalogWarmup) {
 
         return buildModeAdvisor(
             toolSearchVectorToolIndex, toolSearchPgVectorStore, clusterElementToolCallbacks.callbacks(),
             observationRegistry,
             findCatalog(globalToolCatalogProvider, ToolSearchCatalogFeeder.GLOBAL_BUILD_SESSION_ID),
-            securityContextRehydrator);
+            securityContextRehydrator, toolSearchCatalogWarmup);
     }
 
     private static ToolSearchToolCallingAdvisor buildModeAdvisor(
         VectorToolIndex vectorToolIndex, VectorStore toolSearchPgVectorStore,
         Supplier<List<ToolCallback>> clusterElementCallbacksSupplier,
         ObservationRegistry observationRegistry, @Nullable AiHubGlobalToolCatalog globalToolCatalog,
-        SecurityContextRehydrator securityContextRehydrator) {
+        SecurityContextRehydrator securityContextRehydrator, ToolSearchCatalogWarmup toolSearchCatalogWarmup) {
 
         Set<String> additionalSessionIds = globalToolCatalog == null
             ? Set.of(ToolSearchCatalogFeeder.CATALOG_SESSION_ID)
@@ -310,7 +326,7 @@ public class ToolSearchAdvisorConfiguration {
         // tools resolve to nothing, the model can never call them, and it loops re-issuing searchTool until it bails.
         return new PinnedToolSearchToolCallingAdvisor(
             toolCallingManager, searcher, MAX_SEARCH_RESULTS, ChatMemory.CONVERSATION_ID, ALWAYS_ON_TOOL_NAMES,
-            callbackListSupplier);
+            callbackListSupplier, toolSearchCatalogWarmup::warmUp);
     }
 
     private static @Nullable AiHubGlobalToolCatalog findCatalog(
@@ -374,33 +390,6 @@ public class ToolSearchAdvisorConfiguration {
         }
 
         return Map.copyOf(callbacks);
-    }
-
-    /**
-     * Re-populates the catalog after Spring has fully wired everything. {@code @PostConstruct} would be too early — the
-     * feeder needs to exist, and the surrounding ApplicationContext needs to have completed init for the cluster
-     * element registry to be queryable.
-     */
-    @EventListener(ApplicationReadyEvent.class)
-    public void populateCatalogOnAppReady(ApplicationReadyEvent event) {
-        ToolSearchCatalogFeeder feeder = event.getApplicationContext()
-            .getBeanProvider(ToolSearchCatalogFeeder.class)
-            .getIfAvailable();
-
-        if (feeder == null) {
-            return;
-        }
-
-        feeder.populate();
-
-        // Embed the per-mode global static tool catalogs once. The feeder owns indexing of all persistent sessions
-        // through its single injected searcher instance; the per-mode searcher beans only query (their
-        // additionalSessionIds filter), so clear-tracking stays consistent and no rows are orphaned.
-        for (AiHubGlobalToolCatalog globalToolCatalog : event.getApplicationContext()
-            .getBeanProvider(AiHubGlobalToolCatalog.class)) {
-
-            feeder.populateGlobalTools(globalToolCatalog.sessionId(), globalToolCatalog.toolCallbacks());
-        }
     }
 
     private static String formatToolDescription(ClusterElementDefinition toolDefinition) {

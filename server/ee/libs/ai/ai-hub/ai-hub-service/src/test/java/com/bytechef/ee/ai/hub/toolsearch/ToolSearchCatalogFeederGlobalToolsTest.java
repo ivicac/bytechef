@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.ai.hub.toolsearch;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
@@ -19,6 +20,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.tool.ToolCallback;
@@ -61,9 +63,29 @@ class ToolSearchCatalogFeederGlobalToolsTest {
     }
 
     @Test
+    void testMetaTableIsSchemaQualifiedToTheConfiguredSchema() {
+        ToolSearchCatalogFeeder feeder = new ToolSearchCatalogFeeder(
+            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate, "public");
+
+        when(pgVectorJdbcTemplate.queryForObject(any(), eq(String.class), any()))
+            .thenThrow(new org.springframework.dao.EmptyResultDataAccessException(1));
+
+        feeder.populateGlobalTools(
+            "ai_hub_tool_catalog:global:ask", List.of(toolCallback("listProjects", "List all projects")));
+
+        // The bookkeeping table must be referenced by its schema-qualified name so it co-locates with the vector rows
+        // in the one shared schema, rather than following the connection's per-tenant search_path.
+        ArgumentCaptor<String> createSql = ArgumentCaptor.forClass(String.class);
+
+        verify(pgVectorJdbcTemplate).execute(createSql.capture());
+
+        assertThat(createSql.getValue()).contains("public.ai_hub_tool_search_catalog_meta");
+    }
+
+    @Test
     void testPopulateGlobalToolsIndexesEachToolWithNonBlankSummary() {
         ToolSearchCatalogFeeder feeder = new ToolSearchCatalogFeeder(
-            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate);
+            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate, "public");
 
         when(pgVectorJdbcTemplate.queryForObject(any(), eq(String.class), any()))
             .thenThrow(new org.springframework.dao.EmptyResultDataAccessException(1));
@@ -79,7 +101,7 @@ class ToolSearchCatalogFeederGlobalToolsTest {
     @Test
     void testPopulateGlobalToolsSkipsWhenHashUnchanged() {
         ToolSearchCatalogFeeder feeder = new ToolSearchCatalogFeeder(
-            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate);
+            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate, "public");
 
         when(pgVectorJdbcTemplate.queryForObject(any(), eq(String.class), any()))
             .thenThrow(new org.springframework.dao.EmptyResultDataAccessException(1));

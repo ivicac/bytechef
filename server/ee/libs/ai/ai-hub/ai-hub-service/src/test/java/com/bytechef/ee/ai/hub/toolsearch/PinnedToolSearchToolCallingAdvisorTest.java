@@ -208,7 +208,8 @@ class PinnedToolSearchToolCallingAdvisorTest {
                 catalogResolutions.incrementAndGet();
 
                 return List.of(toolCallback("searchProjects"));
-            });
+            },
+            () -> {});
 
         // Construction must not touch the catalog — that is the whole point of the deferral, so boot stays lazy.
         assertThat(catalogResolutions).hasValue(0);
@@ -217,6 +218,25 @@ class PinnedToolSearchToolCallingAdvisorTest {
 
         // The first chat turn's loop initialization resolves it exactly once.
         assertThat(catalogResolutions).hasValue(1);
+    }
+
+    @Test
+    void testCatalogWarmUpRunsOnFirstLoopInitialization() {
+        when(toolCallingManager.resolveToolDefinitions(any())).thenReturn(List.of());
+
+        AtomicInteger warmUps = new AtomicInteger();
+
+        PinnedToolSearchToolCallingAdvisor advisor = new PinnedToolSearchToolCallingAdvisor(
+            toolCallingManager, toolIndex, 5, ChatMemory.CONVERSATION_ID, Set.of(), List::of,
+            warmUps::incrementAndGet);
+
+        // The pgvector index warm-up must not run at construction (that would force the catalog load at startup)...
+        assertThat(warmUps).hasValue(0);
+
+        advisor.doInitializeLoop(newRequest(toolCallback("askUserQuestion")), null);
+
+        // ...but must run when the first chat turn initializes the loop, before the turn's first searchTool query.
+        assertThat(warmUps).hasValue(1);
     }
 
     private PinnedToolSearchToolCallingAdvisor newAdvisor(Set<String> pinnedToolNames) {
@@ -228,7 +248,7 @@ class PinnedToolSearchToolCallingAdvisorTest {
 
         return new PinnedToolSearchToolCallingAdvisor(
             toolCallingManager, toolIndex, 5, ChatMemory.CONVERSATION_ID, pinnedToolNames,
-            () -> catalogToolCallbacks);
+            () -> catalogToolCallbacks, () -> {});
     }
 
     private static ChatClientRequest newRequest(ToolCallback... toolCallbacks) {

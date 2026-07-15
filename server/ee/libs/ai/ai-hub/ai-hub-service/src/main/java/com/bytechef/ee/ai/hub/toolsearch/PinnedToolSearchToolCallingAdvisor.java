@@ -79,6 +79,7 @@ public final class PinnedToolSearchToolCallingAdvisor extends ToolSearchToolCall
 
     private final Set<String> pinnedToolNames;
     private final Supplier<List<ToolCallback>> catalogToolCallbacksSupplier;
+    private final Runnable catalogWarmUp;
 
     /**
      * Constructs the advisor with the search-loop collaborators {@code buildModeAdvisor} already owns. The remaining
@@ -96,11 +97,18 @@ public final class PinnedToolSearchToolCallingAdvisor extends ToolSearchToolCall
      * resolved lazily on the first {@code seedCatalogToolCallbacks} (i.e. the first chat turn); see {@code
      * buildModeAdvisor} and {@link LazyToolCallingManager} for the matching lazy delegate the base manager wraps.
      * </p>
+     *
+     * <p>
+     * {@code catalogWarmUp} is the one-shot {@link ToolSearchCatalogWarmup} — invoked on the first loop initialization
+     * (the first chat turn) to populate the pgvector search index synchronously before the turn's first {@code
+     * searchTool} query, replacing the former {@code ApplicationReadyEvent} population so startup stays lazy.
+     * </p>
      */
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public PinnedToolSearchToolCallingAdvisor(
         ToolCallingManager toolCallingManager, ToolIndex toolIndex, int maxResults, String sessionIdKeyName,
-        Set<String> pinnedToolNames, Supplier<List<ToolCallback>> catalogToolCallbacksSupplier) {
+        Set<String> pinnedToolNames, Supplier<List<ToolCallback>> catalogToolCallbacksSupplier,
+        Runnable catalogWarmUp) {
 
         super(
             toolCallingManager, DEFAULT_ORDER, DEFAULT_TOOL_EXECUTION_ELIGIBILITY_CHECKER, toolIndex,
@@ -109,12 +117,17 @@ public final class PinnedToolSearchToolCallingAdvisor extends ToolSearchToolCall
 
         this.pinnedToolNames = Set.copyOf(pinnedToolNames);
         this.catalogToolCallbacksSupplier = catalogToolCallbacksSupplier;
+        this.catalogWarmUp = catalogWarmUp;
     }
 
     @Override
     protected ChatClientRequest doInitializeLoop(
         ChatClientRequest chatClientRequest,
         CallAdvisorChain callAdvisorChain) {
+
+        // First chat turn: populate the pgvector search index (once, synchronously) before the base class runs so the
+        // catalog is queryable for this turn's searchTool. No-op after the first successful warm-up.
+        catalogWarmUp.run();
 
         ChatClientRequest initialized = super.doInitializeLoop(chatClientRequest, callAdvisorChain);
 
@@ -127,6 +140,10 @@ public final class PinnedToolSearchToolCallingAdvisor extends ToolSearchToolCall
     protected ChatClientRequest doInitializeLoopStream(
         ChatClientRequest chatClientRequest,
         StreamAdvisorChain streamAdvisorChain) {
+
+        // First chat turn: populate the pgvector search index (once, synchronously) before the base class runs. Bound
+        // to the default tenant internally, independent of this request's environment/tenant. No-op after warm-up.
+        catalogWarmUp.run();
 
         // Session indexing (toolIndex.indexTools -> EmbeddingModel.embed) runs synchronously here on a
         // Schedulers.boundedElastic() worker where the ThreadLocal-bound EnvironmentContext is unset (the agent binds
