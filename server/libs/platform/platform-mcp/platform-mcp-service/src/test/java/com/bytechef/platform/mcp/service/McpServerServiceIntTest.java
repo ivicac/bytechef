@@ -17,6 +17,7 @@
 package com.bytechef.platform.mcp.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.platform.configuration.domain.Environment;
@@ -189,6 +190,32 @@ public class McpServerServiceIntTest {
         McpServer loaded = mcpServerService.getMcpServer(mcpServer.getSecretKey());
 
         assertThat(loaded.isAuthenticationRequired()).isFalse();
+    }
+
+    @Test
+    void testUpdatePersistsAuthenticationRequired() {
+        McpServer mcpServer = mcpServerService.create(
+            "auth-update", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
+
+        mcpServer.setAuthenticationRequired(false);
+
+        mcpServerService.update(mcpServer);
+
+        McpServer loaded = mcpServerService.getMcpServer(mcpServer.getSecretKey());
+
+        assertThat(loaded.isAuthenticationRequired()).isFalse();
+    }
+
+    @Test
+    void testUpdateRejectsNoAuthWithToolAuthorization() {
+        McpServer mcpServer = mcpServerService.create(
+            "auth-invariant", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
+
+        mcpServer.setAuthenticationRequired(false);
+        mcpServer.setEnforceToolAuthorization(true);
+
+        assertThatThrownBy(() -> mcpServerService.update(mcpServer))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 
     private McpServer getMcpServer() {
