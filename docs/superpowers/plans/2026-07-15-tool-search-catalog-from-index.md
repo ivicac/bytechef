@@ -604,6 +604,325 @@ change — just note this is covered by the registry's existing fallback and Tas
 
 ---
 
+### Task 6: Map-keyed dispatch so only surfaced tools load (review-found gap)
+
+**Why:** Task 3 made each `ClusterElementToolCallback`'s input schema lazy, but a `ToolCallback`'s
+name is only reachable via `getToolDefinition()`, which forces the schema. Two name-keyed maps call
+`getToolDefinition().name()` on every callback — `PinnedToolSearchToolCallingAdvisor.seedCatalogToolCallbacks`
+(each turn init) and the vendored `StaticToolCallbackResolver` constructor — so the first chat turn
+still loads every component. Thread the names (already known cheaply when callbacks are built) as a
+`Map<String, ToolCallback>` and resolve via a tiny map resolver, so a schema materializes only when a
+tool is actually invoked.
+
+**Files:**
+- Create: `server/ee/libs/ai/ai-hub/ai-hub-service/src/main/java/com/bytechef/ee/ai/hub/toolsearch/MapToolCallbackResolver.java`
+- Modify: `server/ee/libs/ai/ai-hub/ai-hub-service/src/main/java/com/bytechef/ee/ai/hub/toolsearch/ToolSearchAdvisorConfiguration.java` (record type, bean, `buildModeAdvisor`)
+- Modify: `server/ee/libs/ai/ai-hub/ai-hub-service/src/main/java/com/bytechef/ee/ai/hub/toolsearch/PinnedToolSearchToolCallingAdvisor.java` (field + constructor param + `seedCatalogToolCallbacks`)
+- Test: `.../toolsearch/PinnedToolSearchToolCallingAdvisorTest.java`, `.../toolsearch/ToolSearchAdvisorConfigurationTest.java`, and a new `.../toolsearch/MapToolCallbackResolverTest.java`
+
+**Interfaces:**
+- `org.springframework.ai.tool.resolution.ToolCallbackResolver` is a single-method interface:
+  `ToolCallback resolve(String name)`.
+- `buildClusterElementToolCallbacks(...)` already returns `Map<String, ClusterElementToolCallback>`
+  keyed by the cheap tool name. `AiHubClusterElementToolCallbacks.callbacks()` changes from
+  `Supplier<List<ToolCallback>>` to `Supplier<Map<String, ToolCallback>>`.
+
+- [ ] **Step 1: Write the failing test for the resolver**
+
+Create `MapToolCallbackResolverTest.java`:
+
+```java
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the ByteChef Enterprise license (the "Enterprise License");
+ * you may not use this file except in compliance with the Enterprise License.
+ */
+
+package com.bytechef.ee.ai.hub.toolsearch;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verifyNoInteractions;
+
+import java.util.Map;
+import org.junit.jupiter.api.Test;
+import org.springframework.ai.tool.ToolCallback;
+
+/**
+ * @version ee
+ *
+ * @author Ivica Cardic
+ */
+class MapToolCallbackResolverTest {
+
+    @Test
+    void testResolveReturnsMappedCallbackWithoutTouchingToolDefinition() {
+        ToolCallback toolCallback = mock(ToolCallback.class);
+
+        MapToolCallbackResolver resolver = new MapToolCallbackResolver(Map.of("slack_sendMessage", toolCallback));
+
+        assertThat(resolver.resolve("slack_sendMessage")).isSameAs(toolCallback);
+        assertThat(resolver.resolve("missing")).isNull();
+
+        // Resolution must key off the map, never call getToolDefinition() (which would force a lazy schema/component
+        // load for a ClusterElementToolCallback).
+        verifyNoInteractions(toolCallback);
+    }
+}
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `./gradlew :server:ee:libs:ai:ai-hub:ai-hub-service:test --tests "com.bytechef.ee.ai.hub.toolsearch.MapToolCallbackResolverTest"`
+Expected: FAIL — `MapToolCallbackResolver` does not exist.
+
+- [ ] **Step 3: Create `MapToolCallbackResolver`**
+
+```java
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the ByteChef Enterprise license (the "Enterprise License");
+ * you may not use this file except in compliance with the Enterprise License.
+ */
+
+package com.bytechef.ee.ai.hub.toolsearch;
+
+import edu.umd.cs.findbugs.annotations.Nullable;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Map;
+import org.springframework.ai.tool.ToolCallback;
+import org.springframework.ai.tool.resolution.ToolCallbackResolver;
+
+/**
+ * Resolves a tool callback by its pre-known name via a map lookup, without ever calling
+ * {@link ToolCallback#getToolDefinition()}. Spring AI's {@code StaticToolCallbackResolver} builds its name index by
+ * calling {@code getToolDefinition().name()} on every callback at construction — which, for a lazy
+ * {@link ClusterElementToolCallback}, forces the input schema (and its component) to load. Because the tool-search
+ * catalog already knows each tool's name cheaply when it builds the callback map, this resolver keys off that map so a
+ * component loads only when the model actually invokes a surfaced tool.
+ *
+ * @version ee
+ *
+ * @author Ivica Cardic
+ */
+final class MapToolCallbackResolver implements ToolCallbackResolver {
+
+    private final Map<String, ToolCallback> toolCallbacks;
+
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
+    MapToolCallbackResolver(Map<String, ToolCallback> toolCallbacks) {
+        this.toolCallbacks = Map.copyOf(toolCallbacks);
+    }
+
+    @Override
+    public @Nullable ToolCallback resolve(String name) {
+        return toolCallbacks.get(name);
+    }
+}
+```
+
+- [ ] **Step 4: Run the resolver test to verify it passes**
+
+Run: `./gradlew :server:ee:libs:ai:ai-hub:ai-hub-service:test --tests "com.bytechef.ee.ai.hub.toolsearch.MapToolCallbackResolverTest"`
+Expected: PASS.
+
+- [ ] **Step 5: Thread the name map through the config**
+
+In `ToolSearchAdvisorConfiguration.java`:
+
+(a) Change the record (currently `record AiHubClusterElementToolCallbacks(Supplier<List<ToolCallback>> callbacks)`) to:
+
+```java
+    record AiHubClusterElementToolCallbacks(Supplier<Map<String, ToolCallback>> callbacks) {
+    }
+```
+
+(b) Change the `aiHubClusterElementToolCallbacks` bean's return so it keeps the name-keyed map
+(`buildClusterElementToolCallbacks` already returns `Map<String, ClusterElementToolCallback>`):
+
+```java
+        return new AiHubClusterElementToolCallbacks(
+            MemoizationUtils.memoize(
+                () -> new java.util.LinkedHashMap<String, ToolCallback>(
+                    buildClusterElementToolCallbacks(clusterElementDefinitionService, connectionService))));
+```
+
+(c) Change `buildModeAdvisor`'s third parameter type to
+`Supplier<Map<String, ToolCallback>> clusterElementCallbacksMapSupplier`, replace the
+`callbackListSupplier` block with a map supplier, and swap the resolver. Replace:
+
+```java
+        Supplier<List<ToolCallback>> callbackListSupplier = MemoizationUtils.memoize(() -> {
+            List<ToolCallback> callbackList = new ArrayList<>(clusterElementCallbacksSupplier.get());
+
+            if (globalToolCatalog != null) {
+                for (ToolCallback toolCallback : globalToolCatalog.toolCallbacks()) {
+                    callbackList.add(AiHubToolCallbackWrappers.wrap(toolCallback, securityContextRehydrator));
+                }
+            }
+
+            return callbackList;
+        });
+
+        ToolExecutionExceptionProcessor exceptionProcessor = new DefaultToolExecutionExceptionProcessor(false);
+
+        ToolCallingManager toolCallingManager = new LazyToolCallingManager(
+            () -> new DefaultToolCallingManager(
+                observationRegistry, new StaticToolCallbackResolver(callbackListSupplier.get()), exceptionProcessor));
+```
+
+with:
+
+```java
+        // Keyed by the tool name — cluster-element names come free from the index stub when the callback is built
+        // (buildClusterElementToolCallbacks returns a name->callback map), and the per-mode global tools have eager
+        // (cheap) definitions. Keeping the map, rather than flattening to a list, lets both the resolver and the
+        // advisor look tools up by name WITHOUT calling getToolDefinition() — which for a lazy ClusterElementToolCallback
+        // would force its input schema (and component) to load. So a schema materialises only when the model invokes a
+        // surfaced tool.
+        Supplier<Map<String, ToolCallback>> callbackMapSupplier = MemoizationUtils.memoize(() -> {
+            Map<String, ToolCallback> callbackMap =
+                new java.util.LinkedHashMap<>(clusterElementCallbacksMapSupplier.get());
+
+            if (globalToolCatalog != null) {
+                for (ToolCallback toolCallback : globalToolCatalog.toolCallbacks()) {
+                    // Discovered global tools resolve through this resolver and execute directly on a Reactor scheduler
+                    // thread. Mirror AiHubSpringAIAgent.wrapToolCallback so tenant-scoped and @PreAuthorize-protected
+                    // service calls run under the invoking tenant + principal (and empty results are guarded).
+                    ToolCallback wrapped = AiHubToolCallbackWrappers.wrap(toolCallback, securityContextRehydrator);
+
+                    callbackMap.put(
+                        wrapped.getToolDefinition()
+                            .name(),
+                        wrapped);
+                }
+            }
+
+            return callbackMap;
+        });
+
+        ToolExecutionExceptionProcessor exceptionProcessor = new DefaultToolExecutionExceptionProcessor(false);
+
+        // Lazy so constructing this advisor at startup does not build the resolver. MapToolCallbackResolver keys off the
+        // pre-known names, so building it never calls getToolDefinition() (unlike StaticToolCallbackResolver).
+        ToolCallingManager toolCallingManager = new LazyToolCallingManager(
+            () -> new DefaultToolCallingManager(
+                observationRegistry, new MapToolCallbackResolver(callbackMapSupplier.get()), exceptionProcessor));
+```
+
+(d) At the `return new PinnedToolSearchToolCallingAdvisor(...)` call, pass `callbackMapSupplier`
+(unchanged position — it is the `catalogToolCallbacksSupplier` argument).
+
+(e) Remove the now-unused `StaticToolCallbackResolver` import if nothing else references it; the
+`ToolCallbackResolver` import may already be gone. Add no new imports beyond `java.util.Map` (already
+imported) — the code above uses `java.util.LinkedHashMap` fully qualified to avoid an import churn, or
+add an import if the file's style prefers it.
+
+- [ ] **Step 6: Update the advisor to seed from the map**
+
+In `PinnedToolSearchToolCallingAdvisor.java`:
+
+(a) Change the field (line ~81) and constructor parameter (line ~110) type from
+`Supplier<List<ToolCallback>> catalogToolCallbacksSupplier` to
+`Supplier<Map<String, ToolCallback>> catalogToolCallbacksSupplier`.
+
+(b) Replace the `seedCatalogToolCallbacks` loop body so it seeds from the map's entries — no
+`getToolDefinition()`:
+
+```java
+    private void seedCatalogToolCallbacks(ChatClientRequest chatClientRequest) {
+        Map<String, ToolCallback> catalogToolCallbacks = catalogToolCallbacksSupplier.get();
+
+        if (catalogToolCallbacks.isEmpty()) {
+            return;
+        }
+
+        Object cached = chatClientRequest.context()
+            .get(BASE_CACHED_TOOL_CALLBACKS_KEY);
+
+        if (!(cached instanceof Map<?, ?>)) {
+            return;
+        }
+
+        @SuppressWarnings("unchecked")
+        Map<String, ToolCallback> cachedToolCallbacks = (Map<String, ToolCallback>) cached;
+
+        for (Map.Entry<String, ToolCallback> entry : catalogToolCallbacks.entrySet()) {
+            cachedToolCallbacks.putIfAbsent(entry.getKey(), entry.getValue());
+        }
+    }
+```
+
+(`java.util.Map` is already imported in this file.)
+
+- [ ] **Step 7: Update the existing advisor tests to the map signature + add the no-load proof**
+
+In `PinnedToolSearchToolCallingAdvisorTest.java`, every `new PinnedToolSearchToolCallingAdvisor(...)`
+call and the `newAdvisor(...)` helper now pass a `Supplier<Map<String, ToolCallback>>` for the
+catalog argument. Concretely:
+- `newAdvisor(pinnedToolNames, List<ToolCallback> catalogToolCallbacks)` builds the map by tool name:
+  replace `() -> catalogToolCallbacks` with
+  `() -> catalogToolCallbacks.stream().collect(java.util.stream.Collectors.toMap(tc -> tc.getToolDefinition().name(), tc -> tc, (a, b) -> a, java.util.LinkedHashMap::new))`.
+  (These are eager mock callbacks, so calling `getToolDefinition()` here is fine — the point of the
+  production change is that the *catalog* callbacks are lazy; test mocks are not.)
+- `testCatalogSupplierIsNotResolvedUntilFirstLoopInitialization` and
+  `testCatalogWarmUpRunsOnFirstLoopInitialization`: change the `() -> List.of(...)` / `List::of`
+  catalog arguments to `() -> Map.of(...)` / `java.util.Map::of` (matching the new type). Where a
+  catalog tool is provided, key it by its name.
+- `testDiscoveredCatalogToolBecomesCallableAfterSearch`: change `List.of(catalogTool)` to a map keyed
+  by the catalog tool's name.
+
+Add a new test in `PinnedToolSearchToolCallingAdvisorTest.java` proving seeding never forces a lazy
+schema — using a real `ClusterElementToolCallback` whose lazy generation would call the service:
+
+```java
+    @Test
+    void testSeedingCatalogDoesNotForceLazyToolSchemas() {
+        when(toolCallingManager.resolveToolDefinitions(any())).thenReturn(List.of());
+
+        com.bytechef.platform.component.service.ClusterElementDefinitionService clusterElementDefinitionService =
+            mock(com.bytechef.platform.component.service.ClusterElementDefinitionService.class);
+        com.bytechef.platform.connection.service.ConnectionService connectionService =
+            mock(com.bytechef.platform.connection.service.ConnectionService.class);
+
+        ClusterElementToolCallback lazyCallback = new ClusterElementToolCallback(
+            "slack_sendMessage", "Send a Slack message", "slack", 1, "sendMessage",
+            clusterElementDefinitionService, connectionService);
+
+        PinnedToolSearchToolCallingAdvisor advisor = new PinnedToolSearchToolCallingAdvisor(
+            toolCallingManager, toolIndex, 5, ChatMemory.CONVERSATION_ID, Set.of(),
+            () -> java.util.Map.of("slack_sendMessage", lazyCallback), () -> {});
+
+        advisor.doInitializeLoop(newRequest(toolCallback("askUserQuestion")), null);
+
+        // Seeding the catalog into the base advisor's cache must key off the map, never resolve the lazy callback's
+        // component — verify the schema source (the definition service) was never touched.
+        verifyNoInteractions(clusterElementDefinitionService);
+    }
+```
+
+Add the static import `import static org.mockito.Mockito.verifyNoInteractions;` if absent.
+
+In `ToolSearchAdvisorConfigurationTest.java`, the bean's `callbacks()` now returns
+`Supplier<Map<String, ToolCallback>>`. The existing `testClusterElementToolCallbacksBeanDefersCatalogLoadUntilFirstUse`
+calls `callbacks().get()` and asserts `assertThat(resolved).isEmpty()` — `isEmpty()` holds for an
+empty `Map`, and the `verify(...).getClusterElementDefinitionStubs(...)` counts are unchanged, so the
+only edit needed is the local variable type if it is declared as `List<?>` (change to `Map<?, ?>` or
+use `var`). Confirm the assertion compiles against the `Map` return.
+
+- [ ] **Step 8: Full module test + checks + commit**
+
+```bash
+./gradlew :server:ee:libs:ai:ai-hub:ai-hub-service:spotlessApply
+./gradlew :server:ee:libs:ai:ai-hub:ai-hub-service:checkstyleMain :server:ee:libs:ai:ai-hub:ai-hub-service:checkstyleTest :server:ee:libs:ai:ai-hub:ai-hub-service:pmdMain :server:ee:libs:ai:ai-hub:ai-hub-service:spotbugsMain :server:ee:libs:ai:ai-hub:ai-hub-service:test
+git add server/ee/libs/ai/ai-hub/ai-hub-service/src/main/java/com/bytechef/ee/ai/hub/toolsearch/MapToolCallbackResolver.java server/ee/libs/ai/ai-hub/ai-hub-service/src/main/java/com/bytechef/ee/ai/hub/toolsearch/ToolSearchAdvisorConfiguration.java server/ee/libs/ai/ai-hub/ai-hub-service/src/main/java/com/bytechef/ee/ai/hub/toolsearch/PinnedToolSearchToolCallingAdvisor.java server/ee/libs/ai/ai-hub/ai-hub-service/src/test/java/com/bytechef/ee/ai/hub/toolsearch/
+git commit -m "732 Map-keyed tool-search dispatch so only surfaced tools load"
+```
+
+---
+
 ## Self-Review
 
 - **Spec coverage:** §1 (stub enumeration) → Task 1; §2 (population) → Task 2; §3 (lazy dispatch) → Task 3; GraphQL picker → Task 4; validation-timing tradeoff → covered by the lazy path in Task 3 + verification in Task 5; testing → per-task tests + Task 5. All spec sections mapped.

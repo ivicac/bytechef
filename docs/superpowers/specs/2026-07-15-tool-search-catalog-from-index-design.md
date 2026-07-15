@@ -117,6 +117,17 @@ threads), so the lazy schema must be memoized **thread-safely** — a `Memoizati
 supplier or equivalent double-checked hold, resolved at most once per callback under concurrent
 `getToolDefinition()` access.
 
+**Correction (found in review): the lazy schema alone is not enough.** A `ToolCallback`'s name is
+only reachable generically via `getToolDefinition()`, which materialises the full definition —
+including the input schema. Two name-keyed maps call `getToolDefinition().name()` on *every*
+callback: `PinnedToolSearchToolCallingAdvisor.seedCatalogToolCallbacks` (each turn init) and Spring
+AI's vendored `StaticToolCallbackResolver` constructor. Either would force every cluster-element
+schema (and component load) on the first turn, negating the optimization. The fix threads the tool
+names — already known cheaply from the index stub when the callback is built — through as a
+`Map<String, ToolCallback>` (name → callback): resolve via a tiny `MapToolCallbackResolver`
+(`resolve(name) → map.get(name)`, no `getToolDefinition()`), and seed the advisor's cache from the
+map's entries. A schema then materialises only when the model actually invokes a surfaced tool.
+
 The existing malformed-tool handling (log-and-skip so one bad tool does not poison the map) is
 preserved — moved to the lazy schema-generation point.
 
