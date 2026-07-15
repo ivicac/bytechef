@@ -54,39 +54,43 @@ already follows.
 
 ## Design
 
-### §1 — Reusable index-served cluster-element enumeration
+### §1 — Reusable index-served cluster-element enumeration (new method)
 
 The index `Entry` already carries `List<ClusterElementSummary>` (name, title, description, and the
 cluster-element type: typeName/typeKey/typeLabel/typeMultipleElements/typeRequired). Nothing new
 needs to be stored.
 
-Convert the type-only `ClusterElementDefinitionService.getClusterElementDefinitions(ClusterElementType)`
-to be **index-served**:
+**Add a new method** `ClusterElementDefinitionService.getClusterElementDefinitionStubs(ClusterElementType)`
+rather than mutating the existing full-load `getClusterElementDefinitions(type)`. A caller audit
+shows the existing method has consumers that genuinely need property trees — notably
+`ee/embedded-execution ToolFacadeImpl`, which calls
+`JsonSchemaGeneratorUtils.generateInputSchema(clusterElementDefinition.getProperties())`, and
+`getRootClusterElementDefinitions`. Converting the shared method to stubs would hand those empty
+schemas. Two explicit methods for two use-cases (list vs. detail) is the correct shape.
 
-- Add a package-visible query on `ComponentDefinitionRegistry` (e.g.
-  `getClusterElementDefinitionStubsFromIndex(ClusterElementType)`) that reads the `ComponentIndex`
-  it already holds, iterates entries, filters `clusterElements` by the requested type, and returns
-  **stub** `ClusterElementDefinition`s — component name/version, element name, title, description,
-  type — with **no property tree and no handler load**. Reuse the existing
-  `ComponentIndex.toStubClusterElementDefinition` projection.
-- `ClusterElementDefinitionServiceImpl.getClusterElementDefinitions(type)` returns these stubs when
-  the index is present, and falls back to the current full path (`getComponentDefinitions()` filter)
-  when it is absent — matching the registry's established "index authoritative when present, full
-  load otherwise" contract for EE apps that ship without a generated index.
+- The stub method resolves via the registry's existing `getStaticComponentDefinitions()`, which
+  already returns index stubs when the index is present and falls back to the full map when it is
+  absent (the established "index authoritative when present, full load otherwise" contract for EE
+  apps without a generated index). The service filters each stub component's cluster elements by
+  type and wraps them with the existing `toClusterElementDefinition(clusterElement, componentName,
+  componentVersion, icon)` — the stub component carries the icon; the wrapped domain object carries
+  componentName/version/name/title/description/type with an **empty property tree and no handler
+  load**.
+- The existing `getClusterElementDefinitions(type)` (full load) is left unchanged for the
+  property-needing callers.
 
-Caller audit — after §3 no caller of the type-only enumeration needs property trees:
-`ToolSearchCatalogFeeder.populate` (§2), `buildClusterElementToolCallbacks` (§3), and
-`AiHubTaskToolGraphQlController` (×2, listing only). The internal
-`ClusterElementDefinitionServiceImpl:559` fallback path is re-checked to ensure it does not rely on
-stub properties.
+The tool-search list callers switch to the stub method: `ToolSearchCatalogFeeder.populate` (§2),
+`buildClusterElementToolCallbacks` (§3), and `AiHubTaskToolGraphQlController` (×2, listing only).
+`ToolFacadeImpl`, `getRootClusterElementDefinitions`, `ListAvailableSourceComponentsToolCallback`,
+and any other consumer stay on the full method.
 
-This single method is the reusable seed the later aggregates copy.
+This new stub method is the reusable seed the later aggregates copy.
 
 ### §2 — Search population from the index
 
-`ToolSearchCatalogFeeder.populate()` (and the global-tools path where it enumerates cluster
-elements) sources its tool list from §1. `buildSummary` uses only title + description — both present
-on the stub — so **populate loads no components**. The content hash, embedding-skip, and pgvector
+`ToolSearchCatalogFeeder.populate()` calls the §1 stub method instead of the full-load enum.
+`buildSummary` uses only title + description — both present on the stub — so **populate loads no
+components**. The content hash, embedding-skip, and pgvector
 indexing are unchanged: they operate on `toolName` + `summary` text, which are identical whether
 sourced from a stub or a fully-loaded definition (both are static, build-captured text).
 
@@ -145,9 +149,11 @@ property-tree validation defers to first use).
 
 ## Testing
 
-- **§1 enumeration** — unit-test `getClusterElementDefinitions(type)` against a fake
-  `ComponentIndex`: returns stubs (component/name/title/description/type present, properties empty)
-  with no handler load; falls back to the full path when no index is present.
+- **§1 enumeration** — unit-test the new `getClusterElementDefinitionStubs(type)`: returns cluster
+  elements (component/name/title/description/type present, properties empty) sourced from
+  `getStaticComponentDefinitions()`, filtered by type; the existing full-load
+  `getClusterElementDefinitions(type)` is left behaviourally unchanged (a caller needing properties
+  still gets them).
 - **§2 population** — assert `populate()` indexes each tool-typed element's summary from stub fields
   and triggers no full-catalog load. Existing feeder tests (service mocked) stay green.
 - **§3 lazy dispatch** — mirror the deferral tests already in the tree: building the callback map
@@ -160,14 +166,16 @@ property-tree validation defers to first use).
 
 ## Affected files
 
-- `platform-component-service`: `ComponentDefinitionRegistry` (new index-stub cluster-element
-  query), `ClusterElementDefinitionServiceImpl` (index-served enumeration + fallback),
-  `ComponentIndex` (reuse `toStubClusterElementDefinition`).
-- `ai-hub-service`: `ToolSearchCatalogFeeder` (populate from enumeration),
-  `ToolSearchAdvisorConfiguration.buildClusterElementToolCallbacks` (build by name),
-  `ClusterElementToolCallback` (lazy memoized input schema).
-- `ai-hub-graphql`: `AiHubTaskToolGraphQlController` (freed by §1; no change needed beyond inheriting
-  the stub-backed enumeration).
+- `platform-component-api`: `ClusterElementDefinitionService` (new
+  `getClusterElementDefinitionStubs(type)` method on the interface).
+- `platform-component-service`: `ClusterElementDefinitionServiceImpl` (implement the stub method via
+  `getStaticComponentDefinitions()` + `toClusterElementDefinition`). No `ComponentIndex` /
+  `ComponentDefinitionRegistry` change — `getStaticComponentDefinitions()` already yields stubs.
+- `ai-hub-service`: `ToolSearchCatalogFeeder` (populate calls the stub method),
+  `ToolSearchAdvisorConfiguration.buildClusterElementToolCallbacks` (build by name via the stub
+  method), `ClusterElementToolCallback` (lazy memoized input schema).
+- `ai-hub-graphql`: `AiHubTaskToolGraphQlController` (switch its two list call sites to the stub
+  method).
 
 ## Follow-ups (separate specs)
 
