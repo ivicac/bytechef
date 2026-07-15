@@ -698,6 +698,7 @@ export type DeleteAiSkillMutation = { deleteAiSkill: boolean };
 
 export type GenerateAiSkillMutationVariables = Exact<{
   prompt: string;
+  environmentId: number;
 }>;
 
 
@@ -6057,8 +6058,8 @@ export const useDeleteAiSkillMutation = <
     )};
 
 export const GenerateAiSkillDocument = new TypedDocumentString(`
-    mutation generateAiSkill($prompt: String!) {
-  generateAiSkill(prompt: $prompt) {
+    mutation generateAiSkill($prompt: String!, $environmentId: Int!) {
+  generateAiSkill(prompt: $prompt, environmentId: $environmentId) {
     id
     name
     description

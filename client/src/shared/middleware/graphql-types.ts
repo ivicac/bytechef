@@ -4523,6 +4523,7 @@ export type MutationGenerateAiHubTaskTitleArgs = {
 
 
 export type MutationGenerateAiSkillArgs = {
+  environmentId: Scalars['Int']['input'];
   prompt: Scalars['String']['input'];
 };
 
