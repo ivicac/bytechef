@@ -167,7 +167,7 @@ public class ToolSearchCatalogFeeder {
     @SuppressFBWarnings("UNSAFE_HASH_EQUALS")
     public void populate() {
         List<ClusterElementDefinition> toolDefinitions =
-            clusterElementDefinitionService.getClusterElementDefinitions(BaseToolFunction.TOOLS);
+            clusterElementDefinitionService.getClusterElementDefinitionStubs(BaseToolFunction.TOOLS);
 
         // Compute the canonical hash from (toolName, summary) pairs sorted by toolName. Skipping entries with no
         // summary mirrors the indexCatalog loop — they never make it into pgvector, so they must not influence the

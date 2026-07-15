@@ -15,6 +15,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.component.definition.ai.agent.BaseToolFunction;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
@@ -122,5 +123,23 @@ class ToolSearchCatalogFeederGlobalToolsTest {
             "ai_hub_tool_catalog:global:ask", List.of(toolCallback("listProjects", "List all projects")));
 
         verify(vectorToolIndex, never()).indexTool(any(), any());
+    }
+
+    @Test
+    void testPopulateSourcesToolsFromStubEnumeration() {
+        ToolSearchCatalogFeeder feeder = new ToolSearchCatalogFeeder(
+            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate, "public");
+
+        when(pgVectorJdbcTemplate.queryForObject(any(), eq(String.class), any()))
+            .thenThrow(new org.springframework.dao.EmptyResultDataAccessException(1));
+        when(clusterElementDefinitionService.getClusterElementDefinitionStubs(BaseToolFunction.TOOLS))
+            .thenReturn(List.of());
+
+        feeder.populate();
+
+        // Population must read the index-stub enumeration, never the full-load catalog method.
+        verify(clusterElementDefinitionService).getClusterElementDefinitionStubs(BaseToolFunction.TOOLS);
+        verify(clusterElementDefinitionService, org.mockito.Mockito.never())
+            .getClusterElementDefinitions(BaseToolFunction.TOOLS);
     }
 }
