@@ -134,11 +134,74 @@ export function useGenerateAiHubTaskTitleMutation() {
     });
 }
 
+/**
+ * Key identifying a single data-table row across a task's artifact log. DATA_TABLE_ROW_* artifacts store
+ * the row id in artifactId and the parent table id in metadataJson.dataTableId; both are needed because
+ * row ids are only unique per table.
+ */
+function dataTableRowKey(artifact: AiHubTaskArtifactI): string {
+    let dataTableId = '';
+
+    if (artifact.metadataJson) {
+        try {
+            const metadata = JSON.parse(artifact.metadataJson) as Record<string, string>;
+
+            dataTableId = metadata['dataTableId'] ?? '';
+        } catch {
+            // Unparseable metadata falls back to the bare row id; worst case a cross-table row-id collision
+            // keeps a pair visible, which is the safe direction.
+        }
+    }
+
+    return `${dataTableId}:${artifact.artifactId}`;
+}
+
+/**
+ * Hides data-table row artifacts that net out to nothing within the same task: a row that was ADDED and later
+ * DELETED (plus any UPDATED entries in between) ends the conversation not existing, so showing it as an
+ * "attachment" misleads — the canonical case is the agent seeding a sample row to create a table schema and
+ * deleting it right after. The server-side artifact log stays complete (the workspace audit viewer shows every
+ * entry); this is purely a sidebar presentation rule. A DELETED artifact for a row the task did NOT add stays
+ * visible, since destroying pre-existing data is exactly what an audit trail must surface.
+ */
+export function collapseNetZeroDataTableRowArtifacts(artifacts: AiHubTaskArtifactI[]): AiHubTaskArtifactI[] {
+    const addedRowKeys = new Set<string>();
+    const deletedRowKeys = new Set<string>();
+
+    for (const artifact of artifacts) {
+        if (artifact.kind === 'DATA_TABLE_ROW_ADDED') {
+            addedRowKeys.add(dataTableRowKey(artifact));
+        } else if (artifact.kind === 'DATA_TABLE_ROW_DELETED') {
+            deletedRowKeys.add(dataTableRowKey(artifact));
+        }
+    }
+
+    if (addedRowKeys.size === 0 || deletedRowKeys.size === 0) {
+        return artifacts;
+    }
+
+    return artifacts.filter((artifact) => {
+        if (
+            artifact.kind !== 'DATA_TABLE_ROW_ADDED' &&
+            artifact.kind !== 'DATA_TABLE_ROW_UPDATED' &&
+            artifact.kind !== 'DATA_TABLE_ROW_DELETED'
+        ) {
+            return true;
+        }
+
+        const rowKey = dataTableRowKey(artifact);
+
+        return !(addedRowKeys.has(rowKey) && deletedRowKeys.has(rowKey));
+    });
+}
+
 export function useAiHubTaskArtifactsQuery(taskId: number | undefined, workspaceId: number, enabled = true) {
     const query = useQuery<AiHubTaskArtifactI[], Error>({
         enabled: enabled && taskId !== undefined,
         queryFn: () => getTaskArtifacts({taskId: taskId!, workspaceId}),
         queryKey: AiHubTasksKeys.artifacts(taskId ?? -1, workspaceId),
+        // Applies to every consumer of this hook (artifact list + count badge) so the two can't disagree.
+        select: collapseNetZeroDataTableRowArtifacts,
         staleTime: 60_000,
     });
 
