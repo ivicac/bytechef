@@ -8,7 +8,10 @@
 package com.bytechef.ee.ai.hub.tool;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
@@ -25,6 +28,8 @@ import tools.jackson.databind.json.JsonMapper;
  * @author Ivica Cardic
  */
 public class OpenKnowledgeBaseTabToolCallback implements ToolCallback {
+
+    private static final Logger log = LoggerFactory.getLogger(OpenKnowledgeBaseTabToolCallback.class);
 
     private static final String DESCRIPTION = """
         Open a knowledge base in the AI Hub resource panel so the user can see it.
@@ -43,6 +48,12 @@ public class OpenKnowledgeBaseTabToolCallback implements ToolCallback {
         }""";
 
     private final JsonMapper jsonMapper = new JsonMapper();
+    private final @Nullable AiHubTaskArtifactRecorder artifactRecorder;
+
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
+    public OpenKnowledgeBaseTabToolCallback(@Nullable AiHubTaskArtifactRecorder artifactRecorder) {
+        this.artifactRecorder = artifactRecorder;
+    }
 
     @Override
     public ToolDefinition getToolDefinition() {
@@ -73,6 +84,8 @@ public class OpenKnowledgeBaseTabToolCallback implements ToolCallback {
                 return toolError("name is required");
             }
 
+            recordArtifact(toolContext, input);
+
             return jsonMapper.writeValueAsString(
                 new OpenKnowledgeBaseTabOutput(true, input.knowledgeBaseId(), input.name()));
         } catch (JacksonException exception) {
@@ -80,6 +93,28 @@ public class OpenKnowledgeBaseTabToolCallback implements ToolCallback {
         } catch (RuntimeException exception) {
             return ToolErrors.runtimeFailure(
                 jsonMapper, OpenKnowledgeBaseTabToolCallback.class, "openKnowledgeBaseTab", exception);
+        }
+    }
+
+    private void recordArtifact(@Nullable ToolContext toolContext, OpenKnowledgeBaseTabInput input) {
+        if (artifactRecorder == null) {
+            return;
+        }
+
+        AiHubToolInvocationContext invocationContext = AiHubToolInvocationContext.fromToolContext(toolContext);
+
+        if (invocationContext == null || invocationContext.threadId() == null) {
+            return;
+        }
+
+        try {
+            artifactRecorder.recordReference(
+                invocationContext.threadId(), invocationContext.userId(), "KB_REFERENCED",
+                input.knowledgeBaseId(), input.name());
+        } catch (RuntimeException exception) {
+            log.warn(
+                "Failed to record knowledge base artifact for openKnowledgeBaseTab (knowledgeBaseId={})",
+                input.knowledgeBaseId(), exception);
         }
     }
 
