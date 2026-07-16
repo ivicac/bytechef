@@ -57,7 +57,8 @@ import org.springframework.jdbc.core.JdbcTemplate;
  *
  * <p>
  * <b>Re-index semantics:</b> each populate call clears its target session's in-memory document-id map first via
- * {@link VectorToolIndex#clearIndex(String)}, then re-issues an {@code indexTool} call per entry. Two implications:
+ * {@link VectorToolIndex#clearIndex(String)}, then re-indexes the whole entry list in one batched {@code indexTools}
+ * call. Two implications:
  * </p>
  * <ul>
  * <li>After a JVM restart the in-memory id counter resets to {@code 0} but stale rows from the previous JVM still exist
@@ -161,8 +162,8 @@ public class ToolSearchCatalogFeeder {
      * embedding-and-write loop entirely when the catalog's content hash matches the hash recorded by the previous
      * successful populate — saving 90 seconds and several hundred embedding API calls on every cold start where the
      * catalog is unchanged. Idempotent: every call either short-circuits on hash match, or clears the session's
-     * in-memory tool-id tracking and re-issues an {@code indexTool} per cluster element marked tool-eligible by its
-     * component author.
+     * in-memory tool-id tracking and re-indexes every tool-eligible cluster element in one batched {@code indexTools}
+     * call.
      */
     @SuppressFBWarnings("UNSAFE_HASH_EQUALS")
     public void populate() {
@@ -378,26 +379,30 @@ public class ToolSearchCatalogFeeder {
     }
 
     /**
-     * Shared clear-then-index routine. Clears the target persistent session (restart-safe, by metadata) then issues one
-     * {@code indexTool} per entry. Used by the workspace catalog, per-task subset, and global tool paths.
+     * Shared clear-then-index routine. Clears the target persistent session (restart-safe, by metadata) then issues a
+     * single batched {@link VectorToolIndex#indexTools(String, List)} for the whole entry list. Batching matters: the
+     * underlying {@code VectorStore.add} runs its {@code BatchingStrategy} over the full document list and embeds each
+     * batch in one request, so a several-hundred-entry catalog collapses from one embedding HTTP round-trip per tool to
+     * a handful — cutting first-boot latency and embedding-endpoint request-rate pressure. Used by the workspace
+     * catalog, per-task subset, and global tool paths.
      */
     private int indexEntries(String sessionId, List<CatalogEntry> entries) {
         vectorToolIndex.clearIndex(sessionId);
 
-        int indexed = 0;
-
-        for (CatalogEntry entry : entries) {
-            ToolReference reference = ToolReference.builder()
-                .toolName(entry.toolName())
-                .summary(entry.summary())
-                .build();
-
-            vectorToolIndex.indexTool(sessionId, reference);
-
-            indexed++;
+        if (entries.isEmpty()) {
+            return 0;
         }
 
-        return indexed;
+        List<ToolReference> references = entries.stream()
+            .map(entry -> ToolReference.builder()
+                .toolName(entry.toolName())
+                .summary(entry.summary())
+                .build())
+            .toList();
+
+        vectorToolIndex.indexTools(sessionId, references);
+
+        return references.size();
     }
 
     /**
