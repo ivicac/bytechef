@@ -3356,6 +3356,7 @@ export type Mutation = {
   createAutomationWorkflowProjectWorkflow: Scalars['ID']['output'];
   createContextStore: ContextStore;
   createContextStoreSource: ContextStoreSource;
+  createCustomComponent: CustomComponent;
   /** Create a new custom role with the given scopes. Requires tenant admin. */
   createCustomRole: CustomRole;
   createDataTable: Scalars['Boolean']['output'];
@@ -3670,6 +3671,7 @@ export type Mutation = {
    * so the client can refresh its remainingTags cache.
    */
   updateContextStoreTags: Array<Tag>;
+  updateCustomComponentSource: Scalars['Boolean']['output'];
   /** Update an existing custom role. Requires tenant admin. */
   updateCustomRole: CustomRole;
   updateDataTableRow: DataTableRow;
@@ -4020,6 +4022,12 @@ export type MutationCreateContextStoreArgs = {
 
 export type MutationCreateContextStoreSourceArgs = {
   input: CreateContextStoreSourceInput;
+};
+
+
+export type MutationCreateCustomComponentArgs = {
+  language: CustomComponentLanguage;
+  name: Scalars['String']['input'];
 };
 
 
@@ -5159,6 +5167,12 @@ export type MutationUpdateContextStoreTagsArgs = {
 };
 
 
+export type MutationUpdateCustomComponentSourceArgs = {
+  content: Scalars['String']['input'];
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationUpdateCustomRoleArgs = {
   id: Scalars['ID']['input'];
   input: UpdateCustomRoleInput;
@@ -5847,6 +5861,7 @@ export type Query = {
   contextStores: Array<ContextStore>;
   customComponent?: Maybe<CustomComponent>;
   customComponentDefinition?: Maybe<CustomComponentDefinition>;
+  customComponentSource: Scalars['String']['output'];
   customComponents: Array<CustomComponent>;
   /** Get a custom role by ID. Requires tenant admin. */
   customRole: CustomRole;
@@ -6640,6 +6655,11 @@ export type QueryCustomComponentArgs = {
 
 
 export type QueryCustomComponentDefinitionArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryCustomComponentSourceArgs = {
   id: Scalars['ID']['input'];
 };
 
