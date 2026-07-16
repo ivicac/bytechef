@@ -17,7 +17,8 @@ export type AiHubTabType =
       }
     | {id: string; kind: 'dataTable'; dataTableId: string; name: string}
     | {id: string; kind: 'workflowExecution'; workflowExecutionId: number; name: string}
-    | {id: string; kind: 'knowledgeBase'; knowledgeBaseId: string; name: string};
+    | {id: string; kind: 'knowledgeBase'; knowledgeBaseId: string; name: string}
+    | {id: string; kind: 'skill'; name: string; skillId: string};
 
 /**
  * Per-task snapshot of the tabs view. Keyed by `taskId` in
@@ -61,11 +62,12 @@ interface AiHubTabsStateI {
     tasksSidebarPeeking: boolean;
 
     closeTab: (tabId: string) => void;
-    openFileTab: (fileId: string, name: string) => string;
-    openWorkflowTab: (workflowId: string, projectId: string, projectWorkflowId: number, name: string) => string;
     openDataTableTab: (dataTableId: string, name: string) => string;
+    openFileTab: (fileId: string, name: string) => string;
     openKnowledgeBaseTab: (knowledgeBaseId: string, name: string) => string;
+    openSkillTab: (skillId: string, name: string) => string;
     openWorkflowExecutionTab: (workflowExecutionId: number, name: string) => string;
+    openWorkflowTab: (workflowId: string, projectId: string, projectWorkflowId: number, name: string) => string;
     reset: () => void;
     setActiveTaskId: (taskId: number | undefined) => void;
     setActiveTab: (tabId: string) => void;
@@ -351,6 +353,36 @@ export const aiHubTabsStore = create<AiHubTabsStateI>()(
                             knowledgeBaseId,
                             name,
                         };
+
+                        tabIdToReturn = newTab.id;
+
+                        return {
+                            ...state,
+                            activeTabId: newTab.id,
+                            openTabs: [...state.openTabs, newTab],
+                            rightPanelOpen: true,
+                        };
+                    });
+
+                    return tabIdToReturn;
+                },
+
+                openSkillTab: (skillId, name) => {
+                    let tabIdToReturn = '';
+
+                    set((state) => {
+                        const existing = state.openTabs.find(
+                            (tab): tab is Extract<AiHubTabType, {kind: 'skill'}> =>
+                                tab.kind === 'skill' && tab.skillId === skillId
+                        );
+
+                        if (existing) {
+                            tabIdToReturn = existing.id;
+
+                            return {...state, activeTabId: existing.id, rightPanelOpen: true};
+                        }
+
+                        const newTab: AiHubTabType = {id: getRandomId(), kind: 'skill', name, skillId};
 
                         tabIdToReturn = newTab.id;
 

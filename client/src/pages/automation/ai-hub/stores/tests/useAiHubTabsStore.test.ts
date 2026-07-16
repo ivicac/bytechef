@@ -226,6 +226,28 @@ describe('useAiHubTabsStore', () => {
         expect(result.current.activeTabId).toBe(firstTabId);
     });
 
+    // --- Skill tab tests ---
+
+    it('opens a skill tab and dedups by skillId', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let firstId = '';
+
+        act(() => {
+            firstId = result.current.openSkillTab('7', 'Triage');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.openTabs[0]).toMatchObject({kind: 'skill', name: 'Triage', skillId: '7'});
+
+        act(() => {
+            result.current.openSkillTab('7', 'Triage');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.activeTabId).toBe(firstId);
+    });
+
     // --- KnowledgeBase tab tests ---
 
     it('opens a knowledgeBase tab with kind: knowledgeBase and correct fields', () => {
