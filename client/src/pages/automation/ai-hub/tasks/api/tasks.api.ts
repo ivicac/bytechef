@@ -48,6 +48,7 @@ export type AiHubArtifactKindType =
     | 'MEMORY_DELETED'
     | 'MEMORY_RENAMED'
     | 'MEMORY_UPDATED'
+    | 'SKILL_REFERENCED'
     | 'TASK_REFERENCED'
     | 'WORKFLOW_CREATED'
     | 'WORKFLOW_EXECUTION_REFERENCED'
