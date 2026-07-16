@@ -356,8 +356,9 @@ public class AiHubConfiguration {
         toolSearchToolCallAdvisorProvider.ifAvailable(builder::advisor);
 
         // ASK mode gets the same DB-backed auto-memory as BUILD so it can recall (and record) memories while
-        // answering. The memory tool names are pinned in ALWAYS_ON_TOOL_NAMES so the tool-search narrowing doesn't
-        // strip them.
+        // answering. The memory tools are added to the agent's static tool list, which
+        // PinnedToolSearchToolCallingAdvisor
+        // pins in full, so the tool-search narrowing doesn't strip them.
         builder.advisor(
             AutoMemoryToolsAdvisor.builder()
                 .autoMemoryTools(
