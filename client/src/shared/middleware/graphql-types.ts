@@ -855,6 +855,7 @@ export type AiHubTaskArtifact = {
 };
 
 export enum AiHubTaskArtifactKind {
+  ApiCollectionReferenced = 'API_COLLECTION_REFERENCED',
   BinaryFileCreated = 'BINARY_FILE_CREATED',
   DataTableColumnAdded = 'DATA_TABLE_COLUMN_ADDED',
   DataTableReferenced = 'DATA_TABLE_REFERENCED',
@@ -866,11 +867,15 @@ export enum AiHubTaskArtifactKind {
   KbDocumentAdded = 'KB_DOCUMENT_ADDED',
   KbDocumentDeleted = 'KB_DOCUMENT_DELETED',
   KbReferenced = 'KB_REFERENCED',
+  McpServerReferenced = 'MCP_SERVER_REFERENCED',
   MemoryCreated = 'MEMORY_CREATED',
   MemoryDeleted = 'MEMORY_DELETED',
   MemoryRenamed = 'MEMORY_RENAMED',
   MemoryUpdated = 'MEMORY_UPDATED',
+  SkillReferenced = 'SKILL_REFERENCED',
+  TaskReferenced = 'TASK_REFERENCED',
   WorkflowCreated = 'WORKFLOW_CREATED',
+  WorkflowExecutionReferenced = 'WORKFLOW_EXECUTION_REFERENCED',
   WorkflowExecutionStarted = 'WORKFLOW_EXECUTION_STARTED',
   WorkflowReferenced = 'WORKFLOW_REFERENCED',
   WorkflowUpdated = 'WORKFLOW_UPDATED'
