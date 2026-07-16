@@ -99,6 +99,41 @@ describe('animateNodePositions', () => {
         expect(rafCallbacks.length).toBe(1);
     });
 
+    it('should snap to target positions without animating when a node travels a large distance', () => {
+        // A long tween re-renders the whole flow every frame across a big stretch of canvas; under
+        // heavy main-thread load Chrome's compositor has left paint trails (stale afterimages of the
+        // moving node). Beyond the displacement cutoff the tween must snap instead.
+        const nodes = [createNode('a', 0, 0), createNode('b', 100, 100)];
+        const targetNodes = [createNode('a', 0, 1500), createNode('b', 100, 120)];
+        const setNodes = vi.fn();
+
+        animateNodePositions(nodes, targetNodes, setNodes);
+
+        expect(setNodes).toHaveBeenCalledExactlyOnceWith(targetNodes);
+        expect(rafCallbacks.length).toBe(0);
+    });
+
+    it('should still animate when the largest travel stays under the displacement cutoff', () => {
+        const nodes = [createNode('a', 0, 0)];
+        const targetNodes = [createNode('a', 0, 600)];
+        const setNodes = vi.fn();
+
+        animateNodePositions(nodes, targetNodes, setNodes);
+
+        expect(rafCallbacks.length).toBe(1);
+    });
+
+    it('should not let a brand-new node (no previous position) trigger the snap', () => {
+        // New nodes render directly at their target position, so their "travel" is not real motion.
+        const nodes = [createNode('a', 0, 0)];
+        const targetNodes = [createNode('a', 0, 100), createNode('b', 2000, 2000)];
+        const setNodes = vi.fn();
+
+        animateNodePositions(nodes, targetNodes, setNodes);
+
+        expect(rafCallbacks.length).toBe(1);
+    });
+
     it('should interpolate positions during animation', () => {
         const nodes = [createNode('a', 0, 0)];
         const targetNodes = [createNode('a', 300, 600)];
