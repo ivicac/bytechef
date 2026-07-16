@@ -2727,6 +2727,11 @@ describe('getElkLayoutElements ring hug in LR', () => {
     });
 });
 
+// Mirrors getLabelCrossOverhang: fixtures carry only workflowNodeName, so the
+// label-side box edge is icon half (36) + min(200, 16 + 9 * name length)
+const labelSideEdge = (iconCenter: number, nodeName: string): number =>
+    iconCenter + 36 + Math.min(200, 16 + 9 * nodeName.length);
+
 describe('no-crossing lanes', () => {
     // A frame column owns more than its nodes: its chip, entry drop,
     // connectors and trailing edge all render on the entry axis (a 45px
@@ -2743,13 +2748,14 @@ describe('no-crossing lanes', () => {
         const trueCenter = positionOf(result.nodes, 'childTrue1').x + 36;
         const falseCenter = positionOf(result.nodes, 'childFalse1').x + 36;
 
-        // Binding pair: the left column's label edge (center + 36 + 200)
-        // against the right column's footprint edge (center − 120) at the
-        // exact 50px gap — 236 + 50 + 120 = 406. A centered-footprint model
-        // would pack these at 290 and let the right column's edges run
-        // through the left column's title text.
-        expect(falseCenter - trueCenter).toBeGreaterThanOrEqual(405);
-        expect(falseCenter - trueCenter).toBeLessThanOrEqual(407);
+        // Binding pair: the left column's label edge (center + 36 + the
+        // per-node estimate, 106 for the 10-char 'childTrue1') against the
+        // right column's footprint edge (center − 120) at the exact 50px gap
+        // — 142 + 50 + 120 = 312. A centered-footprint model would pack these
+        // at 290 and let long labels collide; a flat worst-case reservation
+        // packed them at 406 and read too airy beside dagre.
+        expect(falseCenter - trueCenter).toBeGreaterThanOrEqual(labelSideEdge(0, 'childTrue1') + 50 + 120 - 1);
+        expect(falseCenter - trueCenter).toBeLessThanOrEqual(labelSideEdge(0, 'childTrue1') + 50 + 120 + 1);
     });
 
     it('keeps a short chain clear of a deep sibling subtree for the FULL frame height', async () => {
@@ -2795,7 +2801,7 @@ describe('no-crossing lanes', () => {
             const trueCenter = positionOf(result.nodes, trueSideId).x + 36;
 
             if (falseAxis > trueCenter) {
-                expect(falseAxis - 45 - (trueCenter + 236)).toBeGreaterThanOrEqual(49);
+                expect(falseAxis - 45 - labelSideEdge(trueCenter, trueSideId)).toBeGreaterThanOrEqual(49);
             } else {
                 expect(trueCenter - 120 - (falseAxis + 45)).toBeGreaterThanOrEqual(49);
             }
@@ -2843,10 +2849,17 @@ describe('no-crossing lanes', () => {
             positionOf(result.nodes, 'nestedFalse2').x + 36,
         ];
 
-        const rectangleStart = Math.min(placeholderCenter - 100, ...nestedChainCenters.map((center) => center - 120));
-        const rectangleEnd = Math.max(placeholderCenter + 100, ...nestedChainCenters.map((center) => center + 236));
+        const nestedChainNames = ['nestedFalse1', 'nestedFalse2'];
 
-        expect(outerFalseCenter - 120 > rectangleEnd || outerFalseCenter + 236 < rectangleStart).toBe(true);
+        const rectangleStart = Math.min(placeholderCenter - 100, ...nestedChainCenters.map((center) => center - 120));
+        const rectangleEnd = Math.max(
+            placeholderCenter + 100,
+            ...nestedChainCenters.map((center, index) => labelSideEdge(center, nestedChainNames[index]!))
+        );
+
+        expect(
+            outerFalseCenter - 120 > rectangleEnd || labelSideEdge(outerFalseCenter, 'childFalse1') < rectangleStart
+        ).toBe(true);
     });
 });
 

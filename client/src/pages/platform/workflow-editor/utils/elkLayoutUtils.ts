@@ -104,8 +104,28 @@ const COLUMN_SPINE_HALF_WIDTH = 45;
 // long labels) — while the dagre footprint models the node as 240px CENTERED
 // on the icon (±120). Packing against the centered footprint under-reserves
 // the label side by ~116px, so a neighbour's vertical edge run placed at the
-// exact 50px gap sliced straight through the label text.
-const NODE_LABEL_CROSS_OVERHANG = 200;
+// exact 50px gap sliced straight through the label text. The overhang is
+// estimated PER NODE from its label texts so short-labelled columns don't pay
+// the worst case: the title truncates at max-w-48 (192px) + the 8px icon
+// margin, which caps the estimate at 200.
+const NODE_LABEL_MAX_CROSS_OVERHANG = 200;
+
+// Generous per-character upper bound for the 14px label text (semibold title,
+// monospace operation name), plus the icon→label margin.
+const LABEL_CHAR_WIDTH = 9;
+const LABEL_BLOCK_MARGIN = 16;
+
+function getLabelCrossOverhang(memberNode: Node): number {
+    const nodeData = memberNode.data as NodeDataType;
+
+    const longestLabelLength = Math.max(
+        String(nodeData.title || nodeData.label || '').length,
+        String(nodeData.operationName || '').length,
+        String(nodeData.workflowNodeName || nodeData.name || '').length
+    );
+
+    return Math.min(NODE_LABEL_MAX_CROSS_OVERHANG, LABEL_BLOCK_MARGIN + longestLabelLength * LABEL_CHAR_WIDTH);
+}
 
 /**
  * Cross-axis bounds of a node for collision purposes: footprint half-width on
@@ -134,7 +154,7 @@ function getMemberCrossBounds(
     const hasSideLabel = crossAxis === 'x' && hasSideLabelForCollision(memberNode);
 
     const labelSideHalfWidth = hasSideLabel
-        ? Math.max(memberHalfWidth, renderedCross / 2 + NODE_LABEL_CROSS_OVERHANG)
+        ? Math.max(memberHalfWidth, renderedCross / 2 + getLabelCrossOverhang(memberNode))
         : memberHalfWidth;
 
     return {crossEnd: memberCrossCenter + labelSideHalfWidth, crossStart: memberCrossCenter - memberHalfWidth};
