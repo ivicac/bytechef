@@ -10,7 +10,6 @@ package com.bytechef.ee.ai.hub.tool;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * @version ee
@@ -18,8 +17,6 @@ import tools.jackson.databind.json.JsonMapper;
  * @author Ivica Cardic
  */
 class OpenSkillTabToolCallbackTest {
-
-    private final JsonMapper jsonMapper = new JsonMapper();
 
     @Test
     void testCallReturnsOpenedResult() {
