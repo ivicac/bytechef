@@ -1,6 +1,6 @@
 import {TooltipProvider} from '@/components/ui/tooltip';
 import {CustomComponent, CustomComponentLanguage} from '@/shared/middleware/graphql';
-import {render, resetAll, screen} from '@/shared/util/test-utils';
+import {fireEvent, render, resetAll, screen} from '@/shared/util/test-utils';
 import {MemoryRouter, Route, Routes} from 'react-router-dom';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
@@ -111,5 +111,29 @@ describe('CustomComponentListItem', () => {
 
         expect(hoisted.mockNavigate).not.toHaveBeenCalled();
         expect(await screen.findByText('Do Something')).toBeInTheDocument();
+    });
+
+    it('navigates to the detail route when a non-Java component row is activated by keyboard (Enter)', async () => {
+        const customComponent = createCustomComponent(CustomComponentLanguage.Javascript);
+
+        renderListItem(customComponent);
+
+        const rowElement = screen.getByText('My Component').closest('div[role="button"]');
+
+        fireEvent.keyDown(rowElement!, {key: 'Enter'});
+
+        expect(hoisted.mockNavigate).toHaveBeenCalledWith('1');
+    });
+
+    it('navigates to the detail route when a non-Java component row is activated by keyboard (Space)', async () => {
+        const customComponent = createCustomComponent(CustomComponentLanguage.Javascript);
+
+        renderListItem(customComponent);
+
+        const rowElement = screen.getByText('My Component').closest('div[role="button"]');
+
+        fireEvent.keyDown(rowElement!, {key: ' '});
+
+        expect(hoisted.mockNavigate).toHaveBeenCalledWith('1');
     });
 });

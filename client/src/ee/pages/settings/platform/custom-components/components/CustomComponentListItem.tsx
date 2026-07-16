@@ -97,6 +97,13 @@ const CustomComponentListItem = ({customComponent}: CustomComponentItemProps) =>
         }
     };
 
+    const handleRowKeyDown = (event: React.KeyboardEvent) => {
+        if ((event.key === 'Enter' || event.key === ' ') && !isJavaComponent) {
+            event.preventDefault();
+            handleRowClick();
+        }
+    };
+
     const actions = definitionData?.customComponentDefinition?.actions ?? [];
     const triggers = definitionData?.customComponentDefinition?.triggers ?? [];
 
@@ -105,8 +112,15 @@ const CustomComponentListItem = ({customComponent}: CustomComponentItemProps) =>
             <div className="w-full rounded-md px-2 py-5 hover:bg-gray-50">
                 <div className="flex items-center justify-between">
                     <div
-                        className={twMerge('flex flex-1 items-center gap-x-2', !isJavaComponent && 'cursor-pointer')}
+                        className={twMerge(
+                            'flex flex-1 items-center gap-x-2',
+                            !isJavaComponent &&
+                                'cursor-pointer rounded focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 focus-visible:outline-none'
+                        )}
                         onClick={isJavaComponent ? undefined : handleRowClick}
+                        onKeyDown={handleRowKeyDown}
+                        role={!isJavaComponent ? 'button' : undefined}
+                        tabIndex={!isJavaComponent ? 0 : undefined}
                     >
                         {isJavaComponent ? (
                             <CollapsibleTrigger asChild>
