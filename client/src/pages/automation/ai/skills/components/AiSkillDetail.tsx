@@ -6,7 +6,9 @@ import AiSkillFileDeleteAlertDialog from '@/pages/automation/ai/skills/component
 import useAiSkillDetail, {
     type FileTreeNodeI,
     buildFileTree,
+    findDefaultFilePath,
     getFileLanguage,
+    isMarkdownPath,
 } from '@/pages/automation/ai/skills/hooks/useAiSkillDetail';
 import useAiSkillDetailToolbarStore from '@/pages/automation/ai/skills/stores/useAiSkillDetailToolbarStore';
 import parseFrontmatter from '@/pages/automation/ai/skills/utils/parseFrontmatter';
@@ -404,7 +406,7 @@ const AiSkillDetailEmbedded = ({skillId}: AiSkillDetailEmbeddedProps) => {
     const filePaths = useMemo(() => filePathsData?.aiSkillFilePaths ?? [], [filePathsData]);
     const fileTree = useMemo(() => buildFileTree(filePaths), [filePaths]);
     const fileContent = fileContentData?.aiSkillFileContent ?? '';
-    const isMarkdown = selectedFilePath ? selectedFilePath.toLowerCase().endsWith('.md') : false;
+    const isMarkdown = selectedFilePath ? isMarkdownPath(selectedFilePath) : false;
     const editorLanguage = useMemo(
         () => (selectedFilePath ? getFileLanguage(selectedFilePath) : 'plaintext'),
         [selectedFilePath]
@@ -415,7 +417,7 @@ const AiSkillDetailEmbedded = ({skillId}: AiSkillDetailEmbeddedProps) => {
             return;
         }
 
-        const skillMdPath = filePaths.find((path) => path.split('/').pop()?.toLowerCase() === 'skill.md');
+        const skillMdPath = findDefaultFilePath(filePaths);
 
         if (skillMdPath) {
             setSelectedFilePath(skillMdPath);
