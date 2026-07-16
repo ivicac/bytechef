@@ -18,6 +18,8 @@ import java.util.List;
  */
 public interface CustomComponentFacade {
 
+    CustomComponent createEmptyCustomComponent(String name, CustomComponent.Language language);
+
     void delete(Long id);
 
     CustomComponentDefinitionRecord getCustomComponentDefinition(Long id);

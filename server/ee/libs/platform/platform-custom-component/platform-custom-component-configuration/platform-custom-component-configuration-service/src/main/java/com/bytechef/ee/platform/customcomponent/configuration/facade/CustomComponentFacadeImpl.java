@@ -26,6 +26,7 @@ import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -78,6 +79,52 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         return customComponent.getJavaLoader() == JavaLoader.CLASS_LOADER
             ? ComponentHandlerLoader.JavaLoader.CLASS_LOADER
             : ComponentHandlerLoader.JavaLoader.ESPRESSO;
+    }
+
+    @Override
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    public CustomComponent createEmptyCustomComponent(String name, Language language) {
+        if (language != Language.JAVASCRIPT) {
+            throw new ConfigurationException(
+                "Create-empty currently supports JavaScript only",
+                CustomComponentErrorType.LANGUAGE_NOT_SUPPORTED);
+        }
+
+        if (customComponentService.fetchCustomComponent(name, 1)
+            .isPresent()) {
+
+            throw new ConfigurationException(
+                "A custom component named '" + name + "' already exists",
+                CustomComponentErrorType.COMPONENT_ALREADY_EXISTS);
+        }
+
+        String template = readTemplate(language).replace("__NAME__", name);
+
+        byte[] bytes = template.getBytes(StandardCharsets.UTF_8);
+
+        try {
+            ComponentDefinition componentDefinition = loadComponentDefinition(language, bytes);
+
+            FileEntry componentFileEntry = customComponentFileStorage.storeCustomComponentFile(
+                componentDefinition.getName() + "_" + componentDefinition.getVersion() + "."
+                    + language.getExtension(),
+                bytes);
+
+            CustomComponent customComponent = new CustomComponent();
+
+            customComponent.setComponentVersion(componentDefinition.getVersion());
+            customComponent.setComponent(componentFileEntry);
+            customComponent.setDescription(OptionalUtils.orElse(componentDefinition.getDescription(), null));
+            customComponent.setEnabled(true);
+            customComponent.setIcon(OptionalUtils.orElse(componentDefinition.getIcon(), null));
+            customComponent.setName(componentDefinition.getName());
+            customComponent.setTitle(OptionalUtils.orElse(componentDefinition.getTitle(), null));
+            customComponent.setLanguage(language);
+
+            return customComponentService.create(customComponent);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -239,6 +286,23 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
             return componentHandler.getDefinition();
         } finally {
             Files.delete(path);
+        }
+    }
+
+    private static String readTemplate(Language language) {
+        String resource = "custom-component-templates/starter." + language.getExtension();
+
+        try (InputStream inputStream =
+            CustomComponentFacadeImpl.class.getClassLoader()
+                .getResourceAsStream(resource)) {
+
+            if (inputStream == null) {
+                throw new IllegalStateException("Missing starter template: " + resource);
+            }
+
+            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 

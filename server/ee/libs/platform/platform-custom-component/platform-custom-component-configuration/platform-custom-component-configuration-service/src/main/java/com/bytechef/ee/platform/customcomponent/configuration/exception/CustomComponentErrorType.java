@@ -24,6 +24,10 @@ public class CustomComponentErrorType extends AbstractErrorType {
 
     public static final CustomComponentErrorType SOURCE_RENAME_UNSUPPORTED = new CustomComponentErrorType(102);
 
+    public static final CustomComponentErrorType LANGUAGE_NOT_SUPPORTED = new CustomComponentErrorType(103);
+
+    public static final CustomComponentErrorType COMPONENT_ALREADY_EXISTS = new CustomComponentErrorType(104);
+
     private CustomComponentErrorType(int errorKey) {
         super(CustomComponent.class, errorKey);
     }

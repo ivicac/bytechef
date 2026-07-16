@@ -62,6 +62,11 @@ class CustomComponentGraphQlController {
     }
 
     @MutationMapping
+    CustomComponent createCustomComponent(@Argument String name, @Argument CustomComponent.Language language) {
+        return customComponentFacade.createEmptyCustomComponent(name, language);
+    }
+
+    @MutationMapping
     boolean deleteCustomComponent(@Argument Long id) {
         customComponentFacade.delete(id);
 
