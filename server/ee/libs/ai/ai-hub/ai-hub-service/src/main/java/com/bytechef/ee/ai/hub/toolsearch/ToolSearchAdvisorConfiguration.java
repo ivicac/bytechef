@@ -106,17 +106,22 @@ public class ToolSearchAdvisorConfiguration {
      * ({@code MemoryView}, {@code MemoryCreate}, {@code MemoryStrReplace}, {@code MemoryInsert}, {@code MemoryDelete},
      * {@code MemoryRename}) are pinned for the same reason: {@code AutoMemoryToolsAdvisor} injects them (and the memory
      * system prompt that instructs the model to use them) before the tool-search loop runs, so without pinning the
-     * narrowing strips them every iteration and the model can never recall or record memories. Names that are absent
-     * for a given mode (e.g. a specialist whose ChatClient bean is disabled, or memory tools in a mode that doesn't
-     * mount the advisor) are simply never captured — pinning a missing name is a no-op. Keep this list small; every
-     * entry is sent to the model on every turn, which is the cost the tool-search advisor otherwise avoids.
+     * narrowing strips them every iteration and the model can never recall or record memories. The read-only
+     * state-visibility tools of the tool-attach flow ({@code listTaskTools}, {@code listConnectionsForComponent},
+     * {@code lookupActionPropertyOptions}, {@code lookupTriggerPropertyOptions}) are pinned alongside their
+     * {@code select*} render siblings: the build system prompt tells the model to call each of them directly by name,
+     * so an unpinned one fails with "No ToolCallback found" the moment the model starts the attach flow. Names that are
+     * absent for a given mode (e.g. a specialist whose ChatClient bean is disabled, or memory tools in a mode that
+     * doesn't mount the advisor) are simply never captured — pinning a missing name is a no-op. Keep this list small;
+     * every entry is sent to the model on every turn, which is the cost the tool-search advisor otherwise avoids.
      */
-    private static final Set<String> ALWAYS_ON_TOOL_NAMES = Set.of(
+    static final Set<String> ALWAYS_ON_TOOL_NAMES = Set.of(
         "askUserQuestion", "cluster_element_agent", "code_editor_agent", "converter_agent", "createConnection",
-        "data_analyst", "image_generator", "MemoryCreate", "MemoryDelete", "MemoryInsert", "MemoryRename",
-        "MemoryStrReplace", "MemoryView", "openWorkflowTab", "research", "selectConnection", "selectPropertyOption",
-        "selectTriggerPropertyOption", "skills_agent", "slide_builder", "workflow_editor_agent",
-        "workflow_execution_agent");
+        "data_analyst", "image_generator", "listConnectionsForComponent", "listTaskTools",
+        "lookupActionPropertyOptions", "lookupTriggerPropertyOptions", "MemoryCreate", "MemoryDelete", "MemoryInsert",
+        "MemoryRename", "MemoryStrReplace", "MemoryView", "openWorkflowTab", "research", "selectConnection",
+        "selectPropertyOption", "selectTriggerPropertyOption", "skills_agent", "slide_builder",
+        "workflow_editor_agent", "workflow_execution_agent");
 
     private static final Logger log = LoggerFactory.getLogger(ToolSearchAdvisorConfiguration.class);
 
