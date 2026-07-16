@@ -7,6 +7,7 @@ export type ReferencedResourceKindType =
     | 'file'
     | 'knowledgeBase'
     | 'mcpServer'
+    | 'skill'
     | 'task'
     | 'workflow'
     | 'workflowExecution';

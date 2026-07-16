@@ -9,11 +9,12 @@ import {useEffect, useRef} from 'react';
 // workflowExecution) are still tracked client-side in the composer's referencedResources but don't have
 // a server-side artifact row yet — they'd require a new GraphQL enum value and a {@code recordReference}
 // branch to support. They surface in the right panel via the tab store; the artifact list intentionally
-// stays scoped to the four kinds the agent can mutate (files, workflows, data tables, knowledge bases).
+// stays scoped to the five kinds the agent can mutate (files, workflows, data tables, knowledge bases, skills).
 const KIND_TO_ARTIFACT_KIND: Partial<Record<ReferencedResourceKindType, AiHubTaskArtifactKind>> = {
     dataTable: AiHubTaskArtifactKind.DataTableReferenced,
     file: AiHubTaskArtifactKind.FileReferenced,
     knowledgeBase: AiHubTaskArtifactKind.KbReferenced,
+    skill: AiHubTaskArtifactKind.SkillReferenced,
     workflow: AiHubTaskArtifactKind.WorkflowReferenced,
 };
 
@@ -160,6 +161,8 @@ function resolveArtifactKey(tab: ReturnType<typeof useAiHubTabsStore.getState>['
             return {artifactId: tab.dataTableId, kind: KIND_TO_ARTIFACT_KIND.dataTable};
         case 'knowledgeBase':
             return {artifactId: tab.knowledgeBaseId, kind: KIND_TO_ARTIFACT_KIND.knowledgeBase};
+        case 'skill':
+            return {artifactId: tab.skillId, kind: KIND_TO_ARTIFACT_KIND.skill};
         default:
             return {artifactId: null, kind: null};
     }
