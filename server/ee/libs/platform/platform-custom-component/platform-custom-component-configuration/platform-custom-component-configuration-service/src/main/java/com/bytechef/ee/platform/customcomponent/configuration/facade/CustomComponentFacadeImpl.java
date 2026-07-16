@@ -84,6 +84,13 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
     @Override
     @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
     public CustomComponent createEmptyCustomComponent(String name, Language language) {
+        if (name == null || name.isBlank() || name.indexOf('"') >= 0 || name.indexOf('\\') >= 0
+            || name.indexOf('\n') >= 0 || name.indexOf('\r') >= 0) {
+            throw new ConfigurationException(
+                "Invalid component name: must not be blank or contain quotes, backslashes, or newlines",
+                CustomComponentErrorType.INVALID_COMPONENT_NAME);
+        }
+
         if (language != Language.JAVASCRIPT) {
             throw new ConfigurationException(
                 "Create-empty currently supports JavaScript only",
@@ -92,7 +99,6 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
 
         if (customComponentService.fetchCustomComponent(name, 1)
             .isPresent()) {
-
             throw new ConfigurationException(
                 "A custom component named '" + name + "' already exists",
                 CustomComponentErrorType.COMPONENT_ALREADY_EXISTS);
@@ -295,7 +301,6 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         try (InputStream inputStream =
             CustomComponentFacadeImpl.class.getClassLoader()
                 .getResourceAsStream(resource)) {
-
             if (inputStream == null) {
                 throw new IllegalStateException("Missing starter template: " + resource);
             }

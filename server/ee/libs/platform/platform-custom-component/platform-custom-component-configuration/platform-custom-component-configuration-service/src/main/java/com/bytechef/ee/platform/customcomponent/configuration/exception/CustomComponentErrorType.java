@@ -28,6 +28,8 @@ public class CustomComponentErrorType extends AbstractErrorType {
 
     public static final CustomComponentErrorType COMPONENT_ALREADY_EXISTS = new CustomComponentErrorType(104);
 
+    public static final CustomComponentErrorType INVALID_COMPONENT_NAME = new CustomComponentErrorType(105);
+
     private CustomComponentErrorType(int errorKey) {
         super(CustomComponent.class, errorKey);
     }

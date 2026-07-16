@@ -19,6 +19,7 @@ import static org.mockito.Mockito.when;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.platform.customcomponent.configuration.domain.CustomComponent;
 import com.bytechef.ee.platform.customcomponent.configuration.domain.CustomComponent.Language;
+import com.bytechef.ee.platform.customcomponent.configuration.exception.CustomComponentErrorType;
 import com.bytechef.ee.platform.customcomponent.configuration.service.CustomComponentService;
 import com.bytechef.ee.platform.customcomponent.file.storage.CustomComponentFileStorage;
 import com.bytechef.exception.ConfigurationException;
@@ -108,6 +109,45 @@ class CustomComponentFacadeCreateEmptyTest {
 
         assertThatThrownBy(() -> customComponentFacade.createEmptyCustomComponent("acme", Language.JAVASCRIPT))
             .isInstanceOf(ConfigurationException.class);
+
+        verify(customComponentService, never()).create(any());
+        verify(customComponentFileStorage, never()).storeCustomComponentFile(anyString(), any());
+    }
+
+    @Test
+    void testCreateEmptyCustomComponentRejectsNameContainingQuote() {
+        CustomComponentService customComponentService = mock(CustomComponentService.class);
+
+        CustomComponentFileStorage customComponentFileStorage = mock(CustomComponentFileStorage.class);
+
+        CustomComponentFacadeImpl customComponentFacade = new CustomComponentFacadeImpl(
+            applicationProperties(true), mock(CacheManager.class), customComponentService,
+            customComponentFileStorage);
+
+        assertThatThrownBy(
+            () -> customComponentFacade.createEmptyCustomComponent("acme\"; alert(1); //", Language.JAVASCRIPT))
+                .isExactlyInstanceOf(ConfigurationException.class)
+                .extracting(throwable -> ((ConfigurationException) throwable).getErrorKey())
+                .isEqualTo(CustomComponentErrorType.INVALID_COMPONENT_NAME.getErrorKey());
+
+        verify(customComponentService, never()).create(any());
+        verify(customComponentFileStorage, never()).storeCustomComponentFile(anyString(), any());
+    }
+
+    @Test
+    void testCreateEmptyCustomComponentRejectsBlankName() {
+        CustomComponentService customComponentService = mock(CustomComponentService.class);
+
+        CustomComponentFileStorage customComponentFileStorage = mock(CustomComponentFileStorage.class);
+
+        CustomComponentFacadeImpl customComponentFacade = new CustomComponentFacadeImpl(
+            applicationProperties(true), mock(CacheManager.class), customComponentService,
+            customComponentFileStorage);
+
+        assertThatThrownBy(() -> customComponentFacade.createEmptyCustomComponent("   ", Language.JAVASCRIPT))
+            .isInstanceOf(ConfigurationException.class)
+            .extracting(throwable -> ((ConfigurationException) throwable).getErrorKey())
+            .isEqualTo(CustomComponentErrorType.INVALID_COMPONENT_NAME.getErrorKey());
 
         verify(customComponentService, never()).create(any());
         verify(customComponentFileStorage, never()).storeCustomComponentFile(anyString(), any());
