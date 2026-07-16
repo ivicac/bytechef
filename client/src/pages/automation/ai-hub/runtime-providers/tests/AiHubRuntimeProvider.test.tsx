@@ -290,6 +290,36 @@ describe('buildAiHubSubscriber', () => {
         }
     });
 
+    it('opens a skill tab when the openSkillTab tool result arrives', () => {
+        const subscriber = buildAiHubSubscriber({
+            addMessage: vi.fn(),
+            appendToLastAssistantMessage: vi.fn(),
+            getLastUserMessage: vi.fn().mockReturnValue(''),
+        });
+
+        subscriber.onToolCallStartEvent!(
+            makeToolCallStartParams({toolCallId: 'call-skill', toolCallName: 'openSkillTab'})
+        );
+
+        subscriber.onToolCallResultEvent!(
+            makeToolCallResultParams({
+                content: JSON.stringify({name: 'Lead Scoring', opened: true, skillId: 'skill-1'}),
+                toolCallId: 'call-skill',
+            })
+        );
+
+        const state = aiHubTabsStore.getState();
+        const tab = state.openTabs[0]!;
+
+        expect(state.openTabs).toHaveLength(1);
+        expect(tab.name).toBe('Lead Scoring');
+        expect(tab.kind).toBe('skill');
+
+        if (tab.kind === 'skill') {
+            expect(tab.skillId).toBe('skill-1');
+        }
+    });
+
     it('switches task when openAiHubPersonalAgentTab tool result arrives', async () => {
         // The PA + workflow-chat tab tools share an output shape and a behaviour: the server has already done
         // create-or-restore on the task, and the client subscriber's job is to (a) sync the command center

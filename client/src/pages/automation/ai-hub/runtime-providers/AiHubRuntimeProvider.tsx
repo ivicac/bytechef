@@ -69,6 +69,8 @@ type OpenKnowledgeBaseTabResultType =
     | {knowledgeBaseId: string; name: string; opened: true}
     | {error: string; opened: false};
 
+type OpenSkillTabResultType = {name: string; opened: true; skillId: string} | {error: string; opened: false};
+
 // openWorkflowChatTab + openAiHubPersonalAgentTab share the same shape — both create-or-restore a Task
 // row server-side and return the threadId/taskId pair the client navigates to. Distinct from the
 // resource-tab tools above because the result drives a task switch, not a resource panel update.
@@ -155,6 +157,20 @@ const validateOpenKnowledgeBaseTabResult = (raw: unknown): OpenKnowledgeBaseTabR
 
     if (record.opened === true && typeof record.knowledgeBaseId === 'string' && typeof record.name === 'string') {
         return {knowledgeBaseId: record.knowledgeBaseId, name: record.name, opened: true};
+    }
+
+    return {error: typeof record.error === 'string' ? record.error : 'tool reported opened:false', opened: false};
+};
+
+const validateOpenSkillTabResult = (raw: unknown): OpenSkillTabResultType | null => {
+    if (typeof raw !== 'object' || raw === null) {
+        return null;
+    }
+
+    const record = raw as Record<string, unknown>;
+
+    if (record.opened === true && typeof record.skillId === 'string' && typeof record.name === 'string') {
+        return {name: record.name, opened: true, skillId: record.skillId};
     }
 
     return {error: typeof record.error === 'string' ? record.error : 'tool reported opened:false', opened: false};
@@ -638,6 +654,30 @@ export const buildAiHubSubscriber = ({
                 }
 
                 aiHubTabsStore.getState().openKnowledgeBaseTab(parsed.knowledgeBaseId, parsed.name);
+            } else if (toolCallName === 'openSkillTab') {
+                const raw = parseJson<unknown>(event.content, 'openSkillTab result');
+
+                if (raw === null) {
+                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+
+                    return;
+                }
+
+                const parsed = validateOpenSkillTabResult(raw);
+
+                if (parsed === null) {
+                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+
+                    return;
+                }
+
+                if (!parsed.opened) {
+                    surfaceTabOpenFailure(toolCallName, parsed.error);
+
+                    return;
+                }
+
+                aiHubTabsStore.getState().openSkillTab(parsed.skillId, parsed.name);
             } else if (toolCallName === 'openAiHubPersonalAgentTab' || toolCallName === 'openWorkflowChatTab') {
                 // LLM-driven task switch. The tool already created/restored the task server-side
                 // (see CreateAiHubPersonalAgentChat / CreateWorkflowChatTask); here we just sync the client
