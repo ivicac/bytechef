@@ -23,8 +23,14 @@ non-Java languages, plus a **create-empty** flow, on the existing single-file st
 - **Detail route for non-Java; Java read-only** — clicking a JS/Python/Ruby component navigates to a
   detail route with an editable Monaco editor. Java components keep today's read-only behavior (a
   jar has no editable source).
-- **Create-empty for the three non-Java languages** — JS, Python, Ruby, each seeded from an authored
-  minimal-valid starter template. (Java create-empty is out of scope; AI-assisted create is SP-C.)
+- **Create-empty for JavaScript** (SP-A) — seeded from an authored minimal-valid JS starter
+  template. The **edit page covers all non-Java languages** (JS/Python/Ruby) since editing is
+  language-agnostic text validated by the compile-gate; only *create-empty* is JS-first.
+  **Python/Ruby create-empty are deferred**: the GraalVM polyglot member-access shape those templates
+  must satisfy (a value whose `getMember("name")` etc. resolve, with a callable `perform`) is
+  unverified and has **no precedent anywhere in the repo** — authoring them blind would risk shipping
+  a template that fails its own compile-gate. They become a fast-follow once the shape is verified.
+  (Java create-empty is out of scope entirely; AI-assisted create is SP-C.)
 
 ## Non-goals (this sub-project)
 
@@ -61,11 +67,13 @@ Add three methods (all admin-gated, consistent with `save`/`delete`):
   and return the new component's id. Reject `JAVA`. Reject a name that collides with an existing
   component.
 
-Starter templates live as classpath resources in the configuration-service module (one per
-language), each a minimal valid component: an object/def exposing `name`, `title`, `version` (1),
-`description`, and one no-op `actions` entry — the exact shape verified against
-`ComponentHandlerPolyglotEngine` and `docs/superpowers/specs/2026-07-04-espresso-custom-component-sandbox-design.md`
-during planning.
+The **JavaScript** starter template lives as a classpath resource in the configuration-service
+module: a minimal valid component whose evaluated value exposes `name`, `title`, `version` (1),
+`description`, and one no-op `actions` entry (`{name, title, description, perform}`), matching the
+`ComponentHandlerPolyglotEngine` `getMember` contract. `createEmptyCustomComponent` keeps a
+`language` parameter for forward-compatibility, but SP-A only ships the JS template and only offers
+JavaScript in the create dialog; passing `PYTHON`/`RUBY` is rejected until their templates are
+authored + verified.
 
 ### GraphQL (`custom-component.graphqls` + controller)
 Add to the existing schema (which has `customComponent`/`customComponentDefinition`/
@@ -91,9 +99,9 @@ the definition on expand) with an upload dialog, enable toggle, and delete.
   - Java: read-only metadata + actions/triggers (reuse the existing definition view); no editor.
 - **List navigation** — clicking a **non-Java** row navigates to its detail route; **Java** rows keep
   today's expand behavior. (Enable toggle + delete remain on the list.)
-- **Create dialog** — a "New component" dialog: pick a language (JS/Python/Ruby) + enter a name →
-  `createCustomComponent` → navigate to the new component's detail route to edit. (Distinct from the
-  existing "Upload" dialog, which stays.)
+- **Create dialog** — a "New component" dialog: pick a language (**JavaScript only** in SP-A) + enter
+  a name → `createCustomComponent` → navigate to the new component's detail route to edit. (Distinct
+  from the existing "Upload" dialog, which stays.)
 - **GraphQL ops** — add `.graphql` operation files under `client/src/graphql/platform/custom-component/`
   for the new query/mutations and regenerate the client types.
 
