@@ -40,7 +40,7 @@ const FILE_LANGUAGE_MAP: Record<string, string> = {
     yml: 'yaml',
 };
 
-function buildFileTree(paths: string[]): FileTreeNodeI[] {
+export function buildFileTree(paths: string[]): FileTreeNodeI[] {
     const root: FileTreeNodeI[] = [];
 
     for (const filePath of paths) {
@@ -71,7 +71,7 @@ function buildFileTree(paths: string[]): FileTreeNodeI[] {
     return root;
 }
 
-function getFileLanguage(filename: string): string {
+export function getFileLanguage(filename: string): string {
     const extension = filename.substring(filename.lastIndexOf('.') + 1).toLowerCase();
 
     return FILE_LANGUAGE_MAP[extension] || 'plaintext';
