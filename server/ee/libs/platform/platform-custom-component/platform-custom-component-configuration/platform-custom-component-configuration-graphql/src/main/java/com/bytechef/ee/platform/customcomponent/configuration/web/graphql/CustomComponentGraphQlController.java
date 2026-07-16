@@ -74,4 +74,11 @@ class CustomComponentGraphQlController {
 
         return true;
     }
+
+    @MutationMapping
+    boolean updateCustomComponentSource(@Argument Long id, @Argument String content) {
+        customComponentFacade.updateCustomComponentSource(id, content);
+
+        return true;
+    }
 }

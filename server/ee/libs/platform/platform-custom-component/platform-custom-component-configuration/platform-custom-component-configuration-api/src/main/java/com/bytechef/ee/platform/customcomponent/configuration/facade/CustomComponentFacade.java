@@ -28,6 +28,8 @@ public interface CustomComponentFacade {
 
     void save(byte[] bytes, CustomComponent.Language language);
 
+    void updateCustomComponentSource(long id, String content);
+
     @SuppressFBWarnings("EI")
     record CustomComponentDefinitionRecord(
         List<ActionDefinitionRecord> actions,

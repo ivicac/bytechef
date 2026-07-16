@@ -22,6 +22,8 @@ public class CustomComponentErrorType extends AbstractErrorType {
 
     public static final CustomComponentErrorType JAVA_SOURCE_NOT_EDITABLE = new CustomComponentErrorType(101);
 
+    public static final CustomComponentErrorType SOURCE_RENAME_UNSUPPORTED = new CustomComponentErrorType(102);
+
     private CustomComponentErrorType(int errorKey) {
         super(CustomComponent.class, errorKey);
     }

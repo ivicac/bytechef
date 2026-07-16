@@ -8,6 +8,7 @@ extend type Query {
 extend type Mutation {
     deleteCustomComponent(id: ID!): Boolean!
     enableCustomComponent(id: ID!, enable: Boolean!): Boolean!
+    updateCustomComponentSource(id: ID!, content: String!): Boolean!
 }
 
 type CustomComponent {
