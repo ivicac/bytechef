@@ -3003,3 +3003,30 @@ describe('LR ring content side', () => {
         expect(railLineX).toBe(loopCenterX - 100);
     });
 });
+
+describe('LR entry gap parity', () => {
+    it('gives the condition the same node-to-bar entry gap in LR as in TB', async () => {
+        // TOP_BAR_LABEL_PULL applies in both directions: node edge -> entry bar
+        // reads ELK_LAYER_SPACING + slack - pull = 38, and the child side of
+        // the bar widens to the 94px entry run in exchange
+        const {edges, nodes} = singleConditionFixture();
+
+        const result = await getElkLayoutElements({
+            canvasHeight: 900,
+            canvasWidth: 1400,
+            direction: 'LR',
+            edges,
+            nodes,
+        });
+
+        const conditionRight = positionOf(result.nodes, 'condition_1').x + 72;
+        const topGhostBarX = positionOf(result.nodes, 'condition_1-condition-top-ghost').x;
+
+        expect(topGhostBarX - conditionRight).toBe(TOP_BOX_GAP);
+
+        // Entry run: bar -> first row node keeps the add-button room
+        const trueChildX = positionOf(result.nodes, 'childTrue1').x;
+
+        expect(trueChildX - (topGhostBarX + 2)).toBe(BAR_TO_CHILD_GAP);
+    });
+});

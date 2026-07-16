@@ -41,18 +41,15 @@ const ANCHOR_MAIN_FOOTPRINT = 100;
 // Cross-axis gap between sibling branch columns.
 const ELK_SIBLING_SPACING = 50;
 
-// The TRUE/FALSE case labels hang ~28px below a condition's icon, so the frame's
-// top bar is pulled this much toward the condition (condition→bar gap becomes
-// ELK_LAYER_SPACING + slack − pull) to keep the labels visually attached to the
-// box instead of floating above it. Only the top side — the bottom edge keeps
-// the standard box gap.
+// The TRUE/FALSE case labels hang ~28px off a condition's icon, so the frame's
+// entry bar is pulled this much toward the dispatcher (node→bar gap becomes
+// ELK_LAYER_SPACING + slack − pull = 38) in BOTH directions, keeping the labels
+// visually attached to the box and the entry gap identical in TB and LR. The
+// LR rotated labels are offset to match (WorkflowNode.tsx). Only the entry
+// side — the exit edge keeps the standard box gap. The child side of the bar
+// widens by the same amount, giving the edge add-button its room (entry run
+// reads ELK_LAYER_SPACING + pull + slack = 94).
 const TOP_BAR_LABEL_PULL = 28;
-
-// LR frames can't borrow TB's label pull (the rotated TRUE/FALSE labels own the
-// node→bar gap), so the room for the edge add-button between the bar and a
-// row's first node comes from insetting the interior instead: entry edges read
-// ELK_LAYER_SPACING + inset + slack = 94, matching TB's post-pull entry.
-const LR_FRAME_ENTRY_INSET = 28;
 
 // TB branch entries stack [case chip][add-button] between the bar and the
 // column's first node; the standard 94px run makes the chip and the button
@@ -1045,7 +1042,6 @@ export const getElkLayoutElements = async ({
                     frameTopFootprintStart +
                     footprintMainOf(topGhostNode) +
                     ELK_LAYER_SPACING +
-                    (direction === 'LR' ? LR_FRAME_ENTRY_INSET : 0) +
                     (direction === 'TB' && isBranchFrame ? TB_BRANCH_ENTRY_INSET : 0);
 
                 let interiorEnd = interiorStart;
@@ -1186,17 +1182,15 @@ export const getElkLayoutElements = async ({
                 return;
             }
 
-            // Pull the box's top bar toward the dispatcher so the box reads as
+            // Pull the box's entry bar toward the dispatcher so the box reads as
             // attached to its node (and, for conditions, so the TRUE/FALSE labels
-            // sit on the box edge instead of floating). TB only: in LR the labels
-            // extend 64px along the MAIN axis toward the box (`-right-16` in
-            // WorkflowNode.tsx), so pulling would run the box edge through them.
-            if (direction === 'TB') {
-                topGhostNode.position = {
-                    ...topGhostNode.position,
-                    [mainAxis]: topGhostNode.position[mainAxis] - TOP_BAR_LABEL_PULL,
-                };
-            }
+            // sit on the box edge instead of floating). Applies in both
+            // directions — the LR rotated labels are offset to end just short of
+            // the pulled bar (WorkflowNode.tsx).
+            topGhostNode.position = {
+                ...topGhostNode.position,
+                [mainAxis]: topGhostNode.position[mainAxis] - TOP_BAR_LABEL_PULL,
+            };
 
             // Center the dispatcher's aux members — empty-branch placeholders and
             // the loop-back rail tick — midway between the two ghost bars on the
