@@ -81,7 +81,6 @@ const COMPOSER_KIND_TO_RESOURCE_KIND: Record<ReferencedResourceKindType, string>
     file: 'FILE',
     knowledgeBase: 'KNOWLEDGE_BASE',
     mcpServer: 'MCP_SERVER',
-    skill: 'SKILL',
     task: 'TASK',
     workflow: 'WORKFLOW',
     workflowExecution: 'WORKFLOW_EXECUTION',

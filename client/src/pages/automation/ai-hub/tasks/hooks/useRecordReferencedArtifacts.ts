@@ -1,5 +1,4 @@
-import {ReferencedResourceKindType} from '@/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
-import {useAiHubTabsStore} from '@/pages/automation/ai-hub/stores/useAiHubTabsStore';
+import {type AiHubTabType, useAiHubTabsStore} from '@/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import {AiHubTaskArtifactKind, useRecordReferencedAiHubTaskArtifactMutation} from '@/shared/middleware/graphql';
 import {useQueryClient} from '@tanstack/react-query';
 import {useEffect, useRef} from 'react';
@@ -10,7 +9,7 @@ import {useEffect, useRef} from 'react';
 // a server-side artifact row yet — they'd require a new GraphQL enum value and a {@code recordReference}
 // branch to support. They surface in the right panel via the tab store; the artifact list intentionally
 // stays scoped to the five kinds the agent can mutate (files, workflows, data tables, knowledge bases, skills).
-const KIND_TO_ARTIFACT_KIND: Partial<Record<ReferencedResourceKindType, AiHubTaskArtifactKind>> = {
+const KIND_TO_ARTIFACT_KIND: Partial<Record<AiHubTabType['kind'], AiHubTaskArtifactKind>> = {
     dataTable: AiHubTaskArtifactKind.DataTableReferenced,
     file: AiHubTaskArtifactKind.FileReferenced,
     knowledgeBase: AiHubTaskArtifactKind.KbReferenced,
