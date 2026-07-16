@@ -70,6 +70,11 @@ function artifactToOpenToolCall(
                 args: {knowledgeBaseId: artifact.artifactId, name: artifact.artifactName},
                 toolName: 'openKnowledgeBaseTab',
             };
+        case 'SKILL_REFERENCED':
+            return {
+                args: {name: artifact.artifactName, skillId: artifact.artifactId},
+                toolName: 'openSkillTab',
+            };
         case 'WORKFLOW_CREATED':
         case 'WORKFLOW_REFERENCED':
         case 'WORKFLOW_UPDATED':
