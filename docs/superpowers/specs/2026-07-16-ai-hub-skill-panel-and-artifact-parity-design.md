@@ -1,7 +1,7 @@
 # AI Hub Skill Panel, Delete Tool, and Artifact Parity — Design
 
 **Date:** 2026-07-16
-**Status:** Approved (design)
+**Status:** Approved (design) — revised after deeper investigation of the artifact-recording path
 **Area:** EE AI Hub (`server/ee/libs/ai/ai-hub`), `automation-ai-tool`, AI Hub client (`client/src/pages/automation/ai-hub`)
 
 ## Problem
@@ -11,113 +11,139 @@ wraps `SkillsTools`), but two gaps remain:
 
 1. **No delete.** `SkillsTools.deleteAiSkill` exists but its `@Tool` annotation is commented out,
    so the agent cannot delete a skill — inconsistent with `deleteProject` / `deleteWorkflow`,
-   which are exposed.
+   which are exposed and return a confirmation message.
 2. **No "open skill in the right panel."** The agent can open workflows, data tables, and
    knowledge bases into the AI Hub resource panel via `openWorkflowTab` / `openDataTableTab` /
    `openKnowledgeBaseTab`, but there is no `openSkillTab`. Skills are only reachable through the
-   composer @-mention picker and the settings page.
+   composer @-mention picker and the settings page — and are absent from the task artifact list.
 
-A related inconsistency surfaced while scoping: only `openWorkflowTab` **records a task artifact**
-when the agent opens something. `openDataTableTab` / `openKnowledgeBaseTab` open the tab but record
-nothing, even though the `DATA_TABLE_REFERENCED` / `KB_REFERENCED` artifact kinds already exist
-(they are created today only by the composer plus-button attach flow). The client sidebar already
-renders and reopens those kinds — the only missing piece is server-side recording on agent-open.
+## Artifact recording architecture (as-is)
+
+Understanding this is load-bearing for the design.
+
+- **Client hook (primary path).** `useRecordReferencedArtifacts` watches the tabs store and, for
+  each open tab, calls the GraphQL `recordReferencedAiHubTaskArtifact` mutation. It maps tab kinds to
+  artifact kinds: `file→FILE_REFERENCED`, `workflow→WORKFLOW_REFERENCED`,
+  `dataTable→DATA_TABLE_REFERENCED`, `knowledgeBase→KB_REFERENCED`. The mutation
+  (`AiHubTaskArtifactService.recordReference`) **dedups** on `(taskId, kind, artifactId)`. **Skills
+  are not in this map**, so opening a skill records nothing.
+- **Server robustness layer (workflow only).** `OpenWorkflowTabToolCallback` *also* records the
+  workflow server-side via `AiHubTaskArtifactRecorder.recordWorkflowReference` →
+  `AiHubTaskArtifactService.recordWorkflowArtifact` (which enforces one-workflow-one-row). This is a
+  robustness layer "that no longer depends on the client tab-watching hook firing."
+- **Data tables / KB** record via the client hook only — no server robustness layer.
+- The generic `AiHubTaskArtifactService.record(...)` **does not dedup** (it saves unconditionally);
+  it is used for event-log kinds like `DATA_TABLE_ROW_ADDED` and `MEMORY_CREATED` that intentionally
+  allow multiple rows. It therefore **cannot** be used for the server robustness layer of a
+  `*_REFERENCED` kind without producing duplicates against the client hook.
 
 ## Goals
 
-- Expose an agent-callable **delete skill** tool, matching the existing delete convention.
+- Expose an agent-callable **delete skill** tool matching the existing delete convention.
 - Add **`openSkillTab`** so the agent can open a skill in the resource panel, rendering the existing
-  `AiSkillDetail` viewer (read-only in-panel).
-- **Artifact parity:** opening a skill, a data table, or a knowledge base all record a task artifact
-  (so each appears in the task sidebar and can be reopened), matching `openWorkflowTab`.
+  `AiSkillDetail` viewer (read-only in-panel), and have the opened skill recorded as a task artifact.
+- **Full workflow parity for the server robustness layer:** opening a skill, a data table, or a
+  knowledge base each dual-record (client hook + a dedup-aware server layer), exactly like workflows.
 
 ## Non-goals (YAGNI)
 
-- In-panel skill **editing**. The panel viewer is read-only; edits go through the agent's
-  `updateAiSkill*` tools or the skills settings page.
-- New `SKILL_CREATED` / `SKILL_UPDATED` artifact kinds. Only `SKILL_REFERENCED` is added, mirroring
-  how the other `open*Tab` tools record a `*_REFERENCED` artifact on open.
-- Any pre-delete confirmation gate. `deleteProject` / `deleteWorkflow` delete directly and return a
-  confirmation message; skill delete follows the same convention.
+- In-panel skill **editing** (viewer is read-only; edits go through the agent's `updateAiSkill*`
+  tools or the skills settings page).
+- New `SKILL_CREATED` / `SKILL_UPDATED` kinds — only `SKILL_REFERENCED`.
+- Any pre-delete confirmation gate (matches `deleteProject` / `deleteWorkflow`).
 
 ## Design decisions
 
-- **Skill panel content:** reuse `AiSkillDetail` (file tree + selected-file content), read-only.
-- **Delete behavior:** uncomment `@Tool`, change the return type from `void` to `String`, and return
-  a confirmation message — identical in shape to `deleteProject` / `deleteWorkflow`.
-- **Artifact kind:** append a single `SKILL_REFERENCED` value; reuse the existing
-  `DATA_TABLE_REFERENCED` / `KB_REFERENCED` for the data-table/KB fix.
+- **Skill panel content:** reuse `AiSkillDetail`, read-only. It currently takes no props and reads
+  the skill id from the route; refactor it to accept an optional `skillId` prop (falling back to the
+  route param) so it can be embedded in the resource panel.
+- **Delete:** uncomment `@Tool`, change `void` → `String`, return `"Deleted skill <id>."`.
+- **Artifact kind:** add `SKILL_REFERENCED` to **both** enums (Java `AiHubTaskArtifactKind` and the
+  GraphQL `ai-hub-artifact.graphqls` enum), append-only.
+- **Dedup-aware server layer:** add a new recorder method for reference kinds rather than reuse the
+  non-dedup generic `record` — see server change #4.
 
-## Server changes (`ee/ai-hub-service`, `automation-ai-tool`)
+## Server changes
 
 1. **`SkillsTools.deleteAiSkill`** — uncomment `@Tool(description = "Delete an AI skill by its ID.
-   Returns a confirmation message.")`; change `void` → `String`; return `"Deleted skill <id>."`.
-2. **`AiHubTaskArtifactKind`** — append `SKILL_REFERENCED` at the very end (after `TASK_REFERENCED`),
-   per the append-only ordinal rule enforced by `EnumOrdinalStabilityTest`.
+   Returns a confirmation message.")`; change `void` → `String`; on success return
+   `"Deleted skill " + id + "."` (keep the existing `ExecutionException` on failure).
+2. **`AiHubTaskArtifactKind` (Java) + `ai-hub-artifact.graphqls` (GraphQL enum)** — append
+   `SKILL_REFERENCED` at the end of each. Keeps every existing ordinal stable
+   (`EnumOrdinalStabilityTest`).
 3. **New `OpenSkillTabToolCallback`** — mirror `OpenDataTableTabToolCallback`: signaling-only
-   `ToolCallback`, tool name `openSkillTab`, input `{skillId, name}`, records `SKILL_REFERENCED` via
-   an injected `@Nullable AiHubTaskArtifactRecorder` (`record(threadId, userId, "SKILL_REFERENCED",
-   skillId, name)`), and returns the `{opened, ...}` result payload the client subscriber expects.
-4. **`OpenDataTableTabToolCallback` + `OpenKnowledgeBaseTabToolCallback`** — add a
-   `@Nullable AiHubTaskArtifactRecorder` constructor parameter and record `DATA_TABLE_REFERENCED` /
-   `KB_REFERENCED` on a successful open.
-   - **Open implementation question — dedup.** `OpenWorkflowTab` uses the specialized
-     `recordWorkflowReference(...)`, which is known to be dedup-aware. Skill / data-table / KB would
-     use the generic `record(threadId, userId, kind, artifactId, name)`, whose dedup behavior is
-     **not yet confirmed**. The plan must verify it: if the generic `record` already collapses on
-     `(threadId, kind, artifactId)`, use it as-is; if not, either dedup in the tool before recording
-     or add a dedup-aware overload to `AiHubTaskArtifactRecorder`. Repeated opens of the same
-     resource must not stack duplicate sidebar artifacts.
-5. **`AiHubConfiguration`** — register `OpenSkillTabToolCallback`; pass the recorder to the
-   data-table/KB tools at the **recorder-enabled** registration site (the one where
-   `OpenWorkflowTabToolCallback(aiHubTaskArtifactRecorder)` is used). Leave the **null-recorder** site
-   unchanged so the existing "this tool set does not record" distinction is preserved. Apply the same
-   to `DataAnalystConfiguration` if it constructs those tools.
-6. **`prompt_ai_hub_ask.txt` + `prompt_ai_hub_build.txt`** — add an `openSkillTab({skillId, name})`
-   line adjacent to the other `open*Tab` entries.
+   `ToolCallback`, tool `openSkillTab`, input `{skillId, name}`, output
+   `{opened, skillId, name}`; validates blank `skillId`/`name` → `toolError`; records the skill
+   server-side via the dedup-aware recorder method from #4. Constructor takes
+   `@Nullable AiHubTaskArtifactRecorder`.
+4. **Dedup-aware reference recorder** — add
+   `AiHubTaskArtifactRecorder.recordReference(String threadId, @Nullable Long userId, String
+   artifactKind, String artifactId, String artifactName)` and implement it in the service
+   (`recordReferenceByThread`): resolve the task by `(threadId, userId)`, then **dedup** on
+   `(task, kind, artifactId)` (return the existing row if present, else save). This mirrors the
+   GraphQL `recordReference` dedup but is keyed by `threadId` (what tool callbacks have) instead of
+   `taskId`. Used by the skill/data-table/KB open tools.
+5. **`OpenDataTableTabToolCallback` + `OpenKnowledgeBaseTabToolCallback`** — add a
+   `@Nullable AiHubTaskArtifactRecorder` constructor param; on successful open, record
+   `DATA_TABLE_REFERENCED` / `KB_REFERENCED` via the new dedup-aware method (server robustness layer).
+6. **`AiHubConfiguration`** — register `OpenSkillTabToolCallback`, and pass the recorder to the
+   skill/data-table/KB open tools at the **recorder-enabled** registration site (the one using
+   `OpenWorkflowTabToolCallback(aiHubTaskArtifactRecorder)`). Leave the **null-recorder** ASK-mode
+   site passing `null` (its comment already documents that ASK mode relies on the client hook). Apply
+   the same to `DataAnalystConfiguration` if it constructs those tools.
+7. **`prompt_ai_hub_ask.txt` + `prompt_ai_hub_build.txt`** — add an `openSkillTab({skillId, name})`
+   line next to the other `open*Tab` entries.
 
 ## Client changes (`client/src/pages/automation/ai-hub`)
 
-7. **`useAiHubTabsStore`** — add `{id, kind: 'skill', skillId, name}` to `AiHubTabType` and an
+8. **GraphQL codegen** — after adding `SKILL_REFERENCED` to the schema, regenerate so
+   `AiHubTaskArtifactKind.SkillReferenced` exists in `graphql.ts`.
+9. **`useAiHubTabsStore`** — add `{id, kind: 'skill', skillId, name}` to `AiHubTabType` and an
    `openSkillTab(skillId, name)` action that dedups by `skillId` (mirror `openDataTableTab`).
-8. **`AiHubResourcePanel`** — render `kind === 'skill'` via `<AiSkillDetail>`; adapt `AiSkillDetail`
-   to accept a `skillId` prop so it can be embedded outside the settings route (read-only).
-9. **`AiHubRuntimeProvider`** — add an `else if (toolCallName === 'openSkillTab')` branch that
-   validates the result and calls `openSkillTab(...)`, mirroring the `openDataTableTab` branch.
-10. **`AiHubTasksSidebar`** — render and reopen `SKILL_REFERENCED` (icon/label + `openSkillTab`),
+10. **`AiSkillDetail`** — accept an optional `skillId` prop (fall back to the route param) so it can
+    be embedded read-only in the panel.
+11. **`AiHubResourcePanel`** — render `kind === 'skill'` via `<AiSkillDetail skillId={...} />`.
+12. **`AiHubRuntimeProvider`** — add an `else if (toolCallName === 'openSkillTab')` branch that
+    validates the result (`validateOpenSkillTabResult`, mirroring `validateOpenDataTableTabResult`)
+    and calls `openSkillTab(...)`.
+13. **`useRecordReferencedArtifacts`** — add `skill: AiHubTaskArtifactKind.SkillReferenced` to
+    `KIND_TO_ARTIFACT_KIND` and a `case 'skill'` in `resolveArtifactKey` returning
+    `{artifactId: tab.skillId, kind: KIND_TO_ARTIFACT_KIND.skill}`.
+14. **`AiHubTasksSidebar`** — render and reopen `SKILL_REFERENCED` (icon/label + `openSkillTab`),
     mirroring the existing `DATA_TABLE_REFERENCED` handling.
-11. **`useSwitchTask`** — replay `openSkillTab` for `SKILL_REFERENCED` artifacts on task switch,
+15. **`useSwitchTask`** — replay `openSkillTab` for `SKILL_REFERENCED` artifacts on task switch,
     mirroring the data-table/KB replay.
 
 ## Data flow (open a skill)
 
 1. Agent calls `openSkillTab({skillId, name})`.
-2. `OpenSkillTabToolCallback` records a `SKILL_REFERENCED` artifact (server-side, dedup-aware) and
-   returns `{opened: true, skillId, name}`.
-3. `AiHubRuntimeProvider` intercepts the tool-call result event and calls
-   `useAiHubTabsStore.openSkillTab(skillId, name)`.
-4. `AiHubResourcePanel` renders the new `skill` tab with `AiSkillDetail`.
+2. `OpenSkillTabToolCallback` records `SKILL_REFERENCED` server-side (dedup-aware) and returns
+   `{opened: true, skillId, name}`.
+3. `AiHubRuntimeProvider` intercepts the result and calls `openSkillTab(skillId, name)`.
+4. `useRecordReferencedArtifacts` also records the skill via the GraphQL mutation (dedup collapses
+   with the server row); `AiHubResourcePanel` renders the skill tab via `AiSkillDetail`.
 5. The artifact appears in `AiHubTasksSidebar`; clicking it replays `openSkillTab`.
 
 ## Error handling
 
-- `OpenSkillTabToolCallback` returns a `toolError` for a missing/blank `skillId` or `name`, matching
-  the data-table tool. Artifact recording failures are logged and swallowed (never fail the open).
-- The client `surfaceTabOpenFailure` path already handles an unparseable / `opened: false` result.
+- `OpenSkillTabToolCallback` returns a `toolError` for blank `skillId`/`name` (mirrors data-table).
+  Artifact-record failures are logged and swallowed — the open signal must still succeed.
+- The client `surfaceTabOpenFailure` path already handles unparseable / `opened: false` results.
 
 ## Testing
 
-- **`EnumOrdinalStabilityTest`** — pin the `SKILL_REFERENCED` ordinal.
-- **Server** — `OpenSkillTabToolCallbackTest` (mirror the data-table tool test): valid open returns
-  `opened: true` and records the artifact; blank inputs return `toolError`. Extend the data-table/KB
-  tool tests to assert they now record their reference artifact.
-- **Client** — `useAiHubTabsStore` `openSkillTab` (open + dedup); `AiHubTasksSidebar`
-  `SKILL_REFERENCED` render + reopen.
+- **`EnumOrdinalStabilityTest`** — pin the new `SKILL_REFERENCED` ordinal.
+- **Server** — `OpenSkillTabToolCallbackTest` (valid open returns `opened: true` + records; blank
+  inputs → `toolError`); a service test for the new dedup-aware `recordReference` (second call with
+  the same `(thread, kind, artifactId)` does not add a row); extend/confirm data-table & KB tool
+  tests now record via the dedup-aware method.
+- **Client** — `useAiHubTabsStore` `openSkillTab` (open + dedup); `useRecordReferencedArtifacts`
+  records `SKILL_REFERENCED` for a skill tab; `AiHubTasksSidebar` `SKILL_REFERENCED` render + reopen.
 
 ## Rollout / compatibility
 
-- Append-only enum change keeps all existing `ai_hub_task_artifact.kind` ordinals stable.
-- Re-enabling delete is additive; existing behavior is unchanged for callers that never invoke it.
-- The data-table/KB recording change only adds artifacts on agent-open; the composer attach flow is
-  untouched. Repeated opens must not stack duplicate artifacts — see the dedup implementation
-  question under server change #4.
+- Append-only enum changes (Java + GraphQL) keep existing `ai_hub_task_artifact.kind` ordinals and
+  GraphQL values stable.
+- Re-enabling delete is additive.
+- The dedup-aware server layer collapses with the client hook's row, so DT/KB/skill never stack
+  duplicate artifacts.
