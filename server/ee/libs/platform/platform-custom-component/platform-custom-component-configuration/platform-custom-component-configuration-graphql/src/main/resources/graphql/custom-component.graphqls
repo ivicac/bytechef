@@ -2,6 +2,7 @@ extend type Query {
     customComponent(id: ID!): CustomComponent
     customComponentDefinition(id: ID!): CustomComponentDefinition
     customComponents: [CustomComponent!]!
+    customComponentSource(id: ID!): String!
 }
 
 extend type Mutation {

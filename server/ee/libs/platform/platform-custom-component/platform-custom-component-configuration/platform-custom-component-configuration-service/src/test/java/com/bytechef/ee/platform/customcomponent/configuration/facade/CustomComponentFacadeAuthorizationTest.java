@@ -37,6 +37,11 @@ class CustomComponentFacadeAuthorizationTest {
         assertAdminOnly("save");
     }
 
+    @Test
+    void testGetCustomComponentSourceRequiresAdmin() {
+        assertAdminOnly("getCustomComponentSource");
+    }
+
     private static void assertAdminOnly(String methodName) {
         PreAuthorize preAuthorize = findMethod(methodName).getAnnotation(PreAuthorize.class);
 

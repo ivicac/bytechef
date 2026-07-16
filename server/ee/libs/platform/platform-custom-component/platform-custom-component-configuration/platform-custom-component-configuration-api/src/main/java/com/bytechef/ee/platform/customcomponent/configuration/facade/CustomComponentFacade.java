@@ -24,6 +24,8 @@ public interface CustomComponentFacade {
 
     List<CustomComponent> getCustomComponents();
 
+    String getCustomComponentSource(long id);
+
     void save(byte[] bytes, CustomComponent.Language language);
 
     @SuppressFBWarnings("EI")

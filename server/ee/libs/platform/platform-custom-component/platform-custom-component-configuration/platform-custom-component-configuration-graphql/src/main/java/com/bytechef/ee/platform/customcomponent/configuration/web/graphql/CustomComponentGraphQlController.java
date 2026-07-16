@@ -56,6 +56,11 @@ class CustomComponentGraphQlController {
         return customComponentFacade.getCustomComponents();
     }
 
+    @QueryMapping
+    String customComponentSource(@Argument Long id) {
+        return customComponentFacade.getCustomComponentSource(id);
+    }
+
     @MutationMapping
     boolean deleteCustomComponent(@Argument Long id) {
         customComponentFacade.delete(id);

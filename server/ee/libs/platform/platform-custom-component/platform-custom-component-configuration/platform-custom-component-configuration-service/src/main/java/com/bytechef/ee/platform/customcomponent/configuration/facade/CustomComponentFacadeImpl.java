@@ -124,6 +124,20 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         return customComponentService.getCustomComponents();
     }
 
+    @Transactional(readOnly = true)
+    @Override
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    public String getCustomComponentSource(long id) {
+        CustomComponent customComponent = customComponentService.getCustomComponent(id);
+
+        if (customComponent.getLanguage() == Language.JAVA) {
+            throw new ConfigurationException(
+                "Java custom components have no editable source", CustomComponentErrorType.JAVA_SOURCE_NOT_EDITABLE);
+        }
+
+        return customComponentFileStorage.readCustomComponentFileContent(customComponent.getComponent());
+    }
+
     @Override
     @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
     public void save(byte[] bytes, Language language) {
