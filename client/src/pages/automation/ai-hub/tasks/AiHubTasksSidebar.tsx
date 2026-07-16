@@ -125,6 +125,10 @@ function getArtifactIcon(kind: AiHubArtifactKindType) {
         return <BrainIcon className="size-3.5 shrink-0 text-muted-foreground" />;
     }
 
+    if (kind === 'SKILL_REFERENCED') {
+        return <HexagonIcon className="size-3.5 shrink-0 text-muted-foreground" />;
+    }
+
     return <WrenchIcon className="size-3.5 shrink-0 text-muted-foreground" />;
 }
 
@@ -157,6 +161,8 @@ function parseMetadataJson(metadataJson: string | null): Record<string, string> 
  * - DATA_TABLE_* → opens data table tab using metadataJson.dataTableId if present;
  *   DATA_TABLE_ROW_* artifactId is a row id which doesn't open cleanly, so we fall back to metadataJson
  * - KB_DOCUMENT_* → opens knowledge-base tab using metadataJson.knowledgeBaseId if present
+ * - SKILL_REFERENCED → opens skill tab using artifactId directly (the artifact is the skill itself,
+ *   same shape as DATA_TABLE_REFERENCED / KB_REFERENCED)
  *
  * Limitation: if metadataJson doesn't carry the parent entity id (projectId / dataTableId /
  * knowledgeBaseId), the artifact row is rendered as non-clickable (icon + name + timestamp only).
@@ -336,6 +342,14 @@ export function handleArtifactQuickOpen(artifact: AiHubTaskArtifactI): void {
         if (knowledgeBaseId) {
             aiHubTabsStore.getState().openKnowledgeBaseTab(knowledgeBaseId, metadata['name'] ?? artifact.artifactName);
         }
+
+        return;
+    }
+
+    if (artifact.kind === 'SKILL_REFERENCED') {
+        aiHubTabsStore.getState().openSkillTab(artifact.artifactId, artifact.artifactName);
+
+        return;
     }
 }
 
@@ -435,6 +449,11 @@ function isArtifactClickable(artifact: AiHubTaskArtifactI): boolean {
 
     if (artifact.kind === 'KB_REFERENCED') {
         // Same logic as DATA_TABLE_REFERENCED — artifactId IS the knowledgeBaseId.
+        return !!artifact.artifactId;
+    }
+
+    if (artifact.kind === 'SKILL_REFERENCED') {
+        // Same logic as DATA_TABLE_REFERENCED / KB_REFERENCED — artifactId IS the skillId.
         return !!artifact.artifactId;
     }
 

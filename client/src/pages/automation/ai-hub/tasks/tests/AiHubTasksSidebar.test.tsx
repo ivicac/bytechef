@@ -96,6 +96,34 @@ describe('handleArtifactQuickOpen', () => {
 
         expect(openSpy).not.toHaveBeenCalled();
     });
+
+    it('opens a skill tab for a SKILL_REFERENCED artifact using artifactId as the skillId', () => {
+        const skillArtifact: AiHubTaskArtifactI = {
+            artifactId: '7',
+            artifactName: 'Triage',
+            createdAt: new Date().toISOString(),
+            id: 1,
+            kind: 'SKILL_REFERENCED',
+            metadataJson: null,
+            status: 'APPLIED',
+            taskId: 42,
+        };
+
+        handleArtifactQuickOpen(skillArtifact);
+
+        const openTabs = aiHubTabsStore.getState().openTabs;
+
+        expect(openTabs).toHaveLength(1);
+
+        const openedTab = openTabs[0]!;
+
+        expect(openedTab.kind).toBe('skill');
+
+        if (openedTab.kind === 'skill') {
+            expect(openedTab.skillId).toBe('7');
+            expect(openedTab.name).toBe('Triage');
+        }
+    });
 });
 
 describe('openArtifactInTask', () => {
