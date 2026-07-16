@@ -398,7 +398,8 @@ function isArtifactRemovable(artifact: AiHubTaskArtifactI): boolean {
         artifact.kind === 'FILE_REFERENCED' ||
         artifact.kind === 'WORKFLOW_REFERENCED' ||
         artifact.kind === 'DATA_TABLE_REFERENCED' ||
-        artifact.kind === 'KB_REFERENCED'
+        artifact.kind === 'KB_REFERENCED' ||
+        artifact.kind === 'SKILL_REFERENCED'
     );
 }
 
