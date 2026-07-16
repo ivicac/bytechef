@@ -9,6 +9,7 @@ import AiHubWorkflowExecutionViewer from '@/pages/automation/ai-hub/AiHubWorkflo
 import AiHubWorkflowViewer from '@/pages/automation/ai-hub/AiHubWorkflowViewer';
 import WorkflowTabLabel from '@/pages/automation/ai-hub/WorkflowTabLabel';
 import {AiHubTabType, AiHubViewModeType, useAiHubTabsStore} from '@/pages/automation/ai-hub/stores/useAiHubTabsStore';
+import AiSkillDetail from '@/pages/automation/ai/skills/components/AiSkillDetail';
 import {DownloadIcon, ExternalLinkIcon, PanelRightCloseIcon, PlusIcon, XIcon} from 'lucide-react';
 import {Link} from 'react-router-dom';
 import {twMerge} from 'tailwind-merge';
@@ -66,6 +67,10 @@ const renderTabBody = (tab: AiHubTabType) => {
 
     if (tab.kind === 'knowledgeBase') {
         return <AiHubKnowledgeBaseViewer knowledgeBaseId={tab.knowledgeBaseId} name={tab.name} />;
+    }
+
+    if (tab.kind === 'skill') {
+        return <AiSkillDetail skillId={tab.skillId} />;
     }
 
     if (tab.kind === 'workflowExecution') {
