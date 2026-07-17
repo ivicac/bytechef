@@ -138,7 +138,7 @@ const TRIGGER_LABEL_CLEARANCE = 30;
  * TB only: in LR the row stacks on the cross axis while labels extend along
  * the main axis, so they cannot collide.
  */
-function separateTriggerRow(allNodes: Node[], direction: LayoutDirectionType): void {
+function separateTriggerRow(allNodes: Node[], edges: Edge[], direction: LayoutDirectionType): void {
     if (direction !== 'TB') {
         return;
     }
@@ -146,6 +146,10 @@ function separateTriggerRow(allNodes: Node[], direction: LayoutDirectionType): v
     const triggerNodes = allNodes
         .filter((node) => (node.data as NodeDataType).trigger === true && node.id !== TRIGGER_PLACEHOLDER_NODE_ID)
         .sort((firstNode, secondNode) => firstNode.position.x - secondNode.position.x);
+
+    if (triggerNodes.length < 2) {
+        return;
+    }
 
     for (let index = 1; index < triggerNodes.length; index++) {
         const previousNode = triggerNodes[index - 1];
@@ -157,6 +161,28 @@ function separateTriggerRow(allNodes: Node[], direction: LayoutDirectionType): v
         if (currentNode.position.x < requiredLeft) {
             currentNode.position = {...currentNode.position, x: requiredLeft};
         }
+    }
+
+    // Center the row on the fan-in target's axis: the chain below is laid out
+    // around the first task, so aligning the trigger mean with it keeps the
+    // fan-in bus symmetric instead of trailing off to one side.
+    const triggerIds = new Set(triggerNodes.map((node) => node.id));
+    const fanInEdge = edges.find((edge) => triggerIds.has(edge.source) && !triggerIds.has(edge.target));
+    const fanInTargetNode = fanInEdge
+        ? allNodes.find((candidateNode) => candidateNode.id === fanInEdge.target)
+        : undefined;
+
+    if (!fanInTargetNode) {
+        return;
+    }
+
+    const rowMean = triggerNodes.reduce((sum, node) => sum + node.position.x, 0) / triggerNodes.length;
+    const rowShift = fanInTargetNode.position.x - rowMean;
+
+    if (Math.abs(rowShift) >= 1) {
+        triggerNodes.forEach((triggerNode) => {
+            triggerNode.position = {...triggerNode.position, x: triggerNode.position.x + rowShift};
+        });
     }
 }
 
@@ -1946,7 +1972,7 @@ export const getElkLayoutElements = async ({
             };
         });
 
-        separateTriggerRow(allNodes, direction);
+        separateTriggerRow(allNodes, edges, direction);
 
         positionTriggerPlaceholder(allNodes, direction);
 

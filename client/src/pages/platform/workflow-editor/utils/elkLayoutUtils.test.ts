@@ -3075,6 +3075,12 @@ describe('trigger row label separation', () => {
         // previously the row kept its tight 160px footprint pitch and the
         // label ran under the neighbouring icon
         expect(secondX).toBeGreaterThanOrEqual(firstX + 72 + 200 + 30 - 1);
+
+        // The spread row re-centers on its pre-repack mean, so the fan-in
+        // stays symmetric around the first task instead of trailing sideways
+        const taskCenter = positionOf(result.nodes, 'task1').x + 36;
+
+        expect(Math.abs((firstX + secondX) / 2 + 36 - taskCenter)).toBeLessThanOrEqual(1);
     });
 
     it('keeps the tight trigger pitch when labels fit', async () => {
