@@ -16,6 +16,7 @@ const MONACO_LANGUAGE_BY_CODE_WORKFLOW_LANGUAGE: Record<CodeWorkflowLanguage, st
 };
 
 export interface CodeWorkflowSourceEditorProps {
+    error?: unknown;
     isLoading: boolean;
     isSaving: boolean;
     language: string;
@@ -50,7 +51,14 @@ const CodeWorkflowSourceEditorHeader = ({
     />
 );
 
-const CodeWorkflowSourceEditor = ({isLoading, isSaving, language, onSave, source}: CodeWorkflowSourceEditorProps) => {
+const CodeWorkflowSourceEditor = ({
+    error,
+    isLoading,
+    isSaving,
+    language,
+    onSave,
+    source,
+}: CodeWorkflowSourceEditorProps) => {
     const [isSourceDirty, setIsSourceDirty] = useState(false);
 
     const latestSourceRef = useRef(source ?? '');
@@ -84,7 +92,7 @@ const CodeWorkflowSourceEditor = ({isLoading, isSaving, language, onSave, source
             }
             leftSidebarOpen={false}
         >
-            <PageLoader loading={isLoading}>
+            <PageLoader errors={[error]} loading={isLoading}>
                 {monacoLanguage && (
                     <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
                         <div className="relative min-h-0 flex-1">

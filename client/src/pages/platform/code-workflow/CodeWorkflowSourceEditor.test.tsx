@@ -155,6 +155,22 @@ describe('CodeWorkflowSourceEditor', () => {
         expect(screen.getByRole('button', {name: 'Saving...'})).toBeDisabled();
     });
 
+    it('shows the error state instead of the editor when an error is provided', () => {
+        render(
+            <CodeWorkflowSourceEditor
+                error={new Error('Failed to fetch source')}
+                isLoading={false}
+                isSaving={false}
+                language={CodeWorkflowLanguage.Javascript}
+                onSave={vi.fn()}
+                source="console.log('hi');"
+            />
+        );
+
+        expect(screen.getByText('Some error occurred.')).toBeInTheDocument();
+        expect(screen.queryByTestId('monaco-editor-mock')).not.toBeInTheDocument();
+    });
+
     it('calls onSave with the edited content on Save', async () => {
         const onSaveMock = vi.fn();
 

@@ -10,10 +10,11 @@ interface ProjectCodeWorkflowDetailProps {
 const ProjectCodeWorkflowDetail = ({language, projectId}: ProjectCodeWorkflowDetailProps) => {
     const queryClient = useQueryClient();
 
-    const {data: sourceData, isLoading: sourceLoading} = useCodeWorkflowSourceQuery(
-        {projectId},
-        {enabled: !!projectId}
-    );
+    const {
+        data: sourceData,
+        error: sourceError,
+        isLoading: sourceLoading,
+    } = useCodeWorkflowSourceQuery({projectId}, {enabled: !!projectId});
 
     const updateCodeWorkflowSourceMutation = useUpdateCodeWorkflowSourceMutation({
         onSuccess: () => {
@@ -23,6 +24,7 @@ const ProjectCodeWorkflowDetail = ({language, projectId}: ProjectCodeWorkflowDet
 
     return (
         <CodeWorkflowSourceEditor
+            error={sourceError}
             isLoading={sourceLoading}
             isSaving={updateCodeWorkflowSourceMutation.isPending}
             language={language}

@@ -63,6 +63,19 @@ describe('ProjectCodeWorkflowDetail', () => {
         expect(hoisted.mockUseCodeWorkflowSourceQuery).toHaveBeenCalledWith({projectId: '1'}, {enabled: true});
     });
 
+    it('shows the error state when the source query returns an error', () => {
+        hoisted.mockUseCodeWorkflowSourceQuery.mockReturnValue({
+            data: undefined,
+            error: new Error('Failed to fetch source'),
+            isLoading: false,
+        });
+
+        render(<ProjectCodeWorkflowDetail language={CodeWorkflowLanguage.Javascript} projectId="1" />);
+
+        expect(screen.getByText('Some error occurred.')).toBeInTheDocument();
+        expect(screen.queryByTestId('monaco-editor-mock')).not.toBeInTheDocument();
+    });
+
     it('reflects the mutation pending state as the saving state', () => {
         hoisted.mockUseUpdateCodeWorkflowSourceMutation.mockReturnValue({isPending: true, mutate: vi.fn()});
 
