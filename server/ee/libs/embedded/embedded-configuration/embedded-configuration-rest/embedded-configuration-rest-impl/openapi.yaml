@@ -1466,6 +1466,14 @@ components:
           properties:
             category:
               $ref: "#/components/schemas/Category"
+            codeWorkflow:
+              description: "Whether the integration is backed by a code workflow."
+              type: "boolean"
+              readOnly: true
+            codeWorkflowLanguage:
+              description: "The programming language of the code workflow, if the integration is code-backed."
+              type: "string"
+              readOnly: true
             integrationWorkflowIds:
               description: "The integration workflow ids belonging to this integration."
               type: "array"
