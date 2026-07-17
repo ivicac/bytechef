@@ -21,10 +21,12 @@ merely delegating to it.
   (Q&A / inspect) and a `custom_component_build` subagent (authors and iterates source). Matches
   `skillsAskSpringAIAgent` / `skillsBuildSpringAIAgent`.
 - **Move CRUD behind the subagent** — remove the direct `CustomComponentTools` (BUILD catalog) and
-  `ReadCustomComponentTools` (ASK catalog) registrations SP-B put on the main AI Hub agent. CRUD now
-  lives **only** on the subagents' tool sets (build gets full CRUD + read + `openCustomComponentTab`;
-  ask gets read-only). The main agent keeps `openCustomComponentTab` (signaling, both sites) and gains
-  the delegating `custom_component_agent` tool — exactly how skills is wired.
+  `ReadCustomComponentTools` (ASK + BUILD catalogs) registrations SP-B put on the main AI Hub agent.
+  CRUD now lives **only** on the subagents' tool sets (build gets full CRUD + read; ask gets
+  read-only). The main agent keeps `openCustomComponentTab` (signaling, both sites) and gains the
+  delegating `custom_component_agent` tool — exactly how skills is wired: the skills build subagent
+  carries `SkillsTools` (CRUD) but **not** `openSkillTab`; the main agent owns tab-opening and calls it
+  after the subagent returns the built component's id.
 
 ## Non-goals
 
@@ -54,30 +56,33 @@ teaches the single-file JavaScript component contract that the GraalVM polyglot 
 `prompt_custom_component_ask.txt` is the read-only counterpart: answer questions about existing custom
 components using `getCustomComponentSource` / `listCustomComponents`; do not mutate.
 
-### 2. Subagent beans (`CopilotConfiguration`)
+### 2. Subagent ChatClient beans (`CustomComponentAgentConfiguration`, EE `ai-hub-service`)
 
-Mirror `skillsAskSpringAIAgent` / `skillsBuildSpringAIAgent` and their
-`skillsAskSubAgentChatClient` / `skillsBuildSubAgentChatClient` chat-client beans:
+Mirror the `skillsAskSubAgentChatClient` / `skillsBuildSubAgentChatClient` chat-client beans (see the
+module-placement note above for why these live in EE rather than CE `CopilotConfiguration`):
+- `customComponentBuildSubAgentChatClient` — system prompt = `prompt_custom_component_build.txt`;
+  tools = `CustomComponentTools` + `ReadCustomComponentTools` (no `openCustomComponentTab` — the main
+  agent owns tab-opening).
+- `customComponentAskSubAgentChatClient` — system prompt = `prompt_custom_component_ask.txt`; tools =
+  `ReadCustomComponentTools`.
 
-- `customComponentAskSpringAIAgent` — system prompt = `prompt_custom_component_ask.txt`; tools =
-  `ReadCustomComponentTools` (+ the shared read tools the skills-ask agent also carries, as
-  appropriate for a copilot subagent).
-- `customComponentBuildSpringAIAgent` — system prompt = `prompt_custom_component_build.txt`; tools =
-  `CustomComponentTools` + `ReadCustomComponentTools` + `OpenCustomComponentTabToolCallback`.
-- `customComponentAskSubAgentChatClient` / `customComponentBuildSubAgentChatClient` — the
-  `ChatClient` beans built from those agents (mirror the skills sub-agent chat-client beans,
-  including the `@Qualifier` naming and `defaultCandidate = false` if skills uses it).
-
-`CustomComponentTools` / `ReadCustomComponentTools` already live in EE
-`automation-ai/automation-ai-tool` (SP-B). `ai-copilot-service` gains the dependency needed to wire
-them into the agents (matching how `SkillsTools` reaches the skills agents).
+**Module placement — EE, not CE.** The skills sub-agent chat-client beans live in the CE
+`CopilotConfiguration` because CE `SkillsTools` are available there. `CustomComponentTools` /
+`ReadCustomComponentTools` are **EE** (`automation-ai/automation-ai-tool`), so a CE config cannot wire
+them. The two custom-component sub-agent `ChatClient` beans therefore live in a new **EE** config
+`CustomComponentAgentConfiguration` in `ai-hub-service` (mirroring `ResearchConfiguration`'s pattern:
+`@ConditionalOnProperty(bytechef.ai.hub.enabled=true)`, prompt loaded via a `readPrompt` helper,
+tools via `.defaultTools(...)`). There is **no** `SpringAIAgent` bean and no in-editor Copilot `Source`
+enum change — SP-C is the AI Hub delegation path only.
 
 ### 3. Delegating tool — `CustomComponentAgentToolCallback`
 
 New `server/libs/ai/ai-copilot/ai-copilot-tool/.../tool/CustomComponentAgentToolCallback.java`,
 a clone of `SkillsAgentToolCallback`: implements `ToolCallback`, holds a `ChatClient`, uses
-`CurrentAgentContext`, delegates the incoming instruction to its sub-agent chat client and returns the
-result text.
+`CurrentAgentContext.callWith(CopilotAgentType.CUSTOM_COMPONENT_AGENT, parentAgent, ...)`, delegates
+the incoming `request` to its sub-agent chat client and returns the result text. Tool name
+`custom_component_agent`. Requires appending `CUSTOM_COMPONENT_AGENT("custom_component_agent", false)`
+to the CE `CopilotAgentType` enum (append-only, mirroring `CLUSTER_ELEMENT_AGENT`).
 
 ### 4. `AiHubConfiguration` wiring
 
@@ -86,10 +91,12 @@ result text.
   register (mirroring the `skills_agent` registration):
   - build site → `new ProgressReportingToolCallback(new CustomComponentAgentToolCallback(buildChatClient), "custom_component_agent")`
   - ask site → the ask chat client (matching however skills routes ask vs build).
-- **Unwind SP-B's direct registration:** remove `CustomComponentTools` from the BUILD catalog and
-  `ReadCustomComponentTools` from the ASK catalog. Keep `OpenCustomComponentTabToolCallback`
-  registered on the main agent at both sites (recorder@BUILD, null@ASK) — the panel-open signaling and
-  `CUSTOM_COMPONENT_REFERENCED` artifact recording are unchanged.
+- **Unwind SP-B's direct registration:** remove `CustomComponentTools` from `aiHubBuildGlobalToolCatalog`
+  and `ReadCustomComponentTools` from **both** `aiHubAskGlobalToolCatalog` and
+  `aiHubBuildGlobalToolCatalog` (all custom-component CRUD/read leaves the main agent). Keep
+  `OpenCustomComponentTabToolCallback` registered on the main agent at both sites (recorder@BUILD,
+  null@ASK) — the panel-open signaling and `CUSTOM_COMPONENT_REFERENCED` artifact recording are
+  unchanged.
 - Update `prompt_ai_hub_ask.txt` / `prompt_ai_hub_build.txt`: replace the direct-CRUD guidance with
   "delegate custom-component authoring/inspection to `custom_component_agent`"; keep the
   `openCustomComponentTab({customComponentId, name})` documentation.
@@ -97,12 +104,14 @@ result text.
 ## Data flow (build a custom component)
 
 1. User asks the main AI Hub (BUILD) agent to "build a component that does X".
-2. Main agent calls `custom_component_agent(instruction)` (the delegating tool).
+2. Main agent calls `custom_component_agent(request)` (the delegating tool).
 3. `CustomComponentAgentToolCallback` runs the `custom_component_build` sub-agent loop:
-   `createCustomComponent` → `updateCustomComponentSource` (iterate to green) → `openCustomComponentTab`.
-4. `openCustomComponentTab` records `CUSTOM_COMPONENT_REFERENCED` (SP-B, dedup-aware) and the client
-   opens the editable `CustomComponentDetail` panel.
-5. The sub-agent returns a summary; the main agent relays it to the user.
+   `createCustomComponent` → `updateCustomComponentSource` (iterate to green). The sub-agent returns a
+   summary that includes the built component's id/name.
+4. The main agent then calls `openCustomComponentTab({customComponentId, name})`, which records
+   `CUSTOM_COMPONENT_REFERENCED` (SP-B, dedup-aware); the client opens the editable
+   `CustomComponentDetail` panel.
+5. The main agent relays the summary to the user.
 
 ## Error handling
 
