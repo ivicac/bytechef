@@ -69,6 +69,37 @@ class CreateMcpServerToolCallbackTest {
     }
 
     @Test
+    void testPassesEnabledTrueThrough() throws Exception {
+        WorkspaceMcpServerFacade facade = mock(WorkspaceMcpServerFacade.class);
+        McpServer created = mock(McpServer.class);
+
+        when(created.getId()).thenReturn(43L);
+        when(created.getName()).thenReturn("Live tools");
+        when(created.getType()).thenReturn(PlatformType.AUTOMATION);
+        when(created.getEnvironment()).thenReturn(Environment.PRODUCTION);
+        when(created.isEnabled()).thenReturn(true);
+        when(facade.createWorkspaceMcpServer(
+            eq("Live tools"), eq(PlatformType.AUTOMATION), eq(Environment.PRODUCTION), eq(true), eq(99L)))
+                .thenReturn(created);
+
+        CreateMcpServerToolCallback callback = new CreateMcpServerToolCallback(facade);
+
+        ToolContext toolContext = new ToolContext(
+            Map.of(AiHubToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 99L));
+
+        String result = callback.call(
+            "{\"name\":\"Live tools\",\"environment\":\"PRODUCTION\",\"enabled\":true}", toolContext);
+
+        JsonNode node = jsonMapper.readTree(result);
+
+        assertThat(node.get("enabled")
+            .asBoolean()).isTrue();
+
+        verify(facade).createWorkspaceMcpServer(
+            eq("Live tools"), eq(PlatformType.AUTOMATION), eq(Environment.PRODUCTION), eq(true), eq(99L));
+    }
+
+    @Test
     void testRejectsMissingWorkspaceContext() throws Exception {
         CreateMcpServerToolCallback callback = new CreateMcpServerToolCallback(mock(WorkspaceMcpServerFacade.class));
 

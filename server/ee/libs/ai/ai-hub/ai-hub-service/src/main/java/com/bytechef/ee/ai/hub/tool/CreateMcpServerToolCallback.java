@@ -50,9 +50,10 @@ public class CreateMcpServerToolCallback implements ToolCallback {
     private static final String DESCRIPTION = """
         Create a new MCP server in the current workspace. An MCP server exposes selected workflows as MCP
         tools to external MCP clients. Supply name and environment (one of: %s). Optionally supply enabled
-        (defaults to false). The server is created disabled — call updateMcpServer with enabled=true once
-        workflows are attached via createMcpProject. Returns {mcpServerId, name, type, environment, enabled}
-        on success or {error: <message>} on failure.""".formatted(SUPPORTED_ENVIRONMENTS);
+        (defaults to false); prefer leaving it disabled and enabling later with updateMcpServer once
+        workflows are attached via createMcpProject, but you may set enabled=true to create it already
+        online. Returns {mcpServerId, name, type, environment, enabled} on success or {error: <message>}
+        on failure.""".formatted(SUPPORTED_ENVIRONMENTS);
 
     private static final String INPUT_SCHEMA =
         """
