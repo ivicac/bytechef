@@ -124,6 +124,34 @@ describe('handleArtifactQuickOpen', () => {
             expect(openedTab.name).toBe('Triage');
         }
     });
+
+    it('opens a custom component tab for a CUSTOM_COMPONENT_REFERENCED artifact using artifactId as the customComponentId', () => {
+        const customComponentArtifact: AiHubTaskArtifactI = {
+            artifactId: '9',
+            artifactName: 'My Component',
+            createdAt: new Date().toISOString(),
+            id: 1,
+            kind: 'CUSTOM_COMPONENT_REFERENCED',
+            metadataJson: null,
+            status: 'APPLIED',
+            taskId: 42,
+        };
+
+        handleArtifactQuickOpen(customComponentArtifact);
+
+        const openTabs = aiHubTabsStore.getState().openTabs;
+
+        expect(openTabs).toHaveLength(1);
+
+        const openedTab = openTabs[0]!;
+
+        expect(openedTab.kind).toBe('customComponent');
+
+        if (openedTab.kind === 'customComponent') {
+            expect(openedTab.customComponentId).toBe('9');
+            expect(openedTab.name).toBe('My Component');
+        }
+    });
 });
 
 describe('openArtifactInTask', () => {

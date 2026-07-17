@@ -129,6 +129,10 @@ function getArtifactIcon(kind: AiHubArtifactKindType) {
         return <HexagonIcon className="size-3.5 shrink-0 text-muted-foreground" />;
     }
 
+    if (kind === 'CUSTOM_COMPONENT_REFERENCED') {
+        return <BlocksIcon className="size-3.5 shrink-0 text-muted-foreground" />;
+    }
+
     return <WrenchIcon className="size-3.5 shrink-0 text-muted-foreground" />;
 }
 
@@ -163,6 +167,8 @@ function parseMetadataJson(metadataJson: string | null): Record<string, string> 
  * - KB_DOCUMENT_* → opens knowledge-base tab using metadataJson.knowledgeBaseId if present
  * - SKILL_REFERENCED → opens skill tab using artifactId directly (the artifact is the skill itself,
  *   same shape as DATA_TABLE_REFERENCED / KB_REFERENCED)
+ * - CUSTOM_COMPONENT_REFERENCED → opens custom-component tab using artifactId directly, same shape as
+ *   SKILL_REFERENCED
  *
  * Limitation: if metadataJson doesn't carry the parent entity id (projectId / dataTableId /
  * knowledgeBaseId), the artifact row is rendered as non-clickable (icon + name + timestamp only).
@@ -351,6 +357,12 @@ export function handleArtifactQuickOpen(artifact: AiHubTaskArtifactI): void {
 
         return;
     }
+
+    if (artifact.kind === 'CUSTOM_COMPONENT_REFERENCED') {
+        aiHubTabsStore.getState().openCustomComponentTab(artifact.artifactId, artifact.artifactName);
+
+        return;
+    }
 }
 
 /**
@@ -399,7 +411,8 @@ function isArtifactRemovable(artifact: AiHubTaskArtifactI): boolean {
         artifact.kind === 'WORKFLOW_REFERENCED' ||
         artifact.kind === 'DATA_TABLE_REFERENCED' ||
         artifact.kind === 'KB_REFERENCED' ||
-        artifact.kind === 'SKILL_REFERENCED'
+        artifact.kind === 'SKILL_REFERENCED' ||
+        artifact.kind === 'CUSTOM_COMPONENT_REFERENCED'
     );
 }
 
@@ -455,6 +468,11 @@ function isArtifactClickable(artifact: AiHubTaskArtifactI): boolean {
 
     if (artifact.kind === 'SKILL_REFERENCED') {
         // Same logic as DATA_TABLE_REFERENCED / KB_REFERENCED — artifactId IS the skillId.
+        return !!artifact.artifactId;
+    }
+
+    if (artifact.kind === 'CUSTOM_COMPONENT_REFERENCED') {
+        // Same logic as SKILL_REFERENCED — artifactId IS the custom component id.
         return !!artifact.artifactId;
     }
 
