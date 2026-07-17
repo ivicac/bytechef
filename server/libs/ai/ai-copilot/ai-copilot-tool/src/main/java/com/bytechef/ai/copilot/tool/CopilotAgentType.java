@@ -70,7 +70,11 @@ public enum CopilotAgentType implements AgentType {
     KNOWLEDGE_BASE_ASK("knowledge_base_ask", false),
     KNOWLEDGE_BASE_BUILD("knowledge_base_build", false),
     KNOWLEDGE_BASE("knowledge_base", true),
-    KNOWLEDGE_BASE_AGENT("knowledge_base_agent", false);
+    KNOWLEDGE_BASE_AGENT("knowledge_base_agent", false),
+    DATA_TABLE_ASK("data_table_ask", false),
+    DATA_TABLE_BUILD("data_table_build", false),
+    DATA_TABLE("data_table", true),
+    DATA_TABLE_AGENT("data_table_agent", false);
 
     private final String key;
     private final boolean fallback;
