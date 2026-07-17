@@ -248,6 +248,32 @@ describe('useAiHubTabsStore', () => {
         expect(result.current.activeTabId).toBe(firstId);
     });
 
+    // --- CustomComponent tab tests ---
+
+    it('opens a customComponent tab and dedups by customComponentId', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let firstId = '';
+
+        act(() => {
+            firstId = result.current.openCustomComponentTab('cc-1', 'My Custom Component');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.openTabs[0]).toMatchObject({
+            customComponentId: 'cc-1',
+            kind: 'customComponent',
+            name: 'My Custom Component',
+        });
+
+        act(() => {
+            result.current.openCustomComponentTab('cc-1', 'My Custom Component');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.activeTabId).toBe(firstId);
+    });
+
     // --- KnowledgeBase tab tests ---
 
     it('opens a knowledgeBase tab with kind: knowledgeBase and correct fields', () => {

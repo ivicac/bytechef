@@ -948,6 +948,8 @@ const getTabGenericId = (tab: ReturnType<typeof aiHubTabsStore.getState>['openTa
         return String(tab.workflowExecutionId);
     } else if (tab.kind === 'knowledgeBase') {
         return tab.knowledgeBaseId;
+    } else if (tab.kind === 'customComponent') {
+        return tab.customComponentId;
     } else {
         return tab.skillId;
     }
