@@ -25,10 +25,12 @@ dependencies {
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-validator:platform-workflow-validator-api"))
 
     implementation(project(":server:libs:ai:ai-copilot:ai-copilot-api"))
+    implementation(project(":server:ee:libs:embedded:embedded-code-workflow-loader"))
     implementation(project(":server:ee:libs:embedded:embedded-configuration:embedded-configuration-api"))
     implementation(project(":server:ee:libs:embedded:embedded-connected-user:embedded-connected-user-api"))
     implementation(project(":server:ee:libs:embedded:embedded-ai:embedded-ai-mcp-api"))
 
+    testImplementation(rootProject.libs.org.graalvm.polyglot.polyglot)
     testImplementation("org.springframework.boot:spring-boot-starter-cache-test")
     testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-service"))
     testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-repository:atlas-configuration-repository-jdbc"))
