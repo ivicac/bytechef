@@ -20,7 +20,7 @@ export interface CodeWorkflowSourceEditorProps {
     isLoading: boolean;
     isSaving: boolean;
     language: string;
-    onSave: (content: string) => void;
+    onSave: (content: string) => Promise<unknown>;
     source?: string;
 }
 
@@ -66,7 +66,13 @@ const CodeWorkflowSourceEditor = ({
     const monacoLanguage = MONACO_LANGUAGE_BY_CODE_WORKFLOW_LANGUAGE[language as CodeWorkflowLanguage];
 
     const handleSave = () => {
-        onSave(latestSourceRef.current);
+        onSave(latestSourceRef.current)
+            .then(() => {
+                setIsSourceDirty(false);
+            })
+            .catch(() => {
+                // Error is already surfaced via the global fetch interceptor toast; stay dirty.
+            });
     };
 
     const handleSourceChange = (value: string | undefined) => {

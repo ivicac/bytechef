@@ -1,5 +1,5 @@
 import {CodeWorkflowLanguage} from '@/shared/middleware/graphql';
-import {fireEvent, render, resetAll, screen} from '@/shared/util/test-utils';
+import {fireEvent, render, resetAll, screen, waitFor} from '@/shared/util/test-utils';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
 import ProjectCodeWorkflowDetail from './ProjectCodeWorkflowDetail';
@@ -44,7 +44,10 @@ beforeEach(() => {
         error: null,
         isLoading: false,
     });
-    hoisted.mockUseUpdateCodeWorkflowSourceMutation.mockReturnValue({isPending: false, mutate: vi.fn()});
+    hoisted.mockUseUpdateCodeWorkflowSourceMutation.mockReturnValue({
+        isPending: false,
+        mutateAsync: vi.fn().mockResolvedValue(undefined),
+    });
 });
 
 afterEach(() => {
@@ -77,7 +80,10 @@ describe('ProjectCodeWorkflowDetail', () => {
     });
 
     it('reflects the mutation pending state as the saving state', () => {
-        hoisted.mockUseUpdateCodeWorkflowSourceMutation.mockReturnValue({isPending: true, mutate: vi.fn()});
+        hoisted.mockUseUpdateCodeWorkflowSourceMutation.mockReturnValue({
+            isPending: true,
+            mutateAsync: vi.fn().mockResolvedValue(undefined),
+        });
 
         render(<ProjectCodeWorkflowDetail language={CodeWorkflowLanguage.Javascript} projectId="1" />);
 
@@ -85,9 +91,12 @@ describe('ProjectCodeWorkflowDetail', () => {
     });
 
     it('calls the update mutation with the project id and edited content on Save', async () => {
-        const mutateMock = vi.fn();
+        const mutateAsyncMock = vi.fn().mockResolvedValue(undefined);
 
-        hoisted.mockUseUpdateCodeWorkflowSourceMutation.mockReturnValue({isPending: false, mutate: mutateMock});
+        hoisted.mockUseUpdateCodeWorkflowSourceMutation.mockReturnValue({
+            isPending: false,
+            mutateAsync: mutateAsyncMock,
+        });
 
         render(<ProjectCodeWorkflowDetail language={CodeWorkflowLanguage.Javascript} projectId="1" />);
 
@@ -99,6 +108,50 @@ describe('ProjectCodeWorkflowDetail', () => {
 
         fireEvent.click(saveButton);
 
-        expect(mutateMock).toHaveBeenCalledWith({content: 'console.log("changed");', projectId: '1'});
+        expect(mutateAsyncMock).toHaveBeenCalledWith({content: 'console.log("changed");', projectId: '1'});
+    });
+
+    it('disables Save immediately after a successful save', async () => {
+        const mutateAsyncMock = vi.fn().mockResolvedValue(undefined);
+
+        hoisted.mockUseUpdateCodeWorkflowSourceMutation.mockReturnValue({
+            isPending: false,
+            mutateAsync: mutateAsyncMock,
+        });
+
+        render(<ProjectCodeWorkflowDetail language={CodeWorkflowLanguage.Javascript} projectId="1" />);
+
+        const editor = await screen.findByTestId('monaco-editor-mock');
+
+        fireEvent.change(editor, {target: {value: 'console.log("changed");'}});
+
+        const saveButton = screen.getByRole('button', {name: 'Save'});
+
+        fireEvent.click(saveButton);
+
+        await waitFor(() => expect(saveButton).toBeDisabled());
+    });
+
+    it('keeps Save enabled when the update mutation fails', async () => {
+        const mutateAsyncMock = vi.fn().mockRejectedValue(new Error('Failed to save source'));
+
+        hoisted.mockUseUpdateCodeWorkflowSourceMutation.mockReturnValue({
+            isPending: false,
+            mutateAsync: mutateAsyncMock,
+        });
+
+        render(<ProjectCodeWorkflowDetail language={CodeWorkflowLanguage.Javascript} projectId="1" />);
+
+        const editor = await screen.findByTestId('monaco-editor-mock');
+
+        fireEvent.change(editor, {target: {value: 'console.log("changed");'}});
+
+        const saveButton = screen.getByRole('button', {name: 'Save'});
+
+        fireEvent.click(saveButton);
+
+        await waitFor(() => expect(mutateAsyncMock).toHaveBeenCalled());
+
+        expect(saveButton).not.toBeDisabled();
     });
 });

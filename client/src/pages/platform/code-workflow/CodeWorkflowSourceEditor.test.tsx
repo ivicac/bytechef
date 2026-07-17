@@ -1,5 +1,5 @@
 import {CodeWorkflowLanguage} from '@/shared/middleware/graphql';
-import {fireEvent, render, resetAll, screen} from '@/shared/util/test-utils';
+import {fireEvent, render, resetAll, screen, waitFor} from '@/shared/util/test-utils';
 import {afterEach, describe, expect, it, vi} from 'vitest';
 
 import CodeWorkflowSourceEditor from './CodeWorkflowSourceEditor';
@@ -172,7 +172,7 @@ describe('CodeWorkflowSourceEditor', () => {
     });
 
     it('calls onSave with the edited content on Save', async () => {
-        const onSaveMock = vi.fn();
+        const onSaveMock = vi.fn().mockResolvedValue(undefined);
 
         render(
             <CodeWorkflowSourceEditor
@@ -193,5 +193,57 @@ describe('CodeWorkflowSourceEditor', () => {
         fireEvent.click(saveButton);
 
         expect(onSaveMock).toHaveBeenCalledWith("console.log('changed');");
+    });
+
+    it('disables Save immediately when onSave resolves, without waiting for a new source prop', async () => {
+        const onSaveMock = vi.fn().mockResolvedValue(undefined);
+
+        render(
+            <CodeWorkflowSourceEditor
+                isLoading={false}
+                isSaving={false}
+                language={CodeWorkflowLanguage.Javascript}
+                onSave={onSaveMock}
+                source="console.log('hi');"
+            />
+        );
+
+        const editor = await screen.findByTestId('monaco-editor-mock');
+
+        fireEvent.change(editor, {target: {value: "console.log('changed');"}});
+
+        const saveButton = screen.getByRole('button', {name: 'Save'});
+
+        expect(saveButton).not.toBeDisabled();
+
+        fireEvent.click(saveButton);
+
+        await waitFor(() => expect(saveButton).toBeDisabled());
+    });
+
+    it('keeps Save enabled and remains dirty when onSave rejects', async () => {
+        const onSaveMock = vi.fn().mockRejectedValue(new Error('Failed to save source'));
+
+        render(
+            <CodeWorkflowSourceEditor
+                isLoading={false}
+                isSaving={false}
+                language={CodeWorkflowLanguage.Javascript}
+                onSave={onSaveMock}
+                source="console.log('hi');"
+            />
+        );
+
+        const editor = await screen.findByTestId('monaco-editor-mock');
+
+        fireEvent.change(editor, {target: {value: "console.log('changed');"}});
+
+        const saveButton = screen.getByRole('button', {name: 'Save'});
+
+        fireEvent.click(saveButton);
+
+        await waitFor(() => expect(onSaveMock).toHaveBeenCalled());
+
+        expect(saveButton).not.toBeDisabled();
     });
 });

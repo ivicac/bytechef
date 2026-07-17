@@ -28,7 +28,7 @@ const ProjectCodeWorkflowDetail = ({language, projectId}: ProjectCodeWorkflowDet
             isLoading={sourceLoading}
             isSaving={updateCodeWorkflowSourceMutation.isPending}
             language={language}
-            onSave={(content) => updateCodeWorkflowSourceMutation.mutate({content, projectId})}
+            onSave={(content) => updateCodeWorkflowSourceMutation.mutateAsync({content, projectId})}
             source={sourceData?.codeWorkflowSource ?? undefined}
         />
     );
