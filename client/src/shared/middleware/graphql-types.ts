@@ -857,6 +857,7 @@ export type AiHubTaskArtifact = {
 export enum AiHubTaskArtifactKind {
   ApiCollectionReferenced = 'API_COLLECTION_REFERENCED',
   BinaryFileCreated = 'BINARY_FILE_CREATED',
+  CustomComponentReferenced = 'CUSTOM_COMPONENT_REFERENCED',
   DataTableColumnAdded = 'DATA_TABLE_COLUMN_ADDED',
   DataTableReferenced = 'DATA_TABLE_REFERENCED',
   DataTableRowAdded = 'DATA_TABLE_ROW_ADDED',
