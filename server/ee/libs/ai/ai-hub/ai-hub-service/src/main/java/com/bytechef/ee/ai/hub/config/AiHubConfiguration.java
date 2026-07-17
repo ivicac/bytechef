@@ -670,11 +670,13 @@ public class AiHubConfiguration {
     AiHubGlobalToolCatalog aiHubBuildGlobalToolCatalog(
         ProjectTools projectTools, ProjectWorkflowTools projectWorkflowTools, ComponentTools componentTools,
         TaskTools taskTools, TaskDispatcherTools taskDispatcherTools, ScriptTools scriptTools,
-        ClusterElementTools clusterElementTools, CustomComponentTools customComponentTools) {
+        ClusterElementTools clusterElementTools, CustomComponentTools customComponentTools,
+        ReadCustomComponentTools readCustomComponentTools) {
 
         return globalToolCatalog(
             ToolSearchCatalogFeeder.GLOBAL_BUILD_SESSION_ID, projectTools, projectWorkflowTools, componentTools,
-            taskTools, taskDispatcherTools, scriptTools, clusterElementTools, customComponentTools);
+            taskTools, taskDispatcherTools, scriptTools, clusterElementTools, customComponentTools,
+            readCustomComponentTools);
     }
 
     private static AiHubGlobalToolCatalog globalToolCatalog(String sessionId, Object... toolObjects) {
