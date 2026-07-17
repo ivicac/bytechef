@@ -1,6 +1,7 @@
 import Button from '@/components/Button/Button';
 import {ToggleGroup, ToggleGroupItem} from '@/components/ui/toggle-group';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
+import CustomComponentDetail from '@/ee/pages/settings/platform/custom-components/CustomComponentDetail';
 import AiHubDataTableViewer from '@/pages/automation/ai-hub/AiHubDataTableViewer';
 import AiHubFilePicker from '@/pages/automation/ai-hub/AiHubFilePicker';
 import AiHubFileViewer from '@/pages/automation/ai-hub/AiHubFileViewer';
@@ -71,6 +72,10 @@ const renderTabBody = (tab: AiHubTabType) => {
 
     if (tab.kind === 'skill') {
         return <AiSkillDetail skillId={tab.skillId} />;
+    }
+
+    if (tab.kind === 'customComponent') {
+        return <CustomComponentDetail customComponentId={tab.customComponentId} />;
     }
 
     if (tab.kind === 'workflowExecution') {
