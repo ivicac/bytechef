@@ -73,6 +73,7 @@ import com.bytechef.ee.ai.hub.tool.CreateAiHubPersonalAgentToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateApiCollectionToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateAssetFileToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateMcpProjectToolCallback;
+import com.bytechef.ee.ai.hub.tool.CreateMcpServerToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateWorkflowChatToolCallback;
 import com.bytechef.ee.ai.hub.tool.DeleteAiHubPersonalAgentToolCallback;
@@ -102,6 +103,7 @@ import com.bytechef.ee.ai.hub.tool.RollbackProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.RunChatWorkflowToolCallback;
 import com.bytechef.ee.ai.hub.tool.ToggleProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.UpdateAiHubPersonalAgentToolCallback;
+import com.bytechef.ee.ai.hub.tool.UpdateMcpServerToolCallback;
 import com.bytechef.ee.ai.hub.tool.UpdateProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.memory.DbAutoMemoryDirectoryOps;
 import com.bytechef.ee.ai.hub.tool.memory.DbMemoryResourceResolver;
@@ -500,8 +502,11 @@ public class AiHubConfiguration {
             toolCallbacks.add(new CloneMcpProjectToolCallback(mcpProjectFacade));
         });
 
-        workspaceMcpServerFacadeProvider.ifAvailable(
-            workspaceMcpServerFacade -> toolCallbacks.add(new ListMcpServersToolCallback(workspaceMcpServerFacade)));
+        workspaceMcpServerFacadeProvider.ifAvailable(workspaceMcpServerFacade -> {
+            toolCallbacks.add(new ListMcpServersToolCallback(workspaceMcpServerFacade));
+            toolCallbacks.add(new CreateMcpServerToolCallback(workspaceMcpServerFacade));
+            toolCallbacks.add(new UpdateMcpServerToolCallback(workspaceMcpServerFacade));
+        });
 
         // Auto-memory is now exposed via the forked AutoMemoryToolsAdvisor (DB-backed Resource seam),
         // registered as an advisor below rather than as standalone tool callbacks.
