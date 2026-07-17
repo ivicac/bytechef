@@ -131,7 +131,12 @@ const NewCodeWorkflowDialog = ({onClose}: NewCodeWorkflowDialogProps) => {
                         />
 
                         <DialogFooter>
-                            <Button onClick={onClose} type="button" variant="ghost">
+                            <Button
+                                disabled={createCodeWorkflowMutation.isPending}
+                                onClick={onClose}
+                                type="button"
+                                variant="ghost"
+                            >
                                 Cancel
                             </Button>
 

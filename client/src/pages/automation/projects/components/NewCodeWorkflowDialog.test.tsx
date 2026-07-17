@@ -127,4 +127,15 @@ describe('NewCodeWorkflowDialog', () => {
         expect(hoisted.mockOnClose).not.toHaveBeenCalled();
         expect(screen.getByLabelText('Name')).toBeInTheDocument();
     });
+
+    it('disables the Cancel button while the mutation is pending', () => {
+        hoisted.mockUseCreateCodeWorkflowMutation.mockImplementation(() => ({
+            isPending: true,
+            mutate: hoisted.mockMutate,
+        }));
+
+        renderDialog();
+
+        expect(screen.getByRole('button', {name: /cancel/i})).toBeDisabled();
+    });
 });
