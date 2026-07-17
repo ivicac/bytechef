@@ -122,22 +122,7 @@ import com.bytechef.ee.ai.hub.toolsearch.AiHubTaskBindingToolCallbackResolver;
 import com.bytechef.ee.ai.hub.toolsearch.ToolSearchCatalogFeeder;
 import com.bytechef.ee.ai.hub.util.Mode;
 import com.bytechef.ee.ai.hub.util.Source;
-import com.bytechef.ee.automation.ai.tool.contextstore.CreateContextStoreSourceToolCallback;
-import com.bytechef.ee.automation.ai.tool.contextstore.DeleteContextStoreSourceToolCallback;
-import com.bytechef.ee.automation.ai.tool.contextstore.DescribeSourceComponentEntitiesToolCallback;
-import com.bytechef.ee.automation.ai.tool.contextstore.GetContextStoreRecordToolCallback;
-import com.bytechef.ee.automation.ai.tool.contextstore.ListAvailableSourceComponentsToolCallback;
-import com.bytechef.ee.automation.ai.tool.contextstore.ListContextSourcesToolCallback;
-import com.bytechef.ee.automation.ai.tool.contextstore.RefreshContextStoreSourceToolCallback;
-import com.bytechef.ee.automation.ai.tool.contextstore.SearchContextStoreToolCallback;
-import com.bytechef.ee.automation.ai.tool.contextstore.SemanticSearchContextStoreToolCallback;
-import com.bytechef.ee.automation.ai.tool.contextstore.SetContextStoreSourceEnabledToolCallback;
-import com.bytechef.ee.automation.ai.tool.contextstore.UpdateContextStoreSourceToolCallback;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
-import com.bytechef.ee.automation.contextstore.facade.WorkspaceContextStoreSourceFacade;
-import com.bytechef.ee.automation.contextstore.service.WorkspaceContextStoreSourceService;
-import com.bytechef.ee.platform.contextstore.service.ContextStoreQueryService;
-import com.bytechef.ee.platform.contextstore.service.ContextStoreSemanticSearchService;
 import com.bytechef.platform.ai.agent.memory.AutoMemoryTools;
 import com.bytechef.platform.ai.agent.memory.AutoMemoryToolsAdvisor;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryService;
@@ -147,7 +132,6 @@ import com.bytechef.platform.ai.tool.TaskTools;
 import com.bytechef.platform.component.facade.ActionDefinitionFacade;
 import com.bytechef.platform.component.facade.TriggerDefinitionFacade;
 import com.bytechef.platform.component.service.ActionDefinitionService;
-import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.component.service.ConnectionDefinitionService;
 import com.bytechef.platform.component.service.TriggerDefinitionService;
@@ -253,7 +237,6 @@ public class AiHubConfiguration {
         WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade,
         KnowledgeBaseFacade knowledgeBaseFacade, KnowledgeBaseService knowledgeBaseService,
         AiHubTaskToolFacade taskToolFacade,
-        ClusterElementDefinitionService clusterElementDefinitionService,
         ComponentDefinitionService componentDefinitionService,
         ConnectionDefinitionService connectionDefinitionService,
         ConnectionService connectionService,
@@ -264,9 +247,6 @@ public class AiHubConfiguration {
         TriggerDefinitionFacade triggerDefinitionFacade,
         SecurityContextRehydrator securityContextRehydrator,
         PropertyOptionsResolver propertyOptionsResolver,
-        ObjectProvider<ContextStoreQueryService> contextStoreQueryServiceProvider,
-        ObjectProvider<ContextStoreSemanticSearchService> contextStoreSemanticSearchServiceProvider,
-        ObjectProvider<WorkspaceContextStoreSourceService> workspaceContextStoreSourceServiceProvider,
         ObjectProvider<ApiCollectionFacade> apiCollectionFacadeProvider,
         ObjectProvider<AiHubPersonalAgentService> aiHubPersonalAgentServiceProvider,
         @Qualifier("aiHubAskToolSearchToolCallAdvisor") //
@@ -342,14 +322,6 @@ public class AiHubConfiguration {
             codeEditorAskSubAgentChatClientProvider, workflowEditorAskSubAgentChatClientProvider, null,
             workflowExecutionAskSubAgentChatClientProvider, customComponentAskSubAgentChatClientProvider,
             codeWorkflowAskSubAgentChatClientProvider);
-
-        // Context Store consume + discovery — read-only; safe on the ASK agent. Define-side callbacks
-        // (create/update/delete/refresh/setEnabled) are mutations and live on the BUILD agent only.
-        registerContextStoreReadOnlyToolCallbacks(
-            toolCallbacks, contextStoreQueryServiceProvider, workspaceContextStoreSourceServiceProvider,
-            clusterElementDefinitionService);
-        registerContextStoreSemanticSearchToolCallback(
-            toolCallbacks, contextStoreSemanticSearchServiceProvider, workspaceContextStoreSourceServiceProvider);
 
         AiHubSpringAIAgent.Builder builder = AiHubSpringAIAgent.builder()
             .agentId(name.toLowerCase())
@@ -431,7 +403,6 @@ public class AiHubConfiguration {
         com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade,
         com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService knowledgeBaseDocumentService,
         ComponentDefinitionService componentDefinitionService,
-        ClusterElementDefinitionService clusterElementDefinitionService,
         ConnectionDefinitionService connectionDefinitionService,
         ConnectionService connectionService,
         WorkspaceConnectionFacade workspaceConnectionFacade,
@@ -441,10 +412,6 @@ public class AiHubConfiguration {
         SecurityContextRehydrator securityContextRehydrator,
         PropertyOptionsResolver propertyOptionsResolver,
         AiHubTaskToolFacade taskToolFacade,
-        ObjectProvider<WorkspaceContextStoreSourceFacade> workspaceContextStoreSourceFacadeProvider,
-        ObjectProvider<ContextStoreQueryService> contextStoreQueryServiceProvider,
-        ObjectProvider<ContextStoreSemanticSearchService> contextStoreSemanticSearchServiceProvider,
-        ObjectProvider<WorkspaceContextStoreSourceService> workspaceContextStoreSourceServiceProvider,
         ObjectProvider<ApiCollectionFacade> apiCollectionFacadeProvider,
         ObjectProvider<McpProjectFacade> mcpProjectFacadeProvider,
         ObjectProvider<com.bytechef.automation.ai.mcp.facade.WorkspaceMcpServerFacade> workspaceMcpServerFacadeProvider,
@@ -530,11 +497,6 @@ public class AiHubConfiguration {
         toolCallbacks.add(new ToggleProjectDeploymentToolCallback(projectDeploymentFacade));
         toolCallbacks.add(new PromoteWorkflowToolCallback(projectDeploymentFacade));
 
-        registerContextStoreToolCallbacks(
-            toolCallbacks, workspaceContextStoreSourceFacadeProvider, contextStoreQueryServiceProvider,
-            workspaceContextStoreSourceServiceProvider, clusterElementDefinitionService);
-        registerContextStoreSemanticSearchToolCallback(
-            toolCallbacks, contextStoreSemanticSearchServiceProvider, workspaceContextStoreSourceServiceProvider);
         toolCallbacks.add(
             new AttachTaskToolToolCallback(taskService, taskToolFacade, connectionService, aiHubToolAttachMetrics));
         toolCallbacks.add(
@@ -857,104 +819,6 @@ public class AiHubConfiguration {
         toolCallbacks.add(
             new SelectTriggerPropertyOptionToolCallback(
                 triggerDefinitionService, triggerDefinitionFacade, propertyOptionsResolver, aiHubToolAttachMetrics));
-    }
-
-    /**
-     * Registers the Context Store read-only tool callbacks (consume + discovery) on the supplied tool list. Shared
-     * between the ASK and BUILD agents — both surfaces benefit from being able to enumerate sources, search records,
-     * and explore the source-component catalog without escalating to a mutation.
-     */
-    private static void registerContextStoreReadOnlyToolCallbacks(
-        List<ToolCallback> toolCallbacks,
-        ObjectProvider<ContextStoreQueryService> contextStoreQueryServiceProvider,
-        ObjectProvider<WorkspaceContextStoreSourceService> workspaceContextStoreSourceServiceProvider,
-        ClusterElementDefinitionService clusterElementDefinitionService) {
-
-        ContextStoreQueryService contextStoreQueryService = contextStoreQueryServiceProvider.getIfAvailable();
-        WorkspaceContextStoreSourceService workspaceContextStoreSourceService =
-            workspaceContextStoreSourceServiceProvider.getIfAvailable();
-
-        if (workspaceContextStoreSourceService != null) {
-            toolCallbacks.add(new ListContextSourcesToolCallback(workspaceContextStoreSourceService));
-        }
-
-        if (workspaceContextStoreSourceService != null && contextStoreQueryService != null) {
-            toolCallbacks.add(
-                new SearchContextStoreToolCallback(contextStoreQueryService, workspaceContextStoreSourceService));
-            toolCallbacks.add(
-                new GetContextStoreRecordToolCallback(contextStoreQueryService, workspaceContextStoreSourceService));
-        }
-
-        // Discovery — needs neither the Context Store service stack nor a workspace context. Always-on.
-        toolCallbacks.add(new ListAvailableSourceComponentsToolCallback());
-        toolCallbacks.add(new DescribeSourceComponentEntitiesToolCallback(clusterElementDefinitionService));
-    }
-
-    /**
-     * Registers the Context Store semantic-search tool callback on the supplied tool list, gated on the presence of an
-     * {@link ContextStoreSemanticSearchService} bean. CE-no-embedding deployments and multi-tenant deployments don't
-     * have the bean and therefore skip the registration silently — the callback is read-only and safe on both ASK and
-     * BUILD agents.
-     */
-    private static void registerContextStoreSemanticSearchToolCallback(
-        List<ToolCallback> toolCallbacks,
-        ObjectProvider<ContextStoreSemanticSearchService> contextStoreSemanticSearchServiceProvider,
-        ObjectProvider<WorkspaceContextStoreSourceService> workspaceContextStoreSourceServiceProvider) {
-
-        ContextStoreSemanticSearchService contextStoreSemanticSearchService =
-            contextStoreSemanticSearchServiceProvider.getIfAvailable();
-        WorkspaceContextStoreSourceService workspaceContextStoreSourceService =
-            workspaceContextStoreSourceServiceProvider.getIfAvailable();
-
-        if (contextStoreSemanticSearchService == null || workspaceContextStoreSourceService == null) {
-            return;
-        }
-
-        toolCallbacks.add(
-            new SemanticSearchContextStoreToolCallback(
-                contextStoreSemanticSearchService, workspaceContextStoreSourceService));
-    }
-
-    /**
-     * Registers all Context Store tool callbacks (consume + discovery + define) on the supplied tool list. Used by the
-     * BUILD agent only since define-side callbacks are mutations. Define-side callbacks delegate to
-     * {@link WorkspaceContextStoreSourceFacade} — admin role is enforced at the facade level; chat-level user
-     * confirmation is expected before execution per CC mutation-callback precedent (matches
-     * {@code CreateProjectDeploymentToolCallback}).
-     *
-     * <p>
-     * {@code SemanticSearchContextStoreToolCallback} is registered separately via
-     * {@link #registerContextStoreSemanticSearchToolCallback} on both the ASK and BUILD agents, gated on
-     * {@link ContextStoreSemanticSearchService} bean presence (CE-no-embedding deployments skip it silently).
-     * </p>
-     */
-    private static void registerContextStoreToolCallbacks(
-        List<ToolCallback> toolCallbacks,
-        ObjectProvider<WorkspaceContextStoreSourceFacade> workspaceContextStoreSourceFacadeProvider,
-        ObjectProvider<ContextStoreQueryService> contextStoreQueryServiceProvider,
-        ObjectProvider<WorkspaceContextStoreSourceService> workspaceContextStoreSourceServiceProvider,
-        ClusterElementDefinitionService clusterElementDefinitionService) {
-
-        registerContextStoreReadOnlyToolCallbacks(
-            toolCallbacks, contextStoreQueryServiceProvider, workspaceContextStoreSourceServiceProvider,
-            clusterElementDefinitionService);
-
-        WorkspaceContextStoreSourceFacade workspaceContextStoreSourceFacade =
-            workspaceContextStoreSourceFacadeProvider.getIfAvailable();
-        WorkspaceContextStoreSourceService workspaceContextStoreSourceService =
-            workspaceContextStoreSourceServiceProvider.getIfAvailable();
-
-        if (workspaceContextStoreSourceFacade != null && workspaceContextStoreSourceService != null) {
-            toolCallbacks.add(new CreateContextStoreSourceToolCallback(workspaceContextStoreSourceFacade));
-            toolCallbacks.add(new UpdateContextStoreSourceToolCallback(
-                workspaceContextStoreSourceFacade, workspaceContextStoreSourceService));
-            toolCallbacks.add(new DeleteContextStoreSourceToolCallback(
-                workspaceContextStoreSourceFacade, workspaceContextStoreSourceService));
-            toolCallbacks.add(new RefreshContextStoreSourceToolCallback(
-                workspaceContextStoreSourceFacade, workspaceContextStoreSourceService));
-            toolCallbacks.add(new SetContextStoreSourceEnabledToolCallback(
-                workspaceContextStoreSourceFacade, workspaceContextStoreSourceService));
-        }
     }
 
     private String getSystemPrompt(Resource systemPromptResource) {

@@ -144,6 +144,12 @@ public class CopilotApiController {
             } else {
                 agentId = "skills_ask";
             }
+        } else if (agentId.equals("context_store")) {
+            if (Mode.valueOf((String) mode) == Mode.BUILD) {
+                agentId = "context_store_build";
+            } else {
+                agentId = "context_store_ask";
+            }
         } else if (agentId.equals("json_schema_builder")) {
             if (Mode.valueOf((String) mode) == Mode.BUILD) {
                 agentId = "json_schema_builder_build";
