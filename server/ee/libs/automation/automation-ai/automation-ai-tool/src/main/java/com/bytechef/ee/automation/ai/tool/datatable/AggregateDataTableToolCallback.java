@@ -5,9 +5,10 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.datatable;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
@@ -155,8 +156,8 @@ public class AggregateDataTableToolCallback implements ToolCallback {
                 }
             }
 
-            AiHubToolInvocationContext invocationContext =
-                AiHubToolInvocationContext.fromToolContext(toolContext);
+            AgentToolInvocationContext invocationContext =
+                AgentToolInvocationContext.fromToolContext(toolContext);
 
             Long workspaceId = invocationContext.workspaceId();
 
@@ -344,7 +345,7 @@ public class AggregateDataTableToolCallback implements ToolCallback {
         }
     }
 
-    private long resolveEnvironmentId(AiHubToolInvocationContext invocationContext) {
+    private long resolveEnvironmentId(AgentToolInvocationContext invocationContext) {
         Long environmentId = invocationContext.environmentId();
 
         return environmentId != null ? environmentId : DEFAULT_ENVIRONMENT_ORDINAL;

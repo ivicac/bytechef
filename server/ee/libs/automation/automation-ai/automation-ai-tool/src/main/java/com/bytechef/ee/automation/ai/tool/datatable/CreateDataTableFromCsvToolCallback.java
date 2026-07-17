@@ -5,9 +5,10 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.datatable;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
@@ -108,8 +109,8 @@ public class CreateDataTableFromCsvToolCallback implements ToolCallback {
                 return ToolErrors.toolError(jsonMapper, validationError);
             }
 
-            AiHubToolInvocationContext invocationContext =
-                AiHubToolInvocationContext.fromToolContext(toolContext);
+            AgentToolInvocationContext invocationContext =
+                AgentToolInvocationContext.fromToolContext(toolContext);
 
             Long workspaceId = invocationContext == null ? null : invocationContext.workspaceId();
 
@@ -119,7 +120,7 @@ public class CreateDataTableFromCsvToolCallback implements ToolCallback {
                     "Workspace context unavailable - open this chat from the AI Hub of a workspace.");
             }
 
-            long environmentId = AiHubToolInvocationContext.resolveEnvironmentOrDefault(invocationContext);
+            long environmentId = invocationContext == null ? 0L : invocationContext.resolveEnvironmentOrDefault();
 
             ParsedCsv parsed = parseCsv(input.csvContent());
 

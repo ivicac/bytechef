@@ -5,12 +5,12 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.datatable;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
-import com.bytechef.ee.ai.hub.task.AiHubTaskArtifactKind;
-import com.bytechef.ee.ai.hub.task.AiHubTaskArtifactService;
+import com.bytechef.ee.automation.ai.tool.ToolMutationArtifactRecorder;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
@@ -26,8 +26,9 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Spring AI {@link ToolCallback} that deletes a data-table row by id. The mutation is executed immediately — every
- * server-side mutation lands in real time and is recorded as a task artifact for audit purposes.
+ * Spring AI {@link ToolCallback} that updates an existing data-table row. The mutation is executed immediately — every
+ * server-side mutation lands in real time and, when a {@link ToolMutationArtifactRecorder} is supplied (AI Hub only),
+ * is recorded as a task artifact for audit purposes.
  *
  * <p>
  * This callback is registered on {@code aiHubBuildSpringAIAgent} only — the ASK variant is read-only.
@@ -37,14 +38,21 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * @author Ivica Cardic
  */
-public class DeleteDataTableRowToolCallback implements ToolCallback {
+public class UpdateDataTableRowToolCallback implements ToolCallback {
+
+    /**
+     * Name of the artifact kind recorded on success, matching the {@code AiHubTaskArtifactKind.DATA_TABLE_ROW_UPDATED}
+     * enum constant on the AI Hub side. Carried as a plain string so this shared lib does not depend on ai-hub.
+     */
+    static final String ARTIFACT_KIND_DATA_TABLE_ROW_UPDATED = "DATA_TABLE_ROW_UPDATED";
 
     private static final long DEFAULT_ENVIRONMENT_ORDINAL = 0L;
-    private static final String TOOL_NAME = "deleteDataTableRow";
+    private static final String TOOL_NAME = "updateDataTableRow";
 
     private static final String DESCRIPTION = """
-        Delete a row from a data table by its id. Supply the dataTableId (from listDataTables) and
-        the rowId to delete. The row is deleted immediately. The dataTableId must belong to the
+        Update an existing row in a data table. Supply the dataTableId (from listDataTables), the
+        rowId of the row to update, and a values object with the columns to change (only provided
+        columns are updated). The row is updated immediately. The dataTableId must belong to the
         current workspace.""";
 
     private static final String INPUT_SCHEMA =
@@ -53,24 +61,26 @@ public class DeleteDataTableRowToolCallback implements ToolCallback {
                 "type": "object",
                 "properties": {
                     "dataTableId": {"type": "string", "description": "Data table id obtained from listDataTables"},
-                    "rowId": {"type": "string", "description": "The stable row id to delete"}
+                    "rowId": {"type": "string", "description": "The stable row id to update"},
+                    "values": {"type": "object", "description": "Column name to value mapping (only provided columns are updated)",
+                               "additionalProperties": true}
                 },
-                "required": ["dataTableId", "rowId"]
+                "required": ["dataTableId", "rowId", "values"]
             }""";
 
     private final DataTableRowService dataTableRowService;
     private final WorkspaceDataTableFacade workspaceDataTableFacade;
-    private final AiHubTaskArtifactService taskArtifactService;
+    private final @Nullable ToolMutationArtifactRecorder artifactRecorder;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public DeleteDataTableRowToolCallback(
+    public UpdateDataTableRowToolCallback(
         DataTableRowService dataTableRowService, WorkspaceDataTableFacade workspaceDataTableFacade,
-        AiHubTaskArtifactService taskArtifactService) {
+        @Nullable ToolMutationArtifactRecorder artifactRecorder) {
 
         this.dataTableRowService = dataTableRowService;
         this.workspaceDataTableFacade = workspaceDataTableFacade;
-        this.taskArtifactService = taskArtifactService;
+        this.artifactRecorder = artifactRecorder;
     }
 
     @Override
@@ -90,7 +100,7 @@ public class DeleteDataTableRowToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            DeleteDataTableRowInput input = jsonMapper.readValue(toolInput, DeleteDataTableRowInput.class);
+            UpdateDataTableRowInput input = jsonMapper.readValue(toolInput, UpdateDataTableRowInput.class);
 
             if (input.dataTableId() == null || input.dataTableId()
                 .isBlank()) {
@@ -102,8 +112,13 @@ public class DeleteDataTableRowToolCallback implements ToolCallback {
                 return toolError("rowId is required");
             }
 
-            AiHubToolInvocationContext invocationContext =
-                AiHubToolInvocationContext.fromToolContext(toolContext);
+            if (input.values() == null || input.values()
+                .isEmpty()) {
+                return toolError("values must not be empty");
+            }
+
+            AgentToolInvocationContext invocationContext =
+                AgentToolInvocationContext.fromToolContext(toolContext);
 
             Long workspaceId = invocationContext == null ? null : invocationContext.workspaceId();
 
@@ -141,28 +156,26 @@ public class DeleteDataTableRowToolCallback implements ToolCallback {
 
             DataTableRow priorRow = dataTableRowService.getRow(baseName, rowId, environmentId);
 
-            boolean wasDeleted = dataTableRowService.deleteRow(baseName, rowId, environmentId);
+            DataTableRow updated = dataTableRowService.updateRow(baseName, rowId, input.values(), environmentId);
 
-            if (wasDeleted) {
-                recordArtifact(invocationContext, baseName, input.dataTableId(), environmentId, priorRow, rowId);
-            }
+            recordArtifact(invocationContext, baseName, input.dataTableId(), environmentId, priorRow, updated.id());
 
-            return jsonMapper.writeValueAsString(new DeleteDataTableRowOutput(wasDeleted, rowId));
+            return jsonMapper.writeValueAsString(new UpdateDataTableRowOutput(true, updated.id()));
         } catch (JacksonException exception) {
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (RuntimeException exception) {
-            return ToolErrors.runtimeFailure(jsonMapper, DeleteDataTableRowToolCallback.class, TOOL_NAME, exception);
+            return ToolErrors.runtimeFailure(jsonMapper, UpdateDataTableRowToolCallback.class, TOOL_NAME, exception);
         }
     }
 
     private void recordArtifact(
-        AiHubToolInvocationContext invocationContext, String baseName, String dataTableId, long environmentId,
+        AgentToolInvocationContext invocationContext, String baseName, String dataTableId, long environmentId,
         @Nullable DataTableRow priorRow, long rowId) {
 
-        String threadId = invocationContext.threadId();
+        String conversationId = invocationContext.conversationId();
         Long userId = invocationContext.userId();
 
-        if (threadId == null || userId == null) {
+        if (artifactRecorder == null || conversationId == null || userId == null) {
             return;
         }
 
@@ -176,8 +189,8 @@ public class DeleteDataTableRowToolCallback implements ToolCallback {
             metadata.put("priorValues", priorRow.values());
         }
 
-        taskArtifactService.record(
-            threadId, userId, AiHubTaskArtifactKind.DATA_TABLE_ROW_DELETED,
+        artifactRecorder.record(
+            conversationId, userId, ARTIFACT_KIND_DATA_TABLE_ROW_UPDATED,
             String.valueOf(rowId), baseName + " row " + rowId, metadata);
     }
 
@@ -190,7 +203,7 @@ public class DeleteDataTableRowToolCallback implements ToolCallback {
             .orElse(null);
     }
 
-    private long resolveEnvironmentId(AiHubToolInvocationContext invocationContext) {
+    private long resolveEnvironmentId(AgentToolInvocationContext invocationContext) {
         Long environmentId = invocationContext.environmentId();
 
         return environmentId != null ? environmentId : DEFAULT_ENVIRONMENT_ORDINAL;
@@ -200,9 +213,13 @@ public class DeleteDataTableRowToolCallback implements ToolCallback {
         return ToolErrors.toolError(jsonMapper, message);
     }
 
-    public record DeleteDataTableRowInput(String dataTableId, String rowId) {
+    @SuppressFBWarnings({
+        "EI_EXPOSE_REP", "EI_EXPOSE_REP2"
+    })
+    public record UpdateDataTableRowInput(
+        String dataTableId, String rowId, @Nullable Map<String, Object> values) {
     }
 
-    public record DeleteDataTableRowOutput(boolean deleted, long rowId) {
+    public record UpdateDataTableRowOutput(boolean updated, long rowId) {
     }
 }

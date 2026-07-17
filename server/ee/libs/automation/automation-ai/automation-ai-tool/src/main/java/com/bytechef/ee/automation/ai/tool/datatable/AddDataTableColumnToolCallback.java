@@ -5,12 +5,12 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.datatable;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
-import com.bytechef.ee.ai.hub.task.AiHubTaskArtifactKind;
-import com.bytechef.ee.ai.hub.task.AiHubTaskArtifactService;
+import com.bytechef.ee.automation.ai.tool.ToolMutationArtifactRecorder;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
@@ -30,7 +30,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Spring AI {@link ToolCallback} that adds a new column to an existing data table. The mutation is executed immediately
- * — every server-side mutation lands in real time and is recorded as a task artifact for audit purposes.
+ * — every server-side mutation lands in real time and, when a {@link ToolMutationArtifactRecorder} is supplied (AI Hub
+ * only), is recorded as a task artifact for audit purposes.
  *
  * <p>
  * This callback is registered on {@code aiHubBuildSpringAIAgent} only — the ASK variant is read-only.
@@ -42,6 +43,12 @@ import tools.jackson.databind.json.JsonMapper;
  */
 @SuppressFBWarnings("VA_FORMAT_STRING_USES_NEWLINE")
 public class AddDataTableColumnToolCallback implements ToolCallback {
+
+    /**
+     * Name of the artifact kind recorded on success, matching the {@code AiHubTaskArtifactKind.DATA_TABLE_COLUMN_ADDED}
+     * enum constant on the AI Hub side. Carried as a plain string so this shared lib does not depend on ai-hub.
+     */
+    static final String ARTIFACT_KIND_DATA_TABLE_COLUMN_ADDED = "DATA_TABLE_COLUMN_ADDED";
 
     private static final long DEFAULT_ENVIRONMENT_ORDINAL = 0L;
     private static final String TOOL_NAME = "addDataTableColumn";
@@ -70,17 +77,17 @@ public class AddDataTableColumnToolCallback implements ToolCallback {
 
     private final DataTableService dataTableService;
     private final WorkspaceDataTableFacade workspaceDataTableFacade;
-    private final AiHubTaskArtifactService taskArtifactService;
+    private final @Nullable ToolMutationArtifactRecorder artifactRecorder;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public AddDataTableColumnToolCallback(
         DataTableService dataTableService, WorkspaceDataTableFacade workspaceDataTableFacade,
-        AiHubTaskArtifactService taskArtifactService) {
+        @Nullable ToolMutationArtifactRecorder artifactRecorder) {
 
         this.dataTableService = dataTableService;
         this.workspaceDataTableFacade = workspaceDataTableFacade;
-        this.taskArtifactService = taskArtifactService;
+        this.artifactRecorder = artifactRecorder;
     }
 
     @Override
@@ -127,8 +134,8 @@ public class AddDataTableColumnToolCallback implements ToolCallback {
                     "Unknown columnType '" + input.columnType() + "'. Supported types: " + SUPPORTED_TYPES);
             }
 
-            AiHubToolInvocationContext invocationContext =
-                AiHubToolInvocationContext.fromToolContext(toolContext);
+            AgentToolInvocationContext invocationContext =
+                AgentToolInvocationContext.fromToolContext(toolContext);
 
             Long workspaceId = invocationContext == null ? null : invocationContext.workspaceId();
 
@@ -169,13 +176,13 @@ public class AddDataTableColumnToolCallback implements ToolCallback {
     }
 
     private void recordArtifact(
-        AiHubToolInvocationContext invocationContext, String baseName, String dataTableId, String columnName,
+        AgentToolInvocationContext invocationContext, String baseName, String dataTableId, String columnName,
         long environmentId) {
 
-        String threadId = invocationContext.threadId();
+        String conversationId = invocationContext.conversationId();
         Long userId = invocationContext.userId();
 
-        if (threadId == null || userId == null) {
+        if (artifactRecorder == null || conversationId == null || userId == null) {
             return;
         }
 
@@ -186,8 +193,8 @@ public class AddDataTableColumnToolCallback implements ToolCallback {
         metadata.put("dataTableId", dataTableId);
         metadata.put("environmentId", environmentId);
 
-        taskArtifactService.record(
-            threadId, userId, AiHubTaskArtifactKind.DATA_TABLE_COLUMN_ADDED,
+        artifactRecorder.record(
+            conversationId, userId, ARTIFACT_KIND_DATA_TABLE_COLUMN_ADDED,
             dataTableId, baseName + "." + columnName, metadata);
     }
 
@@ -200,7 +207,7 @@ public class AddDataTableColumnToolCallback implements ToolCallback {
             .orElse(null);
     }
 
-    private long resolveEnvironmentId(AiHubToolInvocationContext invocationContext) {
+    private long resolveEnvironmentId(AgentToolInvocationContext invocationContext) {
         Long environmentId = invocationContext.environmentId();
 
         return environmentId != null ? environmentId : DEFAULT_ENVIRONMENT_ORDINAL;

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.datatable;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -17,6 +17,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
@@ -41,7 +42,11 @@ class CreateDataTableFromCsvToolCallbackTest {
 
     private static ToolContext toolContextWithWorkspace() {
         return new ToolContext(
-            new AiHubToolInvocationContext(1L, 10L, (short) 0, "import this", 0L, "thread-1").toToolContext());
+            AgentToolInvocationContext.builder()
+                .workspaceId(1L)
+                .environmentId(0L)
+                .build()
+                .toToolContext());
     }
 
     @Test

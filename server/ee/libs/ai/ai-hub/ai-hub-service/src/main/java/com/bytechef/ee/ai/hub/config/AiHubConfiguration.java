@@ -63,25 +63,20 @@ import com.bytechef.ee.ai.hub.task.AiHubTask;
 import com.bytechef.ee.ai.hub.task.AiHubTaskArtifactService;
 import com.bytechef.ee.ai.hub.task.AiHubTaskService;
 import com.bytechef.ee.ai.hub.task.AiHubTaskToolFacade;
-import com.bytechef.ee.ai.hub.tool.AddDataTableColumnToolCallback;
-import com.bytechef.ee.ai.hub.tool.AddDataTableRowToolCallback;
 import com.bytechef.ee.ai.hub.tool.AiHubTaskArtifactRecorder;
+import com.bytechef.ee.ai.hub.tool.AiHubToolMutationArtifactRecorder;
 import com.bytechef.ee.ai.hub.tool.AttachTaskToolToolCallback;
 import com.bytechef.ee.ai.hub.tool.CloneAiHubPersonalAgentToolCallback;
 import com.bytechef.ee.ai.hub.tool.CloneApiCollectionToolCallback;
 import com.bytechef.ee.ai.hub.tool.CloneAssetFileToolCallback;
-import com.bytechef.ee.ai.hub.tool.CloneDataTableToolCallback;
 import com.bytechef.ee.ai.hub.tool.CloneMcpProjectToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateAiHubPersonalAgentToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateApiCollectionToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateAssetFileToolCallback;
-import com.bytechef.ee.ai.hub.tool.CreateDataTableFromCsvToolCallback;
-import com.bytechef.ee.ai.hub.tool.CreateDataTableToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateMcpProjectToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateWorkflowChatToolCallback;
 import com.bytechef.ee.ai.hub.tool.DeleteAiHubPersonalAgentToolCallback;
-import com.bytechef.ee.ai.hub.tool.DeleteDataTableRowToolCallback;
 import com.bytechef.ee.ai.hub.tool.DeleteProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.GetAssetFileContentToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListAiHubPersonalAgentsToolCallback;
@@ -89,7 +84,6 @@ import com.bytechef.ee.ai.hub.tool.ListAiHubTasksToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListApiCollectionsToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListAssetFilesToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListChatWorkflowsToolCallback;
-import com.bytechef.ee.ai.hub.tool.ListDataTablesToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListMcpServersToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListProjectDeploymentsToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListTaskToolsToolCallback;
@@ -109,7 +103,6 @@ import com.bytechef.ee.ai.hub.tool.RollbackProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.RunChatWorkflowToolCallback;
 import com.bytechef.ee.ai.hub.tool.ToggleProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.UpdateAiHubPersonalAgentToolCallback;
-import com.bytechef.ee.ai.hub.tool.UpdateDataTableRowToolCallback;
 import com.bytechef.ee.ai.hub.tool.UpdateProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.memory.DbAutoMemoryDirectoryOps;
 import com.bytechef.ee.ai.hub.tool.memory.DbMemoryResourceResolver;
@@ -118,6 +111,14 @@ import com.bytechef.ee.ai.hub.toolsearch.AiHubTaskBindingToolCallbackResolver;
 import com.bytechef.ee.ai.hub.toolsearch.ToolSearchCatalogFeeder;
 import com.bytechef.ee.ai.hub.util.Mode;
 import com.bytechef.ee.ai.hub.util.Source;
+import com.bytechef.ee.automation.ai.tool.datatable.AddDataTableColumnToolCallback;
+import com.bytechef.ee.automation.ai.tool.datatable.AddDataTableRowToolCallback;
+import com.bytechef.ee.automation.ai.tool.datatable.CloneDataTableToolCallback;
+import com.bytechef.ee.automation.ai.tool.datatable.CreateDataTableFromCsvToolCallback;
+import com.bytechef.ee.automation.ai.tool.datatable.CreateDataTableToolCallback;
+import com.bytechef.ee.automation.ai.tool.datatable.DeleteDataTableRowToolCallback;
+import com.bytechef.ee.automation.ai.tool.datatable.ListDataTablesToolCallback;
+import com.bytechef.ee.automation.ai.tool.datatable.UpdateDataTableRowToolCallback;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
 import com.bytechef.platform.ai.agent.memory.AutoMemoryTools;
 import com.bytechef.platform.ai.agent.memory.AutoMemoryToolsAdvisor;
@@ -692,13 +693,19 @@ public class AiHubConfiguration {
         AiHubTaskArtifactService taskArtifactService) {
 
         toolCallbacks.add(
-            new AddDataTableRowToolCallback(dataTableRowService, workspaceDataTableFacade, taskArtifactService));
+            new AddDataTableRowToolCallback(
+                dataTableRowService, workspaceDataTableFacade,
+                new AiHubToolMutationArtifactRecorder(taskArtifactService)));
         toolCallbacks.add(
-            new UpdateDataTableRowToolCallback(dataTableRowService, workspaceDataTableFacade, taskArtifactService));
+            new UpdateDataTableRowToolCallback(
+                dataTableRowService, workspaceDataTableFacade,
+                new AiHubToolMutationArtifactRecorder(taskArtifactService)));
         toolCallbacks.add(
-            new DeleteDataTableRowToolCallback(dataTableRowService, workspaceDataTableFacade, taskArtifactService));
+            new DeleteDataTableRowToolCallback(
+                dataTableRowService, workspaceDataTableFacade,
+                new AiHubToolMutationArtifactRecorder(taskArtifactService)));
         toolCallbacks.add(new AddDataTableColumnToolCallback(
-            dataTableService, workspaceDataTableFacade, taskArtifactService));
+            dataTableService, workspaceDataTableFacade, new AiHubToolMutationArtifactRecorder(taskArtifactService)));
         toolCallbacks.add(new CreateDataTableToolCallback(workspaceDataTableFacade));
         toolCallbacks.add(
             new CreateDataTableFromCsvToolCallback(dataTableRowService, workspaceDataTableFacade));

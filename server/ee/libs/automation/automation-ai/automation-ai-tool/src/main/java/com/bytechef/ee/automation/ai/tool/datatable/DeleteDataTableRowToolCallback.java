@@ -5,16 +5,17 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.datatable;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
-import com.bytechef.ee.ai.hub.task.AiHubTaskArtifactKind;
-import com.bytechef.ee.ai.hub.task.AiHubTaskArtifactService;
+import com.bytechef.ee.automation.ai.tool.ToolMutationArtifactRecorder;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -25,8 +26,9 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Spring AI {@link ToolCallback} that inserts a new row into a data table. The mutation is executed immediately — every
- * server-side mutation lands in real time and is recorded as a task artifact for audit purposes.
+ * Spring AI {@link ToolCallback} that deletes a data-table row by id. The mutation is executed immediately — every
+ * server-side mutation lands in real time and, when a {@link ToolMutationArtifactRecorder} is supplied (AI Hub only),
+ * is recorded as a task artifact for audit purposes.
  *
  * <p>
  * This callback is registered on {@code aiHubBuildSpringAIAgent} only — the ASK variant is read-only.
@@ -36,15 +38,21 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * @author Ivica Cardic
  */
-public class AddDataTableRowToolCallback implements ToolCallback {
+public class DeleteDataTableRowToolCallback implements ToolCallback {
+
+    /**
+     * Name of the artifact kind recorded on success, matching the {@code AiHubTaskArtifactKind.DATA_TABLE_ROW_DELETED}
+     * enum constant on the AI Hub side. Carried as a plain string so this shared lib does not depend on ai-hub.
+     */
+    static final String ARTIFACT_KIND_DATA_TABLE_ROW_DELETED = "DATA_TABLE_ROW_DELETED";
 
     private static final long DEFAULT_ENVIRONMENT_ORDINAL = 0L;
-    private static final String TOOL_NAME = "addDataTableRow";
+    private static final String TOOL_NAME = "deleteDataTableRow";
 
     private static final String DESCRIPTION = """
-        Insert a new row into a data table. Supply the dataTableId (from listDataTables) and a
-        values object mapping column names to their values. The row is inserted immediately and
-        the new row id is returned. The dataTableId must belong to the current workspace.""";
+        Delete a row from a data table by its id. Supply the dataTableId (from listDataTables) and
+        the rowId to delete. The row is deleted immediately. The dataTableId must belong to the
+        current workspace.""";
 
     private static final String INPUT_SCHEMA =
         """
@@ -52,25 +60,24 @@ public class AddDataTableRowToolCallback implements ToolCallback {
                 "type": "object",
                 "properties": {
                     "dataTableId": {"type": "string", "description": "Data table id obtained from listDataTables"},
-                    "values": {"type": "object", "description": "Column name to value mapping for the new row",
-                               "additionalProperties": true}
+                    "rowId": {"type": "string", "description": "The stable row id to delete"}
                 },
-                "required": ["dataTableId", "values"]
+                "required": ["dataTableId", "rowId"]
             }""";
 
     private final DataTableRowService dataTableRowService;
     private final WorkspaceDataTableFacade workspaceDataTableFacade;
-    private final AiHubTaskArtifactService taskArtifactService;
+    private final @Nullable ToolMutationArtifactRecorder artifactRecorder;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public AddDataTableRowToolCallback(
+    public DeleteDataTableRowToolCallback(
         DataTableRowService dataTableRowService, WorkspaceDataTableFacade workspaceDataTableFacade,
-        AiHubTaskArtifactService taskArtifactService) {
+        @Nullable ToolMutationArtifactRecorder artifactRecorder) {
 
         this.dataTableRowService = dataTableRowService;
         this.workspaceDataTableFacade = workspaceDataTableFacade;
-        this.taskArtifactService = taskArtifactService;
+        this.artifactRecorder = artifactRecorder;
     }
 
     @Override
@@ -90,20 +97,20 @@ public class AddDataTableRowToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            AddDataTableRowInput input = jsonMapper.readValue(toolInput, AddDataTableRowInput.class);
+            DeleteDataTableRowInput input = jsonMapper.readValue(toolInput, DeleteDataTableRowInput.class);
 
             if (input.dataTableId() == null || input.dataTableId()
                 .isBlank()) {
                 return toolError("dataTableId is required");
             }
 
-            if (input.values() == null || input.values()
-                .isEmpty()) {
-                return toolError("values must not be empty");
+            if (input.rowId() == null || input.rowId()
+                .isBlank()) {
+                return toolError("rowId is required");
             }
 
-            AiHubToolInvocationContext invocationContext =
-                AiHubToolInvocationContext.fromToolContext(toolContext);
+            AgentToolInvocationContext invocationContext =
+                AgentToolInvocationContext.fromToolContext(toolContext);
 
             Long workspaceId = invocationContext == null ? null : invocationContext.workspaceId();
 
@@ -120,6 +127,14 @@ public class AddDataTableRowToolCallback implements ToolCallback {
                 return toolError("Invalid dataTableId - must be a numeric id obtained from listDataTables");
             }
 
+            long rowId;
+
+            try {
+                rowId = Long.parseLong(input.rowId());
+            } catch (NumberFormatException exception) {
+                return toolError("Invalid rowId - must be a numeric id");
+            }
+
             long environmentId = resolveEnvironmentId(invocationContext);
 
             DataTableInfo tableInfo = resolveTableInWorkspace(dataTableId, workspaceId, environmentId);
@@ -129,27 +144,48 @@ public class AddDataTableRowToolCallback implements ToolCallback {
                     "Data table " + input.dataTableId() + " not found in the current workspace.");
             }
 
-            DataTableRow inserted = dataTableRowService.insertRow(tableInfo.baseName(), input.values(), environmentId);
+            String baseName = tableInfo.baseName();
 
-            recordArtifact(invocationContext, tableInfo.baseName(), inserted.id());
+            DataTableRow priorRow = dataTableRowService.getRow(baseName, rowId, environmentId);
 
-            return jsonMapper.writeValueAsString(new AddDataTableRowOutput(true, inserted.id()));
+            boolean wasDeleted = dataTableRowService.deleteRow(baseName, rowId, environmentId);
+
+            if (wasDeleted) {
+                recordArtifact(invocationContext, baseName, input.dataTableId(), environmentId, priorRow, rowId);
+            }
+
+            return jsonMapper.writeValueAsString(new DeleteDataTableRowOutput(wasDeleted, rowId));
         } catch (JacksonException exception) {
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (RuntimeException exception) {
-            return ToolErrors.runtimeFailure(jsonMapper, AddDataTableRowToolCallback.class, TOOL_NAME, exception);
+            return ToolErrors.runtimeFailure(jsonMapper, DeleteDataTableRowToolCallback.class, TOOL_NAME, exception);
         }
     }
 
-    private void recordArtifact(AiHubToolInvocationContext invocationContext, String baseName, long rowId) {
-        String threadId = invocationContext.threadId();
+    private void recordArtifact(
+        AgentToolInvocationContext invocationContext, String baseName, String dataTableId, long environmentId,
+        @Nullable DataTableRow priorRow, long rowId) {
+
+        String conversationId = invocationContext.conversationId();
         Long userId = invocationContext.userId();
 
-        if (threadId != null && userId != null) {
-            taskArtifactService.record(
-                threadId, userId, AiHubTaskArtifactKind.DATA_TABLE_ROW_ADDED,
-                String.valueOf(rowId), baseName + " row " + rowId, null);
+        if (artifactRecorder == null || conversationId == null || userId == null) {
+            return;
         }
+
+        Map<String, Object> metadata = new HashMap<>();
+
+        metadata.put("baseName", baseName);
+        metadata.put("dataTableId", dataTableId);
+        metadata.put("environmentId", environmentId);
+
+        if (priorRow != null) {
+            metadata.put("priorValues", priorRow.values());
+        }
+
+        artifactRecorder.record(
+            conversationId, userId, ARTIFACT_KIND_DATA_TABLE_ROW_DELETED,
+            String.valueOf(rowId), baseName + " row " + rowId, metadata);
     }
 
     private DataTableInfo resolveTableInWorkspace(long dataTableId, long workspaceId, long environmentId) {
@@ -161,7 +197,7 @@ public class AddDataTableRowToolCallback implements ToolCallback {
             .orElse(null);
     }
 
-    private long resolveEnvironmentId(AiHubToolInvocationContext invocationContext) {
+    private long resolveEnvironmentId(AgentToolInvocationContext invocationContext) {
         Long environmentId = invocationContext.environmentId();
 
         return environmentId != null ? environmentId : DEFAULT_ENVIRONMENT_ORDINAL;
@@ -171,12 +207,9 @@ public class AddDataTableRowToolCallback implements ToolCallback {
         return ToolErrors.toolError(jsonMapper, message);
     }
 
-    @SuppressFBWarnings({
-        "EI_EXPOSE_REP", "EI_EXPOSE_REP2"
-    })
-    public record AddDataTableRowInput(String dataTableId, @Nullable Map<String, Object> values) {
+    public record DeleteDataTableRowInput(String dataTableId, String rowId) {
     }
 
-    public record AddDataTableRowOutput(boolean added, long rowId) {
+    public record DeleteDataTableRowOutput(boolean deleted, long rowId) {
     }
 }
