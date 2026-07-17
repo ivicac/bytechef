@@ -13,6 +13,7 @@ import com.bytechef.ai.copilot.tool.AskUserQuestionToolCallback;
 import com.bytechef.ai.copilot.tool.ClusterElementAgentToolCallback;
 import com.bytechef.ai.copilot.tool.CodeEditorAgentToolCallback;
 import com.bytechef.ai.copilot.tool.CodeWorkflowAgentToolCallback;
+import com.bytechef.ai.copilot.tool.ContextStoreAgentToolCallback;
 import com.bytechef.ai.copilot.tool.ConverterAgentToolCallback;
 import com.bytechef.ai.copilot.tool.CreateConnectionToolCallback;
 import com.bytechef.ai.copilot.tool.CustomComponentAgentToolCallback;
@@ -218,6 +219,8 @@ public class AiHubConfiguration {
         AiHubSessionMemory aiHubSessionMemory, ChatModel chatModel, ObjectProvider<ToolCallback> toolCallbackProvider,
         @Qualifier("researchChatClient") ObjectProvider<ChatClient> researchChatClientProvider,
         @Qualifier("skillsAskSubAgentChatClient") ObjectProvider<ChatClient> skillsAskSubAgentChatClientProvider,
+        @Qualifier("contextStoreAskSubAgentChatClient") //
+        ObjectProvider<ChatClient> contextStoreAskSubAgentChatClientProvider,
         @Qualifier("clusterElementAskSubAgentChatClient") //
         ObjectProvider<ChatClient> clusterElementAskSubAgentChatClientProvider,
         @Qualifier("codeEditorAskSubAgentChatClient") //
@@ -318,7 +321,8 @@ public class AiHubConfiguration {
         // gate — if Copilot is disabled the beans are absent and the registrations are silently
         // skipped). Converter is BUILD-only and passed as null here.
         registerCopilotSubAgentToolCallbacks(
-            toolCallbacks, skillsAskSubAgentChatClientProvider, clusterElementAskSubAgentChatClientProvider,
+            toolCallbacks, skillsAskSubAgentChatClientProvider, contextStoreAskSubAgentChatClientProvider,
+            clusterElementAskSubAgentChatClientProvider,
             codeEditorAskSubAgentChatClientProvider, workflowEditorAskSubAgentChatClientProvider, null,
             workflowExecutionAskSubAgentChatClientProvider, customComponentAskSubAgentChatClientProvider,
             codeWorkflowAskSubAgentChatClientProvider);
@@ -374,6 +378,8 @@ public class AiHubConfiguration {
         @Qualifier("imageGeneratorChatClient") ObjectProvider<ChatClient> imageGeneratorChatClientProvider,
         @Qualifier("slideBuilderChatClient") ObjectProvider<ChatClient> slideBuilderChatClientProvider,
         @Qualifier("skillsBuildSubAgentChatClient") ObjectProvider<ChatClient> skillsBuildSubAgentChatClientProvider,
+        @Qualifier("contextStoreBuildSubAgentChatClient") //
+        ObjectProvider<ChatClient> contextStoreBuildSubAgentChatClientProvider,
         @Qualifier("clusterElementBuildSubAgentChatClient") //
         ObjectProvider<ChatClient> clusterElementBuildSubAgentChatClientProvider,
         @Qualifier("codeEditorBuildSubAgentChatClient") //
@@ -483,7 +489,8 @@ public class AiHubConfiguration {
         // the BUILD-only Converter sub-agent. Skips registrations when the corresponding ChatClient
         // bean is absent (Copilot disabled).
         registerCopilotSubAgentToolCallbacks(
-            toolCallbacks, skillsBuildSubAgentChatClientProvider, clusterElementBuildSubAgentChatClientProvider,
+            toolCallbacks, skillsBuildSubAgentChatClientProvider, contextStoreBuildSubAgentChatClientProvider,
+            clusterElementBuildSubAgentChatClientProvider,
             codeEditorBuildSubAgentChatClientProvider, workflowEditorBuildSubAgentChatClientProvider,
             converterBuildSubAgentChatClientSupplierProvider, workflowExecutionBuildSubAgentChatClientProvider,
             customComponentBuildSubAgentChatClientProvider, codeWorkflowBuildSubAgentChatClientProvider);
@@ -737,6 +744,7 @@ public class AiHubConfiguration {
     private static void registerCopilotSubAgentToolCallbacks(
         List<ToolCallback> toolCallbacks,
         ObjectProvider<ChatClient> skillsSubAgentChatClientProvider,
+        ObjectProvider<ChatClient> contextStoreSubAgentChatClientProvider,
         ObjectProvider<ChatClient> clusterElementSubAgentChatClientProvider,
         ObjectProvider<ChatClient> codeEditorSubAgentChatClientProvider,
         ObjectProvider<ChatClient> workflowEditorSubAgentChatClientProvider,
@@ -748,6 +756,11 @@ public class AiHubConfiguration {
         skillsSubAgentChatClientProvider.ifAvailable(
             chatClient -> toolCallbacks.add(
                 new ProgressReportingToolCallback(new SkillsAgentToolCallback(chatClient), "skills_agent")));
+
+        contextStoreSubAgentChatClientProvider.ifAvailable(
+            chatClient -> toolCallbacks.add(
+                new ProgressReportingToolCallback(
+                    new ContextStoreAgentToolCallback(chatClient), "context_store_agent")));
 
         clusterElementSubAgentChatClientProvider.ifAvailable(
             chatClient -> toolCallbacks.add(
