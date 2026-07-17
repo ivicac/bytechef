@@ -23,6 +23,7 @@ dependencies {
     implementation(project(":server:ee:libs:automation:automation-code-workflow-loader"))
     implementation(project(":server:ee:libs:automation:automation-configuration:automation-configuration-api"))
     implementation(project(":server:ee:libs:platform:platform-audit:platform-audit-api"))
+    implementation(project(":server:ee:libs:platform:platform-code-workflow:platform-code-workflow-file-storage:platform-code-workflow-file-storage-api"))
     implementation(project(":server:ee:libs:platform:platform-configuration:platform-configuration-api"))
     implementation(project(":server:ee:libs:platform:platform-connection:platform-connection-audit"))
 

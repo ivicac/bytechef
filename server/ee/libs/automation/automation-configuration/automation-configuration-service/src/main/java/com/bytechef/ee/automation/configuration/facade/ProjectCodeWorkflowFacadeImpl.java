@@ -14,11 +14,14 @@ import com.bytechef.automation.project.ProjectHandler;
 import com.bytechef.automation.project.definition.ProjectDefinition;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.config.ApplicationProperties.Workflow.CodeWorkflow;
+import com.bytechef.ee.automation.configuration.domain.ProjectCodeWorkflow;
 import com.bytechef.ee.automation.configuration.exception.CodeWorkflowErrorType;
 import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
 import com.bytechef.ee.platform.codeworkflow.configuration.facade.CodeWorkflowContainerFacade;
+import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowContainerService;
+import com.bytechef.ee.platform.codeworkflow.file.storage.CodeWorkflowFileStorage;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.codeworkflow.loader.automation.ProjectHandlerLoader;
@@ -32,6 +35,7 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.cache.CacheManager;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -53,6 +57,8 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
     private final ProjectWorkflowService projectWorkflowService;
     private final CodeWorkflowContainerFacade codeWorkflowContainerFacade;
     private final ProjectCodeWorkflowService projectCodeWorkflowService;
+    private final CodeWorkflowContainerService codeWorkflowContainerService;
+    private final CodeWorkflowFileStorage codeWorkflowFileStorage;
     private final boolean javaEnabled;
     private final ProjectHandlerLoader.JavaLoader javaLoader;
 
@@ -60,13 +66,17 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
     public ProjectCodeWorkflowFacadeImpl(
         ApplicationProperties applicationProperties, CacheManager cacheManager, ProjectService projectService,
         ProjectWorkflowService projectWorkflowService, CodeWorkflowContainerFacade codeWorkflowContainerFacade,
-        ProjectCodeWorkflowService projectCodeWorkflowService) {
+        ProjectCodeWorkflowService projectCodeWorkflowService,
+        CodeWorkflowContainerService codeWorkflowContainerService,
+        CodeWorkflowFileStorage codeWorkflowFileStorage) {
 
         this.cacheManager = cacheManager;
         this.projectService = projectService;
         this.projectWorkflowService = projectWorkflowService;
         this.codeWorkflowContainerFacade = codeWorkflowContainerFacade;
         this.projectCodeWorkflowService = projectCodeWorkflowService;
+        this.codeWorkflowContainerService = codeWorkflowContainerService;
+        this.codeWorkflowFileStorage = codeWorkflowFileStorage;
         this.javaEnabled = applicationProperties.getWorkflow()
             .getCodeWorkflow()
             .isJavaEnabled();
@@ -119,6 +129,24 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
     }
 
     /**
+     * Returns the stored source text of the code workflow backing {@code projectId}, so it can be shown in an editor.
+     * Java-backed containers have no editable source (they are compiled jars), so those are rejected.
+     */
+    @Transactional(readOnly = true)
+    @Override
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    public String getCodeWorkflowSource(long projectId) {
+        CodeWorkflowContainer codeWorkflowContainer = getCodeWorkflowContainer(projectId);
+
+        if (codeWorkflowContainer.getLanguage() == Language.JAVA) {
+            throw new ConfigurationException(
+                "Java code workflows have no editable source", CodeWorkflowErrorType.LANGUAGE_NOT_SUPPORTED);
+        }
+
+        return codeWorkflowFileStorage.readCodeWorkflowFileContent(codeWorkflowContainer.getWorkflows());
+    }
+
+    /**
      * Deploying a code workflow loads and executes the uploaded artifact (a JAR or polyglot script) on the server, so
      * it is restricted to administrators. The guard lives here on the facade so it protects every caller, not only the
      * REST entry point.
@@ -144,6 +172,50 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
             .map(curProject -> updateProject(curProject, projectDefinition))
             .orElseGet(() -> createProject(workspaceId, projectDefinition));
 
+        deployInto(project, projectDefinition, bytes, language);
+    }
+
+    /**
+     * Re-deploys new source onto an already-resolved {@code project} rather than resolving the target project by name
+     * (as {@link #save} does for uploads). Renaming a project by editing its source is not supported, so the caller
+     * must have already verified the incoming {@link ProjectDefinition#getName()} matches {@code project}'s name.
+     */
+    @Override
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    public void updateCodeWorkflowSource(long projectId, String content) {
+        CodeWorkflowContainer codeWorkflowContainer = getCodeWorkflowContainer(projectId);
+
+        Language language = codeWorkflowContainer.getLanguage();
+
+        if (language == Language.JAVA) {
+            throw new ConfigurationException(
+                "Java code workflows have no editable source", CodeWorkflowErrorType.LANGUAGE_NOT_SUPPORTED);
+        }
+
+        Project project = projectService.getProject(projectId);
+
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+
+        ProjectDefinition projectDefinition;
+
+        try {
+            projectDefinition = loadProjectDefinition(language, bytes);
+        } catch (Exception e) {
+            throw new ConfigurationException(
+                "Failed to load code workflow source: " + e.getMessage(), CodeWorkflowErrorType.SOURCE_LOAD_FAILED);
+        }
+
+        if (!Objects.equals(projectDefinition.getName(), project.getName())) {
+            throw new ConfigurationException(
+                "Renaming a code workflow by editing its source is not supported (expected name '"
+                    + project.getName() + "')",
+                CodeWorkflowErrorType.CODE_WORKFLOW_NAME_MISMATCH);
+        }
+
+        deployInto(project, projectDefinition, bytes, language);
+    }
+
+    private void deployInto(Project project, ProjectDefinition projectDefinition, byte[] bytes, Language language) {
         CodeWorkflowContainer codeWorkflowContainer = codeWorkflowContainerFacade.create(
             projectDefinition.getName(), projectDefinition.getVersion(), projectDefinition.getWorkflows(),
             language, bytes, PlatformType.AUTOMATION);
@@ -157,6 +229,12 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
         }
 
         projectService.publishProject(project.getId(), null, false);
+    }
+
+    private CodeWorkflowContainer getCodeWorkflowContainer(long projectId) {
+        ProjectCodeWorkflow projectCodeWorkflow = projectCodeWorkflowService.getProjectCodeWorkflow(projectId);
+
+        return codeWorkflowContainerService.getCodeWorkflowContainer(projectCodeWorkflow.getCodeWorkflowContainerId());
     }
 
     private Project createProject(long workspaceId, ProjectDefinition projectDefinition) {

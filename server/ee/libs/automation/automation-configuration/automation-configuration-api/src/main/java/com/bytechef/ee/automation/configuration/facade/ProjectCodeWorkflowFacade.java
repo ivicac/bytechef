@@ -19,5 +19,9 @@ public interface ProjectCodeWorkflowFacade {
 
     Project createEmptyCodeWorkflow(long workspaceId, String name, Language language);
 
+    String getCodeWorkflowSource(long projectId);
+
     void save(long workspaceId, byte[] bytes, Language language);
+
+    void updateCodeWorkflowSource(long projectId, String content);
 }

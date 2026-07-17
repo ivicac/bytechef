@@ -27,6 +27,8 @@ import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowServi
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
 import com.bytechef.ee.platform.codeworkflow.configuration.facade.CodeWorkflowContainerFacade;
+import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowContainerService;
+import com.bytechef.ee.platform.codeworkflow.file.storage.CodeWorkflowFileStorage;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.codeworkflow.loader.automation.ProjectHandlerLoader;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -112,7 +114,8 @@ class ProjectCodeWorkflowFacadeCreateEmptyTest {
 
         ProjectCodeWorkflowFacadeImpl projectCodeWorkflowFacade = new ProjectCodeWorkflowFacadeImpl(
             applicationProperties(true), mock(CacheManager.class), projectService, projectWorkflowService,
-            codeWorkflowContainerFacade, projectCodeWorkflowService);
+            codeWorkflowContainerFacade, projectCodeWorkflowService, mock(CodeWorkflowContainerService.class),
+            mock(CodeWorkflowFileStorage.class));
 
         Project project = projectCodeWorkflowFacade.createEmptyCodeWorkflow(1L, "my-code-project", Language.JAVASCRIPT);
 
@@ -137,7 +140,8 @@ class ProjectCodeWorkflowFacadeCreateEmptyTest {
 
         ProjectCodeWorkflowFacadeImpl projectCodeWorkflowFacade = new ProjectCodeWorkflowFacadeImpl(
             applicationProperties(true), mock(CacheManager.class), projectService, projectWorkflowService,
-            codeWorkflowContainerFacade, projectCodeWorkflowService);
+            codeWorkflowContainerFacade, projectCodeWorkflowService, mock(CodeWorkflowContainerService.class),
+            mock(CodeWorkflowFileStorage.class));
 
         assertThatThrownBy(() -> projectCodeWorkflowFacade.createEmptyCodeWorkflow(1L, "my-code-project", language))
             .isInstanceOf(ConfigurationException.class)
@@ -175,7 +179,8 @@ class ProjectCodeWorkflowFacadeCreateEmptyTest {
 
         ProjectCodeWorkflowFacadeImpl projectCodeWorkflowFacade = new ProjectCodeWorkflowFacadeImpl(
             applicationProperties(true), mock(CacheManager.class), projectService, projectWorkflowService,
-            codeWorkflowContainerFacade, projectCodeWorkflowService);
+            codeWorkflowContainerFacade, projectCodeWorkflowService, mock(CodeWorkflowContainerService.class),
+            mock(CodeWorkflowFileStorage.class));
 
         assertThatThrownBy(() -> projectCodeWorkflowFacade.createEmptyCodeWorkflow(1L, name, Language.JAVASCRIPT))
             .isInstanceOf(ConfigurationException.class)
