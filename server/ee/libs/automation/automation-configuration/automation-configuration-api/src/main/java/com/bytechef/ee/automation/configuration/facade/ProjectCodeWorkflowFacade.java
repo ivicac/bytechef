@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.automation.configuration.facade;
 
+import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
 
 /**
@@ -15,6 +16,8 @@ import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowCo
  * @author Ivica Cardic
  */
 public interface ProjectCodeWorkflowFacade {
+
+    Project createEmptyCodeWorkflow(long workspaceId, String name, Language language);
 
     void save(long workspaceId, byte[] bytes, Language language);
 }

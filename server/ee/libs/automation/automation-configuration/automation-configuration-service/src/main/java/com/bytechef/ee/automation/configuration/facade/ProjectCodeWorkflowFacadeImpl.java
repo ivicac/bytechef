@@ -26,7 +26,9 @@ import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Map;
@@ -79,6 +81,41 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
         return codeWorkflow.getJavaLoader() == CodeWorkflow.JavaLoader.ESPRESSO
             ? ProjectHandlerLoader.JavaLoader.ESPRESSO
             : ProjectHandlerLoader.JavaLoader.CLASS_LOADER;
+    }
+
+    /**
+     * Creates a code-backed project from scratch by rendering the language starter template (substituting the requested
+     * project name) and deploying it through the regular {@link #save} path, which creates the project of that name.
+     * Restricted to administrators, mirroring {@link #save}, because deployment loads the rendered script on the
+     * server.
+     */
+    @Override
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    public Project createEmptyCodeWorkflow(long workspaceId, String name, Language language) {
+        if (name == null || name.isBlank() || name.indexOf('"') >= 0 || name.indexOf('\\') >= 0
+            || name.indexOf('\n') >= 0 || name.indexOf('\r') >= 0) {
+
+            throw new ConfigurationException(
+                "Invalid code workflow name: must not be blank or contain quotes, backslashes, or newlines",
+                CodeWorkflowErrorType.INVALID_CODE_WORKFLOW_NAME);
+        }
+
+        if (language != Language.JAVASCRIPT && language != Language.PYTHON && language != Language.RUBY) {
+            throw new ConfigurationException(
+                "Create-empty supports JavaScript, Python and Ruby only",
+                CodeWorkflowErrorType.LANGUAGE_NOT_SUPPORTED);
+        }
+
+        String template = readTemplate(language).replace("__NAME__", name);
+
+        byte[] bytes = template.getBytes(StandardCharsets.UTF_8);
+
+        save(workspaceId, bytes, language);
+
+        return projectService.fetchProject(name)
+            .orElseThrow(() -> new ConfigurationException(
+                "Failed to create code workflow project '" + name + "'",
+                CodeWorkflowErrorType.SOURCE_LOAD_FAILED));
     }
 
     /**
@@ -162,5 +199,21 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
                 .orElse(null));
 
         return projectService.update(project);
+    }
+
+    private static String readTemplate(Language language) {
+        String resource = "code-workflow-templates/starter." + language.getExtension();
+
+        try (InputStream inputStream = ProjectCodeWorkflowFacadeImpl.class.getClassLoader()
+            .getResourceAsStream(resource)) {
+
+            if (inputStream == null) {
+                throw new IllegalStateException("Missing starter template: " + resource);
+            }
+
+            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 }

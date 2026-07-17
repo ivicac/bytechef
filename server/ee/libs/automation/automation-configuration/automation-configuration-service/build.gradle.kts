@@ -26,6 +26,7 @@ dependencies {
     implementation(project(":server:ee:libs:platform:platform-configuration:platform-configuration-api"))
     implementation(project(":server:ee:libs:platform:platform-connection:platform-connection-audit"))
 
+    testImplementation(rootProject.libs.org.graalvm.polyglot.polyglot)
     testImplementation("org.liquibase:liquibase-core")
     testImplementation("org.springframework.data:spring-data-jdbc")
     testImplementation("org.springframework.security:spring-security-config")
