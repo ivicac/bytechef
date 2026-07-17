@@ -17,6 +17,7 @@ import com.bytechef.ai.copilot.tool.ContextStoreAgentToolCallback;
 import com.bytechef.ai.copilot.tool.ConverterAgentToolCallback;
 import com.bytechef.ai.copilot.tool.CreateConnectionToolCallback;
 import com.bytechef.ai.copilot.tool.CustomComponentAgentToolCallback;
+import com.bytechef.ai.copilot.tool.DataTableAgentToolCallback;
 import com.bytechef.ai.copilot.tool.KnowledgeBaseAgentToolCallback;
 import com.bytechef.ai.copilot.tool.ListConnectionsForComponentToolCallback;
 import com.bytechef.ai.copilot.tool.LookupActionPropertyOptionsToolCallback;
@@ -44,7 +45,6 @@ import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
-import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
 import com.bytechef.component.ai.agent.chat.memory.builtin.session.util.BuiltInSessionRepositoryFactory;
 import com.bytechef.component.ai.agent.chat.memory.builtin.session.util.BuiltInSessionRepositoryFactory.BuiltInSessionRepository;
 import com.bytechef.ee.ai.hub.agent.AiHubRoutingAgent;
@@ -64,7 +64,6 @@ import com.bytechef.ee.ai.hub.task.AiHubTaskArtifactService;
 import com.bytechef.ee.ai.hub.task.AiHubTaskService;
 import com.bytechef.ee.ai.hub.task.AiHubTaskToolFacade;
 import com.bytechef.ee.ai.hub.tool.AiHubTaskArtifactRecorder;
-import com.bytechef.ee.ai.hub.tool.AiHubToolMutationArtifactRecorder;
 import com.bytechef.ee.ai.hub.tool.AttachTaskToolToolCallback;
 import com.bytechef.ee.ai.hub.tool.CloneAiHubPersonalAgentToolCallback;
 import com.bytechef.ee.ai.hub.tool.CloneApiCollectionToolCallback;
@@ -111,14 +110,6 @@ import com.bytechef.ee.ai.hub.toolsearch.AiHubTaskBindingToolCallbackResolver;
 import com.bytechef.ee.ai.hub.toolsearch.ToolSearchCatalogFeeder;
 import com.bytechef.ee.ai.hub.util.Mode;
 import com.bytechef.ee.ai.hub.util.Source;
-import com.bytechef.ee.automation.ai.tool.datatable.AddDataTableColumnToolCallback;
-import com.bytechef.ee.automation.ai.tool.datatable.AddDataTableRowToolCallback;
-import com.bytechef.ee.automation.ai.tool.datatable.CloneDataTableToolCallback;
-import com.bytechef.ee.automation.ai.tool.datatable.CreateDataTableFromCsvToolCallback;
-import com.bytechef.ee.automation.ai.tool.datatable.CreateDataTableToolCallback;
-import com.bytechef.ee.automation.ai.tool.datatable.DeleteDataTableRowToolCallback;
-import com.bytechef.ee.automation.ai.tool.datatable.ListDataTablesToolCallback;
-import com.bytechef.ee.automation.ai.tool.datatable.UpdateDataTableRowToolCallback;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
 import com.bytechef.platform.ai.agent.memory.AutoMemoryTools;
 import com.bytechef.platform.ai.agent.memory.AutoMemoryToolsAdvisor;
@@ -217,6 +208,8 @@ public class AiHubConfiguration {
         ObjectProvider<ChatClient> contextStoreAskSubAgentChatClientProvider,
         @Qualifier("knowledgeBaseAskSubAgentChatClient") //
         ObjectProvider<ChatClient> knowledgeBaseAskSubAgentChatClientProvider,
+        @Qualifier("dataTableAskSubAgentChatClient") //
+        ObjectProvider<ChatClient> dataTableAskSubAgentChatClientProvider,
         @Qualifier("clusterElementAskSubAgentChatClient") //
         ObjectProvider<ChatClient> clusterElementAskSubAgentChatClientProvider,
         @Qualifier("codeEditorAskSubAgentChatClient") //
@@ -232,7 +225,7 @@ public class AiHubConfiguration {
         ArtifactGeneratorRegistry artifactGeneratorRegistry, AiHubTaskService taskService,
         AiAutoMemoryService aiHubMemoryService,
         DataTableService dataTableService,
-        DataTableRowService dataTableRowService, WorkspaceDataTableFacade workspaceDataTableFacade,
+        DataTableRowService dataTableRowService,
         AiHubTaskToolFacade taskToolFacade,
         ComponentDefinitionService componentDefinitionService,
         ConnectionDefinitionService connectionDefinitionService,
@@ -273,7 +266,6 @@ public class AiHubConfiguration {
         toolCallbacks.add(new OpenSkillTabToolCallback(null));
         toolCallbacks.add(new OpenCustomComponentTabToolCallback(null));
         toolCallbacks.add(new OpenCodeWorkflowTabToolCallback(null));
-        toolCallbacks.add(new ListDataTablesToolCallback(workspaceDataTableFacade));
         toolCallbacks.add(
             new QueryDataTableToolCallback(
                 artifactGeneratorRegistry, taskService, dataTableRowService, dataTableService));
@@ -312,7 +304,7 @@ public class AiHubConfiguration {
         // skipped). Converter is BUILD-only and passed as null here.
         registerCopilotSubAgentToolCallbacks(
             toolCallbacks, skillsAskSubAgentChatClientProvider, contextStoreAskSubAgentChatClientProvider,
-            knowledgeBaseAskSubAgentChatClientProvider,
+            knowledgeBaseAskSubAgentChatClientProvider, dataTableAskSubAgentChatClientProvider,
             clusterElementAskSubAgentChatClientProvider,
             codeEditorAskSubAgentChatClientProvider, workflowEditorAskSubAgentChatClientProvider, null,
             workflowExecutionAskSubAgentChatClientProvider, customComponentAskSubAgentChatClientProvider,
@@ -373,6 +365,8 @@ public class AiHubConfiguration {
         ObjectProvider<ChatClient> contextStoreBuildSubAgentChatClientProvider,
         @Qualifier("knowledgeBaseBuildSubAgentChatClient") //
         ObjectProvider<ChatClient> knowledgeBaseBuildSubAgentChatClientProvider,
+        @Qualifier("dataTableBuildSubAgentChatClient") //
+        ObjectProvider<ChatClient> dataTableBuildSubAgentChatClientProvider,
         @Qualifier("clusterElementBuildSubAgentChatClient") //
         ObjectProvider<ChatClient> clusterElementBuildSubAgentChatClientProvider,
         @Qualifier("codeEditorBuildSubAgentChatClient") //
@@ -396,7 +390,7 @@ public class AiHubConfiguration {
         ProjectWorkflowService projectWorkflowService,
         TriggerDefinitionService triggerDefinitionService,
         WorkflowFacade workflowFacade, WorkflowService workflowService, DataTableService dataTableService,
-        DataTableRowService dataTableRowService, WorkspaceDataTableFacade workspaceDataTableFacade,
+        DataTableRowService dataTableRowService,
         ComponentDefinitionService componentDefinitionService,
         ConnectionDefinitionService connectionDefinitionService,
         ConnectionService connectionService,
@@ -435,12 +429,9 @@ public class AiHubConfiguration {
         toolCallbacks.add(new OpenSkillTabToolCallback(aiHubTaskArtifactRecorder));
         toolCallbacks.add(new OpenCustomComponentTabToolCallback(aiHubTaskArtifactRecorder));
         toolCallbacks.add(new OpenCodeWorkflowTabToolCallback(aiHubTaskArtifactRecorder));
-        toolCallbacks.add(new ListDataTablesToolCallback(workspaceDataTableFacade));
         toolCallbacks.add(
             new QueryDataTableToolCallback(
                 artifactGeneratorRegistry, taskService, dataTableRowService, dataTableService));
-        registerDataTableMutationToolCallbacks(
-            toolCallbacks, dataTableRowService, dataTableService, workspaceDataTableFacade, taskArtifactService);
         toolCallbacks.add(
             new ListChatWorkflowsToolCallback(
                 projectDeploymentService, projectDeploymentWorkflowService, projectWorkflowService,
@@ -466,7 +457,7 @@ public class AiHubConfiguration {
         // bean is absent (Copilot disabled).
         registerCopilotSubAgentToolCallbacks(
             toolCallbacks, skillsBuildSubAgentChatClientProvider, contextStoreBuildSubAgentChatClientProvider,
-            knowledgeBaseBuildSubAgentChatClientProvider,
+            knowledgeBaseBuildSubAgentChatClientProvider, dataTableBuildSubAgentChatClientProvider,
             clusterElementBuildSubAgentChatClientProvider,
             codeEditorBuildSubAgentChatClientProvider, workflowEditorBuildSubAgentChatClientProvider,
             converterBuildSubAgentChatClientSupplierProvider, workflowExecutionBuildSubAgentChatClientProvider,
@@ -683,39 +674,9 @@ public class AiHubConfiguration {
     }
 
     /**
-     * Registers the data table write-mutation callbacks (add row, update row, delete row, add column, create empty,
-     * create from CSV, clone) on the supplied tool list. Extracted to keep the BUILD-agent bean method within
-     * Checkstyle's per-method line limit; logically a single block of related callbacks.
-     */
-    private static void registerDataTableMutationToolCallbacks(
-        List<ToolCallback> toolCallbacks, DataTableRowService dataTableRowService,
-        DataTableService dataTableService, WorkspaceDataTableFacade workspaceDataTableFacade,
-        AiHubTaskArtifactService taskArtifactService) {
-
-        toolCallbacks.add(
-            new AddDataTableRowToolCallback(
-                dataTableRowService, workspaceDataTableFacade,
-                new AiHubToolMutationArtifactRecorder(taskArtifactService)));
-        toolCallbacks.add(
-            new UpdateDataTableRowToolCallback(
-                dataTableRowService, workspaceDataTableFacade,
-                new AiHubToolMutationArtifactRecorder(taskArtifactService)));
-        toolCallbacks.add(
-            new DeleteDataTableRowToolCallback(
-                dataTableRowService, workspaceDataTableFacade,
-                new AiHubToolMutationArtifactRecorder(taskArtifactService)));
-        toolCallbacks.add(new AddDataTableColumnToolCallback(
-            dataTableService, workspaceDataTableFacade, new AiHubToolMutationArtifactRecorder(taskArtifactService)));
-        toolCallbacks.add(new CreateDataTableToolCallback(workspaceDataTableFacade));
-        toolCallbacks.add(
-            new CreateDataTableFromCsvToolCallback(dataTableRowService, workspaceDataTableFacade));
-        toolCallbacks.add(new CloneDataTableToolCallback(dataTableService, workspaceDataTableFacade));
-    }
-
-    /**
-     * Registers the Copilot specialist sub-agent ToolCallbacks (skills, context store, knowledge base, cluster
-     * element, code editor, workflow editor, converter) on the supplied tool list. Each is only added when its
-     * backing ChatClient bean is present — Copilot
+     * Registers the Copilot specialist sub-agent ToolCallbacks (skills, context store, knowledge base, data table,
+     * cluster element, code editor, workflow editor, converter) on the supplied tool list. Each is only added when
+     * its backing ChatClient bean is present — Copilot
      * disabled or a particular specialist missing skips silently. Mirrors {@link #registerSubAgentToolCallbacks} for
      * the older ChatClient sub-agents (research / data_analyst / image_generator / slide_builder).
      *
@@ -730,6 +691,7 @@ public class AiHubConfiguration {
         ObjectProvider<ChatClient> skillsSubAgentChatClientProvider,
         ObjectProvider<ChatClient> contextStoreSubAgentChatClientProvider,
         ObjectProvider<ChatClient> knowledgeBaseSubAgentChatClientProvider,
+        ObjectProvider<ChatClient> dataTableSubAgentChatClientProvider,
         ObjectProvider<ChatClient> clusterElementSubAgentChatClientProvider,
         ObjectProvider<ChatClient> codeEditorSubAgentChatClientProvider,
         ObjectProvider<ChatClient> workflowEditorSubAgentChatClientProvider,
@@ -751,6 +713,11 @@ public class AiHubConfiguration {
             chatClient -> toolCallbacks.add(
                 new ProgressReportingToolCallback(
                     new KnowledgeBaseAgentToolCallback(chatClient), "knowledge_base_agent")));
+
+        dataTableSubAgentChatClientProvider.ifAvailable(
+            chatClient -> toolCallbacks.add(
+                new ProgressReportingToolCallback(
+                    new DataTableAgentToolCallback(chatClient), "data_table_agent")));
 
         clusterElementSubAgentChatClientProvider.ifAvailable(
             chatClient -> toolCallbacks.add(
