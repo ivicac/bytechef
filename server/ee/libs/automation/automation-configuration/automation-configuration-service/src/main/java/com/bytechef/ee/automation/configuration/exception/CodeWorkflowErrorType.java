@@ -27,6 +27,8 @@ public class CodeWorkflowErrorType extends AbstractErrorType {
 
     public static final CodeWorkflowErrorType SOURCE_LOAD_FAILED = new CodeWorkflowErrorType(104);
 
+    public static final CodeWorkflowErrorType CODE_WORKFLOW_ALREADY_EXISTS = new CodeWorkflowErrorType(105);
+
     private CodeWorkflowErrorType(int errorKey) {
         super(CodeWorkflowContainer.class, errorKey);
     }

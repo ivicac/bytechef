@@ -100,7 +100,7 @@ class ProjectCodeWorkflowFacadeCreateEmptyTest {
         createdProject.setName("my-code-project");
 
         when(projectService.fetchProject("my-code-project"))
-            .thenReturn(Optional.empty(), Optional.of(createdProject));
+            .thenReturn(Optional.empty(), Optional.empty(), Optional.of(createdProject));
         when(projectService.create(any()))
             .thenReturn(createdProject);
 
@@ -149,6 +149,36 @@ class ProjectCodeWorkflowFacadeCreateEmptyTest {
             .isEqualTo(CodeWorkflowErrorType.LANGUAGE_NOT_SUPPORTED.getErrorKey());
 
         verify(projectService, never()).create(any());
+    }
+
+    @Test
+    void testCreateEmptyCodeWorkflowRejectsExistingProjectName() {
+        ProjectService projectService = mock(ProjectService.class);
+        ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
+        CodeWorkflowContainerFacade codeWorkflowContainerFacade = mock(CodeWorkflowContainerFacade.class);
+        ProjectCodeWorkflowService projectCodeWorkflowService = mock(ProjectCodeWorkflowService.class);
+
+        Project existingProject = new Project();
+
+        existingProject.setId(2L);
+        existingProject.setName("my-code-project");
+
+        when(projectService.fetchProject("my-code-project"))
+            .thenReturn(Optional.of(existingProject));
+
+        ProjectCodeWorkflowFacadeImpl projectCodeWorkflowFacade = new ProjectCodeWorkflowFacadeImpl(
+            applicationProperties(true), mock(CacheManager.class), projectService, projectWorkflowService,
+            codeWorkflowContainerFacade, projectCodeWorkflowService, mock(CodeWorkflowContainerService.class),
+            mock(CodeWorkflowFileStorage.class));
+
+        assertThatThrownBy(() -> projectCodeWorkflowFacade.createEmptyCodeWorkflow(
+            1L, "my-code-project", Language.JAVASCRIPT))
+                .isInstanceOf(ConfigurationException.class)
+                .extracting(thrown -> ((ConfigurationException) thrown).getErrorKey())
+                .isEqualTo(CodeWorkflowErrorType.CODE_WORKFLOW_ALREADY_EXISTS.getErrorKey());
+
+        verify(projectService, never()).create(any());
+        verify(codeWorkflowContainerFacade, never()).create(any(), any(), any(), any(), any(), any());
     }
 
     @Test

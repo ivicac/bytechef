@@ -98,6 +98,13 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
      * project name) and deploying it through the regular {@link #save} path, which creates the project of that name.
      * Restricted to administrators, mirroring {@link #save}, because deployment loads the rendered script on the
      * server.
+     *
+     * <p>
+     * This method is create-only: {@link #save} resolves the target project via a global, case-insensitive
+     * {@link ProjectService#fetchProject(String)} lookup, so if a project of that name already exists anywhere (in any
+     * workspace, code- or visual-backed), {@link #save} would silently redeploy the starter onto it instead of creating
+     * a new project. The guard below rejects that case up front rather than allowing an existing project to be reused
+     * or overwritten.
      */
     @Override
     @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
@@ -114,6 +121,14 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
             throw new ConfigurationException(
                 "Create-empty supports JavaScript, Python and Ruby only",
                 CodeWorkflowErrorType.LANGUAGE_NOT_SUPPORTED);
+        }
+
+        if (projectService.fetchProject(name)
+            .isPresent()) {
+
+            throw new ConfigurationException(
+                "A project named '" + name + "' already exists",
+                CodeWorkflowErrorType.CODE_WORKFLOW_ALREADY_EXISTS);
         }
 
         String template = readTemplate(language).replace("__NAME__", name);
