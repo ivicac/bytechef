@@ -1683,6 +1683,12 @@ export type ClusterElementType = {
   required?: Maybe<Scalars['Boolean']['output']>;
 };
 
+export enum CodeWorkflowLanguage {
+  Javascript = 'JAVASCRIPT',
+  Python = 'PYTHON',
+  Ruby = 'RUBY'
+}
+
 export type ColumnInput = {
   name: Scalars['String']['input'];
   type: ColumnType;
@@ -3355,6 +3361,7 @@ export type Mutation = {
   createApprovalTask?: Maybe<ApprovalTask>;
   createAutomationWorkflowProject: Scalars['ID']['output'];
   createAutomationWorkflowProjectWorkflow: Scalars['ID']['output'];
+  createCodeWorkflow: Scalars['ID']['output'];
   createContextStore: ContextStore;
   createContextStoreSource: ContextStoreSource;
   createCustomComponent: CustomComponent;
@@ -3662,6 +3669,7 @@ export type Mutation = {
   updateAutomationWorkflowProject: Scalars['Boolean']['output'];
   updateAutomationWorkflowProjectWorkflow: Scalars['Boolean']['output'];
   updateAutomationWorkflowProjectWorkflowPermissionExpression: Scalars['Boolean']['output'];
+  updateCodeWorkflowSource: Scalars['Boolean']['output'];
   /** Enables or disables a component tenant-wide. Admin-only. */
   updateComponentPolicy: ComponentPolicy;
   updateContextStore: ContextStore;
@@ -4011,6 +4019,13 @@ export type MutationCreateAutomationWorkflowProjectWorkflowArgs = {
   definition?: InputMaybe<Scalars['String']['input']>;
   permissionExpression?: InputMaybe<Scalars['String']['input']>;
   projectId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateCodeWorkflowArgs = {
+  language: CodeWorkflowLanguage;
+  name: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
 };
 
 
@@ -5142,6 +5157,12 @@ export type MutationUpdateAutomationWorkflowProjectWorkflowPermissionExpressionA
 };
 
 
+export type MutationUpdateCodeWorkflowSourceArgs = {
+  content: Scalars['String']['input'];
+  projectId: Scalars['ID']['input'];
+};
+
+
 export type MutationUpdateComponentPolicyArgs = {
   enabled: Scalars['Boolean']['input'];
   name: Scalars['String']['input'];
@@ -5823,6 +5844,7 @@ export type Query = {
   clusterElementMissingRequiredProperties: Array<Scalars['String']['output']>;
   clusterElementOptions: Array<Option>;
   clusterElementScriptInput?: Maybe<Scalars['Map']['output']>;
+  codeWorkflowSource: Scalars['String']['output'];
   componentDefinition: ComponentDefinition;
   componentDefinitionSearch: Array<ComponentDefinition>;
   componentDefinitionVersions: Array<ComponentDefinition>;
@@ -6543,6 +6565,11 @@ export type QueryClusterElementScriptInputArgs = {
   environmentId: Scalars['Long']['input'];
   workflowId: Scalars['String']['input'];
   workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type QueryCodeWorkflowSourceArgs = {
+  projectId: Scalars['ID']['input'];
 };
 
 
