@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.contextstore;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -13,6 +13,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.ee.automation.contextstore.service.WorkspaceContextStoreSourceService;
 import com.bytechef.ee.platform.contextstore.domain.ContextStoreRecord;
 import com.bytechef.ee.platform.contextstore.dto.ContextStoreQuery;
@@ -39,7 +40,11 @@ class SearchContextStoreToolCallbackTest {
 
     private static ToolContext toolContext(long workspaceId) {
         return new ToolContext(
-            new AiHubToolInvocationContext(workspaceId, 10L, (short) 0, "x", 0L, "thread-1").toToolContext());
+            AgentToolInvocationContext.builder()
+                .workspaceId(workspaceId)
+                .environmentId(0L)
+                .build()
+                .toToolContext());
     }
 
     @Test

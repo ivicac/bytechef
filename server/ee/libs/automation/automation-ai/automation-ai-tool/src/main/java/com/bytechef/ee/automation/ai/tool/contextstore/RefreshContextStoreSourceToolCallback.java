@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.contextstore;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ee.automation.contextstore.facade.WorkspaceContextStoreSourceFacade;
@@ -20,27 +20,28 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Spring AI {@link ToolCallback} that deletes a Context Store source. Cascade deletes its entities, records, index
- * rows, the auto-generated workflow, and the corresponding {@code ProjectDeploymentWorkflow}. Irreversible — confirm
- * with the user before calling.
+ * Spring AI {@link ToolCallback} that triggers an immediate sync run on a Context Store source. Returns the created
+ * Atlas job id (not a Spring Batch execution id) so the agent can report back the in-flight sync. Honors the source's
+ * existing cadence and workflow definition — does not mutate either.
  *
  * @author Ivica Cardic
  * @version ee
  */
-public class DeleteContextStoreSourceToolCallback implements ToolCallback {
+public class RefreshContextStoreSourceToolCallback implements ToolCallback {
 
-    static final String TOOL_NAME = "deleteContextStoreSource";
+    static final String TOOL_NAME = "refreshContextStoreSource";
 
     private static final String DESCRIPTION = """
-        Delete a Context Store source. Cascade deletes its entities, records, index rows, the auto-generated sync
-        workflow, and its ProjectDeploymentWorkflow. Irreversible. Always confirm with the user before calling.""";
+        Trigger an immediate sync run on a Context Store source. Honors the source's existing workflow definition;
+        does not mutate cadence or any other field. Returns the created job id so the user can be told a sync is
+        in-flight.""";
 
     private static final String INPUT_SCHEMA =
         """
             {
                 "type": "object",
                 "properties": {
-                    "id": {"type": "integer", "description": "Context Store source id to delete"}
+                    "id": {"type": "integer", "description": "Context Store source id to sync now"}
                 },
                 "required": ["id"]
             }""";
@@ -50,7 +51,7 @@ public class DeleteContextStoreSourceToolCallback implements ToolCallback {
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public DeleteContextStoreSourceToolCallback(
+    public RefreshContextStoreSourceToolCallback(
         WorkspaceContextStoreSourceFacade workspaceContextStoreSourceFacade,
         WorkspaceContextStoreSourceService workspaceContextStoreSourceService) {
 
@@ -75,8 +76,8 @@ public class DeleteContextStoreSourceToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            DeleteContextStoreSourceToolInput input =
-                jsonMapper.readValue(toolInput, DeleteContextStoreSourceToolInput.class);
+            RefreshContextStoreSourceToolInput input =
+                jsonMapper.readValue(toolInput, RefreshContextStoreSourceToolInput.class);
 
             if (input.id() == null) {
                 return toolError("id is required");
@@ -90,16 +91,16 @@ public class DeleteContextStoreSourceToolCallback implements ToolCallback {
                 return toolError("ContextStoreSource " + input.id() + " has no owning workspace");
             }
 
-            workspaceContextStoreSourceFacade.delete(workspaceId, input.id());
+            long jobId = workspaceContextStoreSourceFacade.refreshNow(workspaceId, input.id());
 
-            return jsonMapper.writeValueAsString(Map.of("deleted", true, "id", input.id()));
+            return jsonMapper.writeValueAsString(Map.of("id", input.id(), "jobId", jobId));
         } catch (JacksonException exception) {
             return toolError("Invalid tool input: " + exception.getMessage());
-        } catch (IllegalArgumentException exception) {
+        } catch (IllegalArgumentException | IllegalStateException exception) {
             return toolError(exception.getMessage());
         } catch (RuntimeException exception) {
             return ToolErrors.runtimeFailure(
-                jsonMapper, DeleteContextStoreSourceToolCallback.class, TOOL_NAME, exception);
+                jsonMapper, RefreshContextStoreSourceToolCallback.class, TOOL_NAME, exception);
         }
     }
 
@@ -107,6 +108,6 @@ public class DeleteContextStoreSourceToolCallback implements ToolCallback {
         return ToolErrors.toolError(jsonMapper, message);
     }
 
-    public record DeleteContextStoreSourceToolInput(Long id) {
+    public record RefreshContextStoreSourceToolInput(Long id) {
     }
 }

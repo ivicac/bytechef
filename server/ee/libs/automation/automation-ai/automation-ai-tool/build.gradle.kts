@@ -4,10 +4,16 @@ dependencies {
     implementation("org.springframework:spring-context")
     implementation("org.springframework.ai:spring-ai-model")
     implementation("org.springframework.boot:spring-boot-autoconfigure")
+    implementation("org.springframework.data:spring-data-jdbc")
     implementation(project(":server:ee:libs:automation:automation-configuration:automation-configuration-api"))
+    implementation(project(":server:ee:libs:automation:automation-context-store:automation-context-store-api"))
+    implementation(project(":server:ee:libs:platform:platform-context-store:platform-context-store-api"))
     implementation(project(":server:ee:libs:platform:platform-custom-component:platform-custom-component-configuration:platform-custom-component-configuration-api"))
+    implementation(project(":server:libs:ai:ai-api"))
+    implementation(project(":server:libs:ai:ai-copilot:ai-copilot-tool"))
     implementation(project(":server:libs:core:commons:commons-util"))
     implementation(project(":server:libs:core:exception:exception-api"))
+    implementation(project(":server:libs:platform:platform-component:platform-component-api"))
 
     testImplementation(project(":server:libs:test:test-support"))
 }

@@ -5,12 +5,15 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.contextstore;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ee.automation.contextstore.dto.UpdateContextStoreSourceInput;
 import com.bytechef.ee.automation.contextstore.facade.WorkspaceContextStoreSourceFacade;
 import com.bytechef.ee.automation.contextstore.service.WorkspaceContextStoreSourceService;
+import com.bytechef.ee.platform.contextstore.domain.ContextStoreSource;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
@@ -20,31 +23,33 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Spring AI {@link ToolCallback} that toggles a Context Store source's enabled flag. Flipping enabled also toggles the
- * underlying {@code ProjectDeploymentWorkflow}, which in turn enables/disables the cron trigger in the scheduler. A
- * disabled source's records remain queryable; only the periodic sync is paused.
+ * Spring AI {@link ToolCallback} that updates a Context Store source's name, cadence, or enabled flag. A cadence change
+ * rewrites the auto-generated workflow's cron-trigger parameter only; an enabled change toggles the underlying
+ * {@code ProjectDeploymentWorkflow}. All fields are optional — {@code null} means "leave unchanged".
  *
  * @author Ivica Cardic
  * @version ee
  */
-public class SetContextStoreSourceEnabledToolCallback implements ToolCallback {
+public class UpdateContextStoreSourceToolCallback implements ToolCallback {
 
-    static final String TOOL_NAME = "setContextStoreSourceEnabled";
+    static final String TOOL_NAME = "updateContextStoreSource";
 
     private static final String DESCRIPTION = """
-        Enable or disable periodic sync for a Context Store source. Disabling pauses the cron trigger in the
-        scheduler — already-synced records remain queryable. Enabling resumes the schedule on the source's existing
-        cadence.""";
+        Update a Context Store source's name, cadence, or enabled flag. Pass only the fields to change; null/missing
+        fields are left untouched. A cadence change targets the workflow's cron-trigger parameter only; the rest of
+        the workflow definition is preserved. Confirm with the user before calling.""";
 
     private static final String INPUT_SCHEMA =
         """
             {
                 "type": "object",
                 "properties": {
-                    "id": {"type": "integer", "description": "Context Store source id"},
-                    "enabled": {"type": "boolean", "description": "true to resume periodic sync, false to pause it"}
+                    "id": {"type": "integer", "description": "Context Store source id to update"},
+                    "name": {"type": "string"},
+                    "cadence": {"type": "string", "description": "@hourly, @daily, @manual, or a cron expression"},
+                    "enabled": {"type": "boolean"}
                 },
-                "required": ["id", "enabled"]
+                "required": ["id"]
             }""";
 
     private final WorkspaceContextStoreSourceFacade workspaceContextStoreSourceFacade;
@@ -52,7 +57,7 @@ public class SetContextStoreSourceEnabledToolCallback implements ToolCallback {
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public SetContextStoreSourceEnabledToolCallback(
+    public UpdateContextStoreSourceToolCallback(
         WorkspaceContextStoreSourceFacade workspaceContextStoreSourceFacade,
         WorkspaceContextStoreSourceService workspaceContextStoreSourceService) {
 
@@ -77,15 +82,11 @@ public class SetContextStoreSourceEnabledToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            SetContextStoreSourceEnabledToolInput input =
-                jsonMapper.readValue(toolInput, SetContextStoreSourceEnabledToolInput.class);
+            UpdateContextStoreSourceToolInput input =
+                jsonMapper.readValue(toolInput, UpdateContextStoreSourceToolInput.class);
 
             if (input.id() == null) {
                 return toolError("id is required");
-            }
-
-            if (input.enabled() == null) {
-                return toolError("enabled is required");
             }
 
             Long workspaceId =
@@ -96,16 +97,29 @@ public class SetContextStoreSourceEnabledToolCallback implements ToolCallback {
                 return toolError("ContextStoreSource " + input.id() + " has no owning workspace");
             }
 
-            workspaceContextStoreSourceFacade.setEnabled(workspaceId, input.id(), input.enabled());
+            UpdateContextStoreSourceInput facadeInput = new UpdateContextStoreSourceInput(
+                input.name(), input.cadence(), input.enabled(), null, null);
 
-            return jsonMapper.writeValueAsString(Map.of("id", input.id(), "enabled", input.enabled()));
+            ContextStoreSource updated =
+                workspaceContextStoreSourceFacade.update(workspaceId, input.id(), facadeInput);
+
+            Map<String, Object> response = new LinkedHashMap<>();
+
+            response.put("id", updated.getId());
+            response.put("name", updated.getName());
+            response.put("cadence", updated.getCadence());
+            response.put("enabled", updated.isEnabled());
+            response.put("status", updated.getStatus()
+                .name());
+
+            return jsonMapper.writeValueAsString(response);
         } catch (JacksonException exception) {
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (IllegalArgumentException exception) {
             return toolError(exception.getMessage());
         } catch (RuntimeException exception) {
             return ToolErrors.runtimeFailure(
-                jsonMapper, SetContextStoreSourceEnabledToolCallback.class, TOOL_NAME, exception);
+                jsonMapper, UpdateContextStoreSourceToolCallback.class, TOOL_NAME, exception);
         }
     }
 
@@ -113,6 +127,7 @@ public class SetContextStoreSourceEnabledToolCallback implements ToolCallback {
         return ToolErrors.toolError(jsonMapper, message);
     }
 
-    public record SetContextStoreSourceEnabledToolInput(Long id, Boolean enabled) {
+    public record UpdateContextStoreSourceToolInput(
+        Long id, @Nullable String name, @Nullable String cadence, @Nullable Boolean enabled) {
     }
 }

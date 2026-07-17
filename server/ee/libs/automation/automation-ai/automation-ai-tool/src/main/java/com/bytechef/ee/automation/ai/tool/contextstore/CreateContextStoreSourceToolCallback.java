@@ -5,9 +5,10 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.contextstore;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.ee.automation.contextstore.dto.CreateContextStoreSourceInput;
 import com.bytechef.ee.automation.contextstore.facade.WorkspaceContextStoreSourceFacade;
 import com.bytechef.ee.platform.contextstore.domain.ContextStoreSource;
@@ -29,7 +30,7 @@ import tools.jackson.databind.json.JsonMapper;
  * execution per CC mutation-callback precedent.
  *
  * <p>
- * The tool resolves {@code workspaceId} from the {@link AiHubToolInvocationContext} on the chat's {@link ToolContext}.
+ * The tool resolves {@code workspaceId} from the {@link AgentToolInvocationContext} on the chat's {@link ToolContext}.
  * </p>
  *
  * @author Ivica Cardic
@@ -138,8 +139,8 @@ public class CreateContextStoreSourceToolCallback implements ToolCallback {
                 return toolError("cadence is required");
             }
 
-            AiHubToolInvocationContext invocationContext =
-                AiHubToolInvocationContext.fromToolContext(toolContext);
+            AgentToolInvocationContext invocationContext =
+                AgentToolInvocationContext.fromToolContext(toolContext);
 
             Long workspaceId = invocationContext == null ? null : invocationContext.workspaceId();
 
