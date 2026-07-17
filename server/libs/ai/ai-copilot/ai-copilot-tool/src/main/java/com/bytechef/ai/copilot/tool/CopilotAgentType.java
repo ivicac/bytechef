@@ -66,7 +66,11 @@ public enum CopilotAgentType implements AgentType {
     CONTEXT_STORE_ASK("context_store_ask", false),
     CONTEXT_STORE_BUILD("context_store_build", false),
     CONTEXT_STORE("context_store", true),
-    CONTEXT_STORE_AGENT("context_store_agent", false);
+    CONTEXT_STORE_AGENT("context_store_agent", false),
+    KNOWLEDGE_BASE_ASK("knowledge_base_ask", false),
+    KNOWLEDGE_BASE_BUILD("knowledge_base_build", false),
+    KNOWLEDGE_BASE("knowledge_base", true),
+    KNOWLEDGE_BASE_AGENT("knowledge_base_agent", false);
 
     private final String key;
     private final boolean fallback;
