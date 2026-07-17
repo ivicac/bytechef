@@ -8,6 +8,7 @@ src/main/java/com/bytechef/ee/embedded/configuration/web/rest/ConnectedUserProje
 src/main/java/com/bytechef/ee/embedded/configuration/web/rest/ConnectionApi.java
 src/main/java/com/bytechef/ee/embedded/configuration/web/rest/ConnectionTagApi.java
 src/main/java/com/bytechef/ee/embedded/configuration/web/rest/IntegrationApi.java
+src/main/java/com/bytechef/ee/embedded/configuration/web/rest/IntegrationCodeWorkflowApi.java
 src/main/java/com/bytechef/ee/embedded/configuration/web/rest/IntegrationInstanceApi.java
 src/main/java/com/bytechef/ee/embedded/configuration/web/rest/IntegrationInstanceConfigurationApi.java
 src/main/java/com/bytechef/ee/embedded/configuration/web/rest/IntegrationInstanceConfigurationTagApi.java

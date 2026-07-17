@@ -22,6 +22,8 @@ tags:
     description: "The Embedded Tag Internal API"
   - name: "integration"
     description: "The Embedded Integration Internal API"
+  - name: "integration-code-workflow"
+    description: "The Embedded Integration Code Workflow Internal API"
   - name: "unified-integration"
     description: "The Embedded Unified Integration Management Internal API"
   - name: "webhook-trigger-test"
@@ -979,6 +981,27 @@ paths:
               schema:
                 type: integer
                 format: int64
+  /integrations/deploy:
+    post:
+      description: "Deploy a new code based integration."
+      summary: "Deploy a new code based integration"
+      tags:
+      - "integration-code-workflow"
+      operationId: "deployIntegration"
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              properties:
+                integrationFile:
+                  description: "The file of a code-native integration."
+                  type: "string"
+                  format: "binary"
+        required: true
+      responses:
+        "204":
+          description: "Successful operation."
   /integrations/categories:
     get:
       description: "Get integration categories."

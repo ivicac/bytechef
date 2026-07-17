@@ -8,8 +8,6 @@ servers:
 tags:
   - name: "integration"
     description: "The Embedded Integration Public API"
-  - name: "integration-code-workflow"
-    description: "The Embedded Integration Code Workflow Public API"
   - name: "integration-instance"
     description: "The Embedded Integration Instance Public API"
   - name: "integration-instance-workflow"
@@ -19,27 +17,6 @@ tags:
   - name: "connected-user-project-workflow"
     description: "The Embedded Connected User Project Workflow Public API"
 paths:
-  /integrations/deploy:
-    post:
-      description: "Deploy a new code based integration."
-      summary: "Deploy a new code based integration"
-      tags:
-        - "integration-code-workflow"
-      operationId: "deployIntegration"
-      requestBody:
-        content:
-          multipart/form-data:
-            schema:
-              type: "object"
-              properties:
-                integrationFile:
-                  description: "The file of a code-native integration."
-                  type: "string"
-                  format: "binary"
-        required: true
-      responses:
-        "204":
-          description: "Successful operation."
   /automation/projects:
     get:
       description: "Get automation workflow projects available to the connected user."

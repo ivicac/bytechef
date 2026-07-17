@@ -3,7 +3,7 @@
  * https://openapi-generator.tech
  * Do not edit the class manually.
  */
-package com.bytechef.ee.embedded.configuration.public_.web.rest;
+package com.bytechef.ee.embedded.configuration.web.rest;
 
 import org.springframework.lang.Nullable;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
@@ -33,9 +33,9 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-18T00:44:34.382124+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-18T00:57:43.699504+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 @Validated
-@Tag(name = "integration-code-workflow", description = "The Embedded Integration Code Workflow Public API")
+@Tag(name = "integration-code-workflow", description = "The Embedded Integration Code Workflow Internal API")
 public interface IntegrationCodeWorkflowApi {
 
     default Optional<NativeWebRequest> getRequest() {

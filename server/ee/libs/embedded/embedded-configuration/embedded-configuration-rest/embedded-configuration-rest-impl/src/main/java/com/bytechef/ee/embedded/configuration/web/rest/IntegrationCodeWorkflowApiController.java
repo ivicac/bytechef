@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.embedded.configuration.public_.web.rest;
+package com.bytechef.ee.embedded.configuration.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.ee.embedded.configuration.facade.IntegrationCodeWorkflowFacade;
@@ -24,8 +24,8 @@ import org.springframework.web.multipart.MultipartFile;
  *
  * @author Ivica Cardic
  */
-@RestController("com.bytechef.ee.embedded.configuration.public_.web.rest.IntegrationCodeWorkflowApiController")
-@RequestMapping("${openapi.openAPIDefinition.base-path.embedded:}/v1")
+@RestController("com.bytechef.ee.embedded.configuration.web.rest.IntegrationCodeWorkflowApiController")
+@RequestMapping("${openapi.openAPIDefinition.base-path.embedded:}/internal")
 @ConditionalOnCoordinator
 @ConditionalOnEEVersion
 public class IntegrationCodeWorkflowApiController implements IntegrationCodeWorkflowApi {

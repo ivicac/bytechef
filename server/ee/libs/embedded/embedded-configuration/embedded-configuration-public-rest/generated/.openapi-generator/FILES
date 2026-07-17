@@ -6,7 +6,6 @@ src/main/java/com/bytechef/ee/embedded/configuration/public_/web/rest/ConnectedU
 src/main/java/com/bytechef/ee/embedded/configuration/public_/web/rest/ConnectedUserProjectWorkflowApi.java
 src/main/java/com/bytechef/ee/embedded/configuration/public_/web/rest/ConnectionApi.java
 src/main/java/com/bytechef/ee/embedded/configuration/public_/web/rest/IntegrationApi.java
-src/main/java/com/bytechef/ee/embedded/configuration/public_/web/rest/IntegrationCodeWorkflowApi.java
 src/main/java/com/bytechef/ee/embedded/configuration/public_/web/rest/IntegrationInstanceApi.java
 src/main/java/com/bytechef/ee/embedded/configuration/public_/web/rest/IntegrationInstanceWorkflowApi.java
 src/main/java/com/bytechef/ee/embedded/configuration/public_/web/rest/model/AuthorizationTypeModel.java
