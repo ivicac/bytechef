@@ -62,7 +62,11 @@ public enum CopilotAgentType implements AgentType {
     CODE_WORKFLOW_EMBEDDED("code_workflow_embedded", true),
     WORKFLOW_EXECUTION_EMBEDDED_ASK("workflow_execution_embedded_ask", false),
     WORKFLOW_EXECUTION_EMBEDDED_BUILD("workflow_execution_embedded_build", false),
-    WORKFLOW_EXECUTION_EMBEDDED("workflow_execution_embedded", true);
+    WORKFLOW_EXECUTION_EMBEDDED("workflow_execution_embedded", true),
+    CONTEXT_STORE_ASK("context_store_ask", false),
+    CONTEXT_STORE_BUILD("context_store_build", false),
+    CONTEXT_STORE("context_store", true),
+    CONTEXT_STORE_AGENT("context_store_agent", false);
 
     private final String key;
     private final boolean fallback;
