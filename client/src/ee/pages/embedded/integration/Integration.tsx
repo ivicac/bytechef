@@ -95,6 +95,9 @@ const Integration = () => {
                                 value={{
                                     ConnectionKeys: ConnectionKeys,
                                     cancelWorkflowQueries,
+                                    // Embedded integrations have no code-workflow concept yet; CW-B wires this flow.
+                                    codeWorkflow: undefined,
+                                    codeWorkflowLanguage: undefined,
                                     connectionTagsQueryKey: ConnectionKeys.connectionTags,
                                     deleteClusterElementParameterMutation,
                                     deleteWorkflowNodeParameterMutation,
