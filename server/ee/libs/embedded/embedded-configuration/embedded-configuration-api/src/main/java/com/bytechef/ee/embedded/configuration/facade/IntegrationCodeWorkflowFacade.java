@@ -19,5 +19,9 @@ public interface IntegrationCodeWorkflowFacade {
 
     Integration createEmptyCodeWorkflow(String componentName, Language language);
 
+    String getCodeWorkflowSource(long integrationId);
+
     void save(byte[] bytes, Language language);
+
+    void updateCodeWorkflowSource(long integrationId, String content);
 }

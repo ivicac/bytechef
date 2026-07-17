@@ -26,6 +26,8 @@ import com.bytechef.ee.embedded.configuration.service.IntegrationWorkflowService
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
 import com.bytechef.ee.platform.codeworkflow.configuration.facade.CodeWorkflowContainerFacade;
+import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowContainerService;
+import com.bytechef.ee.platform.codeworkflow.file.storage.CodeWorkflowFileStorage;
 import com.bytechef.embedded.integration.IntegrationHandler;
 import com.bytechef.embedded.integration.definition.IntegrationDefinition;
 import com.bytechef.exception.ConfigurationException;
@@ -113,7 +115,8 @@ class IntegrationCodeWorkflowFacadeCreateEmptyTest {
 
         IntegrationCodeWorkflowFacadeImpl integrationCodeWorkflowFacade = new IntegrationCodeWorkflowFacadeImpl(
             applicationProperties(true), mock(CacheManager.class), codeWorkflowContainerFacade,
-            integrationCodeWorkflowService, integrationService, integrationWorkflowService);
+            integrationCodeWorkflowService, integrationService, integrationWorkflowService,
+            mock(CodeWorkflowContainerService.class), mock(CodeWorkflowFileStorage.class));
 
         Integration integration = integrationCodeWorkflowFacade.createEmptyCodeWorkflow(
             "my-integration", Language.JAVASCRIPT);
@@ -141,7 +144,8 @@ class IntegrationCodeWorkflowFacadeCreateEmptyTest {
 
         IntegrationCodeWorkflowFacadeImpl integrationCodeWorkflowFacade = new IntegrationCodeWorkflowFacadeImpl(
             applicationProperties(true), mock(CacheManager.class), codeWorkflowContainerFacade,
-            integrationCodeWorkflowService, integrationService, integrationWorkflowService);
+            integrationCodeWorkflowService, integrationService, integrationWorkflowService,
+            mock(CodeWorkflowContainerService.class), mock(CodeWorkflowFileStorage.class));
 
         assertThatThrownBy(
             () -> integrationCodeWorkflowFacade.createEmptyCodeWorkflow("my-integration", language))
@@ -169,7 +173,8 @@ class IntegrationCodeWorkflowFacadeCreateEmptyTest {
 
         IntegrationCodeWorkflowFacadeImpl integrationCodeWorkflowFacade = new IntegrationCodeWorkflowFacadeImpl(
             applicationProperties(true), mock(CacheManager.class), codeWorkflowContainerFacade,
-            integrationCodeWorkflowService, integrationService, integrationWorkflowService);
+            integrationCodeWorkflowService, integrationService, integrationWorkflowService,
+            mock(CodeWorkflowContainerService.class), mock(CodeWorkflowFileStorage.class));
 
         assertThatThrownBy(
             () -> integrationCodeWorkflowFacade.createEmptyCodeWorkflow("my-integration", Language.JAVASCRIPT))
@@ -209,7 +214,8 @@ class IntegrationCodeWorkflowFacadeCreateEmptyTest {
 
         IntegrationCodeWorkflowFacadeImpl integrationCodeWorkflowFacade = new IntegrationCodeWorkflowFacadeImpl(
             applicationProperties(true), mock(CacheManager.class), codeWorkflowContainerFacade,
-            integrationCodeWorkflowService, integrationService, integrationWorkflowService);
+            integrationCodeWorkflowService, integrationService, integrationWorkflowService,
+            mock(CodeWorkflowContainerService.class), mock(CodeWorkflowFileStorage.class));
 
         assertThatThrownBy(
             () -> integrationCodeWorkflowFacade.createEmptyCodeWorkflow(componentName, Language.JAVASCRIPT))
