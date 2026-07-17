@@ -9,9 +9,16 @@ import {useWorkflowEditor} from './providers/workflowEditorProvider';
 // (Task 6). This test only exercises that branch, so every other dependency (data fetching hooks,
 // heavy child components) is stubbed to keep the render hermetic and fast.
 
+const {useParamsMock} = vi.hoisted(() => ({
+    useParamsMock: vi.fn<() => Record<string, string | undefined>>(() => ({
+        projectId: '123',
+        projectWorkflowId: '456',
+    })),
+}));
+
 vi.mock('react-router-dom', async (importOriginal) => ({
     ...(await importOriginal<typeof import('react-router-dom')>()),
-    useParams: () => ({projectId: '123', projectWorkflowId: '456'}),
+    useParams: useParamsMock,
 }));
 
 vi.mock('./providers/workflowEditorProvider', () => ({
@@ -45,6 +52,12 @@ vi.mock('@/pages/platform/workflow-editor/hooks/useWorkflowLayout', () => ({
 vi.mock('@/pages/platform/code-workflow/ProjectCodeWorkflowDetail', () => ({
     default: ({language, projectId}: {language: string; projectId: string}) => (
         <div data-testid="code-workflow-detail">{`${projectId}:${language}`}</div>
+    ),
+}));
+
+vi.mock('@/pages/platform/code-workflow/IntegrationCodeWorkflowDetail', () => ({
+    default: ({integrationId, language}: {integrationId: string; language: string}) => (
+        <div data-testid="integration-code-workflow-detail">{`${integrationId}:${language}`}</div>
     ),
 }));
 
@@ -102,6 +115,8 @@ const renderLayout = () => render(<WorkflowEditorLayout runDisabled={false} show
 describe('WorkflowEditorLayout - code-backed project branching', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+
+        useParamsMock.mockReturnValue({projectId: '123', projectWorkflowId: '456'});
     });
 
     it('renders CodeWorkflowDetail when codeWorkflow is true and the language is polyglot', async () => {
@@ -111,6 +126,18 @@ describe('WorkflowEditorLayout - code-backed project branching', () => {
 
         expect(await screen.findByTestId('code-workflow-detail')).toHaveTextContent('123:JAVASCRIPT');
         expect(screen.queryByTestId('workflow-editor')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('integration-code-workflow-detail')).not.toBeInTheDocument();
+    });
+
+    it('renders IntegrationCodeWorkflowDetail when codeWorkflow is true, the language is polyglot, and the route has an integrationId', async () => {
+        useParamsMock.mockReturnValue({integrationId: '789', integrationWorkflowId: '456'});
+        mockUseWorkflowEditor(true, 'JAVASCRIPT');
+
+        renderLayout();
+
+        expect(await screen.findByTestId('integration-code-workflow-detail')).toHaveTextContent('789:JAVASCRIPT');
+        expect(screen.queryByTestId('workflow-editor')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('code-workflow-detail')).not.toBeInTheDocument();
     });
 
     it('renders the visual editor when codeWorkflow is undefined', async () => {
@@ -120,6 +147,7 @@ describe('WorkflowEditorLayout - code-backed project branching', () => {
 
         expect(await screen.findByTestId('workflow-editor')).toBeInTheDocument();
         expect(screen.queryByTestId('code-workflow-detail')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('integration-code-workflow-detail')).not.toBeInTheDocument();
     });
 
     it('renders the visual editor (not the source editor) for a Java-backed code workflow', async () => {
@@ -129,5 +157,6 @@ describe('WorkflowEditorLayout - code-backed project branching', () => {
 
         expect(await screen.findByTestId('workflow-editor')).toBeInTheDocument();
         expect(screen.queryByTestId('code-workflow-detail')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('integration-code-workflow-detail')).not.toBeInTheDocument();
     });
 });

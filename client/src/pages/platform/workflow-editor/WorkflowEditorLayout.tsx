@@ -37,6 +37,9 @@ import useWorkflowDataStore from './stores/useWorkflowDataStore';
 import useWorkflowNodeDetailsPanelStore from './stores/useWorkflowNodeDetailsPanelStore';
 import {clearAllWorkflowMutations} from './utils/workflowMutationGuard';
 
+const IntegrationCodeWorkflowDetail = lazy(
+    () => import('@/pages/platform/code-workflow/IntegrationCodeWorkflowDetail')
+);
 const ProjectCodeWorkflowDetail = lazy(() => import('@/pages/platform/code-workflow/ProjectCodeWorkflowDetail'));
 const DataPillPanel = lazy(() => import('./components/datapills/DataPillPanel'));
 const WorkflowEditor = lazy(() => import('./components/WorkflowEditor'));
@@ -123,7 +126,7 @@ const WorkflowEditorLayout = ({
     const {handleClusterElementsCanvasOpenChange, isMainRootClusterElement} = useWorkflowEditorLayout();
 
     const queryClient = useQueryClient();
-    const {projectId, projectWorkflowId} = useParams();
+    const {integrationId, projectId, projectWorkflowId} = useParams();
 
     const isCodeWorkflow = useMemo(
         () =>
@@ -231,7 +234,11 @@ const WorkflowEditorLayout = ({
                     that visual-only chrome for code workflows is left for a follow-up pass.
                 */}
 
-                {isCodeWorkflow && codeWorkflowLanguage && projectId ? (
+                {isCodeWorkflow && codeWorkflowLanguage && integrationId ? (
+                    <Suspense>
+                        <IntegrationCodeWorkflowDetail integrationId={integrationId} language={codeWorkflowLanguage} />
+                    </Suspense>
+                ) : isCodeWorkflow && codeWorkflowLanguage && projectId ? (
                     <Suspense>
                         <ProjectCodeWorkflowDetail language={codeWorkflowLanguage} projectId={projectId} />
                     </Suspense>
