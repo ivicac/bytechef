@@ -2855,6 +2855,29 @@ export type UpdateMcpIntegrationInstanceConfigurationWorkflowMutationVariables =
 
 export type UpdateMcpIntegrationInstanceConfigurationWorkflowMutation = { updateMcpIntegrationInstanceConfigurationWorkflow: { id: string, mcpIntegrationInstanceConfigurationId: any, integrationInstanceConfigurationWorkflowId: any, parameters: any } | null };
 
+export type CreateIntegrationCodeWorkflowMutationVariables = Exact<{
+  componentName: string;
+  language: Types.CodeWorkflowLanguage;
+}>;
+
+
+export type CreateIntegrationCodeWorkflowMutation = { createIntegrationCodeWorkflow: string };
+
+export type IntegrationCodeWorkflowSourceQueryVariables = Exact<{
+  integrationId: string | number;
+}>;
+
+
+export type IntegrationCodeWorkflowSourceQuery = { integrationCodeWorkflowSource: string };
+
+export type UpdateIntegrationCodeWorkflowSourceMutationVariables = Exact<{
+  integrationId: string | number;
+  content: string;
+}>;
+
+
+export type UpdateIntegrationCodeWorkflowSourceMutation = { updateIntegrationCodeWorkflowSource: boolean };
+
 export type AiDefaultModelQueryVariables = Exact<{
   environment: string | number;
 }>;
@@ -14060,6 +14083,72 @@ export const useUpdateMcpIntegrationInstanceConfigurationWorkflowMutation = <
       {
     mutationKey: ['updateMcpIntegrationInstanceConfigurationWorkflow'],
     mutationFn: (variables?: UpdateMcpIntegrationInstanceConfigurationWorkflowMutationVariables) => fetcher<UpdateMcpIntegrationInstanceConfigurationWorkflowMutation, UpdateMcpIntegrationInstanceConfigurationWorkflowMutationVariables>(UpdateMcpIntegrationInstanceConfigurationWorkflowDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateIntegrationCodeWorkflowDocument = new TypedDocumentString(`
+    mutation createIntegrationCodeWorkflow($componentName: String!, $language: CodeWorkflowLanguage!) {
+  createIntegrationCodeWorkflow(
+    componentName: $componentName
+    language: $language
+  )
+}
+    `);
+
+export const useCreateIntegrationCodeWorkflowMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateIntegrationCodeWorkflowMutation, TError, CreateIntegrationCodeWorkflowMutationVariables, TContext>) => {
+    
+    return useMutation<CreateIntegrationCodeWorkflowMutation, TError, CreateIntegrationCodeWorkflowMutationVariables, TContext>(
+      {
+    mutationKey: ['createIntegrationCodeWorkflow'],
+    mutationFn: (variables?: CreateIntegrationCodeWorkflowMutationVariables) => fetcher<CreateIntegrationCodeWorkflowMutation, CreateIntegrationCodeWorkflowMutationVariables>(CreateIntegrationCodeWorkflowDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const IntegrationCodeWorkflowSourceDocument = new TypedDocumentString(`
+    query integrationCodeWorkflowSource($integrationId: ID!) {
+  integrationCodeWorkflowSource(integrationId: $integrationId)
+}
+    `);
+
+export const useIntegrationCodeWorkflowSourceQuery = <
+      TData = IntegrationCodeWorkflowSourceQuery,
+      TError = unknown
+    >(
+      variables: IntegrationCodeWorkflowSourceQueryVariables,
+      options?: Omit<UseQueryOptions<IntegrationCodeWorkflowSourceQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<IntegrationCodeWorkflowSourceQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<IntegrationCodeWorkflowSourceQuery, TError, TData>(
+      {
+    queryKey: ['integrationCodeWorkflowSource', variables],
+    queryFn: fetcher<IntegrationCodeWorkflowSourceQuery, IntegrationCodeWorkflowSourceQueryVariables>(IntegrationCodeWorkflowSourceDocument, variables),
+    ...options
+  }
+    )};
+
+export const UpdateIntegrationCodeWorkflowSourceDocument = new TypedDocumentString(`
+    mutation updateIntegrationCodeWorkflowSource($integrationId: ID!, $content: String!) {
+  updateIntegrationCodeWorkflowSource(
+    integrationId: $integrationId
+    content: $content
+  )
+}
+    `);
+
+export const useUpdateIntegrationCodeWorkflowSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateIntegrationCodeWorkflowSourceMutation, TError, UpdateIntegrationCodeWorkflowSourceMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateIntegrationCodeWorkflowSourceMutation, TError, UpdateIntegrationCodeWorkflowSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['updateIntegrationCodeWorkflowSource'],
+    mutationFn: (variables?: UpdateIntegrationCodeWorkflowSourceMutationVariables) => fetcher<UpdateIntegrationCodeWorkflowSourceMutation, UpdateIntegrationCodeWorkflowSourceMutationVariables>(UpdateIntegrationCodeWorkflowSourceDocument, variables)(),
     ...options
   }
     )};

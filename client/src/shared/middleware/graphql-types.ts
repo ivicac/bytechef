@@ -3370,6 +3370,7 @@ export type Mutation = {
   createDataTable: Scalars['Boolean']['output'];
   createEmbeddedMcpServer?: Maybe<McpServer>;
   createIdentityProvider: IdentityProviderType;
+  createIntegrationCodeWorkflow: Scalars['ID']['output'];
   createKnowledgeBase?: Maybe<KnowledgeBase>;
   createKnowledgeBaseSource: KnowledgeBaseSource;
   createMcpComponent?: Maybe<McpComponent>;
@@ -3686,6 +3687,7 @@ export type Mutation = {
   updateDataTableRow: DataTableRow;
   updateDataTableTags: Scalars['Boolean']['output'];
   updateIdentityProvider: IdentityProviderType;
+  updateIntegrationCodeWorkflowSource: Scalars['Boolean']['output'];
   updateIntegrationWorkflowPermissionExpression?: Maybe<IntegrationWorkflow>;
   updateKnowledgeBase?: Maybe<KnowledgeBase>;
   updateKnowledgeBaseDocumentChunk?: Maybe<KnowledgeBaseDocumentChunk>;
@@ -4064,6 +4066,12 @@ export type MutationCreateEmbeddedMcpServerArgs = {
 
 export type MutationCreateIdentityProviderArgs = {
   input: IdentityProviderInput;
+};
+
+
+export type MutationCreateIntegrationCodeWorkflowArgs = {
+  componentName: Scalars['String']['input'];
+  language: CodeWorkflowLanguage;
 };
 
 
@@ -5217,6 +5225,12 @@ export type MutationUpdateIdentityProviderArgs = {
 };
 
 
+export type MutationUpdateIntegrationCodeWorkflowSourceArgs = {
+  content: Scalars['String']['input'];
+  integrationId: Scalars['ID']['input'];
+};
+
+
 export type MutationUpdateIntegrationWorkflowPermissionExpressionArgs = {
   integrationWorkflowId: Scalars['ID']['input'];
   permissionExpression?: InputMaybe<Scalars['String']['input']>;
@@ -5917,6 +5931,7 @@ export type Query = {
   generationJobStatus?: Maybe<GenerationJobStatus>;
   identityProvider?: Maybe<IdentityProviderType>;
   identityProviders: Array<Maybe<IdentityProviderType>>;
+  integrationCodeWorkflowSource: Scalars['String']['output'];
   integrationWorkflows: Array<IntegrationWorkflow>;
   integrationWorkflowsByIntegrationId: Array<IntegrationWorkflow>;
   jobFileLogs: LogPage;
@@ -6786,6 +6801,11 @@ export type QueryGenerationJobStatusArgs = {
 
 export type QueryIdentityProviderArgs = {
   id: Scalars['ID']['input'];
+};
+
+
+export type QueryIntegrationCodeWorkflowSourceArgs = {
+  integrationId: Scalars['ID']['input'];
 };
 
 
