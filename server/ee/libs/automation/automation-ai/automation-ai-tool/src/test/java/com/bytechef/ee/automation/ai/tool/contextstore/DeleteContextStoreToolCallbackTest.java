@@ -9,7 +9,6 @@ package com.bytechef.ee.automation.ai.tool.contextstore;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
 
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.ee.automation.contextstore.facade.WorkspaceContextStoreFacade;
