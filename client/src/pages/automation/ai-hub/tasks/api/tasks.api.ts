@@ -33,6 +33,7 @@ import {fetcher} from '@/shared/middleware/graphqlFetcher';
 export type AiHubArtifactKindType =
     | 'API_COLLECTION_REFERENCED'
     | 'BINARY_FILE_CREATED'
+    | 'CUSTOM_COMPONENT_REFERENCED'
     | 'DATA_TABLE_COLUMN_ADDED'
     | 'DATA_TABLE_REFERENCED'
     | 'DATA_TABLE_ROW_ADDED'
