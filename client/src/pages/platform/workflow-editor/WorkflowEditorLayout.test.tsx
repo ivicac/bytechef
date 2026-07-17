@@ -42,7 +42,7 @@ vi.mock('@/pages/platform/workflow-editor/hooks/useWorkflowLayout', () => ({
     }),
 }));
 
-vi.mock('@/pages/platform/code-workflow/CodeWorkflowDetail', () => ({
+vi.mock('@/pages/platform/code-workflow/ProjectCodeWorkflowDetail', () => ({
     default: ({language, projectId}: {language: string; projectId: string}) => (
         <div data-testid="code-workflow-detail">{`${projectId}:${language}`}</div>
     ),

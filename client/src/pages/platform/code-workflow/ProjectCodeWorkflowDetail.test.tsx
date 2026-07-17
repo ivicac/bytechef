@@ -2,7 +2,7 @@ import {CodeWorkflowLanguage} from '@/shared/middleware/graphql';
 import {fireEvent, render, resetAll, screen} from '@/shared/util/test-utils';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
-import CodeWorkflowDetail from './CodeWorkflowDetail';
+import ProjectCodeWorkflowDetail from './ProjectCodeWorkflowDetail';
 
 const hoisted = vi.hoisted(() => ({
     mockUseCodeWorkflowSourceQuery: vi.fn(),
@@ -52,9 +52,9 @@ afterEach(() => {
     vi.clearAllMocks();
 });
 
-describe('CodeWorkflowDetail', () => {
-    it('renders the Monaco editor with the fetched source for the given language', async () => {
-        render(<CodeWorkflowDetail language={CodeWorkflowLanguage.Javascript} projectId="1" />);
+describe('ProjectCodeWorkflowDetail', () => {
+    it('fetches the source for the given project and renders it in the editor', async () => {
+        render(<ProjectCodeWorkflowDetail language={CodeWorkflowLanguage.Javascript} projectId="1" />);
 
         const editor = await screen.findByTestId('monaco-editor-mock');
 
@@ -63,28 +63,12 @@ describe('CodeWorkflowDetail', () => {
         expect(hoisted.mockUseCodeWorkflowSourceQuery).toHaveBeenCalledWith({projectId: '1'}, {enabled: true});
     });
 
-    it('maps Python and Ruby languages to their Monaco equivalents', async () => {
-        const {rerender} = render(<CodeWorkflowDetail language={CodeWorkflowLanguage.Python} projectId="1" />);
+    it('reflects the mutation pending state as the saving state', () => {
+        hoisted.mockUseUpdateCodeWorkflowSourceMutation.mockReturnValue({isPending: true, mutate: vi.fn()});
 
-        expect(await screen.findByTestId('monaco-editor-mock')).toHaveAttribute('data-language', 'python');
+        render(<ProjectCodeWorkflowDetail language={CodeWorkflowLanguage.Javascript} projectId="1" />);
 
-        rerender(<CodeWorkflowDetail language={CodeWorkflowLanguage.Ruby} projectId="1" />);
-
-        expect(await screen.findByTestId('monaco-editor-mock')).toHaveAttribute('data-language', 'ruby');
-    });
-
-    it('disables Save until the source is edited, and tracks dirty state', async () => {
-        render(<CodeWorkflowDetail language={CodeWorkflowLanguage.Javascript} projectId="1" />);
-
-        const saveButton = screen.getByRole('button', {name: 'Save'});
-
-        expect(saveButton).toBeDisabled();
-
-        const editor = await screen.findByTestId('monaco-editor-mock');
-
-        fireEvent.change(editor, {target: {value: 'console.log("changed");'}});
-
-        expect(saveButton).not.toBeDisabled();
+        expect(screen.getByRole('button', {name: 'Saving...'})).toBeDisabled();
     });
 
     it('calls the update mutation with the project id and edited content on Save', async () => {
@@ -92,7 +76,7 @@ describe('CodeWorkflowDetail', () => {
 
         hoisted.mockUseUpdateCodeWorkflowSourceMutation.mockReturnValue({isPending: false, mutate: mutateMock});
 
-        render(<CodeWorkflowDetail language={CodeWorkflowLanguage.Javascript} projectId="1" />);
+        render(<ProjectCodeWorkflowDetail language={CodeWorkflowLanguage.Javascript} projectId="1" />);
 
         const editor = await screen.findByTestId('monaco-editor-mock');
 

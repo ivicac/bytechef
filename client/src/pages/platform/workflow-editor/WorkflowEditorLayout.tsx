@@ -37,7 +37,7 @@ import useWorkflowDataStore from './stores/useWorkflowDataStore';
 import useWorkflowNodeDetailsPanelStore from './stores/useWorkflowNodeDetailsPanelStore';
 import {clearAllWorkflowMutations} from './utils/workflowMutationGuard';
 
-const CodeWorkflowDetail = lazy(() => import('@/pages/platform/code-workflow/CodeWorkflowDetail'));
+const ProjectCodeWorkflowDetail = lazy(() => import('@/pages/platform/code-workflow/ProjectCodeWorkflowDetail'));
 const DataPillPanel = lazy(() => import('./components/datapills/DataPillPanel'));
 const WorkflowEditor = lazy(() => import('./components/WorkflowEditor'));
 const WorkflowRightSidebar = lazy(() => import('./components/WorkflowRightSidebar'));
@@ -233,7 +233,7 @@ const WorkflowEditorLayout = ({
 
                 {isCodeWorkflow && codeWorkflowLanguage && projectId ? (
                     <Suspense>
-                        <CodeWorkflowDetail language={codeWorkflowLanguage} projectId={projectId} />
+                        <ProjectCodeWorkflowDetail language={codeWorkflowLanguage} projectId={projectId} />
                     </Suspense>
                 ) : (
                     componentDefinitions &&
