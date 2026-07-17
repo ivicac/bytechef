@@ -3047,3 +3047,50 @@ describe('LR entry gap', () => {
         expect(trueChildX - (topGhostBarX + 2)).toBe(BAR_TO_CHILD_GAP);
     });
 });
+
+describe('trigger row label separation', () => {
+    const triggerNode = (id: string, title: string): Node => ({
+        data: {componentName: 'schedule', title, trigger: true, workflowNodeName: id},
+        id,
+        position: {x: 0, y: 0},
+        type: 'workflow',
+    });
+
+    it('clears a long first-trigger label before the second trigger', async () => {
+        const nodes: Node[] = [
+            triggerNode('trigger_1', 'Pokreni Svakog Radnog Dana'),
+            triggerNode('trigger_2', 'Pokreni Rucno'),
+            taskNode('task1'),
+        ];
+
+        const edges: Edge[] = [edge('trigger_1', 'task1'), edge('trigger_2', 'task1')];
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        const firstX = positionOf(result.nodes, 'trigger_1').x;
+        const secondX = positionOf(result.nodes, 'trigger_2').x;
+
+        // The 26-char title caps at the 200px overhang past the icon's right
+        // edge; the second trigger's icon must clear it plus the 30px air —
+        // previously the row kept its tight 160px footprint pitch and the
+        // label ran under the neighbouring icon
+        expect(secondX).toBeGreaterThanOrEqual(firstX + 72 + 200 + 30 - 1);
+    });
+
+    it('keeps the tight trigger pitch when labels fit', async () => {
+        const nodes: Node[] = [triggerNode('trigger_1', 'Run'), triggerNode('trigger_2', 'Go'), taskNode('task1')];
+
+        const edges: Edge[] = [edge('trigger_1', 'task1'), edge('trigger_2', 'task1')];
+
+        const result = await getElkLayoutElements({canvasWidth: 1400, direction: 'TB', edges, nodes});
+
+        const firstX = positionOf(result.nodes, 'trigger_1').x;
+        const secondX = positionOf(result.nodes, 'trigger_2').x;
+
+        // Short labels ('trigger_1' name is the longest text at 9 chars →
+        // 97px estimate) fit inside the tight footprint pitch — the row must
+        // not spread to label-reservation distances
+        expect(secondX - firstX).toBeGreaterThanOrEqual(190);
+        expect(secondX - firstX).toBeLessThanOrEqual(260);
+    });
+});

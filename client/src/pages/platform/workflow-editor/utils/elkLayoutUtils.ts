@@ -127,6 +127,39 @@ function getLabelCrossOverhang(memberNode: Node): number {
     return Math.min(NODE_LABEL_MAX_CROSS_OVERHANG, LABEL_BLOCK_MARGIN + longestLabelLength * LABEL_CHAR_WIDTH);
 }
 
+// Air between a trigger's estimated label end and the next trigger's icon.
+const TRIGGER_LABEL_CLEARANCE = 30;
+
+/**
+ * Triggers keep a deliberately tight 160px cross footprint so the trigger row
+ * hugs the canvas center — but a long trigger label then runs under the next
+ * trigger's icon. Repack the row left-to-right so each trigger clears the
+ * previous one's estimated label; rows whose labels fit keep the tight pitch.
+ * TB only: in LR the row stacks on the cross axis while labels extend along
+ * the main axis, so they cannot collide.
+ */
+function separateTriggerRow(allNodes: Node[], direction: LayoutDirectionType): void {
+    if (direction !== 'TB') {
+        return;
+    }
+
+    const triggerNodes = allNodes
+        .filter((node) => (node.data as NodeDataType).trigger === true && node.id !== TRIGGER_PLACEHOLDER_NODE_ID)
+        .sort((firstNode, secondNode) => firstNode.position.x - secondNode.position.x);
+
+    for (let index = 1; index < triggerNodes.length; index++) {
+        const previousNode = triggerNodes[index - 1];
+        const currentNode = triggerNodes[index];
+
+        const previousLabelEnd = previousNode.position.x + NODE_ANCHOR_SIZE + getLabelCrossOverhang(previousNode);
+        const requiredLeft = previousLabelEnd + TRIGGER_LABEL_CLEARANCE;
+
+        if (currentNode.position.x < requiredLeft) {
+            currentNode.position = {...currentNode.position, x: requiredLeft};
+        }
+    }
+}
+
 /**
  * Cross-axis bounds of a node for collision purposes: footprint half-width on
  * both sides (covers chips and general slack), extended on the label side in
@@ -1912,6 +1945,8 @@ export const getElkLayoutElements = async ({
                 [crossAxis]: barCrossCenter - targetCrossSize / 2,
             };
         });
+
+        separateTriggerRow(allNodes, direction);
 
         positionTriggerPlaceholder(allNodes, direction);
 
