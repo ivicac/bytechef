@@ -14,6 +14,7 @@ import com.bytechef.ai.copilot.tool.ClusterElementAgentToolCallback;
 import com.bytechef.ai.copilot.tool.CodeEditorAgentToolCallback;
 import com.bytechef.ai.copilot.tool.ConverterAgentToolCallback;
 import com.bytechef.ai.copilot.tool.CreateConnectionToolCallback;
+import com.bytechef.ai.copilot.tool.CustomComponentAgentToolCallback;
 import com.bytechef.ai.copilot.tool.ListConnectionsForComponentToolCallback;
 import com.bytechef.ai.copilot.tool.LookupActionPropertyOptionsToolCallback;
 import com.bytechef.ai.copilot.tool.LookupTriggerPropertyOptionsToolCallback;
@@ -130,8 +131,6 @@ import com.bytechef.ee.ai.hub.toolsearch.AiHubTaskBindingToolCallbackResolver;
 import com.bytechef.ee.ai.hub.toolsearch.ToolSearchCatalogFeeder;
 import com.bytechef.ee.ai.hub.util.Mode;
 import com.bytechef.ee.ai.hub.util.Source;
-import com.bytechef.ee.automation.ai.tool.CustomComponentTools;
-import com.bytechef.ee.automation.ai.tool.ReadCustomComponentTools;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
 import com.bytechef.ee.automation.contextstore.facade.WorkspaceContextStoreSourceFacade;
 import com.bytechef.ee.automation.contextstore.service.WorkspaceContextStoreSourceService;
@@ -241,6 +240,8 @@ public class AiHubConfiguration {
         ObjectProvider<ChatClient> workflowEditorAskSubAgentChatClientProvider,
         @Qualifier("workflowExecutionAskSubAgentChatClient") //
         ObjectProvider<ChatClient> workflowExecutionAskSubAgentChatClientProvider,
+        @Qualifier("customComponentAskSubAgentChatClient") //
+        ObjectProvider<ChatClient> customComponentAskSubAgentChatClientProvider,
         ArtifactGeneratorRegistry artifactGeneratorRegistry, AiHubTaskService taskService,
         AiAutoMemoryService aiHubMemoryService,
         DataTableService dataTableService,
@@ -334,7 +335,7 @@ public class AiHubConfiguration {
         registerCopilotSubAgentToolCallbacks(
             toolCallbacks, skillsAskSubAgentChatClientProvider, clusterElementAskSubAgentChatClientProvider,
             codeEditorAskSubAgentChatClientProvider, workflowEditorAskSubAgentChatClientProvider, null,
-            workflowExecutionAskSubAgentChatClientProvider);
+            workflowExecutionAskSubAgentChatClientProvider, customComponentAskSubAgentChatClientProvider);
 
         // Context Store consume + discovery — read-only; safe on the ASK agent. Define-side callbacks
         // (create/update/delete/refresh/setEnabled) are mutations and live on the BUILD agent only.
@@ -405,6 +406,8 @@ public class AiHubConfiguration {
         ObjectProvider<ChatClient> workflowExecutionBuildSubAgentChatClientProvider,
         @Qualifier("converterBuildSubAgentChatClientSupplier") //
         ObjectProvider<Supplier<ChatClient>> converterBuildSubAgentChatClientSupplierProvider,
+        @Qualifier("customComponentBuildSubAgentChatClient") //
+        ObjectProvider<ChatClient> customComponentBuildSubAgentChatClientProvider,
         ArtifactGeneratorRegistry artifactGeneratorRegistry,
         AssetFileFacade assetFileFacade, AiHubTaskArtifactService taskArtifactService,
         AiHubTaskArtifactRecorder aiHubTaskArtifactRecorder,
@@ -506,7 +509,8 @@ public class AiHubConfiguration {
         registerCopilotSubAgentToolCallbacks(
             toolCallbacks, skillsBuildSubAgentChatClientProvider, clusterElementBuildSubAgentChatClientProvider,
             codeEditorBuildSubAgentChatClientProvider, workflowEditorBuildSubAgentChatClientProvider,
-            converterBuildSubAgentChatClientSupplierProvider, workflowExecutionBuildSubAgentChatClientProvider);
+            converterBuildSubAgentChatClientSupplierProvider, workflowExecutionBuildSubAgentChatClientProvider,
+            customComponentBuildSubAgentChatClientProvider);
         toolCallbacks.add(new CreateConnectionToolCallback(componentDefinitionService));
         toolCallbacks.add(new SelectConnectionToolCallback(componentDefinitionService));
         toolCallbacks.add(new ListProjectDeploymentsToolCallback(projectDeploymentFacade));
@@ -658,25 +662,22 @@ public class AiHubConfiguration {
     @Bean
     AiHubGlobalToolCatalog aiHubAskGlobalToolCatalog(
         ReadProjectTools readProjectTools, ReadProjectWorkflowTools readProjectWorkflowTools,
-        ComponentTools componentTools, TaskTools taskTools, TaskDispatcherTools taskDispatcherTools,
-        ReadCustomComponentTools readCustomComponentTools) {
+        ComponentTools componentTools, TaskTools taskTools, TaskDispatcherTools taskDispatcherTools) {
 
         return globalToolCatalog(
             ToolSearchCatalogFeeder.GLOBAL_ASK_SESSION_ID, readProjectTools, readProjectWorkflowTools, componentTools,
-            taskTools, taskDispatcherTools, readCustomComponentTools);
+            taskTools, taskDispatcherTools);
     }
 
     @Bean
     AiHubGlobalToolCatalog aiHubBuildGlobalToolCatalog(
         ProjectTools projectTools, ProjectWorkflowTools projectWorkflowTools, ComponentTools componentTools,
         TaskTools taskTools, TaskDispatcherTools taskDispatcherTools, ScriptTools scriptTools,
-        ClusterElementTools clusterElementTools, CustomComponentTools customComponentTools,
-        ReadCustomComponentTools readCustomComponentTools) {
+        ClusterElementTools clusterElementTools) {
 
         return globalToolCatalog(
             ToolSearchCatalogFeeder.GLOBAL_BUILD_SESSION_ID, projectTools, projectWorkflowTools, componentTools,
-            taskTools, taskDispatcherTools, scriptTools, clusterElementTools, customComponentTools,
-            readCustomComponentTools);
+            taskTools, taskDispatcherTools, scriptTools, clusterElementTools);
     }
 
     private static AiHubGlobalToolCatalog globalToolCatalog(String sessionId, Object... toolObjects) {
@@ -769,7 +770,8 @@ public class AiHubConfiguration {
         ObjectProvider<ChatClient> codeEditorSubAgentChatClientProvider,
         ObjectProvider<ChatClient> workflowEditorSubAgentChatClientProvider,
         @Nullable ObjectProvider<Supplier<ChatClient>> converterSubAgentChatClientSupplierProvider,
-        ObjectProvider<ChatClient> workflowExecutionSubAgentChatClientProvider) {
+        ObjectProvider<ChatClient> workflowExecutionSubAgentChatClientProvider,
+        ObjectProvider<ChatClient> customComponentSubAgentChatClientProvider) {
 
         skillsSubAgentChatClientProvider.ifAvailable(
             chatClient -> toolCallbacks.add(
@@ -801,6 +803,11 @@ public class AiHubConfiguration {
                     new ProgressReportingToolCallback(
                         new ConverterAgentToolCallback(converterChatClientSupplier), "converter_agent")));
         }
+
+        customComponentSubAgentChatClientProvider.ifAvailable(
+            chatClient -> toolCallbacks.add(
+                new ProgressReportingToolCallback(
+                    new CustomComponentAgentToolCallback(chatClient), "custom_component_agent")));
     }
 
     /**
