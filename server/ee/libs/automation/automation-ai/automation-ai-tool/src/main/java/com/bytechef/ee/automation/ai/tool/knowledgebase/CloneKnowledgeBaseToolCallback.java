@@ -5,9 +5,10 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.knowledgebase;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
@@ -120,8 +121,8 @@ public class CloneKnowledgeBaseToolCallback implements ToolCallback {
                         + input.targetEnvironment() + ")");
             }
 
-            AiHubToolInvocationContext context =
-                AiHubToolInvocationContext.fromToolContext(toolContext);
+            AgentToolInvocationContext context =
+                AgentToolInvocationContext.fromToolContext(toolContext);
 
             if (context == null || context.workspaceId() == null) {
                 return ToolErrors.toolError(

@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.knowledgebase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -15,6 +15,7 @@ import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocumentChunk;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseFacade;
@@ -37,7 +38,11 @@ class QueryKnowledgeBaseToolCallbackTest {
 
     private static ToolContext toolContext(long workspaceId) {
         return new ToolContext(
-            new AiHubToolInvocationContext(workspaceId, 10L, (short) 0, "x", 0L, "thread-1").toToolContext());
+            AgentToolInvocationContext.builder()
+                .workspaceId(workspaceId)
+                .environmentId(0L)
+                .build()
+                .toToolContext());
     }
 
     @Test

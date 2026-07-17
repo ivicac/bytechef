@@ -5,13 +5,14 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.knowledgebase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import java.util.List;
@@ -61,7 +62,11 @@ class ListKnowledgeBasesToolCallbackTest {
             workspaceKnowledgeBaseFacade);
 
         ToolContext toolContext = new ToolContext(
-            new AiHubToolInvocationContext(workspaceId, 10L, (short) 0, "x", 0L, "thread-1").toToolContext());
+            AgentToolInvocationContext.builder()
+                .workspaceId(workspaceId)
+                .environmentId(0L)
+                .build()
+                .toToolContext());
 
         String result = callback.call("{}", toolContext);
 
@@ -104,7 +109,11 @@ class ListKnowledgeBasesToolCallbackTest {
             workspaceKnowledgeBaseFacade);
 
         ToolContext toolContext = new ToolContext(
-            new AiHubToolInvocationContext(workspaceId, 10L, (short) 0, "x", 0L, "thread-1").toToolContext());
+            AgentToolInvocationContext.builder()
+                .workspaceId(workspaceId)
+                .environmentId(0L)
+                .build()
+                .toToolContext());
 
         String result = callback.call("{}", toolContext);
 
@@ -128,7 +137,10 @@ class ListKnowledgeBasesToolCallbackTest {
             workspaceKnowledgeBaseFacade);
 
         ToolContext toolContext = new ToolContext(
-            new AiHubToolInvocationContext(workspaceId, 10L, (short) 0, "x", environmentId, "thread-1")
+            AgentToolInvocationContext.builder()
+                .workspaceId(workspaceId)
+                .environmentId(environmentId)
+                .build()
                 .toToolContext());
 
         callback.call("{}", toolContext);

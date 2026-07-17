@@ -65,14 +65,13 @@ import com.bytechef.ee.ai.hub.task.AiHubTaskService;
 import com.bytechef.ee.ai.hub.task.AiHubTaskToolFacade;
 import com.bytechef.ee.ai.hub.tool.AddDataTableColumnToolCallback;
 import com.bytechef.ee.ai.hub.tool.AddDataTableRowToolCallback;
-import com.bytechef.ee.ai.hub.tool.AddKnowledgeBaseDocumentToolCallback;
 import com.bytechef.ee.ai.hub.tool.AiHubTaskArtifactRecorder;
+import com.bytechef.ee.ai.hub.tool.AiHubToolMutationArtifactRecorder;
 import com.bytechef.ee.ai.hub.tool.AttachTaskToolToolCallback;
 import com.bytechef.ee.ai.hub.tool.CloneAiHubPersonalAgentToolCallback;
 import com.bytechef.ee.ai.hub.tool.CloneApiCollectionToolCallback;
 import com.bytechef.ee.ai.hub.tool.CloneAssetFileToolCallback;
 import com.bytechef.ee.ai.hub.tool.CloneDataTableToolCallback;
-import com.bytechef.ee.ai.hub.tool.CloneKnowledgeBaseToolCallback;
 import com.bytechef.ee.ai.hub.tool.CloneMcpProjectToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateAiHubPersonalAgentToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateApiCollectionToolCallback;
@@ -84,7 +83,6 @@ import com.bytechef.ee.ai.hub.tool.CreateProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateWorkflowChatToolCallback;
 import com.bytechef.ee.ai.hub.tool.DeleteAiHubPersonalAgentToolCallback;
 import com.bytechef.ee.ai.hub.tool.DeleteDataTableRowToolCallback;
-import com.bytechef.ee.ai.hub.tool.DeleteKnowledgeBaseDocumentToolCallback;
 import com.bytechef.ee.ai.hub.tool.DeleteProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.GetAssetFileContentToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListAiHubPersonalAgentsToolCallback;
@@ -93,7 +91,6 @@ import com.bytechef.ee.ai.hub.tool.ListApiCollectionsToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListAssetFilesToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListChatWorkflowsToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListDataTablesToolCallback;
-import com.bytechef.ee.ai.hub.tool.ListKnowledgeBasesToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListMcpServersToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListProjectDeploymentsToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListTaskToolsToolCallback;
@@ -108,7 +105,6 @@ import com.bytechef.ee.ai.hub.tool.OpenWorkflowChatTabToolCallback;
 import com.bytechef.ee.ai.hub.tool.OpenWorkflowTabToolCallback;
 import com.bytechef.ee.ai.hub.tool.PromoteWorkflowToolCallback;
 import com.bytechef.ee.ai.hub.tool.QueryDataTableToolCallback;
-import com.bytechef.ee.ai.hub.tool.QueryKnowledgeBaseToolCallback;
 import com.bytechef.ee.ai.hub.tool.RemoveTaskToolToolCallback;
 import com.bytechef.ee.ai.hub.tool.RollbackProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.RunChatWorkflowToolCallback;
@@ -123,6 +119,11 @@ import com.bytechef.ee.ai.hub.toolsearch.AiHubTaskBindingToolCallbackResolver;
 import com.bytechef.ee.ai.hub.toolsearch.ToolSearchCatalogFeeder;
 import com.bytechef.ee.ai.hub.util.Mode;
 import com.bytechef.ee.ai.hub.util.Source;
+import com.bytechef.ee.automation.ai.tool.knowledgebase.AddKnowledgeBaseDocumentToolCallback;
+import com.bytechef.ee.automation.ai.tool.knowledgebase.CloneKnowledgeBaseToolCallback;
+import com.bytechef.ee.automation.ai.tool.knowledgebase.DeleteKnowledgeBaseDocumentToolCallback;
+import com.bytechef.ee.automation.ai.tool.knowledgebase.ListKnowledgeBasesToolCallback;
+import com.bytechef.ee.automation.ai.tool.knowledgebase.QueryKnowledgeBaseToolCallback;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
 import com.bytechef.platform.ai.agent.memory.AutoMemoryTools;
 import com.bytechef.platform.ai.agent.memory.AutoMemoryToolsAdvisor;
@@ -459,11 +460,12 @@ public class AiHubConfiguration {
             toolCallbacks, dataTableRowService, dataTableService, workspaceDataTableFacade, taskArtifactService);
         toolCallbacks.add(
             new AddKnowledgeBaseDocumentToolCallback(
-                knowledgeBaseDocumentFacade, workspaceKnowledgeBaseFacade, taskArtifactService));
+                knowledgeBaseDocumentFacade, workspaceKnowledgeBaseFacade,
+                new AiHubToolMutationArtifactRecorder(taskArtifactService)));
         toolCallbacks.add(
             new DeleteKnowledgeBaseDocumentToolCallback(
                 knowledgeBaseDocumentFacade, knowledgeBaseDocumentService, workspaceKnowledgeBaseFacade,
-                taskArtifactService));
+                new AiHubToolMutationArtifactRecorder(taskArtifactService)));
         toolCallbacks.add(new CloneKnowledgeBaseToolCallback(workspaceKnowledgeBaseFacade));
         toolCallbacks.add(
             new ListChatWorkflowsToolCallback(

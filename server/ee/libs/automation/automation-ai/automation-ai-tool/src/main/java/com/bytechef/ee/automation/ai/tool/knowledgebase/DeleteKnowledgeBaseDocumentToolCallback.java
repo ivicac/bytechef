@@ -5,12 +5,12 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.ee.automation.ai.tool.knowledgebase;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
-import com.bytechef.ee.ai.hub.task.AiHubTaskArtifactKind;
-import com.bytechef.ee.ai.hub.task.AiHubTaskArtifactService;
+import com.bytechef.ee.automation.ai.tool.ToolMutationArtifactRecorder;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import com.bytechef.platform.knowledgebase.exception.KnowledgeBaseDocumentNotFoundException;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
@@ -26,7 +26,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Spring AI {@link ToolCallback} that deletes a document from a knowledge base by id. The mutation is executed
- * immediately — every server-side mutation lands in real time and is recorded as a task artifact for audit purposes.
+ * immediately — every server-side mutation lands in real time and, when a {@link ToolMutationArtifactRecorder} is
+ * supplied (AI Hub only), is recorded as a task artifact for audit purposes.
  *
  * <p>
  * This callback is registered on {@code aiHubBuildSpringAIAgent} only — the ASK variant is read-only.
@@ -37,6 +38,12 @@ import tools.jackson.databind.json.JsonMapper;
  * @author Ivica Cardic
  */
 public class DeleteKnowledgeBaseDocumentToolCallback implements ToolCallback {
+
+    /**
+     * Name of the artifact kind recorded on success, matching the {@code AiHubTaskArtifactKind.KB_DOCUMENT_DELETED}
+     * enum constant on the AI Hub side. Carried as a plain string so this shared lib does not depend on ai-hub.
+     */
+    static final String ARTIFACT_KIND_KB_DOCUMENT_DELETED = "KB_DOCUMENT_DELETED";
 
     private static final long DEFAULT_ENVIRONMENT_ORDINAL = 0L;
     private static final String TOOL_NAME = "deleteKnowledgeBaseDocument";
@@ -60,7 +67,7 @@ public class DeleteKnowledgeBaseDocumentToolCallback implements ToolCallback {
     private final KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade;
     private final KnowledgeBaseDocumentService knowledgeBaseDocumentService;
     private final WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade;
-    private final AiHubTaskArtifactService taskArtifactService;
+    private final @Nullable ToolMutationArtifactRecorder artifactRecorder;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
@@ -68,12 +75,12 @@ public class DeleteKnowledgeBaseDocumentToolCallback implements ToolCallback {
         KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade,
         KnowledgeBaseDocumentService knowledgeBaseDocumentService,
         WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade,
-        AiHubTaskArtifactService taskArtifactService) {
+        @Nullable ToolMutationArtifactRecorder artifactRecorder) {
 
         this.knowledgeBaseDocumentFacade = knowledgeBaseDocumentFacade;
         this.knowledgeBaseDocumentService = knowledgeBaseDocumentService;
         this.workspaceKnowledgeBaseFacade = workspaceKnowledgeBaseFacade;
-        this.taskArtifactService = taskArtifactService;
+        this.artifactRecorder = artifactRecorder;
     }
 
     @Override
@@ -106,8 +113,8 @@ public class DeleteKnowledgeBaseDocumentToolCallback implements ToolCallback {
                 return toolError("documentId is required");
             }
 
-            AiHubToolInvocationContext invocationContext =
-                AiHubToolInvocationContext.fromToolContext(toolContext);
+            AgentToolInvocationContext invocationContext =
+                AgentToolInvocationContext.fromToolContext(toolContext);
 
             Long workspaceId = invocationContext == null ? null : invocationContext.workspaceId();
 
@@ -160,11 +167,11 @@ public class DeleteKnowledgeBaseDocumentToolCallback implements ToolCallback {
     }
 
     private void
-        recordArtifact(AiHubToolInvocationContext invocationContext, String documentId, long knowledgeBaseId) {
-        String threadId = invocationContext.threadId();
+        recordArtifact(AgentToolInvocationContext invocationContext, String documentId, long knowledgeBaseId) {
+        String conversationId = invocationContext.conversationId();
         Long userId = invocationContext.userId();
 
-        if (threadId == null || userId == null) {
+        if (artifactRecorder == null || conversationId == null || userId == null) {
             return;
         }
 
@@ -172,8 +179,8 @@ public class DeleteKnowledgeBaseDocumentToolCallback implements ToolCallback {
 
         metadata.put("knowledgeBaseId", knowledgeBaseId);
 
-        taskArtifactService.record(
-            threadId, userId, AiHubTaskArtifactKind.KB_DOCUMENT_DELETED,
+        artifactRecorder.record(
+            conversationId, userId, ARTIFACT_KIND_KB_DOCUMENT_DELETED,
             documentId, "Document " + documentId, metadata);
     }
 
@@ -197,7 +204,7 @@ public class DeleteKnowledgeBaseDocumentToolCallback implements ToolCallback {
             .orElse(null);
     }
 
-    private long resolveEnvironmentId(AiHubToolInvocationContext invocationContext) {
+    private long resolveEnvironmentId(AgentToolInvocationContext invocationContext) {
         Long environmentId = invocationContext.environmentId();
 
         return environmentId != null ? environmentId : DEFAULT_ENVIRONMENT_ORDINAL;
