@@ -590,130 +590,164 @@ git commit -m "feat(copilot): add context store agent class + ask/build prompts"
 
 ---
 
-## Task 6: Wire the Copilot source agents + subagent chat clients in `CopilotConfiguration`
+## Task 6: Wire the source agents + subagent chat clients in a new EE `ContextStoreAgentConfiguration`
+
+> **REVISED after investigation.** The OSS `CopilotConfiguration` CANNOT host these beans: the factory (`ContextStoreToolCallbacksFactory`) and the context-store services are EE, and OSS must not depend on EE. Instead, add ONE new EE `@Configuration` in the **`ai-hub-service`** module — the same module and package as the precedent `CustomComponentAgentConfiguration` — which already has every dependency except one. `ContextStoreSpringAIAgent` is-a `LocalAgent` (via `CopilotSpringAIAgent → SpringAIAgent → LocalAgent`), so an EE-defined `contextStoreAskSpringAIAgent`/`_build` bean is collected app-wide into the EE `CopilotApiController`'s `List<LocalAgent>` and resolved by agentId — exactly like the OSS skills agents. OSS `CopilotConfiguration` is NOT touched.
 
 **Files:**
-- Modify: `server/libs/ai/ai-copilot/ai-copilot-service/src/main/java/com/bytechef/ai/copilot/config/CopilotConfiguration.java`
+- Modify: `server/ee/libs/ai/ai-hub/ai-hub-service/build.gradle.kts` (add one dependency)
+- Create: `server/ee/libs/ai/ai-hub/ai-hub-service/src/main/java/com/bytechef/ee/ai/hub/config/ContextStoreAgentConfiguration.java`
 
 **Interfaces:**
-- Consumes: `ContextStoreToolCallbacksFactory` (Task 4), `ContextStoreSpringAIAgent` (Task 5), the existing private fields `state`, `securityContextRehydrator` usage via `wrapTools(...)`, `getSystemPrompt(Resource)`, and the two new prompt `Resource` fields.
-- Produces beans: `contextStoreAskSpringAIAgent`, `contextStoreBuildSpringAIAgent` (keyed `CONTEXT_STORE_ASK` / `CONTEXT_STORE_BUILD`), `contextStoreAskSubAgentChatClient`, `contextStoreBuildSubAgentChatClient`.
+- Consumes: `ContextStoreToolCallbacksFactory` (Task 4), `ContextStoreSpringAIAgent` (Task 5, OSS `com.bytechef.ai.copilot.agent`), `com.agui.core.state.State`, `com.bytechef.ai.copilot.util.Source`/`Mode`, `com.bytechef.ai.copilot.tool.RehydrateContextToolCallback`/`SecurityContextRehydrator`, `CopilotToolContextUtils` (all reachable once the build dep is added), plus the EE context-store services/facades and `ClusterElementDefinitionService`.
+- Produces beans: `contextStoreToolCallbacksFactory`, `contextStoreAskSpringAIAgent` (agentId `context_store_ask`), `contextStoreBuildSpringAIAgent` (agentId `context_store_build`), `contextStoreAskSubAgentChatClient`, `contextStoreBuildSubAgentChatClient`.
 
-- [ ] **Step 1: Add prompt resource fields**
+- [ ] **Step 1: Add the one missing build dependency**
 
-Near the other `@Value("classpath:prompt_*.txt") private Resource promptSkills*Resource;` declarations, add:
+In `server/ee/libs/ai/ai-hub/ai-hub-service/build.gradle.kts`, add (next to the other `ai-copilot` deps around line 79-80):
 
-```java
-@Value("classpath:prompt_context_store_ask.txt")
-private Resource promptContextStoreAskResource;
-
-@Value("classpath:prompt_context_store_build.txt")
-private Resource promptContextStoreBuildResource;
+```kotlin
+implementation(project(":server:libs:ai:ai-copilot:ai-copilot-service"))
 ```
 
-- [ ] **Step 2: Add a factory bean**
+> Everything else is already declared: EE `automation-ai-tool` (factory), `automation-context-store-api` + `platform-context-store-api` (services/facades), OSS `ai-copilot-api` (Source/Mode), OSS `ai-copilot-tool` (SecurityContextRehydrator/RehydrateContextToolCallback), `platform-component-api` (ClusterElementDefinitionService), and `spring-ag-ui:packages:core` (`com.agui.core.state.State`).
+
+- [ ] **Step 2: Read the two exact templates before writing**
+
+- Source-agent bean shape: OSS `server/libs/ai/ai-copilot/ai-copilot-service/.../config/CopilotConfiguration.java` beans `skillsAskSpringAIAgent` / `skillsBuildSpringAIAgent` (the full builder chain, `throws AGUIException`, `.state(new State())` — note OSS uses a shared `private final State state = new State();` field; replicate as a `new State()` per bean or a private field in this config, and the `wrapTools`/`RehydrateContextToolCallback.wrap` loop).
+- Subagent ChatClient shape + `readPrompt` helper: `server/ee/libs/ai/ai-hub/ai-hub-service/.../config/CustomComponentAgentConfiguration.java` (verbatim template — copy its `readPrompt(Resource)` and its `ChatClient.builder(...).defaultSystem(...).defaultTools/defaultToolCallbacks(...).build()` shape).
+
+- [ ] **Step 3: Create `ContextStoreAgentConfiguration`**
+
+Enterprise License header (copy from `CustomComponentAgentConfiguration`). Gate the class so beans exist when EITHER surface is on:
 
 ```java
-@Bean
-ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory(
-    WorkspaceContextStoreSourceService workspaceContextStoreSourceService,
-    ContextStoreQueryService contextStoreQueryService,
-    WorkspaceContextStoreSourceFacade workspaceContextStoreSourceFacade,
-    WorkspaceContextStoreFacade workspaceContextStoreFacade,
-    ObjectProvider<ContextStoreSemanticSearchService> contextStoreSemanticSearchServiceProvider,
-    ClusterElementDefinitionService clusterElementDefinitionService) {
+@Configuration
+@ConditionalOnExpression("${bytechef.ai.copilot.enabled:false} or ${bytechef.ai.hub.enabled:false}")
+public class ContextStoreAgentConfiguration {
 
-    return new ContextStoreToolCallbacksFactory(
-        workspaceContextStoreSourceService, contextStoreQueryService, workspaceContextStoreSourceFacade,
-        workspaceContextStoreFacade, contextStoreSemanticSearchServiceProvider.getIfAvailable(),
-        clusterElementDefinitionService);
+    @Value("classpath:prompt_context_store_ask.txt")
+    private Resource promptContextStoreAskResource;
+
+    @Value("classpath:prompt_context_store_build.txt")
+    private Resource promptContextStoreBuildResource;
+
+    private final State state = new State();
+
+    @Bean
+    ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory(
+        WorkspaceContextStoreSourceService workspaceContextStoreSourceService,
+        ContextStoreQueryService contextStoreQueryService,
+        WorkspaceContextStoreSourceFacade workspaceContextStoreSourceFacade,
+        WorkspaceContextStoreFacade workspaceContextStoreFacade,
+        ObjectProvider<ContextStoreSemanticSearchService> contextStoreSemanticSearchServiceProvider,
+        ClusterElementDefinitionService clusterElementDefinitionService) {
+
+        return new ContextStoreToolCallbacksFactory(
+            workspaceContextStoreSourceService, contextStoreQueryService, workspaceContextStoreSourceFacade,
+            workspaceContextStoreFacade, contextStoreSemanticSearchServiceProvider.getIfAvailable(),
+            clusterElementDefinitionService);
+    }
+
+    @Bean
+    ContextStoreSpringAIAgent contextStoreAskSpringAIAgent(
+        ChatMemory chatMemory, ChatModel chatModel,
+        ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory,
+        SecurityContextRehydrator securityContextRehydrator,
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        throws AGUIException {
+
+        String name = Source.CONTEXT_STORE.name() + "_" + Mode.ASK.name();
+
+        return ContextStoreSpringAIAgent.builder()
+            .agentId(name.toLowerCase())
+            .chatMemory(chatMemory)
+            .chatModel(chatModel)
+            .systemMessage(readPrompt(promptContextStoreAskResource))
+            .state(state)
+            .toolCallbacks(
+                wrapToolCallbacks(securityContextRehydrator, contextStoreToolCallbacksFactory.readToolCallbacks()))
+            .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
+            .build();
+    }
+
+    @Bean
+    ContextStoreSpringAIAgent contextStoreBuildSpringAIAgent(
+        ChatMemory chatMemory, ChatModel chatModel,
+        ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory,
+        SecurityContextRehydrator securityContextRehydrator,
+        ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
+        throws AGUIException {
+
+        String name = Source.CONTEXT_STORE.name() + "_" + Mode.BUILD.name();
+
+        return ContextStoreSpringAIAgent.builder()
+            .agentId(name.toLowerCase())
+            .chatMemory(chatMemory)
+            .chatModel(chatModel)
+            .systemMessage(readPrompt(promptContextStoreBuildResource))
+            .state(state)
+            .toolCallbacks(
+                wrapToolCallbacks(securityContextRehydrator, contextStoreToolCallbacksFactory.writeToolCallbacks()))
+            .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
+            .build();
+    }
+
+    @Bean
+    ChatClient contextStoreAskSubAgentChatClient(
+        ChatModel chatModel, ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory) {
+
+        return ChatClient.builder(chatModel)
+            .defaultSystem(readPrompt(promptContextStoreAskResource))
+            .defaultToolCallbacks(contextStoreToolCallbacksFactory.readToolCallbacks())
+            .build();
+    }
+
+    @Bean
+    ChatClient contextStoreBuildSubAgentChatClient(
+        ChatModel chatModel, ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory) {
+
+        return ChatClient.builder(chatModel)
+            .defaultSystem(readPrompt(promptContextStoreBuildResource))
+            .defaultToolCallbacks(contextStoreToolCallbacksFactory.writeToolCallbacks())
+            .build();
+    }
+
+    private List<ToolCallback> wrapToolCallbacks(
+        SecurityContextRehydrator securityContextRehydrator, List<ToolCallback> toolCallbacks) {
+
+        List<ToolCallback> wrapped = new ArrayList<>(toolCallbacks.size());
+
+        for (ToolCallback toolCallback : toolCallbacks) {
+            wrapped.add(RehydrateContextToolCallback.wrap(toolCallback, securityContextRehydrator));
+        }
+
+        return wrapped;
+    }
+
+    private String readPrompt(Resource resource) {
+        // copy verbatim from CustomComponentAgentConfiguration.readPrompt(Resource)
+    }
 }
 ```
 
-- [ ] **Step 3: Add the two source-agent beans** (model exactly on `skillsAskSpringAIAgent` / `skillsBuildSpringAIAgent`, `CopilotConfiguration.java:505-556`)
+> IMPORTANT — this code is a strong draft; verify against the real templates:
+> - Confirm the exact `ContextStoreSpringAIAgent.builder()` chain and whether `.systemMessage(...)` is the right setter (Task 5's class mirrors `SkillsSpringAIAgent`; use the SAME setters `skillsAskSpringAIAgent` uses — e.g. it may be `.systemMessage(...)` or `.systemMessageProvider(...)`). Whatever `skillsAskSpringAIAgent` calls, call the same.
+> - Confirm `RehydrateContextToolCallback.wrap(ToolCallback, SecurityContextRehydrator)` signature (return type + arg order) against the real method; adjust if different.
+> - Confirm `ChatMemory` resolves unambiguously here (the OSS skills agents already inject `ChatMemory chatMemory` in the same unified app context, so the same bean resolves — but if the compile/context reports ambiguity, use the qualifier the OSS config uses).
+> - `.state(...)`: match how `skillsAskSpringAIAgent` supplies state.
 
-```java
-@Bean
-ContextStoreSpringAIAgent contextStoreAskSpringAIAgent(
-    ChatMemory chatMemory, ChatModel chatModel, ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory,
-    SecurityContextRehydrator securityContextRehydrator,
-    ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
-    throws AGUIException {
+- [ ] **Step 4: Build the module (fresh)**
 
-    String name = Source.CONTEXT_STORE.name() + "_" + Mode.ASK.name();
-
-    return ContextStoreSpringAIAgent.builder()
-        .agentId(name.toLowerCase())
-        .chatMemory(chatMemory)
-        .chatModel(chatModel)
-        .systemMessage(getSystemPrompt(promptContextStoreAskResource))
-        .state(state)
-        .toolCallbacks(
-            wrapToolCallbacks(securityContextRehydrator, contextStoreToolCallbacksFactory.readToolCallbacks()))
-        .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
-        .build();
-}
-
-@Bean
-ContextStoreSpringAIAgent contextStoreBuildSpringAIAgent(
-    ChatMemory chatMemory, ChatModel chatModel, ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory,
-    SecurityContextRehydrator securityContextRehydrator,
-    ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider)
-    throws AGUIException {
-
-    String name = Source.CONTEXT_STORE.name() + "_" + Mode.BUILD.name();
-
-    return ContextStoreSpringAIAgent.builder()
-        .agentId(name.toLowerCase())
-        .chatMemory(chatMemory)
-        .chatModel(chatModel)
-        .systemMessage(getSystemPrompt(promptContextStoreBuildResource))
-        .state(state)
-        .toolCallbacks(
-            wrapToolCallbacks(securityContextRehydrator, contextStoreToolCallbacksFactory.writeToolCallbacks()))
-        .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
-        .build();
-}
-```
-
-> The Skills agents pass `@Tool` component objects through `wrapTools(...)`. Our tools are already `ToolCallback` instances, so they need the callback-wrapping variant. Read the existing `wrapTools` helper (`CopilotConfiguration.java:353-365`): it wraps each callback via `RehydrateContextToolCallback.wrap(toolCallback, securityContextRehydrator)`. If a `List<ToolCallback>`-accepting helper does not already exist, add a small private `wrapToolCallbacks(SecurityContextRehydrator, List<ToolCallback>)` that maps each element through `RehydrateContextToolCallback.wrap(...)` and returns the wrapped list — mirroring the loop at lines 353-365.
-
-- [ ] **Step 4: Add the two stateless subagent chat clients** (model on `skillsAskSubAgentChatClient` / `skillsBuildSubAgentChatClient`, `CopilotConfiguration.java:847-880`)
-
-```java
-@Bean
-ChatClient contextStoreAskSubAgentChatClient(
-    ChatModel chatModel, ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory) {
-
-    return ChatClient.builder(chatModel)
-        .defaultSystem(getSystemPrompt(promptContextStoreAskResource))
-        .defaultToolCallbacks(contextStoreToolCallbacksFactory.readToolCallbacks())
-        .build();
-}
-
-@Bean
-ChatClient contextStoreBuildSubAgentChatClient(
-    ChatModel chatModel, ContextStoreToolCallbacksFactory contextStoreToolCallbacksFactory) {
-
-    return ChatClient.builder(chatModel)
-        .defaultSystem(getSystemPrompt(promptContextStoreBuildResource))
-        .defaultToolCallbacks(contextStoreToolCallbacksFactory.writeToolCallbacks())
-        .build();
-}
-```
-
-- [ ] **Step 5: Add the required imports** for `ContextStoreSpringAIAgent`, `ContextStoreToolCallbacksFactory`, and the four context-store services/facades.
-
-- [ ] **Step 6: Verify compilation**
-
-Run: `cd /Volumes/Data/bytechef/bytechef && ./gradlew :server:libs:ai:ai-copilot:ai-copilot-service:compileJava -q`
+Run: `cd /Volumes/Data/bytechef/bytechef/.claude/worktrees/context-store-copilot && ./gradlew :server:ee:libs:ai:ai-hub:ai-hub-service:compileJava --rerun-tasks -q`
 Expected: BUILD SUCCESSFUL.
+Then: `./gradlew :server:ee:libs:ai:ai-hub:ai-hub-service:checkstyleMain -q` — no new violations (no unused imports).
 
-- [ ] **Step 7: Commit**
+- [ ] **Step 5: Commit**
 
 ```bash
-git add server/libs/ai/ai-copilot/ai-copilot-service/src/main/java/com/bytechef/ai/copilot/config/CopilotConfiguration.java
-git commit -m "feat(copilot): wire context store ask/build source agents and subagent clients"
+git add server/ee/libs/ai/ai-hub/ai-hub-service/build.gradle.kts server/ee/libs/ai/ai-hub/ai-hub-service/src/main/java/com/bytechef/ee/ai/hub/config/ContextStoreAgentConfiguration.java
+git commit -m "feat(copilot): add EE ContextStoreAgentConfiguration (source agents + subagent clients)"
 ```
 
 ---
@@ -808,15 +842,16 @@ git commit -m "feat(copilot): add context_store_agent subagent tool callback"
 
 ---
 
-## Task 8: Register `context_store_agent` on the AI Hub; remove the flat Context Store tools
+## Task 8: Register `context_store_agent` on the AI Hub; add controller mapping; remove the flat Context Store tools
 
 **Files:**
 - Modify: `server/libs/ai/ai-copilot/ai-copilot-service/src/main/java/com/bytechef/ai/copilot/config/ToolCallbackContributorConfiguration.java`
+- Modify: `server/ee/libs/ai/ai-copilot/ai-copilot-rest/src/main/java/com/bytechef/ee/ai/copilot/web/rest/CopilotApiController.java`
 - Modify: `server/ee/libs/ai/ai-hub/ai-hub-service/src/main/java/com/bytechef/ee/ai/hub/config/AiHubConfiguration.java`
 
 **Interfaces:**
-- Consumes: `contextStoreBuildSubAgentChatClient` (Task 6), `ContextStoreAgentToolCallback` (Task 7).
-- Produces: the AI Hub agent gains a `context_store_agent` tool and loses its 11 flat Context Store tools.
+- Consumes: `contextStoreBuildSubAgentChatClient` (Task 6, an EE bean now — the OSS contributor injects it by qualifier via `ObjectProvider` at runtime, resolved from the unified app context; this compiles because the contributor references only the OSS `ContextStoreAgentToolCallback` + `ChatClient` types), `ContextStoreAgentToolCallback` (Task 7).
+- Produces: the AI Hub agent gains a `context_store_agent` tool and loses its flat Context Store tools; the Copilot panel's `context_store` source resolves to `context_store_ask`/`context_store_build`.
 
 - [ ] **Step 1: Register the subagent in the contributor**
 
@@ -835,6 +870,22 @@ contextStoreProvider.ifAvailable(
 
 Add the `ContextStoreAgentToolCallback` import.
 
+- [ ] **Step 1b: Add the `context_store` branch to `CopilotApiController`** (REQUIRED for the panel)
+
+In `CopilotApiController.java`, the source→agentId `if/else` chain maps e.g. `"skills"` + mode → `"skills_ask"`/`"skills_build"`. Add a `context_store` branch (place it right after the `skills` branch), mirroring the skills branch verbatim:
+
+```java
+} else if (agentId.equals("context_store")) {
+    if (Mode.valueOf((String) mode) == Mode.BUILD) {
+        agentId = "context_store_build";
+    } else {
+        agentId = "context_store_ask";
+    }
+}
+```
+
+> Without this, the frontend's `/ai/chat/context_store` request never maps to the `context_store_ask`/`context_store_build` agent beans and the panel fails. The incoming path segment is `Source.CONTEXT_STORE.name().toLowerCase()` = `"context_store"`.
+
 - [ ] **Step 2: Remove the flat Context Store registrations from `AiHubConfiguration`**
 
 Delete the calls to `registerContextStoreReadOnlyToolCallbacks(...)`, `registerContextStoreSemanticSearchToolCallback(...)`, and `registerContextStoreToolCallbacks(...)` at their call sites (both the ASK path near line 342-346 and the BUILD path near line 524-528), and delete the three now-unused private methods (`registerContextStoreReadOnlyToolCallbacks`, `registerContextStoreSemanticSearchToolCallback`, `registerContextStoreToolCallbacks`). Remove the now-unused imports of the moved tool classes and their `ObjectProvider`/service parameters if they become unused. Leave `ListAvailableSourceComponentsToolCallback` / `DescribeSourceComponentEntitiesToolCallback` handling to move with Task 2 (they are now in the shared lib and reachable through the subagent's read list — do not re-register them flat).
@@ -843,10 +894,10 @@ Delete the calls to `registerContextStoreReadOnlyToolCallbacks(...)`, `registerC
 
 Confirm the 11 classes + their tests no longer exist under `ee/libs/ai/ai-hub/ai-hub-service/.../tool/` (they were `git mv`d in Task 2). Remove any lingering references.
 
-- [ ] **Step 4: Compile both modules**
+- [ ] **Step 4: Compile the touched modules (fresh)**
 
-Run: `cd /Volumes/Data/bytechef/bytechef && ./gradlew :server:libs:ai:ai-copilot:ai-copilot-service:compileJava :server:ee:libs:ai:ai-hub:ai-hub-service:compileJava -q`
-Expected: BUILD SUCCESSFUL (no missing-symbol errors — proves the flat tools are fully unwired).
+Run: `cd /Volumes/Data/bytechef/bytechef/.claude/worktrees/context-store-copilot && ./gradlew :server:libs:ai:ai-copilot:ai-copilot-service:compileJava :server:ee:libs:ai:ai-copilot:ai-copilot-rest:compileJava :server:ee:libs:ai:ai-hub:ai-hub-service:compileJava --rerun-tasks -q`
+Expected: BUILD SUCCESSFUL (no missing-symbol errors — proves the flat tools are fully unwired and the controller branch compiles).
 
 - [ ] **Step 5: Run AI Hub service tests**
 
