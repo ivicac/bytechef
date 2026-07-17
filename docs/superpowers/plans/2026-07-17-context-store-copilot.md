@@ -140,12 +140,18 @@ Update the corresponding `import` from `com.bytechef.ee.ai.hub.tool.AiHubToolInv
 
 Change each moved `*Test` file's `package` to `...tool.contextstore;` and, where a test builds an AI-Hub tool context, switch it to build an `AgentToolInvocationContext` tool context (use `AgentToolInvocationContext.builder().workspaceId(1L).environmentId(0L).build().toToolContext()`).
 
-- [ ] **Step 4: Run the moved tests**
+- [ ] **Step 4: Repoint `AiHubConfiguration` to the new package (keep it compiling AND working)**
 
-Run: `cd /Volumes/Data/bytechef/bytechef && ./gradlew :server:ee:libs:automation:automation-ai:automation-ai-tool:test -q`
-Expected: PASS (all relocated tests green).
+`AiHubConfiguration` has ~37 imports + instantiations of these moved classes. Update every `import com.bytechef.ee.ai.hub.tool.<MovedClass>;` to `import com.bytechef.ee.automation.ai.tool.contextstore.<MovedClass>;` for the 11 moved classes, and leave the `registerContextStore*` method bodies otherwise intact. This is REQUIRED: without it, `ai-hub-service` will not compile after the move.
 
-- [ ] **Step 5: Commit**
+> Verified in the Task 0 spike: `AiHubSpringAIAgent.toolContext(...)` populates the `bytechef.agentTool.*` keys (the `AgentToolInvocationContext` namespace) in addition to its own `AiHubToolInvocationContext` keys, so the moved classes — now reading `AgentToolInvocationContext` — keep working at runtime on the AI Hub path. The flat registration stays functional; Task 8 later removes it in favour of the subagent.
+
+- [ ] **Step 5: Build BOTH modules**
+
+Run: `cd /Volumes/Data/bytechef/bytechef && ./gradlew :server:ee:libs:automation:automation-ai:automation-ai-tool:test :server:ee:libs:ai:ai-hub:ai-hub-service:compileJava -q`
+Expected: BUILD SUCCESSFUL — relocated tests green AND `ai-hub-service` still compiles against the new package.
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git add -A
@@ -863,7 +869,7 @@ git commit -m "refactor(ai-hub): delegate context store to context_store_agent s
 - Test: `client/src/pages/automation/context-store/tests/ContextStoreSources.test.tsx`
 
 **Interfaces:**
-- Consumes: `useCopilotStore` (`setContext`), `useCopilotPanelStore` (`setCopilotPanelOpen`), `useCopilotPostTurnRegistry` (`register`), `Source.CONTEXT_STORE`, `MODE`. The store's `parameters` carry `{contextStoreId, environmentId, workspaceId}`.
+- Consumes: `useCopilotStore` (`setContext`), `useCopilotPanelStore` (`setCopilotPanelOpen`), `useCopilotPostTurnRegistry` (`register`), `Source.CONTEXT_STORE`, `MODE`. The store's `parameters` carry `{contextStoreId}` **only** — per the Task 0 spike, `CopilotRuntimeProvider.runAgentNow` injects `environmentId`/`workspaceId` into the run state automatically from `environmentStore`/`useWorkspaceStore`, so the button must NOT pass them (they would be ignored/overwritten). `contextStoreId` is carried so the agent knows which store the user is viewing.
 - Produces: a header "Ask Copilot" trigger that opens the panel scoped to this store; a registered post-turn callback that refetches the store's queries.
 
 - [ ] **Step 1: Write the failing test**
@@ -917,11 +923,7 @@ const queryClient = useQueryClient();
 const openCopilot = (mode: MODE) => {
     setContext({
         mode,
-        parameters: {
-            contextStoreId: contextStoreIdParam,
-            environmentId: String(currentEnvironmentId),
-            workspaceId: String(currentWorkspaceId),
-        },
+        parameters: {contextStoreId: contextStoreIdParam},
         source: Source.CONTEXT_STORE,
     });
 
