@@ -101,6 +101,7 @@ import com.bytechef.ee.ai.hub.tool.ListMcpServersToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListProjectDeploymentsToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListTaskToolsToolCallback;
 import com.bytechef.ee.ai.hub.tool.OpenAiHubPersonalAgentTabToolCallback;
+import com.bytechef.ee.ai.hub.tool.OpenCustomComponentTabToolCallback;
 import com.bytechef.ee.ai.hub.tool.OpenDataTableTabToolCallback;
 import com.bytechef.ee.ai.hub.tool.OpenFileTabToolCallback;
 import com.bytechef.ee.ai.hub.tool.OpenKnowledgeBaseTabToolCallback;
@@ -129,6 +130,8 @@ import com.bytechef.ee.ai.hub.toolsearch.AiHubTaskBindingToolCallbackResolver;
 import com.bytechef.ee.ai.hub.toolsearch.ToolSearchCatalogFeeder;
 import com.bytechef.ee.ai.hub.util.Mode;
 import com.bytechef.ee.ai.hub.util.Source;
+import com.bytechef.ee.automation.ai.tool.CustomComponentTools;
+import com.bytechef.ee.automation.ai.tool.ReadCustomComponentTools;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
 import com.bytechef.ee.automation.contextstore.facade.WorkspaceContextStoreSourceFacade;
 import com.bytechef.ee.automation.contextstore.service.WorkspaceContextStoreSourceService;
@@ -286,6 +289,7 @@ public class AiHubConfiguration {
         toolCallbacks.add(new OpenDataTableTabToolCallback(null));
         toolCallbacks.add(new OpenKnowledgeBaseTabToolCallback(null));
         toolCallbacks.add(new OpenSkillTabToolCallback(null));
+        toolCallbacks.add(new OpenCustomComponentTabToolCallback(null));
         toolCallbacks.add(new ListDataTablesToolCallback(workspaceDataTableFacade));
         toolCallbacks.add(
             new QueryDataTableToolCallback(
@@ -456,6 +460,7 @@ public class AiHubConfiguration {
         toolCallbacks.add(new OpenDataTableTabToolCallback(aiHubTaskArtifactRecorder));
         toolCallbacks.add(new OpenKnowledgeBaseTabToolCallback(aiHubTaskArtifactRecorder));
         toolCallbacks.add(new OpenSkillTabToolCallback(aiHubTaskArtifactRecorder));
+        toolCallbacks.add(new OpenCustomComponentTabToolCallback(aiHubTaskArtifactRecorder));
         toolCallbacks.add(new ListDataTablesToolCallback(workspaceDataTableFacade));
         toolCallbacks.add(
             new QueryDataTableToolCallback(
@@ -653,22 +658,23 @@ public class AiHubConfiguration {
     @Bean
     AiHubGlobalToolCatalog aiHubAskGlobalToolCatalog(
         ReadProjectTools readProjectTools, ReadProjectWorkflowTools readProjectWorkflowTools,
-        ComponentTools componentTools, TaskTools taskTools, TaskDispatcherTools taskDispatcherTools) {
+        ComponentTools componentTools, TaskTools taskTools, TaskDispatcherTools taskDispatcherTools,
+        ReadCustomComponentTools readCustomComponentTools) {
 
         return globalToolCatalog(
             ToolSearchCatalogFeeder.GLOBAL_ASK_SESSION_ID, readProjectTools, readProjectWorkflowTools, componentTools,
-            taskTools, taskDispatcherTools);
+            taskTools, taskDispatcherTools, readCustomComponentTools);
     }
 
     @Bean
     AiHubGlobalToolCatalog aiHubBuildGlobalToolCatalog(
         ProjectTools projectTools, ProjectWorkflowTools projectWorkflowTools, ComponentTools componentTools,
         TaskTools taskTools, TaskDispatcherTools taskDispatcherTools, ScriptTools scriptTools,
-        ClusterElementTools clusterElementTools) {
+        ClusterElementTools clusterElementTools, CustomComponentTools customComponentTools) {
 
         return globalToolCatalog(
             ToolSearchCatalogFeeder.GLOBAL_BUILD_SESSION_ID, projectTools, projectWorkflowTools, componentTools,
-            taskTools, taskDispatcherTools, scriptTools, clusterElementTools);
+            taskTools, taskDispatcherTools, scriptTools, clusterElementTools, customComponentTools);
     }
 
     private static AiHubGlobalToolCatalog globalToolCatalog(String sessionId, Object... toolObjects) {
