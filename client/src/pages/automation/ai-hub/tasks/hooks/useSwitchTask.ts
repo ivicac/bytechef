@@ -58,6 +58,11 @@ function artifactToOpenToolCall(
     const metadata = parseArtifactMetadata(artifact.metadataJson);
 
     switch (artifact.kind) {
+        case 'CUSTOM_COMPONENT_REFERENCED':
+            return {
+                args: {customComponentId: artifact.artifactId, name: artifact.artifactName},
+                toolName: 'openCustomComponentTab',
+            };
         case 'DATA_TABLE_REFERENCED':
             return {
                 args: {dataTableId: artifact.artifactId, name: artifact.artifactName},
