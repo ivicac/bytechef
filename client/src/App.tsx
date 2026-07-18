@@ -47,6 +47,7 @@ type NavigationType = {
     name: string;
     href: string;
     icon: LucideIcon;
+    group?: string;
 };
 
 const automationNavigation: NavigationType[] = [
@@ -62,21 +63,25 @@ const automationNavigation: NavigationType[] = [
         name: 'Projects',
     },
     {
+        group: 'Deployments',
         href: '/automation/deployments',
         icon: Layers3Icon,
         name: 'Project Deployments',
     },
     {
+        group: 'Deployments',
         href: '/automation/api-platform',
         icon: LayoutTemplateIcon,
         name: 'API Collections',
     },
     {
+        group: 'Deployments',
         href: '/automation/mcp-servers',
         icon: ServerIcon,
         name: 'MCP Servers',
     },
     {
+        group: 'Deployments',
         href: '/automation/context-stores',
         icon: BoxesIcon,
         name: 'Context Store',
@@ -112,11 +117,12 @@ const embeddedNavigation: NavigationType[] = [
         name: 'Integrations',
     },
     {
+        group: 'Configurations',
         href: '/embedded/configurations',
         icon: Settings2Icon,
         name: 'Integration Configurations',
     },
-    {href: '/embedded/mcp-servers', icon: ServerIcon, name: 'MCP Servers'},
+    {group: 'Configurations', href: '/embedded/mcp-servers', icon: ServerIcon, name: 'MCP Servers'},
     {href: '/embedded/app-events', icon: ZapIcon, name: 'App Events'},
     {
         href: '/embedded/automation-workflows',
