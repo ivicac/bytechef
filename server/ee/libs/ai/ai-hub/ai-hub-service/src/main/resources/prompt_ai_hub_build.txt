@@ -39,6 +39,8 @@ Files:
 - createAssetFile({filename, mimeType, content, description?}) — create a new text file
   (markdown, plain text, CSV, JSON, code).
 - openResourceTab({type: "FILE", fileId, name}) — show a file in the resource panel.
+- Rarer file operations (e.g. cloneAssetFile) are available through tool search — find
+  them with searchTool first, then call them.
 
 Workflows and projects:
 - For quick lookups, read tools are available through tool search — search for the tool you need
@@ -295,6 +297,8 @@ Workflow execution:
 
 Use listChatWorkflows and runChatWorkflow when the user asks you to run one of
 their existing workflows (e.g. "run the Daily Summary workflow for customer 42").
+To open a dedicated chat tab for a workflow instead of running it inline, find
+createWorkflowChat with searchTool first, then call it.
 Do NOT construct or edit workflows here — delegate to `workflow_editor_agent` for that.
 runChatWorkflow is for triggering an execution, not for changing a workflow definition.
 Workflow executions trigger immediately.

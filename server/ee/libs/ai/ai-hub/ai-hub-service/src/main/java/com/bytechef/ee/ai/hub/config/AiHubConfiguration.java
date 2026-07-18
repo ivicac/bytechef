@@ -103,6 +103,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
@@ -205,7 +206,6 @@ public class AiHubConfiguration {
         TriggerDefinitionFacade triggerDefinitionFacade,
         SecurityContextRehydrator securityContextRehydrator,
         PropertyOptionsResolver propertyOptionsResolver,
-        ObjectProvider<ApiCollectionFacade> apiCollectionFacadeProvider,
         ObjectProvider<AiHubPersonalAgentService> aiHubPersonalAgentServiceProvider,
         @Qualifier("aiHubAskToolSearchToolCallAdvisor") //
         ObjectProvider<ToolSearchToolCallingAdvisor> toolSearchToolCallAdvisorProvider,
@@ -254,8 +254,8 @@ public class AiHubConfiguration {
         // the workflow_execution_agent specialist (registered via registerCopilotSubAgentToolCallbacks).
         toolCallbacks.add(new ListAiHubTasksToolCallback(taskService));
 
-        apiCollectionFacadeProvider.ifAvailable(
-            apiCollectionFacade -> toolCallbacks.add(new ListApiCollectionsToolCallback(apiCollectionFacade)));
+        // listApiCollections is demoted to the searchable catalog (aiHubAskGlobalToolCatalog) — rare enough
+        // that it should not ride in every model call.
 
         aiHubPersonalAgentServiceProvider.ifAvailable(aiHubPersonalAgentService -> {
             toolCallbacks.add(new ListAiHubPersonalAgentsToolCallback(aiHubPersonalAgentService));
@@ -403,7 +403,8 @@ public class AiHubConfiguration {
             new RunChatWorkflowToolCallback(
                 projectDeploymentService, projectDeploymentWorkflowService, projectWorkflowService,
                 workflowFacade, workflowService, taskArtifactService));
-        toolCallbacks.add(new CreateWorkflowChatToolCallback(taskService));
+        // createWorkflowChat is demoted to the searchable catalog (aiHubBuildGlobalToolCatalog) — rare enough
+        // that it should not ride in every model call.
 
         // Personal-agent CRUD is delegated to the personal_agent_manager specialist (see
         // registerManagerSubAgentToolCallbacks); the ASK agent keeps its own read-only flat registrations.
@@ -446,7 +447,7 @@ public class AiHubConfiguration {
         // Auto-memory is now exposed via the forked AutoMemoryToolsAdvisor (DB-backed Resource seam),
         // registered as an advisor below rather than as standalone tool callbacks.
 
-        toolCallbacks.add(new CloneAssetFileToolCallback(assetFileFacade));
+        // cloneAssetFile is demoted to the searchable catalog (aiHubBuildGlobalToolCatalog).
         toolCallbacks.add(new CreateAssetFileToolCallback(assetFileFacade, aiHubTaskArtifactRecorder));
         toolCallbacks.add(new GetAssetFileContentToolCallback(assetFileFacade));
         toolCallbacks.add(new ListAssetFilesToolCallback(assetFileFacade));
@@ -548,26 +549,45 @@ public class AiHubConfiguration {
     @Bean
     AiHubGlobalToolCatalog aiHubAskGlobalToolCatalog(
         ReadProjectTools readProjectTools, ReadProjectWorkflowTools readProjectWorkflowTools,
-        ComponentTools componentTools, TaskTools taskTools, TaskDispatcherTools taskDispatcherTools) {
+        ComponentTools componentTools, TaskTools taskTools, TaskDispatcherTools taskDispatcherTools,
+        ObjectProvider<ApiCollectionFacade> apiCollectionFacadeProvider) {
 
-        return globalToolCatalog(
-            ToolSearchCatalogFeeder.GLOBAL_ASK_SESSION_ID, readProjectTools, readProjectWorkflowTools, componentTools,
-            taskTools, taskDispatcherTools);
+        List<ToolCallback> toolCallbacks = new ArrayList<>();
+
+        Collections.addAll(
+            toolCallbacks,
+            ToolCallbacks.from(
+                readProjectTools, readProjectWorkflowTools, componentTools, taskTools, taskDispatcherTools));
+
+        // Demoted from the pinned list: rarely-used reads stay reachable through searchTool without paying
+        // per-turn schema cost on every model call.
+        apiCollectionFacadeProvider.ifAvailable(
+            apiCollectionFacade -> toolCallbacks.add(new ListApiCollectionsToolCallback(apiCollectionFacade)));
+
+        return new AiHubGlobalToolCatalog(ToolSearchCatalogFeeder.GLOBAL_ASK_SESSION_ID, toolCallbacks);
     }
 
     @Bean
     AiHubGlobalToolCatalog aiHubBuildGlobalToolCatalog(
         ProjectTools projectTools, ProjectWorkflowTools projectWorkflowTools, ComponentTools componentTools,
         TaskTools taskTools, TaskDispatcherTools taskDispatcherTools, ScriptTools scriptTools,
-        ClusterElementTools clusterElementTools) {
+        ClusterElementTools clusterElementTools, AssetFileFacade assetFileFacade, AiHubTaskService taskService) {
 
-        return globalToolCatalog(
-            ToolSearchCatalogFeeder.GLOBAL_BUILD_SESSION_ID, projectTools, projectWorkflowTools, componentTools,
-            taskTools, taskDispatcherTools, scriptTools, clusterElementTools);
-    }
+        List<ToolCallback> toolCallbacks = new ArrayList<>();
 
-    private static AiHubGlobalToolCatalog globalToolCatalog(String sessionId, Object... toolObjects) {
-        return new AiHubGlobalToolCatalog(sessionId, List.of(ToolCallbacks.from(toolObjects)));
+        Collections.addAll(
+            toolCallbacks,
+            ToolCallbacks.from(
+                projectTools, projectWorkflowTools, componentTools, taskTools, taskDispatcherTools, scriptTools,
+                clusterElementTools));
+
+        // Demoted from the pinned list: rarely-used operations stay reachable through searchTool without
+        // paying per-turn schema cost on every model call. Search-discovered tools are rehydration-wrapped by
+        // ToolSearchAdvisorConfiguration, so @PreAuthorize-protected facade calls still work.
+        toolCallbacks.add(new CloneAssetFileToolCallback(assetFileFacade));
+        toolCallbacks.add(new CreateWorkflowChatToolCallback(taskService));
+
+        return new AiHubGlobalToolCatalog(ToolSearchCatalogFeeder.GLOBAL_BUILD_SESSION_ID, toolCallbacks);
     }
 
     /**
