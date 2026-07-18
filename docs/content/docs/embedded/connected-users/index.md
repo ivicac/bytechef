@@ -52,14 +52,28 @@ Click **Filter** to apply the selected filters.
 
 ### User Details
 
-Click on a connected user row to open a side sheet with a **Profile** header card followed by three tabs:
+Click on a connected user row to open a side sheet. At the top is a **Profile** header card with the user's ID, name, email, external ID, and account metadata, followed by three tabs:
 
-1. **Profile** -- a header card with the user's name, email, external ID, and account metadata.
-2. **Integrations** tab (default) -- every integration the user has connected, with the integration's status and the workflows enabled for each integration instance. Use this tab to inspect and manage the connect-flow side of the relationship.
-3. **MCP Servers** tab -- the MCP servers this user has access to. Each entry shows the server and lets you enable or disable it for the user, so you can control which component tool sets are exposed to that user's AI agents.
-4. **Automation Workflows** tab -- the automation workflows associated with this user across all projects they have access to, listed flat with the workflow label, the version currently in use for this user, and the last execution date (or "No executions" if it hasn't run yet). The tab shows "No automation workflows." when nothing is associated.
+1. **Integrations** tab (default) -- every integration the user has connected, with the integration's status and the workflows enabled for each integration instance. Use this tab to inspect and manage the connect-flow side of the relationship.
+2. **MCP Servers** tab -- the MCP servers this user has access to. Each entry shows the server and lets you enable or disable it for the user, so you can control which component tool sets are exposed to that user's AI agents. Shows "No MCP servers expose this user's integrations." when none apply.
+3. **Automation Workflows** tab -- the automation workflows associated with this user across all projects they have access to, listed flat with the workflow label, the version currently in use for this user, and the last execution date (or "No executions" if it hasn't run yet). The tab shows "No automation workflows." when nothing is associated.
+
+The sheet header also carries actions for the user:
+
+- **Enable / Disable** -- a button that toggles the user's active state. A disabled connected user cannot start executions; the button label flips between **Enable** and **Disable** based on the current state.
+- **Delete** -- opens a confirmation dialog that removes the connected user and their integration instances.
 
 The sheet stays open across outside clicks (only the close button or the **Escape** key dismisses it), so you can keep it open while navigating other UI.
+
+<!-- TODO screenshot: Connected user detail side sheet open, showing the Profile header card and the Integrations / MCP Servers / Automation Workflows tabs, plus the Enable/Disable and Delete actions in the sheet header -->
+
+### Row actions menu
+
+Each table row has an ellipsis (⋮) menu with the same three actions available without opening the sheet:
+
+- **Open** -- opens the detail sheet for that user.
+- **Enable / Disable** -- toggles the user's active state.
+- **Delete** -- removes the user record along with their integration instances (the workflows they had enabled stop executing). A confirmation dialog guards the action.
 
 ### Environment Selection
 

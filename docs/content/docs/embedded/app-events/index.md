@@ -31,6 +31,8 @@ The flow is intentionally one-way: an App Event is the contract, and any number 
 3. Enter the event's **Schema** as JSON — the structure of the payload your application will send. It documents the event's contract (see the note under [Firing an App Event](#firing-an-app-event-from-your-application) about payload delivery).
 4. Click **Save**.
 
+<!-- TODO screenshot: New App Event dialog showing the Name field and the JSON Schema code editor pre-filled with an example payload -->
+
 Note that you do **not** select workflows here. Workflows opt in to receive an event by adding an App Event trigger and picking this event's name (see below).
 
 ### Subscribing a workflow to an App Event

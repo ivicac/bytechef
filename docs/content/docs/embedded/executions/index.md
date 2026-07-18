@@ -63,7 +63,9 @@ Click on any execution row to open a detail sheet that shows:
 - Error messages and stack traces for failed steps.
 - The data passed between steps in the workflow.
 
-The execution detail sheet also carries an [AI Copilot](/platform/copilot), mirroring the automation execution view: it analyzes the finished or failed execution and helps debug errors. Copilot is an Enterprise Edition feature and is disabled by default.
+<!-- TODO screenshot: Workflow execution detail sheet open, showing the workflow panel with a selected step and its Input / Output / Error tabs -->
+
+In **Automations** mode, the execution detail sheet reuses the automation execution view and carries an [AI Copilot](/platform/copilot): it analyzes the finished or failed execution and helps debug errors. Copilot is an Enterprise Edition feature and is disabled by default.
 
 ### Environment Selection
 

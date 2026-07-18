@@ -21,9 +21,9 @@ Like the AI Agent, the Data Stream node is a *cluster root*: its source, process
 
 Clicking the Data Stream node opens its editor, which has two modes with a toggle in the header:
 
-- **Simple editor** (default) — a step-by-step wizard: pick the **Source**, define the **Mapping** (the Field Mapper's source-to-destination field assignments), pick the **Destination**, and **Test** the stream — all without touching the underlying element graph.
+- **Simple editor** (default) — a step-by-step wizard whose top nav walks through four steps in order: **Source** (pick the source component and operation), **Destination** (pick the destination component and operation), **Mapping** (the Field Mapper's source-to-destination field assignments), and **Test** (run the stream). Each step unlocks once the previous one is configured. On the Mapping step, **Auto-map matching fields** fills in assignments where source and destination field names line up. It's all done without touching the underlying element graph.
 
-  {/* TODO screenshot: Data Stream simple editor on the Mapping step — step nav (Source / Mapping / Destination / Test) at the top, field-mapping rows in the body */}
+  {/* TODO screenshot: Data Stream simple editor on the Mapping step — step nav (Source / Destination / Mapping / Test) at the top, field-mapping rows and the Auto-map matching fields button in the body */}
 
 - **Advanced editor** — the raw cluster-elements canvas, where source, processor, and destination appear as wired nodes. Use it to configure element parameters directly or to swap the processor for something other than the Field Mapper.
 

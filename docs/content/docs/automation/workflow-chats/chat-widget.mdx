@@ -31,7 +31,10 @@ export function SupportChat() {
         <AutomationChat
             config={{
                 description: 'Ask anything about your account.',
-                suggestions: ['Where is my order?', 'Cancel my subscription'],
+                suggestions: [
+                    {label: 'Track an order', prompt: 'Where is my order?', title: 'Where is my order?'},
+                    {label: 'Manage billing', prompt: 'Cancel my subscription', title: 'Cancel my subscription'},
+                ],
                 title: 'Support Assistant',
                 webhookUrl: 'https://<your-host>/webhooks/<webhook-id>',
             }}

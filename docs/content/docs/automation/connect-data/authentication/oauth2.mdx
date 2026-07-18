@@ -22,12 +22,21 @@ To set up an OAuth 2.0 connection in ByteChef:
 
 1. Go to the **Connections** tab.
 2. Click **New Connection** and select a service that uses OAuth 2.0.
-3. Copy Client ID and Client Secret from the service provider's developer portal.
-4. Click **Next** to continue setting up the connection.
-5. Select scopes for the connection and click **Connect**.
-6. You will be redirected to the service's login page.
-7. Review the permissions requested and click **Allow** or **Authorize**.
-8. Once redirected back to ByteChef, your connection is ready to use.
+3. Enter a **Name** for the connection.
+4. Paste the **Client ID** and **Client Secret** copied from the service provider's developer portal.
+5. Click **Next** to continue setting up the connection.
+6. Select scopes for the connection and click **Connect**.
+7. You will be redirected to the service's login page.
+8. Review the permissions requested and click **Allow** or **Authorize**.
+9. Once redirected back to ByteChef, your connection is ready to use.
+
+### Predefined Apps
+
+For many popular services, ByteChef ships a **predefined OAuth app** with hosted client credentials. When one is available, the Client ID and Client Secret fields are hidden and you can connect in a single click without registering your own app. To use your own credentials instead, click the **I want to use my own app credentials** link in the dialog. Switching back is done with **I want to use predefined app credentials**.
+
+### Redirect URI
+
+When you use your own OAuth app, the connection dialog shows a read-only **Redirect URI** field with a copy button. Register this exact value as the authorized redirect (callback) URI in the service provider's developer portal, otherwise the authorization will fail with a redirect URI mismatch.
 
 ## Security
 

@@ -127,6 +127,49 @@ Sticky notes let you annotate the workflow canvas — describe what a section do
 
 Sticky notes are saved with the workflow, so everyone who opens it sees the same annotations.
 
+### Canvas Controls
+
+A toolbar in the corner of the canvas gives you control over how the workflow is laid out and viewed. None of these controls change what the workflow does — they only affect the editing view.
+
+{/* TODO screenshot: workflow editor canvas toolbar — zoom, fit-to-screen, layout-direction, reset-layout, lock, undo/redo, and add-note buttons */}
+
+| Control | What it does |
+|---|---|
+| **Zoom in** / **Zoom out** | Scale the canvas up or down. |
+| **Fit to screen** | Frame the whole workflow in the viewport. |
+| **Switch to horizontal / vertical layout** | Flip the auto-layout direction; the choice is remembered per workflow. |
+| **Reset layout** | Re-run auto-layout to tidy the nodes back into place. |
+| **Switch layout engine** | Toggle between the standard and the experimental layout engine. |
+| **Lock / Unlock node movement** | Prevent (or re-allow) dragging nodes, so you don't move them by accident. |
+| **Undo** / **Redo** | Step backward or forward through your recent edits. |
+| **Add note** | Drop a [sticky note](#add-sticky-notes) on the canvas. |
+
+## Workflow Inputs
+
+Workflow inputs are values supplied to a run from the outside — a caller's parameters, a deployment configuration, or a test value you enter in the editor. Open the **Workflow Inputs** panel from the right sidebar to define them.
+
+{/* TODO screenshot: Workflow Inputs sheet — inputs table with the add-input dialog open showing the Type, Name, Label, and Required fields */}
+
+1. In the workflow editor, click the **Workflow Inputs** icon in the right sidebar.
+2. Click **+** to add an input, then set its fields:
+   - **Type** — one of Boolean, Date, Date Time, Field Mapping, Integer, Number, String, Time, or **Component property** (derive the input's shape from a component's property).
+   - **Name** — the key used to reference the input as a dynamic value.
+   - **Label** — the human-readable label shown when the input is filled in.
+   - **Required** — whether a value must be provided.
+   - **Test Value** — a value used only when you run the workflow in the editor's test mode.
+3. Use the row actions to edit or delete an existing input.
+
+Defined inputs are available downstream as [data pills](/automation/build/data-pills) under the workflow's inputs.
+
+## Workflow Outputs
+
+Workflow outputs declare what the workflow returns to its caller. Open the **Workflow Outputs** panel from the right sidebar.
+
+1. In the workflow editor, click the **Workflow Outputs** icon in the right sidebar.
+2. The panel lists each output as a **Name** / **Value** row.
+3. Click **+** to add an output, then set its **Name** and **Value**. The value is built with data pills or a [formula expression](/automation/build/data-pills#input-modes), so an output can reference the result of any earlier step.
+4. Use the row actions to edit or delete an existing output.
+
 ## Edit Workflow
 
 1. Click on the settings icon in the top right corner.

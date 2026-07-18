@@ -15,12 +15,14 @@ document added to this knowledge base is split before it is embedded.
 | --- | --- |
 | **Name** | The display name shown in the list and selected from workflow steps. |
 | **Description** | Optional free text to help your team understand what's inside. |
-| **Min chunk size (characters)** | The smallest a chunk may be before it's merged with a neighbor. Defaults to `100`. |
-| **Max chunk size (tokens)** | The upper bound on a single chunk. Defaults to `1024`. |
-| **Overlap (tokens)** | How many tokens each chunk repeats from the previous one so context isn't lost at the boundary. Defaults to `200`. |
+| **Min chunk size (characters)** | The smallest a chunk may be before it's merged with a neighbor. The create dialog pre-fills `1`. |
+| **Max chunk size (tokens)** | The upper bound on a single chunk. The create dialog pre-fills `1024`. |
+| **Overlap (tokens)** | How many tokens each chunk repeats from the previous one so context isn't lost at the boundary. The create dialog pre-fills `200`. |
 
 You can upload documents directly in the create dialog, or create the knowledge base empty
 and [add documents](/automation/knowledge-base/add-documents) later.
+
+{/* TODO screenshot: New Knowledge Base dialog — Name, Description, the three chunk-setting fields, and the Upload Documents drop zone */}
 
 ## Choosing chunk settings
 
@@ -32,7 +34,7 @@ Chunking is a trade-off between precision and context:
 - **Overlap** softens the boundaries so a sentence split across two chunks still appears in
   full in at least one of them.
 
-The defaults (min `100` chars, max `1024` tokens, overlap `200` tokens) work well for prose
+The pre-filled values (min `1` char, max `1024` tokens, overlap `200` tokens) work well for prose
 documents such as PDFs, Markdown, and help-center articles. Raise the max chunk size for
 long-form reference material where whole sections should stay together; lower it for dense,
 fact-dense content such as FAQs.

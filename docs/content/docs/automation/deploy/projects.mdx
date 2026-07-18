@@ -3,6 +3,8 @@ title: "Projects"
 description: "Learn how to deploy projects and workflows in ByteChef."
 ---
 
+import {Callout} from "fumadocs-ui/components/callout";
+
 Deploying a project in ByteChef brings your automation to life. Deployment allows workflows to run
 independently without further user input, enabling seamless, hands-off execution of your automated processes.
 
@@ -30,7 +32,7 @@ independently without further user input, enabling seamless, hands-off execution
 ## Update Project Version
 
 1. Click on the three dots next to the name of the project deployment you want to update.
-2. Click on **Update Project Version**.
+2. Click on **Change Project Version**.
 3. Select desired project version.
 4. Click on **Next**.
 5. Enable workflows you want to deploy.
@@ -82,12 +84,16 @@ independently without further user input, enabling seamless, hands-off execution
 
 ## Get Webhook URL
 
-We put static trigger to our workflow and deployed it for purpose of showing how to get webhook url.
+A workflow that starts with a webhook (static) trigger exposes a webhook URL once its deployment is enabled. In the example below we added a static trigger to a workflow and deployed it to show how to retrieve that URL.
 
-1. Click on the arrow under the project deployment name.
-2. Click on **New Workflow with Static Trigger**.
-3. This is workflow with static trigger that has to generate a webhook URL for you to use.
-4. Click this icon to copy the webhook URL.
+1. Click on the arrow under the project deployment name to expand its workflow list.
+2. Find the workflow that uses a static webhook trigger.
+3. Hover over the clipboard icon on that workflow row (tooltip: **Copy static workflow webhook trigger url**).
+4. Click the icon to copy the webhook URL to your clipboard. Use this URL in the external service that should trigger the workflow.
+
+<Callout type="info">
+  Workflows that start with a **form** or **chat** trigger show a form or chat icon instead of the clipboard icon — clicking it opens the hosted page rather than copying a URL.
+</Callout>
 
 <div style={{ position: 'relative', height: 0, width: '100%', overflow: 'hidden', zindex: 49, boxSizing: 'border-box', paddingBottom: 'calc(53.02672956% + 32px)' }}>
   <iframe src="https://www.guidejar.com/embed/dfd80b36-da00-4401-938a-65ec16903ebd?type=1&controls=on" width="100%" height="100%" style={{ height: '100%', position: 'absolute', inset: 0 }} allowFullScreen frameBorder="0"></iframe>

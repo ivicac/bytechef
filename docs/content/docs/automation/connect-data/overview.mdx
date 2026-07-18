@@ -3,6 +3,8 @@ title: "Overview"
 description: "Learn how to connect and manage third-party application connections in ByteChef."
 ---
 
+import {Callout} from "fumadocs-ui/components/callout";
+
 ## What are Connections?
 
 Connections in ByteChef are secure links between your ByteChef account and external services. They store authentication details and configuration needed to interact with these services through your workflows.
@@ -27,6 +29,26 @@ Setting up a connection is a quick process:
 2. **Choose a Service**: Click **New Connection** and search for the application you want to connect.
 3. **Authenticate**: Follow the prompts to authorize ByteChef. This might involve logging in via OAuth, pasting an API Key, or providing basic credentials.
 4. **Name and Save**: Give your connection a descriptive name (e.g., `Company Slack - Marketing`) to help you identify it later.
+
+<Callout type="info">
+  If your administrator has configured an external secret backend, the create dialog shows a **Credential storage** selector. Choosing a non-default store lets you toggle **Register existing credential** and reference a secret that already lives in that store by its path or UUID, instead of typing the credentials into ByteChef. This selector only appears when more than one credential store is available, and it cannot be changed after the connection is created.
+</Callout>
+
+Connections are scoped to the currently selected **environment** (development, staging, or production). Use the environment selector in the page header to switch between them.
+
+## Managing Connections
+
+The **Connections** page lists every connection with its component icon, name, tags, and status badges (**Active/Not Active** and the credential status). Use the left sidebar to filter the list by **component** or by **tag**.
+
+Each connection has an ellipsis (three-dots) menu with the following actions:
+
+- **Edit**: Rename the connection or update its tags.
+- **Disconnect from all**: Detach the connection from every workflow currently using it. A connection must be disconnected before it can be deleted.
+- **Delete**: Permanently remove the connection.
+
+<Callout type="info">
+  In the Enterprise Edition, connections also carry a **visibility** scope. A scope badge (Private, Workspace, or Organization) appears next to the connection, and admins can share a private connection with the whole workspace (**Share with workspace**) or make a shared connection private again (**Make private**) from the ellipsis menu.
+</Callout>
 
 ## Popular Integrations
 

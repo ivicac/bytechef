@@ -34,12 +34,14 @@ Each configuration in the list displays:
 
 ### Creating a Configuration
 
-1. Click the **New Instance Configuration** button in the top-right corner.
-2. Select the integration you want to deploy.
-3. Choose the published version to use.
-4. Configure connection credentials and workflow-specific settings.
-5. Assign tags if desired.
-6. Click **Save** to create the configuration.
+Click the **New Instance Configuration** button in the top-right corner to open a multi-step wizard. The wizard shows a step indicator at the top and **Next** / **Previous** buttons; the steps that appear depend on the integration you pick:
+
+1. **Basic** -- choose the integration from a combobox, pick the published **version** to deploy, and assign optional **tags**.
+2. **OAuth2 Connection** *(only when the integration's component authenticates via OAuth2)* -- authorize the connection, choosing between a predefined OAuth app and your own OAuth credentials.
+3. **Workflows** -- for each workflow in the integration, enable or disable it and set its per-workflow connections and input values.
+4. Click **Save** on the final step to create the configuration.
+
+<!-- TODO screenshot: The New Instance Configuration wizard on the Workflows step, showing the step indicator (Basic / OAuth2 Connection / Workflows) and the per-workflow enable toggles with connection and input fields -->
 
 ### Internal-only workflow inputs
 
@@ -52,9 +54,14 @@ The split is strict: an input renders in exactly one place. Existing inputs are 
 
 ### Managing Configurations
 
-- **Enable/Disable** -- toggle a configuration on or off to control whether its workflows execute.
-- **Edit** -- update the version, connections, or workflow settings.
-- **Delete** -- remove the configuration entirely.
+Each configuration row carries an **Enabled** switch and an ellipsis (⋮) menu:
+
+- **Enable/Disable** -- flip the switch on the row to control whether the configuration's workflows execute.
+- **Edit** -- reopens the wizard to update tags, connections, or workflow settings.
+- **Update Integration Version** -- upgrade the configuration to a newer published version of the integration.
+- **Delete** -- remove the configuration entirely (confirmed via an alert dialog).
+
+Expand a configuration row to see its workflows. Each workflow has its own enable/disable switch and an **Edit** action that opens the **Edit Workflow** dialog, where you set that workflow's per-configuration input values and connections.
 
 ### Filtering Configurations
 
