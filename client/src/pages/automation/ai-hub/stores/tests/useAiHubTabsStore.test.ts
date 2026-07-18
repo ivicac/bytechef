@@ -274,6 +274,35 @@ describe('useAiHubTabsStore', () => {
         expect(result.current.activeTabId).toBe(firstId);
     });
 
+    // --- CodeWorkflow tab tests ---
+
+    it('opens a codeWorkflow tab and dedups by projectId', () => {
+        const {result} = renderHook(() => useAiHubTabsStore());
+
+        let firstId = '';
+
+        act(() => {
+            firstId = result.current.openCodeWorkflowTab('proj-1', 'java', 'My Code Workflow');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.openTabs[0]).toMatchObject({
+            id: 'codeWorkflow-proj-1',
+            kind: 'codeWorkflow',
+            language: 'java',
+            name: 'My Code Workflow',
+            projectId: 'proj-1',
+        });
+        expect(firstId).toBe('codeWorkflow-proj-1');
+
+        act(() => {
+            result.current.openCodeWorkflowTab('proj-1', 'java', 'My Code Workflow');
+        });
+
+        expect(result.current.openTabs).toHaveLength(1);
+        expect(result.current.activeTabId).toBe(firstId);
+    });
+
     // --- KnowledgeBase tab tests ---
 
     it('opens a knowledgeBase tab with kind: knowledgeBase and correct fields', () => {

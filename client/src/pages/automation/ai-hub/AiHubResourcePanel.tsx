@@ -11,6 +11,7 @@ import AiHubWorkflowViewer from '@/pages/automation/ai-hub/AiHubWorkflowViewer';
 import WorkflowTabLabel from '@/pages/automation/ai-hub/WorkflowTabLabel';
 import {AiHubTabType, AiHubViewModeType, useAiHubTabsStore} from '@/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import AiSkillDetail from '@/pages/automation/ai/skills/components/AiSkillDetail';
+import ProjectCodeWorkflowDetail from '@/pages/platform/code-workflow/ProjectCodeWorkflowDetail';
 import {DownloadIcon, ExternalLinkIcon, PanelRightCloseIcon, PlusIcon, XIcon} from 'lucide-react';
 import {Link} from 'react-router-dom';
 import {twMerge} from 'tailwind-merge';
@@ -76,6 +77,10 @@ const renderTabBody = (tab: AiHubTabType) => {
 
     if (tab.kind === 'customComponent') {
         return <CustomComponentDetail customComponentId={tab.customComponentId} />;
+    }
+
+    if (tab.kind === 'codeWorkflow') {
+        return <ProjectCodeWorkflowDetail language={tab.language} projectId={tab.projectId} />;
     }
 
     if (tab.kind === 'workflowExecution') {

@@ -81,6 +81,14 @@ const fileTab = {
     viewMode: 'editor' as const,
 };
 
+const codeWorkflowTab = {
+    id: 'codeWorkflow-proj-1',
+    kind: 'codeWorkflow' as const,
+    language: 'java',
+    name: 'My Code Workflow',
+    projectId: 'proj-1',
+};
+
 describe('useRecordReferencedArtifacts', () => {
     it('records the open tabs when the tabs store is mirrored to the prop taskId', () => {
         // Baseline: tabs store has activeTaskId = 10 and openTabs = [fileTab]. The hook is invoked with
@@ -96,6 +104,24 @@ describe('useRecordReferencedArtifacts', () => {
             input: expect.objectContaining({
                 artifactId: 'asset-7',
                 artifactName: 'notes.md',
+                taskId: '10',
+                workspaceId: '1',
+            }),
+        });
+    });
+
+    it('records a codeWorkflow tab using projectId as the artifact id', () => {
+        aiHubTabsStore.setState({activeTaskId: 10, openTabs: [codeWorkflowTab]});
+
+        const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+
+        renderHook(() => useRecordReferencedArtifacts(10, 1), {wrapper: wrap(queryClient)});
+
+        expect(mutateSpy).toHaveBeenCalledTimes(1);
+        expect(mutateSpy).toHaveBeenCalledWith({
+            input: expect.objectContaining({
+                artifactId: 'proj-1',
+                artifactName: 'My Code Workflow',
                 taskId: '10',
                 workspaceId: '1',
             }),

@@ -19,7 +19,8 @@ export type AiHubTabType =
     | {id: string; kind: 'workflowExecution'; workflowExecutionId: number; name: string}
     | {id: string; kind: 'knowledgeBase'; knowledgeBaseId: string; name: string}
     | {id: string; kind: 'skill'; name: string; skillId: string}
-    | {customComponentId: string; id: string; kind: 'customComponent'; name: string};
+    | {customComponentId: string; id: string; kind: 'customComponent'; name: string}
+    | {id: string; kind: 'codeWorkflow'; language: string; name: string; projectId: string};
 
 /**
  * Per-task snapshot of the tabs view. Keyed by `taskId` in
@@ -63,6 +64,7 @@ interface AiHubTabsStateI {
     tasksSidebarPeeking: boolean;
 
     closeTab: (tabId: string) => void;
+    openCodeWorkflowTab: (projectId: string, language: string, name: string) => string;
     openCustomComponentTab: (customComponentId: string, name: string) => string;
     openDataTableTab: (dataTableId: string, name: string) => string;
     openFileTab: (fileId: string, name: string) => string;
@@ -183,6 +185,42 @@ export const aiHubTabsStore = create<AiHubTabsStateI>()(
                             id: getRandomId(),
                             kind: 'customComponent',
                             name,
+                        };
+
+                        tabIdToReturn = newTab.id;
+
+                        return {
+                            ...state,
+                            activeTabId: newTab.id,
+                            openTabs: [...state.openTabs, newTab],
+                            rightPanelOpen: true,
+                        };
+                    });
+
+                    return tabIdToReturn;
+                },
+
+                openCodeWorkflowTab: (projectId, language, name) => {
+                    let tabIdToReturn = '';
+
+                    set((state) => {
+                        const existing = state.openTabs.find(
+                            (tab): tab is Extract<AiHubTabType, {kind: 'codeWorkflow'}> =>
+                                tab.kind === 'codeWorkflow' && tab.projectId === projectId
+                        );
+
+                        if (existing) {
+                            tabIdToReturn = existing.id;
+
+                            return {...state, activeTabId: existing.id, rightPanelOpen: true};
+                        }
+
+                        const newTab: AiHubTabType = {
+                            id: `codeWorkflow-${projectId}`,
+                            kind: 'codeWorkflow',
+                            language,
+                            name,
+                            projectId,
                         };
 
                         tabIdToReturn = newTab.id;
