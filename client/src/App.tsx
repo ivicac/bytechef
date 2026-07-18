@@ -105,6 +105,7 @@ const automationNavigation: NavigationType[] = [
         name: 'Knowledge Base',
     },
     {
+        group: 'Data',
         href: '/automation/asset-files',
         icon: FileTextIcon,
         name: 'Files',
