@@ -8,6 +8,7 @@
 package com.bytechef.ee.automation.ai.tool;
 
 import com.bytechef.automation.configuration.domain.Project;
+import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.ee.automation.ai.tool.exception.CodeWorkflowToolErrorType;
 import com.bytechef.ee.automation.configuration.facade.ProjectCodeWorkflowFacade;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
@@ -41,15 +42,20 @@ public class CodeWorkflowTools {
         description = "Create a new empty code workflow project. Supported languages are JAVASCRIPT, PYTHON and " +
             "RUBY (JAVA is not supported). Returns a confirmation message with the created project's ID and name.")
     public String createCodeWorkflow(
-        @ToolParam(description = "The ID of the workspace to create the code workflow project in") long workspaceId,
+        @ToolParam(
+            required = false,
+            description = "The workspace ID for the project; defaults to the default workspace when omitted") Long workspaceId,
         @ToolParam(description = "The name of the code workflow project") String name,
         @ToolParam(
             description = "Language of the code workflow: JAVASCRIPT, PYTHON, or RUBY") String language) {
 
         Language resolvedLanguage = resolveLanguage(language);
 
+        long resolvedWorkspaceId = workspaceId != null ? workspaceId : Workspace.DEFAULT_WORKSPACE_ID;
+
         try {
-            Project project = projectCodeWorkflowFacade.createEmptyCodeWorkflow(workspaceId, name, resolvedLanguage);
+            Project project = projectCodeWorkflowFacade.createEmptyCodeWorkflow(
+                resolvedWorkspaceId, name, resolvedLanguage);
 
             if (log.isDebugEnabled()) {
                 log.debug(

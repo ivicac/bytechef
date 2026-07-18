@@ -18,6 +18,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.configuration.domain.Project;
+import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.service.ProjectCodeWorkflowInfoSupplier;
 import com.bytechef.automation.configuration.service.ProjectCodeWorkflowInfoSupplier.CodeWorkflowInfo;
 import com.bytechef.ee.automation.ai.tool.exception.CodeWorkflowToolErrorType;
@@ -61,6 +62,46 @@ class CodeWorkflowToolsTest {
 
         verify(projectCodeWorkflowFacade).createEmptyCodeWorkflow(1L, "my-code-project", Language.JAVASCRIPT);
         assertThat(result).contains("7")
+            .contains("my-code-project");
+    }
+
+    @Test
+    void testCreateCodeWorkflowDefaultsWorkspaceIdWhenOmitted() {
+        CodeWorkflowTools tools = new CodeWorkflowTools(projectCodeWorkflowFacade);
+
+        Project project = new Project();
+
+        project.setId(7L);
+        project.setName("my-code-project");
+
+        when(projectCodeWorkflowFacade.createEmptyCodeWorkflow(
+            Workspace.DEFAULT_WORKSPACE_ID, "my-code-project", Language.JAVASCRIPT))
+                .thenReturn(project);
+
+        String result = tools.createCodeWorkflow(null, "my-code-project", "JAVASCRIPT");
+
+        verify(projectCodeWorkflowFacade).createEmptyCodeWorkflow(
+            Workspace.DEFAULT_WORKSPACE_ID, "my-code-project", Language.JAVASCRIPT);
+        assertThat(result).contains("7")
+            .contains("my-code-project");
+    }
+
+    @Test
+    void testCreateCodeWorkflowUsesExplicitWorkspaceIdWhenProvided() {
+        CodeWorkflowTools tools = new CodeWorkflowTools(projectCodeWorkflowFacade);
+
+        Project project = new Project();
+
+        project.setId(9L);
+        project.setName("my-code-project");
+
+        when(projectCodeWorkflowFacade.createEmptyCodeWorkflow(42L, "my-code-project", Language.JAVASCRIPT))
+            .thenReturn(project);
+
+        String result = tools.createCodeWorkflow(42L, "my-code-project", "JAVASCRIPT");
+
+        verify(projectCodeWorkflowFacade).createEmptyCodeWorkflow(42L, "my-code-project", Language.JAVASCRIPT);
+        assertThat(result).contains("9")
             .contains("my-code-project");
     }
 
