@@ -32,7 +32,6 @@ import com.bytechef.ai.copilot.tool.WorkflowEditorAgentToolCallback;
 import com.bytechef.ai.copilot.tool.WorkflowExecutionAgentToolCallback;
 import com.bytechef.ai.copilot.tool.WorkspaceCopilotConnectionLister;
 import com.bytechef.atlas.configuration.service.WorkflowService;
-import com.bytechef.automation.ai.mcp.facade.McpProjectFacade;
 import com.bytechef.automation.ai.tool.ClusterElementTools;
 import com.bytechef.automation.ai.tool.ProjectTools;
 import com.bytechef.automation.ai.tool.ProjectWorkflowTools;
@@ -40,7 +39,6 @@ import com.bytechef.automation.ai.tool.ReadProjectTools;
 import com.bytechef.automation.ai.tool.ReadProjectWorkflowTools;
 import com.bytechef.automation.ai.tool.ScriptTools;
 import com.bytechef.automation.assetfile.service.AssetFileFacade;
-import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
@@ -53,7 +51,6 @@ import com.bytechef.ee.ai.hub.agent.WebhookBridgeAgent;
 import com.bytechef.ee.ai.hub.agent.WebhookResumeRegistry;
 import com.bytechef.ee.ai.hub.agent.WorkflowChatGuard;
 import com.bytechef.ee.ai.hub.agent.WorkflowChatJobRegistry;
-import com.bytechef.ee.ai.hub.artifact.ArtifactGeneratorRegistry;
 import com.bytechef.ee.ai.hub.memory.AiHubSessionMemory;
 import com.bytechef.ee.ai.hub.metric.AiHubToolAttachMetrics;
 import com.bytechef.ee.ai.hub.metric.WorkflowChatMetrics;
@@ -65,27 +62,15 @@ import com.bytechef.ee.ai.hub.task.AiHubTaskService;
 import com.bytechef.ee.ai.hub.task.AiHubTaskToolFacade;
 import com.bytechef.ee.ai.hub.tool.AiHubTaskArtifactRecorder;
 import com.bytechef.ee.ai.hub.tool.AttachTaskToolToolCallback;
-import com.bytechef.ee.ai.hub.tool.CloneAiHubPersonalAgentToolCallback;
-import com.bytechef.ee.ai.hub.tool.CloneApiCollectionToolCallback;
 import com.bytechef.ee.ai.hub.tool.CloneAssetFileToolCallback;
-import com.bytechef.ee.ai.hub.tool.CloneMcpProjectToolCallback;
-import com.bytechef.ee.ai.hub.tool.CreateAiHubPersonalAgentToolCallback;
-import com.bytechef.ee.ai.hub.tool.CreateApiCollectionToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateAssetFileToolCallback;
-import com.bytechef.ee.ai.hub.tool.CreateMcpProjectToolCallback;
-import com.bytechef.ee.ai.hub.tool.CreateMcpServerToolCallback;
-import com.bytechef.ee.ai.hub.tool.CreateProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.CreateWorkflowChatToolCallback;
-import com.bytechef.ee.ai.hub.tool.DeleteAiHubPersonalAgentToolCallback;
-import com.bytechef.ee.ai.hub.tool.DeleteProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.GetAssetFileContentToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListAiHubPersonalAgentsToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListAiHubTasksToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListApiCollectionsToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListAssetFilesToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListChatWorkflowsToolCallback;
-import com.bytechef.ee.ai.hub.tool.ListMcpServersToolCallback;
-import com.bytechef.ee.ai.hub.tool.ListProjectDeploymentsToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListTaskToolsToolCallback;
 import com.bytechef.ee.ai.hub.tool.OpenAiHubPersonalAgentTabToolCallback;
 import com.bytechef.ee.ai.hub.tool.OpenCodeWorkflowTabToolCallback;
@@ -96,15 +81,8 @@ import com.bytechef.ee.ai.hub.tool.OpenKnowledgeBaseTabToolCallback;
 import com.bytechef.ee.ai.hub.tool.OpenSkillTabToolCallback;
 import com.bytechef.ee.ai.hub.tool.OpenWorkflowChatTabToolCallback;
 import com.bytechef.ee.ai.hub.tool.OpenWorkflowTabToolCallback;
-import com.bytechef.ee.ai.hub.tool.PromoteWorkflowToolCallback;
-import com.bytechef.ee.ai.hub.tool.QueryDataTableToolCallback;
 import com.bytechef.ee.ai.hub.tool.RemoveTaskToolToolCallback;
-import com.bytechef.ee.ai.hub.tool.RollbackProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.RunChatWorkflowToolCallback;
-import com.bytechef.ee.ai.hub.tool.ToggleProjectDeploymentToolCallback;
-import com.bytechef.ee.ai.hub.tool.UpdateAiHubPersonalAgentToolCallback;
-import com.bytechef.ee.ai.hub.tool.UpdateMcpServerToolCallback;
-import com.bytechef.ee.ai.hub.tool.UpdateProjectDeploymentToolCallback;
 import com.bytechef.ee.ai.hub.tool.memory.DbAutoMemoryDirectoryOps;
 import com.bytechef.ee.ai.hub.tool.memory.DbMemoryResourceResolver;
 import com.bytechef.ee.ai.hub.toolsearch.AiHubGlobalToolCatalog;
@@ -127,8 +105,6 @@ import com.bytechef.platform.component.service.ConnectionDefinitionService;
 import com.bytechef.platform.component.service.TriggerDefinitionService;
 import com.bytechef.platform.configuration.facade.WorkflowFacade;
 import com.bytechef.platform.connection.service.ConnectionService;
-import com.bytechef.platform.data.table.configuration.service.DataTableService;
-import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import com.bytechef.platform.webhook.executor.WebhookWorkflowExecutor;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
@@ -224,10 +200,9 @@ public class AiHubConfiguration {
         ObjectProvider<ChatClient> customComponentAskSubAgentChatClientProvider,
         @Qualifier("codeWorkflowAskSubAgentChatClient") //
         ObjectProvider<ChatClient> codeWorkflowAskSubAgentChatClientProvider,
-        ArtifactGeneratorRegistry artifactGeneratorRegistry, AiHubTaskService taskService,
+        AiHubTaskService taskService,
         AiAutoMemoryService aiHubMemoryService,
-        DataTableService dataTableService,
-        DataTableRowService dataTableRowService,
+        AssetFileFacade assetFileFacade,
         AiHubTaskToolFacade taskToolFacade,
         ComponentDefinitionService componentDefinitionService,
         ConnectionDefinitionService connectionDefinitionService,
@@ -268,9 +243,12 @@ public class AiHubConfiguration {
         toolCallbacks.add(new OpenSkillTabToolCallback(null));
         toolCallbacks.add(new OpenCustomComponentTabToolCallback(null));
         toolCallbacks.add(new OpenCodeWorkflowTabToolCallback(null));
-        toolCallbacks.add(
-            new QueryDataTableToolCallback(
-                artifactGeneratorRegistry, taskService, dataTableRowService, dataTableService));
+        // Read-only asset-file access. The ASK prompt documents listAssetFiles/getAssetFileContent, and without
+        // these registrations the model's direct calls fail with "No ToolCallback found". Creation stays
+        // BUILD-only. Row-level data-table reads are delegated to the data_table_agent specialist instead of a
+        // flat queryDataTable — the specialist already owns the read tool set.
+        toolCallbacks.add(new GetAssetFileContentToolCallback(assetFileFacade));
+        toolCallbacks.add(new ListAssetFilesToolCallback(assetFileFacade));
         toolCallbacks.add(
             new AttachTaskToolToolCallback(taskService, taskToolFacade, connectionService, aiHubToolAttachMetrics));
         toolCallbacks.add(
@@ -383,16 +361,14 @@ public class AiHubConfiguration {
         ObjectProvider<ChatClient> customComponentBuildSubAgentChatClientProvider,
         @Qualifier("codeWorkflowBuildSubAgentChatClient") //
         ObjectProvider<ChatClient> codeWorkflowBuildSubAgentChatClientProvider,
-        ArtifactGeneratorRegistry artifactGeneratorRegistry,
         AssetFileFacade assetFileFacade, AiHubTaskArtifactService taskArtifactService,
         AiHubTaskArtifactRecorder aiHubTaskArtifactRecorder,
         AiHubTaskService taskService, AiAutoMemoryService aiHubMemoryService,
-        ProjectDeploymentFacade projectDeploymentFacade, ProjectDeploymentService projectDeploymentService,
+        ProjectDeploymentService projectDeploymentService,
         ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
         ProjectWorkflowService projectWorkflowService,
         TriggerDefinitionService triggerDefinitionService,
-        WorkflowFacade workflowFacade, WorkflowService workflowService, DataTableService dataTableService,
-        DataTableRowService dataTableRowService,
+        WorkflowFacade workflowFacade, WorkflowService workflowService,
         ComponentDefinitionService componentDefinitionService,
         ConnectionDefinitionService connectionDefinitionService,
         ConnectionService connectionService,
@@ -403,10 +379,12 @@ public class AiHubConfiguration {
         SecurityContextRehydrator securityContextRehydrator,
         PropertyOptionsResolver propertyOptionsResolver,
         AiHubTaskToolFacade taskToolFacade,
-        ObjectProvider<ApiCollectionFacade> apiCollectionFacadeProvider,
-        ObjectProvider<McpProjectFacade> mcpProjectFacadeProvider,
-        ObjectProvider<com.bytechef.automation.ai.mcp.facade.WorkspaceMcpServerFacade> workspaceMcpServerFacadeProvider,
-        ObjectProvider<AiHubPersonalAgentService> aiHubPersonalAgentServiceProvider,
+        @Qualifier("mcpManagerChatClient") ObjectProvider<ChatClient> mcpManagerChatClientProvider,
+        @Qualifier("personalAgentManagerChatClient") //
+        ObjectProvider<ChatClient> personalAgentManagerChatClientProvider,
+        @Qualifier("deploymentManagerChatClient") ObjectProvider<ChatClient> deploymentManagerChatClientProvider,
+        @Qualifier("apiCollectionManagerChatClient") //
+        ObjectProvider<ChatClient> apiCollectionManagerChatClientProvider,
         @Qualifier("aiHubBuildToolSearchToolCallAdvisor") //
         ObjectProvider<ToolSearchToolCallingAdvisor> toolSearchToolCallAdvisorProvider,
         ObjectProvider<AiHubTaskBindingToolCallbackResolver> taskBindingToolCallbackResolverProvider,
@@ -423,6 +401,10 @@ public class AiHubConfiguration {
             toolCallbacks, researchChatClientProvider, dataAnalystChatClientProvider,
             imageGeneratorChatClientProvider, slideBuilderChatClientProvider, assetFileFacade);
 
+        registerManagerSubAgentToolCallbacks(
+            toolCallbacks, mcpManagerChatClientProvider, personalAgentManagerChatClientProvider,
+            deploymentManagerChatClientProvider, apiCollectionManagerChatClientProvider);
+
         toolCallbacks.add(new OpenFileTabToolCallback());
         toolCallbacks.add(new OpenWorkflowTabToolCallback(aiHubTaskArtifactRecorder));
         toolCallbacks.add(new OpenWorkflowChatTabToolCallback());
@@ -431,9 +413,8 @@ public class AiHubConfiguration {
         toolCallbacks.add(new OpenSkillTabToolCallback(aiHubTaskArtifactRecorder));
         toolCallbacks.add(new OpenCustomComponentTabToolCallback(aiHubTaskArtifactRecorder));
         toolCallbacks.add(new OpenCodeWorkflowTabToolCallback(aiHubTaskArtifactRecorder));
-        toolCallbacks.add(
-            new QueryDataTableToolCallback(
-                artifactGeneratorRegistry, taskService, dataTableRowService, dataTableService));
+        // Row-level data-table reads are delegated to the data_analyst / data_table_agent specialists instead of
+        // a flat queryDataTable — both specialists already own the read tool set.
         toolCallbacks.add(
             new ListChatWorkflowsToolCallback(
                 projectDeploymentService, projectDeploymentWorkflowService, projectWorkflowService,
@@ -444,15 +425,8 @@ public class AiHubConfiguration {
                 workflowFacade, workflowService, taskArtifactService));
         toolCallbacks.add(new CreateWorkflowChatToolCallback(taskService));
 
-        aiHubPersonalAgentServiceProvider.ifAvailable(aiHubPersonalAgentService -> {
-            toolCallbacks.add(new ListAiHubPersonalAgentsToolCallback(aiHubPersonalAgentService));
-            toolCallbacks.add(new OpenAiHubPersonalAgentTabToolCallback(aiHubPersonalAgentService,
-                taskService));
-            toolCallbacks.add(new CreateAiHubPersonalAgentToolCallback(aiHubPersonalAgentService));
-            toolCallbacks.add(new UpdateAiHubPersonalAgentToolCallback(aiHubPersonalAgentService));
-            toolCallbacks.add(new DeleteAiHubPersonalAgentToolCallback(aiHubPersonalAgentService));
-            toolCallbacks.add(new CloneAiHubPersonalAgentToolCallback(aiHubPersonalAgentService));
-        });
+        // Personal-agent CRUD is delegated to the personal_agent_manager specialist (see
+        // registerManagerSubAgentToolCallbacks); the ASK agent keeps its own read-only flat registrations.
 
         // Copilot specialist sub-agent delegation. Write-capable variants for the BUILD agent, plus
         // the BUILD-only Converter sub-agent. Skips registrations when the corresponding ChatClient
@@ -466,13 +440,6 @@ public class AiHubConfiguration {
             customComponentBuildSubAgentChatClientProvider, codeWorkflowBuildSubAgentChatClientProvider);
         toolCallbacks.add(new CreateConnectionToolCallback(componentDefinitionService));
         toolCallbacks.add(new SelectConnectionToolCallback(componentDefinitionService));
-        toolCallbacks.add(new ListProjectDeploymentsToolCallback(projectDeploymentFacade));
-        toolCallbacks.add(new CreateProjectDeploymentToolCallback(projectDeploymentFacade));
-        toolCallbacks.add(new UpdateProjectDeploymentToolCallback(projectDeploymentFacade));
-        toolCallbacks.add(new DeleteProjectDeploymentToolCallback(projectDeploymentFacade));
-        toolCallbacks.add(new RollbackProjectDeploymentToolCallback(projectDeploymentFacade));
-        toolCallbacks.add(new ToggleProjectDeploymentToolCallback(projectDeploymentFacade));
-        toolCallbacks.add(new PromoteWorkflowToolCallback(projectDeploymentFacade));
 
         toolCallbacks.add(
             new AttachTaskToolToolCallback(taskService, taskToolFacade, connectionService, aiHubToolAttachMetrics));
@@ -487,26 +454,14 @@ public class AiHubConfiguration {
             workspaceConnectionFacade, actionDefinitionService, actionDefinitionFacade, triggerDefinitionService,
             triggerDefinitionFacade, propertyOptionsResolver, aiHubToolAttachMetrics, jsonMapper);
 
-        apiCollectionFacadeProvider.ifAvailable(apiCollectionFacade -> {
-            toolCallbacks.add(new CreateApiCollectionToolCallback(apiCollectionFacade));
-            toolCallbacks.add(new CloneApiCollectionToolCallback(apiCollectionFacade));
-            toolCallbacks.add(new ListApiCollectionsToolCallback(apiCollectionFacade));
-        });
+        // API-collection and MCP-server work is delegated to the api_collection_manager and mcp_manager
+        // specialists (see registerManagerSubAgentToolCallbacks); the ASK agent keeps its read-only
+        // listApiCollections flat registration.
 
         // Resource discovery — read-only and always-on. Mirrors the same registrations on the ASK agent so
         // a "list my tasks" turn works identically regardless of which mode is active. Workflow-execution
         // lookups are delegated to the workflow_execution_agent specialist.
         toolCallbacks.add(new ListAiHubTasksToolCallback(taskService));
-        mcpProjectFacadeProvider.ifAvailable(mcpProjectFacade -> {
-            toolCallbacks.add(new CreateMcpProjectToolCallback(mcpProjectFacade));
-            toolCallbacks.add(new CloneMcpProjectToolCallback(mcpProjectFacade));
-        });
-
-        workspaceMcpServerFacadeProvider.ifAvailable(workspaceMcpServerFacade -> {
-            toolCallbacks.add(new ListMcpServersToolCallback(workspaceMcpServerFacade));
-            toolCallbacks.add(new CreateMcpServerToolCallback(workspaceMcpServerFacade));
-            toolCallbacks.add(new UpdateMcpServerToolCallback(workspaceMcpServerFacade));
-        });
 
         // Auto-memory is now exposed via the forked AutoMemoryToolsAdvisor (DB-backed Resource seam),
         // registered as an advisor below rather than as standalone tool callbacks.
@@ -676,6 +631,44 @@ public class AiHubConfiguration {
                 new ProgressReportingToolCallback(
                     SlideBuilderConfiguration.createSlideBuilderToolCallback(slideBuilderChatClient),
                     "slide_builder")));
+    }
+
+    /**
+     * Registers the AI-hub-owned "manager" specialist sub-agent ToolCallbacks (MCP servers, personal agents, project
+     * deployments, API collections) on the supplied tool list. Each is only added when its backing ChatClient bean is
+     * present — a missing facade (feature module not on the classpath) means the specialist's ChatClient bean was not
+     * created and the registration is silently skipped. Mirrors {@link #registerSubAgentToolCallbacks}.
+     */
+    private static void registerManagerSubAgentToolCallbacks(
+        List<ToolCallback> toolCallbacks, ObjectProvider<ChatClient> mcpManagerChatClientProvider,
+        ObjectProvider<ChatClient> personalAgentManagerChatClientProvider,
+        ObjectProvider<ChatClient> deploymentManagerChatClientProvider,
+        ObjectProvider<ChatClient> apiCollectionManagerChatClientProvider) {
+
+        mcpManagerChatClientProvider.ifAvailable(
+            mcpManagerChatClient -> toolCallbacks.add(
+                new ProgressReportingToolCallback(
+                    McpManagerConfiguration.createMcpManagerToolCallback(mcpManagerChatClient), "mcp_manager")));
+
+        personalAgentManagerChatClientProvider.ifAvailable(
+            personalAgentManagerChatClient -> toolCallbacks.add(
+                new ProgressReportingToolCallback(
+                    PersonalAgentManagerConfiguration.createPersonalAgentManagerToolCallback(
+                        personalAgentManagerChatClient),
+                    "personal_agent_manager")));
+
+        deploymentManagerChatClientProvider.ifAvailable(
+            deploymentManagerChatClient -> toolCallbacks.add(
+                new ProgressReportingToolCallback(
+                    DeploymentManagerConfiguration.createDeploymentManagerToolCallback(deploymentManagerChatClient),
+                    "deployment_manager")));
+
+        apiCollectionManagerChatClientProvider.ifAvailable(
+            apiCollectionManagerChatClient -> toolCallbacks.add(
+                new ProgressReportingToolCallback(
+                    ApiCollectionManagerConfiguration.createApiCollectionManagerToolCallback(
+                        apiCollectionManagerChatClient),
+                    "api_collection_manager")));
     }
 
     /**

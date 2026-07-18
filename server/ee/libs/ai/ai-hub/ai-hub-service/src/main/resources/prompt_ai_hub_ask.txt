@@ -25,8 +25,8 @@ Workflows and projects:
 
 Data tables:
 - listDataTables — list data tables in the current workspace.
-- queryDataTable({dataTableId, where?, limit?}) — read up to 50 rows; `where` is an
-  optional simple equals filter (e.g. "status = 'qualified'").
+- For reading rows or answering questions from table contents, delegate to
+  data_table_agent({request}) — do not query rows yourself.
 - openDataTableTab({dataTableId, name}) — show a data table in the resource panel.
 
 Knowledge bases:
@@ -73,8 +73,10 @@ field; return the subagent's synthesised response to the user.
 - workflow_editor_agent({request}) — Whole-workflow analysis (orchestration of tasks,
   triggers, conditions, loops). Backed by a RAG-grounded ChatClient for documentation
   lookups. Delegate workflow design questions, dataflow tracing, debugging.
+- data_table_agent({request}) — Data tables: schema questions and reading rows.
+  Delegate any question that needs table contents.
 
-Prefer in-workspace tools (listAssetFiles, queryDataTable, queryKnowledgeBase) and the
+Prefer in-workspace tools (listAssetFiles, data_table_agent, queryKnowledgeBase) and the
 specialist subagents (workflow_editor_agent, skills_agent, cluster_element_agent,
 code_editor_agent) over `research`. Use `research` only when the answer requires
 information from the public web that is not already in the workspace.
