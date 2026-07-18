@@ -641,6 +641,7 @@ include("server:ee:libs:automation:automation-context-store:automation-context-s
 include("server:ee:libs:automation:automation-context-store:automation-context-store-service")
 include("server:ee:libs:platform:platform-context-store:platform-context-store-service")
 include("server:ee:libs:platform:platform-tool-invocation-log:platform-tool-invocation-log-api")
+include("server:ee:libs:platform:platform-tool-invocation-log:platform-tool-invocation-log-graphql")
 include("server:ee:libs:platform:platform-tool-invocation-log:platform-tool-invocation-log-service")
 include("server:ee:libs:automation:automation-data-table:automation-data-table-remote-client")
 include("server:ee:libs:automation:automation-task:automation-task-remote-client")
