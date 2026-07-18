@@ -64,7 +64,9 @@ public class WorkflowExecutionApiController implements WorkflowExecutionApi {
     }
 
     @Override
-    @SuppressWarnings({"rawtypes", "unchecked"})
+    @SuppressWarnings({
+        "rawtypes", "unchecked"
+    })
     public ResponseEntity<Page> getWorkflowExecutionsPage(
         String externalUserId, @Nullable EnvironmentModel xEnvironment, @Nullable WorkflowExecutionStatusModel status,
         @Nullable OffsetDateTime startDate, @Nullable OffsetDateTime endDate,

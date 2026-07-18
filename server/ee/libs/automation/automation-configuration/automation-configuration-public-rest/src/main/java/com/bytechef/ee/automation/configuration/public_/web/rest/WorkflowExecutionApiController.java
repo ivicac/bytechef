@@ -36,8 +36,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * Public read-only workflow-execution endpoints of the automation API. List responses never carry execution data —
- * the single-execution endpoint returns the full detail including inputs, outputs, error and task executions.
+ * Public read-only workflow-execution endpoints of the automation API. List responses never carry execution data — the
+ * single-execution endpoint returns the full detail including inputs, outputs, error and task executions.
  *
  * @version ee
  *
@@ -57,7 +57,9 @@ public class WorkflowExecutionApiController implements WorkflowExecutionApi {
     }
 
     @Override
-    @SuppressWarnings({"rawtypes", "unchecked"})
+    @SuppressWarnings({
+        "rawtypes", "unchecked"
+    })
     public ResponseEntity<Page> getWorkflowExecutionsPage(
         Long workspaceId, @Nullable Long environmentId, @Nullable WorkflowExecutionStatusModel status,
         @Nullable OffsetDateTime startDate, @Nullable OffsetDateTime endDate, @Nullable Long projectId,
