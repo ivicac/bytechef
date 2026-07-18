@@ -8,6 +8,7 @@
 package com.bytechef.ee.embedded.ai.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
@@ -22,9 +23,12 @@ import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.ee.embedded.ai.tool.model.WorkflowExecutionDetailInfo;
 import com.bytechef.ee.embedded.ai.tool.model.WorkflowExecutionSummary;
 import com.bytechef.ee.embedded.configuration.domain.Integration;
+import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfiguration;
 import com.bytechef.ee.embedded.workflow.execution.dto.WorkflowExecutionDTO;
 import com.bytechef.ee.embedded.workflow.execution.facade.IntegrationWorkflowExecutionFacade;
 import com.bytechef.error.ExecutionError;
+import com.bytechef.exception.ExecutionException;
+import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.workflow.execution.dto.JobDTO;
 import com.bytechef.platform.workflow.execution.dto.TaskExecutionDTO;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
@@ -93,6 +97,96 @@ class IntegrationWorkflowExecutionToolsTest {
         assertThat(result.taskExecutions()
             .get(0)
             .type()).isEqualTo("httpClient/v1/get");
+    }
+
+    @Test
+    void testGetWorkflowExecutionReturnsWhenEnvironmentMatches() {
+        Job job = new Job();
+
+        job.setId(7L);
+        job.setStatus(Job.Status.COMPLETED);
+        job.setWorkflowId("wf-1");
+
+        JobDTO jobDTO = new JobDTO(job, Map.of(), List.of());
+
+        Integration integration = new Integration();
+
+        integration.setName("Demo");
+
+        IntegrationInstanceConfiguration integrationInstanceConfiguration = new IntegrationInstanceConfiguration();
+
+        integrationInstanceConfiguration.setEnvironment(Environment.PRODUCTION);
+
+        Workflow workflow = new Workflow("{\"label\": \"My Workflow\", \"tasks\": []}", Format.JSON);
+
+        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(
+            7L, integration, integrationInstanceConfiguration, null, jobDTO, workflow, null);
+
+        when(facade.getWorkflowExecution(7L)).thenReturn(dto);
+
+        ToolContext toolContext = new ToolContext(
+            Map.of(
+                IntegrationWorkflowExecutionToolContextKeys.ENVIRONMENT_ID,
+                (long) Environment.PRODUCTION.ordinal()));
+
+        WorkflowExecutionDetailInfo result = integrationWorkflowExecutionTools.getWorkflowExecution(7L, toolContext);
+
+        assertThat(result.id()).isEqualTo(7L);
+        assertThat(result.status()).isEqualTo("COMPLETED");
+    }
+
+    @Test
+    void testGetWorkflowExecutionDeniesCrossEnvironmentAccess() {
+        Job job = new Job();
+
+        job.setId(7L);
+        job.setStatus(Job.Status.COMPLETED);
+
+        JobDTO jobDTO = new JobDTO(job, Map.of(), List.of());
+
+        IntegrationInstanceConfiguration integrationInstanceConfiguration = new IntegrationInstanceConfiguration();
+
+        integrationInstanceConfiguration.setEnvironment(Environment.PRODUCTION);
+
+        WorkflowExecutionDTO dto = new WorkflowExecutionDTO(
+            7L, null, integrationInstanceConfiguration, null, jobDTO, null, null);
+
+        when(facade.getWorkflowExecution(7L)).thenReturn(dto);
+
+        // Caller is scoped to DEVELOPMENT but the execution belongs to PRODUCTION.
+        ToolContext toolContext = new ToolContext(
+            Map.of(
+                IntegrationWorkflowExecutionToolContextKeys.ENVIRONMENT_ID,
+                (long) Environment.DEVELOPMENT.ordinal()));
+
+        assertThatThrownBy(() -> integrationWorkflowExecutionTools.getWorkflowExecution(7L, toolContext))
+            .isInstanceOf(ExecutionException.class)
+            .hasMessageContaining("not found");
+    }
+
+    @Test
+    void testGetWorkflowExecutionThrowsOnFailure() {
+        when(facade.getWorkflowExecution(7L)).thenThrow(new RuntimeException("boom"));
+
+        ToolContext toolContext = new ToolContext(Map.of());
+
+        assertThatThrownBy(() -> integrationWorkflowExecutionTools.getWorkflowExecution(7L, toolContext))
+            .isInstanceOf(ExecutionException.class)
+            .hasMessageContaining("Failed to get workflow execution");
+    }
+
+    @Test
+    void testListWorkflowExecutionsThrowsOnFailure() {
+        when(
+            facade.getWorkflowExecutions(
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), anyInt()))
+                    .thenThrow(new RuntimeException("boom"));
+
+        ToolContext toolContext = new ToolContext(Map.of());
+
+        assertThatThrownBy(() -> integrationWorkflowExecutionTools.listWorkflowExecutions(null, null, toolContext))
+            .isInstanceOf(ExecutionException.class)
+            .hasMessageContaining("Failed to list workflow executions");
     }
 
     @Test

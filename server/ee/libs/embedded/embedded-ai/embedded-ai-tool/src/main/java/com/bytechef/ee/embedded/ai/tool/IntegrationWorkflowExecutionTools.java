@@ -15,6 +15,7 @@ import com.bytechef.ee.embedded.ai.tool.model.TriggerExecutionInfo;
 import com.bytechef.ee.embedded.ai.tool.model.WorkflowExecutionDetailInfo;
 import com.bytechef.ee.embedded.ai.tool.model.WorkflowExecutionSummary;
 import com.bytechef.ee.embedded.configuration.domain.Integration;
+import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfiguration;
 import com.bytechef.ee.embedded.workflow.execution.dto.WorkflowExecutionDTO;
 import com.bytechef.ee.embedded.workflow.execution.facade.IntegrationWorkflowExecutionFacade;
 import com.bytechef.error.ExecutionError;
@@ -40,7 +41,9 @@ import org.springframework.stereotype.Component;
  * <p>
  * Unlike the automation analog there is no workspace-ownership (IDOR) guard on {@code getWorkflowExecution}: embedded
  * deployments are tenant-scoped (the ambient tenant is the isolation boundary), so there is no per-workspace
- * subdivision to guard against within a tenant.
+ * subdivision to guard against within a tenant. There is, however, an environment-scope guard: when the tool context
+ * carries an environment id, {@code getWorkflowExecution} denies reads of executions belonging to a different
+ * environment, mirroring the workspace-ownership guard in the automation analog.
  * </p>
  *
  * @version ee
@@ -67,8 +70,27 @@ public class IntegrationWorkflowExecutionTools {
         @ToolParam(description = "The workflow execution id") long workflowExecutionId, ToolContext toolContext) {
 
         try {
+            Long environmentId = asLong(toolContext, IntegrationWorkflowExecutionToolContextKeys.ENVIRONMENT_ID);
+
             WorkflowExecutionDTO execution =
                 integrationWorkflowExecutionFacade.getWorkflowExecution(workflowExecutionId);
+
+            // Fail-closed environment scope check (IDOR guard): the LLM supplies the execution id, so an
+            // hallucinated or injected id could otherwise read another environment's run. Only enforced when the
+            // tool context carries an environment id; when absent, the ambient tenant remains the isolation
+            // boundary. Do not reveal that the id exists in another environment.
+            if (environmentId != null) {
+                IntegrationInstanceConfiguration integrationInstanceConfiguration =
+                    execution.integrationInstanceConfiguration();
+                Long executionEnvironmentId = integrationInstanceConfiguration == null ? null
+                    : integrationInstanceConfiguration.getEnvironmentId();
+
+                if (executionEnvironmentId == null || !environmentId.equals(executionEnvironmentId)) {
+                    throw new ExecutionException(
+                        "Workflow execution " + workflowExecutionId + " not found",
+                        IntegrationWorkflowExecutionToolErrorType.GET_WORKFLOW_EXECUTION);
+                }
+            }
 
             return toDetailInfo(execution);
         } catch (ExecutionException executionException) {
