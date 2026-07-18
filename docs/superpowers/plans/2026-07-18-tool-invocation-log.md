@@ -2,6 +2,28 @@
 
 Spec: `docs/superpowers/specs/2026-07-18-tool-invocation-log-design.md`
 
+## Status (2026-07-18)
+
+Shipped and verified (local Gradle 8.14.3 / JDK 21 → Java 25 toolchain; client `npm`):
+
+- **Phase 1** — `platform-tool-execution` (api + service); `ToolExecutionRecorder` wired into all five
+  choke points (automation + embedded MCP component/workflow closures, embedded
+  `executeAction`/`executeTool`). Metrics + logs + `ToolExecutionEvent` publish.
+- **Phase 2** — `platform-tool-invocation-log` (api + service); `tool_invocation_log` table + async
+  best-effort listener + paged/filtered read + retention job; wired into `server-app` + `execution-app`.
+- **Phase 3 (partial)** — `platform-tool-invocation-log-graphql` (`toolInvocationLogs` query) + client
+  data layer (`useToolInvocationLogsQuery`) + a **Tool Invocations tab on the automation Executions
+  page** (nav renamed "Workflow Executions" → "Executions", route `executions/tool-invocations`,
+  `ToolInvocationsTable` + filters + a vitest test).
+
+Remaining (breadth extensions of the shipped automation slice — same pattern):
+
+- Embedded Executions page Tool Invocations tab (`ee/pages/embedded/workflow-executions`).
+- Scoped Invocations tabs on the MCP-server sheet (mcpServerId pre-filter) and the embedded
+  connected-user sheet (connectedUserId pre-filter).
+- Optional public per-connected-user history REST endpoint.
+- Populate `workspace_id` on automation MCP events (resolve from mcpServer) for workspace-scoped reads.
+
 Delivered in phases; each phase is independently shippable. Phase 1 alone closes the
 "completely blind" gap (metrics + structured logs) with no new table and no EE code.
 
