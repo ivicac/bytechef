@@ -1,11 +1,43 @@
 import AiHubToolCallRenderer from '@/pages/automation/ai-hub/messages/AiHubToolCallRenderer';
+import {aiHubTabsStore} from '@/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import {aiChatToolCallStore} from '@/shared/components/ai-chat/stores/useAiChatToolCallStore';
-import {fireEvent, render, screen} from '@testing-library/react';
-import {beforeEach, describe, expect, it} from 'vitest';
+import {fireEvent, render, screen, waitFor} from '@testing-library/react';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
+
+const {mockGetProject, mockToastError} = vi.hoisted(() => ({
+    mockGetProject: vi.fn(),
+    mockToastError: vi.fn(),
+}));
+
+vi.mock('@/shared/middleware/automation/configuration', async () => {
+    const actual = await vi.importActual<Record<string, unknown>>('@/shared/middleware/automation/configuration');
+
+    class MockProjectApi {
+        getProject = mockGetProject;
+    }
+
+    return {
+        ...actual,
+        ProjectApi: MockProjectApi,
+    };
+});
+
+vi.mock('sonner', () => ({
+    toast: {
+        error: mockToastError,
+    },
+}));
 
 describe('AiHubToolCallRenderer', () => {
     beforeEach(() => {
         aiChatToolCallStore.setState({order: [], toolCalls: {}});
+        aiHubTabsStore.setState({
+            activeTabId: undefined,
+            openTabs: [],
+            rightPanelOpen: false,
+        });
+        mockGetProject.mockReset();
+        mockToastError.mockReset();
     });
 
     it('renders the tool name in the header', () => {
@@ -119,5 +151,133 @@ describe('AiHubToolCallRenderer', () => {
         render(<AiHubToolCallRenderer toolCallId="call-rcw" toolName="runChatWorkflow" />);
 
         expect(screen.getByText(/Waiting for workflow output/i)).toBeInTheDocument();
+    });
+
+    describe('openCustomComponentTab', () => {
+        it('renders as a clickable artifact link instead of a JSON card', () => {
+            render(
+                <AiHubToolCallRenderer
+                    args={{customComponentId: 'cc-1', name: 'My Component'}}
+                    result={{opened: true}}
+                    toolCallId="call-cc"
+                    toolName="openCustomComponentTab"
+                />
+            );
+
+            expect(screen.getByText('My Component')).toBeInTheDocument();
+            expect(screen.getByText('Custom Component')).toBeInTheDocument();
+            expect(screen.queryByText('Input')).toBeNull();
+        });
+
+        it('dispatches openCustomComponentTab on click', () => {
+            render(
+                <AiHubToolCallRenderer
+                    args={{customComponentId: 'cc-1', name: 'My Component'}}
+                    result={{opened: true}}
+                    toolCallId="call-cc"
+                    toolName="openCustomComponentTab"
+                />
+            );
+
+            fireEvent.click(screen.getByRole('button'));
+
+            const openTabs = aiHubTabsStore.getState().openTabs;
+
+            expect(openTabs).toHaveLength(1);
+            expect(openTabs[0]).toMatchObject({
+                customComponentId: 'cc-1',
+                kind: 'customComponent',
+                name: 'My Component',
+            });
+        });
+    });
+
+    describe('openCodeWorkflowTab', () => {
+        it('renders as a clickable artifact link instead of a JSON card', () => {
+            render(
+                <AiHubToolCallRenderer
+                    args={{language: 'PYTHON', name: 'My Code Workflow', projectId: '11'}}
+                    result={{opened: true}}
+                    toolCallId="call-cw"
+                    toolName="openCodeWorkflowTab"
+                />
+            );
+
+            expect(screen.getByText('My Code Workflow')).toBeInTheDocument();
+            expect(screen.getByText('Code Workflow')).toBeInTheDocument();
+            expect(screen.queryByText('Input')).toBeNull();
+        });
+
+        it('dispatches openCodeWorkflowTab directly when args carry a language', () => {
+            render(
+                <AiHubToolCallRenderer
+                    args={{language: 'PYTHON', name: 'My Code Workflow', projectId: '11'}}
+                    result={{opened: true}}
+                    toolCallId="call-cw"
+                    toolName="openCodeWorkflowTab"
+                />
+            );
+
+            fireEvent.click(screen.getByRole('button'));
+
+            const openTabs = aiHubTabsStore.getState().openTabs;
+
+            expect(openTabs).toHaveLength(1);
+            expect(openTabs[0]).toMatchObject({
+                kind: 'codeWorkflow',
+                language: 'PYTHON',
+                name: 'My Code Workflow',
+                projectId: '11',
+            });
+            expect(mockGetProject).not.toHaveBeenCalled();
+        });
+
+        it('fetches the project language and opens the tab when args have no language (rehydrated card)', async () => {
+            mockGetProject.mockResolvedValue({codeWorkflowLanguage: 'JAVASCRIPT', id: 1});
+
+            render(
+                <AiHubToolCallRenderer
+                    args={{name: 'My Code Workflow', projectId: '11'}}
+                    result={{opened: true}}
+                    toolCallId="call-cw"
+                    toolName="openCodeWorkflowTab"
+                />
+            );
+
+            fireEvent.click(screen.getByRole('button'));
+
+            expect(mockGetProject).toHaveBeenCalledWith({id: 11});
+
+            await waitFor(() => expect(aiHubTabsStore.getState().openTabs).toHaveLength(1));
+
+            const openedTab = aiHubTabsStore.getState().openTabs[0]!;
+
+            expect(openedTab).toMatchObject({
+                kind: 'codeWorkflow',
+                language: 'JAVASCRIPT',
+                name: 'My Code Workflow',
+                projectId: '11',
+            });
+            expect(mockToastError).not.toHaveBeenCalled();
+        });
+
+        it('surfaces a toast and does not open a tab when the project fetch fails', async () => {
+            mockGetProject.mockRejectedValue(new Error('network down'));
+
+            render(
+                <AiHubToolCallRenderer
+                    args={{name: 'My Code Workflow', projectId: '11'}}
+                    result={{opened: true}}
+                    toolCallId="call-cw"
+                    toolName="openCodeWorkflowTab"
+                />
+            );
+
+            fireEvent.click(screen.getByRole('button'));
+
+            await waitFor(() => expect(mockToastError).toHaveBeenCalledWith(expect.stringContaining('network down')));
+
+            expect(aiHubTabsStore.getState().openTabs).toHaveLength(0);
+        });
     });
 });

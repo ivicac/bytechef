@@ -1,11 +1,14 @@
 import Badge from '@/components/Badge/Badge';
 import {aiHubTabsStore} from '@/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import {ToolCallEntryI, useAiChatToolCallStore} from '@/shared/components/ai-chat/stores/useAiChatToolCallStore';
+import {ProjectApi} from '@/shared/middleware/automation/configuration';
 import {
     AlertCircleIcon,
+    BlocksIcon,
     CheckCircle2Icon,
     ChevronDownIcon,
     ChevronRightIcon,
+    CodeIcon,
     DatabaseIcon,
     FileTextIcon,
     LayersIcon,
@@ -17,6 +20,7 @@ import {
     WrenchIcon,
 } from 'lucide-react';
 import {ComponentType, ReactNode, useState} from 'react';
+import {toast} from 'sonner';
 import {twMerge} from 'tailwind-merge';
 
 import type {ToolCallMessagePartProps} from '@assistant-ui/react';
@@ -392,10 +396,38 @@ const SPECIAL_BODIES: Record<string, ComponentType<SpecialRendererProps>> = {
 // as a compact clickable artifact link (name + kind) that re-opens the tab on click — the in-chat equivalent
 // of an artifact row in the left sidebar.
 const ARTIFACT_OPEN_META: Record<string, {icon: ComponentType<{className?: string}>; kind: string}> = {
+    openCodeWorkflowTab: {icon: CodeIcon, kind: 'Code Workflow'},
+    openCustomComponentTab: {icon: BlocksIcon, kind: 'Custom Component'},
     openDataTableTab: {icon: DatabaseIcon, kind: 'Data Table'},
     openFileTab: {icon: FileTextIcon, kind: 'File'},
     openKnowledgeBaseTab: {icon: LayersIcon, kind: 'Knowledge Base'},
     openWorkflowTab: {icon: WorkflowIcon, kind: 'Workflow'},
+};
+
+/**
+ * Live openCodeWorkflowTab tool calls carry `language` directly, but REHYDRATED cards (see
+ * useSwitchTask's artifactToOpenToolCall) only carry `{name, projectId}` — the artifact row never stashed
+ * the language (the server-side recorder only stores projectId + name). Resolve it the same way the
+ * sidebar's quick-open does (AiHubTasksSidebar.openCodeWorkflowArtifact): fetch the project and read its
+ * `codeWorkflowLanguage`. A missing language means the project is no longer code-backed (e.g. converted
+ * back to a visual workflow) — surface that as a toast instead of opening a tab with a bogus language.
+ */
+const openCodeWorkflowArtifact = async (projectId: string, name: string): Promise<void> => {
+    try {
+        const project = await new ProjectApi().getProject({id: Number(projectId)});
+
+        if (!project.codeWorkflowLanguage) {
+            toast.error(`"${name}" is no longer a code workflow.`);
+
+            return;
+        }
+
+        aiHubTabsStore.getState().openCodeWorkflowTab(projectId, project.codeWorkflowLanguage, name);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        toast.error(`Failed to open "${name}": ${message}`);
+    }
 };
 
 const openArtifactTab = (toolName: string, args: Record<string, unknown> | undefined) => {
@@ -415,6 +447,14 @@ const openArtifactTab = (toolName: string, args: Record<string, unknown> | undef
         tabsStore.openDataTableTab(String(args.dataTableId), name);
     } else if (toolName === 'openKnowledgeBaseTab' && args?.knowledgeBaseId != null) {
         tabsStore.openKnowledgeBaseTab(String(args.knowledgeBaseId), name);
+    } else if (toolName === 'openCustomComponentTab' && args?.customComponentId != null) {
+        tabsStore.openCustomComponentTab(String(args.customComponentId), name);
+    } else if (toolName === 'openCodeWorkflowTab' && typeof args?.projectId === 'string') {
+        if (typeof args?.language === 'string' && args.language) {
+            tabsStore.openCodeWorkflowTab(args.projectId, args.language, name);
+        } else {
+            void openCodeWorkflowArtifact(args.projectId, name);
+        }
     }
 };
 

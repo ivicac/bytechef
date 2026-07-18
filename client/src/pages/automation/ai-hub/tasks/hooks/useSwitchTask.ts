@@ -61,11 +61,12 @@ function artifactToOpenToolCall(
         case 'CODE_WORKFLOW_REFERENCED':
             // Same shape as CUSTOM_COMPONENT_REFERENCED below — artifactId IS the projectId. The `language`
             // openCodeWorkflowTab needs isn't stashed on the artifact (the recorder only stores projectId +
-            // name), and this rehydrated tool-call args blob is display-only (there's no ARTIFACT_OPEN_META
-            // entry for openCustomComponentTab/openCodeWorkflowTab yet, so it renders as a plain JSON card,
-            // same as the customComponent case) — so we mirror customComponent's metadata-only shape rather
-            // than paying for a project fetch per artifact on every task switch. The sidebar's live
-            // quick-open (AiHubTasksSidebar.openCodeWorkflowArtifact) does the real language resolution.
+            // name), so this rehydrated tool-call args blob omits it rather than paying for a project fetch
+            // per artifact on every task switch. Both openCustomComponentTab and openCodeWorkflowTab have
+            // ARTIFACT_OPEN_META entries, so the card still renders as a clickable ArtifactLink, not plain
+            // JSON — AiHubToolCallRenderer's openArtifactTab resolves the missing language lazily on click,
+            // the same project-fetch-then-open flow as the sidebar's live quick-open
+            // (AiHubTasksSidebar.openCodeWorkflowArtifact).
             return {
                 args: {name: artifact.artifactName, projectId: artifact.artifactId},
                 toolName: 'openCodeWorkflowTab',
