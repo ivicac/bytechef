@@ -31,6 +31,8 @@ There are three ways to use Copilot:
 
 Open the Copilot panel from the editor toolbar by clicking the **AI Copilot** button (sparkle icon). Use the **Ask** / **Build** toggle at the top of the panel to switch modes, and the model picker to choose which LLM answers (see [Choosing the model](#choosing-the-model)).
 
+{/* TODO screenshot: workflow editor with the Copilot panel docked on the right — Ask/Build toggle and model picker at the top of the panel, a conversation in progress, sparkle button visible on the editor toolbar */}
+
 ### Where it appears
 
 Copilot is context-aware: each surface has its own pair of Ask and Build agents wired with surface-specific tools and prompts.
@@ -97,7 +99,9 @@ Generation runs synchronously and can take up to a few minutes for a complex wor
 
 ## Inline generation
 
-Throughout the workflow editor, fields that Copilot can fill show a small **sparkle** button. Click it, describe what you want in plain language, and Copilot generates the value in place. Each generator validates its output and automatically retries once if the first attempt is not usable; if it still cannot produce a valid result it returns the draft with a note so you can review it.
+Throughout the workflow editor, fields that Copilot can fill show a small **sparkle** button. Click it, describe what you want in plain language, and Copilot generates the value in place.
+
+{/* TODO screenshot: node properties panel with a field's sparkle button clicked open — the inline prompt popover where you describe the value to generate */} Each generator validates its output and automatically retries once if the first attempt is not usable; if it still cannot produce a valid result it returns the draft with a note so you can review it.
 
 | Generator | Where | What it produces |
 |---|---|---|

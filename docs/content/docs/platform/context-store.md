@@ -13,6 +13,12 @@ The Context Store keeps a synced replica of records from external systems (CRMs,
 
 Each **Context Store source** binds an external connector (HubSpot, Salesforce, a JSON file, etc.) to a sync cadence and a set of **entities** — named record shapes with declared indexed fields. The sync engine runs on the configured cadence, writes new and changed records into the store, and tombstones rows that have disappeared from upstream.
 
+Open **Context Store** from the automation sidebar (under the **Deployments** group) to see your sources, then use **Add Source** to bind a connector, choose a records backend, and define entities.
+
+<!-- TODO screenshot: Context Store page — list of sources with sync status, and the Add Source dialog open showing the connector picker, sync cadence, and (when ClickHouse is configured) the Records Backend selector -->
+<!-- TODO screenshot: source detail view — its entities with their indexed fields, plus last-sync timestamp and record counts -->
+
+
 ---
 
 ## Records backend

@@ -11,6 +11,8 @@ ByteChef exposes a [Model Context Protocol (MCP)](https://modelcontextprotocol.i
 
 ## Get Your MCP Server URL
 
+<!-- TODO screenshot: Settings → MCP Server page — the server URL field with copy button, the Require authentication toggle, and the regenerate-secret control -->
+
 1. Open ByteChef and go to **Settings** → **MCP Server**
 2. Copy the MCP server URL — it has the form:
 
