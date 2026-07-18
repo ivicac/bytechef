@@ -39,6 +39,7 @@ import java.util.Map;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.openapitools.jackson.nullable.JsonNullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.ResponseEntity;
@@ -79,12 +80,14 @@ class WorkflowExecutionApiControllerTest {
 
     @Test
     void testGetWorkflowExecutionsPageMapsToBasicModels() {
+        WorkflowExecutionDTO workflowExecutionDTO = createWorkflowExecutionDTO();
+
         when(environmentService.getEnvironment("PRODUCTION")).thenReturn(Environment.PRODUCTION);
         when(
             integrationWorkflowExecutionFacade.getWorkflowExecutions(
                 eq((long) Environment.PRODUCTION.ordinal()), eq(Job.Status.COMPLETED), eq(START_DATE), eq(END_DATE),
                 isNull(), eq(20L), isNull(), eq(0)))
-                    .thenReturn(new PageImpl<>(List.of(createWorkflowExecutionDTO())));
+                    .thenReturn(new PageImpl<>(List.of(workflowExecutionDTO)));
 
         ResponseEntity<Page> response = workflowExecutionApiController.getWorkflowExecutionsPage(
             EXTERNAL_USER_ID, EnvironmentModel.PRODUCTION, WorkflowExecutionStatusModel.COMPLETED,
@@ -131,7 +134,9 @@ class WorkflowExecutionApiControllerTest {
 
     @Test
     void testGetWorkflowExecutionMapsFullDetail() {
-        when(integrationWorkflowExecutionFacade.getWorkflowExecution(1000L)).thenReturn(createWorkflowExecutionDTO());
+        WorkflowExecutionDTO workflowExecutionDTO = createWorkflowExecutionDTO();
+
+        when(integrationWorkflowExecutionFacade.getWorkflowExecution(1000L)).thenReturn(workflowExecutionDTO);
 
         ResponseEntity<WorkflowExecutionModel> response = workflowExecutionApiController.getWorkflowExecution(
             EXTERNAL_USER_ID, 1000L);
@@ -154,7 +159,7 @@ class WorkflowExecutionApiControllerTest {
         assertThat(taskExecutionModel.getName()).isEqualTo("httpRequest1");
         assertThat(taskExecutionModel.getStatus()).isEqualTo(TaskExecutionModel.StatusEnum.COMPLETED);
         assertThat(taskExecutionModel.getInput()).isEqualTo(Map.of("url", "https://example.com"));
-        assertThat(taskExecutionModel.getOutput()).isEqualTo(Map.of("body", "ok"));
+        assertThat(taskExecutionModel.getOutput()).isEqualTo(JsonNullable.of(Map.of("body", "ok")));
     }
 
     @Test

@@ -35,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.openapitools.jackson.nullable.JsonNullable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.http.ResponseEntity;
@@ -117,7 +118,9 @@ class WorkflowExecutionApiControllerTest {
 
     @Test
     void testGetWorkflowExecutionMapsFullDetail() {
-        when(projectWorkflowExecutionFacade.getWorkflowExecution(1000L)).thenReturn(createWorkflowExecutionDTO());
+        WorkflowExecutionDTO workflowExecutionDTO = createWorkflowExecutionDTO();
+
+        when(projectWorkflowExecutionFacade.getWorkflowExecution(1000L)).thenReturn(workflowExecutionDTO);
 
         ResponseEntity<WorkflowExecutionModel> response = workflowExecutionApiController.getWorkflowExecution(1000L);
 
@@ -141,7 +144,7 @@ class WorkflowExecutionApiControllerTest {
         assertThat(taskExecutionModel.getType()).isEqualTo("httpClient/v1/get");
         assertThat(taskExecutionModel.getStatus()).isEqualTo(TaskExecutionModel.StatusEnum.COMPLETED);
         assertThat(taskExecutionModel.getInput()).isEqualTo(Map.of("url", "https://example.com"));
-        assertThat(taskExecutionModel.getOutput()).isEqualTo(Map.of("body", "ok"));
+        assertThat(taskExecutionModel.getOutput()).isEqualTo(JsonNullable.of(Map.of("body", "ok")));
 
         assertThat(taskExecutionModel.getError()).isNotNull();
         assertThat(taskExecutionModel.getError()
