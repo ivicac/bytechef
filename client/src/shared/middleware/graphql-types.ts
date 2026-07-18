@@ -5999,6 +5999,7 @@ export type Query = {
   toolEligibleIntegrationInstanceConfigurationWorkflows: Array<IntegrationWorkflow>;
   toolEligibleIntegrationVersionWorkflows: Array<IntegrationWorkflow>;
   toolEligibleProjectVersionWorkflows: Array<ProjectWorkflow>;
+  toolInvocationLogs: ToolInvocationLogPageType;
   triggerDefinition: TriggerDefinition;
   triggerDefinitions: Array<TriggerDefinition>;
   unifiedApiComponentDefinitions: Array<ComponentDefinition>;
@@ -7055,6 +7056,18 @@ export type QueryToolEligibleProjectVersionWorkflowsArgs = {
 };
 
 
+export type QueryToolInvocationLogsArgs = {
+  connectedUserId?: InputMaybe<Scalars['Long']['input']>;
+  fromDate?: InputMaybe<Scalars['Long']['input']>;
+  integrationInstanceId?: InputMaybe<Scalars['Long']['input']>;
+  mcpServerId?: InputMaybe<Scalars['Long']['input']>;
+  outcome?: InputMaybe<Scalars['String']['input']>;
+  page?: InputMaybe<Scalars['Int']['input']>;
+  surface?: InputMaybe<Scalars['String']['input']>;
+  toDate?: InputMaybe<Scalars['Long']['input']>;
+};
+
+
 export type QueryTriggerDefinitionArgs = {
   componentName: Scalars['String']['input'];
   componentVersion: Scalars['Int']['input'];
@@ -7414,6 +7427,39 @@ export enum TombstoneStrategy {
   PeriodicFullReplace = 'PERIODIC_FULL_REPLACE',
   UpstreamChangeFeed = 'UPSTREAM_CHANGE_FEED'
 }
+
+export type ToolInvocationLogPageType = {
+  __typename?: 'ToolInvocationLogPageType';
+  content: Array<ToolInvocationLogType>;
+  number: Scalars['Int']['output'];
+  size: Scalars['Int']['output'];
+  totalElements: Scalars['Int']['output'];
+  totalPages: Scalars['Int']['output'];
+};
+
+export type ToolInvocationLogType = {
+  __typename?: 'ToolInvocationLogType';
+  componentName?: Maybe<Scalars['String']['output']>;
+  componentVersion?: Maybe<Scalars['Int']['output']>;
+  connectedUserId?: Maybe<Scalars['Long']['output']>;
+  connectionId?: Maybe<Scalars['Long']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  durationMs: Scalars['Int']['output'];
+  environment?: Maybe<Scalars['Int']['output']>;
+  errorMessage?: Maybe<Scalars['String']['output']>;
+  errorType?: Maybe<Scalars['String']['output']>;
+  externalUserId?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  integrationInstanceId?: Maybe<Scalars['Long']['output']>;
+  jobId?: Maybe<Scalars['Long']['output']>;
+  kind: Scalars['String']['output'];
+  mcpServerId?: Maybe<Scalars['Long']['output']>;
+  operationName?: Maybe<Scalars['String']['output']>;
+  outcome: Scalars['String']['output'];
+  surface: Scalars['String']['output'];
+  toolName?: Maybe<Scalars['String']['output']>;
+  workspaceId?: Maybe<Scalars['Long']['output']>;
+};
 
 export type ToolableClusterElement = {
   __typename?: 'ToolableClusterElement';
