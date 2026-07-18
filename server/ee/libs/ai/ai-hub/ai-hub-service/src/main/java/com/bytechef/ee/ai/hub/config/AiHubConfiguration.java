@@ -20,13 +20,11 @@ import com.bytechef.ai.copilot.tool.CustomComponentAgentToolCallback;
 import com.bytechef.ai.copilot.tool.DataTableAgentToolCallback;
 import com.bytechef.ai.copilot.tool.KnowledgeBaseAgentToolCallback;
 import com.bytechef.ai.copilot.tool.ListConnectionsForComponentToolCallback;
-import com.bytechef.ai.copilot.tool.LookupActionPropertyOptionsToolCallback;
-import com.bytechef.ai.copilot.tool.LookupTriggerPropertyOptionsToolCallback;
+import com.bytechef.ai.copilot.tool.LookupComponentPropertyOptionsToolCallback;
 import com.bytechef.ai.copilot.tool.PropertyOptionsResolver;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
+import com.bytechef.ai.copilot.tool.SelectComponentPropertyOptionToolCallback;
 import com.bytechef.ai.copilot.tool.SelectConnectionToolCallback;
-import com.bytechef.ai.copilot.tool.SelectPropertyOptionToolCallback;
-import com.bytechef.ai.copilot.tool.SelectTriggerPropertyOptionToolCallback;
 import com.bytechef.ai.copilot.tool.SkillsAgentToolCallback;
 import com.bytechef.ai.copilot.tool.WorkflowEditorAgentToolCallback;
 import com.bytechef.ai.copilot.tool.WorkflowExecutionAgentToolCallback;
@@ -73,14 +71,8 @@ import com.bytechef.ee.ai.hub.tool.ListAssetFilesToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListChatWorkflowsToolCallback;
 import com.bytechef.ee.ai.hub.tool.ListTaskToolsToolCallback;
 import com.bytechef.ee.ai.hub.tool.OpenAiHubPersonalAgentTabToolCallback;
-import com.bytechef.ee.ai.hub.tool.OpenCodeWorkflowTabToolCallback;
-import com.bytechef.ee.ai.hub.tool.OpenCustomComponentTabToolCallback;
-import com.bytechef.ee.ai.hub.tool.OpenDataTableTabToolCallback;
-import com.bytechef.ee.ai.hub.tool.OpenFileTabToolCallback;
-import com.bytechef.ee.ai.hub.tool.OpenKnowledgeBaseTabToolCallback;
-import com.bytechef.ee.ai.hub.tool.OpenSkillTabToolCallback;
+import com.bytechef.ee.ai.hub.tool.OpenResourceTabToolCallback;
 import com.bytechef.ee.ai.hub.tool.OpenWorkflowChatTabToolCallback;
-import com.bytechef.ee.ai.hub.tool.OpenWorkflowTabToolCallback;
 import com.bytechef.ee.ai.hub.tool.RemoveTaskToolToolCallback;
 import com.bytechef.ee.ai.hub.tool.RunChatWorkflowToolCallback;
 import com.bytechef.ee.ai.hub.tool.memory.DbAutoMemoryDirectoryOps;
@@ -206,7 +198,6 @@ public class AiHubConfiguration {
         AiHubTaskToolFacade taskToolFacade,
         ComponentDefinitionService componentDefinitionService,
         ConnectionDefinitionService connectionDefinitionService,
-        ConnectionService connectionService,
         WorkspaceConnectionFacade workspaceConnectionFacade,
         ActionDefinitionService actionDefinitionService,
         ActionDefinitionFacade actionDefinitionFacade,
@@ -233,26 +224,20 @@ public class AiHubConfiguration {
                 new ProgressReportingToolCallback(
                     ResearchConfiguration.createResearchToolCallback(researchChatClient), "research")));
 
-        toolCallbacks.add(new OpenFileTabToolCallback());
-        // ASK mode is read-only (never builds workflows), so no server-side artifact recorder is wired —
-        // the client still records the reference when the tab opens.
-        toolCallbacks.add(new OpenWorkflowTabToolCallback(null));
+        // Consolidated open-tab tool (type-keyed) replaces the seven per-resource variants on the pinned
+        // list. ASK mode is read-only (never builds workflows), so no server-side artifact recorder is
+        // wired — the client still records the reference when the tab opens.
+        toolCallbacks.add(new OpenResourceTabToolCallback(null));
         toolCallbacks.add(new OpenWorkflowChatTabToolCallback());
-        toolCallbacks.add(new OpenDataTableTabToolCallback(null));
-        toolCallbacks.add(new OpenKnowledgeBaseTabToolCallback(null));
-        toolCallbacks.add(new OpenSkillTabToolCallback(null));
-        toolCallbacks.add(new OpenCustomComponentTabToolCallback(null));
-        toolCallbacks.add(new OpenCodeWorkflowTabToolCallback(null));
         // Read-only asset-file access. The ASK prompt documents listAssetFiles/getAssetFileContent, and without
         // these registrations the model's direct calls fail with "No ToolCallback found". Creation stays
         // BUILD-only. Row-level data-table reads are delegated to the data_table_agent specialist instead of a
         // flat queryDataTable — the specialist already owns the read tool set.
         toolCallbacks.add(new GetAssetFileContentToolCallback(assetFileFacade));
         toolCallbacks.add(new ListAssetFilesToolCallback(assetFileFacade));
-        toolCallbacks.add(
-            new AttachTaskToolToolCallback(taskService, taskToolFacade, connectionService, aiHubToolAttachMetrics));
-        toolCallbacks.add(
-            new RemoveTaskToolToolCallback(taskService, taskToolFacade));
+        // attachTaskTool/removeTaskTool are deliberately NOT registered here: the ASK prompt declares tool
+        // attachment a BUILD-only mutation ("suggest switching to BUILD mode"), so the registrations were
+        // dead weight the prompt forbade the model from using.
         toolCallbacks.add(new AskUserQuestionToolCallback(aiHubToolAttachMetrics));
 
         // Task / connection state visibility — read-only. Lets the LLM avoid duplicate attaches and pick
@@ -405,14 +390,9 @@ public class AiHubConfiguration {
             toolCallbacks, mcpManagerChatClientProvider, personalAgentManagerChatClientProvider,
             deploymentManagerChatClientProvider, apiCollectionManagerChatClientProvider);
 
-        toolCallbacks.add(new OpenFileTabToolCallback());
-        toolCallbacks.add(new OpenWorkflowTabToolCallback(aiHubTaskArtifactRecorder));
+        // Consolidated open-tab tool (type-keyed) replaces the seven per-resource variants on the pinned list.
+        toolCallbacks.add(new OpenResourceTabToolCallback(aiHubTaskArtifactRecorder));
         toolCallbacks.add(new OpenWorkflowChatTabToolCallback());
-        toolCallbacks.add(new OpenDataTableTabToolCallback(aiHubTaskArtifactRecorder));
-        toolCallbacks.add(new OpenKnowledgeBaseTabToolCallback(aiHubTaskArtifactRecorder));
-        toolCallbacks.add(new OpenSkillTabToolCallback(aiHubTaskArtifactRecorder));
-        toolCallbacks.add(new OpenCustomComponentTabToolCallback(aiHubTaskArtifactRecorder));
-        toolCallbacks.add(new OpenCodeWorkflowTabToolCallback(aiHubTaskArtifactRecorder));
         // Row-level data-table reads are delegated to the data_analyst / data_table_agent specialists instead of
         // a flat queryDataTable — both specialists already own the read tool set.
         toolCallbacks.add(
@@ -775,18 +755,16 @@ public class AiHubConfiguration {
             new ListConnectionsForComponentToolCallback(
                 componentDefinitionService, connectionDefinitionService, aiHubToolAttachMetrics,
                 List.of(new WorkspaceCopilotConnectionLister(workspaceConnectionFacade, propertyOptionsResolver))));
+        // Unified kind-keyed lookup/select pair replaces the four action/trigger twins on the pinned list. The
+        // emitted select-property-option marker is unchanged, so the chat client's picker rendering still works.
         toolCallbacks.add(
-            new LookupActionPropertyOptionsToolCallback(
-                actionDefinitionService, actionDefinitionFacade, propertyOptionsResolver, aiHubToolAttachMetrics));
+            new LookupComponentPropertyOptionsToolCallback(
+                actionDefinitionService, actionDefinitionFacade, triggerDefinitionService, triggerDefinitionFacade,
+                propertyOptionsResolver, aiHubToolAttachMetrics));
         toolCallbacks.add(
-            new LookupTriggerPropertyOptionsToolCallback(
-                triggerDefinitionService, triggerDefinitionFacade, propertyOptionsResolver, aiHubToolAttachMetrics));
-        toolCallbacks.add(
-            new SelectPropertyOptionToolCallback(
-                actionDefinitionService, actionDefinitionFacade, propertyOptionsResolver, aiHubToolAttachMetrics));
-        toolCallbacks.add(
-            new SelectTriggerPropertyOptionToolCallback(
-                triggerDefinitionService, triggerDefinitionFacade, propertyOptionsResolver, aiHubToolAttachMetrics));
+            new SelectComponentPropertyOptionToolCallback(
+                actionDefinitionService, actionDefinitionFacade, triggerDefinitionService, triggerDefinitionFacade,
+                propertyOptionsResolver, aiHubToolAttachMetrics));
     }
 
     private String getSystemPrompt(Resource systemPromptResource) {
