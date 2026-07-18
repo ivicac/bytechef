@@ -30,6 +30,7 @@ import {
 } from '@/pages/automation/ai-hub/tasks/hooks/useTasks';
 import {aiHubTasksStore, useAiHubTasksStore} from '@/pages/automation/ai-hub/tasks/stores/useAiHubTasksStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
+import {ProjectApi} from '@/shared/middleware/automation/configuration';
 import {
     useCancelAiHubRunMutation,
     useCancelWorkflowChatTurnMutation,
@@ -46,6 +47,7 @@ import {
     ChevronDownIcon,
     ChevronLeftIcon,
     ChevronRightIcon,
+    CodeIcon,
     DatabaseIcon,
     FileTextIcon,
     HexagonIcon,
@@ -133,6 +135,10 @@ function getArtifactIcon(kind: AiHubArtifactKindType) {
         return <BlocksIcon className="size-3.5 shrink-0 text-muted-foreground" />;
     }
 
+    if (kind === 'CODE_WORKFLOW_REFERENCED') {
+        return <CodeIcon className="size-3.5 shrink-0 text-muted-foreground" />;
+    }
+
     return <WrenchIcon className="size-3.5 shrink-0 text-muted-foreground" />;
 }
 
@@ -169,6 +175,11 @@ function parseMetadataJson(metadataJson: string | null): Record<string, string> 
  *   same shape as DATA_TABLE_REFERENCED / KB_REFERENCED)
  * - CUSTOM_COMPONENT_REFERENCED → opens custom-component tab using artifactId directly, same shape as
  *   SKILL_REFERENCED
+ * - CODE_WORKFLOW_REFERENCED → artifactId IS the projectId (same shape as CUSTOM_COMPONENT_REFERENCED),
+ *   but openCodeWorkflowTab also needs a `language`, which the artifact row doesn't carry (the recorder
+ *   only stashes artifactId + name). We fetch the project via ProjectApi().getProject on click and read
+ *   its `codeWorkflowLanguage`; if the fetch fails or the project is no longer code-backed, we surface a
+ *   toast instead of opening a tab.
  *
  * Limitation: if metadataJson doesn't carry the parent entity id (projectId / dataTableId /
  * knowledgeBaseId), the artifact row is rendered as non-clickable (icon + name + timestamp only).
@@ -274,7 +285,35 @@ export function reconcileProbedTaskActivity({
     return decision;
 }
 
-export function handleArtifactQuickOpen(artifact: AiHubTaskArtifactI): void {
+/**
+ * CODE_WORKFLOW_REFERENCED's artifact row only carries artifactId (= projectId) + name — the language
+ * `openCodeWorkflowTab` needs was never stashed on the artifact (see {@link OpenCodeWorkflowTabToolCallback}
+ * on the server, which only records projectId + name). Fetch the project and read its
+ * `codeWorkflowLanguage` (added alongside code workflows) rather than inventing a value. A missing
+ * language means the project is no longer code-backed (e.g. converted back to a visual workflow) — surface
+ * that as a toast instead of opening a tab with a bogus language.
+ */
+async function openCodeWorkflowArtifact(artifact: AiHubTaskArtifactI): Promise<void> {
+    try {
+        const project = await new ProjectApi().getProject({id: Number(artifact.artifactId)});
+
+        if (!project.codeWorkflowLanguage) {
+            toast.error(`"${artifact.artifactName}" is no longer a code workflow.`);
+
+            return;
+        }
+
+        aiHubTabsStore
+            .getState()
+            .openCodeWorkflowTab(artifact.artifactId, project.codeWorkflowLanguage, artifact.artifactName);
+    } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+
+        toast.error(`Failed to open "${artifact.artifactName}": ${message}`);
+    }
+}
+
+export async function handleArtifactQuickOpen(artifact: AiHubTaskArtifactI): Promise<void> {
     const metadata = parseMetadataJson(artifact.metadataJson);
 
     // FILE_REFERENCED carries the same artifactId shape as FILE_CREATED (asset_file id), so a single
@@ -363,6 +402,12 @@ export function handleArtifactQuickOpen(artifact: AiHubTaskArtifactI): void {
 
         return;
     }
+
+    if (artifact.kind === 'CODE_WORKFLOW_REFERENCED') {
+        await openCodeWorkflowArtifact(artifact);
+
+        return;
+    }
 }
 
 /**
@@ -399,7 +444,7 @@ export async function openArtifactInTask(
         aiHubTabsStore.getState().setActiveTaskId(task.id);
     }
 
-    handleArtifactQuickOpen(artifact);
+    await handleArtifactQuickOpen(artifact);
 }
 
 // Reference-kind artifacts are user-attached and removable; agent-driven audit rows
@@ -412,7 +457,8 @@ function isArtifactRemovable(artifact: AiHubTaskArtifactI): boolean {
         artifact.kind === 'DATA_TABLE_REFERENCED' ||
         artifact.kind === 'KB_REFERENCED' ||
         artifact.kind === 'SKILL_REFERENCED' ||
-        artifact.kind === 'CUSTOM_COMPONENT_REFERENCED'
+        artifact.kind === 'CUSTOM_COMPONENT_REFERENCED' ||
+        artifact.kind === 'CODE_WORKFLOW_REFERENCED'
     );
 }
 
@@ -473,6 +519,12 @@ function isArtifactClickable(artifact: AiHubTaskArtifactI): boolean {
 
     if (artifact.kind === 'CUSTOM_COMPONENT_REFERENCED') {
         // Same logic as SKILL_REFERENCED — artifactId IS the custom component id.
+        return !!artifact.artifactId;
+    }
+
+    if (artifact.kind === 'CODE_WORKFLOW_REFERENCED') {
+        // Same logic as CUSTOM_COMPONENT_REFERENCED — artifactId IS the projectId. The language fetch
+        // that quick-open needs happens on click (see openCodeWorkflowArtifact), not here.
         return !!artifact.artifactId;
     }
 

@@ -3,7 +3,7 @@ import {aiHubTasksStore} from '@/pages/automation/ai-hub/tasks/stores/useAiHubTa
 import {act, renderHook} from '@testing-library/react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
-import {AiHubTaskI, getTaskMessages} from '../api/tasks.api';
+import {AiHubTaskArtifactI, AiHubTaskI, getTaskArtifacts, getTaskMessages} from '../api/tasks.api';
 
 vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
     useWorkspaceStore: vi.fn((selector: (state: {currentWorkspaceId: number}) => unknown) =>
@@ -24,6 +24,7 @@ vi.mock('../api/tasks.api', async () => {
 
     return {
         ...actual,
+        getTaskArtifacts: vi.fn(),
         getTaskMessages: vi.fn(),
     };
 });
@@ -35,6 +36,7 @@ vi.mock('./useTasks', () => ({
 const {useSwitchTask} = await import('./useSwitchTask');
 const {reportMutationError} = await import('./useTasks');
 
+const mockGetTaskArtifacts = vi.mocked(getTaskArtifacts);
 const mockGetTaskMessages = vi.mocked(getTaskMessages);
 const mockReportMutationError = vi.mocked(reportMutationError);
 
@@ -59,6 +61,11 @@ const buildTask = (overrides: Partial<AiHubTaskI> = {}): AiHubTaskI => ({
 describe('useSwitchTask', () => {
     beforeEach(() => {
         vi.clearAllMocks();
+
+        // Most tests exercise message mapping only; the artifact-link-card reconstruction is opt-in
+        // per test via mockGetTaskArtifacts.mockResolvedValue([...]). Default to an empty list so
+        // Promise.all's getTaskArtifacts leg resolves cleanly instead of returning undefined.
+        mockGetTaskArtifacts.mockResolvedValue([]);
 
         aiHubStore.setState({messages: [], taskId: 'thread-source'});
         aiHubTasksStore.setState({currentTaskId: 1});
@@ -177,5 +184,79 @@ describe('useSwitchTask', () => {
         });
 
         expect(returned).toBe(true);
+    });
+
+    describe('artifact link card rehydration', () => {
+        const buildArtifact = (overrides: Partial<AiHubTaskArtifactI> = {}): AiHubTaskArtifactI => ({
+            artifactId: 'artifact-1',
+            artifactName: 'Artifact',
+            createdAt: '2026-04-01T00:00:00Z',
+            id: 1,
+            kind: 'CUSTOM_COMPONENT_REFERENCED',
+            metadataJson: null,
+            status: 'APPLIED',
+            taskId: 7,
+            ...overrides,
+        });
+
+        beforeEach(() => {
+            mockGetTaskMessages.mockResolvedValue([]);
+        });
+
+        it('rehydrates a CUSTOM_COMPONENT_REFERENCED artifact as an openCustomComponentTab tool-call card', async () => {
+            mockGetTaskArtifacts.mockResolvedValue([
+                buildArtifact({artifactId: '9', artifactName: 'My Component', kind: 'CUSTOM_COMPONENT_REFERENCED'}),
+            ]);
+
+            const {result} = renderHook(() => useSwitchTask());
+
+            await act(async () => {
+                await result.current(buildTask());
+            });
+
+            const messages = aiHubStore.getState().messages;
+
+            expect(messages).toHaveLength(1);
+
+            const content = messages[0]!.content;
+
+            expect(content).toEqual([
+                expect.objectContaining({
+                    args: {customComponentId: '9', name: 'My Component'},
+                    toolName: 'openCustomComponentTab',
+                    type: 'tool-call',
+                }),
+            ]);
+        });
+
+        it('rehydrates a CODE_WORKFLOW_REFERENCED artifact as an openCodeWorkflowTab tool-call card using artifactId as the projectId', async () => {
+            mockGetTaskArtifacts.mockResolvedValue([
+                buildArtifact({artifactId: '11', artifactName: 'My Code Workflow', kind: 'CODE_WORKFLOW_REFERENCED'}),
+            ]);
+
+            const {result} = renderHook(() => useSwitchTask());
+
+            await act(async () => {
+                await result.current(buildTask());
+            });
+
+            const messages = aiHubStore.getState().messages;
+
+            expect(messages).toHaveLength(1);
+
+            const content = messages[0]!.content;
+
+            // The rehydrated args don't carry `language` — the artifact never stashed it (see
+            // AiHubTasksSidebar's openCodeWorkflowArtifact for the live quick-open path that resolves it
+            // via a project fetch); this reconstructed card is metadata-only, mirroring
+            // CUSTOM_COMPONENT_REFERENCED above.
+            expect(content).toEqual([
+                expect.objectContaining({
+                    args: {name: 'My Code Workflow', projectId: '11'},
+                    toolName: 'openCodeWorkflowTab',
+                    type: 'tool-call',
+                }),
+            ]);
+        });
     });
 });
