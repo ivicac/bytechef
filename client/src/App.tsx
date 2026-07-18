@@ -93,11 +93,13 @@ const automationNavigation: NavigationType[] = [
     },
     {href: '/automation/connections', icon: Link2Icon, name: 'Connections'},
     {
+        group: 'Data',
         href: '/automation/datatables',
         icon: Table2Icon,
         name: 'Data Tables',
     },
     {
+        group: 'Data',
         href: '/automation/knowledge-bases',
         icon: VectorSquareIcon,
         name: 'Knowledge Base',
