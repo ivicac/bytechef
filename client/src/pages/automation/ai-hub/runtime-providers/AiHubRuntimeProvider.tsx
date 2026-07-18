@@ -97,6 +97,19 @@ interface ToolCallErrorResultI {
     error: string;
 }
 
+// openResourceTab is the consolidated variant of the per-type open*Tab tools. Its result carries a `type`
+// discriminator plus the exact legacy field names, so the dispatcher maps it onto the matching legacy branch
+// and reuses the per-type validators and tab-store calls unchanged.
+const OPEN_RESOURCE_TAB_TOOL_NAMES: Record<string, string> = {
+    CODE_WORKFLOW: 'openCodeWorkflowTab',
+    CUSTOM_COMPONENT: 'openCustomComponentTab',
+    DATA_TABLE: 'openDataTableTab',
+    FILE: 'openFileTab',
+    KNOWLEDGE_BASE: 'openKnowledgeBaseTab',
+    SKILL: 'openSkillTab',
+    WORKFLOW: 'openWorkflowTab',
+};
+
 // Runtime narrowing of the openX tool-result JSON into one of the discriminated-union variants. Returning `null`
 // means "unparseable or malformed beyond rescue"; the success/failure split is encoded in the returned object.
 // The validators are intentionally lenient on the failure side — if the LLM returns {opened: false} with no
@@ -597,11 +610,32 @@ export const buildAiHubSubscriber = ({
                 onWorkflowMutated?.();
             }
 
-            if (toolCallName === 'openFileTab') {
+            // openResourceTab consolidates the per-type open*Tab tools server-side; normalize it onto the
+            // matching legacy branch below so the per-type validators and store calls stay the single source
+            // of truth for tab opening.
+            let dispatchToolCallName = toolCallName;
+
+            if (toolCallName === 'openResourceTab') {
+                const resourceResult = parseJson<{type?: unknown}>(event.content, 'openResourceTab result');
+
+                const resourceType =
+                    resourceResult && typeof resourceResult.type === 'string' ? resourceResult.type : null;
+                const legacyToolCallName = resourceType ? OPEN_RESOURCE_TAB_TOOL_NAMES[resourceType] : undefined;
+
+                if (!legacyToolCallName) {
+                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+
+                    return;
+                }
+
+                dispatchToolCallName = legacyToolCallName;
+            }
+
+            if (dispatchToolCallName === 'openFileTab') {
                 const raw = parseJson<unknown>(event.content, 'openFileTab result');
 
                 if (raw === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
@@ -609,23 +643,23 @@ export const buildAiHubSubscriber = ({
                 const parsed = validateOpenFileTabResult(raw);
 
                 if (parsed === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
 
                 if (!parsed.opened) {
-                    surfaceTabOpenFailure(toolCallName, parsed.error);
+                    surfaceTabOpenFailure(dispatchToolCallName, parsed.error);
 
                     return;
                 }
 
                 aiHubTabsStore.getState().openFileTab(parsed.fileId, parsed.name);
-            } else if (toolCallName === 'openWorkflowTab') {
+            } else if (dispatchToolCallName === 'openWorkflowTab') {
                 const raw = parseJson<unknown>(event.content, 'openWorkflowTab result');
 
                 if (raw === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
@@ -633,13 +667,13 @@ export const buildAiHubSubscriber = ({
                 const parsed = validateOpenWorkflowTabResult(raw);
 
                 if (parsed === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
 
                 if (!parsed.opened) {
-                    surfaceTabOpenFailure(toolCallName, parsed.error);
+                    surfaceTabOpenFailure(dispatchToolCallName, parsed.error);
 
                     return;
                 }
@@ -647,11 +681,11 @@ export const buildAiHubSubscriber = ({
                 aiHubTabsStore
                     .getState()
                     .openWorkflowTab(parsed.workflowId, parsed.projectId, parsed.projectWorkflowId, parsed.name);
-            } else if (toolCallName === 'openDataTableTab') {
+            } else if (dispatchToolCallName === 'openDataTableTab') {
                 const raw = parseJson<unknown>(event.content, 'openDataTableTab result');
 
                 if (raw === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
@@ -659,23 +693,23 @@ export const buildAiHubSubscriber = ({
                 const parsed = validateOpenDataTableTabResult(raw);
 
                 if (parsed === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
 
                 if (!parsed.opened) {
-                    surfaceTabOpenFailure(toolCallName, parsed.error);
+                    surfaceTabOpenFailure(dispatchToolCallName, parsed.error);
 
                     return;
                 }
 
                 aiHubTabsStore.getState().openDataTableTab(parsed.dataTableId, parsed.name);
-            } else if (toolCallName === 'openKnowledgeBaseTab') {
+            } else if (dispatchToolCallName === 'openKnowledgeBaseTab') {
                 const raw = parseJson<unknown>(event.content, 'openKnowledgeBaseTab result');
 
                 if (raw === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
@@ -683,23 +717,23 @@ export const buildAiHubSubscriber = ({
                 const parsed = validateOpenKnowledgeBaseTabResult(raw);
 
                 if (parsed === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
 
                 if (!parsed.opened) {
-                    surfaceTabOpenFailure(toolCallName, parsed.error);
+                    surfaceTabOpenFailure(dispatchToolCallName, parsed.error);
 
                     return;
                 }
 
                 aiHubTabsStore.getState().openKnowledgeBaseTab(parsed.knowledgeBaseId, parsed.name);
-            } else if (toolCallName === 'openSkillTab') {
+            } else if (dispatchToolCallName === 'openSkillTab') {
                 const raw = parseJson<unknown>(event.content, 'openSkillTab result');
 
                 if (raw === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
@@ -707,23 +741,23 @@ export const buildAiHubSubscriber = ({
                 const parsed = validateOpenSkillTabResult(raw);
 
                 if (parsed === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
 
                 if (!parsed.opened) {
-                    surfaceTabOpenFailure(toolCallName, parsed.error);
+                    surfaceTabOpenFailure(dispatchToolCallName, parsed.error);
 
                     return;
                 }
 
                 aiHubTabsStore.getState().openSkillTab(parsed.skillId, parsed.name);
-            } else if (toolCallName === 'openCustomComponentTab') {
+            } else if (dispatchToolCallName === 'openCustomComponentTab') {
                 const raw = parseJson<unknown>(event.content, 'openCustomComponentTab result');
 
                 if (raw === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
@@ -731,23 +765,23 @@ export const buildAiHubSubscriber = ({
                 const parsed = validateOpenCustomComponentTabResult(raw);
 
                 if (parsed === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
 
                 if (!parsed.opened) {
-                    surfaceTabOpenFailure(toolCallName, parsed.error);
+                    surfaceTabOpenFailure(dispatchToolCallName, parsed.error);
 
                     return;
                 }
 
                 aiHubTabsStore.getState().openCustomComponentTab(parsed.customComponentId, parsed.name);
-            } else if (toolCallName === 'openCodeWorkflowTab') {
+            } else if (dispatchToolCallName === 'openCodeWorkflowTab') {
                 const raw = parseJson<unknown>(event.content, 'openCodeWorkflowTab result');
 
                 if (raw === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
@@ -755,13 +789,13 @@ export const buildAiHubSubscriber = ({
                 const parsed = validateOpenCodeWorkflowTabResult(raw);
 
                 if (parsed === null) {
-                    surfaceTabOpenFailure(toolCallName, 'unparseable result', event.content);
+                    surfaceTabOpenFailure(dispatchToolCallName, 'unparseable result', event.content);
 
                     return;
                 }
 
                 if (!parsed.opened) {
-                    surfaceTabOpenFailure(toolCallName, parsed.error);
+                    surfaceTabOpenFailure(dispatchToolCallName, parsed.error);
 
                     return;
                 }

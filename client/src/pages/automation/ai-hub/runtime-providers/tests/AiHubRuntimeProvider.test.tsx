@@ -192,6 +192,94 @@ describe('buildAiHubSubscriber', () => {
         }
     });
 
+    it('opens a file tab when an openResourceTab tool result with type FILE arrives', () => {
+        const subscriber = buildAiHubSubscriber({
+            addMessage: vi.fn(),
+            appendToLastAssistantMessage: vi.fn(),
+            getLastUserMessage: vi.fn().mockReturnValue(''),
+        });
+
+        subscriber.onToolCallStartEvent!(
+            makeToolCallStartParams({toolCallId: 'call-rt-1', toolCallName: 'openResourceTab'})
+        );
+
+        subscriber.onToolCallResultEvent!(
+            makeToolCallResultParams({
+                content: JSON.stringify({fileId: '42', name: 'spec.md', opened: true, type: 'FILE'}),
+                toolCallId: 'call-rt-1',
+            })
+        );
+
+        const state = aiHubTabsStore.getState();
+        const tab = state.openTabs[0]!;
+
+        expect(state.openTabs).toHaveLength(1);
+        expect(tab.name).toBe('spec.md');
+        expect(tab.kind).toBe('file');
+
+        if (tab.kind === 'file') {
+            expect(tab.fileId).toBe('42');
+        }
+    });
+
+    it('opens a workflow tab when an openResourceTab tool result with type WORKFLOW arrives', () => {
+        const subscriber = buildAiHubSubscriber({
+            addMessage: vi.fn(),
+            appendToLastAssistantMessage: vi.fn(),
+            getLastUserMessage: vi.fn().mockReturnValue(''),
+        });
+
+        subscriber.onToolCallStartEvent!(
+            makeToolCallStartParams({toolCallId: 'call-rt-2', toolCallName: 'openResourceTab'})
+        );
+
+        subscriber.onToolCallResultEvent!(
+            makeToolCallResultParams({
+                content: JSON.stringify({
+                    name: 'Sync',
+                    opened: true,
+                    projectId: '12',
+                    projectWorkflowId: 34,
+                    type: 'WORKFLOW',
+                    workflowId: 'w-1',
+                }),
+                toolCallId: 'call-rt-2',
+            })
+        );
+
+        const state = aiHubTabsStore.getState();
+        const tab = state.openTabs[0]!;
+
+        expect(state.openTabs).toHaveLength(1);
+        expect(tab.kind).toBe('workflow');
+
+        if (tab.kind === 'workflow') {
+            expect(tab.workflowId).toBe('w-1');
+            expect(tab.projectWorkflowId).toBe(34);
+        }
+    });
+
+    it('surfaces a failure when an openResourceTab tool result carries an unknown type', () => {
+        const subscriber = buildAiHubSubscriber({
+            addMessage: vi.fn(),
+            appendToLastAssistantMessage: vi.fn(),
+            getLastUserMessage: vi.fn().mockReturnValue(''),
+        });
+
+        subscriber.onToolCallStartEvent!(
+            makeToolCallStartParams({toolCallId: 'call-rt-3', toolCallName: 'openResourceTab'})
+        );
+
+        subscriber.onToolCallResultEvent!(
+            makeToolCallResultParams({
+                content: JSON.stringify({name: 'Mystery', opened: true, type: 'WIDGET'}),
+                toolCallId: 'call-rt-3',
+            })
+        );
+
+        expect(aiHubTabsStore.getState().openTabs).toHaveLength(0);
+    });
+
     it('opens a workflow tab when the openWorkflowTab tool result arrives', () => {
         const subscriber = buildAiHubSubscriber({
             addMessage: vi.fn(),
