@@ -1,6 +1,7 @@
 import Button from '@/components/Button/Button';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
+import {ButtonGroup} from '@/components/ui/button-group';
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import IntegrationDialog from '@/ee/pages/embedded/integrations/components/IntegrationDialog';
 import IntegrationsFilterTitle from '@/ee/pages/embedded/integrations/components/IntegrationsFilterTitle';
@@ -14,7 +15,7 @@ import {useGetIntegrationsQuery} from '@/ee/shared/queries/embedded/integrations
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {useGetTaskDispatcherDefinitionsQuery} from '@/shared/queries/platform/taskDispatcherDefinitions.queries';
-import {ChevronDownIcon, SquareIcon} from 'lucide-react';
+import {ChevronDownIcon, CodeIcon, SquareIcon} from 'lucide-react';
 import {useState} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 
@@ -71,24 +72,29 @@ const Integrations = () => {
                         right={
                             integrations &&
                             integrations.length > 0 && (
-                                <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                        <Button>
-                                            New Integration
-                                            <ChevronDownIcon className="ml-1 size-4" />
-                                        </Button>
-                                    </DropdownMenuTrigger>
+                                <ButtonGroup>
+                                    <Button
+                                        aria-label="Create Integration"
+                                        onClick={() => setShowIntegrationDialog(true)}
+                                    >
+                                        New Integration
+                                    </Button>
 
-                                    <DropdownMenuContent align="end">
-                                        <DropdownMenuItem onClick={() => setShowIntegrationDialog(true)}>
-                                            New Integration
-                                        </DropdownMenuItem>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button>
+                                                <ChevronDownIcon />
+                                            </Button>
+                                        </DropdownMenuTrigger>
 
-                                        <DropdownMenuItem onClick={() => setShowNewCodeWorkflowDialog(true)}>
-                                            New code workflow
-                                        </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                </DropdownMenu>
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => setShowNewCodeWorkflowDialog(true)}>
+                                                <CodeIcon className="mr-2 size-4" />
+                                                New Code Workflow
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </ButtonGroup>
                             )
                         }
                         title={<IntegrationsFilterTitle categories={categories} filterData={filterData} tags={tags} />}
@@ -113,24 +119,26 @@ const Integrations = () => {
                 ) : (
                     <EmptyList
                         button={
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button>
-                                        Create Integration
-                                        <ChevronDownIcon className="ml-1 size-4" />
-                                    </Button>
-                                </DropdownMenuTrigger>
+                            <ButtonGroup className="mx-auto">
+                                <Button aria-label="Create Integration" onClick={() => setShowIntegrationDialog(true)}>
+                                    Create Integration
+                                </Button>
 
-                                <DropdownMenuContent align="end">
-                                    <DropdownMenuItem onClick={() => setShowIntegrationDialog(true)}>
-                                        New Integration
-                                    </DropdownMenuItem>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button>
+                                            <ChevronDownIcon />
+                                        </Button>
+                                    </DropdownMenuTrigger>
 
-                                    <DropdownMenuItem onClick={() => setShowNewCodeWorkflowDialog(true)}>
-                                        New code workflow
-                                    </DropdownMenuItem>
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setShowNewCodeWorkflowDialog(true)}>
+                                            <CodeIcon className="mr-2 size-4" />
+                                            New Code Workflow
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </ButtonGroup>
                         }
                         icon={<SquareIcon className="size-24 text-gray-300" />}
                         message="Get started by creating a new integrations."
