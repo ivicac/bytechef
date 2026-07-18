@@ -1,7 +1,6 @@
 {
-  "$schema": "../../../../../.source/json-schema/docs.meta.json",
   "title": "Embedded",
-  "description": "Public REST API for ByteChef Embedded (execution): run component actions and list per-user tools.",
+  "description": "Public REST API for ByteChef Embedded (execution): run component actions, list per-user tools, and fetch workflow executions.",
   "pages": [
     "..."
   ]

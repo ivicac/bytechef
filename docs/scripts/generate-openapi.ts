@@ -11,7 +11,7 @@ const OUTPUT_DIR = path.resolve(
 const GROUP_META: Record<keyof typeof SPECS, { title: string; description: string }> = {
   embedded: {
     title: 'Embedded',
-    description: 'Public REST API for ByteChef Embedded (execution): run component actions and list per-user tools.',
+    description: 'Public REST API for ByteChef Embedded (execution): run component actions, list per-user tools, and fetch workflow executions.',
   },
   'embedded-configuration': {
     title: 'Embedded Configuration',
@@ -23,7 +23,7 @@ const GROUP_META: Record<keyof typeof SPECS, { title: string; description: strin
   },
   automation: {
     title: 'Automation',
-    description: 'Public REST API for ByteChef Automation (code-based projects).',
+    description: 'Public REST API for ByteChef Automation: deploy code-based projects and fetch workflow executions.',
   },
 };
 
