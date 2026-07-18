@@ -63,6 +63,8 @@ Click on any execution row to open a detail sheet that shows:
 - Error messages and stack traces for failed steps.
 - The data passed between steps in the workflow.
 
+The execution detail sheet also carries an [AI Copilot](/platform/copilot), mirroring the automation execution view: it analyzes the finished or failed execution and helps debug errors. Copilot is an Enterprise Edition feature and is disabled by default.
+
 ### Environment Selection
 
 Executions are scoped to the current environment. Use the environment selector in the left sidebar (next to the user menu) to switch between Development, Staging, and Production.

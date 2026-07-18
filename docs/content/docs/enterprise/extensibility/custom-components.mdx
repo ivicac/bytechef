@@ -44,6 +44,47 @@ public class MyComponentHandler implements ComponentHandler {
 
 For teams that don't want a Java toolchain, components can be authored in JavaScript and loaded by the GraalVM runtime. The component definition surface is the same; only the implementation language changes.
 
+## Authoring in the UI
+
+Beyond the Gradle-module and CLI paths, script-language components can be written and maintained directly in **Settings → Custom Components** — no local toolchain required.
+
+### The detail page
+
+Opening a custom component from the list navigates to its detail page:
+
+- **JavaScript, Python, and Ruby** components open an editable **Monaco source editor**. **Save** is compile-gated: the edited source is loaded before it is persisted, and invalid source is rejected with the loader's error rather than being saved.
+- **Java** components open a read-only definition view — their source lives in your build, so the detail page shows the resolved definition rather than an editor.
+
+### Create from scratch
+
+The **New component** dialog (name + JavaScript) generates a starter component you can flesh out in the editor. The first save deploys it, after which it behaves like any other custom component.
+
+### Single-file contract
+
+A script-language custom component is a **single file** whose completion value is an object exposing these members:
+
+| Member | Type | Required |
+|---|---|---|
+| `name` | String | Yes |
+| `version` | Integer | Yes |
+| `title` | String | No |
+| `description` | String | No |
+| `actions` | array of `{ name, title, description, perform }` | No |
+
+The object is expressed in each language's natural shape:
+
+- **JavaScript** — a bare object literal, `({ ... })`.
+- **Python** — a `types.SimpleNamespace`.
+- **Ruby** — a core `Struct`.
+
+### Upload endpoint
+
+The same components can be deployed programmatically through `POST /api/platform/v1/custom-components/deploy` — a multipart request with a `componentFile` part whose extension selects the language (`.jar`, `.js`, `.py`, `.rb`). The endpoint is admin-only, and `.jar` uploads are gated by `bytechef.component.custom-component.java-enabled` (see [Hardening options for Java uploads](#hardening-options-for-java-uploads)).
+
+### AI Hub copilot
+
+In the [AI Hub](/automation/ai-hub), the `custom_component_agent` specialist (Ask + Build) lists, explains, creates, and updates custom components. The AI Hub agent can open any custom component in its right panel, where it is editable just like the detail page.
+
 ## Dynamic loading via a sandboxed classloader
 
 Custom components are loaded at runtime via a **sandboxed classloader**:

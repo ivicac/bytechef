@@ -20,9 +20,43 @@ A **code workflow** is a workflow defined entirely in code — you upload an art
 | Java | jar | Compiled against the ByteChef workflow SDK. |
 | JavaScript / Python / Ruby | script file | Run on the GraalVM polyglot runtime, like [Polyglot scripting](/enterprise/extensibility/polyglot-scripting) steps. |
 
+## Creating a code workflow in the UI
+
+Script-language code workflows can be created and edited directly in ByteChef, without a separate build-and-upload step. A code-backed project (or integration) opens a **Monaco source editor** in place of the visual canvas. Saves are compile-gated — invalid source is rejected with the loader's error — and **name-locked**: the `name` declared in the code cannot change after the project or integration is created.
+
+### Automation projects
+
+From the **Projects** page, open the **New Project** dropdown and choose **New Code Workflow**. Provide a name and pick a language (JavaScript, Python, or Ruby). ByteChef deploys a starter and opens the project in the source editor.
+
+### Embedded integrations
+
+The same authoring flow is available for [embedded integrations](/embedded/integrations). Choose **New Code Workflow** on the **Integrations** page; a code-backed integration opens the source editor rather than the visual builder. Embedded integrations are keyed on `componentName` (and `componentVersion`) instead of a project name.
+
+### Single-file contract
+
+A script-language code workflow is a **single file** whose completion value is an object exposing these members:
+
+| Member | Type | Required |
+|---|---|---|
+| `name` | String | Yes |
+| `version` | String | No |
+| `description` | String | No |
+| `workflows` | array of `{ name, label, tasks }`, where each task is `{ name, label, perform }` | No |
+
+The object is expressed in each language's natural shape — a bare object literal (`({ ... })`) in JavaScript, a `types.SimpleNamespace` in Python, and a core `Struct` in Ruby.
+
+### Copilot
+
+The in-editor [Copilot](/platform/copilot) panel routes to code-workflow-aware Ask and Build assistants whenever a code-backed project or integration is open, on both the automation and embedded surfaces. In the [AI Hub](/automation/ai-hub), the `code_workflow_agent` specialist lists, explains, creates, and updates code workflows, and can open one in its right panel.
+
 ## Shipping a code workflow
 
-Code workflows are deployed programmatically — the natural home is your CI pipeline: build the artifact, then push it through the [Automation API](/openapi/automation), which manages code-based projects end to end (create the project, upload the workflow artifact, publish, enable).
+Code workflows are also deployed programmatically — the natural home is your CI pipeline: build the artifact, then push it through the deploy endpoint for the surface you're targeting.
+
+- **Automation projects** — `POST /api/automation/v1/projects/deploy`, a multipart request with a `projectFile` part and an optional `workspaceId`.
+- **Embedded integrations** — `POST /api/embedded/internal/integrations/deploy`, a multipart request with an `integrationFile` part.
+
+Both endpoints are admin-only. The broader [Automation API](/openapi/automation) manages code-based projects end to end (create the project, upload the workflow artifact, publish, enable).
 
 Working starter projects live in the samples repository:
 
