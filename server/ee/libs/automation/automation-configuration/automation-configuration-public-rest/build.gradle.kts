@@ -41,6 +41,7 @@ dependencies {
     implementation("jakarta.validation:jakarta.validation-api")
     implementation(libs.org.mapstruct)
     implementation(libs.org.mapstruct.extensions.spring.mapstruct.spring.annotations)
+    implementation(libs.org.openapitools.jackson.databind.nullable)
     implementation("org.slf4j:slf4j-api")
     implementation("org.springframework:spring-context")
     implementation("org.springframework:spring-web")
