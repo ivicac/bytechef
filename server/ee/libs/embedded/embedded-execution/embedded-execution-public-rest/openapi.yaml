@@ -13,97 +13,6 @@ tags:
   - name: "workflow-execution"
     description: "The Embedded Workflow Execution Public API"
 paths:
-  /{externalUserId}/workflow-executions:
-    get:
-      description: "Get the page of workflow executions of the tenant. Execution input, output and task data\
-        \ are never included in list responses - fetch a single execution by id for the full detail."
-      summary: "Get workflow executions"
-      tags:
-        - "workflow-execution"
-      operationId: "getWorkflowExecutionsPage"
-      parameters:
-        - name: "X-Environment"
-          description: "The environment."
-          in: "header"
-          required: false
-          schema:
-            $ref: '#/components/schemas/Environment'
-        - name: "externalUserId"
-          description: "The external user id."
-          in: "path"
-          required: true
-          schema:
-            type: "string"
-        - name: "status"
-          description: "The status of an execution."
-          in: "query"
-          required: false
-          schema:
-            $ref: "#/components/schemas/WorkflowExecutionStatus"
-        - name: "startDate"
-          description: "Return only executions that started at or after this instant."
-          in: "query"
-          required: false
-          schema:
-            type: "string"
-            format: "date-time"
-        - name: "endDate"
-          description: "Return only executions that started at or before this instant."
-          in: "query"
-          required: false
-          schema:
-            type: "string"
-            format: "date-time"
-        - name: "integrationInstanceConfigurationId"
-          description: "The id of an integration instance configuration."
-          in: "query"
-          required: false
-          schema:
-            type: "integer"
-            format: "int64"
-        - name: "pageNumber"
-          description: "The number of the page to return."
-          in: "query"
-          required: false
-          schema:
-            type: "integer"
-            format: "int32"
-            default: 0
-      responses:
-        "200":
-          description: "The page of workflow executions."
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/Page"
-  /{externalUserId}/workflow-executions/{id}:
-    get:
-      description: "Get a workflow execution by id, including its inputs, outputs, error and task executions."
-      summary: "Get a workflow execution by id"
-      tags:
-        - "workflow-execution"
-      operationId: "getWorkflowExecution"
-      parameters:
-        - name: "externalUserId"
-          description: "The external user id."
-          in: "path"
-          required: true
-          schema:
-            type: "string"
-        - name: "id"
-          description: "The id of a workflow execution."
-          in: "path"
-          required: true
-          schema:
-            type: "integer"
-            format: "int64"
-      responses:
-        "200":
-          description: "The workflow execution object."
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/WorkflowExecution"
 #  /components:
 #    get:
 #      description: "Returns a list with all the available components from the component library."
@@ -595,6 +504,115 @@ paths:
 #          description: "Limit Exceeded"
 #        "500":
 #          description: "Internal Error"
+  /{externalUserId}/workflow-executions:
+    get:
+      description: "Get the page of workflow executions of the tenant. Execution input, output and task data\
+        \ are never included in list responses - fetch a single execution by id for the full detail."
+      summary: "Get workflow executions"
+      tags:
+        - "workflow-execution"
+      operationId: "getWorkflowExecutionsPage"
+      parameters:
+        - name: "X-Environment"
+          description: "The environment."
+          in: "header"
+          required: false
+          schema:
+            $ref: '#/components/schemas/Environment'
+        - name: "externalUserId"
+          description: "The external user id."
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+        - name: "status"
+          description: "The status of an execution."
+          in: "query"
+          required: false
+          schema:
+            $ref: "#/components/schemas/WorkflowExecutionStatus"
+        - name: "startDate"
+          description: "Return only executions that started at or after this instant."
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            format: "date-time"
+        - name: "endDate"
+          description: "Return only executions that started at or before this instant."
+          in: "query"
+          required: false
+          schema:
+            type: "string"
+            format: "date-time"
+        - name: "integrationInstanceConfigurationId"
+          description: "The id of an integration instance configuration."
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            format: "int64"
+        - name: "pageNumber"
+          description: "The number of the page to return."
+          in: "query"
+          required: false
+          schema:
+            type: "integer"
+            format: "int32"
+            default: 0
+      responses:
+        "200":
+          description: "The page of workflow executions."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Page"
+        "400":
+          $ref: "#/components/responses/badRequest"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "500":
+          $ref: "#/components/responses/internalServerError"
+  /{externalUserId}/workflow-executions/{id}:
+    get:
+      description: "Get a workflow execution by id, including its inputs, outputs, error and task executions."
+      summary: "Get a workflow execution by id"
+      tags:
+        - "workflow-execution"
+      operationId: "getWorkflowExecution"
+      parameters:
+        - name: "externalUserId"
+          description: "The external user id."
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+        - name: "id"
+          description: "The id of a workflow execution."
+          in: "path"
+          required: true
+          schema:
+            type: "integer"
+            format: "int64"
+      responses:
+        "200":
+          description: "The workflow execution object."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowExecution"
+        "400":
+          $ref: "#/components/responses/badRequest"
+        "401":
+          $ref: "#/components/responses/unauthorized"
+        "403":
+          $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/notFound"
+        "500":
+          $ref: "#/components/responses/internalServerError"
 components:
   responses:
     badRequest:

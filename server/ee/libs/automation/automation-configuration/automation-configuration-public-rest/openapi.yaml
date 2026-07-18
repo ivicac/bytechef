@@ -29,13 +29,13 @@ paths:
           schema:
             type: "integer"
             format: "int64"
-        - name: "environmentId"
-          description: "The id of an environment."
-          in: "query"
+        - name: "X-Environment"
+          description: "The environment. Executions are filtered to the same environment the API key authenticated\
+            \ for; when omitted, PRODUCTION is used."
+          in: "header"
           required: false
           schema:
-            type: "integer"
-            format: "int64"
+            $ref: "#/components/schemas/Environment"
         - name: "status"
           description: "The status of an execution."
           in: "query"
@@ -182,7 +182,14 @@ components:
           description: "The list of elements."
           type: "array"
           items:
-            type: "object"
+            $ref: "#/components/schemas/WorkflowExecutionBasic"
+    Environment:
+      description: "The environment."
+      type: "string"
+      enum:
+        - "DEVELOPMENT"
+        - "STAGING"
+        - "PRODUCTION"
     WorkflowExecutionStatus:
       description: "The status of a workflow execution."
       type: "string"

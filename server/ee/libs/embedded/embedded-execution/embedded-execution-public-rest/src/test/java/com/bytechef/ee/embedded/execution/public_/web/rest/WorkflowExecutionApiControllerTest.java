@@ -84,9 +84,9 @@ class WorkflowExecutionApiControllerTest {
 
         when(environmentService.getEnvironment("PRODUCTION")).thenReturn(Environment.PRODUCTION);
         when(
-            integrationWorkflowExecutionFacade.getWorkflowExecutions(
-                eq((long) Environment.PRODUCTION.ordinal()), eq(Job.Status.COMPLETED), eq(START_DATE), eq(END_DATE),
-                isNull(), eq(20L), isNull(), eq(0)))
+            integrationWorkflowExecutionFacade.getConnectedUserWorkflowExecutions(
+                eq(EXTERNAL_USER_ID), eq((long) Environment.PRODUCTION.ordinal()), eq(Job.Status.COMPLETED),
+                eq(START_DATE), eq(END_DATE), eq(20L), eq(0)))
                     .thenReturn(new PageImpl<>(List.of(workflowExecutionDTO)));
 
         ResponseEntity<Page> response = workflowExecutionApiController.getWorkflowExecutionsPage(
@@ -117,8 +117,8 @@ class WorkflowExecutionApiControllerTest {
     void testGetWorkflowExecutionsPageDefaultsToProductionEnvironment() {
         when(environmentService.getEnvironment((String) null)).thenReturn(Environment.PRODUCTION);
         when(
-            integrationWorkflowExecutionFacade.getWorkflowExecutions(
-                eq((long) Environment.PRODUCTION.ordinal()), isNull(), isNull(), isNull(), isNull(), isNull(),
+            integrationWorkflowExecutionFacade.getConnectedUserWorkflowExecutions(
+                eq(EXTERNAL_USER_ID), eq((long) Environment.PRODUCTION.ordinal()), isNull(), isNull(), isNull(),
                 isNull(), eq(0)))
                     .thenReturn(new PageImpl<>(List.of()));
 
@@ -127,8 +127,8 @@ class WorkflowExecutionApiControllerTest {
 
         assertThat(response.getBody()).isNotNull();
 
-        verify(integrationWorkflowExecutionFacade).getWorkflowExecutions(
-            eq((long) Environment.PRODUCTION.ordinal()), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(),
+        verify(integrationWorkflowExecutionFacade).getConnectedUserWorkflowExecutions(
+            eq(EXTERNAL_USER_ID), eq((long) Environment.PRODUCTION.ordinal()), isNull(), isNull(), isNull(), isNull(),
             eq(0));
     }
 
@@ -136,7 +136,8 @@ class WorkflowExecutionApiControllerTest {
     void testGetWorkflowExecutionMapsFullDetail() {
         WorkflowExecutionDTO workflowExecutionDTO = createWorkflowExecutionDTO();
 
-        when(integrationWorkflowExecutionFacade.getWorkflowExecution(1000L)).thenReturn(workflowExecutionDTO);
+        when(integrationWorkflowExecutionFacade.getConnectedUserWorkflowExecution(EXTERNAL_USER_ID, 1000L))
+            .thenReturn(workflowExecutionDTO);
 
         ResponseEntity<WorkflowExecutionModel> response = workflowExecutionApiController.getWorkflowExecution(
             EXTERNAL_USER_ID, 1000L);

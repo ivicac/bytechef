@@ -4,6 +4,7 @@ src/main/java/com/bytechef/ee/automation/configuration/public_/web/rest/ApiUtil.
 src/main/java/com/bytechef/ee/automation/configuration/public_/web/rest/ProjectCodeWorkflowApi.java
 src/main/java/com/bytechef/ee/automation/configuration/public_/web/rest/ProjectGitApi.java
 src/main/java/com/bytechef/ee/automation/configuration/public_/web/rest/WorkflowExecutionApi.java
+src/main/java/com/bytechef/ee/automation/configuration/public_/web/rest/model/EnvironmentModel.java
 src/main/java/com/bytechef/ee/automation/configuration/public_/web/rest/model/ExecutionErrorModel.java
 src/main/java/com/bytechef/ee/automation/configuration/public_/web/rest/model/ProjectDeploymentReferenceModel.java
 src/main/java/com/bytechef/ee/automation/configuration/public_/web/rest/model/ProjectReferenceModel.java

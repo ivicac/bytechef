@@ -38,7 +38,7 @@ Prefix the operation path you see on each reference page with the corresponding 
 | Embedded Webhook | Per-end-user JWT signed by your backend with a **Signing Key** | `Authorization: Bearer <jwt>` |
 | Automation | A workspace **API Key** | `Authorization: Bearer <api-key-secret>` |
 
-Pass an optional `X-Environment` header (`DEVELOPMENT`, `STAGING`, or `PRODUCTION`) to scope the request to a specific environment. If omitted, ByteChef falls back to the workspace's default environment.
+Pass an optional `X-Environment` header (`DEVELOPMENT`, `STAGING`, or `PRODUCTION`) to scope the request to a specific environment. If omitted, ByteChef uses `PRODUCTION`. On the Automation and Embedded workflow-executions endpoints the header also selects which environment's executions are returned.
 
 See [Embedded → Settings](/embedded/settings) for how to create Signing Keys and API Keys.
 

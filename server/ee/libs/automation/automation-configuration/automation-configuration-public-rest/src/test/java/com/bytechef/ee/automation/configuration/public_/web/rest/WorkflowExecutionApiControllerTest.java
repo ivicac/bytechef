@@ -22,11 +22,14 @@ import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.workflow.execution.dto.WorkflowExecutionDTO;
 import com.bytechef.automation.workflow.execution.facade.ProjectWorkflowExecutionFacade;
+import com.bytechef.ee.automation.configuration.public_.web.rest.model.EnvironmentModel;
 import com.bytechef.ee.automation.configuration.public_.web.rest.model.TaskExecutionModel;
 import com.bytechef.ee.automation.configuration.public_.web.rest.model.WorkflowExecutionBasicModel;
 import com.bytechef.ee.automation.configuration.public_.web.rest.model.WorkflowExecutionModel;
 import com.bytechef.ee.automation.configuration.public_.web.rest.model.WorkflowExecutionStatusModel;
 import com.bytechef.error.ExecutionError;
+import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.workflow.execution.dto.JobDTO;
 import com.bytechef.platform.workflow.execution.dto.TaskExecutionDTO;
 import java.time.Instant;
@@ -50,6 +53,7 @@ class WorkflowExecutionApiControllerTest {
     private static final Instant END_DATE = Instant.parse("2026-07-18T11:00:00Z");
     private static final Instant START_DATE = Instant.parse("2026-07-18T10:00:00Z");
 
+    private final EnvironmentService environmentService = mock(EnvironmentService.class);
     private final ProjectWorkflowExecutionFacade projectWorkflowExecutionFacade = mock(
         ProjectWorkflowExecutionFacade.class);
 
@@ -57,21 +61,23 @@ class WorkflowExecutionApiControllerTest {
 
     @BeforeEach
     void beforeEach() {
-        workflowExecutionApiController = new WorkflowExecutionApiController(projectWorkflowExecutionFacade);
+        workflowExecutionApiController = new WorkflowExecutionApiController(
+            environmentService, projectWorkflowExecutionFacade);
     }
 
     @Test
     void testGetWorkflowExecutionsPageMapsToBasicModels() {
         WorkflowExecutionDTO workflowExecutionDTO = createWorkflowExecutionDTO();
 
+        when(environmentService.getEnvironment("STAGING")).thenReturn(Environment.STAGING);
         when(
             projectWorkflowExecutionFacade.getWorkflowExecutions(
-                isNull(), eq(1L), eq(Job.Status.COMPLETED), eq(START_DATE), eq(END_DATE), eq(10L), eq(20L),
-                eq("workflow1"), eq(100L), eq(0)))
+                isNull(), eq((long) Environment.STAGING.ordinal()), eq(Job.Status.COMPLETED), eq(START_DATE),
+                eq(END_DATE), eq(10L), eq(20L), eq("workflow1"), eq(100L), eq(0)))
                     .thenReturn(new PageImpl<>(List.of(workflowExecutionDTO)));
 
         ResponseEntity<Page> response = workflowExecutionApiController.getWorkflowExecutionsPage(
-            100L, 1L, WorkflowExecutionStatusModel.COMPLETED, START_DATE.atOffset(ZoneOffset.UTC),
+            100L, EnvironmentModel.STAGING, WorkflowExecutionStatusModel.COMPLETED, START_DATE.atOffset(ZoneOffset.UTC),
             END_DATE.atOffset(ZoneOffset.UTC), 10L, 20L, "workflow1", 0);
 
         Page<?> page = response.getBody();
@@ -101,10 +107,12 @@ class WorkflowExecutionApiControllerTest {
     }
 
     @Test
-    void testGetWorkflowExecutionsPagePassesNullOptionalFilters() {
+    void testGetWorkflowExecutionsPageDefaultsToProductionEnvironment() {
+        when(environmentService.getEnvironment((String) null)).thenReturn(Environment.PRODUCTION);
         when(
             projectWorkflowExecutionFacade.getWorkflowExecutions(
-                isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(100L), eq(0)))
+                isNull(), eq((long) Environment.PRODUCTION.ordinal()), isNull(), isNull(), isNull(), isNull(),
+                isNull(), isNull(), eq(100L), eq(0)))
                     .thenReturn(new PageImpl<>(List.of()));
 
         ResponseEntity<Page> response = workflowExecutionApiController.getWorkflowExecutionsPage(
@@ -113,7 +121,8 @@ class WorkflowExecutionApiControllerTest {
         assertThat(response.getBody()).isNotNull();
 
         verify(projectWorkflowExecutionFacade).getWorkflowExecutions(
-            isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(100L), eq(0));
+            isNull(), eq((long) Environment.PRODUCTION.ordinal()), isNull(), isNull(), isNull(), isNull(), isNull(),
+            isNull(), eq(100L), eq(0));
     }
 
     @Test

@@ -11,6 +11,7 @@ import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.automation.workflow.execution.dto.WorkflowExecutionDTO;
 import com.bytechef.automation.workflow.execution.facade.ProjectWorkflowExecutionFacade;
+import com.bytechef.ee.automation.configuration.public_.web.rest.model.EnvironmentModel;
 import com.bytechef.ee.automation.configuration.public_.web.rest.model.ExecutionErrorModel;
 import com.bytechef.ee.automation.configuration.public_.web.rest.model.ProjectDeploymentReferenceModel;
 import com.bytechef.ee.automation.configuration.public_.web.rest.model.ProjectReferenceModel;
@@ -21,6 +22,8 @@ import com.bytechef.ee.automation.configuration.public_.web.rest.model.WorkflowE
 import com.bytechef.ee.automation.configuration.public_.web.rest.model.WorkflowReferenceModel;
 import com.bytechef.error.ExecutionError;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.workflow.execution.dto.JobDTO;
 import com.bytechef.platform.workflow.execution.dto.TaskExecutionDTO;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -43,16 +46,20 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * @author Ivica Cardic
  */
-@RestController
+@RestController("com.bytechef.ee.automation.configuration.public_.web.rest.WorkflowExecutionApiController")
 @RequestMapping("${openapi.openAPIDefinition.base-path.automation:}/v1")
 @ConditionalOnCoordinator
 @ConditionalOnEEVersion
 public class WorkflowExecutionApiController implements WorkflowExecutionApi {
 
+    private final EnvironmentService environmentService;
     private final ProjectWorkflowExecutionFacade projectWorkflowExecutionFacade;
 
     @SuppressFBWarnings("EI2")
-    public WorkflowExecutionApiController(ProjectWorkflowExecutionFacade projectWorkflowExecutionFacade) {
+    public WorkflowExecutionApiController(
+        EnvironmentService environmentService, ProjectWorkflowExecutionFacade projectWorkflowExecutionFacade) {
+
+        this.environmentService = environmentService;
         this.projectWorkflowExecutionFacade = projectWorkflowExecutionFacade;
     }
 
@@ -61,13 +68,16 @@ public class WorkflowExecutionApiController implements WorkflowExecutionApi {
         "rawtypes", "unchecked"
     })
     public ResponseEntity<Page> getWorkflowExecutionsPage(
-        Long workspaceId, @Nullable Long environmentId, @Nullable WorkflowExecutionStatusModel status,
+        Long workspaceId, @Nullable EnvironmentModel xEnvironment, @Nullable WorkflowExecutionStatusModel status,
         @Nullable OffsetDateTime startDate, @Nullable OffsetDateTime endDate, @Nullable Long projectId,
         @Nullable Long projectDeploymentId, @Nullable String workflowId, Integer pageNumber) {
 
+        Environment environment = environmentService.getEnvironment(xEnvironment == null ? null : xEnvironment.name());
+
         Page<WorkflowExecutionDTO> workflowExecutionsPage = projectWorkflowExecutionFacade.getWorkflowExecutions(
-            null, environmentId, status == null ? null : Job.Status.valueOf(status.name()), toInstant(startDate),
-            toInstant(endDate), projectId, projectDeploymentId, workflowId, workspaceId, pageNumber);
+            null, (long) environment.ordinal(), status == null ? null : Job.Status.valueOf(status.name()),
+            toInstant(startDate), toInstant(endDate), projectId, projectDeploymentId, workflowId, workspaceId,
+            pageNumber);
 
         return ResponseEntity.ok(workflowExecutionsPage.map(this::toBasicModel));
     }

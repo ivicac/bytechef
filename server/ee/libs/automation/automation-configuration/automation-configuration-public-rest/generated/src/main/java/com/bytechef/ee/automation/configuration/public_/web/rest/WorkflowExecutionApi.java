@@ -6,6 +6,7 @@
 package com.bytechef.ee.automation.configuration.public_.web.rest;
 
 import org.springframework.format.annotation.DateTimeFormat;
+import com.bytechef.ee.automation.configuration.public_.web.rest.model.EnvironmentModel;
 import org.springframework.lang.Nullable;
 import java.time.OffsetDateTime;
 import com.bytechef.ee.automation.configuration.public_.web.rest.model.WorkflowExecutionModel;
@@ -37,7 +38,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-18T16:40:02.539074685Z[Etc/UTC]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-18T17:54:45.483677736Z[Etc/UTC]", comments = "Generator version: 7.22.0")
 @Validated
 @Tag(name = "workflow-execution", description = "The Automation Workflow Execution Public API")
 public interface WorkflowExecutionApi {
@@ -76,7 +77,7 @@ public interface WorkflowExecutionApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"outputs\" : { \"key\" : \"\" }, \"taskExecutions\" : [ { \"output\" : \"\", \"input\" : { \"key\" : \"\" }, \"endDate\" : \"2000-01-23T04:56:07.000+00:00\", \"name\" : \"name\", \"id\" : \"id\", \"title\" : \"title\", \"type\" : \"type\", \"error\" : { \"stackTrace\" : [ \"stackTrace\", \"stackTrace\" ], \"message\" : \"message\" }, \"startDate\" : \"2000-01-23T04:56:07.000+00:00\", \"status\" : \"CREATED\" }, { \"output\" : \"\", \"input\" : { \"key\" : \"\" }, \"endDate\" : \"2000-01-23T04:56:07.000+00:00\", \"name\" : \"name\", \"id\" : \"id\", \"title\" : \"title\", \"type\" : \"type\", \"error\" : { \"stackTrace\" : [ \"stackTrace\", \"stackTrace\" ], \"message\" : \"message\" }, \"startDate\" : \"2000-01-23T04:56:07.000+00:00\", \"status\" : \"CREATED\" } ], \"workflow\" : { \"id\" : \"id\", \"label\" : \"label\" }, \"endDate\" : \"2000-01-23T04:56:07.000+00:00\", \"inputs\" : { \"key\" : \"\" }, \"project\" : { \"name\" : \"name\", \"id\" : 6 }, \"id\" : 0, \"error\" : { \"stackTrace\" : [ \"stackTrace\", \"stackTrace\" ], \"message\" : \"message\" }, \"startDate\" : \"2000-01-23T04:56:07.000+00:00\", \"projectDeployment\" : { \"environmentId\" : 5, \"name\" : \"name\", \"id\" : 1, \"enabled\" : true, \"projectVersion\" : 5 }, \"status\" : \"CREATED\" }";
+                    String exampleString = "{ \"outputs\" : { \"key\" : \"\" }, \"taskExecutions\" : [ { \"output\" : \"\", \"input\" : { \"key\" : \"\" }, \"endDate\" : \"2000-01-23T04:56:07.000+00:00\", \"name\" : \"name\", \"id\" : \"id\", \"title\" : \"title\", \"type\" : \"type\", \"error\" : { \"stackTrace\" : [ \"stackTrace\", \"stackTrace\" ], \"message\" : \"message\" }, \"startDate\" : \"2000-01-23T04:56:07.000+00:00\", \"status\" : \"CREATED\" }, { \"output\" : \"\", \"input\" : { \"key\" : \"\" }, \"endDate\" : \"2000-01-23T04:56:07.000+00:00\", \"name\" : \"name\", \"id\" : \"id\", \"title\" : \"title\", \"type\" : \"type\", \"error\" : { \"stackTrace\" : [ \"stackTrace\", \"stackTrace\" ], \"message\" : \"message\" }, \"startDate\" : \"2000-01-23T04:56:07.000+00:00\", \"status\" : \"CREATED\" } ], \"workflow\" : { \"id\" : \"id\", \"label\" : \"label\" }, \"endDate\" : \"2000-01-23T04:56:07.000+00:00\", \"inputs\" : { \"key\" : \"\" }, \"project\" : { \"name\" : \"name\", \"id\" : 7 }, \"id\" : 0, \"error\" : { \"stackTrace\" : [ \"stackTrace\", \"stackTrace\" ], \"message\" : \"message\" }, \"startDate\" : \"2000-01-23T04:56:07.000+00:00\", \"projectDeployment\" : { \"environmentId\" : 2, \"name\" : \"name\", \"id\" : 9, \"enabled\" : true, \"projectVersion\" : 3 }, \"status\" : \"CREATED\" }";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }
@@ -93,7 +94,7 @@ public interface WorkflowExecutionApi {
      * Get the page of workflow executions of a workspace. Execution input, output and task data are never included in list responses - fetch a single execution by id for the full detail.
      *
      * @param workspaceId The id of a workspace. (required)
-     * @param environmentId The id of an environment. (optional)
+     * @param xEnvironment The environment. Executions are filtered to the same environment the API key authenticated for; when omitted, PRODUCTION is used. (optional)
      * @param status The status of an execution. (optional)
      * @param startDate Return only executions that started at or after this instant. (optional)
      * @param endDate Return only executions that started at or before this instant. (optional)
@@ -121,7 +122,7 @@ public interface WorkflowExecutionApi {
     )
     default ResponseEntity<org.springframework.data.domain.Page> getWorkflowExecutionsPage(
         @NotNull @Parameter(name = "workspaceId", description = "The id of a workspace.", required = true, in = ParameterIn.QUERY) @Valid @RequestParam(value = "workspaceId", required = true) Long workspaceId,
-        @Parameter(name = "environmentId", description = "The id of an environment.", in = ParameterIn.QUERY) @Valid @RequestParam(value = "environmentId", required = false) @Nullable Long environmentId,
+        @Parameter(name = "X-Environment", description = "The environment. Executions are filtered to the same environment the API key authenticated for; when omitted, PRODUCTION is used.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment,
         @Parameter(name = "status", description = "The status of an execution.", in = ParameterIn.QUERY) @Valid @RequestParam(value = "status", required = false) @Nullable WorkflowExecutionStatusModel status,
         @Parameter(name = "startDate", description = "Return only executions that started at or after this instant.", in = ParameterIn.QUERY) @Valid @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable OffsetDateTime startDate,
         @Parameter(name = "endDate", description = "Return only executions that started at or before this instant.", in = ParameterIn.QUERY) @Valid @RequestParam(value = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) @Nullable OffsetDateTime endDate,
@@ -133,7 +134,7 @@ public interface WorkflowExecutionApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "{ \"number\" : 0, \"size\" : 6, \"numberOfElements\" : 1, \"totalPages\" : 5, \"content\" : [ \"{}\", \"{}\" ], \"totalElements\" : 5 }";
+                    String exampleString = "{ \"number\" : 0, \"size\" : 6, \"numberOfElements\" : 1, \"totalPages\" : 5, \"content\" : [ { \"workflow\" : { \"id\" : \"id\", \"label\" : \"label\" }, \"endDate\" : \"2000-01-23T04:56:07.000+00:00\", \"project\" : { \"name\" : \"name\", \"id\" : 7 }, \"id\" : 2, \"error\" : { \"stackTrace\" : [ \"stackTrace\", \"stackTrace\" ], \"message\" : \"message\" }, \"startDate\" : \"2000-01-23T04:56:07.000+00:00\", \"projectDeployment\" : { \"environmentId\" : 2, \"name\" : \"name\", \"id\" : 9, \"enabled\" : true, \"projectVersion\" : 3 }, \"status\" : \"CREATED\" }, { \"workflow\" : { \"id\" : \"id\", \"label\" : \"label\" }, \"endDate\" : \"2000-01-23T04:56:07.000+00:00\", \"project\" : { \"name\" : \"name\", \"id\" : 7 }, \"id\" : 2, \"error\" : { \"stackTrace\" : [ \"stackTrace\", \"stackTrace\" ], \"message\" : \"message\" }, \"startDate\" : \"2000-01-23T04:56:07.000+00:00\", \"projectDeployment\" : { \"environmentId\" : 2, \"name\" : \"name\", \"id\" : 9, \"enabled\" : true, \"projectVersion\" : 3 }, \"status\" : \"CREATED\" } ], \"totalElements\" : 5 }";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }

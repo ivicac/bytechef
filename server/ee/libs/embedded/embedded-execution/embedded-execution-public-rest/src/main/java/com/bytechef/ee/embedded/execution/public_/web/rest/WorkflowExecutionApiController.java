@@ -46,7 +46,7 @@ import org.springframework.web.bind.annotation.RestController;
  *
  * @author Ivica Cardic
  */
-@RestController
+@RestController("com.bytechef.ee.embedded.execution.public_.web.rest.WorkflowExecutionApiController")
 @RequestMapping("${openapi.openAPIDefinition.base-path.embedded:}/v1")
 @ConditionalOnCoordinator
 @ConditionalOnEEVersion
@@ -76,9 +76,10 @@ public class WorkflowExecutionApiController implements WorkflowExecutionApi {
 
         Environment environment = environmentService.getEnvironment(xEnvironment == null ? null : xEnvironment.name());
 
-        Page<WorkflowExecutionDTO> workflowExecutionsPage = integrationWorkflowExecutionFacade.getWorkflowExecutions(
-            (long) environment.ordinal(), status == null ? null : Job.Status.valueOf(status.name()),
-            toInstant(startDate), toInstant(endDate), null, integrationInstanceConfigurationId, null, pageNumber);
+        Page<WorkflowExecutionDTO> workflowExecutionsPage =
+            integrationWorkflowExecutionFacade.getConnectedUserWorkflowExecutions(
+                externalUserId, environment.ordinal(), status == null ? null : Job.Status.valueOf(status.name()),
+                toInstant(startDate), toInstant(endDate), integrationInstanceConfigurationId, pageNumber);
 
         return ResponseEntity.ok(workflowExecutionsPage.map(this::toBasicModel));
     }
@@ -87,7 +88,8 @@ public class WorkflowExecutionApiController implements WorkflowExecutionApi {
     public ResponseEntity<WorkflowExecutionModel> getWorkflowExecution(String externalUserId, Long id) {
         SecurityUtils.checkCurrentUserLogin(externalUserId);
 
-        return ResponseEntity.ok(toModel(integrationWorkflowExecutionFacade.getWorkflowExecution(id)));
+        return ResponseEntity.ok(
+            toModel(integrationWorkflowExecutionFacade.getConnectedUserWorkflowExecution(externalUserId, id)));
     }
 
     private WorkflowExecutionBasicModel toBasicModel(WorkflowExecutionDTO workflowExecutionDTO) {
