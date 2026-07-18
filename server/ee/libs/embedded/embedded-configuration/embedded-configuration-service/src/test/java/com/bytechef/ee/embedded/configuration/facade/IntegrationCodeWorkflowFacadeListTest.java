@@ -119,6 +119,34 @@ class IntegrationCodeWorkflowFacadeListTest {
     }
 
     @Test
+    void testGetCodeWorkflowLanguageReturnsEmptyWhenCodeWorkflowContainerIsOrphaned() {
+        IntegrationCodeWorkflowService integrationCodeWorkflowService = mock(IntegrationCodeWorkflowService.class);
+
+        CodeWorkflowContainer storedCodeWorkflowContainer = new CodeWorkflowContainer(UUID.randomUUID());
+
+        storedCodeWorkflowContainer.setId(5L);
+
+        IntegrationCodeWorkflow integrationCodeWorkflow = new IntegrationCodeWorkflow();
+
+        integrationCodeWorkflow.setCodeWorkflowContainer(storedCodeWorkflowContainer);
+
+        when(integrationCodeWorkflowService.fetchIntegrationCodeWorkflow(1L))
+            .thenReturn(Optional.of(integrationCodeWorkflow));
+
+        CodeWorkflowContainerService codeWorkflowContainerService = mock(CodeWorkflowContainerService.class);
+
+        when(codeWorkflowContainerService.getCodeWorkflowContainer(5L))
+            .thenThrow(new IllegalArgumentException("Code workflow container not found"));
+
+        IntegrationCodeWorkflowFacadeImpl integrationCodeWorkflowFacade = newFacade(
+            mock(IntegrationService.class), integrationCodeWorkflowService, codeWorkflowContainerService);
+
+        Optional<String> language = integrationCodeWorkflowFacade.getCodeWorkflowLanguage(1L);
+
+        assertThat(language).isEmpty();
+    }
+
+    @Test
     void testGetCodeWorkflowLanguageReturnsEmptyWhenNoCodeWorkflowExists() {
         IntegrationCodeWorkflowService integrationCodeWorkflowService = mock(IntegrationCodeWorkflowService.class);
 
