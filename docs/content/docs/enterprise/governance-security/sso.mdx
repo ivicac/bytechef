@@ -25,6 +25,29 @@ Administrators register identity providers at runtime — metadata URLs, client 
 - **Multi-tenant deployments**, where each tenant brings their own IdP.
 - **Acquisitions**, where you onboard a new identity domain without an outage window.
 
+## Configuring an identity provider
+
+Identity providers are managed under **Settings → Identity Providers**. The page lists configured providers in a table — **Name**, **Type**, **Issuer / Metadata URI**, **Domains**, **Status** (Enabled/Disabled), **Enforced**, and any **MCP** surfaces — with per-row edit and delete actions. **Add Identity Provider** opens the configuration dialog.
+
+{/* TODO screenshot: Settings → Identity Providers — the Add Identity Provider dialog with Type set to OIDC, showing Issuer URI, Client ID, Client Secret, Scopes, Email Domains, Default Role, and the Auto-provision / Enforce SSO / Enabled checkboxes */}
+
+The dialog adapts to the selected **Type**:
+
+| Field | Applies to | Purpose |
+|---|---|---|
+| **Type** | Both | `OIDC` or `SAML` (fixed once created). |
+| **Name** | Both | Display name for the provider. |
+| **Issuer URI** | OIDC | Issuer whose `.well-known/openid-configuration` is auto-discovered. |
+| **Client ID** / **Client Secret** | OIDC | OAuth client credentials (secret can be left blank on edit to keep the current one). |
+| **Scopes** | OIDC | Requested scopes, e.g. `openid,profile,email`. |
+| **Metadata URI** | SAML | IdP metadata URL used to auto-configure endpoints and certificates. |
+| **Signing Certificate** | SAML | Optional PEM certificate, when not carried in the metadata. |
+| **NameID Format** | SAML | Optional NameID format (Email Address, Persistent, Transient, Unspecified, or default). |
+| **Email Domains** | Both | Domains that route users to this provider at login (add/remove as chips). |
+| **Default Role** | Both | `ROLE_USER` or `ROLE_ADMIN` granted to users from this provider. |
+
+Checkboxes control behavior: **Auto-provision users on first SSO login**, **Enforce SSO (block password login for matching domains)**, **Enabled**, and **Require MFA** (a policy flag). OIDC providers additionally expose per-surface **MCP** toggles (embedded / automation / management) that advertise or trust the provider for the corresponding [MCP](/enterprise/extensibility/mcp-integration) endpoints; enabling any of them reveals audience-validation, groups-claim, and group-to-authority mapping settings. For SAML, editing a saved provider exposes a **Download SP Metadata** button to hand to your IdP.
+
 ## Tested identity providers
 
 Okta, Auth0, Azure AD / Entra ID, Google Workspace, Keycloak, plus generic SAML 2.0 and OIDC providers.

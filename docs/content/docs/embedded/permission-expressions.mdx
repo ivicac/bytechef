@@ -75,9 +75,25 @@ Limit a sensitive integration to internal users by email domain:
 email != null && email.endsWith('@yourcompany.com')
 ```
 
-## Setting an expression
+## Setting an expression in the UI
 
-Expressions are managed through the admin API, scoped to the resource they gate.
+Each expression is a multi-line **Permission Expression** text field, scoped to the resource it gates. Leaving it empty means *no restriction*.
+
+{/* TODO screenshot: the Permission Expression textarea on an integration workflow row (or the New Integration dialog), showing a sample SpEL expression like metadata['tier'] == 'gold' */}
+
+**Integrations:**
+
+- In **Embedded → Integrations**, the integration create/edit dialog (**New Integration** / edit) has a **Permission Expression** field alongside the component, name, description, category, and tags — it gates the whole integration.
+- In the integration's workflow list, each workflow row exposes its own **Permission Expression** field so you can gate individual workflows inside an otherwise broadly visible integration.
+
+**Automation workflow projects:**
+
+- The **Automation Workflow Project** dialog (in **Embedded → Automations**) has a project-level **Permission Expression** field.
+- Each workflow's **Automation Workflow** dialog has its own **Permission Expression** field.
+
+## Setting an expression through the admin API
+
+The same expressions are settable programmatically, scoped to the resource they gate.
 
 **Integrations:**
 

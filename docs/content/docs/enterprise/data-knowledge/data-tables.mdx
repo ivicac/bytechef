@@ -7,7 +7,7 @@ Data tables are ByteChef's built-in answer to "I need a small relational store f
 
 ## What you can do
 
-- **Create tables** with typed columns (text, number, boolean, date, JSON).
+- **Create tables** with typed columns (String, Number, Integer, Date, DateTime, Boolean).
 - **Insert / update / delete rows** via UI or API.
 - **Query** by primary key, by indexed column, or via filter expressions.
 - **Use in workflows** — data table actions are first-class components.
@@ -33,13 +33,13 @@ Data tables are ByteChef's built-in answer to "I need a small relational store f
 
 The data tables UI is a spreadsheet-style view:
 
-- Create columns inline with their types.
-- Edit cells directly; changes commit on blur.
-- Filter, sort, and search the table.
-- Export to CSV; import from CSV.
+- Add columns via the **Add Column** dialog, choosing a type (String, Number, Integer, Date, DateTime, Boolean); rename or delete a column from its header menu.
+- Edit cells directly; select rows and delete them in bulk.
+- Import rows from a CSV file and export the table to CSV from the actions (**⋮**) menu, which also holds **Rename Table** and **Delete Table**.
+- Find a table quickly with the **Search tables...** box in the left sidebar.
 - Use each table from a workflow via the Data Table component actions.
 
-{/* TODO screenshot: data table spreadsheet view — header row with typed columns (text/number/boolean/date/json badges); a few sample rows; one cell in edit mode; toolbar with filter/sort/search + import/export CSV */}
+{/* TODO screenshot: data table spreadsheet view — header row with typed columns (String/Number/Integer/Date/DateTime/Boolean badges); a few sample rows; one cell in edit mode; the actions (⋮) menu open showing Import CSV / Export CSV / Rename Table / Delete Table */}
 ![Data table spreadsheet UI with typed columns and an inline cell edit](/enterprise/data-tables/spreadsheet-view.png)
 
 ## Using data tables from workflows

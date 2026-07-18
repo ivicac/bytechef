@@ -5,8 +5,8 @@ description: "Per-execution history with status, duration, inputs, outputs, and 
 
 Every workflow run produces an **execution record** — a full, queryable snapshot of what happened, why, and how long it took. Debugging in ByteChef means opening a real execution and reading the trace, not staring at logs hoping you find the relevant lines.
 
-{/* TODO screenshot: execution list view with rows for recent runs — columns showing execution ID, workflow, version, environment, status (mix of succeeded/failed/suspended), duration, trigger; filters bar at top */}
-![Workflow execution list with status, version, and trigger columns](/enterprise/workflow-executions/execution-list.png)
+{/* TODO screenshot: Workflow Executions page — the results table with columns Status, Workflow, Project, Deployment, Duration, Start date, End date and a per-row actions menu; the environment selector and refresh button in the header; the filter sidebar on the left */}
+![Workflow execution table with status, project, deployment, and duration columns](/enterprise/workflow-executions/execution-list.png)
 
 ## What's in an execution record
 
@@ -24,39 +24,38 @@ Every workflow run produces an **execution record** — a full, queryable snapsh
 | **Retry attempts** | If a step retried, each attempt is captured. |
 | **Audit linkage** | Correlation IDs that join the execution to related audit entries. |
 
-## Per-step traces
+## Opening an execution
 
-Clicking a task in the execution view opens its full record:
+Click a row (or choose **View** from the row's actions menu) to open the execution detail. The detail opens as a two-pane view:
 
-- The resolved input parameters (after expressions evaluated).
-- The output payload.
-- The component version that ran.
-- Errors with the original stack trace.
-- Network call details when applicable (for HTTP-based components).
+- **Left pane** — the execution's task list, one entry per task with its status; selecting a task reveals its **Input** and **Output**, plus the failure error for a failed task. Subflows are navigable through a breadcrumb.
+- **Right pane** — the workflow rendered read-only on the canvas, so you can see the task in the context of the whole workflow.
 
-{/* TODO screenshot: single-execution detail view with the step list on the left (one entry per task with status icons) and the right pane showing input parameters, output payload, and a stack trace for a failed step */}
-![Per-step trace view with input, output, and stack trace for a failed task](/enterprise/workflow-executions/step-trace-detail.png)
+{/* TODO screenshot: single-execution detail — the left pane showing the task list with status icons and the selected task's Input/Output tabs, and the right pane showing the workflow read-only on the canvas */}
+![Per-step trace view with input, output, and the read-only workflow canvas](/enterprise/workflow-executions/step-trace-detail.png)
 
 Sensitive properties are masked everywhere — see [encrypted credentials](/enterprise/governance-security/encrypted-credentials).
 
-## Debug a real run, not a synthesized one
+## Actions on a run
 
-The execution view is built so you can:
+From a run's actions menu (**⋮**) you can:
 
-- **Re-run** a failed execution with the same inputs to reproduce.
-- **Re-run with edits** — adjust the input payload, see if the fix would have worked.
-- **Pin** an execution as a test case for the workflow.
-- **Compare** two executions to see what diverged.
+- **View** — open the two-pane execution detail described above.
+- **Stop** — cancel a run that is still executing (enabled only while its status is `STARTED`).
 
-## Status filters and views
+The header's **refresh** button re-fetches the list so you can watch runs progress without leaving the page.
 
-The execution list view supports:
+## Filters
 
-- **Filter by status** (failed only, suspended only, etc.).
-- **Filter by date range**.
-- **Filter by trigger type**.
-- **Filter by execution duration** — surface the slowest 1% of runs.
-- **Filter by workflow version** — useful right after a promotion to compare v17 vs v18 behavior.
+A filter sidebar narrows the list. Combine any of:
+
+- **Status** — `STARTED`, `COMPLETED`, `CREATED`, `STOPPED`, or `FAILED`.
+- **Start date** / **End date** — bound the run window.
+- **Project** — scope to one project.
+- **Deployment** — scope to a specific project deployment (name + version).
+- **Workflow** — scope to a single workflow.
+
+The **environment selector** in the header scopes the whole list to DEVELOPMENT, STAGING, or PRODUCTION.
 
 ## Suspended executions
 

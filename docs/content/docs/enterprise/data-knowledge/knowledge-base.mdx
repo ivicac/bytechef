@@ -19,13 +19,13 @@ Every step is observable and swappable.
 
 ## Document ingestion
 
-Supported input formats:
+The upload dialog accepts these file types:
 
 - **PDF** (with optional OCR via [Mistral OCR](/enterprise/data-knowledge/knowledge-base#ocr)).
-- **Markdown** and **plain text**.
-- **HTML**.
-- **Common Office formats** (Word, PowerPoint).
-- **Source code** files.
+- **Markdown** and **plain text** (`.md`, `.txt`).
+- **HTML** (`.html`, `.htm`).
+- **Word** (`.doc`, `.docx`) and **PowerPoint** (`.ppt`, `.pptx`).
+- **Excel** (`.xls`, `.xlsx`) and **CSV**.
 
 Documents can be uploaded via the UI, the API, or — more usefully — fed in from workflows. A common pattern: a workflow watches a Drive folder, ingests new files, and the knowledge base stays in sync without manual touch.
 
@@ -38,13 +38,15 @@ Each document moves through a status lifecycle (`PENDING` → `PROCESSING` → `
 
 ## Chunking
 
-Chunking strategy is configurable per knowledge base:
+Chunking is configured per knowledge base, at creation time, in the **New Knowledge Base** dialog. Three settings control how documents are split:
 
-- **Fixed-size** — N characters per chunk with overlap.
-- **Sentence-aware** — preserves sentence boundaries.
-- **Structure-aware** — splits on headings, sections, code fences.
+- **Min Chunk Size (characters)** — the smallest chunk the splitter will emit.
+- **Max Chunk Size (tokens)** — the token ceiling per chunk.
+- **Overlap Size (tokens)** — how many tokens each chunk repeats from the previous one, to preserve context across boundaries.
 
 Chunk sizes typically tune around 500–1500 tokens depending on the embedding model and downstream prompt budget.
+
+{/* TODO screenshot: New Knowledge Base dialog — Name and Description fields, the Min Chunk Size / Max Chunk Size / Overlap Size chunking inputs, and the optional initial-document upload area */}
 
 ## Embeddings
 

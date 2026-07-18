@@ -45,10 +45,10 @@ Roles are tuned so that the common separation-of-duties patterns work out of the
 
 ## Centralized administration
 
-Workspace admins manage members and their roles from a single screen. When a user is removed at the workspace level, their access to every project in that workspace is revoked atomically — no orphan grants left behind.
+Workspace admins manage members from **Settings → Workspaces**: each workspace row's **⋮** menu has a **Members** entry that opens the **Workspace Members** dialog. The dialog lists members with **User**, **Role**, and **Added** columns; an admin changes a member's role inline (a **Role** dropdown offering **ADMIN**, **EDITOR**, or **VIEWER**), removes a member with the trash action, and adds one through the **Add user** row — search a user by email, pick a role, and confirm. When a user is removed at the workspace level, their access to every project in that workspace is revoked atomically — no orphan grants left behind.
 
-{/* TODO screenshot: workspace members admin screen — table of members with columns Name / Email / Workspace role; "Add member" button visible; one row in an "edit role" state to show the assignment UI */}
-![Workspace members and roles admin screen](/enterprise/rbac/members-and-roles.png)
+{/* TODO screenshot: Workspace Members dialog — the members table with User / Role / Added columns, a role dropdown open on one row showing ADMIN / EDITOR / VIEWER, and the "Add user" row visible */}
+![Workspace members and roles dialog](/enterprise/rbac/members-and-roles.png)
 
 ## Enterprise SSO
 

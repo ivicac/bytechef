@@ -22,7 +22,7 @@ message, a conversation id, and any attachments.
 3. Configure the **Mode** (see below).
 4. Save and deploy.
 
-Once deployed, the workflow appears in **Automation → Chats**, grouped under its project.
+Once deployed, the workflow appears in **AI Hub → Workflow Chats**, grouped under its project.
 
 ## The request shape
 
@@ -53,8 +53,8 @@ The trigger's **Mode** decides where the chat is consumed:
 
 | Mode | Behavior |
 | --- | --- |
-| **Hosted Chat** (default) | The workflow appears in ByteChef's **Chats** page. Nothing else to build. |
-| **Embedded Chat** | The workflow is hidden from the Chats page; you invoke its webhook from your own interface. |
+| **Hosted Chat** (default) | The workflow appears in ByteChef's **Workflow Chats** page. Nothing else to build. |
+| **Embedded Chat** | The workflow is hidden from the Workflow Chats page; you invoke its webhook from your own interface. |
 
 Pick **Hosted Chat** when you want ByteChef to provide the chat UI, and **Embedded Chat**
 when you're building the front end yourself and just want the trigger contract.
@@ -62,12 +62,12 @@ when you're building the front end yourself and just want the trigger contract.
 ## Workflows with multiple triggers
 
 A workflow can have more than one trigger — for example a New Chat Request trigger and a
-Slack trigger on a specific channel. When a user opens the workflow from the **Chats** page,
+Slack trigger on a specific channel. When a user opens the workflow from the **Workflow Chats** page,
 the conversation is bound to the **chat trigger** specifically. Other triggers on the same
 workflow keep firing independently from their own sources.
 
 <Callout title="Other webhook triggers">
-  The Chats page is calibrated for the New Chat Request trigger and its
+  The Workflow Chats page is calibrated for the New Chat Request trigger and its
   `{ message, conversationId, attachments }` body. A workflow built on a different webhook
   trigger can still be invoked, but the trigger must accept that same body shape (or read
   the equivalent keys from its parameters) for the message to reach the workflow.

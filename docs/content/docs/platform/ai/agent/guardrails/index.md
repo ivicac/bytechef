@@ -56,6 +56,10 @@ The two parents share the same child catalogue. Most production setups wire `Che
 user input  →  Check For Violations  →  AI Agent  →  Sanitize Text  →  user-visible reply
 ```
 
+You wire both parents as cluster elements in the AI Agent editor: attach **Check For Violations** and/or **Sanitize Text** in the Guardrails slot, attach a shared **Model** child if any LLM-stage detector is used, then attach the child detectors inside each parent.
+
+<!-- TODO screenshot: the AI Agent editor Guardrails slot showing a Check For Violations parent with a Model child and several child detectors (PII, Jailbreak, NSFW) attached, plus a Sanitize Text parent on the outbound side -->
+
 ---
 
 ## Guardrail Catalogue

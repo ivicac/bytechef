@@ -11,7 +11,9 @@ ByteChef exposes a [Model Context Protocol (MCP)](https://modelcontextprotocol.i
 
 ## Get Your MCP Server URL
 
-<!-- TODO screenshot: Settings → MCP Server page — the server URL field with copy button, the Require authentication toggle, and the regenerate-secret control -->
+<!-- TODO screenshot: Settings → MCP Server page — the Require authentication toggle at the top, and the client tabs (Claude / Cursor / Windsurf / Other) below with a config snippet and its Refresh control -->
+
+The settings page presents the server URL inside ready-to-copy configuration snippets, grouped into per-client tabs — **Claude**, **Cursor**, **Windsurf**, and **Other**. Each snippet has a **Refresh** control that rotates the secret in the URL (when the SSE transport is enabled, a separate SSE snippet appears alongside the Streamable HTTP one).
 
 1. Open ByteChef and go to **Settings** → **MCP Server**
 2. Copy the MCP server URL — it has the form:

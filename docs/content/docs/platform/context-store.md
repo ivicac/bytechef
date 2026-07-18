@@ -13,33 +13,45 @@ The Context Store keeps a synced replica of records from external systems (CRMs,
 
 Each **Context Store source** binds an external connector (HubSpot, Salesforce, a JSON file, etc.) to a sync cadence and a set of **entities** — named record shapes with declared indexed fields. The sync engine runs on the configured cadence, writes new and changed records into the store, and tombstones rows that have disappeared from upstream.
 
-Open **Context Store** from the automation sidebar (under the **Deployments** group) to see your sources, then use **Add Source** to bind a connector, choose a records backend, and define entities.
+Open **Context Store** from the automation sidebar (under the **Deployments** group) to see your sources, then use **Add Source** to walk the wizard that binds a connector and defines the entity.
 
-<!-- TODO screenshot: Context Store page — list of sources with sync status, and the Add Source dialog open showing the connector picker, sync cadence, and (when ClickHouse is configured) the Records Backend selector -->
-<!-- TODO screenshot: source detail view — its entities with their indexed fields, plus last-sync timestamp and record counts -->
+<!-- TODO screenshot: Context Store page — list of sources with their sync status and the per-row actions menu (Refresh now / Disable / Delete) -->
+<!-- TODO screenshot: Add Context Source dialog on step 1 (Connection) — the Context Store select, Source Name field, and the component grid picker -->
 
+## Add a source
+
+**Add Source** opens a four-step wizard (**Connection → Record shape → Cadence → Review**). Use **Next** and **Back** to move between steps; **Create Source** on the final step provisions the source and its first sync.
+
+1. **Connection** — choose the target **Context Store**, name the source, then pick a component from the grid and one of its data-stream-compatible connections. Only components with such a connection appear; create one on the Connections page first if the grid is empty.
+2. **Record shape** — name the **Entity**, add an optional description, fill any source-specific configuration the connector exposes, choose the **ID Field** (the upstream record's unique key), and add **Indexed Fields** — the named columns you want to filter and search on, each with a declared type.
+3. **Cadence** — set the **Sync Cadence** (how often fresh records are pulled) and, optionally, a less-frequent **Full Re-sync Cadence** that detects upstream deletions, plus the **Tombstone Strategy** for how disappeared rows are retired.
+4. **Review** — confirm the store, name, connection, entity, cadence, and tombstone strategy, then create.
+
+<!-- TODO screenshot: source detail dialog — the entity's indexed fields, cadence, and last-sync details -->
+
+A source's row on the Context Store page carries an actions menu with **Refresh now** (trigger an immediate sync), **Disable** / **Enable**, and **Delete**.
 
 ---
 
 ## Records backend
 
-A Context Store source picks a records backend at create time:
+The records backend is a **deployment-wide** choice made by the operator, not a per-source setting — there is no backend selector in the Add Source wizard. Every source in the deployment persists to whichever backend is active:
 
 - **Postgres** (default): records live in the same Postgres database as the rest of ByteChef. Supports the full query path including filter expressions and semantic search. Recommended for most workloads.
-- **ClickHouse** (optional): records live in a separate ClickHouse server with per-entity typed-projection tables. Designed for sources with very large record counts where Postgres scans would be expensive. Semantic search is not supported on ClickHouse-backed sources in this release.
+- **ClickHouse** (optional): records live in a separate ClickHouse server with per-entity typed-projection tables. Designed for very large record counts where Postgres scans would be expensive. Semantic search is not supported on ClickHouse-backed sources in this release.
 
 ### Enabling ClickHouse
 
-The ClickHouse backend is opt-in. To make it available to operators creating sources:
+The ClickHouse backend is opt-in and switches the **entire deployment** over. To enable it:
 
 1. Provision a ClickHouse instance reachable from the ByteChef server.
 2. Set the three environment variables (see [Configuration → Environment Variables](../self-hosting/configuration/environment-variables.md#context-store-configuration)):
    - `BYTECHEF_CONTEXT_STORE_CLICKHOUSE_URL`
    - `BYTECHEF_CONTEXT_STORE_CLICKHOUSE_USERNAME`
    - `BYTECHEF_CONTEXT_STORE_CLICKHOUSE_PASSWORD`
-3. Restart ByteChef. The "Add Source" dialog will surface a **Records Backend** selector with both options.
+3. Restart ByteChef.
 
-When the URL is unset, the dialog quietly omits the selector — Postgres-only deployments see no change.
+Setting the URL wires the ClickHouse datasource, and its repository then overrides the Postgres adapter for every source's record reads and writes. When the URL is unset the whole ClickHouse bean tree stays uninstantiated and Postgres is the only records backend — Postgres-only deployments see no change. Switching backends does not migrate existing records; re-run each source's sync to repopulate the newly active backend.
 
 ### What ClickHouse does differently
 

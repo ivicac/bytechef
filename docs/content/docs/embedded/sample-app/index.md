@@ -135,7 +135,7 @@ If you're modifying the embedded React SDK and want the sample app to pick up yo
 
 ```bash
 # Terminal 1 — rebuild the SDK on save
-cd <repo-root>/sdks/frontend/embedded/library/react
+cd <repo-root>/sdks/frontend/embedded/library
 npm run watch
 
 # Terminal 2 — after each rebuild, re-link into the sample app

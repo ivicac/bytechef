@@ -7,8 +7,25 @@ description: "Every privileged action — workflow publish, role change, credent
 
 The audit log — surfaced in the UI as **Settings → Audit Events** — answers two questions auditors and incident responders need: **who did what, and when?** Every privileged action in ByteChef Enterprise is captured automatically — there is no opt-in flag to enable per resource and no way for a user to bypass it.
 
-{/* TODO screenshot: audit log table with columns Actor / Action / Target / Timestamp / Source; mixed rows showing WORKFLOW_PUBLISHED, ROLE_GRANTED, CONNECTION_UPDATED, ENVIRONMENT_PROMOTION; filter bar showing actor + date-range filters applied */}
-![Audit log table with mixed event types and active filters](/enterprise/audit-log/audit-log-table.png)
+{/* TODO screenshot: Settings → Audit Events page — the results table with columns Date, Principal, Event Type and a per-row chevron; the left filter sidebar showing Principal, Search data, Event type, From date, and To date; the header showing the active "Filter by" summary */}
+![Audit events table with Date, Principal, and Event Type columns and the filter sidebar](/enterprise/audit-log/audit-log-table.png)
+
+## Using the Audit Events page
+
+The **Settings → Audit Events** screen has a filter sidebar on the left and a results table on the right.
+
+The **filter sidebar** exposes:
+
+| Filter | What it does |
+|---|---|
+| **Principal** | Match a single actor (e.g. `admin@localhost.com`). |
+| **Search data** | Free-text match against any recorded event data value. |
+| **Event type** | Restrict to one event type, chosen from the dropdown (populated from `auditEventTypes`); **All** clears it. |
+| **From date** / **To date** | Bound the time window with the date pickers. |
+
+A **Clear filters** link resets everything, and the page header shows a live **Filter by** summary of the active filters. The **results table** lists **Date**, **Principal**, and **Event Type**; clicking a row opens a detail panel showing the event type, timestamp, principal, event ID, and the event's recorded **Data** as key/value pairs. When results span multiple pages, **Previous** / **Next** controls page through them.
+
+{/* TODO screenshot: audit event detail panel — the slide-over showing the event type header with timestamp, the Principal and Event ID rows, and the Data key/value list */}
 
 ## What gets captured
 

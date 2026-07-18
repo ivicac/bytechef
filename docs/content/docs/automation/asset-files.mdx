@@ -7,8 +7,23 @@ description: Upload and manage files that workflows and the AI Hub can read and 
 
 **Asset Files** is the workspace's file library — a place to upload files once and reuse them across automations, and to find the files your runs produce.
 
-- **Upload** files by dragging them onto the page or browsing; uploaded files are tagged as user uploads.
-- **Browse and preview** files with their source, size, and timestamps; open a file's detail view to inspect it.
-- **Reuse** files in workflows and AI Hub conversations instead of re-uploading per run.
+Asset Files are **workspace-scoped** and **per-environment**: use the environment selector in the page header to switch between Development, Staging, and Production.
 
-{/* TODO screenshot: Asset Files page — file list with source/size columns and the drag-and-drop upload zone */}
+## Upload files
+
+Drag files onto the page's upload zone, or click to browse and pick them. Files you upload are labeled with an **Upload** source badge to distinguish them from files an AI Hub conversation or a workflow produced.
+
+{/* TODO screenshot: Asset Files page — file list with source badges and the drag-and-drop upload zone */}
+
+## Browse and organize
+
+- **Filter by tag** — the left sidebar lists your tags; pick one to narrow the list.
+- **Edit tags** — add or remove tags on a file from its row.
+- **Download** — each file row links to its content for download.
+- **Rename** or **Delete** — available from the file's row; deleting asks for confirmation.
+
+## Inspect a file
+
+Click a file to open its **detail sheet** (also reachable via a deep link at `/automation/asset-files/{fileId}`). The sheet shows the file's name and an environment badge, previews the content inline — text and code files render in a viewer with syntax highlighting, images render as an image — and offers a **Download** button. Text and code files can be edited in place and saved.
+
+Reuse these files in workflows and AI Hub conversations instead of re-uploading per run.

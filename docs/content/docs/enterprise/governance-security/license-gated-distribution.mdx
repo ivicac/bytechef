@@ -40,11 +40,13 @@ The Community feature set is intentionally *complete* for single-tenant, single-
 
 ## License validation
 
-{/* TODO screenshot: Settings → License page — the license key input and the activated license details (edition, expiry, seat count) */}
+{/* TODO screenshot: Settings → License page — the .lic file drop zone with the Upload License button (no license yet), or the activated License Details card (status badge, Holder, Expires At, Allowed Jobs, Max Users, Features) with the Replace / Remove buttons */}
 
 > **Coming soon.** License-file validation is on the upcoming release track. In the latest released version of ByteChef, EE activation is controlled by the `bytechef.edition` configuration alone.
 
 License validation is local and offline — no callbacks to a vendor licensing server during normal operation. The license file is read at boot, validated, and used to determine which EE modules to activate. If your license expires, the platform continues to operate but stops activating the EE-gated features.
+
+On the **Settings → License** page, an admin uploads a `.lic` file by dropping it on the upload zone (or browsing to it) and clicking **Upload License**. Once a license is active, the page shows a **License Details** card with a status badge (**Valid**, **In grace**, **Expired**, or **Invalid**) and the license attributes — **Holder Name**, **Holder Email**, **Issued At**, **Expires At**, **Allowed Jobs**, **Jobs Used This Month**, **Max Users**, and the entitled **Features**. **Replace License** swaps in a new file; **Remove License** deletes it and reverts the platform to the Community Edition after a confirmation.
 
 ## Migrating Community → Enterprise
 

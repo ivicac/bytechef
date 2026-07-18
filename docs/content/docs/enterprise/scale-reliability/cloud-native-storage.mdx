@@ -42,7 +42,7 @@ Default for: single-node Docker Compose deployments, tests, evaluations.
 
 ByteChef uses Spring environment post-processors to auto-wire the file storage backend based on configuration. The practical effect:
 
-- Set `BYTECHEF_FILE_STORAGE_PROVIDER=S3` and a few S3-specific properties — the platform picks up the S3 backend at boot.
+- Set `BYTECHEF_FILE_STORAGE_PROVIDER=AWS` and a few S3-specific properties — the platform picks up the S3 backend at boot. (The provider values are `AWS` for S3, `FILESYSTEM`, and `JDBC` for database storage.)
 - No XML, no programmatic bean overrides, no copy-pasted YAML.
 - The same workflow JSON runs against either backend.
 

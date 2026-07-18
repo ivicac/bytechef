@@ -16,7 +16,13 @@ The trigger definition is used to specify the properties of a trigger. Below is 
 - `webhookRequest(WebhookRequestFunction webhookRequest)` - Required for `DYNAMIC_WEBHOOK` and `STATIC_WEBHOOK` triggers. This method is called when a webhook request is received to process the incoming data.
 - `listenerEnable(ListenerEnableConsumer listenerEnable)` - Required for `LISTENER` triggers. This method is called when the trigger is enabled to start listening for events.
 - `listenerDisable(ListenerDisableConsumer listenerDisable)` - Required for `LISTENER` triggers. This method is called when the trigger is disabled to stop listening for events.
-- `webhookValidate(WebhookValidateFunction webhookValidate)` - Optional for webhook triggers. Used to validate the incoming webhook request (e.g., checking signatures).
+- `webhookValidate(WebhookValidateFunction webhookValidate)` - Optional for webhook triggers. Used to validate the incoming webhook request (e.g., checking signatures) before a job is created.
+- `webhookValidateOnEnable(WebhookValidateFunction webhookValidateOnEnable)` - Optional. Validates the request during the provider's URL-verification handshake performed at enable time (e.g., echoing back a challenge token).
+- `webhookRawBody(boolean webhookRawBody)` - When `true`, the raw request body is passed to `webhookRequest` without being parsed (needed for signature verification over the exact bytes).
+- `workflowSyncExecution(boolean workflowSyncExecution)` - When `true`, the workflow runs synchronously and the HTTP caller receives the workflow's response (used by request-response webhook patterns).
+- `batch(boolean batch)` - When `true` and the trigger output is a list, a single job runs with the whole list; when `false`, one job runs per list element.
+- `deduplicate(DeduplicateFunction deduplicate)` - Optional for polling triggers. Provides a key used to drop records that were already seen on a previous poll.
+- `dynamicWebhookRefresh(DynamicWebhookRefreshFunction dynamicWebhookRefresh)` - Optional for `DYNAMIC_WEBHOOK` triggers whose registration expires. Called before expiration to renew the webhook and return a fresh output.
 
 ## Trigger Type
 

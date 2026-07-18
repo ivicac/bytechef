@@ -18,7 +18,10 @@ curl -O https://raw.githubusercontent.com/bytechefhq/bytechef/master/docker-comp
 docker compose -f docker-compose.yml up
 ```
 
-Once running, open [http://localhost:8080/login](http://localhost:8080/login) and click **Create Account** to get started.
+Once running, open [http://localhost:8080/login](http://localhost:8080/login) and click **Create account** to register the first user and get started.
+
+<!-- TODO screenshot: the ByteChef login screen at http://localhost:8080/login on a fresh install, with the "Create account" link highlighted -->
+
 
 ## Option 2: Docker (Manual Setup)
 

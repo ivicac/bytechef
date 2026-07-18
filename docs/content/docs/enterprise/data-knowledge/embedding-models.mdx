@@ -9,11 +9,12 @@ ByteChef Enterprise's embedding pipeline is designed to be **open**: the provide
 
 ## Supported providers
 
-Today the embedding pipeline ships with **OpenAI** wired in:
+Today the embedding pipeline ships with **OpenAI** and **Mistral** wired in:
 
-| Provider | Models |
-|---|---|
-| **OpenAI** | `text-embedding-3-small`, `text-embedding-3-large`, legacy `text-embedding-ada-002`. |
+| Provider | Default model | Other models |
+|---|---|---|
+| **OpenAI** | `text-embedding-3-small` | `text-embedding-3-large`, legacy `text-embedding-ada-002`. |
+| **Mistral** | `mistral-embed` | — |
 
 Additional embedding providers — Azure OpenAI (the same model family routed through your Azure resource), Vertex AI (Google's Gecko-family embeddings), and OpenAI-API-compatible local/self-hosted servers (LM Studio, vLLM with embedding heads) — are on the roadmap. The pipeline is built around a provider abstraction so these slot in without changing how knowledge bases are authored.
 
@@ -25,6 +26,8 @@ The embedding model is configured at the workspace level. The most common knob:
 
 ```
 BYTECHEF_AI_PROVIDER_EMBEDDING_OPENAI_OPTIONS_MODEL=text-embedding-3-small
+# or, for the Mistral provider:
+BYTECHEF_AI_PROVIDER_EMBEDDING_MISTRAL_OPTIONS_MODEL=mistral-embed
 ```
 
 You can change models per knowledge base if you have a reason to (e.g., one knowledge base of code and one of natural language, each with their best-fit model).

@@ -31,13 +31,18 @@ A workspace is the **boundary for settings and shared state**. Common settings o
 
 You can have an unlimited number of workspaces in a deployment. There's no licensing penalty for splitting work across more workspaces; the cost is operational (more places to manage).
 
+Admins manage workspaces under **Settings → Workspaces**: **New Workspace** creates one, and each workspace row's **⋮** menu exposes **Edit**, **Members** (the [Workspace Members dialog](/enterprise/governance-security/rbac#centralized-administration)), and **Delete**.
+
+{/* TODO screenshot: Settings → Workspaces — the workspace list with the New Workspace button and a row's ⋮ menu open showing Edit / Members / Delete */}
+
 ## Projects
 
 A project is the **unit of ownership and access**. A project is what a team works in day-to-day. Each project contains:
 
 - One or more workflows.
 - Project-scoped connections.
-- A set of users with [project roles](/enterprise/governance-security/rbac) (admin, editor, operator, viewer).
+
+Access is governed by [workspace roles](/enterprise/governance-security/rbac) — **Admin**, **Editor**, or **Viewer** — granted per member on the workspace and applying to every project inside it.
 
 Data tables and knowledge bases are **workspace-scoped**, not project-scoped — they're shared across the workspace's projects rather than owned by one. Workflows in a project share state — they can call each other as subflows, share workspace data tables, and reference each other's connections. Projects do **not** share state with each other; that's the boundary's whole point.
 

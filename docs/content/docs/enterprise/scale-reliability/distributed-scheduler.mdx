@@ -42,7 +42,7 @@ For AWS-native deployments, EventBridge is often the better choice — it's alre
 
 ### Setup snapshot
 
-- Set `BYTECHEF_SCHEDULER_PROVIDER=EVENTBRIDGE`.
+- Set `BYTECHEF_SCHEDULER_PROVIDER=AWS` (the AWS provider is the EventBridge-based scheduler; the two provider values are `QUARTZ` and `AWS`).
 - Configure AWS credentials with permission to create EventBridge rules.
 - ByteChef provisions the rules on first save of a schedule.
 

@@ -24,13 +24,15 @@ A **code workflow** is a workflow defined entirely in code — you upload an art
 
 Script-language code workflows can be created and edited directly in ByteChef, without a separate build-and-upload step. A code-backed project (or integration) opens a **Monaco source editor** in place of the visual canvas. Saves are compile-gated — invalid source is rejected with the loader's error — and **name-locked**: the `name` declared in the code cannot change after the project or integration is created.
 
+{/* TODO screenshot: code-backed project open in the Monaco source editor — a JavaScript code workflow with the workflows/tasks object visible, replacing the visual canvas */}
+
 ### Automation projects
 
-From the **Projects** page, open the **New Project** dropdown and choose **New Code Workflow**. Provide a name and pick a language (JavaScript, Python, or Ruby). ByteChef deploys a starter and opens the project in the source editor.
+On the **Projects** page, open the dropdown next to the **New Project** button (the chevron button) and choose **New Code Workflow**. In the **New Code Workflow** dialog, provide a name and pick a language (JavaScript, Python, or Ruby). ByteChef deploys a starter and opens the project in the source editor.
 
 ### Embedded integrations
 
-The same authoring flow is available for [embedded integrations](/embedded/integrations). Choose **New Code Workflow** on the **Integrations** page; a code-backed integration opens the source editor rather than the visual builder. Embedded integrations are keyed on `componentName` (and `componentVersion`) instead of a project name.
+The same authoring flow is available for [embedded integrations](/embedded/integrations). On the **Integrations** page, open the dropdown next to the **New Integration** button and choose **New Code Workflow**; a code-backed integration opens the source editor rather than the visual builder. Embedded integrations are keyed on `componentName` (and `componentVersion`) instead of a project name.
 
 ### Single-file contract
 

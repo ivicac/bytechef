@@ -456,7 +456,7 @@ Note what this means architecturally: connections are bound to deployments and r
 
 ### OpenAPI-generated components
 
-Components scaffolded from an OpenAPI spec (via the CLI: `component init openapi --name=... --openapi-path=...`) implement `OpenApiComponentHandler`. Their generated actions declare **only properties and metadata** (HTTP method, path, where each property goes: `PATH` / `QUERY` / `HEADER` / `BODY`) — and no `perform`. At load time, `OpenApiComponentHandlerLoader` wraps each such action and injects a generic perform that assembles the HTTP call from that metadata. This is the clearest demonstration of the `Optional` contract: `getPerform()` being empty isn't an error, it's a signal the loader acts on. Hand-written `modify*` hooks let authors adjust the generated definitions without touching generated code.
+Components scaffolded from an OpenAPI spec (via the CLI: `component init --name=... --open-api-path=...`) implement `OpenApiComponentHandler`. Their generated actions declare **only properties and metadata** (HTTP method, path, where each property goes: `PATH` / `QUERY` / `HEADER` / `BODY`) — and no `perform`. At load time, `OpenApiComponentHandlerLoader` wraps each such action and injects a generic perform that assembles the HTTP call from that metadata. This is the clearest demonstration of the `Optional` contract: `getPerform()` being empty isn't an error, it's a signal the loader acts on. Hand-written `modify*` hooks let authors adjust the generated definitions without touching generated code.
 
 ## Putting it together
 

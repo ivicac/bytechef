@@ -30,7 +30,7 @@ A connection has exactly one scope at a time. You widen access by **promoting** 
 - Anyone can create a `PRIVATE` connection.
 - **Promotion is an admin action.** Promoting a connection to `WORKSPACE` requires the workspace admin role (`ROLE_ADMIN`). The connection-create dialog only offers `WORKSPACE` to admins; non-admins can create only `PRIVATE` connections.
 - **The creator can always demote their own connection back to `PRIVATE`.** This is an orphan-recovery path: if every admin loses their role, the person who created a promoted connection can still pull it back in. Demotion is therefore allowed for an admin **or** the connection's creator.
-- **`ORGANIZATION` is managed through the organization-scoped surface** and is terminal — organization connections are deleted rather than demoted.
+- **`ORGANIZATION` is managed through its own admin surface** — the **Settings → Organization Connections** page, where an admin creates, edits, and deletes organization-wide connections (scoped by the environment selector). This scope is terminal: organization connections are deleted rather than demoted.
 
 Every promotion and demotion is recorded in the [audit log](/enterprise/governance-security/audit-log) with the before/after scope.
 
@@ -38,9 +38,11 @@ Every promotion and demotion is recorded in the [audit log](/enterprise/governan
 
 In the automation UI, visibility is surfaced in three places:
 
-- A **scope badge** on each connection showing its current visibility.
-- A **visibility selector** in the connection-create dialog (admins see the full set; non-admins see `PRIVATE` only).
-- A **promote / demote** menu on the connection list, available to admins (plus the creator's own demote).
+- A **scope badge** on each connection showing its current visibility with an icon and tooltip: **Private** (lock), **Workspace** (building), or **Organization** (globe).
+- A **Visibility** selector in the connection-create dialog. Non-admins see only **Private (only you)**; admins additionally see **Workspace (all workspace members)**. The selector appears on create only — when editing an existing connection the dialog shows the current scope as a read-only badge and points you to the list menu to change it.
+- A **change-visibility menu** on the connection list, reached from the scope badge or the row's actions menu. A private connection offers **Share with workspace** (promote); a shared connection offers **Make private** (demote). These items are visible to admins, plus the creator's own **Make private** for orphan recovery.
+
+{/* TODO screenshot: automation Connections list — a connection row with its scope badge (e.g. Workspace) and the open visibility menu showing "Share with workspace" / "Make private" */}
 
 The underlying operations are exposed as GraphQL mutations:
 

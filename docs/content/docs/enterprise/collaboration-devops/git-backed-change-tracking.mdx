@@ -24,12 +24,12 @@ In the repository, each workflow is one file named after its label — `Invoice 
 
 ## Setting up the integration
 
-{/* TODO screenshot: Settings → Git Configuration page — repository URL, branch, and credentials fields with the Save button */}
+{/* TODO screenshot: Settings → Git Configuration page — the URL, Username, and Password fields with the Save button */}
 
 Two configuration steps, at two scopes:
 
-1. **Workspace → repository.** Under **Settings → Git Configuration**, an administrator enters the repository URL and credentials (username plus password or access token). Any HTTPS Git remote works — GitHub, GitLab, Bitbucket, or self-hosted. The configuration is workspace-scoped, so every project in the workspace shares one repository.
-2. **Project → branch.** On the Projects list, each project's menu has a **Git Configuration** entry: pick the branch the project syncs with (the dropdown lists the repository's actual remote branches) and flip **Enabled** on. One project ↔ one branch.
+1. **Workspace → repository.** Under **Settings → Git Configuration**, an administrator fills in three fields — **URL** (the Git repository URL), **Username**, and **Password** (a password or access token) — and clicks **Save**. Any HTTPS Git remote works — GitHub, GitLab, Bitbucket, or self-hosted. The configuration is workspace-scoped, so every project in the workspace shares one repository.
+2. **Project → branch.** On the Projects list, each project's menu has a **Git Configuration** entry that opens an **Update Git Configuration** dialog: pick the **Branch** the project syncs with (the dropdown lists the repository's actual remote branches) and turn the **Enabled** switch on. One project ↔ one branch. The sibling **Pull Project from Git** menu item stays disabled until the project's Git configuration is enabled.
 
 | Action | Required permission |
 |---|---|

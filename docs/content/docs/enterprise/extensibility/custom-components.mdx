@@ -46,18 +46,21 @@ For teams that don't want a Java toolchain, components can be authored in JavaSc
 
 ## Authoring in the UI
 
-Beyond the Gradle-module and CLI paths, script-language components can be written and maintained directly in **Settings → Custom Components** — no local toolchain required.
+Beyond the Gradle-module and CLI paths, script-language components can be written and maintained directly in **Settings → Components** — no local toolchain required. The page opens on the **Custom Components** list (an **API Connectors** tab sits alongside it when the connector builder is enabled). Each row shows the component title, name, version badge, and language badge, plus an enable/disable toggle and a **Delete** action under the row's ellipsis menu.
+
+{/* TODO screenshot: Settings → Components page, Custom Components tab — list of custom component rows each showing title, name, version + language badges, an enable/disable switch, and the ellipsis menu; the New Component dropdown button open in the header */}
 
 ### The detail page
 
-Opening a custom component from the list navigates to its detail page:
+Opening a **JavaScript, Python, or Ruby** custom component from the list navigates to its detail page: an editable **Monaco source editor** with a **Save** button. **Save** is compile-gated — the edited source is loaded before it is persisted, and invalid source is rejected with the loader's error rather than being saved.
 
-- **JavaScript, Python, and Ruby** components open an editable **Monaco source editor**. **Save** is compile-gated: the edited source is loaded before it is persisted, and invalid source is rejected with the loader's error rather than being saved.
-- **Java** components open a read-only definition view — their source lives in your build, so the detail page shows the resolved definition rather than an editor.
+**Java** components do not open the editor; their source lives in your build. Instead the list row expands inline (via the chevron) to show the resolved definition — the component's actions and triggers — read-only.
+
+{/* TODO screenshot: custom component detail page — Monaco source editor with a JavaScript component open, the header showing the component title + language badge, Back arrow, and Save button */}
 
 ### Create from scratch
 
-The **New component** dialog (name + JavaScript) generates a starter component you can flesh out in the editor. The first save deploys it, after which it behaves like any other custom component.
+In the page header, the **New Component** dropdown offers **Custom Component** and **Import Custom Component**. Choosing **Custom Component** opens the **New Custom Component** dialog (a **Name** field and a **Language** selector — JavaScript today) and generates an empty starter you flesh out in the editor. The first save deploys it, after which it behaves like any other custom component. **Import Custom Component** opens an upload dialog that accepts one or more `.jar` / `.js` / `.py` / `.rb` files by drag-and-drop or file browse.
 
 ### Single-file contract
 

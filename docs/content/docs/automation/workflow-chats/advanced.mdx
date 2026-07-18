@@ -17,7 +17,7 @@ A workflow turn doesn't have to be a single request and response. A workflow can
 mid-run to ask the user a question and resume once they answer — all inside the same
 conversation.
 
-When the workflow suspends with a question, the Chats page renders the prompt and waits.
+When the workflow suspends with a question, the Workflow Chats page renders the prompt and waits.
 The user's answer is sent back to the running execution, which resumes from where it
 paused. This is the same suspend/resume mechanism described in
 [Human in the Loop](/automation/build/human-in-the-loop), surfaced conversationally: instead
@@ -29,7 +29,7 @@ collecting a missing field, or choosing between options — without leaving the 
 ## Embedded chat
 
 Setting the trigger's **Mode** to **Embedded Chat** keeps the workflow out of the hosted
-Chats page and lets you drive it from your own UI. Your interface calls the
+Workflow Chats page and lets you drive it from your own UI. Your interface calls the
 [New Chat Request webhook](/automation/workflow-chats/enable-chat#the-request-shape) with the
 same `{ message, conversationId, attachments }` body and renders the streamed reply however
 you like. The workflow contract is identical; only the front end changes.
