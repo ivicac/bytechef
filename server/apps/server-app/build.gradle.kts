@@ -267,6 +267,7 @@ dependencies {
     implementation(project(":server:ee:libs:ai:ai-copilot:ai-copilot-rest"))
     implementation(project(":server:ee:libs:ai:ai-copilot:ai-copilot-service"))
     implementation(project(":server:libs:ai:ai-copilot:ai-copilot-service"))
+    implementation(project(":server:ee:libs:automation:automation-ai:automation-ai-copilot"))
     implementation(project(":server:ee:libs:automation:automation-ai:automation-ai-gateway:automation-ai-gateway-graphql"))
     implementation(project(":server:libs:platform:platform-ai:platform-ai-auto-memory:platform-ai-auto-memory-api"))
     implementation(project(":server:libs:platform:platform-ai:platform-ai-auto-memory:platform-ai-auto-memory-graphql"))

@@ -56,6 +56,7 @@ include("server:libs:platform:platform-ai:platform-ai-auto-memory:platform-ai-au
 include("server:libs:platform:platform-ai:platform-ai-auto-memory:platform-ai-auto-memory-repository:platform-ai-auto-memory-repository-api")
 include("server:libs:platform:platform-ai:platform-ai-auto-memory:platform-ai-auto-memory-repository:platform-ai-auto-memory-repository-jdbc")
 include("server:libs:platform:platform-ai:platform-ai-auto-memory:platform-ai-auto-memory-service")
+include("server:ee:libs:automation:automation-ai:automation-ai-copilot")
 include("server:ee:libs:automation:automation-ai:automation-ai-tool")
 include("server:libs:ai:ai-mcp:ai-mcp-server")
 include("server:libs:ai:ai-mcp:ai-mcp-server-configuration:ai-mcp-server-configuration-graphql")
