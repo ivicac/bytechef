@@ -9,7 +9,6 @@ package com.bytechef.ee.embedded.ai.copilot.config;
 
 import com.agui.core.exception.AGUIException;
 import com.agui.core.state.State;
-import com.agui.spring.ai.SpringAIAgent;
 import com.bytechef.ai.copilot.agent.OverrideChatClientResolver;
 import com.bytechef.ai.copilot.agent.WorkflowEditorSpringAIAgent;
 import com.bytechef.ai.copilot.agent.WorkflowExecutionSpringAIAgent;
@@ -17,6 +16,7 @@ import com.bytechef.ai.copilot.tool.RehydrateContextToolCallback;
 import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.service.PermissionService;
+import com.bytechef.ee.embedded.ai.copilot.agent.EmbeddedCodeWorkflowSpringAIAgent;
 import com.bytechef.ee.embedded.ai.tool.IntegrationCodeWorkflowTools;
 import com.bytechef.ee.embedded.ai.tool.IntegrationWorkflowExecutionTools;
 import com.bytechef.ee.embedded.ai.tool.IntegrationWorkflowTools;
@@ -56,10 +56,11 @@ import org.springframework.core.io.Resource;
  *
  * <p>
  * The agents reuse the concrete CE agent classes ({@link WorkflowEditorSpringAIAgent},
- * {@link WorkflowExecutionSpringAIAgent}) whose builders accept arbitrary agent ids; the code-workflow pair uses the
- * base {@link SpringAIAgent} because there is no CE code-workflow agent class and its behavior is not tied to an
- * automation source. Tool catalogs mirror the automation Copilot pairs in {@code CopilotConfiguration}, re-keyed from
- * project/workspace tools onto the embedded integration tools from {@code embedded-ai-tool}; the shared,
+ * {@link WorkflowExecutionSpringAIAgent}) whose builders accept arbitrary agent ids; the code-workflow pair uses
+ * {@link EmbeddedCodeWorkflowSpringAIAgent} (a minimal {@code SpringAIAgent} subclass whose {@code toolContext}
+ * override carries the run's security context onto the tool-execution worker thread) because there is no CE
+ * code-workflow agent class. Tool catalogs mirror the automation Copilot pairs in {@code CopilotConfiguration},
+ * re-keyed from project/workspace tools onto the embedded integration tools from {@code embedded-ai-tool}; the shared,
  * platform-generic tools ({@link ComponentTools}, {@link TaskTools}, {@link WorkflowValidatorTools},
  * {@link WorkflowInstructionTools}, {@link FirecrawlTools}) are reused unchanged.
  * </p>
@@ -168,32 +169,36 @@ public class EmbeddedCopilotConfiguration {
     }
 
     @Bean
-    SpringAIAgent codeWorkflowEmbeddedAskSpringAIAgent(
-        ChatMemory chatMemory, ChatModel chatModel, ReadIntegrationCodeWorkflowTools readIntegrationCodeWorkflowTools)
-        throws AGUIException {
+    EmbeddedCodeWorkflowSpringAIAgent codeWorkflowEmbeddedAskSpringAIAgent(
+        ChatMemory chatMemory, ChatModel chatModel, ReadIntegrationCodeWorkflowTools readIntegrationCodeWorkflowTools,
+        SecurityContextRehydrator securityContextRehydrator) throws AGUIException {
 
-        return SpringAIAgent.builder()
+        return EmbeddedCodeWorkflowSpringAIAgent.builder()
             .agentId("code_workflow_embedded_ask")
             .chatMemory(chatMemory)
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptCodeWorkflowEmbeddedAskResource))
             .state(state)
-            .tools(List.of(readIntegrationCodeWorkflowTools))
+            .toolCallbacks(wrapTools(securityContextRehydrator, List.of(readIntegrationCodeWorkflowTools)))
             .build();
     }
 
     @Bean
-    SpringAIAgent codeWorkflowEmbeddedBuildSpringAIAgent(
+    EmbeddedCodeWorkflowSpringAIAgent codeWorkflowEmbeddedBuildSpringAIAgent(
         ChatMemory chatMemory, ChatModel chatModel, IntegrationCodeWorkflowTools integrationCodeWorkflowTools,
-        ReadIntegrationCodeWorkflowTools readIntegrationCodeWorkflowTools) throws AGUIException {
+        ReadIntegrationCodeWorkflowTools readIntegrationCodeWorkflowTools,
+        SecurityContextRehydrator securityContextRehydrator) throws AGUIException {
 
-        return SpringAIAgent.builder()
+        return EmbeddedCodeWorkflowSpringAIAgent.builder()
             .agentId("code_workflow_embedded_build")
             .chatMemory(chatMemory)
             .chatModel(chatModel)
             .systemMessage(getSystemPrompt(promptCodeWorkflowEmbeddedBuildResource))
             .state(state)
-            .tools(List.of(integrationCodeWorkflowTools, readIntegrationCodeWorkflowTools))
+            .toolCallbacks(
+                wrapTools(
+                    securityContextRehydrator,
+                    List.of(integrationCodeWorkflowTools, readIntegrationCodeWorkflowTools)))
             .build();
     }
 
