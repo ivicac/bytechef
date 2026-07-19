@@ -30,6 +30,7 @@ import com.bytechef.component.definition.TriggerDefinition.TriggerType;
 import com.bytechef.component.definition.TriggerDefinition.WebhookBody;
 import com.bytechef.component.definition.TriggerDefinition.WebhookMethod;
 import com.bytechef.component.definition.TriggerDefinition.WebhookValidateResponse;
+import com.bytechef.component.infobip.util.InfobipSignatureValidator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +56,11 @@ import java.util.Map;
 public class InfobipInboundCallTrigger {
 
     public static final String SUB_WORKFLOW = "subWorkflow";
+    public static final String SIGNATURE_SECRET = "signatureSecret";
+
+    // Header carrying the HMAC signature on signed Infobip webhooks. The exact name could not be verified against
+    // Infobip's live API reference and should be confirmed against the account's webhook configuration.
+    private static final String SIGNATURE_HEADER = "X-Signature";
 
     public static final ModifiableTriggerDefinition TRIGGER_DEFINITION = trigger("inboundCall")
         .title("Inbound Voice Call")
@@ -68,7 +74,14 @@ public class InfobipInboundCallTrigger {
                 .description(
                     "The workflow ID to execute synchronously during the phone call. " +
                         "This workflow handles real-time audio processing and AI responses.")
-                .required(true))
+                .required(true),
+            string(SIGNATURE_SECRET)
+                .label("Webhook Signature Secret")
+                .description(
+                    "Optional shared secret used to verify the HMAC signature Infobip sends on signed webhooks. " +
+                        "When set, requests with a missing or invalid signature are rejected. Leave empty to skip " +
+                        "signature verification.")
+                .required(false))
         .output(
             outputSchema(
                 object()
@@ -91,6 +104,19 @@ public class InfobipInboundCallTrigger {
     protected static WebhookValidateResponse webhookValidate(
         Parameters inputParameters, HttpHeaders headers, HttpParameters parameters, WebhookBody body,
         WebhookMethod method, TriggerContext context) {
+
+        String signatureSecret = inputParameters.getString(SIGNATURE_SECRET);
+
+        // Opt-in signature verification: only enforced when a signing secret is configured, mirroring the Twilio
+        // status-callback validation. Reject requests whose HMAC signature does not match the raw body.
+        if (signatureSecret != null && !signatureSecret.isBlank()) {
+            String signature = headers.firstValue(SIGNATURE_HEADER)
+                .orElse(null);
+
+            if (!InfobipSignatureValidator.isValid(signatureSecret, body.getRawContent(), signature)) {
+                return new WebhookValidateResponse("", Map.of(), 403);
+            }
+        }
 
         Map<String, Object> bodyContent = extractBodyContent(body);
 
