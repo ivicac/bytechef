@@ -38,7 +38,7 @@ const Appearance = lazy(() => import('@/pages/account/settings/Appearance'));
 const AutomationConnections = lazy(() =>
     import('@/pages/automation/connections/Connections').then((module) => ({default: module.Connections}))
 );
-const AutomationToolInvocations = lazy(() =>
+const ToolInvocationsPage = lazy(() =>
     import('@/pages/automation/tool-invocations/ToolInvocations').then((module) => ({
         default: module.ToolInvocations,
     }))
@@ -842,7 +842,7 @@ export const getRouter = (queryClient: QueryClient) =>
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
                                                 <LazyLoadWrapper hasLeftSidebar>
-                                                    <AutomationToolInvocations />
+                                                    <ToolInvocationsPage />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
                                         </PrivateRoute>
@@ -1238,6 +1238,18 @@ export const getRouter = (queryClient: QueryClient) =>
                                         </PrivateRoute>
                                     ),
                                     path: 'executions',
+                                },
+                                {
+                                    element: (
+                                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                                            <EEVersion>
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <ToolInvocationsPage basePath="/embedded/executions" />
+                                                </LazyLoadWrapper>
+                                            </EEVersion>
+                                        </PrivateRoute>
+                                    ),
+                                    path: 'executions/tool-invocations',
                                 },
                                 {
                                     element: (

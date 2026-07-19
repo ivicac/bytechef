@@ -34,7 +34,11 @@ const surfaceOptions = [
     {label: 'Embedded API (Tool)', value: 'EMBEDDED_API_TOOL'},
 ];
 
-export const ToolInvocations = () => {
+interface ToolInvocationsProps {
+    basePath?: string;
+}
+
+export const ToolInvocations = ({basePath = '/automation/executions'}: ToolInvocationsProps) => {
     const {
         filterEndDate,
         filterOutcome,
@@ -95,7 +99,7 @@ export const ToolInvocations = () => {
                             <TooltipContent>Refresh</TooltipContent>
                         </Tooltip>
                     }
-                    title={<ExecutionsTabs />}
+                    title={<ExecutionsTabs basePath={basePath} />}
                 />
             }
             leftSidebarBody={

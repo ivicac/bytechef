@@ -1,24 +1,23 @@
 import {useLocation, useNavigate} from 'react-router-dom';
 import {twMerge} from 'tailwind-merge';
 
-interface ExecutionsTabI {
-    label: string;
-    path: string;
+interface ExecutionsTabsProps {
+    basePath: string;
 }
 
-const EXECUTIONS_TABS: Array<ExecutionsTabI> = [
-    {label: 'Workflow Executions', path: '/automation/executions'},
-    {label: 'Tool Invocations', path: '/automation/executions/tool-invocations'},
-];
-
-const ExecutionsTabs = () => {
+const ExecutionsTabs = ({basePath}: ExecutionsTabsProps) => {
     const navigate = useNavigate();
 
     const location = useLocation();
 
+    const executionsTabs = [
+        {label: 'Workflow Executions', path: basePath},
+        {label: 'Tool Invocations', path: `${basePath}/tool-invocations`},
+    ];
+
     return (
         <div className="flex items-center gap-1">
-            {EXECUTIONS_TABS.map((executionsTab) => {
+            {executionsTabs.map((executionsTab) => {
                 const active = location.pathname === executionsTab.path;
 
                 return (

@@ -130,7 +130,7 @@ export const WorkflowExecutions = () => {
                             <EnvironmentSelect />
                         </div>
                     }
-                    title={<ExecutionsTabs />}
+                    title={<ExecutionsTabs basePath="/automation/executions" />}
                 />
             }
             leftSidebarBody={
