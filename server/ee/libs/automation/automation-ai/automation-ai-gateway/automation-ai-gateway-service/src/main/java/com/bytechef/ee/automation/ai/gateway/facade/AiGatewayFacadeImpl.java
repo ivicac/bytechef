@@ -965,6 +965,17 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
     private AiGatewayChatCompletionResponse chatCompletionWithRouting(
         AiGatewayChatCompletionRequest request) {
 
+        // Response cache is keyed on the request content (model-agnostic), so it applies to the routing path exactly
+        // as it does to the direct path; previously routed requests always bypassed the cache.
+        if (isWorkspaceCachingEnabled(request.tags()) && aiGatewayResponseCache.shouldCache(request)) {
+            String cacheKey = aiGatewayResponseCache.computeCacheKey(request);
+            AiGatewayChatCompletionResponse cached = aiGatewayResponseCache.get(cacheKey);
+
+            if (cached != null) {
+                return cached;
+            }
+        }
+
         Long workspaceId = resolveWorkspaceIdFromTags(request.tags());
         long startTime = System.currentTimeMillis();
 
@@ -1052,44 +1063,61 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         }
 
         try {
-            return aiGatewayRetryHandler.executeWithRetry(orderedDeployments, deployment -> {
-                AiGatewayModel model = modelMap.get(deployment.getModelId());
-                AiGatewayProvider provider = aiGatewayProviderService.getProvider(model.getProviderId());
+            AiGatewayChatCompletionResponse response =
+                aiGatewayRetryHandler.executeWithRetry(orderedDeployments, deployment -> {
+                    AiGatewayModel model = modelMap.get(deployment.getModelId());
+                    AiGatewayProvider provider = aiGatewayProviderService.getProvider(model.getProviderId());
 
-                ChatModel chatModel = aiGatewayChatModelFactory.getChatModel(provider);
+                    ChatModel chatModel = aiGatewayChatModelFactory.getChatModel(provider);
 
-                AiGatewayChatCompletionRequest processedRequest = compressMessages(request, model, project);
+                    AiGatewayChatCompletionRequest processedRequest = compressMessages(request, model, project);
 
-                Prompt prompt = buildPrompt(processedRequest, model.getName());
+                    Prompt prompt = buildPrompt(processedRequest, model.getName());
 
-                ChatResponse chatResponse = chatModel.call(prompt);
+                    ChatResponse chatResponse = chatModel.call(prompt);
 
-                int[] tokenCounts = extractTokenCounts(chatResponse);
+                    int[] tokenCounts = extractTokenCounts(chatResponse);
 
-                AiLlmUsage requestLog = createSuccessLog(
-                    request, model, provider, startTime, tokenCounts[0], tokenCounts[1]);
+                    AiLlmUsage requestLog = createSuccessLog(
+                        request, model, provider, startTime, tokenCounts[0], tokenCounts[1]);
 
-                setProjectIdFromProject(requestLog, project);
+                    setProjectIdFromProject(requestLog, project);
 
-                requestLog.setRoutingPolicyId(routingPolicy.getId());
-                requestLog.setRoutingStrategy(routingPolicy.getStrategy() == null ? null : routingPolicy.getStrategy()
-                    .ordinal());
+                    requestLog.setRoutingPolicyId(routingPolicy.getId());
+                    requestLog.setRoutingStrategy(
+                        routingPolicy.getStrategy() == null ? null : routingPolicy.getStrategy()
+                            .ordinal());
+
+                    try {
+                        aiGatewayRequestLogService.create(requestLog, workspaceId);
+                    } catch (Exception logException) {
+                        recordRequestLogPersistFailure("routing", "success");
+
+                        log.error("Failed to persist request log for routed model '{}' — " +
+                            "cost of ${} will be missing from spend tracking. " +
+                            "Alert on ai_gateway.request_log.persist_failure{{kind=routing}}.",
+                            request.model(), requestLog.getCost(), logException);
+                    }
+
+                    enforcePostRequestBudget(request.tags());
+
+                    return toResponse(chatResponse, request.model());
+                });
+
+            if (isWorkspaceCachingEnabled(request.tags()) && aiGatewayResponseCache.shouldCache(request)) {
+                String cacheKey = aiGatewayResponseCache.computeCacheKey(request);
 
                 try {
-                    aiGatewayRequestLogService.create(requestLog, workspaceId);
-                } catch (Exception logException) {
-                    recordRequestLogPersistFailure("routing", "success");
-
-                    log.error("Failed to persist request log for routed model '{}' — " +
-                        "cost of ${} will be missing from spend tracking. " +
-                        "Alert on ai_gateway.request_log.persist_failure{{kind=routing}}.",
-                        request.model(), requestLog.getCost(), logException);
+                    aiGatewayResponseCache.put(cacheKey, response);
+                } catch (Exception cacheException) {
+                    log.warn(
+                        "Failed to cache routed chat completion response for model '{}' (key={}); " +
+                            "request already succeeded, continuing",
+                        request.model(), cacheKey, cacheException);
                 }
+            }
 
-                enforcePostRequestBudget(request.tags());
-
-                return toResponse(chatResponse, request.model());
-            });
+            return response;
         } catch (Exception exception) {
             try {
                 AiLlmUsage errorLog = createErrorLog(request, startTime, exception);
