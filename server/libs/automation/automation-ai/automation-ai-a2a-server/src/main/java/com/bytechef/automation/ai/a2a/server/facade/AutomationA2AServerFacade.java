@@ -235,7 +235,8 @@ public class AutomationA2AServerFacade implements A2AAgentExecutor {
         Workflow workflow = exposedWorkflow.workflow();
 
         String skillName = asString(parameters.get(A2aProjectWorkflow.SKILL_NAME), workflow.getLabel());
-        String skillDescription = asString(parameters.get(A2aProjectWorkflow.SKILL_DESCRIPTION), workflow.getDescription());
+        String skillDescription =
+            asString(parameters.get(A2aProjectWorkflow.SKILL_DESCRIPTION), workflow.getDescription());
 
         Object tagsValue = parameters.get(A2aProjectWorkflow.SKILL_TAGS);
 
