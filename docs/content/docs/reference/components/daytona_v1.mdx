@@ -1,0 +1,100 @@
+---
+title: "Daytona"
+description: "Daytona provides secure and elastic infrastructure for running AI-generated code in isolated sandboxes."
+---
+
+
+Categories: Developer Tools, Artificial Intelligence
+
+
+Type: daytona/v1
+
+<hr />
+
+
+
+
+## Connections
+
+Version: 1
+
+
+### Bearer Token
+
+#### Properties
+
+|      Name       |      Label     |     Type     |     Description     | Required |
+|:---------------:|:--------------:|:------------:|:-------------------:|:--------:|
+| token | API Key | STRING | Your Daytona API key. | true |
+| baseUrl | Base URL | STRING | The Daytona API base URL. Change only for self-hosted deployments. | true |
+
+
+
+
+
+
+<hr />
+
+
+## Actions
+
+
+### Execute Code
+Name: executeCode
+
+`Generates and runs code in a secure, isolated Daytona sandbox and returns its output. Use this to execute AI-generated code (data analysis, calculations, scripts) safely and get the result back.`
+
+#### Properties
+
+|      Name       |      Label     |     Type     |     Description     | Required |
+|:---------------:|:--------------:|:------------:|:-------------------:|:--------:|
+| language | Language | STRING <details> <summary> Options </summary> <span>python</span>, <span>typescript</span>, <span>javascript</span>, <span>bash</span> </details> | The programming language of the code to execute. | true |
+| code | Code | STRING | The source code to execute in the sandbox. | true |
+| timeout | Timeout | INTEGER | Maximum time in seconds to wait for the code to finish executing. | false |
+
+#### Example JSON Structure
+```json
+{
+  "label" : "Execute Code",
+  "name" : "executeCode",
+  "parameters" : {
+    "language" : "",
+    "code" : "",
+    "timeout" : 1
+  },
+  "type" : "daytona/v1/executeCode"
+}
+```
+
+#### Output
+
+
+
+Type: OBJECT
+
+
+#### Properties
+
+|     Name     |     Type     |     Description     |
+|:------------:|:------------:|:-------------------:|
+| exitCode | INTEGER | The exit code of the executed code (0 indicates success). |
+| stdout | STRING | The standard output produced by the code. |
+| success | BOOLEAN <details> <summary> Options </summary> <span>true</span>, <span>false</span> </details> | Whether the code finished with a zero exit code. |
+
+
+
+
+#### Output Example
+```json
+{
+  "exitCode" : 1,
+  "stdout" : "",
+  "success" : false
+}
+```
+
+
+
+
+
+
