@@ -1,0 +1,72 @@
+---
+title: "Users & Invitations"
+description: "Invite people into your organization, assign each one a role, change roles as responsibilities shift, and remove access — all from a single admin-only Settings page."
+---
+
+Organization membership is managed from one place: **Settings → Users**. From this page an administrator invites new users by email, assigns each a role, edits a role later, and removes users who should no longer have access.
+
+> **Edition availability.** User management is an **Enterprise Edition** feature and is gated behind a feature flag (`ff-3900`). The page is reachable only by administrators — the route requires the `ADMIN` authority. In Community Edition the page is not available.
+
+## Who can manage users
+
+The **Users** page is restricted to organization administrators. Non-admin users cannot open the page or perform any of the actions on it. The role you assign here maps onto the permission model described in [Role-Based Access Control](/enterprise/governance-security/rbac) — see that page for what each role can and cannot do.
+
+## The Users page
+
+The page header reads **Users** with the description "Manage organization users: invite or delete users." An **Invite User** button sits in the top-right corner. Below the header, existing users are listed in a table:
+
+| Column | Description |
+|---|---|
+| **Email** | The user's email address. |
+| **Name** | The user's first and last name, when set. |
+| **Role** | The user's current role (for example `ROLE_ADMIN` or `ROLE_USER`). |
+| **Status** | **Active** once the user has activated their account, or **Pending** while the invitation is still outstanding. |
+| *(actions)* | Per-row **edit** and **delete** icon buttons. |
+
+When there are more users than fit on one page, pagination controls appear in the footer. If no users match, the table shows **No users found.**
+
+{/* TODO screenshot: Settings → Users page — the users table with Email / Name / Role / Status columns, per-row edit and delete icons, and the Invite User button in the header */}
+
+## Inviting a user
+
+1. Click **Invite User** in the page header. The **Invite User** dialog opens.
+2. In the **Email** field, enter the new user's email address (for example `user@example.com`).
+3. Review the **Password** field. A strong password is pre-generated automatically according to the security rules. This password is included in the invitation email sent to the user.
+   - Click **Regenerate** to generate a different password.
+   - The password must be at least 8 characters and include at least 1 uppercase letter and 1 number.
+4. Choose a **Role** from the dropdown. The available roles come from the organization's configured authorities (for example `ROLE_ADMIN` and `ROLE_USER`). The first available role is preselected.
+5. Click **Invite** to send the invitation, or **Cancel** to close the dialog without inviting.
+
+The **Invite** button stays disabled until an email address is entered, a role is selected, and the generated password satisfies the password rules.
+
+After a successful invitation, the dialog closes and the new user appears in the table with a **Pending** status until they activate their account.
+
+{/* TODO screenshot: Invite User dialog — the Email field, the read-only pre-generated Password field with the Regenerate button and the password-rule helper text, and the Role dropdown */}
+
+> **The generated password is shown only in this dialog and in the invitation email.** It is not displayed again on the Users page. Regenerating it before sending replaces the value that will be emailed.
+
+## Editing a user's role
+
+1. In the users table, click the **edit** (pencil) icon on the user's row. The **Edit User** dialog opens.
+2. The dialog shows the selected **User** (their email) and a **Role** dropdown set to their current role.
+3. Choose a new **Role** from the dropdown.
+4. Click **Save** to apply the change, or **Cancel** to close without changing anything.
+
+The **Save** button is disabled until a role is selected. Only the role can be changed from this dialog — the user's email and name are not editable here.
+
+{/* TODO screenshot: Edit User dialog — the read-only User email and the Role dropdown open showing the available roles */}
+
+## Removing a user
+
+1. In the users table, click the **delete** (trash) icon on the user's row. A confirmation dialog opens.
+2. The dialog warns **"Are you absolutely sure?"** and notes that the action cannot be undone and will permanently delete data.
+3. Click **Delete** to remove the user, or **Cancel** to keep them.
+
+Removing a user revokes their access to the organization.
+
+{/* TODO screenshot: Delete confirmation dialog — the "Are you absolutely sure?" warning with Cancel and Delete buttons */}
+
+## Related
+
+- [Role-Based Access Control](/enterprise/governance-security/rbac) — what each role grants, and how workspace membership is managed.
+- [Enterprise SSO](/enterprise/governance-security/sso) — federating identities through your identity provider instead of inviting local accounts one by one.

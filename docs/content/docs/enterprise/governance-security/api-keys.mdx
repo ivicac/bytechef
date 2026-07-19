@@ -1,0 +1,101 @@
+---
+title: "API Keys"
+description: "Mint, view, rename, and revoke API keys for programmatic access — account-scoped Admin API Keys that double as the management MCP credential, and workspace- and environment-scoped keys for the automation public API."
+---
+
+ByteChef issues two kinds of API key, each managed from its own admin-only Settings page:
+
+- **Admin API Keys** — scoped to your account and a single environment. Used for programmatic administration and as the Bearer credential for the [management MCP server](/platform/mcp-server).
+- **Workspace API Keys** — scoped to a workspace *and* an environment. Used to call the [automation public API](/automation/api-platform).
+
+Both pages share the same layout, dialogs, and actions; they differ only in scope and where they live in Settings.
+
+> **Edition availability.** API keys are an **Enterprise Edition** feature. Every key page is wrapped by the EE guard and is reachable only by administrators (the route requires the `ADMIN` authority). Admin API Keys are gated behind feature flag `ff-1024`; Workspace API Keys are gated behind `ff-1025`, `ff-1039`, or `ff-4814` in automation, and `ff-520` in the embedded product. When a required flag is off, the page is hidden from the Settings sidebar and the feature is unavailable in Community Edition.
+
+## The two key types
+
+| | Admin API Keys | Workspace API Keys |
+|---|---|---|
+| **Settings location** | **Settings → Admin API Keys** (Organization group) | **Settings → API Keys** (Current Workspace group) |
+| **Scope** | Account + selected environment | Workspace + selected environment |
+| **Primary use** | Programmatic administration; management MCP server credential | Automation public API |
+| **Feature flag** | `ff-1024` | `ff-1025` / `ff-1039` / `ff-4814` (automation), `ff-520` (embedded) |
+
+Every key is bound to the environment that is active in the **Environment** selector when the key is created. Keys created against one environment do not authenticate calls made against another.
+
+{/* TODO screenshot: Settings → Admin API Keys page — header with the Environment selector and the New API Key button, and the keys table below */}
+
+## The API Keys page
+
+Each page header shows the page title, a short description ("Use Admin keys for programmatic administration of your account. Do not share your API key with others or expose it." for Admin keys), an **Environment** selector, and — once at least one key exists — a **New API Key** button.
+
+When no keys exist yet, the body shows an empty state titled **No API Keys** with the message "Get started by creating a new API key." and a **New API Key** button.
+
+### The keys table
+
+Existing keys are listed in a table with these columns:
+
+| Column | Description |
+|---|---|
+| **Name** | The label you gave the key. |
+| **Secret Key** | A masked preview of the key — the full secret is shown only once, at creation time. |
+| **Created Date** | Date and time the key was created. |
+| **Last Used Date** | Date and time the key was last used to authenticate a request. |
+| **Created By** | The user who created the key. |
+
+Each row also has two icon actions on the right: an **edit** (pencil) button and a **delete** (trash) button.
+
+## Create a key
+
+1. Confirm the **Environment** selector is set to the environment the key should be bound to.
+2. Click **New API Key** (or the **New API Key** button in the empty state).
+3. In the **Create API Key** dialog, enter a **Name** (at least 2 characters).
+4. Click **Create API Key**.
+
+The dialog then switches to the **Save your API Key** view and displays the full secret key exactly once.
+
+> **This is your only chance to copy the secret.** For security reasons the full key cannot be viewed again through ByteChef. If you lose it, delete the key and create a new one.
+
+5. Click **Copy** to copy the secret to your clipboard — a "The secret API key is copied." confirmation appears.
+6. Store the secret somewhere safe, then click **Done** to close the dialog.
+
+The new key appears in the table, showing only its masked preview from this point on.
+
+{/* TODO screenshot: Create API Key dialog in the "Save your API Key" state — the read-only secret field, the Copy button, the one-time-reveal warning text, and the Done button */}
+
+## Rename a key
+
+You can change a key's name without invalidating its secret.
+
+1. Click the **edit** (pencil) icon on the key's row.
+2. In the **Edit API Key** dialog, update the **Name**.
+3. Click **Save**.
+
+Only the name changes; the underlying secret is unaffected.
+
+## Delete (revoke) a key
+
+Deleting a key is how you revoke it — there is no enable/disable toggle.
+
+1. Click the **delete** (trash) icon on the key's row.
+2. In the **Are you absolutely sure?** confirmation dialog ("This action cannot be undone. This will permanently delete the API key."), click **Delete**, or **Cancel** to keep the key.
+
+Any client presenting the deleted key is immediately rejected. Because keys are independent, deleting one client's key does not affect any other key.
+
+## Switching environments
+
+Use the **Environment** selector in the page header to view the keys bound to a different environment. The table always lists only the keys for the currently selected environment, and a newly created key is bound to whichever environment is selected at the moment of creation.
+
+## Using Admin API Keys with the management MCP server
+
+An Admin API key is the default credential for the [management MCP server](/platform/mcp-server). When the server's **Require authentication** setting is on, send the key as a Bearer header on every request:
+
+```
+Authorization: Bearer <your-api-key>
+```
+
+The key is bound to an environment, so requests must target the same environment (via the `X-ENVIRONMENT` header, which defaults to `PRODUCTION`). Because the key is tied to your account, the assistant acts with your permissions — and you can revoke a single client by deleting its key without touching the server URL or the other clients. See [MCP Server → API key](/platform/mcp-server) for the full setup.
+
+## Using Workspace API Keys with the automation public API
+
+Workspace API keys authenticate calls to the [automation public API / API Platform](/automation/api-platform), where workflows are published as REST endpoints. Because these keys are scoped to both a workspace and an environment, the key you use must match the workspace and environment of the API you are calling.

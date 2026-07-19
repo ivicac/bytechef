@@ -1,0 +1,150 @@
+---
+title: "API Connectors"
+description: "Turn any REST API into a usable ByteChef component without writing code — build endpoints by hand, import an OpenAPI file, or let AI generate a connector from a documentation URL."
+---
+
+import {Callout} from "fumadocs-ui/components/callout";
+
+An **API connector** turns a REST API into a first-class ByteChef component — one action per endpoint, typed inputs and outputs — without writing or building any code. You describe (or import) the API's endpoints, ByteChef generates an OpenAPI specification, and once enabled the connector shows up in the workflow editor like any built-in component.
+
+Unlike a [custom component](/enterprise/extensibility/custom-components), an API connector has no source you maintain: the connector is generated from its OpenAPI specification and stored in ByteChef, and you manage it entirely from the UI.
+
+<Callout type="info">
+  API connectors are an **Enterprise Edition** feature, gated behind a feature flag (`ff-207`). Creating, editing, enabling, and deleting connectors requires the **admin** role — the underlying mutations are guarded by `ROLE_ADMIN`.
+</Callout>
+
+## Where connectors live
+
+API connectors are managed on the **Settings → Components** page. That page opens on the **Custom Components** list with an **API Connectors** tab alongside it. Switch to the **API Connectors** tab to see every connector in your deployment.
+
+Each row shows:
+
+| Element | Meaning |
+|---|---|
+| **Title - name** | The connector's display title and its machine name. Hover the title to see the description (when set). |
+| **Endpoint count** | `N endpoints` — a collapsible toggle. Click the chevron to expand the endpoint list inline. |
+| **Enable/disable switch** | Turns the connector on or off (see [Enabling a connector](#enabling-a-connector-and-using-it-in-workflows)). |
+| **Modified date** | When the connector was last changed. |
+| **Ellipsis menu** | **Edit** and **Delete** actions. |
+
+{/* TODO screenshot: Settings → Components page with the API Connectors tab selected — a list of connector rows each showing "Title - name", an endpoint-count toggle, an enable/disable switch, the modified date, and the ellipsis menu; the "New Component" dropdown button open in the header */}
+
+### Inspecting endpoints
+
+Expand a row (the **N endpoints** chevron) to list the connector's generated endpoints. Each endpoint row shows an HTTP-method badge, the endpoint name, and its path, plus the last execution date (or **No executions**).
+
+Click an endpoint to open its **detail panel** — a side sheet showing:
+
+- The HTTP method badge and endpoint name.
+- The endpoint **path**.
+- The parent **API Connector** name.
+- The endpoint **description** (when present).
+- The **OpenAPI Specification** for that endpoint, rendered read-only in a YAML editor.
+
+{/* TODO screenshot: endpoint detail side panel open — method badge + endpoint name in the header, path beneath it, the API Connector name, a description, and a read-only YAML OpenAPI specification editor */}
+
+The endpoint-row ellipsis menu contains an **Edit** item that is currently disabled ("Edit workflow — coming soon").
+
+## Creating a connector
+
+Every connector is created from the **New Component** dropdown in the page header. When the API-connector feature is enabled, the dropdown offers three routes:
+
+| Menu item | Route | Use when |
+|---|---|---|
+| **API Connector** | Manual builder | You want to define endpoints by hand — no spec or docs to start from. |
+| **Import Open API File** | OpenAPI import | You already have an OpenAPI 3.x file (`.yml` / `.yaml`). |
+| **API Connector from Docs URL** | AI-assisted | You only have a link to the API's documentation and want AI to generate the spec. |
+
+{/* TODO screenshot: the "New Component" dropdown expanded, showing the three API Connector routes — API Connector, Import Open API File, and API Connector from Docs URL */}
+
+All three routes open a step-based wizard with a **Previous** / **Cancel** button on the left and a **Next** button (labeled **Save** on the final step) on the right. The progress bar at the top shows the current step.
+
+### Route 1 — Manual
+
+Steps: **Basic Info → Define Endpoints → Review**.
+
+1. On **Basic Info**, fill in:
+   - **Name** — the connector's machine name (required), e.g. `my-api-connector`.
+   - **Icon** — optionally upload an `.svg` to represent the connector.
+   - **Base URL** — the API's base URL, e.g. `https://api.example.com/v1`.
+2. Click **Next** to reach **Define Endpoints**.
+3. Click **Add Endpoint** to open the endpoint editor. The editor has two tabs:
+   - **Form** — structured fields:
+
+     | Field | Notes |
+     |---|---|
+     | **Method** | GET, POST, PUT, PATCH, or DELETE. |
+     | **Path** | The endpoint path, e.g. `/users/{id}` (required). |
+     | **Operation ID** | A unique identifier for the endpoint, e.g. `getUserById` (required). |
+     | **Summary** | Short one-line label. |
+     | **Description** | Longer description. |
+     | **Parameters** | Query, path, and header parameters with type and required flag. |
+     | **Request Body** | Content type, schema, required flag. |
+     | **Responses** | Status code, description, content type, and schema per response. |
+
+   - **YAML** — edit the same endpoint directly as OpenAPI YAML.
+4. Click **Add** (or **Update** when editing) to save the endpoint. Repeat for each endpoint. Click a row to edit it, or the trash icon to remove it.
+5. Click **Next** to reach **Review**, confirm the name, base URL, and endpoint list (you can still remove endpoints here), then click **Save** to create the connector.
+
+{/* TODO screenshot: the manual Define Endpoints step with the Add/Edit Endpoint dialog open on its Form tab, showing Method, Path, Operation ID, Summary, Description, and the Parameters / Request Body / Responses sections */}
+
+### Route 2 — Import Open API File
+
+Steps: **Import File → Review**.
+
+1. On **Import File**, fill in:
+   - **Name** — the connector's machine name (required).
+   - **Icon** — optional `.svg` upload.
+   - **OpenAPI Specification** — upload your spec file (`.yml` or `.yaml`, required).
+2. Click **Next** to **Review** the parsed endpoints and the generated specification.
+3. Click **Save** to create the connector.
+
+### Route 3 — API Connector from Docs URL (AI-assisted)
+
+Steps: **Basic Info → Select Endpoints → Review**. This route uses AI to crawl the documentation and generate an OpenAPI specification for you.
+
+1. On **Basic Info**, fill in:
+   - **Name** — the connector's machine name (required).
+   - **Icon** — optional `.svg` upload.
+   - **Documentation URL** — the URL of the API documentation to analyze (required; must start with `http://` or `https://`).
+   - **Endpoint Instructions (Optional)** — free-text guidance on which endpoints you need, e.g. *"Only authentication and user management endpoints"*.
+   - **Crawl linked documentation pages** — a checkbox; when checked, ByteChef follows linked pages. Enter the maximum number of pages to crawl (2–50).
+2. Click **Generate**. ByteChef runs the generation job asynchronously and shows a **Generating OpenAPI specification…** spinner. Generation can take up to a minute (the job times out after 5 minutes). While it runs, the left button becomes **Cancel Generation** — click it to abort the job.
+3. When generation completes, the wizard advances to **Select Endpoints**. Discovered endpoints are grouped by resource, and every endpoint starts selected. Use the checkboxes to choose which to include, or the **Select All** / **Deselect All** buttons. The counter shows *"N of M endpoints selected"*; you must keep at least one selected.
+4. Click **Next** to reach **Review**, then **Save**. Only the selected endpoints are included in the created connector.
+
+{/* TODO screenshot: the AI route's Select Endpoints step — endpoints grouped by resource with checkboxes, the "N of M endpoints selected" counter, and the Select All / Deselect All buttons */}
+
+<Callout type="info">
+  The AI route generates an OpenAPI specification by reading the documentation you point at. Review the generated spec and endpoint list before saving — treat it as a draft to verify, not a guaranteed-correct connector.
+</Callout>
+
+## Editing a connector
+
+From a connector row's ellipsis menu, choose **Edit** to open the **Edit API Connector** dialog:
+
+- **Name** — displayed but **locked** (a connector's name cannot change after creation).
+- **Icon** — replace the `.svg` icon.
+- **Open API Specification** — re-upload a specification file to update the connector's endpoints.
+
+Click **Save** to apply, or **Cancel** to discard.
+
+{/* TODO screenshot: the Edit API Connector dialog — a disabled Name field, an Icon uploader, and an Open API Specification uploader, with Cancel and Save buttons */}
+
+## Enabling a connector and using it in workflows
+
+Each connector row has an **enable/disable switch**. Only **enabled** connectors are registered as usable components — a disabled connector is stored but does not appear in the workflow editor.
+
+Once enabled, the connector behaves like any built-in component: open a workflow in the editor, add the connector, and each of its endpoints is available as an action with typed inputs and outputs.
+
+{/* Enable/disable and workflow-editor availability are driven by the connector's enabled flag; the dynamic handler registry only exposes enabled connectors. */}
+
+## Deleting a connector
+
+From a connector row's ellipsis menu, choose **Delete**. A confirmation dialog ("Are you absolutely sure?") warns that the action **cannot be undone** and permanently removes the connector. Click **Delete** to confirm or **Cancel** to keep it. Deleting a connector removes it as a usable component; migrate any workflows that reference it first.
+
+## See also
+
+- [Custom components](/enterprise/extensibility/custom-components) — when you need code (Java or a script language) rather than a spec-driven connector.
+- [Built-in components](/enterprise/extensibility/built-in-components) — the 200+ connectors ByteChef ships out of the box.
+- [MCP integration](/enterprise/extensibility/mcp-integration) — expose components and workflows as Model Context Protocol tools.

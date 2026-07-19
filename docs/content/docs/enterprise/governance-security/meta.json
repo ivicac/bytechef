@@ -3,8 +3,11 @@
   "pages": [
     "flexible-deployment",
     "rbac",
+    "users",
+    "api-keys",
     "component-policies",
     "sso",
+    "oauth2-clients",
     "audit-log",
     "data-retention",
     "encrypted-credentials",
