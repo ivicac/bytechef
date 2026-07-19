@@ -18,12 +18,16 @@ Shipped and verified (local Gradle 8.14.3 / JDK 21 → Java 25 toolchain; client
   `ToolInvocationsTable` + filters + a vitest test); and a **scoped Tool Invocations tab on the
   embedded connected-user sheet** (connectedUserId pre-filter).
 
-Remaining:
+Agreed placement: the Executions page Tool Invocations tab is the single home for tool invocations
+on each surface (done). Per-server / per-user surfacing is achieved by filtering that tab, not by
+separate sheets — so no MCP-server detail-sheet tab is planned. (The connected-user sheet already
+got a convenience Invocations tab; that is a bonus, not required.)
 
-- Scoped Invocations tab on the MCP server surface — blocked: today an MCP server is a collapsible
-  list row, not a detail sheet, so this needs a per-server detail sheet built first (or an
-  mcpServerId filter added to the Executions Tool Invocations tab as a lighter alternative).
-- Optional public per-connected-user history REST endpoint.
+Remaining (optional):
+
+- An mcpServerId filter on the Executions Tool Invocations tab (so a single server's invocations are
+  reachable from the one home) — the only "scoped view" still worth adding.
+- Public per-connected-user history REST endpoint.
 - Populate `workspace_id` on automation MCP events (resolve from mcpServer) for workspace-scoped reads.
 
 Delivered in phases; each phase is independently shippable. Phase 1 alone closes the
