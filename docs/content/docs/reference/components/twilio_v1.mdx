@@ -336,6 +336,7 @@ Type: STATIC_WEBHOOK
 |      Name       |      Label     |     Type     |     Description     | Required |
 |:---------------:|:--------------:|:------------:|:-------------------:|:--------:|
 | subWorkflow | Real-Time Workflow | STRING | The workflow ID to execute synchronously during the phone call. This workflow handles real-time audio processing and AI responses. | true |
+| authToken | Auth Token | STRING | Your Twilio account auth token. When set, the incoming request's X-Twilio-Signature is verified and unsigned or forged requests are rejected. Leave empty to skip verification. | false |
 
 
 #### Output
@@ -365,7 +366,8 @@ Type: OBJECT
   "label" : "Inbound Voice Call",
   "name" : "inboundCall",
   "parameters" : {
-    "subWorkflow" : ""
+    "subWorkflow" : "",
+    "authToken" : ""
   },
   "type" : "twilio/v1/inboundCall"
 }

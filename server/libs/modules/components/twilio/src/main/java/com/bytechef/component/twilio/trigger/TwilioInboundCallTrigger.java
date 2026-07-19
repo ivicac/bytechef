@@ -30,6 +30,7 @@ import com.bytechef.component.definition.TriggerDefinition.TriggerType;
 import com.bytechef.component.definition.TriggerDefinition.WebhookBody;
 import com.bytechef.component.definition.TriggerDefinition.WebhookMethod;
 import com.bytechef.component.definition.TriggerDefinition.WebhookValidateResponse;
+import com.bytechef.component.twilio.util.TwilioSignatureValidator;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -49,10 +50,13 @@ import java.util.Map;
 public class TwilioInboundCallTrigger {
 
     public static final String SUB_WORKFLOW = "subWorkflow";
+    public static final String AUTH_TOKEN = "authToken";
 
     // Platform header names - must match AbstractWebhookTriggerController constants
     private static final String HEADER_WORKFLOW_EXECUTION_ID = "X-ByteChef-Workflow-Execution-Id";
     private static final String HEADER_PUBLIC_URL = "X-ByteChef-Public-Url";
+    private static final String HEADER_REQUEST_URL = "X-ByteChef-Request-Url";
+    private static final String HEADER_TWILIO_SIGNATURE = "X-Twilio-Signature";
 
     public static final ModifiableTriggerDefinition TRIGGER_DEFINITION = trigger("inboundCall")
         .title("Inbound Voice Call")
@@ -66,7 +70,13 @@ public class TwilioInboundCallTrigger {
                 .description(
                     "The workflow ID to execute synchronously during the phone call. " +
                         "This workflow handles real-time audio processing and AI responses.")
-                .required(true))
+                .required(true),
+            string(AUTH_TOKEN)
+                .label("Auth Token")
+                .description(
+                    "Your Twilio account auth token. When set, the incoming request's X-Twilio-Signature is " +
+                        "verified and unsigned or forged requests are rejected. Leave empty to skip verification.")
+                .required(false))
         .output(
             outputSchema(
                 object()
@@ -96,6 +106,20 @@ public class TwilioInboundCallTrigger {
 
         if (callSid == null || callSid.isBlank()) {
             return WebhookValidateResponse.badRequest();
+        }
+
+        // Opt-in signature verification: only enforced when an auth token is configured on the trigger. Twilio signs
+        // HMAC-SHA1(authToken, requestUrl + sorted POST params), so validate against the exact external request URL the
+        // platform reconstructs (X-ByteChef-Request-Url) and the POSTed form fields.
+        String authToken = inputParameters.getString(AUTH_TOKEN);
+
+        if (authToken != null && !authToken.isBlank()) {
+            String requestUrl = getFirstHeaderValue(headers, HEADER_REQUEST_URL);
+            String signature = getFirstHeaderValue(headers, HEADER_TWILIO_SIGNATURE);
+
+            if (!TwilioSignatureValidator.isValid(authToken, requestUrl, toStringParams(bodyContent), signature)) {
+                return new WebhookValidateResponse("", Map.of(), 403);
+            }
         }
 
         // Extract platform-provided headers
@@ -158,6 +182,21 @@ public class TwilioInboundCallTrigger {
             .orElse(
                 headers.firstValue(headerName.toLowerCase())
                     .orElse(null));
+    }
+
+    /**
+     * Flattens the POSTed form fields to string values for Twilio signature computation.
+     */
+    private static Map<String, String> toStringParams(Map<String, Object> bodyContent) {
+        Map<String, String> params = new LinkedHashMap<>();
+
+        for (Map.Entry<String, Object> entry : bodyContent.entrySet()) {
+            Object value = entry.getValue();
+
+            params.put(entry.getKey(), value == null ? "" : String.valueOf(value));
+        }
+
+        return params;
     }
 
     private static void storeCallContext(
