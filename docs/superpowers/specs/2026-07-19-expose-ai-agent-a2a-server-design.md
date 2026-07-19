@@ -1,7 +1,7 @@
 # Expose ByteChef AI Agent over the A2A (Agent2Agent) protocol
 
 Date: 2026-07-19
-Status: Proposed — protocol core landed; app wiring pending
+Status: Accepted — protocol core landed; app wiring landed (automation A2A server); streaming + client re-enable pending
 
 ## Problem
 
@@ -71,6 +71,45 @@ status.message).
    descriptor (name/description/skills) surfaced on the card.
 5. **Streaming (later)** — add `message/stream` → SSE, reusing `AiAgentStreamChatAction`,
    and flip `AgentCapabilities.streaming` to true.
+
+## App wiring landed (automation A2A server)
+
+A full, independent A2A registration stack (deliberately NOT reusing the MCP tables), plus the
+HTTP surface, bridge, and secret-key auth:
+
+- **Persistence** — new modules `automation-ai-a2a:automation-ai-a2a-api` (domain
+  `A2aServer`/`A2aProject`/`A2aProjectWorkflow` + service interfaces) and
+  `automation-ai-a2a:automation-ai-a2a-service` (impls, repositories, `@EnableJdbcRepositories`
+  autoconfig, Liquibase `automation/a2a/00000000000001_automation_a2a_init.xml` → `a2a_server` /
+  `a2a_project` / `a2a_project_workflow`). Skill metadata (`skillName`/`skillDescription`/
+  `skillTags`) lives in `A2aProjectWorkflow.parameters` (a `MapWrapper`), mirroring how
+  `McpProjectWorkflow` holds its tool mapping. The A2A services intentionally omit the MCP
+  permission-evaluator `@PreAuthorize` subsystem — the real external surface is the secret-key
+  HTTP auth; per-entity ACLs belong to the (future) management UI.
+- **HTTP surface** — module `automation-ai-a2a-server`, `A2AServerController`:
+  `GET /api/automation/a2a/{secretKey}/.well-known/agent-card.json` (serialized via the A2A spec's
+  `io.a2a.util.Utils.OBJECT_MAPPER`) and `POST /api/automation/a2a/{secretKey}` (parses the
+  JSON-RPC envelope, deserializes `message/send` params to `MessageSendParams`, dispatches through
+  `A2AProtocolHandler`). Card `url` uses `bytechef.webhook.url` when set, else the request URL.
+- **Execution bridge** — `AutomationA2AServerFacade implements A2AAgentExecutor`. Resolves the
+  secret key → `A2aServer` → exposed agent-backed workflows (project-deployment workflows carrying
+  a `workflow/newWorkflowCall` trigger; the same gate the MCP facade uses). `message/send` routes
+  to the server's first such workflow, passing the message text under the conventional `message`
+  input keyed by the trigger name, then runs it synchronously via
+  `PrincipalJobFacade.createJob(...)` + `JobCompletionAwaiter.await(...)` and maps the workflow
+  output (preferring the callable-response output) to `A2AAgentResult`. The exposed workflows
+  become the card's skills.
+- **Auth** — `AutomationA2AServerSecurityConfigurer` reuses the shared `McpApiKeyHttpConfigurer` +
+  `TenantAwareApiKeyAuthenticationFilter` transport plumbing with an A2A-specific
+  `A2aApiKeyAuthenticationConverter` (first path segment after `/api/automation/a2a/` is the server
+  secret) and `AutomationA2AServerApiKeyAuthenticationProvider` (resolves `A2aServerService`,
+  enforces AUTOMATION key + matching environment; anonymous when the server does not require auth).
+  Registered via `AutomationA2AServerApiKeySecurityConfigurerContributor`.
+- Assembled into `server-app`; the server module `runtimeOnly`-depends the service module so the
+  JDBC repositories + Liquibase changelog load wherever the surface is deployed.
+
+Still pending: a GraphQL/client CRUD surface to CREATE A2A servers and map skills (mirror
+`automation-ai-mcp-graphql` + client), `message/stream` → SSE, and re-enabling the A2A client tool.
 
 ## De-risking note
 
