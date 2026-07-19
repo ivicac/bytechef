@@ -9,6 +9,7 @@ package com.bytechef.ee.automation.ai.gateway.guardrail;
 
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionRequest;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatMessage;
+import com.bytechef.ee.platform.ai.gateway.exception.AiGatewayGuardrailException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;

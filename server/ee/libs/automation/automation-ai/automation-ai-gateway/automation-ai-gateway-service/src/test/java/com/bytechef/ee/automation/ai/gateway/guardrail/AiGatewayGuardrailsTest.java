@@ -13,6 +13,7 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionRequest;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatMessage;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatRole;
+import com.bytechef.ee.platform.ai.gateway.exception.AiGatewayGuardrailException;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 
