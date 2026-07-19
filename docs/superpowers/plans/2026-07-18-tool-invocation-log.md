@@ -11,16 +11,18 @@ Shipped and verified (local Gradle 8.14.3 / JDK 21 → Java 25 toolchain; client
   `executeAction`/`executeTool`). Metrics + logs + `ToolExecutionEvent` publish.
 - **Phase 2** — `platform-tool-invocation-log` (api + service); `tool_invocation_log` table + async
   best-effort listener + paged/filtered read + retention job; wired into `server-app` + `execution-app`.
-- **Phase 3 (partial)** — `platform-tool-invocation-log-graphql` (`toolInvocationLogs` query) + client
-  data layer (`useToolInvocationLogsQuery`) + a **Tool Invocations tab on the automation Executions
-  page** (nav renamed "Workflow Executions" → "Executions", route `executions/tool-invocations`,
-  `ToolInvocationsTable` + filters + a vitest test).
+- **Phase 3** — `platform-tool-invocation-log-graphql` (`toolInvocationLogs` query) + client data
+  layer (`useToolInvocationLogsQuery`); **Tool Invocations tab on both the automation and embedded
+  Executions pages** (nav renamed "Workflow Executions" → "Executions", route
+  `executions/tool-invocations`, reusable `ExecutionsTabs` + `ToolInvocations` page via `basePath`,
+  `ToolInvocationsTable` + filters + a vitest test); and a **scoped Tool Invocations tab on the
+  embedded connected-user sheet** (connectedUserId pre-filter).
 
-Remaining (breadth extensions of the shipped automation slice — same pattern):
+Remaining:
 
-- Embedded Executions page Tool Invocations tab (`ee/pages/embedded/workflow-executions`).
-- Scoped Invocations tabs on the MCP-server sheet (mcpServerId pre-filter) and the embedded
-  connected-user sheet (connectedUserId pre-filter).
+- Scoped Invocations tab on the MCP server surface — blocked: today an MCP server is a collapsible
+  list row, not a detail sheet, so this needs a per-server detail sheet built first (or an
+  mcpServerId filter added to the Executions Tool Invocations tab as a lighter alternative).
 - Optional public per-connected-user history REST endpoint.
 - Populate `workspace_id` on automation MCP events (resolve from mcpServer) for workspace-scoped reads.
 
