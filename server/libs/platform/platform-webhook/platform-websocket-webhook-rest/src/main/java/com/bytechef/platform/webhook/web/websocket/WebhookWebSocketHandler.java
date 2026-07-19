@@ -49,6 +49,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -206,6 +207,9 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
         String sessionKey = session.getId();
         String callSid = extractCallSid(uri);
         String sessionToken = extractQueryParam(uri, "sessionToken");
+        // Present only for outbound Twilio calls: identifies the workflow (model B) whose trigger carries the
+        // realtime websocketTasks pipeline to run for this call.
+        String subWorkflowId = extractQueryParam(uri, "subWorkflowId");
 
         log.info(
             "WebSocket connection established for webhook: {}, sessionId: {}, callSid: {}, hasToken: {}",
@@ -286,7 +290,7 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
             scheduleMaxDurationClose(session, sessionKey);
 
             if (webhookId != null) {
-                startWebsocketSubflow(callSid, webhookId);
+                startWebsocketSubflow(callSid, webhookId, subWorkflowId);
             }
         }
 
@@ -577,7 +581,7 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
      * definition is stored as a string in the trigger's {@code websocketTasks} extension field within the workflow
      * definition JSON.
      */
-    private void startWebsocketSubflow(String callSid, String webhookIdString) {
+    private void startWebsocketSubflow(String callSid, String webhookIdString, @Nullable String subWorkflowId) {
         Optional<CallSessionRegistry.CallSession> callSessionOpt = callSessionRegistry.getSessionByCallSid(callSid);
 
         if (callSessionOpt.isEmpty()) {
@@ -592,9 +596,18 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
 
         Thread.startVirtualThread(() -> {
             try {
-                WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.parse(webhookIdString);
+                String websocketSubflowDefinition;
+                WorkflowExecutionId workflowExecutionId = null;
 
-                String websocketSubflowDefinition = getWebsocketSubflowDefinition(workflowExecutionId);
+                if (subWorkflowId != null && !subWorkflowId.isBlank()) {
+                    // Outbound call (model B): resolve the pipeline from the trigger of the workflow chosen in the
+                    // makeCall action, not from an inbound trigger.
+                    websocketSubflowDefinition = getWebsocketSubflowDefinitionByWorkflowId(subWorkflowId);
+                } else {
+                    workflowExecutionId = WorkflowExecutionId.parse(webhookIdString);
+
+                    websocketSubflowDefinition = getWebsocketSubflowDefinition(workflowExecutionId);
+                }
 
                 if (websocketSubflowDefinition == null || websocketSubflowDefinition.isBlank()) {
                     log.warn(
@@ -603,7 +616,9 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
                     return;
                 }
 
-                applyTriggerSessionLimit(callSid, workflowExecutionId);
+                if (workflowExecutionId != null) {
+                    applyTriggerSessionLimit(callSid, workflowExecutionId);
+                }
 
                 log.info("Starting websocket subflow: callSid={}", callSid);
 
@@ -828,6 +843,21 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
         WorkflowTrigger workflowTrigger = resolveWorkflowTrigger(workflowExecutionId);
 
         return workflowTrigger.getExtension(WEBSOCKET_TASKS, String.class, null);
+    }
+
+    /**
+     * Resolves the {@code websocketTasks} realtime pipeline from the triggers of the workflow selected in an outbound
+     * call action (model B), returning the first trigger that defines one.
+     */
+    private @Nullable String getWebsocketSubflowDefinitionByWorkflowId(String subWorkflowId) {
+        Workflow workflow = workflowService.getWorkflow(subWorkflowId);
+
+        return WorkflowTrigger.of(workflow)
+            .stream()
+            .map(workflowTrigger -> workflowTrigger.getExtension(WEBSOCKET_TASKS, String.class, null))
+            .filter(definition -> definition != null && !definition.isBlank())
+            .findFirst()
+            .orElse(null);
     }
 
     private WorkflowTrigger resolveWorkflowTrigger(WorkflowExecutionId workflowExecutionId) {
