@@ -18,6 +18,8 @@ package com.bytechef.platform.ai.a2a;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import io.a2a.spec.CancelTaskResponse;
+import io.a2a.spec.GetTaskResponse;
 import io.a2a.spec.JSONRPCErrorResponse;
 import io.a2a.spec.JSONRPCResponse;
 import io.a2a.spec.Message;
@@ -163,6 +165,50 @@ class A2AProtocolHandlerTest {
 
         assertThat(events).hasSize(1);
         assertThat(events.get(0)).isInstanceOf(JSONRPCErrorResponse.class);
+    }
+
+    @Test
+    void testGetTaskReturnsRecentlyProducedTask() {
+        A2AProtocolHandler handler = new A2AProtocolHandler(request -> A2AAgentResult.ofText("done"));
+
+        MessageSendParams params = new MessageSendParams(userMessage("hi"), null, null);
+
+        SendMessageResponse sendResponse = (SendMessageResponse) handler.handle(
+            "agent-1", "req-a", A2AProtocolHandler.METHOD_SEND_MESSAGE, params);
+        Task sentTask = (Task) sendResponse.getResult();
+
+        JSONRPCResponse<?> getResponse = handler.handleGetTask("req-b", sentTask.getId());
+
+        assertThat(getResponse).isInstanceOf(GetTaskResponse.class);
+
+        Task fetchedTask = (Task) getResponse.getResult();
+
+        assertThat(fetchedTask.getId()).isEqualTo(sentTask.getId());
+    }
+
+    @Test
+    void testGetTaskUnknownIdReturnsTaskNotFound() {
+        A2AProtocolHandler handler = new A2AProtocolHandler(request -> A2AAgentResult.ofText("x"));
+
+        JSONRPCResponse<?> response = handler.handleGetTask("req-c", "no-such-task");
+
+        assertThat(response).isInstanceOf(GetTaskResponse.class);
+        assertThat(((GetTaskResponse) response).getError()).isNotNull();
+    }
+
+    @Test
+    void testCancelKnownTaskReturnsNotCancelable() {
+        A2AProtocolHandler handler = new A2AProtocolHandler(request -> A2AAgentResult.ofText("done"));
+
+        SendMessageResponse sendResponse = (SendMessageResponse) handler.handle(
+            "agent-1", "req-d", A2AProtocolHandler.METHOD_SEND_MESSAGE,
+            new MessageSendParams(userMessage("hi"), null, null));
+        Task sentTask = (Task) sendResponse.getResult();
+
+        JSONRPCResponse<?> response = handler.handleCancelTask("req-e", sentTask.getId());
+
+        assertThat(response).isInstanceOf(CancelTaskResponse.class);
+        assertThat(((CancelTaskResponse) response).getError()).isNotNull();
     }
 
     private static Message userMessage(String text) {

@@ -16,6 +16,8 @@
 
 package com.bytechef.platform.ai.a2a;
 
+import io.a2a.spec.CancelTaskResponse;
+import io.a2a.spec.GetTaskResponse;
 import io.a2a.spec.InvalidParamsError;
 import io.a2a.spec.JSONRPCErrorResponse;
 import io.a2a.spec.JSONRPCResponse;
@@ -26,10 +28,14 @@ import io.a2a.spec.Part;
 import io.a2a.spec.SendMessageResponse;
 import io.a2a.spec.SendStreamingMessageResponse;
 import io.a2a.spec.Task;
+import io.a2a.spec.TaskNotCancelableError;
+import io.a2a.spec.TaskNotFoundError;
 import io.a2a.spec.TaskState;
 import io.a2a.spec.TaskStatus;
 import io.a2a.spec.TaskStatusUpdateEvent;
 import io.a2a.spec.TextPart;
+import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -55,8 +61,23 @@ public class A2AProtocolHandler {
 
     public static final String METHOD_SEND_MESSAGE = "message/send";
     public static final String METHOD_STREAM_MESSAGE = "message/stream";
+    public static final String METHOD_GET_TASK = "tasks/get";
+    public static final String METHOD_CANCEL_TASK = "tasks/cancel";
+
+    private static final int MAX_RECENT_TASKS = 1000;
 
     private final A2AAgentExecutor agentExecutor;
+
+    // Bounded LRU of recently-produced tasks so tasks/get can return a task shortly after message/send. Tasks complete
+    // synchronously, so this is a short-lived courtesy cache, not durable task storage.
+    private final Map<String, Task> recentTasks = Collections.synchronizedMap(
+        new LinkedHashMap<>(16, 0.75f, true) {
+
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, Task> eldest) {
+                return size() > MAX_RECENT_TASKS;
+            }
+        });
 
     public A2AProtocolHandler(A2AAgentExecutor agentExecutor) {
         this.agentExecutor = agentExecutor;
@@ -101,7 +122,53 @@ public class A2AProtocolHandler {
 
         Task task = toTask(contextId, agentResult);
 
+        recentTasks.put(task.getId(), task);
+
         return new SendMessageResponse(requestId, task);
+    }
+
+    /**
+     * Dispatches a JSON-RPC {@code tasks/get} request: returns the recently-produced task with {@code taskId}, or a
+     * {@link TaskNotFoundError} if it is not in the short-lived recent-task cache (tasks are not durably stored).
+     *
+     * @param requestId the JSON-RPC request id to echo back
+     * @param taskId    the requested task id
+     * @return a {@link GetTaskResponse} carrying the task or a not-found error
+     */
+    public JSONRPCResponse<?> handleGetTask(@Nullable Object requestId, @Nullable String taskId) {
+        if (taskId == null || taskId.isBlank()) {
+            return new JSONRPCErrorResponse(requestId, new InvalidParamsError("A task id is required"));
+        }
+
+        Task task = recentTasks.get(taskId);
+
+        if (task == null) {
+            return new GetTaskResponse(requestId, new TaskNotFoundError());
+        }
+
+        return new GetTaskResponse(requestId, task);
+    }
+
+    /**
+     * Dispatches a JSON-RPC {@code tasks/cancel} request. This server runs tasks synchronously to a terminal state, so
+     * a known task is never cancelable ({@link TaskNotCancelableError}); an unknown task id yields a
+     * {@link TaskNotFoundError}.
+     *
+     * @param requestId the JSON-RPC request id to echo back
+     * @param taskId    the task id to cancel
+     * @return a {@link CancelTaskResponse} carrying the appropriate error
+     */
+    public JSONRPCResponse<?> handleCancelTask(@Nullable Object requestId, @Nullable String taskId) {
+        if (taskId == null || taskId.isBlank()) {
+            return new JSONRPCErrorResponse(requestId, new InvalidParamsError("A task id is required"));
+        }
+
+        if (!recentTasks.containsKey(taskId)) {
+            return new CancelTaskResponse(requestId, new TaskNotFoundError());
+        }
+
+        return new CancelTaskResponse(
+            requestId, new TaskNotCancelableError("Task already completed and cannot be canceled"));
     }
 
     /**
@@ -149,12 +216,13 @@ public class A2AProtocolHandler {
 
         TaskState finalState = agentResult.success() ? TaskState.COMPLETED : TaskState.FAILED;
         Message agentMessage = buildAgentMessage(taskId, contextId, agentResult);
+        TaskStatus finalStatus = new TaskStatus(finalState, agentMessage, null);
+
+        recentTasks.put(taskId, new Task(taskId, contextId, finalStatus, List.of(), List.of(), null));
 
         sink.send(
             new SendStreamingMessageResponse(
-                requestId,
-                new TaskStatusUpdateEvent(
-                    taskId, new TaskStatus(finalState, agentMessage, null), contextId, true, Map.of())));
+                requestId, new TaskStatusUpdateEvent(taskId, finalStatus, contextId, true, Map.of())));
     }
 
     /**

@@ -117,11 +117,37 @@ class A2AServerController {
             return streamJsonRpc(secretKey, requestId, method, params);
         }
 
-        JSONRPCResponse<?> response = protocolHandler.handle(secretKey, requestId, method, params);
+        JSONRPCResponse<?> response = dispatch(secretKey, requestId, method, params, root);
 
         return ResponseEntity.ok()
             .contentType(MediaType.APPLICATION_JSON)
             .body(Utils.OBJECT_MAPPER.writeValueAsString(response));
+    }
+
+    private JSONRPCResponse<?> dispatch(
+        String secretKey, Object requestId, @Nullable String method, @Nullable MessageSendParams params,
+        JsonNode root) {
+
+        if (A2AProtocolHandler.METHOD_GET_TASK.equals(method)) {
+            return protocolHandler.handleGetTask(requestId, extractTaskId(root));
+        }
+
+        if (A2AProtocolHandler.METHOD_CANCEL_TASK.equals(method)) {
+            return protocolHandler.handleCancelTask(requestId, extractTaskId(root));
+        }
+
+        return protocolHandler.handle(secretKey, requestId, method, params);
+    }
+
+    private static @Nullable String extractTaskId(JsonNode root) {
+        JsonNode paramsNode = root.get("params");
+
+        if (paramsNode == null || !paramsNode.hasNonNull("id")) {
+            return null;
+        }
+
+        return paramsNode.get("id")
+            .asText();
     }
 
     @PreDestroy
