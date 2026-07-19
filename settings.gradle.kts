@@ -176,6 +176,7 @@ include("server:libs:core:tenant:tenant-single-service")
 include("server:libs:licence:licence-api")
 include("server:libs:licence:licence-service")
 
+include("server:libs:platform:platform-ai:platform-ai-a2a")
 include("server:libs:platform:platform-ai:platform-ai-api")
 include("server:libs:platform:platform-ai:platform-ai-skill:platform-ai-skill-api")
 include("server:libs:platform:platform-ai:platform-ai-skill:platform-ai-skill-file-storage:platform-ai-skill-file-storage-api")
