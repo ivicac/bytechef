@@ -98,6 +98,7 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
     private final Cache<String, List<Map<String, Object>>> pendingEvents;
     private final Cache<String, String> sessionIdToCallSid;
     private final Cache<String, String> firstTaskNameByCallSid;
+    private final Cache<String, String> streamSidBySessionId;
     private final Cache<String, Long> sessionOpenedAtBySessionId;
     private final ScheduledExecutorService sessionTimeoutScheduler;
     private final Cache<String, ScheduledFuture<?>> sessionTimeoutsBySessionId;
@@ -172,6 +173,11 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
             .build();
 
         this.firstTaskNameByCallSid = Caffeine.newBuilder()
+            .expireAfterWrite(10, TimeUnit.MINUTES)
+            .maximumSize(1000)
+            .build();
+
+        this.streamSidBySessionId = Caffeine.newBuilder()
             .expireAfterWrite(10, TimeUnit.MINUTES)
             .maximumSize(1000)
             .build();
@@ -291,8 +297,21 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
 
     @Override
     protected void handleBinaryMessage(WebSocketSession session, BinaryMessage message) {
-        // Browser voice / Twilio media-stream path: forward the inbound audio frame to the FIRST task's emitter
-        // in the sub-workflow's linear chain so the component (e.g. deepgram/v1/voiceAgent or a leading STT) sees it.
+        // Browser-voice path sends audio as raw binary frames (PCM16). Twilio sends audio as JSON text frames instead
+        // (handled in handleTextMessage). Either way the inbound audio is forwarded to the FIRST task's emitter.
+        ByteBuffer payload = message.getPayload();
+        byte[] bytes = new byte[payload.remaining()];
+
+        payload.get(bytes);
+
+        forwardInboundAudioToFirstTask(session, bytes);
+    }
+
+    /**
+     * Forwards an inbound audio frame to the first task's emitter in the sub-workflow's linear chain, so the leading
+     * realtime component (e.g. {@code deepgram/v1/voiceAgent} or an STT) receives the caller/microphone audio.
+     */
+    private void forwardInboundAudioToFirstTask(WebSocketSession session, byte[] bytes) {
         String callSid = sessionIdToCallSid.getIfPresent(session.getId());
 
         if (callSid == null) {
@@ -319,11 +338,6 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
             return;
         }
 
-        ByteBuffer payload = message.getPayload();
-        byte[] bytes = new byte[payload.remaining()];
-
-        payload.get(bytes);
-
         emitterOpt.get()
             .dispatchBinaryMessage(bytes);
     }
@@ -339,6 +353,14 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
 
         try {
             Map<String, Object> request = objectMapper.readValue(payload, new TypeReference<>() {});
+
+            String twilioEvent = TwilioMediaStream.eventType(request);
+
+            if (twilioEvent != null) {
+                handleTwilioMediaStreamFrame(session, twilioEvent, request);
+
+                return;
+            }
 
             String action = (String) request.get("action");
 
@@ -359,6 +381,32 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
             error.put("message", "Error processing message: " + exception.getMessage());
 
             sendMessage(session, error);
+        }
+    }
+
+    /**
+     * Handles a Twilio Media Streams control/audio frame. On {@code start} the streamSid is captured (needed to frame
+     * outbound audio); on {@code media} the base64 audio payload is decoded and forwarded to the sub-workflow; other
+     * frames ({@code connected}/{@code stop}) carry no audio to forward.
+     */
+    private void handleTwilioMediaStreamFrame(WebSocketSession session, String eventType, Map<String, Object> frame) {
+        switch (eventType) {
+            case TwilioMediaStream.EVENT_START -> {
+                String streamSid = TwilioMediaStream.extractStreamSid(frame);
+
+                if (streamSid != null) {
+                    streamSidBySessionId.put(session.getId(), streamSid);
+                }
+            }
+            case TwilioMediaStream.EVENT_MEDIA -> {
+                byte[] audio = TwilioMediaStream.decodeMediaPayload(frame);
+
+                if (audio != null) {
+                    forwardInboundAudioToFirstTask(session, audio);
+                }
+            }
+            default -> log.debug(
+                "Twilio media-stream {} frame received: sessionId={}", eventType, session.getId());
         }
     }
 
@@ -417,6 +465,7 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
 
             callSessionRegistry.removeSessionByCallSid(callSid);
             sessionIdToCallSid.invalidate(sessionKey);
+            streamSidBySessionId.invalidate(sessionKey);
         }
 
         AutoCloseable handle = streamHandles.getIfPresent(sessionKey);
@@ -675,10 +724,35 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
             }
 
             try {
-                wsSession.sendMessage(new BinaryMessage(bytes));
+                String streamSid = streamSidBySessionId.getIfPresent(wsSession.getId());
+
+                if (streamSid != null) {
+                    // Twilio call: audio must be sent back as a base64 media text frame, not a raw binary frame.
+                    wsSession.sendMessage(
+                        new TextMessage(JsonUtils.write(TwilioMediaStream.mediaFrame(streamSid, bytes))));
+                } else {
+                    wsSession.sendMessage(new BinaryMessage(bytes));
+                }
             } catch (IOException ioException) {
                 log.warn(
                     "Failed to forward outbound binary to WS session: sessionId={}", wsSession.getId(), ioException);
+            }
+        });
+
+        // Barge-in: when the current turn is cancelled, tell Twilio to flush any audio it has buffered but not played.
+        emitter.addOutboundTurnCancelListener(turnId -> {
+            String streamSid = streamSidBySessionId.getIfPresent(wsSession.getId());
+
+            if (streamSid == null || !wsSession.isOpen()) {
+                return;
+            }
+
+            try {
+                wsSession.sendMessage(new TextMessage(JsonUtils.write(TwilioMediaStream.clearFrame(streamSid))));
+            } catch (IOException ioException) {
+                log.warn(
+                    "Failed to forward Twilio clear frame to WS session: sessionId={}", wsSession.getId(),
+                    ioException);
             }
         });
     }
