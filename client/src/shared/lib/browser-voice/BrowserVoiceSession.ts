@@ -118,6 +118,7 @@ export class BrowserVoiceSession {
     private mediaStream: MediaStream | null = null;
     private workletNode: AudioWorkletNode | null = null;
     private playbackCursorSeconds = 0;
+    private scheduledPlaybackSources: AudioBufferSourceNode[] = [];
     private speaking = false;
     private status: VoiceSessionStatusType = 'idle';
     private lastServerError: string | null = null;
@@ -280,6 +281,7 @@ export class BrowserVoiceSession {
         }
 
         this.ws = null;
+        this.scheduledPlaybackSources = [];
         this.playbackCursorSeconds = 0;
         this.lastAssistantFrameAtRef = 0;
         this.lastVolumeEmitAt = 0;
@@ -312,6 +314,10 @@ export class BrowserVoiceSession {
 
             if (parsed.type === 'error' && typeof parsed.message === 'string') {
                 this.lastServerError = parsed.message;
+            }
+
+            if (parsed.type === 'speech_start') {
+                this.clearPlayback();
             }
 
             this.onEvent?.(parsed);
@@ -347,9 +353,36 @@ export class BrowserVoiceSession {
         const now = audioContext.currentTime;
         const startAt = Math.max(now + PLAYBACK_LEAD_AHEAD_SECONDS, this.playbackCursorSeconds);
 
+        source.onended = () => {
+            this.scheduledPlaybackSources = this.scheduledPlaybackSources.filter((scheduled) => scheduled !== source);
+        };
+
         source.start(startAt);
 
+        this.scheduledPlaybackSources.push(source);
+
         this.playbackCursorSeconds = startAt + audioBuffer.duration;
+    }
+
+    /**
+     * Stops and discards any queued or playing assistant audio. Invoked on a `speech_start` (barge-in) event so the
+     * assistant stops talking the instant the user starts speaking.
+     */
+    private clearPlayback(): void {
+        for (const source of this.scheduledPlaybackSources) {
+            source.onended = null;
+
+            try {
+                source.stop();
+            } catch {
+                // Source already ended; nothing to stop.
+            }
+
+            source.disconnect();
+        }
+
+        this.scheduledPlaybackSources = [];
+        this.playbackCursorSeconds = this.audioContext ? this.audioContext.currentTime : 0;
     }
 
     private emitVolumeFromFrame(buffer: ArrayBuffer): void {

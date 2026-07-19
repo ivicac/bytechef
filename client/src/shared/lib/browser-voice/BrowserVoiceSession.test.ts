@@ -164,4 +164,34 @@ describe('BrowserVoiceSession', () => {
             expect(observed).toContain('error');
         });
     });
+
+    describe('barge-in', () => {
+        it('stops queued playback when a speech_start event arrives', () => {
+            const session = new BrowserVoiceSession({url: 'ws://localhost:1234/voice'});
+
+            const disconnect = vi.fn();
+            const stop = vi.fn();
+            const fakeSource = {disconnect, onended: () => undefined, stop};
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (session as any).scheduledPlaybackSources = [fakeSource];
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (session as any).dispatchTextEvent(JSON.stringify({type: 'speech_start'}));
+
+            expect(stop).toHaveBeenCalledTimes(1);
+            expect(disconnect).toHaveBeenCalledTimes(1);
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            expect((session as any).scheduledPlaybackSources).toHaveLength(0);
+        });
+
+        it('still forwards the speech_start event to onEvent', () => {
+            const onEvent = vi.fn();
+            const session = new BrowserVoiceSession({onEvent, url: 'ws://localhost:1234/voice'});
+
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (session as any).dispatchTextEvent(JSON.stringify({type: 'speech_start'}));
+
+            expect(onEvent).toHaveBeenCalledWith({type: 'speech_start'});
+        });
+    });
 });
