@@ -96,6 +96,12 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
 
     private final Cache<String, AutoCloseable> streamHandles;
     private final Cache<String, List<Map<String, Object>>> pendingEvents;
+    // Twilio streams G.711 mu-law at 8 kHz; the reference linear-PCM voice pipeline consumes 16 kHz input and
+    // produces 24 kHz output (deepgram/v1/voiceAgent defaults), so audio is transcoded between those rates.
+    private static final int TWILIO_SAMPLE_RATE_HZ = 8000;
+    private static final int TWILIO_INBOUND_PCM_RATE_HZ = 16000;
+    private static final int TWILIO_OUTBOUND_PCM_RATE_HZ = 24000;
+
     private final Cache<String, String> sessionIdToCallSid;
     private final Cache<String, String> firstTaskNameByCallSid;
     private final Cache<String, String> streamSidBySessionId;
@@ -399,10 +405,14 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
                 }
             }
             case TwilioMediaStream.EVENT_MEDIA -> {
-                byte[] audio = TwilioMediaStream.decodeMediaPayload(frame);
+                byte[] muLawAudio = TwilioMediaStream.decodeMediaPayload(frame);
 
-                if (audio != null) {
-                    forwardInboundAudioToFirstTask(session, audio);
+                if (muLawAudio != null) {
+                    // Transcode Twilio mu-law/8 kHz to the linear PCM/16 kHz the pipeline's leading component expects.
+                    byte[] pcmAudio = TwilioAudioCodec.resamplePcm16(
+                        TwilioAudioCodec.muLawToPcm16(muLawAudio), TWILIO_SAMPLE_RATE_HZ, TWILIO_INBOUND_PCM_RATE_HZ);
+
+                    forwardInboundAudioToFirstTask(session, pcmAudio);
                 }
             }
             default -> log.debug(
@@ -727,9 +737,14 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
                 String streamSid = streamSidBySessionId.getIfPresent(wsSession.getId());
 
                 if (streamSid != null) {
-                    // Twilio call: audio must be sent back as a base64 media text frame, not a raw binary frame.
+                    // Twilio call: transcode the pipeline's linear PCM/24 kHz output back to mu-law/8 kHz and send it
+                    // as
+                    // a base64 media text frame, not a raw binary frame.
+                    byte[] muLawAudio = TwilioAudioCodec.pcm16ToMuLaw(
+                        TwilioAudioCodec.resamplePcm16(bytes, TWILIO_OUTBOUND_PCM_RATE_HZ, TWILIO_SAMPLE_RATE_HZ));
+
                     wsSession.sendMessage(
-                        new TextMessage(JsonUtils.write(TwilioMediaStream.mediaFrame(streamSid, bytes))));
+                        new TextMessage(JsonUtils.write(TwilioMediaStream.mediaFrame(streamSid, muLawAudio))));
                 } else {
                     wsSession.sendMessage(new BinaryMessage(bytes));
                 }
