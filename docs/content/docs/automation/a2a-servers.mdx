@@ -1,0 +1,82 @@
+---
+title: A2A Servers
+description: Expose an agent-backed workflow as an A2A (Agent2Agent) server so external agents can discover and call it.
+---
+
+# A2A Servers
+
+<Callout type="warn" title="Coming soon">
+    A2A Servers are on the upcoming release track and are not yet available in the latest released version of ByteChef.
+</Callout>
+
+An **A2A Server** exposes an agent-backed workflow over the [Agent2Agent (A2A) protocol](https://a2a-protocol.org)
+so that external A2A clients — another agent, Claude, Cursor, or your own code — can discover it through an **agent
+card** and send it tasks. Where an [MCP Server](/automation/mcp-servers) publishes your tools *to* an assistant, an
+A2A Server publishes a whole **agent** that other agents can delegate work to.
+
+Each server gives you a secret-key URL. The agent card lives at:
+
+```
+GET  https://<your-host>/api/automation/a2a/<secretKey>/.well-known/agent-card.json
+```
+
+and the JSON-RPC endpoint (where clients send `message/send` and `message/stream`) is:
+
+```
+POST https://<your-host>/api/automation/a2a/<secretKey>
+```
+
+---
+
+## Create an A2A server
+
+1. In the Automation workspace, open **A2A Servers** from the sidebar (under **Deployments**).
+2. Click **New A2A Server**.
+3. Give it a **name** and a **description** — both appear on the agent card that external clients read.
+4. Choose whether to **require authentication** (see [Authentication](#authentication) below).
+
+Each server belongs to a single environment (Development, Staging, or Production), selected with the environment
+switcher, so you can expose a different agent per environment. A server exposes nothing until you add workflows to it.
+
+---
+
+## Expose workflows as skills
+
+Open a server's menu and choose **Manage Skills**.
+
+1. **Select a project** and a published **version**.
+2. **Select the workflows** to expose. Only workflows with a **New Workflow Call** trigger are eligible — that trigger
+   is what lets the workflow be invoked as an agent skill.
+
+Each selected workflow becomes a **skill** on the agent card, using the workflow's label and description as the
+skill's name and description. When an external client sends a task with `message/send`, the server routes the message
+text to the workflow (as the `message` input), runs it synchronously, and returns the workflow's output as the agent's
+response.
+
+<Callout type="info">
+    A `message/stream` call is answered over Server-Sent Events with a `working` status event followed by the final
+    result. Because ByteChef runs the workflow to completion rather than streaming tokens, the agent card advertises
+    `streaming: false`, but streaming clients still receive a valid SSE response.
+</Callout>
+
+---
+
+## Authentication
+
+The secret key in the URL is itself a capability — a client must know it to reach the server. On top of that:
+
+- **Require authentication on** (default): the client must also present a ByteChef **API key** for this environment as
+  a `Bearer` token in the `Authorization` header. Requests without a valid, environment-matching Automation API key are
+  rejected.
+- **Require authentication off**: possession of the secret-key URL is sufficient; no API key is required. Use this only
+  for low-risk agents or short-lived testing.
+
+The secret key doubles as the tenant anchor, so a request is always scoped to the tenant that owns the server.
+
+---
+
+## Call an A2A server from another ByteChef agent
+
+An AI Agent can delegate a task to any A2A server (yours or a third party's) with the **Agent Client Tool**
+(`sendTaskToRemoteAgent`) from the AI Agent Utils component: point it at the remote agent's base URL, and it resolves
+the agent card, sends the task, and returns the response.

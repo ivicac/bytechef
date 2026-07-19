@@ -33,6 +33,8 @@
     "...workflow-chats",
     "---MCP Servers---",
     "mcp-servers",
+    "---A2A Servers---",
+    "a2a-servers",
     "---API Platform---",
     "api-platform"
   ]
