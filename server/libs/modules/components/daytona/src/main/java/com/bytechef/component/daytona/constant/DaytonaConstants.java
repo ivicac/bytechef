@@ -24,7 +24,11 @@ public final class DaytonaConstants {
     public static final String BASE_URL = "baseUrl";
     public static final String CODE = "code";
     public static final String DEFAULT_BASE_URL = "https://app.daytona.io/api";
+    public static final String FILE = "file";
+    public static final String KEEP_SANDBOX = "keepSandbox";
     public static final String LANGUAGE = "language";
+    public static final String PATH = "path";
+    public static final String SANDBOX_ID = "sandboxId";
     public static final String TIMEOUT = "timeout";
 
     private DaytonaConstants() {

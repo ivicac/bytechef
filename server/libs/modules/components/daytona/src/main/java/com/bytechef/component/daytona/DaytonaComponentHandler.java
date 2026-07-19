@@ -20,7 +20,10 @@ import static com.bytechef.component.definition.ComponentDsl.component;
 import static com.bytechef.component.definition.ComponentDsl.tool;
 
 import com.bytechef.component.ComponentHandler;
+import com.bytechef.component.daytona.action.DaytonaCreateSandboxAction;
+import com.bytechef.component.daytona.action.DaytonaDeleteSandboxAction;
 import com.bytechef.component.daytona.action.DaytonaExecuteCodeAction;
+import com.bytechef.component.daytona.action.DaytonaUploadFileAction;
 import com.bytechef.component.daytona.connection.DaytonaConnection;
 import com.bytechef.component.definition.ComponentCategory;
 import com.bytechef.component.definition.ComponentDefinition;
@@ -43,8 +46,16 @@ public class DaytonaComponentHandler implements ComponentHandler {
         .icon("path:assets/daytona.svg")
         .categories(ComponentCategory.DEVELOPER_TOOLS, ComponentCategory.ARTIFICIAL_INTELLIGENCE)
         .connection(DaytonaConnection.CONNECTION_DEFINITION)
-        .actions(DaytonaExecuteCodeAction.ACTION_DEFINITION)
-        .clusterElements(tool(DaytonaExecuteCodeAction.ACTION_DEFINITION));
+        .actions(
+            DaytonaExecuteCodeAction.ACTION_DEFINITION,
+            DaytonaCreateSandboxAction.ACTION_DEFINITION,
+            DaytonaDeleteSandboxAction.ACTION_DEFINITION,
+            DaytonaUploadFileAction.ACTION_DEFINITION)
+        .clusterElements(
+            tool(DaytonaExecuteCodeAction.ACTION_DEFINITION),
+            tool(DaytonaCreateSandboxAction.ACTION_DEFINITION),
+            tool(DaytonaDeleteSandboxAction.ACTION_DEFINITION),
+            tool(DaytonaUploadFileAction.ACTION_DEFINITION));
 
     @Override
     public ComponentDefinition getDefinition() {

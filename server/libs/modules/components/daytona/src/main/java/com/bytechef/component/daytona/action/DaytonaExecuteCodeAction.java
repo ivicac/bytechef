@@ -17,9 +17,12 @@
 package com.bytechef.component.daytona.action;
 
 import static com.bytechef.component.daytona.constant.DaytonaConstants.CODE;
+import static com.bytechef.component.daytona.constant.DaytonaConstants.KEEP_SANDBOX;
 import static com.bytechef.component.daytona.constant.DaytonaConstants.LANGUAGE;
+import static com.bytechef.component.daytona.constant.DaytonaConstants.SANDBOX_ID;
 import static com.bytechef.component.daytona.constant.DaytonaConstants.TIMEOUT;
 import static com.bytechef.component.definition.ComponentDsl.action;
+import static com.bytechef.component.definition.ComponentDsl.array;
 import static com.bytechef.component.definition.ComponentDsl.bool;
 import static com.bytechef.component.definition.ComponentDsl.integer;
 import static com.bytechef.component.definition.ComponentDsl.object;
@@ -27,6 +30,7 @@ import static com.bytechef.component.definition.ComponentDsl.option;
 import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 import static com.bytechef.component.definition.ComponentDsl.string;
 
+import com.bytechef.component.daytona.util.DaytonaUtils;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
 import com.bytechef.component.definition.Context.Http;
@@ -34,30 +38,29 @@ import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.Property.ControlType;
 import com.bytechef.component.definition.TypeReference;
 import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
- * Executes a snippet of AI-generated code inside a fresh, isolated Daytona sandbox and returns the result. Designed to
- * be attached to the AI Agent as a tool so the agent can generate code on the fly and run it safely.
+ * Executes a snippet of AI-generated code inside a Daytona sandbox and returns the result. Designed to be attached to
+ * the AI Agent as a tool so the agent can generate code on the fly and run it safely.
  *
  * <p>
- * The action creates an ephemeral sandbox, runs the code via the sandbox toolbox's process code-run endpoint, and
- * deletes the sandbox afterward so no state leaks between invocations.
+ * By default the action creates an ephemeral sandbox, runs the code, and deletes the sandbox afterward. To keep state
+ * across turns, the agent can pass an existing {@code sandboxId} (from {@code createSandbox} or a prior run with
+ * {@code keepSandbox=true}); a reused sandbox is never deleted by this action so the caller owns its lifecycle.
  * </p>
  *
  * <p>
  * The Daytona REST paths and request/response field names follow Daytona's documented SDK/API conventions. The
- * confirmed response fields are {@code exitCode}, {@code result} (stdout), and {@code artifacts.stdout}. Toolbox
- * routing (the {@code /toolbox/{sandboxId}/toolbox/...} prefix) should be verified against your account's API version.
+ * confirmed code-run response fields are {@code exitCode}, {@code result} (stdout), and {@code artifacts} (with
+ * {@code stdout} and {@code charts}). Toolbox routing (the {@code /toolbox/{sandboxId}/toolbox/...} prefix) should be
+ * verified against your account's API version.
  * </p>
  *
  * @author Ivica Cardic
  */
 public class DaytonaExecuteCodeAction {
-
-    private static final Logger log = LoggerFactory.getLogger(DaytonaExecuteCodeAction.class);
 
     public static final ModifiableActionDefinition ACTION_DEFINITION = action("executeCode")
         .title("Execute Code")
@@ -80,6 +83,19 @@ public class DaytonaExecuteCodeAction {
                 .description("The source code to execute in the sandbox.")
                 .controlType(ControlType.CODE_EDITOR)
                 .required(true),
+            string(SANDBOX_ID)
+                .label("Sandbox ID")
+                .description(
+                    "Run in an existing sandbox to preserve state across turns. Leave empty to create a fresh, " +
+                        "ephemeral sandbox for this run. A reused sandbox is never deleted by this action.")
+                .required(false),
+            bool(KEEP_SANDBOX)
+                .label("Keep Sandbox")
+                .description(
+                    "When creating a new sandbox, keep it alive after the run (instead of deleting it) so it can be " +
+                        "reused via its returned Sandbox ID. Ignored when a Sandbox ID is supplied.")
+                .defaultValue(false)
+                .required(false),
             integer(TIMEOUT)
                 .label("Timeout")
                 .description("Maximum time in seconds to wait for the code to finish executing.")
@@ -96,7 +112,11 @@ public class DaytonaExecuteCodeAction {
                         string("stdout")
                             .description("The standard output produced by the code."),
                         bool("success")
-                            .description("Whether the code finished with a zero exit code."))))
+                            .description("Whether the code finished with a zero exit code."),
+                        string(SANDBOX_ID)
+                            .description("The sandbox the code ran in (reuse it to preserve state)."),
+                        array("charts")
+                            .description("Chart artifacts (e.g. matplotlib) captured during execution, if any."))))
         .perform(DaytonaExecuteCodeAction::perform);
 
     private DaytonaExecuteCodeAction() {
@@ -106,40 +126,23 @@ public class DaytonaExecuteCodeAction {
         String language = inputParameters.getString(LANGUAGE, "python");
         String code = inputParameters.getRequiredString(CODE);
         Integer timeout = inputParameters.getInteger(TIMEOUT);
+        String providedSandboxId = inputParameters.getString(SANDBOX_ID);
+        boolean keepSandbox = inputParameters.getBoolean(KEEP_SANDBOX, false);
 
-        String sandboxId = createSandbox(context, language);
+        boolean reuse = providedSandboxId != null && !providedSandboxId.isBlank();
+        String sandboxId = reuse ? providedSandboxId : DaytonaUtils.createSandbox(context, language);
 
         try {
             Map<String, Object> response = runCode(context, sandboxId, language, code, timeout);
 
-            return toResult(response);
+            return toResult(response, sandboxId);
         } finally {
-            deleteSandbox(context, sandboxId);
+            // Only tear down sandboxes this action created and that the caller did not ask to keep. A reused sandbox
+            // is owned by the caller and left running.
+            if (!reuse && !keepSandbox) {
+                DaytonaUtils.deleteSandbox(context, sandboxId);
+            }
         }
-    }
-
-    /**
-     * Creates a fresh sandbox and returns its id. Endpoint: {@code POST /sandbox}.
-     */
-    private static String createSandbox(ActionContext context, String language) {
-        Map<String, Object> body = new LinkedHashMap<>();
-
-        body.put(LANGUAGE, language);
-
-        Map<String, Object> response = context
-            .http(http -> http.post("/sandbox"))
-            .body(Http.Body.of(body))
-            .configuration(Http.responseType(Http.ResponseType.JSON))
-            .execute()
-            .getBody(new TypeReference<Map<String, Object>>() {});
-
-        Object id = response.get("id");
-
-        if (id == null) {
-            throw new IllegalStateException("Daytona did not return a sandbox id");
-        }
-
-        return String.valueOf(id);
     }
 
     /**
@@ -167,26 +170,12 @@ public class DaytonaExecuteCodeAction {
     }
 
     /**
-     * Best-effort sandbox teardown so no sandbox is leaked when the run finishes or fails. Endpoint:
-     * {@code DELETE /sandbox/{sandboxId}}.
-     */
-    private static void deleteSandbox(ActionContext context, String sandboxId) {
-        try {
-            context
-                .http(http -> http.delete("/sandbox/" + sandboxId))
-                .configuration(Http.responseType(Http.ResponseType.JSON))
-                .execute();
-        } catch (Exception exception) {
-            log.warn("Failed to delete Daytona sandbox {}", sandboxId, exception);
-        }
-    }
-
-    /**
      * Maps a Daytona code-run response onto the action output. Daytona returns {@code exitCode} and {@code result}
-     * (stdout); {@code result} may also be surfaced under {@code artifacts.stdout}.
+     * (stdout); {@code result} may also be surfaced under {@code artifacts.stdout}, and chart metadata under
+     * {@code artifacts.charts}.
      */
     @SuppressWarnings("unchecked")
-    static Map<String, Object> toResult(Map<String, Object> response) {
+    static Map<String, Object> toResult(Map<String, Object> response, String sandboxId) {
         int exitCode = 0;
 
         Object exitCodeValue = response.get("exitCode");
@@ -196,16 +185,23 @@ public class DaytonaExecuteCodeAction {
         }
 
         String stdout = null;
+        List<Object> charts = List.of();
 
         Object result = response.get("result");
 
         if (result != null) {
             stdout = String.valueOf(result);
-        } else if (response.get("artifacts") instanceof Map<?, ?> artifacts) {
-            Object artifactStdout = ((Map<String, Object>) artifacts).get("stdout");
+        }
 
-            if (artifactStdout != null) {
-                stdout = String.valueOf(artifactStdout);
+        if (response.get("artifacts") instanceof Map<?, ?> artifacts) {
+            Map<String, Object> artifactsMap = (Map<String, Object>) artifacts;
+
+            if (stdout == null && artifactsMap.get("stdout") != null) {
+                stdout = String.valueOf(artifactsMap.get("stdout"));
+            }
+
+            if (artifactsMap.get("charts") instanceof List<?> chartList) {
+                charts = List.copyOf(chartList);
             }
         }
 
@@ -214,6 +210,8 @@ public class DaytonaExecuteCodeAction {
         output.put("exitCode", exitCode);
         output.put("stdout", stdout == null ? "" : stdout);
         output.put("success", exitCode == 0);
+        output.put(SANDBOX_ID, sandboxId);
+        output.put("charts", charts);
 
         return output;
     }

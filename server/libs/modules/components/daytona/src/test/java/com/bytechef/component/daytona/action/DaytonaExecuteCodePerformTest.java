@@ -18,6 +18,7 @@ package com.bytechef.component.daytona.action;
 
 import static com.bytechef.component.daytona.constant.DaytonaConstants.CODE;
 import static com.bytechef.component.daytona.constant.DaytonaConstants.LANGUAGE;
+import static com.bytechef.component.daytona.constant.DaytonaConstants.SANDBOX_ID;
 import static com.bytechef.component.daytona.constant.DaytonaConstants.TIMEOUT;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -68,7 +69,8 @@ class DaytonaExecuteCodePerformTest {
         assertThat((Map<String, Object>) result)
             .containsEntry("exitCode", 0)
             .containsEntry("stdout", "hi\n")
-            .containsEntry("success", true);
+            .containsEntry("success", true)
+            .containsEntry("sandboxId", "sandbox-1");
 
         // create sandbox + run code + delete sandbox
         verify(mockedActionContext, times(3)).http(any());
@@ -112,5 +114,30 @@ class DaytonaExecuteCodePerformTest {
 
         // sandbox must still be created and deleted despite the run failure
         verify(mockedActionContext, times(3)).http(any());
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testPerformReusesProvidedSandboxWithoutCreatingOrDeleting() {
+        Parameters parameters = MockParametersFactory.create(
+            Map.of(LANGUAGE, "python", CODE, "print('hi')", SANDBOX_ID, "existing-sandbox"));
+
+        when(mockedActionContext.http(any()))
+            .thenReturn(mockedExecutor);
+        when(mockedExecutor.body(any()))
+            .thenReturn(mockedExecutor);
+        when(mockedExecutor.configuration(any()))
+            .thenReturn(mockedExecutor);
+        when(mockedExecutor.execute())
+            .thenReturn(mockedResponse);
+        when(mockedResponse.getBody(any(TypeReference.class)))
+            .thenReturn(Map.of("exitCode", 0, "result", "hi\n"));
+
+        Object result = DaytonaExecuteCodeAction.perform(parameters, parameters, mockedActionContext);
+
+        assertThat((Map<String, Object>) result).containsEntry("sandboxId", "existing-sandbox");
+
+        // only the code-run call; no create and no delete for a reused sandbox
+        verify(mockedActionContext, times(1)).http(any());
     }
 }
