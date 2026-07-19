@@ -1,4 +1,6 @@
 dependencies {
+    compileOnly("jakarta.servlet:jakarta.servlet-api")
+
     implementation("com.fasterxml.jackson.core:jackson-databind")
     implementation("com.github.ben-manes.caffeine:caffeine")
     implementation("io.micrometer:micrometer-core")

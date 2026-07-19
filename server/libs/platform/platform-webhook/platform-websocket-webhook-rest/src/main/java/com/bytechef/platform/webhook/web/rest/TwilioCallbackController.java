@@ -21,11 +21,14 @@ import com.bytechef.platform.webhook.web.websocket.CallSessionRegistry;
 import com.bytechef.platform.webhook.web.websocket.CallSessionRegistry.CallSession;
 import com.bytechef.platform.webhook.web.websocket.WorkflowContinuationHelper;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -45,16 +48,39 @@ class TwilioCallbackController {
 
     private final CallSessionRegistry callSessionRegistry;
     private final JobFacade jobFacade;
+    private final String publicUrl;
+    private final String twilioAuthToken;
     private final WorkflowContinuationHelper workflowContinuationHelper;
 
     @SuppressFBWarnings("EI")
     TwilioCallbackController(
         CallSessionRegistry callSessionRegistry, JobFacade jobFacade,
-        WorkflowContinuationHelper workflowContinuationHelper) {
+        WorkflowContinuationHelper workflowContinuationHelper,
+        @Value("${bytechef.webhook.url:}") String publicUrl,
+        @Value("${bytechef.twilio.auth-token:}") String twilioAuthToken) {
 
         this.callSessionRegistry = callSessionRegistry;
         this.jobFacade = jobFacade;
+        this.publicUrl = publicUrl;
+        this.twilioAuthToken = twilioAuthToken;
         this.workflowContinuationHelper = workflowContinuationHelper;
+    }
+
+    /**
+     * Returns whether the request carries a valid {@code X-Twilio-Signature}. Validation is opt-in: when no
+     * {@code bytechef.twilio.auth-token} is configured this returns {@code true} (unchanged behavior); when it is
+     * configured, requests with a missing or invalid signature are rejected.
+     */
+    private boolean isValidTwilioRequest(HttpServletRequest request, Map<String, String> params) {
+        if (twilioAuthToken == null || twilioAuthToken.isBlank()) {
+            return true;
+        }
+
+        String queryString = request.getQueryString();
+        String url = publicUrl + request.getRequestURI() + (queryString == null ? "" : "?" + queryString);
+
+        return TwilioSignatureValidator.isValid(
+            twilioAuthToken, url, params, request.getHeader("X-Twilio-Signature"));
     }
 
     /**
@@ -73,7 +99,16 @@ class TwilioCallbackController {
         "CRLF_INJECTION_LOGS", "SPRING_CSRF_UNRESTRICTED_REQUEST_MAPPING"
     })
     @PostMapping("/status")
-    public ResponseEntity<String> handleStatusCallback(@RequestParam Map<String, String> params) {
+    public ResponseEntity<String> handleStatusCallback(
+        @RequestParam Map<String, String> params, HttpServletRequest request) {
+
+        if (!isValidTwilioRequest(request, params)) {
+            log.warn("Rejected Twilio status callback with invalid signature");
+
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .build();
+        }
+
         String callSid = params.get("CallSid");
         String callStatus = params.get("CallStatus");
         String from = params.get("From");
