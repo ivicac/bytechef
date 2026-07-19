@@ -12,6 +12,18 @@ export type Scalars = {
   Map: { input: any; output: any; }
 };
 
+export type A2aProject = {
+  __typename?: 'A2aProject';
+  a2aServerId: Scalars['ID']['output'];
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  projectId?: Maybe<Scalars['ID']['output']>;
+  projectVersion?: Maybe<Scalars['Int']['output']>;
+  version?: Maybe<Scalars['Int']['output']>;
+  workflowIds: Array<Scalars['String']['output']>;
+};
+
 export type A2aServer = {
   __typename?: 'A2aServer';
   authenticationRequired: Scalars['Boolean']['output'];
@@ -2011,6 +2023,13 @@ export enum ControlType {
   Url = 'URL'
 }
 
+export type CreateA2aProjectInput = {
+  a2aServerId: Scalars['ID']['input'];
+  projectId: Scalars['ID']['input'];
+  projectVersion: Scalars['Int']['input'];
+  selectedWorkflowIds: Array<Scalars['String']['input']>;
+};
+
 export type CreateA2aServerInput = {
   authenticationRequired?: InputMaybe<Scalars['Boolean']['input']>;
   description?: InputMaybe<Scalars['String']['input']>;
@@ -3343,6 +3362,7 @@ export type Mutation = {
    * start event. Throws Forbidden when the caller doesn't own the task.
    */
   cancelWorkflowChatTurn: Scalars['Boolean']['output'];
+  createA2aProject?: Maybe<A2aProject>;
   createA2aServer?: Maybe<A2aServer>;
   createAiAgentEvalScenario: AiAgentEvalScenario;
   createAiAgentEvalTest: AiAgentEvalTest;
@@ -3426,6 +3446,7 @@ export type Mutation = {
   createWorkspaceAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
   createWorkspaceApiKey: Scalars['String']['output'];
   createWorkspaceMcpServer?: Maybe<McpServer>;
+  deleteA2aProject?: Maybe<Scalars['Boolean']['output']>;
   deleteA2aServer?: Maybe<Scalars['Boolean']['output']>;
   deleteAiAgentEvalScenario: Scalars['Boolean']['output'];
   deleteAiAgentEvalTest: Scalars['Boolean']['output'];
@@ -3639,6 +3660,7 @@ export type Mutation = {
    */
   truncateAiHubTaskMessages: Scalars['Int']['output'];
   unsnoozeAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
+  updateA2aProject?: Maybe<A2aProject>;
   updateA2aServer?: Maybe<A2aServer>;
   updateAiAgentEvalScenario: AiAgentEvalScenario;
   updateAiAgentEvalTest: AiAgentEvalTest;
@@ -3830,6 +3852,11 @@ export type MutationCancelGenerationJobArgs = {
 export type MutationCancelWorkflowChatTurnArgs = {
   id: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateA2aProjectArgs = {
+  input: CreateA2aProjectInput;
 };
 
 
@@ -4199,6 +4226,11 @@ export type MutationCreateWorkspaceApiKeyArgs = {
 
 export type MutationCreateWorkspaceMcpServerArgs = {
   input: CreateWorkspaceMcpServerInput;
+};
+
+
+export type MutationDeleteA2aProjectArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -4969,6 +5001,12 @@ export type MutationUnsnoozeAiObservabilityAlertRuleArgs = {
 };
 
 
+export type MutationUpdateA2aProjectArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateA2aProjectInput;
+};
+
+
 export type MutationUpdateA2aServerArgs = {
   id: Scalars['ID']['input'];
   input: UpdateA2aServerInput;
@@ -5732,6 +5770,7 @@ export type ProviderConnectionResult = {
 export type Query = {
   __typename?: 'Query';
   _placeholder?: Maybe<Scalars['Boolean']['output']>;
+  a2aProjectsByServerId?: Maybe<Array<Maybe<A2aProject>>>;
   a2aServer?: Maybe<A2aServer>;
   a2aServers?: Maybe<Array<Maybe<A2aServer>>>;
   actionDefinition: ActionDefinition;
@@ -6070,6 +6109,11 @@ export type Query = {
   workspaceProjectDeployments: Array<ProjectDeployment>;
   /** List all users of a workspace. Requires at least VIEWER workspace role. */
   workspaceUsers: Array<WorkspaceUser>;
+};
+
+
+export type QueryA2aProjectsByServerIdArgs = {
+  a2aServerId: Scalars['ID']['input'];
 };
 
 
@@ -7571,6 +7615,10 @@ export enum UnifiedApiCategory {
   MarketingAutomation = 'MARKETING_AUTOMATION',
   Ticketing = 'TICKETING'
 }
+
+export type UpdateA2aProjectInput = {
+  selectedWorkflowIds: Array<Scalars['String']['input']>;
+};
 
 export type UpdateA2aServerInput = {
   authenticationRequired?: InputMaybe<Scalars['Boolean']['input']>;

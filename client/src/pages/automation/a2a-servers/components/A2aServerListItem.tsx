@@ -13,6 +13,7 @@ import {EllipsisVerticalIcon} from 'lucide-react';
 import {useState} from 'react';
 
 import A2aServerDialog from './A2aServerDialog';
+import A2aServerWorkflowDialog from './A2aServerWorkflowDialog';
 
 interface A2aServerListItemProps {
     a2aServer: A2aServer;
@@ -20,6 +21,7 @@ interface A2aServerListItemProps {
 
 const A2aServerListItem = ({a2aServer}: A2aServerListItemProps) => {
     const [editDialogOpen, setEditDialogOpen] = useState(false);
+    const [skillsDialogOpen, setSkillsDialogOpen] = useState(false);
 
     const queryClient = useQueryClient();
 
@@ -61,6 +63,8 @@ const A2aServerListItem = ({a2aServer}: A2aServerListItemProps) => {
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent align="end">
+                    <DropdownMenuItem onClick={() => setSkillsDialogOpen(true)}>Manage Skills</DropdownMenuItem>
+
                     <DropdownMenuItem onClick={() => setEditDialogOpen(true)}>Edit</DropdownMenuItem>
 
                     <DropdownMenuSeparator />
@@ -76,6 +80,12 @@ const A2aServerListItem = ({a2aServer}: A2aServerListItemProps) => {
                 onOpenChange={setEditDialogOpen}
                 open={editDialogOpen}
                 triggerNode={<span className="hidden" />}
+            />
+
+            <A2aServerWorkflowDialog
+                a2aServer={a2aServer}
+                onOpenChange={setSkillsDialogOpen}
+                open={skillsDialogOpen}
             />
         </div>
     );
