@@ -23,9 +23,13 @@ import io.a2a.spec.JSONRPCResponse;
 import io.a2a.spec.Message;
 import io.a2a.spec.MessageSendParams;
 import io.a2a.spec.SendMessageResponse;
+import io.a2a.spec.SendStreamingMessageResponse;
 import io.a2a.spec.Task;
 import io.a2a.spec.TaskState;
+import io.a2a.spec.TaskStatusUpdateEvent;
 import io.a2a.spec.TextPart;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.Test;
 
@@ -118,6 +122,47 @@ class A2AProtocolHandlerTest {
         assertThat(response).isInstanceOf(JSONRPCErrorResponse.class);
         assertThat(((JSONRPCErrorResponse) response).getError()
             .getCode()).isEqualTo(-32602);
+    }
+
+    @Test
+    void testStreamEmitsWorkingThenCompletedEvents() throws Exception {
+        A2AProtocolHandler handler = new A2AProtocolHandler(request -> A2AAgentResult.ofText("streamed answer"));
+
+        MessageSendParams params = new MessageSendParams(userMessage("hi"), null, null);
+
+        List<JSONRPCResponse<?>> events = new ArrayList<>();
+
+        handler.handleStream("agent-1", "req-6", A2AProtocolHandler.METHOD_STREAM_MESSAGE, params, events::add);
+
+        assertThat(events).hasSize(2);
+
+        TaskStatusUpdateEvent workingEvent =
+            (TaskStatusUpdateEvent) ((SendStreamingMessageResponse) events.get(0)).getResult();
+
+        assertThat(workingEvent.getStatus()
+            .state()).isEqualTo(TaskState.WORKING);
+        assertThat(workingEvent.isFinal()).isFalse();
+
+        TaskStatusUpdateEvent finalEvent =
+            (TaskStatusUpdateEvent) ((SendStreamingMessageResponse) events.get(1)).getResult();
+
+        assertThat(finalEvent.getStatus()
+            .state()).isEqualTo(TaskState.COMPLETED);
+        assertThat(finalEvent.isFinal()).isTrue();
+        assertThat(A2AProtocolHandler.extractText(finalEvent.getStatus()
+            .message())).isEqualTo("streamed answer");
+    }
+
+    @Test
+    void testStreamUnknownMethodEmitsMethodNotFound() throws Exception {
+        A2AProtocolHandler handler = new A2AProtocolHandler(request -> A2AAgentResult.ofText("x"));
+
+        List<JSONRPCResponse<?>> events = new ArrayList<>();
+
+        handler.handleStream("agent-1", "req-7", "tasks/get", null, events::add);
+
+        assertThat(events).hasSize(1);
+        assertThat(events.get(0)).isInstanceOf(JSONRPCErrorResponse.class);
     }
 
     private static Message userMessage(String text) {

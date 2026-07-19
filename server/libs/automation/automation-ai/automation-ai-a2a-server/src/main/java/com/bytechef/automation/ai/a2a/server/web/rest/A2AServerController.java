@@ -26,9 +26,11 @@ import io.a2a.spec.AgentCard;
 import io.a2a.spec.JSONRPCResponse;
 import io.a2a.spec.MessageSendParams;
 import io.a2a.util.Utils;
+import jakarta.annotation.PreDestroy;
 import jakarta.servlet.http.HttpServletRequest;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -38,6 +40,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 /**
  * Exposes ByteChef agent-backed workflows over the A2A (Agent2Agent) protocol.
@@ -58,12 +61,20 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/api/automation/a2a")
 class A2AServerController {
 
-    private static final Logger log = LoggerFactory.getLogger(A2AServerController.class);
+    // Slightly above the 300s workflow sync timeout so the SSE emitter outlives a full agent run.
+    private static final long STREAM_TIMEOUT_MS = 310_000L;
 
     private final A2AAgentCardFactory agentCardFactory;
     private final A2AProtocolHandler protocolHandler;
     private final AutomationA2AServerFacade automationA2AServerFacade;
     private final String publicUrl;
+    private final ExecutorService streamExecutor = Executors.newCachedThreadPool(runnable -> {
+        Thread thread = new Thread(runnable, "a2a-stream");
+
+        thread.setDaemon(true);
+
+        return thread;
+    });
 
     @SuppressFBWarnings("EI")
     A2AServerController(
@@ -86,10 +97,8 @@ class A2AServerController {
         return ResponseEntity.ok(Utils.OBJECT_MAPPER.writeValueAsString(agentCard));
     }
 
-    @PostMapping(
-        value = "/{secretKey}", consumes = MediaType.APPLICATION_JSON_VALUE,
-        produces = MediaType.APPLICATION_JSON_VALUE)
-    ResponseEntity<String> handleJsonRpc(@PathVariable String secretKey, @RequestBody String body) throws Exception {
+    @PostMapping(value = "/{secretKey}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    Object handleJsonRpc(@PathVariable String secretKey, @RequestBody String body) throws Exception {
         JsonNode root = Utils.OBJECT_MAPPER.readTree(body);
 
         Object requestId = extractId(root);
@@ -98,13 +107,53 @@ class A2AServerController {
 
         MessageSendParams params = null;
 
-        if (A2AProtocolHandler.METHOD_SEND_MESSAGE.equals(method) && root.hasNonNull("params")) {
+        if (isMessageMethod(method) && root.hasNonNull("params")) {
             params = Utils.OBJECT_MAPPER.treeToValue(root.get("params"), MessageSendParams.class);
+        }
+
+        // message/stream returns an SSE stream of status events; message/send (and everything else) returns a single
+        // JSON-RPC response.
+        if (A2AProtocolHandler.METHOD_STREAM_MESSAGE.equals(method)) {
+            return streamJsonRpc(secretKey, requestId, method, params);
         }
 
         JSONRPCResponse<?> response = protocolHandler.handle(secretKey, requestId, method, params);
 
-        return ResponseEntity.ok(Utils.OBJECT_MAPPER.writeValueAsString(response));
+        return ResponseEntity.ok()
+            .contentType(MediaType.APPLICATION_JSON)
+            .body(Utils.OBJECT_MAPPER.writeValueAsString(response));
+    }
+
+    @PreDestroy
+    void shutdown() {
+        streamExecutor.shutdown();
+    }
+
+    private SseEmitter streamJsonRpc(
+        String secretKey, Object requestId, String method, MessageSendParams params) {
+
+        SseEmitter sseEmitter = new SseEmitter(STREAM_TIMEOUT_MS);
+
+        streamExecutor.execute(() -> {
+            try {
+                protocolHandler.handleStream(
+                    secretKey, requestId, method, params,
+                    event -> sseEmitter.send(
+                        SseEmitter.event()
+                            .data(Utils.OBJECT_MAPPER.writeValueAsString(event), MediaType.APPLICATION_JSON)));
+
+                sseEmitter.complete();
+            } catch (Exception exception) {
+                sseEmitter.completeWithError(exception);
+            }
+        });
+
+        return sseEmitter;
+    }
+
+    private static boolean isMessageMethod(@Nullable String method) {
+        return A2AProtocolHandler.METHOD_SEND_MESSAGE.equals(method) ||
+            A2AProtocolHandler.METHOD_STREAM_MESSAGE.equals(method);
     }
 
     private static Object extractId(JsonNode root) {

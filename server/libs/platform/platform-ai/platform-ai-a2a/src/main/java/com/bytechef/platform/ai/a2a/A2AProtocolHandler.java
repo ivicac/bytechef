@@ -24,11 +24,14 @@ import io.a2a.spec.MessageSendParams;
 import io.a2a.spec.MethodNotFoundError;
 import io.a2a.spec.Part;
 import io.a2a.spec.SendMessageResponse;
+import io.a2a.spec.SendStreamingMessageResponse;
 import io.a2a.spec.Task;
 import io.a2a.spec.TaskState;
 import io.a2a.spec.TaskStatus;
+import io.a2a.spec.TaskStatusUpdateEvent;
 import io.a2a.spec.TextPart;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 
@@ -38,10 +41,12 @@ import org.jspecify.annotations.Nullable;
  * {@code agentId}.
  *
  * <p>
- * Only the non-streaming {@code message/send} method is handled: the inbound message's text parts are concatenated, the
- * agent is executed, and the response is returned as a completed (or failed) A2A {@link Task}. Streaming
- * ({@code message/stream}) and task lifecycle queries ({@code tasks/get}) are deliberately out of scope for this slice
- * and surface as method-not-found.
+ * Two methods are handled. {@code message/send} runs the agent synchronously and returns a completed (or failed)
+ * {@link Task}. {@code message/stream} runs the same agent but emits a sequence of {@link TaskStatusUpdateEvent}s to a
+ * {@link StreamSink} — a {@code working} event, then a final {@code completed}/{@code failed} event carrying the
+ * response — for SSE transports. This is event-level, not token-level, streaming: the agent card therefore keeps
+ * advertising {@code streaming=false}, but a streaming client that calls {@code message/stream} still gets a valid SSE
+ * response. Unknown methods surface as method-not-found; a missing/empty message as invalid-params.
  * </p>
  *
  * @author Ivica Cardic
@@ -49,6 +54,7 @@ import org.jspecify.annotations.Nullable;
 public class A2AProtocolHandler {
 
     public static final String METHOD_SEND_MESSAGE = "message/send";
+    public static final String METHOD_STREAM_MESSAGE = "message/stream";
 
     private final A2AAgentExecutor agentExecutor;
 
@@ -57,7 +63,17 @@ public class A2AProtocolHandler {
     }
 
     /**
-     * Dispatches a parsed JSON-RPC request for the addressed agent and returns the JSON-RPC response.
+     * Receives the JSON-RPC responses produced while streaming a {@code message/stream} request.
+     */
+    @FunctionalInterface
+    public interface StreamSink {
+
+        void send(JSONRPCResponse<?> event) throws Exception;
+    }
+
+    /**
+     * Dispatches a parsed JSON-RPC {@code message/send} request for the addressed agent and returns the JSON-RPC
+     * response.
      *
      * @param agentId   the addressed agent (derived from the request path)
      * @param requestId the JSON-RPC request id to echo back
@@ -72,33 +88,73 @@ public class A2AProtocolHandler {
             return new JSONRPCErrorResponse(requestId, new MethodNotFoundError());
         }
 
-        if (params == null || params.message() == null) {
-            return new JSONRPCErrorResponse(requestId, new InvalidParamsError("A message is required"));
+        String text = validateAndExtractText(params);
+
+        if (text == null) {
+            return new JSONRPCErrorResponse(requestId, invalidMessageError(params));
         }
 
         Message inboundMessage = params.message();
-        String text = extractText(inboundMessage);
-
-        if (text.isBlank()) {
-            return new JSONRPCErrorResponse(requestId, new InvalidParamsError("The message has no text content"));
-        }
-
         String contextId = inboundMessage.getContextId();
 
-        A2AAgentRequest agentRequest = new A2AAgentRequest(
-            agentId, text, contextId, inboundMessage.getMessageId());
-
-        A2AAgentResult agentResult;
-
-        try {
-            agentResult = agentExecutor.execute(agentRequest);
-        } catch (Exception exception) {
-            agentResult = A2AAgentResult.ofError(exception.getMessage());
-        }
+        A2AAgentResult agentResult = runAgent(agentId, text, contextId, inboundMessage.getMessageId());
 
         Task task = toTask(contextId, agentResult);
 
         return new SendMessageResponse(requestId, task);
+    }
+
+    /**
+     * Dispatches a parsed JSON-RPC {@code message/stream} request, emitting a {@code working} status event and then a
+     * final {@code completed}/{@code failed} status event carrying the agent's response, to {@code sink}.
+     *
+     * @param agentId   the addressed agent (derived from the request path)
+     * @param requestId the JSON-RPC request id to echo back on every emitted event
+     * @param method    the JSON-RPC method
+     * @param params    the parsed {@code message/stream} params, or {@code null} for other methods
+     * @param sink      receives each JSON-RPC response event as it is produced
+     */
+    public void handleStream(
+        String agentId, @Nullable Object requestId, String method, @Nullable MessageSendParams params, StreamSink sink)
+        throws Exception {
+
+        if (!METHOD_STREAM_MESSAGE.equals(method)) {
+            sink.send(new JSONRPCErrorResponse(requestId, new MethodNotFoundError()));
+
+            return;
+        }
+
+        String text = validateAndExtractText(params);
+
+        if (text == null) {
+            sink.send(new JSONRPCErrorResponse(requestId, invalidMessageError(params)));
+
+            return;
+        }
+
+        Message inboundMessage = params.message();
+        String contextId = inboundMessage.getContextId() != null
+            ? inboundMessage.getContextId()
+            : UUID.randomUUID()
+                .toString();
+        String taskId = UUID.randomUUID()
+            .toString();
+
+        sink.send(
+            new SendStreamingMessageResponse(
+                requestId,
+                new TaskStatusUpdateEvent(taskId, new TaskStatus(TaskState.WORKING), contextId, false, Map.of())));
+
+        A2AAgentResult agentResult = runAgent(agentId, text, contextId, inboundMessage.getMessageId());
+
+        TaskState finalState = agentResult.success() ? TaskState.COMPLETED : TaskState.FAILED;
+        Message agentMessage = buildAgentMessage(taskId, contextId, agentResult);
+
+        sink.send(
+            new SendStreamingMessageResponse(
+                requestId,
+                new TaskStatusUpdateEvent(
+                    taskId, new TaskStatus(finalState, agentMessage, null), contextId, true, Map.of())));
     }
 
     /**
@@ -120,28 +176,63 @@ public class A2AProtocolHandler {
         return textBuilder.toString();
     }
 
+    private static InvalidParamsError invalidMessageError(@Nullable MessageSendParams params) {
+        return new InvalidParamsError(
+            params == null || params.message() == null ? "A message is required" : "The message has no text content");
+    }
+
+    /**
+     * Returns the non-blank inbound text, or {@code null} when the params or message are missing or carry no text.
+     */
+    private static @Nullable String validateAndExtractText(@Nullable MessageSendParams params) {
+        if (params == null || params.message() == null) {
+            return null;
+        }
+
+        String text = extractText(params.message());
+
+        return text.isBlank() ? null : text;
+    }
+
+    private A2AAgentResult runAgent(
+        String agentId, String text, @Nullable String contextId, @Nullable String messageId) {
+
+        try {
+            return agentExecutor.execute(new A2AAgentRequest(agentId, text, contextId, messageId));
+        } catch (Exception exception) {
+            return A2AAgentResult.ofError(exception.getMessage());
+        }
+    }
+
     private Task toTask(@Nullable String contextId, A2AAgentResult agentResult) {
         String taskId = UUID.randomUUID()
             .toString();
-        String effectiveContextId = contextId != null ? contextId : UUID.randomUUID()
-            .toString();
+        String effectiveContextId = contextId != null
+            ? contextId
+            : UUID.randomUUID()
+                .toString();
 
         TaskState taskState = agentResult.success() ? TaskState.COMPLETED : TaskState.FAILED;
-        String responseText = agentResult.success()
-            ? agentResult.text()
-            : "Error: " + agentResult.errorMessage();
 
-        Message agentMessage = new Message.Builder()
-            .role(Message.Role.AGENT)
-            .parts(new TextPart(responseText))
-            .messageId(UUID.randomUUID()
-                .toString())
-            .contextId(effectiveContextId)
-            .taskId(taskId)
-            .build();
+        Message agentMessage = buildAgentMessage(taskId, effectiveContextId, agentResult);
 
         TaskStatus taskStatus = new TaskStatus(taskState, agentMessage, null);
 
         return new Task(taskId, effectiveContextId, taskStatus, List.of(), List.of(), null);
+    }
+
+    private static Message buildAgentMessage(String taskId, String contextId, A2AAgentResult agentResult) {
+        String responseText = agentResult.success()
+            ? agentResult.text()
+            : "Error: " + agentResult.errorMessage();
+
+        return new Message.Builder()
+            .role(Message.Role.AGENT)
+            .parts(new TextPart(responseText))
+            .messageId(UUID.randomUUID()
+                .toString())
+            .contextId(contextId)
+            .taskId(taskId)
+            .build();
     }
 }
