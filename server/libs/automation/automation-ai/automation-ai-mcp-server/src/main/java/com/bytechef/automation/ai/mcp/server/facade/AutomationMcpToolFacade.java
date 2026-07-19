@@ -26,6 +26,7 @@ import com.bytechef.automation.ai.mcp.domain.McpProject;
 import com.bytechef.automation.ai.mcp.domain.McpProjectWorkflow;
 import com.bytechef.automation.ai.mcp.server.exception.McpServerErrorType;
 import com.bytechef.automation.ai.mcp.service.McpProjectWorkflowService;
+import com.bytechef.automation.ai.mcp.service.WorkspaceMcpServerService;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.commons.util.ConvertUtils;
@@ -90,6 +91,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
     private final TaskFileStorage taskFileStorage;
     private final ToolExecutionRecorder toolExecutionRecorder;
     private final WorkflowService workflowService;
+    private final WorkspaceMcpServerService workspaceMcpServerService;
 
     @SuppressFBWarnings("EI")
     public AutomationMcpToolFacade(
@@ -99,7 +101,8 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         McpProjectWorkflowService mcpProjectWorkflowService, McpServerService mcpServerService,
         PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
         TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage,
-        ToolExecutionRecorder toolExecutionRecorder, WorkflowService workflowService) {
+        ToolExecutionRecorder toolExecutionRecorder, WorkflowService workflowService,
+        WorkspaceMcpServerService workspaceMcpServerService) {
 
         super(evaluator);
 
@@ -115,6 +118,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         this.taskFileStorage = taskFileStorage;
         this.toolExecutionRecorder = toolExecutionRecorder;
         this.workflowService = workflowService;
+        this.workspaceMcpServerService = workspaceMcpServerService;
     }
 
     public FunctionToolCallback<Map<String, Object>, Object> getFunctionToolCallback(McpTool mcpTool) {
@@ -198,6 +202,9 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         String toolName, String componentName, int componentVersion, String clusterElementName,
         Map<String, ?> parameters, @Nullable Long connectionId, long mcpServerId) {
 
+        Long workspaceId = workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(mcpServerId)
+            .orElse(null);
+
         return request -> {
             McpServer mcpServer = mcpServerService.getMcpServer(mcpServerId);
 
@@ -218,7 +225,8 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
                     .componentVersion(componentVersion)
                     .operationName(clusterElementName)
                     .connectionId(connectionId)
-                    .mcpServerId(mcpServerId),
+                    .mcpServerId(mcpServerId)
+                    .workspaceId(workspaceId),
                 () -> clusterElementDefinitionFacade.executeTool(
                     componentName, componentVersion, clusterElementName,
                     MapUtils.concat(request, resolvedParameters), connectionId));
@@ -228,6 +236,9 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
     private Function<Map<String, Object>, Object> getWorkflowToolCallbackFunction(
         String toolName, ProjectDeploymentWorkflow projectDeploymentWorkflow, String triggerName,
         Map<String, ?> workflowParameters, long mcpServerId) {
+
+        Long workspaceId = workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(mcpServerId)
+            .orElse(null);
 
         return inputParameters -> {
             McpServer mcpServer = mcpServerService.getMcpServer(mcpServerId);
@@ -256,6 +267,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
                 ToolExecutionEvent
                     .builder(ToolExecutionSurface.MCP_AUTOMATION, ToolExecutionKind.WORKFLOW, toolName)
                     .mcpServerId(mcpServerId)
+                    .workspaceId(workspaceId)
                     .jobId(jobId),
                 () -> {
                     Job job = jobCompletionAwaiter.await(jobId, JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT)
