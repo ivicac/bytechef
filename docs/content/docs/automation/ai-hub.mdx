@@ -47,6 +47,28 @@ The **AI Hub** is the conversational home of your automation workspace. It gathe
 
 {/* TODO screenshot: AI Hub right-hand resource panel open beside a conversation — a viewer tab (e.g. a data table or workflow) with the panel's tab strip and close toggle */}
 
+## Managing connectors and MCP servers
+
+The **Manage connectors** link in the composer's connectors menu opens the AI Hub's connectors page, where you decide which tools the assistant can call. It has two lists.
+
+{/* TODO screenshot: AI Hub connectors page — the component connectors list (each row with an enable toggle, a tools chevron, and an ellipsis menu) above the custom MCP servers list, with the Add connector and Add MCP server buttons */}
+
+### Component connectors
+
+1. Click **Add connector** and pick a component from the grid.
+2. If the component needs a connection and none exists yet, its row shows a **Connect** action — click it to create or choose a connection in the **Connect** dialog. (The row's ellipsis menu also offers **Connect** to change the connection later.)
+3. Toggle the connector **on/off** to control whether the assistant may use it at all.
+4. Expand the row's **tools** chevron to enable or disable individual actions, and click a tool's **Configure** (gear) button to preset parameter values for it, so the assistant only has to supply the rest.
+5. Remove a connector from the ellipsis menu's **Delete**.
+
+### Custom MCP servers
+
+1. Click **Add MCP server** and fill in a **Name**, the **Server URL**, and an optional **Bearer token** (stored encrypted server-side).
+2. Expand the server row to see its tools, which are discovered live from the server; toggle the whole server or individual tools on and off.
+3. Remove a server from its row's delete action.
+
+Per-conversation, the composer's connectors menu still lets you toggle any enabled connector on or off for just that chat — this page sets what is available in the first place.
+
 ## Enabling the AI Hub
 
 The AI Hub is an Enterprise Edition surface, disabled by default:
