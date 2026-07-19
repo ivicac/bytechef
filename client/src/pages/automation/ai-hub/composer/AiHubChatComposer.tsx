@@ -21,9 +21,10 @@ import {useAiHubTasksStore} from '@/pages/automation/ai-hub/tasks/stores/useAiHu
 import TaskToolChips from '@/pages/automation/ai-hub/tools/TaskToolChips';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import ModeSwitch from '@/shared/components/ModeSwitch/ModeSwitch';
+import {usePushToTalk} from '@/shared/hooks/usePushToTalk';
 import {useCancelAiHubRunMutation, useCancelWorkflowChatTurnMutation} from '@/shared/middleware/graphql';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
-import {AuiIf, ComposerPrimitive, ThreadPrimitive, useComposerRuntime, useThreadRuntime} from '@assistant-ui/react';
+import {ComposerPrimitive, ThreadPrimitive, useComposerRuntime, useThreadRuntime} from '@assistant-ui/react';
 import {ArrowUpIcon, Loader2Icon, MicIcon, PaperclipIcon, RotateCcwIcon, SquareIcon, XIcon} from 'lucide-react';
 import {KeyboardEvent, ReactNode, useCallback, useEffect, useRef} from 'react';
 import {twMerge} from 'tailwind-merge';
@@ -92,6 +93,27 @@ const AiHubChatComposer = ({modelPicker}: AiHubChatComposerPropsI) => {
     const threadRuntime = useThreadRuntime();
 
     const composerRuntime = useComposerRuntime();
+
+    const {
+        isRecording: isVoiceRecording,
+        isTranscribing: isVoiceTranscribing,
+        start: startPushToTalk,
+        stop: stopPushToTalk,
+    } = usePushToTalk({
+        onTranscript: (text) => {
+            const currentText = composerRuntime.getState().text;
+
+            composerRuntime.setText(currentText ? `${currentText} ${text}` : text);
+        },
+    });
+
+    const handleMicClick = useCallback(() => {
+        if (isVoiceRecording) {
+            stopPushToTalk();
+        } else {
+            void startPushToTalk();
+        }
+    }, [isVoiceRecording, startPushToTalk, stopPushToTalk]);
 
     const handleCancelTurn = useCallback(() => {
         // Always close the AG-UI stream first via the runtime — this fires the AbortController which
@@ -403,38 +425,29 @@ const AiHubChatComposer = ({modelPicker}: AiHubChatComposerPropsI) => {
                             />
 
                             {/*
-                             * Browser-native dictation via the runtime's WebSpeechDictationAdapter (see
-                             * AiHubRuntimeProvider). Buttons only appear when the runtime reports the
-                             * dictation capability (i.e. the browser supports the Web Speech API).
+                             * Push-to-talk dictation: records a clip and transcribes it server-side via the configured
+                             * STT provider (POST /api/platform/internal/ai/transcribe), then appends the text to the
+                             * composer draft. See usePushToTalk.
                              */}
 
-                            <AuiIf condition={(state) => state.thread.capabilities.dictation}>
-                                <AuiIf condition={(state) => state.composer.dictation == null}>
-                                    <ComposerPrimitive.Dictate asChild>
-                                        <Button
-                                            aria-label="Start voice input"
-                                            className="size-8 rounded-full"
-                                            icon={<MicIcon className="size-4" />}
-                                            size="icon"
-                                            type="button"
-                                            variant="ghost"
-                                        />
-                                    </ComposerPrimitive.Dictate>
-                                </AuiIf>
-
-                                <AuiIf condition={(state) => state.composer.dictation != null}>
-                                    <ComposerPrimitive.StopDictation asChild>
-                                        <Button
-                                            aria-label="Stop voice input"
-                                            className="size-8 rounded-full text-content-destructive"
-                                            icon={<SquareIcon className="size-3.5 animate-pulse fill-current" />}
-                                            size="icon"
-                                            type="button"
-                                            variant="ghost"
-                                        />
-                                    </ComposerPrimitive.StopDictation>
-                                </AuiIf>
-                            </AuiIf>
+                            <Button
+                                aria-label={isVoiceRecording ? 'Stop voice input' : 'Start voice input'}
+                                className="size-8 rounded-full"
+                                disabled={isVoiceTranscribing}
+                                icon={
+                                    isVoiceTranscribing ? (
+                                        <Loader2Icon className="size-4 animate-spin" />
+                                    ) : isVoiceRecording ? (
+                                        <SquareIcon className="size-3.5 animate-pulse fill-current text-content-destructive" />
+                                    ) : (
+                                        <MicIcon className="size-4" />
+                                    )
+                                }
+                                onClick={handleMicClick}
+                                size="icon"
+                                type="button"
+                                variant="ghost"
+                            />
 
                             <ThreadPrimitive.If running={false}>
                                 <ComposerPrimitive.Send asChild>
