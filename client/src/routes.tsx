@@ -38,6 +38,11 @@ const Appearance = lazy(() => import('@/pages/account/settings/Appearance'));
 const AutomationConnections = lazy(() =>
     import('@/pages/automation/connections/Connections').then((module) => ({default: module.Connections}))
 );
+const AutomationToolInvocationsPage = lazy(() =>
+    import('@/pages/automation/tool-invocations/AutomationToolInvocations').then((module) => ({
+        default: module.AutomationToolInvocations,
+    }))
+);
 const ToolInvocationsPage = lazy(() =>
     import('@/pages/automation/tool-invocations/ToolInvocations').then((module) => ({
         default: module.ToolInvocations,
@@ -842,7 +847,7 @@ export const getRouter = (queryClient: QueryClient) =>
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
                                                 <LazyLoadWrapper hasLeftSidebar>
-                                                    <ToolInvocationsPage />
+                                                    <AutomationToolInvocationsPage />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
                                         </PrivateRoute>

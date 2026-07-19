@@ -6,11 +6,13 @@ type ToolInvocationLogItemType = ToolInvocationLogsQuery['toolInvocationLogs']['
 
 interface UseToolInvocationsI {
     filterEndDate: Date | undefined;
+    filterMcpServerId: string | undefined;
     filterOutcome: string | undefined;
     filterPageNumber: number;
     filterStartDate: Date | undefined;
     filterSurface: string | undefined;
     handleEndDateChange: (date: Date | undefined) => void;
+    handleMcpServerChange: (item?: ComboBoxItemType) => void;
     handleOutcomeChange: (item?: ComboBoxItemType) => void;
     handlePaginationClick: (pageNumber: number) => void;
     handleStartDateChange: (date: Date | undefined) => void;
@@ -25,6 +27,7 @@ interface UseToolInvocationsI {
 
 export const useToolInvocations = (): UseToolInvocationsI => {
     const [filterEndDate, setFilterEndDate] = useState<Date | undefined>(undefined);
+    const [filterMcpServerId, setFilterMcpServerId] = useState<string | undefined>(undefined);
     const [filterOutcome, setFilterOutcome] = useState<string | undefined>(undefined);
     const [filterPageNumber, setFilterPageNumber] = useState<number>(0);
     const [filterStartDate, setFilterStartDate] = useState<Date | undefined>(undefined);
@@ -38,6 +41,7 @@ export const useToolInvocations = (): UseToolInvocationsI => {
         refetch,
     } = useToolInvocationLogsQuery({
         fromDate: filterStartDate ? filterStartDate.getTime() : undefined,
+        mcpServerId: filterMcpServerId ? Number(filterMcpServerId) : undefined,
         outcome: filterOutcome || undefined,
         page: filterPageNumber,
         surface: filterSurface || undefined,
@@ -46,6 +50,11 @@ export const useToolInvocations = (): UseToolInvocationsI => {
 
     const handleEndDateChange = (date: Date | undefined) => {
         setFilterEndDate(date);
+        setFilterPageNumber(0);
+    };
+
+    const handleMcpServerChange = (item?: ComboBoxItemType) => {
+        setFilterMcpServerId(item?.value ? String(item.value) : undefined);
         setFilterPageNumber(0);
     };
 
@@ -68,11 +77,13 @@ export const useToolInvocations = (): UseToolInvocationsI => {
 
     return {
         filterEndDate,
+        filterMcpServerId,
         filterOutcome,
         filterPageNumber,
         filterStartDate,
         filterSurface,
         handleEndDateChange,
+        handleMcpServerChange,
         handleOutcomeChange,
         handlePaginationClick,
         handleStartDateChange,

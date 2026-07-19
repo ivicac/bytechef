@@ -1,5 +1,5 @@
 import Button from '@/components/Button/Button';
-import ComboBox from '@/components/ComboBox/ComboBox';
+import ComboBox, {ComboBoxItemType} from '@/components/ComboBox/ComboBox';
 import DatePicker from '@/components/DatePicker/DatePicker';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
@@ -36,16 +36,19 @@ const surfaceOptions = [
 
 interface ToolInvocationsProps {
     basePath?: string;
+    mcpServerOptions?: Array<ComboBoxItemType>;
 }
 
-export const ToolInvocations = ({basePath = '/automation/executions'}: ToolInvocationsProps) => {
+export const ToolInvocations = ({basePath = '/automation/executions', mcpServerOptions}: ToolInvocationsProps) => {
     const {
         filterEndDate,
+        filterMcpServerId,
         filterOutcome,
         filterPageNumber,
         filterStartDate,
         filterSurface,
         handleEndDateChange,
+        handleMcpServerChange,
         handleOutcomeChange,
         handlePaginationClick,
         handleStartDateChange,
@@ -115,6 +118,18 @@ export const ToolInvocations = ({basePath = '/automation/executions'}: ToolInvoc
 
                         <ComboBox items={outcomeOptions} onChange={handleOutcomeChange} value={filterOutcome} />
                     </div>
+
+                    {mcpServerOptions && mcpServerOptions.length > 0 && (
+                        <div className="flex flex-col space-y-2">
+                            <Label>MCP Server</Label>
+
+                            <ComboBox
+                                items={[ANY_FILTER_OPTION, ...mcpServerOptions]}
+                                onChange={handleMcpServerChange}
+                                value={filterMcpServerId}
+                            />
+                        </div>
+                    )}
 
                     <div className="flex flex-col space-y-2">
                         <Label>Start date</Label>
