@@ -550,15 +550,30 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
         long startTime = System.currentTimeMillis();
 
+        AiGatewayProject project = resolveProject(effectiveRequest.tags());
+
+        RoutedDeployments routedDeployments = null;
         ModelResolution modelResolution;
 
         try {
             // Honor the routing policy on the streaming path too: previously streaming always used the request's
-            // literal model and ignored routing entirely. Streaming selects a single routed deployment rather than
-            // failing over across deployments mid-stream (see resolveRoutedModel).
-            modelResolution = effectiveRequest.routingPolicy() != null
-                ? resolveRoutedModel(effectiveRequest)
-                : resolveModel(effectiveRequest.model());
+            // literal model and ignored routing entirely. When a routing policy is set the request now streams from
+            // the routed deployment and fails over to the next deployment BEFORE the first token is emitted (see
+            // AiGatewayRetryHandler.executeStreamWithRetry).
+            if (effectiveRequest.routingPolicy() != null) {
+                routedDeployments = selectRoutedDeployments(effectiveRequest);
+
+                AiGatewayModelDeployment primaryDeployment = routedDeployments.orderedDeployments()
+                    .get(0);
+                AiGatewayModel primaryModel = routedDeployments.modelMap()
+                    .get(primaryDeployment.getModelId());
+                AiGatewayProvider primaryProvider =
+                    aiGatewayProviderService.getProvider(primaryModel.getProviderId());
+
+                modelResolution = new ModelResolution(primaryProvider, primaryModel);
+            } else {
+                modelResolution = resolveModel(effectiveRequest.model());
+            }
         } catch (Exception exception) {
             try {
                 aiGatewayRequestLogService.create(createErrorLog(effectiveRequest, startTime, exception), workspaceId);
@@ -573,76 +588,112 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         AiGatewayProvider provider = modelResolution.provider();
         AiGatewayModel model = modelResolution.model();
 
-        AiGatewayProject project = resolveProject(effectiveRequest.tags());
-
-        ChatModel chatModel = aiGatewayChatModelFactory.getChatModel(provider);
-
-        AiGatewayChatCompletionRequest processedRequest = compressMessages(effectiveRequest, model, project);
-
-        Prompt prompt = buildPrompt(processedRequest, model.getName());
+        // servedModel/servedProvider default to the routed primary (or the literal model on the non-routing path) and
+        // are overwritten by whichever deployment actually streams a token, so the request log records the deployment
+        // that served rather than the one first selected.
+        AtomicReference<AiGatewayModel> servedModel = new AtomicReference<>(model);
+        AtomicReference<AiGatewayProvider> servedProvider = new AtomicReference<>(provider);
 
         AtomicLong streamInputTokens = new AtomicLong(0);
         AtomicLong streamOutputTokens = new AtomicLong(0);
         AtomicReference<Throwable> streamError = new AtomicReference<>();
         StringBuilder streamOutputContent = new StringBuilder();
 
-        return chatModel.stream(prompt)
-            .map(chatResponse -> {
-                if (chatResponse.getMetadata() != null && chatResponse.getMetadata()
-                    .getUsage() != null) {
+        Flux<ChatResponse> chatResponseFlux;
 
-                    long promptTokens = chatResponse.getMetadata()
-                        .getUsage()
-                        .getPromptTokens();
-                    long completionTokens = chatResponse.getMetadata()
-                        .getUsage()
-                        .getCompletionTokens();
+        if (routedDeployments != null) {
+            Map<Long, AiGatewayModel> routedModelMap = routedDeployments.modelMap();
 
-                    if (promptTokens > 0) {
-                        streamInputTokens.set(promptTokens);
-                    }
+            chatResponseFlux = aiGatewayRetryHandler.executeStreamWithRetry(
+                routedDeployments.orderedDeployments(),
+                deployment -> {
+                    AiGatewayModel deploymentModel = routedModelMap.get(deployment.getModelId());
+                    AiGatewayProvider deploymentProvider =
+                        aiGatewayProviderService.getProvider(deploymentModel.getProviderId());
+                    ChatModel deploymentChatModel = aiGatewayChatModelFactory.getChatModel(deploymentProvider);
+                    Prompt deploymentPrompt = buildPrompt(
+                        compressMessages(effectiveRequest, deploymentModel, project), deploymentModel.getName());
 
-                    if (completionTokens > 0) {
-                        streamOutputTokens.set(completionTokens);
-                    }
-                }
+                    return deploymentChatModel.stream(deploymentPrompt)
+                        .doOnNext(chatResponse -> {
+                            servedModel.set(deploymentModel);
+                            servedProvider.set(deploymentProvider);
+                        });
+                });
+        } else {
+            ChatModel chatModel = aiGatewayChatModelFactory.getChatModel(provider);
+            Prompt prompt = buildPrompt(compressMessages(effectiveRequest, model, project), model.getName());
 
-                Generation generation = chatResponse.getResult();
+            chatResponseFlux = chatModel.stream(prompt);
+        }
 
-                if (generation == null) {
-                    return new AiGatewayChatCompletionResponse(
-                        UUID.randomUUID()
-                            .toString(),
-                        "chat.completion.chunk",
-                        System.currentTimeMillis() / 1000, effectiveRequest.model(), List.of(), null);
-                }
-
-                String chunkText = generation.getOutput()
-                    .getText();
-
-                if (chunkText != null) {
-                    streamOutputContent.append(chunkText);
-                }
-
-                AiGatewayChatMessage delta = new AiGatewayChatMessage(
-                    AiGatewayChatRole.ASSISTANT, chunkText);
-
-                AiGatewayChatCompletionResponse.Choice choice =
-                    new AiGatewayChatCompletionResponse.Choice(0, delta,
-                        generation.getMetadata()
-                            .getFinishReason());
-
-                return new AiGatewayChatCompletionResponse(
-                    UUID.randomUUID()
-                        .toString(),
-                    "chat.completion.chunk",
-                    System.currentTimeMillis() / 1000, effectiveRequest.model(), List.of(choice), null);
-            })
+        return chatResponseFlux
+            .map(chatResponse -> toStreamChunkResponse(
+                chatResponse, effectiveRequest, streamInputTokens, streamOutputTokens, streamOutputContent))
             .doOnError(streamError::set)
             .doFinally(signalType -> finalizeStreamRequest(
                 signalType, streamInputTokens, streamOutputTokens, streamError, streamOutputContent,
-                effectiveRequest, effectiveTracingHeaders, workspaceId, model, provider, project, startTime,
-                traceIdHolder));
+                effectiveRequest, effectiveTracingHeaders, workspaceId, servedModel.get(), servedProvider.get(),
+                project, startTime, traceIdHolder));
+    }
+
+    /**
+     * Maps a single streamed {@link ChatResponse} chunk to a gateway response chunk, accumulating token usage and the
+     * concatenated output content for the post-stream request log.
+     */
+    private AiGatewayChatCompletionResponse toStreamChunkResponse(
+        ChatResponse chatResponse, AiGatewayChatCompletionRequest effectiveRequest, AtomicLong streamInputTokens,
+        AtomicLong streamOutputTokens, StringBuilder streamOutputContent) {
+
+        if (chatResponse.getMetadata() != null && chatResponse.getMetadata()
+            .getUsage() != null) {
+
+            long promptTokens = chatResponse.getMetadata()
+                .getUsage()
+                .getPromptTokens();
+            long completionTokens = chatResponse.getMetadata()
+                .getUsage()
+                .getCompletionTokens();
+
+            if (promptTokens > 0) {
+                streamInputTokens.set(promptTokens);
+            }
+
+            if (completionTokens > 0) {
+                streamOutputTokens.set(completionTokens);
+            }
+        }
+
+        Generation generation = chatResponse.getResult();
+
+        if (generation == null) {
+            return new AiGatewayChatCompletionResponse(
+                UUID.randomUUID()
+                    .toString(),
+                "chat.completion.chunk",
+                System.currentTimeMillis() / 1000, effectiveRequest.model(), List.of(), null);
+        }
+
+        String chunkText = generation.getOutput()
+            .getText();
+
+        if (chunkText != null) {
+            streamOutputContent.append(chunkText);
+        }
+
+        AiGatewayChatMessage delta = new AiGatewayChatMessage(
+            AiGatewayChatRole.ASSISTANT, chunkText);
+
+        AiGatewayChatCompletionResponse.Choice choice =
+            new AiGatewayChatCompletionResponse.Choice(0, delta,
+                generation.getMetadata()
+                    .getFinishReason());
+
+        return new AiGatewayChatCompletionResponse(
+            UUID.randomUUID()
+                .toString(),
+            "chat.completion.chunk",
+            System.currentTimeMillis() / 1000, effectiveRequest.model(), List.of(choice), null);
     }
 
     private void finalizeStreamRequest(
@@ -1006,46 +1057,9 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
                 "No enabled deployments for routing policy: " + routingPolicy.getName());
         }
 
-        Map<String, Double> latencyByModelName = aiGatewayRequestLogService.getAverageLatencyByModel(
-            Instant.now()
-                .minus(Duration.ofHours(1)));
-
-        Map<Long, Double> averageLatencyByModelId = modelMap.entrySet()
-            .stream()
-            .filter(entry -> latencyByModelName.containsKey(entry.getValue()
-                .getName()))
-            .collect(Collectors.toMap(Map.Entry::getKey, entry -> latencyByModelName.get(entry.getValue()
-                .getName())));
-
-        double promptComplexityScore;
-
-        try {
-            promptComplexityScore = promptComplexityScorer.score(request);
-        } catch (Exception exception) {
-            log.warn("Prompt complexity scoring failed; falling back to most capable tier", exception);
-
-            promptComplexityScore = 1.0;
-        }
-
         AiGatewayProject project = resolveProject(request.tags());
 
-        Map<String, String> tags = request.tags() != null ? request.tags() : Map.of();
-
-        Map<Long, String> providerTypeByModelId = modelMap.entrySet()
-            .stream()
-            .collect(Collectors.toMap(
-                Map.Entry::getKey,
-                entry -> {
-                    AiGatewayProvider provider =
-                        aiGatewayProviderService.getProvider(entry.getValue()
-                            .getProviderId());
-
-                    return provider.getType()
-                        .name();
-                }));
-
-        AiGatewayRoutingContext routingContext = new AiGatewayRoutingContext(
-            averageLatencyByModelId, modelMap, promptComplexityScore, providerTypeByModelId, tags);
+        AiGatewayRoutingContext routingContext = buildRoutingContext(request, modelMap);
 
         AiGatewayModelDeployment primaryDeployment = aiGatewayRouter.route(
             routingPolicy.getStrategy(), enabledDeployments, routingContext);
@@ -1294,36 +1308,12 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
     }
 
     /**
-     * Resolves the model/provider for a streaming request that specifies a routing policy, by running the same router
-     * selection used on the non-streaming path and returning the primary deployment's model and provider.
-     *
-     * <p>
-     * Streaming intentionally selects a single deployment rather than failing over across deployments mid-stream: once
-     * response bytes have been flushed to the SSE client they cannot be retracted, so the cross-deployment retry used
-     * by the blocking path is not safe here. This still closes the gap where streaming previously ignored the routing
-     * policy entirely and always used the request's literal model.
-     * </p>
+     * Builds the router scoring context (average per-model latency over the last hour, prompt-complexity score, and
+     * per-model provider type) shared by the blocking and streaming routing paths. A scorer failure degrades to the
+     * most-capable tier (score 1.0) rather than failing the request.
      */
-    private ModelResolution resolveRoutedModel(AiGatewayChatCompletionRequest request) {
-        AiGatewayRoutingPolicy routingPolicy =
-            aiGatewayRoutingPolicyService.getRoutingPolicyByName(request.routingPolicy());
-
-        List<AiGatewayModelDeployment> deployments =
-            aiGatewayModelDeploymentService.getDeploymentsByRoutingPolicyId(routingPolicy.getId());
-
-        List<AiGatewayModelDeployment> enabledDeployments = deployments.stream()
-            .filter(AiGatewayModelDeployment::isEnabled)
-            .toList();
-
-        if (enabledDeployments.isEmpty()) {
-            throw new IllegalStateException(
-                "No enabled deployments for routing policy: " + routingPolicy.getName());
-        }
-
-        Map<Long, AiGatewayModel> modelMap = enabledDeployments.stream()
-            .map(AiGatewayModelDeployment::getModelId)
-            .distinct()
-            .collect(Collectors.toMap(modelId -> modelId, aiGatewayModelService::getModel));
+    private AiGatewayRoutingContext buildRoutingContext(
+        AiGatewayChatCompletionRequest request, Map<Long, AiGatewayModel> modelMap) {
 
         Map<String, Double> latencyByModelName = aiGatewayRequestLogService.getAverageLatencyByModel(
             Instant.now()
@@ -1360,16 +1350,63 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
                         .name();
                 }));
 
-        AiGatewayRoutingContext routingContext = new AiGatewayRoutingContext(
+        return new AiGatewayRoutingContext(
             averageLatencyByModelId, modelMap, promptComplexityScore, providerTypeByModelId, tags);
+    }
+
+    /**
+     * Selects the routed deployments for a request that specifies a routing policy: runs the same router selection used
+     * on the non-streaming path and returns the primary deployment first, followed by the remaining enabled deployments
+     * as ordered fallbacks, together with each deployment's resolved model.
+     *
+     * <p>
+     * The streaming path uses the ordered list with {@code executeStreamWithRetry}, which fails over across deployments
+     * only <em>before</em> the first token is emitted (once SSE bytes are flushed they cannot be retracted).
+     * </p>
+     */
+    private RoutedDeployments selectRoutedDeployments(AiGatewayChatCompletionRequest request) {
+        AiGatewayRoutingPolicy routingPolicy =
+            aiGatewayRoutingPolicyService.getRoutingPolicyByName(request.routingPolicy());
+
+        List<AiGatewayModelDeployment> deployments =
+            aiGatewayModelDeploymentService.getDeploymentsByRoutingPolicyId(routingPolicy.getId());
+
+        List<AiGatewayModelDeployment> enabledDeployments = deployments.stream()
+            .filter(AiGatewayModelDeployment::isEnabled)
+            .toList();
+
+        if (enabledDeployments.isEmpty()) {
+            throw new IllegalStateException(
+                "No enabled deployments for routing policy: " + routingPolicy.getName());
+        }
+
+        Map<Long, AiGatewayModel> modelMap = enabledDeployments.stream()
+            .map(AiGatewayModelDeployment::getModelId)
+            .distinct()
+            .collect(Collectors.toMap(modelId -> modelId, aiGatewayModelService::getModel));
+
+        AiGatewayRoutingContext routingContext = buildRoutingContext(request, modelMap);
 
         AiGatewayModelDeployment primaryDeployment = aiGatewayRouter.route(
             routingPolicy.getStrategy(), enabledDeployments, routingContext);
 
-        AiGatewayModel model = modelMap.get(primaryDeployment.getModelId());
-        AiGatewayProvider provider = aiGatewayProviderService.getProvider(model.getProviderId());
+        List<AiGatewayModelDeployment> orderedDeployments = new ArrayList<>();
 
-        return new ModelResolution(provider, model);
+        orderedDeployments.add(primaryDeployment);
+
+        for (AiGatewayModelDeployment deployment : enabledDeployments) {
+            if (!deployment.getId()
+                .equals(primaryDeployment.getId())) {
+
+                orderedDeployments.add(deployment);
+            }
+        }
+
+        return new RoutedDeployments(orderedDeployments, modelMap);
+    }
+
+    private record RoutedDeployments(
+        List<AiGatewayModelDeployment> orderedDeployments, Map<Long, AiGatewayModel> modelMap) {
     }
 
     private ModelResolution resolveModel(String modelIdentifier) {
