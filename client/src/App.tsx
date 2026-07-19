@@ -25,6 +25,7 @@ import {
     Link2Icon,
     LucideIcon,
     MessagesSquareIcon,
+    NetworkIcon,
     ServerIcon,
     Settings2Icon,
     SparklesIcon,
@@ -79,6 +80,12 @@ const automationNavigation: NavigationType[] = [
         href: '/automation/mcp-servers',
         icon: ServerIcon,
         name: 'MCP Servers',
+    },
+    {
+        group: 'Deployments',
+        href: '/automation/a2a-servers',
+        icon: NetworkIcon,
+        name: 'A2A Servers',
     },
     {
         group: 'Deployments',

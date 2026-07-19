@@ -12,6 +12,23 @@ export type Scalars = {
   Map: { input: any; output: any; }
 };
 
+export type A2aServer = {
+  __typename?: 'A2aServer';
+  authenticationRequired: Scalars['Boolean']['output'];
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  description?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  environmentId: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  secretKey: Scalars['String']['output'];
+  type: PlatformType;
+  version?: Maybe<Scalars['Int']['output']>;
+};
+
 export type ActionDefinition = {
   __typename?: 'ActionDefinition';
   componentName: Scalars['String']['output'];
@@ -1994,6 +2011,14 @@ export enum ControlType {
   Url = 'URL'
 }
 
+export type CreateA2aServerInput = {
+  authenticationRequired?: InputMaybe<Scalars['Boolean']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  environmentId: Scalars['ID']['input'];
+  name: Scalars['String']['input'];
+  type: PlatformType;
+};
+
 export type CreateAiGatewayBudgetInput = {
   alertThreshold?: InputMaybe<Scalars['Int']['input']>;
   amount: Scalars['String']['input'];
@@ -3318,6 +3343,7 @@ export type Mutation = {
    * start event. Throws Forbidden when the caller doesn't own the task.
    */
   cancelWorkflowChatTurn: Scalars['Boolean']['output'];
+  createA2aServer?: Maybe<A2aServer>;
   createAiAgentEvalScenario: AiAgentEvalScenario;
   createAiAgentEvalTest: AiAgentEvalTest;
   createAiAgentJudge: AiAgentJudge;
@@ -3400,6 +3426,7 @@ export type Mutation = {
   createWorkspaceAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
   createWorkspaceApiKey: Scalars['String']['output'];
   createWorkspaceMcpServer?: Maybe<McpServer>;
+  deleteA2aServer?: Maybe<Scalars['Boolean']['output']>;
   deleteAiAgentEvalScenario: Scalars['Boolean']['output'];
   deleteAiAgentEvalTest: Scalars['Boolean']['output'];
   deleteAiAgentJudge: Scalars['Boolean']['output'];
@@ -3612,6 +3639,7 @@ export type Mutation = {
    */
   truncateAiHubTaskMessages: Scalars['Int']['output'];
   unsnoozeAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
+  updateA2aServer?: Maybe<A2aServer>;
   updateAiAgentEvalScenario: AiAgentEvalScenario;
   updateAiAgentEvalTest: AiAgentEvalTest;
   updateAiAgentJudge: AiAgentJudge;
@@ -3802,6 +3830,11 @@ export type MutationCancelGenerationJobArgs = {
 export type MutationCancelWorkflowChatTurnArgs = {
   id: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateA2aServerArgs = {
+  input: CreateA2aServerInput;
 };
 
 
@@ -4166,6 +4199,11 @@ export type MutationCreateWorkspaceApiKeyArgs = {
 
 export type MutationCreateWorkspaceMcpServerArgs = {
   input: CreateWorkspaceMcpServerInput;
+};
+
+
+export type MutationDeleteA2aServerArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -4931,6 +4969,12 @@ export type MutationUnsnoozeAiObservabilityAlertRuleArgs = {
 };
 
 
+export type MutationUpdateA2aServerArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateA2aServerInput;
+};
+
+
 export type MutationUpdateAiAgentEvalScenarioArgs = {
   expectedOutput?: InputMaybe<Scalars['String']['input']>;
   id: Scalars['ID']['input'];
@@ -5688,6 +5732,8 @@ export type ProviderConnectionResult = {
 export type Query = {
   __typename?: 'Query';
   _placeholder?: Maybe<Scalars['Boolean']['output']>;
+  a2aServer?: Maybe<A2aServer>;
+  a2aServers?: Maybe<Array<Maybe<A2aServer>>>;
   actionDefinition: ActionDefinition;
   actionDefinitions: Array<ActionDefinition>;
   adminApiKeys?: Maybe<Array<Maybe<ApiKey>>>;
@@ -6024,6 +6070,16 @@ export type Query = {
   workspaceProjectDeployments: Array<ProjectDeployment>;
   /** List all users of a workspace. Requires at least VIEWER workspace role. */
   workspaceUsers: Array<WorkspaceUser>;
+};
+
+
+export type QueryA2aServerArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryA2aServersArgs = {
+  type: PlatformType;
 };
 
 
@@ -7515,6 +7571,13 @@ export enum UnifiedApiCategory {
   MarketingAutomation = 'MARKETING_AUTOMATION',
   Ticketing = 'TICKETING'
 }
+
+export type UpdateA2aServerInput = {
+  authenticationRequired?: InputMaybe<Scalars['Boolean']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+};
 
 export type UpdateAiAutoMemoryInput = {
   content?: InputMaybe<Scalars['String']['input']>;

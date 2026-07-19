@@ -131,6 +131,7 @@ dependencies {
     implementation(project(":server:libs:atlas:atlas-file-storage:atlas-file-storage-impl"))
     implementation(project(":server:libs:atlas:atlas-worker:atlas-worker-config"))
     implementation(project(":server:libs:automation:automation-ai:automation-ai-a2a-server"))
+    implementation(project(":server:libs:automation:automation-ai:automation-ai-a2a:automation-ai-a2a-graphql"))
     implementation(project(":server:libs:automation:automation-ai:automation-ai-mcp-server"))
     implementation(project(":server:libs:automation:automation-asset-file:automation-asset-file-graphql"))
     implementation(project(":server:libs:automation:automation-asset-file:automation-asset-file-rest"))
