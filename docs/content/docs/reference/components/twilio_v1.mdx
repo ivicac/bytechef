@@ -337,6 +337,7 @@ Type: STATIC_WEBHOOK
 |:---------------:|:--------------:|:------------:|:-------------------:|:--------:|
 | subWorkflow | Real-Time Workflow | STRING | The workflow ID to execute synchronously during the phone call. This workflow handles real-time audio processing and AI responses. | true |
 | authToken | Auth Token | STRING | Your Twilio account auth token. When set, the incoming request's X-Twilio-Signature is verified and unsigned or forged requests are rejected. Leave empty to skip verification. | false |
+| streamTokenSecret | Stream Token Secret | STRING | Optional shared secret used to sign the media-stream WebSocket URL (a WebSocket upgrade cannot carry X-Twilio-Signature). Set the same value as bytechef.twilio.stream-token.secret on the server so the connection is verified on connect. Leave empty to skip. | false |
 
 
 #### Output
@@ -367,7 +368,8 @@ Type: OBJECT
   "name" : "inboundCall",
   "parameters" : {
     "subWorkflow" : "",
-    "authToken" : ""
+    "authToken" : "",
+    "streamTokenSecret" : ""
   },
   "type" : "twilio/v1/inboundCall"
 }

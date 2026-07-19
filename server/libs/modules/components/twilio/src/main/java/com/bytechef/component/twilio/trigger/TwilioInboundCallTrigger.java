@@ -31,7 +31,9 @@ import com.bytechef.component.definition.TriggerDefinition.WebhookBody;
 import com.bytechef.component.definition.TriggerDefinition.WebhookMethod;
 import com.bytechef.component.definition.TriggerDefinition.WebhookValidateResponse;
 import com.bytechef.component.twilio.util.TwilioSignatureValidator;
+import com.bytechef.component.twilio.util.TwilioStreamToken;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -51,6 +53,9 @@ public class TwilioInboundCallTrigger {
 
     public static final String SUB_WORKFLOW = "subWorkflow";
     public static final String AUTH_TOKEN = "authToken";
+    public static final String STREAM_TOKEN_SECRET = "streamTokenSecret";
+
+    private static final long STREAM_TOKEN_TTL_SECONDS = 3600L;
 
     // Platform header names - must match AbstractWebhookTriggerController constants
     private static final String HEADER_WORKFLOW_EXECUTION_ID = "X-ByteChef-Workflow-Execution-Id";
@@ -76,6 +81,13 @@ public class TwilioInboundCallTrigger {
                 .description(
                     "Your Twilio account auth token. When set, the incoming request's X-Twilio-Signature is " +
                         "verified and unsigned or forged requests are rejected. Leave empty to skip verification.")
+                .required(false),
+            string(STREAM_TOKEN_SECRET)
+                .label("Stream Token Secret")
+                .description(
+                    "Optional shared secret used to sign the media-stream WebSocket URL (a WebSocket upgrade cannot " +
+                        "carry X-Twilio-Signature). Set the same value as bytechef.twilio.stream-token.secret on the " +
+                        "server so the connection is verified on connect. Leave empty to skip.")
                 .required(false))
         .output(
             outputSchema(
@@ -137,7 +149,8 @@ public class TwilioInboundCallTrigger {
         storeCallContext(context, callSid, subWorkflowId, bodyContent);
 
         // Build TwiML response with WebSocket stream
-        String twiml = buildTwimlResponse(publicUrl, workflowExecutionId, callSid);
+        String twiml = buildTwimlResponse(
+            publicUrl, workflowExecutionId, callSid, inputParameters.getString(STREAM_TOKEN_SECRET));
 
         return new WebhookValidateResponse(
             twiml,
@@ -219,11 +232,20 @@ public class TwilioInboundCallTrigger {
 
     @SuppressFBWarnings("VA_FORMAT_STRING_USES_NEWLINE")
     private static String buildTwimlResponse(
-        String publicUrl, String workflowExecutionId, String callSid) {
+        String publicUrl, String workflowExecutionId, String callSid, String streamTokenSecret) {
 
         String wsUrl = publicUrl.replace("https://", "wss://")
             .replace("http://", "ws://")
             + "/webhooks/" + workflowExecutionId + "/wss?callSid=" + callSid;
+
+        // When configured, bind the media-stream WebSocket to this callSid with a signed, expiring token the server
+        // verifies on connect (a WebSocket upgrade cannot carry X-Twilio-Signature).
+        if (streamTokenSecret != null && !streamTokenSecret.isBlank()) {
+            wsUrl += "&streamToken=" + TwilioStreamToken.mint(
+                streamTokenSecret, callSid, STREAM_TOKEN_TTL_SECONDS,
+                Instant.now()
+                    .getEpochSecond());
+        }
 
         String statusCallbackUrl = publicUrl + "/webhooks/twilio/status?callSid=" + callSid;
 

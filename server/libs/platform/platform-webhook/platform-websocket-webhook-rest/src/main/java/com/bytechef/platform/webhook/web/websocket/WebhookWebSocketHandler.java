@@ -38,6 +38,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.net.URI;
 import java.nio.ByteBuffer;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,6 +54,7 @@ import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.web.socket.BinaryMessage;
 import org.springframework.web.socket.CloseStatus;
@@ -94,6 +96,9 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
     private final WorkflowService workflowService;
 
     private final long maxSessionDurationSeconds;
+
+    @Value("${bytechef.twilio.stream-token.secret:}")
+    private String twilioStreamTokenSecret;
 
     private final Cache<String, AutoCloseable> streamHandles;
     private final Cache<String, List<Map<String, Object>>> pendingEvents;
@@ -234,6 +239,26 @@ public class WebhookWebSocketHandler extends AbstractWebSocketHandler {
             }
 
             callSid = "browser-" + UUID.randomUUID();
+        }
+
+        // Twilio media-stream path: a WebSocket upgrade cannot carry X-Twilio-Signature, so when a stream-token secret
+        // is configured the wss URL must carry a valid signed streamToken bound to this callSid (minted into the TwiML
+        // <Stream> at build time). Browser-voice connections are already gated by their single-use sessionToken above.
+        if (callSid != null && twilioStreamTokenSecret != null && !twilioStreamTokenSecret.isBlank()
+            && !callSid.startsWith("browser-")) {
+
+            String streamToken = extractQueryParam(uri, "streamToken");
+
+            if (!TwilioStreamToken.verify(
+                twilioStreamTokenSecret, callSid, streamToken, Instant.now()
+                    .getEpochSecond())) {
+
+                log.warn("Twilio media-stream WS upgrade rejected: invalid streamToken for callSid={}", callSid);
+
+                session.close(CloseStatus.POLICY_VIOLATION);
+
+                return;
+            }
         }
 
         if (callSid != null) {
