@@ -184,6 +184,7 @@ include("server:libs:platform:platform-ai:platform-ai-skill:platform-ai-skill-gr
 include("server:libs:platform:platform-ai:platform-ai-skill:platform-ai-skill-rest")
 include("server:libs:platform:platform-ai:platform-ai-skill:platform-ai-skill-service")
 include("server:libs:platform:platform-ai:platform-ai-stt-api")
+include("server:libs:platform:platform-ai:platform-ai-stt-service")
 include("server:libs:platform:platform-ai:platform-ai-stt-openai")
 include("server:libs:platform:platform-ai:platform-ai-tool")
 include("server:libs:platform:platform-api")

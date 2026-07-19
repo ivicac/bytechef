@@ -400,6 +400,7 @@ dependencies {
     runtimeOnly("com.h2database:h2")
     runtimeOnly("com.zaxxer:HikariCP")
     runtimeOnly("org.postgresql:postgresql")
+    implementation(project(":server:libs:platform:platform-ai:platform-ai-stt-service"))
     runtimeOnly(project(":server:libs:platform:platform-ai:platform-ai-stt-openai"))
 
     testImplementation(project(":server:libs:test:test-int-support"))
