@@ -43,6 +43,10 @@ import org.springframework.data.relational.core.mapping.Table;
 @Table("a2a_project_workflow")
 public final class A2aProjectWorkflow {
 
+    public static final String SKILL_NAME = "skillName";
+    public static final String SKILL_DESCRIPTION = "skillDescription";
+    public static final String SKILL_TAGS = "skillTags";
+
     @Id
     private Long id;
 

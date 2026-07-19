@@ -24,6 +24,24 @@ export type A2aProject = {
   workflowIds: Array<Scalars['String']['output']>;
 };
 
+export type A2aProjectWorkflow = {
+  __typename?: 'A2aProjectWorkflow';
+  a2aProjectId?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  projectDeploymentWorkflowId?: Maybe<Scalars['Long']['output']>;
+  skillDescription?: Maybe<Scalars['String']['output']>;
+  skillName?: Maybe<Scalars['String']['output']>;
+  skillTags?: Maybe<Array<Scalars['String']['output']>>;
+  workflowId?: Maybe<Scalars['String']['output']>;
+  workflowLabel?: Maybe<Scalars['String']['output']>;
+};
+
+export type A2aProjectWorkflowParametersInput = {
+  skillDescription?: InputMaybe<Scalars['String']['input']>;
+  skillName?: InputMaybe<Scalars['String']['input']>;
+  skillTags?: InputMaybe<Array<Scalars['String']['input']>>;
+};
+
 export type A2aServer = {
   __typename?: 'A2aServer';
   authenticationRequired: Scalars['Boolean']['output'];
@@ -3661,6 +3679,7 @@ export type Mutation = {
   truncateAiHubTaskMessages: Scalars['Int']['output'];
   unsnoozeAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
   updateA2aProject?: Maybe<A2aProject>;
+  updateA2aProjectWorkflowParameters?: Maybe<A2aProjectWorkflow>;
   updateA2aServer?: Maybe<A2aServer>;
   updateAiAgentEvalScenario: AiAgentEvalScenario;
   updateAiAgentEvalTest: AiAgentEvalTest;
@@ -5007,6 +5026,12 @@ export type MutationUpdateA2aProjectArgs = {
 };
 
 
+export type MutationUpdateA2aProjectWorkflowParametersArgs = {
+  id: Scalars['ID']['input'];
+  input: A2aProjectWorkflowParametersInput;
+};
+
+
 export type MutationUpdateA2aServerArgs = {
   id: Scalars['ID']['input'];
   input: UpdateA2aServerInput;
@@ -5770,6 +5795,7 @@ export type ProviderConnectionResult = {
 export type Query = {
   __typename?: 'Query';
   _placeholder?: Maybe<Scalars['Boolean']['output']>;
+  a2aProjectWorkflowsByA2aProjectId?: Maybe<Array<Maybe<A2aProjectWorkflow>>>;
   a2aProjectsByServerId?: Maybe<Array<Maybe<A2aProject>>>;
   a2aServer?: Maybe<A2aServer>;
   a2aServers?: Maybe<Array<Maybe<A2aServer>>>;
@@ -6109,6 +6135,11 @@ export type Query = {
   workspaceProjectDeployments: Array<ProjectDeployment>;
   /** List all users of a workspace. Requires at least VIEWER workspace role. */
   workspaceUsers: Array<WorkspaceUser>;
+};
+
+
+export type QueryA2aProjectWorkflowsByA2aProjectIdArgs = {
+  a2aProjectId: Scalars['ID']['input'];
 };
 
 

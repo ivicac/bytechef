@@ -28,6 +28,7 @@ import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
 /**
@@ -48,16 +49,19 @@ public class A2aServerGraphQlController {
     }
 
     @QueryMapping
+    @PreAuthorize("isAuthenticated()")
     public List<A2aServer> a2aServers(@Argument PlatformType type) {
         return a2aServerService.getA2aServers(type);
     }
 
     @QueryMapping
+    @PreAuthorize("isAuthenticated()")
     public A2aServer a2aServer(@Argument long id) {
         return a2aServerService.getA2aServer(id);
     }
 
     @MutationMapping
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public A2aServer createA2aServer(@Argument CreateA2aServerInput input) {
         A2aServer a2aServer = new A2aServer(
             input.name(), input.description(), input.type(), Environment.values()[(int) input.environmentId()]);
@@ -70,6 +74,7 @@ public class A2aServerGraphQlController {
     }
 
     @MutationMapping
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public A2aServer updateA2aServer(@Argument long id, @Argument UpdateA2aServerInput input) {
         A2aServer a2aServer = a2aServerService.getA2aServer(id);
 
@@ -93,6 +98,7 @@ public class A2aServerGraphQlController {
     }
 
     @MutationMapping
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public boolean deleteA2aServer(@Argument long id) {
         a2aServerService.delete(id);
 

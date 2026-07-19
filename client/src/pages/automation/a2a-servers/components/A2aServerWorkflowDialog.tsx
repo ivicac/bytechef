@@ -30,6 +30,8 @@ import {ReactNode, useEffect, useMemo, useState} from 'react';
 import {useForm} from 'react-hook-form';
 import {z} from 'zod';
 
+import A2aServerSkillsEditor from './A2aServerSkillsEditor';
+
 const formSchema = z.object({
     projectId: z.number().min(1),
     projectVersion: z.number().min(1),
@@ -290,6 +292,10 @@ const A2aServerWorkflowDialog = ({
                                 )}
                                 shouldUnregister={false}
                             />
+                        )}
+
+                        {isEditMode && existingA2aProject && (
+                            <A2aServerSkillsEditor a2aProjectId={existingA2aProject.id} />
                         )}
 
                         <DialogFooter>

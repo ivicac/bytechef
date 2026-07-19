@@ -1676,6 +1676,13 @@ export type UpdateAssetFileTextContentMutationVariables = Exact<{
 
 export type UpdateAssetFileTextContentMutation = { updateAssetFileTextContent: { id: string, lastModifiedDate: any, sizeBytes: any } };
 
+export type A2aProjectWorkflowsByA2aProjectIdQueryVariables = Exact<{
+  a2aProjectId: string | number;
+}>;
+
+
+export type A2aProjectWorkflowsByA2aProjectIdQuery = { a2aProjectWorkflowsByA2aProjectId: Array<{ id: string, skillDescription: string | null, skillName: string | null, skillTags: Array<string> | null, workflowId: string | null, workflowLabel: string | null } | null> | null };
+
 export type A2aProjectsByServerIdQueryVariables = Exact<{
   a2aServerId: string | number;
 }>;
@@ -2026,6 +2033,14 @@ export type UpdateA2aProjectMutationVariables = Exact<{
 
 
 export type UpdateA2aProjectMutation = { updateA2aProject: { id: string } | null };
+
+export type UpdateA2aProjectWorkflowParametersMutationVariables = Exact<{
+  id: string | number;
+  input: Types.A2aProjectWorkflowParametersInput;
+}>;
+
+
+export type UpdateA2aProjectWorkflowParametersMutation = { updateA2aProjectWorkflowParameters: { id: string } | null };
 
 export type UpdateA2aServerMutationVariables = Exact<{
   id: string | number;
@@ -10050,6 +10065,35 @@ export const useUpdateAssetFileTextContentMutation = <
   }
     )};
 
+export const A2aProjectWorkflowsByA2aProjectIdDocument = new TypedDocumentString(`
+    query a2aProjectWorkflowsByA2aProjectId($a2aProjectId: ID!) {
+  a2aProjectWorkflowsByA2aProjectId(a2aProjectId: $a2aProjectId) {
+    id
+    skillDescription
+    skillName
+    skillTags
+    workflowId
+    workflowLabel
+  }
+}
+    `);
+
+export const useA2aProjectWorkflowsByA2aProjectIdQuery = <
+      TData = A2aProjectWorkflowsByA2aProjectIdQuery,
+      TError = unknown
+    >(
+      variables: A2aProjectWorkflowsByA2aProjectIdQueryVariables,
+      options?: Omit<UseQueryOptions<A2aProjectWorkflowsByA2aProjectIdQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<A2aProjectWorkflowsByA2aProjectIdQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<A2aProjectWorkflowsByA2aProjectIdQuery, TError, TData>(
+      {
+    queryKey: ['a2aProjectWorkflowsByA2aProjectId', variables],
+    queryFn: fetcher<A2aProjectWorkflowsByA2aProjectIdQuery, A2aProjectWorkflowsByA2aProjectIdQueryVariables>(A2aProjectWorkflowsByA2aProjectIdDocument, variables),
+    ...options
+  }
+    )};
+
 export const A2aProjectsByServerIdDocument = new TypedDocumentString(`
     query a2aProjectsByServerId($a2aServerId: ID!) {
   a2aProjectsByServerId(a2aServerId: $a2aServerId) {
@@ -11254,6 +11298,27 @@ export const useUpdateA2aProjectMutation = <
       {
     mutationKey: ['updateA2aProject'],
     mutationFn: (variables?: UpdateA2aProjectMutationVariables) => fetcher<UpdateA2aProjectMutation, UpdateA2aProjectMutationVariables>(UpdateA2aProjectDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateA2aProjectWorkflowParametersDocument = new TypedDocumentString(`
+    mutation updateA2aProjectWorkflowParameters($id: ID!, $input: A2aProjectWorkflowParametersInput!) {
+  updateA2aProjectWorkflowParameters(id: $id, input: $input) {
+    id
+  }
+}
+    `);
+
+export const useUpdateA2aProjectWorkflowParametersMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateA2aProjectWorkflowParametersMutation, TError, UpdateA2aProjectWorkflowParametersMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateA2aProjectWorkflowParametersMutation, TError, UpdateA2aProjectWorkflowParametersMutationVariables, TContext>(
+      {
+    mutationKey: ['updateA2aProjectWorkflowParameters'],
+    mutationFn: (variables?: UpdateA2aProjectWorkflowParametersMutationVariables) => fetcher<UpdateA2aProjectWorkflowParametersMutation, UpdateA2aProjectWorkflowParametersMutationVariables>(UpdateA2aProjectWorkflowParametersDocument, variables)(),
     ...options
   }
     )};

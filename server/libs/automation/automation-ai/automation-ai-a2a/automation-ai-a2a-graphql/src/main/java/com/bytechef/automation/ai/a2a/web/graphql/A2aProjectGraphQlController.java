@@ -34,6 +34,7 @@ import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
 /**
@@ -66,22 +67,26 @@ public class A2aProjectGraphQlController {
     }
 
     @QueryMapping
+    @PreAuthorize("isAuthenticated()")
     public List<A2aProject> a2aProjectsByServerId(@Argument long a2aServerId) {
         return a2aProjectService.getA2aServerA2aProjects(a2aServerId);
     }
 
     @MutationMapping
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public A2aProject createA2aProject(@Argument CreateA2aProjectInput input) {
         return a2aProjectFacade.createA2aProject(
             input.a2aServerId(), input.projectId(), input.projectVersion(), input.selectedWorkflowIds());
     }
 
     @MutationMapping
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public A2aProject updateA2aProject(@Argument long id, @Argument UpdateA2aProjectInput input) {
         return a2aProjectFacade.updateA2aProject(id, input.selectedWorkflowIds());
     }
 
     @MutationMapping
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public boolean deleteA2aProject(@Argument long id) {
         a2aProjectFacade.deleteA2aProject(id);
 

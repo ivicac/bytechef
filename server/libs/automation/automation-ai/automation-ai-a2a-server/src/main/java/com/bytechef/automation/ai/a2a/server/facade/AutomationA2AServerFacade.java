@@ -72,9 +72,6 @@ import org.slf4j.LoggerFactory;
 public class AutomationA2AServerFacade implements A2AAgentExecutor {
 
     static final String MESSAGE_INPUT = "message";
-    static final String SKILL_NAME = "skillName";
-    static final String SKILL_DESCRIPTION = "skillDescription";
-    static final String SKILL_TAGS = "skillTags";
 
     private static final String AGENT_VERSION = "1.0.0";
 
@@ -237,10 +234,10 @@ public class AutomationA2AServerFacade implements A2AAgentExecutor {
 
         Workflow workflow = exposedWorkflow.workflow();
 
-        String skillName = asString(parameters.get(SKILL_NAME), workflow.getLabel());
-        String skillDescription = asString(parameters.get(SKILL_DESCRIPTION), workflow.getDescription());
+        String skillName = asString(parameters.get(A2aProjectWorkflow.SKILL_NAME), workflow.getLabel());
+        String skillDescription = asString(parameters.get(A2aProjectWorkflow.SKILL_DESCRIPTION), workflow.getDescription());
 
-        Object tagsValue = parameters.get(SKILL_TAGS);
+        Object tagsValue = parameters.get(A2aProjectWorkflow.SKILL_TAGS);
 
         List<String> tags = tagsValue instanceof List<?> list
             ? list.stream()
