@@ -205,7 +205,8 @@ class AiGatewayFacadeTest {
         aiGatewayFacade = new AiGatewayFacadeImpl(
             aiEvalExecutor, aiGatewayBudgetChecker, aiGatewayRateLimitChecker,
             aiGatewayChatModelFactory, aiGatewayContextCompressor,
-            aiGatewayCostCalculator, aiGatewayEmbeddingModelFactory, aiGatewayModelDeploymentService,
+            aiGatewayCostCalculator, new com.bytechef.ee.automation.ai.gateway.guardrail.AiGatewayGuardrails(false, ""),
+            aiGatewayEmbeddingModelFactory, aiGatewayModelDeploymentService,
             aiGatewayModelService, workspaceAiGatewayProjectService, aiGatewayProviderService,
             aiGatewayRequestLogService, aiGatewayResponseCache, aiGatewayRetryHandler,
             aiGatewayRouter, aiGatewayRoutingPolicyService, promptComplexityScorer,

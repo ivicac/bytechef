@@ -10,6 +10,7 @@ package com.bytechef.ee.automation.ai.gateway.facade;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.ee.automation.ai.gateway.budget.AiGatewayBudgetChecker;
 import com.bytechef.ee.automation.ai.gateway.evaluation.AiEvalExecutor;
+import com.bytechef.ee.automation.ai.gateway.guardrail.AiGatewayGuardrails;
 import com.bytechef.ee.automation.ai.gateway.ratelimit.AiGatewayRateLimitChecker;
 import com.bytechef.ee.automation.ai.gateway.service.AiGatewayWorkspaceSettingsService;
 import com.bytechef.ee.automation.ai.gateway.service.WorkspaceAiGatewayProjectService;
@@ -163,6 +164,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
     private final AiGatewayChatModelFactory aiGatewayChatModelFactory;
     private final AiGatewayContextCompressor aiGatewayContextCompressor;
     private final AiGatewayCostCalculator aiGatewayCostCalculator;
+    private final AiGatewayGuardrails aiGatewayGuardrails;
     private final AiGatewayEmbeddingModelFactory aiGatewayEmbeddingModelFactory;
     private final AiGatewayModelDeploymentService aiGatewayModelDeploymentService;
     private final AiGatewayModelService aiGatewayModelService;
@@ -198,6 +200,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         AiGatewayChatModelFactory aiGatewayChatModelFactory,
         AiGatewayContextCompressor aiGatewayContextCompressor,
         AiGatewayCostCalculator aiGatewayCostCalculator,
+        AiGatewayGuardrails aiGatewayGuardrails,
         AiGatewayEmbeddingModelFactory aiGatewayEmbeddingModelFactory,
         AiGatewayModelDeploymentService aiGatewayModelDeploymentService,
         AiGatewayModelService aiGatewayModelService,
@@ -229,6 +232,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         this.aiGatewayChatModelFactory = aiGatewayChatModelFactory;
         this.aiGatewayContextCompressor = aiGatewayContextCompressor;
         this.aiGatewayCostCalculator = aiGatewayCostCalculator;
+        this.aiGatewayGuardrails = aiGatewayGuardrails;
         this.aiGatewayEmbeddingModelFactory = aiGatewayEmbeddingModelFactory;
         this.aiGatewayModelDeploymentService = aiGatewayModelDeploymentService;
         this.aiGatewayModelService = aiGatewayModelService;
@@ -340,6 +344,8 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         if (resolvedPrompt != null) {
             request = prependSystemMessage(request, resolvedPrompt.content());
         }
+
+        request = aiGatewayGuardrails.apply(request);
 
         long startTime = System.currentTimeMillis();
 
@@ -544,9 +550,10 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
         ResolvedPrompt resolvedPrompt = resolvePrompt(promptHeaders, workspaceId, request);
 
-        AiGatewayChatCompletionRequest effectiveRequest = resolvedPrompt != null
-            ? prependSystemMessage(request, resolvedPrompt.content())
-            : request;
+        AiGatewayChatCompletionRequest effectiveRequest = aiGatewayGuardrails.apply(
+            resolvedPrompt != null
+                ? prependSystemMessage(request, resolvedPrompt.content())
+                : request);
 
         long startTime = System.currentTimeMillis();
 
