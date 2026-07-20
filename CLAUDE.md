@@ -763,6 +763,16 @@ cd cli
 - The listener warn-skips event/channel combos with no sender or handler (don't NPE the fan-out).
   JOB_CANCELLED fires when a job is stopped while still CREATED (never started) — `Job.Status.CANCELLED`
   is appended at the enum end (INT-ordinal persisted); STOPPED remains the mid-run interruption status.
+- **Workflow alert rules (EE, Sim model)**: `server/ee/libs/automation/automation-workflow-alert` —
+  workspace-scoped `workflow_alert_rule` rows (7 `WorkflowAlertRuleType`s, INT ordinal append-only)
+  whose delivery targets are `Notification` ids (join table, FK CASCADE — rules own WHEN, the
+  notification registry owns WHERE/HOW). Evaluation state lives ON the rule row (consecutive counter,
+  tumbling-window counters, EWMA latency, lastActivity) — updated per terminal job event by
+  `WorkflowAlertApplicationEventListener` (`@Order(200)`, after the cost listener's `@Order(100)` so
+  COST_THRESHOLD sees the cost row); NO_ACTIVITY fires from a 5-min scheduled monitor; fixed cooldown
+  (default 60 min). `WorkflowAlertDispatcher` delivers via MailService / WebhookNotificationClient
+  (`workflow.alert` eventType) / SlackNotificationClient. Semantics pinned by
+  `WorkflowAlertEvaluatorTest`.
 
 ## Public URL Signing
 

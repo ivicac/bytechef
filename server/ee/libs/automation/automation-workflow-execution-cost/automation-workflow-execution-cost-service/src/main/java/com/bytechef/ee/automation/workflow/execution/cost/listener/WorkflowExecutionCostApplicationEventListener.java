@@ -30,6 +30,7 @@ import java.util.Objects;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 
 /**
@@ -42,8 +43,11 @@ import org.springframework.stereotype.Component;
  *
  * @author Ivica Cardic
  */
+// Ordered BEFORE WorkflowAlertApplicationEventListener (200) so COST_THRESHOLD alert rules can read the cost row
+// written here within the same event fan-out.
 @Component
 @ConditionalOnEEVersion
+@Order(100)
 public class WorkflowExecutionCostApplicationEventListener implements ApplicationEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(WorkflowExecutionCostApplicationEventListener.class);

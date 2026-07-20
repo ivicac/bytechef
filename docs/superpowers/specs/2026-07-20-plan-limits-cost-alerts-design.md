@@ -244,9 +244,25 @@ Work items:
    fall back to the `bytechef.ai-hub.cost-estimation` rate sheet (`DefaultCostEstimator`)
    elsewhere — both already exist; no third pricing store.
 
-## 8. Phase 3 — notification alert rules (planned)
+## 8. Phase 3 — notification alert rules (core implemented)
 
-Extend `platform-notification` with Sim's rule model, reusing the existing trigger path:
+Status: the rule engine is BUILT — EE module `automation-workflow-alert` (`-api`/`-service`/`-graphql`):
+`workflow_alert_rule` (workspace-scoped, optional workflowId scope, INT-ordinal `WorkflowAlertRuleType`
+with all 7 types, per-rule rolling state columns so evaluation never scans job history) +
+`workflow_alert_rule_notification` (delivery targets = `Notification` rows, FK CASCADE) +
+`workflow_alert_event` history (100 newest per workspace via GraphQL). Evaluation:
+`WorkflowAlertApplicationEventListener` joins the coordinator fan-out `@Order(200)` — after the cost
+listener `@Order(100)` so COST_THRESHOLD reads the fresh cost row; pure core in
+`WorkflowAlertEvaluator` (tumbling windows, >= 5 runs floor for FAILURE_RATE, pre-update EWMA baseline
+alpha 0.2 for LATENCY_SPIKE, fixed cooldown default 60 min); NO_ACTIVITY via
+`WorkflowAlertNoActivityMonitor` 5-min poll (re-alerts once per cooldown while silent). Delivery:
+`WorkflowAlertDispatcher` (@Async) through the central transports — MailService / WebhookNotificationClient
+(`workflow.alert` event, signed when `webhookSecret` set) / SlackNotificationClient. GraphQL CRUD:
+queries `isAuthenticated()`, mutations `ROLE_ADMIN`. Still deferred: USAGE_THRESHOLD (needs billing-period
+spend vs plan ceiling), workspace scoping on `Notification` + migrating `AiObservabilityNotificationChannel`
+onto it, the send-test affordance, and the client alerts UI.
+
+Original design sketch (rule model reuses the existing trigger path):
 
 - **`notification_alert_rule` table**: ruleType (CONSECUTIVE_FAILURES, FAILURE_RATE,
   ERROR_COUNT, LATENCY_THRESHOLD, LATENCY_SPIKE, COST_THRESHOLD, NO_ACTIVITY,

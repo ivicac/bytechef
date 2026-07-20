@@ -281,6 +281,8 @@ dependencies {
     implementation(project(":server:ee:libs:ai:ai-hub:ai-hub-api"))
     implementation(project(":server:ee:libs:ai:ai-hub:ai-hub-service"))
     implementation(project(":server:ee:libs:automation:automation-context-store:automation-context-store-graphql"))
+    implementation(project(":server:ee:libs:automation:automation-workflow-alert:automation-workflow-alert-graphql"))
+    implementation(project(":server:ee:libs:automation:automation-workflow-alert:automation-workflow-alert-service"))
     implementation(project(":server:ee:libs:automation:automation-workflow-execution-cost:automation-workflow-execution-cost-graphql"))
     implementation(project(":server:ee:libs:automation:automation-workflow-execution-cost:automation-workflow-execution-cost-service"))
     implementation(project(":server:ee:libs:automation:automation-context-store:automation-context-store-service"))
