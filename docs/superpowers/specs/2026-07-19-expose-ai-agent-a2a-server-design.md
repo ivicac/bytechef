@@ -1,7 +1,7 @@
 # Expose ByteChef AI Agent over the A2A (Agent2Agent) protocol
 
 Date: 2026-07-19
-Status: Accepted — protocol core landed; app wiring landed (automation A2A server); streaming + client re-enable pending
+Status: Landed — protocol core, app wiring, message/stream SSE, tasks/get + tasks/cancel, GraphQL/client CRUD (servers + skill mapping + per-skill metadata), secret-key auth (mutations ROLE_ADMIN), client tool re-enabled, user docs
 
 ## Problem
 
@@ -108,8 +108,14 @@ HTTP surface, bridge, and secret-key auth:
 - Assembled into `server-app`; the server module `runtimeOnly`-depends the service module so the
   JDBC repositories + Liquibase changelog load wherever the surface is deployed.
 
-Still pending: a GraphQL/client CRUD surface to CREATE A2A servers and map skills (mirror
-`automation-ai-mcp-graphql` + client), `message/stream` → SSE, and re-enabling the A2A client tool.
+All follow-ups have since landed: the `automation-ai-a2a-graphql` CRUD + client "A2A Servers"
+page (create/edit/delete servers, Manage Skills workflow mapping, per-skill
+name/description editing), `message/stream` → SSE (event-level; card stays
+`streaming=false`), `tasks/get` + `tasks/cancel` over a bounded recent-task LRU,
+`ROLE_ADMIN`-gated mutations, the re-enabled `agentClientTool`, an auth-provider unit-test
+suite, and user docs (`docs/content/docs/automation/a2a-servers.mdx`). Remaining known
+limits: single exposed workflow per server answers `message/send`; tasks are not durably
+stored; no embedded/management A2A surfaces.
 
 ## De-risking note
 

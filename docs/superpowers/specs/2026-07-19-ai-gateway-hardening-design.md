@@ -1,7 +1,7 @@
 # AI Gateway hardening: config parity, routing cache, streaming failover, remote-client analysis
 
 Date: 2026-07-19
-Status: Landed (config, cache, streaming) + Decision (remote-client)
+Status: Landed (config, cache, streaming, guardrails/moderation) + Decision (remote-client)
 
 ## Context
 
@@ -46,6 +46,37 @@ would re-subscribe and replay already-flushed SSE tokens.
 
 Streaming still does not cache (a live token stream isn't a cacheable single response) — unchanged and
 intentional.
+
+### 4. Inline content guardrails + model-based moderation (landed 2026-07-20)
+
+`AiGatewayGuardrails` (`automation-ai-gateway-service`, `guardrail` package) runs in
+`AiGatewayFacadeImpl` on both the sync and streaming paths, after prompt resolution and before
+routing. Three guardrails, all off by default, each resolvable globally (properties) or
+per-workspace (`AiGatewayWorkspaceSettings`, which gained `blockedTerms` + `moderationEnabled`):
+
+- **PII redaction** — regex masking (email / US SSN / credit card / phone / IPv4 →
+  `[REDACTED_*]`); active when `bytechef.ai.gateway.guardrails.pii-redaction-enabled` OR the
+  workspace's existing `redactPii` setting is on. That setting previously only drove
+  trace-payload digesting; it now also masks the upstream prompt. Patterns are written without
+  nested optional quantifiers (SpotBugs ReDoS clean).
+- **Blocked terms** — union of the global `…guardrails.blocked-terms` CSV and the workspace's
+  `blockedTerms`; case-insensitive containment → reject.
+- **Model-based moderation** — `AiGatewayModerationClassifier` SPI in
+  `platform-ai-gateway-api`; `PromptBasedModerationClassifier` registers only when
+  `…guardrails.moderation-model` names a catalog model identifier, resolves it →
+  provider → `AiGatewayChatModelFactory.getChatModel`, asks for a one-word SAFE/UNSAFE
+  verdict, and **fails open** on any resolution/call error. Active when
+  `…guardrails.moderation-enabled` OR the workspace's `moderationEnabled` is on AND the
+  classifier bean exists (guardrails takes it as a Spring-optional `@Nullable` constructor
+  dependency).
+
+A workspace-settings lookup failure degrades to global-only guardrails rather than failing the
+request. Violations throw `AiGatewayGuardrailException` (`platform-ai-gateway-api`, so the
+public-rest handler can see it) → HTTP **422** `guardrail_violation`; the wire message names
+neither the offending content nor the matched term. Ordering: redact → blocked-terms →
+moderation, so later checks see redacted text. Surfaced in the Gateway Settings GraphQL +
+client form. Not verified here: a live moderation-model call (classifier covered by mocked
+`ChatModel` tests only) — smoke-test against a real provider on first deploy.
 
 ## Deliberate non-change: distributed `ai-gateway-remote-client`
 
