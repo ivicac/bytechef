@@ -3453,6 +3453,7 @@ export type Mutation = {
   createMcpTool?: Maybe<McpTool>;
   /** Create a new connection with ORGANIZATION visibility. (admin only, EE only) */
   createOrganizationConnection: Scalars['ID']['output'];
+  createWorkflowAlertRule: WorkflowAlertRule;
   /**
    * Creates (or returns the existing) workflow-chat task bound to the given workflow execution. Idempotent
    * on (workspace, user, environment, workflowExecutionId): re-clicking the same workflow-chat sidebar row restores
@@ -3549,6 +3550,7 @@ export type Mutation = {
   deleteSharedProject: Scalars['Boolean']['output'];
   deleteSharedWorkflow: Scalars['Boolean']['output'];
   deleteUser: Scalars['Boolean']['output'];
+  deleteWorkflowAlertRule: Scalars['Boolean']['output'];
   deleteWorkspaceAiGatewayModel?: Maybe<Scalars['Boolean']['output']>;
   deleteWorkspaceAiGatewayProvider?: Maybe<Scalars['Boolean']['output']>;
   deleteWorkspaceAiGatewayRoutingPolicy?: Maybe<Scalars['Boolean']['output']>;
@@ -3572,6 +3574,7 @@ export type Mutation = {
   enableConnectedUserMcpTool?: Maybe<Scalars['Boolean']['output']>;
   enableConnectedUserProjectWorkflow?: Maybe<Scalars['Boolean']['output']>;
   enableCustomComponent: Scalars['Boolean']['output'];
+  enableWorkflowAlertRule: WorkflowAlertRule;
   exportSharedProject?: Maybe<Scalars['Boolean']['output']>;
   exportSharedWorkflow: Scalars['Boolean']['output'];
   /**
@@ -3785,6 +3788,7 @@ export type Mutation = {
   /** Update an organization connection's name and tags. (admin only, EE only) */
   updateOrganizationConnection: Scalars['Boolean']['output'];
   updateUser: AdminUser;
+  updateWorkflowAlertRule: WorkflowAlertRule;
   updateWorkspaceAiGatewayModel?: Maybe<AiGatewayModel>;
   updateWorkspaceAiGatewayProvider?: Maybe<AiGatewayProvider>;
   updateWorkspaceAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
@@ -4217,6 +4221,12 @@ export type MutationCreateOrganizationConnectionArgs = {
 };
 
 
+export type MutationCreateWorkflowAlertRuleArgs = {
+  input: WorkflowAlertRuleInput;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type MutationCreateWorkflowChatAiHubTaskArgs = {
   environment: Scalars['Int']['input'];
   projectDeploymentId: Scalars['ID']['input'];
@@ -4543,6 +4553,11 @@ export type MutationDeleteUserArgs = {
 };
 
 
+export type MutationDeleteWorkflowAlertRuleArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationDeleteWorkspaceAiGatewayModelArgs = {
   modelId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
@@ -4635,6 +4650,12 @@ export type MutationEnableConnectedUserProjectWorkflowArgs = {
 
 export type MutationEnableCustomComponentArgs = {
   enable: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationEnableWorkflowAlertRuleArgs = {
+  enabled: Scalars['Boolean']['input'];
   id: Scalars['ID']['input'];
 };
 
@@ -5462,6 +5483,12 @@ export type MutationUpdateUserArgs = {
 };
 
 
+export type MutationUpdateWorkflowAlertRuleArgs = {
+  id: Scalars['ID']['input'];
+  input: WorkflowAlertRuleInput;
+};
+
+
 export type MutationUpdateWorkspaceAiGatewayModelArgs = {
   id: Scalars['ID']['input'];
   input: UpdateAiGatewayModelInput;
@@ -6125,6 +6152,10 @@ export type Query = {
   users?: Maybe<AdminUserPage>;
   validateWorkflow: WorkflowValidationResult;
   validateWorkflowById: WorkflowValidationResult;
+  /** The workspace's most recent fired alerts (max 100, newest first). */
+  workflowAlertEvents: Array<WorkflowAlertEvent>;
+  /** Alert rules configured in the workspace, ordered by name. */
+  workflowAlertRules: Array<WorkflowAlertRule>;
   /**
    * Per-execution cost row for a terminal job, or null while the job is still running / when cost recording
    * is disabled. totalCost = baseRunCharge + aiCost (USD). EE only — the query resolver is absent in CE.
@@ -7254,6 +7285,16 @@ export type QueryValidateWorkflowByIdArgs = {
 };
 
 
+export type QueryWorkflowAlertEventsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkflowAlertRulesArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type QueryWorkflowExecutionCostArgs = {
   jobId: Scalars['ID']['input'];
 };
@@ -7897,6 +7938,62 @@ export type Workflow = {
   triggers: Array<WorkflowTrigger>;
   version?: Maybe<Scalars['Int']['output']>;
 };
+
+export type WorkflowAlertEvent = {
+  __typename?: 'WorkflowAlertEvent';
+  createdDate?: Maybe<Scalars['String']['output']>;
+  id: Scalars['ID']['output'];
+  jobId?: Maybe<Scalars['ID']['output']>;
+  message?: Maybe<Scalars['String']['output']>;
+  triggeredValue?: Maybe<Scalars['Float']['output']>;
+  workflowAlertRuleId: Scalars['ID']['output'];
+};
+
+export type WorkflowAlertRule = {
+  __typename?: 'WorkflowAlertRule';
+  cooldownMinutes: Scalars['Int']['output'];
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  lastTriggeredDate?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  notificationIds: Array<Scalars['ID']['output']>;
+  ruleType: WorkflowAlertRuleType;
+  threshold: Scalars['Float']['output'];
+  windowMinutes?: Maybe<Scalars['Int']['output']>;
+  workflowId?: Maybe<Scalars['String']['output']>;
+  workspaceId: Scalars['ID']['output'];
+};
+
+export type WorkflowAlertRuleInput = {
+  /** Minimum minutes between two firings of the same rule (default 60). */
+  cooldownMinutes?: InputMaybe<Scalars['Int']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  name: Scalars['String']['input'];
+  /** Delivery targets — platform Notification ids (channels are managed on the Notifications page). */
+  notificationIds: Array<Scalars['ID']['input']>;
+  ruleType: WorkflowAlertRuleType;
+  threshold: Scalars['Float']['input'];
+  /** Evaluation window in minutes for windowed rule types; the maximum silence for NO_ACTIVITY. */
+  windowMinutes?: InputMaybe<Scalars['Int']['input']>;
+  /** Optional workflow scope; null applies the rule to every run in the workspace. */
+  workflowId?: InputMaybe<Scalars['String']['input']>;
+};
+
+/**
+ * Sim-modeled alert rule types. The threshold's unit depends on the type: count (CONSECUTIVE_FAILURES,
+ * ERROR_COUNT), percent 0-100 (FAILURE_RATE), milliseconds (LATENCY_THRESHOLD), multiplier over the rolling
+ * average (LATENCY_SPIKE), USD (COST_THRESHOLD); NO_ACTIVITY ignores threshold and alerts after windowMinutes
+ * of silence.
+ */
+export enum WorkflowAlertRuleType {
+  ConsecutiveFailures = 'CONSECUTIVE_FAILURES',
+  CostThreshold = 'COST_THRESHOLD',
+  ErrorCount = 'ERROR_COUNT',
+  FailureRate = 'FAILURE_RATE',
+  LatencySpike = 'LATENCY_SPIKE',
+  LatencyThreshold = 'LATENCY_THRESHOLD',
+  NoActivity = 'NO_ACTIVITY'
+}
 
 /** One row per terminal workflow execution, written idempotently by the terminal-status listener. */
 export type WorkflowExecutionCost = {
