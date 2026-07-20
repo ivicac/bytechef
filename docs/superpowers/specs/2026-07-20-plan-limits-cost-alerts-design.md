@@ -258,9 +258,13 @@ alpha 0.2 for LATENCY_SPIKE, fixed cooldown default 60 min); NO_ACTIVITY via
 `WorkflowAlertNoActivityMonitor` 5-min poll (re-alerts once per cooldown while silent). Delivery:
 `WorkflowAlertDispatcher` (@Async) through the central transports — MailService / WebhookNotificationClient
 (`workflow.alert` event, signed when `webhookSecret` set) / SlackNotificationClient. GraphQL CRUD:
-queries `isAuthenticated()`, mutations `ROLE_ADMIN`. Still deferred: USAGE_THRESHOLD (needs billing-period
-spend vs plan ceiling), workspace scoping on `Notification` + migrating `AiObservabilityNotificationChannel`
-onto it, the send-test affordance, and the client alerts UI.
+queries `isAuthenticated()`, mutations `ROLE_ADMIN`. Workspace scoping on `Notification` is DONE (`workspace_notification` membership table in
+`platform-notification-workspace`; no membership row = global) and `AiObservabilityNotificationChannel`
+is MIGRATED onto `Notification` (Liquibase `20260720000004`: type remap, config->settings mapping —
+lossy: first email recipient only, custom webhook headers dropped — rule join repointed to
+`notification_id`, channel tables dropped; dispatcher now reads Notification rows and delivers via
+MailService + the shared clients). The client alerts UI exists (Settings -> Alerts). Still deferred:
+USAGE_THRESHOLD (needs billing-period spend vs plan ceiling) and the send-test affordance.
 
 Original design sketch (rule model reuses the existing trigger path):
 

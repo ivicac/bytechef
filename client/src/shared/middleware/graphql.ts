@@ -1197,21 +1197,21 @@ export type AiObservabilityAlertRulesQueryVariables = Exact<{
 }>;
 
 
-export type AiObservabilityAlertRulesQuery = { aiObservabilityAlertRules: Array<{ channelIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, snoozedUntil: any, threshold: number, version: number | null, windowMinutes: number } | null> | null };
+export type AiObservabilityAlertRulesQuery = { aiObservabilityAlertRules: Array<{ notificationIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, snoozedUntil: any, threshold: number, version: number | null, windowMinutes: number } | null> | null };
 
 export type AiObservabilityAlertRuleQueryVariables = Exact<{
   id: string | number;
 }>;
 
 
-export type AiObservabilityAlertRuleQuery = { aiObservabilityAlertRule: { channelIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, snoozedUntil: any, threshold: number, version: number | null, windowMinutes: number } | null };
+export type AiObservabilityAlertRuleQuery = { aiObservabilityAlertRule: { notificationIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, snoozedUntil: any, threshold: number, version: number | null, windowMinutes: number } | null };
 
 export type CreateAiObservabilityAlertRuleMutationVariables = Exact<{
   input: Types.AiObservabilityAlertRuleInput;
 }>;
 
 
-export type CreateAiObservabilityAlertRuleMutation = { createAiObservabilityAlertRule: { channelIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, threshold: number, version: number | null, windowMinutes: number } | null };
+export type CreateAiObservabilityAlertRuleMutation = { createAiObservabilityAlertRule: { notificationIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, threshold: number, version: number | null, windowMinutes: number } | null };
 
 export type UpdateAiObservabilityAlertRuleMutationVariables = Exact<{
   id: string | number;
@@ -1219,7 +1219,7 @@ export type UpdateAiObservabilityAlertRuleMutationVariables = Exact<{
 }>;
 
 
-export type UpdateAiObservabilityAlertRuleMutation = { updateAiObservabilityAlertRule: { channelIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, threshold: number, version: number | null, windowMinutes: number } | null };
+export type UpdateAiObservabilityAlertRuleMutation = { updateAiObservabilityAlertRule: { notificationIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, threshold: number, version: number | null, windowMinutes: number } | null };
 
 export type DeleteAiObservabilityAlertRuleMutationVariables = Exact<{
   id: string | number;
@@ -1281,42 +1281,6 @@ export type CancelAiObservabilityExportJobMutationVariables = Exact<{
 
 
 export type CancelAiObservabilityExportJobMutation = { cancelAiObservabilityExportJob: { id: string, status: Types.AiObservabilityExportJobStatus } | null };
-
-export type AiObservabilityNotificationChannelsQueryVariables = Exact<{
-  workspaceId: string | number;
-}>;
-
-
-export type AiObservabilityNotificationChannelsQuery = { aiObservabilityNotificationChannels: Array<{ config: string, createdDate: any, enabled: boolean, id: string, lastModifiedDate: any, name: string, type: Types.AiObservabilityNotificationChannelType, version: number | null } | null> | null };
-
-export type CreateAiObservabilityNotificationChannelMutationVariables = Exact<{
-  input: Types.AiObservabilityNotificationChannelInput;
-}>;
-
-
-export type CreateAiObservabilityNotificationChannelMutation = { createAiObservabilityNotificationChannel: { config: string, createdDate: any, enabled: boolean, id: string, lastModifiedDate: any, name: string, type: Types.AiObservabilityNotificationChannelType, version: number | null } | null };
-
-export type UpdateAiObservabilityNotificationChannelMutationVariables = Exact<{
-  id: string | number;
-  input: Types.AiObservabilityNotificationChannelInput;
-}>;
-
-
-export type UpdateAiObservabilityNotificationChannelMutation = { updateAiObservabilityNotificationChannel: { config: string, createdDate: any, enabled: boolean, id: string, lastModifiedDate: any, name: string, type: Types.AiObservabilityNotificationChannelType, version: number | null } | null };
-
-export type DeleteAiObservabilityNotificationChannelMutationVariables = Exact<{
-  id: string | number;
-}>;
-
-
-export type DeleteAiObservabilityNotificationChannelMutation = { deleteAiObservabilityNotificationChannel: boolean | null };
-
-export type TestAiObservabilityNotificationChannelMutationVariables = Exact<{
-  id: string | number;
-}>;
-
-
-export type TestAiObservabilityNotificationChannelMutation = { testAiObservabilityNotificationChannel: boolean | null };
 
 export type AiObservabilitySessionsQueryVariables = Exact<{
   workspaceId: string | number;
@@ -8196,7 +8160,7 @@ export const useAcknowledgeAiObservabilityAlertEventMutation = <
 export const AiObservabilityAlertRulesDocument = new TypedDocumentString(`
     query aiObservabilityAlertRules($workspaceId: ID!) {
   aiObservabilityAlertRules(workspaceId: $workspaceId) {
-    channelIds
+    notificationIds
     condition
     cooldownMinutes
     createdDate
@@ -8234,7 +8198,7 @@ export const useAiObservabilityAlertRulesQuery = <
 export const AiObservabilityAlertRuleDocument = new TypedDocumentString(`
     query aiObservabilityAlertRule($id: ID!) {
   aiObservabilityAlertRule(id: $id) {
-    channelIds
+    notificationIds
     condition
     cooldownMinutes
     createdDate
@@ -8272,7 +8236,7 @@ export const useAiObservabilityAlertRuleQuery = <
 export const CreateAiObservabilityAlertRuleDocument = new TypedDocumentString(`
     mutation createAiObservabilityAlertRule($input: AiObservabilityAlertRuleInput!) {
   createAiObservabilityAlertRule(input: $input) {
-    channelIds
+    notificationIds
     condition
     cooldownMinutes
     createdDate
@@ -8306,7 +8270,7 @@ export const useCreateAiObservabilityAlertRuleMutation = <
 export const UpdateAiObservabilityAlertRuleDocument = new TypedDocumentString(`
     mutation updateAiObservabilityAlertRule($id: ID!, $input: AiObservabilityAlertRuleInput!) {
   updateAiObservabilityAlertRule(id: $id, input: $input) {
-    channelIds
+    notificationIds
     condition
     cooldownMinutes
     createdDate
@@ -8540,131 +8504,6 @@ export const useCancelAiObservabilityExportJobMutation = <
       {
     mutationKey: ['cancelAiObservabilityExportJob'],
     mutationFn: (variables?: CancelAiObservabilityExportJobMutationVariables) => fetcher<CancelAiObservabilityExportJobMutation, CancelAiObservabilityExportJobMutationVariables>(CancelAiObservabilityExportJobDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const AiObservabilityNotificationChannelsDocument = new TypedDocumentString(`
-    query aiObservabilityNotificationChannels($workspaceId: ID!) {
-  aiObservabilityNotificationChannels(workspaceId: $workspaceId) {
-    config
-    createdDate
-    enabled
-    id
-    lastModifiedDate
-    name
-    type
-    version
-  }
-}
-    `);
-
-export const useAiObservabilityNotificationChannelsQuery = <
-      TData = AiObservabilityNotificationChannelsQuery,
-      TError = unknown
-    >(
-      variables: AiObservabilityNotificationChannelsQueryVariables,
-      options?: Omit<UseQueryOptions<AiObservabilityNotificationChannelsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityNotificationChannelsQuery, TError, TData>['queryKey'] }
-    ) => {
-    
-    return useQuery<AiObservabilityNotificationChannelsQuery, TError, TData>(
-      {
-    queryKey: ['aiObservabilityNotificationChannels', variables],
-    queryFn: fetcher<AiObservabilityNotificationChannelsQuery, AiObservabilityNotificationChannelsQueryVariables>(AiObservabilityNotificationChannelsDocument, variables),
-    ...options
-  }
-    )};
-
-export const CreateAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
-    mutation createAiObservabilityNotificationChannel($input: AiObservabilityNotificationChannelInput!) {
-  createAiObservabilityNotificationChannel(input: $input) {
-    config
-    createdDate
-    enabled
-    id
-    lastModifiedDate
-    name
-    type
-    version
-  }
-}
-    `);
-
-export const useCreateAiObservabilityNotificationChannelMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<CreateAiObservabilityNotificationChannelMutation, TError, CreateAiObservabilityNotificationChannelMutationVariables, TContext>) => {
-    
-    return useMutation<CreateAiObservabilityNotificationChannelMutation, TError, CreateAiObservabilityNotificationChannelMutationVariables, TContext>(
-      {
-    mutationKey: ['createAiObservabilityNotificationChannel'],
-    mutationFn: (variables?: CreateAiObservabilityNotificationChannelMutationVariables) => fetcher<CreateAiObservabilityNotificationChannelMutation, CreateAiObservabilityNotificationChannelMutationVariables>(CreateAiObservabilityNotificationChannelDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const UpdateAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
-    mutation updateAiObservabilityNotificationChannel($id: ID!, $input: AiObservabilityNotificationChannelInput!) {
-  updateAiObservabilityNotificationChannel(id: $id, input: $input) {
-    config
-    createdDate
-    enabled
-    id
-    lastModifiedDate
-    name
-    type
-    version
-  }
-}
-    `);
-
-export const useUpdateAiObservabilityNotificationChannelMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<UpdateAiObservabilityNotificationChannelMutation, TError, UpdateAiObservabilityNotificationChannelMutationVariables, TContext>) => {
-    
-    return useMutation<UpdateAiObservabilityNotificationChannelMutation, TError, UpdateAiObservabilityNotificationChannelMutationVariables, TContext>(
-      {
-    mutationKey: ['updateAiObservabilityNotificationChannel'],
-    mutationFn: (variables?: UpdateAiObservabilityNotificationChannelMutationVariables) => fetcher<UpdateAiObservabilityNotificationChannelMutation, UpdateAiObservabilityNotificationChannelMutationVariables>(UpdateAiObservabilityNotificationChannelDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const DeleteAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
-    mutation deleteAiObservabilityNotificationChannel($id: ID!) {
-  deleteAiObservabilityNotificationChannel(id: $id)
-}
-    `);
-
-export const useDeleteAiObservabilityNotificationChannelMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<DeleteAiObservabilityNotificationChannelMutation, TError, DeleteAiObservabilityNotificationChannelMutationVariables, TContext>) => {
-    
-    return useMutation<DeleteAiObservabilityNotificationChannelMutation, TError, DeleteAiObservabilityNotificationChannelMutationVariables, TContext>(
-      {
-    mutationKey: ['deleteAiObservabilityNotificationChannel'],
-    mutationFn: (variables?: DeleteAiObservabilityNotificationChannelMutationVariables) => fetcher<DeleteAiObservabilityNotificationChannelMutation, DeleteAiObservabilityNotificationChannelMutationVariables>(DeleteAiObservabilityNotificationChannelDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const TestAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
-    mutation testAiObservabilityNotificationChannel($id: ID!) {
-  testAiObservabilityNotificationChannel(id: $id)
-}
-    `);
-
-export const useTestAiObservabilityNotificationChannelMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<TestAiObservabilityNotificationChannelMutation, TError, TestAiObservabilityNotificationChannelMutationVariables, TContext>) => {
-    
-    return useMutation<TestAiObservabilityNotificationChannelMutation, TError, TestAiObservabilityNotificationChannelMutationVariables, TContext>(
-      {
-    mutationKey: ['testAiObservabilityNotificationChannel'],
-    mutationFn: (variables?: TestAiObservabilityNotificationChannelMutationVariables) => fetcher<TestAiObservabilityNotificationChannelMutation, TestAiObservabilityNotificationChannelMutationVariables>(TestAiObservabilityNotificationChannelDocument, variables)(),
     ...options
   }
     )};

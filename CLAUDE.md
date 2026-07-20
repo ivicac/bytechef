@@ -728,10 +728,12 @@ cd cli
   types are first-class on `Notification.Type` — `EMAIL, WEBHOOK, SLACK` (INT ordinal, append-only) —
   with settings keys `email` / `webhook` + `webhookSecret` / `slackWebhookUrl` and a sender + handler
   pair per type (`Email|Webhook|SlackNotificationSender`, `JobStatus*NotificationHandler`). New
-  notification surfaces and the phase-3 alert rules must reference `Notification` rows for delivery
-  targets instead of defining their own channel entities; the EE
-  `AiObservabilityNotificationChannel` table is legacy in this respect and migrates onto
-  `Notification` during the alert-rules build (needs workspace scoping on Notification first).
+  notification surfaces and alert rules must reference `Notification` rows for delivery targets
+  instead of defining their own channel entities. Workspace scoping is EE-side via the
+  `workspace_notification` membership table (`platform-notification-workspace`; no membership row =
+  global). The former EE `AiObservabilityNotificationChannel` table is GONE — a Liquibase data
+  migration (`20260720000004`) converted channels into `Notification` + `workspace_notification`
+  rows and repointed `ai_observability_alert_rule_channel.notification_id`.
 
 - Webhook + Slack transports live in CE `server/libs/platform/platform-notification/platform-notification-delivery`:
   `WebhookNotificationClient` is THE single outbound-webhook transport (one `RestTemplate`, one Spring
@@ -747,16 +749,16 @@ cd cli
   `{"text": ...}` payload shape and delegates to the webhook client.
 - Email: there is NO separate email transport — `MailService` (platform-mail, `@Async`, warn-skips when
   no mail host configured) is the single email path for everything, user-account mail and notification
-  email alike. `EmailNotificationSender` calls `mailService.sendEmail(...)` directly. Exception: the EE
-  `AiObservabilityNotificationDispatcher` keeps its inline optional-`JavaMailSender` alert email
-  (needs sync throw semantics for per-channel `lastError` bookkeeping) until its channels migrate onto
-  `Notification` in the phase-3 alert-rules build.
+  email alike. `EmailNotificationSender` and the EE
+  `AiObservabilityNotificationDispatcher` both call `mailService.sendEmail(...)` — no inline
+  `JavaMailSender` remains anywhere in notification delivery.
 - Consumers: CE `WebhookNotificationSender` (job-status webhook channel; settings keys `webhook` +
   optional `webhookSecret`, `@Async`), payload shaped by `JobStatusWebhookNotificationHandler` in
   platform-coordinator; platform-coordinator's `WebhookJobStatusApplicationEventListener` delegates the
   Atlas job-callback delivery to `deliverEvent` with the `Job.Retry` schedule (defaults: 5 attempts,
-  2s initial interval, 2.0 multiplier); EE `AiObservabilityNotificationDispatcher` (delegates
-  webhook/Slack mechanics, keeps channel config parsing + lastError bookkeeping).
+  2s initial interval, 2.0 multiplier); EE `AiObservabilityNotificationDispatcher` (post-migration: reads `Notification` rows,
+  delivers via MailService + the shared clients; per-channel lastError bookkeeping is gone with the
+  channel entity).
 - The job-status trigger path is unchanged: `JobStatusApplicationEvent` → platform-coordinator
   `NotificationJobStatusApplicationEventListener` → sender/handler registries. Never add notification
   logic under `server/libs/atlas/` — the engine stays notification-agnostic (hard requirement).

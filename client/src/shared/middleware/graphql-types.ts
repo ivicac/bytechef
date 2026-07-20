@@ -1061,7 +1061,6 @@ export enum AiObservabilityAlertMetric {
 
 export type AiObservabilityAlertRule = {
   __typename?: 'AiObservabilityAlertRule';
-  channelIds?: Maybe<Array<Maybe<Scalars['ID']['output']>>>;
   condition: AiObservabilityAlertCondition;
   cooldownMinutes: Scalars['Int']['output'];
   createdDate?: Maybe<Scalars['Long']['output']>;
@@ -1071,6 +1070,7 @@ export type AiObservabilityAlertRule = {
   lastModifiedDate?: Maybe<Scalars['Long']['output']>;
   metric: AiObservabilityAlertMetric;
   name: Scalars['String']['output'];
+  notificationIds?: Maybe<Array<Maybe<Scalars['ID']['output']>>>;
   projectId?: Maybe<Scalars['ID']['output']>;
   snoozedUntil?: Maybe<Scalars['Long']['output']>;
   threshold: Scalars['Float']['output'];
@@ -1079,13 +1079,13 @@ export type AiObservabilityAlertRule = {
 };
 
 export type AiObservabilityAlertRuleInput = {
-  channelIds?: InputMaybe<Array<InputMaybe<Scalars['ID']['input']>>>;
   condition: AiObservabilityAlertCondition;
   cooldownMinutes: Scalars['Int']['input'];
   enabled: Scalars['Boolean']['input'];
   filters?: InputMaybe<Scalars['String']['input']>;
   metric: AiObservabilityAlertMetric;
   name: Scalars['String']['input'];
+  notificationIds?: InputMaybe<Array<InputMaybe<Scalars['ID']['input']>>>;
   projectId?: InputMaybe<Scalars['ID']['input']>;
   threshold: Scalars['Float']['input'];
   windowMinutes: Scalars['Int']['input'];
@@ -1133,32 +1133,6 @@ export enum AiObservabilityExportScope {
   RequestLogs = 'REQUEST_LOGS',
   Sessions = 'SESSIONS',
   Traces = 'TRACES'
-}
-
-export type AiObservabilityNotificationChannel = {
-  __typename?: 'AiObservabilityNotificationChannel';
-  config: Scalars['String']['output'];
-  createdDate?: Maybe<Scalars['Long']['output']>;
-  enabled: Scalars['Boolean']['output'];
-  id: Scalars['ID']['output'];
-  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
-  name: Scalars['String']['output'];
-  type: AiObservabilityNotificationChannelType;
-  version?: Maybe<Scalars['Int']['output']>;
-};
-
-export type AiObservabilityNotificationChannelInput = {
-  config: Scalars['String']['input'];
-  enabled: Scalars['Boolean']['input'];
-  name: Scalars['String']['input'];
-  type: AiObservabilityNotificationChannelType;
-  workspaceId: Scalars['ID']['input'];
-};
-
-export enum AiObservabilityNotificationChannelType {
-  Email = 'EMAIL',
-  Slack = 'SLACK',
-  Webhook = 'WEBHOOK'
 }
 
 export type AiObservabilitySession = {
@@ -3422,7 +3396,6 @@ export type Mutation = {
   createAiHubTask: AiHubTask;
   createAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
   createAiObservabilityExportJob?: Maybe<AiObservabilityExportJob>;
-  createAiObservabilityNotificationChannel?: Maybe<AiObservabilityNotificationChannel>;
   createAiObservabilityWebhookSubscription?: Maybe<AiObservabilityWebhookSubscription>;
   createAiPrompt?: Maybe<AiPrompt>;
   createAiPromptVersion?: Maybe<AiPromptVersion>;
@@ -3513,7 +3486,6 @@ export type Mutation = {
    */
   deleteAiHubTaskArtifact: Scalars['Boolean']['output'];
   deleteAiObservabilityAlertRule?: Maybe<Scalars['Boolean']['output']>;
-  deleteAiObservabilityNotificationChannel?: Maybe<Scalars['Boolean']['output']>;
   deleteAiObservabilityWebhookSubscription?: Maybe<Scalars['Boolean']['output']>;
   deleteAiPrompt?: Maybe<Scalars['Boolean']['output']>;
   deleteAiSkill: Scalars['Boolean']['output'];
@@ -3673,7 +3645,6 @@ export type Mutation = {
   startGenerateForEndpoints: GenerationJobStatus;
   startGenerateFromDocumentationPreview: GenerationJobStatus;
   testAiObservabilityAlertRule?: Maybe<Scalars['Float']['output']>;
-  testAiObservabilityNotificationChannel?: Maybe<Scalars['Boolean']['output']>;
   testAiObservabilityWebhookSubscription?: Maybe<Scalars['Boolean']['output']>;
   testClusterElementScript: ScriptTestExecution;
   testWorkflowNodeScript: ScriptTestExecution;
@@ -3738,7 +3709,6 @@ export type Mutation = {
   updateAiHubTaskToolParameters: AiHubTaskToolBinding;
   updateAiHubVoiceWebhookUrl?: Maybe<AiHubWorkspaceSettings>;
   updateAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
-  updateAiObservabilityNotificationChannel?: Maybe<AiObservabilityNotificationChannel>;
   updateAiObservabilityWebhookSubscription?: Maybe<AiObservabilityWebhookSubscription>;
   updateAiPrompt?: Maybe<AiPrompt>;
   updateAiSkill: AiSkill;
@@ -4046,11 +4016,6 @@ export type MutationCreateAiObservabilityExportJobArgs = {
   scope: AiObservabilityExportScope;
   type?: InputMaybe<AiObservabilityExportJobType>;
   workspaceId: Scalars['ID']['input'];
-};
-
-
-export type MutationCreateAiObservabilityNotificationChannelArgs = {
-  input: AiObservabilityNotificationChannelInput;
 };
 
 
@@ -4377,11 +4342,6 @@ export type MutationDeleteAiHubTaskArtifactArgs = {
 
 
 export type MutationDeleteAiObservabilityAlertRuleArgs = {
-  id: Scalars['ID']['input'];
-};
-
-
-export type MutationDeleteAiObservabilityNotificationChannelArgs = {
   id: Scalars['ID']['input'];
 };
 
@@ -5010,11 +4970,6 @@ export type MutationTestAiObservabilityAlertRuleArgs = {
 };
 
 
-export type MutationTestAiObservabilityNotificationChannelArgs = {
-  id: Scalars['ID']['input'];
-};
-
-
 export type MutationTestAiObservabilityWebhookSubscriptionArgs = {
   id: Scalars['ID']['input'];
 };
@@ -5219,12 +5174,6 @@ export type MutationUpdateAiHubVoiceWebhookUrlArgs = {
 export type MutationUpdateAiObservabilityAlertRuleArgs = {
   id: Scalars['ID']['input'];
   input: AiObservabilityAlertRuleInput;
-};
-
-
-export type MutationUpdateAiObservabilityNotificationChannelArgs = {
-  id: Scalars['ID']['input'];
-  input: AiObservabilityNotificationChannelInput;
 };
 
 
@@ -5968,8 +5917,6 @@ export type Query = {
   aiObservabilityAlertRules?: Maybe<Array<Maybe<AiObservabilityAlertRule>>>;
   aiObservabilityExportJob?: Maybe<AiObservabilityExportJob>;
   aiObservabilityExportJobs?: Maybe<Array<Maybe<AiObservabilityExportJob>>>;
-  aiObservabilityNotificationChannel?: Maybe<AiObservabilityNotificationChannel>;
-  aiObservabilityNotificationChannels?: Maybe<Array<Maybe<AiObservabilityNotificationChannel>>>;
   aiObservabilitySession?: Maybe<AiObservabilitySession>;
   aiObservabilitySessions?: Maybe<Array<Maybe<AiObservabilitySession>>>;
   aiObservabilityTrace?: Maybe<AiObservabilityTrace>;
@@ -6538,16 +6485,6 @@ export type QueryAiObservabilityExportJobArgs = {
 
 
 export type QueryAiObservabilityExportJobsArgs = {
-  workspaceId: Scalars['ID']['input'];
-};
-
-
-export type QueryAiObservabilityNotificationChannelArgs = {
-  id: Scalars['ID']['input'];
-};
-
-
-export type QueryAiObservabilityNotificationChannelsArgs = {
   workspaceId: Scalars['ID']['input'];
 };
 
