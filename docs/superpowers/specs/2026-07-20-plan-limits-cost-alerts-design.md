@@ -215,7 +215,7 @@ licence stack (CE interface + defaults, EE/SaaS billing can override the provide
 Nothing enforces these yet — enforcement points are §4/§5; consumers just inject
 `PlanLimitsProvider`.
 
-## 7. Phase 2 — cost calculation (planned)
+## 7. Phase 2 — cost calculation (partially implemented)
 
 Sim-equivalent formula, ByteChef terms (USD-denominated to match `Money`/`ai_llm_usage`;
 credits stay a UI presentation choice at $0.005 if we adopt them):
@@ -290,7 +290,16 @@ Extend `platform-notification` with Sim's rule model, reusing the existing trigg
 
 ## 9. Build order and effort
 
-1. ✅ Placeholders (`platform-plan`) — this change.
+1. ✅ Placeholders (`platform-plan`).
+1b. ✅ Cost calculation core: `TokenUsageHolder` carries the model and is bracketed
+   around `ActionDefinitionFacadeImpl.executePerform` (reentrancy-safe for agent tool
+   sub-actions), emitting the CE `WorkflowLlmUsageEvent`; the EE
+   `automation-workflow-execution-cost` module records `ai_llm_usage` rows
+   (`source=AI_AGENT`, `ownerId=jobId`) and writes one `workflow_execution_cost` row per
+   terminal job (`base run charge (bytechef.workflow.execution-cost.*, default $0.005)
+   + Σ AI usage`), idempotent per job, workspace-resolved via deployment → project.
+   Remaining: streaming-path token capture, spend-summary rollup writer, AI Hub
+   advisor → recorder wiring, cost display in the execution UI.
 2. Cost calculation (phase 2): attribution + per-job cost row + rollup (~2 slices:
    CE seam, EE persistence — mirrors the tool-invocation-log build).
 3. Alert rules (phase 3): rule table + evaluator + webhook sender implementation.

@@ -655,6 +655,8 @@ include("server:ee:libs:platform:platform-tool-invocation-log:platform-tool-invo
 include("server:ee:libs:platform:platform-tool-invocation-log:platform-tool-invocation-log-service")
 include("server:ee:libs:automation:automation-data-table:automation-data-table-remote-client")
 include("server:ee:libs:automation:automation-task:automation-task-remote-client")
+include("server:ee:libs:automation:automation-workflow-execution-cost:automation-workflow-execution-cost-api")
+include("server:ee:libs:automation:automation-workflow-execution-cost:automation-workflow-execution-cost-service")
 include("server:ee:libs:automation:automation-security-web:automation-security-web-impl")
 include("server:ee:libs:automation:automation-asset-file:automation-asset-file-remote-client")
 include("server:ee:libs:ai:ai-hub:ai-hub-api")
