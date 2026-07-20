@@ -298,8 +298,11 @@ Extend `platform-notification` with Sim's rule model, reusing the existing trigg
    (`source=AI_AGENT`, `ownerId=jobId`) and writes one `workflow_execution_cost` row per
    terminal job (`base run charge (bytechef.workflow.execution-cost.*, default $0.005)
    + Σ AI usage`), idempotent per job, workspace-resolved via deployment → project.
-   Remaining: streaming-path token capture, spend-summary rollup writer, AI Hub
-   advisor → recorder wiring, cost display in the execution UI.
+   The hourly `AiGatewaySpendRollupJob` (gateway-service, :05 past each hour) now
+   aggregates `ai_llm_usage` into `ai_gateway_spend_summary` per workspace grouped by
+   (provider, model, apiKeyId, projectId) — the budget checker finally has a producer.
+   Remaining: streaming-path token capture, AI Hub advisor → recorder wiring, cost
+   display in the execution UI.
 2. Cost calculation (phase 2): attribution + per-job cost row + rollup (~2 slices:
    CE seam, EE persistence — mirrors the tool-invocation-log build).
 3. Alert rules (phase 3): rule table + evaluator + webhook sender implementation.
