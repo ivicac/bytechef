@@ -3339,6 +3339,8 @@ export type Mutation = {
   addDataTableColumn: Scalars['Boolean']['output'];
   /** Add a user to a workspace. Requires ADMIN workspace role. */
   addWorkspaceUser: WorkspaceUser;
+  /** Scope a notification to a workspace (moves it if it was scoped to another one). */
+  assignNotificationToWorkspace: Scalars['Boolean']['output'];
   /**
    * Attach a tool to a task. Idempotent — re-attaching the same (component, action, connection)
    * upserts the tool's parameters in place. Returns the persisted ids so the client can immediately
@@ -3685,6 +3687,8 @@ export type Mutation = {
    * Throws Forbidden when the caller does not own the task.
    */
   truncateAiHubTaskMessages: Scalars['Int']['output'];
+  /** Make a notification global again (visible to every workspace). */
+  unassignNotificationFromWorkspace: Scalars['Boolean']['output'];
   unsnoozeAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
   updateA2aProject?: Maybe<A2aProject>;
   updateA2aProjectWorkflowParameters?: Maybe<A2aProjectWorkflow>;
@@ -3840,6 +3844,12 @@ export type MutationAddDataTableColumnArgs = {
 export type MutationAddWorkspaceUserArgs = {
   role: WorkspaceRole;
   userId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationAssignNotificationToWorkspaceArgs = {
+  notificationId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -5041,6 +5051,11 @@ export type MutationTruncateAiHubTaskMessagesArgs = {
 };
 
 
+export type MutationUnassignNotificationFromWorkspaceArgs = {
+  notificationId: Scalars['ID']['input'];
+};
+
+
 export type MutationUnsnoozeAiObservabilityAlertRuleArgs = {
   id: Scalars['ID']['input'];
 };
@@ -6173,6 +6188,11 @@ export type Query = {
   workspaceChatWorkflows: Array<ChatWorkflow>;
   workspaceMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   workspaceMcpServers?: Maybe<Array<Maybe<McpServer>>>;
+  /**
+   * The notifications selectable in a workspace: the workspace's own plus the global (unassigned) ones,
+   * in name order. EE only — in CE all notifications are global and served by the REST notifications API.
+   */
+  workspaceNotifications: Array<WorkspaceScopedNotification>;
   workspaceProjectDeployments: Array<ProjectDeployment>;
   /** List all users of a workspace. Requires at least VIEWER workspace role. */
   workspaceUsers: Array<WorkspaceUser>;
@@ -7369,6 +7389,11 @@ export type QueryWorkspaceMcpServersArgs = {
 };
 
 
+export type QueryWorkspaceNotificationsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type QueryWorkspaceProjectDeploymentsArgs = {
   environmentId: Scalars['ID']['input'];
   projectId?: InputMaybe<Scalars['ID']['input']>;
@@ -8067,6 +8092,14 @@ export enum WorkspaceRole {
   Editor = 'EDITOR',
   Viewer = 'VIEWER'
 }
+
+/** A CE Notification projected for workspace-scoped pickers. */
+export type WorkspaceScopedNotification = {
+  __typename?: 'WorkspaceScopedNotification';
+  id: Scalars['ID']['output'];
+  name: Scalars['String']['output'];
+  type: Scalars['String']['output'];
+};
 
 export type WorkspaceUser = {
   __typename?: 'WorkspaceUser';

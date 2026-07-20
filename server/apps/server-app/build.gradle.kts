@@ -216,6 +216,7 @@ dependencies {
     implementation(project(":server:libs:platform:platform-mcp:platform-mcp-service"))
     implementation(project(":server:libs:platform:platform-notification:platform-notification-rest"))
     implementation(project(":server:libs:platform:platform-notification:platform-notification-service"))
+    implementation(project(":server:ee:libs:platform:platform-notification:platform-notification-workspace"))
     implementation(project(":server:libs:platform:platform-oauth2:platform-oauth2-service"))
     implementation(project(":server:libs:platform:platform-oauth2-authorization-server"))
     implementation(project(":server:libs:platform:platform-plan:platform-plan-service"))

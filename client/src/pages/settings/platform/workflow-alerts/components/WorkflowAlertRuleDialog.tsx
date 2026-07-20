@@ -5,8 +5,8 @@ import {
     WorkflowAlertRulesQuery,
     useCreateWorkflowAlertRuleMutation,
     useUpdateWorkflowAlertRuleMutation,
+    useWorkspaceNotificationsQuery,
 } from '@/shared/middleware/graphql';
-import {useGetNotificationsQuery} from '@/shared/queries/platform/notifications.queries';
 import {useQueryClient} from '@tanstack/react-query';
 import {XIcon} from 'lucide-react';
 import {useCallback, useState} from 'react';
@@ -48,7 +48,13 @@ const WorkflowAlertRuleDialog = ({onClose, rule}: WorkflowAlertRuleDialogProps) 
 
     const queryClient = useQueryClient();
 
-    const {data: notifications} = useGetNotificationsQuery();
+    // Workspace-scoped picker: the workspace's own notifications plus the global (unassigned) ones.
+    const {data: workspaceNotificationsData} = useWorkspaceNotificationsQuery(
+        {workspaceId: String(currentWorkspaceId)},
+        {enabled: !!currentWorkspaceId}
+    );
+
+    const notifications = workspaceNotificationsData?.workspaceNotifications;
 
     const isEditMode = !!rule;
 
