@@ -69,6 +69,46 @@ The **Manage connectors** link in the composer's connectors menu opens the AI Hu
 
 Per-conversation, the composer's connectors menu still lets you toggle any enabled connector on or off for just that chat — this page sets what is available in the first place.
 
+## How the assistant's tools are wired
+
+Under the hood, tools reach the AI Hub agents through three tiers. A small **pinned** set of
+interaction primitives is callable on every model turn; a much larger **searchable catalog** is
+indexed in a vector store and becomes callable only after the agent looks a tool up; and
+self-contained domains are delegated to one-shot **specialist subagents**, each a focused agent
+with its own prompt and tool set.
+
+<Mermaid
+  chart={`
+flowchart TB
+    USER["User message"] --> AGENT["AI Hub agent (Ask or Build)"]
+
+    subgraph PINNED["Tier 1 - pinned tools (always callable)"]
+        P1["Interaction primitives - open resource tabs, ask user, connection pickers"]
+        P2["Self-configuration - attach task tools, searchTool"]
+    end
+
+    subgraph CATALOG["Tier 2 - searchable catalog"]
+        C1["Rarely-used tools, surfaced by searchTool via vector search"]
+    end
+
+    subgraph SUBAGENTS["Tier 3 - specialist subagents (one-shot delegates)"]
+        S1["Domain specialists - knowledge base, data tables, context store, workflow editor, code editor, ..."]
+        S2["Task specialists - research, data analyst, image generator, slide builder"]
+        S3["Manager specialists - MCP, personal agents, deployments, API collections"]
+    end
+
+    AGENT --> PINNED
+    AGENT -- "searchTool hit" --> CATALOG
+    AGENT -- "delegate" --> SUBAGENTS
+    SUBAGENTS -- "result" --> AGENT
+`}
+/>
+
+This tiering is why the assistant sometimes "finds" a capability mid-conversation (a catalog
+lookup) or narrates that a specialist is working on a sub-task (a delegated subagent). Component
+connectors and custom MCP servers you enable in a conversation add their tools on top of this
+wiring.
+
 ## Enabling the AI Hub
 
 The AI Hub is an Enterprise Edition surface, disabled by default:

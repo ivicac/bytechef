@@ -41,6 +41,59 @@ task executions on broker queues; **workers** consume those queues, execute the 
 and send completions back. Neither talks to the other over HTTP — all coordinator/worker traffic
 goes through the message broker.
 
+<Mermaid
+  chart={`
+flowchart TB
+    CLIENT["Clients / providers"]
+
+    subgraph EDGE["Edge"]
+        GW["api-gateway-app - lb:// routes"]
+    end
+
+    subgraph DOMAIN["Domain services"]
+        CFG["configuration-app"]
+        CON["connection-app"]
+        EXEA["execution-app"]
+        SCHED["scheduler-app"]
+        WHA["webhook-app"]
+    end
+
+    subgraph ENGINE["Engine"]
+        COORD["coordinator-app - dispatchers, no components"]
+        WRK["worker-app x N - all components"]
+    end
+
+    CS["config-server-app - serves all app config"]
+
+    subgraph INFRA["Infrastructure"]
+        PG[("PostgreSQL - shared, per-domain liquibase contexts")]
+        RED[("Redis - discovery + cache")]
+        MB(["Message broker - redis / amqp / kafka"])
+    end
+
+    CLIENT --> GW
+    GW -- "/api/**" --> CFG
+    GW -- "/api/**" --> CON
+    GW -- "/api/**" --> EXEA
+    GW -- "/webhooks/**" --> WHA
+    WHA -- "trigger events" --> MB
+    SCHED -- "trigger events" --> MB
+    COORD <--> MB
+    WRK <--> MB
+    COORD -- "/remote calls via discovery" --> CFG
+    WRK -- "/remote calls via discovery" --> CON
+    CFG --> PG
+    CON --> PG
+    EXEA --> PG
+    SCHED --> PG
+    DOMAIN -.->|register| RED
+    ENGINE -.->|register| RED
+    CS -.->|config at boot| DOMAIN
+    CS -.->|config at boot| ENGINE
+    CS -.->|config at boot| GW
+`}
+/>
+
 ## Required infrastructure
 
 - **PostgreSQL 15+** — one shared database. Each domain app applies its own Liquibase context

@@ -78,6 +78,54 @@ Three properties of this design are worth internalizing early:
 
 ## Module layout
 
+The server modules form strict layers — each layer only depends downward:
+
+<Mermaid
+  chart={`
+flowchart TB
+    subgraph APPS["Apps"]
+        MONO["server-app (monolith)"]
+        EEAPPS["EE apps - coordinator-app, worker-app, configuration-app, ..."]
+    end
+
+    subgraph DOMAIN["Product domains"]
+        AUTO["automation - workspaces, projects, deployments, AI hub"]
+        EMB["embedded (EE) - integrations, connected users"]
+    end
+
+    subgraph PLATFORM["platform"]
+        PCOMP["platform-component - component registry"]
+        PCONN["platform-connection"]
+        PWF["platform-workflow / -webhook / -scheduler"]
+        PMISC["platform-notification / -mail / -plan / -rate-limit / -ai"]
+    end
+
+    subgraph ENGINE["Engine + extensions"]
+        ATLAS["atlas - workflow kernel"]
+        TD["modules/task-dispatchers - control flow"]
+        COMPS["modules/components - 200+ integrations"]
+    end
+
+    subgraph CORE["core"]
+        MSG["message broker abstraction"]
+        EVAL["evaluator (SpEL)"]
+        ENC["encryption / file-storage / tenant"]
+    end
+
+    SDK["Component SDK (sdks/backend/java)"]
+
+    MONO --> AUTO
+    MONO --> EMB
+    EEAPPS --> AUTO
+    AUTO --> PLATFORM
+    EMB --> PLATFORM
+    PLATFORM --> ENGINE
+    ENGINE --> CORE
+    COMPS --> SDK
+    PCOMP --> SDK
+`}
+/>
+
 | Area | Path | Responsibility |
 |---|---|---|
 | Atlas engine | `server/libs/atlas/` | Generic workflow kernel: definitions, jobs, coordinator, worker, file storage |
@@ -467,6 +515,57 @@ One last trace, end to end — a scheduled Gmail-to-Drive workflow like the one 
 3. `StartJobEvent` → `TaskCoordinator` → `JobExecutor` evaluates `searchEmail_1`'s parameters against the context → `DefaultTaskDispatcher` → worker route.
 4. `TaskWorker` resolves the handler under `googleMail/v1/searchEmail` → `ComponentTaskHandler` → facade resolves the Gmail connection bound to this deployment → the component's `perform` runs with `context.http(...)`.
 5. Output goes to file storage; `TaskExecutionCompleteEvent` returns to the coordinator; the output is merged into context as `searchEmail_1`; the loop dispatcher takes over for the next task; and so on until the job completes.
+
+## Notifications and alerts
+
+The engine itself is notification-agnostic — nothing under `server/libs/atlas/` sends email or
+webhooks. Instead, every job status transition publishes a `JobStatusApplicationEvent`, and the
+coordinator's listener fan-out (in `platform-coordinator`) turns those events into deliveries.
+`platform-notification` is the central registry for notification channels (`EMAIL`, `WEBHOOK`,
+`SLACK`); other features reference `Notification` rows as delivery targets instead of defining
+their own channel entities.
+
+<Mermaid
+  chart={`
+flowchart TB
+    EV["JobStatusApplicationEvent - terminal status"]
+
+    subgraph LISTENERS["platform-coordinator listener fan-out"]
+        NL["NotificationJobStatusApplicationEventListener"]
+        WL["WebhookJobStatusApplicationEventListener - per-job callback webhooks"]
+        CL["Cost listener (EE) - writes workflow_execution_cost"]
+        AL["WorkflowAlertApplicationEventListener (EE) - evaluates alert rules"]
+    end
+
+    subgraph REGISTRY["platform-notification"]
+        NREG["Notification rows - EMAIL / WEBHOOK / SLACK"]
+        SND["Sender + handler per type"]
+    end
+
+    subgraph DELIVERY["Delivery transports"]
+        MAIL["MailService - single email path"]
+        WHC["WebhookNotificationClient - SSRF-validated, HMAC-signed"]
+        SLK["SlackNotificationClient - incoming webhook"]
+    end
+
+    EV --> NL
+    EV --> WL
+    EV --> CL
+    EV --> AL
+    NL --> NREG --> SND
+    SND --> MAIL
+    SND --> WHC
+    SND --> SLK
+    AL -- "rule fired: delivery targets are Notification ids" --> NREG
+    WL --> WHC
+`}
+/>
+
+Alert rules (Enterprise) are workspace-scoped rows that own the **when** — consecutive failures,
+failure rate, error count, latency threshold/spike, cost threshold, usage threshold, no activity —
+while the notification registry owns the **where and how**. Rule evaluation state lives on the
+rule row and is updated per terminal job event; time-based rules (no-activity, usage-threshold)
+fire from scheduled monitors.
 
 ## Related reading
 
