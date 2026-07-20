@@ -5,6 +5,11 @@ import {NestedClusterRootComponentDefinitionType, NodeDataType} from '@/shared/t
 import {create} from 'zustand';
 import {devtools} from 'zustand/middleware';
 
+export interface WorkflowTestNodeStateI {
+    error?: string;
+    status: 'RUNNING' | 'COMPLETED' | 'FAILED';
+}
+
 export interface WorkflowEditorI {
     clusterElementsCanvasOpen: boolean;
     setClusterElementsCanvasOpen: (clusterElementsCanvasOpen: boolean) => void;
@@ -63,6 +68,10 @@ export interface WorkflowEditorI {
 
     workflowTestExecution?: WorkflowTestExecution;
     setWorkflowTestExecution: (workflowTestExecution?: WorkflowTestExecution) => void;
+
+    workflowTestNodeStates: Record<string, WorkflowTestNodeStateI>;
+    setWorkflowTestNodeState: (nodeName: string, nodeState: WorkflowTestNodeStateI) => void;
+    resetWorkflowTestNodeStates: () => void;
 }
 
 const useWorkflowEditorStore = create<WorkflowEditorI>()(
@@ -174,6 +183,16 @@ const useWorkflowEditorStore = create<WorkflowEditorI>()(
             setWorkflowTestExecution: (workflowTestExecution?: WorkflowTestExecution) =>
                 set(() => ({
                     workflowTestExecution: workflowTestExecution,
+                })),
+
+            workflowTestNodeStates: {},
+            setWorkflowTestNodeState: (nodeName, nodeState) =>
+                set((state) => ({
+                    workflowTestNodeStates: {...state.workflowTestNodeStates, [nodeName]: nodeState},
+                })),
+            resetWorkflowTestNodeStates: () =>
+                set(() => ({
+                    workflowTestNodeStates: {},
                 })),
         }),
         {
