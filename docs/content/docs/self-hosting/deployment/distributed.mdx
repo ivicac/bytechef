@@ -199,6 +199,23 @@ Coordinator and worker roles are controlled by `bytechef.coordinator.enabled` an
 you deploy, since only `worker-app` has the component modules and only `coordinator-app` has the
 dispatcher stack.
 
+## Plan-limit enforcement in HA
+
+If you configure a plan tier (`bytechef.plan.tier`), rate limits and concurrency slots are
+enforced per node by default — an N-node deployment admits up to N× the budget. For strict
+global limits set:
+
+```yaml
+bytechef:
+  plan:
+    enforcement:
+      provider: redis
+```
+
+on every app that admits work (the gateway-fronted domain apps and the coordinator). This moves
+the token buckets and the per-tenant concurrency counters onto the shared Redis instance; both
+fail open if Redis is briefly unreachable, so an enforcement hiccup never blocks traffic.
+
 ## Bring-up order
 
 1. Infrastructure: PostgreSQL, Redis, and the message broker (if not Redis).

@@ -343,9 +343,13 @@ Original design sketch (rule model reuses the existing trigger path):
 4. ✅ Enforcement (phase 4) — implemented in CE `platform-rate-limit`:
    - `RateLimiter` SPI + `Bucket4jRateLimiter` (`com.bucket4j:bucket4j_jdk17-core`,
      local buckets in a Caffeine cache, capacity = rate × burst multiplier, greedy
-     per-minute refill). Per-node enforcement; swap the bean for a Bucket4j
-     `ProxyManager` (Redis/Postgres) implementation when strict global limits are
-     needed.
+     per-minute refill). Per-node by default; `bytechef.plan.enforcement.provider=redis`
+     switches BOTH the limiter and the concurrency gate onto shared Redis state
+     (`RedisRateLimiter` — atomic Lua token bucket with the same capacity/refill
+     semantics; `RedisConcurrentExecutionGate` — bounded INCR/DECR, floored release,
+     24h TTL refreshed per operation so crash-orphaned slots self-heal). Both Redis
+     implementations fail OPEN on Redis outages: an enforcement outage must not become
+     a platform outage. Requires a `RedisConnectionFactory` bean.
    - `PlanRateLimitFilter` (`FilterRegistrationBean`, order 0 — after the Spring
      Security chain at -100 so the auth outcome is visible): login POST
      `/api/authentication` fixed 10/min/IP; `/webhooks/**` → sync tier per tenant;

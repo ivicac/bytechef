@@ -16,56 +16,23 @@
 
 package com.bytechef.platform.ratelimit;
 
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicInteger;
-
 /**
  * Per-tenant concurrent-execution slots (Sim model: a slot is held from job admission until the job reaches terminal
  * status). Acquired at the {@code PrincipalJobFacade} admission point, released by the terminal-status listener in
- * platform-coordinator — the engine under {@code server/libs/atlas/} stays untouched.
- *
- * <p>
- * In-memory, per-node: a restart resets counters to zero while previously admitted jobs keep running, temporarily
- * over-admitting until they finish — the safe direction (never wrongly blocks). {@code release} floors at zero so
- * redelivered terminal events can't push a counter negative.
- * </p>
+ * platform-coordinator — the engine under {@code server/libs/atlas/} stays untouched. Implementations:
+ * {@link InMemoryConcurrentExecutionGate} (default, per-node) and {@link RedisConcurrentExecutionGate} (strict global
+ * limits, {@code bytechef.plan.enforcement.provider=redis}).
  *
  * @author Ivica Cardic
  */
-public class ConcurrentExecutionGate {
-
-    private final ConcurrentHashMap<String, AtomicInteger> slots = new ConcurrentHashMap<>();
+public interface ConcurrentExecutionGate {
 
     /** Acquires a slot for {@code key} unless {@code limit} slots are already held. */
-    public boolean tryAcquire(String key, int limit) {
-        AtomicInteger counter = slots.computeIfAbsent(key, k -> new AtomicInteger());
+    boolean tryAcquire(String key, int limit);
 
-        while (true) {
-            int current = counter.get();
+    /** Releases one slot for {@code key}, flooring at zero so redelivered terminal events are harmless. */
+    void release(String key);
 
-            if (current >= limit) {
-                return false;
-            }
-
-            if (counter.compareAndSet(current, current + 1)) {
-                return true;
-            }
-        }
-    }
-
-    public void release(String key) {
-        AtomicInteger counter = slots.get(key);
-
-        if (counter == null) {
-            return;
-        }
-
-        counter.updateAndGet(current -> Math.max(0, current - 1));
-    }
-
-    public int held(String key) {
-        AtomicInteger counter = slots.get(key);
-
-        return counter == null ? 0 : counter.get();
-    }
+    /** Returns the number of slots currently held for {@code key}. */
+    int held(String key);
 }

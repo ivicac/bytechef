@@ -723,8 +723,10 @@ cd cli
   gate): `docs/superpowers/specs/2026-07-20-plan-limits-cost-alerts-design.md`.
 - **Enforcement** lives in CE `server/libs/platform/platform-rate-limit`
   (`bytechef.plan.enforcement.enabled`, default on — SELF_HOSTED's all-null limits make it a
-  no-op): `Bucket4jRateLimiter` (local buckets in Caffeine; per-node — swap the `RateLimiter`
-  bean for a Bucket4j `ProxyManager` impl for strict global limits), `PlanRateLimitFilter`
+  no-op): `Bucket4jRateLimiter` (local buckets in Caffeine; per-node default — set
+  `bytechef.plan.enforcement.provider=redis` for strict global limits via `RedisRateLimiter`
+  (Lua token bucket) + `RedisConcurrentExecutionGate` (bounded INCR/DECR, 24h self-healing
+  TTL); both Redis impls fail open on Redis outages), `PlanRateLimitFilter`
   (order 0, after the security chain: login 10/min/IP, webhooks → sync tier/tenant, public
   APIs → api tier/tenant, anonymous `/api/**` → per-IP; reject = 429 + Retry-After), and
   the two async-admission gates in `PrincipalJobFacadeImpl.createJob` (async only; sync

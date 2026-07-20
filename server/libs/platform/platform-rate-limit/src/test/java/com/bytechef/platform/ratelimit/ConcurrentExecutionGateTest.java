@@ -25,7 +25,7 @@ import org.junit.jupiter.api.Test;
  */
 public class ConcurrentExecutionGateTest {
 
-    private final ConcurrentExecutionGate concurrentExecutionGate = new ConcurrentExecutionGate();
+    private final ConcurrentExecutionGate concurrentExecutionGate = new InMemoryConcurrentExecutionGate();
 
     @Test
     public void testAcquireUpToLimitThenReject() {
