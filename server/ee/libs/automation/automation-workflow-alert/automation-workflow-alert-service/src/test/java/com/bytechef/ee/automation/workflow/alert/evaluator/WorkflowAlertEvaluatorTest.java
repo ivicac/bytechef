@@ -143,6 +143,29 @@ class WorkflowAlertEvaluatorTest {
     }
 
     @Test
+    void testUsageThresholdFiresAtPercentOfPlanCeiling() {
+        WorkflowAlertRule rule = rule(WorkflowAlertRuleType.USAGE_THRESHOLD, new BigDecimal(80));
+
+        // $7.50 of a $10 plan = 75% — below the 80% threshold.
+        assertThat(
+            WorkflowAlertEvaluator.evaluateUsageThreshold(rule, new BigDecimal("7.50"), BigDecimal.TEN)).isNull();
+
+        Breach breach = WorkflowAlertEvaluator.evaluateUsageThreshold(rule, new BigDecimal("8.00"), BigDecimal.TEN);
+
+        assertThat(breach).isNotNull();
+        assertThat(breach.triggeredValue()).isEqualByComparingTo(new BigDecimal("80.00"));
+    }
+
+    @Test
+    void testUsageThresholdNeverFiresOnUnlimitedPlan() {
+        WorkflowAlertRule rule = rule(WorkflowAlertRuleType.USAGE_THRESHOLD, new BigDecimal(80));
+
+        assertThat(WorkflowAlertEvaluator.evaluateUsageThreshold(rule, new BigDecimal("1000"), null)).isNull();
+        assertThat(
+            WorkflowAlertEvaluator.evaluateUsageThreshold(rule, new BigDecimal("1000"), BigDecimal.ZERO)).isNull();
+    }
+
+    @Test
     void testCooldownSuppressesRefiring() {
         WorkflowAlertRule rule = rule(WorkflowAlertRuleType.LATENCY_THRESHOLD, new BigDecimal(1000));
 

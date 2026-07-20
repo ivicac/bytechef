@@ -36,5 +36,11 @@ public enum WorkflowAlertRuleType {
     COST_THRESHOLD,
 
     /** No matching run within the window (threshold unused; window = maximum silence in minutes). */
-    NO_ACTIVITY
+    NO_ACTIVITY,
+
+    /**
+     * Month-to-date workspace execution spend at or above the threshold percent of the plan's included monthly cost
+     * (threshold = percent 0-100; window unused; evaluated by an hourly monitor, not per run).
+     */
+    USAGE_THRESHOLD
 }

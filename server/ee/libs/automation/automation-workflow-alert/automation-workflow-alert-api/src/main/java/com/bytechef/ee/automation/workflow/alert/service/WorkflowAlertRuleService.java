@@ -10,6 +10,7 @@ package com.bytechef.ee.automation.workflow.alert.service;
 import com.bytechef.ee.automation.workflow.alert.domain.WorkflowAlertRule;
 import com.bytechef.ee.automation.workflow.alert.domain.WorkflowAlertRuleType;
 import java.util.List;
+import java.util.Optional;
 
 /**
  * Workspace resolution goes through the {@code workspace_workflow_alert_rule} membership table — workspace is an
@@ -24,6 +25,8 @@ public interface WorkflowAlertRuleService {
     WorkflowAlertRule createInWorkspace(WorkflowAlertRule workflowAlertRule, long workspaceId);
 
     void delete(long id);
+
+    Optional<Long> fetchWorkspaceId(long workflowAlertRuleId);
 
     WorkflowAlertRule getWorkflowAlertRule(long id);
 

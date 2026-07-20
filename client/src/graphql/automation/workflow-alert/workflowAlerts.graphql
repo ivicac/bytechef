@@ -40,6 +40,10 @@ mutation deleteWorkflowAlertRule($id: ID!) {
     deleteWorkflowAlertRule(id: $id)
 }
 
+mutation sendTestWorkflowAlert($id: ID!) {
+    sendTestWorkflowAlert(id: $id)
+}
+
 mutation enableWorkflowAlertRule($id: ID!, $enabled: Boolean!) {
     enableWorkflowAlertRule(id: $id, enabled: $enabled) {
         enabled

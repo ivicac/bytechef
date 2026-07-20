@@ -12,6 +12,8 @@ import com.bytechef.ee.automation.workflow.execution.cost.domain.WorkspaceWorkfl
 import com.bytechef.ee.automation.workflow.execution.cost.repository.WorkspaceWorkflowExecutionCostRepository;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -58,5 +60,13 @@ public class WorkspaceWorkflowExecutionCostServiceImpl implements WorkspaceWorkf
     public Optional<Long> fetchWorkspaceIdByWorkflowExecutionCostId(long workflowExecutionCostId) {
         return workspaceWorkflowExecutionCostRepository.findByWorkflowExecutionCostId(workflowExecutionCostId)
             .map(WorkspaceWorkflowExecutionCost::getWorkspaceId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public BigDecimal sumTotalCostByWorkspaceSince(long workspaceId, Instant since) {
+        BigDecimal sum = workspaceWorkflowExecutionCostRepository.sumTotalCostByWorkspaceIdSince(workspaceId, since);
+
+        return sum == null ? BigDecimal.ZERO : sum;
     }
 }

@@ -8,12 +8,14 @@
 package com.bytechef.ee.automation.workflow.alert.web.graphql;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.ee.automation.workflow.alert.dispatcher.WorkflowAlertDispatcher;
 import com.bytechef.ee.automation.workflow.alert.domain.WorkflowAlertEvent;
 import com.bytechef.ee.automation.workflow.alert.domain.WorkflowAlertRule;
 import com.bytechef.ee.automation.workflow.alert.service.WorkflowAlertEventService;
 import com.bytechef.ee.automation.workflow.alert.service.WorkflowAlertRuleService;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.math.BigDecimal;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 import org.springframework.graphql.data.method.annotation.Argument;
@@ -37,13 +39,16 @@ import org.springframework.stereotype.Controller;
 @ConditionalOnCoordinator
 public class WorkflowAlertGraphQlController {
 
+    private final WorkflowAlertDispatcher workflowAlertDispatcher;
     private final WorkflowAlertEventService workflowAlertEventService;
     private final WorkflowAlertRuleService workflowAlertRuleService;
 
     @SuppressFBWarnings("EI")
     public WorkflowAlertGraphQlController(
-        WorkflowAlertEventService workflowAlertEventService, WorkflowAlertRuleService workflowAlertRuleService) {
+        WorkflowAlertDispatcher workflowAlertDispatcher, WorkflowAlertEventService workflowAlertEventService,
+        WorkflowAlertRuleService workflowAlertRuleService) {
 
+        this.workflowAlertDispatcher = workflowAlertDispatcher;
         this.workflowAlertEventService = workflowAlertEventService;
         this.workflowAlertRuleService = workflowAlertRuleService;
     }
@@ -100,6 +105,21 @@ public class WorkflowAlertGraphQlController {
         workflowAlertRule.setEnabled(enabled);
 
         return workflowAlertRuleService.update(workflowAlertRule);
+    }
+
+    @MutationMapping
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
+    public boolean sendTestWorkflowAlert(@Argument long id) {
+        WorkflowAlertRule workflowAlertRule = workflowAlertRuleService.getWorkflowAlertRule(id);
+
+        // Synthetic event, deliberately NOT persisted to the alert history — this only verifies channel wiring.
+        workflowAlertDispatcher.dispatch(
+            workflowAlertRule,
+            new WorkflowAlertEvent(
+                workflowAlertRule.getId(), null, BigDecimal.ZERO,
+                "Test alert from ByteChef for rule '" + workflowAlertRule.getName() + "'"));
+
+        return true;
     }
 
     @SchemaMapping(typeName = "WorkflowAlertRule", field = "lastTriggeredDate")

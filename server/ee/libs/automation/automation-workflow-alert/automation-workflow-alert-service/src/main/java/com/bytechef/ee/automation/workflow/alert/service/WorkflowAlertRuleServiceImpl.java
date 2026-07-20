@@ -16,6 +16,7 @@ import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,6 +56,13 @@ public class WorkflowAlertRuleServiceImpl implements WorkflowAlertRuleService {
     public void delete(long id) {
         // The workspace_workflow_alert_rule membership row cascades with the rule (FK ON DELETE CASCADE).
         workflowAlertRuleRepository.deleteById(id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<Long> fetchWorkspaceId(long workflowAlertRuleId) {
+        return workspaceWorkflowAlertRuleRepository.findByWorkflowAlertRuleId(workflowAlertRuleId)
+            .map(WorkspaceWorkflowAlertRule::getWorkspaceId);
     }
 
     @Override

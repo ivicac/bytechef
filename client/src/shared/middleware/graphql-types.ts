@@ -3618,6 +3618,11 @@ export type Mutation = {
   saveClusterElementTestConfigurationConnection?: Maybe<Scalars['Boolean']['output']>;
   saveClusterElementTestOutput?: Maybe<WorkflowNodeTestOutputResult>;
   saveWorkflowTestConfigurationConnection?: Maybe<Scalars['Boolean']['output']>;
+  /**
+   * Deliver a synthetic test alert (not persisted to history) through the rule's notifications so admins can
+   * verify channel configuration end-to-end.
+   */
+  sendTestWorkflowAlert: Scalars['Boolean']['output'];
   setActiveAiPromptVersion?: Maybe<Scalars['Boolean']['output']>;
   /** Toggle an MCP server on/off. */
   setAiHubMcpServerEnabled: Scalars['Boolean']['output'];
@@ -4865,6 +4870,11 @@ export type MutationSaveWorkflowTestConfigurationConnectionArgs = {
   workflowConnectionKey: Scalars['String']['input'];
   workflowId: Scalars['String']['input'];
   workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type MutationSendTestWorkflowAlertArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -7943,8 +7953,8 @@ export type WorkflowAlertRuleInput = {
 /**
  * Sim-modeled alert rule types. The threshold's unit depends on the type: count (CONSECUTIVE_FAILURES,
  * ERROR_COUNT), percent 0-100 (FAILURE_RATE), milliseconds (LATENCY_THRESHOLD), multiplier over the rolling
- * average (LATENCY_SPIKE), USD (COST_THRESHOLD); NO_ACTIVITY ignores threshold and alerts after windowMinutes
- * of silence.
+ * average (LATENCY_SPIKE), USD (COST_THRESHOLD), percent of the plan's included monthly cost (USAGE_THRESHOLD,
+ * evaluated hourly); NO_ACTIVITY ignores threshold and alerts after windowMinutes of silence.
  */
 export enum WorkflowAlertRuleType {
   ConsecutiveFailures = 'CONSECUTIVE_FAILURES',
@@ -7953,7 +7963,8 @@ export enum WorkflowAlertRuleType {
   FailureRate = 'FAILURE_RATE',
   LatencySpike = 'LATENCY_SPIKE',
   LatencyThreshold = 'LATENCY_THRESHOLD',
-  NoActivity = 'NO_ACTIVITY'
+  NoActivity = 'NO_ACTIVITY',
+  UsageThreshold = 'USAGE_THRESHOLD'
 }
 
 /** One row per terminal workflow execution, written idempotently by the terminal-status listener. */

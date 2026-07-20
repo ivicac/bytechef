@@ -30,6 +30,11 @@ const RULE_TYPE_OPTIONS: {label: string; thresholdLabel: string; value: Workflow
     {label: 'Latency Spike', thresholdLabel: 'Multiplier over average', value: WorkflowAlertRuleType.LatencySpike},
     {label: 'Cost Threshold', thresholdLabel: 'Run cost (USD)', value: WorkflowAlertRuleType.CostThreshold},
     {label: 'No Activity', thresholdLabel: 'Unused', value: WorkflowAlertRuleType.NoActivity},
+    {
+        label: 'Usage Threshold',
+        thresholdLabel: 'Percent of monthly plan cost (%)',
+        value: WorkflowAlertRuleType.UsageThreshold,
+    },
 ];
 
 const WorkflowAlertRuleDialog = ({onClose, rule}: WorkflowAlertRuleDialogProps) => {
@@ -172,21 +177,23 @@ const WorkflowAlertRuleDialog = ({onClose, rule}: WorkflowAlertRuleDialogProps) 
                         </fieldset>
                     )}
 
-                    <fieldset className="border-0">
-                        <label className="mb-1 block text-sm font-medium">
-                            {ruleType === WorkflowAlertRuleType.NoActivity
-                                ? 'Maximum silence (minutes)'
-                                : 'Window (minutes)'}
-                        </label>
+                    {ruleType !== WorkflowAlertRuleType.UsageThreshold && (
+                        <fieldset className="border-0">
+                            <label className="mb-1 block text-sm font-medium">
+                                {ruleType === WorkflowAlertRuleType.NoActivity
+                                    ? 'Maximum silence (minutes)'
+                                    : 'Window (minutes)'}
+                            </label>
 
-                        <input
-                            className="w-full rounded-md border px-3 py-2 text-sm"
-                            min="1"
-                            onChange={(event) => setWindowMinutes(parseInt(event.target.value, 10) || 1)}
-                            type="number"
-                            value={windowMinutes}
-                        />
-                    </fieldset>
+                            <input
+                                className="w-full rounded-md border px-3 py-2 text-sm"
+                                min="1"
+                                onChange={(event) => setWindowMinutes(parseInt(event.target.value, 10) || 1)}
+                                type="number"
+                                value={windowMinutes}
+                            />
+                        </fieldset>
+                    )}
 
                     <fieldset className="border-0">
                         <label className="mb-1 block text-sm font-medium">Cooldown (minutes)</label>

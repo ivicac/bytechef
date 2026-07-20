@@ -10,12 +10,15 @@ extend type Mutation {
     updateWorkflowAlertRule(id: ID!, input: WorkflowAlertRuleInput!): WorkflowAlertRule!
     deleteWorkflowAlertRule(id: ID!): Boolean!
     enableWorkflowAlertRule(id: ID!, enabled: Boolean!): WorkflowAlertRule!
+    """Deliver a synthetic test alert (not persisted to history) through the rule's notifications so admins can
+    verify channel configuration end-to-end."""
+    sendTestWorkflowAlert(id: ID!): Boolean!
 }
 
 """Sim-modeled alert rule types. The threshold's unit depends on the type: count (CONSECUTIVE_FAILURES,
 ERROR_COUNT), percent 0-100 (FAILURE_RATE), milliseconds (LATENCY_THRESHOLD), multiplier over the rolling
-average (LATENCY_SPIKE), USD (COST_THRESHOLD); NO_ACTIVITY ignores threshold and alerts after windowMinutes
-of silence."""
+average (LATENCY_SPIKE), USD (COST_THRESHOLD), percent of the plan's included monthly cost (USAGE_THRESHOLD,
+evaluated hourly); NO_ACTIVITY ignores threshold and alerts after windowMinutes of silence."""
 enum WorkflowAlertRuleType {
     CONSECUTIVE_FAILURES
     FAILURE_RATE
@@ -24,6 +27,7 @@ enum WorkflowAlertRuleType {
     LATENCY_SPIKE
     COST_THRESHOLD
     NO_ACTIVITY
+    USAGE_THRESHOLD
 }
 
 input WorkflowAlertRuleInput {

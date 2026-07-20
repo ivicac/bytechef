@@ -70,6 +70,8 @@ public final class WorkflowAlertEvaluator {
             case COST_THRESHOLD -> evaluateCostThreshold(rule, runFacts);
             // NO_ACTIVITY only consumes the lastActivityDate update above; firing is the scheduled monitor's job.
             case NO_ACTIVITY -> null;
+            // USAGE_THRESHOLD compares month-to-date spend against the plan ceiling — the hourly monitor's job.
+            case USAGE_THRESHOLD -> null;
         };
     }
 
@@ -226,6 +228,30 @@ public final class WorkflowAlertEvaluator {
                 BigDecimal.valueOf(silenceMinutes),
                 "No matching workflow run for %d minutes (threshold %d minutes)".formatted(
                     silenceMinutes, windowMinutes));
+        }
+
+        return null;
+    }
+
+    /**
+     * Whether a USAGE_THRESHOLD rule should fire: month-to-date spend at or above {@code threshold} percent of the
+     * plan's included monthly cost. A missing or non-positive ceiling (unlimited plan) never fires.
+     */
+    public static @Nullable Breach evaluateUsageThreshold(
+        WorkflowAlertRule rule, BigDecimal monthToDateSpend, @Nullable BigDecimal includedMonthlyCostUsd) {
+
+        if (includedMonthlyCostUsd == null || includedMonthlyCostUsd.signum() <= 0 || monthToDateSpend == null) {
+            return null;
+        }
+
+        BigDecimal usagePercent = monthToDateSpend.multiply(HUNDRED)
+            .divide(includedMonthlyCostUsd, 2, RoundingMode.HALF_UP);
+
+        if (usagePercent.compareTo(rule.getThreshold()) >= 0) {
+            return new Breach(
+                usagePercent,
+                "Month-to-date spend %s USD is %s%% of the plan's included %s USD (threshold %s%%)".formatted(
+                    monthToDateSpend, usagePercent, includedMonthlyCostUsd, rule.getThreshold()));
         }
 
         return null;

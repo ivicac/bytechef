@@ -2603,6 +2603,13 @@ export type DeleteWorkflowAlertRuleMutationVariables = Exact<{
 
 export type DeleteWorkflowAlertRuleMutation = { deleteWorkflowAlertRule: boolean };
 
+export type SendTestWorkflowAlertMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type SendTestWorkflowAlertMutation = { sendTestWorkflowAlert: boolean };
+
 export type EnableWorkflowAlertRuleMutationVariables = Exact<{
   id: string | number;
   enabled: boolean;
@@ -13248,6 +13255,25 @@ export const useDeleteWorkflowAlertRuleMutation = <
       {
     mutationKey: ['deleteWorkflowAlertRule'],
     mutationFn: (variables?: DeleteWorkflowAlertRuleMutationVariables) => fetcher<DeleteWorkflowAlertRuleMutation, DeleteWorkflowAlertRuleMutationVariables>(DeleteWorkflowAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SendTestWorkflowAlertDocument = new TypedDocumentString(`
+    mutation sendTestWorkflowAlert($id: ID!) {
+  sendTestWorkflowAlert(id: $id)
+}
+    `);
+
+export const useSendTestWorkflowAlertMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SendTestWorkflowAlertMutation, TError, SendTestWorkflowAlertMutationVariables, TContext>) => {
+    
+    return useMutation<SendTestWorkflowAlertMutation, TError, SendTestWorkflowAlertMutationVariables, TContext>(
+      {
+    mutationKey: ['sendTestWorkflowAlert'],
+    mutationFn: (variables?: SendTestWorkflowAlertMutationVariables) => fetcher<SendTestWorkflowAlertMutation, SendTestWorkflowAlertMutationVariables>(SendTestWorkflowAlertDocument, variables)(),
     ...options
   }
     )};

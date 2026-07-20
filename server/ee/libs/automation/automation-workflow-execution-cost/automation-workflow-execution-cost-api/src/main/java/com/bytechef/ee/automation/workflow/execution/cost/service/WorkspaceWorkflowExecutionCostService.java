@@ -8,6 +8,8 @@
 package com.bytechef.ee.automation.workflow.execution.cost.service;
 
 import com.bytechef.ee.automation.workflow.execution.cost.domain.WorkflowExecutionCost;
+import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 
@@ -24,4 +26,7 @@ public interface WorkspaceWorkflowExecutionCostService {
     WorkflowExecutionCost createInWorkspace(WorkflowExecutionCost workflowExecutionCost, @Nullable Long workspaceId);
 
     Optional<Long> fetchWorkspaceIdByWorkflowExecutionCostId(long workflowExecutionCostId);
+
+    /** Sum of the workspace's execution total costs created at or after {@code since}; zero when none. */
+    BigDecimal sumTotalCostByWorkspaceSince(long workspaceId, Instant since);
 }

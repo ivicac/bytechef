@@ -9,12 +9,14 @@ import {
     WorkflowAlertRulesQuery,
     useDeleteWorkflowAlertRuleMutation,
     useEnableWorkflowAlertRuleMutation,
+    useSendTestWorkflowAlertMutation,
     useWorkflowAlertEventsQuery,
     useWorkflowAlertRulesQuery,
 } from '@/shared/middleware/graphql';
 import {useQueryClient} from '@tanstack/react-query';
-import {BellIcon, BellOffIcon, BellRingIcon, PencilIcon, PlusIcon, TrashIcon} from 'lucide-react';
+import {BellIcon, BellOffIcon, BellRingIcon, PencilIcon, PlusIcon, SendIcon, TrashIcon} from 'lucide-react';
 import {useCallback, useState} from 'react';
+import {toast} from 'sonner';
 
 type WorkflowAlertRuleItemType = WorkflowAlertRulesQuery['workflowAlertRules'][number];
 
@@ -26,6 +28,7 @@ const RULE_TYPE_LABELS: Record<string, string> = {
     LATENCY_SPIKE: 'Latency Spike',
     LATENCY_THRESHOLD: 'Latency Threshold',
     NO_ACTIVITY: 'No Activity',
+    USAGE_THRESHOLD: 'Usage Threshold',
 };
 
 const WorkflowAlerts = () => {
@@ -52,6 +55,10 @@ const WorkflowAlerts = () => {
 
     const enableMutation = useEnableWorkflowAlertRuleMutation({
         onSuccess: () => queryClient.invalidateQueries({queryKey: ['workflowAlertRules']}),
+    });
+
+    const sendTestMutation = useSendTestWorkflowAlertMutation({
+        onSuccess: () => toast('Test alert sent through the configured notifications.'),
     });
 
     const rules = rulesData?.workflowAlertRules ?? [];
@@ -108,6 +115,15 @@ const WorkflowAlerts = () => {
                                             icon={rule.enabled ? <BellIcon /> : <BellOffIcon />}
                                             label={rule.enabled ? 'Enabled' : 'Disabled'}
                                             onClick={() => enableMutation.mutate({enabled: !rule.enabled, id: rule.id})}
+                                            size="sm"
+                                            variant="outline"
+                                        />
+
+                                        <Button
+                                            disabled={sendTestMutation.isPending}
+                                            icon={<SendIcon />}
+                                            label="Test"
+                                            onClick={() => sendTestMutation.mutate({id: rule.id})}
                                             size="sm"
                                             variant="outline"
                                         />
