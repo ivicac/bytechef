@@ -257,13 +257,26 @@ Extend `platform-notification` with Sim's rule model, reusing the existing trigg
   (same listener family as `NotificationJobStatusApplicationEventListener`), reading
   duration from the job row and cost from phase 2's `workflow_execution_cost`;
   NO_ACTIVITY via a scheduled poll. Rate rules need ≥5 runs in window (Sim semantics).
-- **Delivery**: through the existing `NotificationSender` registry — **email works
-  today**; the webhook channel needs `WebhookNotificationSender` actually implemented
-  (port the SSRF-guarded dispatcher from `AiObservabilityNotificationDispatcher`, add
-  HMAC `t.body` signing + retry schedule per Sim's contract) since the current sender is
-  a no-op stub. UI already collects the URL; add secret + test-delivery affordances.
-- **Fixes rolled in**: remove the unfireable JOB_CANCELLED event or add the status;
-  register a JOB_STOPPED handler + message keys (closes the NPE risk).
+- **Delivery — one central point (requirement)**: all notification transports live in
+  the CE `platform-notification-delivery` module — `WebhookNotificationClient` (SSRF
+  validation via commons-util `UrlValidator`, standard `X-ByteChef-Event/Timestamp/
+  Delivery` headers, optional Sim-compatible HMAC signature
+  `X-ByteChef-Signature: t=<ts>,v1=hex(HMAC-SHA256(secret, "<ts>.<body>"))`, non-2xx →
+  typed exception) and `EmailNotificationClient` (optional `JavaMailSender`, sync,
+  throws on SMTP failure so callers can record channel errors). Consumers: the CE
+  `WebhookNotificationSender` (job-status webhook channel — previously a no-op stub, now
+  real, with `webhookSecret` in settings + UI), the CE `EmailNotificationSender` (kept
+  on the async templated `MailService`, which wraps the same `JavaMailSender`), and the
+  EE `AiObservabilityNotificationDispatcher` (refactored to delegate webhook/Slack/email
+  mechanics to the clients while keeping its channel config + lastError bookkeeping).
+  Phase-3 alert rules deliver through the same clients. **No atlas change**: the trigger
+  path stays `JobStatusApplicationEvent` → platform-coordinator listener → sender
+  registry; nothing under `server/libs/atlas/` is touched. Retry schedule (Sim's
+  5s/15s/60s/3m/10m) is a documented extension inside the delivery client.
+- **Fixes rolled in**: JOB_STOPPED now has email message keys and both handlers cover
+  it; the listener skips (with a warning) event/channel combinations that lack a
+  sender or handler instead of NPE-ing. JOB_CANCELLED remains seeded but unfireable
+  (Job.Status has no CANCELLED) — removal needs a data migration, deferred.
 
 ## 9. Build order and effort
 

@@ -20,4 +20,10 @@ package com.bytechef.platform.notification.handler;
  * @author Matija Petanjek
  */
 public interface WebhookNotificationHandler extends NotificationHandler {
+
+    /**
+     * The complete JSON payload for the webhook delivery. The sender owns transport, headers, and signing — handlers
+     * only shape the body.
+     */
+    String getPayload(NotificationHandlerContext notificationHandlerContext);
 }

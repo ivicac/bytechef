@@ -16,15 +16,12 @@ import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityAlertRule
 import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityAlertRuleChannel;
 import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityNotificationChannel;
 import com.bytechef.ee.platform.ai.observability.repository.AiObservabilityNotificationChannelRepository;
-import com.bytechef.ee.platform.ai.observability.security.AiObservabilityUrlValidator;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.notification.delivery.EmailNotificationClient;
+import com.bytechef.platform.notification.delivery.WebhookDeliveryRequest;
+import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.io.IOException;
 import java.math.BigDecimal;
-import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -33,11 +30,7 @@ import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 /**
@@ -52,19 +45,16 @@ public class AiObservabilityNotificationDispatcher {
     private static final Logger log = LoggerFactory.getLogger(AiObservabilityNotificationDispatcher.class);
 
     private final AiObservabilityNotificationChannelRepository aiObservabilityNotificationChannelRepository;
-    private final HttpClient httpClient;
-    private final JavaMailSender javaMailSender;
-    private final String mailFrom;
+    private final EmailNotificationClient emailNotificationClient;
+    private final WebhookNotificationClient webhookNotificationClient;
 
     AiObservabilityNotificationDispatcher(
         AiObservabilityNotificationChannelRepository aiObservabilityNotificationChannelRepository,
-        @Autowired(required = false) JavaMailSender javaMailSender,
-        @Value("${spring.mail.username:no-reply@bytechef.io}") String mailFrom) {
+        EmailNotificationClient emailNotificationClient, WebhookNotificationClient webhookNotificationClient) {
 
         this.aiObservabilityNotificationChannelRepository = aiObservabilityNotificationChannelRepository;
-        this.httpClient = HttpClient.newHttpClient();
-        this.javaMailSender = javaMailSender;
-        this.mailFrom = mailFrom;
+        this.emailNotificationClient = emailNotificationClient;
+        this.webhookNotificationClient = webhookNotificationClient;
     }
 
     void dispatchTest(AiObservabilityNotificationChannel notificationChannel) {
@@ -174,8 +164,6 @@ public class AiObservabilityNotificationDispatcher {
 
         String url = (String) config.get("url");
 
-        AiObservabilityUrlValidator.validateExternalUrl(url);
-
         String payload = JsonUtils.write(Map.of(
             "alertRuleId", alertRule.getId(),
             "alertRuleName", alertRule.getName(),
@@ -187,54 +175,21 @@ public class AiObservabilityNotificationDispatcher {
             "status", alertEvent.getStatus()
                 .name()));
 
-        HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
-            .uri(URI.create(url))
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(payload));
-
         Map<String, String> headers = (Map<String, String>) config.get("headers");
 
-        if (headers != null) {
-            for (Map.Entry<String, String> header : headers.entrySet()) {
-                requestBuilder.header(header.getKey(), header.getValue());
-            }
-        }
-
-        // Propagate transport failures AND non-2xx responses as exceptions so dispatch()'s catch records
-        // lastError / lastErrorDate, otherwise misconfigured channels appear "healthy" in the UI.
-        try {
-            HttpResponse<String> httpResponse = httpClient.send(
-                requestBuilder.build(), HttpResponse.BodyHandlers.ofString());
-
-            int statusCode = httpResponse.statusCode();
-
-            if (statusCode >= 400) {
-                throw new IllegalStateException(
-                    "Webhook notification to " + url + " returned HTTP " + statusCode + ": " + httpResponse.body());
-            }
-        } catch (IOException ioException) {
-            throw new IllegalStateException("Failed to send webhook notification to " + url, ioException);
-        } catch (InterruptedException interruptedException) {
-            Thread.currentThread()
-                .interrupt();
-
-            throw new IllegalStateException(
-                "Webhook notification to " + url + " interrupted", interruptedException);
-        }
+        // The shared client owns SSRF validation, standard headers, optional HMAC signing, and non-2xx -> exception
+        // mapping; failures propagate so dispatch() records lastError.
+        webhookNotificationClient.deliver(
+            new WebhookDeliveryRequest(
+                url, "ai-observability.alert", payload, headers == null ? Map.of() : headers,
+                (String) config.get("secret")));
     }
 
     @SuppressWarnings("unchecked")
+    @SuppressFBWarnings("VA_FORMAT_STRING_USES_NEWLINE")
     private void sendEmailNotification(
         AiObservabilityNotificationChannel notificationChannel,
         AiObservabilityAlertRule alertRule, AiObservabilityAlertEvent alertEvent) {
-
-        if (javaMailSender == null) {
-            log.warn(
-                "JavaMailSender is not configured; skipping email notification for alert rule '{}'",
-                alertRule.getName());
-
-            return;
-        }
 
         Map<String, Object> config = parseChannelConfig(notificationChannel);
 
@@ -269,43 +224,25 @@ public class AiObservabilityNotificationDispatcher {
             }
         }
 
-        if (recipients.isEmpty()) {
-            log.warn(
-                "No email recipients configured for notification channel {} (alert rule '{}')",
-                notificationChannel.getId(), alertRule.getName());
-
-            return;
-        }
-
         boolean resolved = alertEvent.getStatus() == AiObservabilityAlertEventStatus.RESOLVED;
         String subjectPrefix = resolved ? "[ByteChef Alert RESOLVED]" : "[ByteChef Alert]";
 
-        SimpleMailMessage message = new SimpleMailMessage();
-
-        message.setFrom(mailFrom);
-        message.setTo(recipients.toArray(new String[0]));
-        message.setSubject(String.format("%s %s", subjectPrefix, alertRule.getName()));
-        message.setText(String.format(
-            "Alert: %s%nStatus: %s%n%nMessage: %s%nTriggered value: %s%nThreshold: %s%nMetric: %s%nTimestamp: %s%n",
-            alertRule.getName(),
-            alertEvent.getStatus()
-                .name(),
-            alertEvent.getMessage(),
-            alertEvent.getTriggeredValue(),
-            alertRule.getThreshold(),
-            alertRule.getMetric()
-                .name(),
-            Instant.now()));
-
-        // Propagate MailException so dispatch()'s catch records lastError — an SMTP rejection must not silently
-        // drop the notification while the channel stays marked healthy.
-        try {
-            javaMailSender.send(message);
-        } catch (org.springframework.mail.MailException mailException) {
-            throw new IllegalStateException(
-                "Failed to send email notification to " + recipients + " for alert rule '" + alertRule.getName() + "'",
-                mailException);
-        }
+        // The shared client warn-skips when no JavaMailSender/recipients are configured and throws on SMTP failure so
+        // dispatch() records lastError — the same semantics the inline JavaMailSender code had.
+        emailNotificationClient.send(
+            recipients,
+            String.format("%s %s", subjectPrefix, alertRule.getName()),
+            String.format(
+                "Alert: %s%nStatus: %s%n%nMessage: %s%nTriggered value: %s%nThreshold: %s%nMetric: %s%nTimestamp: %s%n",
+                alertRule.getName(),
+                alertEvent.getStatus()
+                    .name(),
+                alertEvent.getMessage(),
+                alertEvent.getTriggeredValue(),
+                alertRule.getThreshold(),
+                alertRule.getMetric()
+                    .name(),
+                Instant.now()));
     }
 
     @SuppressWarnings("unchecked")
@@ -318,8 +255,6 @@ public class AiObservabilityNotificationDispatcher {
 
         String webhookUrl = (String) config.get("webhookUrl");
 
-        AiObservabilityUrlValidator.validateExternalUrl(webhookUrl);
-
         boolean resolved = alertEvent.getStatus() == AiObservabilityAlertEventStatus.RESOLVED;
         String icon = resolved ? ":white_check_mark:" : ":rotating_light:";
         String statusLabel = resolved ? "RESOLVED" : "Alert";
@@ -330,32 +265,10 @@ public class AiObservabilityNotificationDispatcher {
                 icon, statusLabel, alertRule.getName(), alertEvent.getMessage(),
                 alertEvent.getTriggeredValue())));
 
-        HttpRequest request = HttpRequest.newBuilder()
-            .uri(URI.create(webhookUrl))
-            .header("Content-Type", "application/json")
-            .POST(HttpRequest.BodyPublishers.ofString(slackPayload))
-            .build();
-
-        // Propagate transport failures AND non-2xx responses as exceptions so dispatch() records lastError.
-        try {
-            HttpResponse<String> httpResponse = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            int statusCode = httpResponse.statusCode();
-
-            if (statusCode >= 400) {
-                throw new IllegalStateException(
-                    "Slack notification to " + webhookUrl + " returned HTTP " + statusCode + ": "
-                        + httpResponse.body());
-            }
-        } catch (IOException ioException) {
-            throw new IllegalStateException("Failed to send Slack notification to " + webhookUrl, ioException);
-        } catch (InterruptedException interruptedException) {
-            Thread.currentThread()
-                .interrupt();
-
-            throw new IllegalStateException(
-                "Slack notification to " + webhookUrl + " interrupted", interruptedException);
-        }
+        // Slack incoming webhooks are plain unsigned JSON POSTs; the shared client still applies SSRF validation and
+        // maps transport/non-2xx failures to exceptions so dispatch() records lastError.
+        webhookNotificationClient
+            .deliver(WebhookDeliveryRequest.of(webhookUrl, "ai-observability.alert", slackPayload));
     }
 
     /**

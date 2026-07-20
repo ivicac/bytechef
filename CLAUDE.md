@@ -722,6 +722,25 @@ cd cli
   Design + phased plan (cost calculation, alert rules, Bucket4j rate limiting, Atlas admission
   gate): `docs/superpowers/specs/2026-07-20-plan-limits-cost-alerts-design.md`.
 
+## Notification delivery (central point)
+
+- All notification transports live in CE `server/libs/platform/platform-notification/platform-notification-delivery`:
+  `WebhookNotificationClient` (SSRF-validated via commons-util `UrlValidator` — loopback/private hosts
+  are rejected, so tests can't use a local HTTP server; standard `X-ByteChef-Event/Timestamp/Delivery`
+  headers; optional HMAC `X-ByteChef-Signature: t=<ts>,v1=hex(HMAC-SHA256(secret, "<ts>.<body>"))`;
+  non-2xx → `WebhookDeliveryException`) and `EmailNotificationClient` (optional `JavaMailSender`,
+  sync, throws on SMTP failure so alerting callers can record per-channel `lastError`).
+- Consumers: CE `WebhookNotificationSender` (job-status webhook channel; settings keys `webhook` +
+  optional `webhookSecret`), payload shaped by `JobStatusWebhookNotificationHandler` in
+  platform-coordinator; EE `AiObservabilityNotificationDispatcher` (delegates webhook/Slack/email
+  mechanics, keeps channel config parsing + lastError bookkeeping). CE job-status EMAIL stays on the
+  async templated `MailService` (same underlying `JavaMailSender`).
+- The job-status trigger path is unchanged: `JobStatusApplicationEvent` → platform-coordinator
+  `NotificationJobStatusApplicationEventListener` → sender/handler registries. Never add notification
+  logic under `server/libs/atlas/` — the engine stays notification-agnostic (hard requirement).
+- The listener warn-skips event/channel combos with no sender or handler (don't NPE the fan-out).
+  JOB_CANCELLED is seeded but unfireable (`Job.Status` has no CANCELLED value).
+
 ## Public URL Signing
 
 - `/file-entries/{id}/content` is intentionally unauthenticated (serves webhook outputs to anonymous callers). As of the 2026-05-18 signing rollout, the preferred form is an HMAC-SHA256 signed token (`v1.<exp>.<payload>.<sig>`) minted via `FileEntryTokens.toSignedToken`. Legacy unsigned `FileEntry.toId()` IDs are still accepted while `bytechef.file-storage.signed-url.required=false` (default).
