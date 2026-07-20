@@ -350,6 +350,28 @@ describe('useWorkflowTestStream', () => {
         expect(mockSetWorkflowTestNodeState).toHaveBeenCalledWith('task_1', {status: 'COMPLETED'});
     });
 
+    it('should compute duration for task_completed event with dates', () => {
+        renderHook(() => useWorkflowTestStream({workflowId: 'workflow-123'}));
+
+        /* eslint-disable @typescript-eslint/no-explicit-any */
+        const eventHandlers = (useSSE as any).mock.calls[0][1].eventHandlers;
+
+        act(() => {
+            eventHandlers.task_completed({
+                endDate: '2026-07-20T10:00:01.250Z',
+                name: 'task_1',
+                startDate: '2026-07-20T10:00:00.000Z',
+                status: 'COMPLETED',
+                taskExecutionId: '10',
+            });
+        });
+
+        expect(mockSetWorkflowTestNodeState).toHaveBeenCalledWith('task_1', {
+            durationMillis: 1250,
+            status: 'COMPLETED',
+        });
+    });
+
     it('should handle task_completed event with failed status', () => {
         renderHook(() => useWorkflowTestStream({workflowId: 'workflow-123'}));
 

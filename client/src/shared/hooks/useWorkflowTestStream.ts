@@ -18,10 +18,27 @@ export interface UseWorkflowTestStreamProps {
 }
 
 interface TaskLifecyclePayloadI {
+    endDate?: string;
     error?: string;
     name?: string;
+    startDate?: string;
     status?: string;
     taskExecutionId?: string;
+}
+
+function computeDurationMillis(startDate?: string, endDate?: string): number | undefined {
+    if (!startDate || !endDate) {
+        return undefined;
+    }
+
+    const startMillis = Date.parse(startDate);
+    const endMillis = Date.parse(endDate);
+
+    if (Number.isNaN(startMillis) || Number.isNaN(endMillis) || endMillis < startMillis) {
+        return undefined;
+    }
+
+    return endMillis - startMillis;
 }
 
 function parseTaskLifecyclePayload(data: unknown): TaskLifecyclePayloadI | undefined {
@@ -173,7 +190,10 @@ export function useWorkflowTestStream({
                 const payload = parseTaskLifecyclePayload(data);
 
                 if (payload?.name) {
+                    const durationMillis = computeDurationMillis(payload.startDate, payload.endDate);
+
                     setWorkflowTestNodeState(payload.name, {
+                        ...(durationMillis != null && {durationMillis}),
                         status: payload.status === 'FAILED' ? 'FAILED' : 'COMPLETED',
                     });
                 }

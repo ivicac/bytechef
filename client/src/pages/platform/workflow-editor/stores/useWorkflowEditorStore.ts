@@ -6,6 +6,7 @@ import {create} from 'zustand';
 import {devtools} from 'zustand/middleware';
 
 export interface WorkflowTestNodeStateI {
+    durationMillis?: number;
     error?: string;
     status: 'RUNNING' | 'COMPLETED' | 'FAILED';
 }

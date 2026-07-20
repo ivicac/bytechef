@@ -43,6 +43,21 @@ import styles from './NodeTypes.module.css';
 type EffectiveDirectionType = Parameters<typeof mapHandlePosition>[1];
 type NodePositionType = {x: number; y: number} | undefined;
 
+function formatTestNodeDuration(durationMillis: number): string {
+    if (durationMillis < 1000) {
+        return `${durationMillis}ms`;
+    }
+
+    if (durationMillis < 60000) {
+        return `${(durationMillis / 1000).toFixed(1)}s`;
+    }
+
+    const minutes = Math.floor(durationMillis / 60000);
+    const seconds = Math.round((durationMillis % 60000) / 1000);
+
+    return `${minutes}m ${seconds}s`;
+}
+
 interface WorkflowNodeContentProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'id'> {
     clusterElementTypesCount: number;
     data: NodeDataType;
@@ -219,6 +234,12 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                                 {testNodeState.status === 'COMPLETED' && <CheckIcon className="!size-3.5" />}
 
                                 {testNodeState.status === 'FAILED' && <XIcon className="!size-3.5" />}
+                            </span>
+                        )}
+
+                        {testNodeState?.durationMillis != null && testNodeState.status !== 'RUNNING' && (
+                            <span className="absolute -bottom-2.5 left-1/2 z-10 -translate-x-1/2 rounded-full border border-stroke-neutral-tertiary bg-surface-neutral-primary px-1.5 text-xs leading-4 text-content-neutral-secondary">
+                                {formatTestNodeDuration(testNodeState.durationMillis)}
                             </span>
                         )}
 
