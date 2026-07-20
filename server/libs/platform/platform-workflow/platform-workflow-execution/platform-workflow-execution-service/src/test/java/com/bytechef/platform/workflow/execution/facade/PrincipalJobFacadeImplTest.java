@@ -79,7 +79,7 @@ class PrincipalJobFacadeImplTest {
 
         PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
             principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
-            emptyObjectProvider(), emptyObjectProvider());
+            emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider());
 
         long result = facade.createPrincipalLinkedJob(referenceJobId, jobParametersDTO, PlatformType.AUTOMATION);
 
@@ -103,7 +103,7 @@ class PrincipalJobFacadeImplTest {
 
         PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
             principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
-            emptyObjectProvider(), emptyObjectProvider());
+            emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider());
 
         IllegalStateException exception = assertThrows(
             IllegalStateException.class,

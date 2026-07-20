@@ -352,6 +352,10 @@ Original design sketch (rule model reuses the existing trigger path):
      `/api/automation/v1/**` + `/api/embedded/v1/**` → api tier per tenant; anonymous
      `/api/**` → per-IP preauth using the sync tier. Null limit (SELF_HOSTED) → pass;
      reject → 429 + `Retry-After: 60`.
+   - Async submission rate: `PrincipalJobFacadeImpl.createJob` consumes the per-tenant
+     `async:<tenant>` bucket (`asyncRequestsPerMinute` × burst) BEFORE acquiring a
+     concurrency slot (a rate-rejected submission must never leak a slot), throwing
+     `JobRateLimitExceededException` when exhausted.
    - `ConcurrentExecutionGate`: per-tenant in-flight slots. Acquired in
      `PrincipalJobFacadeImpl.createJob` (async admission ONLY — the sync
      `createJobWithoutDispatch` path is deliberately ungated to avoid slot leaks, since

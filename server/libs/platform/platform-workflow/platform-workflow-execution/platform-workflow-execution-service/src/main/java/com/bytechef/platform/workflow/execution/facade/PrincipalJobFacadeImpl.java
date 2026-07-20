@@ -22,9 +22,13 @@ import com.bytechef.atlas.execution.dto.JobParametersDTO;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.plan.domain.PlanLimits;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.ratelimit.ConcurrentExecutionGate;
+import com.bytechef.platform.ratelimit.RateLimitPolicy;
+import com.bytechef.platform.ratelimit.RateLimiter;
 import com.bytechef.platform.workflow.execution.exception.JobConcurrencyLimitExceededException;
+import com.bytechef.platform.workflow.execution.exception.JobRateLimitExceededException;
 import com.bytechef.platform.workflow.execution.service.LicenceJobUsageService;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import com.bytechef.tenant.TenantContext;
@@ -52,13 +56,15 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
     private final LicenceJobUsageService licenceJobUsageService;
     private final ObjectProvider<ConcurrentExecutionGate> concurrentExecutionGateProvider;
     private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
+    private final ObjectProvider<RateLimiter> rateLimiterObjectProvider;
 
     @SuppressFBWarnings("EI")
     public PrincipalJobFacadeImpl(
         PrincipalJobService principalJobService, JobFacade jobFacade, JobService jobService,
         WorkflowService workflowService, LicenceJobUsageService licenceJobUsageService,
         ObjectProvider<ConcurrentExecutionGate> concurrentExecutionGateProvider,
-        ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider) {
+        ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
+        ObjectProvider<RateLimiter> rateLimiterObjectProvider) {
 
         this.principalJobService = principalJobService;
         this.jobFacade = jobFacade;
@@ -67,6 +73,7 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         this.licenceJobUsageService = licenceJobUsageService;
         this.concurrentExecutionGateProvider = concurrentExecutionGateProvider;
         this.planLimitsProviderObjectProvider = planLimitsProviderObjectProvider;
+        this.rateLimiterObjectProvider = rateLimiterObjectProvider;
     }
 
     /**
@@ -98,6 +105,36 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         }
     }
 
+    /**
+     * Plan-level async submissions-per-minute admission (Sim model: sustained rate x burst multiplier, token bucket).
+     * Checked BEFORE the concurrency slot so a rate-rejected submission never acquires a slot it would then leak. No
+     * limiter/provider bean or a null limit (the SELF_HOSTED default) admits unconditionally.
+     */
+    private void admitAsyncSubmissionRate() {
+        RateLimiter rateLimiter = rateLimiterObjectProvider.getIfAvailable();
+        PlanLimitsProvider planLimitsProvider = planLimitsProviderObjectProvider.getIfAvailable();
+
+        if (rateLimiter == null || planLimitsProvider == null) {
+            return;
+        }
+
+        String tenantId = TenantContext.getCurrentTenantId();
+
+        PlanLimits planLimits = planLimitsProvider.getPlanLimits(tenantId);
+
+        Integer asyncRequestsPerMinute = planLimits.asyncRequestsPerMinute();
+
+        if (asyncRequestsPerMinute == null) {
+            return;
+        }
+
+        RateLimitPolicy rateLimitPolicy = new RateLimitPolicy(asyncRequestsPerMinute, planLimits.burstMultiplier());
+
+        if (!rateLimiter.tryConsume("async:" + tenantId, rateLimitPolicy)) {
+            throw new JobRateLimitExceededException(asyncRequestsPerMinute);
+        }
+    }
+
     @Override
     public long createChildJob(long parentJobId, JobParametersDTO jobParametersDTO, PlatformType platformType) {
         long childJobId = jobFacade.createJob(jobParametersDTO);
@@ -120,6 +157,7 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
     public long createJob(JobParametersDTO jobParametersDTO, long jobPrincipalId, PlatformType type) {
         licenceJobUsageService.consumeOrThrow();
 
+        admitAsyncSubmissionRate();
         admitConcurrentExecution();
 
         long jobId = jobFacade.createJob(jobParametersDTO);
