@@ -284,8 +284,9 @@ Extend `platform-notification` with Sim's rule model, reusing the existing trigg
   5s/15s/60s/3m/10m) is a documented extension inside the delivery client.
 - **Fixes rolled in**: JOB_STOPPED now has email message keys and both handlers cover
   it; the listener skips (with a warning) event/channel combinations that lack a
-  sender or handler instead of NPE-ing. JOB_CANCELLED remains seeded but unfireable
-  (Job.Status has no CANCELLED) — removal needs a data migration, deferred.
+  sender or handler instead of NPE-ing. JOB_CANCELLED now fires: Job.Status
+  gained an append-only CANCELLED value, set when a job is stopped while still CREATED
+  (never started); STOPPED remains the mid-run interruption status.
 
 ## 9. Build order and effort
 

@@ -752,7 +752,8 @@ cd cli
   `NotificationJobStatusApplicationEventListener` → sender/handler registries. Never add notification
   logic under `server/libs/atlas/` — the engine stays notification-agnostic (hard requirement).
 - The listener warn-skips event/channel combos with no sender or handler (don't NPE the fan-out).
-  JOB_CANCELLED is seeded but unfireable (`Job.Status` has no CANCELLED value).
+  JOB_CANCELLED fires when a job is stopped while still CREATED (never started) — `Job.Status.CANCELLED`
+  is appended at the enum end (INT-ordinal persisted); STOPPED remains the mid-run interruption status.
 
 ## Public URL Signing
 

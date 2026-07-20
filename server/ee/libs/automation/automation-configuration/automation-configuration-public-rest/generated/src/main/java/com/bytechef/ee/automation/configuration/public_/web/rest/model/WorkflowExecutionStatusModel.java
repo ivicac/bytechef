@@ -29,6 +29,8 @@ public enum WorkflowExecutionStatusModel {
   
   STOPPED("STOPPED"),
   
+  CANCELLED("CANCELLED"),
+  
   FAILED("FAILED"),
   
   COMPLETED("COMPLETED");
