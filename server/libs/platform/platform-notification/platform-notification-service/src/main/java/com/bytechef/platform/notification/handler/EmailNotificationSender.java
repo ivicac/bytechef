@@ -16,24 +16,18 @@
 
 package com.bytechef.platform.notification.handler;
 
-import com.bytechef.platform.notification.delivery.EmailNotificationClient;
+import com.bytechef.platform.mail.MailService;
 import com.bytechef.platform.notification.domain.Notification;
-import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 /**
- * Delivers EMAIL-channel notifications through the shared {@link EmailNotificationClient} — the same transport the EE
- * AI-observability alert channels use, keeping {@code MailService} exclusively for user-account mail (activation,
- * invitation, password reset). Plain-text only. Settings: {@code email} (recipient address, required).
- *
- * <p>
- * Delivery is {@code @Async} fire-and-forget (matching the previous MailService behavior) so SMTP latency never blocks
- * the coordinator's event consumer thread; failures are logged with the notification id.
- * </p>
+ * Delivers EMAIL-channel notifications through {@link MailService} — the single email path for everything the platform
+ * sends (user-account mail and notifications alike). {@code MailService.sendEmail} is already {@code @Async} and
+ * warn-skips when no mail host is configured, so no extra async or error plumbing is needed here. Settings:
+ * {@code email} (recipient address, required).
  *
  * @author Matija Petanjek
  * @author Ivica Cardic
@@ -43,10 +37,10 @@ public class EmailNotificationSender implements NotificationSender<EmailNotifica
 
     private static final Logger log = LoggerFactory.getLogger(EmailNotificationSender.class);
 
-    private final EmailNotificationClient emailNotificationClient;
+    private final MailService mailService;
 
-    public EmailNotificationSender(EmailNotificationClient emailNotificationClient) {
-        this.emailNotificationClient = emailNotificationClient;
+    public EmailNotificationSender(MailService mailService) {
+        this.mailService = mailService;
     }
 
     @Override
@@ -54,7 +48,6 @@ public class EmailNotificationSender implements NotificationSender<EmailNotifica
         return Notification.Type.EMAIL;
     }
 
-    @Async
     @Override
     public void send(
         Notification notification, EmailNotificationHandler emailNotificationHandler,
@@ -70,12 +63,9 @@ public class EmailNotificationSender implements NotificationSender<EmailNotifica
             return;
         }
 
-        try {
-            emailNotificationClient.send(
-                List.of(email), emailNotificationHandler.getSubject(notificationHandlerContext),
-                emailNotificationHandler.getContent(notificationHandlerContext));
-        } catch (RuntimeException exception) {
-            log.error("Failed to deliver email notification {}", notification.getId(), exception);
-        }
+        mailService.sendEmail(
+            email, emailNotificationHandler.getSubject(notificationHandlerContext),
+            emailNotificationHandler.getContent(notificationHandlerContext), false,
+            emailNotificationHandler.isHtml());
     }
 }

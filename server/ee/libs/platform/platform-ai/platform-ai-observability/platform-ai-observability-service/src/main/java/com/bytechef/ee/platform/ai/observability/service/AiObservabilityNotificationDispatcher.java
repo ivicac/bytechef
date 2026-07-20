@@ -17,7 +17,6 @@ import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityAlertRule
 import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityNotificationChannel;
 import com.bytechef.ee.platform.ai.observability.repository.AiObservabilityNotificationChannelRepository;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
-import com.bytechef.platform.notification.delivery.EmailNotificationClient;
 import com.bytechef.platform.notification.delivery.SlackNotificationClient;
 import com.bytechef.platform.notification.delivery.WebhookDeliveryRequest;
 import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
@@ -31,7 +30,11 @@ import java.util.Map;
 import java.util.Set;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Service;
 
 /**
@@ -46,17 +49,20 @@ public class AiObservabilityNotificationDispatcher {
     private static final Logger log = LoggerFactory.getLogger(AiObservabilityNotificationDispatcher.class);
 
     private final AiObservabilityNotificationChannelRepository aiObservabilityNotificationChannelRepository;
-    private final EmailNotificationClient emailNotificationClient;
+    private final JavaMailSender javaMailSender;
+    private final String mailFrom;
     private final SlackNotificationClient slackNotificationClient;
     private final WebhookNotificationClient webhookNotificationClient;
 
     AiObservabilityNotificationDispatcher(
         AiObservabilityNotificationChannelRepository aiObservabilityNotificationChannelRepository,
-        EmailNotificationClient emailNotificationClient, SlackNotificationClient slackNotificationClient,
-        WebhookNotificationClient webhookNotificationClient) {
+        @Autowired(required = false) JavaMailSender javaMailSender,
+        @Value("${spring.mail.username:no-reply@bytechef.io}") String mailFrom,
+        SlackNotificationClient slackNotificationClient, WebhookNotificationClient webhookNotificationClient) {
 
         this.aiObservabilityNotificationChannelRepository = aiObservabilityNotificationChannelRepository;
-        this.emailNotificationClient = emailNotificationClient;
+        this.javaMailSender = javaMailSender;
+        this.mailFrom = mailFrom;
         this.slackNotificationClient = slackNotificationClient;
         this.webhookNotificationClient = webhookNotificationClient;
     }
@@ -195,6 +201,14 @@ public class AiObservabilityNotificationDispatcher {
         AiObservabilityNotificationChannel notificationChannel,
         AiObservabilityAlertRule alertRule, AiObservabilityAlertEvent alertEvent) {
 
+        if (javaMailSender == null) {
+            log.warn(
+                "JavaMailSender is not configured; skipping email notification for alert rule '{}'",
+                alertRule.getName());
+
+            return;
+        }
+
         Map<String, Object> config = parseChannelConfig(notificationChannel);
 
         List<String> recipients = new ArrayList<>();
@@ -228,25 +242,43 @@ public class AiObservabilityNotificationDispatcher {
             }
         }
 
+        if (recipients.isEmpty()) {
+            log.warn(
+                "No email recipients configured for notification channel {} (alert rule '{}')",
+                notificationChannel.getId(), alertRule.getName());
+
+            return;
+        }
+
         boolean resolved = alertEvent.getStatus() == AiObservabilityAlertEventStatus.RESOLVED;
         String subjectPrefix = resolved ? "[ByteChef Alert RESOLVED]" : "[ByteChef Alert]";
 
-        // The shared client warn-skips when no JavaMailSender/recipients are configured and throws on SMTP failure so
-        // dispatch() records lastError — the same semantics the inline JavaMailSender code had.
-        emailNotificationClient.send(
-            recipients,
-            String.format("%s %s", subjectPrefix, alertRule.getName()),
-            String.format(
-                "Alert: %s%nStatus: %s%n%nMessage: %s%nTriggered value: %s%nThreshold: %s%nMetric: %s%nTimestamp: %s%n",
-                alertRule.getName(),
-                alertEvent.getStatus()
-                    .name(),
-                alertEvent.getMessage(),
-                alertEvent.getTriggeredValue(),
-                alertRule.getThreshold(),
-                alertRule.getMetric()
-                    .name(),
-                Instant.now()));
+        SimpleMailMessage message = new SimpleMailMessage();
+
+        message.setFrom(mailFrom);
+        message.setTo(recipients.toArray(new String[0]));
+        message.setSubject(String.format("%s %s", subjectPrefix, alertRule.getName()));
+        message.setText(String.format(
+            "Alert: %s%nStatus: %s%n%nMessage: %s%nTriggered value: %s%nThreshold: %s%nMetric: %s%nTimestamp: %s%n",
+            alertRule.getName(),
+            alertEvent.getStatus()
+                .name(),
+            alertEvent.getMessage(),
+            alertEvent.getTriggeredValue(),
+            alertRule.getThreshold(),
+            alertRule.getMetric()
+                .name(),
+            Instant.now()));
+
+        // Propagate MailException so dispatch()'s catch records lastError — an SMTP rejection must not silently
+        // drop the notification while the channel stays marked healthy.
+        try {
+            javaMailSender.send(message);
+        } catch (org.springframework.mail.MailException mailException) {
+            throw new IllegalStateException(
+                "Failed to send email notification to " + recipients + " for alert rule '" + alertRule.getName() + "'",
+                mailException);
+        }
     }
 
     @SuppressWarnings("unchecked")

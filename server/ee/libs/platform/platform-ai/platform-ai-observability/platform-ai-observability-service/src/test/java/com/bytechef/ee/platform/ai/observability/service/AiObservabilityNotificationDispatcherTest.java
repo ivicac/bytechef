@@ -21,7 +21,6 @@ import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityAlertRule
 import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityNotificationChannel;
 import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityNotificationChannelType;
 import com.bytechef.ee.platform.ai.observability.repository.AiObservabilityNotificationChannelRepository;
-import com.bytechef.platform.notification.delivery.EmailNotificationClient;
 import com.bytechef.platform.notification.delivery.SlackNotificationClient;
 import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
@@ -35,6 +34,8 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
 
 /**
  * Unit tests for channel-dispatch behavior of {@link AiObservabilityNotificationDispatcher}. Webhook-delivery is
@@ -54,7 +55,7 @@ class AiObservabilityNotificationDispatcherTest {
     private AiObservabilityNotificationChannelRepository aiObservabilityNotificationChannelRepository;
 
     @Mock
-    private EmailNotificationClient emailNotificationClient;
+    private JavaMailSender javaMailSender;
 
     @Mock
     private SlackNotificationClient slackNotificationClient;
@@ -67,8 +68,8 @@ class AiObservabilityNotificationDispatcherTest {
     @BeforeEach
     void setUp() {
         aiObservabilityNotificationDispatcher = new AiObservabilityNotificationDispatcher(
-            aiObservabilityNotificationChannelRepository, emailNotificationClient, slackNotificationClient,
-            webhookNotificationClient);
+            aiObservabilityNotificationChannelRepository, javaMailSender, "no-reply@example.com",
+            slackNotificationClient, webhookNotificationClient);
     }
 
     @Test
@@ -86,7 +87,7 @@ class AiObservabilityNotificationDispatcherTest {
 
         aiObservabilityNotificationDispatcher.dispatch(rule, event);
 
-        verify(emailNotificationClient, never()).send(any(), any(), any());
+        verify(javaMailSender, never()).send(any(SimpleMailMessage.class));
         // Save should NOT be invoked — no prior lastError to clear, and no new failure to persist.
         verify(aiObservabilityNotificationChannelRepository, never()).save(any());
     }
@@ -110,7 +111,7 @@ class AiObservabilityNotificationDispatcherTest {
         assertThat(channel.getLastError()).isNull();
         assertThat(channel.getLastErrorDate()).isNull();
 
-        verify(emailNotificationClient).send(any(), any(), any());
+        verify(javaMailSender).send(any(SimpleMailMessage.class));
         verify(aiObservabilityNotificationChannelRepository).save(channel);
     }
 

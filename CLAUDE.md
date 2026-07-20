@@ -733,21 +733,30 @@ cd cli
   `AiObservabilityNotificationChannel` table is legacy in this respect and migrates onto
   `Notification` during the alert-rules build (needs workspace scoping on Notification first).
 
-- All notification transports live in CE `server/libs/platform/platform-notification/platform-notification-delivery`:
-  `WebhookNotificationClient` (SSRF-validated via commons-util `UrlValidator` — loopback/private hosts
-  are rejected, so tests can't use a local HTTP server; standard `X-ByteChef-Event/Timestamp/Delivery`
-  headers; optional HMAC `X-ByteChef-Signature: t=<ts>,v1=hex(HMAC-SHA256(secret, "<ts>.<body>"))`;
-  non-2xx → `WebhookDeliveryException`), `SlackNotificationClient` (incoming-webhook transport —
-  owns the `{"text": ...}` payload shape and delegates to the webhook client; callers pass final
-  message text only), and `EmailNotificationClient` (optional `JavaMailSender`, sync, throws on
-  SMTP failure so alerting callers can record per-channel `lastError`).
+- Webhook + Slack transports live in CE `server/libs/platform/platform-notification/platform-notification-delivery`:
+  `WebhookNotificationClient` is THE single outbound-webhook transport (one `RestTemplate`, one Spring
+  core `RetryTemplate`/`ExponentialBackOff` retry mechanism). Two entry points: `deliver(request[, retry])`
+  for admin-configured notification webhooks — SSRF-validated via commons-util `UrlValidator`
+  (loopback/private hosts rejected, so tests can't use a local HTTP server), standard
+  `X-ByteChef-Event/Timestamp/Delivery` headers, optional HMAC
+  `X-ByteChef-Signature: t=<ts>,v1=hex(HMAC-SHA256(secret, "<ts>.<body>"))` — and
+  `deliverEvent(url, payload, retry)` for Atlas per-job callback webhooks (`Job.getWebhooks()`), which
+  keeps the pre-existing contract: NO SSRF validation (authenticated API callers may target internal
+  hosts) and message-converter payload serialization. Non-2xx / exhausted retries →
+  `WebhookDeliveryException`. `SlackNotificationClient` (incoming-webhook transport) owns the
+  `{"text": ...}` payload shape and delegates to the webhook client.
+- Email: there is NO separate email transport — `MailService` (platform-mail, `@Async`, warn-skips when
+  no mail host configured) is the single email path for everything, user-account mail and notification
+  email alike. `EmailNotificationSender` calls `mailService.sendEmail(...)` directly. Exception: the EE
+  `AiObservabilityNotificationDispatcher` keeps its inline optional-`JavaMailSender` alert email
+  (needs sync throw semantics for per-channel `lastError` bookkeeping) until its channels migrate onto
+  `Notification` in the phase-3 alert-rules build.
 - Consumers: CE `WebhookNotificationSender` (job-status webhook channel; settings keys `webhook` +
-  optional `webhookSecret`), payload shaped by `JobStatusWebhookNotificationHandler` in
-  platform-coordinator; EE `AiObservabilityNotificationDispatcher` (delegates webhook/Slack/email
-  mechanics, keeps channel config parsing + lastError bookkeeping). All three senders are `@Async` with
-  per-notification failure logging so slow SMTP/webhook endpoints never block the coordinator's
-  event consumer thread. `MailService` (platform-mail) is reserved for templated user-account mail
-  (activation, invitation, password reset) — notification email does NOT go through it.
+  optional `webhookSecret`, `@Async`), payload shaped by `JobStatusWebhookNotificationHandler` in
+  platform-coordinator; platform-coordinator's `WebhookJobStatusApplicationEventListener` delegates the
+  Atlas job-callback delivery to `deliverEvent` with the `Job.Retry` schedule (defaults: 5 attempts,
+  2s initial interval, 2.0 multiplier); EE `AiObservabilityNotificationDispatcher` (delegates
+  webhook/Slack mechanics, keeps channel config parsing + lastError bookkeeping).
 - The job-status trigger path is unchanged: `JobStatusApplicationEvent` → platform-coordinator
   `NotificationJobStatusApplicationEventListener` → sender/handler registries. Never add notification
   logic under `server/libs/atlas/` — the engine stays notification-agnostic (hard requirement).

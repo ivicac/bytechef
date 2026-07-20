@@ -257,31 +257,42 @@ Extend `platform-notification` with Sim's rule model, reusing the existing trigg
   (same listener family as `NotificationJobStatusApplicationEventListener`), reading
   duration from the job row and cost from phase 2's `workflow_execution_cost`;
   NO_ACTIVITY via a scheduled poll. Rate rules need ≥5 runs in window (Sim semantics).
-- **Delivery — one central point (requirement)**: all notification transports live in
-  the CE `platform-notification-delivery` module — `WebhookNotificationClient` (SSRF
-  validation via commons-util `UrlValidator`, standard `X-ByteChef-Event/Timestamp/
-  Delivery` headers, optional Sim-compatible HMAC signature
+- **Delivery — one central point (requirement)**: webhook + Slack transports live in
+  the CE `platform-notification-delivery` module. `WebhookNotificationClient` is the
+  single outbound-webhook transport — one `RestTemplate`, one Spring core
+  `RetryTemplate`/`ExponentialBackOff` retry mechanism (the mechanics that previously
+  lived inline in the Atlas job-callback listener). Entry points: `deliver(request[,
+  retry])` for admin-configured notification webhooks (SSRF validation via commons-util
+  `UrlValidator`, standard `X-ByteChef-Event/Timestamp/Delivery` headers, optional
+  Sim-compatible HMAC signature
   `X-ByteChef-Signature: t=<ts>,v1=hex(HMAC-SHA256(secret, "<ts>.<body>"))`, non-2xx →
-  typed exception), `SlackNotificationClient` (incoming-webhook transport owning the
-  payload shape; callers pass message text only), and `EmailNotificationClient`
-  (optional `JavaMailSender`, sync, throws on SMTP failure so callers can record
-  channel errors). **`platform-notification` is the central registry for notifications
-  AND channels**: `Notification.Type` carries every channel first-class (`EMAIL`,
-  `WEBHOOK`, `SLACK`, ordinal append-only) with a sender+handler pair per type, so
-  phase-3 alert rules attach to `Notification` rows as their delivery targets rather
-  than defining channel entities of their own; the EE
+  typed exception) and `deliverEvent(url, payload, retry)` for the Atlas per-job
+  callback webhooks (`Job.getWebhooks()` — no SSRF, converter-serialized payload,
+  pre-existing contract preserved); `WebhookJobStatusApplicationEventListener`
+  (platform-coordinator) delegates here with the job's `Job.Retry` schedule (defaults 5
+  attempts / 2 s initial / 2.0 multiplier) instead of owning its own RestTemplate.
+  `SlackNotificationClient` (incoming-webhook transport owning the payload shape;
+  callers pass message text only) delegates to the webhook client. **Email is NOT a
+  separate transport**: the async templated `MailService` (platform-mail) is the single
+  email path for user-account mail and notification email alike —
+  `EmailNotificationSender` calls `mailService.sendEmail(...)` directly. The EE
+  `AiObservabilityNotificationDispatcher` keeps its inline optional-`JavaMailSender`
+  alert email (sync throw semantics feed per-channel `lastError`) until its channels
+  migrate onto `Notification`. **`platform-notification` is the central registry for
+  notifications AND channels**: `Notification.Type` carries every channel first-class
+  (`EMAIL`, `WEBHOOK`, `SLACK`, ordinal append-only) with a sender+handler pair per
+  type, so phase-3 alert rules attach to `Notification` rows as their delivery targets
+  rather than defining channel entities of their own; the EE
   `AiObservabilityNotificationChannel` table migrates onto `Notification` in that
   build (prerequisite: workspace scoping on `Notification`, which the alert-rules
-  schema needs anyway). Other consumers: the CE
-  `WebhookNotificationSender` (job-status webhook channel — previously a no-op stub, now
-  real, with `webhookSecret` in settings + UI), the CE `EmailNotificationSender` (kept
-  on the async templated `MailService`, which wraps the same `JavaMailSender`), and the
-  EE `AiObservabilityNotificationDispatcher` (refactored to delegate webhook/Slack/email
+  schema needs anyway). Other consumers: the CE `WebhookNotificationSender` (job-status
+  webhook channel — previously a no-op stub, now real, with `webhookSecret` in settings
+  + UI) and the EE `AiObservabilityNotificationDispatcher` (delegates webhook/Slack
   mechanics to the clients while keeping its channel config + lastError bookkeeping).
   Phase-3 alert rules deliver through the same clients. **No atlas change**: the trigger
   path stays `JobStatusApplicationEvent` → platform-coordinator listener → sender
   registry; nothing under `server/libs/atlas/` is touched. Retry schedule (Sim's
-  5s/15s/60s/3m/10m) is a documented extension inside the delivery client.
+  5s/15s/60s/3m/10m) maps onto the client's `WebhookRetry` record.
 - **Fixes rolled in**: JOB_STOPPED now has email message keys and both handlers cover
   it; the listener skips (with a warning) event/channel combinations that lack a
   sender or handler instead of NPE-ing. JOB_CANCELLED now fires: Job.Status

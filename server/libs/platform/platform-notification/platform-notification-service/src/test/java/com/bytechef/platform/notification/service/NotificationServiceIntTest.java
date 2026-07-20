@@ -19,8 +19,8 @@ package com.bytechef.platform.notification.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.platform.mail.MailService;
 import com.bytechef.platform.notification.config.PlatformNotificationIntTestConfiguration;
-import com.bytechef.platform.notification.delivery.EmailNotificationClient;
 import com.bytechef.platform.notification.domain.Notification;
 import com.bytechef.platform.notification.domain.NotificationEvent;
 import com.bytechef.platform.notification.repository.NotificationRepository;
@@ -39,7 +39,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 public class NotificationServiceIntTest {
 
     @MockitoBean
-    private EmailNotificationClient emailNotificationClient;
+    private MailService mailService;
 
     @Autowired
     private NotificationService notificationService;
