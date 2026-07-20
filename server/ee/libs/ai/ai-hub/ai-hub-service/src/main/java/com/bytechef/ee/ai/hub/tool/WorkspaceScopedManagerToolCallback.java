@@ -40,21 +40,22 @@ import tools.jackson.databind.json.JsonMapper;
  */
 public class WorkspaceScopedManagerToolCallback implements ToolCallback {
 
-    private static final String INPUT_SCHEMA = """
-        {
-            "type": "object",
-            "properties": {
-                "request": {
-                    "type": "string",
-                    "description": "The task for the specialist, plus any ids or decisions already resolved."
+    private static final String INPUT_SCHEMA =
+        """
+            {
+                "type": "object",
+                "properties": {
+                    "request": {
+                        "type": "string",
+                        "description": "The task for the specialist, plus any ids or decisions already resolved."
+                    },
+                    "workspaceId": {
+                        "type": "integer",
+                        "description": "Target workspace id. Optional when the account has exactly one workspace; otherwise required — an error response lists the candidates."
+                    }
                 },
-                "workspaceId": {
-                    "type": "integer",
-                    "description": "Target workspace id. Optional when the account has exactly one workspace; otherwise required — an error response lists the candidates."
-                }
-            },
-            "required": ["request"]
-        }""";
+                "required": ["request"]
+            }""";
 
     private final ManagerSubAgentToolCallback delegate;
     private final WorkspaceService workspaceService;

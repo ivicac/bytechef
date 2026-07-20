@@ -35,6 +35,8 @@ import tools.jackson.databind.json.JsonMapper;
  * inline path — mirroring exactly what the ai-hub class's 2-arg constructor already does.
  * </p>
  *
+ * @version ee
+ *
  * @author Ivica Cardic
  */
 public class QueryDataTableToolCallback implements ToolCallback {

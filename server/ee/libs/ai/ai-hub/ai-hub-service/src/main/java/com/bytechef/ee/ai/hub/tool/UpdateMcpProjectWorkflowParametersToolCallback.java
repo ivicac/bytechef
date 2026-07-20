@@ -27,12 +27,12 @@ import tools.jackson.databind.json.JsonMapper;
  * Spring AI {@link ToolCallback} that completes an attached MCP workflow's tool mapping: the {@code toolName} /
  * {@code toolDescription} shown to MCP clients plus the per-input parameter values, where a value may be a
  * {@code fromAi('name', 'TYPE', {description: ..., required: ...})} expression string marking an input the calling
- * agent must supply. The MCP server derives each tool's JSON input schema from these expressions at serve time, so
- * this mapping — not the workflow definition — is what shapes the tool contract.
+ * agent must supply. The MCP server derives each tool's JSON input schema from these expressions at serve time, so this
+ * mapping — not the workflow definition — is what shapes the tool contract.
  *
  * <p>
- * Merge semantics: the callback reads the existing parameter map and overlays only the supplied fields, so a
- * follow-up call that fixes one input does not wipe the rest. Authorization rides on
+ * Merge semantics: the callback reads the existing parameter map and overlays only the supplied fields, so a follow-up
+ * call that fixes one input does not wipe the rest. Authorization rides on
  * {@link McpProjectWorkflowService#updateParameters} ({@code MCP_EDIT} permission on the row).
  * </p>
  *
@@ -56,30 +56,31 @@ public class UpdateMcpProjectWorkflowParametersToolCallback implements ToolCallb
         changed — existing parameters are preserved. A workflow without a toolName is never served as a
         tool. Returns the updated mapping or {error: <message>} on failure.""";
 
-    private static final String INPUT_SCHEMA = """
-        {
-            "type": "object",
-            "properties": {
-                "mcpProjectWorkflowId": {
-                    "type": "integer",
-                    "description": "Numeric MCP project workflow id from listMcpProjectWorkflows"
+    private static final String INPUT_SCHEMA =
+        """
+            {
+                "type": "object",
+                "properties": {
+                    "mcpProjectWorkflowId": {
+                        "type": "integer",
+                        "description": "Numeric MCP project workflow id from listMcpProjectWorkflows"
+                    },
+                    "toolName": {
+                        "type": "string",
+                        "description": "Tool identifier exposed to MCP clients (snake_case, e.g. get_weather)"
+                    },
+                    "toolDescription": {
+                        "type": "string",
+                        "description": "Tool description exposed to MCP clients"
+                    },
+                    "parameters": {
+                        "type": "object",
+                        "description": "Per-input values keyed by input name; a value may be a fromAi(...) expression string",
+                        "additionalProperties": true
+                    }
                 },
-                "toolName": {
-                    "type": "string",
-                    "description": "Tool identifier exposed to MCP clients (snake_case, e.g. get_weather)"
-                },
-                "toolDescription": {
-                    "type": "string",
-                    "description": "Tool description exposed to MCP clients"
-                },
-                "parameters": {
-                    "type": "object",
-                    "description": "Per-input values keyed by input name; a value may be a fromAi(...) expression string",
-                    "additionalProperties": true
-                }
-            },
-            "required": ["mcpProjectWorkflowId"]
-        }""";
+                "required": ["mcpProjectWorkflowId"]
+            }""";
 
     private final McpProjectWorkflowService mcpProjectWorkflowService;
     private final JsonMapper jsonMapper = new JsonMapper();

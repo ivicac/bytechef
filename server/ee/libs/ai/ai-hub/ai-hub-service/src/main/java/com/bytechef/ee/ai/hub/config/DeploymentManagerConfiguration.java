@@ -40,9 +40,9 @@ import org.springframework.core.io.Resource;
  * </p>
  *
  * <p>
- * The {@link ManagerSubAgentToolCallback} is intentionally <em>not</em> a Spring bean. It is instantiated inline in
- * the ai_hub BUILD agent bean method (via {@link #createDeploymentManagerToolCallback}) so that it is registered only
- * on that agent.
+ * The {@link ManagerSubAgentToolCallback} is intentionally <em>not</em> a Spring bean. It is instantiated inline in the
+ * ai_hub BUILD agent bean method (via {@link #createDeploymentManagerToolCallback}) so that it is registered only on
+ * that agent.
  * </p>
  *
  * @version ee

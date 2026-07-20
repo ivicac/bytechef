@@ -20,10 +20,9 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Drops an entire data table (and, by cascade, all its rows) in the current environment. Irreversible — the caller
- * must confirm with the user first. Authorization is enforced by
- * {@link WorkspaceDataTableFacade#dropTable(long, long)} itself via
- * {@code @PreAuthorize hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')}.
+ * Drops an entire data table (and, by cascade, all its rows) in the current environment. Irreversible — the caller must
+ * confirm with the user first. Authorization is enforced by {@link WorkspaceDataTableFacade#dropTable(long, long)}
+ * itself via {@code @PreAuthorize hasPermission(#dataTableId, 'DataTable', 'DATA_TABLE_EDIT')}.
  *
  * @version ee
  *

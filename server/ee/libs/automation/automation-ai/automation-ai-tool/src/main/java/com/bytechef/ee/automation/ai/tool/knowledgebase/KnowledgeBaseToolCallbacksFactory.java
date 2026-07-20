@@ -20,8 +20,8 @@ import org.jspecify.annotations.Nullable;
 import org.springframework.ai.tool.ToolCallback;
 
 /**
- * Builds the Knowledge Base tool-callback lists shared by the Copilot agents and the AI Hub {@code knowledge_base_agent}
- * subagent. Read list feeds ASK; write list feeds BUILD.
+ * Builds the Knowledge Base tool-callback lists shared by the Copilot agents and the AI Hub
+ * {@code knowledge_base_agent} subagent. Read list feeds ASK; write list feeds BUILD.
  *
  * @author Ivica Cardic
  * @version ee
@@ -64,6 +64,7 @@ public class KnowledgeBaseToolCallbacksFactory {
     public List<ToolCallback> writeToolCallbacks() {
         List<ToolCallback> toolCallbacks = new ArrayList<>(readToolCallbacks());
 
+        toolCallbacks.add(new CreateKnowledgeBaseToolCallback(workspaceKnowledgeBaseFacade));
         toolCallbacks.add(
             new AddKnowledgeBaseDocumentToolCallback(
                 knowledgeBaseDocumentFacade, workspaceKnowledgeBaseFacade, artifactRecorder));

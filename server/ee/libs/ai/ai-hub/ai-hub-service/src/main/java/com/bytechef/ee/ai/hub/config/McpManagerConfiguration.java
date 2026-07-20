@@ -42,13 +42,13 @@ import org.springframework.core.io.Resource;
  * ({@code listMcpServers}, {@code createMcpServer}, {@code updateMcpServer}, {@code createMcpProject},
  * {@code cloneMcpProject}) plus the workflow tool-mapping tools ({@code listMcpProjectWorkflows},
  * {@code updateMcpProjectWorkflowParameters}) and the {@code prompt_mcp_manager.txt} system prompt, which carries the
- * fromAi authoring playbook. Its isolated context means the parent ai_hub BUILD agent never sees the setup transcript
- * — it only receives the final status summary.
+ * fromAi authoring playbook. Its isolated context means the parent ai_hub BUILD agent never sees the setup transcript —
+ * it only receives the final status summary.
  * </p>
  *
  * <p>
- * The {@link ManagerSubAgentToolCallback} is intentionally <em>not</em> a Spring bean. It is instantiated inline in
- * the ai_hub BUILD agent bean method (via {@link #createMcpManagerToolCallback}) so that it is registered only on that
+ * The {@link ManagerSubAgentToolCallback} is intentionally <em>not</em> a Spring bean. It is instantiated inline in the
+ * ai_hub BUILD agent bean method (via {@link #createMcpManagerToolCallback}) so that it is registered only on that
  * agent.
  * </p>
  *
@@ -74,7 +74,9 @@ public class McpManagerConfiguration {
         re-delegate with the answers.""";
 
     @Bean
-    @ConditionalOnBean({McpProjectFacade.class, WorkspaceMcpServerFacade.class})
+    @ConditionalOnBean({
+        McpProjectFacade.class, WorkspaceMcpServerFacade.class
+    })
     ChatClient mcpManagerChatClient(
         ChatModel chatModel, McpProjectFacade mcpProjectFacade, McpProjectService mcpProjectService,
         McpProjectWorkflowService mcpProjectWorkflowService,

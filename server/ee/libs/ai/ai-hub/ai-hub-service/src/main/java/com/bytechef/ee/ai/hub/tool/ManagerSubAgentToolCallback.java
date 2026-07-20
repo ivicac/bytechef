@@ -25,8 +25,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Hand-rolled Spring AI {@link ToolCallback} that exposes an AI-hub-owned "manager" specialist subagent (MCP servers,
- * personal agents, project deployments, API collections) to the parent ai_hub BUILD agent. The parent passes the
- * user's request verbatim in the {@code request} field; the callback delegates to the specialist's pre-configured
+ * personal agents, project deployments, API collections) to the parent ai_hub BUILD agent. The parent passes the user's
+ * request verbatim in the {@code request} field; the callback delegates to the specialist's pre-configured
  * {@link ChatClient} and returns only the synthesised response — the parent never sees the specialist's tool
  * transcript.
  *
@@ -45,17 +45,18 @@ public class ManagerSubAgentToolCallback implements ToolCallback {
 
     private static final Logger log = LoggerFactory.getLogger(ManagerSubAgentToolCallback.class);
 
-    private static final String INPUT_SCHEMA = """
-        {
-            "type": "object",
-            "properties": {
-                "request": {
-                    "type": "string",
-                    "description": "The user's request, passed verbatim, plus any ids or user decisions already resolved in this conversation that the specialist needs."
-                }
-            },
-            "required": ["request"]
-        }""";
+    private static final String INPUT_SCHEMA =
+        """
+            {
+                "type": "object",
+                "properties": {
+                    "request": {
+                        "type": "string",
+                        "description": "The user's request, passed verbatim, plus any ids or user decisions already resolved in this conversation that the specialist needs."
+                    }
+                },
+                "required": ["request"]
+            }""";
 
     private final AgentType agentType;
     private final ChatClient chatClient;

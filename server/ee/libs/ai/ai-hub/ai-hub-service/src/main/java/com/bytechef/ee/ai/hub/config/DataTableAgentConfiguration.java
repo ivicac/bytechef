@@ -38,9 +38,9 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 
 /**
- * Registers the Data Table Copilot panel source agents ({@code data_table_ask}/{@code data_table_build}) and the AI
- * Hub Data Table subagent {@link ChatClient} beans. These beans live in EE (not the CE {@code CopilotConfiguration},
- * where the other Copilot panel source agents live) because {@link DataTableToolCallbacksFactory} and the data-table
+ * Registers the Data Table Copilot panel source agents ({@code data_table_ask}/{@code data_table_build}) and the AI Hub
+ * Data Table subagent {@link ChatClient} beans. These beans live in EE (not the CE {@code CopilotConfiguration}, where
+ * the other Copilot panel source agents live) because {@link DataTableToolCallbacksFactory} and the data-table
  * services/facades it wraps are EE.
  *
  * <p>

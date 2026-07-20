@@ -11,16 +11,18 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Surface-neutral seam for recording a mutating tool callback's side effect as an audit artifact. Implemented by AI
- * Hub (backed by {@code AiHubTaskArtifactService}) to log every knowledge-base mutation performed by the BUILD agent
- * as a task artifact for the audit trail; absent (the tool callback receives {@code null}) on the Copilot panel
- * surface, which has no equivalent task/artifact concept — recording there simply no-ops.
+ * Surface-neutral seam for recording a mutating tool callback's side effect as an audit artifact. Implemented by AI Hub
+ * (backed by {@code AiHubTaskArtifactService}) to log every knowledge-base mutation performed by the BUILD agent as a
+ * task artifact for the audit trail; absent (the tool callback receives {@code null}) on the Copilot panel surface,
+ * which has no equivalent task/artifact concept — recording there simply no-ops.
  *
  * <p>
  * The artifact kind is carried as the {@link Enum#name()} of the implementer's own kind enum (e.g. AI Hub's
  * {@code AiHubTaskArtifactKind}) rather than the enum type itself, so this shared lib does not need to depend on
  * ai-hub. Implementers map the string back with {@code valueOf(kind)}.
  * </p>
+ *
+ * @version ee
  *
  * @author Ivica Cardic
  */

@@ -39,8 +39,8 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 
 /**
- * Registers the Context Store Copilot panel source agents ({@code context_store_ask}/{@code context_store_build})
- * and the AI Hub Context Store subagent {@link ChatClient} beans. These beans live in EE (not the CE
+ * Registers the Context Store Copilot panel source agents ({@code context_store_ask}/{@code context_store_build}) and
+ * the AI Hub Context Store subagent {@link ChatClient} beans. These beans live in EE (not the CE
  * {@code CopilotConfiguration}, where the other Copilot panel source agents live) because
  * {@link ContextStoreToolCallbacksFactory} and the context-store services/facades it wraps are EE.
  *

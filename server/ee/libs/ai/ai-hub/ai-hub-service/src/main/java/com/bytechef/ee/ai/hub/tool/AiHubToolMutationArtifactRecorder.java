@@ -16,8 +16,8 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * AI Hub's {@link ToolMutationArtifactRecorder} implementation, delegating to {@link AiHubTaskArtifactService} so the
- * knowledge-base tool callbacks moved into the shared {@code automation-ai-tool} lib keep recording task artifacts
- * for the audit trail when invoked from AI Hub. The {@code kind} string is mapped back to the concrete
+ * knowledge-base tool callbacks moved into the shared {@code automation-ai-tool} lib keep recording task artifacts for
+ * the audit trail when invoked from AI Hub. The {@code kind} string is mapped back to the concrete
  * {@link AiHubTaskArtifactKind} enum constant via {@link AiHubTaskArtifactKind#valueOf(String)}.
  *
  * @version ee

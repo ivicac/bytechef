@@ -20,6 +20,8 @@ import org.mockito.Mockito;
 import org.springframework.ai.tool.ToolCallback;
 
 /**
+ * @version ee
+ *
  * @author Ivica Cardic
  */
 class DataTableToolCallbacksFactoryTest {

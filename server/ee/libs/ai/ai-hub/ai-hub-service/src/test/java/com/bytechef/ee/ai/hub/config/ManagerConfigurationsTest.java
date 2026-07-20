@@ -12,6 +12,7 @@ import static org.assertj.core.api.Assertions.assertThatNoException;
 import static org.mockito.Mockito.mock;
 
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
+import com.bytechef.ee.ai.hub.personalagent.AiHubPersonalAgentScheduleService;
 import com.bytechef.ee.ai.hub.personalagent.AiHubPersonalAgentService;
 import com.bytechef.ee.ai.hub.task.AiHubTaskService;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
@@ -41,8 +42,8 @@ class ManagerConfigurationsTest {
 
         assertThatNoException().isThrownBy(
             () -> configuration.personalAgentManagerChatClient(
-                mock(AiHubPersonalAgentService.class), mock(AiHubTaskService.class), mock(ChatModel.class),
-                promptResource));
+                mock(AiHubPersonalAgentService.class), mock(AiHubPersonalAgentScheduleService.class),
+                mock(AiHubTaskService.class), mock(ChatModel.class), promptResource));
     }
 
     @Test

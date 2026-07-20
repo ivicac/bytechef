@@ -45,8 +45,8 @@ public class AddKnowledgeBaseDocumentToolCallback implements ToolCallback {
         Set.of("text/markdown", "text/plain", "text/html", "application/json");
 
     /**
-     * Name of the artifact kind recorded on success, matching the {@code AiHubTaskArtifactKind.KB_DOCUMENT_ADDED}
-     * enum constant on the AI Hub side. Carried as a plain string so this shared lib does not depend on ai-hub.
+     * Name of the artifact kind recorded on success, matching the {@code AiHubTaskArtifactKind.KB_DOCUMENT_ADDED} enum
+     * constant on the AI Hub side. Carried as a plain string so this shared lib does not depend on ai-hub.
      */
     static final String ARTIFACT_KIND_KB_DOCUMENT_ADDED = "KB_DOCUMENT_ADDED";
 

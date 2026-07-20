@@ -18,10 +18,12 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.ai.mcp.domain.McpProjectWorkflow;
 import com.bytechef.automation.ai.mcp.service.McpProjectWorkflowService;
+import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 
 /**
@@ -29,6 +31,7 @@ import org.mockito.ArgumentCaptor;
  *
  * @author Ivica Cardic
  */
+@ExtendWith(ObjectMapperSetupExtension.class)
 class UpdateMcpProjectWorkflowParametersToolCallbackTest {
 
     private McpProjectWorkflowService mcpProjectWorkflowService;
@@ -99,11 +102,11 @@ class UpdateMcpProjectWorkflowParametersToolCallbackTest {
             "{\"mcpProjectWorkflowId\": 7, \"toolName\": \"get_weather\", \"toolDescription\": \"Fetch weather\"}");
 
         @SuppressWarnings("unchecked")
-        ArgumentCaptor<Map<String, ?>> parametersCaptor = ArgumentCaptor.forClass(Map.class);
+        ArgumentCaptor<Map<String, Object>> parametersCaptor = ArgumentCaptor.forClass(Map.class);
 
         verify(mcpProjectWorkflowService).updateParameters(eq(7L), parametersCaptor.capture());
 
-        Map<String, ?> mergedParameters = parametersCaptor.getValue();
+        Map<String, Object> mergedParameters = parametersCaptor.getValue();
 
         assertThat(mergedParameters).containsEntry("toolName", "get_weather");
         assertThat(mergedParameters).containsEntry("toolDescription", "Fetch weather");
@@ -134,11 +137,11 @@ class UpdateMcpProjectWorkflowParametersToolCallbackTest {
                 "\"fromAi('city', 'STRING', {description: 'City name', required: true})\"}}");
 
         @SuppressWarnings("unchecked")
-        ArgumentCaptor<Map<String, ?>> parametersCaptor = ArgumentCaptor.forClass(Map.class);
+        ArgumentCaptor<Map<String, Object>> parametersCaptor = ArgumentCaptor.forClass(Map.class);
 
         verify(mcpProjectWorkflowService).updateParameters(eq(7L), parametersCaptor.capture());
 
-        Map<String, ?> mergedParameters = parametersCaptor.getValue();
+        Map<String, Object> mergedParameters = parametersCaptor.getValue();
 
         assertThat(mergedParameters)
             .containsEntry("city", "fromAi('city', 'STRING', {description: 'City name', required: true})");

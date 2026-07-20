@@ -22,6 +22,8 @@ import org.mockito.Mockito;
 import org.springframework.ai.tool.ToolCallback;
 
 /**
+ * @version ee
+ *
  * @author Ivica Cardic
  */
 class KnowledgeBaseToolCallbacksFactoryTest {
@@ -39,7 +41,7 @@ class KnowledgeBaseToolCallbacksFactoryTest {
         List<String> names = toolNames(factory.readToolCallbacks());
 
         assertThat(names).contains("listKnowledgeBases", "queryKnowledgeBase");
-        assertThat(names).doesNotContain("deleteKnowledgeBase", "addKnowledgeBaseDocument");
+        assertThat(names).doesNotContain("createKnowledgeBase", "deleteKnowledgeBase", "addKnowledgeBaseDocument");
     }
 
     @Test
@@ -47,8 +49,8 @@ class KnowledgeBaseToolCallbacksFactoryTest {
         List<String> names = toolNames(factory.writeToolCallbacks());
 
         assertThat(names).contains(
-            "listKnowledgeBases", "queryKnowledgeBase", "addKnowledgeBaseDocument", "deleteKnowledgeBaseDocument",
-            "cloneKnowledgeBase", "deleteKnowledgeBase");
+            "listKnowledgeBases", "queryKnowledgeBase", "createKnowledgeBase", "addKnowledgeBaseDocument",
+            "deleteKnowledgeBaseDocument", "cloneKnowledgeBase", "deleteKnowledgeBase");
     }
 
     private static List<String> toolNames(List<ToolCallback> toolCallbacks) {
