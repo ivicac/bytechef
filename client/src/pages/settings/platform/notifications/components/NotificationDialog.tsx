@@ -188,24 +188,47 @@ const NotificationDialog = ({
                         )}
 
                         {notificationType === NotificationTypeEnum.Webhook && (
-                            <FormField
-                                control={control}
-                                name="settings.webhook"
-                                render={({field}) => (
-                                    <FormItem>
-                                        <FormLabel>Webhook URL</FormLabel>
+                            <>
+                                <FormField
+                                    control={control}
+                                    name="settings.webhook"
+                                    render={({field}) => (
+                                        <FormItem>
+                                            <FormLabel>Webhook URL</FormLabel>
 
-                                        <FormControl>
-                                            <Input
-                                                onChange={(e) => field.onChange(e.target.value)}
-                                                value={(field.value as string) || ''}
-                                            />
-                                        </FormControl>
+                                            <FormControl>
+                                                <Input
+                                                    onChange={(e) => field.onChange(e.target.value)}
+                                                    value={(field.value as string) || ''}
+                                                />
+                                            </FormControl>
 
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={control}
+                                    name="settings.webhookSecret"
+                                    render={({field}) => (
+                                        <FormItem>
+                                            <FormLabel>Webhook Secret</FormLabel>
+
+                                            <FormControl>
+                                                <Input
+                                                    onChange={(e) => field.onChange(e.target.value)}
+                                                    placeholder="Optional — signs deliveries with X-ByteChef-Signature"
+                                                    type="password"
+                                                    value={(field.value as string) || ''}
+                                                />
+                                            </FormControl>
+
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </>
                         )}
 
                         <DialogFooter>
