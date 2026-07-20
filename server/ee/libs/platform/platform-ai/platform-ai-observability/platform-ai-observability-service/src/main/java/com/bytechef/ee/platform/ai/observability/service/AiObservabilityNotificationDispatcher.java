@@ -18,6 +18,7 @@ import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityNotificat
 import com.bytechef.ee.platform.ai.observability.repository.AiObservabilityNotificationChannelRepository;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.notification.delivery.EmailNotificationClient;
+import com.bytechef.platform.notification.delivery.SlackNotificationClient;
 import com.bytechef.platform.notification.delivery.WebhookDeliveryRequest;
 import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -46,14 +47,17 @@ public class AiObservabilityNotificationDispatcher {
 
     private final AiObservabilityNotificationChannelRepository aiObservabilityNotificationChannelRepository;
     private final EmailNotificationClient emailNotificationClient;
+    private final SlackNotificationClient slackNotificationClient;
     private final WebhookNotificationClient webhookNotificationClient;
 
     AiObservabilityNotificationDispatcher(
         AiObservabilityNotificationChannelRepository aiObservabilityNotificationChannelRepository,
-        EmailNotificationClient emailNotificationClient, WebhookNotificationClient webhookNotificationClient) {
+        EmailNotificationClient emailNotificationClient, SlackNotificationClient slackNotificationClient,
+        WebhookNotificationClient webhookNotificationClient) {
 
         this.aiObservabilityNotificationChannelRepository = aiObservabilityNotificationChannelRepository;
         this.emailNotificationClient = emailNotificationClient;
+        this.slackNotificationClient = slackNotificationClient;
         this.webhookNotificationClient = webhookNotificationClient;
     }
 
@@ -259,16 +263,14 @@ public class AiObservabilityNotificationDispatcher {
         String icon = resolved ? ":white_check_mark:" : ":rotating_light:";
         String statusLabel = resolved ? "RESOLVED" : "Alert";
 
-        String slackPayload = JsonUtils.write(Map.of(
-            "text", String.format(
+        // The shared Slack client owns the payload shape, SSRF validation, and transport/non-2xx -> exception
+        // mapping so dispatch() records lastError; only the alert-specific message text is composed here.
+        slackNotificationClient.send(
+            webhookUrl,
+            String.format(
                 "%s *%s: %s*\n%s\nTriggered value: %s",
                 icon, statusLabel, alertRule.getName(), alertEvent.getMessage(),
-                alertEvent.getTriggeredValue())));
-
-        // Slack incoming webhooks are plain unsigned JSON POSTs; the shared client still applies SSRF validation and
-        // maps transport/non-2xx failures to exceptions so dispatch() records lastError.
-        webhookNotificationClient
-            .deliver(WebhookDeliveryRequest.of(webhookUrl, "ai-observability.alert", slackPayload));
+                alertEvent.getTriggeredValue()));
     }
 
     /**

@@ -728,8 +728,10 @@ cd cli
   `WebhookNotificationClient` (SSRF-validated via commons-util `UrlValidator` — loopback/private hosts
   are rejected, so tests can't use a local HTTP server; standard `X-ByteChef-Event/Timestamp/Delivery`
   headers; optional HMAC `X-ByteChef-Signature: t=<ts>,v1=hex(HMAC-SHA256(secret, "<ts>.<body>"))`;
-  non-2xx → `WebhookDeliveryException`) and `EmailNotificationClient` (optional `JavaMailSender`,
-  sync, throws on SMTP failure so alerting callers can record per-channel `lastError`).
+  non-2xx → `WebhookDeliveryException`), `SlackNotificationClient` (incoming-webhook transport —
+  owns the `{"text": ...}` payload shape and delegates to the webhook client; callers pass final
+  message text only), and `EmailNotificationClient` (optional `JavaMailSender`, sync, throws on
+  SMTP failure so alerting callers can record per-channel `lastError`).
 - Consumers: CE `WebhookNotificationSender` (job-status webhook channel; settings keys `webhook` +
   optional `webhookSecret`), payload shaped by `JobStatusWebhookNotificationHandler` in
   platform-coordinator; EE `AiObservabilityNotificationDispatcher` (delegates webhook/Slack/email

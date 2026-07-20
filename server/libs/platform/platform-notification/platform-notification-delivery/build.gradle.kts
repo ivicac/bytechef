@@ -9,5 +9,6 @@ dependencies {
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.junit.jupiter:junit-jupiter-api")
     testImplementation("org.mockito:mockito-core")
+    testImplementation(project(":server:libs:test:test-support"))
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
 }

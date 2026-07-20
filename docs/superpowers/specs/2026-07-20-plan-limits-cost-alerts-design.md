@@ -262,8 +262,10 @@ Extend `platform-notification` with Sim's rule model, reusing the existing trigg
   validation via commons-util `UrlValidator`, standard `X-ByteChef-Event/Timestamp/
   Delivery` headers, optional Sim-compatible HMAC signature
   `X-ByteChef-Signature: t=<ts>,v1=hex(HMAC-SHA256(secret, "<ts>.<body>"))`, non-2xx →
-  typed exception) and `EmailNotificationClient` (optional `JavaMailSender`, sync,
-  throws on SMTP failure so callers can record channel errors). Consumers: the CE
+  typed exception), `SlackNotificationClient` (incoming-webhook transport owning the
+  payload shape; callers pass message text only), and `EmailNotificationClient`
+  (optional `JavaMailSender`, sync, throws on SMTP failure so callers can record
+  channel errors). Consumers: the CE
   `WebhookNotificationSender` (job-status webhook channel — previously a no-op stub, now
   real, with `webhookSecret` in settings + UI), the CE `EmailNotificationSender` (kept
   on the async templated `MailService`, which wraps the same `JavaMailSender`), and the

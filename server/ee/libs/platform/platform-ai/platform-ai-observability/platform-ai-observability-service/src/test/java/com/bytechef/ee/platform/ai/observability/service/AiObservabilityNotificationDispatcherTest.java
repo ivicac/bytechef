@@ -22,6 +22,7 @@ import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityNotificat
 import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityNotificationChannelType;
 import com.bytechef.ee.platform.ai.observability.repository.AiObservabilityNotificationChannelRepository;
 import com.bytechef.platform.notification.delivery.EmailNotificationClient;
+import com.bytechef.platform.notification.delivery.SlackNotificationClient;
 import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.lang.reflect.Field;
@@ -56,6 +57,9 @@ class AiObservabilityNotificationDispatcherTest {
     private EmailNotificationClient emailNotificationClient;
 
     @Mock
+    private SlackNotificationClient slackNotificationClient;
+
+    @Mock
     private WebhookNotificationClient webhookNotificationClient;
 
     private AiObservabilityNotificationDispatcher aiObservabilityNotificationDispatcher;
@@ -63,7 +67,8 @@ class AiObservabilityNotificationDispatcherTest {
     @BeforeEach
     void setUp() {
         aiObservabilityNotificationDispatcher = new AiObservabilityNotificationDispatcher(
-            aiObservabilityNotificationChannelRepository, emailNotificationClient, webhookNotificationClient);
+            aiObservabilityNotificationChannelRepository, emailNotificationClient, slackNotificationClient,
+            webhookNotificationClient);
     }
 
     @Test
