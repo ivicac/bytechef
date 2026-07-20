@@ -2602,6 +2602,13 @@ export type AutomationSearchQuery = { automationSearch: Array<
     | { projectId: string, label: string, id: string, name: string, description: string | null, type: Types.SearchAssetType }
   > };
 
+export type WorkflowExecutionCostQueryVariables = Exact<{
+  jobId: string | number;
+}>;
+
+
+export type WorkflowExecutionCostQuery = { workflowExecutionCost: { aiCost: number, baseRunCharge: number, currency: string, id: string, jobId: string, totalCost: number } | null };
+
 export type CodeWorkflowSourceQueryVariables = Exact<{
   projectId: string | number;
 }>;
@@ -13227,6 +13234,35 @@ export const useAutomationSearchQuery = <
       {
     queryKey: ['automationSearch', variables],
     queryFn: fetcher<AutomationSearchQuery, AutomationSearchQueryVariables>(AutomationSearchDocument, variables),
+    ...options
+  }
+    )};
+
+export const WorkflowExecutionCostDocument = new TypedDocumentString(`
+    query workflowExecutionCost($jobId: ID!) {
+  workflowExecutionCost(jobId: $jobId) {
+    aiCost
+    baseRunCharge
+    currency
+    id
+    jobId
+    totalCost
+  }
+}
+    `);
+
+export const useWorkflowExecutionCostQuery = <
+      TData = WorkflowExecutionCostQuery,
+      TError = unknown
+    >(
+      variables: WorkflowExecutionCostQueryVariables,
+      options?: Omit<UseQueryOptions<WorkflowExecutionCostQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkflowExecutionCostQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkflowExecutionCostQuery, TError, TData>(
+      {
+    queryKey: ['workflowExecutionCost', variables],
+    queryFn: fetcher<WorkflowExecutionCostQuery, WorkflowExecutionCostQueryVariables>(WorkflowExecutionCostDocument, variables),
     ...options
   }
     )};

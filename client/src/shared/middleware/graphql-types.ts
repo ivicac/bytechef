@@ -6125,6 +6125,11 @@ export type Query = {
   users?: Maybe<AdminUserPage>;
   validateWorkflow: WorkflowValidationResult;
   validateWorkflowById: WorkflowValidationResult;
+  /**
+   * Per-execution cost row for a terminal job, or null while the job is still running / when cost recording
+   * is disabled. totalCost = baseRunCharge + aiCost (USD). EE only — the query resolver is absent in CE.
+   */
+  workflowExecutionCost?: Maybe<WorkflowExecutionCost>;
   workflowNodeComponentConnections: Array<ComponentConnection>;
   workflowNodeMissingRequiredProperties: Array<Scalars['String']['output']>;
   workflowNodeScriptInput?: Maybe<Scalars['Map']['output']>;
@@ -7249,6 +7254,11 @@ export type QueryValidateWorkflowByIdArgs = {
 };
 
 
+export type QueryWorkflowExecutionCostArgs = {
+  jobId: Scalars['ID']['input'];
+};
+
+
 export type QueryWorkflowNodeComponentConnectionsArgs = {
   workflowId: Scalars['String']['input'];
   workflowNodeName: Scalars['String']['input'];
@@ -7886,6 +7896,19 @@ export type Workflow = {
   lastModifiedDate?: Maybe<Scalars['Long']['output']>;
   triggers: Array<WorkflowTrigger>;
   version?: Maybe<Scalars['Int']['output']>;
+};
+
+/** One row per terminal workflow execution, written idempotently by the terminal-status listener. */
+export type WorkflowExecutionCost = {
+  __typename?: 'WorkflowExecutionCost';
+  /** Sum of the execution's AI Agent LLM usage costs (ai_llm_usage rows with source = AI_AGENT). */
+  aiCost: Scalars['Float']['output'];
+  /** Fixed per-run platform charge (bytechef.workflow.execution-cost.base-run-charge-usd). */
+  baseRunCharge: Scalars['Float']['output'];
+  currency: Scalars['String']['output'];
+  id: Scalars['ID']['output'];
+  jobId: Scalars['ID']['output'];
+  totalCost: Scalars['Float']['output'];
 };
 
 export type WorkflowInfo = {
