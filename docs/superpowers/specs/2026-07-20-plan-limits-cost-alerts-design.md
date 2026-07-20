@@ -334,8 +334,35 @@ Original design sketch (rule model reuses the existing trigger path):
    (provider, model, apiKeyId, projectId) — the budget checker finally has a producer.
    Remaining: streaming-path token capture, AI Hub advisor → recorder wiring, cost
    display in the execution UI.
-2. Cost calculation (phase 2): attribution + per-job cost row + rollup (~2 slices:
-   CE seam, EE persistence — mirrors the tool-invocation-log build).
-3. Alert rules (phase 3): rule table + evaluator + webhook sender implementation.
-4. Enforcement: Bucket4j SPI + HTTP filter (sync/API rpm), admission gate + concurrency
-   slots at `PrincipalJobFacadeImpl` (async), reading `PlanLimitsProvider`.
+2. ✅ Cost calculation (phase 2): attribution + per-job cost row + rollup (~2 slices:
+   CE seam, EE persistence — mirrors the tool-invocation-log build). AI Hub metering
+   advisor, cost GraphQL surface and execution-sheet cost display are in; workspace
+   attribution goes through the `workspace_workflow_execution_cost` membership table.
+3. ✅ Alert rules (phase 3): `automation-workflow-alert` (8 rule types incl.
+   USAGE_THRESHOLD), delivery via `Notification` ids, Alerts UI + send-test.
+4. ✅ Enforcement (phase 4) — implemented in CE `platform-rate-limit`:
+   - `RateLimiter` SPI + `Bucket4jRateLimiter` (`com.bucket4j:bucket4j_jdk17-core`,
+     local buckets in a Caffeine cache, capacity = rate × burst multiplier, greedy
+     per-minute refill). Per-node enforcement; swap the bean for a Bucket4j
+     `ProxyManager` (Redis/Postgres) implementation when strict global limits are
+     needed.
+   - `PlanRateLimitFilter` (`FilterRegistrationBean`, order 0 — after the Spring
+     Security chain at -100 so the auth outcome is visible): login POST
+     `/api/authentication` fixed 10/min/IP; `/webhooks/**` → sync tier per tenant;
+     `/api/automation/v1/**` + `/api/embedded/v1/**` → api tier per tenant; anonymous
+     `/api/**` → per-IP preauth using the sync tier. Null limit (SELF_HOSTED) → pass;
+     reject → 429 + `Retry-After: 60`.
+   - `ConcurrentExecutionGate`: per-tenant in-flight slots. Acquired in
+     `PrincipalJobFacadeImpl.createJob` (async admission ONLY — the sync
+     `createJobWithoutDispatch` path is deliberately ungated to avoid slot leaks, since
+     sync completion events may not traverse the coordinator fan-out), throwing
+     `JobConcurrencyLimitExceededException` when `maxConcurrentExecutions` is reached;
+     released by platform-coordinator's `ConcurrencySlotReleaseApplicationEventListener`
+     on terminal `JobStatusApplicationEvent` (floors at zero, so redelivery and
+     restart-reset are safe — a node restart temporarily over-admits, never blocks).
+   - Everything is gated by `bytechef.plan.enforcement.enabled` (default on;
+     SELF_HOSTED's all-null limits make it a no-op) via
+     `PlanRateLimitAutoConfiguration`.
+   - Decision: the dormant `ai_gateway_workspace_settings.max_rpm/max_tpm` columns stay
+     dormant — plan-level request limits supersede them; they remain available for a
+     future per-model/per-workspace override layer.

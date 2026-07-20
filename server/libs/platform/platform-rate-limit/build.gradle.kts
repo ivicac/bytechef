@@ -1,0 +1,20 @@
+dependencies {
+    implementation("com.bucket4j:bucket4j_jdk17-core:8.14.0")
+    implementation("com.github.ben-manes.caffeine:caffeine")
+    implementation("jakarta.servlet:jakarta.servlet-api")
+    implementation("org.slf4j:slf4j-api")
+    implementation("org.springframework:spring-context")
+    implementation("org.springframework:spring-web")
+    implementation("org.springframework:spring-webmvc")
+    implementation("org.springframework.boot:spring-boot")
+    implementation("org.springframework.boot:spring-boot-autoconfigure")
+    implementation("org.springframework.security:spring-security-core")
+    implementation(project(":server:libs:core:tenant:tenant-api"))
+    implementation(project(":server:libs:platform:platform-plan:platform-plan-api"))
+
+    testImplementation("org.assertj:assertj-core")
+    testImplementation("org.junit.jupiter:junit-jupiter-api")
+    testImplementation("org.mockito:mockito-core")
+    testImplementation("org.mockito:mockito-junit-jupiter")
+    testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
+}

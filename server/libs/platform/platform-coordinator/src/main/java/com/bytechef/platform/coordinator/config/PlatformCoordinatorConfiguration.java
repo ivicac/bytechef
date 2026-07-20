@@ -19,6 +19,7 @@ package com.bytechef.platform.coordinator.config;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.message.broker.MessageBroker;
+import com.bytechef.platform.coordinator.event.listener.ConcurrencySlotReleaseApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.NotificationJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.SseStreamApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.WebhookJobStatusApplicationEventListener;
@@ -28,11 +29,13 @@ import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
 import com.bytechef.platform.notification.handler.NotificationHandlerRegistry;
 import com.bytechef.platform.notification.handler.NotificationSenderRegistry;
 import com.bytechef.platform.notification.service.NotificationService;
+import com.bytechef.platform.ratelimit.ConcurrentExecutionGate;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -64,6 +67,14 @@ public class PlatformCoordinatorConfiguration {
     @ConditionalOnProperty(name = "bytechef.observability.enabled", havingValue = "true")
     JobExecutionCounter jobExecutionCounter(MeterRegistry meterRegistry) {
         return new JobExecutionCounter(meterRegistry);
+    }
+
+    @Bean
+    @ConditionalOnBean(ConcurrentExecutionGate.class)
+    ConcurrencySlotReleaseApplicationEventListener concurrencySlotReleaseApplicationEventListener(
+        ConcurrentExecutionGate concurrentExecutionGate) {
+
+        return new ConcurrencySlotReleaseApplicationEventListener(concurrentExecutionGate);
     }
 
     @Bean

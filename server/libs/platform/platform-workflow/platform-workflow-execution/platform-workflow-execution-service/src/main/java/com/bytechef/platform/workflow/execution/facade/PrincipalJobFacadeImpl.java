@@ -22,13 +22,18 @@ import com.bytechef.atlas.execution.dto.JobParametersDTO;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.plan.provider.PlanLimitsProvider;
+import com.bytechef.platform.ratelimit.ConcurrentExecutionGate;
+import com.bytechef.platform.workflow.execution.exception.JobConcurrencyLimitExceededException;
 import com.bytechef.platform.workflow.execution.service.LicenceJobUsageService;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
+import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Optional;
 import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,17 +50,52 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
     private final JobService jobService;
     private final WorkflowService workflowService;
     private final LicenceJobUsageService licenceJobUsageService;
+    private final ObjectProvider<ConcurrentExecutionGate> concurrentExecutionGateProvider;
+    private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
 
     @SuppressFBWarnings("EI")
     public PrincipalJobFacadeImpl(
         PrincipalJobService principalJobService, JobFacade jobFacade, JobService jobService,
-        WorkflowService workflowService, LicenceJobUsageService licenceJobUsageService) {
+        WorkflowService workflowService, LicenceJobUsageService licenceJobUsageService,
+        ObjectProvider<ConcurrentExecutionGate> concurrentExecutionGateProvider,
+        ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider) {
 
         this.principalJobService = principalJobService;
         this.jobFacade = jobFacade;
         this.jobService = jobService;
         this.workflowService = workflowService;
         this.licenceJobUsageService = licenceJobUsageService;
+        this.concurrentExecutionGateProvider = concurrentExecutionGateProvider;
+        this.planLimitsProviderObjectProvider = planLimitsProviderObjectProvider;
+    }
+
+    /**
+     * Plan-level concurrent-execution admission (Sim model: a slot is held from admission to terminal status, released
+     * by the coordinator's terminal-status listener). No gate/provider bean or a null limit (the SELF_HOSTED default)
+     * admits unconditionally — pre-plan behavior. Applied on the async dispatch path only: sync executions
+     * ({@code createJobWithoutDispatch}) run on a caller thread whose completion events do not always traverse the
+     * coordinator fan-out, so gating them would risk leaked slots.
+     */
+    private void admitConcurrentExecution() {
+        ConcurrentExecutionGate concurrentExecutionGate = concurrentExecutionGateProvider.getIfAvailable();
+        PlanLimitsProvider planLimitsProvider = planLimitsProviderObjectProvider.getIfAvailable();
+
+        if (concurrentExecutionGate == null || planLimitsProvider == null) {
+            return;
+        }
+
+        String tenantId = TenantContext.getCurrentTenantId();
+
+        Integer maxConcurrentExecutions = planLimitsProvider.getPlanLimits(tenantId)
+            .maxConcurrentExecutions();
+
+        if (maxConcurrentExecutions == null) {
+            return;
+        }
+
+        if (!concurrentExecutionGate.tryAcquire("executions:" + tenantId, maxConcurrentExecutions)) {
+            throw new JobConcurrencyLimitExceededException(maxConcurrentExecutions);
+        }
     }
 
     @Override
@@ -79,6 +119,8 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
     // TODO @Transactional
     public long createJob(JobParametersDTO jobParametersDTO, long jobPrincipalId, PlatformType type) {
         licenceJobUsageService.consumeOrThrow();
+
+        admitConcurrentExecution();
 
         long jobId = jobFacade.createJob(jobParametersDTO);
 

@@ -718,9 +718,20 @@ cd cli
   `PropertiesPlanLimitsProvider` resolves `bytechef.plan.tier` (unset = SELF_HOSTED = unlimited,
   the pre-plan behavior) with per-field `bytechef.plan.limits.*` overrides; a billing integration
   replaces the bean (`@ConditionalOnMissingBean`). Tier tables in `DefaultPlanLimits` are
-  Sim-modeled placeholders pinned by `DefaultPlanLimitsTest` — nothing enforces them yet.
+  Sim-modeled placeholders pinned by `DefaultPlanLimitsTest`.
   Design + phased plan (cost calculation, alert rules, Bucket4j rate limiting, Atlas admission
   gate): `docs/superpowers/specs/2026-07-20-plan-limits-cost-alerts-design.md`.
+- **Enforcement** lives in CE `server/libs/platform/platform-rate-limit`
+  (`bytechef.plan.enforcement.enabled`, default on — SELF_HOSTED's all-null limits make it a
+  no-op): `Bucket4jRateLimiter` (local buckets in Caffeine; per-node — swap the `RateLimiter`
+  bean for a Bucket4j `ProxyManager` impl for strict global limits), `PlanRateLimitFilter`
+  (order 0, after the security chain: login 10/min/IP, webhooks → sync tier/tenant, public
+  APIs → api tier/tenant, anonymous `/api/**` → per-IP; reject = 429 + Retry-After), and
+  `ConcurrentExecutionGate` — slots acquired in `PrincipalJobFacadeImpl.createJob` (async
+  admission only; sync `createJobWithoutDispatch` is deliberately ungated to avoid slot
+  leaks), released by platform-coordinator's `ConcurrencySlotReleaseApplicationEventListener`
+  on terminal job status (floors at zero; restart over-admits, never wrongly blocks). Never
+  gate inside `server/libs/atlas/` — admission and release both live outside the engine.
 
 ## Notification delivery (central point)
 

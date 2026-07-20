@@ -20,6 +20,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -37,6 +38,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Tests {@link PrincipalJobFacadeImpl#createPrincipalLinkedJob} -- the new method added for the agent-tool sub-workflow
@@ -76,7 +78,8 @@ class PrincipalJobFacadeImplTest {
         when(jobFacade.createJob(jobParametersDTO)).thenReturn(newJobId);
 
         PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
-            principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService);
+            principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
+            emptyObjectProvider(), emptyObjectProvider());
 
         long result = facade.createPrincipalLinkedJob(referenceJobId, jobParametersDTO, PlatformType.AUTOMATION);
 
@@ -99,7 +102,8 @@ class PrincipalJobFacadeImplTest {
             .thenReturn(Optional.empty());
 
         PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
-            principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService);
+            principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
+            emptyObjectProvider(), emptyObjectProvider());
 
         IllegalStateException exception = assertThrows(
             IllegalStateException.class,
@@ -114,5 +118,10 @@ class PrincipalJobFacadeImplTest {
 
         assertEquals(true, exception.getMessage()
             .contains(String.valueOf(referenceJobId)));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> ObjectProvider<T> emptyObjectProvider() {
+        return (ObjectProvider<T>) mock(ObjectProvider.class);
     }
 }
