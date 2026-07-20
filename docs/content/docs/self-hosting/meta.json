@@ -7,6 +7,7 @@
     "---Install ByteChef---",
     "deployment/local-docker",
     "deployment/kubernetes",
+    "deployment/distributed",
     "deployment/aws-ec2",
     "deployment/aws-ecs",
     "deployment/azure",
