@@ -21,6 +21,7 @@ import com.bytechef.platform.notification.domain.Notification;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 /**
@@ -45,6 +46,7 @@ public class SlackNotificationSender implements NotificationSender<SlackNotifica
         return Notification.Type.SLACK;
     }
 
+    @Async
     @Override
     public void send(
         Notification notification, SlackNotificationHandler slackNotificationHandler,
@@ -61,6 +63,11 @@ public class SlackNotificationSender implements NotificationSender<SlackNotifica
             return;
         }
 
-        slackNotificationClient.send(slackWebhookUrl, slackNotificationHandler.getText(notificationHandlerContext));
+        try {
+            slackNotificationClient.send(
+                slackWebhookUrl, slackNotificationHandler.getText(notificationHandlerContext));
+        } catch (RuntimeException exception) {
+            log.error("Failed to deliver Slack notification {}", notification.getId(), exception);
+        }
     }
 }

@@ -29,10 +29,11 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.stereotype.Component;
 
 /**
- * Plain-text notification email transport over the (optional) {@link JavaMailSender}. Exists so notification surfaces
- * that run in apps without the full {@code platform-mail} stack (e.g. the EE ai-gateway-app) still send through one
- * shared component; in the monolith the same {@link JavaMailSender} instance also underlies {@code MailService}, which
- * remains the async, templated path for user-account mail.
+ * Plain-text notification email transport over the (optional) {@link JavaMailSender} — the single email path for ALL
+ * notification surfaces (job-status notifications, EE AI-observability alert channels, future alert rules), including
+ * apps without the full {@code platform-mail} stack (e.g. the EE ai-gateway-app). {@code MailService} is reserved for
+ * templated user-account mail (activation, invitation, password reset) and shares the same underlying
+ * {@link JavaMailSender}.
  *
  * <p>
  * Delivery is synchronous and failures throw, so alerting callers can record the error against the channel and surface

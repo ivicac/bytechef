@@ -22,6 +22,7 @@ import com.bytechef.platform.notification.domain.Notification;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Component;
 
 /**
@@ -48,6 +49,7 @@ public class WebhookNotificationSender implements NotificationSender<WebhookNoti
         return Notification.Type.WEBHOOK;
     }
 
+    @Async
     @Override
     public void send(
         Notification notification, WebhookNotificationHandler webhookNotificationHandler,
@@ -65,9 +67,13 @@ public class WebhookNotificationSender implements NotificationSender<WebhookNoti
 
         String secret = (String) settings.get("webhookSecret");
 
-        webhookNotificationClient.deliver(
-            new WebhookDeliveryRequest(
-                url, "job.status", webhookNotificationHandler.getPayload(notificationHandlerContext), Map.of(),
-                secret));
+        try {
+            webhookNotificationClient.deliver(
+                new WebhookDeliveryRequest(
+                    url, "job.status", webhookNotificationHandler.getPayload(notificationHandlerContext), Map.of(),
+                    secret));
+        } catch (RuntimeException exception) {
+            log.error("Failed to deliver webhook notification {}", notification.getId(), exception);
+        }
     }
 }

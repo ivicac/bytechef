@@ -744,8 +744,10 @@ cd cli
 - Consumers: CE `WebhookNotificationSender` (job-status webhook channel; settings keys `webhook` +
   optional `webhookSecret`), payload shaped by `JobStatusWebhookNotificationHandler` in
   platform-coordinator; EE `AiObservabilityNotificationDispatcher` (delegates webhook/Slack/email
-  mechanics, keeps channel config parsing + lastError bookkeeping). CE job-status EMAIL stays on the
-  async templated `MailService` (same underlying `JavaMailSender`).
+  mechanics, keeps channel config parsing + lastError bookkeeping). All three senders are `@Async` with
+  per-notification failure logging so slow SMTP/webhook endpoints never block the coordinator's
+  event consumer thread. `MailService` (platform-mail) is reserved for templated user-account mail
+  (activation, invitation, password reset) — notification email does NOT go through it.
 - The job-status trigger path is unchanged: `JobStatusApplicationEvent` → platform-coordinator
   `NotificationJobStatusApplicationEventListener` → sender/handler registries. Never add notification
   logic under `server/libs/atlas/` — the engine stays notification-agnostic (hard requirement).
