@@ -1,6 +1,7 @@
 import {TooltipIconButton} from '@/components/assistant-ui/tooltip-icon-button';
 import {Skeleton} from '@/components/ui/skeleton';
 import {AiHubMessageComponents} from '@/pages/automation/ai-hub/messages/AiHubMessage';
+import AiHubSuggestionChips from '@/pages/automation/ai-hub/messages/AiHubSuggestionChips';
 import {useAiHubStore} from '@/pages/automation/ai-hub/stores/useAiHubStore';
 import {ThreadPrimitive} from '@assistant-ui/react';
 import {ArrowDownIcon} from 'lucide-react';
@@ -34,10 +35,14 @@ export function shouldShowThreadLoadingState(messagesLoading: boolean, hasStoreM
     return messagesLoading || hasStoreMessages;
 }
 
+interface ThreadEmptyStateProps {
+    showSuggestions: boolean;
+}
+
 // Empty thread: a loading placeholder while history is being fetched (or landing), otherwise the welcome
 // prompt. Both only render when the runtime has zero messages; see shouldShowThreadLoadingState for how the
 // "fetching" vs "new task" disambiguation is made without flashing the welcome mid-switch.
-const ThreadEmptyState: FC = () => {
+const ThreadEmptyState: FC<ThreadEmptyStateProps> = ({showSuggestions}) => {
     const messagesLoading = useAiHubStore((state) => state.messagesLoading);
     const hasStoreMessages = useAiHubStore((state) => state.messages.length > 0);
 
@@ -52,6 +57,8 @@ const ThreadEmptyState: FC = () => {
             <p className="mt-2 text-sm text-muted-foreground">
                 Ask anything, mention files / workflows / data tables, or ask me to build a workflow.
             </p>
+
+            {showSuggestions && <AiHubSuggestionChips className="mt-6" />}
         </div>
     );
 };
@@ -72,7 +79,13 @@ const ThreadScrollToBottom: FC = () => (
     </ThreadPrimitive.ScrollToBottom>
 );
 
-const AiHubThread: FC = () => {
+interface AiHubThreadProps {
+    // Sample-question chips only make sense for plain copilot tasks — WORKFLOW_CHAT routes to a webhook
+    // trigger and PERSONAL_AGENT conversations carry their own purpose, so the panel gates them off there.
+    showSuggestions?: boolean;
+}
+
+const AiHubThread: FC<AiHubThreadProps> = ({showSuggestions = true}) => {
     return (
         <ThreadPrimitive.Root
             className="aui-cc-thread-root @container flex h-full flex-col"
@@ -80,7 +93,7 @@ const AiHubThread: FC = () => {
         >
             <ThreadPrimitive.Viewport className="aui-cc-thread-viewport relative mx-1 flex flex-1 flex-col overflow-x-hidden overflow-y-auto">
                 <ThreadPrimitive.If empty>
-                    <ThreadEmptyState />
+                    <ThreadEmptyState showSuggestions={showSuggestions} />
                 </ThreadPrimitive.If>
 
                 <ThreadPrimitive.Messages components={AiHubMessageComponents} />

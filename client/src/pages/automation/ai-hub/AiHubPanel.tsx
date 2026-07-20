@@ -158,7 +158,7 @@ const AiHubPanel = () => {
                  * the thread AND a toast double-notifies the user for the same event. */}
 
                 <div className="min-h-0 flex-1">
-                    <AiHubThread />
+                    <AiHubThread showSuggestions={!isWorkflowChat && !isPersonalAgentTask} />
                 </div>
 
                 {/*

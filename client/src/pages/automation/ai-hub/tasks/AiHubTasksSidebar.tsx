@@ -97,7 +97,7 @@ const TasksSidebarSkeleton = () => (
 );
 
 function getArtifactIcon(kind: AiHubArtifactKindType) {
-    if (kind === 'FILE_CREATED' || kind === 'FILE_REFERENCED') {
+    if (kind === 'FILE_CREATED' || kind === 'FILE_UPDATED' || kind === 'FILE_REFERENCED') {
         return <FileTextIcon className="size-3.5 shrink-0 text-muted-foreground" />;
     }
 
@@ -322,6 +322,7 @@ export async function handleArtifactQuickOpen(artifact: AiHubTaskArtifactI): Pro
     // list looked clickable-shaped (wrench icon, hover) but had no handler firing on click.
     if (
         artifact.kind === 'FILE_CREATED' ||
+        artifact.kind === 'FILE_UPDATED' ||
         artifact.kind === 'BINARY_FILE_CREATED' ||
         artifact.kind === 'FILE_REFERENCED'
     ) {
@@ -465,6 +466,7 @@ function isArtifactRemovable(artifact: AiHubTaskArtifactI): boolean {
 function isArtifactClickable(artifact: AiHubTaskArtifactI): boolean {
     if (
         artifact.kind === 'FILE_CREATED' ||
+        artifact.kind === 'FILE_UPDATED' ||
         artifact.kind === 'BINARY_FILE_CREATED' ||
         artifact.kind === 'FILE_REFERENCED'
     ) {

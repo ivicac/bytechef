@@ -917,6 +917,7 @@ export enum AiHubTaskArtifactKind {
   DataTableRowUpdated = 'DATA_TABLE_ROW_UPDATED',
   FileCreated = 'FILE_CREATED',
   FileReferenced = 'FILE_REFERENCED',
+  FileUpdated = 'FILE_UPDATED',
   KbDocumentAdded = 'KB_DOCUMENT_ADDED',
   KbDocumentDeleted = 'KB_DOCUMENT_DELETED',
   KbReferenced = 'KB_REFERENCED',

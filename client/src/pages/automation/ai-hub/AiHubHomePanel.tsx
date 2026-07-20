@@ -1,5 +1,6 @@
 import Button from '@/components/Button/Button';
 import AiHubChatComposer from '@/pages/automation/ai-hub/composer/AiHubChatComposer';
+import AiHubSuggestionChips from '@/pages/automation/ai-hub/messages/AiHubSuggestionChips';
 import {useAiHubPersonalAgentsQuery} from '@/pages/automation/ai-hub/personal-agents/hooks/useAiHubPersonalAgents';
 import {aiHubStore} from '@/pages/automation/ai-hub/stores/useAiHubStore';
 import {AiHubTasksKeys} from '@/pages/automation/ai-hub/tasks/hooks/useTasks';
@@ -209,6 +210,8 @@ const AiHubHomePanel = () => {
                                 Ask anything, mention files / workflows / data tables, or ask me to build a workflow.
                             </p>
                         </div>
+
+                        <AiHubSuggestionChips className="mx-auto" />
 
                         <AiHubChatComposer
                             modelPicker={
