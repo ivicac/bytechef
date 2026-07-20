@@ -265,7 +265,14 @@ Extend `platform-notification` with Sim's rule model, reusing the existing trigg
   typed exception), `SlackNotificationClient` (incoming-webhook transport owning the
   payload shape; callers pass message text only), and `EmailNotificationClient`
   (optional `JavaMailSender`, sync, throws on SMTP failure so callers can record
-  channel errors). Consumers: the CE
+  channel errors). **`platform-notification` is the central registry for notifications
+  AND channels**: `Notification.Type` carries every channel first-class (`EMAIL`,
+  `WEBHOOK`, `SLACK`, ordinal append-only) with a sender+handler pair per type, so
+  phase-3 alert rules attach to `Notification` rows as their delivery targets rather
+  than defining channel entities of their own; the EE
+  `AiObservabilityNotificationChannel` table migrates onto `Notification` in that
+  build (prerequisite: workspace scoping on `Notification`, which the alert-rules
+  schema needs anyway). Other consumers: the CE
   `WebhookNotificationSender` (job-status webhook channel — previously a no-op stub, now
   real, with `webhookSecret` in settings + UI), the CE `EmailNotificationSender` (kept
   on the async templated `MailService`, which wraps the same `JavaMailSender`), and the

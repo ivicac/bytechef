@@ -724,6 +724,15 @@ cd cli
 
 ## Notification delivery (central point)
 
+- **`platform-notification` is THE central registry for notifications AND channels.** All channel
+  types are first-class on `Notification.Type` — `EMAIL, WEBHOOK, SLACK` (INT ordinal, append-only) —
+  with settings keys `email` / `webhook` + `webhookSecret` / `slackWebhookUrl` and a sender + handler
+  pair per type (`Email|Webhook|SlackNotificationSender`, `JobStatus*NotificationHandler`). New
+  notification surfaces and the phase-3 alert rules must reference `Notification` rows for delivery
+  targets instead of defining their own channel entities; the EE
+  `AiObservabilityNotificationChannel` table is legacy in this respect and migrates onto
+  `Notification` during the alert-rules build (needs workspace scoping on Notification first).
+
 - All notification transports live in CE `server/libs/platform/platform-notification/platform-notification-delivery`:
   `WebhookNotificationClient` (SSRF-validated via commons-util `UrlValidator` — loopback/private hosts
   are rejected, so tests can't use a local HTTP server; standard `X-ByteChef-Event/Timestamp/Delivery`
