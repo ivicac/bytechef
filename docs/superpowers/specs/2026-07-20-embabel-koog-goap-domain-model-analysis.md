@@ -1,6 +1,7 @@
 # Embabel vs Koog: dynamic domain models and GOAP inside ByteChef
 
-Date: 2026-07-20. Status: analysis (no build). Questions answered:
+Date: 2026-07-20. Status: analysis (no build). **Revised same day for Embabel 1.0.0 — see §4;
+it partially supersedes §1's "compile-time types only" conclusion.** Questions answered:
 
 1. Can we — via some Kotlin feature — **dynamically** express the typed domain input/output
    models Embabel requires (Embabel does not support Maps)?
@@ -129,10 +130,84 @@ Either way, Embabel remains the reference for semantics (we keep the behavioral 
 the typed-domain-model impedance mismatch — the reason the integration is dark and
 string-typed — goes away.
 
+## 4. Update: Embabel 1.0.0 (source-verified 2026-07-20)
+
+Embabel shipped **1.0.0 GA** (release train 0.4.0 "Curdimurka" → 0.5.0 "Darwin" → 1.0.0-RC1
+"Euroa" → 1.0.0; our module pins 0.3.5). Verified against the 1.0 source tree, not release
+notes. This changes parts of §1 and §3.
+
+### 4.1 The "no magic maps" wall now has a door: `DynamicType`
+
+`com.embabel.agent.core.DynamicType` is a first-class `DomainType` ("enables interop with
+non-JVM types"): `name` + `description` + `ownProperties: List<PropertyDefinition>` +
+`parents`, identity purely by name, Jackson-serializable. On the blackboard, a dynamic-typed
+value is a **plain `Map<String, Any?>` tagged with `_typeName`** (optionally `_typeLabels`)
+or a `DomainInstance` (`domainType` + `properties` map) — `Blackboard.satisfiesType` matches
+all three shapes. `IoBinding` remains a `"name:type"` **string**, and the GOAP `WorldState`
+is a map keyed by those strings — the planner never distinguished JVM from dynamic types.
+
+**So §1's "only via bytecode generation" is wrong for 1.0**: a ByteChef workflow's
+editor-defined shapes can be expressed as `DynamicType`s with property lists, and values as
+tagged maps, with the planner chaining on them natively. No ByteBuddy, no Kotlin compiler.
+
+### 4.2 The door is real but half-finished (all source-verified)
+
+- **No shipped action factory accepts a `DynamicType`** — `promptedTransformer` /
+  `TransformationAction` still require reified JVM classes. Dynamic-typed actions mean
+  implementing Embabel's `Action` interface ourselves and emitting
+  `IoBinding("x", "OurTypeName")` by hand (supported, just not sugared).
+- **LLM structured output still needs a JVM carrier**: `PromptRunner.createObject` has no
+  `DomainType` overload. `PropertyDefinition → JSON schema` generation exists
+  (`DomainTypeInputSchema`) but is wired only for **tool input schemas**, not for model
+  output. Our runner would keep generating output instructions itself (as it already does).
+- **No validation of Map values against `PropertyDefinition`** — and
+  `BlackboardWorldStateDeterminer` short-circuits: any `Map` value satisfies any type
+  condition (`// TODO may want to add type checking here`). Type discrimination for tagged
+  maps rests on the `_typeName` tag during binding resolution, not during planning.
+- **The "agent-spec" from the release notes is not an agent-from-YAML format**: the only
+  data-driven definition shipped is agentskills.io `SKILL.md` parsing
+  (`embabel-agent-skills`); `Agent`/`AgentProcess` are deliberately non-JSON-serializable
+  (`ComputerSaysNoSerializer`). Playbooks are progressive tool-unlocking, not specs.
+
+### 4.3 Upgrade path for our runner (0.3.5 → 1.0.0)
+
+All eight `com.embabel.*` imports in `EmbabelAgentRunner.kt` survive with identical packages
+(`Budget` and `LlmCall` moved files, not packages; `PromptCondition` remains
+`experimental.primitive`). One real change: `promptedTransformer` now takes Embabel's own
+`Tool` instead of Spring AI `ToolCallback` — the shipped bidirectional adapter
+(`ToolCallback.toEmbabelTool()` in `spi/support/springai/SpringToolCallbackAdapter.kt`)
+covers our wrapping. Also relevant given the checkpoint-resume workstream: 1.0's
+`AgentProcessRepository` persistence SPI ships **in-memory only** — Embabel adds no durable
+agent-process checkpointing either.
+
+### 4.4 Revised verdict
+
+The 0.3.5-era argument "Embabel structurally can't hold our runtime domain models" no longer
+holds. Three options, re-ranked:
+
+1. **Upgrade to Embabel 1.0 + `DynamicType`/tagged maps** — upgrade our string
+   `Binding(content)` carrier to `_typeName`-tagged maps with per-workflow `DynamicType`
+   property schemas. The planner gains real type discrimination; the glue we must write
+   (custom `Action` impl, output-schema prompting) is comparable to what the runner already
+   contains. Keeps the mature planner + budgets; the auto-config exclusion question remains.
+2. **Native GOAP** — still the smallest dependency footprint and now the *only* remaining
+   argument is dependency weight + the dark-wiring wart, not capability.
+3. **Koog `agents-planner`** — unchanged: generic-state A*, Java-callable, serializable
+   plans; superior if we also want its checkpoint machinery.
+
+Decision input, not made here: if the `agenticAi` component is to be lit up soon, option 1
+is now the least-work path to a *typed* GOAP canvas; if the Embabel dependency was the
+reason it stayed dark, option 2 remains the recommendation from §3.
+
 ## Sources
 
 - Repo recon: `server/libs/modules/components/ai/agentic-ai/` (see §0 for files).
-- https://github.com/embabel/embabel-agent — programming model, GOAP, "no more magic maps".
+- https://github.com/embabel/embabel-agent — programming model, GOAP, "no more magic maps";
+  1.0.0 source tree read directly (`core/DynamicType.kt`, `core/IoBinding.kt`,
+  `core/Blackboard.kt`, `core/support/BlackboardWorldStateDeterminer.kt`,
+  `api/dsl/AgentBuilder.kt`, `api/tool/Tool.kt` + `SpringToolCallbackAdapter.kt`,
+  `core/ProcessOptions.kt`, `core/AgentProcessRepository.kt`,
+  `embabel-agent-skills/.../spec/SkillDefinition.kt`).
 - https://github.com/JetBrains/koog — `agents/agents-planner` sources (`Entities.kt`,
   `GOAPPlanner.kt`, `GoapAgentState.kt`, `GOAPPlannerAgentTest.kt`), `docs/docs/structured-output.md`.
 - Koog agent persistence: https://docs.koog.ai/agent-persistence/ (checkpoints, storage
