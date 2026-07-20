@@ -345,7 +345,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             request = prependSystemMessage(request, resolvedPrompt.content());
         }
 
-        request = aiGatewayGuardrails.apply(request);
+        request = aiGatewayGuardrails.apply(request, workspaceId);
 
         long startTime = System.currentTimeMillis();
 
@@ -553,7 +553,8 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         AiGatewayChatCompletionRequest effectiveRequest = aiGatewayGuardrails.apply(
             resolvedPrompt != null
                 ? prependSystemMessage(request, resolvedPrompt.content())
-                : request);
+                : request,
+            workspaceId);
 
         long startTime = System.currentTimeMillis();
 

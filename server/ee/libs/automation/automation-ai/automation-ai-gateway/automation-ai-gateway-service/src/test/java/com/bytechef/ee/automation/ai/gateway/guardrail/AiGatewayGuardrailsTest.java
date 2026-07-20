@@ -9,12 +9,17 @@ package com.bytechef.ee.automation.ai.gateway.guardrail;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.bytechef.ee.automation.ai.gateway.service.AiGatewayWorkspaceSettingsService;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayWorkspaceSettings;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionRequest;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatMessage;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatRole;
 import com.bytechef.ee.platform.ai.gateway.exception.AiGatewayGuardrailException;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -23,6 +28,8 @@ import org.junit.jupiter.api.Test;
  * @author Ivica Cardic
  */
 class AiGatewayGuardrailsTest {
+
+    private final AiGatewayWorkspaceSettingsService settingsService = mock(AiGatewayWorkspaceSettingsService.class);
 
     @Test
     void testRedactPiiReplacesCommonPatterns() {
@@ -47,12 +54,10 @@ class AiGatewayGuardrailsTest {
     }
 
     @Test
-    void testApplyRedactsMessageContentWhenEnabled() {
-        AiGatewayGuardrails guardrails = new AiGatewayGuardrails(true, "");
+    void testApplyRedactsMessageContentWhenGloballyEnabled() {
+        AiGatewayGuardrails guardrails = new AiGatewayGuardrails(settingsService, null, true, "", false);
 
-        AiGatewayChatCompletionRequest request = requestOf("Contact bob@acme.io");
-
-        AiGatewayChatCompletionRequest result = guardrails.apply(request);
+        AiGatewayChatCompletionRequest result = guardrails.apply(requestOf("Contact bob@acme.io"), null);
 
         assertThat(result.messages()
             .getFirst()
@@ -60,21 +65,70 @@ class AiGatewayGuardrailsTest {
     }
 
     @Test
-    void testApplyRejectsBlockedTerm() {
-        AiGatewayGuardrails guardrails = new AiGatewayGuardrails(false, "forbidden, secret-project");
+    void testApplyRedactsWhenWorkspaceSettingEnablesIt() {
+        AiGatewayGuardrails guardrails = new AiGatewayGuardrails(settingsService, null, false, "", false);
 
-        AiGatewayChatCompletionRequest request = requestOf("Tell me about the Secret-Project roadmap");
+        when(settingsService.findByWorkspaceId(7L)).thenReturn(Optional.of(settings(true, null, null)));
 
-        assertThatExceptionOfType(AiGatewayGuardrailException.class).isThrownBy(() -> guardrails.apply(request));
+        AiGatewayChatCompletionRequest result = guardrails.apply(requestOf("Contact bob@acme.io"), 7L);
+
+        assertThat(result.messages()
+            .getFirst()
+            .content()).isEqualTo("Contact [REDACTED_EMAIL]");
+    }
+
+    @Test
+    void testApplyRejectsGlobalBlockedTerm() {
+        AiGatewayGuardrails guardrails =
+            new AiGatewayGuardrails(settingsService, null, false, "forbidden, secret-project", false);
+
+        assertThatExceptionOfType(AiGatewayGuardrailException.class).isThrownBy(
+            () -> guardrails.apply(requestOf("Tell me about the Secret-Project roadmap"), null));
+    }
+
+    @Test
+    void testApplyRejectsWorkspaceBlockedTerm() {
+        AiGatewayGuardrails guardrails = new AiGatewayGuardrails(settingsService, null, false, "", false);
+
+        when(settingsService.findByWorkspaceId(7L)).thenReturn(Optional.of(settings(null, "classified", null)));
+
+        assertThatExceptionOfType(AiGatewayGuardrailException.class).isThrownBy(
+            () -> guardrails.apply(requestOf("Summarize the CLASSIFIED memo"), 7L));
+    }
+
+    @Test
+    void testApplyRejectsContentFlaggedByModeration() {
+        AiGatewayGuardrails guardrails = new AiGatewayGuardrails(settingsService, content -> true, false, "", false);
+
+        when(settingsService.findByWorkspaceId(7L)).thenReturn(Optional.of(settings(null, null, true)));
+
+        assertThatExceptionOfType(AiGatewayGuardrailException.class).isThrownBy(
+            () -> guardrails.apply(requestOf("anything"), 7L));
+    }
+
+    @Test
+    void testApplySkipsModerationWithoutClassifier() {
+        AiGatewayGuardrails guardrails = new AiGatewayGuardrails(settingsService, null, false, "", true);
+
+        AiGatewayChatCompletionRequest request = requestOf("anything");
+
+        assertThat(guardrails.apply(request, null)).isSameAs(request);
     }
 
     @Test
     void testApplyReturnsSameRequestWhenAllGuardrailsDisabled() {
-        AiGatewayGuardrails guardrails = new AiGatewayGuardrails(false, "");
+        AiGatewayGuardrails guardrails = new AiGatewayGuardrails(settingsService, null, false, "", false);
 
         AiGatewayChatCompletionRequest request = requestOf("Contact bob@acme.io");
 
-        assertThat(guardrails.apply(request)).isSameAs(request);
+        assertThat(guardrails.apply(request, null)).isSameAs(request);
+    }
+
+    private static AiGatewayWorkspaceSettings settings(
+        Boolean redactPii, String blockedTerms, Boolean moderationEnabled) {
+
+        return new AiGatewayWorkspaceSettings(
+            7L, null, null, null, null, null, null, null, redactPii, blockedTerms, moderationEnabled);
     }
 
     private static AiGatewayChatCompletionRequest requestOf(String content) {

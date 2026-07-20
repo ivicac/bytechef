@@ -669,10 +669,12 @@ export type AiGatewaySpendSummary = {
 
 export type AiGatewayWorkspaceSettings = {
   __typename?: 'AiGatewayWorkspaceSettings';
+  blockedTerms?: Maybe<Scalars['String']['output']>;
   cacheEnabled?: Maybe<Scalars['Boolean']['output']>;
   cacheTtlSeconds?: Maybe<Scalars['Int']['output']>;
   defaultRoutingPolicyId?: Maybe<Scalars['ID']['output']>;
   logRetentionDays?: Maybe<Scalars['Int']['output']>;
+  moderationEnabled?: Maybe<Scalars['Boolean']['output']>;
   redactPii?: Maybe<Scalars['Boolean']['output']>;
   retryCount?: Maybe<Scalars['Int']['output']>;
   softBudgetWarningPct?: Maybe<Scalars['Int']['output']>;
@@ -681,10 +683,12 @@ export type AiGatewayWorkspaceSettings = {
 };
 
 export type AiGatewayWorkspaceSettingsInput = {
+  blockedTerms?: InputMaybe<Scalars['String']['input']>;
   cacheEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   cacheTtlSeconds?: InputMaybe<Scalars['Int']['input']>;
   defaultRoutingPolicyId?: InputMaybe<Scalars['ID']['input']>;
   logRetentionDays?: InputMaybe<Scalars['Int']['input']>;
+  moderationEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   redactPii?: InputMaybe<Scalars['Boolean']['input']>;
   retryCount?: InputMaybe<Scalars['Int']['input']>;
   softBudgetWarningPct?: InputMaybe<Scalars['Int']['input']>;

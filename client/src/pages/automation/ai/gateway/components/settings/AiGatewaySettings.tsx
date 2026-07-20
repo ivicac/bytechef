@@ -10,9 +10,11 @@ import {useEffect, useState} from 'react';
 import {toast} from 'sonner';
 
 interface SettingsFormI {
+    blockedTerms: string;
     cacheEnabled: boolean;
     cacheTtlSeconds: string;
     logRetentionDays: string;
+    moderationEnabled: boolean;
     redactPii: boolean;
     retryCount: string;
     softBudgetWarningPct: string;
@@ -20,9 +22,11 @@ interface SettingsFormI {
 }
 
 const EMPTY_FORM: SettingsFormI = {
+    blockedTerms: '',
     cacheEnabled: false,
     cacheTtlSeconds: '',
     logRetentionDays: '',
+    moderationEnabled: false,
     redactPii: false,
     retryCount: '',
     softBudgetWarningPct: '',
@@ -65,9 +69,11 @@ const AiGatewaySettings = () => {
 
         if (settings) {
             setForm({
+                blockedTerms: settings.blockedTerms ?? '',
                 cacheEnabled: settings.cacheEnabled ?? false,
                 cacheTtlSeconds: settings.cacheTtlSeconds != null ? String(settings.cacheTtlSeconds) : '',
                 logRetentionDays: settings.logRetentionDays != null ? String(settings.logRetentionDays) : '',
+                moderationEnabled: settings.moderationEnabled ?? false,
                 redactPii: settings.redactPii ?? false,
                 retryCount: settings.retryCount != null ? String(settings.retryCount) : '',
                 softBudgetWarningPct:
@@ -84,9 +90,11 @@ const AiGatewaySettings = () => {
 
         updateMutation.mutate({
             input: {
+                blockedTerms: form.blockedTerms || undefined,
                 cacheEnabled: form.cacheEnabled,
                 cacheTtlSeconds: toOptionalInt(form.cacheTtlSeconds),
                 logRetentionDays: toOptionalInt(form.logRetentionDays),
+                moderationEnabled: form.moderationEnabled,
                 redactPii: form.redactPii,
                 retryCount: toOptionalInt(form.retryCount),
                 softBudgetWarningPct: toOptionalInt(form.softBudgetWarningPct),
@@ -184,7 +192,27 @@ const AiGatewaySettings = () => {
                             onChange={(event) => setForm({...form, redactPii: event.target.checked})}
                             type="checkbox"
                         />
-                        Redact PII (store SHA-256 digest instead of input/output payloads)
+                        Redact PII (mask emails, phone numbers, SSNs, cards, and IPs in prompts before they leave
+                        ByteChef; traces store a SHA-256 digest instead of payloads)
+                    </label>
+
+                    <label className="flex items-center gap-2 text-sm">
+                        <input
+                            checked={form.moderationEnabled}
+                            onChange={(event) => setForm({...form, moderationEnabled: event.target.checked})}
+                            type="checkbox"
+                        />
+                        Model-based moderation (reject unsafe prompts; requires a configured moderation model)
+                    </label>
+
+                    <label className="flex flex-col gap-1 text-sm">
+                        Blocked terms (comma-separated; requests containing one are rejected)
+                        <input
+                            className="rounded-md border px-3 py-2 text-sm"
+                            onChange={(event) => setForm({...form, blockedTerms: event.target.value})}
+                            placeholder="none"
+                            value={form.blockedTerms}
+                        />
                     </label>
                 </fieldset>
 

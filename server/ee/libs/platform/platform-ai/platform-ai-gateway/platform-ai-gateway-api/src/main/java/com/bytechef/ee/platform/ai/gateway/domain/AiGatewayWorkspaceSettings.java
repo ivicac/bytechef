@@ -24,7 +24,9 @@ public record AiGatewayWorkspaceSettings(
     Integer logRetentionDays,
     Long defaultRoutingPolicyId,
     Integer softBudgetWarningPct,
-    Boolean redactPii) {
+    Boolean redactPii,
+    String blockedTerms,
+    Boolean moderationEnabled) {
 
     public static final String PROPERTY_KEY = "ai_gateway_workspace_settings";
 

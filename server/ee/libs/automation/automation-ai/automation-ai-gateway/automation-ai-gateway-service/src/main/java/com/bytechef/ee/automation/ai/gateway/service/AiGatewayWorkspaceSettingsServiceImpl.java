@@ -35,10 +35,12 @@ import org.springframework.transaction.annotation.Transactional;
 @SuppressFBWarnings("EI")
 class AiGatewayWorkspaceSettingsServiceImpl implements AiGatewayWorkspaceSettingsService {
 
+    private static final String KEY_BLOCKED_TERMS = "blockedTerms";
     private static final String KEY_CACHE_ENABLED = "cacheEnabled";
     private static final String KEY_CACHE_TTL_SECONDS = "cacheTtlSeconds";
     private static final String KEY_DEFAULT_ROUTING_POLICY_ID = "defaultRoutingPolicyId";
     private static final String KEY_LOG_RETENTION_DAYS = "logRetentionDays";
+    private static final String KEY_MODERATION_ENABLED = "moderationEnabled";
     private static final String KEY_REDACT_PII = "redactPii";
     private static final String KEY_RETRY_COUNT = "retryCount";
     private static final String KEY_SOFT_BUDGET_WARNING_PCT = "softBudgetWarningPct";
@@ -110,6 +112,14 @@ class AiGatewayWorkspaceSettingsServiceImpl implements AiGatewayWorkspaceSetting
             value.put(KEY_REDACT_PII, settings.redactPii());
         }
 
+        if (settings.blockedTerms() != null) {
+            value.put(KEY_BLOCKED_TERMS, settings.blockedTerms());
+        }
+
+        if (settings.moderationEnabled() != null) {
+            value.put(KEY_MODERATION_ENABLED, settings.moderationEnabled());
+        }
+
         return value;
     }
 
@@ -123,7 +133,9 @@ class AiGatewayWorkspaceSettingsServiceImpl implements AiGatewayWorkspaceSetting
             intValue(value, KEY_LOG_RETENTION_DAYS),
             longValue(value, KEY_DEFAULT_ROUTING_POLICY_ID),
             intValue(value, KEY_SOFT_BUDGET_WARNING_PCT),
-            (Boolean) value.get(KEY_REDACT_PII));
+            (Boolean) value.get(KEY_REDACT_PII),
+            (String) value.get(KEY_BLOCKED_TERMS),
+            (Boolean) value.get(KEY_MODERATION_ENABLED));
     }
 
     private static Integer intValue(Map<String, ?> value, String key) {

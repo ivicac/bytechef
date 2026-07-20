@@ -7,12 +7,18 @@
 
 package com.bytechef.ee.automation.ai.gateway.guardrail;
 
+import com.bytechef.ee.automation.ai.gateway.service.AiGatewayWorkspaceSettingsService;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayWorkspaceSettings;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionRequest;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatMessage;
 import com.bytechef.ee.platform.ai.gateway.exception.AiGatewayGuardrailException;
+import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifier;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
@@ -25,17 +31,24 @@ import org.springframework.stereotype.Component;
  * Applies inline content guardrails to an AI Gateway request before it is routed upstream:
  *
  * <ul>
- * <li><b>PII redaction</b> — when {@code bytechef.ai.gateway.guardrails.pii-redaction-enabled} is set, message content
- * is scanned for common personally identifiable information (email, US SSN, credit-card number, phone number, IPv4
- * address) and each match is replaced with a {@code [REDACTED_*]} placeholder before the prompt leaves ByteChef.</li>
- * <li><b>Blocked terms</b> — when {@code bytechef.ai.gateway.guardrails.blocked-terms} lists one or more terms, any
- * request whose message content contains one (case-insensitive) is rejected with an
- * {@link AiGatewayGuardrailException}.</li>
+ * <li><b>PII redaction</b> — active when {@code bytechef.ai.gateway.guardrails.pii-redaction-enabled} is set globally
+ * OR the workspace's {@code redactPii} setting is on. Message content is scanned for common personally identifiable
+ * information (email, US SSN, credit-card number, phone number, IPv4 address) and each match is replaced with a
+ * {@code [REDACTED_*]} placeholder before the prompt leaves ByteChef.</li>
+ * <li><b>Blocked terms</b> — the union of the global {@code bytechef.ai.gateway.guardrails.blocked-terms} list and the
+ * workspace's {@code blockedTerms} setting (both comma-separated). A request whose message content contains any term
+ * (case-insensitive) is rejected with an {@link AiGatewayGuardrailException}.</li>
+ * <li><b>Model-based moderation</b> — active when {@code bytechef.ai.gateway.guardrails.moderation-enabled} is set
+ * globally OR the workspace's {@code moderationEnabled} setting is on, and an {@link AiGatewayModerationClassifier}
+ * bean is present (registered when {@code bytechef.ai.gateway.guardrails.moderation-model} names a gateway model). A
+ * message the classifier flags is rejected with an {@link AiGatewayGuardrailException}. The classifier fails open, so a
+ * moderation-model outage never hard-blocks traffic.</li>
  * </ul>
  *
  * <p>
- * Both are off by default. Redaction runs before the blocked-term check so a term is matched against the redacted text.
- * The redactor is deterministic and side-effect-free, so it is safe to run on every message of every request.
+ * Everything is off by default. Redaction runs before the blocked-term check and moderation so both evaluate the
+ * redacted text. The redactor is deterministic and side-effect-free, so it is safe to run on every message of every
+ * request.
  * </p>
  *
  * @version ee
@@ -56,27 +69,55 @@ public class AiGatewayGuardrails {
     private static final Pattern IPV4_PATTERN = Pattern.compile(
         "\\b(?:(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\b");
 
-    private final List<String> blockedTerms;
-    private final boolean piiRedactionEnabled;
+    private final AiGatewayWorkspaceSettingsService aiGatewayWorkspaceSettingsService;
+    private final List<String> globalBlockedTerms;
+    private final boolean globalModerationEnabled;
+    private final boolean globalPiiRedactionEnabled;
+    private final @Nullable AiGatewayModerationClassifier moderationClassifier;
 
     public AiGatewayGuardrails(
+        AiGatewayWorkspaceSettingsService aiGatewayWorkspaceSettingsService,
+        @Nullable AiGatewayModerationClassifier moderationClassifier,
         @Value("${bytechef.ai.gateway.guardrails.pii-redaction-enabled:false}") boolean piiRedactionEnabled,
-        @Value("${bytechef.ai.gateway.guardrails.blocked-terms:}") String blockedTerms) {
+        @Value("${bytechef.ai.gateway.guardrails.blocked-terms:}") String blockedTerms,
+        @Value("${bytechef.ai.gateway.guardrails.moderation-enabled:false}") boolean moderationEnabled) {
 
-        this.blockedTerms = parseBlockedTerms(blockedTerms);
-        this.piiRedactionEnabled = piiRedactionEnabled;
+        this.aiGatewayWorkspaceSettingsService = aiGatewayWorkspaceSettingsService;
+        this.globalBlockedTerms = parseBlockedTerms(blockedTerms);
+        this.globalModerationEnabled = moderationEnabled;
+        this.globalPiiRedactionEnabled = piiRedactionEnabled;
+        this.moderationClassifier = moderationClassifier;
     }
 
     /**
-     * Returns the request with guardrails applied: PII redacted (when enabled) and a blocked-term violation raised
-     * (when configured). Returns the request unchanged when no guardrail is active.
+     * Returns the request with guardrails applied for the given workspace: PII redacted (when enabled globally or for
+     * the workspace), blocked terms rejected (global list plus the workspace's), and — when moderation is active and a
+     * classifier is available — flagged content rejected. Returns the request unchanged when no guardrail is active.
      *
-     * @param request the inbound chat-completion request
+     * @param request     the inbound chat-completion request
+     * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed (global
+     *                    guardrails still apply)
      * @return the guardrailed request
-     * @throws AiGatewayGuardrailException if a message contains a blocked term
+     * @throws AiGatewayGuardrailException if a message contains a blocked term or is flagged by moderation
      */
-    public AiGatewayChatCompletionRequest apply(AiGatewayChatCompletionRequest request) {
-        if (!piiRedactionEnabled && blockedTerms.isEmpty()) {
+    public AiGatewayChatCompletionRequest apply(
+        AiGatewayChatCompletionRequest request, @Nullable Long workspaceId) {
+
+        AiGatewayWorkspaceSettings settings = findSettings(workspaceId);
+
+        boolean redactPii = globalPiiRedactionEnabled ||
+            (settings != null && Boolean.TRUE.equals(settings.redactPii()));
+
+        Set<String> blockedTerms = new LinkedHashSet<>(globalBlockedTerms);
+
+        if (settings != null && settings.blockedTerms() != null) {
+            blockedTerms.addAll(parseBlockedTerms(settings.blockedTerms()));
+        }
+
+        boolean moderate = moderationClassifier != null &&
+            (globalModerationEnabled || (settings != null && Boolean.TRUE.equals(settings.moderationEnabled())));
+
+        if (!redactPii && blockedTerms.isEmpty() && !moderate) {
             return request;
         }
 
@@ -86,11 +127,17 @@ public class AiGatewayGuardrails {
             String content = message.content();
 
             if (content != null) {
-                if (piiRedactionEnabled) {
+                if (redactPii) {
                     content = redactPii(content);
                 }
 
-                checkBlockedTerms(content);
+                checkBlockedTerms(content, blockedTerms);
+
+                if (moderate && moderationClassifier.isFlagged(content)) {
+                    log.warn("AI Gateway request rejected by moderation classifier");
+
+                    throw new AiGatewayGuardrailException("Request rejected by content moderation");
+                }
             }
 
             guardrailedMessages.add(
@@ -127,7 +174,31 @@ public class AiGatewayGuardrails {
         return redacted;
     }
 
-    private void checkBlockedTerms(String content) {
+    private @Nullable AiGatewayWorkspaceSettings findSettings(@Nullable Long workspaceId) {
+        if (workspaceId == null) {
+            return null;
+        }
+
+        try {
+            Optional<AiGatewayWorkspaceSettings> settingsOptional =
+                aiGatewayWorkspaceSettingsService.findByWorkspaceId(workspaceId);
+
+            return settingsOptional.orElse(null);
+        } catch (Exception exception) {
+            // A settings lookup failure must not take the request path down; global guardrails still apply.
+            log.warn(
+                "Failed to load AI Gateway workspace settings for workspace {}: {}", workspaceId,
+                exception.getMessage());
+
+            return null;
+        }
+    }
+
+    private static void checkBlockedTerms(String content, Set<String> blockedTerms) {
+        if (blockedTerms.isEmpty()) {
+            return;
+        }
+
         String lowerContent = content.toLowerCase(Locale.ROOT);
 
         for (String blockedTerm : blockedTerms) {

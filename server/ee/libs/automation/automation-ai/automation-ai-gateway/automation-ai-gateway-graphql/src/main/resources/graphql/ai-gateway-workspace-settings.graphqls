@@ -7,10 +7,12 @@ extend type Mutation {
 }
 
 type AiGatewayWorkspaceSettings {
+    blockedTerms: String
     cacheEnabled: Boolean
     cacheTtlSeconds: Int
     defaultRoutingPolicyId: ID
     logRetentionDays: Int
+    moderationEnabled: Boolean
     redactPii: Boolean
     retryCount: Int
     softBudgetWarningPct: Int
@@ -19,10 +21,12 @@ type AiGatewayWorkspaceSettings {
 }
 
 input AiGatewayWorkspaceSettingsInput {
+    blockedTerms: String
     cacheEnabled: Boolean
     cacheTtlSeconds: Int
     defaultRoutingPolicyId: ID
     logRetentionDays: Int
+    moderationEnabled: Boolean
     redactPii: Boolean
     retryCount: Int
     softBudgetWarningPct: Int
