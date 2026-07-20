@@ -7,8 +7,9 @@
 
 package com.bytechef.ee.automation.workflow.alert.repository;
 
-import com.bytechef.ee.automation.workflow.alert.domain.WorkflowAlertEvent;
+import com.bytechef.ee.automation.workflow.alert.domain.WorkspaceWorkflowAlertRule;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.stereotype.Repository;
 
@@ -18,7 +19,9 @@ import org.springframework.stereotype.Repository;
  * @author Ivica Cardic
  */
 @Repository
-public interface WorkflowAlertEventRepository extends ListCrudRepository<WorkflowAlertEvent, Long> {
+public interface WorkspaceWorkflowAlertRuleRepository extends ListCrudRepository<WorkspaceWorkflowAlertRule, Long> {
 
-    List<WorkflowAlertEvent> findTop100ByWorkflowAlertRuleIdInOrderByCreatedDateDesc(List<Long> workflowAlertRuleIds);
+    List<WorkspaceWorkflowAlertRule> findAllByWorkspaceId(long workspaceId);
+
+    Optional<WorkspaceWorkflowAlertRule> findByWorkflowAlertRuleId(long workflowAlertRuleId);
 }

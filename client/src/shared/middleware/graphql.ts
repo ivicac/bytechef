@@ -2607,7 +2607,7 @@ export type WorkflowAlertRulesQueryVariables = Exact<{
 }>;
 
 
-export type WorkflowAlertRulesQuery = { workflowAlertRules: Array<{ cooldownMinutes: number, enabled: boolean, id: string, lastTriggeredDate: string | null, name: string, notificationIds: Array<string>, ruleType: Types.WorkflowAlertRuleType, threshold: number, windowMinutes: number | null, workflowId: string | null, workspaceId: string }> };
+export type WorkflowAlertRulesQuery = { workflowAlertRules: Array<{ cooldownMinutes: number, enabled: boolean, id: string, lastTriggeredDate: string | null, name: string, notificationIds: Array<string>, ruleType: Types.WorkflowAlertRuleType, threshold: number, windowMinutes: number | null, workflowId: string | null }> };
 
 export type WorkflowAlertEventsQueryVariables = Exact<{
   workspaceId: string | number;
@@ -13296,7 +13296,6 @@ export const WorkflowAlertRulesDocument = new TypedDocumentString(`
     threshold
     windowMinutes
     workflowId
-    workspaceId
   }
 }
     `);

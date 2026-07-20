@@ -15,9 +15,6 @@
             <column name="name" type="VARCHAR(256)">
                 <constraints nullable="false"/>
             </column>
-            <column name="workspace_id" type="BIGINT">
-                <constraints nullable="false"/>
-            </column>
             <column name="workflow_id" type="VARCHAR(256)"/>
             <column name="rule_type" type="INT">
                 <constraints nullable="false"/>
@@ -49,7 +46,38 @@
             <column name="last_modified_date" type="TIMESTAMP"/>
         </createTable>
 
-        <createIndex tableName="workflow_alert_rule" indexName="idx_workflow_alert_rule_workspace">
+        <!-- Workspace membership join table - workspace is an automation-configuration-owned concept, so
+             foreign modules attach entities to it via workspace_* membership tables instead of workspace_id
+             columns. -->
+        <createTable tableName="workspace_workflow_alert_rule">
+            <column name="id" type="BIGINT" autoIncrement="true">
+                <constraints primaryKey="true" nullable="false"/>
+            </column>
+            <column name="workspace_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="workflow_alert_rule_id" type="BIGINT">
+                <constraints nullable="false"/>
+            </column>
+            <column name="created_date" type="TIMESTAMP"/>
+            <column name="version" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </createTable>
+
+        <addUniqueConstraint tableName="workspace_workflow_alert_rule"
+            columnNames="workspace_id,workflow_alert_rule_id"
+            constraintName="uq_workspace_workflow_alert_rule"/>
+
+        <addForeignKeyConstraint
+            baseTableName="workspace_workflow_alert_rule"
+            baseColumnNames="workflow_alert_rule_id"
+            constraintName="fk_workspace_workflow_alert_rule_rule_id"
+            referencedTableName="workflow_alert_rule"
+            referencedColumnNames="id"
+            onDelete="CASCADE"/>
+
+        <createIndex tableName="workspace_workflow_alert_rule" indexName="idx_workspace_workflow_alert_rule_workspace">
             <column name="workspace_id"/>
         </createIndex>
 
@@ -87,9 +115,6 @@
             <column name="workflow_alert_rule_id" type="BIGINT">
                 <constraints nullable="false"/>
             </column>
-            <column name="workspace_id" type="BIGINT">
-                <constraints nullable="false"/>
-            </column>
             <column name="job_id" type="BIGINT"/>
             <column name="triggered_value" type="DECIMAL(18,6)"/>
             <column name="message" type="TEXT"/>
@@ -104,8 +129,8 @@
             referencedColumnNames="id"
             onDelete="CASCADE"/>
 
-        <createIndex tableName="workflow_alert_event" indexName="idx_workflow_alert_event_workspace_created">
-            <column name="workspace_id"/>
+        <createIndex tableName="workflow_alert_event" indexName="idx_workflow_alert_event_rule_created">
+            <column name="workflow_alert_rule_id"/>
             <column name="created_date" descending="true"/>
         </createIndex>
     </changeSet>

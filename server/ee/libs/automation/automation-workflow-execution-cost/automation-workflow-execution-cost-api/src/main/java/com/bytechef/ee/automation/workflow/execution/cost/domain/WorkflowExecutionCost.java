@@ -37,9 +37,6 @@ public class WorkflowExecutionCost {
     @Column("job_id")
     private Long jobId;
 
-    @Column("workspace_id")
-    private Long workspaceId;
-
     @Column("base_run_charge")
     private BigDecimal baseRunCharge;
 
@@ -74,10 +71,6 @@ public class WorkflowExecutionCost {
         return jobId;
     }
 
-    public Long getWorkspaceId() {
-        return workspaceId;
-    }
-
     public BigDecimal getBaseRunCharge() {
         return baseRunCharge;
     }
@@ -96,10 +89,6 @@ public class WorkflowExecutionCost {
 
     public Instant getCreatedDate() {
         return createdDate;
-    }
-
-    public void setWorkspaceId(Long workspaceId) {
-        this.workspaceId = workspaceId;
     }
 
     @Override
@@ -122,7 +111,6 @@ public class WorkflowExecutionCost {
 
     @Override
     public String toString() {
-        return "WorkflowExecutionCost{id=%s, jobId=%s, workspaceId=%s, totalCost=%s %s}".formatted(
-            id, jobId, workspaceId, totalCost, currency);
+        return "WorkflowExecutionCost{id=%s, jobId=%s, totalCost=%s %s}".formatted(id, jobId, totalCost, currency);
     }
 }

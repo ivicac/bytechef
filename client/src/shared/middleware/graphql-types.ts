@@ -7961,7 +7961,6 @@ export type WorkflowAlertRule = {
   threshold: Scalars['Float']['output'];
   windowMinutes?: Maybe<Scalars['Int']['output']>;
   workflowId?: Maybe<Scalars['String']['output']>;
-  workspaceId: Scalars['ID']['output'];
 };
 
 export type WorkflowAlertRuleInput = {

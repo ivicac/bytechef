@@ -133,8 +133,7 @@ public class WorkflowAlertApplicationEventListener implements ApplicationEventLi
                     rule.setLastTriggeredDate(now);
 
                     WorkflowAlertEvent workflowAlertEvent = workflowAlertEventService.create(
-                        new WorkflowAlertEvent(
-                            rule.getId(), workspaceId, jobId, breach.triggeredValue(), breach.message()));
+                        new WorkflowAlertEvent(rule.getId(), jobId, breach.triggeredValue(), breach.message()));
 
                     workflowAlertDispatcher.dispatch(rule, workflowAlertEvent);
                 }

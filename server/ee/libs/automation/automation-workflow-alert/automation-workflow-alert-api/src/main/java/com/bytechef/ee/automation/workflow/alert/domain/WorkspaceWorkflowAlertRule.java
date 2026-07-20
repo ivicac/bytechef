@@ -7,72 +7,60 @@
 
 package com.bytechef.ee.automation.workflow.alert.domain;
 
-import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.Objects;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 /**
- * One row per fired alert — the history the alerts UI lists and the audit trail for what was delivered when. Rows
- * cascade-delete with their rule.
+ * Workspace membership row for a {@link WorkflowAlertRule}. Workspace is an automation-configuration-owned concept, so
+ * alert rules attach to it through this join table instead of carrying a {@code workspace_id} column — the repo-wide
+ * {@code workspace_*} membership pattern.
  *
  * @version ee
  *
  * @author Ivica Cardic
  */
-@Table("workflow_alert_event")
-public class WorkflowAlertEvent {
+@Table("workspace_workflow_alert_rule")
+public class WorkspaceWorkflowAlertRule {
 
     @Id
     private Long id;
 
+    @Version
+    private int version;
+
+    @Column("workspace_id")
+    private Long workspaceId;
+
     @Column("workflow_alert_rule_id")
     private Long workflowAlertRuleId;
-
-    @Column("job_id")
-    private Long jobId;
-
-    @Column("triggered_value")
-    private BigDecimal triggeredValue;
-
-    @Column
-    private String message;
 
     @Column("created_date")
     @CreatedDate
     private Instant createdDate;
 
-    public WorkflowAlertEvent() {
+    private WorkspaceWorkflowAlertRule() {
     }
 
-    public WorkflowAlertEvent(Long workflowAlertRuleId, Long jobId, BigDecimal triggeredValue, String message) {
+    public WorkspaceWorkflowAlertRule(Long workflowAlertRuleId, Long workspaceId) {
         this.workflowAlertRuleId = workflowAlertRuleId;
-        this.jobId = jobId;
-        this.triggeredValue = triggeredValue;
-        this.message = message;
+        this.workspaceId = workspaceId;
     }
 
     public Long getId() {
         return id;
     }
 
+    public Long getWorkspaceId() {
+        return workspaceId;
+    }
+
     public Long getWorkflowAlertRuleId() {
         return workflowAlertRuleId;
-    }
-
-    public Long getJobId() {
-        return jobId;
-    }
-
-    public BigDecimal getTriggeredValue() {
-        return triggeredValue;
-    }
-
-    public String getMessage() {
-        return message;
     }
 
     public Instant getCreatedDate() {
@@ -85,7 +73,7 @@ public class WorkflowAlertEvent {
             return true;
         }
 
-        if (!(object instanceof WorkflowAlertEvent that)) {
+        if (!(object instanceof WorkspaceWorkflowAlertRule that)) {
             return false;
         }
 

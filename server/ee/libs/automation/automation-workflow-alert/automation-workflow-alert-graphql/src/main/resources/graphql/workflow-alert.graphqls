@@ -44,7 +44,6 @@ input WorkflowAlertRuleInput {
 type WorkflowAlertRule {
     id: ID!
     name: String!
-    workspaceId: ID!
     workflowId: String
     ruleType: WorkflowAlertRuleType!
     threshold: Float!

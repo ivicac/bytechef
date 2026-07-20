@@ -10,6 +10,7 @@ package com.bytechef.ee.automation.workflow.execution.cost.listener;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -21,6 +22,7 @@ import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.ee.automation.workflow.execution.cost.config.WorkflowExecutionCostProperties;
 import com.bytechef.ee.automation.workflow.execution.cost.domain.WorkflowExecutionCost;
 import com.bytechef.ee.automation.workflow.execution.cost.service.WorkflowExecutionCostService;
+import com.bytechef.ee.automation.workflow.execution.cost.service.WorkspaceWorkflowExecutionCostService;
 import com.bytechef.ee.platform.ai.llm.usage.AiLlmUsage;
 import com.bytechef.ee.platform.ai.llm.usage.LlmUsageSource;
 import com.bytechef.ee.platform.ai.llm.usage.service.AiLlmUsageService;
@@ -62,6 +64,9 @@ class WorkflowExecutionCostApplicationEventListenerTest {
     @Mock
     private WorkflowExecutionCostService workflowExecutionCostService;
 
+    @Mock
+    private WorkspaceWorkflowExecutionCostService workspaceWorkflowExecutionCostService;
+
     private WorkflowExecutionCostApplicationEventListener listener;
 
     @BeforeEach
@@ -69,7 +74,7 @@ class WorkflowExecutionCostApplicationEventListenerTest {
         listener = new WorkflowExecutionCostApplicationEventListener(
             aiLlmUsageService, principalJobService, projectDeploymentService, projectService,
             new WorkflowExecutionCostProperties(true, new BigDecimal("0.005")),
-            workflowExecutionCostService);
+            workflowExecutionCostService, workspaceWorkflowExecutionCostService);
 
         when(workflowExecutionCostService.fetchByJobId(anyLong())).thenReturn(Optional.empty());
         when(principalJobService.fetchJobPrincipalId(anyLong(), any(PlatformType.class)))
@@ -91,7 +96,7 @@ class WorkflowExecutionCostApplicationEventListenerTest {
 
         ArgumentCaptor<WorkflowExecutionCost> costCaptor = ArgumentCaptor.forClass(WorkflowExecutionCost.class);
 
-        verify(workflowExecutionCostService).create(costCaptor.capture());
+        verify(workspaceWorkflowExecutionCostService).createInWorkspace(costCaptor.capture(), isNull());
 
         WorkflowExecutionCost cost = costCaptor.getValue();
 
@@ -105,7 +110,7 @@ class WorkflowExecutionCostApplicationEventListenerTest {
     void testNonTerminalStatusIsIgnored() {
         listener.onApplicationEvent(new JobStatusApplicationEvent(42L, Job.Status.STARTED));
 
-        verify(workflowExecutionCostService, never()).create(any());
+        verify(workspaceWorkflowExecutionCostService, never()).createInWorkspace(any(), any());
     }
 
     @Test
@@ -115,7 +120,7 @@ class WorkflowExecutionCostApplicationEventListenerTest {
 
         listener.onApplicationEvent(new JobStatusApplicationEvent(42L, Job.Status.COMPLETED));
 
-        verify(workflowExecutionCostService, never()).create(any());
+        verify(workspaceWorkflowExecutionCostService, never()).createInWorkspace(any(), any());
     }
 
     @Test
@@ -124,6 +129,6 @@ class WorkflowExecutionCostApplicationEventListenerTest {
 
         listener.onApplicationEvent(new JobStatusApplicationEvent(7L, Job.Status.CANCELLED));
 
-        verify(workflowExecutionCostService).create(any(WorkflowExecutionCost.class));
+        verify(workspaceWorkflowExecutionCostService).createInWorkspace(any(WorkflowExecutionCost.class), isNull());
     }
 }

@@ -67,11 +67,9 @@ public class WorkflowAlertGraphQlController {
 
         WorkflowAlertRule workflowAlertRule = new WorkflowAlertRule();
 
-        workflowAlertRule.setWorkspaceId(workspaceId);
-
         applyInput(workflowAlertRule, input);
 
-        return workflowAlertRuleService.create(workflowAlertRule);
+        return workflowAlertRuleService.createInWorkspace(workflowAlertRule, workspaceId);
     }
 
     @MutationMapping

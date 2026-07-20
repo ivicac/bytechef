@@ -12,19 +12,24 @@ import com.bytechef.ee.automation.workflow.alert.domain.WorkflowAlertRuleType;
 import java.util.List;
 
 /**
+ * Workspace resolution goes through the {@code workspace_workflow_alert_rule} membership table — workspace is an
+ * automation-configuration-owned concept, so rules carry no workspace column of their own.
+ *
  * @version ee
  *
  * @author Ivica Cardic
  */
 public interface WorkflowAlertRuleService {
 
-    WorkflowAlertRule create(WorkflowAlertRule workflowAlertRule);
+    WorkflowAlertRule createInWorkspace(WorkflowAlertRule workflowAlertRule, long workspaceId);
 
     void delete(long id);
 
     WorkflowAlertRule getWorkflowAlertRule(long id);
 
     List<WorkflowAlertRule> getWorkflowAlertRules(long workspaceId);
+
+    List<Long> getWorkflowAlertRuleIds(long workspaceId);
 
     List<WorkflowAlertRule> getEnabledWorkflowAlertRules(long workspaceId);
 

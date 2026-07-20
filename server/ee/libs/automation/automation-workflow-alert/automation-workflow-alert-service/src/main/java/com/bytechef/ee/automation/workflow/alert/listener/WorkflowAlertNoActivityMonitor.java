@@ -69,8 +69,7 @@ public class WorkflowAlertNoActivityMonitor {
                 rule.setLastTriggeredDate(now);
 
                 WorkflowAlertEvent workflowAlertEvent = workflowAlertEventService.create(
-                    new WorkflowAlertEvent(
-                        rule.getId(), rule.getWorkspaceId(), null, breach.triggeredValue(), breach.message()));
+                    new WorkflowAlertEvent(rule.getId(), null, breach.triggeredValue(), breach.message()));
 
                 workflowAlertRuleService.update(rule);
 

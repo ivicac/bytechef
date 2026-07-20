@@ -20,9 +20,5 @@ import org.springframework.stereotype.Repository;
 @Repository
 public interface WorkflowAlertRuleRepository extends ListCrudRepository<WorkflowAlertRule, Long> {
 
-    List<WorkflowAlertRule> findAllByWorkspaceIdOrderByNameAsc(long workspaceId);
-
-    List<WorkflowAlertRule> findAllByWorkspaceIdAndEnabledTrue(long workspaceId);
-
     List<WorkflowAlertRule> findAllByRuleTypeAndEnabledTrue(int ruleType);
 }

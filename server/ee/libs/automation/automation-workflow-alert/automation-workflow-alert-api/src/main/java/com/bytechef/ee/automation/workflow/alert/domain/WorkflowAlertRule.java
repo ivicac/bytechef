@@ -48,9 +48,6 @@ public class WorkflowAlertRule {
     @Column
     private String name;
 
-    @Column("workspace_id")
-    private Long workspaceId;
-
     /** Optional scope: only runs of this workflow feed the rule; {@code null} = every run in the workspace. */
     @Column("workflow_id")
     private String workflowId;
@@ -108,10 +105,6 @@ public class WorkflowAlertRule {
 
     public String getName() {
         return name;
-    }
-
-    public Long getWorkspaceId() {
-        return workspaceId;
     }
 
     public String getWorkflowId() {
@@ -186,10 +179,6 @@ public class WorkflowAlertRule {
 
     public void setName(String name) {
         this.name = name;
-    }
-
-    public void setWorkspaceId(Long workspaceId) {
-        this.workspaceId = workspaceId;
     }
 
     public void setWorkflowId(String workflowId) {
@@ -272,7 +261,7 @@ public class WorkflowAlertRule {
 
     @Override
     public String toString() {
-        return "WorkflowAlertRule{id=%s, name='%s', workspaceId=%s, ruleType=%s, threshold=%s, enabled=%s}".formatted(
-            id, name, workspaceId, getRuleType(), threshold, enabled);
+        return "WorkflowAlertRule{id=%s, name='%s', ruleType=%s, threshold=%s, enabled=%s}".formatted(
+            id, name, getRuleType(), threshold, enabled);
     }
 }

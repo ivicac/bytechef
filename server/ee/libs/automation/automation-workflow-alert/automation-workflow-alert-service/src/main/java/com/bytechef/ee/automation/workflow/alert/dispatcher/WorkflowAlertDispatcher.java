@@ -135,7 +135,6 @@ public class WorkflowAlertDispatcher {
         payload.put("triggeredValue", workflowAlertEvent.getTriggeredValue());
         payload.put("message", workflowAlertEvent.getMessage());
         payload.put("jobId", workflowAlertEvent.getJobId());
-        payload.put("workspaceId", workflowAlertEvent.getWorkspaceId());
 
         webhookNotificationClient.deliver(
             new WebhookDeliveryRequest(

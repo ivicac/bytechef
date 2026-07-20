@@ -17,6 +17,7 @@ import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.ee.automation.workflow.execution.cost.config.WorkflowExecutionCostProperties;
 import com.bytechef.ee.automation.workflow.execution.cost.domain.WorkflowExecutionCost;
 import com.bytechef.ee.automation.workflow.execution.cost.service.WorkflowExecutionCostService;
+import com.bytechef.ee.automation.workflow.execution.cost.service.WorkspaceWorkflowExecutionCostService;
 import com.bytechef.ee.platform.ai.llm.usage.AiLlmUsage;
 import com.bytechef.ee.platform.ai.llm.usage.LlmUsageSource;
 import com.bytechef.ee.platform.ai.llm.usage.service.AiLlmUsageService;
@@ -61,13 +62,15 @@ public class WorkflowExecutionCostApplicationEventListener implements Applicatio
     private final ProjectService projectService;
     private final WorkflowExecutionCostProperties workflowExecutionCostProperties;
     private final WorkflowExecutionCostService workflowExecutionCostService;
+    private final WorkspaceWorkflowExecutionCostService workspaceWorkflowExecutionCostService;
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public WorkflowExecutionCostApplicationEventListener(
         AiLlmUsageService aiLlmUsageService, PrincipalJobService principalJobService,
         ProjectDeploymentService projectDeploymentService, ProjectService projectService,
         WorkflowExecutionCostProperties workflowExecutionCostProperties,
-        WorkflowExecutionCostService workflowExecutionCostService) {
+        WorkflowExecutionCostService workflowExecutionCostService,
+        WorkspaceWorkflowExecutionCostService workspaceWorkflowExecutionCostService) {
 
         this.aiLlmUsageService = aiLlmUsageService;
         this.principalJobService = principalJobService;
@@ -75,6 +78,7 @@ public class WorkflowExecutionCostApplicationEventListener implements Applicatio
         this.projectService = projectService;
         this.workflowExecutionCostProperties = workflowExecutionCostProperties;
         this.workflowExecutionCostService = workflowExecutionCostService;
+        this.workspaceWorkflowExecutionCostService = workspaceWorkflowExecutionCostService;
     }
 
     @Override
@@ -107,9 +111,9 @@ public class WorkflowExecutionCostApplicationEventListener implements Applicatio
             WorkflowExecutionCost workflowExecutionCost = new WorkflowExecutionCost(
                 jobId, workflowExecutionCostProperties.baseRunChargeUsd(), aiCost);
 
-            workflowExecutionCost.setWorkspaceId(resolveWorkspaceId(jobId));
-
-            workflowExecutionCostService.create(workflowExecutionCost);
+            // Workspace attribution goes through the workspace_* membership table — workspace is an
+            // automation-configuration-owned concept, so the cost row itself carries no workspace column.
+            workspaceWorkflowExecutionCostService.createInWorkspace(workflowExecutionCost, resolveWorkspaceId(jobId));
         } catch (RuntimeException exception) {
             // Cost bookkeeping must never affect the job lifecycle or the other event listeners.
             log.warn("Failed to record execution cost for job {}", jobId, exception);

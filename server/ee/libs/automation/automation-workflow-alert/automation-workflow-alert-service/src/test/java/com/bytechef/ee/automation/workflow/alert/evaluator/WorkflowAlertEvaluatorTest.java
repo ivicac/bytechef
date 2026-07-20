@@ -159,7 +159,6 @@ class WorkflowAlertEvaluatorTest {
         WorkflowAlertRule rule = new WorkflowAlertRule();
 
         rule.setName("test-rule");
-        rule.setWorkspaceId(1L);
         rule.setRuleType(ruleType);
         rule.setThreshold(threshold);
 
