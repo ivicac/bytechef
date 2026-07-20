@@ -105,6 +105,7 @@ const config: CodegenConfig = {
         '../server/ee/libs/licence/licence-graphql/src/main/resources/graphql/*.graphqls',
         '../server/ee/libs/automation/automation-context-store/automation-context-store-graphql/src/main/resources/graphql/*.graphqls',
         '../server/ee/libs/platform/platform-audit/platform-audit-graphql/src/main/resources/graphql/*.graphqls',
+        '../server/ee/libs/automation/automation-workflow-execution-cost/automation-workflow-execution-cost-graphql/src/main/resources/graphql/*.graphqls',
     ],
 };
 
