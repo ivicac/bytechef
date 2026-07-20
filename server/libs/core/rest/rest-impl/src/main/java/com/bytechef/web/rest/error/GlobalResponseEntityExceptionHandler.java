@@ -17,6 +17,7 @@
 package com.bytechef.web.rest.error;
 
 import com.bytechef.exception.AbstractException;
+import com.bytechef.exception.RateLimitExceededException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
 import java.util.NoSuchElementException;
@@ -25,6 +26,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.dao.ConcurrencyFailureException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
@@ -154,6 +156,20 @@ public class GlobalResponseEntityExceptionHandler extends AbstractResponseEntity
         return ResponseEntity
             .of(createProblemDetail(exception, HttpStatus.CONFLICT, "Concurrency Failure", null, null, request))
             .build();
+    }
+
+    @ExceptionHandler(RateLimitExceededException.class)
+    public ResponseEntity<ProblemDetail> handleRateLimitExceededException(
+        final RateLimitExceededException exception, final WebRequest request) {
+
+        log.warn(exception.getMessage());
+
+        return ResponseEntity
+            .status(HttpStatus.TOO_MANY_REQUESTS)
+            .header(HttpHeaders.RETRY_AFTER, "60")
+            .body(
+                createProblemDetail(
+                    exception, HttpStatus.TOO_MANY_REQUESTS, exception.getMessage(), null, null, request));
     }
 
     private static Exception getCauseException(Exception throwable) {

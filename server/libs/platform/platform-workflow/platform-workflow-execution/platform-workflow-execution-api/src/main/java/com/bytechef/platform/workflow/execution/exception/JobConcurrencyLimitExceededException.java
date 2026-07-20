@@ -16,17 +16,19 @@
 
 package com.bytechef.platform.workflow.execution.exception;
 
+import com.bytechef.exception.RateLimitExceededException;
+
 /**
- * Thrown when an asynchronous job submission would exceed the plan's sustained submissions-per-minute rate. Mirrors
- * {@link JobConcurrencyLimitExceededException} for the rate dimension; the token bucket refills continuously, so the
- * submission should be retried shortly.
+ * Thrown when a job submission would exceed the plan's concurrent-execution limit. Mirrors the licence job-count limit
+ * exception for the concurrency dimension; the submission should be retried once running executions drain. Mapped to
+ * HTTP 429 by the global REST exception handler via {@link RateLimitExceededException}.
  *
  * @author Ivica Cardic
  */
-public class JobRateLimitExceededException extends RuntimeException {
+public class JobConcurrencyLimitExceededException extends RateLimitExceededException {
 
-    public JobRateLimitExceededException(int allowedPerMinute) {
-        super("Async submission rate limit reached (allowed=%d/min). Retry shortly."
-            .formatted(allowedPerMinute));
+    public JobConcurrencyLimitExceededException(int allowed) {
+        super("Concurrent execution limit reached (allowed=%d). Retry when running executions finish."
+            .formatted(allowed));
     }
 }

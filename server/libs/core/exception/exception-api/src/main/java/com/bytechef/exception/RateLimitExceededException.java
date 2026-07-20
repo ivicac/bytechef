@@ -14,19 +14,18 @@
  * limitations under the License.
  */
 
-package com.bytechef.platform.workflow.execution.exception;
+package com.bytechef.exception;
 
 /**
- * Thrown when a job submission would exceed the plan's concurrent-execution limit. Mirrors
- * {@link JobLimitExceededException} for the concurrency dimension; the submission should be retried once running
- * executions drain.
+ * Marker supertype for rejections caused by a plan or rate limit (request rate, concurrency slots, quotas). The REST
+ * layer maps this family to HTTP 429 with a {@code Retry-After} hint — the operation is safe to retry after the hinted
+ * delay, so subclasses should carry a message that tells the caller which limit was hit.
  *
  * @author Ivica Cardic
  */
-public class JobConcurrencyLimitExceededException extends RuntimeException {
+public class RateLimitExceededException extends RuntimeException {
 
-    public JobConcurrencyLimitExceededException(int allowed) {
-        super("Concurrent execution limit reached (allowed=%d). Retry when running executions finish."
-            .formatted(allowed));
+    public RateLimitExceededException(String message) {
+        super(message);
     }
 }
