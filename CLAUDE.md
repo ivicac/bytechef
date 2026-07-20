@@ -710,6 +710,18 @@ cd cli
 - Use `gh api graphql` with `resolveReviewThread` mutation to close threads programmatically
 - Get thread IDs via: `gh api graphql -f query='{ repository(owner: "X", name: "Y") { pullRequest(number: N) { reviewThreads(first: 20) { nodes { id isResolved path } } } }'`
 
+## Plan limits (placeholders)
+
+- `server/libs/platform/platform-plan` (`-api`/`-service`, CE) holds the plan-tier policy layer:
+  `PlanTier` (SELF_HOSTED default + FREE/PRO/TEAM/ENTERPRISE), `PlanLimits` record (every limit
+  nullable, **null = unlimited — never zero**), and the `PlanLimitsProvider` SPI. The default
+  `PropertiesPlanLimitsProvider` resolves `bytechef.plan.tier` (unset = SELF_HOSTED = unlimited,
+  the pre-plan behavior) with per-field `bytechef.plan.limits.*` overrides; a billing integration
+  replaces the bean (`@ConditionalOnMissingBean`). Tier tables in `DefaultPlanLimits` are
+  Sim-modeled placeholders pinned by `DefaultPlanLimitsTest` — nothing enforces them yet.
+  Design + phased plan (cost calculation, alert rules, Bucket4j rate limiting, Atlas admission
+  gate): `docs/superpowers/specs/2026-07-20-plan-limits-cost-alerts-design.md`.
+
 ## Public URL Signing
 
 - `/file-entries/{id}/content` is intentionally unauthenticated (serves webhook outputs to anonymous callers). As of the 2026-05-18 signing rollout, the preferred form is an HMAC-SHA256 signed token (`v1.<exp>.<payload>.<sig>`) minted via `FileEntryTokens.toSignedToken`. Legacy unsigned `FileEntry.toId()` IDs are still accepted while `bytechef.file-storage.signed-url.required=false` (default).
