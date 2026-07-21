@@ -489,12 +489,24 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   keep their final reply; `AgUiStreamBridge` renders it only when nothing was streamed. MCP/A2A
   sync runs paused on an approval return "approval required — resolve at <form URL>"
   (`ApprovalFormUrls.buildFormUrl`, STOPPED + `jobResumeId` metadata) instead of an empty result;
-  MCP workflow tools additionally URL-elicit the form on capable clients and return the resumed
-  run's output in the same tools/call (`ApprovalElicitingToolSpecifications` +
-  `AutomationMcpToolFacade.awaitApprovedWorkflowRun`), and A2A surfaces the task as
-  `input-required` (`A2AAgentResult.ofInputRequired`). Enriched `task_started` events
+  MCP workflow tools additionally URL-elicit the form on capable clients (form-elicitation
+  fallback with a simple approved/comment schema on form-only clients; bounded at 3 rounds per
+  call for chained approvals) and return the resumed run's output in the same tools/call
+  (`ApprovalElicitingToolSpecifications` + `AutomationMcpToolFacade.awaitApprovedWorkflowRun`,
+  which polls the job out of STOPPED before awaiting — STOPPED is terminal to
+  `JobCompletionAwaiter`), and A2A surfaces the task as `input-required`
+  (`A2AAgentResult.ofInputRequired(text, jobId)`); a later `tasks/get` refreshes it through the
+  `A2AAgentExecutor.pollRun(jobId)` SPI. Enriched `task_started` events
   (`{event, payload:{taskExecutionId,name,type}}` from the coordinator) render as AG-UI tool-call
-  step chips in `AgUiStreamBridge`.
+  step chips in `AgUiStreamBridge` and as a floating step chip on the CE Chats page.
+- **Suspend expiry is enforced**: `JobResumeFacadeImpl` rejects expired resumes (GONE), and
+  `ApprovalExpiryMonitor` (platform-coordinator, 15-min per-tenant sweep over
+  `getStaleJobs(STOPPED, now)`, `bytechef.workflow.execution.approval-expiry.enabled` default on)
+  fails runs whose suspend `expiresAt` passed. Metrics: `bytechef_approval_expired{source=resume|sweep}`
+  counter + `bytechef_approval_pending` gauge. The **pending-approvals inbox**
+  (`ApprovalTaskFacade.getPendingApprovals` → `pendingApprovals` GraphQL query →
+  `PendingApprovalsList` on the Approval Tasks page) lists all STOPPED runs carrying a
+  `jobResumeId`, with workflow label, form URL, createdDate, and expiry — channel-independent.
 - AI Hub copilot chat is OUT of scope (keeps its pinned `askUserQuestion`).
 
 ### Domain copilot slice pattern (context store / knowledge base / data table)

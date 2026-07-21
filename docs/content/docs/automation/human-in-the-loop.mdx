@@ -54,12 +54,21 @@ Channels fan out simultaneously; the first response wins and later resolutions a
 | AI Hub workflow chat | Inline card; continuation streams live and is persisted to the conversation history. |
 | Workflow editor test chat | Inline card, including for gated tools in test runs. |
 | `@bytechef/chat` embeddable widget | Field-less approvals resolve inline (buttons + comment above the composer) with streamed continuation; approvals with form fields link to the hosted form. |
-| MCP tool call | A paused run returns an `approval_required` result with the hosted form URL. Clients supporting URL elicitation are prompted to open the form; once approved, the same tool call returns the resumed run's real output. |
-| A2A `message/send` | A paused run surfaces the task with `input-required` status and the form URL in the agent message. |
+| MCP tool call | A paused run returns an `approval_required` result with the hosted form URL. Clients supporting URL elicitation are prompted to open the form; clients supporting only form elicitation get an inline approve/comment form instead. Once approved, the same tool call returns the resumed run's real output — including chained approvals (up to three elicitation rounds per call). |
+| A2A `message/send` | A paused run surfaces the task with `input-required` status and the form URL in the agent message. A later `tasks/get` re-checks the run and returns the final output once it's resolved. |
+| Approval Tasks page | A **Pending run approvals** section lists every run currently blocked on an approval — whatever channel delivered it — with the workflow name, start time, expiry, and a form link. |
 
 Typing in the chat never resolves an approval, in either direction — only the card's buttons or
 the hosted form do. Cards for already-resolved approvals degrade to a "no longer available"
 state.
+
+## Expiry
+
+An approval step can set an expiry. An expired approval can no longer be resolved (the form and
+the resume endpoint reject it), and a background sweep fails the paused run shortly afterwards so
+it doesn't linger forever. Operators can watch `bytechef_approval_pending` (runs currently
+blocked) and `bytechef_approval_expired` (approvals that lapsed, by source) and disable the sweep
+with `bytechef.workflow.execution.approval-expiry.enabled=false`.
 
 ## Outcome shape
 
