@@ -1,0 +1,9 @@
+query pendingApprovals {
+    pendingApprovals {
+        createdDate
+        expiresAt
+        formUrl
+        jobId
+        workflowLabel
+    }
+}
