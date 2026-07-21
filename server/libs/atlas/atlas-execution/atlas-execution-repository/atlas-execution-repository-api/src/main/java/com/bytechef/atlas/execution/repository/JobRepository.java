@@ -71,6 +71,15 @@ public interface JobRepository {
      */
     List<Job> findAllByStatusAndStartDateBefore(int status, Instant startDate);
 
+    /**
+     * Jobs whose end date is older than the cutoff. Only terminal jobs carry an end date, so this finder returns
+     * finished runs eligible for retention purging regardless of their terminal status.
+     *
+     * @param endDate the retention cutoff
+     * @return List<Job>
+     */
+    List<Job> findAllByEndDateBefore(Instant endDate);
+
     Optional<Job> findById(Long id);
 
     Optional<Job> findByTaskExecutionId(Long taskExecutionId);

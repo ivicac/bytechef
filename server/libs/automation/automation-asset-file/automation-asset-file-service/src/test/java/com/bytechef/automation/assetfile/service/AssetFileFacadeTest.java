@@ -38,6 +38,7 @@ import com.bytechef.automation.assetfile.exception.AssetFileQuotaExceededExcepti
 import com.bytechef.automation.assetfile.file.storage.AssetFileFileStorage;
 import com.bytechef.automation.assetfile.metric.AssetFileMetrics;
 import com.bytechef.file.storage.domain.FileEntry;
+import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -51,6 +52,7 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * @author Ivica Cardic
@@ -67,6 +69,9 @@ class AssetFileFacadeTest {
     @Mock
     private AssetFileMetrics metrics;
 
+    @Mock
+    private ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
+
     private AssetFileFacade facade;
 
     private AutomationAssetFileQuotaProperties quota;
@@ -75,7 +80,8 @@ class AssetFileFacadeTest {
     void setUp() {
         quota = new AutomationAssetFileQuotaProperties(26_214_400L, 1_073_741_824L, 1_048_576L);
 
-        facade = new AssetFileFacadeImpl(service, fileStorage, metrics, quota, new Tika());
+        facade =
+            new AssetFileFacadeImpl(service, fileStorage, metrics, planLimitsProviderObjectProvider, quota, new Tika());
     }
 
     @Test
@@ -113,7 +119,8 @@ class AssetFileFacadeTest {
     void testCreateFromUploadRejectsWhenSingleFileOverLimit() {
         quota = new AutomationAssetFileQuotaProperties(1024L, 1_073_741_824L, 1_048_576L);
 
-        facade = new AssetFileFacadeImpl(service, fileStorage, metrics, quota, new Tika());
+        facade =
+            new AssetFileFacadeImpl(service, fileStorage, metrics, planLimitsProviderObjectProvider, quota, new Tika());
 
         byte[] bytes = new byte[2048];
 
@@ -133,7 +140,8 @@ class AssetFileFacadeTest {
     void testCreateFromUploadRejectsWhenWorkspaceTotalOver() {
         quota = new AutomationAssetFileQuotaProperties(1_000_000L, 10_000L, 1_048_576L);
 
-        facade = new AssetFileFacadeImpl(service, fileStorage, metrics, quota, new Tika());
+        facade =
+            new AssetFileFacadeImpl(service, fileStorage, metrics, planLimitsProviderObjectProvider, quota, new Tika());
 
         byte[] bytes = new byte[2];
 
@@ -242,7 +250,8 @@ class AssetFileFacadeTest {
     void testUpdateContentEnforcesDeltaQuota() {
         quota = new AutomationAssetFileQuotaProperties(1_000_000L, 10_000L, 1_048_576L);
 
-        facade = new AssetFileFacadeImpl(service, fileStorage, metrics, quota, new Tika());
+        facade =
+            new AssetFileFacadeImpl(service, fileStorage, metrics, planLimitsProviderObjectProvider, quota, new Tika());
 
         AssetFile existing = new AssetFile();
 

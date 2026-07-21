@@ -135,6 +135,12 @@ public class JobServiceImpl implements JobService {
 
     @Override
     @Transactional(readOnly = true)
+    public List<Job> getEndedJobs(Instant endDateBefore) {
+        return jobRepository.findAllByEndDateBefore(endDateBefore);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
     public Page<Job> getJobsPage(int pageNumber) {
         return jobRepository.findAll(PageRequest.of(pageNumber, DEFAULT_PAGE_SIZE));
     }

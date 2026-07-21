@@ -115,6 +115,16 @@ public class InMemoryJobRepository implements JobRepository {
     }
 
     @Override
+    public List<Job> findAllByEndDateBefore(Instant endDate) {
+        return cache.values()
+            .stream()
+            .filter(job -> job.getEndDate() != null &&
+                job.getEndDate()
+                    .isBefore(endDate))
+            .toList();
+    }
+
+    @Override
     public List<Job> findAllByWorkflowId(String workflowId) {
         throw new UnsupportedOperationException();
     }

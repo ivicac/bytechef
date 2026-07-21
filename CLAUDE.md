@@ -780,6 +780,20 @@ cd cli
   gate inside `server/libs/atlas/` — admission and release both live outside the engine. Every
   rejection increments `bytechef_plan_limit_rejection{limit=login|sync|api|preauth|async|concurrency|cost|timeout}`
   (`PlanLimitRejectionCounter`, no-op without a MeterRegistry).
+- **Quota fields** are enforced at their natural creation points, each via an optional
+  `ObjectProvider<PlanLimitsProvider>` (null limit / no bean = unlimited): `maxWorkspaces` in EE
+  `WorkspaceServiceImpl.create`, `maxMembers` in `UserServiceImpl.create`/`registerUser` (counts ALL
+  user rows — pending invites hold a seat; checked after the non-activated-user cleanup),
+  `maxStorageBytes` in `AssetFileFacadeImpl` (tenant-wide `sumSizeBytes()` alongside the existing
+  per-workspace property quota), `syncRunTimeout` caps the `JobCompletionAwaiter` wait in
+  `WebhookWorkflowExecutorImpl` (plan can only tighten the configured default, never extend), and
+  `logRetentionDays` drives `JobRetentionMonitor` (platform-coordinator, 6h per-tenant sweep,
+  `getEndedJobs(endDateBefore)` finder — endDate exists only on terminal jobs — deleting through
+  `JobFacade.deleteJob`'s cascade and skipping subflow children; operator fallback
+  `bytechef.workflow.execution.retention.default-retention-days`, disable with
+  `bytechef.workflow.execution.retention.enabled=false`). Quota rejections throw
+  `QuotaLimitExceededException` (core exception-api) → HTTP 403 without Retry-After — a capacity
+  ceiling, not a retryable rate limit (`RateLimitExceededException` stays 429).
 
 ## Crash recovery (orphaned jobs)
 

@@ -18,6 +18,8 @@ package com.bytechef.platform.user.service;
 
 import com.bytechef.commons.util.LocalDateTimeUtils;
 import com.bytechef.commons.util.RandomUtils;
+import com.bytechef.exception.QuotaLimitExceededException;
+import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.user.audit.UserAuditEvent;
@@ -35,6 +37,7 @@ import com.bytechef.platform.user.exception.UserNotFoundException;
 import com.bytechef.platform.user.repository.AuthorityRepository;
 import com.bytechef.platform.user.repository.PersistentTokenRepository;
 import com.bytechef.platform.user.repository.UserRepository;
+import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.service.TenantService;
 import com.bytechef.tenant.util.TenantCacheKeyUtils;
 import dev.samstevens.totp.code.DefaultCodeGenerator;
@@ -57,6 +60,7 @@ import java.util.stream.Collectors;
 import org.apache.commons.validator.routines.EmailValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.cache.CacheManager;
 import org.springframework.data.domain.Page;
@@ -81,6 +85,7 @@ public class UserServiceImpl implements UserService {
     private final CacheManager cacheManager;
     private final PasswordEncoder passwordEncoder;
     private final PersistentTokenRepository persistentTokenRepository;
+    private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
     private final SecretGenerator totpSecretGenerator = new DefaultSecretGenerator();
     private final DefaultCodeVerifier totpCodeVerifier;
     private final TenantService tenantService;
@@ -92,7 +97,8 @@ public class UserServiceImpl implements UserService {
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public UserServiceImpl(
         AuthorityRepository authorityRepository, CacheManager cacheManager, PasswordEncoder passwordEncoder,
-        PersistentTokenRepository persistentTokenRepository, TenantService tenantService,
+        PersistentTokenRepository persistentTokenRepository,
+        ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider, TenantService tenantService,
         UserAuditPublisher userAuditPublisher, UserRepository userRepository,
         @Value("${bytechef.security.mfa.max-failed-attempts:5}") int maxFailedTotpAttempts,
         @Value("${bytechef.security.mfa.lockout-duration:PT15M}") Duration totpLockoutDuration) {
@@ -101,6 +107,7 @@ public class UserServiceImpl implements UserService {
         this.cacheManager = cacheManager;
         this.passwordEncoder = passwordEncoder;
         this.persistentTokenRepository = persistentTokenRepository;
+        this.planLimitsProviderObjectProvider = planLimitsProviderObjectProvider;
         this.tenantService = tenantService;
         this.userAuditPublisher = userAuditPublisher;
         this.userRepository = userRepository;
@@ -165,6 +172,33 @@ public class UserServiceImpl implements UserService {
         return userRepository.countAllByActivatedIsTrue();
     }
 
+    /**
+     * Rejects the creation when the tenant already holds as many user accounts as its plan's {@code maxMembers} allows.
+     * Counts all rows (activated or not) so pending invitations occupy a seat until they are cleaned up. A null limit
+     * (or no {@link PlanLimitsProvider} bean) means unlimited — the pre-plan behavior.
+     */
+    private void enforceMemberQuota() {
+        PlanLimitsProvider planLimitsProvider = planLimitsProviderObjectProvider.getIfAvailable();
+
+        if (planLimitsProvider == null) {
+            return;
+        }
+
+        Integer maxMembers = planLimitsProvider.getPlanLimits(TenantContext.getCurrentTenantId())
+            .maxMembers();
+
+        if (maxMembers == null) {
+            return;
+        }
+
+        long userCount = userRepository.count();
+
+        if (userCount >= maxMembers) {
+            throw new QuotaLimitExceededException(
+                "Member quota exceeded: the plan allows at most %d member account(s)".formatted(maxMembers));
+        }
+    }
+
     @Override
     @Transactional
     public void changePassword(String currentClearTextPassword, String newPassword) {
@@ -193,6 +227,8 @@ public class UserServiceImpl implements UserService {
 
     @Override
     public User create(AdminUserDTO userDTO) {
+        enforceMemberQuota();
+
         User user = new User();
 
         String login = userDTO.getLogin();
@@ -510,6 +546,10 @@ public class UserServiceImpl implements UserService {
                     throw new EmailAlreadyUsedException();
                 }
             });
+
+        // Checked after the non-activated-user cleanup above so re-registering an abandoned signup does not count the
+        // freed row against the quota.
+        enforceMemberQuota();
 
         User newUser = new User();
 

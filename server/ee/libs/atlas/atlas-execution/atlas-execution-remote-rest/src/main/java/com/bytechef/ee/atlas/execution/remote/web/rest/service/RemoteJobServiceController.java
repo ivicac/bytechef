@@ -91,6 +91,16 @@ public class RemoteJobServiceController {
 
     @RequestMapping(
         method = RequestMethod.GET,
+        value = "/get-ended-jobs",
+        produces = {
+            "application/json"
+        })
+    public ResponseEntity<List<Job>> getEndedJobs(@RequestParam("endDateBefore") Instant endDateBefore) {
+        return ResponseEntity.ok(jobService.getEndedJobs(endDateBefore));
+    }
+
+    @RequestMapping(
+        method = RequestMethod.GET,
         value = "/get-job/{id}",
         produces = {
             "application/json"

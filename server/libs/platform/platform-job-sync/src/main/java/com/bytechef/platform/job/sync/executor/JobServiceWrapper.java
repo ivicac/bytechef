@@ -52,6 +52,11 @@ public record JobServiceWrapper(JobSyncExecutor.JobFactoryFunction jobFactoryFun
     }
 
     @Override
+    public List<Job> getEndedJobs(java.time.Instant endDateBefore) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Page<Job> getJobsPage(int pageNumber) {
         throw new UnsupportedOperationException();
     }

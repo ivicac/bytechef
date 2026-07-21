@@ -17,6 +17,7 @@
 package com.bytechef.web.rest.error;
 
 import com.bytechef.exception.AbstractException;
+import com.bytechef.exception.QuotaLimitExceededException;
 import com.bytechef.exception.RateLimitExceededException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
@@ -156,6 +157,18 @@ public class GlobalResponseEntityExceptionHandler extends AbstractResponseEntity
         return ResponseEntity
             .of(createProblemDetail(exception, HttpStatus.CONFLICT, "Concurrency Failure", null, null, request))
             .build();
+    }
+
+    @ExceptionHandler(QuotaLimitExceededException.class)
+    public ResponseEntity<ProblemDetail> handleQuotaLimitExceededException(
+        final QuotaLimitExceededException exception, final WebRequest request) {
+
+        log.warn(exception.getMessage());
+
+        // 403 without Retry-After: a quota rejection is not retryable — the tenant must free capacity or upgrade.
+        return ResponseEntity
+            .status(HttpStatus.FORBIDDEN)
+            .body(createProblemDetail(exception, HttpStatus.FORBIDDEN, exception.getMessage(), null, null, request));
     }
 
     @ExceptionHandler(RateLimitExceededException.class)

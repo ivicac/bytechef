@@ -22,6 +22,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -40,6 +41,7 @@ import com.bytechef.platform.component.trigger.TriggerOutput;
 import com.bytechef.platform.component.trigger.WebhookRequest;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.job.sync.executor.JobSyncExecutor;
+import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessor;
@@ -56,6 +58,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 
 /**
@@ -118,10 +121,15 @@ public class WebhookWorkflowExecutorTest {
 
     @BeforeEach
     public void setUp() {
+        @SuppressWarnings("unchecked")
+        ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider =
+            (ObjectProvider<PlanLimitsProvider>) mock(ObjectProvider.class);
+
         webhookWorkflowExecutor = new WebhookWorkflowExecutorImpl(
-            eventPublisher, jobCompletionAwaiter, jobPrincipalAccessorRegistry, jobSyncExecutor, principalJobFacade,
-            sseStreamBridgeRegistry, taskExecutionService, taskFileStorage, syncJobTaskFileStorage,
-            triggerDefinitionService, webhookWorkflowSyncExecutor, workflowService, Duration.ofSeconds(5));
+            eventPublisher, jobCompletionAwaiter, jobPrincipalAccessorRegistry, jobSyncExecutor,
+            planLimitsProviderObjectProvider, principalJobFacade, sseStreamBridgeRegistry, taskExecutionService,
+            taskFileStorage, syncJobTaskFileStorage, triggerDefinitionService, webhookWorkflowSyncExecutor,
+            workflowService, Duration.ofSeconds(5));
 
         workflowExecutionId = WorkflowExecutionId.of(
             PlatformType.AUTOMATION, JOB_PRINCIPAL_ID, WORKFLOW_UUID, TRIGGER_NAME);
@@ -312,10 +320,10 @@ public class WebhookWorkflowExecutorTest {
     }
 
     private static FileEntry mockFileEntry() {
-        return org.mockito.Mockito.mock(FileEntry.class);
+        return mock(FileEntry.class);
     }
 
     private static WebhookRequest mockWebhookRequest() {
-        return org.mockito.Mockito.mock(WebhookRequest.class);
+        return mock(WebhookRequest.class);
     }
 }

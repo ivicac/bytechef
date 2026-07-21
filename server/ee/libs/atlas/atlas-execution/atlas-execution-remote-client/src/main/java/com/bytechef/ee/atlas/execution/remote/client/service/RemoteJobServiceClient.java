@@ -107,6 +107,17 @@ public class RemoteJobServiceClient implements JobService {
     }
 
     @Override
+    public List<Job> getEndedJobs(java.time.Instant endDateBefore) {
+        return loadBalancedRestClient.get(
+            uriBuilder -> uriBuilder
+                .host(EXECUTION_APP)
+                .path(JOB_SERVICE + "/get-ended-jobs")
+                .queryParam("endDateBefore", endDateBefore.toString())
+                .build(),
+            new ParameterizedTypeReference<>() {});
+    }
+
+    @Override
     public List<Job> getJobs(List<Long> ids) {
         throw new UnsupportedOperationException();
     }

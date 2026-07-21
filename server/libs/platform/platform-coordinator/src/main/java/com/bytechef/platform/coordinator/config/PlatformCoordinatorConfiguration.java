@@ -17,6 +17,7 @@
 package com.bytechef.platform.coordinator.config;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.message.broker.MessageBroker;
@@ -26,6 +27,7 @@ import com.bytechef.platform.coordinator.event.listener.SseStreamApplicationEven
 import com.bytechef.platform.coordinator.event.listener.WebhookJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.WebhookTaskStartedApplicationEventListener;
 import com.bytechef.platform.coordinator.metrics.JobExecutionCounter;
+import com.bytechef.platform.coordinator.monitor.JobRetentionMonitor;
 import com.bytechef.platform.coordinator.monitor.JobTimeoutMonitor;
 import com.bytechef.platform.coordinator.monitor.OrphanedJobRecoveryMonitor;
 import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
@@ -114,6 +116,18 @@ public class PlatformCoordinatorConfiguration {
         return new JobTimeoutMonitor(
             defaultTimeout, eventPublisher, jobService, planLimitRejectionCounterObjectProvider,
             planLimitsProviderObjectProvider, taskExecutionService, tenantService);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+        name = "bytechef.workflow.execution.retention.enabled", havingValue = "true", matchIfMissing = true)
+    JobRetentionMonitor jobRetentionMonitor(
+        @Value("${bytechef.workflow.execution.retention.default-retention-days:#{null}}") Integer defaultRetentionDays,
+        JobFacade jobFacade, ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
+        TenantService tenantService) {
+
+        return new JobRetentionMonitor(
+            defaultRetentionDays, jobFacade, jobService, planLimitsProviderObjectProvider, tenantService);
     }
 
     @Bean
