@@ -450,6 +450,44 @@ registration via `ObjectProvider.ifAvailable`, and prompt documentation on the p
   `SelectComponentPropertyOptionToolCallback`). The `selectPropertyOption` name and its
   `select-property-option` marker payload are client-load-bearing — do not rename.
 
+### Agent HITL approvals (chat cards + tool gate)
+
+Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; user docs
+`docs/content/docs/automation/human-in-the-loop.mdx`. Load-bearing pieces:
+
+- Two primitives, disjoint jobs: **Approval** (decision; comment valid on BOTH outcomes under the
+  reserved `comment` key) and **AskUserQuestion** (LLM clarification). No free-text mode on
+  Approval; typing in chat NEVER resolves an approval (D4).
+- **ChatApprovalChannel** (`approval/chat` APPROVAL_CHANNELS element) publishes an
+  `__eventType: approval_request` data event (`AiAgentSseEventType.APPROVAL_REQUEST`) onto the
+  job's SSE stream via the `SSE_STREAM_EVENTS` broker route; requires `getJobId()` (now on
+  `JobContextAware`), throws without one. Both SSE bridges + `JobResumeSseStreamBridge` map
+  `__eventType` payloads to named events; `AgUiStreamBridge` passes them as AG-UI CustomEvents and
+  folds a persist-only markdown form-link marker into accumulated text for reload.
+- **Tool gate**: `requiresApproval: true` in a TOOLS cluster-element entry's parameters
+  (`ToolConstants.REQUIRES_APPROVAL`; editor checkbox in `AiAgentToolDropdownMenu`) wraps the
+  callback in `ApprovalGateToolCallback` (inside the observable/audit wrapper). Suspends via the
+  sentinel protocol with `GATED_TOOL_NAME`/`GATED_TOOL_INPUT` continueParameters; second flagged
+  call in one round defers (single-suspend-per-round invariant). Resume branch
+  `AbstractAiAgentChatAction.resolveGatedToolResumeData`: approve → RAW callback executes original
+  args; reject → denial JSON. Agent node declares APPROVAL_CHANNELS
+  (`AiAgentComponentDefinition`); empty list defaults to the chat channel. Editor runs deliver the
+  card via the agent's ToolContext SSE emitter (channels are production transports).
+- **Client cards**: `ApprovalRequestMessage` (`data-approval-request` in `aiChatDataComponents`) —
+  self-contained buttons+comment for field-less approvals (`hasInputs` flag threaded from event
+  `inputs`), embeds `ApprovalForm` only when fields exist. Resolution goes through
+  `ApprovalResolutionContext` when the surface provides it (CE Chats page, canvas test chat,
+  AI Hub workflow chat — each points its SSE machinery at `POST /job/resume/{id}` with
+  `Accept: text/event-stream`, streaming the continuation through its normal event handlers), else
+  the plain resume mutation. AI Hub persists the continuation on stream close via the
+  `appendAiHubTaskAssistantMessage` GraphQL mutation. The `@bytechef/chat` widget has its own
+  inline card + `drainSseResponse`-based continuation.
+- `WebhookBridgeAgent` routes runs with an approval task onto the streaming path
+  (`WebhookWorkflowExecutor.hasApprovalTask`). Residual: approval-only chat workflows (no
+  streaming task) lose the final reply text on that path — needs a coordinator-emitted `result`
+  event on COMPLETED (async jobs don't persist `__webhookResponse` in outputs today).
+- AI Hub copilot chat is OUT of scope (keeps its pinned `askUserQuestion`).
+
 ### Domain copilot slice pattern (context store / knowledge base / data table)
 
 Each domain slice follows the same shape (see `docs/superpowers/plans/` for the slice plans):

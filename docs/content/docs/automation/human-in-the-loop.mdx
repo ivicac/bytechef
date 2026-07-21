@@ -1,0 +1,67 @@
+---
+title: Human-in-the-Loop Approvals
+description: Pause workflows and AI agents for human approval — in chat, Slack, email, or hosted forms
+---
+
+# Human-in-the-Loop Approvals
+
+ByteChef pauses a running workflow until a human decides. Two primitives cover every case, with
+disjoint jobs:
+
+| Primitive | Job | Renders as |
+|---|---|---|
+| **Approval** | A decision, optionally with a structured payload | No fields → Approve/Discard buttons with an optional comment. Fields → a form; Approve submits the values, Discard cancels. |
+| **Ask User Question** | Information — the LLM asking a clarifying question | A question card; the answer feeds the agent loop. No decision semantics. |
+
+The reviewer's **comment travels back on both outcomes** — approve-with-note and reject-with-note
+alike — under the reserved `comment` key of the approval outcome (a user-defined form field named
+`comment` takes precedence).
+
+## Three ways to raise an approval
+
+1. **Approval action** — a deterministic workflow step (`approval/v1/requestApproval`). Configure
+   an optional form title, description, and input fields.
+2. **Approval tool** — the AI agent *chooses* to ask, by invoking the approval as a tool.
+3. **Tool gate** — mark any agent tool with **Requires approval** (the checkbox in the tool's
+   menu in the AI Agent editor, or `"requiresApproval": true` in the tool's parameters). Every
+   invocation of that tool then pauses the run and shows the reviewer the tool's name and the
+   AI-chosen arguments. Approve executes the call with exactly those arguments; Discard feeds a
+   "denied by reviewer" response back into the agent loop so it can re-plan. Enforcement is in
+   the platform — the model cannot call a gated tool without approval. Gated tools show a shield
+   badge in the editor.
+
+## Approval channels
+
+Channels decide **where** the request is delivered. Attach one or more channel cluster elements
+to the Approval action — or to the AI Agent node's **Channels** section for gated tools:
+
+- **Chat** — delivers an inline approval card into the conversation that started the run. No
+  connection needed; the run must have a chat origin (a run started by webhook or schedule with
+  only the chat channel fails loudly — configure a fallback). With no channels configured on an
+  AI Agent, the chat channel is the default.
+- **Slack**, **Google Mail**, **Microsoft Outlook 365** — message with Approve/Discard links or
+  a form link.
+- **Approval task** — creates an entry on the Approval Tasks page.
+- The hosted form link works from any channel; the tokenized URL requires no login.
+
+Channels fan out simultaneously; the first response wins and later resolutions are rejected.
+
+## Where the approval card appears
+
+| Surface | Behavior |
+|---|---|
+| Chats page (`/automation/chats`) | Inline card; resolution streams the resumed run's output back into the conversation. |
+| AI Hub workflow chat | Inline card; continuation streams live and is persisted to the conversation history. |
+| Workflow editor test chat | Inline card, including for gated tools in test runs. |
+| `@bytechef/chat` embeddable widget | Field-less approvals resolve inline (buttons + comment above the composer) with streamed continuation; approvals with form fields link to the hosted form. |
+
+Typing in the chat never resolves an approval, in either direction — only the card's buttons or
+the hosted form do. Cards for already-resolved approvals degrade to a "no longer available"
+state.
+
+## Outcome shape
+
+The approval step's output is flat: `approved` (boolean), `comment` (string, optional), plus one
+key per form field — so downstream expressions like `${approval_1.amount}` work directly. For a
+gated tool, the agent receives the tool's real result (plus the reviewer comment) on approve, or
+an explicit denial on discard.

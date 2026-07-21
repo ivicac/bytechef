@@ -31,6 +31,8 @@
     "personal-agents",
     "workflow-chats/index",
     "...workflow-chats",
+    "---Human in the Loop---",
+    "human-in-the-loop",
     "---MCP Servers---",
     "mcp-servers",
     "---A2A Servers---",
