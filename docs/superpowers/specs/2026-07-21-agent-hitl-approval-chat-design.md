@@ -107,9 +107,18 @@ text **never** resolves an approval in either direction. This removes both n8n s
 2. **`ChatApprovalChannel`** + card events on the workflow-chat SSE contract + client card
    rendering (hosted + embedded), including re-render of pending approvals on reload. *(Done —
    see notes below.)*
-3. **Platform tool gate**: `requiresApproval` on TOOLS cluster element config, interception in
-   `SuspendableToolCallingManager`, denial feedback into the loop, audit via the existing tool
-   execution recording.
+3. **Platform tool gate**: `requiresApproval` on TOOLS cluster element config, denial feedback
+   into the loop, audit via the existing tool execution recording. *(Done — implemented as
+   `ApprovalGateToolCallback` wrapping flagged tools in `AbstractAiAgentChatAction.getToolCallbacks`
+   (inside the observable/audit wrapper, so the existing tool-execution listener records gate
+   outcomes) rather than inside `SuspendableToolCallingManager` itself; the manager's existing
+   sentinel/suspend protocol carries the gate suspension unchanged. The AI Agent node gained the
+   APPROVAL_CHANNELS section (`AiAgentComponentDefinition`), defaulting to the chat channel when
+   empty. Resume: approve → the raw callback executes the original arguments and the result (plus
+   reviewer comment) patches into the loop; reject → explicit denial JSON. A second flagged call
+   in one tool round defers with a plain response to preserve the single-suspend-per-round
+   invariant. Implementation anchors:
+   `docs/superpowers/plans/2026-07-21-agent-hitl-phase3-tool-gate.md`.)*
 
 Phases 1–2 are independent of 3 and deliver the visible differentiation first.
 
