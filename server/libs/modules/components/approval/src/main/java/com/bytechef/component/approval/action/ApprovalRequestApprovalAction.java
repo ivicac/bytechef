@@ -225,6 +225,10 @@ public class ApprovalRequestApprovalAction {
         List<ModifiableValueProperty<?, ?>> properties = new ArrayList<>();
 
         properties.add(bool("approved"));
+        // The reviewer's optional note, valid on BOTH outcomes (approve-with-comment and reject-with-comment alike).
+        // "comment" is a reserved key on the approval form; a user-defined field with that name takes precedence and
+        // suppresses the built-in comment box.
+        properties.add(string("comment"));
 
         for (Map<String, ?> input : inputs) {
             String fieldName = (String) input.get(FIELD_NAME);

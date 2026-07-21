@@ -1,8 +1,10 @@
 import Button from '@/components/Button/Button';
 import {Form} from '@/components/ui/form';
+import {Label} from '@/components/ui/label';
+import {Textarea} from '@/components/ui/textarea';
 import {renderFormField} from '@/shared/components/form/renderFormField';
 import useApprovalForm from '@/shared/hooks/useApprovalForm';
-import {useEffect, useRef} from 'react';
+import {useEffect, useRef, useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
 
 interface ApprovalFormPropsI {
@@ -18,6 +20,8 @@ export default function ApprovalForm({
     setDocumentTitle = false,
     showHeader = true,
 }: ApprovalFormPropsI) {
+    const [comment, setComment] = useState('');
+
     const {approved, definition, error, form, handleSubmit, loading, submitError, submitted, submitting, uiDefinition} =
         useApprovalForm(id, {onSubmitted});
 
@@ -25,6 +29,16 @@ export default function ApprovalForm({
     const approvedParam = searchParams.get('approved');
     const autoApproved = approvedParam === 'true' ? true : approvedParam === 'false' ? false : null;
     const autoSubmittedRef = useRef(false);
+
+    // "comment" is a reserved key in the approval outcome; a user-defined field with that name takes precedence and
+    // suppresses the built-in comment box.
+    const hasCommentField = !!uiDefinition?.inputs?.some((formInput) => formInput.fieldName === 'comment');
+
+    const withComment = (values: Record<string, unknown>) => {
+        const trimmedComment = comment.trim();
+
+        return trimmedComment && !hasCommentField ? {...values, comment: trimmedComment} : values;
+    };
 
     useEffect(() => {
         if (autoApproved !== null && !autoSubmittedRef.current) {
@@ -137,10 +151,23 @@ export default function ApprovalForm({
                         <span className="text-sm text-muted-foreground">No inputs defined.</span>
                     )}
 
+                    {!hasCommentField && (
+                        <div className="space-y-2">
+                            <Label htmlFor="approval-comment">Comment (optional)</Label>
+
+                            <Textarea
+                                id="approval-comment"
+                                onChange={(event) => setComment(event.target.value)}
+                                placeholder="Add a note for the requester — included whether you approve or discard."
+                                value={comment}
+                            />
+                        </div>
+                    )}
+
                     <div className="mt-4 flex gap-3">
                         <Button
                             disabled={submitting}
-                            onClick={form.handleSubmit((values) => handleSubmit(values, true))}
+                            onClick={form.handleSubmit((values) => handleSubmit(withComment(values), true))}
                             type="button"
                         >
                             {submitting ? 'Submitting...' : 'Approve'}
@@ -148,7 +175,7 @@ export default function ApprovalForm({
 
                         <Button
                             disabled={submitting}
-                            onClick={() => handleSubmit(form.getValues(), false)}
+                            onClick={() => handleSubmit(withComment(form.getValues()), false)}
                             type="button"
                             variant="outline"
                         >
