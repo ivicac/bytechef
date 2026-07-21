@@ -8,11 +8,9 @@
 package com.bytechef.ee.automation.workflow.execution.cost.provider;
 
 import com.bytechef.ee.automation.workflow.execution.cost.service.WorkflowExecutionCostService;
+import com.bytechef.platform.plan.domain.PlanBillingPeriod;
 import com.bytechef.platform.plan.provider.PlanSpendProvider;
 import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.YearMonth;
-import java.time.ZoneOffset;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import org.slf4j.Logger;
@@ -60,13 +58,7 @@ public class PlanSpendProviderImpl implements PlanSpendProvider {
         BigDecimal spendUsd;
 
         try {
-            YearMonth currentMonth = YearMonth.now(ZoneOffset.UTC);
-
-            Instant periodStart = currentMonth.atDay(1)
-                .atStartOfDay(ZoneOffset.UTC)
-                .toInstant();
-
-            spendUsd = workflowExecutionCostService.sumTotalCostSince(periodStart);
+            spendUsd = workflowExecutionCostService.sumTotalCostSince(PlanBillingPeriod.currentPeriodStart());
         } catch (RuntimeException exception) {
             log.warn("Failed to resolve current-period spend for tenant {}; admitting (fail-open)", tenantId,
                 exception);
