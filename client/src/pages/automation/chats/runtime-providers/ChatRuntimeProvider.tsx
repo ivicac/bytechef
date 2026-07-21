@@ -48,6 +48,7 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
         appendToLastAssistantMessage,
         isRunning,
         messages,
+        setCurrentStepName,
         setIsRunning,
         setLastAssistantMessageContent,
         setMessage,
@@ -57,6 +58,7 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
             appendToLastAssistantMessage: state.appendToLastAssistantMessage,
             isRunning: state.isRunning,
             messages: state.messages,
+            setCurrentStepName: state.setCurrentStepName,
             setIsRunning: state.setIsRunning,
             setLastAssistantMessageContent: state.setLastAssistantMessageContent,
             setMessage: state.setMessage,
@@ -99,6 +101,24 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
             }
         },
         [appendToLastAssistantMessage]
+    );
+
+    const handleTaskStarted = useCallback(
+        (data: unknown) => {
+            // Enriched coordinator task_started: {taskExecutionId, name, type}. Surface a transient step
+            // indicator while the workflow runs; cleared when the run stops (setIsRunning(false)).
+            if (typeof data !== 'object' || data === null) {
+                return;
+            }
+
+            const payload = data as {name?: string; type?: string};
+            const stepName = payload.name || payload.type;
+
+            if (stepName) {
+                setCurrentStepName(stepName);
+            }
+        },
+        [setCurrentStepName]
     );
 
     const handleAskUserQuestion = useCallback(
@@ -166,8 +186,9 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
             error: handleError,
             result: handleResult,
             stream: handleStream,
+            task_started: handleTaskStarted,
         }),
-        [handleApprovalRequest, handleAskUserQuestion, handleError, handleResult, handleStream]
+        [handleApprovalRequest, handleAskUserQuestion, handleError, handleResult, handleStream, handleTaskStarted]
     );
 
     const onNew = useCallback(

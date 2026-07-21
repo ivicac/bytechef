@@ -17,6 +17,7 @@ interface ChatStateI {
     conversationCache: Record<string, ConversationCacheEntryI>;
     conversationId: string;
     currentChatName: string | null;
+    currentStepName: string | null;
     isRunning: boolean;
     messages: ThreadMessageLike[];
     appendToLastAssistantMessage: (delta: string) => void;
@@ -25,6 +26,7 @@ interface ChatStateI {
     resetMessages: () => void;
     resumeUrl: string | null;
     setCurrentChatName: (name: string | null) => void;
+    setCurrentStepName: (currentStepName: string | null) => void;
     setIsRunning: (isRunning: boolean) => void;
     setLastAssistantMessageContent: (content: string) => void;
     setMessage: (message: ThreadMessageLike) => void;
@@ -43,6 +45,7 @@ const initialState = {
     conversationCache: {} as Record<string, ConversationCacheEntryI>,
     conversationId: generateId(),
     currentChatName: null as string | null,
+    currentStepName: null as string | null,
     isRunning: false,
     messages: [] as ThreadMessageLike[],
     resumeUrl: null as string | null,
@@ -77,7 +80,8 @@ export const useChatsStore = create<ChatStateI>()(
             }),
         resetMessages: () => set({messages: [], resumeUrl: null}),
         setCurrentChatName: (name) => set({currentChatName: name}),
-        setIsRunning: (isRunning) => set({isRunning}),
+        setCurrentStepName: (currentStepName) => set({currentStepName}),
+        setIsRunning: (isRunning) => set(isRunning ? {isRunning} : {currentStepName: null, isRunning}),
         setLastAssistantMessageContent: (content: string) =>
             set((state) => ({
                 messages: setContentHelper(state.messages, content),
