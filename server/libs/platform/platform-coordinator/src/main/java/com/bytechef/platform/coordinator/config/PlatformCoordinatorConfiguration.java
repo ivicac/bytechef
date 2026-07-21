@@ -35,6 +35,7 @@ import com.bytechef.platform.notification.service.NotificationService;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.ratelimit.ConcurrentExecutionGate;
 import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
+import com.bytechef.tenant.service.TenantService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
@@ -93,10 +94,11 @@ public class PlatformCoordinatorConfiguration {
         ApplicationEventPublisher eventPublisher,
         @Value("${bytechef.workflow.execution.recovery.max-auto-resume-attempts:3}") int maxAutoResumeAttempts,
         @Value("${bytechef.workflow.execution.recovery.staleness-threshold:PT5M}") Duration stalenessThreshold,
-        TaskExecutionService taskExecutionService) {
+        TaskExecutionService taskExecutionService, TenantService tenantService) {
 
         return new OrphanedJobRecoveryMonitor(
-            autoResume, eventPublisher, jobService, maxAutoResumeAttempts, stalenessThreshold, taskExecutionService);
+            autoResume, eventPublisher, jobService, maxAutoResumeAttempts, stalenessThreshold, taskExecutionService,
+            tenantService);
     }
 
     @Bean
@@ -107,11 +109,11 @@ public class PlatformCoordinatorConfiguration {
         ApplicationEventPublisher eventPublisher,
         ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
-        TaskExecutionService taskExecutionService) {
+        TaskExecutionService taskExecutionService, TenantService tenantService) {
 
         return new JobTimeoutMonitor(
             defaultTimeout, eventPublisher, jobService, planLimitRejectionCounterObjectProvider,
-            planLimitsProviderObjectProvider, taskExecutionService);
+            planLimitsProviderObjectProvider, taskExecutionService, tenantService);
     }
 
     @Bean

@@ -28,6 +28,7 @@ import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
+import com.bytechef.tenant.service.TenantService;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -44,6 +45,7 @@ public class OrphanedJobRecoveryMonitorTest {
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final JobService jobService = mock(JobService.class);
     private final TaskExecutionService taskExecutionService = mock(TaskExecutionService.class);
+    private final TenantService tenantService = mock(TenantService.class);
 
     private final Instant staleInstant = Instant.now()
         .minus(Duration.ofMinutes(30));
@@ -73,12 +75,13 @@ public class OrphanedJobRecoveryMonitorTest {
         when(taskExecutionService.getJobTaskExecutions(1L)).thenReturn(List.of(taskExecution));
         when(jobService.getStaleJobs(any(), any())).thenReturn(List.of());
         when(jobService.getJob(1L)).thenReturn(job);
+        when(tenantService.getTenantIds()).thenReturn(List.of("public"));
     }
 
     @Test
     public void testRecoversOrphanedJobWithoutResumeByDefault() {
         OrphanedJobRecoveryMonitor monitor = new OrphanedJobRecoveryMonitor(
-            false, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService);
+            false, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService, tenantService);
 
         monitor.recoverOrphanedJobs();
 
@@ -93,7 +96,7 @@ public class OrphanedJobRecoveryMonitorTest {
     @Test
     public void testAutoResumePublishesResumeEventAndCountsAttempt() {
         OrphanedJobRecoveryMonitor monitor = new OrphanedJobRecoveryMonitor(
-            true, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService);
+            true, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService, tenantService);
 
         monitor.recoverOrphanedJobs();
 
@@ -106,7 +109,7 @@ public class OrphanedJobRecoveryMonitorTest {
         when(job.getMetadata(OrphanedJobRecoveryMonitor.AUTO_RECOVERY_ATTEMPTS)).thenReturn(3);
 
         OrphanedJobRecoveryMonitor monitor = new OrphanedJobRecoveryMonitor(
-            true, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService);
+            true, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService, tenantService);
 
         monitor.recoverOrphanedJobs();
 
@@ -124,7 +127,7 @@ public class OrphanedJobRecoveryMonitorTest {
         when(taskExecutionService.getJobTaskExecutions(1L)).thenReturn(List.of(taskExecution, freshTaskExecution));
 
         OrphanedJobRecoveryMonitor monitor = new OrphanedJobRecoveryMonitor(
-            false, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService);
+            false, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService, tenantService);
 
         monitor.recoverOrphanedJobs();
 
@@ -137,7 +140,7 @@ public class OrphanedJobRecoveryMonitorTest {
         when(job.getParentTaskExecutionId()).thenReturn(99L);
 
         OrphanedJobRecoveryMonitor monitor = new OrphanedJobRecoveryMonitor(
-            true, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService);
+            true, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService, tenantService);
 
         monitor.recoverOrphanedJobs();
 
@@ -150,7 +153,7 @@ public class OrphanedJobRecoveryMonitorTest {
         when(job.getStatus()).thenReturn(Job.Status.COMPLETED);
 
         OrphanedJobRecoveryMonitor monitor = new OrphanedJobRecoveryMonitor(
-            false, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService);
+            false, eventPublisher, jobService, 3, Duration.ofMinutes(5), taskExecutionService, tenantService);
 
         monitor.recoverOrphanedJobs();
 

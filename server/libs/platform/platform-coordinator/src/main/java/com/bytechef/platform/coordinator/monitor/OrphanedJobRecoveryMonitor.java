@@ -23,6 +23,8 @@ import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.error.ExecutionError;
+import com.bytechef.tenant.TenantContext;
+import com.bytechef.tenant.service.TenantService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
 import java.time.Instant;
@@ -70,11 +72,13 @@ public class OrphanedJobRecoveryMonitor {
     private final int maxAutoResumeAttempts;
     private final Duration stalenessThreshold;
     private final TaskExecutionService taskExecutionService;
+    private final TenantService tenantService;
 
     @SuppressFBWarnings("EI2")
     public OrphanedJobRecoveryMonitor(
         boolean autoResume, ApplicationEventPublisher eventPublisher, JobService jobService,
-        int maxAutoResumeAttempts, Duration stalenessThreshold, TaskExecutionService taskExecutionService) {
+        int maxAutoResumeAttempts, Duration stalenessThreshold, TaskExecutionService taskExecutionService,
+        TenantService tenantService) {
 
         this.autoResume = autoResume;
         this.eventPublisher = eventPublisher;
@@ -82,10 +86,25 @@ public class OrphanedJobRecoveryMonitor {
         this.maxAutoResumeAttempts = maxAutoResumeAttempts;
         this.stalenessThreshold = stalenessThreshold;
         this.taskExecutionService = taskExecutionService;
+        this.tenantService = tenantService;
     }
 
+    /**
+     * Sweeps every tenant under its own context: the job/task queries and recovery updates are tenant-scoped, so a
+     * sweep running only under the scheduler thread's default tenant would miss every other tenant's orphans.
+     */
     @Scheduled(initialDelayString = "PT2M", fixedDelayString = "PT1M")
     public void recoverOrphanedJobs() {
+        for (String tenantId : tenantService.getTenantIds()) {
+            try {
+                TenantContext.runWithTenantId(tenantId, this::recoverOrphanedJobsForCurrentTenant);
+            } catch (RuntimeException exception) {
+                log.warn("Orphaned-job sweep failed for tenant {}", tenantId, exception);
+            }
+        }
+    }
+
+    private void recoverOrphanedJobsForCurrentTenant() {
         Instant cutoff = Instant.now()
             .minus(stalenessThreshold);
 

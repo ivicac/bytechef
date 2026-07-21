@@ -31,6 +31,7 @@ import com.bytechef.platform.plan.domain.PlanLimits;
 import com.bytechef.platform.plan.domain.PlanTier;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
+import com.bytechef.tenant.service.TenantService;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -51,6 +52,7 @@ public class JobTimeoutMonitorTest {
     private final ApplicationEventPublisher eventPublisher = mock(ApplicationEventPublisher.class);
     private final JobService jobService = mock(JobService.class);
     private final TaskExecutionService taskExecutionService = mock(TaskExecutionService.class);
+    private final TenantService tenantService = mock(TenantService.class);
 
     private Job job;
     private TaskExecution taskExecution;
@@ -68,6 +70,8 @@ public class JobTimeoutMonitorTest {
         taskExecution = mock(TaskExecution.class);
 
         when(taskExecution.getStatus()).thenReturn(TaskExecution.Status.STARTED);
+
+        when(tenantService.getTenantIds()).thenReturn(List.of("public"));
     }
 
     @Test
@@ -161,6 +165,6 @@ public class JobTimeoutMonitorTest {
 
         return new JobTimeoutMonitor(
             defaultTimeout, eventPublisher, jobService, planLimitRejectionCounterObjectProvider,
-            planLimitsProviderObjectProvider, taskExecutionService);
+            planLimitsProviderObjectProvider, taskExecutionService, tenantService);
     }
 }
