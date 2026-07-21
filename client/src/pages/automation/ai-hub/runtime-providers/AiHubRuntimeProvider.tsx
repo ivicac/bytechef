@@ -31,7 +31,11 @@ import {
 import {ProjectWorkflowKeys} from '@/shared/queries/automation/projectWorkflows.queries';
 import {WorkflowTestConfigurationKeys} from '@/shared/queries/platform/workflowTestConfigurations.queries';
 import {environmentStore} from '@/shared/stores/useEnvironmentStore';
-import {AskUserQuestionEventI, formatAskUserQuestionMessage} from '@/shared/util/assistant-message-utils';
+import {
+    ApprovalRequestEventI,
+    AskUserQuestionEventI,
+    formatAskUserQuestionMessage,
+} from '@/shared/util/assistant-message-utils';
 import {getCookie} from '@/shared/util/cookie-utils';
 import {getRandomId} from '@/shared/util/random-utils';
 import {AgentSubscriber, HttpAgent} from '@ag-ui/client';
@@ -265,6 +269,14 @@ const SUBAGENT_PROGRESS_EVENT_NAME = 'subagent-progress';
  */
 const ASK_WORKFLOW_QUESTION_EVENT_NAME = 'ask-workflow-question';
 
+/**
+ * Custom event name emitted by the server-side {@code AgUiStreamBridge} when a workflow run raises an approval
+ * request through the chat approval channel. The payload carries the tokenized resume id plus the form metadata;
+ * the client renders it as an interactive approval card (see ApprovalRequestMessage) that resolves through the
+ * job-resume endpoint — typing in the chat never resolves an approval.
+ */
+const APPROVAL_REQUEST_EVENT_NAME = 'approval_request';
+
 interface SubagentProgressValueI {
     subagentName: string;
     text: string;
@@ -445,6 +457,38 @@ export const buildAiHubSubscriber = ({
                     // until the user replies. Cleared when the next RUN_STARTED fires (the user's reply triggers
                     // a fresh turn). Resume URL persistence is handled server-side by the WebhookResumeRegistry —
                     // no client-side persistence needed since the bridge picks up the URL on the next turn.
+                    if (subscriberTaskId != null) {
+                        aiHubTasksStore.getState().setActivityState(subscriberTaskId, 'paused');
+                    }
+                }
+
+                return;
+            }
+
+            // approval_request — a workflow run raised an approval through the chat approval channel. Render an
+            // interactive approval card as its own assistant message; resolution goes through the card's embedded
+            // ApprovalForm (job-resume endpoint), never through the chat input. Mark the task paused like
+            // ask-workflow-question does — the workflow is suspended until the approval is resolved.
+            if (event.name === APPROVAL_REQUEST_EVENT_NAME) {
+                const approvalEvent = event.value as ApprovalRequestEventI | undefined;
+
+                if (approvalEvent && typeof approvalEvent.resumeId === 'string' && approvalEvent.resumeId.length > 0) {
+                    addMessage({
+                        content: [
+                            {
+                                data: {
+                                    formDescription: approvalEvent.formDescription,
+                                    formTitle: approvalEvent.formTitle,
+                                    formUrl: approvalEvent.formUrl,
+                                    kind: 'approval-request',
+                                    resumeId: approvalEvent.resumeId,
+                                },
+                                type: 'data-approval-request',
+                            },
+                        ],
+                        role: 'assistant',
+                    });
+
                     if (subscriberTaskId != null) {
                         aiHubTasksStore.getState().setActivityState(subscriberTaskId, 'paused');
                     }

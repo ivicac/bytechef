@@ -128,6 +128,46 @@ class AgUiStreamBridgeTest {
     }
 
     @Test
+    void testApprovalRequestPassesThroughAndPersistsFormLinkMarker() {
+        Map<String, Object> payload = Map.of(
+            "__eventType", "approval_request",
+            "resumeId", "abc123",
+            "formUrl", "https://example.com/resume/abc123",
+            "formTitle", "Expense approval");
+
+        bridge.onEvent(payload);
+
+        ArgumentCaptor<CustomEvent> eventCaptor = ArgumentCaptor.forClass(CustomEvent.class);
+
+        verify(subscriber).onCustomEvent(eventCaptor.capture());
+
+        CustomEvent customEvent = eventCaptor.getValue();
+
+        assertThat(customEvent.getName()).isEqualTo("approval_request");
+
+        // The card event must not open a text message — the card is a CustomEvent, not streamed text.
+        verify(subscriber, never()).onTextMessageStartEvent(any());
+
+        // The persist-only marker carries the form link so a reloaded conversation still surfaces the pending
+        // approval, even though the inline card itself is client-only.
+        assertThat(bridge.getAccumulatedAssistantText())
+            .contains("[open the approval form](https://example.com/resume/abc123)");
+    }
+
+    @Test
+    void testApprovalRequestMarkerAppendsAfterStreamedText() {
+        bridge.onEvent("Working on it.");
+        bridge.onEvent(
+            Map.of(
+                "__eventType", "approval_request",
+                "formUrl", "https://example.com/resume/abc123"));
+
+        assertThat(bridge.getAccumulatedAssistantText())
+            .startsWith("Working on it.")
+            .contains("\n\nApproval requested");
+    }
+
+    @Test
     void testUnrecognisedMapEmitsGenericCustomEvent() {
         Map<String, Object> payload = Map.of("some_other_key", "value");
 

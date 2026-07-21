@@ -21,9 +21,11 @@ import static com.bytechef.component.definition.ComponentDsl.component;
 
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.approval.action.ApprovalRequestApprovalAction;
+import com.bytechef.component.approval.cluster.ChatApprovalChannel;
 import com.bytechef.component.approval.cluster.tool.ApprovalRequestApprovalTool;
 import com.bytechef.component.definition.ComponentCategory;
 import com.bytechef.component.definition.ComponentDefinition;
+import com.bytechef.message.broker.MessageBroker;
 import com.bytechef.platform.component.definition.AbstractComponentDefinitionWrapper;
 import com.bytechef.platform.component.definition.ApprovalComponentDefinition;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
@@ -37,7 +39,9 @@ public class ApprovalComponentHandler implements ComponentHandler {
 
     private final ApprovalComponentDefinition componentDefinition;
 
-    public ApprovalComponentHandler(ClusterElementDefinitionService clusterElementDefinitionService) {
+    public ApprovalComponentHandler(
+        ClusterElementDefinitionService clusterElementDefinitionService, MessageBroker messageBroker) {
+
         this.componentDefinition = new ApprovalComponentDefinitionImpl(
             component(APPROVAL)
                 .title("Approval")
@@ -45,7 +49,9 @@ public class ApprovalComponentHandler implements ComponentHandler {
                 .icon("path:assets/approval.svg")
                 .categories(ComponentCategory.HELPERS)
                 .actions(ApprovalRequestApprovalAction.of(clusterElementDefinitionService))
-                .clusterElements(ApprovalRequestApprovalTool.of(clusterElementDefinitionService)));
+                .clusterElements(
+                    ApprovalRequestApprovalTool.of(clusterElementDefinitionService),
+                    ChatApprovalChannel.of(messageBroker)));
     }
 
     @Override

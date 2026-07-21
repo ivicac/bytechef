@@ -5,7 +5,12 @@ import {SSERequestType, useSSE} from '@/shared/hooks/useSSE';
 import {WorkflowTestExecution} from '@/shared/middleware/platform/workflow/test';
 import {WorkflowTestExecutionFromJSON} from '@/shared/middleware/platform/workflow/test/models/WorkflowTestExecution';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
-import {AskUserQuestionEventI, formatAskUserQuestionMessage} from '@/shared/util/assistant-message-utils';
+import {
+    ApprovalRequestEventI,
+    AskUserQuestionEventI,
+    formatApprovalRequestMessage,
+    formatAskUserQuestionMessage,
+} from '@/shared/util/assistant-message-utils';
 import {extractStreamChunk} from '@/shared/util/stream-utils';
 import {useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
@@ -93,6 +98,21 @@ export function useWorkflowTestStream({
 
     const {close, error} = useSSE<WorkflowTestExecution>(streamRequest, {
         eventHandlers: {
+            approval_request: (data) => {
+                if (typeof data !== 'object' || data === null || !('resumeId' in data)) {
+                    console.error('Received malformed approval_request event:', data);
+
+                    return;
+                }
+
+                const approvalEvent = data as ApprovalRequestEventI;
+
+                // Render the approval as markdown with a link to the hosted form. Deliberately do NOT register a
+                // resume URL for the chat input — typing never resolves an approval; only the form does.
+                appendToLastAssistantMessage(`\n\n${formatApprovalRequestMessage(approvalEvent)}`);
+                setWorkflowIsRunning(false);
+                setStreamRequest(null);
+            },
             ask_user_question: (data) => {
                 if (
                     typeof data !== 'object' ||

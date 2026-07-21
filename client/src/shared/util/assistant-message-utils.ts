@@ -17,6 +17,14 @@ export interface AskUserQuestionEventI {
     resumeUrl?: string;
 }
 
+export interface ApprovalRequestEventI {
+    formDescription?: string;
+    formTitle?: string;
+    formUrl?: string;
+    inputs?: unknown[];
+    resumeId: string;
+}
+
 export interface ToolExecutionEventI {
     confidence: string;
     inputs: Record<string, unknown>;
@@ -114,6 +122,19 @@ export function formatAskUserQuestionMessage(event: AskUserQuestionEventI): stri
             return `**${question.header}**: ${question.question}\n${optionLines}`;
         })
         .join('\n\n');
+}
+
+/**
+ * Formats an approval_request event as a readable assistant message with a link to the hosted approval form. Used by
+ * chat surfaces that render plain markdown instead of the interactive approval card — the link resolves the approval
+ * on the hosted form page, never through the chat input.
+ */
+export function formatApprovalRequestMessage(event: ApprovalRequestEventI): string {
+    const title = event.formTitle || 'Approval requested';
+    const description = event.formDescription ? `\n\n${event.formDescription}` : '';
+    const link = event.formUrl ? `\n\n[Open the approval form](${event.formUrl})` : '';
+
+    return `**${title}**${description}${link}`;
 }
 
 /**

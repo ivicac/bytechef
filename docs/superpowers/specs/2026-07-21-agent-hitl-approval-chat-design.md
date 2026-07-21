@@ -103,10 +103,51 @@ text **never** resolves an approval in either direction. This removes both n8n s
 
 1. **Approve/reject-with-comment (+ edited field values in the outcome)** on the approval
    primitive — outcome payload extension through `resumeApproval` and the channel senders.
+   *(Done.)*
 2. **`ChatApprovalChannel`** + card events on the workflow-chat SSE contract + client card
-   rendering (hosted + embedded), including re-render of pending approvals on reload.
+   rendering (hosted + embedded), including re-render of pending approvals on reload. *(Done —
+   see notes below.)*
 3. **Platform tool gate**: `requiresApproval` on TOOLS cluster element config, interception in
    `SuspendableToolCallingManager`, denial feedback into the loop, audit via the existing tool
    execution recording.
 
 Phases 1–2 are independent of 3 and deliver the visible differentiation first.
+
+### Phase 2 implementation notes
+
+- **Delivery mechanism.** The Approval action is a plain (non-streaming) perform, so it cannot
+  obtain an `SseEmitter`; instead `ChatApprovalChannel` (cluster element `approval/chat`, no
+  connection) publishes an `SseStreamEvent(jobId, EVENT_TYPE_DATA, payload)` directly on the
+  `SSE_STREAM_EVENTS` broker route — the same route the worker's streaming post-output processor
+  uses — with the tenant id stamped in metadata. The payload is a `__eventType: approval_request`
+  map carrying `resumeId` (tokenized), `formUrl`, `formTitle`, `formDescription`, `inputs`.
+  Whatever bridge is registered for the job (webhook SSE, workflow-chat `AgUiStreamBridge`)
+  receives it; both existing bridges already map `__eventType` payloads onward (named SSE event /
+  AG-UI `CustomEvent`) with no changes. `getJobId()` moved from `ActionContextAware` up to
+  `JobContextAware` so approval channels can reach the job id from their
+  `ClusterElementContextAware` context.
+- **Both entry points covered.** `ApprovalRequestApprovalTool` delegates to the same action
+  perform, so the chat channel works identically when the agent invokes approval as a tool.
+- **Client rendering.** `ApprovalRequestMessage` (`data-approval-request` in
+  `aiChatDataComponents`) wraps the standard `ApprovalForm` keyed by `resumeId` — fields,
+  comment box, Approve/Discard, submitted/expired states all come from the form; resolution goes
+  through the job-resume endpoint (D4: typing never resolves). AI Hub workflow chat renders the
+  interactive card from the `approval_request` CustomEvent and marks the task paused; the canvas
+  workflow-test chat renders a markdown fallback with the hosted-form link (deliberately NOT
+  registering a chat resume URL).
+- **Reload behavior.** `AgUiStreamBridge` folds a persist-only markdown marker
+  (`Approval requested — [open the approval form](url)`) into the accumulated assistant text, so
+  a reloaded conversation still surfaces the pending approval via the still-valid form link even
+  though inline cards are client-only. A card re-rendered after resolution degrades to the form's
+  "no longer available" state.
+- **Loud-failure rule, current strength.** The channel throws when no `jobId` is present
+  (editor/in-process runs). A run with a jobId but no chat listener (webhook/schedule origin)
+  publishes an event nobody consumes — trigger-type-aware validation (chat channel configured but
+  no chat-capable origin) needs workflow-definition knowledge the component layer lacks; wire it
+  into workflow validation alongside Phase 3.
+- **Known limitations (follow-ups).** (a) Post-approval continuation does not stream back into
+  the chat — the turn ends when the run suspends; resolving via the SSE-negotiated resume
+  endpoint and piping the continuation into the conversation is the natural next step. (b) On
+  the workflow-chat surface the card only arrives when the run takes the streaming path (any
+  streaming task present — always true for AI-agent workflows); sync-path chat runs skip SSE
+  delivery entirely.

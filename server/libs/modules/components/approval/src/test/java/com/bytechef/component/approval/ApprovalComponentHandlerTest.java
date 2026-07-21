@@ -18,6 +18,7 @@ package com.bytechef.component.approval;
 
 import static org.mockito.Mockito.mock;
 
+import com.bytechef.message.broker.MessageBroker;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.test.jsonasssert.JsonFileAssert;
 import org.junit.jupiter.api.Test;
@@ -31,6 +32,7 @@ class ApprovalComponentHandlerTest {
     void testGetComponentDefinition() {
         JsonFileAssert.assertEquals(
             "definition/approval_v1.json",
-            new ApprovalComponentHandler(mock(ClusterElementDefinitionService.class)).getDefinition());
+            new ApprovalComponentHandler(mock(ClusterElementDefinitionService.class), mock(MessageBroker.class))
+                .getDefinition());
     }
 }

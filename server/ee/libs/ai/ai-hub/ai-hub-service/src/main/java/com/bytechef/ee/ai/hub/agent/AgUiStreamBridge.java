@@ -42,7 +42,9 @@ import org.slf4j.LoggerFactory;
  * {@code "ask-workflow-question"}, value carries the questions array and the resume URL. Client renders an inline
  * follow-up form (mirrors the existing {@code request-connection} custom-event pattern).</li>
  * <li><b>{@code onEvent(Map &lt;ai-agent-sse-event-type&gt;)}</b> — pass through as a {@link CustomEvent} preserving
- * the event-type key so AI Agent SSE events survive the bridge intact.</li>
+ * the event-type key so AI Agent SSE events survive the bridge intact. {@code approval_request} events additionally
+ * fold a markdown form-link marker into the accumulated assistant text, so a reloaded conversation still surfaces the
+ * pending approval even though the inline card itself is client-only.</li>
  * <li><b>{@code onEvent(Map other)}</b> — forwarded as a generic {@code CustomEvent("workflow-event", map)}; the client
  * decides whether to render or ignore.</li>
  * <li><b>{@code onComplete()}</b> — emit {@link TextMessageEndEvent} (when a stream was started) followed by
@@ -242,6 +244,22 @@ public class AgUiStreamBridge implements SseStreamBridge {
                     if (!AiAgentSseEventType.EVENT_TYPE.equals(entry.getKey())) {
                         eventData.put(String.valueOf(entry.getKey()), entry.getValue());
                     }
+                }
+
+                // The live client renders approval_request as an inline card (CustomEvent below), but cards are
+                // client-only and never reconstructed from chat history. Fold a persist-only markdown marker with
+                // the form link into the accumulated assistant text so a reloaded conversation still surfaces the
+                // pending approval — the tokenized form link stays valid until the approval is resolved.
+                if (AiAgentSseEventType.APPROVAL_REQUEST.equals(eventType)
+                    && map.get("formUrl") instanceof String formUrl && !formUrl.isBlank()) {
+
+                    if (assistantTextBuilder.length() > 0) {
+                        assistantTextBuilder.append("\n\n");
+                    }
+
+                    assistantTextBuilder.append("Approval requested — [open the approval form](")
+                        .append(formUrl)
+                        .append(").");
                 }
 
                 emitCustomEvent(eventType, eventData);
