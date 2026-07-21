@@ -17,10 +17,13 @@
 package com.bytechef.platform.workflow.execution.facade;
 
 import com.bytechef.atlas.execution.domain.Job;
+import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
+import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.platform.component.constant.MetadataConstants;
+import com.bytechef.platform.component.definition.SuspendUtils;
 import com.bytechef.platform.workflow.execution.JobResumeId;
 import com.bytechef.platform.workflow.execution.event.JobResumedEvent;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
@@ -29,6 +32,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.time.Instant;
 import java.util.Map;
 import java.util.function.LongConsumer;
 import org.slf4j.Logger;
@@ -58,17 +62,20 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
     private final JobFacade jobFacade;
     private final JobService jobService;
     private final ObjectProvider<MeterRegistry> meterRegistryObjectProvider;
+    private final TaskExecutionService taskExecutionService;
 
     @SuppressFBWarnings("EI")
     public JobResumeFacadeImpl(
         ApplicationEventPublisher applicationEventPublisher, ApprovalTokens approvalTokens, JobFacade jobFacade,
-        JobService jobService, ObjectProvider<MeterRegistry> meterRegistryObjectProvider) {
+        JobService jobService, ObjectProvider<MeterRegistry> meterRegistryObjectProvider,
+        TaskExecutionService taskExecutionService) {
 
         this.applicationEventPublisher = applicationEventPublisher;
         this.approvalTokens = approvalTokens;
         this.jobFacade = jobFacade;
         this.jobService = jobService;
         this.meterRegistryObjectProvider = meterRegistryObjectProvider;
+        this.taskExecutionService = taskExecutionService;
     }
 
     @Override
@@ -115,6 +122,14 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
                 return JobResumeOutcome.INVALID_ID;
             }
 
+            if (isSuspendExpired(job)) {
+                log.warn("Rejected resume for job {}: the pending approval expired", jobResumeId.getJobId());
+
+                incrementApprovalExpiredCounter("resume");
+
+                return JobResumeOutcome.GONE;
+            }
+
             jobIdConsumer.accept(jobResumeId.getJobId());
 
             jobFacade.resumeJob(
@@ -141,6 +156,41 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
         }
 
         meterRegistry.counter(APPROVAL_RESOLUTION_METRIC_NAME, APPROVED, String.valueOf(data.get(APPROVED)))
+            .increment();
+    }
+
+    /**
+     * Whether the job's pending suspend has expired. The suspend (with its {@code expiresAt}) lives on the suspended
+     * task execution's metadata; the job metadata points at that task via {@code taskExecutionResumeId}. Fail-open: a
+     * missing pointer, unloadable task, or absent expiry means "not expired" — expiry is an added guard, never a reason
+     * to break a legacy resume.
+     */
+    private boolean isSuspendExpired(Job job) {
+        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
+
+        if (taskExecutionResumeId == null) {
+            return false;
+        }
+
+        try {
+            TaskExecution taskExecution = taskExecutionService.getTaskExecution(taskExecutionResumeId);
+
+            Instant expiresAt = SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata());
+
+            return expiresAt != null && expiresAt.isBefore(Instant.now());
+        } catch (Exception exception) {
+            return false;
+        }
+    }
+
+    private void incrementApprovalExpiredCounter(String source) {
+        MeterRegistry meterRegistry = meterRegistryObjectProvider.getIfAvailable();
+
+        if (meterRegistry == null) {
+            return;
+        }
+
+        meterRegistry.counter("bytechef_approval_expired", "source", source)
             .increment();
     }
 

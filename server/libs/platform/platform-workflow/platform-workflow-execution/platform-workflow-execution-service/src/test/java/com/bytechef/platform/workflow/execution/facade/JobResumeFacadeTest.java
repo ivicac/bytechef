@@ -27,8 +27,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.execution.domain.Job;
+import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
+import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.commons.util.EncodingUtils;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.platform.component.constant.MetadataConstants;
@@ -73,6 +75,9 @@ public class JobResumeFacadeTest {
     @Mock
     private JobService jobService;
 
+    @Mock
+    private TaskExecutionService taskExecutionService;
+
     private JobResumeFacadeImpl jobResumeFacade;
     private SimpleMeterRegistry meterRegistry;
 
@@ -98,7 +103,8 @@ public class JobResumeFacadeTest {
             .thenReturn(meterRegistry);
 
         jobResumeFacade = new JobResumeFacadeImpl(
-            applicationEventPublisher, approvalTokens, jobFacade, jobService, meterRegistryObjectProvider);
+            applicationEventPublisher, approvalTokens, jobFacade, jobService, meterRegistryObjectProvider,
+            taskExecutionService);
     }
 
     @Test
@@ -217,6 +223,57 @@ public class JobResumeFacadeTest {
 
         assertThat(meterRegistry.counter("bytechef_approval_resolution", "approved", "false")
             .count()).isEqualTo(1.0);
+    }
+
+    @Test
+    public void testResumeJobReturnsGoneWhenSuspendExpired() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+
+        TaskExecution taskExecution = new TaskExecution();
+
+        taskExecution.putMetadata(
+            "suspend",
+            Map.of("expiresAt", java.time.Instant.now()
+                .minusSeconds(60)
+                .toEpochMilli()));
+
+        when(taskExecutionService.getTaskExecution(TASK_EXECUTION_ID)).thenReturn(taskExecution);
+
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(jobResumeId.toString(), Map.of("approved", true));
+
+        assertThat(outcome).isEqualTo(JobResumeOutcome.GONE);
+
+        verify(jobFacade, never()).resumeJob(anyLong(), anyLong(), anyMap());
+
+        assertThat(meterRegistry.counter("bytechef_approval_expired", "source", "resume")
+            .count()).isEqualTo(1.0);
+    }
+
+    @Test
+    public void testResumeJobProceedsWhenSuspendNotExpired() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+
+        TaskExecution taskExecution = new TaskExecution();
+
+        taskExecution.putMetadata(
+            "suspend",
+            Map.of("expiresAt", java.time.Instant.now()
+                .plusSeconds(3600)
+                .toEpochMilli()));
+
+        when(taskExecutionService.getTaskExecution(TASK_EXECUTION_ID)).thenReturn(taskExecution);
+
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(jobResumeId.toString(), Map.of("approved", true));
+
+        assertThat(outcome).isEqualTo(JobResumeOutcome.OK);
     }
 
     private static Job jobOf(Job.Status status, String storedJobResumeIdString) {
