@@ -887,12 +887,16 @@ cd cli
   email alike. `EmailNotificationSender` and the EE
   `AiObservabilityNotificationDispatcher` both call `mailService.sendEmail(...)` — no inline
   `JavaMailSender` remains anywhere in notification delivery.
-- Consumers: CE `WebhookNotificationSender` and `SlackNotificationSender` live in
-  platform-notification-delivery (so coordinator-app carries them; `EmailNotificationSender` stays
-  in platform-notification-service next to its MailService wiring — the EMAIL channel warn-skips on
-  coordinator-app). In the distributed deployment the coordinator resolves delivery targets through
-  `configuration-app`'s `/remote/notification-service` read endpoints
-  (platform-notification-remote-rest + the implemented `RemoteNotificationServiceClient` reads).
+- Consumers: all three CE senders (`Email|Webhook|SlackNotificationSender`) live in
+  platform-notification-delivery (so coordinator-app carries them). `EmailNotificationSender`
+  reaches mail through the `NotificationEmailGateway` port (platform-notification-api):
+  monolith/configuration-app bind it to MailService (`MailServiceNotificationEmailGateway`),
+  coordinator/webhook apps bind it to `RemoteNotificationEmailGatewayClient` which proxies to
+  configuration-app's `/remote/notification-email-gateway/send-email` — SMTP credentials stay in
+  one app; no gateway bean at all = the EMAIL channel warn-skips. In the distributed deployment
+  the coordinator resolves delivery targets through `configuration-app`'s
+  `/remote/notification-service` read endpoints (platform-notification-remote-rest + the
+  implemented `RemoteNotificationServiceClient` reads).
   `WebhookNotificationSender` (job-status webhook channel; settings keys `webhook` +
   optional `webhookSecret`, `@Async`), payload shaped by `JobStatusWebhookNotificationHandler` in
   platform-coordinator; platform-coordinator's `WebhookJobStatusApplicationEventListener` delegates the
