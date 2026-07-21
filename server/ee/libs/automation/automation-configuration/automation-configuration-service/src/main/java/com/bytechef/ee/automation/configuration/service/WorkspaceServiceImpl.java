@@ -20,6 +20,7 @@ import com.bytechef.exception.ConfigurationException;
 import com.bytechef.exception.QuotaLimitExceededException;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
+import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.user.service.UserService;
 import com.bytechef.tenant.TenantContext;
@@ -48,6 +49,7 @@ public class WorkspaceServiceImpl implements WorkspaceService {
     private static final Logger log = LoggerFactory.getLogger(WorkspaceServiceImpl.class);
 
     private final PermissionService permissionService;
+    private final ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider;
     private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
     private final UserService userService;
     private final WorkspaceRepository workspaceRepository;
@@ -55,11 +57,14 @@ public class WorkspaceServiceImpl implements WorkspaceService {
 
     @SuppressFBWarnings("EI")
     public WorkspaceServiceImpl(
-        PermissionService permissionService, ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
+        PermissionService permissionService,
+        ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider,
+        ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
         UserService userService, WorkspaceRepository workspaceRepository,
         WorkspaceUserRepository workspaceUserRepository) {
 
         this.permissionService = permissionService;
+        this.planLimitRejectionCounterObjectProvider = planLimitRejectionCounterObjectProvider;
         this.planLimitsProviderObjectProvider = planLimitsProviderObjectProvider;
         this.userService = userService;
         this.workspaceRepository = workspaceRepository;
@@ -151,8 +156,18 @@ public class WorkspaceServiceImpl implements WorkspaceService {
         long workspaceCount = workspaceRepository.count();
 
         if (workspaceCount >= maxWorkspaces) {
+            countQuotaRejection();
+
             throw new QuotaLimitExceededException(
                 "Workspace quota exceeded: the plan allows at most %d workspace(s)".formatted(maxWorkspaces));
+        }
+    }
+
+    private void countQuotaRejection() {
+        PlanLimitRejectionCounter planLimitRejectionCounter = planLimitRejectionCounterObjectProvider.getIfAvailable();
+
+        if (planLimitRejectionCounter != null) {
+            planLimitRejectionCounter.increment("workspace");
         }
     }
 

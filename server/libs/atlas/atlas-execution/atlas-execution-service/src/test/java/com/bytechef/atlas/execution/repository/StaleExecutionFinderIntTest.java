@@ -141,6 +141,27 @@ public class StaleExecutionFinderIntTest {
             .doesNotContain(freshStartedJobId, longCompletedJobId);
     }
 
+    @Test
+    public void testEndedFinderMatchesOnlyJobsEndedBeforeCutoff() {
+        Instant longAgoInstant = Instant.now()
+            .minus(Duration.ofDays(40));
+        Instant cutoff = Instant.now()
+            .minus(Duration.ofDays(30));
+
+        long expiredJobId = saveJob(Job.Status.COMPLETED);
+        long recentJobId = saveJob(Job.Status.COMPLETED);
+        long runningJobId = saveJob(Job.Status.STARTED);
+
+        backdateJobEndDate(expiredJobId, longAgoInstant);
+        backdateJobEndDate(recentJobId, Instant.now());
+
+        List<Job> endedJobs = jobRepository.findAllByEndDateBefore(cutoff);
+
+        assertThat(endedJobs).extracting(Job::getId)
+            .contains(expiredJobId)
+            .doesNotContain(recentJobId, runningJobId);
+    }
+
     private long saveJob(Job.Status status) {
         Job job = new Job();
 
@@ -179,6 +200,11 @@ public class StaleExecutionFinderIntTest {
     private void backdateJobStartDate(long jobId, Instant instant) {
         jdbcTemplate.update(
             "UPDATE job SET start_date = ? WHERE id = ?", java.sql.Timestamp.from(instant), jobId);
+    }
+
+    private void backdateJobEndDate(long jobId, Instant instant) {
+        jdbcTemplate.update(
+            "UPDATE job SET end_date = ? WHERE id = ?", java.sql.Timestamp.from(instant), jobId);
     }
 
     @ComponentScan(basePackages = {

@@ -40,10 +40,11 @@ import org.springframework.scheduling.annotation.Scheduled;
  *
  * <p>
  * Only terminal jobs carry an end date, so the end-date finder naturally skips in-flight runs. Subflow child jobs are
- * skipped individually — {@link JobFacade#deleteJob(long)} cascades over child jobs, task executions and contexts, so a
- * child is removed together with its expired parent (a parent always ends at or after its children). Like the other
- * monitors the sweep runs per tenant under that tenant's context; remote-client deployments without the ended-jobs
- * query or the delete cascade skip purging.
+ * skipped individually — {@link JobFacade#deleteJob(long)} cascades over child jobs, task executions, contexts, and the
+ * associated file-storage blobs, so a child is removed together with its expired parent (a parent always ends at or
+ * after its children). Like the other monitors the sweep runs per tenant under that tenant's context; in the
+ * distributed deployment both the ended-jobs query and the delete route to execution-app through the remote clients,
+ * and the defensive {@link UnsupportedOperationException} handling stays for deployments that lack them.
  * </p>
  *
  * @author Ivica Cardic

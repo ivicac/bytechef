@@ -227,9 +227,9 @@ them resumable) and the per-run timeout monitor (fails STARTED jobs past the pla
 timeout or `bytechef.workflow.execution.timeout.default-timeout`) work in the distributed
 deployment — their stale/long-running finder queries reach `execution-app` through
 `/remote/job-service` and `/remote/task-execution-service` endpoints. The retention purge monitor
-(`bytechef.workflow.execution.retention.*`) can find expired runs remotely but currently skips
-deletion in the distributed set, because the cascading job delete is not yet exposed through the
-remote facade — retention purging is effectively monolith-only for now.
+(`bytechef.workflow.execution.retention.*`) also works distributed: it finds expired runs through
+the remote job service and deletes them (rows and the stored output/context blobs) through the
+remote job facade, with the cascade executing on `execution-app`.
 
 When Redis is the message broker, redelivery after a worker crash is handled by a consumer-group
 pending-entry reclaim: every consumer sweeps its queue's pending entries (XPENDING), claims
@@ -251,9 +251,6 @@ again on another worker.
 
 - **No shipped orchestration**: no Docker Compose file or Helm chart exists for the distributed
   set — the shipped compose files and the `bytechef` Helm chart are monolith-only.
-- **Retention purging is monolith-only for now**: the retention monitor's cascading job delete is
-  not implemented in the remote job facade client, so expired execution history is only purged in
-  the monolith deployment (see above).
 - **Notifications and alert rules are monolith-only for now**: `coordinator-app` reaches
   notification services through remote client stubs that are not yet implemented
   (`platform-notification-remote-client` throws `UnsupportedOperationException`), so job-status

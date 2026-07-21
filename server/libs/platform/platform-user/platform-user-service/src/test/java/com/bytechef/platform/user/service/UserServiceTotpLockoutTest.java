@@ -24,6 +24,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
+import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
 import com.bytechef.platform.user.audit.UserAuditPublisher;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.exception.TotpLockedException;
@@ -82,13 +83,17 @@ class UserServiceTotpLockoutTest {
         CacheManager cacheManager = new ConcurrentMapCacheManager();
 
         @SuppressWarnings("unchecked")
+        ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider =
+            (ObjectProvider<PlanLimitRejectionCounter>) mock(ObjectProvider.class);
+
+        @SuppressWarnings("unchecked")
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider =
             (ObjectProvider<PlanLimitsProvider>) mock(ObjectProvider.class);
 
         userService = new UserServiceImpl(
             authorityRepository, cacheManager, passwordEncoder, persistentTokenRepository,
-            planLimitsProviderObjectProvider, tenantService, userAuditPublisher, userRepository, MAX_FAILED_ATTEMPTS,
-            Duration.ofMinutes(15));
+            planLimitRejectionCounterObjectProvider, planLimitsProviderObjectProvider, tenantService,
+            userAuditPublisher, userRepository, MAX_FAILED_ATTEMPTS, Duration.ofMinutes(15));
 
         user = new User();
 

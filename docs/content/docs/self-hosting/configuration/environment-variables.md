@@ -337,9 +337,10 @@ The Context Store sync engine writes records to Postgres by default (the same da
 | `BYTECHEF_PLAN_LIMITS_MAX_MEMBERS` | Override: number of member accounts (pending invitations count) | tier default |
 
 Rejections increment the `bytechef_plan_limit_rejection` counter (tag `limit` =
-`login`, `sync`, `api`, `preauth`, `async`, `concurrency`, `cost` or `timeout`) when observability
-is enabled. Rate and cost rejections return HTTP 429 with `Retry-After`; quota rejections
-(workspaces, members, storage) return HTTP 403 — a capacity ceiling is not retryable.
+`login`, `sync`, `api`, `preauth`, `async`, `concurrency`, `cost`, `timeout`, `workspace`,
+`member` or `storage`) when observability is enabled. Rate and cost rejections return HTTP 429
+with `Retry-After`; quota rejections (workspaces, members, storage) return HTTP 403 — a capacity
+ceiling is not retryable.
 
 ## Public URL Configuration
 

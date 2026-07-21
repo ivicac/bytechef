@@ -38,6 +38,7 @@ import com.bytechef.platform.mcp.server.McpToolAuthorizationEvaluator;
 import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
 import com.bytechef.platform.mcp.service.McpToolService;
+import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
@@ -127,15 +128,16 @@ public class AutomationMcpServerConfiguration {
         ClusterElementDefinitionService clusterElementDefinitionService, TaskFileStorage durableTaskFileStorage,
         Evaluator evaluator, JobCompletionAwaiter jobCompletionAwaiter, McpComponentService mcpComponentService,
         McpProjectWorkflowService mcpProjectWorkflowService, McpServerService mcpServerService,
+        ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
         PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
         TaskExecutionService taskExecutionService, ToolExecutionRecorder toolExecutionRecorder,
         WorkflowService workflowService, WorkspaceMcpServerService workspaceMcpServerService) {
 
         return new AutomationMcpToolFacade(
             clusterElementDefinitionFacade, clusterElementDefinitionService, evaluator, jobCompletionAwaiter,
-            mcpComponentService, mcpProjectWorkflowService, mcpServerService, principalJobFacade,
-            projectDeploymentWorkflowService, taskExecutionService, durableTaskFileStorage, toolExecutionRecorder,
-            workflowService, workspaceMcpServerService);
+            mcpComponentService, mcpProjectWorkflowService, mcpServerService, planLimitsProviderObjectProvider,
+            principalJobFacade, projectDeploymentWorkflowService, taskExecutionService, durableTaskFileStorage,
+            toolExecutionRecorder, workflowService, workspaceMcpServerService);
     }
 
     @Bean

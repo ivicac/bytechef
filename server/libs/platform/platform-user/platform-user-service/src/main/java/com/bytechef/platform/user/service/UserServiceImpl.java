@@ -20,6 +20,7 @@ import com.bytechef.commons.util.LocalDateTimeUtils;
 import com.bytechef.commons.util.RandomUtils;
 import com.bytechef.exception.QuotaLimitExceededException;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
+import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.user.audit.UserAuditEvent;
@@ -85,6 +86,7 @@ public class UserServiceImpl implements UserService {
     private final CacheManager cacheManager;
     private final PasswordEncoder passwordEncoder;
     private final PersistentTokenRepository persistentTokenRepository;
+    private final ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider;
     private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
     private final SecretGenerator totpSecretGenerator = new DefaultSecretGenerator();
     private final DefaultCodeVerifier totpCodeVerifier;
@@ -98,6 +100,7 @@ public class UserServiceImpl implements UserService {
     public UserServiceImpl(
         AuthorityRepository authorityRepository, CacheManager cacheManager, PasswordEncoder passwordEncoder,
         PersistentTokenRepository persistentTokenRepository,
+        ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider, TenantService tenantService,
         UserAuditPublisher userAuditPublisher, UserRepository userRepository,
         @Value("${bytechef.security.mfa.max-failed-attempts:5}") int maxFailedTotpAttempts,
@@ -107,6 +110,7 @@ public class UserServiceImpl implements UserService {
         this.cacheManager = cacheManager;
         this.passwordEncoder = passwordEncoder;
         this.persistentTokenRepository = persistentTokenRepository;
+        this.planLimitRejectionCounterObjectProvider = planLimitRejectionCounterObjectProvider;
         this.planLimitsProviderObjectProvider = planLimitsProviderObjectProvider;
         this.tenantService = tenantService;
         this.userAuditPublisher = userAuditPublisher;
@@ -194,8 +198,18 @@ public class UserServiceImpl implements UserService {
         long userCount = userRepository.count();
 
         if (userCount >= maxMembers) {
+            countQuotaRejection();
+
             throw new QuotaLimitExceededException(
                 "Member quota exceeded: the plan allows at most %d member account(s)".formatted(maxMembers));
+        }
+    }
+
+    private void countQuotaRejection() {
+        PlanLimitRejectionCounter planLimitRejectionCounter = planLimitRejectionCounterObjectProvider.getIfAvailable();
+
+        if (planLimitRejectionCounter != null) {
+            planLimitRejectionCounter.increment("member");
         }
     }
 
