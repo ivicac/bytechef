@@ -89,6 +89,44 @@ class A2AProtocolHandlerTest {
     }
 
     @Test
+    void testInputRequiredTaskRefreshesOnTasksGetOnceTheRunCompletes() {
+        // First call pauses on approval; the poll (fired by tasks/get) reports the run completed.
+        A2AAgentExecutor agentExecutor = new A2AAgentExecutor() {
+
+            @Override
+            public A2AAgentResult execute(A2AAgentRequest request) {
+                return A2AAgentResult.ofInputRequired("Approval required", 42L);
+            }
+
+            @Override
+            public A2AAgentResult pollRun(long jobId) {
+                return A2AAgentResult.ofText("approved and finished");
+            }
+        };
+
+        A2AProtocolHandler handler = new A2AProtocolHandler(agentExecutor);
+
+        MessageSendParams params = new MessageSendParams(userMessage("run it"), null, null);
+
+        JSONRPCResponse<?> sendResponse = handler.handle(
+            "agent-1", "req-1", A2AProtocolHandler.METHOD_SEND_MESSAGE, params);
+
+        Task pendingTask = (Task) ((SendMessageResponse) sendResponse).getResult();
+
+        assertThat(pendingTask.getStatus()
+            .state()).isEqualTo(TaskState.INPUT_REQUIRED);
+
+        GetTaskResponse getResponse = (GetTaskResponse) handler.handleGetTask("req-2", pendingTask.getId());
+
+        Task refreshedTask = (Task) getResponse.getResult();
+
+        assertThat(refreshedTask.getStatus()
+            .state()).isEqualTo(TaskState.COMPLETED);
+        assertThat(A2AProtocolHandler.extractText(refreshedTask.getStatus()
+            .message())).isEqualTo("approved and finished");
+    }
+
+    @Test
     void testFailedAgentResultProducesFailedTask() {
         A2AProtocolHandler handler = new A2AProtocolHandler(request -> A2AAgentResult.ofError("boom"));
 

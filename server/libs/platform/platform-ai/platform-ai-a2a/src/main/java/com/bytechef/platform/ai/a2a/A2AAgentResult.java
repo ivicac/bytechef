@@ -28,19 +28,29 @@ import org.jspecify.annotations.Nullable;
  * @param success       whether the agent completed successfully
  * @param errorMessage  a human-readable error message when {@code success} is {@code false}, otherwise {@code null}
  * @param inputRequired whether the run is paused waiting for human input rather than finished
+ * @param jobId         the paused run's job id when known (input-required results only), enabling task refresh
  * @author Ivica Cardic
  */
-public record A2AAgentResult(String text, boolean success, @Nullable String errorMessage, boolean inputRequired) {
+public record A2AAgentResult(
+    String text, boolean success, @Nullable String errorMessage, boolean inputRequired, @Nullable Long jobId) {
 
     public static A2AAgentResult ofText(String text) {
-        return new A2AAgentResult(text == null ? "" : text, true, null, false);
+        return new A2AAgentResult(text == null ? "" : text, true, null, false, null);
     }
 
     public static A2AAgentResult ofError(String errorMessage) {
-        return new A2AAgentResult("", false, errorMessage, false);
+        return new A2AAgentResult("", false, errorMessage, false, null);
     }
 
     public static A2AAgentResult ofInputRequired(String text) {
-        return new A2AAgentResult(text == null ? "" : text, true, null, true);
+        return ofInputRequired(text, null);
+    }
+
+    /**
+     * An input-required result that also carries the paused run's job id, letting the protocol layer refresh the task's
+     * state on {@code tasks/get} once the human resolves the approval.
+     */
+    public static A2AAgentResult ofInputRequired(String text, @Nullable Long jobId) {
+        return new A2AAgentResult(text == null ? "" : text, true, null, true, jobId);
     }
 }

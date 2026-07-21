@@ -70,6 +70,17 @@ public class A2AProtocolHandler {
 
     // Bounded LRU of recently-produced tasks so tasks/get can return a task shortly after message/send. Tasks complete
     // synchronously, so this is a short-lived courtesy cache, not durable task storage.
+    // taskId -> paused run's jobId for input-required tasks, so tasks/get can refresh their state once the human
+    // resolves the approval. Bounded the same way as recentTasks.
+    private final Map<String, Long> taskJobIds = Collections.synchronizedMap(
+        new LinkedHashMap<>(16, 0.75f, true) {
+
+            @Override
+            protected boolean removeEldestEntry(Map.Entry<String, Long> eldest) {
+                return size() > MAX_RECENT_TASKS;
+            }
+        });
+
     private final Map<String, Task> recentTasks = Collections.synchronizedMap(
         new LinkedHashMap<>(16, 0.75f, true) {
 
@@ -127,6 +138,14 @@ public class A2AProtocolHandler {
         return new SendMessageResponse(requestId, task);
     }
 
+    private void rememberJobId(String taskId, A2AAgentResult agentResult) {
+        if (agentResult.inputRequired() && agentResult.jobId() != null) {
+            taskJobIds.put(taskId, agentResult.jobId());
+        } else {
+            taskJobIds.remove(taskId);
+        }
+    }
+
     /**
      * Dispatches a JSON-RPC {@code tasks/get} request: returns the recently-produced task with {@code taskId}, or a
      * {@link TaskNotFoundError} if it is not in the short-lived recent-task cache (tasks are not durably stored).
@@ -146,7 +165,54 @@ public class A2AProtocolHandler {
             return new GetTaskResponse(requestId, new TaskNotFoundError());
         }
 
+        task = refreshInputRequiredTask(taskId, task);
+
         return new GetTaskResponse(requestId, task);
+    }
+
+    /**
+     * Refreshes an {@code input-required} task by re-checking its paused run: once the human resolves the approval, the
+     * stored snapshot is replaced with the run's actual outcome (completed with output / failed / a fresh
+     * input-required descriptor for a follow-up approval), so pollers see the final result instead of a task frozen at
+     * input-required forever. Tasks without a known jobId, non-input-required tasks, and indeterminate poll results
+     * keep the stored snapshot.
+     */
+    private Task refreshInputRequiredTask(String taskId, Task task) {
+        TaskStatus taskStatus = task.getStatus();
+
+        if (taskStatus.state() != TaskState.INPUT_REQUIRED) {
+            return task;
+        }
+
+        Long jobId = taskJobIds.get(taskId);
+
+        if (jobId == null) {
+            return task;
+        }
+
+        A2AAgentResult refreshedResult;
+
+        try {
+            refreshedResult = agentExecutor.pollRun(jobId);
+        } catch (Exception exception) {
+            return task;
+        }
+
+        if (refreshedResult == null) {
+            return task;
+        }
+
+        Message refreshedMessage = buildAgentMessage(taskId, task.getContextId(), refreshedResult);
+
+        Task refreshedTask = new Task(
+            taskId, task.getContextId(), new TaskStatus(resolveTaskState(refreshedResult), refreshedMessage, null),
+            List.of(), List.of(), null);
+
+        recentTasks.put(taskId, refreshedTask);
+
+        rememberJobId(taskId, refreshedResult);
+
+        return refreshedTask;
     }
 
     /**
@@ -220,6 +286,8 @@ public class A2AProtocolHandler {
 
         recentTasks.put(taskId, new Task(taskId, contextId, finalStatus, List.of(), List.of(), null));
 
+        rememberJobId(taskId, agentResult);
+
         sink.send(
             new SendStreamingMessageResponse(
                 requestId, new TaskStatusUpdateEvent(taskId, finalStatus, contextId, true, Map.of())));
@@ -285,6 +353,8 @@ public class A2AProtocolHandler {
         Message agentMessage = buildAgentMessage(taskId, effectiveContextId, agentResult);
 
         TaskStatus taskStatus = new TaskStatus(taskState, agentMessage, null);
+
+        rememberJobId(taskId, agentResult);
 
         return new Task(taskId, effectiveContextId, taskStatus, List.of(), List.of(), null);
     }

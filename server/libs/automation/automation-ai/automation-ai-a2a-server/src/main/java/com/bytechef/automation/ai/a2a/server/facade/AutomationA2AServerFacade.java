@@ -20,6 +20,7 @@ import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.dto.JobParametersDTO;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.automation.ai.a2a.domain.A2aProject;
@@ -88,6 +89,7 @@ public class AutomationA2AServerFacade implements A2AAgentExecutor {
     private final A2aServerService a2aServerService;
     private final ObjectProvider<ApprovalTokens> approvalTokensObjectProvider;
     private final JobCompletionAwaiter jobCompletionAwaiter;
+    private final JobService jobService;
     private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
     private final PrincipalJobFacade principalJobFacade;
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
@@ -100,7 +102,7 @@ public class AutomationA2AServerFacade implements A2AAgentExecutor {
     public AutomationA2AServerFacade(
         A2aProjectService a2aProjectService, A2aProjectWorkflowService a2aProjectWorkflowService,
         A2aServerService a2aServerService, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
-        JobCompletionAwaiter jobCompletionAwaiter,
+        JobCompletionAwaiter jobCompletionAwaiter, JobService jobService,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider, PrincipalJobFacade principalJobFacade,
         ProjectDeploymentWorkflowService projectDeploymentWorkflowService, @Nullable String publicUrl,
         TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage, WorkflowService workflowService) {
@@ -110,6 +112,7 @@ public class AutomationA2AServerFacade implements A2AAgentExecutor {
         this.a2aServerService = a2aServerService;
         this.approvalTokensObjectProvider = approvalTokensObjectProvider;
         this.jobCompletionAwaiter = jobCompletionAwaiter;
+        this.jobService = jobService;
         this.planLimitsProviderObjectProvider = planLimitsProviderObjectProvider;
         this.principalJobFacade = principalJobFacade;
         this.projectDeploymentWorkflowService = projectDeploymentWorkflowService;
@@ -174,9 +177,9 @@ public class AutomationA2AServerFacade implements A2AAgentExecutor {
 
             // A STOPPED run with a stored resume id is paused on a human approval, not finished — surface the
             // task as input-required with a pointer to the hosted form, so the calling agent knows the run is
-            // blocked on a human decision.
+            // blocked on a human decision. The jobId lets tasks/get refresh the task once the human decides.
             if (job.getStatus() == Job.Status.STOPPED) {
-                return A2AAgentResult.ofInputRequired(describePendingApproval(job));
+                return A2AAgentResult.ofInputRequired(describePendingApproval(job), job.getId());
             }
 
             JobExecutionErrors.checkForError(job, taskExecutionService);
@@ -248,6 +251,39 @@ public class AutomationA2AServerFacade implements A2AAgentExecutor {
         }
 
         return planSyncRunTimeout;
+    }
+
+    /**
+     * Re-checks a run that paused on a pending approval, for the {@code tasks/get} refresh path. Completed runs return
+     * their real output, failed runs an error, still-paused runs a fresh input-required descriptor; a run mid-resume
+     * (STARTED) returns {@code null} so the stored task stays input-required until it settles.
+     */
+    @Override
+    public @Nullable A2AAgentResult pollRun(long jobId) {
+        Job job = jobService.fetchJob(jobId)
+            .orElse(null);
+
+        if (job == null) {
+            return null;
+        }
+
+        return switch (job.getStatus()) {
+            case STOPPED -> A2AAgentResult.ofInputRequired(describePendingApproval(job), job.getId());
+            case COMPLETED -> A2AAgentResult.ofText(readOutputText(job));
+            case FAILED -> A2AAgentResult.ofError("The workflow run failed after the approval was resolved");
+            default -> null;
+        };
+    }
+
+    private String readOutputText(Job job) {
+        if (job.getOutputs() == null) {
+            return "";
+        }
+
+        Object output = getCallableResponseOutput(job)
+            .orElseGet(() -> taskFileStorage.readJobOutputs(job.getOutputs()));
+
+        return output == null ? "" : String.valueOf(output);
     }
 
     private String describePendingApproval(Job job) {

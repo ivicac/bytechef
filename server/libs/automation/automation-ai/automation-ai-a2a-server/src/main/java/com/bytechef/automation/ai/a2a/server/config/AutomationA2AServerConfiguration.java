@@ -17,6 +17,7 @@
 package com.bytechef.automation.ai.a2a.server.config;
 
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.automation.ai.a2a.server.facade.AutomationA2AServerFacade;
@@ -54,7 +55,7 @@ public class AutomationA2AServerConfiguration {
     AutomationA2AServerFacade automationA2AServerFacade(
         A2aProjectService a2aProjectService, A2aProjectWorkflowService a2aProjectWorkflowService,
         A2aServerService a2aServerService, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
-        JobCompletionAwaiter jobCompletionAwaiter,
+        JobCompletionAwaiter jobCompletionAwaiter, JobService jobService,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider, PrincipalJobFacade principalJobFacade,
         ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
         @Value("${bytechef.public-url:#{null}}") @Nullable String publicUrl,
@@ -63,7 +64,7 @@ public class AutomationA2AServerConfiguration {
 
         return new AutomationA2AServerFacade(
             a2aProjectService, a2aProjectWorkflowService, a2aServerService, approvalTokensObjectProvider,
-            jobCompletionAwaiter, planLimitsProviderObjectProvider, principalJobFacade,
+            jobCompletionAwaiter, jobService, planLimitsProviderObjectProvider, principalJobFacade,
             projectDeploymentWorkflowService, publicUrl, taskExecutionService, durableTaskFileStorage,
             workflowService);
     }

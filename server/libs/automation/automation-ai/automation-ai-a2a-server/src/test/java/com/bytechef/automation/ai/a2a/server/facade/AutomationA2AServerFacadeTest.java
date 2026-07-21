@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.automation.ai.a2a.domain.A2aServer;
@@ -59,9 +60,9 @@ class AutomationA2AServerFacadeTest {
 
     private final AutomationA2AServerFacade facade = new AutomationA2AServerFacade(
         a2aProjectService, a2aProjectWorkflowService, a2aServerService, approvalTokensObjectProvider,
-        mock(JobCompletionAwaiter.class), planLimitsProviderObjectProvider, mock(PrincipalJobFacade.class),
-        projectDeploymentWorkflowService, "https://example.com", mock(TaskExecutionService.class),
-        mock(TaskFileStorage.class), mock(WorkflowService.class));
+        mock(JobCompletionAwaiter.class), mock(JobService.class), planLimitsProviderObjectProvider,
+        mock(PrincipalJobFacade.class), projectDeploymentWorkflowService, "https://example.com",
+        mock(TaskExecutionService.class), mock(TaskFileStorage.class), mock(WorkflowService.class));
 
     @Test
     void testExecuteReturnsErrorWhenServerDisabled() {
