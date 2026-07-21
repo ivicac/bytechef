@@ -23,7 +23,9 @@ import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.plan.domain.PlanLimits;
+import com.bytechef.platform.plan.domain.PlanOveragePolicy;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
+import com.bytechef.platform.plan.provider.PlanOveragePolicyProvider;
 import com.bytechef.platform.plan.provider.PlanSpendProvider;
 import com.bytechef.platform.ratelimit.ConcurrentExecutionGate;
 import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
@@ -61,6 +63,7 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
     private final ObjectProvider<ConcurrentExecutionGate> concurrentExecutionGateProvider;
     private final ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider;
     private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
+    private final ObjectProvider<PlanOveragePolicyProvider> planOveragePolicyProviderObjectProvider;
     private final ObjectProvider<PlanSpendProvider> planSpendProviderObjectProvider;
     private final ObjectProvider<RateLimiter> rateLimiterObjectProvider;
 
@@ -71,6 +74,7 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         ObjectProvider<ConcurrentExecutionGate> concurrentExecutionGateProvider,
         ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
+        ObjectProvider<PlanOveragePolicyProvider> planOveragePolicyProviderObjectProvider,
         ObjectProvider<PlanSpendProvider> planSpendProviderObjectProvider,
         ObjectProvider<RateLimiter> rateLimiterObjectProvider) {
 
@@ -82,6 +86,7 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         this.concurrentExecutionGateProvider = concurrentExecutionGateProvider;
         this.planLimitRejectionCounterObjectProvider = planLimitRejectionCounterObjectProvider;
         this.planLimitsProviderObjectProvider = planLimitsProviderObjectProvider;
+        this.planOveragePolicyProviderObjectProvider = planOveragePolicyProviderObjectProvider;
         this.planSpendProviderObjectProvider = planSpendProviderObjectProvider;
         this.rateLimiterObjectProvider = rateLimiterObjectProvider;
     }
@@ -184,10 +189,46 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         BigDecimal currentPeriodSpendUsd = planSpendProvider.getCurrentPeriodSpendUsd(tenantId);
 
         if (currentPeriodSpendUsd.compareTo(includedMonthlyCostUsd) >= 0) {
+            if (isOverageAdmitted(tenantId, includedMonthlyCostUsd, currentPeriodSpendUsd)) {
+                return;
+            }
+
             countRejection("cost");
 
             throw new JobCostLimitExceededException(includedMonthlyCostUsd);
         }
+    }
+
+    /**
+     * Whether an over-cap submission is admitted under the tenant's on-demand overage terms (Sim's opt-in overage
+     * model). Without a {@link PlanOveragePolicyProvider} bean — the placeholder state until the billing integration
+     * lands — overage is disabled and the cap hard-stops.
+     */
+    private boolean isOverageAdmitted(
+        String tenantId, BigDecimal includedMonthlyCostUsd, BigDecimal currentPeriodSpendUsd) {
+
+        PlanOveragePolicyProvider planOveragePolicyProvider =
+            planOveragePolicyProviderObjectProvider.getIfAvailable();
+
+        if (planOveragePolicyProvider == null) {
+            return false;
+        }
+
+        PlanOveragePolicy planOveragePolicy = planOveragePolicyProvider.getOveragePolicy(tenantId);
+
+        if (!planOveragePolicy.enabled()) {
+            return false;
+        }
+
+        BigDecimal unbilledLimitUsd = planOveragePolicy.unbilledLimitUsd();
+
+        if (unbilledLimitUsd == null) {
+            return true;
+        }
+
+        BigDecimal unbilledOverageUsd = currentPeriodSpendUsd.subtract(includedMonthlyCostUsd);
+
+        return unbilledOverageUsd.compareTo(unbilledLimitUsd) < 0;
     }
 
     @Override

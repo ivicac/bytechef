@@ -772,7 +772,10 @@ cd cli
   endpoints (`/{secretKey}/mcp|sse|message`, `/api/automation/a2a/**`) → sync tier/tenant, public
   APIs → api tier/tenant, anonymous `/api/**` → per-IP; reject = 429 + Retry-After), and
   the two async-admission gates in `PrincipalJobFacadeImpl.createJob` plus the monthly-cost cap
-  (`PlanSpendProvider` SPI, EE impl over cost rows, 60s memo, fail-open) (async only; sync
+  (`PlanSpendProvider` SPI, EE impl over cost rows, 60s memo, fail-open; over-cap submissions can
+  be admitted under the tenant's on-demand overage terms via the stub `PlanOveragePolicyProvider`
+  SPI — `PlanOveragePolicy(enabled, unbilledLimitUsd)`, Sim's opt-in overage model — no default
+  bean, so the cap hard-stops until the billing integration contributes one) (async only; sync
   `createJobWithoutDispatch` is deliberately ungated to avoid slot leaks): the
   `async:<tenant>` submissions-per-minute bucket (checked FIRST so a rate reject never
   leaks a slot) then `ConcurrentExecutionGate` slots, released by platform-coordinator's
