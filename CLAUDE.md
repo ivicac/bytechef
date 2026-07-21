@@ -798,7 +798,8 @@ cd cli
   Stale-row finders are `getStaleTaskExecutions`/`getStaleJobs` (EE remote clients throw
   `UnsupportedOperationException`; the monitor warn-skips, so orphan detection is monolith-only
   for now). Detection lives OUTSIDE `server/libs/atlas/` except the engine-owned heartbeat
-  primitives; semantics pinned by `OrphanedJobRecoveryMonitorTest`.
+  primitives; semantics pinned by `OrphanedJobRecoveryMonitorTest`, and the underlying
+  stale/long-running SQL finders by `StaleExecutionFinderIntTest` (Testcontainers PG).
 - **Per-run timeouts**: `JobTimeoutMonitor` (platform-coordinator, every minute,
   `bytechef.workflow.execution.timeout.enabled` default on) fails STARTED jobs whose runtime
   exceeds the plan's `asyncRunTimeout` (per tenant) or the operator fallback
