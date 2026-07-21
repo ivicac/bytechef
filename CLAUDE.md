@@ -787,6 +787,9 @@ cd cli
   `UnsupportedOperationException`; the monitor warn-skips, so orphan detection is monolith-only
   for now). Detection lives OUTSIDE `server/libs/atlas/` except the engine-owned heartbeat
   primitives; semantics pinned by `OrphanedJobRecoveryMonitorTest`.
+- **Redis broker redelivery**: `RedisListenerEndpointRegistrar` reclaims consumer-group pending
+  entries left by crashed consumers (XPENDING + XCLAIM sweep every 10s, min idle 60s) and
+  redelivers them through the normal invoke-then-ack path — at-least-once semantics like amqp.
 - **Transactional completion**: `DefaultTaskCompletionHandler` takes an optional
   `TransactionTemplate` (coordinator config wires it from `ObjectProvider<PlatformTransactionManager>`)
   and runs update-task + push-context + advance-job (+ next-task create/dispatch) in ONE

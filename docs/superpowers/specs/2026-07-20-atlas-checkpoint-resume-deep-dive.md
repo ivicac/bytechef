@@ -87,7 +87,12 @@ but only at explicit, cooperative suspend points, not on crash.
 > `ConversationState`) to CURRENT_EXECUTION-scoped data storage; on a crash-resumed job,
 > `AiAgentChatAction.perform` restores the conversation (fingerprint-matched) and continues with
 > a fresh model call over the reconstructed history, clearing the checkpoint on success. Editor
-> and job-less runs skip checkpointing entirely; all checkpoint I/O is fail-open.
+> and job-less runs skip checkpointing entirely; all checkpoint I/O is fail-open. Step 5 (redis
+> pending-reclaim) is IMPLEMENTED (2026-07-21): `RedisListenerEndpointRegistrar` runs an
+> XPENDING+XCLAIM sweep every 10s (min idle 60s, batch 100) inside its poll loop, redelivering
+> entries left unacknowledged by a crashed consumer through the normal invoke-then-ack path —
+> redis now has amqp-like at-least-once redelivery. Pinned by
+> `RedisListenerEndpointRegistrarTest`. All five steps of §4 are now implemented.
 
 The differentiator claim is legitimate — the persistence spine is already there; what is missing
 is detection + permission to resume + one incremental-persistence hook. In dependency order:
