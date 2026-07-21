@@ -199,6 +199,22 @@ Decision input, not made here: if the `agenticAi` component is to be lit up soon
 is now the least-work path to a *typed* GOAP canvas; if the Embabel dependency was the
 reason it stayed dark, option 2 remains the recommendation from §3.
 
+> **Status 2026-07-21: option 1 is IMPLEMENTED.** The module is on Embabel 1.0.0 (zero source
+> changes needed for the bump itself) and the runner now supports typed bindings end to end:
+> the ACTION cluster element gained an optional `outputSchema` (name/type/description entries);
+> a binding whose producers declare a schema becomes a `DynamicType` named after the binding,
+> carried as a `_typeName`-tagged map. Actions touching a typed binding are built as
+> `DynamicTransformationAction` (custom `AbstractAction` subclass with string-typed `IoBinding`s
+> — the "no shipped factory accepts DynamicType" gap from §4.2, closed by hand as predicted);
+> the model gets a property-list instruction block and its JSON reply is parsed, tagged, and
+> bound. A typed goal binding makes the run action return the structured object (tag keys
+> stripped) instead of a string. Because execution-time `getValue` matching is strict, the
+> runner validates producer/consumer schema agreement per binding name up front (mixed
+> typed/untyped producers, conflicting schemas, schemas on `userGoal`, and `:` in binding names
+> are all rejected with actionable messages). The component remains dark
+> (`AgentPlatformAutoConfiguration` still excluded in app YAMLs) — lighting it up is the next,
+> separate step.
+
 ## Sources
 
 - Repo recon: `server/libs/modules/components/ai/agentic-ai/` (see §0 for files).

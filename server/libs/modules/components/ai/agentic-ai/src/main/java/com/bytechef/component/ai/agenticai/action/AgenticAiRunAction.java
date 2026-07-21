@@ -28,6 +28,10 @@ import static com.bytechef.component.ai.agenticai.constant.AgenticAiConstants.GO
 import static com.bytechef.component.ai.agenticai.constant.AgenticAiConstants.GOAL_OUTPUT_BINDING;
 import static com.bytechef.component.ai.agenticai.constant.AgenticAiConstants.INPUT_BINDING;
 import static com.bytechef.component.ai.agenticai.constant.AgenticAiConstants.OUTPUT_BINDING;
+import static com.bytechef.component.ai.agenticai.constant.AgenticAiConstants.OUTPUT_SCHEMA;
+import static com.bytechef.component.ai.agenticai.constant.AgenticAiConstants.OUTPUT_SCHEMA_DESCRIPTION;
+import static com.bytechef.component.ai.agenticai.constant.AgenticAiConstants.OUTPUT_SCHEMA_NAME;
+import static com.bytechef.component.ai.agenticai.constant.AgenticAiConstants.OUTPUT_SCHEMA_TYPE;
 import static com.bytechef.component.ai.agenticai.constant.AgenticAiConstants.RUN;
 import static com.bytechef.component.ai.agenticai.constant.AgenticAiConstants.RUN_PROPERTIES;
 import static com.bytechef.component.ai.llm.constant.LLMConstants.SYSTEM_PROMPT;
@@ -36,6 +40,7 @@ import static com.bytechef.platform.component.definition.ai.agent.ActionFunction
 
 import com.bytechef.component.ai.agenticai.embabel.ActionStep;
 import com.bytechef.component.ai.agenticai.embabel.EmbabelAgentRunner;
+import com.bytechef.component.ai.agenticai.embabel.OutputProperty;
 import com.bytechef.component.ai.agenticai.facade.AgenticAiToolFacade;
 import com.bytechef.component.ai.llm.util.ModelUtils;
 import com.bytechef.component.definition.ActionContext;
@@ -157,15 +162,64 @@ public class AgenticAiRunAction {
 
             double actionCost = parseActionCost(parameters.get(ACTION_COST), workflowNodeName);
 
+            List<OutputProperty> outputProperties = parseOutputSchema(parameters.get(OUTPUT_SCHEMA),
+                workflowNodeName);
+
             List<ToolCallback> stepToolCallbacks = resolveStepToolCallbacks(
                 clusterElement, sharedToolCallbacks, connectionParameters, editorEnvironment, context);
 
             actionSteps.add(
                 new ActionStep(actionName, actionDescription, actionPrompt, inputBinding, outputBinding,
-                    stepToolCallbacks, actionCost));
+                    stepToolCallbacks, actionCost, outputProperties));
         }
 
         return actionSteps;
+    }
+
+    /**
+     * Parses the optional output schema declared on an action cluster element into the runner's {@link OutputProperty}
+     * list. A declared schema turns the action's output binding into a typed binding: the model is instructed to
+     * produce a JSON object with these properties, and the value travels the blackboard as a type-tagged map instead of
+     * free text.
+     */
+    private static List<OutputProperty> parseOutputSchema(@Nullable Object rawOutputSchema, String workflowNodeName) {
+        if (rawOutputSchema == null) {
+            return List.of();
+        }
+
+        if (!(rawOutputSchema instanceof List<?> schemaEntries)) {
+            throw new IllegalArgumentException(
+                "Agentic AI action '" + workflowNodeName + "' has a malformed '" + OUTPUT_SCHEMA +
+                    "' value; expected a list of property definitions");
+        }
+
+        List<OutputProperty> outputProperties = new ArrayList<>();
+
+        for (Object schemaEntry : schemaEntries) {
+            if (!(schemaEntry instanceof Map<?, ?> schemaEntryMap)) {
+                throw new IllegalArgumentException(
+                    "Agentic AI action '" + workflowNodeName + "' has a malformed '" + OUTPUT_SCHEMA +
+                        "' entry: " + schemaEntry);
+            }
+
+            Object rawPropertyName = schemaEntryMap.get(OUTPUT_SCHEMA_NAME);
+
+            if (!(rawPropertyName instanceof String propertyName) || propertyName.isBlank()) {
+                throw new IllegalArgumentException(
+                    "Agentic AI action '" + workflowNodeName + "' has an '" + OUTPUT_SCHEMA +
+                        "' entry without a property name");
+            }
+
+            String propertyType = schemaEntryMap.get(OUTPUT_SCHEMA_TYPE) instanceof String typeValue &&
+                !typeValue.isBlank() ? typeValue : "string";
+            String propertyDescription = schemaEntryMap.get(
+                OUTPUT_SCHEMA_DESCRIPTION) instanceof String descriptionValue &&
+                !descriptionValue.isBlank() ? descriptionValue : null;
+
+            outputProperties.add(new OutputProperty(propertyName.trim(), propertyType, propertyDescription));
+        }
+
+        return outputProperties;
     }
 
     private static String requireStringParameter(

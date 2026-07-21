@@ -510,6 +510,26 @@ trigger + post-turn query invalidation.
   `docs/superpowers/specs/2026-07-19-expose-ai-agent-a2a-server-design.md`; user docs:
   `docs/content/docs/automation/a2a-servers.mdx`.
 
+### Agentic AI component (Embabel GOAP, dark)
+
+- `server/libs/modules/components/ai/agentic-ai` wraps Embabel **1.0.0**'s GOAP planner
+  (`EmbabelAgentRunner.kt`, the repo's only Kotlin production code). The component ships DARK:
+  `AgentPlatformAutoConfiguration` is excluded in all app YAMLs and the handler is
+  `@ConditionalOnBean(AgentPlatform.class)`.
+- Blackboard carriers: untyped bindings use the `Binding(content)` data class; bindings whose
+  producers declare an `outputSchema` on the ACTION cluster element become **typed** — an Embabel
+  `DynamicType` named after the binding (PascalCase), carried as a `_typeName`-tagged map.
+  Typed/untyped actions are built as `DynamicTransformationAction` (custom `AbstractAction` with
+  string-typed `IoBinding`s, since Embabel ships no `DynamicType`-aware action factory);
+  fully-untyped actions keep the stock `promptedTransformer<Binding, Binding>` path.
+- Execution-time `getValue` type matching is STRICT (a tagged map only satisfies its `_typeName`,
+  a `Binding` only the Binding class) even though the planner's world-state determiner
+  short-circuits maps — so all producers of one binding name must agree on typed-ness and schema;
+  the runner validates this up front (also: no `:` in binding names, no schema on `userGoal`).
+  A typed goal binding makes the run action return the parsed object (tag keys stripped) instead
+  of a string. Analysis + implementation status:
+  `docs/superpowers/specs/2026-07-20-embabel-koog-goap-domain-model-analysis.md` §4.
+
 ### AI Gateway content guardrails (EE)
 
 - `AiGatewayGuardrails` runs in `AiGatewayFacadeImpl` on sync + streaming paths after prompt

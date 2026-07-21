@@ -49,6 +49,34 @@ Each action step produces a unique JVM type (`Step1Output`, `Step2Output`, etc.)
 | actionPrompt | Prompt template for the LLM. Use `{input}` to reference input data | Yes |
 | inputBinding | Name of the input this action needs (use `userGoal` for the first action) | Yes |
 | outputBinding | Name of the output this action produces | Yes |
+| actionCost | GOAP edge weight; lower-cost paths win when alternatives exist (default 1.0) | No |
+| outputSchema | Structured output properties (name, type, description) — makes the binding *typed* | No |
+
+## Typed Bindings (Structured Output)
+
+By default a binding carries free text. Declaring an `outputSchema` on an action turns its output
+binding into a **typed binding**, backed by an Embabel `DynamicType` (Embabel 1.0's runtime-declared
+domain model — no JVM class needed):
+
+- The model is instructed to return ONLY a JSON object with the declared properties; the value
+  travels the blackboard as a `_typeName`-tagged map whose type name is derived from the binding
+  name (`marketAnalysis` → `MarketAnalysis`).
+- Downstream actions consuming a typed binding receive the object rendered as JSON in `{input}`.
+- If the **goal output binding** is typed, the run action returns the structured object instead of
+  a string — downstream workflow tasks can reference individual properties.
+- All actions producing the same output binding must declare the same schema (or none): type
+  matching on the blackboard is strict, so alternative producers must be interchangeable for their
+  consumers. Mismatches are rejected at validation time with an actionable message.
+
+Example `outputSchema` on an action:
+
+```json
+"outputSchema": [
+  { "name": "summary", "type": "string", "description": "One-paragraph market summary" },
+  { "name": "keyTrends", "type": "array", "description": "The most important trends" },
+  { "name": "confidence", "type": "number", "description": "Confidence score from 0 to 1" }
+]
+```
 
 ## Example Configuration
 
