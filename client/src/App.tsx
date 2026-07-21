@@ -24,6 +24,7 @@ import {
     LayoutTemplateIcon,
     Link2Icon,
     LucideIcon,
+    MessageSquareIcon,
     MessagesSquareIcon,
     NetworkIcon,
     ServerIcon,
@@ -57,6 +58,7 @@ const automationNavigation: NavigationType[] = [
         icon: MessagesSquareIcon,
         name: 'AI Hub',
     },
+    {href: '/automation/chats', icon: MessageSquareIcon, name: 'Chats'},
     {href: '/automation/approval-tasks', icon: CircleIcon, name: 'Approval Tasks'},
     {
         href: '/automation/projects',

@@ -44,6 +44,24 @@ interface AskUserQuestionEventI {
     resumeUrl?: string;
 }
 
+// Mirrors `ApprovalRequestEventI` in client/src/shared/util/assistant-message-utils.ts (same
+// cannot-import-from-@/shared constraint as above). The widget renders the approval as markdown with a
+// link to the hosted approval form — resolution happens on the form page, never through the chat input.
+interface ApprovalRequestEventI {
+    formDescription?: string;
+    formTitle?: string;
+    formUrl?: string;
+    resumeId: string;
+}
+
+function formatApprovalRequest(event: ApprovalRequestEventI): string {
+    const title = event.formTitle || 'Approval requested';
+    const description = event.formDescription ? `\n\n${event.formDescription}` : '';
+    const link = event.formUrl ? `\n\n[Open the approval form](${event.formUrl})` : '';
+
+    return `**${title}**${description}${link}`;
+}
+
 function formatAskUserQuestion(event: AskUserQuestionEventI): string {
     if (!Array.isArray(event.questions) || event.questions.length === 0) {
         return '';
@@ -251,15 +269,33 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
         [setLastAssistantMessageContent, setResumeUrl]
     );
 
+    const handleApprovalRequest = useCallback(
+        (data: unknown) => {
+            if (!data || typeof data !== 'object' || !('resumeId' in data)) {
+                return;
+            }
+
+            const event = data as ApprovalRequestEventI;
+
+            // Deliberately do NOT set a resume URL — typing in the chat never resolves an approval; the
+            // linked hosted form does.
+            setMessage({content: formatApprovalRequest(event), role: 'assistant'});
+            setIsRunning(false);
+            setStreamRequest(null);
+        },
+        [setMessage]
+    );
+
     const eventHandlers = useMemo(
         () => ({
+            approval_request: handleApprovalRequest,
             ask_user_question: handleAskUserQuestion,
             error: handleError,
             result: handleResult,
             stream: handleStream,
             message: handleResult, // Handle default SSE 'message' events as results
         }),
-        [handleAskUserQuestion, handleError, handleResult, handleStream]
+        [handleApprovalRequest, handleAskUserQuestion, handleError, handleResult, handleStream]
     );
 
     const onNew = useCallback(

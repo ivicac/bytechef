@@ -131,10 +131,13 @@ Phases 1–2 are independent of 3 and deliver the visible differentiation first.
 - **Client rendering.** `ApprovalRequestMessage` (`data-approval-request` in
   `aiChatDataComponents`) wraps the standard `ApprovalForm` keyed by `resumeId` — fields,
   comment box, Approve/Discard, submitted/expired states all come from the form; resolution goes
-  through the job-resume endpoint (D4: typing never resolves). AI Hub workflow chat renders the
-  interactive card from the `approval_request` CustomEvent and marks the task paused; the canvas
-  workflow-test chat renders a markdown fallback with the hosted-form link (deliberately NOT
-  registering a chat resume URL).
+  through the job-resume endpoint (D4: typing never resolves). The interactive card renders on:
+  the **CE Chats page** (`/automation/chats`, restored from the pre-AI-Hub removal — the AI Hub
+  workflow chat is EE, so the CE surface for deployed chat workflows is this page, talking to
+  `/webhooks/{id}[/sse]` directly), the **AI Hub workflow chat** (EE, via the `approval_request`
+  AG-UI CustomEvent, task marked paused), and the **canvas workflow-test chat**. The embeddable
+  `@bytechef/chat` widget renders the approval as markdown with the hosted-form link. None of the
+  surfaces registers a chat resume URL for approvals — typed input never resolves them.
 - **Reload behavior.** `AgUiStreamBridge` folds a persist-only markdown marker
   (`Approval requested — [open the approval form](url)`) into the accumulated assistant text, so
   a reloaded conversation still surfaces the pending approval via the still-valid form link even

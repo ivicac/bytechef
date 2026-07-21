@@ -8,7 +8,6 @@ import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {
     ApprovalRequestEventI,
     AskUserQuestionEventI,
-    formatApprovalRequestMessage,
     formatAskUserQuestionMessage,
 } from '@/shared/util/assistant-message-utils';
 import {extractStreamChunk} from '@/shared/util/stream-utils';
@@ -86,13 +85,15 @@ export function useWorkflowTestStream({
                 setWorkflowTestNodeState: state.setWorkflowTestNodeState,
             }))
         );
-    const {appendToLastAssistantMessage, setLastAssistantMessageContent, setResumeUrl} = useWorkflowTestChatStore(
-        useShallow((state) => ({
-            appendToLastAssistantMessage: state.appendToLastAssistantMessage,
-            setLastAssistantMessageContent: state.setLastAssistantMessageContent,
-            setResumeUrl: state.setResumeUrl,
-        }))
-    );
+    const {appendToLastAssistantMessage, setLastAssistantMessageContent, setMessage, setResumeUrl} =
+        useWorkflowTestChatStore(
+            useShallow((state) => ({
+                appendToLastAssistantMessage: state.appendToLastAssistantMessage,
+                setLastAssistantMessageContent: state.setLastAssistantMessageContent,
+                setMessage: state.setMessage,
+                setResumeUrl: state.setResumeUrl,
+            }))
+        );
 
     const {getPersistedJobId, persistJobId} = usePersistJobId(workflowId, currentEnvironmentId);
 
@@ -107,9 +108,24 @@ export function useWorkflowTestStream({
 
                 const approvalEvent = data as ApprovalRequestEventI;
 
-                // Render the approval as markdown with a link to the hosted form. Deliberately do NOT register a
-                // resume URL for the chat input — typing never resolves an approval; only the form does.
-                appendToLastAssistantMessage(`\n\n${formatApprovalRequestMessage(approvalEvent)}`);
+                // Render an interactive approval card (see ApprovalRequestMessage) that resolves through the
+                // job-resume endpoint. Deliberately do NOT register a resume URL for the chat input — typing
+                // never resolves an approval; only the card (or the hosted form) does.
+                setMessage({
+                    content: [
+                        {
+                            data: {
+                                formDescription: approvalEvent.formDescription,
+                                formTitle: approvalEvent.formTitle,
+                                formUrl: approvalEvent.formUrl,
+                                kind: 'approval-request',
+                                resumeId: approvalEvent.resumeId,
+                            },
+                            type: 'data-approval-request',
+                        },
+                    ],
+                    role: 'assistant',
+                });
                 setWorkflowIsRunning(false);
                 setStreamRequest(null);
             },

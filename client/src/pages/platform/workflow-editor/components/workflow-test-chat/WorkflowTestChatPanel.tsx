@@ -2,6 +2,7 @@ import {Thread} from '@/components/assistant-ui/thread';
 import {WorkflowTestChatRuntimeProvider} from '@/pages/platform/workflow-editor/components/workflow-test-chat/runtime-providers/WorkflowTestChatRuntimeProvider';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowTestChatStore from '@/pages/platform/workflow-editor/stores/useWorkflowTestChatStore';
+import {aiChatDataComponents} from '@/shared/components/ai-chat/messages/aiChatDataComponents';
 import useCopilotLayoutShifted from '@/shared/components/copilot/hooks/useCopilotLayoutShifted';
 import {useWorkflowTestVoiceSession} from '@/shared/hooks/useWorkflowTestVoiceSession';
 import {checkVoiceSupport} from '@/shared/lib/browser-voice/BrowserVoiceSession';
@@ -191,7 +192,7 @@ const WorkflowTestChatPanel = () => {
                         {isVoiceOnlyWorkflow ? (
                             <VoiceModeLayout sessionLimitSeconds={150} />
                         ) : (
-                            <Thread composerActions={composerActions} />
+                            <Thread composerActions={composerActions} dataComponents={aiChatDataComponents} />
                         )}
                     </WorkflowTestChatRuntimeProvider>
                 </div>
