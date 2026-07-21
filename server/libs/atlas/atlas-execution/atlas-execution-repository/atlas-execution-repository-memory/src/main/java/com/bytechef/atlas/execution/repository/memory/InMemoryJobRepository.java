@@ -101,6 +101,20 @@ public class InMemoryJobRepository implements JobRepository {
     }
 
     @Override
+    public List<Job> findAllByStatusAndStartDateBefore(int status, Instant startDate) {
+        return cache.values()
+            .stream()
+            .filter(job -> {
+                Job.Status jobStatus = job.getStatus();
+
+                return jobStatus != null && jobStatus.ordinal() == status && job.getStartDate() != null &&
+                    job.getStartDate()
+                        .isBefore(startDate);
+            })
+            .toList();
+    }
+
+    @Override
     public List<Job> findAllByWorkflowId(String workflowId) {
         throw new UnsupportedOperationException();
     }

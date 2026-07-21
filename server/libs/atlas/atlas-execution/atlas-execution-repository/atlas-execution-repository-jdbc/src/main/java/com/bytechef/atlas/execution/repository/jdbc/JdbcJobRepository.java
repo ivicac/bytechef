@@ -41,6 +41,9 @@ public interface JdbcJobRepository
     List<Job> findAllByStatusAndLastModifiedDateBefore(int status, Instant lastModifiedDate);
 
     @Override
+    List<Job> findAllByStatusAndStartDateBefore(int status, Instant startDate);
+
+    @Override
     Optional<Job> findById(Long id);
 
     @Override

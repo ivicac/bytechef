@@ -87,6 +87,11 @@ public class RemoteJobServiceClient implements JobService {
     }
 
     @Override
+    public List<Job> getLongRunningJobs(Job.Status status, java.time.Instant startDateBefore) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<Job> getJobs(List<Long> ids) {
         throw new UnsupportedOperationException();
     }

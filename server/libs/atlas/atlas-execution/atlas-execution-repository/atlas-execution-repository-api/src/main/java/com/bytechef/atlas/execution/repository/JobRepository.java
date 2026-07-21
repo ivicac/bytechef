@@ -61,6 +61,16 @@ public interface JobRepository {
      */
     List<Job> findAllByStatusAndLastModifiedDateBefore(int status, Instant lastModifiedDate);
 
+    /**
+     * Jobs in the given status whose start date is older than the cutoff — the finder behind the per-run execution
+     * timeout monitor.
+     *
+     * @param status    the status ordinal
+     * @param startDate the run-duration cutoff
+     * @return List<Job>
+     */
+    List<Job> findAllByStatusAndStartDateBefore(int status, Instant startDate);
+
     Optional<Job> findById(Long id);
 
     Optional<Job> findByTaskExecutionId(Long taskExecutionId);

@@ -796,6 +796,15 @@ cd cli
   `UnsupportedOperationException`; the monitor warn-skips, so orphan detection is monolith-only
   for now). Detection lives OUTSIDE `server/libs/atlas/` except the engine-owned heartbeat
   primitives; semantics pinned by `OrphanedJobRecoveryMonitorTest`.
+- **Per-run timeouts**: `JobTimeoutMonitor` (platform-coordinator, every minute,
+  `bytechef.workflow.execution.timeout.enabled` default on) fails STARTED jobs whose runtime
+  exceeds the plan's `asyncRunTimeout` (per tenant) or the operator fallback
+  `bytechef.workflow.execution.timeout.default-timeout`; with neither set it is a no-op. Uses the
+  startDate-based finder `getLongRunningJobs` (remote clients throw, monitor skips). No
+  auto-resume — a timed-out run would immediately exceed again. Pinned by `JobTimeoutMonitorTest`.
+- **Mockito gotcha**: unstubbed wrapper-returning methods (Long/Integer) return 0, NOT null — stub
+  `thenReturn(null)` explicitly when a null-means-absent field (e.g. `Job.getParentTaskExecutionId`)
+  drives branching.
 - **Redis broker redelivery**: `RedisListenerEndpointRegistrar` reclaims consumer-group pending
   entries left by crashed consumers (XPENDING + XCLAIM sweep every 10s, min idle 60s) and
   redelivers them through the normal invoke-then-ack path — at-least-once semantics like amqp.

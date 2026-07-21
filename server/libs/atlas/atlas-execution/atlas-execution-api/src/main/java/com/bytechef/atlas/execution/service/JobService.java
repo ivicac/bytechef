@@ -52,6 +52,12 @@ public interface JobService {
      */
     List<Job> getStaleJobs(Job.Status status, java.time.Instant lastModifiedDateBefore);
 
+    /**
+     * Jobs in the given status started before the cutoff — used by the per-run execution timeout monitor. Remote-client
+     * deployments may not support this query and throw {@link UnsupportedOperationException}.
+     */
+    List<Job> getLongRunningJobs(Job.Status status, java.time.Instant startDateBefore);
+
     Page<Job> getJobsPage(int pageNumber);
 
     Job getTaskExecutionJob(long taskExecutionId);

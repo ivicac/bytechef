@@ -59,6 +59,9 @@ public class OrphanedJobRecoveryMonitorTest {
         when(job.getStatus()).thenReturn(Job.Status.STARTED);
         when(job.getLastModifiedDate()).thenReturn(staleInstant);
         when(job.getMetadata()).thenReturn(Map.of());
+        // Mockito returns 0L (not null) for unstubbed wrapper-typed methods, which would make every
+        // mock job look like a subflow and silently disable the auto-resume branch under test.
+        when(job.getParentTaskExecutionId()).thenReturn(null);
 
         taskExecution = mock(TaskExecution.class);
 

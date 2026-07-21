@@ -26,17 +26,20 @@ import com.bytechef.platform.coordinator.event.listener.SseStreamApplicationEven
 import com.bytechef.platform.coordinator.event.listener.WebhookJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.WebhookTaskStartedApplicationEventListener;
 import com.bytechef.platform.coordinator.metrics.JobExecutionCounter;
+import com.bytechef.platform.coordinator.monitor.JobTimeoutMonitor;
 import com.bytechef.platform.coordinator.monitor.OrphanedJobRecoveryMonitor;
 import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
 import com.bytechef.platform.notification.handler.NotificationHandlerRegistry;
 import com.bytechef.platform.notification.handler.NotificationSenderRegistry;
 import com.bytechef.platform.notification.service.NotificationService;
+import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.ratelimit.ConcurrentExecutionGate;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -93,6 +96,19 @@ public class PlatformCoordinatorConfiguration {
 
         return new OrphanedJobRecoveryMonitor(
             autoResume, eventPublisher, jobService, maxAutoResumeAttempts, stalenessThreshold, taskExecutionService);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+        name = "bytechef.workflow.execution.timeout.enabled", havingValue = "true", matchIfMissing = true)
+    JobTimeoutMonitor jobTimeoutMonitor(
+        @Value("${bytechef.workflow.execution.timeout.default-timeout:#{null}}") Duration defaultTimeout,
+        ApplicationEventPublisher eventPublisher,
+        ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
+        TaskExecutionService taskExecutionService) {
+
+        return new JobTimeoutMonitor(
+            defaultTimeout, eventPublisher, jobService, planLimitsProviderObjectProvider, taskExecutionService);
     }
 
     @Bean
