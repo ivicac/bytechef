@@ -60,6 +60,13 @@ public class RemoteTaskExecutionServiceClient implements TaskExecutionService {
     }
 
     @Override
+    public List<TaskExecution> getStaleTaskExecutions(
+        TaskExecution.Status status, java.time.Instant lastModifiedDateBefore) {
+
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<TaskExecution> getJobTaskExecutions(long jobId) {
         return loadBalancedRestClient.get(
             uriBuilder -> uriBuilder

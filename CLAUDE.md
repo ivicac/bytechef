@@ -737,6 +737,25 @@ cd cli
   on terminal job status (floors at zero; restart over-admits, never wrongly blocks). Never
   gate inside `server/libs/atlas/` — admission and release both live outside the engine.
 
+## Crash recovery (orphaned jobs)
+
+- Workers publish `TaskHeartbeatApplicationEvent` every 30s per in-flight task (scheduler inside
+  `TaskWorker`, tenant captured at task receipt); the coordinator-side
+  `TaskHeartbeatApplicationEventListener` re-saves the STARTED row, bumping `lastModifiedDate`.
+  `OrphanedJobRecoveryMonitor` (platform-coordinator, every minute) then treats a job as orphaned
+  only when the job row AND all its non-terminal task executions are stale
+  (`bytechef.workflow.execution.recovery.staleness-threshold`, default PT5M) — children's
+  heartbeats keep control-flow parent tasks alive transitively. Recovery marks tasks + job FAILED
+  (normal job-status fan-out fires) making the job resumable via the existing
+  `resumeToStatusStarted` path; `bytechef.workflow.execution.recovery.auto-resume=true` (default
+  false) also publishes `ResumeJobEvent` — at-least-once semantics, the interrupted task re-runs
+  from the last completed node — capped by `max-auto-resume-attempts` (default 3) tracked in job
+  metadata. Disable the whole monitor with `bytechef.workflow.execution.recovery.enabled=false`.
+  Stale-row finders are `getStaleTaskExecutions`/`getStaleJobs` (EE remote clients throw
+  `UnsupportedOperationException`; the monitor warn-skips, so orphan detection is monolith-only
+  for now). Detection lives OUTSIDE `server/libs/atlas/` except the engine-owned heartbeat
+  primitives; semantics pinned by `OrphanedJobRecoveryMonitorTest`.
+
 ## Notification delivery (central point)
 
 - **`platform-notification` is THE central registry for notifications AND channels.** All channel

@@ -69,6 +69,15 @@ but only at explicit, cooperative suspend points, not on crash.
 
 ## 4. Proposed design: make the crash demo real
 
+> **Status 2026-07-21:** steps 1 and 3 are IMPLEMENTED (worker heartbeats via
+> `TaskHeartbeatApplicationEvent` + `OrphanedJobRecoveryMonitor` in platform-coordinator;
+> recovery marks orphans FAILED — resumable via the existing path — with opt-in auto-resume
+> capped by `max-auto-resume-attempts`). Detection requires the job row AND every non-terminal
+> task to be stale, so children's heartbeats keep control-flow parents alive. Step 2
+> (transactional completion) is deliberately deferred: its crash window is milliseconds and the
+> monitor's wedged-job rule recovers the aftermath; wrapping the completion sequence threads
+> through `JobSyncExecutor` and needs an integration environment to change safely. Step 4 is next.
+
 The differentiator claim is legitimate — the persistence spine is already there; what is missing
 is detection + permission to resume + one incremental-persistence hook. In dependency order:
 

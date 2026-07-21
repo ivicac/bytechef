@@ -18,6 +18,7 @@ package com.bytechef.platform.coordinator.config;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.atlas.execution.service.JobService;
+import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.message.broker.MessageBroker;
 import com.bytechef.platform.coordinator.event.listener.ConcurrencySlotReleaseApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.NotificationJobStatusApplicationEventListener;
@@ -25,6 +26,7 @@ import com.bytechef.platform.coordinator.event.listener.SseStreamApplicationEven
 import com.bytechef.platform.coordinator.event.listener.WebhookJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.WebhookTaskStartedApplicationEventListener;
 import com.bytechef.platform.coordinator.metrics.JobExecutionCounter;
+import com.bytechef.platform.coordinator.monitor.OrphanedJobRecoveryMonitor;
 import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
 import com.bytechef.platform.notification.handler.NotificationHandlerRegistry;
 import com.bytechef.platform.notification.handler.NotificationSenderRegistry;
@@ -32,11 +34,13 @@ import com.bytechef.platform.notification.service.NotificationService;
 import com.bytechef.platform.ratelimit.ConcurrentExecutionGate;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.time.Duration;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -75,6 +79,20 @@ public class PlatformCoordinatorConfiguration {
         ConcurrentExecutionGate concurrentExecutionGate) {
 
         return new ConcurrencySlotReleaseApplicationEventListener(concurrentExecutionGate);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+        name = "bytechef.workflow.execution.recovery.enabled", havingValue = "true", matchIfMissing = true)
+    OrphanedJobRecoveryMonitor orphanedJobRecoveryMonitor(
+        @Value("${bytechef.workflow.execution.recovery.auto-resume:false}") boolean autoResume,
+        ApplicationEventPublisher eventPublisher,
+        @Value("${bytechef.workflow.execution.recovery.max-auto-resume-attempts:3}") int maxAutoResumeAttempts,
+        @Value("${bytechef.workflow.execution.recovery.staleness-threshold:PT5M}") Duration stalenessThreshold,
+        TaskExecutionService taskExecutionService) {
+
+        return new OrphanedJobRecoveryMonitor(
+            autoResume, eventPublisher, jobService, maxAutoResumeAttempts, stalenessThreshold, taskExecutionService);
     }
 
     @Bean

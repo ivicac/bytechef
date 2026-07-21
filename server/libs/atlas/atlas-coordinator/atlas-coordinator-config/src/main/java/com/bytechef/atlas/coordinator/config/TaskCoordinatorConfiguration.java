@@ -26,6 +26,7 @@ import com.bytechef.atlas.coordinator.event.listener.ApplicationEventListener;
 import com.bytechef.atlas.coordinator.event.listener.ErrorEventListener;
 import com.bytechef.atlas.coordinator.event.listener.LogTaskApplicationEventListener;
 import com.bytechef.atlas.coordinator.event.listener.TaskExecutionErrorEventListener;
+import com.bytechef.atlas.coordinator.event.listener.TaskHeartbeatApplicationEventListener;
 import com.bytechef.atlas.coordinator.event.listener.TaskProgressedApplicationEventListener;
 import com.bytechef.atlas.coordinator.event.listener.TaskStartedApplicationEventListener;
 import com.bytechef.atlas.coordinator.job.JobExecutor;
@@ -163,6 +164,11 @@ public class TaskCoordinatorConfiguration {
                 Stream.of(controlTaskDispatcher(), defaultTaskDispatcher())));
 
         return taskDispatcherChain;
+    }
+
+    @Bean
+    TaskHeartbeatApplicationEventListener taskHeartbeatEventListener() {
+        return new TaskHeartbeatApplicationEventListener(taskExecutionService);
     }
 
     @Bean

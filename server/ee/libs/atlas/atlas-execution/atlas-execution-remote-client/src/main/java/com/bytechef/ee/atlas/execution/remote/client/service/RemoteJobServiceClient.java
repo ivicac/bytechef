@@ -82,6 +82,11 @@ public class RemoteJobServiceClient implements JobService {
     }
 
     @Override
+    public List<Job> getStaleJobs(Job.Status status, java.time.Instant lastModifiedDateBefore) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<Job> getJobs(List<Long> ids) {
         throw new UnsupportedOperationException();
     }

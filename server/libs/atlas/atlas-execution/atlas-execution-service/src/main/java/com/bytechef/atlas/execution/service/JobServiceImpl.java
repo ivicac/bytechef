@@ -124,6 +124,11 @@ public class JobServiceImpl implements JobService {
     }
 
     @Override
+    public List<Job> getStaleJobs(Job.Status status, Instant lastModifiedDateBefore) {
+        return jobRepository.findAllByStatusAndLastModifiedDateBefore(status.ordinal(), lastModifiedDateBefore);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     public Page<Job> getJobsPage(int pageNumber) {
         return jobRepository.findAll(PageRequest.of(pageNumber, DEFAULT_PAGE_SIZE));

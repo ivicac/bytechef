@@ -46,6 +46,12 @@ public interface JobService {
 
     List<Job> getJobs(List<Long> ids);
 
+    /**
+     * Returns jobs with the given status whose last-modified timestamp is older than the given instant. Used by orphan
+     * detection to find jobs wedged in STARTED with no live task execution.
+     */
+    List<Job> getStaleJobs(Job.Status status, java.time.Instant lastModifiedDateBefore);
+
     Page<Job> getJobsPage(int pageNumber);
 
     Job getTaskExecutionJob(long taskExecutionId);
