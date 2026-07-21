@@ -1,6 +1,8 @@
+import {useApprovalResolution} from '@/shared/components/ai-chat/approvalResolutionContext';
 import ApprovalForm from '@/shared/components/approval-form/ApprovalForm';
 import {DataMessagePartProps} from '@assistant-ui/react';
 import {ShieldCheckIcon} from 'lucide-react';
+import {useMemo} from 'react';
 
 export interface ApprovalRequestDataI {
     formDescription?: string;
@@ -22,7 +24,23 @@ export interface ApprovalRequestDataI {
  * instead of offering a stale decision.
  */
 const ApprovalRequestMessage = ({data}: DataMessagePartProps<ApprovalRequestDataI>) => {
-    if (!data.resumeId) {
+    const approvalResolution = useApprovalResolution();
+
+    const resumeId = data.resumeId;
+
+    // When the surface provides continuation streaming, route submission through it so the resumed run's output
+    // lands back in this conversation; otherwise the form's default plain resume mutation applies.
+    const submitHandler = useMemo(() => {
+        if (!approvalResolution || !resumeId) {
+            return undefined;
+        }
+
+        return async (formData: Record<string, unknown>, approved: boolean) => {
+            approvalResolution.resolveApproval(resumeId, {...formData, approved});
+        };
+    }, [approvalResolution, resumeId]);
+
+    if (!resumeId) {
         return null;
     }
 
@@ -33,7 +51,7 @@ const ApprovalRequestMessage = ({data}: DataMessagePartProps<ApprovalRequestData
                 Approval required
             </div>
 
-            <ApprovalForm id={data.resumeId} showHeader />
+            <ApprovalForm id={resumeId} showHeader submitHandler={submitHandler} />
         </div>
     );
 };

@@ -11,11 +11,14 @@ import {
     formatAskUserQuestionMessage,
 } from '@/shared/util/assistant-message-utils';
 import {extractStreamChunk} from '@/shared/util/stream-utils';
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
 export interface UseWorkflowTestStreamProps {
     workflowId: string;
+    /** Fired when the SSE connection closes or errors — streams that end without a `result` event (e.g. an
+     * approval-resume continuation) still need the running state released. */
+    onClosed?: () => void;
     onResult?: (execution: WorkflowTestExecution) => void;
     onError?: (errorMessage?: string) => void;
     onStart?: (jobId: string) => void;
@@ -68,6 +71,7 @@ export interface UseWorkflowTestStreamResultI {
 }
 
 export function useWorkflowTestStream({
+    onClosed,
     onError,
     onResult,
     onStart,
@@ -97,7 +101,7 @@ export function useWorkflowTestStream({
 
     const {getPersistedJobId, persistJobId} = usePersistJobId(workflowId, currentEnvironmentId);
 
-    const {close, error} = useSSE<WorkflowTestExecution>(streamRequest, {
+    const {close, connectionState, error} = useSSE<WorkflowTestExecution>(streamRequest, {
         eventHandlers: {
             approval_request: (data) => {
                 if (typeof data !== 'object' || data === null || !('resumeId' in data)) {
@@ -250,6 +254,16 @@ export function useWorkflowTestStream({
             },
         },
     });
+
+    useEffect(() => {
+        if (connectionState === 'CLOSED' || connectionState === 'ERROR') {
+            setWorkflowIsRunning(false);
+
+            if (onClosed) {
+                onClosed();
+            }
+        }
+    }, [connectionState, onClosed, setWorkflowIsRunning]);
 
     return {
         close,

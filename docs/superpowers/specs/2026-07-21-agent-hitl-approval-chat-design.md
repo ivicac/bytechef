@@ -159,9 +159,17 @@ Phases 1–2 are independent of 3 and deliver the visible differentiation first.
   publishes an event nobody consumes — trigger-type-aware validation (chat channel configured but
   no chat-capable origin) needs workflow-definition knowledge the component layer lacks; wire it
   into workflow validation alongside Phase 3.
-- **Known limitations (follow-ups).** (a) Post-approval continuation does not stream back into
-  the chat — the turn ends when the run suspends; resolving via the SSE-negotiated resume
-  endpoint and piping the continuation into the conversation is the natural next step. (b) On
+- **Continuation streaming.** On the CE Chats page and the canvas workflow-test chat, the inline
+  card resolves through the SSE-negotiated resume endpoint (`POST /job/resume/{id}` with
+  `Accept: text/event-stream`) via the shared `ApprovalResolutionContext`: the provider points its
+  existing SSE machinery at the resume stream, so the resumed run's output — stream deltas, nested
+  ask-user-question or approval events — lands back in the conversation through the same event
+  handlers as a normal turn. `JobResumeSseStreamBridge` maps `__eventType` payloads to named SSE
+  events (mirroring the webhook bridge) so those nested interactive events arrive intact. Surfaces
+  without the context (AI Hub workflow chat, the hosted form page) fall back to the plain resume
+  mutation — AI Hub continuation streaming remains a follow-up (its AG-UI turn model needs a
+  different wiring).
+- **Known limitations (follow-ups).** (b) On
   the workflow-chat surface the card only arrives when the run takes the streaming path (any
   streaming task present — always true for AI-agent workflows); sync-path chat runs skip SSE
   delivery entirely.

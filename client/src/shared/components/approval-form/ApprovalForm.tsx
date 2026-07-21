@@ -12,6 +12,12 @@ interface ApprovalFormPropsI {
     onSubmitted?: (approved: boolean) => void;
     setDocumentTitle?: boolean;
     showHeader?: boolean;
+
+    /**
+     * Optional submission transport replacing the default resume-job mutation — used by chat surfaces to resolve
+     * through their SSE machinery so the resumed run's output streams back into the conversation.
+     */
+    submitHandler?: (data: Record<string, unknown>, approved: boolean) => Promise<void>;
 }
 
 export default function ApprovalForm({
@@ -19,11 +25,12 @@ export default function ApprovalForm({
     onSubmitted,
     setDocumentTitle = false,
     showHeader = true,
+    submitHandler,
 }: ApprovalFormPropsI) {
     const [comment, setComment] = useState('');
 
     const {approved, definition, error, form, handleSubmit, loading, submitError, submitted, submitting, uiDefinition} =
-        useApprovalForm(id, {onSubmitted});
+        useApprovalForm(id, {onSubmitted, submitOverride: submitHandler});
 
     const [searchParams] = useSearchParams();
     const approvedParam = searchParams.get('approved');

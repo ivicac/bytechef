@@ -1,6 +1,7 @@
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useWorkflowTestChatStore from '@/pages/platform/workflow-editor/stores/useWorkflowTestChatStore';
+import {ApprovalResolutionContext} from '@/shared/components/ai-chat/approvalResolutionContext';
 import {useWorkflowTestStream} from '@/shared/hooks/useWorkflowTestStream';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {getTestWorkflowStreamPostRequest} from '@/shared/util/testWorkflow-utils';
@@ -18,7 +19,7 @@ import {
     useAui,
     useExternalStoreRuntime,
 } from '@assistant-ui/react';
-import {ReactNode, useState} from 'react';
+import {ReactNode, useCallback, useMemo, useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
 const convertMessage = (message: ThreadMessageLike): ThreadMessageLike => {
@@ -57,10 +58,32 @@ export function WorkflowTestChatRuntimeProvider({
     );
 
     const {setStreamRequest} = useWorkflowTestStream({
+        onClosed: () => setIsRunning(false),
         onError: () => setIsRunning(false),
         onResult: () => setIsRunning(false),
         workflowId: workflow.id!,
     });
+
+    // Continuation streaming for inline approval cards: resolve through the SSE-negotiated resume endpoint and
+    // pipe the resumed run's output back into this conversation via the same event handlers as a test run.
+    const resolveApproval = useCallback(
+        (resumeId: string, payload: Record<string, unknown>) => {
+            setMessage({content: '', role: 'assistant'});
+            setIsRunning(true);
+            setWorkflowIsRunning(true);
+            setStreamRequest({
+                init: {
+                    body: JSON.stringify(payload),
+                    headers: {'Content-Type': 'application/json'},
+                    method: 'POST',
+                },
+                url: `/job/resume/${resumeId}`,
+            });
+        },
+        [setMessage, setStreamRequest, setWorkflowIsRunning]
+    );
+
+    const approvalResolution = useMemo(() => ({resolveApproval}), [resolveApproval]);
 
     const onNew = async (message: AppendMessage) => {
         if (message.content[0]?.type !== 'text') {
@@ -150,8 +173,10 @@ export function WorkflowTestChatRuntimeProvider({
     const aui = useAui({suggestions: Suggestions(WORKFLOW_TEST_CHAT_SUGGESTIONS)}, {parent: null});
 
     return (
-        <AssistantRuntimeProvider aui={aui} runtime={runtime}>
-            {children}
-        </AssistantRuntimeProvider>
+        <ApprovalResolutionContext.Provider value={approvalResolution}>
+            <AssistantRuntimeProvider aui={aui} runtime={runtime}>
+                {children}
+            </AssistantRuntimeProvider>
+        </ApprovalResolutionContext.Provider>
     );
 }

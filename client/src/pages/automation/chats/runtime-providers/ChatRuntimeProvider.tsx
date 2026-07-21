@@ -1,4 +1,5 @@
 import {useChatsStore} from '@/pages/automation/chats/stores/useChatsStore';
+import {ApprovalResolutionContext} from '@/shared/components/ai-chat/approvalResolutionContext';
 import {useSSE} from '@/shared/hooks/useSSE';
 import {
     ApprovalRequestEventI,
@@ -311,6 +312,26 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
 
     const {connectionState} = useSSE(streamRequest, {eventHandlers});
 
+    // Continuation streaming for inline approval cards: resolve through the SSE-negotiated resume endpoint and
+    // pipe the resumed run's output back into this conversation via the same event handlers as a normal turn.
+    const resolveApproval = useCallback(
+        (resumeId: string, payload: Record<string, unknown>) => {
+            setMessage({content: '', role: 'assistant'});
+            setIsRunning(true);
+            setStreamRequest({
+                init: {
+                    body: JSON.stringify(payload),
+                    headers: {'Content-Type': 'application/json'},
+                    method: 'POST',
+                },
+                url: `/job/resume/${resumeId}`,
+            });
+        },
+        [setIsRunning, setMessage]
+    );
+
+    const approvalResolution = useMemo(() => ({resolveApproval}), [resolveApproval]);
+
     useEffect(() => {
         if (connectionState === 'CLOSED' || connectionState === 'ERROR') {
             setIsRunning(false);
@@ -324,5 +345,9 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
         };
     }, [setIsRunning]);
 
-    return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>;
+    return (
+        <ApprovalResolutionContext.Provider value={approvalResolution}>
+            <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>
+        </ApprovalResolutionContext.Provider>
+    );
 });
