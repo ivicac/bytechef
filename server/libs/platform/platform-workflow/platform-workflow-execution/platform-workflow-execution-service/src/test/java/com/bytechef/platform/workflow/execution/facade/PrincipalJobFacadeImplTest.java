@@ -30,8 +30,14 @@ import com.bytechef.atlas.execution.dto.JobParametersDTO;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.plan.domain.PlanLimits;
+import com.bytechef.platform.plan.domain.PlanTier;
+import com.bytechef.platform.plan.provider.PlanLimitsProvider;
+import com.bytechef.platform.plan.provider.PlanSpendProvider;
+import com.bytechef.platform.workflow.execution.exception.JobCostLimitExceededException;
 import com.bytechef.platform.workflow.execution.service.LicenceJobUsageService;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
+import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
@@ -79,7 +85,7 @@ class PrincipalJobFacadeImplTest {
 
         PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
             principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
-            emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider());
+            emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider());
 
         long result = facade.createPrincipalLinkedJob(referenceJobId, jobParametersDTO, PlatformType.AUTOMATION);
 
@@ -103,7 +109,7 @@ class PrincipalJobFacadeImplTest {
 
         PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
             principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
-            emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider());
+            emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider());
 
         IllegalStateException exception = assertThrows(
             IllegalStateException.class,
@@ -120,8 +126,61 @@ class PrincipalJobFacadeImplTest {
             .contains(String.valueOf(referenceJobId)));
     }
 
+    @Test
+    void testCreateJobRejectedWhenMonthlyCostCapReached() {
+        JobParametersDTO jobParametersDTO = new JobParametersDTO("wf-99", Map.of(), Map.of());
+
+        PlanLimits planLimits = new PlanLimits(
+            PlanTier.FREE, new BigDecimal("10.00"), null, null, null, PlanLimits.DEFAULT_BURST_MULTIPLIER, null, null,
+            null, null, null, null, null);
+
+        PlanLimitsProvider planLimitsProvider = tenantId -> planLimits;
+        PlanSpendProvider planSpendProvider = tenantId -> new BigDecimal("10.00");
+
+        PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
+            principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
+            emptyObjectProvider(), objectProviderOf(planLimitsProvider), objectProviderOf(planSpendProvider),
+            emptyObjectProvider());
+
+        assertThrows(
+            JobCostLimitExceededException.class,
+            () -> facade.createJob(jobParametersDTO, 1L, PlatformType.AUTOMATION));
+
+        verify(jobFacade, never()).createJob(any(JobParametersDTO.class));
+    }
+
+    @Test
+    void testCreateJobAdmittedWhenSpendBelowMonthlyCostCap() {
+        JobParametersDTO jobParametersDTO = new JobParametersDTO("wf-99", Map.of(), Map.of());
+
+        PlanLimits planLimits = new PlanLimits(
+            PlanTier.FREE, new BigDecimal("10.00"), null, null, null, PlanLimits.DEFAULT_BURST_MULTIPLIER, null, null,
+            null, null, null, null, null);
+
+        PlanLimitsProvider planLimitsProvider = tenantId -> planLimits;
+        PlanSpendProvider planSpendProvider = tenantId -> new BigDecimal("9.99");
+
+        when(jobFacade.createJob(jobParametersDTO)).thenReturn(300L);
+
+        PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
+            principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
+            emptyObjectProvider(), objectProviderOf(planLimitsProvider), objectProviderOf(planSpendProvider),
+            emptyObjectProvider());
+
+        assertEquals(300L, facade.createJob(jobParametersDTO, 1L, PlatformType.AUTOMATION));
+    }
+
     @SuppressWarnings("unchecked")
     private static <T> ObjectProvider<T> emptyObjectProvider() {
         return (ObjectProvider<T>) mock(ObjectProvider.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> ObjectProvider<T> objectProviderOf(T instance) {
+        ObjectProvider<T> objectProvider = (ObjectProvider<T>) mock(ObjectProvider.class);
+
+        when(objectProvider.getIfAvailable()).thenReturn(instance);
+
+        return objectProvider;
     }
 }

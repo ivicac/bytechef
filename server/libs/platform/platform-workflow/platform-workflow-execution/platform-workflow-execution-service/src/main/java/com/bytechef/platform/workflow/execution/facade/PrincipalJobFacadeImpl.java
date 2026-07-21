@@ -24,15 +24,18 @@ import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.plan.domain.PlanLimits;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
+import com.bytechef.platform.plan.provider.PlanSpendProvider;
 import com.bytechef.platform.ratelimit.ConcurrentExecutionGate;
 import com.bytechef.platform.ratelimit.RateLimitPolicy;
 import com.bytechef.platform.ratelimit.RateLimiter;
 import com.bytechef.platform.workflow.execution.exception.JobConcurrencyLimitExceededException;
+import com.bytechef.platform.workflow.execution.exception.JobCostLimitExceededException;
 import com.bytechef.platform.workflow.execution.exception.JobRateLimitExceededException;
 import com.bytechef.platform.workflow.execution.service.LicenceJobUsageService;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.math.BigDecimal;
 import java.util.Optional;
 import org.apache.commons.lang3.Validate;
 import org.slf4j.Logger;
@@ -56,6 +59,7 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
     private final LicenceJobUsageService licenceJobUsageService;
     private final ObjectProvider<ConcurrentExecutionGate> concurrentExecutionGateProvider;
     private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
+    private final ObjectProvider<PlanSpendProvider> planSpendProviderObjectProvider;
     private final ObjectProvider<RateLimiter> rateLimiterObjectProvider;
 
     @SuppressFBWarnings("EI")
@@ -64,6 +68,7 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         WorkflowService workflowService, LicenceJobUsageService licenceJobUsageService,
         ObjectProvider<ConcurrentExecutionGate> concurrentExecutionGateProvider,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
+        ObjectProvider<PlanSpendProvider> planSpendProviderObjectProvider,
         ObjectProvider<RateLimiter> rateLimiterObjectProvider) {
 
         this.principalJobService = principalJobService;
@@ -73,6 +78,7 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         this.licenceJobUsageService = licenceJobUsageService;
         this.concurrentExecutionGateProvider = concurrentExecutionGateProvider;
         this.planLimitsProviderObjectProvider = planLimitsProviderObjectProvider;
+        this.planSpendProviderObjectProvider = planSpendProviderObjectProvider;
         this.rateLimiterObjectProvider = rateLimiterObjectProvider;
     }
 
@@ -135,6 +141,37 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         }
     }
 
+    /**
+     * Plan-level monthly-cost admission (Sim model: submissions are refused once the tenant's current-period execution
+     * spend has reached the plan's included monthly cost). No spend provider or plan-limits bean, or a null cost limit
+     * (the SELF_HOSTED default), admits unconditionally. Checked after the cheap local rate check and before the
+     * concurrency slot so a cost-rejected submission never acquires a slot it would then leak; the spend provider is
+     * expected to cache, so this does not run a SUM per submission.
+     */
+    private void admitMonthlyCostCap() {
+        PlanSpendProvider planSpendProvider = planSpendProviderObjectProvider.getIfAvailable();
+        PlanLimitsProvider planLimitsProvider = planLimitsProviderObjectProvider.getIfAvailable();
+
+        if (planSpendProvider == null || planLimitsProvider == null) {
+            return;
+        }
+
+        String tenantId = TenantContext.getCurrentTenantId();
+
+        BigDecimal includedMonthlyCostUsd = planLimitsProvider.getPlanLimits(tenantId)
+            .includedMonthlyCostUsd();
+
+        if (includedMonthlyCostUsd == null) {
+            return;
+        }
+
+        BigDecimal currentPeriodSpendUsd = planSpendProvider.getCurrentPeriodSpendUsd(tenantId);
+
+        if (currentPeriodSpendUsd.compareTo(includedMonthlyCostUsd) >= 0) {
+            throw new JobCostLimitExceededException(includedMonthlyCostUsd);
+        }
+    }
+
     @Override
     public long createChildJob(long parentJobId, JobParametersDTO jobParametersDTO, PlatformType platformType) {
         long childJobId = jobFacade.createJob(jobParametersDTO);
@@ -158,6 +195,7 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         licenceJobUsageService.consumeOrThrow();
 
         admitAsyncSubmissionRate();
+        admitMonthlyCostCap();
         admitConcurrentExecution();
 
         long jobId = jobFacade.createJob(jobParametersDTO);
