@@ -216,6 +216,27 @@ on every app that admits work (the gateway-fronted domain apps and the coordinat
 the token buckets and the per-tenant concurrency counters onto the shared Redis instance; both
 fail open if Redis is briefly unreachable, so an enforcement hiccup never blocks traffic.
 
+The monthly-cost cap and the quota checks (workspaces, members, storage) read shared database
+state, so they are naturally global and need no Redis provider.
+
+## Crash recovery and run governance
+
+Workers heartbeat every in-flight task every 30 seconds; `coordinator-app` runs the recovery
+monitors. Both the orphaned-job recovery monitor (fails jobs whose heartbeats went stale, making
+them resumable) and the per-run timeout monitor (fails STARTED jobs past the plan's async run
+timeout or `bytechef.workflow.execution.timeout.default-timeout`) work in the distributed
+deployment — their stale/long-running finder queries reach `execution-app` through
+`/remote/job-service` and `/remote/task-execution-service` endpoints. The retention purge monitor
+(`bytechef.workflow.execution.retention.*`) can find expired runs remotely but currently skips
+deletion in the distributed set, because the cascading job delete is not yet exposed through the
+remote facade — retention purging is effectively monolith-only for now.
+
+When Redis is the message broker, redelivery after a worker crash is handled by a consumer-group
+pending-entry reclaim: every consumer sweeps its queue's pending entries (XPENDING), claims
+entries idle for 60+ seconds (XCLAIM), and re-runs them through the normal invoke-then-ack path.
+Semantics are at-least-once, matching the AMQP/Kafka brokers — a task interrupted mid-flight runs
+again on another worker.
+
 ## Bring-up order
 
 1. Infrastructure: PostgreSQL, Redis, and the message broker (if not Redis).
@@ -230,6 +251,9 @@ fail open if Redis is briefly unreachable, so an enforcement hiccup never blocks
 
 - **No shipped orchestration**: no Docker Compose file or Helm chart exists for the distributed
   set — the shipped compose files and the `bytechef` Helm chart are monolith-only.
+- **Retention purging is monolith-only for now**: the retention monitor's cascading job delete is
+  not implemented in the remote job facade client, so expired execution history is only purged in
+  the monolith deployment (see above).
 - **Notifications and alert rules are monolith-only for now**: `coordinator-app` reaches
   notification services through remote client stubs that are not yet implemented
   (`platform-notification-remote-client` throws `UnsupportedOperationException`), so job-status
