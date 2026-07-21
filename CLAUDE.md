@@ -527,7 +527,15 @@ trigger + post-turn query invalidation.
   ToolCallbacks (client-side tool loop), and smart-goal evaluation is `CanvasSmartGoalCondition`
   (an Embabel `Condition` backed by the same ChatModel) instead of Embabel's `PromptCondition`.
   Embabel's model registry/LLM layer is never invoked, so its token/cost budget can't observe
-  usage — the action-count budget is the effective cap.
+  usage — the action-count budget is the effective planner cap. ByteChef cost tracking DOES see
+  agentic runs: a thread-safe `TokenUsageAccumulator` aggregates ChatResponse usage across all
+  calls (Embabel may execute actions off-thread) and flushes once into the thread-local
+  `TokenUsageHolder` on the perform thread, even when the plan fails.
+- **Mid-plan crash resume**: after every completed GOAP action, produced bindings are
+  checkpointed (fingerprint-guarded, fail-open) to CURRENT_EXECUTION data storage
+  (`agenticAiBlackboardCheckpoint`; untyped values as content strings, typed as tagged maps); a
+  crash-resumed job reseeds them so the planner skips completed actions. Cleared on success;
+  editor/job-less runs skip checkpointing.
 - Blackboard carriers: untyped bindings use the `Binding(content)` data class; bindings whose
   producers declare an `outputSchema` on the ACTION cluster element become **typed** — an Embabel
   `DynamicType` named after the binding (PascalCase), carried as a `_typeName`-tagged map.

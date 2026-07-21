@@ -39,8 +39,11 @@ import static com.bytechef.component.definition.ComponentDsl.action;
 import static com.bytechef.platform.component.definition.ai.agent.ActionFunction.ACTION;
 import static com.bytechef.platform.component.definition.ai.agent.ModelFunction.MODEL;
 
+import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.commons.util.MapUtils;
+import com.bytechef.component.ai.agenticai.embabel.ActionCompletionListener;
 import com.bytechef.component.ai.agenticai.embabel.ActionStep;
+import com.bytechef.component.ai.agenticai.embabel.Binding;
 import com.bytechef.component.ai.agenticai.embabel.EmbabelAgentRunner;
 import com.bytechef.component.ai.agenticai.embabel.OutputProperty;
 import com.bytechef.component.ai.agenticai.facade.AgenticAiToolFacade;
@@ -51,6 +54,7 @@ import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.ai.agent.BaseToolFunction;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.AbstractActionDefinitionWrapper;
+import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.MultipleConnectionsOutputFunction;
 import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunction;
 import com.bytechef.platform.component.definition.ParametersFactory;
@@ -59,12 +63,18 @@ import com.bytechef.platform.component.definition.ai.agent.ToolCallbackProviderF
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -78,6 +88,10 @@ import org.springframework.ai.tool.ToolCallbackProvider;
 public class AgenticAiRunAction {
 
     private static final Logger log = LoggerFactory.getLogger(AgenticAiRunAction.class);
+
+    private static final String BLACKBOARD_CHECKPOINT_DATA_KEY = "agenticAiBlackboardCheckpoint";
+    private static final String CHECKPOINT_FINGERPRINT = "fingerprint";
+    private static final String CHECKPOINT_BINDINGS = "bindings";
 
     private final EmbabelAgentRunner embabelAgentRunner;
     private final ClusterElementDefinitionService clusterElementDefinitionService;
@@ -141,8 +155,130 @@ public class AgenticAiRunAction {
 
         ChatModel chatModel = getChatModel(inputParameters, connectionParameters, clusterElementMap);
 
-        return embabelAgentRunner.run(
-            actionSteps, goalDescription, goalOutputBinding, smartGoal, systemPrompt, chatModel);
+        Map<String, Object> seedBindings = fetchCheckpointedBindings(inputParameters, context);
+        ActionCompletionListener actionCompletionListener = createBlackboardCheckpointer(inputParameters, context);
+
+        Object result = embabelAgentRunner.run(
+            actionSteps, goalDescription, goalOutputBinding, smartGoal, systemPrompt, chatModel, seedBindings,
+            actionCompletionListener);
+
+        clearBlackboardCheckpoint(context);
+
+        return result;
+    }
+
+    /**
+     * Creates the per-action blackboard checkpointer for durable (non-editor, job-attached) executions, or {@code null}
+     * when checkpointing does not apply. After every completed GOAP action the produced bindings collected so far are
+     * written to execution-scoped data storage together with a fingerprint of the evaluated input parameters, so a
+     * crash-resumed job replays a checkpoint only when it was written by this same agentic node configuration. Failures
+     * are swallowed by the runner — a storage problem never fails the plan.
+     */
+    private static @Nullable ActionCompletionListener createBlackboardCheckpointer(
+        Parameters inputParameters, ActionContext context) {
+
+        if (!(context instanceof ActionContextAware actionContextAware) || actionContextAware.getJobId() == null ||
+            actionContextAware.isEditorEnvironment()) {
+
+            return null;
+        }
+
+        Map<String, Object> producedBindings = new ConcurrentHashMap<>();
+
+        return (bindingName, value) -> {
+            producedBindings.put(bindingName, value instanceof Binding binding ? binding.getContent() : value);
+
+            context.data(
+                data -> data.put(
+                    ActionContext.Data.Scope.CURRENT_EXECUTION, BLACKBOARD_CHECKPOINT_DATA_KEY,
+                    Map.of(
+                        CHECKPOINT_FINGERPRINT, getRunFingerprint(inputParameters),
+                        CHECKPOINT_BINDINGS, new HashMap<>(producedBindings))));
+        };
+    }
+
+    /**
+     * Returns the bindings restored from a crash checkpoint left by a previous, interrupted run of this job, or an
+     * empty map when there is none (or it belongs to a differently-parameterized node). Restoration is best-effort: any
+     * failure logs and falls back to running the plan from scratch.
+     */
+    private static Map<String, Object> fetchCheckpointedBindings(Parameters inputParameters, ActionContext context) {
+        if (!(context instanceof ActionContextAware actionContextAware) || actionContextAware.getJobId() == null ||
+            actionContextAware.isEditorEnvironment()) {
+
+            return Map.of();
+        }
+
+        try {
+            Optional<Object> checkpointOptional = context.data(
+                data -> data.fetch(ActionContext.Data.Scope.CURRENT_EXECUTION, BLACKBOARD_CHECKPOINT_DATA_KEY));
+
+            if (checkpointOptional.isEmpty() || !(checkpointOptional.get() instanceof Map<?, ?> checkpointMap)) {
+                return Map.of();
+            }
+
+            if (!Objects.equals(checkpointMap.get(CHECKPOINT_FINGERPRINT), getRunFingerprint(inputParameters))) {
+                return Map.of();
+            }
+
+            if (!(checkpointMap.get(CHECKPOINT_BINDINGS) instanceof Map<?, ?> bindingsMap)) {
+                return Map.of();
+            }
+
+            Map<String, Object> seedBindings = new HashMap<>();
+
+            bindingsMap.forEach((bindingName, value) -> {
+                if (bindingName != null && value != null) {
+                    seedBindings.put(bindingName.toString(), value);
+                }
+            });
+
+            if (!seedBindings.isEmpty()) {
+                int seededBindingCount = seedBindings.size();
+
+                context.log(logger -> logger.info(
+                    "Resuming agentic plan from crash checkpoint (%d completed binding(s))".formatted(
+                        seededBindingCount)));
+            }
+
+            return seedBindings;
+        } catch (RuntimeException exception) {
+            log.warn("Failed to restore agentic blackboard checkpoint; running the plan from scratch", exception);
+
+            return Map.of();
+        }
+    }
+
+    /** Removes this job's blackboard checkpoint after the plan completed successfully. */
+    private static void clearBlackboardCheckpoint(ActionContext context) {
+        if (!(context instanceof ActionContextAware actionContextAware) || actionContextAware.getJobId() == null ||
+            actionContextAware.isEditorEnvironment()) {
+
+            return;
+        }
+
+        try {
+            context.data(
+                data -> data.remove(ActionContext.Data.Scope.CURRENT_EXECUTION, BLACKBOARD_CHECKPOINT_DATA_KEY));
+        } catch (RuntimeException exception) {
+            log.warn("Failed to clear agentic blackboard checkpoint", exception);
+        }
+    }
+
+    private static String getRunFingerprint(Parameters inputParameters) {
+        try {
+            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
+
+            byte[] digest = messageDigest.digest(
+                JsonUtils.write(inputParameters.toMap())
+                    .getBytes(StandardCharsets.UTF_8));
+
+            HexFormat hexFormat = HexFormat.of();
+
+            return hexFormat.formatHex(digest);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException("SHA-256 is unavailable", exception);
+        }
     }
 
     /**

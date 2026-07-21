@@ -21,6 +21,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.embabel.agent.api.common.OperationContext;
@@ -34,6 +35,7 @@ import java.util.List;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.messages.AssistantMessage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
@@ -274,12 +276,42 @@ class EmbabelAgentRunnerValidationTest {
     }
 
     @Test
+    void testSeedBindingsAreRestoredOntoBlackboard() {
+        AgentProcess agentProcess = mock(AgentProcess.class);
+
+        when(agentPlatform.runAgentFrom(any(), any(), anyMap())).thenReturn(agentProcess);
+        when(agentProcess.get(RESULT_BINDING)).thenReturn(new Binding("done"));
+
+        List<ActionStep> actionSteps = List.of(
+            new ActionStep(
+                ACTION_NAME, ACTION_DESCRIPTION, ACTION_PROMPT, USER_GOAL_BINDING, RESULT_BINDING, List.of(),
+                DEFAULT_COST));
+
+        Map<String, Object> taggedMap = Map.of(DomainInstanceKt.TYPE_NAME_KEY, "Analysis", "score", 1);
+
+        runner.run(
+            actionSteps, "goal", RESULT_BINDING, false, null, chatModel,
+            Map.of("draft", "draft text", "analysis", taggedMap), null);
+
+        @SuppressWarnings("unchecked")
+        ArgumentCaptor<Map<String, Object>> initialBindingsArgumentCaptor = ArgumentCaptor.forClass(Map.class);
+
+        verify(agentPlatform).runAgentFrom(any(), any(), initialBindingsArgumentCaptor.capture());
+
+        Map<String, Object> initialBindings = initialBindingsArgumentCaptor.getValue();
+
+        assertThat(initialBindings.get(USER_GOAL_BINDING)).isEqualTo(new Binding("goal"));
+        assertThat(initialBindings.get("draft")).isEqualTo(new Binding("draft text"));
+        assertThat(initialBindings.get("analysis")).isEqualTo(taggedMap);
+    }
+
+    @Test
     void testSmartGoalConditionParsesTrueAnswer() {
         OperationContext operationContext = getOperationContextWithBoundResult(new Binding("a finished result"));
 
         stubChatModelAnswer("true");
 
-        CanvasSmartGoalCondition condition = new CanvasSmartGoalCondition("goal", RESULT_BINDING, chatModel);
+        CanvasSmartGoalCondition condition = new CanvasSmartGoalCondition("goal", RESULT_BINDING, chatModel, null);
 
         assertThat(condition.evaluate(operationContext)).isEqualTo(ConditionDetermination.TRUE);
     }
@@ -290,7 +322,7 @@ class EmbabelAgentRunnerValidationTest {
 
         stubChatModelAnswer("I am not sure about that.");
 
-        CanvasSmartGoalCondition condition = new CanvasSmartGoalCondition("goal", RESULT_BINDING, chatModel);
+        CanvasSmartGoalCondition condition = new CanvasSmartGoalCondition("goal", RESULT_BINDING, chatModel, null);
 
         assertThat(condition.evaluate(operationContext)).isEqualTo(ConditionDetermination.FALSE);
     }
@@ -299,7 +331,7 @@ class EmbabelAgentRunnerValidationTest {
     void testSmartGoalConditionNothingProducedIsFalse() {
         OperationContext operationContext = getOperationContextWithBoundResult(null);
 
-        CanvasSmartGoalCondition condition = new CanvasSmartGoalCondition("goal", RESULT_BINDING, chatModel);
+        CanvasSmartGoalCondition condition = new CanvasSmartGoalCondition("goal", RESULT_BINDING, chatModel, null);
 
         assertThat(condition.evaluate(operationContext)).isEqualTo(ConditionDetermination.FALSE);
     }

@@ -92,7 +92,11 @@ but only at explicit, cooperative suspend points, not on crash.
 > XPENDING+XCLAIM sweep every 10s (min idle 60s, batch 100) inside its poll loop, redelivering
 > entries left unacknowledged by a crashed consumer through the normal invoke-then-ack path —
 > redis now has amqp-like at-least-once redelivery. Pinned by
-> `RedisListenerEndpointRegistrarTest`. All five steps of §4 are now implemented.
+> `RedisListenerEndpointRegistrarTest`. All five steps of §4 are now implemented. The agentic AI
+> component got the step-4 treatment too (2026-07-21): produced blackboard bindings are
+> checkpointed to CURRENT_EXECUTION data storage after every completed GOAP action and reseeded
+> on a crash-resumed job, so the planner continues from the last completed action instead of
+> re-running the whole plan.
 
 The differentiator claim is legitimate — the persistence spine is already there; what is missing
 is detection + permission to resume + one incremental-persistence hook. In dependency order:

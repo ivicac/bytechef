@@ -205,12 +205,6 @@
     "multipleElements": true,
     "required": false
   }, {
-    "name": "GOAL",
-    "key": "goal",
-    "label": "Goal",
-    "multipleElements": false,
-    "required": false
-  }, {
     "name": "TOOLS",
     "key": "tools",
     "label": "Tools",

@@ -35,13 +35,17 @@ import com.embabel.agent.core.TYPE_NAME_KEY
 import com.embabel.agent.core.ValuePropertyDefinition
 import com.embabel.agent.core.support.AbstractAction
 import com.embabel.common.core.types.ZeroToOne
+import com.bytechef.platform.ai.util.TokenUsageHolder
 import com.embabel.plan.common.condition.ConditionDetermination
 import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.databind.ObjectMapper
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings
+import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import org.slf4j.LoggerFactory
 import org.springframework.ai.chat.client.ChatClient
 import org.springframework.ai.chat.model.ChatModel
+import org.springframework.ai.chat.model.ChatResponse
 import org.springframework.ai.tool.ToolCallback
 
 private val logger = LoggerFactory.getLogger(EmbabelAgentRunner::class.java)
@@ -112,6 +116,53 @@ data class ActionStep @JvmOverloads constructor(
 data class Binding(val content: String)
 
 /**
+ * Java-friendly callback invoked after a GOAP action wrote its output binding to the blackboard.
+ * The agentic run action uses it to checkpoint produced bindings to durable, execution-scoped data
+ * storage so a crash mid-plan resumes from the last completed action instead of re-running the
+ * whole plan (and its side effects) from scratch.
+ */
+fun interface ActionCompletionListener {
+
+    fun onActionCompleted(bindingName: String, value: Any)
+}
+
+/**
+ * Thread-safe aggregate of token usage across all of a run's model calls. Embabel may execute
+ * actions off the calling thread while [TokenUsageHolder] is thread-local, so calls record here
+ * and the runner flushes the total onto the perform thread once the run finishes — spent tokens
+ * are flushed even when the plan fails.
+ */
+internal class TokenUsageAccumulator {
+
+    private val promptTokens = AtomicInteger()
+    private val completionTokens = AtomicInteger()
+    private val model = AtomicReference<String?>()
+
+    fun record(chatResponse: ChatResponse?) {
+        val metadata = chatResponse?.metadata ?: return
+        val usage = metadata.usage ?: return
+
+        promptTokens.addAndGet(usage.promptTokens?.toInt() ?: 0)
+        completionTokens.addAndGet(usage.completionTokens?.toInt() ?: 0)
+
+        metadata.model
+            ?.takeIf { it.isNotBlank() }
+            ?.let(model::set)
+    }
+
+    fun flushToHolder() {
+        val totalPromptTokens = promptTokens.get()
+        val totalCompletionTokens = completionTokens.get()
+
+        if (totalPromptTokens == 0 && totalCompletionTokens == 0) {
+            return
+        }
+
+        TokenUsageHolder.capture(model.get(), totalPromptTokens, totalCompletionTokens)
+    }
+}
+
+/**
  * GOAP action over named blackboard bindings, executed against the canvas-selected Spring AI
  * [ChatModel] instead of Embabel's internal model registry.
  *
@@ -132,6 +183,7 @@ internal class DynamicTransformationAction(
     outputTypeName: String,
     private val declaredDomainTypes: Collection<DomainType>,
     private val inputPropertyNames: Set<String>,
+    private val actionCompletionListener: ActionCompletionListener?,
     private val block: (TransformationActionContext<Any, Any>) -> Any,
 ) : AbstractAction(
     name = name,
@@ -168,6 +220,15 @@ internal class DynamicTransformationAction(
         )
 
         processContext.blackboard[outputVarName] = output
+
+        if (actionCompletionListener != null) {
+            try {
+                actionCompletionListener.onActionCompleted(outputVarName, output)
+            } catch (e: RuntimeException) {
+                // Checkpointing is best-effort: a storage failure must never fail the plan.
+                logger.warn("Failed to checkpoint binding '{}' after action '{}'", outputVarName, name, e)
+            }
+        }
     }
 
     override fun referencedInputProperties(variable: String): Set<String> = inputPropertyNames
@@ -186,6 +247,7 @@ internal class CanvasSmartGoalCondition(
     private val goalDescription: String,
     private val goalOutputBinding: String,
     private val chatModel: ChatModel,
+    private val tokenUsageAccumulator: TokenUsageAccumulator? = null,
 ) : Condition {
 
     override val name: String = "smart-goal-$goalOutputBinding"
@@ -221,11 +283,17 @@ internal class CanvasSmartGoalCondition(
             if it is missing information, off-topic, or only partially addresses the goal.
             """.trimIndent()
 
-        val answer = ChatClient.create(chatModel)
+        val chatResponse = ChatClient.create(chatModel)
             .prompt()
             .user(prompt)
             .call()
-            .content()
+            .chatResponse()
+
+        tokenUsageAccumulator?.record(chatResponse)
+
+        val answer = chatResponse?.result
+            ?.output
+            ?.text
             ?.trim()
             ?.lowercase()
             ?: ""
@@ -285,6 +353,7 @@ internal class CanvasSmartGoalCondition(
 @SuppressFBWarnings("BC_BAD_CAST_TO_ABSTRACT_COLLECTION")
 class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
 
+    @JvmOverloads
     fun run(
         actionSteps: List<ActionStep>,
         goalDescription: String,
@@ -292,6 +361,8 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
         smartGoal: Boolean,
         systemPrompt: String?,
         chatModel: ChatModel,
+        seedBindings: Map<String, Any> = emptyMap(),
+        actionCompletionListener: ActionCompletionListener? = null,
     ): Any {
         require(actionSteps.isNotEmpty()) { "At least one action step is required" }
         require(goalOutputBinding.isNotBlank()) { "goalOutputBinding must not be blank" }
@@ -332,8 +403,10 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
 
         val bindingTypes = resolveBindingTypes(actionSteps)
 
+        val tokenUsageAccumulator = TokenUsageAccumulator()
+
         val goalConditions = if (smartGoal) {
-            listOf(CanvasSmartGoalCondition(goalDescription, goalOutputBinding, chatModel))
+            listOf(CanvasSmartGoalCondition(goalDescription, goalOutputBinding, chatModel, tokenUsageAccumulator))
         } else {
             emptyList()
         }
@@ -346,7 +419,11 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
                 val inputType = bindingTypes[actionStep.inputBinding]
                 val outputType = bindingTypes[actionStep.outputBinding]
 
-                action { buildDynamicAction(actionStep, inputType, outputType, systemPrompt, chatModel) }
+                action {
+                    buildDynamicAction(
+                        actionStep, inputType, outputType, systemPrompt, chatModel, tokenUsageAccumulator,
+                        actionCompletionListener)
+                }
             }
 
             goal(
@@ -362,17 +439,37 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
             )
         }
 
-        // runAgentFrom accepts the agent directly (see AgentPlatform.runAgentFrom docs);
-        // deploying is only required when other agents or the platform itself need to discover
-        // this agent by name. For one-shot canvas runs we skip deploy to avoid accumulating
-        // identically-named agents in the platform's registry.
-        val agentProcess = agentPlatform.runAgentFrom(
-            embabelAgent,
-            buildProcessOptions(smartGoal),
-            mapOf(USER_GOAL_BINDING to Binding(goalDescription)),
-        )
+        val initialBindings = LinkedHashMap<String, Any>()
 
-        return extractGoalResult(agentProcess[goalOutputBinding], goalOutputBinding)
+        initialBindings[USER_GOAL_BINDING] = Binding(goalDescription)
+
+        // Checkpointed bindings from a crash-interrupted run of this job: untyped values were
+        // stored as their raw content strings, typed values as their tagged maps. Reseeding them
+        // satisfies the corresponding preconditions, so the planner skips already-completed
+        // actions and continues from where the previous run crashed.
+        seedBindings.forEach { (bindingName, value) ->
+            if (bindingName != USER_GOAL_BINDING) {
+                initialBindings[bindingName] = if (value is String) Binding(value) else value
+            }
+        }
+
+        try {
+            // runAgentFrom accepts the agent directly (see AgentPlatform.runAgentFrom docs);
+            // deploying is only required when other agents or the platform itself need to discover
+            // this agent by name. For one-shot canvas runs we skip deploy to avoid accumulating
+            // identically-named agents in the platform's registry.
+            val agentProcess = agentPlatform.runAgentFrom(
+                embabelAgent,
+                buildProcessOptions(smartGoal),
+                initialBindings,
+            )
+
+            return extractGoalResult(agentProcess[goalOutputBinding], goalOutputBinding)
+        } finally {
+            // Tokens were spent even when the plan failed; flush on the perform thread, where
+            // TokenUsageHolder tracking was started by the action facade.
+            tokenUsageAccumulator.flushToHolder()
+        }
     }
 
     /**
@@ -451,6 +548,8 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
         outputType: DynamicType?,
         systemPrompt: String?,
         chatModel: ChatModel,
+        tokenUsageAccumulator: TokenUsageAccumulator,
+        actionCompletionListener: ActionCompletionListener?,
     ): DynamicTransformationAction {
         val bindingTypeName = Binding::class.java.name
 
@@ -470,11 +569,12 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
                 ?.map { it.name }
                 ?.toSet()
                 ?: emptySet(),
+            actionCompletionListener = actionCompletionListener,
         ) { context ->
             val prompt = buildPrompt(actionStep, renderInputContent(context.input), systemPrompt) +
                 typedOutputInstructions(outputType)
 
-            val responseText = callCanvasModel(chatModel, prompt, actionStep.toolCallbacks)
+            val responseText = callCanvasModel(chatModel, prompt, actionStep.toolCallbacks, tokenUsageAccumulator)
 
             if (outputType == null) {
                 Binding(responseText)
@@ -578,6 +678,7 @@ private fun callCanvasModel(
     chatModel: ChatModel,
     prompt: String,
     toolCallbacks: List<ToolCallback>,
+    tokenUsageAccumulator: TokenUsageAccumulator,
 ): String {
     var chatClientRequestSpec = ChatClient.create(chatModel)
         .prompt()
@@ -587,8 +688,14 @@ private fun callCanvasModel(
         chatClientRequestSpec = chatClientRequestSpec.toolCallbacks(toolCallbacks)
     }
 
-    return chatClientRequestSpec.call()
-        .content()
+    val chatResponse = chatClientRequestSpec.call()
+        .chatResponse()
+
+    tokenUsageAccumulator.record(chatResponse)
+
+    return chatResponse?.result
+        ?.output
+        ?.text
         ?: ""
 }
 
