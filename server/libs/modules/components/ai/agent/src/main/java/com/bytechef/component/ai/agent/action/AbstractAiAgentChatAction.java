@@ -36,6 +36,7 @@ import com.bytechef.component.ai.agent.action.event.ToolExecutionEvent;
 import com.bytechef.component.ai.agent.action.event.listener.ToolExecutionListener;
 import com.bytechef.component.ai.agent.facade.AiAgentToolFacade;
 import com.bytechef.component.ai.agent.tool.AiAgentConversationCheckpoint;
+import com.bytechef.component.ai.agent.tool.ApprovalGateToolCallback;
 import com.bytechef.component.ai.agent.tool.ConversationResume;
 import com.bytechef.component.ai.agent.tool.ConversationState;
 import com.bytechef.component.ai.agent.tool.SuspendableToolCallingManager;
@@ -46,8 +47,10 @@ import com.bytechef.component.ai.llm.util.ModelUtils;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.ai.agent.BaseToolFunction;
+import com.bytechef.component.definition.approval.ApprovalChannelFunction;
 import com.bytechef.platform.ai.constant.AiAgentToolContextKey;
 import com.bytechef.platform.ai.constant.ToolSuspendConstants;
+import com.bytechef.platform.ai.tool.constant.ToolConstants;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ParametersFactory;
@@ -190,8 +193,10 @@ public abstract class AbstractAiAgentChatAction {
             .tools(
                 concatToolCallbacks(
                     getToolCallbacks(
-                        clusterElementMap.getClusterElements(BaseToolFunction.TOOLS), connectionParameters,
-                        context.isEditorEnvironment(), toolExecutionListener, toolSimulations, chatModel, context),
+                        clusterElementMap.getClusterElements(BaseToolFunction.TOOLS),
+                        clusterElementMap.getClusterElements(ApprovalChannelFunction.APPROVAL_CHANNELS),
+                        connectionParameters, context.isEditorEnvironment(), toolExecutionListener, toolSimulations,
+                        chatModel, context),
                     chatMemoryResult)
                         .toArray());
 
@@ -331,9 +336,15 @@ public abstract class AbstractAiAgentChatAction {
         String pendingToolCallId = continueParameters.getRequiredString(
             ToolSuspendConstants.PENDING_TOOL_CALL_ID);
 
+        // A suspend carrying GATED_TOOL_NAME came from the per-tool approval gate, not from a suspending tool:
+        // the human's decision determines the tool response — approve executes the tool with the AI-chosen
+        // arguments, reject feeds a denial back into the loop. Ordinary tool suspends keep the raw form data.
+        String resumeData = continueParameters.getString(ToolSuspendConstants.GATED_TOOL_NAME) != null
+            ? resolveGatedToolResumeData(continueParameters, data, connectionParameters, extensions, context)
+            : JsonUtils.write(data.toMap());
+
         List<Message> conversation = ConversationResume.patchPendingToolResponse(
-            conversationState.toMessages(), pendingToolCallId,
-            JsonUtils.write(data.toMap()));
+            conversationState.toMessages(), pendingToolCallId, resumeData);
 
         ChatClient.ChatClientRequestSpec chatClientRequestSpec = getChatClientRequestSpec(
             inputParameters, connectionParameters, extensions, null, context, conversation);
@@ -341,6 +352,71 @@ public abstract class AbstractAiAgentChatAction {
         chatClientRequestSpec.toolContext(Map.of(AiAgentToolContextKey.ACTION_CONTEXT, context));
 
         return chatClientRequestSpec;
+    }
+
+    /**
+     * Resolves the tool-response text for a resume of a per-tool approval-gate suspension. Approval executes the gated
+     * tool with the originally captured arguments — through the RAW callback, bypassing the gate, since the human
+     * approved this exact invocation — and reports the result together with any reviewer comment. Rejection feeds an
+     * explicit denial (with the comment) back into the loop so the LLM can replan.
+     */
+    private String resolveGatedToolResumeData(
+        Parameters continueParameters, Parameters data, Map<String, ComponentConnection> connectionParameters,
+        Parameters extensions, ActionContext context) {
+
+        boolean approved = data.getBoolean("approved", false);
+        String comment = data.getString("comment");
+        boolean hasComment = comment != null && !comment.isBlank();
+
+        if (!approved) {
+            Map<String, Object> denial = new HashMap<>();
+
+            denial.put("denied", true);
+            denial.put("reason", hasComment ? "Denied by reviewer: " + comment : "Denied by reviewer.");
+
+            return JsonUtils.write(denial);
+        }
+
+        String gatedToolName = continueParameters.getRequiredString(ToolSuspendConstants.GATED_TOOL_NAME);
+        String gatedToolInput = continueParameters.getRequiredString(ToolSuspendConstants.GATED_TOOL_INPUT);
+        boolean editorEnvironment = ((ActionContextAware) context).isEditorEnvironment();
+
+        ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
+
+        ToolCallback gatedToolCallback = clusterElementMap.getClusterElements(BaseToolFunction.TOOLS)
+            .stream()
+            .flatMap(
+                clusterElement -> buildElementToolCallbacks(
+                    clusterElement, connectionParameters, editorEnvironment, context).stream())
+            .filter(toolCallback -> {
+                ToolDefinition toolDefinition = toolCallback.getToolDefinition();
+
+                return gatedToolName.equals(toolDefinition.name());
+            })
+            .findFirst()
+            .orElseThrow(() -> new IllegalStateException(
+                "The approved tool '" + gatedToolName + "' is no longer configured on the agent node; the " +
+                    "approval cannot be applied."));
+
+        Map<String, Object> approvedResult = new HashMap<>();
+
+        approvedResult.put("approvedByReviewer", true);
+
+        if (hasComment) {
+            approvedResult.put("reviewerComment", comment);
+        }
+
+        try {
+            String result = gatedToolCallback.call(
+                gatedToolInput, new ToolContext(Map.of(AiAgentToolContextKey.ACTION_CONTEXT, context)));
+
+            approvedResult.put("result", result);
+        } catch (Exception exception) {
+            approvedResult.put(
+                "error", Objects.toString(exception.getMessage(), "Tool execution failed after approval"));
+        }
+
+        return JsonUtils.write(approvedResult);
     }
 
     /**
@@ -706,56 +782,33 @@ public abstract class AbstractAiAgentChatAction {
     }
 
     private List<ToolCallback> getToolCallbacks(
-        List<ClusterElement> toolClusterElements, Map<String, ComponentConnection> connectionParameters,
-        boolean editorEnvironment, @Nullable ToolExecutionListener toolExecutionListener,
+        List<ClusterElement> toolClusterElements, List<ClusterElement> approvalChannelClusterElements,
+        Map<String, ComponentConnection> connectionParameters, boolean editorEnvironment,
+        @Nullable ToolExecutionListener toolExecutionListener,
         @Nullable Map<String, Map<String, String>> toolSimulations, ChatModel chatModel, ActionContext context) {
 
         List<ToolCallback> toolCallbacks = new ArrayList<>();
 
         for (ClusterElement clusterElement : toolClusterElements) {
-            Object clusterElementFunction = clusterElementDefinitionService.getClusterElement(
-                clusterElement.getComponentName(), clusterElement.getComponentVersion(),
-                clusterElement.getClusterElementName());
+            List<ToolCallback> elementToolCallbacks = buildElementToolCallbacks(
+                clusterElement, connectionParameters, editorEnvironment, context);
 
-            if (clusterElementFunction instanceof MultipleConnectionsToolCallbackProviderFunction multipleConnectionsToolCallbackProviderFunction) {
-                try {
-                    ToolCallback[] providerCallbacks = multipleConnectionsToolCallbackProviderFunction
-                        .apply(
-                            ParametersFactory.create(clusterElement.getParameters()),
-                            getConnectionParameters(connectionParameters, clusterElement),
-                            ParametersFactory.create(clusterElement.getExtensions()),
-                            connectionParameters, context)
-                        .getToolCallbacks();
+            Map<String, ?> clusterElementParameters = clusterElement.getParameters();
 
-                    toolCallbacks.addAll(Arrays.asList(providerCallbacks));
-                } catch (Exception exception) {
-                    throw clusterElementInitializationException(clusterElement, "tool callback", exception, context);
-                }
-            } else if (clusterElementFunction instanceof ToolCallbackProviderFunction toolCallbackProviderFunction) {
-                try {
-                    ComponentConnection componentConnection = connectionParameters.get(
-                        clusterElement.getWorkflowNodeName());
-
-                    ToolCallback[] providerCallbacks = toolCallbackProviderFunction
-                        .apply(
-                            ParametersFactory.create(clusterElement.getParameters()),
-                            ParametersFactory.create(componentConnection), context)
-                        .getToolCallbacks();
-
-                    toolCallbacks.addAll(Arrays.asList(providerCallbacks));
-                } catch (Exception exception) {
-                    throw clusterElementInitializationException(clusterElement, "tool callback", exception, context);
-                }
-            } else if (clusterElementFunction instanceof MultipleConnectionsToolFunction) {
-                toolCallbacks.add(
-                    aiAgentToolFacade.getFunctionToolCallback(clusterElement, connectionParameters, editorEnvironment));
-            } else {
-                ComponentConnection componentConnection = connectionParameters.get(
-                    clusterElement.getWorkflowNodeName());
-
-                toolCallbacks.add(
-                    aiAgentToolFacade.getFunctionToolCallback(clusterElement, componentConnection, editorEnvironment));
+            // Platform-enforced per-tool approval gate (HITL phase 3): a TOOLS entry flagged with
+            // requiresApproval: true is wrapped so every invocation raises an approval request and suspends
+            // instead of executing. Applied INSIDE the observable wrapper so the audit listener records the
+            // gate outcome (suspension, later the approved result or denial) like any other tool result.
+            if (Boolean.TRUE.equals(clusterElementParameters.get(ToolConstants.REQUIRES_APPROVAL))) {
+                elementToolCallbacks = elementToolCallbacks.stream()
+                    .map(
+                        toolCallback -> (ToolCallback) new ApprovalGateToolCallback(
+                            toolCallback, approvalChannelClusterElements, connectionParameters,
+                            clusterElementDefinitionService, context))
+                    .toList();
             }
+
+            toolCallbacks.addAll(elementToolCallbacks);
         }
 
         if (toolSimulations != null && !toolSimulations.isEmpty()) {
@@ -790,6 +843,61 @@ public abstract class AbstractAiAgentChatAction {
                 .build();
 
         return Arrays.asList(augmentedToolCallbackProvider.getToolCallbacks());
+    }
+
+    /**
+     * Builds the raw (unwrapped) tool callbacks for a single TOOLS cluster-element entry. Used by
+     * {@link #getToolCallbacks} before the gate/simulation/observable wrappers are applied, and by the gate-resume path
+     * to execute an approved tool call directly — deliberately bypassing the approval gate, since the human already
+     * approved this exact invocation.
+     */
+    private List<ToolCallback> buildElementToolCallbacks(
+        ClusterElement clusterElement, Map<String, ComponentConnection> connectionParameters,
+        boolean editorEnvironment, ActionContext context) {
+
+        Object clusterElementFunction = clusterElementDefinitionService.getClusterElement(
+            clusterElement.getComponentName(), clusterElement.getComponentVersion(),
+            clusterElement.getClusterElementName());
+
+        if (clusterElementFunction instanceof MultipleConnectionsToolCallbackProviderFunction multipleConnectionsToolCallbackProviderFunction) {
+            try {
+                ToolCallback[] providerCallbacks = multipleConnectionsToolCallbackProviderFunction
+                    .apply(
+                        ParametersFactory.create(clusterElement.getParameters()),
+                        getConnectionParameters(connectionParameters, clusterElement),
+                        ParametersFactory.create(clusterElement.getExtensions()),
+                        connectionParameters, context)
+                    .getToolCallbacks();
+
+                return Arrays.asList(providerCallbacks);
+            } catch (Exception exception) {
+                throw clusterElementInitializationException(clusterElement, "tool callback", exception, context);
+            }
+        } else if (clusterElementFunction instanceof ToolCallbackProviderFunction toolCallbackProviderFunction) {
+            try {
+                ComponentConnection componentConnection = connectionParameters.get(
+                    clusterElement.getWorkflowNodeName());
+
+                ToolCallback[] providerCallbacks = toolCallbackProviderFunction
+                    .apply(
+                        ParametersFactory.create(clusterElement.getParameters()),
+                        ParametersFactory.create(componentConnection), context)
+                    .getToolCallbacks();
+
+                return Arrays.asList(providerCallbacks);
+            } catch (Exception exception) {
+                throw clusterElementInitializationException(clusterElement, "tool callback", exception, context);
+            }
+        } else if (clusterElementFunction instanceof MultipleConnectionsToolFunction) {
+            return List.of(
+                aiAgentToolFacade.getFunctionToolCallback(clusterElement, connectionParameters, editorEnvironment));
+        } else {
+            ComponentConnection componentConnection = connectionParameters.get(
+                clusterElement.getWorkflowNodeName());
+
+            return List.of(
+                aiAgentToolFacade.getFunctionToolCallback(clusterElement, componentConnection, editorEnvironment));
+        }
     }
 
     private List<Message> loadConversationHistory(
