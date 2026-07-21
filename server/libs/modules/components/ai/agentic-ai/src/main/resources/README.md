@@ -2,6 +2,24 @@
 
 With the Agentic AI component, you can define a goal and let the AI autonomously plan and execute tools to achieve it using the [Embabel Agent](https://github.com/embabel/embabel-agent) framework with GOAP (Goal-Oriented Action Planning).
 
+## Enabling the Component
+
+The component is disabled by default because Embabel's agent platform refuses to start without at
+least one registered model, and its OpenAI model registration refuses to start without an API key.
+To enable it:
+
+1. Set `OPENAI_API_KEY` in the server (and, in distributed deployments, worker) environment.
+2. Add the `agentic` Spring profile: `SPRING_PROFILES_ACTIVE=<your profiles>,agentic`.
+3. Optionally pick the planner model with `EMBABEL_MODELS_DEFAULT_LLM` (default `gpt-4.1-mini`).
+
+The `agentic` profile re-enables Embabel's `AgentPlatformAutoConfiguration` and
+`AgentOpenAiAutoConfiguration`, which are excluded in the default configuration. Without the
+profile the component stays invisible (its handler is `@ConditionalOnBean(AgentPlatform.class)`)
+and server startup is unaffected.
+
+Note: the planner's LLM comes from Embabel's own model registry (`OPENAI_API_KEY` +
+`embabel.models.*` properties), not from the MODEL cluster element or ByteChef connections.
+
 ## Cluster Element Types
 
 | Type | Key | Description | Multiple |

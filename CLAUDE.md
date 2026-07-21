@@ -510,12 +510,19 @@ trigger + post-turn query invalidation.
   `docs/superpowers/specs/2026-07-19-expose-ai-agent-a2a-server-design.md`; user docs:
   `docs/content/docs/automation/a2a-servers.mdx`.
 
-### Agentic AI component (Embabel GOAP, dark)
+### Agentic AI component (Embabel GOAP, opt-in)
 
 - `server/libs/modules/components/ai/agentic-ai` wraps Embabel **1.0.0**'s GOAP planner
-  (`EmbabelAgentRunner.kt`, the repo's only Kotlin production code). The component ships DARK:
-  `AgentPlatformAutoConfiguration` is excluded in all app YAMLs and the handler is
-  `@ConditionalOnBean(AgentPlatform.class)`.
+  (`EmbabelAgentRunner.kt`, the repo's only Kotlin production code). The component is OFF by
+  default and opt-in via the `agentic` Spring profile: Embabel's platform hard-fails at boot with
+  zero registered models and `AgentOpenAiAutoConfiguration` hard-fails without `OPENAI_API_KEY`,
+  so BOTH are in the default `spring.autoconfigure.exclude` (server-app, worker-app, and the
+  liquibase profile) and re-enabled together by `application-agentic.yml` (which mirrors the
+  default exclude list minus the two Embabel entries — profile property values replace wholesale,
+  keep them in sync). Enable = `SPRING_PROFILES_ACTIVE+=agentic` + `OPENAI_API_KEY`
+  (+ optional `EMBABEL_MODELS_DEFAULT_LLM`, default gpt-4.1-mini). The handler stays
+  `@ConditionalOnBean(AgentPlatform.class)`; the planner LLM comes from Embabel's model registry,
+  NOT from the MODEL cluster element or ByteChef connections.
 - Blackboard carriers: untyped bindings use the `Binding(content)` data class; bindings whose
   producers declare an `outputSchema` on the ACTION cluster element become **typed** — an Embabel
   `DynamicType` named after the binding (PascalCase), carried as a `_typeName`-tagged map.

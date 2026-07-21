@@ -211,9 +211,13 @@ reason it stayed dark, option 2 remains the recommendation from §3.
 > stripped) instead of a string. Because execution-time `getValue` matching is strict, the
 > runner validates producer/consumer schema agreement per binding name up front (mixed
 > typed/untyped producers, conflicting schemas, schemas on `userGoal`, and `:` in binding names
-> are all rejected with actionable messages). The component remains dark
-> (`AgentPlatformAutoConfiguration` still excluded in app YAMLs) — lighting it up is the next,
-> separate step.
+> are all rejected with actionable messages). The auto-config exclusion question is resolved as an
+> **opt-in `agentic` Spring profile**: Embabel's platform hard-fails at boot with zero registered
+> models, and its OpenAI model config hard-fails without `OPENAI_API_KEY`, so unconditional
+> enablement would break every keyless deployment. Both auto-configurations stay in the default
+> `spring.autoconfigure.exclude` (server-app + worker-app + liquibase profile) and
+> `application-agentic.yml` re-enables them together; `embabel-agent-starter-openai` is now a
+> module dependency so models register from the key.
 
 ## Sources
 

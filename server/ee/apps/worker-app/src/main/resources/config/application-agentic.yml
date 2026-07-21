@@ -1,0 +1,19 @@
+# Opt-in profile that lights up the Agentic AI component (Embabel GOAP planner) on the worker.
+#
+# Activate with: SPRING_PROFILES_ACTIVE=<your profiles>,agentic
+#
+# Requirements:
+#   - OPENAI_API_KEY must be set: Embabel's AgentOpenAiAutoConfiguration registers the platform's
+#     models from it and fails startup without a key. The platform itself fails startup when no
+#     model is registered, which is why both auto-configurations are excluded by default in
+#     application.yml and re-enabled together here.
+#   - The default planner model is Embabel's 'gpt-4.1-mini'; override with the
+#     'embabel.models.default-llm' property (env: EMBABEL_MODELS_DEFAULT_LLM).
+#
+# This list REPLACES the spring.autoconfigure.exclude value from application.yml (profile-specific
+# properties win wholesale), so it must mirror that list minus the two Embabel entries.
+spring:
+  autoconfigure:
+    exclude:
+      org.springaicommunity.agents.claude.autoconfigure.ClaudeAgentAutoConfiguration,
+      org.springaicommunity.agents.claude.autoconfigure.ClaudeHookAutoConfiguration
