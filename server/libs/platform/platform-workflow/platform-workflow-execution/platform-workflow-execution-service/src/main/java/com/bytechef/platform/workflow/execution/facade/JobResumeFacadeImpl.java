@@ -26,12 +26,14 @@ import com.bytechef.platform.workflow.execution.event.JobResumedEvent;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.util.Map;
 import java.util.function.LongConsumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,20 +47,28 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
 
     private static final Logger log = LoggerFactory.getLogger(JobResumeFacadeImpl.class);
 
+    private static final String APPROVAL_RESOLUTION_METRIC_NAME = "bytechef_approval_resolution";
+
+    // Reserved key in the approval outcome (see the approval component's output schema); present on approval
+    // resumes, absent on ask-user-question resumes — only approval resolutions are counted.
+    private static final String APPROVED = "approved";
+
     private final ApplicationEventPublisher applicationEventPublisher;
     private final ApprovalTokens approvalTokens;
     private final JobFacade jobFacade;
     private final JobService jobService;
+    private final ObjectProvider<MeterRegistry> meterRegistryObjectProvider;
 
     @SuppressFBWarnings("EI")
     public JobResumeFacadeImpl(
         ApplicationEventPublisher applicationEventPublisher, ApprovalTokens approvalTokens, JobFacade jobFacade,
-        JobService jobService) {
+        JobService jobService, ObjectProvider<MeterRegistry> meterRegistryObjectProvider) {
 
         this.applicationEventPublisher = applicationEventPublisher;
         this.approvalTokens = approvalTokens;
         this.jobFacade = jobFacade;
         this.jobService = jobService;
+        this.meterRegistryObjectProvider = meterRegistryObjectProvider;
     }
 
     @Override
@@ -113,8 +123,25 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
 
             applicationEventPublisher.publishEvent(new JobResumedEvent(innerToken));
 
+            incrementApprovalResolutionCounter(data);
+
             return JobResumeOutcome.OK;
         });
+    }
+
+    private void incrementApprovalResolutionCounter(Map<String, Object> data) {
+        if (!data.containsKey(APPROVED)) {
+            return;
+        }
+
+        MeterRegistry meterRegistry = meterRegistryObjectProvider.getIfAvailable();
+
+        if (meterRegistry == null) {
+            return;
+        }
+
+        meterRegistry.counter(APPROVAL_RESOLUTION_METRIC_NAME, APPROVED, String.valueOf(data.get(APPROVED)))
+            .increment();
     }
 
     private static boolean tokenMatches(String storedJobResumeIdString, JobResumeId suppliedJobResumeId) {

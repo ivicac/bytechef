@@ -20,6 +20,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -35,6 +37,8 @@ import com.bytechef.platform.workflow.execution.event.JobResumedEvent;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokensImpl;
 import com.bytechef.tenant.TenantContext;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.HashMap;
@@ -46,6 +50,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
@@ -69,6 +74,7 @@ public class JobResumeFacadeTest {
     private JobService jobService;
 
     private JobResumeFacadeImpl jobResumeFacade;
+    private SimpleMeterRegistry meterRegistry;
 
     static {
         ObjectMapper objectMapper = JsonMapper.builder()
@@ -78,12 +84,21 @@ public class JobResumeFacadeTest {
     }
 
     @BeforeEach
+    @SuppressWarnings("unchecked")
     void setUp() {
         // Unconfigured (no secret, not required) -> resolveInnerToken passes the legacy token through unchanged.
         ApprovalTokensImpl approvalTokens = new ApprovalTokensImpl(
             Clock.systemUTC(), null, List.of(), Duration.ofDays(30), Duration.ofSeconds(60), false);
 
-        jobResumeFacade = new JobResumeFacadeImpl(applicationEventPublisher, approvalTokens, jobFacade, jobService);
+        meterRegistry = new SimpleMeterRegistry();
+
+        ObjectProvider<MeterRegistry> meterRegistryObjectProvider = mock(ObjectProvider.class);
+
+        lenient().when(meterRegistryObjectProvider.getIfAvailable())
+            .thenReturn(meterRegistry);
+
+        jobResumeFacade = new JobResumeFacadeImpl(
+            applicationEventPublisher, approvalTokens, jobFacade, jobService, meterRegistryObjectProvider);
     }
 
     @Test
@@ -181,6 +196,27 @@ public class JobResumeFacadeTest {
 
         verify(jobFacade).resumeJob(JOB_ID, TASK_EXECUTION_ID, data);
         verify(applicationEventPublisher).publishEvent(any(JobResumedEvent.class));
+
+        // No "approved" key (ask-user-question style resume) -> no approval-resolution counter.
+        assertThat(meterRegistry.find("bytechef_approval_resolution")
+            .counter()).isNull();
+    }
+
+    @Test
+    public void testResumeJobCountsApprovalResolution() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(
+            jobResumeId.toString(), Map.of("approved", false, "comment", "not now"));
+
+        assertThat(outcome).isEqualTo(JobResumeOutcome.OK);
+
+        assertThat(meterRegistry.counter("bytechef_approval_resolution", "approved", "false")
+            .count()).isEqualTo(1.0);
     }
 
     private static Job jobOf(Job.Status status, String storedJobResumeIdString) {

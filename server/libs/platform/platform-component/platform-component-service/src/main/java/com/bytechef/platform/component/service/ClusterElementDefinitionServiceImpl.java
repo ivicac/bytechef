@@ -69,11 +69,13 @@ import com.bytechef.platform.domain.OutputResponse;
 import com.bytechef.platform.util.SchemaUtils;
 import com.bytechef.platform.util.WorkflowNodeDescriptionUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
@@ -99,18 +101,23 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
             .expressionEnabled(false)
             .required(false));
 
+    private static final String APPROVAL_REQUEST_METRIC_NAME = "bytechef_approval_request";
+
     private final ComponentDefinitionRegistry componentDefinitionRegistry;
     private final ContextFactory contextFactory;
     private final List<ComponentVisibilityProvider> componentVisibilityProviders;
+    private final ObjectProvider<MeterRegistry> meterRegistryObjectProvider;
 
     @SuppressFBWarnings("EI")
     public ClusterElementDefinitionServiceImpl(
         @Lazy ComponentDefinitionRegistry componentDefinitionRegistry, ContextFactory contextFactory,
-        List<ComponentVisibilityProvider> componentVisibilityProviders) {
+        List<ComponentVisibilityProvider> componentVisibilityProviders,
+        ObjectProvider<MeterRegistry> meterRegistryObjectProvider) {
 
         this.componentDefinitionRegistry = componentDefinitionRegistry;
         this.contextFactory = contextFactory;
         this.componentVisibilityProviders = componentVisibilityProviders;
+        this.meterRegistryObjectProvider = meterRegistryObjectProvider;
     }
 
     @Override
@@ -350,7 +357,12 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
         Parameters connectionParams = ParametersFactory.create(componentConnection);
 
         try {
-            return approvalChannelFunction.apply(inputParams, connectionParams, formUrl, clusterElementContext);
+            Object result = approvalChannelFunction.apply(inputParams, connectionParams, formUrl,
+                clusterElementContext);
+
+            incrementApprovalRequestCounter(componentName, clusterElementName);
+
+            return result;
         } catch (Exception exception) {
             if (exception instanceof ProviderException) {
                 throw (ProviderException) exception;
@@ -359,6 +371,17 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
             throw new ExecutionException(
                 exception, inputParameters, ClusterElementDefinitionErrorType.EXECUTE_PERFORM);
         }
+    }
+
+    private void incrementApprovalRequestCounter(String componentName, String clusterElementName) {
+        MeterRegistry meterRegistry = meterRegistryObjectProvider.getIfAvailable();
+
+        if (meterRegistry == null) {
+            return;
+        }
+
+        meterRegistry.counter(APPROVAL_REQUEST_METRIC_NAME, "channel", componentName + "/" + clusterElementName)
+            .increment();
     }
 
     @Override
