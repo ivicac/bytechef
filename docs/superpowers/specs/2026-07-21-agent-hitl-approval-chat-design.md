@@ -1,0 +1,112 @@
+# Agent HITL: Approval in Chat, One Primitive Pair, Platform Tool Gate
+
+*Design spec, July 21, 2026. Informed by competitive research on n8n's Chat-node HITL (see research
+notes in the PR/issue thread). Goal stated by product: one clear path for every case — no
+n8n-style matrix of "works here, unverified there, broken in embedded".*
+
+## Scope
+
+**In scope:** the AI Agent component and its surfaces — canvas workflows (Approval action), agent
+runs reached through workflow chat (`WORKFLOW_CHAT` conversations / `runChatWorkflow`), and the
+embedded chat surface. Headless callers (MCP tool serving, A2A) are in scope only for their
+fallback behavior.
+
+**Out of scope:** the AI Hub copilot chat. The hub keeps its existing pinned `askUserQuestion`
+interaction primitive; hub agent tools are user-driven CRUD executed inside the conversation the
+user is already steering, so they carry no autonomous-action risk and get no approval gating. If a
+later hub feature runs autonomous actions (scheduled personal agents), it can adopt the same
+approval pipeline then — nothing here blocks that.
+
+## What exists today (inventory)
+
+- `approval` component: `ApprovalRequestApprovalAction` canvas action with **APPROVAL_CHANNELS**
+  cluster elements — Slack, Google Mail, Microsoft Outlook 365, approval-task, approval-link.
+  Supports **fields** (`FieldType`: text, textarea, select, number …); a request with no fields is
+  a plain approve/reject. Resolution via tokenized `/approvals/{id}` links →
+  `JobFacade.resumeApproval(jobId, uuid, approved)`.
+- `ApprovalRequestApprovalTool`: approval as an **agent-invoked tool** cluster element, riding the
+  `SuspendableToolCallingManager` suspend/resume protocol; the agent loop re-enters with the
+  human's answer patched into the suspended tool call's response.
+- `askUserQuestionTool` (AI Agent utils cluster element): LLM-initiated clarification — SSE
+  `ask_user_question` event, workflow suspends, client POSTs answers to the resume webhook.
+- **Gap:** no chat approval channel — an approval raised by a run that started from a chat
+  conversation cannot land in that conversation.
+
+## Decisions
+
+### D1 — One primitive pair, not three render modes
+
+n8n exposes three response types (Approval / Free Text / Custom Form) on one send-and-wait node,
+which produces its worst seams: free text on an approval gate needs hand-rolled branching, and
+Approval mode can reject-with-note but never approve-with-note. We keep exactly two primitives
+with disjoint jobs:
+
+| Primitive | Job | Renders as |
+|---|---|---|
+| **Approval** | A decision, optionally with a structured payload | No fields → Approve/Reject buttons + optional comment box (valid on **both** outcomes). Fields → form; Approve submits the values, Reject cancels. |
+| **AskUserQuestion** | Information — LLM-initiated clarification | Question card; the answer feeds the agent loop. No decision semantics, no audit weight. |
+
+There is no free-text mode on Approval and no approve/reject on AskUserQuestion. "Approve with a
+comment/modification" is first-class (the comment — and, with fields, edited values — travels back
+in the approval outcome), which n8n cannot express in one step.
+
+### D2 — Chat is just another approval channel
+
+New `ChatApprovalChannel` APPROVAL_CHANNEL cluster element:
+
+- Targets **the conversation that started the run** (workflow chat already anchors
+  jobId ↔ conversation). Emits a persistent **approval card** into that conversation — over the
+  live SSE stream when connected, re-rendered from the pending suspend state on reload.
+- **Validity rule (the clear path):** the channel is legal only when the run has a chat origin. A
+  run started by webhook/schedule whose approval step lists only the chat channel fails that step
+  loudly ("no chat origin — configure a fallback channel"). Never a silent no-op.
+- Channels remain a list: chat + Slack + email may fan out simultaneously; the first response
+  wins and `resumeApproval` already rejects a second resolution.
+- Because the card is part of the SSE/AG-UI protocol — not a hosted browser page — the embedded
+  surface renders it inline for free. (n8n's embedded mode drops native HITL entirely.)
+
+### D3 — AskUserQuestion is not the tool gate
+
+Its core function stays what it is: the LLM asking the user questions. A gate needs properties a
+question does not have — binary outcome, the tool's name and AI-chosen arguments shown to the
+reviewer, an audit record, and enforcement the LLM cannot skip. Three approval entry points share
+one suspend mechanism and one channel pipeline:
+
+1. **Canvas action** (`ApprovalRequestApprovalAction`) — deterministic workflow step.
+2. **Agent-invoked tool** (`ApprovalRequestApprovalTool`) — the agent *chooses* to ask.
+3. **Platform tool gate (new)** — a per-tool `requiresApproval` flag on the TOOLS cluster element
+   configuration. `SuspendableToolCallingManager` intercepts a flagged tool **before execution**
+   and raises a standard approval request whose card body is the tool name + arguments. Approve →
+   the tool executes with those arguments; reject → a "denied by reviewer: <comment>" tool
+   response feeds back into the agent loop. Enforcement lives in the platform, not in graph
+   topology or prompts — the agent cannot call a flagged tool un-gated.
+
+### D4 — In chat, approval is a card, never an input-mode takeover
+
+The approval arrives as a distinct card event carrying a `requestId` and resolves through its own
+endpoint (the existing tokenized approval resolution, plus comment/field payload). The chat input
+box remains the conversation: typing while an approval is pending is just conversation, and typed
+text **never** resolves an approval in either direction. This removes both n8n seams at once — the
+"same node cannot chat and gate" conflict and the "typing means disapproval" surprise.
+
+### Fallback matrix (no unsupported combinations)
+
+| Surface / caller | Approval | AskUserQuestion |
+|---|---|---|
+| Workflow chat (hosted) | Inline card | Inline question card (exists) |
+| Embedded chat | Same card via SSE/AG-UI | Same question card |
+| Canvas run without chat origin | Non-chat channels (Slack/email/link/task); chat channel alone = loud failure | N/A (agent without chat origin should not carry the tool; runtime = clear error) |
+| MCP / A2A headless call | Non-chat channels only | Clear error today; MCP elicitation / A2A input-required as later alignment |
+| AI Hub copilot | Out of scope | Hub's own pinned `askUserQuestion` (unchanged) |
+
+## Implementation phases
+
+1. **Approve/reject-with-comment (+ edited field values in the outcome)** on the approval
+   primitive — outcome payload extension through `resumeApproval` and the channel senders.
+2. **`ChatApprovalChannel`** + card events on the workflow-chat SSE contract + client card
+   rendering (hosted + embedded), including re-render of pending approvals on reload.
+3. **Platform tool gate**: `requiresApproval` on TOOLS cluster element config, interception in
+   `SuspendableToolCallingManager`, denial feedback into the loop, audit via the existing tool
+   execution recording.
+
+Phases 1–2 are independent of 3 and deliver the visible differentiation first.
