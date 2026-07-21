@@ -104,7 +104,8 @@ public class OrphanedJobRecoveryMonitor {
                 candidateJobIds.add(job.getId());
             }
         } catch (UnsupportedOperationException exception) {
-            // Remote-client deployments without stale-query support skip orphan detection entirely.
+            // Deployments whose service implementations do not support the stale queries (e.g. lightweight
+            // app variants) skip orphan detection entirely; the standard EE remote clients implement them.
             if (log.isTraceEnabled()) {
                 log.trace("Orphan detection is not supported in this deployment", exception);
             }
