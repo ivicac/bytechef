@@ -251,10 +251,11 @@ again on another worker.
 
 - **No shipped orchestration**: no Docker Compose file or Helm chart exists for the distributed
   set — the shipped compose files and the `bytechef` Helm chart are monolith-only.
-- **Notifications and alert rules are monolith-only for now**: `coordinator-app` reaches
-  notification services through remote client stubs that are not yet implemented
-  (`platform-notification-remote-client` throws `UnsupportedOperationException`), so job-status
-  notifications and workflow alert rules currently require the monolith deployment.
+- **Email notifications and alert rules are monolith-only for now**: job-status notifications work
+  distributed for the webhook and Slack channels — `coordinator-app` resolves delivery targets
+  through `configuration-app`'s `/remote/notification-service` endpoints and delivers with the
+  shared CE transports — but the email channel warn-skips on `coordinator-app` (no mail sender is
+  wired there), and workflow alert rules still require the monolith deployment.
 - **Config server reachability**: apps reach the config server via a static URL
   (`http://localhost:6111` in dev) rather than discovery; point
   `spring.config.import` at your config server's address in each app's environment.

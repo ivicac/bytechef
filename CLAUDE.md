@@ -768,7 +768,8 @@ cd cli
   (Lua token bucket) + `RedisConcurrentExecutionGate` (bounded INCR/DECR, 24h self-healing
   TTL); both Redis impls fail open on Redis outages — pinned against a real Redis by
   `RedisPlanEnforcementIntTest` (Testcontainers)), `PlanRateLimitFilter`
-  (order 0, after the security chain: login 10/min/IP, webhooks → sync tier/tenant, public
+  (order 0, after the security chain: login 10/min/IP, webhooks + the MCP/A2A secret-key
+  endpoints (`/{secretKey}/mcp|sse|message`, `/api/automation/a2a/**`) → sync tier/tenant, public
   APIs → api tier/tenant, anonymous `/api/**` → per-IP; reject = 429 + Retry-After), and
   the two async-admission gates in `PrincipalJobFacadeImpl.createJob` plus the monthly-cost cap
   (`PlanSpendProvider` SPI, EE impl over cost rows, 60s memo, fail-open) (async only; sync
@@ -798,7 +799,10 @@ cd cli
   file-storage blobs (task outputs, job outputs, context values via `TaskFileStorage.delete*`) and
   context rows (`ContextService.getStackFileEntries`/`deleteStackContexts`) best-effort — a storage
   failure never blocks the row delete; in-memory repos throw `UnsupportedOperationException` for
-  context enumeration and the facade skips that portion. Quota rejections throw
+  context enumeration and the facade skips that portion. The retention monitor additionally drops
+  the purged job's `data_storage` CURRENT_EXECUTION rows via `DataStorage.deleteScopeData(scope,
+  scopeId)` (jdbc provider + remote client implement it; the file-storage provider throws and the
+  monitor skips). Quota rejections throw
   `QuotaLimitExceededException` (core exception-api) → HTTP 403 without Retry-After — a capacity
   ceiling, not a retryable rate limit (`RateLimitExceededException` stays 429) — and count into the
   rejection metric with tags `workspace`/`member`/`storage`.
@@ -880,7 +884,13 @@ cd cli
   email alike. `EmailNotificationSender` and the EE
   `AiObservabilityNotificationDispatcher` both call `mailService.sendEmail(...)` — no inline
   `JavaMailSender` remains anywhere in notification delivery.
-- Consumers: CE `WebhookNotificationSender` (job-status webhook channel; settings keys `webhook` +
+- Consumers: CE `WebhookNotificationSender` and `SlackNotificationSender` live in
+  platform-notification-delivery (so coordinator-app carries them; `EmailNotificationSender` stays
+  in platform-notification-service next to its MailService wiring — the EMAIL channel warn-skips on
+  coordinator-app). In the distributed deployment the coordinator resolves delivery targets through
+  `configuration-app`'s `/remote/notification-service` read endpoints
+  (platform-notification-remote-rest + the implemented `RemoteNotificationServiceClient` reads).
+  `WebhookNotificationSender` (job-status webhook channel; settings keys `webhook` +
   optional `webhookSecret`, `@Async`), payload shaped by `JobStatusWebhookNotificationHandler` in
   platform-coordinator; platform-coordinator's `WebhookJobStatusApplicationEventListener` delegates the
   Atlas job-callback delivery to `deliverEvent` with the `Job.Retry` schedule (defaults: 5 attempts,

@@ -19,6 +19,8 @@ package com.bytechef.platform.coordinator.monitor;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
+import com.bytechef.platform.data.storage.DataStorage;
+import com.bytechef.platform.data.storage.domain.DataStorageScope;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.service.TenantService;
@@ -56,6 +58,7 @@ public class JobRetentionMonitor {
     @Nullable
     private final Integer defaultRetentionDays;
 
+    private final ObjectProvider<DataStorage> dataStorageObjectProvider;
     private final JobFacade jobFacade;
     private final JobService jobService;
     private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
@@ -63,9 +66,11 @@ public class JobRetentionMonitor {
 
     @SuppressFBWarnings("EI2")
     public JobRetentionMonitor(
-        @Nullable Integer defaultRetentionDays, JobFacade jobFacade, JobService jobService,
+        ObjectProvider<DataStorage> dataStorageObjectProvider, @Nullable Integer defaultRetentionDays,
+        JobFacade jobFacade, JobService jobService,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider, TenantService tenantService) {
 
+        this.dataStorageObjectProvider = dataStorageObjectProvider;
         this.defaultRetentionDays = defaultRetentionDays;
         this.jobFacade = jobFacade;
         this.jobService = jobService;
@@ -114,6 +119,8 @@ public class JobRetentionMonitor {
             try {
                 jobFacade.deleteJob(expiredJob.getId());
 
+                deleteExecutionData(expiredJob.getId());
+
                 purgedJobCount++;
             } catch (UnsupportedOperationException exception) {
                 log.debug("Job deletion unsupported in this deployment; skipping retention purge");
@@ -126,6 +133,27 @@ public class JobRetentionMonitor {
 
         if (purgedJobCount > 0) {
             log.info("Purged {} job(s) older than the {}-day retention window", purgedJobCount, retentionDays);
+        }
+    }
+
+    /**
+     * Drops the job's {@code CURRENT_EXECUTION} data-storage entries (crash-orphaned agent/agentic checkpoints and
+     * anything else components stored at that scope). Best-effort: the rows are already gone, so a data-storage failure
+     * — or a provider that cannot enumerate by scope (file-storage) — must not fail the sweep.
+     */
+    private void deleteExecutionData(long jobId) {
+        DataStorage dataStorage = dataStorageObjectProvider.getIfAvailable();
+
+        if (dataStorage == null) {
+            return;
+        }
+
+        try {
+            dataStorage.deleteScopeData(DataStorageScope.CURRENT_EXECUTION, String.valueOf(jobId));
+        } catch (UnsupportedOperationException exception) {
+            log.debug("Scope-wide data-storage delete unsupported by this provider; skipping execution-data cleanup");
+        } catch (RuntimeException exception) {
+            log.warn("Failed to delete execution data for purged job {}", jobId, exception);
         }
     }
 

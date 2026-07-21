@@ -90,8 +90,9 @@ public class PlanRateLimitFilter extends OncePerRequestFilter {
         String bucketKey;
         String limitTag;
 
-        if (path.startsWith("/webhooks/")) {
-            // Webhook trigger calls — Sim's sync request tier, budgeted per tenant.
+        if (path.startsWith("/webhooks/") || isSyncExecutionPath(path)) {
+            // Webhook trigger calls plus the MCP and A2A secret-key endpoints — every surface that can start a
+            // synchronous workflow run — Sim's sync request tier, budgeted per tenant.
             permitsPerMinute = planLimits.syncRequestsPerMinute();
             bucketKey = "sync:" + TenantContext.getCurrentTenantId();
             limitTag = "sync";
@@ -127,6 +128,40 @@ public class PlanRateLimitFilter extends OncePerRequestFilter {
 
     private static boolean isPublicApiPath(String path) {
         return path.startsWith("/api/automation/v1/") || path.startsWith("/api/embedded/v1/");
+    }
+
+    /**
+     * The non-webhook surfaces that execute workflows synchronously: the per-server MCP endpoints
+     * ({@code /api/automation|embedded|management/{secretKey}/mcp} plus the SSE transport's {@code /sse} and
+     * {@code /message} paths) and the A2A JSON-RPC endpoints under {@code /api/automation/a2a/}. Matched structurally
+     * (prefix + single secret-key segment + fixed tail) rather than by regex, so an internal API path that merely ends
+     * in one of the tails cannot be misclassified.
+     */
+    private static boolean isSyncExecutionPath(String path) {
+        if (path.startsWith("/api/automation/a2a/")) {
+            return true;
+        }
+
+        return isMcpServerPath(path, "/api/automation/") || isMcpServerPath(path, "/api/embedded/") ||
+            isMcpServerPath(path, "/api/management/");
+    }
+
+    private static boolean isMcpServerPath(String path, String prefix) {
+        if (!path.startsWith(prefix)) {
+            return false;
+        }
+
+        String remainder = path.substring(prefix.length());
+
+        int slashIndex = remainder.indexOf('/');
+
+        if (slashIndex <= 0) {
+            return false;
+        }
+
+        String tail = remainder.substring(slashIndex);
+
+        return "/mcp".equals(tail) || "/sse".equals(tail) || "/message".equals(tail);
     }
 
     private static boolean isAnonymous() {

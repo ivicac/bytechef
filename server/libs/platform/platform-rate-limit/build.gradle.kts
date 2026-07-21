@@ -15,10 +15,12 @@ dependencies {
     implementation(project(":server:libs:platform:platform-plan:platform-plan-api"))
 
     testImplementation("io.lettuce:lettuce-core")
+    testImplementation("jakarta.servlet:jakarta.servlet-api")
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.junit.jupiter:junit-jupiter-api")
     testImplementation("org.mockito:mockito-core")
     testImplementation("org.mockito:mockito-junit-jupiter")
+    testImplementation("org.springframework:spring-test")
     testImplementation("org.testcontainers:junit-jupiter")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
 }

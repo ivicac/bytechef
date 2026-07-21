@@ -18,6 +18,7 @@ package com.bytechef.platform.coordinator.monitor;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -26,6 +27,8 @@ import static org.mockito.Mockito.when;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
+import com.bytechef.platform.data.storage.DataStorage;
+import com.bytechef.platform.data.storage.domain.DataStorageScope;
 import com.bytechef.platform.plan.domain.PlanLimits;
 import com.bytechef.platform.plan.domain.PlanTier;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
@@ -46,6 +49,7 @@ import org.springframework.beans.factory.ObjectProvider;
  */
 public class JobRetentionMonitorTest {
 
+    private final DataStorage dataStorage = mock(DataStorage.class);
     private final JobFacade jobFacade = mock(JobFacade.class);
     private final JobService jobService = mock(JobService.class);
     private final TenantService tenantService = mock(TenantService.class);
@@ -73,6 +77,7 @@ public class JobRetentionMonitorTest {
         jobRetentionMonitor.purgeExpiredJobs();
 
         verify(jobFacade).deleteJob(1L);
+        verify(dataStorage).deleteScopeData(DataStorageScope.CURRENT_EXECUTION, "1");
     }
 
     @Test
@@ -120,12 +125,21 @@ public class JobRetentionMonitorTest {
         Integer defaultRetentionDays, PlanLimitsProvider planLimitsProvider) {
 
         @SuppressWarnings("unchecked")
+        ObjectProvider<DataStorage> dataStorageObjectProvider = (ObjectProvider<DataStorage>) mock(
+            ObjectProvider.class);
+
+        lenient()
+            .when(dataStorageObjectProvider.getIfAvailable())
+            .thenReturn(dataStorage);
+
+        @SuppressWarnings("unchecked")
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider =
             (ObjectProvider<PlanLimitsProvider>) mock(ObjectProvider.class);
 
         when(planLimitsProviderObjectProvider.getIfAvailable()).thenReturn(planLimitsProvider);
 
         return new JobRetentionMonitor(
-            defaultRetentionDays, jobFacade, jobService, planLimitsProviderObjectProvider, tenantService);
+            dataStorageObjectProvider, defaultRetentionDays, jobFacade, jobService, planLimitsProviderObjectProvider,
+            tenantService);
     }
 }

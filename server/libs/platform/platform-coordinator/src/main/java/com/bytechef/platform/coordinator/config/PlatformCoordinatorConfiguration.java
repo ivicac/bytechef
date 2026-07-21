@@ -30,6 +30,7 @@ import com.bytechef.platform.coordinator.metrics.JobExecutionCounter;
 import com.bytechef.platform.coordinator.monitor.JobRetentionMonitor;
 import com.bytechef.platform.coordinator.monitor.JobTimeoutMonitor;
 import com.bytechef.platform.coordinator.monitor.OrphanedJobRecoveryMonitor;
+import com.bytechef.platform.data.storage.DataStorage;
 import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
 import com.bytechef.platform.notification.handler.NotificationHandlerRegistry;
 import com.bytechef.platform.notification.handler.NotificationSenderRegistry;
@@ -122,12 +123,14 @@ public class PlatformCoordinatorConfiguration {
     @ConditionalOnProperty(
         name = "bytechef.workflow.execution.retention.enabled", havingValue = "true", matchIfMissing = true)
     JobRetentionMonitor jobRetentionMonitor(
+        ObjectProvider<DataStorage> dataStorageObjectProvider,
         @Value("${bytechef.workflow.execution.retention.default-retention-days:#{null}}") Integer defaultRetentionDays,
         JobFacade jobFacade, ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
         TenantService tenantService) {
 
         return new JobRetentionMonitor(
-            defaultRetentionDays, jobFacade, jobService, planLimitsProviderObjectProvider, tenantService);
+            dataStorageObjectProvider, defaultRetentionDays, jobFacade, jobService, planLimitsProviderObjectProvider,
+            tenantService);
     }
 
     @Bean

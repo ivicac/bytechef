@@ -324,7 +324,7 @@ The Context Store sync engine writes records to Postgres by default (the same da
 | `BYTECHEF_PLAN_ENFORCEMENT_ENABLED` | Enable plan-limit enforcement (rate limits, concurrency slots, cost cap, quotas). With the `SELF_HOSTED` tier every limit is null, so enforcement is a no-op until a tier is configured | `true` |
 | `BYTECHEF_PLAN_ENFORCEMENT_PROVIDER` | Backing store for rate buckets and concurrency counters (`local`, `redis`). `local` keeps per-node in-memory state; `redis` shares state across nodes for strict global limits and fails open on Redis outages | `local` |
 | `BYTECHEF_PLAN_LIMITS_INCLUDED_MONTHLY_COST_USD` | Override: execution spend (USD) allowed per calendar month (UTC) before new asynchronous runs are rejected | tier default |
-| `BYTECHEF_PLAN_LIMITS_SYNC_REQUESTS_PER_MINUTE` | Override: sustained per-minute rate for synchronous workflow executions | tier default |
+| `BYTECHEF_PLAN_LIMITS_SYNC_REQUESTS_PER_MINUTE` | Override: sustained per-minute rate for synchronous workflow executions (webhook trigger calls plus the MCP and A2A secret-key endpoints) | tier default |
 | `BYTECHEF_PLAN_LIMITS_ASYNC_REQUESTS_PER_MINUTE` | Override: sustained per-minute rate for asynchronous workflow submissions | tier default |
 | `BYTECHEF_PLAN_LIMITS_API_REQUESTS_PER_MINUTE` | Override: sustained per-minute rate for general public API requests | tier default |
 | `BYTECHEF_PLAN_LIMITS_BURST_MULTIPLIER` | Override: token-bucket burst capacity as a multiple of the sustained rate | tier default |
