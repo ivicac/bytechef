@@ -787,6 +787,14 @@ cd cli
   `UnsupportedOperationException`; the monitor warn-skips, so orphan detection is monolith-only
   for now). Detection lives OUTSIDE `server/libs/atlas/` except the engine-owned heartbeat
   primitives; semantics pinned by `OrphanedJobRecoveryMonitorTest`.
+- **Transactional completion**: `DefaultTaskCompletionHandler` takes an optional
+  `TransactionTemplate` (coordinator config wires it from `ObjectProvider<PlatformTransactionManager>`)
+  and runs update-task + push-context + advance-job (+ next-task create/dispatch) in ONE
+  transaction — closing the half-advanced coordinator-crash window. Dispatch stays correct because
+  `TaskExecutionEvent`/`JobStatusApplicationEvent` are `MessageEvent`s and `MessageEventListener`
+  is `@TransactionalEventListener(AFTER_COMMIT, fallbackExecution = true)` — deferred under a
+  transaction, immediate without one. `JobSyncExecutor` passes null (in-memory sync path,
+  unchanged). Pinned by `DefaultTaskCompletionHandlerTest`.
 - **Agent-loop checkpoints**: `SuspendableToolCallingManager` takes an optional per-tool-round
   checkpointer; the AI Agent writes `AiAgentConversationCheckpoint` (SHA-256 input-parameter
   fingerprint + `ConversationState`) to `Data.Scope.CURRENT_EXECUTION` after each completed
