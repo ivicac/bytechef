@@ -4,21 +4,20 @@ With the Agentic AI component, you can define a goal and let the AI autonomously
 
 ## Enabling the Component
 
-The component is disabled by default because Embabel's agent platform refuses to start without at
-least one registered model, and its OpenAI model registration refuses to start without an API key.
-To enable it:
+The component is disabled by default. To enable it, add the `agentic` Spring profile:
+`SPRING_PROFILES_ACTIVE=<your profiles>,agentic` (on the server, and in distributed deployments
+also on the worker). No provider API key is required.
 
-1. Set `OPENAI_API_KEY` in the server (and, in distributed deployments, worker) environment.
-2. Add the `agentic` Spring profile: `SPRING_PROFILES_ACTIVE=<your profiles>,agentic`.
-3. Optionally pick the planner model with `EMBABEL_MODELS_DEFAULT_LLM` (default `gpt-4.1-mini`).
+The `agentic` profile re-enables Embabel's `AgentPlatformAutoConfiguration`, which is excluded in
+the default configuration. Without the profile the component stays invisible (its handler is
+`@ConditionalOnBean(AgentPlatform.class)`) and server startup is unaffected.
 
-The `agentic` profile re-enables Embabel's `AgentPlatformAutoConfiguration` and
-`AgentOpenAiAutoConfiguration`, which are excluded in the default configuration. Without the
-profile the component stays invisible (its handler is `@ConditionalOnBean(AgentPlatform.class)`)
-and server startup is unaffected.
-
-Note: the planner's LLM comes from Embabel's own model registry (`OPENAI_API_KEY` +
-`embabel.models.*` properties), not from the MODEL cluster element or ByteChef connections.
+**Model source**: all of the agent's LLM calls — action prompts and smart-goal evaluations —
+run against the workflow's canvas-selected MODEL cluster element (e.g. OpenAI, Anthropic) with
+its ByteChef connection, exactly like the AI Agent component. A model with a connection is
+required on the canvas. Embabel's own model registry is never used; it is satisfied at startup
+by ByteChef's inert `bytechef-canvas` placeholder model, which the profile points
+`embabel.models.default-llm` at.
 
 ## Cluster Element Types
 

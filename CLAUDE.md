@@ -514,15 +514,20 @@ trigger + post-turn query invalidation.
 
 - `server/libs/modules/components/ai/agentic-ai` wraps Embabel **1.0.0**'s GOAP planner
   (`EmbabelAgentRunner.kt`, the repo's only Kotlin production code). The component is OFF by
-  default and opt-in via the `agentic` Spring profile: Embabel's platform hard-fails at boot with
-  zero registered models and `AgentOpenAiAutoConfiguration` hard-fails without `OPENAI_API_KEY`,
-  so BOTH are in the default `spring.autoconfigure.exclude` (server-app, worker-app, and the
-  liquibase profile) and re-enabled together by `application-agentic.yml` (which mirrors the
-  default exclude list minus the two Embabel entries — profile property values replace wholesale,
-  keep them in sync). Enable = `SPRING_PROFILES_ACTIVE+=agentic` + `OPENAI_API_KEY`
-  (+ optional `EMBABEL_MODELS_DEFAULT_LLM`, default gpt-4.1-mini). The handler stays
-  `@ConditionalOnBean(AgentPlatform.class)`; the planner LLM comes from Embabel's model registry,
-  NOT from the MODEL cluster element or ByteChef connections.
+  default and opt-in via the `agentic` Spring profile — no provider API key needed:
+  `AgentPlatformAutoConfiguration` sits in the default `spring.autoconfigure.exclude`
+  (server-app, worker-app, and the liquibase profile) and `application-agentic.yml` re-enables it
+  (the profile file mirrors the default exclude list minus the Embabel entry — profile property
+  values replace wholesale, keep them in sync) plus sets `embabel.models.default-llm:
+  bytechef-canvas`, the inert placeholder `SpringAiLlmService` registered by
+  `AgenticAiPlatformConfiguration` purely so Embabel's `ConfigurableModelProvider` (which
+  hard-fails with zero models) can boot. The handler stays `@ConditionalOnBean(AgentPlatform.class)`.
+- **All LLM calls use the canvas-selected MODEL cluster element** (required, with its ByteChef
+  connection): action prompts run via `ChatClient.create(chatModel)` with the step's Spring AI
+  ToolCallbacks (client-side tool loop), and smart-goal evaluation is `CanvasSmartGoalCondition`
+  (an Embabel `Condition` backed by the same ChatModel) instead of Embabel's `PromptCondition`.
+  Embabel's model registry/LLM layer is never invoked, so its token/cost budget can't observe
+  usage — the action-count budget is the effective cap.
 - Blackboard carriers: untyped bindings use the `Binding(content)` data class; bindings whose
   producers declare an `outputSchema` on the ACTION cluster element become **typed** — an Embabel
   `DynamicType` named after the binding (PascalCase), carried as a `_typeName`-tagged map.

@@ -16,14 +16,15 @@
 
 package com.bytechef.component.ai.agenticai.embabel
 
+import com.embabel.agent.api.common.OperationContext
 import com.embabel.agent.api.common.TransformationActionContext
 import com.embabel.agent.api.dsl.agent
-import com.embabel.agent.api.tool.Tool
 import com.embabel.agent.core.ActionRunner
 import com.embabel.agent.core.ActionStatus
 import com.embabel.agent.core.AgentPlatform
 import com.embabel.agent.core.Budget
 import com.embabel.agent.core.Cardinality
+import com.embabel.agent.core.Condition
 import com.embabel.agent.core.DomainType
 import com.embabel.agent.core.DynamicType
 import com.embabel.agent.core.IoBinding
@@ -33,12 +34,14 @@ import com.embabel.agent.core.TYPE_LABELS_KEY
 import com.embabel.agent.core.TYPE_NAME_KEY
 import com.embabel.agent.core.ValuePropertyDefinition
 import com.embabel.agent.core.support.AbstractAction
-import com.embabel.agent.core.support.LlmCall
-import com.embabel.agent.experimental.primitive.PromptCondition
+import com.embabel.common.core.types.ZeroToOne
+import com.embabel.plan.common.condition.ConditionDetermination
 import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.databind.ObjectMapper
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings
 import org.slf4j.LoggerFactory
+import org.springframework.ai.chat.client.ChatClient
+import org.springframework.ai.chat.model.ChatModel
 import org.springframework.ai.tool.ToolCallback
 
 private val logger = LoggerFactory.getLogger(EmbabelAgentRunner::class.java)
@@ -109,14 +112,15 @@ data class ActionStep @JvmOverloads constructor(
 data class Binding(val content: String)
 
 /**
- * GOAP action over dynamically-typed (schema-declared) blackboard bindings.
+ * GOAP action over named blackboard bindings, executed against the canvas-selected Spring AI
+ * [ChatModel] instead of Embabel's internal model registry.
  *
- * Embabel's stock prompted transformer derives its [IoBinding]s from JVM classes, which makes
- * every canvas action interchangeable at the type level (everything is [Binding]). This action
- * instead declares its input/output bindings with *dynamic* type names backed by [DynamicType]
- * property schemas, and carries values as [TYPE_NAME_KEY]-tagged maps — Embabel 1.0's carrier for
- * runtime-declared domain models. Untyped sides fall back to the [Binding] carrier class, so
- * typed and untyped actions coexist in one agent.
+ * Embabel's stock prompted transformer derives its [IoBinding]s from JVM classes and resolves its
+ * LLM from the platform's model registry. This action instead declares its input/output bindings
+ * with explicit type names — [DynamicType] names for schema-declared (typed) bindings, the
+ * [Binding] class name for untyped ones — and computes its output via the supplied block, which
+ * calls the workflow's own model. Typed values travel as [TYPE_NAME_KEY]-tagged maps, Embabel
+ * 1.0's carrier for runtime-declared domain models.
  */
 internal class DynamicTransformationAction(
     name: String,
@@ -172,6 +176,76 @@ internal class DynamicTransformationAction(
 }
 
 /**
+ * Smart-goal condition evaluated against the canvas-selected [ChatModel] (instead of Embabel's
+ * experimental `PromptCondition`, which resolves its LLM from the platform's model registry). The
+ * model is asked whether the value currently at the goal binding satisfies the goal description
+ * and must answer `true` or `false`; an unparseable answer counts as not-satisfied so the planner
+ * keeps working (bounded by the process [Budget]).
+ */
+internal class CanvasSmartGoalCondition(
+    private val goalDescription: String,
+    private val goalOutputBinding: String,
+    private val chatModel: ChatModel,
+) : Condition {
+
+    override val name: String = "smart-goal-$goalOutputBinding"
+
+    /** This is as expensive as it can get: every evaluation is an LLM call. */
+    override val cost: ZeroToOne = 1.0
+
+    override fun evaluate(context: OperationContext): ConditionDetermination {
+        val producedValue = when (val bound = context.processContext.agentProcess[goalOutputBinding]) {
+            is Binding -> bound.content
+            is Map<*, *> -> renderInputContent(bound)
+            null -> return ConditionDetermination.FALSE
+            else -> {
+                logger.warn(
+                    "Smart-goal condition for binding '{}' encountered unexpected bound type {}; " +
+                        "falling back to toString(). This usually means an action wrote a value of the " +
+                        "wrong type at the goal binding.",
+                    goalOutputBinding, bound.javaClass.name,
+                )
+                bound.toString()
+            }
+        }
+
+        val prompt =
+            """
+            Goal: $goalDescription
+
+            Current value at binding "$goalOutputBinding":
+            $producedValue
+
+            Does the current value satisfy the goal? Answer with EXACTLY one word: true or false.
+            Answer true only if the value directly and completely addresses the goal; answer false
+            if it is missing information, off-topic, or only partially addresses the goal.
+            """.trimIndent()
+
+        val answer = ChatClient.create(chatModel)
+            .prompt()
+            .user(prompt)
+            .call()
+            .content()
+            ?.trim()
+            ?.lowercase()
+            ?: ""
+
+        return when {
+            answer.startsWith("true") -> ConditionDetermination.TRUE
+            answer.startsWith("false") -> ConditionDetermination.FALSE
+            else -> {
+                logger.warn(
+                    "Smart-goal condition '{}' got an unparseable answer '{}'; treating the goal as " +
+                        "not yet satisfied.",
+                    name, answer.take(80),
+                )
+                ConditionDetermination.FALSE
+            }
+        }
+    }
+}
+
+/**
  * Bridges ByteChef's canvas-authored agentic actions with Embabel's GOAP planner.
  *
  * Each [ActionStep] becomes an Embabel action whose precondition and effect are named blackboard
@@ -185,22 +259,26 @@ internal class DynamicTransformationAction(
  * minimizing total plan cost (see [ActionStep.cost]) — so branching is exercised in structural mode
  * too, not only in smart-goal mode.
  *
+ * **Model source**: every LLM call — action prompts and smart-goal evaluations alike — goes
+ * through the canvas-selected [ChatModel] (the MODEL cluster element with its ByteChef
+ * connection). Embabel's own model registry is never consulted, so the platform can run without
+ * any provider API key of its own; only the planner (action selection, budgets, blackboard) comes
+ * from Embabel. Note that Embabel's token/cost budget cannot observe these direct model calls —
+ * the action-count budget is the effective cap.
+ *
  * **Typed bindings** (opt-in per action via [ActionStep.outputProperties]): a binding whose
  * producers declare an output schema is represented as an Embabel [DynamicType] named after the
- * binding, its values carried as [TYPE_NAME_KEY]-tagged maps. Actions touching a typed binding are
- * built as [DynamicTransformationAction]s: the model is instructed to return a JSON object with the
- * declared properties, the response is parsed and tagged, and downstream actions receive the
- * object rendered as JSON in their `{input}`. A typed goal binding makes [run] return the parsed
- * object (a `Map`) instead of a string. Untyped actions keep the [Binding] carrier and the plain
- * prompted-transformer path.
+ * binding, its values carried as [TYPE_NAME_KEY]-tagged maps. The model is instructed to return a
+ * JSON object with the declared properties, the response is parsed and tagged, and downstream
+ * actions receive the object rendered as JSON in their `{input}`. A typed goal binding makes [run]
+ * return the parsed object (a `Map`) instead of a string.
  *
  * **Smart goal mode** (opt-in via `smartGoal = true`): the structural `goalOutputBinding`
- * requirement is kept as the planner's target, and additionally a [PromptCondition] is attached to
- * the goal's preconditions. After the binding is produced, the LLM is asked whether its content
- * actually satisfies `goalDescription`. If not, the planner may backtrack and try an alternative
- * action path that also produces `goalOutputBinding` (the canvas may declare several). This adds an
- * LLM call per goal evaluation, so it is disabled by default. Uses the experimental
- * [PromptCondition] API; revisit when Embabel promotes it out of `experimental.primitive`.
+ * requirement is kept as the planner's target, and additionally a [CanvasSmartGoalCondition] is
+ * attached to the goal's preconditions. After the binding is produced, the model is asked whether
+ * its content actually satisfies `goalDescription`. If not, the planner may backtrack and try an
+ * alternative action path that also produces `goalOutputBinding` (the canvas may declare several).
+ * This adds an LLM call per goal evaluation, so it is disabled by default.
  *
  * @author Ivica Cardic
  */
@@ -213,6 +291,7 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
         goalOutputBinding: String,
         smartGoal: Boolean,
         systemPrompt: String?,
+        chatModel: ChatModel,
     ): Any {
         require(actionSteps.isNotEmpty()) { "At least one action step is required" }
         require(goalOutputBinding.isNotBlank()) { "goalOutputBinding must not be blank" }
@@ -254,7 +333,7 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
         val bindingTypes = resolveBindingTypes(actionSteps)
 
         val goalConditions = if (smartGoal) {
-            listOf(buildSmartGoalCondition(goalDescription, goalOutputBinding))
+            listOf(CanvasSmartGoalCondition(goalDescription, goalOutputBinding, chatModel))
         } else {
             emptyList()
         }
@@ -264,25 +343,10 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
             description = goalDescription,
         ) {
             for (actionStep in actionSteps) {
-                val stepTools = actionStep.toolCallbacks.map { toEmbabelTool(it) }
-
-                val stepCost = actionStep.cost
-
                 val inputType = bindingTypes[actionStep.inputBinding]
                 val outputType = bindingTypes[actionStep.outputBinding]
 
-                if (inputType == null && outputType == null) {
-                    promptedTransformer<Binding, Binding>(
-                        name = actionStep.name,
-                        description = actionStep.description,
-                        inputVarName = actionStep.inputBinding,
-                        outputVarName = actionStep.outputBinding,
-                        cost = { _ -> stepCost },
-                        tools = stepTools,
-                    ) { context -> buildPrompt(actionStep, context.input.content, systemPrompt) }
-                } else {
-                    action { buildDynamicAction(actionStep, inputType, outputType, stepTools, systemPrompt) }
-                }
+                action { buildDynamicAction(actionStep, inputType, outputType, systemPrompt, chatModel) }
             }
 
             goal(
@@ -385,8 +449,8 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
         actionStep: ActionStep,
         inputType: DynamicType?,
         outputType: DynamicType?,
-        stepTools: List<Tool>,
         systemPrompt: String?,
+        chatModel: ChatModel,
     ): DynamicTransformationAction {
         val bindingTypeName = Binding::class.java.name
 
@@ -410,9 +474,7 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
             val prompt = buildPrompt(actionStep, renderInputContent(context.input), systemPrompt) +
                 typedOutputInstructions(outputType)
 
-            val responseText = context.promptRunner()
-                .withTools(stepTools)
-                .generateText(prompt)
+            val responseText = callCanvasModel(chatModel, prompt, actionStep.toolCallbacks)
 
             if (outputType == null) {
                 Binding(responseText)
@@ -469,7 +531,8 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
      *
      * Smart-goal mode can backtrack through alternative action paths when the LLM rejects a
      * produced value, so we grant it a higher action cap; structural mode runs a deterministic
-     * plan and gets the tighter cap.
+     * plan and gets the tighter cap. The token/cost limits are nominal: canvas-model calls bypass
+     * Embabel's LLM layer, so only the action count is actually observed.
      */
     private fun buildProcessOptions(smartGoal: Boolean): ProcessOptions {
         val budget = if (smartGoal) {
@@ -479,26 +542,6 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
         }
 
         return ProcessOptions(budget = budget)
-    }
-
-    private fun toEmbabelTool(toolCallback: ToolCallback): Tool {
-        val toolName = toolCallback.toolDefinition.name()
-
-        return Tool.create(
-            toolName,
-            toolCallback.toolDefinition.description(),
-        ) { toolInput ->
-            try {
-                Tool.Result.text(toolCallback.call(toolInput))
-            } catch (e: Exception) {
-                // Tool failures must not be swallowed into the generic "goal not achieved" error:
-                // log the real cause with the tool name so operators can diagnose, then surface the
-                // exception as a tool-level error the planner can see instead of a silent empty
-                // result that would mask the failure as a budget/unreachable problem.
-                logger.error("Tool '{}' invocation failed: {}", toolName, e.message, e)
-                throw e
-            }
-        }
     }
 
     companion object {
@@ -523,6 +566,30 @@ class EmbabelAgentRunner(private val agentPlatform: AgentPlatform) {
         /** Cost ceiling (USD) for smart-goal plans; higher to accommodate extra goal-evaluation LLM calls. */
         private const val SMART_GOAL_COST_LIMIT: Double = 3.0
     }
+}
+
+/**
+ * Runs one action prompt against the canvas-selected model, with the action's tools bound so the
+ * model can call them (Spring AI's client-side tool-execution loop). Tool failures propagate as
+ * exceptions and fail the action — the planner sees the failure instead of a silently empty
+ * result that would masquerade as a budget or unreachable-goal problem.
+ */
+private fun callCanvasModel(
+    chatModel: ChatModel,
+    prompt: String,
+    toolCallbacks: List<ToolCallback>,
+): String {
+    var chatClientRequestSpec = ChatClient.create(chatModel)
+        .prompt()
+        .user(prompt)
+
+    if (toolCallbacks.isNotEmpty()) {
+        chatClientRequestSpec = chatClientRequestSpec.toolCallbacks(toolCallbacks)
+    }
+
+    return chatClientRequestSpec.call()
+        .content()
+        ?: ""
 }
 
 /**
@@ -663,45 +730,4 @@ private fun buildPrompt(actionStep: ActionStep, inputContent: String, systemProm
             append(systemPrompt)
         }
     }
-}
-
-/**
- * Builds an LLM-evaluated condition that asks whether the value currently bound to
- * [goalOutputBinding] semantically satisfies [goalDescription]. Uses the platform's default LLM
- * (the same one the action transformers resolve). The condition is named so log output and
- * Embabel's condition-caching can identify it; the name is stable across runs of the same agent
- * so the planner's condition memoization applies.
- */
-private fun buildSmartGoalCondition(goalDescription: String, goalOutputBinding: String): PromptCondition {
-    return PromptCondition(
-        name = "smart-goal-$goalOutputBinding",
-        prompt = { context ->
-            val producedValue = when (val bound = context.processContext.agentProcess[goalOutputBinding]) {
-                is Binding -> bound.content
-                is Map<*, *> -> renderInputContent(bound)
-                null -> "(nothing produced yet)"
-                else -> {
-                    logger.warn(
-                        "Smart-goal condition for binding '{}' encountered unexpected bound type {}; " +
-                            "falling back to toString(). This usually means an action wrote a value of the " +
-                            "wrong type at the goal binding.",
-                        goalOutputBinding, bound.javaClass.name,
-                    )
-                    bound.toString()
-                }
-            }
-
-            """
-            Goal: $goalDescription
-
-            Current value at binding "$goalOutputBinding":
-            $producedValue
-
-            Does the current value satisfy the goal? Answer true only if the value directly and
-            completely addresses the goal; answer false if it is missing information, off-topic, or
-            only partially addresses the goal.
-            """.trimIndent()
-        },
-        llm = LlmCall(),
-    )
 }

@@ -37,7 +37,9 @@ import static com.bytechef.component.ai.agenticai.constant.AgenticAiConstants.RU
 import static com.bytechef.component.ai.llm.constant.LLMConstants.SYSTEM_PROMPT;
 import static com.bytechef.component.definition.ComponentDsl.action;
 import static com.bytechef.platform.component.definition.ai.agent.ActionFunction.ACTION;
+import static com.bytechef.platform.component.definition.ai.agent.ModelFunction.MODEL;
 
+import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.ai.agenticai.embabel.ActionStep;
 import com.bytechef.component.ai.agenticai.embabel.EmbabelAgentRunner;
 import com.bytechef.component.ai.agenticai.embabel.OutputProperty;
@@ -52,18 +54,21 @@ import com.bytechef.platform.component.definition.AbstractActionDefinitionWrappe
 import com.bytechef.platform.component.definition.MultipleConnectionsOutputFunction;
 import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunction;
 import com.bytechef.platform.component.definition.ParametersFactory;
+import com.bytechef.platform.component.definition.ai.agent.ModelFunction;
 import com.bytechef.platform.component.definition.ai.agent.ToolCallbackProviderFunction;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 
@@ -134,7 +139,44 @@ public class AgenticAiRunAction {
 
         String systemPrompt = inputParameters.getString(SYSTEM_PROMPT);
 
-        return embabelAgentRunner.run(actionSteps, goalDescription, goalOutputBinding, smartGoal, systemPrompt);
+        ChatModel chatModel = getChatModel(inputParameters, connectionParameters, clusterElementMap);
+
+        return embabelAgentRunner.run(
+            actionSteps, goalDescription, goalOutputBinding, smartGoal, systemPrompt, chatModel);
+    }
+
+    /**
+     * Resolves the canvas-selected MODEL cluster element into a Spring AI {@link ChatModel}. All the agent's LLM calls
+     * — action prompts and smart-goal evaluations — run against this model, so the component works without Embabel's
+     * own model registry (and without any provider API key beyond the model's ByteChef connection).
+     */
+    private ChatModel getChatModel(
+        Parameters inputParameters, Map<String, ComponentConnection> connectionParameters,
+        ClusterElementMap clusterElementMap) throws Exception {
+
+        ClusterElement modelClusterElement = clusterElementMap.fetchClusterElement(MODEL)
+            .orElseThrow(() -> new IllegalArgumentException(
+                "The Agentic AI component requires a Model: attach a model cluster element (e.g. OpenAI, " +
+                    "Anthropic) with its connection."));
+
+        ModelFunction modelFunction = clusterElementDefinitionService.getClusterElement(
+            modelClusterElement.getComponentName(), modelClusterElement.getComponentVersion(),
+            modelClusterElement.getClusterElementName());
+
+        ComponentConnection modelConnection = connectionParameters.get(modelClusterElement.getWorkflowNodeName());
+
+        if (modelConnection == null) {
+            throw new IllegalArgumentException(
+                "The Agentic AI component's model '" + modelClusterElement.getWorkflowNodeName() +
+                    "' has no connection selected.");
+        }
+
+        Map<String, Object> concatenatedInputParameters = MapUtils.concat(
+            new HashMap<>(inputParameters.toMap()), new HashMap<>(modelClusterElement.getParameters()));
+
+        return (ChatModel) modelFunction.apply(
+            ParametersFactory.create(concatenatedInputParameters),
+            ParametersFactory.create(modelConnection.getParameters()), false);
     }
 
     /**

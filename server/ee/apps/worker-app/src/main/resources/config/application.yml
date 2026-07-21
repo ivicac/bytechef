@@ -3,7 +3,6 @@ spring:
     name: worker-app
   autoconfigure:
     exclude:
-      com.embabel.agent.autoconfigure.models.openai.AgentOpenAiAutoConfiguration,
       com.embabel.agent.autoconfigure.platform.AgentPlatformAutoConfiguration,
       org.springaicommunity.agents.claude.autoconfigure.ClaudeAgentAutoConfiguration,
       org.springaicommunity.agents.claude.autoconfigure.ClaudeHookAutoConfiguration

@@ -212,12 +212,16 @@ reason it stayed dark, option 2 remains the recommendation from §3.
 > runner validates producer/consumer schema agreement per binding name up front (mixed
 > typed/untyped producers, conflicting schemas, schemas on `userGoal`, and `:` in binding names
 > are all rejected with actionable messages). The auto-config exclusion question is resolved as an
-> **opt-in `agentic` Spring profile**: Embabel's platform hard-fails at boot with zero registered
-> models, and its OpenAI model config hard-fails without `OPENAI_API_KEY`, so unconditional
-> enablement would break every keyless deployment. Both auto-configurations stay in the default
-> `spring.autoconfigure.exclude` (server-app + worker-app + liquibase profile) and
-> `application-agentic.yml` re-enables them together; `embabel-agent-starter-openai` is now a
-> module dependency so models register from the key.
+> **opt-in `agentic` Spring profile** with **no provider key required**: the platform's
+> zero-models boot failure is satisfied by an inert `bytechef-canvas` placeholder `LlmService`
+> (`AgenticAiPlatformConfiguration`) that the profile points `embabel.models.default-llm` at,
+> and all real LLM calls go through the canvas-selected MODEL cluster element — action prompts
+> via `ChatClient.create(chatModel)` with the step's Spring AI ToolCallbacks, smart-goal
+> evaluation via `CanvasSmartGoalCondition` (an Embabel `Condition` over the same ChatModel,
+> replacing `PromptCondition`). This closes the §4.2 "LLM structured output still needs Embabel's
+> model layer" concern by bypassing that layer entirely; the trade-off is that Embabel's
+> token/cost budget cannot observe the direct calls, leaving the action-count budget as the
+> effective cap.
 
 ## Sources
 

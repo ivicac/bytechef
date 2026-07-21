@@ -23,20 +23,30 @@ import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.embabel.agent.api.common.OperationContext;
 import com.embabel.agent.core.AgentPlatform;
 import com.embabel.agent.core.AgentProcess;
 import com.embabel.agent.core.DomainInstanceKt;
+import com.embabel.agent.core.ProcessContext;
+import com.embabel.plan.common.condition.ConditionDetermination;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.messages.AssistantMessage;
+import org.springframework.ai.chat.model.ChatModel;
+import org.springframework.ai.chat.model.ChatResponse;
+import org.springframework.ai.chat.model.Generation;
+import org.springframework.ai.chat.prompt.ChatOptions;
+import org.springframework.ai.chat.prompt.Prompt;
 
 /**
- * Covers the pre-platform validation rules in {@link EmbabelAgentRunner#run} and the goal-result extraction for both
- * carrier shapes (untyped {@link Binding} content, type-tagged maps of typed bindings). The validation rules encode the
- * safety guarantees called out in the commit history (unreachable goal, unreachable entry point, duplicate action
- * names, producer/consumer schema agreement) and must fail fast with actionable messages instead of deferring to an
- * opaque Embabel runtime error.
+ * Covers the pre-platform validation rules in {@link EmbabelAgentRunner#run}, the goal-result extraction for both
+ * carrier shapes (untyped {@link Binding} content, type-tagged maps of typed bindings), and the canvas-model smart-goal
+ * condition. The validation rules encode the safety guarantees called out in the commit history (unreachable goal,
+ * unreachable entry point, duplicate action names, producer/consumer schema agreement) and must fail fast with
+ * actionable messages instead of deferring to an opaque Embabel runtime error.
  *
  * @author Ivica Cardic
  */
@@ -50,13 +60,14 @@ class EmbabelAgentRunnerValidationTest {
     private static final double DEFAULT_COST = 1.0;
 
     private final AgentPlatform agentPlatform = mock(AgentPlatform.class);
+    private final ChatModel chatModel = mock(ChatModel.class);
     private final EmbabelAgentRunner runner = new EmbabelAgentRunner(agentPlatform);
 
     @Test
     void testEmptyActionStepsRejected() {
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
-            () -> runner.run(List.of(), "goal", RESULT_BINDING, false, null));
+            () -> runner.run(List.of(), "goal", RESULT_BINDING, false, null, chatModel));
 
         assertThat(exception.getMessage()).contains("action step");
     }
@@ -70,7 +81,7 @@ class EmbabelAgentRunnerValidationTest {
 
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
-            () -> runner.run(actionSteps, "goal", "   ", false, null));
+            () -> runner.run(actionSteps, "goal", "   ", false, null, chatModel));
 
         assertThat(exception.getMessage()).contains("goalOutputBinding");
     }
@@ -84,7 +95,7 @@ class EmbabelAgentRunnerValidationTest {
 
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
-            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null));
+            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null, chatModel));
 
         assertThat(exception.getMessage()).contains(RESULT_BINDING);
     }
@@ -98,7 +109,7 @@ class EmbabelAgentRunnerValidationTest {
 
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
-            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null));
+            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null, chatModel));
 
         assertThat(exception.getMessage()).contains(USER_GOAL_BINDING);
     }
@@ -114,7 +125,7 @@ class EmbabelAgentRunnerValidationTest {
 
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
-            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null));
+            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null, chatModel));
 
         assertThat(exception.getMessage()).contains("Duplicate");
     }
@@ -128,7 +139,7 @@ class EmbabelAgentRunnerValidationTest {
 
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
-            () -> runner.run(actionSteps, "goal", "result:Typed", false, null));
+            () -> runner.run(actionSteps, "goal", "result:Typed", false, null, chatModel));
 
         assertThat(exception.getMessage()).contains("':'");
     }
@@ -145,7 +156,7 @@ class EmbabelAgentRunnerValidationTest {
 
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
-            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null));
+            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null, chatModel));
 
         assertThat(exception.getMessage()).contains(RESULT_BINDING)
             .contains("agree");
@@ -163,7 +174,7 @@ class EmbabelAgentRunnerValidationTest {
 
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
-            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null));
+            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null, chatModel));
 
         assertThat(exception.getMessage()).contains("different output schemas");
     }
@@ -178,7 +189,7 @@ class EmbabelAgentRunnerValidationTest {
 
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
-            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null));
+            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null, chatModel));
 
         assertThat(exception.getMessage()).contains("duplicate");
     }
@@ -195,7 +206,7 @@ class EmbabelAgentRunnerValidationTest {
 
         IllegalArgumentException exception = assertThrows(
             IllegalArgumentException.class,
-            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null));
+            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null, chatModel));
 
         assertThat(exception.getMessage()).contains(USER_GOAL_BINDING);
     }
@@ -212,7 +223,7 @@ class EmbabelAgentRunnerValidationTest {
                 ACTION_NAME, ACTION_DESCRIPTION, ACTION_PROMPT, USER_GOAL_BINDING, RESULT_BINDING, List.of(),
                 DEFAULT_COST));
 
-        Object result = runner.run(actionSteps, "goal", RESULT_BINDING, false, null);
+        Object result = runner.run(actionSteps, "goal", RESULT_BINDING, false, null, chatModel);
 
         assertThat(result).isEqualTo("plain text result");
     }
@@ -238,7 +249,7 @@ class EmbabelAgentRunnerValidationTest {
                     new OutputProperty("title", "string", "The title"),
                     new OutputProperty("score", "integer", "The score"))));
 
-        Object result = runner.run(actionSteps, "goal", RESULT_BINDING, false, null);
+        Object result = runner.run(actionSteps, "goal", RESULT_BINDING, false, null, chatModel);
 
         assertThat(result).isEqualTo(Map.of("title", "Structured", "score", 42));
     }
@@ -257,8 +268,58 @@ class EmbabelAgentRunnerValidationTest {
 
         AgenticAiGoalNotAchievedException exception = assertThrows(
             AgenticAiGoalNotAchievedException.class,
-            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null));
+            () -> runner.run(actionSteps, "goal", RESULT_BINDING, false, null, chatModel));
 
         assertThat(exception.getMessage()).contains("empty object");
+    }
+
+    @Test
+    void testSmartGoalConditionParsesTrueAnswer() {
+        OperationContext operationContext = getOperationContextWithBoundResult(new Binding("a finished result"));
+
+        stubChatModelAnswer("true");
+
+        CanvasSmartGoalCondition condition = new CanvasSmartGoalCondition("goal", RESULT_BINDING, chatModel);
+
+        assertThat(condition.evaluate(operationContext)).isEqualTo(ConditionDetermination.TRUE);
+    }
+
+    @Test
+    void testSmartGoalConditionUnparseableAnswerIsFalse() {
+        OperationContext operationContext = getOperationContextWithBoundResult(new Binding("a partial result"));
+
+        stubChatModelAnswer("I am not sure about that.");
+
+        CanvasSmartGoalCondition condition = new CanvasSmartGoalCondition("goal", RESULT_BINDING, chatModel);
+
+        assertThat(condition.evaluate(operationContext)).isEqualTo(ConditionDetermination.FALSE);
+    }
+
+    @Test
+    void testSmartGoalConditionNothingProducedIsFalse() {
+        OperationContext operationContext = getOperationContextWithBoundResult(null);
+
+        CanvasSmartGoalCondition condition = new CanvasSmartGoalCondition("goal", RESULT_BINDING, chatModel);
+
+        assertThat(condition.evaluate(operationContext)).isEqualTo(ConditionDetermination.FALSE);
+    }
+
+    private OperationContext getOperationContextWithBoundResult(@Nullable Object bound) {
+        OperationContext operationContext = mock(OperationContext.class);
+        ProcessContext processContext = mock(ProcessContext.class);
+        AgentProcess agentProcess = mock(AgentProcess.class);
+
+        when(operationContext.getProcessContext()).thenReturn(processContext);
+        when(processContext.getAgentProcess()).thenReturn(agentProcess);
+        when(agentProcess.get(RESULT_BINDING)).thenReturn(bound);
+
+        return operationContext;
+    }
+
+    private void stubChatModelAnswer(String answer) {
+        when(chatModel.getOptions()).thenReturn(ChatOptions.builder()
+            .build());
+        when(chatModel.call(any(Prompt.class))).thenReturn(
+            new ChatResponse(List.of(new Generation(new AssistantMessage(answer)))));
     }
 }

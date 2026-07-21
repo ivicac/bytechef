@@ -11,11 +11,6 @@ tasks.withType<com.github.spotbugs.snom.SpotBugsTask>().configureEach {
 dependencies {
     implementation("com.embabel.agent:embabel-agent-api:1.0.0")
     implementation("com.embabel.agent:embabel-agent-starter-platform:1.0.0")
-    // Registers Embabel LlmService beans from OPENAI_API_KEY so the platform can boot with a
-    // default model. Its AgentOpenAiAutoConfiguration hard-fails without a key, so apps exclude
-    // it by default and un-exclude it together with AgentPlatformAutoConfiguration in the
-    // opt-in 'agentic' profile.
-    implementation("com.embabel.agent:embabel-agent-starter-openai:1.0.0")
     implementation("org.jetbrains.kotlin:kotlin-stdlib")
     implementation("org.springframework:spring-context")
     implementation(project(":server:libs:core:commons:commons-util"))
