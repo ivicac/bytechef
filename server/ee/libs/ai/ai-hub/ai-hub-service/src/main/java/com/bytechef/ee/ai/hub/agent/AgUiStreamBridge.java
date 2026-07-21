@@ -211,6 +211,31 @@ public class AgUiStreamBridge implements SseStreamBridge {
                 return;
             }
 
+            // The coordinator emits {event=result, result={message=...}} when the job completes, carrying the
+            // final chat reply read back from the WEBHOOK_RESPONSE-tagged task. Streaming runs have already
+            // delivered the same text as deltas — appending it again would double the message — so the result
+            // only renders when nothing has been streamed yet: the approval-routed path for chat workflows
+            // without a streaming task, which previously lost their final reply entirely.
+            if ("result".equals(map.get("event"))) {
+                if (assistantTextBuilder.length() == 0
+                    && map.get("result") instanceof Map<?, ?> resultMap
+                    && resultMap.get("message") instanceof String message && !message.isBlank()) {
+
+                    ensureStarted();
+
+                    TextMessageContentEvent resultEvent = new TextMessageContentEvent();
+
+                    resultEvent.setMessageId(messageId);
+                    resultEvent.setDelta(message);
+
+                    dispatch(resultEvent);
+
+                    assistantTextBuilder.append(message);
+                }
+
+                return;
+            }
+
             // ask_user_question is the workflow's pause-for-input signal. Translate to a CustomEvent the client's
             // data-event handler renders inline. Server-side, capture the resumeUrl in the registry so the next
             // user turn POSTs the answer to it (instead of starting a fresh workflow run via the bridge).
