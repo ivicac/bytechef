@@ -520,6 +520,15 @@ export type AiHubTasksQueryVariables = Exact<{
 
 export type AiHubTasksQuery = { aiHubTasks: Array<{ id: string, workspaceId: any, userId: any, threadId: string, title: string | null, lastPreview: string | null, messageCount: number, status: Types.AiHubTaskStatus, environmentId: any, createdAt: any, updatedAt: any, kind: Types.AiHubTaskKind, workflowExecutionId: string | null, projectDeploymentId: any, aiHubPersonalAgentId: any, autoTitled: boolean }> };
 
+export type AppendAiHubTaskAssistantMessageMutationVariables = Exact<{
+  workspaceId: string | number;
+  id: string | number;
+  content: string;
+}>;
+
+
+export type AppendAiHubTaskAssistantMessageMutation = { appendAiHubTaskAssistantMessage: boolean };
+
 export type BulkArchiveWorkflowChatAiHubTasksMutationVariables = Exact<{
   workspaceId: string | number;
   environment: number;
@@ -5649,6 +5658,29 @@ export const useAiHubTasksQuery = <
       {
     queryKey: ['aiHubTasks', variables],
     queryFn: fetcher<AiHubTasksQuery, AiHubTasksQueryVariables>(AiHubTasksDocument, variables),
+    ...options
+  }
+    )};
+
+export const AppendAiHubTaskAssistantMessageDocument = new TypedDocumentString(`
+    mutation appendAiHubTaskAssistantMessage($workspaceId: ID!, $id: ID!, $content: String!) {
+  appendAiHubTaskAssistantMessage(
+    workspaceId: $workspaceId
+    id: $id
+    content: $content
+  )
+}
+    `);
+
+export const useAppendAiHubTaskAssistantMessageMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<AppendAiHubTaskAssistantMessageMutation, TError, AppendAiHubTaskAssistantMessageMutationVariables, TContext>) => {
+    
+    return useMutation<AppendAiHubTaskAssistantMessageMutation, TError, AppendAiHubTaskAssistantMessageMutationVariables, TContext>(
+      {
+    mutationKey: ['appendAiHubTaskAssistantMessage'],
+    mutationFn: (variables?: AppendAiHubTaskAssistantMessageMutationVariables) => fetcher<AppendAiHubTaskAssistantMessageMutation, AppendAiHubTaskAssistantMessageMutationVariables>(AppendAiHubTaskAssistantMessageDocument, variables)(),
     ...options
   }
     )};

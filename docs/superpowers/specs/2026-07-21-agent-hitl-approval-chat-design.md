@@ -168,9 +168,11 @@ Phases 1–2 are independent of 3 and deliver the visible differentiation first.
   events (mirroring the webhook bridge) so those nested interactive events arrive intact. AI Hub
   workflow chat provides the same context with its own `useSSE` reader (the resume stream is
   independent of the AG-UI turn model): the continuation streams into a fresh assistant bubble,
-  and nested approval/ask events render live — but the continuation text is client-only (the
-  bridge only persists bridge-run turns), so it does not survive a reload. The hosted form page
-  has no context and keeps the plain resume mutation.
+  and nested approval/ask events render live. When the continuation stream closes, the client
+  flushes the accumulated text into the task's chat memory via the
+  `appendAiHubTaskAssistantMessage` mutation (ownership-checked in `AiHubTaskService`), so the
+  continuation survives a reload. The hosted form page has no context and keeps the plain resume
+  mutation.
 - **Editor test runs.** Channels are production transports and stay skipped in the editor, but the
   tool gate sends the `approval_request` event through the agent's ToolContext SSE emitter instead
   (the same path `ask_user_question` uses), so the canvas test chat renders the card for gated
@@ -181,7 +183,11 @@ Phases 1–2 are independent of 3 and deliver the visible differentiation first.
 - **SDK widget continuation.** The `@bytechef/chat` inline card resolves with
   `Accept: text/event-stream` and drains the resumed run's output through the widget's existing
   SSE event handlers — deltas stream into a fresh bubble, and a nested approval re-opens the card.
-- **Known limitations (follow-ups).** (b) On
-  the workflow-chat surface the card only arrives when the run takes the streaming path (any
-  streaming task present — always true for AI-agent workflows); sync-path chat runs skip SSE
-  delivery entirely.
+- **Known limitations (follow-ups).** (b) `WebhookBridgeAgent` routes runs onto the
+  streaming/event-bridge path when the workflow has a streaming task OR an approval task
+  (`WebhookWorkflowExecutor.hasApprovalTask`), so the card always has a listener to land on.
+  Residual: a chat workflow with an approval but NO streaming task loses the final reply text on
+  that path — the streaming pipeline carries no final-output data event for non-streaming tasks
+  (the coordinator would need to emit a `result` event with the job's webhook-response message on
+  COMPLETED). In practice the gate case always streams (AI agent); this residual only affects
+  approval-action-only chat workflows.

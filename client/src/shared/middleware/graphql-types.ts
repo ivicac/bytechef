@@ -3313,6 +3313,8 @@ export type Mutation = {
   addDataTableColumn: Scalars['Boolean']['output'];
   /** Add a user to a workspace. Requires ADMIN workspace role. */
   addWorkspaceUser: WorkspaceUser;
+  /** Appends an assistant message to the task's chat memory — persists an approval-resolution continuation streamed outside the bridge turn model. */
+  appendAiHubTaskAssistantMessage: Scalars['Boolean']['output'];
   /** Scope a notification to a workspace (moves it if it was scoped to another one). */
   assignNotificationToWorkspace: Scalars['Boolean']['output'];
   /**
@@ -3819,6 +3821,13 @@ export type MutationAddDataTableColumnArgs = {
 export type MutationAddWorkspaceUserArgs = {
   role: WorkspaceRole;
   userId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationAppendAiHubTaskAssistantMessageArgs = {
+  content: Scalars['String']['input'];
+  id: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
 };
 

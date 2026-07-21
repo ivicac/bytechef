@@ -30,6 +30,7 @@ import {
     useAiChatToolCallStore,
 } from '@/shared/components/ai-chat/stores/useAiChatToolCallStore';
 import {useSSE} from '@/shared/hooks/useSSE';
+import {useAppendAiHubTaskAssistantMessageMutation} from '@/shared/middleware/graphql';
 import {ProjectWorkflowKeys} from '@/shared/queries/automation/projectWorkflows.queries';
 import {WorkflowTestConfigurationKeys} from '@/shared/queries/platform/workflowTestConfigurations.queries';
 import {environmentStore} from '@/shared/stores/useEnvironmentStore';
@@ -1562,6 +1563,11 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
 
     const [approvalStreamRequest, setApprovalStreamRequest] = useState<{init?: RequestInit; url: string} | null>(null);
 
+    // Approval-continuation accumulation for chat-memory persistence: the resumed run's streamed text and the
+    // owning task id, captured when the resolution starts and flushed when the continuation stream closes.
+    const approvalContinuationTaskIdRef = useRef<number | null>(null);
+    const approvalContinuationTextRef = useRef('');
+
     const {addMessage, appendToLastAssistantMessage, editUserMessage, messages, mode, taskId} = useAiHubStore(
         useShallow((state) => ({
             addMessage: state.addMessage,
@@ -1649,13 +1655,18 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
 
                 if (chunk) {
                     appendToLastAssistantMessage(chunk);
+                    approvalContinuationTextRef.current += chunk;
                 }
             },
         }),
         [addMessage, appendToLastAssistantMessage]
     );
 
-    useSSE(approvalStreamRequest, {eventHandlers: approvalStreamEventHandlers});
+    const {connectionState: approvalStreamConnectionState} = useSSE(approvalStreamRequest, {
+        eventHandlers: approvalStreamEventHandlers,
+    });
+
+    const appendTaskAssistantMessageMutation = useAppendAiHubTaskAssistantMessageMutation();
 
     const resolveApproval = useCallback(
         (resumeId: string, payload: Record<string, unknown>) => {
@@ -1667,6 +1678,9 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
             if (currentTaskId != null) {
                 aiHubTasksStore.getState().clearActivityState(currentTaskId);
             }
+
+            approvalContinuationTextRef.current = '';
+            approvalContinuationTaskIdRef.current = aiHubTasksStore.getState().currentTaskId ?? null;
 
             setApprovalStreamRequest({
                 init: {
@@ -1681,6 +1695,34 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
     );
 
     const approvalResolution = useMemo(() => ({resolveApproval}), [resolveApproval]);
+
+    // Flush the continuation into the task's chat memory when the resume stream ends, so the streamed text
+    // survives a reload — the bridge only persists bridge-run turns, and this stream ran outside it.
+    useEffect(() => {
+        if (
+            !approvalStreamRequest ||
+            (approvalStreamConnectionState !== 'CLOSED' && approvalStreamConnectionState !== 'ERROR')
+        ) {
+            return;
+        }
+
+        const continuationText = approvalContinuationTextRef.current.trim();
+        const continuationTaskId = approvalContinuationTaskIdRef.current;
+
+        approvalContinuationTextRef.current = '';
+        approvalContinuationTaskIdRef.current = null;
+
+        setApprovalStreamRequest(null);
+
+        if (continuationText && continuationTaskId != null && currentWorkspaceId != null) {
+            appendTaskAssistantMessageMutation.mutate({
+                content: continuationText,
+                id: String(continuationTaskId),
+                workspaceId: String(currentWorkspaceId),
+            });
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [approvalStreamConnectionState, approvalStreamRequest]);
 
     const projectedMessages = useMemo(
         () => projectMessagesWithToolCalls(messages, Object.values(toolCalls)),
