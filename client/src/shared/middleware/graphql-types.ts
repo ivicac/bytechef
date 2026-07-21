@@ -5616,6 +5616,15 @@ export enum ParameterType {
   String = 'STRING'
 }
 
+export type PendingApproval = {
+  __typename?: 'PendingApproval';
+  createdDate?: Maybe<Scalars['String']['output']>;
+  expiresAt?: Maybe<Scalars['String']['output']>;
+  formUrl?: Maybe<Scalars['String']['output']>;
+  jobId: Scalars['ID']['output'];
+  workflowLabel: Scalars['String']['output'];
+};
+
 export enum PlatformType {
   Automation = 'AUTOMATION',
   Embedded = 'EMBEDDED'
@@ -6106,6 +6115,7 @@ export type Query = {
   myWorkspaceScopes: Array<Scalars['String']['output']>;
   /** Get all organization-level connections, optionally filtered by environment. (admin only, EE only) */
   organizationConnections: Array<OrganizationConnection>;
+  pendingApprovals?: Maybe<Array<Maybe<PendingApproval>>>;
   preBuiltProjectTemplates: Array<ProjectTemplate>;
   preBuiltWorkflowTemplates: Array<WorkflowTemplate>;
   project?: Maybe<Project>;
