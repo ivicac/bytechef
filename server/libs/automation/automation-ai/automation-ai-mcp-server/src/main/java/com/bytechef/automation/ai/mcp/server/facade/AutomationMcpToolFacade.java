@@ -332,15 +332,55 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
     private Map<String, Object> describePendingApproval(Job job) {
         Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
 
-        String message = ApprovalFormUrls
+        String formUrl = ApprovalFormUrls
             .buildFormUrl(
                 publicUrl, jobResumeId == null ? null : jobResumeId.toString(),
                 approvalTokensObjectProvider.getIfAvailable())
-            .map(formUrl -> "Approval required — the workflow run is paused waiting for a human decision. " +
-                "Resolve it at: " + formUrl)
-            .orElse("Approval required — the workflow run is paused waiting for a human decision.");
+            .orElse(null);
 
-        return Map.of("status", "approval_required", "message", message);
+        Map<String, Object> result = new HashMap<>();
+
+        result.put("status", "approval_required");
+        result.put(
+            "message",
+            formUrl == null
+                ? "Approval required — the workflow run is paused waiting for a human decision."
+                : "Approval required — the workflow run is paused waiting for a human decision. " +
+                    "Resolve it at: " + formUrl);
+
+        if (formUrl != null) {
+            result.put("formUrl", formUrl);
+        }
+
+        if (job.getId() != null) {
+            result.put("jobId", job.getId());
+        }
+
+        return result;
+    }
+
+    /**
+     * Re-awaits a workflow run whose initial synchronous wait ended on a pending approval, after the human has been
+     * pointed at the hosted form (via MCP URL elicitation). Returns the run's outputs on completion, another
+     * pending-approval descriptor if the run suspended again (a second approval in the same workflow), or throws on a
+     * failed run — mirroring the initial call's semantics.
+     */
+    public @Nullable Object awaitApprovedWorkflowRun(long jobId) {
+        Job job = jobCompletionAwaiter.await(jobId, resolveSyncTimeout())
+            .join();
+
+        if (job.getStatus() == Job.Status.STOPPED) {
+            return describePendingApproval(job);
+        }
+
+        JobExecutionErrors.checkForError(job, taskExecutionService);
+
+        if (job.getOutputs() == null) {
+            return null;
+        }
+
+        return getCallableResponseOutput(job)
+            .orElseGet(() -> taskFileStorage.readJobOutputs(job.getOutputs()));
     }
 
     private Optional<Object> getCallableResponseOutput(Job job) {

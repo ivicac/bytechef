@@ -96,7 +96,7 @@ text **never** resolves an approval in either direction. This removes both n8n s
 | Workflow chat (hosted) | Inline card | Inline question card (exists) |
 | Embedded chat | Same card via SSE/AG-UI | Same question card |
 | Canvas run without chat origin | Non-chat channels (Slack/email/link/task); chat channel alone = loud failure | N/A (agent without chat origin should not carry the tool; runtime = clear error) |
-| MCP / A2A headless call | Non-chat channels only; a sync run paused on approval returns "approval required — resolve at \<form URL\>" instead of an empty result | MCP elicitation / A2A input-required as later alignment |
+| MCP / A2A headless call | Non-chat channels only; a paused sync run returns "approval required — resolve at \<form URL\>". MCP: clients with the URL-elicitation capability get an `elicitation/create` pointing at the form, and an accepted elicitation re-awaits the run and returns its real output in the same `tools/call` (`ApprovalElicitingToolSpecifications`). A2A: the task surfaces with `input-required` status. | Form-mode MCP elicitation as later alignment |
 | AI Hub copilot | Out of scope | Hub's own pinned `askUserQuestion` (unchanged) |
 
 ## Implementation phases

@@ -488,7 +488,13 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   task execution, published before the terminal job-status event) so approval-only chat workflows
   keep their final reply; `AgUiStreamBridge` renders it only when nothing was streamed. MCP/A2A
   sync runs paused on an approval return "approval required — resolve at <form URL>"
-  (`ApprovalFormUrls.buildFormUrl`, STOPPED + `jobResumeId` metadata) instead of an empty result.
+  (`ApprovalFormUrls.buildFormUrl`, STOPPED + `jobResumeId` metadata) instead of an empty result;
+  MCP workflow tools additionally URL-elicit the form on capable clients and return the resumed
+  run's output in the same tools/call (`ApprovalElicitingToolSpecifications` +
+  `AutomationMcpToolFacade.awaitApprovedWorkflowRun`), and A2A surfaces the task as
+  `input-required` (`A2AAgentResult.ofInputRequired`). Enriched `task_started` events
+  (`{event, payload:{taskExecutionId,name,type}}` from the coordinator) render as AG-UI tool-call
+  step chips in `AgUiStreamBridge`.
 - AI Hub copilot chat is OUT of scope (keeps its pinned `askUserQuestion`).
 
 ### Domain copilot slice pattern (context store / knowledge base / data table)
