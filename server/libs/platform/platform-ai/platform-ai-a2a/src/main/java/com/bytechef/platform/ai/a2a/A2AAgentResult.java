@@ -20,20 +20,27 @@ import org.jspecify.annotations.Nullable;
 
 /**
  * The result of running an agent for an inbound A2A request. A successful result carries the agent's textual response;
- * a failed result carries an error message that the protocol layer surfaces as a failed A2A task.
+ * a failed result carries an error message that the protocol layer surfaces as a failed A2A task. An input-required
+ * result marks a run paused on a human decision (e.g. a pending approval): the protocol layer surfaces the task with
+ * {@code input-required} status, carrying the text as the agent's instruction on how to unblock it.
  *
- * @param text         the agent's textual response (empty on failure)
- * @param success      whether the agent completed successfully
- * @param errorMessage a human-readable error message when {@code success} is {@code false}, otherwise {@code null}
+ * @param text          the agent's textual response (empty on failure)
+ * @param success       whether the agent completed successfully
+ * @param errorMessage  a human-readable error message when {@code success} is {@code false}, otherwise {@code null}
+ * @param inputRequired whether the run is paused waiting for human input rather than finished
  * @author Ivica Cardic
  */
-public record A2AAgentResult(String text, boolean success, @Nullable String errorMessage) {
+public record A2AAgentResult(String text, boolean success, @Nullable String errorMessage, boolean inputRequired) {
 
     public static A2AAgentResult ofText(String text) {
-        return new A2AAgentResult(text == null ? "" : text, true, null);
+        return new A2AAgentResult(text == null ? "" : text, true, null, false);
     }
 
     public static A2AAgentResult ofError(String errorMessage) {
-        return new A2AAgentResult("", false, errorMessage);
+        return new A2AAgentResult("", false, errorMessage, false);
+    }
+
+    public static A2AAgentResult ofInputRequired(String text) {
+        return new A2AAgentResult(text == null ? "" : text, true, null, true);
     }
 }

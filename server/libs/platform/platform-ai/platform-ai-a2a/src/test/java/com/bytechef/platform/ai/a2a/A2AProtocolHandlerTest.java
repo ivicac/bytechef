@@ -70,6 +70,25 @@ class A2AProtocolHandlerTest {
     }
 
     @Test
+    void testInputRequiredAgentResultProducesInputRequiredTask() {
+        A2AProtocolHandler handler = new A2AProtocolHandler(
+            request -> A2AAgentResult
+                .ofInputRequired("Approval required — resolve it at: https://example.com/resume/t"));
+
+        MessageSendParams params = new MessageSendParams(userMessage("run it"), null, null);
+
+        JSONRPCResponse<?> response = handler.handle(
+            "agent-1", "req-1", A2AProtocolHandler.METHOD_SEND_MESSAGE, params);
+
+        Task task = (Task) ((SendMessageResponse) response).getResult();
+
+        assertThat(task.getStatus()
+            .state()).isEqualTo(TaskState.INPUT_REQUIRED);
+        assertThat(A2AProtocolHandler.extractText(task.getStatus()
+            .message())).contains("Approval required");
+    }
+
+    @Test
     void testFailedAgentResultProducesFailedTask() {
         A2AProtocolHandler handler = new A2AProtocolHandler(request -> A2AAgentResult.ofError("boom"));
 

@@ -214,7 +214,7 @@ public class A2AProtocolHandler {
 
         A2AAgentResult agentResult = runAgent(agentId, text, contextId, inboundMessage.getMessageId());
 
-        TaskState finalState = agentResult.success() ? TaskState.COMPLETED : TaskState.FAILED;
+        TaskState finalState = resolveTaskState(agentResult);
         Message agentMessage = buildAgentMessage(taskId, contextId, agentResult);
         TaskStatus finalStatus = new TaskStatus(finalState, agentMessage, null);
 
@@ -280,13 +280,26 @@ public class A2AProtocolHandler {
             : UUID.randomUUID()
                 .toString();
 
-        TaskState taskState = agentResult.success() ? TaskState.COMPLETED : TaskState.FAILED;
+        TaskState taskState = resolveTaskState(agentResult);
 
         Message agentMessage = buildAgentMessage(taskId, effectiveContextId, agentResult);
 
         TaskStatus taskStatus = new TaskStatus(taskState, agentMessage, null);
 
         return new Task(taskId, effectiveContextId, taskStatus, List.of(), List.of(), null);
+    }
+
+    /**
+     * Maps the agent result onto the A2A task state: a run paused on a human decision surfaces as
+     * {@code input-required} (per the A2A task lifecycle) rather than completed, so the calling agent knows the task is
+     * blocked on the human, not finished.
+     */
+    private static TaskState resolveTaskState(A2AAgentResult agentResult) {
+        if (agentResult.inputRequired()) {
+            return TaskState.INPUT_REQUIRED;
+        }
+
+        return agentResult.success() ? TaskState.COMPLETED : TaskState.FAILED;
     }
 
     private static Message buildAgentMessage(String taskId, String contextId, A2AAgentResult agentResult) {

@@ -172,11 +172,11 @@ public class AutomationA2AServerFacade implements A2AAgentExecutor {
             Job job = jobCompletionAwaiter.await(jobId, resolveSyncTimeout())
                 .join();
 
-            // A STOPPED run with a stored resume id is paused on a human approval, not finished — surface a clear
-            // pointer to the hosted form instead of returning an empty result. Full A2A input-required task status
-            // remains future work.
+            // A STOPPED run with a stored resume id is paused on a human approval, not finished — surface the
+            // task as input-required with a pointer to the hosted form, so the calling agent knows the run is
+            // blocked on a human decision.
             if (job.getStatus() == Job.Status.STOPPED) {
-                return A2AAgentResult.ofText(describePendingApproval(job));
+                return A2AAgentResult.ofInputRequired(describePendingApproval(job));
             }
 
             JobExecutionErrors.checkForError(job, taskExecutionService);
