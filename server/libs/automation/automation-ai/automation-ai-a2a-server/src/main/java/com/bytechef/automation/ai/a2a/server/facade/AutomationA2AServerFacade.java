@@ -46,6 +46,8 @@ import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.JobExecutionErrors;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
+import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
@@ -84,10 +86,12 @@ public class AutomationA2AServerFacade implements A2AAgentExecutor {
     private final A2aProjectService a2aProjectService;
     private final A2aProjectWorkflowService a2aProjectWorkflowService;
     private final A2aServerService a2aServerService;
+    private final ObjectProvider<ApprovalTokens> approvalTokensObjectProvider;
     private final JobCompletionAwaiter jobCompletionAwaiter;
     private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
     private final PrincipalJobFacade principalJobFacade;
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
+    private final @Nullable String publicUrl;
     private final TaskExecutionService taskExecutionService;
     private final TaskFileStorage taskFileStorage;
     private final WorkflowService workflowService;
@@ -95,18 +99,21 @@ public class AutomationA2AServerFacade implements A2AAgentExecutor {
     @SuppressFBWarnings("EI")
     public AutomationA2AServerFacade(
         A2aProjectService a2aProjectService, A2aProjectWorkflowService a2aProjectWorkflowService,
-        A2aServerService a2aServerService, JobCompletionAwaiter jobCompletionAwaiter,
+        A2aServerService a2aServerService, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
+        JobCompletionAwaiter jobCompletionAwaiter,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider, PrincipalJobFacade principalJobFacade,
-        ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
+        ProjectDeploymentWorkflowService projectDeploymentWorkflowService, @Nullable String publicUrl,
         TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage, WorkflowService workflowService) {
 
         this.a2aProjectService = a2aProjectService;
         this.a2aProjectWorkflowService = a2aProjectWorkflowService;
         this.a2aServerService = a2aServerService;
+        this.approvalTokensObjectProvider = approvalTokensObjectProvider;
         this.jobCompletionAwaiter = jobCompletionAwaiter;
         this.planLimitsProviderObjectProvider = planLimitsProviderObjectProvider;
         this.principalJobFacade = principalJobFacade;
         this.projectDeploymentWorkflowService = projectDeploymentWorkflowService;
+        this.publicUrl = publicUrl;
         this.taskExecutionService = taskExecutionService;
         this.taskFileStorage = taskFileStorage;
         this.workflowService = workflowService;
@@ -164,6 +171,13 @@ public class AutomationA2AServerFacade implements A2AAgentExecutor {
         try {
             Job job = jobCompletionAwaiter.await(jobId, resolveSyncTimeout())
                 .join();
+
+            // A STOPPED run with a stored resume id is paused on a human approval, not finished — surface a clear
+            // pointer to the hosted form instead of returning an empty result. Full A2A input-required task status
+            // remains future work.
+            if (job.getStatus() == Job.Status.STOPPED) {
+                return A2AAgentResult.ofText(describePendingApproval(job));
+            }
 
             JobExecutionErrors.checkForError(job, taskExecutionService);
 
@@ -234,6 +248,18 @@ public class AutomationA2AServerFacade implements A2AAgentExecutor {
         }
 
         return planSyncRunTimeout;
+    }
+
+    private String describePendingApproval(Job job) {
+        Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+
+        return ApprovalFormUrls
+            .buildFormUrl(
+                publicUrl, jobResumeId == null ? null : jobResumeId.toString(),
+                approvalTokensObjectProvider.getIfAvailable())
+            .map(formUrl -> "Approval required — the workflow run is paused waiting for a human decision. " +
+                "Resolve it at: " + formUrl)
+            .orElse("Approval required — the workflow run is paused waiting for a human decision.");
     }
 
     private Optional<Object> getCallableResponseOutput(Job job) {

@@ -33,6 +33,7 @@ import com.bytechef.platform.ai.a2a.A2AAgentResult;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
@@ -52,10 +53,15 @@ class AutomationA2AServerFacadeTest {
     private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider =
         (ObjectProvider<PlanLimitsProvider>) mock(ObjectProvider.class);
 
+    @SuppressWarnings("unchecked")
+    private final ObjectProvider<ApprovalTokens> approvalTokensObjectProvider =
+        (ObjectProvider<ApprovalTokens>) mock(ObjectProvider.class);
+
     private final AutomationA2AServerFacade facade = new AutomationA2AServerFacade(
-        a2aProjectService, a2aProjectWorkflowService, a2aServerService, mock(JobCompletionAwaiter.class),
-        planLimitsProviderObjectProvider, mock(PrincipalJobFacade.class), projectDeploymentWorkflowService,
-        mock(TaskExecutionService.class), mock(TaskFileStorage.class), mock(WorkflowService.class));
+        a2aProjectService, a2aProjectWorkflowService, a2aServerService, approvalTokensObjectProvider,
+        mock(JobCompletionAwaiter.class), planLimitsProviderObjectProvider, mock(PrincipalJobFacade.class),
+        projectDeploymentWorkflowService, "https://example.com", mock(TaskExecutionService.class),
+        mock(TaskFileStorage.class), mock(WorkflowService.class));
 
     @Test
     void testExecuteReturnsErrorWhenServerDisabled() {

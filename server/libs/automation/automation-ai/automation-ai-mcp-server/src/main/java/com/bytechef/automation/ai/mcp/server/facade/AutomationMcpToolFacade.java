@@ -59,6 +59,8 @@ import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.JobExecutionErrors;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
+import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
@@ -85,7 +87,9 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
 
     private final ClusterElementDefinitionFacade clusterElementDefinitionFacade;
     private final ClusterElementDefinitionService clusterElementDefinitionService;
+    private final ObjectProvider<ApprovalTokens> approvalTokensObjectProvider;
     private final JobCompletionAwaiter jobCompletionAwaiter;
+    private final @Nullable String publicUrl;
     private final McpComponentService mcpComponentService;
     private final McpProjectWorkflowService mcpProjectWorkflowService;
     private final McpServerService mcpServerService;
@@ -100,21 +104,24 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
 
     @SuppressFBWarnings("EI")
     public AutomationMcpToolFacade(
+        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
         ClusterElementDefinitionFacade clusterElementDefinitionFacade,
         ClusterElementDefinitionService clusterElementDefinitionService, Evaluator evaluator,
         JobCompletionAwaiter jobCompletionAwaiter, McpComponentService mcpComponentService,
         McpProjectWorkflowService mcpProjectWorkflowService, McpServerService mcpServerService,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
         PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
-        TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage,
+        @Nullable String publicUrl, TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage,
         ToolExecutionRecorder toolExecutionRecorder, WorkflowService workflowService,
         WorkspaceMcpServerService workspaceMcpServerService) {
 
         super(evaluator);
 
+        this.approvalTokensObjectProvider = approvalTokensObjectProvider;
         this.clusterElementDefinitionFacade = clusterElementDefinitionFacade;
         this.clusterElementDefinitionService = clusterElementDefinitionService;
         this.jobCompletionAwaiter = jobCompletionAwaiter;
+        this.publicUrl = publicUrl;
         this.mcpComponentService = mcpComponentService;
         this.mcpProjectWorkflowService = mcpProjectWorkflowService;
         this.mcpServerService = mcpServerService;
@@ -280,6 +287,13 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
                     Job job = jobCompletionAwaiter.await(jobId, resolveSyncTimeout())
                         .join();
 
+                    // A STOPPED run with a stored resume id is paused on a human approval, not finished — return a
+                    // clear pointer to the hosted form instead of an empty result. Full MCP elicitation remains
+                    // future work.
+                    if (job.getStatus() == Job.Status.STOPPED) {
+                        return describePendingApproval(job);
+                    }
+
                     JobExecutionErrors.checkForError(job, taskExecutionService);
 
                     if (job.getOutputs() == null) {
@@ -313,6 +327,20 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         }
 
         return planSyncRunTimeout;
+    }
+
+    private Map<String, Object> describePendingApproval(Job job) {
+        Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+
+        String message = ApprovalFormUrls
+            .buildFormUrl(
+                publicUrl, jobResumeId == null ? null : jobResumeId.toString(),
+                approvalTokensObjectProvider.getIfAvailable())
+            .map(formUrl -> "Approval required — the workflow run is paused waiting for a human decision. " +
+                "Resolve it at: " + formUrl)
+            .orElse("Approval required — the workflow run is paused waiting for a human decision.");
+
+        return Map.of("status", "approval_required", "message", message);
     }
 
     private Optional<Object> getCallableResponseOutput(Job job) {

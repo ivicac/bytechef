@@ -96,7 +96,7 @@ text **never** resolves an approval in either direction. This removes both n8n s
 | Workflow chat (hosted) | Inline card | Inline question card (exists) |
 | Embedded chat | Same card via SSE/AG-UI | Same question card |
 | Canvas run without chat origin | Non-chat channels (Slack/email/link/task); chat channel alone = loud failure | N/A (agent without chat origin should not carry the tool; runtime = clear error) |
-| MCP / A2A headless call | Non-chat channels only | Clear error today; MCP elicitation / A2A input-required as later alignment |
+| MCP / A2A headless call | Non-chat channels only; a sync run paused on approval returns "approval required — resolve at \<form URL\>" instead of an empty result | MCP elicitation / A2A input-required as later alignment |
 | AI Hub copilot | Out of scope | Hub's own pinned `askUserQuestion` (unchanged) |
 
 ## Implementation phases
@@ -186,8 +186,8 @@ Phases 1–2 are independent of 3 and deliver the visible differentiation first.
 - **Known limitations (follow-ups).** (b) `WebhookBridgeAgent` routes runs onto the
   streaming/event-bridge path when the workflow has a streaming task OR an approval task
   (`WebhookWorkflowExecutor.hasApprovalTask`), so the card always has a listener to land on.
-  Residual: a chat workflow with an approval but NO streaming task loses the final reply text on
-  that path — the streaming pipeline carries no final-output data event for non-streaming tasks
-  (the coordinator would need to emit a `result` event with the job's webhook-response message on
-  COMPLETED). In practice the gate case always streams (AI agent); this residual only affects
-  approval-action-only chat workflows.
+  Residual CLOSED: `SseStreamApplicationEventListener` now emits a named `result` data event on
+  COMPLETED, carrying the message read back from the `WEBHOOK_RESPONSE`-tagged task execution
+  (published before the terminal job-status event so bridges are still open). Chat surfaces render
+  it via their existing `result` handlers; `AgUiStreamBridge` renders it only when nothing was
+  streamed, so streamed runs don't double the reply.

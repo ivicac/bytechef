@@ -483,9 +483,12 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   `appendAiHubTaskAssistantMessage` GraphQL mutation. The `@bytechef/chat` widget has its own
   inline card + `drainSseResponse`-based continuation.
 - `WebhookBridgeAgent` routes runs with an approval task onto the streaming path
-  (`WebhookWorkflowExecutor.hasApprovalTask`). Residual: approval-only chat workflows (no
-  streaming task) lose the final reply text on that path — needs a coordinator-emitted `result`
-  event on COMPLETED (async jobs don't persist `__webhookResponse` in outputs today).
+  (`WebhookWorkflowExecutor.hasApprovalTask`). The coordinator's `SseStreamApplicationEventListener`
+  emits a named `result` data event on COMPLETED (message read from the `WEBHOOK_RESPONSE`-tagged
+  task execution, published before the terminal job-status event) so approval-only chat workflows
+  keep their final reply; `AgUiStreamBridge` renders it only when nothing was streamed. MCP/A2A
+  sync runs paused on an approval return "approval required — resolve at <form URL>"
+  (`ApprovalFormUrls.buildFormUrl`, STOPPED + `jobResumeId` metadata) instead of an empty result.
 - AI Hub copilot chat is OUT of scope (keeps its pinned `askUserQuestion`).
 
 ### Domain copilot slice pattern (context store / knowledge base / data table)

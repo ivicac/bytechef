@@ -43,6 +43,7 @@ import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
@@ -51,10 +52,12 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.mcp.McpToolUtils;
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcSseServerTransportProvider;
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcStreamableServerTransportProvider;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -124,20 +127,23 @@ public class AutomationMcpServerConfiguration {
 
     @Bean
     AutomationMcpToolFacade mcpToolFacade(
+        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
         ClusterElementDefinitionFacade clusterElementDefinitionFacade,
         ClusterElementDefinitionService clusterElementDefinitionService, TaskFileStorage durableTaskFileStorage,
         Evaluator evaluator, JobCompletionAwaiter jobCompletionAwaiter, McpComponentService mcpComponentService,
         McpProjectWorkflowService mcpProjectWorkflowService, McpServerService mcpServerService,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
         PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
+        @Value("${bytechef.public-url:#{null}}") @Nullable String publicUrl,
         TaskExecutionService taskExecutionService, ToolExecutionRecorder toolExecutionRecorder,
         WorkflowService workflowService, WorkspaceMcpServerService workspaceMcpServerService) {
 
         return new AutomationMcpToolFacade(
-            clusterElementDefinitionFacade, clusterElementDefinitionService, evaluator, jobCompletionAwaiter,
-            mcpComponentService, mcpProjectWorkflowService, mcpServerService, planLimitsProviderObjectProvider,
-            principalJobFacade, projectDeploymentWorkflowService, taskExecutionService, durableTaskFileStorage,
-            toolExecutionRecorder, workflowService, workspaceMcpServerService);
+            approvalTokensObjectProvider, clusterElementDefinitionFacade, clusterElementDefinitionService, evaluator,
+            jobCompletionAwaiter, mcpComponentService, mcpProjectWorkflowService, mcpServerService,
+            planLimitsProviderObjectProvider, principalJobFacade, projectDeploymentWorkflowService, publicUrl,
+            taskExecutionService, durableTaskFileStorage, toolExecutionRecorder, workflowService,
+            workspaceMcpServerService);
     }
 
     @Bean
