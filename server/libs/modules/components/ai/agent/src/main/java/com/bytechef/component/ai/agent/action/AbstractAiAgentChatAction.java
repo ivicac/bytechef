@@ -360,7 +360,7 @@ public abstract class AbstractAiAgentChatAction {
      * approved this exact invocation — and reports the result together with any reviewer comment. Rejection feeds an
      * explicit denial (with the comment) back into the loop so the LLM can replan.
      */
-    private String resolveGatedToolResumeData(
+    String resolveGatedToolResumeData(
         Parameters continueParameters, Parameters data, Map<String, ComponentConnection> connectionParameters,
         Parameters extensions, ActionContext context) {
 
