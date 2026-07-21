@@ -755,6 +755,13 @@ cd cli
   `UnsupportedOperationException`; the monitor warn-skips, so orphan detection is monolith-only
   for now). Detection lives OUTSIDE `server/libs/atlas/` except the engine-owned heartbeat
   primitives; semantics pinned by `OrphanedJobRecoveryMonitorTest`.
+- **Agent-loop checkpoints**: `SuspendableToolCallingManager` takes an optional per-tool-round
+  checkpointer; the AI Agent writes `AiAgentConversationCheckpoint` (SHA-256 input-parameter
+  fingerprint + `ConversationState`) to `Data.Scope.CURRENT_EXECUTION` after each completed
+  round, `AiAgentChatAction.perform` restores it on a crash-resumed job (fingerprint must match
+  — protects against a different agent node in the same job) and clears it on success. Editor /
+  job-less runs skip it; all checkpoint I/O is fail-open (a storage failure never fails the
+  turn). Fingerprint computation is deliberately lazy (inside the write lambda).
 
 ## Notification delivery (central point)
 

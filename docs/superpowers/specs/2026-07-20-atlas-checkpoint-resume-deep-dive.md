@@ -76,7 +76,13 @@ but only at explicit, cooperative suspend points, not on crash.
 > task to be stale, so children's heartbeats keep control-flow parents alive. Step 2
 > (transactional completion) is deliberately deferred: its crash window is milliseconds and the
 > monitor's wedged-job rule recovers the aftermath; wrapping the completion sequence threads
-> through `JobSyncExecutor` and needs an integration environment to change safely. Step 4 is next.
+> through `JobSyncExecutor` and needs an integration environment to change safely. Step 4 is
+> IMPLEMENTED: `SuspendableToolCallingManager` invokes a checkpointer after every completed
+> non-suspend tool round, writing `AiAgentConversationCheckpoint` (input-parameter fingerprint +
+> `ConversationState`) to CURRENT_EXECUTION-scoped data storage; on a crash-resumed job,
+> `AiAgentChatAction.perform` restores the conversation (fingerprint-matched) and continues with
+> a fresh model call over the reconstructed history, clearing the checkpoint on success. Editor
+> and job-less runs skip checkpointing entirely; all checkpoint I/O is fail-open.
 
 The differentiator claim is legitimate — the persistence spine is already there; what is missing
 is detection + permission to resume + one incremental-persistence hook. In dependency order:
