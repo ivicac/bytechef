@@ -15,6 +15,8 @@ import com.agui.core.event.RunFinishedEvent;
 import com.agui.core.event.TextMessageContentEvent;
 import com.agui.core.event.TextMessageEndEvent;
 import com.agui.core.event.TextMessageStartEvent;
+import com.agui.core.event.ToolCallEndEvent;
+import com.agui.core.event.ToolCallStartEvent;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.platform.ai.constant.AiAgentSseEventType;
 import com.bytechef.platform.job.sync.SseStreamBridge;
@@ -211,6 +213,17 @@ public class AgUiStreamBridge implements SseStreamBridge {
                 return;
             }
 
+            // Enriched coordinator task_started: render the workflow step as an AG-UI tool-call chip (start +
+            // immediate end — the pipeline carries no per-task completion event), so the chat shows live step
+            // progress with the actual task name instead of dropping the event as an unrenderable payload.
+            if ("task_started".equals(map.get("event"))) {
+                if (map.get("payload") instanceof Map<?, ?> payloadMap) {
+                    emitTaskStartedToolCall(payloadMap);
+                }
+
+                return;
+            }
+
             // The coordinator emits {event=result, result={message=...}} when the job completes, carrying the
             // final chat reply read back from the WEBHOOK_RESPONSE-tagged task. Streaming runs have already
             // delivered the same text as deltas — appending it again would double the message — so the result
@@ -298,13 +311,10 @@ public class AgUiStreamBridge implements SseStreamBridge {
             return;
         }
 
-        // Anything non-String non-Map is dropped with a DEBUG log rather than rendered. The streaming
-        // executor emits {@code task_started} events with a Long {@code taskExecutionId} payload via
-        // {@code SseStreamBridgeRegistry}; without this guard those Longs would land in the chat as raw
-        // numbers via Objects.toString. Rich step rendering (translating task_started into AG-UI
-        // tool-call events with the actual task name) needs the coordinator to enrich the task_started
-        // payload with task name + status — a follow-up that touches the {@code SseStreamApplicationEventListener}
-        // shape — and the client's tool-call renderer to handle the new event kind.
+        // Anything non-String non-Map is dropped with a DEBUG log rather than rendered. The coordinator normally
+        // emits task_started as an enriched map (handled above), but falls back to a bare Long taskExecutionId
+        // when the task row can't be loaded; without this guard those Longs would land in the chat as raw numbers
+        // via Objects.toString.
         if (!(payload instanceof String stringPayload)) {
             if (log.isDebugEnabled()) {
                 log.debug(
@@ -331,6 +341,43 @@ public class AgUiStreamBridge implements SseStreamBridge {
         // Accumulate for chat-memory persistence after the run finalizes. Done after dispatch so a render failure
         // doesn't pollute the buffer with a chunk the client never saw.
         assistantTextBuilder.append(stringPayload);
+    }
+
+    /**
+     * Emits an AG-UI tool-call start/end pair for an enriched {@code task_started} payload
+     * ({@code {taskExecutionId, name, type}}), labelled with the workflow task's name (falling back to its type). The
+     * client's existing tool-call renderer shows it as a step chip — no dedicated client handling needed. Payloads
+     * without a usable label are dropped silently.
+     */
+    private void emitTaskStartedToolCall(Map<?, ?> payloadMap) {
+        Object taskExecutionId = payloadMap.get("taskExecutionId");
+
+        if (taskExecutionId == null) {
+            return;
+        }
+
+        String label = payloadMap.get("name") instanceof String name && !name.isBlank()
+            ? name
+            : Objects.toString(payloadMap.get("type"), null);
+
+        if (label == null) {
+            return;
+        }
+
+        String toolCallId = "task-" + taskExecutionId;
+
+        ToolCallStartEvent toolCallStartEvent = new ToolCallStartEvent();
+
+        toolCallStartEvent.setToolCallId(toolCallId);
+        toolCallStartEvent.setToolCallName(label);
+
+        dispatch(toolCallStartEvent);
+
+        ToolCallEndEvent toolCallEndEvent = new ToolCallEndEvent();
+
+        toolCallEndEvent.setToolCallId(toolCallId);
+
+        dispatch(toolCallEndEvent);
     }
 
     @Override

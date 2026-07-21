@@ -32,6 +32,7 @@ import com.bytechef.platform.webhook.message.route.SseStreamMessageRoute;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -167,7 +168,8 @@ public class SseStreamApplicationEventListener implements ApplicationEventListen
 
         try {
             SseStreamEvent sseStreamEvent = new SseStreamEvent(
-                jobId, SseStreamEvent.EVENT_TYPE_TASK_STARTED, taskStartedApplicationEvent.getTaskExecutionId());
+                jobId, SseStreamEvent.EVENT_TYPE_TASK_STARTED,
+                buildTaskStartedPayload(taskStartedApplicationEvent.getTaskExecutionId()));
 
             sseStreamEvent.putMetadata(TenantContext.CURRENT_TENANT_ID, TenantContext.getCurrentTenantId());
 
@@ -176,6 +178,42 @@ public class SseStreamApplicationEventListener implements ApplicationEventListen
             if (log.isTraceEnabled()) {
                 log.trace(exception.getMessage(), exception);
             }
+        }
+    }
+
+    /**
+     * Builds the {@code task_started} payload. The enriched shape —
+     * {@code {event=task_started, payload={taskExecutionId, name, type}}} — is the {@code "event"}-keyed form both SSE
+     * bridges route as a named {@code task_started} event (mirroring the workflow-test surface's event shape), and the
+     * AG-UI bridge renders as a tool-call step chip with the actual task name. Falls back to the legacy bare
+     * {@code taskExecutionId} when the row can't be loaded (e.g. a remote read failure) so the event still fires.
+     */
+    private Object buildTaskStartedPayload(long taskExecutionId) {
+        try {
+            TaskExecution taskExecution = taskExecutionService.getTaskExecution(taskExecutionId);
+
+            Map<String, Object> payload = new LinkedHashMap<>();
+
+            payload.put("taskExecutionId", taskExecutionId);
+
+            if (taskExecution.getName() != null) {
+                payload.put("name", taskExecution.getName());
+            }
+
+            payload.put("type", taskExecution.getType());
+
+            Map<String, Object> eventData = new LinkedHashMap<>();
+
+            eventData.put("event", "task_started");
+            eventData.put("payload", payload);
+
+            return eventData;
+        } catch (Exception exception) {
+            if (log.isTraceEnabled()) {
+                log.trace(exception.getMessage(), exception);
+            }
+
+            return taskExecutionId;
         }
     }
 }

@@ -21,6 +21,8 @@ import com.agui.core.event.RunFinishedEvent;
 import com.agui.core.event.TextMessageContentEvent;
 import com.agui.core.event.TextMessageEndEvent;
 import com.agui.core.event.TextMessageStartEvent;
+import com.agui.core.event.ToolCallEndEvent;
+import com.agui.core.event.ToolCallStartEvent;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -323,5 +325,63 @@ class AgUiStreamBridgeTest {
         bridgeWithJobFacade.onError(new RuntimeException("workflow failed"));
 
         verify(jobFacade, never()).stopJob(org.mockito.ArgumentMatchers.anyLong());
+    }
+
+    @Test
+    void testEnrichedTaskStartedRendersAsToolCallChip() {
+        bridge.onEvent(
+            Map.of(
+                "event", "task_started",
+                "payload", Map.of("taskExecutionId", 7L, "name", "slack_1", "type", "slack/v1/sendMessage")));
+
+        // Tool-call events reach the SSE stream through the catch-all onEvent dispatch.
+        ArgumentCaptor<com.agui.core.event.BaseEvent> eventCaptor =
+            ArgumentCaptor.forClass(com.agui.core.event.BaseEvent.class);
+
+        verify(subscriber, times(2)).onEvent(eventCaptor.capture());
+
+        java.util.List<com.agui.core.event.BaseEvent> events = eventCaptor.getAllValues();
+
+        assertThat(events.get(0)).isInstanceOf(ToolCallStartEvent.class);
+
+        ToolCallStartEvent toolCallStartEvent = (ToolCallStartEvent) events.get(0);
+
+        assertThat(toolCallStartEvent.getToolCallId()).isEqualTo("task-7");
+        assertThat(toolCallStartEvent.getToolCallName()).isEqualTo("slack_1");
+
+        assertThat(events.get(1)).isInstanceOf(ToolCallEndEvent.class);
+
+        // A step chip is not assistant text — the message lifecycle must stay untouched.
+        verify(subscriber, never()).onTextMessageStartEvent(any());
+    }
+
+    @Test
+    void testTaskStartedWithoutUsableLabelIsDropped() {
+        bridge.onEvent(Map.of("event", "task_started", "payload", Map.of("taskExecutionId", 7L)));
+
+        verify(subscriber, never()).onEvent(any());
+        verify(subscriber, never()).onTextMessageStartEvent(any());
+    }
+
+    @Test
+    void testResultRendersOnlyWhenNothingWasStreamed() {
+        bridge.onEvent(Map.of("event", "result", "result", Map.of("message", "final reply")));
+
+        ArgumentCaptor<TextMessageContentEvent> contentCaptor = ArgumentCaptor.forClass(TextMessageContentEvent.class);
+
+        verify(subscriber).onTextMessageContentEvent(contentCaptor.capture());
+
+        TextMessageContentEvent textMessageContentEvent = contentCaptor.getValue();
+
+        assertThat(textMessageContentEvent.getDelta()).isEqualTo("final reply");
+    }
+
+    @Test
+    void testResultIsSkippedAfterStreamedText() {
+        bridge.onEvent("streamed text");
+        bridge.onEvent(Map.of("event", "result", "result", Map.of("message", "streamed text")));
+
+        // Only the streamed chunk may reach the client — appending the result again would double the message.
+        verify(subscriber, times(1)).onTextMessageContentEvent(any());
     }
 }

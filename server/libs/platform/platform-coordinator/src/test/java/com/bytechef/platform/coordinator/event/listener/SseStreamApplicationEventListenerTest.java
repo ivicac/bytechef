@@ -24,6 +24,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.coordinator.event.JobStatusApplicationEvent;
+import com.bytechef.atlas.coordinator.event.TaskStartedApplicationEvent;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
@@ -196,6 +197,54 @@ class SseStreamApplicationEventListenerTest {
 
         assertThat(resultEvent.getPayload())
             .isEqualTo(Map.of("event", "result", "result", Map.of("message", "the later reply")));
+    }
+
+    @Test
+    void testTaskStartedIsEnrichedWithTaskNameAndType() {
+        // A real WorkflowTask needs the static JsonUtils ObjectMapper; a mocked TaskExecution keeps this test
+        // free of that global setup.
+        TaskExecution taskExecution = org.mockito.Mockito.mock(TaskExecution.class);
+
+        when(taskExecution.getName()).thenReturn("slack_1");
+        when(taskExecution.getType()).thenReturn("slack/v1/sendMessage");
+
+        when(taskExecutionService.getTaskExecution(7L)).thenReturn(taskExecution);
+
+        SseStreamApplicationEventListener listener = new SseStreamApplicationEventListener(
+            messageBroker, taskExecutionService, taskFileStorage);
+
+        listener.onApplicationEvent(new TaskStartedApplicationEvent(JOB_ID, 7L));
+
+        ArgumentCaptor<SseStreamEvent> eventCaptor = ArgumentCaptor.forClass(SseStreamEvent.class);
+
+        verify(messageBroker).send(eq(SseStreamMessageRoute.SSE_STREAM_EVENTS), eventCaptor.capture());
+
+        SseStreamEvent sseStreamEvent = eventCaptor.getValue();
+
+        assertThat(sseStreamEvent.getEventType()).isEqualTo(SseStreamEvent.EVENT_TYPE_TASK_STARTED);
+        assertThat(sseStreamEvent.getPayload()).isEqualTo(
+            Map.of(
+                "event", "task_started",
+                "payload",
+                Map.of("taskExecutionId", 7L, "name", "slack_1", "type", "slack/v1/sendMessage")));
+    }
+
+    @Test
+    void testTaskStartedFallsBackToBareIdWhenRowLoadFails() {
+        when(taskExecutionService.getTaskExecution(7L)).thenThrow(new RuntimeException("row gone"));
+
+        SseStreamApplicationEventListener listener = new SseStreamApplicationEventListener(
+            messageBroker, taskExecutionService, taskFileStorage);
+
+        listener.onApplicationEvent(new TaskStartedApplicationEvent(JOB_ID, 7L));
+
+        ArgumentCaptor<SseStreamEvent> eventCaptor = ArgumentCaptor.forClass(SseStreamEvent.class);
+
+        verify(messageBroker).send(eq(SseStreamMessageRoute.SSE_STREAM_EVENTS), eventCaptor.capture());
+
+        SseStreamEvent sseStreamEvent = eventCaptor.getValue();
+
+        assertThat(sseStreamEvent.getPayload()).isEqualTo(7L);
     }
 
     private static TaskExecution taggedTaskExecution(long id, FileEntry outputFileEntry) {
