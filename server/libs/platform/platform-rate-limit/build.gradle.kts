@@ -13,9 +13,11 @@ dependencies {
     implementation(project(":server:libs:core:tenant:tenant-api"))
     implementation(project(":server:libs:platform:platform-plan:platform-plan-api"))
 
+    testImplementation("io.lettuce:lettuce-core")
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.junit.jupiter:junit-jupiter-api")
     testImplementation("org.mockito:mockito-core")
     testImplementation("org.mockito:mockito-junit-jupiter")
+    testImplementation("org.testcontainers:junit-jupiter")
     testRuntimeOnly("org.junit.jupiter:junit-jupiter-engine")
 }
