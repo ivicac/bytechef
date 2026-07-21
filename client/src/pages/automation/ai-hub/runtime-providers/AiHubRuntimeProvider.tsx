@@ -19,6 +19,7 @@ import {AiHubTasksKeys} from '@/pages/automation/ai-hub/tasks/hooks/useTasks';
 import {useTruncateAiHubTaskMessagesMutation} from '@/pages/automation/ai-hub/tasks/hooks/useTruncateTaskMessages';
 import {aiHubTasksStore} from '@/pages/automation/ai-hub/tasks/stores/useAiHubTasksStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
+import {ApprovalResolutionContext} from '@/shared/components/ai-chat/approvalResolutionContext';
 import {humanizeAgentErrorMessage} from '@/shared/components/ai-chat/messages/humanizeAgentErrorMessage';
 import {parseJson, toToolResultDataPart} from '@/shared/components/ai-chat/messages/toToolResultDataPart';
 import {aiChatRetryableErrorStore} from '@/shared/components/ai-chat/stores/useAiChatRetryableErrorStore';
@@ -28,6 +29,7 @@ import {
     isRunningToolCall,
     useAiChatToolCallStore,
 } from '@/shared/components/ai-chat/stores/useAiChatToolCallStore';
+import {useSSE} from '@/shared/hooks/useSSE';
 import {ProjectWorkflowKeys} from '@/shared/queries/automation/projectWorkflows.queries';
 import {WorkflowTestConfigurationKeys} from '@/shared/queries/platform/workflowTestConfigurations.queries';
 import {environmentStore} from '@/shared/stores/useEnvironmentStore';
@@ -38,6 +40,7 @@ import {
 } from '@/shared/util/assistant-message-utils';
 import {getCookie} from '@/shared/util/cookie-utils';
 import {getRandomId} from '@/shared/util/random-utils';
+import {extractStreamChunk} from '@/shared/util/stream-utils';
 import {AgentSubscriber, HttpAgent} from '@ag-ui/client';
 import {
     AppendMessage,
@@ -51,7 +54,7 @@ import {
     useExternalStoreRuntime,
 } from '@assistant-ui/react';
 import {useQueryClient} from '@tanstack/react-query';
-import {ReactNode, useCallback, useEffect, useMemo, useRef} from 'react';
+import {ReactNode, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {toast} from 'sonner';
 import {useShallow} from 'zustand/react/shallow';
@@ -1556,6 +1559,8 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
     // the next turn rejects with "user messages must have non-empty content".
     const localTurnStartedRef = useRef(false);
 
+    const [approvalStreamRequest, setApprovalStreamRequest] = useState<{init?: RequestInit; url: string} | null>(null);
+
     const {addMessage, appendToLastAssistantMessage, editUserMessage, messages, mode, taskId} = useAiHubStore(
         useShallow((state) => ({
             addMessage: state.addMessage,
@@ -1583,6 +1588,97 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
         queryClient.invalidateQueries({queryKey: WorkflowTestConfigurationKeys.workflowTestConfigurations});
         queryClient.invalidateQueries({queryKey: ProjectWorkflowKeys.workflows});
     }, [queryClient]);
+
+    // Continuation streaming for inline approval cards on workflow-chat tasks: the card resolves through the
+    // SSE-negotiated resume endpoint (outside the AG-UI turn model), and the resumed run's output is piped into
+    // the conversation here. Client-only — the continuation text is not persisted to the task's chat memory
+    // (WebhookBridgeAgent only persists bridge-run turns), so it does not survive a reload.
+    const approvalStreamEventHandlers = useMemo(
+        () => ({
+            approval_request: (data: unknown) => {
+                if (typeof data !== 'object' || data === null || !('resumeId' in data)) {
+                    return;
+                }
+
+                const approvalEvent = data as ApprovalRequestEventI;
+
+                if (typeof approvalEvent.resumeId === 'string' && approvalEvent.resumeId.length > 0) {
+                    addMessage({
+                        content: [
+                            {
+                                data: {
+                                    formDescription: approvalEvent.formDescription,
+                                    formTitle: approvalEvent.formTitle,
+                                    formUrl: approvalEvent.formUrl,
+                                    kind: 'approval-request',
+                                    resumeId: approvalEvent.resumeId,
+                                },
+                                type: 'data-approval-request',
+                            },
+                        ],
+                        role: 'assistant',
+                    });
+
+                    const currentTaskId = useAiHubStore.getState().taskId;
+
+                    if (currentTaskId != null) {
+                        aiHubTasksStore.getState().setActivityState(currentTaskId, 'paused');
+                    }
+                }
+
+                setApprovalStreamRequest(null);
+            },
+            ask_user_question: (data: unknown) => {
+                if (typeof data !== 'object' || data === null || !('questions' in data)) {
+                    return;
+                }
+
+                appendToLastAssistantMessage(formatAskUserQuestionMessage(data as AskUserQuestionEventI));
+                setApprovalStreamRequest(null);
+            },
+            error: (data: unknown) => {
+                const errorMessage = typeof data === 'string' ? data : 'The resumed run failed.';
+
+                appendToLastAssistantMessage(`\n\n${errorMessage}`);
+                setApprovalStreamRequest(null);
+            },
+            stream: (data: unknown) => {
+                const chunk = extractStreamChunk(data);
+
+                if (chunk) {
+                    appendToLastAssistantMessage(chunk);
+                }
+            },
+        }),
+        [addMessage, appendToLastAssistantMessage]
+    );
+
+    useSSE(approvalStreamRequest, {eventHandlers: approvalStreamEventHandlers});
+
+    const resolveApproval = useCallback(
+        (resumeId: string, payload: Record<string, unknown>) => {
+            // A fresh assistant bubble so the continuation streams below the card instead of into it.
+            addMessage({content: '', role: 'assistant'});
+
+            const currentTaskId = useAiHubStore.getState().taskId;
+
+            if (currentTaskId != null) {
+                aiHubTasksStore.getState().clearActivityState(currentTaskId);
+            }
+
+            setApprovalStreamRequest({
+                init: {
+                    body: JSON.stringify(payload),
+                    headers: {'Content-Type': 'application/json'},
+                    method: 'POST',
+                },
+                url: `/job/resume/${resumeId}`,
+            });
+        },
+        [addMessage]
+    );
+
+    const approvalResolution = useMemo(() => ({resolveApproval}), [resolveApproval]);
 
     const projectedMessages = useMemo(
         () => projectMessagesWithToolCalls(messages, Object.values(toolCalls)),
@@ -2263,5 +2359,9 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
         };
     }, []);
 
-    return <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>;
+    return (
+        <ApprovalResolutionContext.Provider value={approvalResolution}>
+            <AssistantRuntimeProvider runtime={runtime}>{children}</AssistantRuntimeProvider>
+        </ApprovalResolutionContext.Provider>
+    );
 }

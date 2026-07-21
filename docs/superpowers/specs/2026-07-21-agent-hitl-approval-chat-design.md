@@ -165,10 +165,12 @@ Phases 1–2 are independent of 3 and deliver the visible differentiation first.
   existing SSE machinery at the resume stream, so the resumed run's output — stream deltas, nested
   ask-user-question or approval events — lands back in the conversation through the same event
   handlers as a normal turn. `JobResumeSseStreamBridge` maps `__eventType` payloads to named SSE
-  events (mirroring the webhook bridge) so those nested interactive events arrive intact. Surfaces
-  without the context (AI Hub workflow chat, the hosted form page) fall back to the plain resume
-  mutation — AI Hub continuation streaming remains a follow-up (its AG-UI turn model needs a
-  different wiring).
+  events (mirroring the webhook bridge) so those nested interactive events arrive intact. AI Hub
+  workflow chat provides the same context with its own `useSSE` reader (the resume stream is
+  independent of the AG-UI turn model): the continuation streams into a fresh assistant bubble,
+  and nested approval/ask events render live — but the continuation text is client-only (the
+  bridge only persists bridge-run turns), so it does not survive a reload. The hosted form page
+  has no context and keeps the plain resume mutation.
 - **Known limitations (follow-ups).** (b) On
   the workflow-chat surface the card only arrives when the run takes the streaming path (any
   streaming task present — always true for AI-agent workflows); sync-path chat runs skip SSE
