@@ -7,10 +7,14 @@ dependencies {
     implementation("org.springframework:spring-tx")
     implementation("org.springframework.data:spring-data-commons")
     implementation("org.springframework.data:spring-data-jdbc")
+    implementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-api"))
     implementation(project(":server:libs:automation:automation-configuration:automation-configuration-api"))
+    implementation(project(":server:libs:core:commons:commons-util"))
+    implementation(project(":server:libs:platform:platform-component:platform-component-api"))
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-api"))
 
     testImplementation(project(":server:libs:config:liquibase-config"))
     testImplementation(project(":server:libs:test:test-int-support"))
+    testImplementation(project(":server:libs:test:test-support"))
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }

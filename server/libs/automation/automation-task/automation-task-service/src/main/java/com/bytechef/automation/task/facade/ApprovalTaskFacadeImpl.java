@@ -16,16 +16,33 @@
 
 package com.bytechef.automation.task.facade;
 
+import com.bytechef.atlas.configuration.domain.Workflow;
+import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.atlas.execution.domain.Job;
+import com.bytechef.atlas.execution.domain.TaskExecution;
+import com.bytechef.atlas.execution.service.JobService;
+import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.task.domain.ApprovalTask;
+import com.bytechef.automation.task.domain.PendingApproval;
 import com.bytechef.automation.task.service.ApprovalTaskService;
+import com.bytechef.commons.util.MapUtils;
+import com.bytechef.platform.component.constant.MetadataConstants;
+import com.bytechef.platform.component.definition.SuspendUtils;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.workflow.execution.JobResumeId;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
+import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.List;
+import org.jspecify.annotations.Nullable;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -39,18 +56,28 @@ public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
 
     private final ApprovalTaskService approvalTaskService;
     private final ApprovalTokens approvalTokens;
+    private final JobService jobService;
     private final PrincipalJobService principalJobService;
     private final ProjectDeploymentService projectDeploymentService;
+    private final @Nullable String publicUrl;
+    private final TaskExecutionService taskExecutionService;
+    private final WorkflowService workflowService;
 
     @SuppressFBWarnings("EI")
     public ApprovalTaskFacadeImpl(
-        ApprovalTaskService approvalTaskService, ApprovalTokens approvalTokens, PrincipalJobService principalJobService,
-        ProjectDeploymentService projectDeploymentService) {
+        ApprovalTaskService approvalTaskService, ApprovalTokens approvalTokens, JobService jobService,
+        PrincipalJobService principalJobService, ProjectDeploymentService projectDeploymentService,
+        @Value("${bytechef.public-url:#{null}}") @Nullable String publicUrl,
+        TaskExecutionService taskExecutionService, WorkflowService workflowService) {
 
         this.approvalTaskService = approvalTaskService;
         this.approvalTokens = approvalTokens;
+        this.jobService = jobService;
         this.principalJobService = principalJobService;
         this.projectDeploymentService = projectDeploymentService;
+        this.publicUrl = publicUrl;
+        this.taskExecutionService = taskExecutionService;
+        this.workflowService = workflowService;
     }
 
     @Override
@@ -62,6 +89,60 @@ public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
         approvalTask.setEnvironment(getEnvironment(innerToken));
 
         return approvalTaskService.create(approvalTask);
+    }
+
+    @Override
+    public List<PendingApproval> getPendingApprovals() {
+        List<PendingApproval> pendingApprovals = new ArrayList<>();
+
+        for (Job job : jobService.getStaleJobs(Job.Status.STOPPED, Instant.now())) {
+            Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+
+            if (jobResumeId == null || job.getId() == null) {
+                continue;
+            }
+
+            String formUrl = ApprovalFormUrls.buildFormUrl(publicUrl, jobResumeId.toString(), approvalTokens)
+                .orElse(null);
+
+            pendingApprovals.add(
+                new PendingApproval(
+                    job.getId(), resolveWorkflowLabel(job), formUrl, job.getCreatedDate(), resolveExpiresAt(job)));
+        }
+
+        pendingApprovals.sort(
+            Comparator.comparing(
+                PendingApproval::createdDate, Comparator.nullsLast(Comparator.reverseOrder())));
+
+        return pendingApprovals;
+    }
+
+    private String resolveWorkflowLabel(Job job) {
+        try {
+            Workflow workflow = workflowService.getWorkflow(job.getWorkflowId());
+
+            String label = workflow.getLabel();
+
+            return label == null || label.isBlank() ? job.getWorkflowId() : label;
+        } catch (Exception exception) {
+            return job.getWorkflowId();
+        }
+    }
+
+    private @Nullable Instant resolveExpiresAt(Job job) {
+        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
+
+        if (taskExecutionResumeId == null) {
+            return null;
+        }
+
+        try {
+            TaskExecution taskExecution = taskExecutionService.getTaskExecution(taskExecutionResumeId);
+
+            return SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata());
+        } catch (Exception exception) {
+            return null;
+        }
     }
 
     private String resolveInnerToken(String jobResumeIdString) {

@@ -20,6 +20,8 @@ import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.automation.task.domain.ApprovalTask;
 import com.bytechef.automation.task.domain.ApprovalTask.Priority;
 import com.bytechef.automation.task.domain.ApprovalTask.Status;
+import com.bytechef.automation.task.domain.PendingApproval;
+import com.bytechef.automation.task.facade.ApprovalTaskFacade;
 import com.bytechef.automation.task.service.ApprovalTaskService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
@@ -36,10 +38,14 @@ import org.springframework.stereotype.Controller;
 @ConditionalOnCoordinator
 public class ApprovalTaskGraphQlController {
 
+    private final ApprovalTaskFacade approvalTaskFacade;
     private final ApprovalTaskService approvalTaskService;
 
     @SuppressFBWarnings("EI")
-    public ApprovalTaskGraphQlController(ApprovalTaskService approvalTaskService) {
+    public ApprovalTaskGraphQlController(
+        ApprovalTaskFacade approvalTaskFacade, ApprovalTaskService approvalTaskService) {
+
+        this.approvalTaskFacade = approvalTaskFacade;
         this.approvalTaskService = approvalTaskService;
     }
 
@@ -68,6 +74,11 @@ public class ApprovalTaskGraphQlController {
     @QueryMapping
     public List<ApprovalTask> approvalTasksByIds(@Argument List<Long> ids) {
         return approvalTaskService.getApprovalTasks(ids);
+    }
+
+    @QueryMapping
+    public List<PendingApproval> pendingApprovals() {
+        return approvalTaskFacade.getPendingApprovals();
     }
 
     @MutationMapping
