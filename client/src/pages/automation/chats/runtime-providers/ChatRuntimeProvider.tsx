@@ -144,6 +144,7 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
                             formDescription: approvalEvent.formDescription,
                             formTitle: approvalEvent.formTitle,
                             formUrl: approvalEvent.formUrl,
+                            hasInputs: Array.isArray(approvalEvent.inputs) && approvalEvent.inputs.length > 0,
                             kind: 'approval-request',
                             resumeId: approvalEvent.resumeId,
                         },

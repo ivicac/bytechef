@@ -171,6 +171,16 @@ Phases 1–2 are independent of 3 and deliver the visible differentiation first.
   and nested approval/ask events render live — but the continuation text is client-only (the
   bridge only persists bridge-run turns), so it does not survive a reload. The hosted form page
   has no context and keeps the plain resume mutation.
+- **Editor test runs.** Channels are production transports and stay skipped in the editor, but the
+  tool gate sends the `approval_request` event through the agent's ToolContext SSE emitter instead
+  (the same path `ask_user_question` uses), so the canvas test chat renders the card for gated
+  tools. The card itself is self-contained for field-less approvals — buttons + comment rendered
+  from the event data, no approval-form endpoint dependency — and only embeds `ApprovalForm` when
+  the approval carries form fields. The standalone Approval *action* still surfaces nothing in
+  editor runs (a non-streaming action has no emitter access).
+- **SDK widget continuation.** The `@bytechef/chat` inline card resolves with
+  `Accept: text/event-stream` and drains the resumed run's output through the widget's existing
+  SSE event handlers — deltas stream into a fresh bubble, and a nested approval re-opens the card.
 - **Known limitations (follow-ups).** (b) On
   the workflow-chat surface the card only arrives when the run takes the streaming path (any
   streaming task present — always true for AI-agent workflows); sync-path chat runs skip SSE

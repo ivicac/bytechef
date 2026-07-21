@@ -1,4 +1,5 @@
 import {FC, useState} from 'react';
+import {useApprovalResolution} from '@/components/approvalResolutionContext';
 import {useChatStore} from '@/stores/useChatStore';
 import {Button} from './ui/button';
 
@@ -12,6 +13,8 @@ export const ApprovalCard: FC = () => {
     const pendingApproval = useChatStore((state) => state.pendingApproval);
     const setMessage = useChatStore((state) => state.setMessage);
     const setPendingApproval = useChatStore((state) => state.setPendingApproval);
+
+    const approvalResolution = useApprovalResolution();
 
     const [comment, setComment] = useState('');
     const [error, setError] = useState<string | null>(null);
@@ -27,12 +30,22 @@ export const ApprovalCard: FC = () => {
         setSubmitting(true);
         setError(null);
 
-        try {
-            const body: Record<string, unknown> = {approved};
-            const trimmedComment = comment.trim();
+        const body: Record<string, unknown> = {approved};
+        const trimmedComment = comment.trim();
 
-            if (trimmedComment) {
-                body.comment = trimmedComment;
+        if (trimmedComment) {
+            body.comment = trimmedComment;
+        }
+
+        try {
+            if (approvalResolution) {
+                // Streams the resumed run's output back into the conversation; the provider clears the pending
+                // approval and appends the resolved marker itself.
+                await approvalResolution.resolveApproval(pendingApproval, body);
+
+                setComment('');
+
+                return;
             }
 
             const response = await fetch(pendingApproval.resumeUrl, {

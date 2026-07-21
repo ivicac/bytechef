@@ -20,6 +20,9 @@ import static com.bytechef.component.definition.approval.ApprovalChannelFunction
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
 
 import com.bytechef.component.definition.ActionContext;
+import com.bytechef.component.definition.ActionDefinition;
+import com.bytechef.platform.ai.constant.AiAgentSseEventType;
+import com.bytechef.platform.ai.constant.AiAgentToolContextKey;
 import com.bytechef.platform.ai.constant.ToolSuspendConstants;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ActionContextAware;
@@ -28,9 +31,14 @@ import com.bytechef.platform.configuration.domain.ClusterElement;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
+import java.util.concurrent.atomic.AtomicReference;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
@@ -47,6 +55,8 @@ import org.springframework.ai.tool.definition.ToolDefinition;
  * @author Ivica Cardic
  */
 public class ApprovalGateToolCallback implements ToolCallback {
+
+    private static final Logger log = LoggerFactory.getLogger(ApprovalGateToolCallback.class);
 
     private static final String CHAT_APPROVAL_CHANNEL_COMPONENT = "approval";
     private static final String CHAT_APPROVAL_CHANNEL_NAME = "chat";
@@ -99,7 +109,12 @@ public class ApprovalGateToolCallback implements ToolCallback {
 
         String formUrl = resumeUrl.replace("/job/resume/", "/resume/");
 
-        if (!actionContext.isEditorEnvironment()) {
+        if (actionContext.isEditorEnvironment()) {
+            // Editor test runs have no channel listeners (channels are production transports), but the agent's
+            // SSE stream IS connected — send the approval card event through the ToolContext's emitter, the same
+            // path ask_user_question uses, so the canvas test chat renders the card.
+            sendEditorApprovalRequestEvent(toolContext, formUrl, toolInput);
+        } else {
             deliverApprovalRequest(formUrl, toolInput);
         }
 
@@ -115,6 +130,46 @@ public class ApprovalGateToolCallback implements ToolCallback {
         actionContext.suspend(new ActionContext.Suspend(continueParameters, expiresAt));
 
         return ToolSuspendConstants.SUSPENDED_SENTINEL;
+    }
+
+    @SuppressWarnings("unchecked")
+    private void sendEditorApprovalRequestEvent(@Nullable ToolContext toolContext, String formUrl, String toolInput) {
+        if (toolContext == null) {
+            return;
+        }
+
+        Map<String, Object> eventData = new LinkedHashMap<>();
+
+        eventData.put(AiAgentSseEventType.EVENT_TYPE, AiAgentSseEventType.APPROVAL_REQUEST);
+        eventData.put("resumeId", formUrl.substring(formUrl.lastIndexOf('/') + 1));
+        eventData.put("formUrl", formUrl);
+        eventData.put(FORM_TITLE, "Approve tool call: " + getName());
+        eventData.put(
+            FORM_DESCRIPTION,
+            "The AI agent wants to call the tool '" + getName() + "' with these arguments:\n\n" + toolInput);
+        eventData.put("inputs", List.of());
+
+        Map<String, Object> toolContextMap = toolContext.getContext();
+
+        Object emitterReferenceObject = toolContextMap.get(AiAgentToolContextKey.SSE_EMITTER_REFERENCE);
+
+        if (emitterReferenceObject instanceof AtomicReference<?> emitterReference
+            && emitterReference.get() instanceof ActionDefinition.SseEmitterHandler.SseEmitter sseEmitter) {
+
+            try {
+                sseEmitter.send(eventData);
+
+                return;
+            } catch (Exception exception) {
+                log.warn("SSE send of approval_request failed, falling back to buffering: {}", exception.getMessage());
+            }
+        }
+
+        Object bufferedEventsObject = toolContextMap.get(AiAgentToolContextKey.SSE_BUFFERED_EVENTS);
+
+        if (bufferedEventsObject instanceof Queue<?> queue) {
+            ((Queue<Map<String, Object>>) queue).add(eventData);
+        }
     }
 
     private void deliverApprovalRequest(String formUrl, String toolInput) {

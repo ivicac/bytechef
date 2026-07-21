@@ -133,4 +133,36 @@ class ApprovalGateToolCallbackTest {
         org.mockito.Mockito.verifyNoInteractions(clusterElementDefinitionService);
         verify(actionContext).suspend(any());
     }
+
+    @Test
+    void testEditorEnvironmentEmitsApprovalRequestEventThroughToolContext() {
+        when(actionContext.getSuspend()).thenReturn(null);
+        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.isEditorEnvironment()).thenReturn(true);
+
+        java.util.Queue<Map<String, Object>> bufferedEvents = new java.util.concurrent.ConcurrentLinkedQueue<>();
+
+        org.springframework.ai.chat.model.ToolContext toolContext = new org.springframework.ai.chat.model.ToolContext(
+            Map.of(
+                com.bytechef.platform.ai.constant.AiAgentToolContextKey.SSE_BUFFERED_EVENTS, bufferedEvents,
+                com.bytechef.platform.ai.constant.AiAgentToolContextKey.SSE_EMITTER_REFERENCE,
+                new java.util.concurrent.atomic.AtomicReference<>()));
+
+        ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
+            delegate, List.of(), Map.of(), clusterElementDefinitionService, actionContext);
+
+        String result = gate.call("{\"channel\": \"#general\"}", toolContext);
+
+        assertThat(result).isEqualTo(ToolSuspendConstants.SUSPENDED_SENTINEL);
+
+        // Editor runs have no channel listeners; the card event must ride the agent's SSE stream instead —
+        // buffered here because no emitter is attached yet, drained when the client connects.
+        assertThat(bufferedEvents).hasSize(1);
+        assertThat(bufferedEvents.peek())
+            .containsEntry("__eventType", "approval_request")
+            .containsEntry("resumeId", "abc123")
+            .containsKey("formTitle");
+
+        org.mockito.Mockito.verifyNoInteractions(clusterElementDefinitionService);
+    }
 }
