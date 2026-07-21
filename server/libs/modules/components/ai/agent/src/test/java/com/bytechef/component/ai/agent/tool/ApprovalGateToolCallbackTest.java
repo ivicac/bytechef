@@ -30,6 +30,10 @@ import com.bytechef.component.definition.ActionContext;
 import com.bytechef.platform.ai.constant.ToolSuspendConstants;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
+import com.bytechef.platform.tool.execution.ToolExecutionEvent;
+import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -96,6 +100,32 @@ class ApprovalGateToolCallbackTest {
         // The delegate must NOT execute before approval.
         verify(delegate, never()).call(any());
         verify(delegate, never()).call(any(), any());
+    }
+
+    @Test
+    void testFirstCallRecordsApprovalRequiredAuditEvent() {
+        when(actionContext.getSuspend()).thenReturn(null);
+        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.isEditorEnvironment()).thenReturn(false);
+        when(actionContext.getJobId()).thenReturn(42L);
+
+        ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
+
+        ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
+            delegate, List.of(), Map.of(), clusterElementDefinitionService, actionContext, toolExecutionRecorder);
+
+        gate.call("{\"channel\": \"#general\"}", null);
+
+        ArgumentCaptor<ToolExecutionEvent> eventCaptor = ArgumentCaptor.forClass(ToolExecutionEvent.class);
+
+        verify(toolExecutionRecorder).record(eventCaptor.capture());
+
+        ToolExecutionEvent toolExecutionEvent = eventCaptor.getValue();
+
+        assertThat(toolExecutionEvent.surface()).isEqualTo(ToolExecutionSurface.AI_AGENT);
+        assertThat(toolExecutionEvent.toolName()).isEqualTo("SLACK_SEND_MESSAGE");
+        assertThat(toolExecutionEvent.outcome()).isEqualTo(ToolExecutionOutcome.APPROVAL_REQUIRED);
+        assertThat(toolExecutionEvent.jobId()).isEqualTo(42L);
     }
 
     @Test

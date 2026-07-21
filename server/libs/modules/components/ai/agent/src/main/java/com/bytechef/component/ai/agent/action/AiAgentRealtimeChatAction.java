@@ -31,6 +31,7 @@ import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.AbstractActionDefinitionWrapper;
 import com.bytechef.platform.component.definition.MultipleConnectionsWebSocketPerformFunction;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -39,6 +40,7 @@ import org.jspecify.annotations.Nullable;
 import org.reactivestreams.Subscription;
 import org.springframework.ai.chat.client.ChatClient.ChatClientRequestSpec;
 import org.springframework.ai.model.tool.ToolCallingManager;
+import org.springframework.beans.factory.ObjectProvider;
 import reactor.core.publisher.Flux;
 
 /**
@@ -84,17 +86,22 @@ public class AiAgentRealtimeChatAction extends AbstractAiAgentChatAction {
 
     public static ActionDefinition of(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
-        ToolCallingManager toolCallingManager) {
+        ToolCallingManager toolCallingManager,
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider) {
 
-        return new AiAgentRealtimeChatAction(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager)
-            .build();
+        return new AiAgentRealtimeChatAction(
+            aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
+            toolExecutionRecorderObjectProvider).build();
     }
 
     private AiAgentRealtimeChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
-        ToolCallingManager toolCallingManager) {
+        ToolCallingManager toolCallingManager,
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider) {
 
-        super(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
+        super(
+            aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
+            toolExecutionRecorderObjectProvider);
     }
 
     private RealtimeChatActionDefinitionWrapper build() {

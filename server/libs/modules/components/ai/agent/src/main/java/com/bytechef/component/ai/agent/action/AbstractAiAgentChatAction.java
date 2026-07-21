@@ -64,6 +64,10 @@ import com.bytechef.platform.component.definition.ai.agent.ToolCallbackProviderF
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
+import com.bytechef.platform.tool.execution.ToolExecutionKind;
+import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -96,6 +100,7 @@ import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.augment.AugmentedToolCallbackProvider;
 import org.springframework.ai.tool.definition.ToolDefinition;
+import org.springframework.beans.factory.ObjectProvider;
 import tools.jackson.core.type.TypeReference;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -113,13 +118,34 @@ public abstract class AbstractAiAgentChatAction {
     private final AiAgentToolFacade aiAgentToolFacade;
     private final ToolCallingManager toolCallingManager;
 
+    private final @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider;
+
     protected AbstractAiAgentChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
         ToolCallingManager toolCallingManager) {
 
+        this(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager, null);
+    }
+
+    protected AbstractAiAgentChatAction(
+        AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+        ToolCallingManager toolCallingManager,
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider) {
+
         this.aiAgentToolFacade = aiAgentToolFacade;
         this.clusterElementDefinitionService = clusterElementDefinitionService;
         this.toolCallingManager = toolCallingManager;
+        this.toolExecutionRecorderObjectProvider = toolExecutionRecorderObjectProvider;
+    }
+
+    /**
+     * Resolves the optional tool-invocation audit recorder. Absent (null) when the app variant does not carry the
+     * platform-tool-execution service module, or when the action was built through the recorder-less constructor — gate
+     * decisions are then simply not audited.
+     */
+    private @Nullable ToolExecutionRecorder fetchToolExecutionRecorder() {
+        return toolExecutionRecorderObjectProvider == null
+            ? null : toolExecutionRecorderObjectProvider.getIfAvailable();
     }
 
     protected ChatClient.ChatClientRequestSpec getChatClientRequestSpec(
@@ -367,8 +393,12 @@ public abstract class AbstractAiAgentChatAction {
         boolean approved = data.getBoolean("approved", false);
         String comment = data.getString("comment");
         boolean hasComment = comment != null && !comment.isBlank();
+        ToolExecutionRecorder toolExecutionRecorder = fetchToolExecutionRecorder();
 
         if (!approved) {
+            recordGateResolution(
+                toolExecutionRecorder, continueParameters, context, ToolExecutionOutcome.APPROVAL_DENIED);
+
             Map<String, Object> denial = new HashMap<>();
 
             denial.put("denied", true);
@@ -406,9 +436,16 @@ public abstract class AbstractAiAgentChatAction {
             approvedResult.put("reviewerComment", comment);
         }
 
+        ToolContext toolContext = new ToolContext(Map.of(AiAgentToolContextKey.ACTION_CONTEXT, context));
+
         try {
-            String result = gatedToolCallback.call(
-                gatedToolInput, new ToolContext(Map.of(AiAgentToolContextKey.ACTION_CONTEXT, context)));
+            // The recorder wraps the approved execution so the audit trail carries the post-approval outcome
+            // (SUCCESS or ERROR) with the measured duration; without a recorder the tool simply runs unaudited.
+            String result = toolExecutionRecorder == null
+                ? gatedToolCallback.call(gatedToolInput, toolContext)
+                : toolExecutionRecorder.record(
+                    createGateResolutionEventBuilder(continueParameters, context),
+                    () -> gatedToolCallback.call(gatedToolInput, toolContext));
 
             approvedResult.put("result", result);
         } catch (Exception exception) {
@@ -417,6 +454,36 @@ public abstract class AbstractAiAgentChatAction {
         }
 
         return JsonUtils.write(approvedResult);
+    }
+
+    /**
+     * Emits a direct (execution-less) gate-resolution audit event; used for the denial branch, where no tool runs. Tool
+     * name and outcome only — reviewer comments and tool arguments stay out of the audit trail.
+     */
+    private static void recordGateResolution(
+        @Nullable ToolExecutionRecorder toolExecutionRecorder, Parameters continueParameters, ActionContext context,
+        ToolExecutionOutcome outcome) {
+
+        if (toolExecutionRecorder == null) {
+            return;
+        }
+
+        toolExecutionRecorder.record(
+            createGateResolutionEventBuilder(continueParameters, context)
+                .outcome(outcome)
+                .build());
+    }
+
+    // The agent module has its own action.event.ToolExecutionEvent (the SSE listener event), so the platform audit
+    // event is referenced fully qualified.
+    private static com.bytechef.platform.tool.execution.ToolExecutionEvent.Builder createGateResolutionEventBuilder(
+        Parameters continueParameters, ActionContext context) {
+
+        return com.bytechef.platform.tool.execution.ToolExecutionEvent
+            .builder(
+                ToolExecutionSurface.AI_AGENT, ToolExecutionKind.COMPONENT,
+                continueParameters.getRequiredString(ToolSuspendConstants.GATED_TOOL_NAME))
+            .jobId(((ActionContextAware) context).getJobId());
     }
 
     /**
@@ -800,11 +867,13 @@ public abstract class AbstractAiAgentChatAction {
             // instead of executing. Applied INSIDE the observable wrapper so the audit listener records the
             // gate outcome (suspension, later the approved result or denial) like any other tool result.
             if (Boolean.TRUE.equals(clusterElementParameters.get(ToolConstants.REQUIRES_APPROVAL))) {
+                ToolExecutionRecorder toolExecutionRecorder = fetchToolExecutionRecorder();
+
                 elementToolCallbacks = elementToolCallbacks.stream()
                     .map(
                         toolCallback -> (ToolCallback) new ApprovalGateToolCallback(
                             toolCallback, approvalChannelClusterElements, connectionParameters,
-                            clusterElementDefinitionService, context))
+                            clusterElementDefinitionService, context, toolExecutionRecorder))
                     .toList();
             }
 

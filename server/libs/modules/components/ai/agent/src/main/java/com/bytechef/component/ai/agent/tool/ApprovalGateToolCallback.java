@@ -28,6 +28,11 @@ import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
+import com.bytechef.platform.tool.execution.ToolExecutionEvent;
+import com.bytechef.platform.tool.execution.ToolExecutionKind;
+import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
@@ -67,16 +72,31 @@ public class ApprovalGateToolCallback implements ToolCallback {
     private final ClusterElementDefinitionService clusterElementDefinitionService;
     private final ActionContextAware actionContext;
 
+    @Nullable
+    private final ToolExecutionRecorder toolExecutionRecorder;
+
     public ApprovalGateToolCallback(
         ToolCallback delegate, List<ClusterElement> approvalChannelClusterElements,
         Map<String, ComponentConnection> componentConnections,
         ClusterElementDefinitionService clusterElementDefinitionService, ActionContext actionContext) {
+
+        this(
+            delegate, approvalChannelClusterElements, componentConnections, clusterElementDefinitionService,
+            actionContext, null);
+    }
+
+    public ApprovalGateToolCallback(
+        ToolCallback delegate, List<ClusterElement> approvalChannelClusterElements,
+        Map<String, ComponentConnection> componentConnections,
+        ClusterElementDefinitionService clusterElementDefinitionService, ActionContext actionContext,
+        @Nullable ToolExecutionRecorder toolExecutionRecorder) {
 
         this.delegate = delegate;
         this.approvalChannelClusterElements = List.copyOf(approvalChannelClusterElements);
         this.componentConnections = Map.copyOf(componentConnections);
         this.clusterElementDefinitionService = clusterElementDefinitionService;
         this.actionContext = (ActionContextAware) actionContext;
+        this.toolExecutionRecorder = toolExecutionRecorder;
     }
 
     @Override
@@ -129,7 +149,26 @@ public class ApprovalGateToolCallback implements ToolCallback {
 
         actionContext.suspend(new ActionContext.Suspend(continueParameters, expiresAt));
 
+        recordGateRaised();
+
         return ToolSuspendConstants.SUSPENDED_SENTINEL;
+    }
+
+    /**
+     * Emits a tool-invocation audit event for the raised gate. Name-and-outcome only — the AI-chosen arguments are
+     * deliberately excluded from the audit trail, matching the recorder's payload-free event contract.
+     */
+    private void recordGateRaised() {
+        if (toolExecutionRecorder == null) {
+            return;
+        }
+
+        toolExecutionRecorder.record(
+            ToolExecutionEvent
+                .builder(ToolExecutionSurface.AI_AGENT, ToolExecutionKind.COMPONENT, getName())
+                .jobId(actionContext.getJobId())
+                .outcome(ToolExecutionOutcome.APPROVAL_REQUIRED)
+                .build());
     }
 
     @SuppressWarnings("unchecked")

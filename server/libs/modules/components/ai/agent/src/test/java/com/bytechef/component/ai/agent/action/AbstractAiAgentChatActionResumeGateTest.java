@@ -35,16 +35,23 @@ import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ParametersFactory;
 import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsToolFunction;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
+import com.bytechef.platform.tool.execution.ToolExecutionEvent;
+import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.model.tool.ToolCallingManager;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.DefaultToolDefinition;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Dedicated coverage for the approval-gate resume branch ({@code resolveGatedToolResumeData}): approval executes the
@@ -147,6 +154,60 @@ class AbstractAiAgentChatActionResumeGateTest {
             .contains("approvedByReviewer")
             .contains("connection refused")
             .doesNotContain("\"result\"");
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testRejectedRecordsApprovalDeniedAuditEvent() {
+        ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
+
+        AbstractAiAgentChatAction auditedAction = createAuditedAction(toolExecutionRecorder);
+
+        auditedAction.resolveGatedToolResumeData(
+            continueParameters(GATED_TOOL_NAME), data(false, "not now"), Map.of(), EXTENSIONS, context);
+
+        ArgumentCaptor<ToolExecutionEvent> eventArgumentCaptor = ArgumentCaptor.forClass(ToolExecutionEvent.class);
+
+        verify(toolExecutionRecorder).record(eventArgumentCaptor.capture());
+
+        ToolExecutionEvent toolExecutionEvent = eventArgumentCaptor.getValue();
+
+        assertThat(toolExecutionEvent.surface()).isEqualTo(ToolExecutionSurface.AI_AGENT);
+        assertThat(toolExecutionEvent.toolName()).isEqualTo(GATED_TOOL_NAME);
+        assertThat(toolExecutionEvent.outcome()).isEqualTo(ToolExecutionOutcome.APPROVAL_DENIED);
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void testApprovedExecutionRunsThroughTheAuditRecorder() {
+        when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
+
+        ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
+
+        // The recorder wraps the execution — make the mock actually run the supplier so the tool executes.
+        when(toolExecutionRecorder.record(any(ToolExecutionEvent.Builder.class), any(Supplier.class)))
+            .thenAnswer(invocation -> ((Supplier<Object>) invocation.getArgument(1)).get());
+
+        AbstractAiAgentChatAction auditedAction = createAuditedAction(toolExecutionRecorder);
+
+        String resumeData = auditedAction.resolveGatedToolResumeData(
+            continueParameters(GATED_TOOL_NAME), data(true, null), Map.of(), EXTENSIONS, context);
+
+        verify(toolExecutionRecorder).record(any(ToolExecutionEvent.Builder.class), any(Supplier.class));
+        verify(toolCallback).call(eq(GATED_TOOL_INPUT), any(ToolContext.class));
+
+        assertThat(resumeData).contains("message sent: ts=1721");
+    }
+
+    @SuppressWarnings("unchecked")
+    private AbstractAiAgentChatAction createAuditedAction(ToolExecutionRecorder toolExecutionRecorder) {
+        ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider = mock(ObjectProvider.class);
+
+        when(toolExecutionRecorderObjectProvider.getIfAvailable()).thenReturn(toolExecutionRecorder);
+
+        return new AbstractAiAgentChatAction(
+            aiAgentToolFacade, clusterElementDefinitionService, mock(ToolCallingManager.class),
+            toolExecutionRecorderObjectProvider) {};
     }
 
     private static Parameters continueParameters(String gatedToolName) {
