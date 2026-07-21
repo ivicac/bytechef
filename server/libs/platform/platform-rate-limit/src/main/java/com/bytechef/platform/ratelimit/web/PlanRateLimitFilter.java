@@ -18,9 +18,11 @@ package com.bytechef.platform.ratelimit.web;
 
 import com.bytechef.platform.plan.domain.PlanLimits;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
+import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
 import com.bytechef.platform.ratelimit.RateLimitPolicy;
 import com.bytechef.platform.ratelimit.RateLimiter;
 import com.bytechef.tenant.TenantContext;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -46,10 +48,16 @@ public class PlanRateLimitFilter extends OncePerRequestFilter {
 
     private static final RateLimitPolicy LOGIN_POLICY = new RateLimitPolicy(10, 1);
 
+    private final PlanLimitRejectionCounter planLimitRejectionCounter;
     private final PlanLimitsProvider planLimitsProvider;
     private final RateLimiter rateLimiter;
 
-    public PlanRateLimitFilter(PlanLimitsProvider planLimitsProvider, RateLimiter rateLimiter) {
+    @SuppressFBWarnings("EI2")
+    public PlanRateLimitFilter(
+        PlanLimitRejectionCounter planLimitRejectionCounter, PlanLimitsProvider planLimitsProvider,
+        RateLimiter rateLimiter) {
+
+        this.planLimitRejectionCounter = planLimitRejectionCounter;
         this.planLimitsProvider = planLimitsProvider;
         this.rateLimiter = rateLimiter;
     }
@@ -64,6 +72,8 @@ public class PlanRateLimitFilter extends OncePerRequestFilter {
         // Login brute-force control is a fixed budget, independent of the plan tier.
         if ("/api/authentication".equals(path) && "POST".equalsIgnoreCase(request.getMethod())) {
             if (!rateLimiter.tryConsume("login:" + clientIp(request), LOGIN_POLICY)) {
+                planLimitRejectionCounter.increment("login");
+
                 reject(response);
 
                 return;
@@ -78,20 +88,24 @@ public class PlanRateLimitFilter extends OncePerRequestFilter {
 
         Integer permitsPerMinute;
         String bucketKey;
+        String limitTag;
 
         if (path.startsWith("/webhooks/")) {
             // Webhook trigger calls — Sim's sync request tier, budgeted per tenant.
             permitsPerMinute = planLimits.syncRequestsPerMinute();
             bucketKey = "sync:" + TenantContext.getCurrentTenantId();
+            limitTag = "sync";
         } else if (isPublicApiPath(path)) {
             // Public API — budgeted per tenant.
             permitsPerMinute = planLimits.apiRequestsPerMinute();
             bucketKey = "api:" + TenantContext.getCurrentTenantId();
+            limitTag = "api";
         } else if (path.startsWith("/api/") && isAnonymous()) {
             // Pre-auth flood control: anything under /api/ without an authenticated principal is throttled per
             // client IP so unauthenticated scans can't grind authenticated tenants' budgets or the endpoints.
             permitsPerMinute = planLimits.apiRequestsPerMinute();
             bucketKey = "preauth:" + clientIp(request);
+            limitTag = "preauth";
         } else {
             filterChain.doFilter(request, response);
 
@@ -105,6 +119,8 @@ public class PlanRateLimitFilter extends OncePerRequestFilter {
 
             return;
         }
+
+        planLimitRejectionCounter.increment(limitTag);
 
         reject(response);
     }

@@ -1,6 +1,7 @@
 dependencies {
     implementation("com.bucket4j:bucket4j_jdk17-core:8.14.0")
     implementation("com.github.ben-manes.caffeine:caffeine")
+    implementation("io.micrometer:micrometer-core")
     implementation("jakarta.servlet:jakarta.servlet-api")
     implementation("org.slf4j:slf4j-api")
     implementation("org.springframework:spring-context")

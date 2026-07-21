@@ -34,6 +34,7 @@ import com.bytechef.platform.notification.handler.NotificationSenderRegistry;
 import com.bytechef.platform.notification.service.NotificationService;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.ratelimit.ConcurrentExecutionGate;
+import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Duration;
@@ -104,11 +105,13 @@ public class PlatformCoordinatorConfiguration {
     JobTimeoutMonitor jobTimeoutMonitor(
         @Value("${bytechef.workflow.execution.timeout.default-timeout:#{null}}") Duration defaultTimeout,
         ApplicationEventPublisher eventPublisher,
+        ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
         TaskExecutionService taskExecutionService) {
 
         return new JobTimeoutMonitor(
-            defaultTimeout, eventPublisher, jobService, planLimitsProviderObjectProvider, taskExecutionService);
+            defaultTimeout, eventPublisher, jobService, planLimitRejectionCounterObjectProvider,
+            planLimitsProviderObjectProvider, taskExecutionService);
     }
 
     @Bean

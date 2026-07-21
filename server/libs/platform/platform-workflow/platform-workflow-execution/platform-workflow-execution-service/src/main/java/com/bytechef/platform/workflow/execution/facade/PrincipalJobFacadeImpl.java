@@ -26,6 +26,7 @@ import com.bytechef.platform.plan.domain.PlanLimits;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.plan.provider.PlanSpendProvider;
 import com.bytechef.platform.ratelimit.ConcurrentExecutionGate;
+import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
 import com.bytechef.platform.ratelimit.RateLimitPolicy;
 import com.bytechef.platform.ratelimit.RateLimiter;
 import com.bytechef.platform.workflow.execution.exception.JobConcurrencyLimitExceededException;
@@ -58,6 +59,7 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
     private final WorkflowService workflowService;
     private final LicenceJobUsageService licenceJobUsageService;
     private final ObjectProvider<ConcurrentExecutionGate> concurrentExecutionGateProvider;
+    private final ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider;
     private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
     private final ObjectProvider<PlanSpendProvider> planSpendProviderObjectProvider;
     private final ObjectProvider<RateLimiter> rateLimiterObjectProvider;
@@ -67,6 +69,7 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         PrincipalJobService principalJobService, JobFacade jobFacade, JobService jobService,
         WorkflowService workflowService, LicenceJobUsageService licenceJobUsageService,
         ObjectProvider<ConcurrentExecutionGate> concurrentExecutionGateProvider,
+        ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
         ObjectProvider<PlanSpendProvider> planSpendProviderObjectProvider,
         ObjectProvider<RateLimiter> rateLimiterObjectProvider) {
@@ -77,9 +80,18 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         this.workflowService = workflowService;
         this.licenceJobUsageService = licenceJobUsageService;
         this.concurrentExecutionGateProvider = concurrentExecutionGateProvider;
+        this.planLimitRejectionCounterObjectProvider = planLimitRejectionCounterObjectProvider;
         this.planLimitsProviderObjectProvider = planLimitsProviderObjectProvider;
         this.planSpendProviderObjectProvider = planSpendProviderObjectProvider;
         this.rateLimiterObjectProvider = rateLimiterObjectProvider;
+    }
+
+    private void countRejection(String limit) {
+        PlanLimitRejectionCounter planLimitRejectionCounter = planLimitRejectionCounterObjectProvider.getIfAvailable();
+
+        if (planLimitRejectionCounter != null) {
+            planLimitRejectionCounter.increment(limit);
+        }
     }
 
     /**
@@ -107,6 +119,8 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         }
 
         if (!concurrentExecutionGate.tryAcquire("executions:" + tenantId, maxConcurrentExecutions)) {
+            countRejection("concurrency");
+
             throw new JobConcurrencyLimitExceededException(maxConcurrentExecutions);
         }
     }
@@ -137,6 +151,8 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         RateLimitPolicy rateLimitPolicy = new RateLimitPolicy(asyncRequestsPerMinute, planLimits.burstMultiplier());
 
         if (!rateLimiter.tryConsume("async:" + tenantId, rateLimitPolicy)) {
+            countRejection("async");
+
             throw new JobRateLimitExceededException(asyncRequestsPerMinute);
         }
     }
@@ -168,6 +184,8 @@ public class PrincipalJobFacadeImpl implements PrincipalJobFacade {
         BigDecimal currentPeriodSpendUsd = planSpendProvider.getCurrentPeriodSpendUsd(tenantId);
 
         if (currentPeriodSpendUsd.compareTo(includedMonthlyCostUsd) >= 0) {
+            countRejection("cost");
+
             throw new JobCostLimitExceededException(includedMonthlyCostUsd);
         }
     }

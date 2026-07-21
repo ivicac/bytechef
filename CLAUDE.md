@@ -770,13 +770,16 @@ cd cli
   `RedisPlanEnforcementIntTest` (Testcontainers)), `PlanRateLimitFilter`
   (order 0, after the security chain: login 10/min/IP, webhooks → sync tier/tenant, public
   APIs → api tier/tenant, anonymous `/api/**` → per-IP; reject = 429 + Retry-After), and
-  the two async-admission gates in `PrincipalJobFacadeImpl.createJob` (async only; sync
+  the two async-admission gates in `PrincipalJobFacadeImpl.createJob` plus the monthly-cost cap
+  (`PlanSpendProvider` SPI, EE impl over cost rows, 60s memo, fail-open) (async only; sync
   `createJobWithoutDispatch` is deliberately ungated to avoid slot leaks): the
   `async:<tenant>` submissions-per-minute bucket (checked FIRST so a rate reject never
   leaks a slot) then `ConcurrentExecutionGate` slots, released by platform-coordinator's
   `ConcurrencySlotReleaseApplicationEventListener`
   on terminal job status (floors at zero; restart over-admits, never wrongly blocks). Never
-  gate inside `server/libs/atlas/` — admission and release both live outside the engine.
+  gate inside `server/libs/atlas/` — admission and release both live outside the engine. Every
+  rejection increments `bytechef_plan_limit_rejection{limit=login|sync|api|preauth|async|concurrency|cost|timeout}`
+  (`PlanLimitRejectionCounter`, no-op without a MeterRegistry).
 
 ## Crash recovery (orphaned jobs)
 

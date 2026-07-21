@@ -23,6 +23,7 @@ import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.error.ExecutionError;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
+import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
@@ -60,18 +61,21 @@ public class JobTimeoutMonitor {
 
     private final ApplicationEventPublisher eventPublisher;
     private final JobService jobService;
+    private final ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider;
     private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
     private final TaskExecutionService taskExecutionService;
 
     @SuppressFBWarnings("EI2")
     public JobTimeoutMonitor(
         @Nullable Duration defaultTimeout, ApplicationEventPublisher eventPublisher, JobService jobService,
+        ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
         TaskExecutionService taskExecutionService) {
 
         this.defaultTimeout = defaultTimeout;
         this.eventPublisher = eventPublisher;
         this.jobService = jobService;
+        this.planLimitRejectionCounterObjectProvider = planLimitRejectionCounterObjectProvider;
         this.planLimitsProviderObjectProvider = planLimitsProviderObjectProvider;
         this.taskExecutionService = taskExecutionService;
     }
@@ -159,6 +163,12 @@ public class JobTimeoutMonitor {
         job.setEndDate(now);
 
         jobService.update(job);
+
+        PlanLimitRejectionCounter planLimitRejectionCounter = planLimitRejectionCounterObjectProvider.getIfAvailable();
+
+        if (planLimitRejectionCounter != null) {
+            planLimitRejectionCounter.increment("timeout");
+        }
 
         log.warn(
             "Timed out job {} after exceeding the run limit of {}: marked {} task execution(s) and the job FAILED",

@@ -20,10 +20,13 @@ import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.ratelimit.Bucket4jRateLimiter;
 import com.bytechef.platform.ratelimit.ConcurrentExecutionGate;
 import com.bytechef.platform.ratelimit.InMemoryConcurrentExecutionGate;
+import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
 import com.bytechef.platform.ratelimit.RateLimiter;
 import com.bytechef.platform.ratelimit.RedisConcurrentExecutionGate;
 import com.bytechef.platform.ratelimit.RedisRateLimiter;
 import com.bytechef.platform.ratelimit.web.PlanRateLimitFilter;
+import io.micrometer.core.instrument.MeterRegistry;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.AutoConfiguration;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnClass;
@@ -62,6 +65,12 @@ public class PlanRateLimitAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    PlanLimitRejectionCounter planLimitRejectionCounter(ObjectProvider<MeterRegistry> meterRegistryObjectProvider) {
+        return new PlanLimitRejectionCounter(meterRegistryObjectProvider.getIfAvailable());
+    }
+
+    @Bean
+    @ConditionalOnMissingBean
     ConcurrentExecutionGate concurrentExecutionGate() {
         return new InMemoryConcurrentExecutionGate();
     }
@@ -91,10 +100,11 @@ public class PlanRateLimitAutoConfiguration {
     @ConditionalOnWebApplication(type = ConditionalOnWebApplication.Type.SERVLET)
     @ConditionalOnBean(PlanLimitsProvider.class)
     FilterRegistrationBean<PlanRateLimitFilter> planRateLimitFilter(
-        PlanLimitsProvider planLimitsProvider, RateLimiter rateLimiter) {
+        PlanLimitRejectionCounter planLimitRejectionCounter, PlanLimitsProvider planLimitsProvider,
+        RateLimiter rateLimiter) {
 
         FilterRegistrationBean<PlanRateLimitFilter> filterRegistrationBean = new FilterRegistrationBean<>(
-            new PlanRateLimitFilter(planLimitsProvider, rateLimiter));
+            new PlanRateLimitFilter(planLimitRejectionCounter, planLimitsProvider, rateLimiter));
 
         // After the security filter chain (default order -100) so isAnonymous() sees the outcome of authentication,
         // but before the dispatcher servlet work begins.

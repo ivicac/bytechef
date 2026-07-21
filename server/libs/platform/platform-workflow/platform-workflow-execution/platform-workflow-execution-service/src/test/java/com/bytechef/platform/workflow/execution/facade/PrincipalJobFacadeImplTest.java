@@ -85,7 +85,8 @@ class PrincipalJobFacadeImplTest {
 
         PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
             principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
-            emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider());
+            emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider(),
+            emptyObjectProvider());
 
         long result = facade.createPrincipalLinkedJob(referenceJobId, jobParametersDTO, PlatformType.AUTOMATION);
 
@@ -109,7 +110,8 @@ class PrincipalJobFacadeImplTest {
 
         PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
             principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
-            emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider());
+            emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider(), emptyObjectProvider(),
+            emptyObjectProvider());
 
         IllegalStateException exception = assertThrows(
             IllegalStateException.class,
@@ -139,8 +141,8 @@ class PrincipalJobFacadeImplTest {
 
         PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
             principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
-            emptyObjectProvider(), objectProviderOf(planLimitsProvider), objectProviderOf(planSpendProvider),
-            emptyObjectProvider());
+            emptyObjectProvider(), emptyObjectProvider(), objectProviderOf(planLimitsProvider),
+            objectProviderOf(planSpendProvider), emptyObjectProvider());
 
         assertThrows(
             JobCostLimitExceededException.class,
@@ -164,8 +166,8 @@ class PrincipalJobFacadeImplTest {
 
         PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
             principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
-            emptyObjectProvider(), objectProviderOf(planLimitsProvider), objectProviderOf(planSpendProvider),
-            emptyObjectProvider());
+            emptyObjectProvider(), emptyObjectProvider(), objectProviderOf(planLimitsProvider),
+            objectProviderOf(planSpendProvider), emptyObjectProvider());
 
         assertEquals(300L, facade.createJob(jobParametersDTO, 1L, PlatformType.AUTOMATION));
     }

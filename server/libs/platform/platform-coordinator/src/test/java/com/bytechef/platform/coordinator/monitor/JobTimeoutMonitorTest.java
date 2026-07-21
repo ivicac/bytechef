@@ -30,6 +30,7 @@ import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.platform.plan.domain.PlanLimits;
 import com.bytechef.platform.plan.domain.PlanTier;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
+import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -154,7 +155,12 @@ public class JobTimeoutMonitorTest {
 
         when(planLimitsProviderObjectProvider.getIfAvailable()).thenReturn(planLimitsProvider);
 
+        @SuppressWarnings("unchecked")
+        ObjectProvider<PlanLimitRejectionCounter> planLimitRejectionCounterObjectProvider =
+            (ObjectProvider<PlanLimitRejectionCounter>) mock(ObjectProvider.class);
+
         return new JobTimeoutMonitor(
-            defaultTimeout, eventPublisher, jobService, planLimitsProviderObjectProvider, taskExecutionService);
+            defaultTimeout, eventPublisher, jobService, planLimitRejectionCounterObjectProvider,
+            planLimitsProviderObjectProvider, taskExecutionService);
     }
 }
