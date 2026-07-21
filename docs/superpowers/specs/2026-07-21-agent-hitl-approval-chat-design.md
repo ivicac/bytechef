@@ -145,7 +145,9 @@ Phases 1–2 are independent of 3 and deliver the visible differentiation first.
   workflow chat is EE, so the CE surface for deployed chat workflows is this page, talking to
   `/webhooks/{id}[/sse]` directly), the **AI Hub workflow chat** (EE, via the `approval_request`
   AG-UI CustomEvent, task marked paused), and the **canvas workflow-test chat**. The embeddable
-  `@bytechef/chat` widget renders the approval as markdown with the hosted-form link. None of the
+  `@bytechef/chat` widget resolves field-less approvals inline (a pinned Approve/Discard card with a
+  comment box above the composer, POSTing to the tokenized resume endpoint) and renders approvals
+  with form fields as markdown with the hosted-form link. None of the
   surfaces registers a chat resume URL for approvals — typed input never resolves them.
 - **Reload behavior.** `AgUiStreamBridge` folds a persist-only markdown marker
   (`Approval requested — [open the approval form](url)`) into the accumulated assistant text, so

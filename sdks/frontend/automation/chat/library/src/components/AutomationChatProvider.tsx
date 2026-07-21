@@ -45,12 +45,14 @@ interface AskUserQuestionEventI {
 }
 
 // Mirrors `ApprovalRequestEventI` in client/src/shared/util/assistant-message-utils.ts (same
-// cannot-import-from-@/shared constraint as above). The widget renders the approval as markdown with a
-// link to the hosted approval form — resolution happens on the form page, never through the chat input.
+// cannot-import-from-@/shared constraint as above). Field-less approvals render as an inline
+// Approve/Discard card (see ApprovalCard); approvals with form fields render as markdown with a link to
+// the hosted approval form. Either way, resolution never happens through the chat input.
 interface ApprovalRequestEventI {
     formDescription?: string;
     formTitle?: string;
     formUrl?: string;
+    inputs?: unknown[];
     resumeId: string;
 }
 
@@ -277,9 +279,23 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
 
             const event = data as ApprovalRequestEventI;
 
-            // Deliberately do NOT set a resume URL — typing in the chat never resolves an approval; the
-            // linked hosted form does.
-            setMessage({content: formatApprovalRequest(event), role: 'assistant'});
+            const hasInputs = Array.isArray(event.inputs) && event.inputs.length > 0;
+            // The hosted form page lives at /resume/{id}; the resolution endpoint at /job/resume/{id} —
+            // the inverse of the server-side derivation in ApprovalRequestApprovalAction.
+            const approvalResumeUrl = event.formUrl ? event.formUrl.replace('/resume/', '/job/resume/') : null;
+
+            // Deliberately do NOT set the chat-input resume URL — typing never resolves an approval; only
+            // the inline card's buttons or the linked hosted form do.
+            if (!hasInputs && approvalResumeUrl) {
+                useChatStore.getState().setPendingApproval({
+                    formDescription: event.formDescription,
+                    formTitle: event.formTitle,
+                    resumeUrl: approvalResumeUrl,
+                });
+            } else {
+                setMessage({content: formatApprovalRequest(event), role: 'assistant'});
+            }
+
             setIsRunning(false);
             setStreamRequest(null);
         },
