@@ -5,7 +5,9 @@ import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useW
 import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
 import {getTask} from '@/pages/platform/workflow-editor/utils/getTask';
 import handleDeleteTask from '@/pages/platform/workflow-editor/utils/handleDeleteTask';
-import {NodeDataType} from '@/shared/types';
+import {useUpdateClusterElementParameterMutation} from '@/shared/mutations/platform/workflowNodeParameters.mutations';
+import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
+import {ClusterElementItemType, NodeDataType} from '@/shared/types';
 import {useQueryClient} from '@tanstack/react-query';
 import {useCallback} from 'react';
 import {useShallow} from 'zustand/shallow';
@@ -15,12 +17,16 @@ import {ToolItemI} from './useAiAgentTools';
 interface UseAiAgentToolDropdownMenuI {
     handleConfigureTool: (tool: ToolItemI) => Promise<void>;
     handleRemoveTool: (tool: ToolItemI) => void;
+    handleToggleRequiresApproval: (tool: ToolItemI) => void;
 }
 
 export default function useAiAgentToolDropdownMenu(): UseAiAgentToolDropdownMenuI {
     const rootClusterElementNodeData = useWorkflowEditorStore((state) => state.rootClusterElementNodeData);
     const setRootClusterElementNodeData = useWorkflowEditorStore((state) => state.setRootClusterElementNodeData);
     const workflow = useWorkflowDataStore((state) => state.workflow);
+    const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
+
+    const updateClusterElementParameterMutation = useUpdateClusterElementParameterMutation();
 
     const {setActiveTab, setAiAgentNodeDetailsPanelOpen, setCurrentNode} = useWorkflowNodeDetailsPanelStore(
         useShallow((state) => ({
@@ -138,8 +144,70 @@ export default function useAiAgentToolDropdownMenu(): UseAiAgentToolDropdownMenu
         ]
     );
 
+    const handleToggleRequiresApproval = useCallback(
+        (tool: ToolItemI) => {
+            if (!workflow.id || !rootClusterElementNodeData?.workflowNodeName) {
+                return;
+            }
+
+            updateClusterElementParameterMutation.mutate(
+                {
+                    clusterElementType: 'tools',
+                    clusterElementWorkflowNodeName: tool.name,
+                    environmentId: currentEnvironmentId,
+                    id: workflow.id,
+                    updateClusterElementParameterRequest: {
+                        includeInMetadata: false,
+                        path: 'requiresApproval',
+                        type: 'BOOLEAN',
+                        // The generated request model types `value` as object, but the endpoint accepts any JSON
+                        // scalar — booleans included — the same way saveProperty submits primitive values.
+                        value: !tool.requiresApproval as unknown as object,
+                    },
+                    workflowNodeName: rootClusterElementNodeData.workflowNodeName,
+                },
+                {
+                    onSuccess: (response) => {
+                        // Mirror the returned parameters into the editor store copy so the tools list (badge +
+                        // checkbox) re-renders without a full workflow refetch.
+                        const clusterElements = rootClusterElementNodeData.clusterElements;
+
+                        if (clusterElements && !Array.isArray(clusterElements)) {
+                            const toolElements = clusterElements['tools'];
+
+                            if (Array.isArray(toolElements)) {
+                                const updatedToolElements = toolElements.map((toolElement) => {
+                                    const element = toolElement as ClusterElementItemType &
+                                        NodeDataType & {name?: string};
+                                    const elementName = element.workflowNodeName || element.name;
+
+                                    return elementName === tool.name
+                                        ? {...element, parameters: response.parameters}
+                                        : toolElement;
+                                });
+
+                                setRootClusterElementNodeData({
+                                    ...rootClusterElementNodeData,
+                                    clusterElements: {...clusterElements, tools: updatedToolElements},
+                                });
+                            }
+                        }
+                    },
+                }
+            );
+        },
+        [
+            currentEnvironmentId,
+            rootClusterElementNodeData,
+            setRootClusterElementNodeData,
+            updateClusterElementParameterMutation,
+            workflow.id,
+        ]
+    );
+
     return {
         handleConfigureTool,
         handleRemoveTool,
+        handleToggleRequiresApproval,
     };
 }

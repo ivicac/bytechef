@@ -1,5 +1,6 @@
+import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import {useGetComponentDefinitionQuery} from '@/shared/queries/platform/componentDefinitions.queries';
-import {ComponentIcon} from 'lucide-react';
+import {ComponentIcon, ShieldCheckIcon} from 'lucide-react';
 import InlineSVG from 'react-inlinesvg';
 import {twMerge} from 'tailwind-merge';
 
@@ -43,6 +44,16 @@ export default function AiAgentTool({configuredConnectionKeys, tool}: AiAgentToo
 
                 <span className="flex-1 text-xs font-medium">{tool.operationName}</span>
             </div>
+
+            {tool.requiresApproval && (
+                <Tooltip>
+                    <TooltipTrigger asChild>
+                        <ShieldCheckIcon className="size-3.5 flex-none text-amber-600" />
+                    </TooltipTrigger>
+
+                    <TooltipContent>Requires approval before each call</TooltipContent>
+                </Tooltip>
+            )}
 
             <AiAgentToolDropdownMenu tool={tool} />
         </div>

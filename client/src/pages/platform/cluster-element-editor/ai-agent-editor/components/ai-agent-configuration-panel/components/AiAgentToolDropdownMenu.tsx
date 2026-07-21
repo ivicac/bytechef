@@ -1,5 +1,11 @@
 import Button from '@/components/Button/Button';
-import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
+import {
+    DropdownMenu,
+    DropdownMenuCheckboxItem,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {EllipsisVerticalIcon, SettingsIcon, TrashIcon} from 'lucide-react';
 
 import useAiAgentToolDropdownMenu from './hooks/useAiAgentToolDropdownMenu';
@@ -10,7 +16,7 @@ interface AiAgentToolDropdownMenuProps {
 }
 
 export default function AiAgentToolDropdownMenu({tool}: AiAgentToolDropdownMenuProps) {
-    const {handleConfigureTool, handleRemoveTool} = useAiAgentToolDropdownMenu();
+    const {handleConfigureTool, handleRemoveTool, handleToggleRequiresApproval} = useAiAgentToolDropdownMenu();
 
     return (
         <DropdownMenu>
@@ -25,6 +31,13 @@ export default function AiAgentToolDropdownMenu({tool}: AiAgentToolDropdownMenuP
                     <SettingsIcon />
                     Configure
                 </DropdownMenuItem>
+
+                <DropdownMenuCheckboxItem
+                    checked={tool.requiresApproval}
+                    onCheckedChange={() => handleToggleRequiresApproval(tool)}
+                >
+                    Requires approval
+                </DropdownMenuCheckboxItem>
 
                 <DropdownMenuItem
                     className="text-destructive focus:text-destructive"

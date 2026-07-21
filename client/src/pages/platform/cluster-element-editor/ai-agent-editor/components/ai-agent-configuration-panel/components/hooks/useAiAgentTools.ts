@@ -12,6 +12,7 @@ export interface ToolItemI {
     label: string;
     name: string;
     operationName: string;
+    requiresApproval: boolean;
     title: string;
     type: string;
 }
@@ -63,6 +64,8 @@ export default function useAiAgentTools(): UseAiAgentToolsI {
                 label: tool.label || toolName,
                 name: toolName,
                 operationName,
+                requiresApproval:
+                    (tool.parameters as {requiresApproval?: boolean} | undefined)?.requiresApproval === true,
                 title: componentDefinition?.title || componentName,
                 type: tool.type || '',
             };
