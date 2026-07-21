@@ -18,6 +18,7 @@ package com.bytechef.automation.ai.mcp.server.config;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -127,6 +128,62 @@ class ApprovalElicitingToolSpecificationsTest {
         McpSchema.CallToolResult result = call(innerResult);
 
         assertThat(result).isSameAs(innerResult);
+    }
+
+    @Test
+    void testFormElicitationFallbackResolvesTheApprovalDirectly() {
+        // Form-only client: no URL capability, so the decorator collects the decision inline.
+        when(exchange.getClientCapabilities()).thenReturn(
+            McpSchema.ClientCapabilities.builder()
+                .elicitation(
+                    new McpSchema.ClientCapabilities.Elicitation(
+                        new McpSchema.ClientCapabilities.Elicitation.Form(), null))
+                .build());
+
+        when(exchange.createElicitation(any())).thenReturn(
+            Mono.just(
+                McpSchema.ElicitResult.builder(McpSchema.ElicitResult.Action.ACCEPT)
+                    .content(Map.of("approved", true, "comment", "go"))
+                    .build()));
+        when(mcpToolFacade.resolveApprovalAndAwait(eq("tok"), any(), eq(42L)))
+            .thenReturn(Map.of("message", "resolved inline"));
+
+        McpSchema.CallToolResult result = call(pendingApprovalResult());
+
+        org.mockito.ArgumentCaptor<Map<String, Object>> dataCaptor =
+            org.mockito.ArgumentCaptor.forClass(Map.class);
+
+        verify(mcpToolFacade).resolveApprovalAndAwait(eq("tok"), dataCaptor.capture(), eq(42L));
+
+        assertThat(dataCaptor.getValue())
+            .containsEntry("approved", true)
+            .containsEntry("comment", "go");
+
+        assertThat(firstText(result)).contains("resolved inline");
+    }
+
+    @Test
+    void testSecondApprovalReElicitsBounded() {
+        stubUrlCapability();
+
+        when(exchange.createElicitation(any())).thenReturn(
+            Mono.just(
+                McpSchema.ElicitResult.builder(McpSchema.ElicitResult.Action.ACCEPT)
+                    .build()));
+        // Every resume ends on yet another pending approval — the loop must stop at the round cap instead of
+        // eliciting forever.
+        when(mcpToolFacade.awaitApprovedWorkflowRun(42L)).thenReturn(
+            Map.of(
+                "status", "approval_required",
+                "message", "next approval",
+                "formUrl", "https://example.com/resume/tok",
+                "jobId", 42L));
+
+        McpSchema.CallToolResult result = call(pendingApprovalResult());
+
+        verify(exchange, org.mockito.Mockito.times(3)).createElicitation(any());
+
+        assertThat(firstText(result)).contains("approval_required");
     }
 
     private McpSchema.CallToolResult call(McpSchema.CallToolResult innerResult) {

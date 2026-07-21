@@ -17,6 +17,7 @@
 package com.bytechef.automation.ai.mcp.server.config;
 
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.automation.ai.mcp.server.facade.AutomationMcpToolFacade;
@@ -42,6 +43,7 @@ import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
+import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import io.modelcontextprotocol.common.McpTransportContext;
@@ -130,7 +132,8 @@ public class AutomationMcpServerConfiguration {
         ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
         ClusterElementDefinitionFacade clusterElementDefinitionFacade,
         ClusterElementDefinitionService clusterElementDefinitionService, TaskFileStorage durableTaskFileStorage,
-        Evaluator evaluator, JobCompletionAwaiter jobCompletionAwaiter, McpComponentService mcpComponentService,
+        Evaluator evaluator, JobCompletionAwaiter jobCompletionAwaiter, JobResumeFacade jobResumeFacade,
+        JobService jobService, McpComponentService mcpComponentService,
         McpProjectWorkflowService mcpProjectWorkflowService, McpServerService mcpServerService,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
         PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
@@ -140,10 +143,10 @@ public class AutomationMcpServerConfiguration {
 
         return new AutomationMcpToolFacade(
             approvalTokensObjectProvider, clusterElementDefinitionFacade, clusterElementDefinitionService, evaluator,
-            jobCompletionAwaiter, mcpComponentService, mcpProjectWorkflowService, mcpServerService,
-            planLimitsProviderObjectProvider, principalJobFacade, projectDeploymentWorkflowService, publicUrl,
-            taskExecutionService, durableTaskFileStorage, toolExecutionRecorder, workflowService,
-            workspaceMcpServerService);
+            jobCompletionAwaiter, jobResumeFacade, jobService, mcpComponentService, mcpProjectWorkflowService,
+            mcpServerService, planLimitsProviderObjectProvider, principalJobFacade,
+            projectDeploymentWorkflowService, publicUrl, taskExecutionService, durableTaskFileStorage,
+            toolExecutionRecorder, workflowService, workspaceMcpServerService);
     }
 
     @Bean

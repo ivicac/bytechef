@@ -22,6 +22,7 @@ import com.bytechef.tenant.TenantContext;
 import io.modelcontextprotocol.server.McpAsyncServerExchange;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
+import java.util.HashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -30,14 +31,23 @@ import reactor.core.publisher.Mono;
 import reactor.core.scheduler.Schedulers;
 
 /**
- * Decorates a workflow-backed MCP tool specification with URL-mode elicitation for pending approvals. When the tool's
+ * Decorates a workflow-backed MCP tool specification with elicitation for pending approvals. When the tool's
  * synchronous run pauses on a human approval (the facade returns an {@code approval_required} descriptor carrying
- * {@code formUrl} + {@code jobId}), and the connected client advertises the URL elicitation capability, the server
- * sends an {@code elicitation/create} request pointing the user at the hosted approval form instead of just returning
- * the descriptor text. When the client reports the URL interaction as accepted (the user resolved the approval), the
- * tool call re-awaits the resumed run and returns its real output — so the MCP caller sees the completed result in the
- * original {@code tools/call} response. Declined/cancelled elicitations, clients without the capability, and any
- * elicitation transport failure all fall back to the plain descriptor result.
+ * {@code formUrl} + {@code jobId}), the decorator resolves it through the strongest capability the connected client
+ * advertises:
+ *
+ * <ul>
+ * <li><b>URL elicitation</b> — the client is pointed at the hosted approval form; once the user completed it there, the
+ * tool call re-awaits the resumed run and returns its real output.</li>
+ * <li><b>Form elicitation</b> (fallback) — the client collects the decision inline ({@code approved} + optional
+ * {@code comment}), the server resolves the approval directly with those values and awaits the resumed run. Custom
+ * approval form fields are not representable in this simple schema — workflows using them should rely on URL mode or
+ * the hosted form link in the descriptor text.</li>
+ * </ul>
+ *
+ * A run that pauses on ANOTHER approval after resuming re-elicits, bounded by {@value #MAX_ELICITATION_ROUNDS} rounds
+ * per tool call. Declined/cancelled elicitations, clients without either capability, and any elicitation transport
+ * failure all fall back to the plain descriptor result.
  *
  * @author Ivica Cardic
  */
@@ -45,6 +55,7 @@ public final class ApprovalElicitingToolSpecifications {
 
     private static final Logger log = LoggerFactory.getLogger(ApprovalElicitingToolSpecifications.class);
 
+    private static final int MAX_ELICITATION_ROUNDS = 3;
     private static final String STATUS_APPROVAL_REQUIRED = "approval_required";
 
     private ApprovalElicitingToolSpecifications() {
@@ -62,17 +73,21 @@ public final class ApprovalElicitingToolSpecifications {
 
                 return toolSpecification.callHandler()
                     .apply(exchange, request)
-                    .flatMap(result -> elicitApprovalIfPending(exchange, result, mcpToolFacade, tenantId));
+                    .flatMap(result -> elicitApprovalIfPending(exchange, result, mcpToolFacade, tenantId, 1));
             });
     }
 
     private static Mono<McpSchema.CallToolResult> elicitApprovalIfPending(
         McpAsyncServerExchange exchange, McpSchema.CallToolResult result, AutomationMcpToolFacade mcpToolFacade,
-        String tenantId) {
+        String tenantId, int round) {
+
+        if (round > MAX_ELICITATION_ROUNDS) {
+            return Mono.just(result);
+        }
 
         Map<String, ?> pendingApproval = parsePendingApproval(result);
 
-        if (pendingApproval == null || !supportsUrlElicitation(exchange)) {
+        if (pendingApproval == null) {
             return Mono.just(result);
         }
 
@@ -82,39 +97,131 @@ public final class ApprovalElicitingToolSpecifications {
             return Mono.just(result);
         }
 
-        Object pendingMessage = pendingApproval.get("message");
+        String message = pendingMessage(pendingApproval);
+
+        Mono<McpSchema.CallToolResult> elicited;
+
+        if (supportsUrlElicitation(exchange)) {
+            elicited = elicitViaUrl(exchange, mcpToolFacade, tenantId, message, formUrl, jobId.longValue(), result);
+        } else if (supportsFormElicitation(exchange)) {
+            elicited = elicitViaForm(exchange, mcpToolFacade, tenantId, message, formUrl, jobId.longValue(), result);
+        } else {
+            return Mono.just(result);
+        }
+
+        // A run that pauses on a SECOND approval after resuming produces a fresh pending descriptor — re-elicit it,
+        // bounded by the round counter so a long approval chain degrades to descriptor text instead of looping.
+        return elicited.flatMap(
+            nextResult -> nextResult == result
+                ? Mono.just(nextResult)
+                : elicitApprovalIfPending(exchange, nextResult, mcpToolFacade, tenantId, round + 1));
+    }
+
+    private static Mono<McpSchema.CallToolResult> elicitViaUrl(
+        McpAsyncServerExchange exchange, AutomationMcpToolFacade mcpToolFacade, String tenantId, String message,
+        String formUrl, long jobId, McpSchema.CallToolResult fallbackResult) {
 
         McpSchema.ElicitRequest elicitRequest = McpSchema.ElicitUrlRequest
-            .builder(
-                pendingMessage == null
-                    ? "Approval required — resolve the pending approval to continue."
-                    : String.valueOf(pendingMessage),
-                formUrl, "approval-" + jobId.longValue())
+            .builder(message, formUrl, "approval-" + jobId)
             .build();
 
         return exchange.createElicitation(elicitRequest)
             .flatMap(elicitResult -> elicitResult.action() == McpSchema.ElicitResult.Action.ACCEPT
-                ? awaitResolvedRun(mcpToolFacade, tenantId, jobId.longValue())
-                : Mono.just(result))
+                ? runOnBoundedElastic(() -> mcpToolFacade.awaitApprovedWorkflowRun(jobId), tenantId)
+                : Mono.just(fallbackResult))
             .onErrorResume(exception -> {
-                log.warn("Approval elicitation failed; returning the pending descriptor: {}", exception.getMessage());
+                log.warn("Approval URL elicitation failed; returning the pending descriptor: {}",
+                    exception.getMessage());
 
-                return Mono.just(result);
+                return Mono.just(fallbackResult);
             });
     }
 
-    private static Mono<McpSchema.CallToolResult> awaitResolvedRun(
-        AutomationMcpToolFacade mcpToolFacade, String tenantId, long jobId) {
+    private static Mono<McpSchema.CallToolResult> elicitViaForm(
+        McpAsyncServerExchange exchange, AutomationMcpToolFacade mcpToolFacade, String tenantId, String message,
+        String formUrl, long jobId, McpSchema.CallToolResult fallbackResult) {
+
+        String resumeToken = formUrl.substring(formUrl.lastIndexOf('/') + 1);
+
+        McpSchema.ElicitRequest elicitRequest = McpSchema.ElicitFormRequest
+            .builder(message, decisionSchema())
+            .build();
+
+        return exchange.createElicitation(elicitRequest)
+            .flatMap(elicitResult -> {
+                if (elicitResult.action() != McpSchema.ElicitResult.Action.ACCEPT ||
+                    elicitResult.content() == null) {
+
+                    return Mono.just(fallbackResult);
+                }
+
+                Map<String, Object> data = new HashMap<>();
+
+                data.put("approved", Boolean.TRUE.equals(elicitResult.content()
+                    .get("approved")));
+
+                if (elicitResult.content()
+                    .get("comment") instanceof String comment && !comment.isBlank()) {
+
+                    data.put("comment", comment);
+                }
+
+                return runOnBoundedElastic(
+                    () -> mcpToolFacade.resolveApprovalAndAwait(resumeToken, data, jobId), tenantId);
+            })
+            .onErrorResume(exception -> {
+                log.warn("Approval form elicitation failed; returning the pending descriptor: {}",
+                    exception.getMessage());
+
+                return Mono.just(fallbackResult);
+            });
+    }
+
+    private static Mono<McpSchema.CallToolResult> runOnBoundedElastic(
+        java.util.concurrent.Callable<@Nullable Object> callable, String tenantId) {
 
         return Mono
-            .fromCallable(
-                () -> TenantContext.callWithTenantId(
-                    tenantId, () -> mcpToolFacade.awaitApprovedWorkflowRun(jobId)))
+            .fromCallable(() -> TenantContext.callWithTenantId(tenantId, () -> {
+                try {
+                    return callable.call();
+                } catch (RuntimeException runtimeException) {
+                    throw runtimeException;
+                } catch (Exception exception) {
+                    throw new IllegalStateException(exception);
+                }
+            }))
             .subscribeOn(Schedulers.boundedElastic())
             .map(output -> McpSchema.CallToolResult.builder()
                 .addTextContent(output == null ? "" : JsonUtils.write(output))
                 .isError(false)
                 .build());
+    }
+
+    /**
+     * The inline decision schema for FORM-mode elicitation: the reviewer's approve/discard choice plus an optional
+     * comment — matching the field-less approval card. Custom approval form fields are out of scope for this schema.
+     */
+    private static Map<String, Object> decisionSchema() {
+        return Map.of(
+            "type", "object",
+            "properties", Map.of(
+                "approved", Map.of(
+                    "type", "boolean",
+                    "title", "Approve",
+                    "description", "true approves the pending action, false discards it"),
+                "comment", Map.of(
+                    "type", "string",
+                    "title", "Comment",
+                    "description", "Optional note passed back to the workflow on either outcome")),
+            "required", java.util.List.of("approved"));
+    }
+
+    private static String pendingMessage(Map<String, ?> pendingApproval) {
+        Object pendingMessage = pendingApproval.get("message");
+
+        return pendingMessage == null
+            ? "Approval required — resolve the pending approval to continue."
+            : String.valueOf(pendingMessage);
     }
 
     /**
@@ -151,14 +258,22 @@ public final class ApprovalElicitingToolSpecifications {
     }
 
     private static boolean supportsUrlElicitation(McpAsyncServerExchange exchange) {
+        McpSchema.ClientCapabilities.Elicitation elicitation = elicitationCapability(exchange);
+
+        return elicitation != null && elicitation.url() != null;
+    }
+
+    private static boolean supportsFormElicitation(McpAsyncServerExchange exchange) {
+        McpSchema.ClientCapabilities.Elicitation elicitation = elicitationCapability(exchange);
+
+        return elicitation != null && elicitation.form() != null;
+    }
+
+    private static McpSchema.ClientCapabilities.@Nullable Elicitation elicitationCapability(
+        McpAsyncServerExchange exchange) {
+
         McpSchema.ClientCapabilities clientCapabilities = exchange.getClientCapabilities();
 
-        if (clientCapabilities == null || clientCapabilities.elicitation() == null) {
-            return false;
-        }
-
-        McpSchema.ClientCapabilities.Elicitation elicitation = clientCapabilities.elicitation();
-
-        return elicitation.url() != null;
+        return clientCapabilities == null ? null : clientCapabilities.elicitation();
     }
 }
