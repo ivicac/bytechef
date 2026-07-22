@@ -551,6 +551,27 @@ export type AiGatewayProject = {
   version?: Maybe<Scalars['Int']['output']>;
 };
 
+export type AiGatewayProjectSettings = {
+  __typename?: 'AiGatewayProjectSettings';
+  blockedTerms?: Maybe<Scalars['String']['output']>;
+  injectionDetectionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  moderationEnabled?: Maybe<Scalars['Boolean']['output']>;
+  projectId: Scalars['ID']['output'];
+  redactPii?: Maybe<Scalars['Boolean']['output']>;
+  redactSecrets?: Maybe<Scalars['Boolean']['output']>;
+  scanResponses?: Maybe<Scalars['Boolean']['output']>;
+};
+
+export type AiGatewayProjectSettingsInput = {
+  blockedTerms?: InputMaybe<Scalars['String']['input']>;
+  injectionDetectionEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+  moderationEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+  projectId: Scalars['ID']['input'];
+  redactPii?: InputMaybe<Scalars['Boolean']['input']>;
+  redactSecrets?: InputMaybe<Scalars['Boolean']['input']>;
+  scanResponses?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
 export type AiGatewayProvider = {
   __typename?: 'AiGatewayProvider';
   baseUrl?: Maybe<Scalars['String']['output']>;
@@ -3693,6 +3714,7 @@ export type Mutation = {
   updateAiGatewayBudget?: Maybe<AiGatewayBudget>;
   updateAiGatewayModel?: Maybe<AiGatewayModel>;
   updateAiGatewayProject?: Maybe<AiGatewayProject>;
+  updateAiGatewayProjectSettings?: Maybe<AiGatewayProjectSettings>;
   updateAiGatewayProvider?: Maybe<AiGatewayProvider>;
   updateAiGatewayRateLimit?: Maybe<AiGatewayRateLimit>;
   updateAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
@@ -5147,6 +5169,11 @@ export type MutationUpdateAiGatewayProjectArgs = {
 };
 
 
+export type MutationUpdateAiGatewayProjectSettingsArgs = {
+  input: AiGatewayProjectSettingsInput;
+};
+
+
 export type MutationUpdateAiGatewayProviderArgs = {
   id: Scalars['ID']['input'];
   input: UpdateAiGatewayProviderInput;
@@ -5877,6 +5904,7 @@ export type Query = {
   aiGatewayModels?: Maybe<Array<Maybe<AiGatewayModel>>>;
   aiGatewayModelsByProvider?: Maybe<Array<Maybe<AiGatewayModel>>>;
   aiGatewayProject?: Maybe<AiGatewayProject>;
+  aiGatewayProjectSettings?: Maybe<AiGatewayProjectSettings>;
   aiGatewayProjects: Array<AiGatewayProject>;
   aiGatewayProvider?: Maybe<AiGatewayProvider>;
   aiGatewayProviders?: Maybe<Array<Maybe<AiGatewayProvider>>>;
@@ -6385,6 +6413,11 @@ export type QueryAiGatewayModelsByProviderArgs = {
 
 export type QueryAiGatewayProjectArgs = {
   id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiGatewayProjectSettingsArgs = {
+  projectId: Scalars['ID']['input'];
 };
 
 
