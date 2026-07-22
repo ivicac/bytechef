@@ -112,6 +112,11 @@ public class AiAgentChatAction extends AbstractAiAgentChatAction {
         Object response = resumeChat(
             inputParameters, connectionParameters, extensions, continueParameters, data, context);
 
+        // The resumed continuation checkpoints each completed tool round (the checkpointer is wired in
+        // buildPatchedRequestSpec). Clear it on success — mirroring perform — so the stale pre-approval conversation
+        // does not linger in data storage or get restored if this agent node runs again in the same job.
+        clearConversationCheckpoint(context);
+
         return ResumeResponse.of(new HashMap<>(Map.of("response", response)));
     }
 
