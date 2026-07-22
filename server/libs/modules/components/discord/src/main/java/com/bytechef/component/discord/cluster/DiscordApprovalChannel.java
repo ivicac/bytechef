@@ -221,7 +221,7 @@ public class DiscordApprovalChannel {
      * Escapes markdown-link-forming characters so caller-supplied text — for a gated tool the description embeds the
      * AI-chosen tool arguments verbatim — cannot forge masked links next to the real Approve/Discard buttons.
      */
-    private static String escapeMarkdown(String text) {
+    static String escapeMarkdown(String text) {
         return text.replace("\\", "\\\\")
             .replace("[", "\\[")
             .replace("]", "\\]")

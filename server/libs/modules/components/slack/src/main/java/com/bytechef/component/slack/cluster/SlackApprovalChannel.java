@@ -152,7 +152,7 @@ public class SlackApprovalChannel {
      * AI-chosen tool arguments verbatim — cannot forge {@code <url|text>} links next to the real Approve/Discard
      * buttons.
      */
-    private static String escapeMrkdwn(String text) {
+    static String escapeMrkdwn(String text) {
         return text.replace("&", "&amp;")
             .replace("<", "&lt;")
             .replace(">", "&gt;");
