@@ -120,7 +120,7 @@ const ApprovalRequestMessage = ({data}: DataMessagePartProps<ApprovalRequestData
             {data.hasInputs ? (
                 <ApprovalForm id={resumeId} showHeader submitHandler={submitHandler} />
             ) : resolved !== null ? (
-                <div className="text-sm text-muted-foreground">
+                <div className="text-sm text-muted-foreground" role="status">
                     {resolved ? 'Approved — the workflow is continuing.' : 'Discarded.'}
                 </div>
             ) : (
@@ -143,7 +143,11 @@ const ApprovalRequestMessage = ({data}: DataMessagePartProps<ApprovalRequestData
                         />
                     </div>
 
-                    {submitError && <div className="text-sm text-destructive">{submitError}</div>}
+                    {submitError && (
+                        <div className="text-sm text-destructive" role="alert">
+                            {submitError}
+                        </div>
+                    )}
 
                     <div className="flex gap-3">
                         <Button disabled={submitting} onClick={() => resolve(true)} size="sm" type="button">

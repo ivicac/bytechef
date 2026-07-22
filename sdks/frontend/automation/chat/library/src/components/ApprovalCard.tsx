@@ -88,6 +88,7 @@ export const ApprovalCard: FC = () => {
             )}
 
             <textarea
+                aria-label="Comment (optional)"
                 className="min-h-16 w-full resize-y rounded-md border border-border bg-background p-2 text-sm outline-none"
                 disabled={submitting}
                 onChange={(changeEvent) => setComment(changeEvent.target.value)}
@@ -95,7 +96,11 @@ export const ApprovalCard: FC = () => {
                 value={comment}
             />
 
-            {error && <div className="text-destructive">{error}</div>}
+            {error && (
+                <div className="text-destructive" role="alert">
+                    {error}
+                </div>
+            )}
 
             <div className="flex gap-2">
                 <Button disabled={submitting} onClick={() => resolve(true)} size="sm" type="button">
