@@ -58,7 +58,7 @@ class ApprovalTaskReconciliationMonitorTest {
         ApprovalTask approvalTask = approvalTask(42L);
 
         when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
-        when(jobService.getJob(42L)).thenReturn(job(Job.Status.FAILED));
+        when(jobService.fetchJob(42L)).thenReturn(java.util.Optional.of(job(Job.Status.FAILED)));
 
         approvalTaskReconciliationMonitor.reconcileApprovalTasks();
 
@@ -76,7 +76,7 @@ class ApprovalTaskReconciliationMonitorTest {
         ApprovalTask approvalTask = approvalTask(42L);
 
         when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
-        when(jobService.getJob(42L)).thenThrow(new IllegalArgumentException("not found"));
+        when(jobService.fetchJob(42L)).thenReturn(java.util.Optional.empty());
 
         approvalTaskReconciliationMonitor.reconcileApprovalTasks();
 
@@ -90,11 +90,25 @@ class ApprovalTaskReconciliationMonitorTest {
     }
 
     @Test
+    void testTransientFetchFailureLeavesTaskUntouched() {
+        ApprovalTask approvalTask = approvalTask(42L);
+
+        when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
+        // A transient DB/REST failure must NOT be mistaken for a purged run — the still-resumable approval task must
+        // be left untouched and retried on the next sweep, not permanently marked EXPIRED.
+        when(jobService.fetchJob(42L)).thenThrow(new IllegalStateException("connection reset"));
+
+        approvalTaskReconciliationMonitor.reconcileApprovalTasks();
+
+        verify(approvalTaskService, never()).update(any());
+    }
+
+    @Test
     void testCompletedRunMarksTaskCompleted() {
         ApprovalTask approvalTask = approvalTask(42L);
 
         when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
-        when(jobService.getJob(42L)).thenReturn(job(Job.Status.COMPLETED));
+        when(jobService.fetchJob(42L)).thenReturn(java.util.Optional.of(job(Job.Status.COMPLETED)));
 
         approvalTaskReconciliationMonitor.reconcileApprovalTasks();
 
@@ -112,7 +126,7 @@ class ApprovalTaskReconciliationMonitorTest {
         ApprovalTask approvalTask = approvalTask(42L);
 
         when(approvalTaskService.getUnresolvedApprovalTasks()).thenReturn(List.of(approvalTask));
-        when(jobService.getJob(42L)).thenReturn(job(Job.Status.STOPPED));
+        when(jobService.fetchJob(42L)).thenReturn(java.util.Optional.of(job(Job.Status.STOPPED)));
 
         approvalTaskReconciliationMonitor.reconcileApprovalTasks();
 

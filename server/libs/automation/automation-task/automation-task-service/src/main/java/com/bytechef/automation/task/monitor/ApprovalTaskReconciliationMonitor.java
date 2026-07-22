@@ -24,6 +24,7 @@ import com.bytechef.platform.workflow.execution.JobResumeId;
 import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.service.TenantService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -119,16 +120,30 @@ public class ApprovalTaskReconciliationMonitor {
             return null;
         }
 
-        Job job;
+        Optional<Job> jobOptional;
 
         try {
-            job = jobService.getJob(jobId);
+            jobOptional = jobService.fetchJob(jobId);
         } catch (Exception exception) {
-            // The run is gone (purged by retention) — the approval can never be resolved.
+            // A transient failure fetching the run (DB hiccup, or a REST/network blip in the distributed
+            // deployment) is NOT proof the run is gone — skip this row and retry on the next sweep rather than
+            // permanently marking a still-resumable approval EXPIRED.
+            if (log.isDebugEnabled()) {
+                log.debug(
+                    "Could not fetch job {} while reconciling approval task {}; skipping this cycle",
+                    jobId, approvalTask.getId(), exception);
+            }
+
+            return null;
+        }
+
+        if (jobOptional.isEmpty()) {
+            // The run is genuinely gone (purged by retention) — the approval can never be resolved.
             return ApprovalTask.Status.EXPIRED;
         }
 
-        return switch (job.getStatus()) {
+        return switch (jobOptional.get()
+            .getStatus()) {
             // Resolved on another node — the in-JVM resume event never reached the completion listener.
             case COMPLETED -> ApprovalTask.Status.COMPLETED;
             // Failed by the approval-expiry sweep or a hard error — unresolvable either way.

@@ -51,8 +51,9 @@ import org.springframework.scheduling.annotation.Scheduled;
  * <p>
  * Metrics: {@code bytechef_approval_expired{source=sweep}} counts expired runs; the {@code bytechef_approval_pending}
  * gauge tracks the number of runs currently paused on an (unexpired) approval, refreshed on every sweep across all
- * tenants. The stale-STOPPED-jobs finder is unavailable on EE remote clients — the sweep warn-skips those tenants,
- * matching the other coordinator monitors.
+ * tenants. In the distributed EE deployment the stale-STOPPED-jobs finder is served over REST by the execution app
+ * (see {@code RemoteJobServiceClient#getStaleJobs}), so the sweep runs there too; the {@code UnsupportedOperationException}
+ * catch below is a defensive fallback for any finder implementation that does not support it.
  * </p>
  *
  * @author Ivica Cardic
@@ -122,9 +123,18 @@ public class ApprovalExpiryMonitor {
             Instant expiresAt = readSuspendExpiry(job);
 
             if (expiresAt != null && expiresAt.isBefore(Instant.now())) {
-                failExpiredJob(job, expiresAt);
+                try {
+                    failExpiredJob(job, expiresAt);
 
-                incrementExpiredCounter();
+                    incrementExpiredCounter();
+                } catch (Exception exception) {
+                    // A concurrent resume or a competing replica may have already moved this job (optimistic-lock
+                    // failure). That is fine — another actor got there first; log and keep sweeping the rest of the
+                    // tenant's jobs instead of aborting the whole cycle.
+                    log.warn(
+                        "Could not fail expired job {}; skipping it this cycle: {}", job.getId(),
+                        exception.getMessage());
+                }
             } else {
                 pending++;
             }

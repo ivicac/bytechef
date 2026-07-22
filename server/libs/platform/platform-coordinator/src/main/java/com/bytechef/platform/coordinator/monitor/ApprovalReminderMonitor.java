@@ -58,8 +58,9 @@ import org.springframework.scheduling.annotation.Scheduled;
  * The lead time defaults to 24 hours before expiry and is configurable via
  * {@code bytechef.workflow.execution.approval-reminder.lead-time}; disable the sweep entirely with
  * {@code bytechef.workflow.execution.approval-reminder.enabled=false}. Approvals whose total lifetime is shorter than
- * the lead time are reminded on the first sweep after they pause. The stale-STOPPED-jobs finder is unavailable on EE
- * remote clients — the sweep warn-skips those tenants, matching the other coordinator monitors.
+ * the lead time are reminded on the first sweep after they pause. In the distributed EE deployment the
+ * stale-STOPPED-jobs finder is served over REST by the execution app (see {@code RemoteJobServiceClient#getStaleJobs}),
+ * so the sweep runs there too; the {@code UnsupportedOperationException} catch below is a defensive fallback only.
  * </p>
  *
  * @author Ivica Cardic
