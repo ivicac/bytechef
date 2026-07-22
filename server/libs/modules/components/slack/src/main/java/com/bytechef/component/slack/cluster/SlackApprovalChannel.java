@@ -23,6 +23,7 @@ import static com.bytechef.component.definition.approval.ApprovalChannelFunction
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.INPUTS;
 import static com.bytechef.component.slack.constant.SlackConstants.CHANNEL;
+import static com.bytechef.component.slack.constant.SlackConstants.SIGNING_SECRET;
 import static com.bytechef.component.slack.constant.SlackConstants.TEXT;
 import static com.bytechef.component.slack.constant.SlackConstants.TYPE;
 import static com.bytechef.component.slack.util.SlackSendMessageUtils.sendMessage;
@@ -56,7 +57,6 @@ public class SlackApprovalChannel {
                     .required(true))
             .object(() -> SlackApprovalChannel::perform);
 
-    @SuppressWarnings("PMD.UnusedFormalParameter")
     private static Object perform(
         Parameters inputParameters, Parameters connectionParameters, String formUrl, ClusterElementContext context) {
 
@@ -64,10 +64,29 @@ public class SlackApprovalChannel {
 
         List<Map<String, ?>> inputs = inputParameters.getList(INPUTS, new TypeReference<>() {}, List.of());
 
+        String signingSecret = connectionParameters.getString(SIGNING_SECRET);
+
+        boolean inPlace = signingSecret != null && !signingSecret.isBlank();
+
         String text;
         List<Map<String, Object>> elements;
 
-        if (inputs.isEmpty()) {
+        if (inputs.isEmpty() && inPlace) {
+            // The connection carries the Slack app's signing secret, so the app's interactivity Request URL can be
+            // verified server-side: send in-place block_actions buttons that resolve the approval without leaving
+            // Slack (see SlackInteractivityController). The button value is the tokenized resume id — the same
+            // capability the hosted-form URL carries.
+            String resumeId = formUrl.substring(formUrl.lastIndexOf('/') + 1);
+
+            text = buildSummaryText(inputParameters);
+            elements = List.of(
+                Map.of(
+                    TYPE, "button", TEXT, Map.of(TYPE, "plain_text", TEXT, "Approve"),
+                    "style", "primary", "action_id", "approval_approve", "value", resumeId),
+                Map.of(
+                    TYPE, "button", TEXT, Map.of(TYPE, "plain_text", TEXT, "Discard"),
+                    "style", "danger", "action_id", "approval_discard", "value", resumeId));
+        } else if (inputs.isEmpty()) {
             text = buildSummaryText(inputParameters);
             elements = List.of(
                 Map.of(

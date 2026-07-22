@@ -477,8 +477,12 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   `ApprovalForm` shows a pre-selected Confirm view (link scanners must not resolve approvals).
   Delivery channels: chat, Slack, Discord, Telegram, Mattermost, Rocket.Chat, Gmail, Outlook 365,
   generic SMTP email, WhatsApp (Meta/Twilio/Infobip), SMS (Twilio/Infobip), approval task.
-  In-place Slack resolution is spec'd but NOT implemented (needs a connection-schema decision):
-  `docs/superpowers/specs/2026-07-22-slack-inplace-approval-interactivity-design.md`.
+  In-place Slack resolution IS implemented: an optional `signingSecret` on the Slack connection
+  switches `SlackApprovalChannel` to `block_actions` buttons (value = tokenized resume id), and
+  `SlackInteractivityController`/`SlackInteractivityHandler` (platform-webhook-rest-impl,
+  anonymous `/slack/interactivity`, permit-listed) verify the `X-Slack-Signature` HMAC per
+  tenant (anchored by the resume id), resolve via `JobResumeFacade`, and rewrite the message via
+  `response_url`. Spec: `docs/superpowers/specs/2026-07-22-slack-inplace-approval-interactivity-design.md`.
 - **Tool gate**: `requiresApproval: true` in a TOOLS cluster-element entry's parameters
   (`ToolConstants.REQUIRES_APPROVAL`; editor checkbox in `AiAgentToolDropdownMenu`) wraps the
   callback in `ApprovalGateToolCallback` (inside the observable/audit wrapper). Suspends via the

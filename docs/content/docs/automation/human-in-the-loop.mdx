@@ -42,7 +42,11 @@ to the Approval action — or to the AI Agent node's **Channels** section for ga
   configuration — so configure a fallback channel. With no channels configured on an AI Agent,
   the chat channel is the default.
 - **Slack**, **Discord**, **Telegram** — message with one-click Approve/Discard buttons
-  (field-less approvals) or an "Open Approval Form" button.
+  (field-less approvals) or an "Open Approval Form" button. Slack can resolve **in place**: set
+  the app's signing secret on the Slack connection and point the app's Interactivity Request URL
+  to `<public-url>/slack/interactivity` — the buttons then resolve without leaving Slack and the
+  message rewrites to the outcome ("Approved by @name"). Without the secret, buttons link to the
+  hosted form as before.
 - **Mattermost**, **Rocket.Chat** — message with Approve/Discard markdown links or a form link.
 - **Google Mail**, **Microsoft Outlook 365**, **Email** (any SMTP server) — email with
   Approve/Discard links or a form link.

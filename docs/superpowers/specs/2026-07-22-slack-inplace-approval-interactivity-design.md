@@ -1,7 +1,16 @@
 # Slack in-place approval interactivity — design
 
-Status: PROPOSED (not implemented). Written as the follow-up to the HITL approval-channels work;
-implementation needs a product decision on connection-schema changes (see Constraint).
+Status: IMPLEMENTED (phase 1 — in-place buttons + signature-verified endpoint + message rewrite).
+The connection-schema decision was made: the Slack connection carries an optional
+`signingSecret`. Implemented pieces: `SlackConstants.SIGNING_SECRET` on the connection,
+`SlackApprovalChannel` in-place `block_actions` buttons (`approval_approve`/`approval_discard`,
+value = tokenized resume id) when the secret is set, and
+`SlackInteractivityController`/`SlackInteractivityHandler` in platform-webhook-rest-impl
+(anonymous path `/slack/interactivity`, permit-listed in
+`WebhookAuthorizeHttpRequestContributor`) verifying the signature per tenant (anchored by the
+resume id) against all Slack connections carrying a secret, resolving through `JobResumeFacade`,
+and rewriting the message via `response_url`. Phase 2 (comment modal via `views.open`) and the
+Discord/WhatsApp variants remain open — see Later.
 
 ## Goal
 
