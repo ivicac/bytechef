@@ -27,6 +27,7 @@ include("spring-ai:spring-ag-ui:servers:spring")
 include("spring-ai:spring-ag-ui:integrations:spring-ai")
 
 include("cli:cli-app")
+include("cli:cli-core")
 include("cli:commands:component")
 include("cli:commands:component:init:openapi")
 
