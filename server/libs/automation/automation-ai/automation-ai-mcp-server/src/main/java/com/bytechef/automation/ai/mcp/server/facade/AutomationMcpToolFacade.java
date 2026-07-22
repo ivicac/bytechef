@@ -370,6 +370,31 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
     }
 
     /**
+     * Returns the server-authoritative hosted approval-form URL for a run that is genuinely paused on a human approval
+     * (STOPPED with a stored resume id), or empty otherwise. The MCP elicitation decorator uses this instead of trusting
+     * a {@code formUrl} echoed in tool-output text: a workflow could otherwise emit a crafted {@code approval_required}
+     * descriptor as its normal output and point the reviewer at an attacker-controlled URL (or name another run's job
+     * id). The job is resolved under the current tenant context, so it can only ever name this tenant's own runs.
+     */
+    public Optional<String> resolvePendingApprovalFormUrl(long jobId) {
+        Job job = jobService.fetchJob(jobId)
+            .orElse(null);
+
+        if (job == null || job.getStatus() != Job.Status.STOPPED) {
+            return Optional.empty();
+        }
+
+        Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+
+        if (jobResumeId == null) {
+            return Optional.empty();
+        }
+
+        return ApprovalFormUrls.buildFormUrl(
+            publicUrl, jobResumeId.toString(), approvalTokensObjectProvider.getIfAvailable());
+    }
+
+    /**
      * Re-awaits a workflow run whose initial synchronous wait ended on a pending approval, after the human has been
      * pointed at the hosted form (via MCP URL elicitation). The completion awaiter treats STOPPED as terminal — it IS
      * terminal for an un-resumed run — so a plain await would hand back the still-paused job the instant a client

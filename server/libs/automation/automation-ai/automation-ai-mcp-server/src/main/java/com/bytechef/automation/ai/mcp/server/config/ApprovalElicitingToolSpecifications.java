@@ -87,34 +87,43 @@ public final class ApprovalElicitingToolSpecifications {
 
         Map<String, ?> pendingApproval = parsePendingApproval(result);
 
-        if (pendingApproval == null) {
+        if (pendingApproval == null || !(pendingApproval.get("jobId") instanceof Number jobId)) {
             return Mono.just(result);
         }
 
-        if (!(pendingApproval.get("formUrl") instanceof String formUrl) ||
-            !(pendingApproval.get("jobId") instanceof Number jobId)) {
-
+        if (!supportsUrlElicitation(exchange) && !supportsFormElicitation(exchange)) {
             return Mono.just(result);
         }
 
         String message = pendingMessage(pendingApproval);
 
-        Mono<McpSchema.CallToolResult> elicited;
+        // Re-derive the form URL from the run's OWN state rather than trusting the formUrl echoed in tool-output text:
+        // a workflow can author a crafted approval_required descriptor as its normal output and point the reviewer at
+        // an attacker-controlled URL (or name another run's job id). An empty result means the job is not actually
+        // paused on an approval (stale/spoofed descriptor) → no elicitation. The DB lookup runs on boundedElastic to
+        // keep the reactor thread non-blocking, and under the captured tenant so it can only ever name this tenant.
+        return Mono
+            .fromCallable(() -> TenantContext.callWithTenantId(
+                tenantId, () -> mcpToolFacade.resolvePendingApprovalFormUrl(jobId.longValue())))
+            .subscribeOn(Schedulers.boundedElastic())
+            .flatMap(optionalFormUrl -> {
+                String formUrl = optionalFormUrl.orElse(null);
 
-        if (supportsUrlElicitation(exchange)) {
-            elicited = elicitViaUrl(exchange, mcpToolFacade, tenantId, message, formUrl, jobId.longValue(), result);
-        } else if (supportsFormElicitation(exchange)) {
-            elicited = elicitViaForm(exchange, mcpToolFacade, tenantId, message, formUrl, jobId.longValue(), result);
-        } else {
-            return Mono.just(result);
-        }
+                if (formUrl == null) {
+                    return Mono.just(result);
+                }
 
-        // A run that pauses on a SECOND approval after resuming produces a fresh pending descriptor — re-elicit it,
-        // bounded by the round counter so a long approval chain degrades to descriptor text instead of looping.
-        return elicited.flatMap(
-            nextResult -> nextResult == result
-                ? Mono.just(nextResult)
-                : elicitApprovalIfPending(exchange, nextResult, mcpToolFacade, tenantId, round + 1));
+                Mono<McpSchema.CallToolResult> elicited = supportsUrlElicitation(exchange)
+                    ? elicitViaUrl(exchange, mcpToolFacade, tenantId, message, formUrl, jobId.longValue(), result)
+                    : elicitViaForm(exchange, mcpToolFacade, tenantId, message, formUrl, jobId.longValue(), result);
+
+                // A run that pauses on a SECOND approval after resuming produces a fresh pending descriptor —
+                // re-elicit it, bounded by the round counter so a long chain degrades to descriptor text.
+                return elicited.flatMap(
+                    nextResult -> nextResult == result
+                        ? Mono.just(nextResult)
+                        : elicitApprovalIfPending(exchange, nextResult, mcpToolFacade, tenantId, round + 1));
+            });
     }
 
     private static Mono<McpSchema.CallToolResult> elicitViaUrl(
@@ -194,7 +203,19 @@ public final class ApprovalElicitingToolSpecifications {
             .map(output -> McpSchema.CallToolResult.builder()
                 .addTextContent(output == null ? "" : JsonUtils.write(output))
                 .isError(false)
-                .build());
+                .build())
+            // A failure of the resumed RUN (a workflow error after approval) must surface as a tool error, not be
+            // swallowed by the caller's onErrorResume and reported as "returning the pending descriptor" — that would
+            // re-prompt the reviewer for an approval that was already resolved. Only elicitation-TRANSPORT failures
+            // (from exchange.createElicitation) should degrade to the pending descriptor.
+            .onErrorResume(exception -> {
+                log.warn("Awaiting the resumed run after approval failed: {}", exception.getMessage());
+
+                return Mono.just(McpSchema.CallToolResult.builder()
+                    .addTextContent("The workflow run failed after the approval was resolved: " + exception.getMessage())
+                    .isError(true)
+                    .build());
+            });
     }
 
     /**
