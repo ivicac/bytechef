@@ -507,6 +507,11 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   (`ApprovalTaskFacade.getPendingApprovals` → `pendingApprovals` GraphQL query →
   `PendingApprovalsList` on the Approval Tasks page) lists all STOPPED runs carrying a
   `jobResumeId`, with workflow label, form URL, createdDate, and expiry — channel-independent.
+- **Chat-only channel validation**: `WorkflowValidator.validateChatOnlyApprovalChannels`
+  (platform-workflow-validator-service) warns when a task's `approvalChannels` are chat-only — or
+  an AI agent has a `requiresApproval` tool with no channels, which defaults to chat — and the
+  workflow has no `chat/` trigger: such webhook/schedule runs pause with no live card and are
+  only reachable via the pending-approvals inbox or the hosted form.
 - AI Hub copilot chat is OUT of scope (keeps its pinned `askUserQuestion`).
 
 ### Domain copilot slice pattern (context store / knowledge base / data table)

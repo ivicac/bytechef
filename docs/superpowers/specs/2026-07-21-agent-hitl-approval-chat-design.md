@@ -156,9 +156,11 @@ Phases 1–2 are independent of 3 and deliver the visible differentiation first.
   "no longer available" state.
 - **Loud-failure rule, current strength.** The channel throws when no `jobId` is present
   (editor/in-process runs). A run with a jobId but no chat listener (webhook/schedule origin)
-  publishes an event nobody consumes — trigger-type-aware validation (chat channel configured but
-  no chat-capable origin) needs workflow-definition knowledge the component layer lacks; wire it
-  into workflow validation alongside Phase 3.
+  publishes an event nobody consumes — the run still surfaces in the pending-approvals inbox and
+  stays resolvable via the hosted form, but no live card is delivered. CLOSED: trigger-type-aware
+  validation is wired into `WorkflowValidator.validateChatOnlyApprovalChannels` — a warning fires
+  when a task's approval channels are chat-only (or an AI agent has a gated tool with no channels,
+  which defaults to chat) and the workflow has no `chat/` trigger.
 - **Continuation streaming.** On the CE Chats page and the canvas workflow-test chat, the inline
   card resolves through the SSE-negotiated resume endpoint (`POST /job/resume/{id}` with
   `Accept: text/event-stream`) via the shared `ApprovalResolutionContext`: the provider points its

@@ -36,9 +36,11 @@ Channels decide **where** the request is delivered. Attach one or more channel c
 to the Approval action — or to the AI Agent node's **Channels** section for gated tools:
 
 - **Chat** — delivers an inline approval card into the conversation that started the run. No
-  connection needed; the run must have a chat origin (a run started by webhook or schedule with
-  only the chat channel fails loudly — configure a fallback). With no channels configured on an
-  AI Agent, the chat channel is the default.
+  connection needed; the workflow should start from a chat trigger. A run started by webhook or
+  schedule with only the chat channel pauses without a live card — it stays resolvable from the
+  pending run approvals list and the hosted form, and workflow validation warns about this
+  configuration — so configure a fallback channel. With no channels configured on an AI Agent,
+  the chat channel is the default.
 - **Slack**, **Google Mail**, **Microsoft Outlook 365** — message with Approve/Discard links or
   a form link.
 - **Approval task** — creates an entry on the Approval Tasks page.

@@ -221,8 +221,9 @@ public class ApprovalGateToolCallback implements ToolCallback {
 
         if (approvalChannelClusterElements.isEmpty()) {
             // No channels configured on the agent node — default to the chat channel targeting the run's
-            // originating conversation. The chat channel itself fails loudly when the run has no job/chat origin,
-            // which keeps the "no silent no-op" rule intact for webhook/schedule runs without configured channels.
+            // originating conversation. The chat channel throws when the run has no jobId (in-process runs);
+            // a webhook/schedule run has a jobId but no chat listener, so the request is only reachable via the
+            // pending-approvals inbox — workflow validation warns about that configuration at design time.
             clusterElementDefinitionService.executeApprovalChannel(
                 CHAT_APPROVAL_CHANNEL_COMPONENT, 1, CHAT_APPROVAL_CHANNEL_NAME, channelInputParameters, formUrl,
                 null, actionContext);
