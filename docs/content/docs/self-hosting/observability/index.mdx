@@ -150,12 +150,39 @@ ByteChef doesn't care which backend you run — point the collector wherever you
 
 | Stack | Wiring |
 |---|---|
-| **Datadog** | OTLP to the Datadog agent (traces + metrics + logs), or OTLP straight to Datadog's intake. |
+| **Datadog** | OTLP to the Datadog Agent's OTLP receiver (traces + metrics + logs), or OTLP straight to Datadog's intake. |
+| **Splunk** | OTLP to the Splunk OpenTelemetry Collector, or OTLP straight to Splunk Observability Cloud's ingest. |
 | **Grafana stack** | Traces → Tempo, logs → Loki, metrics → Mimir/Prometheus, dashboards in Grafana. |
 | **Honeycomb** | OTLP traces and metrics to Honeycomb; logs to your log backend with trace-ID correlation. |
 | **AWS** | OTLP via the ADOT collector to CloudWatch / X-Ray. |
 
 You don't have to commit to one — the collector fans out to multiple backends.
+
+### Datadog and Splunk (direct OTLP)
+
+Because export is plain OTLP/HTTP, Datadog and Splunk need no ByteChef-specific integration — you point the same per-signal endpoints at their OTLP receivers. The AI Gateway's request telemetry rides the same pipeline: its `ai_gateway.*` Micrometer meters (trace count, latency timer, budget/rate-limit rejections) and the spans it emits flow to whichever backend you configure, so gateway spend, latency, and routing show up alongside the rest of your platform metrics.
+
+**Datadog** — run the Datadog Agent with its OTLP receiver enabled (`otlp_config.receiver.protocols.http.endpoint: 0.0.0.0:4318`) and point ByteChef at it (the Agent attaches your API key, so no key handling in ByteChef):
+
+```bash
+BYTECHEF_OBSERVABILITY_ENABLED=true
+BYTECHEF_OBSERVABILITY_TRACING_ENDPOINT=http://datadog-agent:4318/v1/traces
+BYTECHEF_OBSERVABILITY_METRICS_ENDPOINT=http://datadog-agent:4318/v1/metrics
+BYTECHEF_OBSERVABILITY_LOGGING_ENDPOINT=http://datadog-agent:4318/v1/logs
+```
+
+**Splunk** — send to a Splunk OpenTelemetry Collector, or directly to Splunk Observability Cloud's ingest for your realm (`https://ingest.<realm>.signalfx.com/v2/...`) with the access token supplied by the collector or a gateway in front of ByteChef:
+
+```bash
+BYTECHEF_OBSERVABILITY_ENABLED=true
+BYTECHEF_OBSERVABILITY_TRACING_ENDPOINT=http://splunk-otel-collector:4318/v1/traces
+BYTECHEF_OBSERVABILITY_METRICS_ENDPOINT=http://splunk-otel-collector:4318/v1/metrics
+BYTECHEF_OBSERVABILITY_LOGGING_ENDPOINT=http://splunk-otel-collector:4318/v1/logs
+```
+
+<Callout type="info">
+  Running the vendor's collector/agent in front of ByteChef is the recommended shape: it owns the API-key/token and any batching or tail-sampling, keeping credentials out of ByteChef's config. ByteChef only ever speaks OTLP/HTTP to a local endpoint.
+</Callout>
 
 ## See also
 

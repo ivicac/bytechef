@@ -99,8 +99,13 @@ Phase 1 closes gateway-boundary gaps 1, 2, 3, 5. Ordered so each step compiles o
 - Tests: `AiGatewayGuardrailsTest` project-overlay cases (enable, blocked-term, workspace∪project,
   response scanning).
 
-## Remaining Phase 2 (not implemented)
+## Gap 4 — Datadog/Splunk (documentation, not code)
 
-- Datadog/Splunk native observability sinks (gap 4) — separate observability-egress subsystem;
-  needs a new metrics-registry dependency or an observability-destination entity + external wiring.
+Not a code gap: OTLP export already reaches Datadog and Splunk (both OTLP-capable), gateway meters
+included. Resolved by documenting the concrete wiring in
+`docs/content/docs/self-hosting/observability/index.mdx` (added Splunk to the backends table +
+a "Datadog and Splunk (direct OTLP)" section). No dependency/build change.
+
+## Remaining (not implemented)
+
 - Per-API-key guardrail scoping (gap 6b) — no api-key settings-store primitive yet.

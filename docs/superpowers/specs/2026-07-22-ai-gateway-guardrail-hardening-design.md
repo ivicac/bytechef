@@ -29,7 +29,7 @@ Gaps identified at the gateway boundary:
 | 3 | No **prompt-injection / jailbreak** detection at the gateway | **1 (this spec)** |
 | 5 | **Embeddings** path bypasses guardrails entirely | **1 (this spec)** |
 | 6 | No per-**project** guardrail scoping (workspace only) | **2b (implemented)** |
-| 4 | No Datadog/Splunk native observability sinks (only generic OTLP) | 2 (out of scope) |
+| 4 | No Datadog/Splunk native observability sinks (only generic OTLP) | **not a code gap — OTLP already reaches both; documented** |
 | 6b | No per-**API-key** guardrail scoping | 2 (out of scope — no per-key settings store) |
 
 This spec covers Phase 1: closing gaps 1, 2, 3, and 5 — all within the gateway guardrail
@@ -226,11 +226,19 @@ secrets → blocked terms → injection (no moderation). Response path
 - `PromptBasedInjectionClassifierTest` — new, mirroring `PromptBasedModerationClassifierTest`:
   flagged/clean verdicts, blank/empty input, unknown model, and fail-open on classifier error.
 
+## Gap 4 — Datadog/Splunk (resolved as documentation, not code)
+
+Investigation showed gap 4 is **not a code gap**. ByteChef observability is standard Spring Boot
+Actuator + Micrometer exporting over OTLP/HTTP (`observability-config`), and the gateway's
+`ai_gateway.*` meters and spans ride that pipeline. Datadog (Agent OTLP receiver / intake) and
+Splunk (OTel Collector / Observability Cloud ingest) both accept OTLP, so both are reachable today
+by pointing the existing per-signal endpoints at them — no ByteChef-specific integration is needed.
+Adding a dedicated exporter (e.g. `micrometer-registry-datadog`) would be a redundant convenience
+that adds a build dependency for no capability gain. The resolution is the concrete wiring added to
+`docs/content/docs/self-hosting/observability/index.mdx` ("Datadog and Splunk (direct OTLP)").
+
 ## Out of scope (Phase 2)
 
-- **Gap 4** — native Datadog/Splunk sinks. Today the gateway's Micrometer meters reach any
-  OTLP-compatible backend via `observability-config`; dedicated exporters are a separate
-  observability-egress work item.
 - **Gap 6b** — per-**API-key** guardrail scoping. Per-project is done (Phase 2b); per-API-key has
   no settings-store primitive yet (unlike PROJECT, there is no api-key `Property` scope), so it
   needs a dedicated store before the same union-overlay approach can extend to it.
