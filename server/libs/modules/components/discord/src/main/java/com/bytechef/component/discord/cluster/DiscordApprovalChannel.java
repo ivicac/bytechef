@@ -25,6 +25,7 @@ import static com.bytechef.component.definition.approval.ApprovalChannelFunction
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.INPUTS;
 import static com.bytechef.component.discord.constant.DiscordConstants.CONTENT;
 import static com.bytechef.component.discord.constant.DiscordConstants.GUILD_ID;
+import static com.bytechef.component.discord.constant.DiscordConstants.PUBLIC_KEY;
 
 import com.bytechef.component.definition.ActionDefinition.OptionsFunction;
 import com.bytechef.component.definition.ClusterElementContext;
@@ -35,8 +36,17 @@ import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.TypeReference;
 import com.bytechef.component.definition.approval.ApprovalChannelFunction;
 import com.bytechef.component.discord.util.DiscordUtils;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Approval channel that posts the request to a Discord channel. Field-less approvals get one-click Approve/Discard link
@@ -48,6 +58,12 @@ import java.util.Map;
 public class DiscordApprovalChannel {
 
     private static final String CHANNEL_ID = "channelId";
+
+    private static final Logger log = LoggerFactory.getLogger(DiscordApprovalChannel.class);
+
+    private static final HttpClient HTTP_CLIENT = HttpClient.newBuilder()
+        .connectTimeout(Duration.ofSeconds(5))
+        .build();
 
     public static final ModifiableClusterElementDefinition<ApprovalChannelFunction> CLUSTER_ELEMENT_DEFINITION =
         ComponentDsl.<ApprovalChannelFunction>clusterElement("discord")
@@ -84,9 +100,25 @@ public class DiscordApprovalChannel {
             body = Http.Body.of(
                 CONTENT, content + "\nThe approval form link is unavailable because no public URL is configured.");
         } else {
+            String publicKey = connectionParameters.getString(PUBLIC_KEY);
+
+            boolean inPlace = publicKey != null && !publicKey.isBlank();
+
+            String shortId = inputs.isEmpty() && inPlace && formUrl.contains("/resume/")
+                ? mintShortId(formUrl)
+                : null;
+
             List<Map<String, Object>> buttons;
 
-            if (inputs.isEmpty()) {
+            if (shortId != null) {
+                // In-place interaction buttons: the tap resolves the approval through /discord/interactivity without
+                // leaving Discord. custom_id caps at 100 chars, so it carries a short id (minted server-side) rather
+                // than the token; the hosted-form link stays in the content as a durable fallback.
+                buttons = List.of(
+                    interactionButton("Approve", 1, shortId + ":a"),
+                    interactionButton("Discard", 4, shortId + ":d"));
+                content = content + "\nApprove or Discard below, or open the form: " + formUrl;
+            } else if (inputs.isEmpty()) {
                 buttons = List.of(
                     linkButton("Approve", formUrl + "?approved=true"),
                     linkButton("Discard", formUrl + "?approved=false"));
@@ -109,6 +141,45 @@ public class DiscordApprovalChannel {
 
     private static Map<String, Object> linkButton(String label, String url) {
         return Map.of("type", 2, "style", 5, "label", label, "url", url);
+    }
+
+    private static Map<String, Object> interactionButton(String label, int style, String customId) {
+        return Map.of("type", 2, "style", style, "label", label, "custom_id", customId);
+    }
+
+    /**
+     * Mints a short id for the resume token (the {@code formUrl} tail) via the ByteChef short-token endpoint. Returns
+     * {@code null} on any failure so the caller falls back to the hosted-form link buttons.
+     */
+    private static @Nullable String mintShortId(String formUrl) {
+        String publicUrl = formUrl.substring(0, formUrl.indexOf("/resume/"));
+        String token = formUrl.substring(formUrl.lastIndexOf('/') + 1);
+
+        try {
+            HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(publicUrl + "/approval/short-token"))
+                .timeout(Duration.ofSeconds(5))
+                .header("Content-Type", "text/plain")
+                .POST(HttpRequest.BodyPublishers.ofString(token, StandardCharsets.UTF_8))
+                .build();
+
+            HttpResponse<String> response = HTTP_CLIENT.send(request, HttpResponse.BodyHandlers.ofString());
+
+            if (response.statusCode() == 200) {
+                String shortId = response.body()
+                    .trim();
+
+                return shortId.isBlank() ? null : shortId;
+            }
+        } catch (InterruptedException interruptedException) {
+            Thread.currentThread()
+                .interrupt();
+        } catch (Exception exception) {
+            log.warn("Could not mint a Discord approval short id; falling back to form links: {}",
+                exception.getMessage());
+        }
+
+        return null;
     }
 
     private static String buildSummaryText(Parameters inputParameters) {
