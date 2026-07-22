@@ -132,8 +132,7 @@ public class AiGatewayGuardrails {
         @Value("${bytechef.ai.gateway.guardrails.moderation-enabled:false}") boolean moderationEnabled,
         @Value("${bytechef.ai.gateway.guardrails.injection-detection-enabled:false}") boolean injectionDetectionEnabled,
         @Value("${bytechef.ai.gateway.guardrails.response-scan-enabled:false}") boolean responseScanEnabled,
-        @Value("${bytechef.ai.gateway.guardrails.response-scan-streaming-enabled:false}")
-        boolean streamingResponseScanEnabled) {
+        @Value("${bytechef.ai.gateway.guardrails.response-scan-streaming-enabled:false}") boolean streamingResponseScanEnabled) {
 
         this.aiGatewayWorkspaceSettingsService = aiGatewayWorkspaceSettingsService;
         this.aiGatewayProjectSettingsService = aiGatewayProjectSettingsService;
@@ -431,7 +430,8 @@ public class AiGatewayGuardrails {
 
             while (matcher.find()) {
                 ranges.add(new int[] {
-                    matcher.start(), matcher.end()});
+                    matcher.start(), matcher.end()
+                });
             }
         }
 

@@ -53,8 +53,8 @@ import org.springframework.scheduling.annotation.Scheduled;
  * <p>
  * Metrics: {@code bytechef_approval_expired{source=sweep}} counts expired runs; the {@code bytechef_approval_pending}
  * gauge tracks the number of runs currently paused on an (unexpired) approval, refreshed on every sweep across all
- * tenants. In the distributed EE deployment the stale-STOPPED-jobs finder is served over REST by the execution app
- * (see {@code RemoteJobServiceClient#getStaleJobs}), so the sweep runs there too; the {@code UnsupportedOperationException}
+ * tenants. In the distributed EE deployment the stale-STOPPED-jobs finder is served over REST by the execution app (see
+ * {@code RemoteJobServiceClient#getStaleJobs}), so the sweep runs there too; the {@code UnsupportedOperationException}
  * catch below is a defensive fallback for any finder implementation that does not support it.
  * </p>
  *

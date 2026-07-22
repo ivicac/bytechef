@@ -371,10 +371,11 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
 
     /**
      * Returns the server-authoritative hosted approval-form URL for a run that is genuinely paused on a human approval
-     * (STOPPED with a stored resume id), or empty otherwise. The MCP elicitation decorator uses this instead of trusting
-     * a {@code formUrl} echoed in tool-output text: a workflow could otherwise emit a crafted {@code approval_required}
-     * descriptor as its normal output and point the reviewer at an attacker-controlled URL (or name another run's job
-     * id). The job is resolved under the current tenant context, so it can only ever name this tenant's own runs.
+     * (STOPPED with a stored resume id), or empty otherwise. The MCP elicitation decorator uses this instead of
+     * trusting a {@code formUrl} echoed in tool-output text: a workflow could otherwise emit a crafted
+     * {@code approval_required} descriptor as its normal output and point the reviewer at an attacker-controlled URL
+     * (or name another run's job id). The job is resolved under the current tenant context, so it can only ever name
+     * this tenant's own runs.
      */
     public Optional<String> resolvePendingApprovalFormUrl(long jobId) {
         Job job = jobService.fetchJob(jobId)

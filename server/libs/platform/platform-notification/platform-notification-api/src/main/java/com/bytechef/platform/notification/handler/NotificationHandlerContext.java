@@ -82,8 +82,8 @@ public class NotificationHandlerContext {
     }
 
     /**
-     * Hosted approval form URL for the pending approval; set only for approval-related event types when a public URL
-     * is configured.
+     * Hosted approval form URL for the pending approval; set only for approval-related event types when a public URL is
+     * configured.
      */
     public String getApprovalFormUrl() {
         return approvalFormUrl;

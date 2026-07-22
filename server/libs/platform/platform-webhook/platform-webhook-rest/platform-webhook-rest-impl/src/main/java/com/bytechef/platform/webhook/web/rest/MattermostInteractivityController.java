@@ -36,9 +36,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * Public endpoint for Mattermost interactive message button callbacks resolving approvals in place — each button's
- * integration URL points here. Mattermost does not sign these callbacks, so authorization rests on the tokenized
- * resume id carried in the button's integration context, exactly the capability the hosted-form link already exposes;
- * the reviewer identity Mattermost reports is therefore not trusted and not recorded as {@code approvedBy}.
+ * integration URL points here. Mattermost does not sign these callbacks, so authorization rests on the tokenized resume
+ * id carried in the button's integration context, exactly the capability the hosted-form link already exposes; the
+ * reviewer identity Mattermost reports is therefore not trusted and not recorded as {@code approvedBy}.
  *
  * @author Ivica Cardic
  */

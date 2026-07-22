@@ -750,8 +750,8 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
     }
 
     /**
-     * Builds a single {@code chat.completion.chunk} response carrying an assistant delta with the given text and
-     * finish reason.
+     * Builds a single {@code chat.completion.chunk} response carrying an assistant delta with the given text and finish
+     * reason.
      */
     private static AiGatewayChatCompletionResponse streamChunkOf(
         String model, @Nullable String deltaText, @Nullable String finishReason) {

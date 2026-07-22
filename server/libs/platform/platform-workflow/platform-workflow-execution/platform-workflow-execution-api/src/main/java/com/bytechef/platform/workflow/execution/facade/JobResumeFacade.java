@@ -38,9 +38,9 @@ public interface JobResumeFacade {
      * The {@code approvedBy} key is reserved and server-controlled: any {@code approvedBy} value present in
      * {@code data} (e.g. supplied through the anonymous hosted form) is stripped before processing, so an
      * unauthenticated caller cannot spoof an identity. Only a non-blank identity passed here — established out of band
-     * by the caller (e.g. the Slack interactivity endpoint verifying the request signature, or an authenticated
-     * surface capturing its principal) — is trusted and written into the outcome. A {@code null} or blank identity
-     * behaves exactly like {@link #resumeJob(String, Map)}.
+     * by the caller (e.g. the Slack interactivity endpoint verifying the request signature, or an authenticated surface
+     * capturing its principal) — is trusted and written into the outcome. A {@code null} or blank identity behaves
+     * exactly like {@link #resumeJob(String, Map)}.
      * </p>
      *
      * @param id         the cryptographically signed resume id from the request path

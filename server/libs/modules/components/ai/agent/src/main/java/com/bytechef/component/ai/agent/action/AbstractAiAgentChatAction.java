@@ -150,9 +150,9 @@ public abstract class AbstractAiAgentChatAction {
     }
 
     /**
-     * Resolves the optional per-tool approval expiry from a gated TOOLS entry's parameters
-     * ({@code approvalExpiresIn} + {@code approvalExpiresInUnit}). Returns {@code null} when unset or invalid, which
-     * makes the gate fall back to its 60-day default.
+     * Resolves the optional per-tool approval expiry from a gated TOOLS entry's parameters ({@code approvalExpiresIn} +
+     * {@code approvalExpiresInUnit}). Returns {@code null} when unset or invalid, which makes the gate fall back to its
+     * 60-day default.
      */
     private static @Nullable Duration getApprovalExpiry(Map<String, ?> clusterElementParameters) {
         Object approvalExpiresIn = clusterElementParameters.get(ToolConstants.APPROVAL_EXPIRES_IN);

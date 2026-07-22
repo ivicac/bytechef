@@ -94,8 +94,8 @@ public class ChatApprovalChannel {
     /**
      * Builds the {@code approval_request} data-event payload rendered as an inline approval card by chat surfaces. The
      * payload carries the resume id and hosted-form URL plus the optional form title, description, and input fields.
-     * Shared with the approval action's editor-run emission, which delivers the same card onto the workflow test
-     * stream without going through a channel.
+     * Shared with the approval action's editor-run emission, which delivers the same card onto the workflow test stream
+     * without going through a channel.
      */
     public static Map<String, Object> buildApprovalRequestEventData(Parameters inputParameters, String formUrl) {
         Map<String, Object> eventData = new LinkedHashMap<>();

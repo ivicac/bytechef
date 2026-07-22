@@ -29,8 +29,8 @@ public class ToolConstants {
     public static final String APPROVAL_EXPIRES_IN = "approvalExpiresIn";
 
     /**
-     * Optional time unit for {@link #APPROVAL_EXPIRES_IN}: {@link #APPROVAL_EXPIRES_IN_UNIT_HOURS} or days (the
-     * default when unset).
+     * Optional time unit for {@link #APPROVAL_EXPIRES_IN}: {@link #APPROVAL_EXPIRES_IN_UNIT_HOURS} or days (the default
+     * when unset).
      */
     public static final String APPROVAL_EXPIRES_IN_UNIT = "approvalExpiresInUnit";
 

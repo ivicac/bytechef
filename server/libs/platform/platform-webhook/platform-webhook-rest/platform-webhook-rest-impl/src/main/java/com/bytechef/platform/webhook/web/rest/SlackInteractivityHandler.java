@@ -51,10 +51,10 @@ import org.springframework.web.client.RestClient;
  *
  * <p>
  * Two callback shapes are handled. A {@code block_actions} callback fires when a button is clicked: Approve resolves
- * immediately; Discard first tries to open a comment modal ({@code views.open}, requiring the {@code views:write}
- * scope on the connection's bot token) so the reviewer can attach an optional reason, falling back to an immediate
- * resolution when no modal can be opened. A {@code view_submission} callback fires when that modal is submitted,
- * carrying the resume id and the original {@code response_url} in the view's {@code private_metadata}.
+ * immediately; Discard first tries to open a comment modal ({@code views.open}, requiring the {@code views:write} scope
+ * on the connection's bot token) so the reviewer can attach an optional reason, falling back to an immediate resolution
+ * when no modal can be opened. A {@code view_submission} callback fires when that modal is submitted, carrying the
+ * resume id and the original {@code response_url} in the view's {@code private_metadata}.
  * </p>
  *
  * <p>
@@ -226,8 +226,9 @@ public class SlackInteractivityHandler {
 
     /**
      * Parses and tenant-anchors the resume id, then verifies the request signature against that tenant's Slack
-     * connections. Returns the matching {@link Connection} on success, or the {@link #UNPARSEABLE} / {@link #UNVERIFIED}
-     * sentinel so the caller can map the failure to {@code IGNORED} / {@code UNAUTHORIZED} respectively.
+     * connections. Returns the matching {@link Connection} on success, or the {@link #UNPARSEABLE} /
+     * {@link #UNVERIFIED} sentinel so the caller can map the failure to {@code IGNORED} / {@code UNAUTHORIZED}
+     * respectively.
      */
     private Connection verify(
         @Nullable String resumeId, String rawBody, @Nullable String timestamp, @Nullable String signature) {

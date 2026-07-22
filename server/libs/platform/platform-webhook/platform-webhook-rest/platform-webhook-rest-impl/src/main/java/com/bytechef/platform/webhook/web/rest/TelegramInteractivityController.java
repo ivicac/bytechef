@@ -32,10 +32,10 @@ import org.springframework.web.client.RestClient;
 
 /**
  * Public endpoint for Telegram {@code callback_query} webhooks resolving approvals in place — the bot's webhook (set
- * via {@code setWebhook} with a secret token) points here. Anonymous like the job-resume endpoint the handler
- * delegates to; authenticity comes from the {@code X-Telegram-Bot-Api-Secret-Token} header verified against the secret
- * token stored on the Telegram connection (see {@link TelegramInteractivityHandler}). Because a Telegram bot has a
- * single webhook, use a dedicated approvals bot so this does not collide with a Telegram trigger.
+ * via {@code setWebhook} with a secret token) points here. Anonymous like the job-resume endpoint the handler delegates
+ * to; authenticity comes from the {@code X-Telegram-Bot-Api-Secret-Token} header verified against the secret token
+ * stored on the Telegram connection (see {@link TelegramInteractivityHandler}). Because a Telegram bot has a single
+ * webhook, use a dedicated approvals bot so this does not collide with a Telegram trigger.
  *
  * @author Ivica Cardic
  */

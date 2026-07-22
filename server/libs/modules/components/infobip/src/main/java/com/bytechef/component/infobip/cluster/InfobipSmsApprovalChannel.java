@@ -42,8 +42,8 @@ import java.util.Map;
 
 /**
  * Approval channel that delivers the request as a plain SMS via Infobip. Field-less approvals get one-click
- * Approve/Discard links (the hosted form pre-selects the decision via the {@code approved} query parameter and
- * confirms with a single click); approvals with form fields get the plain form link.
+ * Approve/Discard links (the hosted form pre-selects the decision via the {@code approved} query parameter and confirms
+ * with a single click); approvals with form fields get the plain form link.
  *
  * @author Ivica Cardic
  */

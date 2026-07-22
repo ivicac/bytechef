@@ -101,7 +101,8 @@ public class MattermostApprovalChannel {
             .getBody(new TypeReference<>() {});
     }
 
-    private static Map<String, Object> actionButton(String name, String integrationUrl, String resumeId,
+    private static Map<String, Object> actionButton(
+        String name, String integrationUrl, String resumeId,
         boolean approved) {
 
         return Map.of(

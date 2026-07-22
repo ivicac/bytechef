@@ -26,8 +26,7 @@ import org.jspecify.annotations.Nullable;
  * use: {@code login}, {@code sync}, {@code api}, {@code preauth}, {@code resume} (the HTTP filter), {@code async},
  * {@code concurrency}, {@code cost} (job admission), {@code timeout} (the run-timeout monitor), and the quota gates
  * {@code workspace}, {@code member} and {@code storage}. Wired with an optional {@link MeterRegistry} so lightweight
- * app variants without
- * actuator start cleanly — without one every call is a no-op.
+ * app variants without actuator start cleanly — without one every call is a no-op.
  *
  * @author Ivica Cardic
  */

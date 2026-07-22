@@ -415,8 +415,8 @@ public class ApprovalRequestApprovalAction {
     /**
      * Builds the editor-run delivery for the approval card: a {@link SuspendAwareSseEmitterHandler} that sends the
      * {@code approval_request} data event onto the run's SSE stream, suspends the run, and completes. The wrapper
-     * carries the action context so the post-output processor can observe the suspend once the stream is drained —
-     * the same mechanism the AI agent's streaming action uses for mid-stream suspends.
+     * carries the action context so the post-output processor can observe the suspend once the stream is drained — the
+     * same mechanism the AI agent's streaming action uses for mid-stream suspends.
      */
     private static SuspendAwareSseEmitterHandler createEditorApprovalRequestEmitterHandler(
         Parameters inputParameters, String formUrl, Instant expiresAt, ActionContextAware actionContextAware) {

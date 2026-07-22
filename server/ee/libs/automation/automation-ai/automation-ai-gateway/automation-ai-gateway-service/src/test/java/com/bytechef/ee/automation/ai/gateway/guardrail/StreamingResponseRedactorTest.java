@@ -81,7 +81,9 @@ class StreamingResponseRedactorTest {
         String full = "intro AKIAIOSFODNN7EXAMPLE middle " + OPENAI_KEY + " and some closing words here.";
 
         // The window must exceed the longest token (OpenAI key, 27 chars) for the no-leak guarantee to hold.
-        for (int window : new int[] {32, 64, 128}) {
+        for (int window : new int[] {
+            32, 64, 128
+        }) {
             StreamingResponseRedactor redactor = new StreamingResponseRedactor(window);
 
             List<String> emissions = new ArrayList<>();

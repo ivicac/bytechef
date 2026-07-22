@@ -205,7 +205,8 @@ public final class EmbeddedApprovalElicitingToolSpecifications {
                 log.warn("Awaiting the resumed run after approval failed: {}", exception.getMessage());
 
                 return Mono.just(McpSchema.CallToolResult.builder()
-                    .addTextContent("The workflow run failed after the approval was resolved: " + exception.getMessage())
+                    .addTextContent(
+                        "The workflow run failed after the approval was resolved: " + exception.getMessage())
                     .isError(true)
                     .build());
             });

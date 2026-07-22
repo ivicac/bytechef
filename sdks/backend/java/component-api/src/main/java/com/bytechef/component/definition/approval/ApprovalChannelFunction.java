@@ -64,8 +64,8 @@ public interface ApprovalChannelFunction {
      *
      * <p>
      * {@code formUrl} is always <b>non-null and non-blank</b>: both callers (the Approval action and the tool gate)
-     * resolve the hosted-form URL and throw {@link IllegalStateException} before invoking any channel when it cannot
-     * be built (e.g. no public URL configured). Channels may therefore use it directly; any "no public URL" fallback
+     * resolve the hosted-form URL and throw {@link IllegalStateException} before invoking any channel when it cannot be
+     * built (e.g. no public URL configured). Channels may therefore use it directly; any "no public URL" fallback
      * branch is defensive dead code, not a supported path.
      *
      * @param inputParameters      the input parameters configured for the channel
