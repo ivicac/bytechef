@@ -1,6 +1,6 @@
 # AI Gateway guardrail hardening — design
 
-Status: implemented (Phase 1 + Phase 2a streaming redaction)
+Status: implemented (Phase 1 + Phase 2a streaming redaction + Phase 2b per-project scoping)
 Date: 2026-07-22
 Area: `server/ee/libs/automation/automation-ai/automation-ai-gateway`, `server/ee/libs/platform/platform-ai/platform-ai-gateway`
 
@@ -28,8 +28,9 @@ Gaps identified at the gateway boundary:
 | 2 | No developer-**secret**/API-key detection (only PII) | **1 (this spec)** |
 | 3 | No **prompt-injection / jailbreak** detection at the gateway | **1 (this spec)** |
 | 5 | **Embeddings** path bypasses guardrails entirely | **1 (this spec)** |
+| 6 | No per-**project** guardrail scoping (workspace only) | **2b (implemented)** |
 | 4 | No Datadog/Splunk native observability sinks (only generic OTLP) | 2 (out of scope) |
-| 6 | No per-**API-key** / per-**project** guardrail scoping (workspace only) | 2 (out of scope) |
+| 6b | No per-**API-key** guardrail scoping | 2 (out of scope — no per-key settings store) |
 
 This spec covers Phase 1: closing gaps 1, 2, 3, and 5 — all within the gateway guardrail
 subsystem, mirroring the existing moderation/redaction patterns so the change is additive and
@@ -145,6 +146,31 @@ some incremental latency): streaming redaction is active only when response scan
 for the workspace (`response-scan-enabled` / `scanResponses`) **AND** the global
 `response-scan-streaming-enabled` flag is set. No new per-workspace field.
 
+### 6. Per-project guardrail scoping (Phase 2b)
+
+Guardrail policy previously resolved from global properties + the request workspace only. Phase 2b
+adds a **project** layer: `AiGatewayProjectSettings` (record in `platform-ai-gateway-api`),
+persisted as a `PROJECT`-scoped `Property` row (`ai_gateway_project_settings`, keyed by numeric
+project id) via `AiGatewayProjectSettingsService` — the same property-store pattern the workspace
+settings use, so **no new table / migration**. It carries only the guardrail fields (`redactPii`,
+`redactSecrets`, `blockedTerms`, `moderationEnabled`, `injectionDetectionEnabled`,
+`scanResponses`).
+
+`AiGatewayGuardrails.resolvePolicy(workspaceId, projectId)` unions the project overrides on top of
+global + workspace with the **same additive semantics**: a project can enable a guardrail the
+workspace did not, and its blocked terms union in, but it never turns a workspace/global guardrail
+off (null = inherit). The four public methods (`apply`, `applyToInputs`, `redactResponse`,
+`newStreamingResponseRedactor`) gained a `projectId` overload; the original overloads delegate with
+`projectId = null`, so existing callers and behavior are unchanged. `AiGatewayFacadeImpl` resolves
+the numeric project id from the request's `project_id` tag (a per-workspace slug →
+`resolveProjectId`) and threads it into all four call sites. The project settings service is a
+Spring-optional `@Nullable` constructor dep — absent bean → project layer is simply skipped.
+
+Config surface: `aiGatewayProjectSettings(projectId)` GraphQL query +
+`updateAiGatewayProjectSettings(input)` mutation (`AiGatewayProjectSettingsFacade`, admin-only for
+both read and write — project guardrail config is administrative). No client UI in this phase (the
+capability is exposed via the GraphQL API; a project-settings panel is a follow-up).
+
 ### 4. Embeddings coverage (gap 5)
 
 `AiGatewayFacadeImpl.embedding` now runs the request-side guardrails over each input string
@@ -181,6 +207,10 @@ redactSecrets, injectionDetectionEnabled, scanResponses     (new)
 Surfaced through the existing `aiGatewayWorkspaceSettings` GraphQL query / mutation and the AI
 Gateway settings page.
 
+Per-project overrides on `AiGatewayProjectSettings` (Phase 2b; union on top of workspace):
+`redactPii`, `redactSecrets`, `blockedTerms`, `moderationEnabled`, `injectionDetectionEnabled`,
+`scanResponses` — via the `aiGatewayProjectSettings` GraphQL query / mutation (admin-only).
+
 ## Evaluation order
 
 Request path (`apply`): redact PII → redact secrets → blocked terms → moderation → injection.
@@ -201,5 +231,6 @@ secrets → blocked terms → injection (no moderation). Response path
 - **Gap 4** — native Datadog/Splunk sinks. Today the gateway's Micrometer meters reach any
   OTLP-compatible backend via `observability-config`; dedicated exporters are a separate
   observability-egress work item.
-- **Gap 6** — per-API-key / per-project guardrail scoping. Guardrail config is workspace-scoped;
-  finer scoping needs a policy-resolution redesign (`apply` currently takes only `workspaceId`).
+- **Gap 6b** — per-**API-key** guardrail scoping. Per-project is done (Phase 2b); per-API-key has
+  no settings-store primitive yet (unlike PROJECT, there is no api-key `Property` scope), so it
+  needs a dedicated store before the same union-overlay approach can extend to it.

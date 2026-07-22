@@ -339,6 +339,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         checkRateLimits(request.tags());
 
         Long workspaceId = resolveWorkspaceIdFromTags(request.tags());
+        Long projectId = resolveProjectId(request.tags());
 
         ResolvedPrompt resolvedPrompt = resolvePrompt(promptHeaders, workspaceId, request);
 
@@ -346,7 +347,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             request = prependSystemMessage(request, resolvedPrompt.content());
         }
 
-        request = aiGatewayGuardrails.apply(request, workspaceId);
+        request = aiGatewayGuardrails.apply(request, workspaceId, projectId);
 
         long startTime = System.currentTimeMillis();
 
@@ -372,8 +373,8 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
         // Dual-directional scanning: redact PII/secrets from the completion before it is traced or returned, so
         // internal data does not leak back through the model output. Redaction only (never blocks); non-streaming path
-        // only — see chatCompletionStream for the streaming limitation.
-        response = aiGatewayGuardrails.redactResponse(response, workspaceId);
+        // only — see chatCompletionStream for the streaming path.
+        response = aiGatewayGuardrails.redactResponse(response, workspaceId, projectId);
 
         processTracingHeaders(tracingHeaders, workspaceId, request, response, startTime, success, resolvedPrompt);
 
@@ -553,6 +554,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         checkRateLimits(request.tags());
 
         Long workspaceId = resolveWorkspaceIdFromTags(request.tags());
+        Long projectId = resolveProjectId(request.tags());
 
         ResolvedPrompt resolvedPrompt = resolvePrompt(promptHeaders, workspaceId, request);
 
@@ -564,7 +566,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             resolvedPrompt != null
                 ? prependSystemMessage(request, resolvedPrompt.content())
                 : request,
-            workspaceId);
+            workspaceId, projectId);
 
         long startTime = System.currentTimeMillis();
 
@@ -619,7 +621,8 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
         // When streaming response scanning is active, deltas are masked through the redactor and the terminal
         // finish_reason is deferred onto the flush chunk so the client never sees "stop" before the masked tail.
-        StreamingResponseRedactor responseRedactor = aiGatewayGuardrails.newStreamingResponseRedactor(workspaceId);
+        StreamingResponseRedactor responseRedactor =
+            aiGatewayGuardrails.newStreamingResponseRedactor(workspaceId, projectId);
         AtomicReference<String> deferredFinishReason = new AtomicReference<>();
 
         Flux<ChatResponse> chatResponseFlux;
@@ -862,10 +865,11 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         checkRateLimits(request.tags());
 
         Long workspaceId = resolveWorkspaceIdFromTags(request.tags());
+        Long projectId = resolveProjectId(request.tags());
 
         // Cover the embeddings path with the request-direction guardrails (redact PII/secrets, block terms/injection)
         // before the input leaves ByteChef — previously only chat completions were guardrailed.
-        List<String> guardrailedInputs = aiGatewayGuardrails.applyToInputs(request.input(), workspaceId);
+        List<String> guardrailedInputs = aiGatewayGuardrails.applyToInputs(request.input(), workspaceId, projectId);
 
         long startTime = System.currentTimeMillis();
 
@@ -1761,6 +1765,16 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         return workspaceAiGatewayProjectService.fetchProjectByWorkspaceIdAndSlug(
             Long.parseLong(workspaceId), projectSlug)
             .orElse(null);
+    }
+
+    /**
+     * Resolves the numeric project id from the request tags (the {@code project_id} tag is a per-workspace slug), or
+     * {@code null} when the request is not attributed to a project. Used to layer project-scoped guardrail overrides.
+     */
+    private @Nullable Long resolveProjectId(Map<String, String> tags) {
+        AiGatewayProject project = resolveProject(tags);
+
+        return project != null ? project.getId() : null;
     }
 
     private boolean resolveCompressionEnabled(@Nullable AiGatewayProject project) {

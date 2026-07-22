@@ -12,7 +12,9 @@ import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.ee.automation.ai.gateway.service.AiGatewayProjectSettingsService;
 import com.bytechef.ee.automation.ai.gateway.service.AiGatewayWorkspaceSettingsService;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProjectSettings;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayWorkspaceSettings;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionRequest;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionResponse;
@@ -31,6 +33,8 @@ import org.junit.jupiter.api.Test;
 class AiGatewayGuardrailsTest {
 
     private final AiGatewayWorkspaceSettingsService settingsService = mock(AiGatewayWorkspaceSettingsService.class);
+    private final AiGatewayProjectSettingsService projectSettingsService =
+        mock(AiGatewayProjectSettingsService.class);
 
     @Test
     void testRedactPiiReplacesCommonPatterns() {
@@ -312,6 +316,66 @@ class AiGatewayGuardrailsTest {
         assertThat(guardrails.newStreamingResponseRedactor(null)).isNotNull();
     }
 
+    @Test
+    void testProjectOverlayEnablesRedaction() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
+
+        when(projectSettingsService.findByProjectId(3L))
+            .thenReturn(Optional.of(projectSettings(true, null, null, null, null, null)));
+
+        AiGatewayChatCompletionRequest result = guardrails.apply(requestOf("Contact bob@acme.io"), null, 3L);
+
+        assertThat(result.messages()
+            .getFirst()
+            .content()).isEqualTo("Contact [REDACTED_EMAIL]");
+    }
+
+    @Test
+    void testProjectOverlayAddsBlockedTerm() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
+
+        when(projectSettingsService.findByProjectId(3L))
+            .thenReturn(Optional.of(projectSettings(null, null, "classified", null, null, null)));
+
+        assertThatExceptionOfType(AiGatewayGuardrailException.class).isThrownBy(
+            () -> guardrails.apply(requestOf("the CLASSIFIED memo"), null, 3L));
+    }
+
+    @Test
+    void testProjectOverlayUnionsWithWorkspace() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
+
+        when(settingsService.findByWorkspaceId(7L))
+            .thenReturn(Optional.of(settings(true, null, null, null, null, null)));
+        when(projectSettingsService.findByProjectId(3L))
+            .thenReturn(Optional.of(projectSettings(null, true, null, null, null, null)));
+
+        AiGatewayChatCompletionRequest result =
+            guardrails.apply(requestOf("mail bob@acme.io key AKIAIOSFODNN7EXAMPLE"), 7L, 3L);
+
+        String content = result.messages()
+            .getFirst()
+            .content();
+
+        assertThat(content).isEqualTo("mail [REDACTED_EMAIL] key [REDACTED_SECRET]");
+    }
+
+    @Test
+    void testProjectOverlayEnablesResponseScanning() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false);
+
+        when(projectSettingsService.findByProjectId(3L))
+            .thenReturn(Optional.of(projectSettings(null, null, null, null, null, true)));
+
+        AiGatewayChatCompletionResponse redacted =
+            guardrails.redactResponse(responseOf("contact bob@acme.io"), null, 3L);
+
+        assertThat(redacted.choices()
+            .getFirst()
+            .message()
+            .content()).isEqualTo("contact [REDACTED_EMAIL]");
+    }
+
     private AiGatewayGuardrails guardrails(
         com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifier moderationClassifier,
         com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayInjectionClassifier injectionClassifier,
@@ -330,8 +394,8 @@ class AiGatewayGuardrailsTest {
         boolean injectionDetectionEnabled, boolean responseScanEnabled, boolean streamingResponseScanEnabled) {
 
         return new AiGatewayGuardrails(
-            settingsService, moderationClassifier, injectionClassifier, piiRedactionEnabled, secretRedactionEnabled,
-            blockedTerms, moderationEnabled, injectionDetectionEnabled, responseScanEnabled,
+            settingsService, projectSettingsService, moderationClassifier, injectionClassifier, piiRedactionEnabled,
+            secretRedactionEnabled, blockedTerms, moderationEnabled, injectionDetectionEnabled, responseScanEnabled,
             streamingResponseScanEnabled);
     }
 
@@ -342,6 +406,14 @@ class AiGatewayGuardrailsTest {
         return new AiGatewayWorkspaceSettings(
             7L, null, null, null, null, null, null, null, redactPii, blockedTerms, moderationEnabled, redactSecrets,
             injectionDetectionEnabled, scanResponses);
+    }
+
+    private static AiGatewayProjectSettings projectSettings(
+        Boolean redactPii, Boolean redactSecrets, String blockedTerms, Boolean moderationEnabled,
+        Boolean injectionDetectionEnabled, Boolean scanResponses) {
+
+        return new AiGatewayProjectSettings(
+            3L, redactPii, redactSecrets, blockedTerms, moderationEnabled, injectionDetectionEnabled, scanResponses);
     }
 
     private static AiGatewayChatCompletionRequest requestOf(String content) {

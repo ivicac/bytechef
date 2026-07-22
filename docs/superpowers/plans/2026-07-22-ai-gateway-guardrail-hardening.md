@@ -83,7 +83,24 @@ Phase 1 closes gateway-boundary gaps 1, 2, 3, 5. Ordered so each step compiles o
 - Note: activation is operator-level (latency trade-off), so no new per-workspace field / GraphQL /
   client change.
 
+## Phase 2b — per-project guardrail scoping (gap 6)
+
+- `AiGatewayProjectSettings` (platform-ai-gateway-api): guardrail-only record, PROJECT-scoped
+  `Property` row (`ai_gateway_project_settings`) — no migration.
+- `AiGatewayProjectSettingsService` + Impl (mirror the workspace service, `Property.Scope.PROJECT`).
+- `AiGatewayProjectSettingsFacade` + Impl (admin-only read+write) + GraphQL
+  (`ai-gateway-project-settings.graphqls` + controller). No client UI this phase (API only).
+- `AiGatewayGuardrails`: optional `@Nullable AiGatewayProjectSettingsService` dep;
+  `resolvePolicy(workspaceId, projectId)` unions the project overrides (additive, same as workspace);
+  `projectId` overloads on `apply` / `applyToInputs` / `redactResponse` /
+  `newStreamingResponseRedactor` (originals delegate with null → existing callers unchanged).
+- `AiGatewayFacadeImpl`: `resolveProjectId(tags)` (project_id tag is a slug → entity → numeric id),
+  threaded into all four guardrail call sites (sync + streaming + embeddings + response).
+- Tests: `AiGatewayGuardrailsTest` project-overlay cases (enable, blocked-term, workspace∪project,
+  response scanning).
+
 ## Remaining Phase 2 (not implemented)
 
-- Datadog/Splunk native observability sinks (gap 4).
-- Per-API-key / per-project guardrail scoping (gap 6).
+- Datadog/Splunk native observability sinks (gap 4) — separate observability-egress subsystem;
+  needs a new metrics-registry dependency or an observability-destination entity + external wiring.
+- Per-API-key guardrail scoping (gap 6b) — no api-key settings-store primitive yet.

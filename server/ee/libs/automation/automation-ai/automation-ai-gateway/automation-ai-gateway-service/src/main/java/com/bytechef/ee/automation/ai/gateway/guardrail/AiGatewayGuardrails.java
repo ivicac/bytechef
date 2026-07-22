@@ -7,7 +7,9 @@
 
 package com.bytechef.ee.automation.ai.gateway.guardrail;
 
+import com.bytechef.ee.automation.ai.gateway.service.AiGatewayProjectSettingsService;
 import com.bytechef.ee.automation.ai.gateway.service.AiGatewayWorkspaceSettingsService;
+import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayProjectSettings;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayWorkspaceSettings;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionRequest;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionResponse;
@@ -106,6 +108,7 @@ public class AiGatewayGuardrails {
     private static final List<Pattern> ALL_SENSITIVE_PATTERNS = buildAllSensitivePatterns();
 
     private final AiGatewayWorkspaceSettingsService aiGatewayWorkspaceSettingsService;
+    private final @Nullable AiGatewayProjectSettingsService aiGatewayProjectSettingsService;
     private final List<String> globalBlockedTerms;
     private final boolean globalInjectionDetectionEnabled;
     private final boolean globalModerationEnabled;
@@ -118,6 +121,7 @@ public class AiGatewayGuardrails {
 
     public AiGatewayGuardrails(
         AiGatewayWorkspaceSettingsService aiGatewayWorkspaceSettingsService,
+        @Nullable AiGatewayProjectSettingsService aiGatewayProjectSettingsService,
         @Nullable AiGatewayModerationClassifier moderationClassifier,
         @Nullable AiGatewayInjectionClassifier injectionClassifier,
         @Value("${bytechef.ai.gateway.guardrails.pii-redaction-enabled:false}") boolean piiRedactionEnabled,
@@ -130,6 +134,7 @@ public class AiGatewayGuardrails {
         boolean streamingResponseScanEnabled) {
 
         this.aiGatewayWorkspaceSettingsService = aiGatewayWorkspaceSettingsService;
+        this.aiGatewayProjectSettingsService = aiGatewayProjectSettingsService;
         this.globalBlockedTerms = parseBlockedTerms(blockedTerms);
         this.globalInjectionDetectionEnabled = injectionDetectionEnabled;
         this.globalModerationEnabled = moderationEnabled;
@@ -156,7 +161,24 @@ public class AiGatewayGuardrails {
     public AiGatewayChatCompletionRequest apply(
         AiGatewayChatCompletionRequest request, @Nullable Long workspaceId) {
 
-        EffectivePolicy policy = resolvePolicy(workspaceId);
+        return apply(request, workspaceId, null);
+    }
+
+    /**
+     * As {@link #apply(AiGatewayChatCompletionRequest, Long)}, additionally layering the project's guardrail overrides
+     * (union semantics) on top of the workspace/global policy.
+     *
+     * @param request     the inbound chat-completion request
+     * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed
+     * @param projectId   the project the request is attributed to, or {@code null} when none
+     * @return the guardrailed request
+     * @throws AiGatewayGuardrailException if a message contains a blocked term or is flagged by moderation or injection
+     *                                     detection
+     */
+    public AiGatewayChatCompletionRequest apply(
+        AiGatewayChatCompletionRequest request, @Nullable Long workspaceId, @Nullable Long projectId) {
+
+        EffectivePolicy policy = resolvePolicy(workspaceId, projectId);
 
         if (!policy.anyChatGuardrailActive()) {
             return request;
@@ -189,11 +211,25 @@ public class AiGatewayGuardrails {
      * @throws AiGatewayGuardrailException if an input contains a blocked term or is flagged by injection detection
      */
     public List<String> applyToInputs(List<String> inputs, @Nullable Long workspaceId) {
+        return applyToInputs(inputs, workspaceId, null);
+    }
+
+    /**
+     * As {@link #applyToInputs(List, Long)}, additionally layering the project's guardrail overrides on top of the
+     * workspace/global policy.
+     *
+     * @param inputs      the embedding input strings
+     * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed
+     * @param projectId   the project the request is attributed to, or {@code null} when none
+     * @return the guardrailed inputs
+     * @throws AiGatewayGuardrailException if an input contains a blocked term or is flagged by injection detection
+     */
+    public List<String> applyToInputs(List<String> inputs, @Nullable Long workspaceId, @Nullable Long projectId) {
         if (inputs == null || inputs.isEmpty()) {
             return inputs;
         }
 
-        EffectivePolicy policy = resolvePolicy(workspaceId);
+        EffectivePolicy policy = resolvePolicy(workspaceId, projectId);
 
         if (!policy.anyInputGuardrailActive()) {
             return inputs;
@@ -223,13 +259,28 @@ public class AiGatewayGuardrails {
     public AiGatewayChatCompletionResponse redactResponse(
         AiGatewayChatCompletionResponse response, @Nullable Long workspaceId) {
 
+        return redactResponse(response, workspaceId, null);
+    }
+
+    /**
+     * As {@link #redactResponse(AiGatewayChatCompletionResponse, Long)}, additionally honoring the project's response
+     * scanning override.
+     *
+     * @param response    the completion response
+     * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed
+     * @param projectId   the project the request is attributed to, or {@code null} when none
+     * @return the response with redacted content, or the original when response scanning is inactive or nothing matched
+     */
+    public AiGatewayChatCompletionResponse redactResponse(
+        AiGatewayChatCompletionResponse response, @Nullable Long workspaceId, @Nullable Long projectId) {
+
         if (response == null || response.choices() == null || response.choices()
             .isEmpty()) {
 
             return response;
         }
 
-        EffectivePolicy policy = resolvePolicy(workspaceId);
+        EffectivePolicy policy = resolvePolicy(workspaceId, projectId);
 
         if (!policy.scanResponses()) {
             return response;
@@ -287,11 +338,24 @@ public class AiGatewayGuardrails {
      * @return a fresh {@link StreamingResponseRedactor}, or {@code null} when streaming scanning is inactive
      */
     public @Nullable StreamingResponseRedactor newStreamingResponseRedactor(@Nullable Long workspaceId) {
+        return newStreamingResponseRedactor(workspaceId, null);
+    }
+
+    /**
+     * As {@link #newStreamingResponseRedactor(Long)}, additionally honoring the project's response scanning override.
+     *
+     * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed
+     * @param projectId   the project the request is attributed to, or {@code null} when none
+     * @return a fresh {@link StreamingResponseRedactor}, or {@code null} when streaming scanning is inactive
+     */
+    public @Nullable StreamingResponseRedactor newStreamingResponseRedactor(
+        @Nullable Long workspaceId, @Nullable Long projectId) {
+
         if (!globalStreamingResponseScanEnabled) {
             return null;
         }
 
-        EffectivePolicy policy = resolvePolicy(workspaceId);
+        EffectivePolicy policy = resolvePolicy(workspaceId, projectId);
 
         if (!policy.scanResponses()) {
             return null;
@@ -418,13 +482,18 @@ public class AiGatewayGuardrails {
         return redacted;
     }
 
-    private EffectivePolicy resolvePolicy(@Nullable Long workspaceId) {
+    private EffectivePolicy resolvePolicy(@Nullable Long workspaceId, @Nullable Long projectId) {
         AiGatewayWorkspaceSettings settings = findSettings(workspaceId);
+        AiGatewayProjectSettings projectSettings = findProjectSettings(projectId);
 
+        // Union semantics across global -> workspace -> project: a level can enable a guardrail (or add blocked terms)
+        // but never turn one off. null = inherit.
         boolean redactPii = globalPiiRedactionEnabled ||
-            (settings != null && Boolean.TRUE.equals(settings.redactPii()));
+            (settings != null && Boolean.TRUE.equals(settings.redactPii())) ||
+            (projectSettings != null && Boolean.TRUE.equals(projectSettings.redactPii()));
         boolean redactSecrets = globalSecretRedactionEnabled ||
-            (settings != null && Boolean.TRUE.equals(settings.redactSecrets()));
+            (settings != null && Boolean.TRUE.equals(settings.redactSecrets())) ||
+            (projectSettings != null && Boolean.TRUE.equals(projectSettings.redactSecrets()));
 
         Set<String> blockedTerms = new LinkedHashSet<>(globalBlockedTerms);
 
@@ -432,13 +501,20 @@ public class AiGatewayGuardrails {
             blockedTerms.addAll(parseBlockedTerms(settings.blockedTerms()));
         }
 
+        if (projectSettings != null && projectSettings.blockedTerms() != null) {
+            blockedTerms.addAll(parseBlockedTerms(projectSettings.blockedTerms()));
+        }
+
         boolean moderate = moderationClassifier != null &&
-            (globalModerationEnabled || (settings != null && Boolean.TRUE.equals(settings.moderationEnabled())));
+            (globalModerationEnabled || (settings != null && Boolean.TRUE.equals(settings.moderationEnabled())) ||
+                (projectSettings != null && Boolean.TRUE.equals(projectSettings.moderationEnabled())));
         boolean detectInjection = injectionClassifier != null &&
             (globalInjectionDetectionEnabled ||
-                (settings != null && Boolean.TRUE.equals(settings.injectionDetectionEnabled())));
+                (settings != null && Boolean.TRUE.equals(settings.injectionDetectionEnabled())) ||
+                (projectSettings != null && Boolean.TRUE.equals(projectSettings.injectionDetectionEnabled())));
         boolean scanResponses = globalResponseScanEnabled ||
-            (settings != null && Boolean.TRUE.equals(settings.scanResponses()));
+            (settings != null && Boolean.TRUE.equals(settings.scanResponses())) ||
+            (projectSettings != null && Boolean.TRUE.equals(projectSettings.scanResponses()));
 
         return new EffectivePolicy(
             redactPii, redactSecrets, blockedTerms, moderate, detectInjection, scanResponses);
@@ -459,6 +535,25 @@ public class AiGatewayGuardrails {
             log.warn(
                 "Failed to load AI Gateway workspace settings for workspace {}: {}", workspaceId,
                 exception.getMessage());
+
+            return null;
+        }
+    }
+
+    private @Nullable AiGatewayProjectSettings findProjectSettings(@Nullable Long projectId) {
+        if (projectId == null || aiGatewayProjectSettingsService == null) {
+            return null;
+        }
+
+        try {
+            Optional<AiGatewayProjectSettings> settingsOptional =
+                aiGatewayProjectSettingsService.findByProjectId(projectId);
+
+            return settingsOptional.orElse(null);
+        } catch (Exception exception) {
+            // A settings lookup failure must not take the request path down; workspace/global guardrails still apply.
+            log.warn(
+                "Failed to load AI Gateway project settings for project {}: {}", projectId, exception.getMessage());
 
             return null;
         }

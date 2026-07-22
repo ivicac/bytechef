@@ -703,6 +703,16 @@ trigger + post-turn query invalidation.
 - Order (request): redact PII → redact secrets → blocked terms → moderation → injection; every
   check sees the redacted text. Embeddings run the same minus moderation. Response path is
   redaction only.
+- Per-project overlay: `AiGatewayProjectSettings` (PROJECT-scoped `Property` row
+  `ai_gateway_project_settings`, guardrail fields only) layers on top of global+workspace with the
+  same **additive union** semantics (a project can enable a guardrail / add blocked terms, never
+  turn one off; null = inherit). `resolvePolicy(workspaceId, projectId)` unions all three levels;
+  the four guardrail methods have `projectId` overloads (originals delegate with null).
+  `AiGatewayFacadeImpl.resolveProjectId` maps the `project_id` request tag (a per-workspace slug)
+  to the numeric project id. Admin-only GraphQL: `aiGatewayProjectSettings` /
+  `updateAiGatewayProjectSettings`. The project settings service is a Spring-optional `@Nullable`
+  dep — absent bean → project layer skipped. Per-API-key scoping is NOT implemented (no api-key
+  `Property` scope).
 - Violations throw `AiGatewayGuardrailException` (lives in `platform-ai-gateway-api` so the
   public-rest `AiGatewayExceptionHandler` can map it) → HTTP 422 `guardrail_violation`; the
   wire message never echoes the offending content or matched term.
