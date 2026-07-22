@@ -26,6 +26,7 @@ import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
 import com.bytechef.component.definition.ComponentDsl.ModifiableClusterElementDefinition;
 import com.bytechef.component.definition.Property;
+import com.bytechef.platform.ai.constant.AiAgentToolSseContext;
 import com.bytechef.platform.ai.constant.ToolSuspendConstants;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ClusterElementContextAware;
@@ -35,6 +36,8 @@ import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsTo
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import java.util.List;
 import java.util.Optional;
+import java.util.Queue;
+import java.util.concurrent.atomic.AtomicReference;
 
 /**
  * Adapts the {@link ApprovalRequestApprovalAction} into a {@link MultipleConnectionsToolFunction} so the AI agent can
@@ -99,34 +102,57 @@ public class ApprovalRequestApprovalTool {
                 if (result instanceof SuspendAwareSseEmitterHandler suspendAwareSseEmitterHandler) {
                     // In editor runs the action returns the approval card event as a one-shot emitter output, drained
                     // by the task pipeline's post-output processor — but the tool path invokes perform directly and
-                    // has no post-output processing. Drain the handler inline so the suspend inside it still lands on
-                    // the shared action context; the card event itself has no tool-side listener and is dropped.
-                    suspendAwareSseEmitterHandler.handle(NOOP_SSE_EMITTER);
+                    // has no post-output processing. Drain the handler inline through an emitter that forwards the card
+                    // onto the agent's live SSE stream (bound for this thread by AiAgentToolFacade), so the suspend
+                    // inside it still lands on the shared action context AND the canvas test chat renders the card.
+                    suspendAwareSseEmitterHandler.handle(new AgentStreamForwardingSseEmitter());
                 }
 
                 return ToolSuspendConstants.SUSPENDED_SENTINEL;
             });
     }
 
-    private static final ActionDefinition.SseEmitterHandler.SseEmitter NOOP_SSE_EMITTER =
-        new ActionDefinition.SseEmitterHandler.SseEmitter() {
+    /**
+     * Forwards a drained editor card event onto the agent's live SSE stream — sending to the connected emitter when one
+     * is attached, otherwise buffering it for when the client connects — using the emitter reference / buffered-events
+     * queue that {@code AiAgentToolFacade} binds to the current thread for the duration of the tool call. Silently
+     * drops the event only when neither is present (no agent stream is attached), matching the gate's behaviour.
+     */
+    private static final class AgentStreamForwardingSseEmitter
+        implements ActionDefinition.SseEmitterHandler.SseEmitter {
 
-            @Override
-            public void addTimeoutListener(Runnable timeoutListener) {
+        @Override
+        public void addTimeoutListener(Runnable timeoutListener) {
+        }
+
+        @Override
+        public void complete() {
+        }
+
+        @Override
+        public void error(Throwable throwable) {
+        }
+
+        @Override
+        @SuppressWarnings("unchecked")
+        public void send(Object data) {
+            Object emitterReferenceObject = AiAgentToolSseContext.getEmitterReference();
+
+            if (emitterReferenceObject instanceof AtomicReference<?> emitterReference
+                && emitterReference.get() instanceof ActionDefinition.SseEmitterHandler.SseEmitter sseEmitter) {
+
+                sseEmitter.send(data);
+
+                return;
             }
 
-            @Override
-            public void complete() {
-            }
+            Object bufferedEventsObject = AiAgentToolSseContext.getBufferedEvents();
 
-            @Override
-            public void error(Throwable throwable) {
+            if (bufferedEventsObject instanceof Queue<?> queue) {
+                ((Queue<Object>) queue).add(data);
             }
-
-            @Override
-            public void send(Object data) {
-            }
-        };
+        }
+    }
 
     private ApprovalRequestApprovalTool() {
     }
