@@ -67,6 +67,8 @@ class AbstractAiAgentChatActionResumeGateTest {
     private static final String GATED_TOOL_INPUT = "{\"channel\": \"#general\", \"text\": \"hi\"}";
     private static final String GATED_TOOL_NAME = "SLACK_SEND_MESSAGE";
 
+    private static final Parameters NO_SIMULATION_INPUT = ParametersFactory.create(Map.of());
+
     private static final Parameters EXTENSIONS = ParametersFactory.create(
         Map.of(
             "clusterElements",
@@ -104,11 +106,12 @@ class AbstractAiAgentChatActionResumeGateTest {
     }
 
     @Test
-    void testApprovedExecutesToolWithOriginalArgumentsAndReportsResult() {
+    void testApprovedExecutesToolWithOriginalArgumentsAndReportsResult() throws Exception {
         when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
 
         String resumeData = action.resolveGatedToolResumeData(
-            continueParameters(GATED_TOOL_NAME), data(true, "ship it"), Map.of(), EXTENSIONS, context);
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            data(true, "ship it"), Map.of(), EXTENSIONS, context);
 
         // The RAW callback must execute the originally captured arguments — not whatever the human typed.
         verify(toolCallback).call(eq(GATED_TOOL_INPUT), any(ToolContext.class));
@@ -120,9 +123,10 @@ class AbstractAiAgentChatActionResumeGateTest {
     }
 
     @Test
-    void testRejectedFeedsDenialWithCommentWithoutExecutingTheTool() {
+    void testRejectedFeedsDenialWithCommentWithoutExecutingTheTool() throws Exception {
         String resumeData = action.resolveGatedToolResumeData(
-            continueParameters(GATED_TOOL_NAME), data(false, "not now"), Map.of(), EXTENSIONS, context);
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            data(false, "not now"), Map.of(), EXTENSIONS, context);
 
         assertThat(resumeData)
             .contains("denied")
@@ -134,11 +138,12 @@ class AbstractAiAgentChatActionResumeGateTest {
     }
 
     @Test
-    void testApprovedCarriesVerifiedReviewerIdentity() {
+    void testApprovedCarriesVerifiedReviewerIdentity() throws Exception {
         when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
 
         String resumeData = action.resolveGatedToolResumeData(
-            continueParameters(GATED_TOOL_NAME), dataWithApprovedBy(true, "@jane"), Map.of(), EXTENSIONS, context);
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            dataWithApprovedBy(true, "@jane"), Map.of(), EXTENSIONS, context);
 
         assertThat(resumeData)
             .contains("approvedByReviewer")
@@ -147,9 +152,10 @@ class AbstractAiAgentChatActionResumeGateTest {
     }
 
     @Test
-    void testRejectedCarriesVerifiedReviewerIdentity() {
+    void testRejectedCarriesVerifiedReviewerIdentity() throws Exception {
         String resumeData = action.resolveGatedToolResumeData(
-            continueParameters(GATED_TOOL_NAME), dataWithApprovedBy(false, "@jane"), Map.of(), EXTENSIONS, context);
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            dataWithApprovedBy(false, "@jane"), Map.of(), EXTENSIONS, context);
 
         assertThat(resumeData)
             .contains("denied")
@@ -163,18 +169,20 @@ class AbstractAiAgentChatActionResumeGateTest {
     void testApprovedButToolNoLongerConfiguredFailsLoudly() {
         assertThatThrownBy(
             () -> action.resolveGatedToolResumeData(
-                continueParameters("REMOVED_TOOL"), data(true, null), Map.of(), EXTENSIONS, context))
+                NO_SIMULATION_INPUT, continueParameters("REMOVED_TOOL"),
+                data(true, null), Map.of(), EXTENSIONS, context))
                     .isInstanceOf(IllegalStateException.class)
                     .hasMessageContaining("REMOVED_TOOL");
     }
 
     @Test
-    void testApprovedToolFailureIsReportedAsErrorInsteadOfPropagating() {
+    void testApprovedToolFailureIsReportedAsErrorInsteadOfPropagating() throws Exception {
         when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class)))
             .thenThrow(new RuntimeException("connection refused"));
 
         String resumeData = action.resolveGatedToolResumeData(
-            continueParameters(GATED_TOOL_NAME), data(true, null), Map.of(), EXTENSIONS, context);
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            data(true, null), Map.of(), EXTENSIONS, context);
 
         assertThat(resumeData)
             .contains("approvedByReviewer")
@@ -184,13 +192,14 @@ class AbstractAiAgentChatActionResumeGateTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void testRejectedRecordsApprovalDeniedAuditEvent() {
+    void testRejectedRecordsApprovalDeniedAuditEvent() throws Exception {
         ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
 
         AbstractAiAgentChatAction auditedAction = createAuditedAction(toolExecutionRecorder);
 
         auditedAction.resolveGatedToolResumeData(
-            continueParameters(GATED_TOOL_NAME), data(false, "not now"), Map.of(), EXTENSIONS, context);
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            data(false, "not now"), Map.of(), EXTENSIONS, context);
 
         ArgumentCaptor<ToolExecutionEvent> eventArgumentCaptor = ArgumentCaptor.forClass(ToolExecutionEvent.class);
 
@@ -205,7 +214,7 @@ class AbstractAiAgentChatActionResumeGateTest {
 
     @Test
     @SuppressWarnings("unchecked")
-    void testApprovedExecutionRunsThroughTheAuditRecorder() {
+    void testApprovedExecutionRunsThroughTheAuditRecorder() throws Exception {
         when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
 
         ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
@@ -217,7 +226,8 @@ class AbstractAiAgentChatActionResumeGateTest {
         AbstractAiAgentChatAction auditedAction = createAuditedAction(toolExecutionRecorder);
 
         String resumeData = auditedAction.resolveGatedToolResumeData(
-            continueParameters(GATED_TOOL_NAME), data(true, null), Map.of(), EXTENSIONS, context);
+            NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
+            data(true, null), Map.of(), EXTENSIONS, context);
 
         verify(toolExecutionRecorder).record(any(ToolExecutionEvent.Builder.class), any(Supplier.class));
         verify(toolCallback).call(eq(GATED_TOOL_INPUT), any(ToolContext.class));

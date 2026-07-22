@@ -179,12 +179,9 @@ public abstract class AbstractAiAgentChatAction {
             ModelUtils.getMessages(inputParameters, context));
     }
 
-    protected ChatClient.ChatClientRequestSpec getChatClientRequestSpec(
-        Parameters inputParameters, Map<String, ComponentConnection> connectionParameters, Parameters extensions,
-        @Nullable ToolExecutionListener toolExecutionListener, ActionContext context,
-        List<Message> messages) throws Exception {
-
-        ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
+    private ChatModel resolveChatModel(
+        Parameters inputParameters, Map<String, ComponentConnection> connectionParameters,
+        ClusterElementMap clusterElementMap) throws Exception {
 
         ClusterElement modelClusterElement = clusterElementMap.getClusterElement(MODEL);
 
@@ -197,9 +194,19 @@ public abstract class AbstractAiAgentChatAction {
         Map<String, Object> concatenatedInputParameters = MapUtils.concat(
             new HashMap<>(inputParameters.toMap()), new HashMap<>(modelClusterElement.getParameters()));
 
-        ChatModel chatModel = (ChatModel) modelFunction.apply(
+        return (ChatModel) modelFunction.apply(
             ParametersFactory.create(concatenatedInputParameters),
             ParametersFactory.create(modelConnection.getParameters()), true);
+    }
+
+    protected ChatClient.ChatClientRequestSpec getChatClientRequestSpec(
+        Parameters inputParameters, Map<String, ComponentConnection> connectionParameters, Parameters extensions,
+        @Nullable ToolExecutionListener toolExecutionListener, ActionContext context,
+        List<Message> messages) throws Exception {
+
+        ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
+
+        ChatModel chatModel = resolveChatModel(inputParameters, connectionParameters, clusterElementMap);
 
         String conversationId = clusterElementMap.fetchClusterElement(CHAT_MEMORY)
             .map(clusterElement -> {
@@ -388,7 +395,8 @@ public abstract class AbstractAiAgentChatAction {
         // the human's decision determines the tool response — approve executes the tool with the AI-chosen
         // arguments, reject feeds a denial back into the loop. Ordinary tool suspends keep the raw form data.
         String resumeData = continueParameters.getString(ToolSuspendConstants.GATED_TOOL_NAME) != null
-            ? resolveGatedToolResumeData(continueParameters, data, connectionParameters, extensions, context)
+            ? resolveGatedToolResumeData(
+                inputParameters, continueParameters, data, connectionParameters, extensions, context)
             : JsonUtils.write(data.toMap());
 
         List<Message> conversation = ConversationResume.patchPendingToolResponse(
@@ -408,9 +416,11 @@ public abstract class AbstractAiAgentChatAction {
      * approved this exact invocation — and reports the result together with any reviewer comment. Rejection feeds an
      * explicit denial (with the comment) back into the loop so the LLM can replan.
      */
+    @SuppressWarnings("unchecked")
     String resolveGatedToolResumeData(
-        Parameters continueParameters, Parameters data, Map<String, ComponentConnection> connectionParameters,
-        Parameters extensions, ActionContext context) {
+        Parameters inputParameters, Parameters continueParameters, Parameters data,
+        Map<String, ComponentConnection> connectionParameters, Parameters extensions, ActionContext context)
+        throws Exception {
 
         boolean approved = data.getBoolean("approved", false);
         String comment = data.getString("comment");
@@ -458,6 +468,18 @@ public abstract class AbstractAiAgentChatAction {
                 "The approved tool '" + gatedToolName + "' is no longer configured on the agent node; the " +
                     "approval cannot be applied."));
 
+        // Re-apply the tool-simulation wrapper the live loop would have applied: without it, approving a gated tool
+        // in a simulated (editor/test) run would execute the REAL tool with real side effects — exactly what
+        // simulations exist to prevent.
+        Map<String, Map<String, String>> toolSimulations =
+            (Map<String, Map<String, String>>) inputParameters.get(TOOL_SIMULATIONS);
+
+        ToolCallback effectiveToolCallback = toolSimulations == null || toolSimulations.isEmpty()
+            ? gatedToolCallback
+            : createSimulationAwareToolCallback(
+                gatedToolCallback, toolSimulations,
+                resolveChatModel(inputParameters, connectionParameters, clusterElementMap), context);
+
         Map<String, Object> approvedResult = new HashMap<>();
 
         approvedResult.put("approvedByReviewer", true);
@@ -476,10 +498,10 @@ public abstract class AbstractAiAgentChatAction {
             // The recorder wraps the approved execution so the audit trail carries the post-approval outcome
             // (SUCCESS or ERROR) with the measured duration; without a recorder the tool simply runs unaudited.
             String result = toolExecutionRecorder == null
-                ? gatedToolCallback.call(gatedToolInput, toolContext)
+                ? effectiveToolCallback.call(gatedToolInput, toolContext)
                 : toolExecutionRecorder.record(
                     createGateResolutionEventBuilder(continueParameters, context),
-                    () -> gatedToolCallback.call(gatedToolInput, toolContext));
+                    () -> effectiveToolCallback.call(gatedToolInput, toolContext));
 
             approvedResult.put("result", result);
         } catch (Exception exception) {
