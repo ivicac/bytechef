@@ -27,6 +27,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.commons.util.EncodingUtils;
+import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
@@ -131,6 +132,58 @@ class SlackInteractivityHandlerTest {
         verify(jobResumeFacade, never()).resumeJob(anyString(), any(), any());
     }
 
+    @Test
+    void testVerifiedDiscardWithoutModalResolvesImmediately() throws Exception {
+        // No trigger id and the test connection carries no bot token, so no modal can open — the discard must still
+        // resolve right away rather than being silently lost.
+        String rawBody = rawBody(SlackInteractivityHandler.ACTION_DISCARD);
+        String timestamp = String.valueOf(Instant.now()
+            .getEpochSecond());
+
+        when(jobResumeFacade.resumeJob(anyString(), eq(Map.of("approved", false)), eq("@jane")))
+            .thenReturn(JobResumeOutcome.OK);
+
+        SlackInteractivityHandler.Result result = slackInteractivityHandler.handle(
+            rawBody, timestamp, sign(timestamp, rawBody, SIGNING_SECRET));
+
+        assertEquals(SlackInteractivityHandler.Result.HANDLED, result);
+
+        verify(jobResumeFacade).resumeJob(anyString(), eq(Map.of("approved", false)), eq("@jane"));
+    }
+
+    @Test
+    void testViewSubmissionResolvesWithComment() throws Exception {
+        String rawBody = viewSubmissionBody(SlackInteractivityHandler.CALLBACK_DISCARD_COMMENT, "looks risky");
+        String timestamp = String.valueOf(Instant.now()
+            .getEpochSecond());
+
+        when(jobResumeFacade.resumeJob(
+            anyString(), eq(Map.of("approved", false, "comment", "looks risky")), eq("@jane")))
+                .thenReturn(JobResumeOutcome.OK);
+
+        SlackInteractivityHandler.Result result = slackInteractivityHandler.handle(
+            rawBody, timestamp, sign(timestamp, rawBody, SIGNING_SECRET));
+
+        assertEquals(SlackInteractivityHandler.Result.HANDLED, result);
+
+        verify(jobResumeFacade).resumeJob(
+            anyString(), eq(Map.of("approved", false, "comment", "looks risky")), eq("@jane"));
+    }
+
+    @Test
+    void testViewSubmissionWithUnknownCallbackIsIgnored() throws Exception {
+        String rawBody = viewSubmissionBody("some_other_modal", "whatever");
+        String timestamp = String.valueOf(Instant.now()
+            .getEpochSecond());
+
+        SlackInteractivityHandler.Result result = slackInteractivityHandler.handle(
+            rawBody, timestamp, sign(timestamp, rawBody, SIGNING_SECRET));
+
+        assertEquals(SlackInteractivityHandler.Result.IGNORED, result);
+
+        verify(jobResumeFacade, never()).resumeJob(anyString(), any(), any());
+    }
+
     private static String rawBody(String actionId) {
         // A JobResumeId is base64("tenantId:jobId:uuid"); the handler parses it to anchor the tenant.
         String resumeId = EncodingUtils.base64EncodeToString(
@@ -139,6 +192,27 @@ class SlackInteractivityHandlerTest {
         String payload = """
             {"type":"block_actions","user":{"username":"jane"},"response_url":"https://hooks.slack.invalid/actions/x",
              "actions":[{"action_id":"%s","value":"%s"}]}""".formatted(actionId, resumeId);
+
+        return "payload=" + URLEncoder.encode(payload, StandardCharsets.UTF_8);
+    }
+
+    private static String viewSubmissionBody(String callbackId, String comment) {
+        String resumeId = EncodingUtils.base64EncodeToString(
+            "public:42:123e4567-e89b-12d3-a456-426614174000".getBytes(StandardCharsets.UTF_8));
+
+        String privateMetadata = JsonUtils.write(
+            Map.of("resumeId", resumeId, "responseUrl", "https://hooks.slack.invalid/actions/x"));
+
+        String payload = JsonUtils.write(
+            Map.of(
+                "type", "view_submission",
+                "user", Map.of("username", "jane"),
+                "view", Map.of(
+                    "callback_id", callbackId,
+                    "private_metadata", privateMetadata,
+                    "state", Map.of(
+                        "values", Map.of(
+                            "comment_block", Map.of("comment", Map.of("value", comment)))))));
 
         return "payload=" + URLEncoder.encode(payload, StandardCharsets.UTF_8);
     }

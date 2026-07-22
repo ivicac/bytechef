@@ -1,16 +1,21 @@
 # Slack in-place approval interactivity — design
 
-Status: IMPLEMENTED (phase 1 — in-place buttons + signature-verified endpoint + message rewrite).
-The connection-schema decision was made: the Slack connection carries an optional
-`signingSecret`. Implemented pieces: `SlackConstants.SIGNING_SECRET` on the connection,
-`SlackApprovalChannel` in-place `block_actions` buttons (`approval_approve`/`approval_discard`,
-value = tokenized resume id) when the secret is set, and
+Status: IMPLEMENTED (phase 1 + phase 2 — in-place buttons, signature-verified endpoint, message
+rewrite, and the discard-with-comment modal). The connection-schema decision was made: the Slack
+connection carries an optional `signingSecret`. Implemented pieces: `SlackConstants.SIGNING_SECRET`
+on the connection, `SlackApprovalChannel` in-place `block_actions` buttons
+(`approval_approve`/`approval_discard`, value = tokenized resume id) when the secret is set, and
 `SlackInteractivityController`/`SlackInteractivityHandler` in platform-webhook-rest-impl
 (anonymous path `/slack/interactivity`, permit-listed in
 `WebhookAuthorizeHttpRequestContributor`) verifying the signature per tenant (anchored by the
 resume id) against all Slack connections carrying a secret, resolving through `JobResumeFacade`,
-and rewriting the message via `response_url`. Phase 2 (comment modal via `views.open`) and the
-Discord/WhatsApp variants remain open — see Later.
+and rewriting the message via `response_url`. Phase 2: a Discard click opens a comment modal via
+`views.open` (using the verifying connection's bot token; requires the `views:write` scope),
+carrying the resume id + `response_url` in the view's `private_metadata`; the `view_submission`
+callback resolves with `{approved: false, comment}`. When no modal can be opened (no bot token,
+missing scope, transport error) the discard falls back to immediate resolution so it is never
+lost. The reviewer's Slack username — verified by the same signature check — is passed through as
+the resolver identity. The Discord/WhatsApp variants remain open — see Later.
 
 ## Goal
 
