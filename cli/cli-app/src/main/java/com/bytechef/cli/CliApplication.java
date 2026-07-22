@@ -17,10 +17,12 @@
 package com.bytechef.cli;
 
 import com.bytechef.cli.command.component.ComponentCommand;
+import com.bytechef.cli.core.error.CliException;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.shell.core.NonInteractiveShellRunner;
 import org.springframework.shell.core.command.CommandRegistry;
@@ -35,7 +37,33 @@ import org.springframework.shell.core.command.annotation.EnableCommand;
 public class CliApplication {
 
     public static void main(String... args) {
-        SpringApplication.run(CliApplication.class, args);
+        System.exit(execute(args));
+    }
+
+    public static int execute(String... args) {
+        try {
+            ConfigurableApplicationContext context = SpringApplication.run(CliApplication.class, args);
+
+            context.close();
+
+            return 0;
+        } catch (Throwable throwable) {
+            Throwable cause = throwable;
+
+            while (cause != null) {
+                if (cause instanceof CliException cliException) {
+                    System.err.println(cliException.getMessage());
+
+                    return cliException.exitCode();
+                }
+
+                cause = cause.getCause();
+            }
+
+            System.err.println(throwable.getMessage());
+
+            return 1;
+        }
     }
 
     @Bean
