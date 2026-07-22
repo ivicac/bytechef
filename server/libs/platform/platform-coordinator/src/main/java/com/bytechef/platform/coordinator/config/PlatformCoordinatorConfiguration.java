@@ -28,6 +28,7 @@ import com.bytechef.platform.coordinator.event.listener.SseStreamApplicationEven
 import com.bytechef.platform.coordinator.event.listener.WebhookJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.WebhookTaskStartedApplicationEventListener;
 import com.bytechef.platform.coordinator.metrics.JobExecutionCounter;
+import com.bytechef.platform.coordinator.monitor.ApprovalEscalationMonitor;
 import com.bytechef.platform.coordinator.monitor.ApprovalExpiryMonitor;
 import com.bytechef.platform.coordinator.monitor.ApprovalReminderMonitor;
 import com.bytechef.platform.coordinator.monitor.JobRetentionMonitor;
@@ -183,6 +184,21 @@ public class PlatformCoordinatorConfiguration {
 
         return new ApprovalReminderMonitor(
             approvalTokensObjectProvider.getIfAvailable(), jobService, leadTime, notificationHandlerRegistry,
+            notificationSenderRegistry, notificationService, publicUrl, taskExecutionService, tenantService);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+        name = "bytechef.workflow.execution.approval-escalation.enabled", havingValue = "true",
+        matchIfMissing = true)
+    ApprovalEscalationMonitor approvalEscalationMonitor(
+        @Value("${bytechef.workflow.execution.approval-escalation.after:#{null}}") Duration after,
+        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
+        @Value("${bytechef.public-url:#{null}}") String publicUrl, TaskExecutionService taskExecutionService,
+        TenantService tenantService) {
+
+        return new ApprovalEscalationMonitor(
+            after, approvalTokensObjectProvider.getIfAvailable(), jobService, notificationHandlerRegistry,
             notificationSenderRegistry, notificationService, publicUrl, taskExecutionService, tenantService);
     }
 

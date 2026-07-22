@@ -534,6 +534,15 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   `NotificationEvent.Type`, append-only ordinal; `ApprovalReminder{Email,Slack,Webhook}NotificationHandler`)
   through the central notification registry once per run (idempotence via job metadata
   `approvalReminderSentAt`), carrying expiry + form URL in `NotificationHandlerContext`.
+  `ApprovalEscalationMonitor` (platform-coordinator, 15-min sweep,
+  `bytechef.workflow.execution.approval-escalation.*` — `enabled` default on, `after` a Duration
+  with NO default so the sweep is a no-op until set) fires a `JOB_APPROVAL_ESCALATED` notification
+  (new `NotificationEvent.Type`, append-only ordinal 7; liquibase id 8/type 7;
+  `ApprovalEscalation{Email,Slack,Webhook}NotificationHandler`) once a run has been paused on an
+  approval longer than `after` (measured from the suspended task execution's startDate) and is
+  still unexpired — routed to a DIFFERENT subscribed `Notification` than the reminder. Idempotence
+  via job metadata `approvalEscalatedAt`; both `approvalReminderSentAt` and `approvalEscalatedAt`
+  are cleared on resume in `SuspendTaskDispatcherPreSendProcessor` (per-suspend, not per-run).
   The gate's expiry is editable via the "Approval expires in" preset submenu in
   `AiAgentToolDropdownMenu` (expiresIn 0 = clear override). `ApprovalTaskReconciliationMonitor`
   (automation-task-service, per-tenant sweep) closes OPEN/IN_PROGRESS Approval Task rows whose

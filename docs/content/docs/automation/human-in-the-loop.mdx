@@ -115,6 +115,19 @@ still pending inside the lead-time window (default 24 hours before expiry, confi
 name, expiry, and form link. Disable with
 `bytechef.workflow.execution.approval-reminder.enabled=false`.
 
+## Escalation
+
+When an approval sits unanswered too long, ByteChef can escalate it to a different recipient.
+Set `bytechef.workflow.execution.approval-escalation.after` to a duration (e.g. `PT4H`) and
+subscribe a notification to the **Approval escalated** event — pointed at whoever should be pulled
+in second (a manager, an on-call channel), distinct from the reminder's recipients. Once a run has
+been paused on an approval for longer than that window and is still unresolved, the escalation
+fires once (workflow name, expiry, form link). Escalation is measured from when the approval was
+raised and is opt-in: with no `after` configured the sweep does nothing. It never fires for an
+approval that has already expired (the expiry sweep handles those), and the marker resets per
+suspend, so a later Approval step in the same run escalates on its own schedule. Disable with
+`bytechef.workflow.execution.approval-escalation.enabled=false`.
+
 ## Outcome shape
 
 The approval step's output is flat: `approved` (boolean), `comment` (string, optional),
