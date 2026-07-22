@@ -205,12 +205,48 @@ from all environments, reading as inconsistent counts.
 
 ---
 
+## Channel in-place approvals (Slack done; others out of scope — no infra)
+
+Slack in-place resolution IS implemented (an optional `signingSecret` switches `SlackApprovalChannel`
+to `block_actions` buttons; `SlackInteractivityController`/`SlackInteractivityHandler` verify the
+HMAC and resolve via `JobResumeFacade`). It works because Slack has a **dedicated Interactivity
+Request URL** separate from event subscriptions, and a 2000-char button `value` that holds the whole
+tokenized resume id.
+
+The other channels currently deliver **URL buttons** that open the hosted form (one-click:
+pre-selected decision + a single Confirm). True in-place resolution (resolving inside the messenger,
+no browser) is **out of scope by decision — no new infrastructure.** The blockers below are confirmed
+in code, not assumed.
+
+### Telegram (investigated 2026-07-22 — blocked without infra)
+
+Two hard blockers, both verified in code:
+
+1. **Single per-bot webhook, owned by the trigger system.** `TelegramNewMessageTrigger.webhookEnable`
+   calls `/setWebhook` with `allowed_updates: ["message"]` (a Telegram bot has exactly one webhook).
+   Button taps arrive as `callback_query` updates on that same webhook — which points at whatever
+   workflow trigger owns the bot, or nowhere if no trigger is configured. Unlike Slack, Telegram has
+   no separate interactivity URL, so approval callbacks can't be separated from trigger messages
+   without either commandeering the bot's webhook (breaking any Telegram trigger on that bot) or
+   threading approval routing through the trigger inbound path.
+2. **`callback_data` 64-byte cap.** `JobResumeId` is `base64(tenantId:jobId:uuid)` (the uuid alone is
+   36 chars) — it does not fit in Telegram's 64-byte inline-button `callback_data`, so a new
+   server-side short-token → resume-id store would be required.
+
+What true in-place would take (if the no-infra decision is ever revisited): a dedicated approval bot
+(so its single webhook can point at ByteChef without breaking triggers) + a new anonymous
+`/telegram/interactivity` endpoint (mirroring `SlackInteractivityController`) + a short-token store
+(liquibase table or cache) mapping `callback_data` → jobResumeId. Materially more than Slack needed.
+
+### Discord / WhatsApp (same class of blocker)
+
+- Discord: `custom_id` is capped at 100 chars (< the ~108-char signed token) and interactions need a
+  registered interactions endpoint.
+- WhatsApp (Meta): one webhook per app, shared with any WhatsApp trigger — same single-inbound
+  problem as Telegram.
+
 ## Not doing (by decision)
 
-- **Discord / WhatsApp / Telegram in-place approval buttons** — require new inbound infrastructure
-  (a dedicated interactivity endpoint + a short-token store; Telegram additionally has a single
-  per-bot webhook owned by the trigger system). Explicitly out of scope: no infra change. The
-  current URL-button hosted-form flow stays.
 - **Field-less card "terminal" degrade state** — would contradict the deliberate keep-buttons-
   enabled-for-retry design (pinned by `ApprovalForm.test.tsx`); reconciled by correcting the docs
   instead.
