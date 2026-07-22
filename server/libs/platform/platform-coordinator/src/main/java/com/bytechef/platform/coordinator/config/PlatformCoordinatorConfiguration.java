@@ -29,6 +29,7 @@ import com.bytechef.platform.coordinator.event.listener.WebhookJobStatusApplicat
 import com.bytechef.platform.coordinator.event.listener.WebhookTaskStartedApplicationEventListener;
 import com.bytechef.platform.coordinator.metrics.JobExecutionCounter;
 import com.bytechef.platform.coordinator.monitor.ApprovalExpiryMonitor;
+import com.bytechef.platform.coordinator.monitor.ApprovalReminderMonitor;
 import com.bytechef.platform.coordinator.monitor.JobRetentionMonitor;
 import com.bytechef.platform.coordinator.monitor.JobTimeoutMonitor;
 import com.bytechef.platform.coordinator.monitor.OrphanedJobRecoveryMonitor;
@@ -37,6 +38,7 @@ import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
 import com.bytechef.platform.notification.handler.NotificationHandlerRegistry;
 import com.bytechef.platform.notification.handler.NotificationSenderRegistry;
 import com.bytechef.platform.notification.service.NotificationService;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.ratelimit.ConcurrentExecutionGate;
 import com.bytechef.platform.ratelimit.PlanLimitRejectionCounter;
@@ -168,6 +170,20 @@ public class PlatformCoordinatorConfiguration {
 
         return new ApprovalExpiryMonitor(
             eventPublisher, jobService, meterRegistryObjectProvider, taskExecutionService, tenantService);
+    }
+
+    @Bean
+    @ConditionalOnProperty(
+        name = "bytechef.workflow.execution.approval-reminder.enabled", havingValue = "true", matchIfMissing = true)
+    ApprovalReminderMonitor approvalReminderMonitor(
+        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
+        @Value("${bytechef.workflow.execution.approval-reminder.lead-time:PT24H}") Duration leadTime,
+        @Value("${bytechef.public-url:#{null}}") String publicUrl, TaskExecutionService taskExecutionService,
+        TenantService tenantService) {
+
+        return new ApprovalReminderMonitor(
+            approvalTokensObjectProvider.getIfAvailable(), jobService, leadTime, notificationHandlerRegistry,
+            notificationSenderRegistry, notificationService, publicUrl, taskExecutionService, tenantService);
     }
 
     @Bean

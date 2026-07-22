@@ -23,6 +23,7 @@ dependencies {
     implementation(project(":server:libs:platform:platform-notification:platform-notification-delivery"))
     implementation(project(":server:libs:platform:platform-rate-limit"))
     implementation(project(":server:libs:platform:platform-webhook:platform-webhook-api"))
+    implementation(project(":server:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-api"))
 
     testImplementation(project(":server:libs:test:test-support"))
 }
