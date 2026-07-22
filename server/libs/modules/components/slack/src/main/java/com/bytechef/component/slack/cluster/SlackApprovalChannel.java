@@ -102,7 +102,7 @@ public class SlackApprovalChannel {
 
         if (formTitle != null && !formTitle.isBlank()) {
             builder.append("*")
-                .append(formTitle)
+                .append(escapeMrkdwn(formTitle))
                 .append("*");
         }
 
@@ -111,7 +111,7 @@ public class SlackApprovalChannel {
                 builder.append("\n");
             }
 
-            builder.append(formDescription);
+            builder.append(escapeMrkdwn(formDescription));
         }
 
         if (builder.isEmpty()) {
@@ -126,5 +126,16 @@ public class SlackApprovalChannel {
         }
 
         return builder.toString();
+    }
+
+    /**
+     * Escapes Slack mrkdwn control characters so caller-supplied text — for a gated tool the description embeds the
+     * AI-chosen tool arguments verbatim — cannot forge {@code <url|text>} links next to the real Approve/Discard
+     * buttons.
+     */
+    private static String escapeMrkdwn(String text) {
+        return text.replace("&", "&amp;")
+            .replace("<", "&lt;")
+            .replace(">", "&gt;");
     }
 }
