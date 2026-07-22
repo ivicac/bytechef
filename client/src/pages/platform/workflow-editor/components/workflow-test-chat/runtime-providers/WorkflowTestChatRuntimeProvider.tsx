@@ -1,7 +1,7 @@
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useWorkflowTestChatStore from '@/pages/platform/workflow-editor/stores/useWorkflowTestChatStore';
-import {ApprovalResolutionContext} from '@/shared/components/ai-chat/approvalResolutionContext';
+import {ApprovalResolutionContext, ResumeError} from '@/shared/components/ai-chat/approvalResolutionContext';
 import {useWorkflowTestStream} from '@/shared/hooks/useWorkflowTestStream';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {getTestWorkflowStreamPostRequest} from '@/shared/util/testWorkflow-utils';
@@ -19,7 +19,7 @@ import {
     useAui,
     useExternalStoreRuntime,
 } from '@assistant-ui/react';
-import {ReactNode, useCallback, useMemo, useState} from 'react';
+import {ReactNode, useCallback, useMemo, useRef, useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
 const convertMessage = (message: ThreadMessageLike): ThreadMessageLike => {
@@ -57,29 +57,49 @@ export function WorkflowTestChatRuntimeProvider({
         }))
     );
 
+    const pendingResumeRef = useRef<{reject: (error: Error) => void; resolve: () => void} | null>(null);
+
     const {setStreamRequest} = useWorkflowTestStream({
         onClosed: () => setIsRunning(false),
         onError: () => setIsRunning(false),
+        onRequestError: (status) => {
+            const pending = pendingResumeRef.current;
+
+            pendingResumeRef.current = null;
+
+            pending?.reject(new ResumeError(status));
+        },
+        onRequestSuccess: () => {
+            const pending = pendingResumeRef.current;
+
+            pendingResumeRef.current = null;
+
+            pending?.resolve();
+        },
         onResult: () => setIsRunning(false),
         workflowId: workflow.id!,
     });
 
-    // Continuation streaming for inline approval cards: resolve through the SSE-negotiated resume endpoint and
-    // pipe the resumed run's output back into this conversation via the same event handlers as a test run.
+    // Continuation streaming for inline approval cards: resolve through the SSE-negotiated resume endpoint and pipe
+    // the resumed run's output back into this conversation. The returned promise settles from the resume request's
+    // HTTP outcome so the card only shows success on a 2xx.
     const resolveApproval = useCallback(
-        (resumeId: string, payload: Record<string, unknown>) => {
-            setMessage({content: '', role: 'assistant'});
-            setIsRunning(true);
-            setWorkflowIsRunning(true);
-            setStreamRequest({
-                init: {
-                    body: JSON.stringify(payload),
-                    headers: {'Content-Type': 'application/json'},
-                    method: 'POST',
-                },
-                url: `/job/resume/${resumeId}`,
-            });
-        },
+        (resumeId: string, payload: Record<string, unknown>) =>
+            new Promise<void>((resolve, reject) => {
+                pendingResumeRef.current = {reject, resolve};
+
+                setMessage({content: '', role: 'assistant'});
+                setIsRunning(true);
+                setWorkflowIsRunning(true);
+                setStreamRequest({
+                    init: {
+                        body: JSON.stringify(payload),
+                        headers: {'Content-Type': 'application/json'},
+                        method: 'POST',
+                    },
+                    url: `/job/resume/${resumeId}`,
+                });
+            }),
         [setMessage, setStreamRequest, setWorkflowIsRunning]
     );
 

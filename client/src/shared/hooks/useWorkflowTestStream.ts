@@ -21,6 +21,11 @@ export interface UseWorkflowTestStreamProps {
     onClosed?: () => void;
     onResult?: (execution: WorkflowTestExecution) => void;
     onError?: (errorMessage?: string) => void;
+    /** Fired with the HTTP status when the request's initial response is non-2xx (or the connection fails) — lets a
+     * caller reject a pending approval-resume promise instead of silently ending. */
+    onRequestError?: (status: number | null) => void;
+    /** Fired once the request's initial response is 2xx and the stream begins. */
+    onRequestSuccess?: () => void;
     onStart?: (jobId: string) => void;
 }
 
@@ -73,6 +78,8 @@ export interface UseWorkflowTestStreamResultI {
 export function useWorkflowTestStream({
     onClosed,
     onError,
+    onRequestError,
+    onRequestSuccess,
     onResult,
     onStart,
     workflowId,
@@ -255,6 +262,8 @@ export function useWorkflowTestStream({
                 }
             },
         },
+        onRequestError,
+        onRequestSuccess,
     });
 
     useEffect(() => {

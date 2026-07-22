@@ -64,7 +64,7 @@ const ApprovalRequestMessage = ({data}: DataMessagePartProps<ApprovalRequestData
         }
 
         return async (formData: Record<string, unknown>, approved: boolean) => {
-            approvalResolution.resolveApproval(resumeId, {...formData, approved});
+            await approvalResolution.resolveApproval(resumeId, {...formData, approved});
         };
     }, [approvalResolution, resumeId]);
 
@@ -87,7 +87,9 @@ const ApprovalRequestMessage = ({data}: DataMessagePartProps<ApprovalRequestData
 
         try {
             if (approvalResolution) {
-                approvalResolution.resolveApproval(resumeId, payload);
+                // Awaits the resume's HTTP outcome — resolves on 2xx, rejects (with expiry-aware copy) otherwise —
+                // so the card never claims success for a failed or expired (410) resume.
+                await approvalResolution.resolveApproval(resumeId, payload);
             } else {
                 const {approved: approvedValue, ...restPayload} = payload;
 
@@ -99,8 +101,10 @@ const ApprovalRequestMessage = ({data}: DataMessagePartProps<ApprovalRequestData
             }
 
             setResolved(approved);
-        } catch {
-            setSubmitError('Failed to submit your decision. Please try again.');
+        } catch (error) {
+            setSubmitError(
+                error instanceof Error ? error.message : 'Failed to submit your decision. Please try again.'
+            );
         } finally {
             setSubmitting(false);
         }

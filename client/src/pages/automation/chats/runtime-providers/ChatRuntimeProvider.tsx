@@ -1,5 +1,5 @@
 import {useChatsStore} from '@/pages/automation/chats/stores/useChatsStore';
-import {ApprovalResolutionContext} from '@/shared/components/ai-chat/approvalResolutionContext';
+import {ApprovalResolutionContext, ResumeError} from '@/shared/components/ai-chat/approvalResolutionContext';
 import {useSSE} from '@/shared/hooks/useSSE';
 import {
     ApprovalRequestEventI,
@@ -16,7 +16,7 @@ import {
     ThreadMessageLike,
     useExternalStoreRuntime,
 } from '@assistant-ui/react';
-import {ReactNode, memo, useCallback, useEffect, useMemo, useState} from 'react';
+import {ReactNode, memo, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
 const convertMessage = (message: ThreadMessageLike): ThreadMessageLike => {
@@ -333,23 +333,45 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
         )
     );
 
-    const {connectionState} = useSSE(streamRequest, {eventHandlers});
+    const pendingResumeRef = useRef<{reject: (error: Error) => void; resolve: () => void} | null>(null);
+
+    const {connectionState} = useSSE(streamRequest, {
+        eventHandlers,
+        onRequestError: (status) => {
+            const pending = pendingResumeRef.current;
+
+            pendingResumeRef.current = null;
+
+            pending?.reject(new ResumeError(status));
+        },
+        onRequestSuccess: () => {
+            const pending = pendingResumeRef.current;
+
+            pendingResumeRef.current = null;
+
+            pending?.resolve();
+        },
+    });
 
     // Continuation streaming for inline approval cards: resolve through the SSE-negotiated resume endpoint and
-    // pipe the resumed run's output back into this conversation via the same event handlers as a normal turn.
+    // pipe the resumed run's output back into this conversation via the same event handlers as a normal turn. The
+    // returned promise settles from the resume request's HTTP outcome so the card only shows success on a 2xx.
     const resolveApproval = useCallback(
-        (resumeId: string, payload: Record<string, unknown>) => {
-            setMessage({content: '', role: 'assistant'});
-            setIsRunning(true);
-            setStreamRequest({
-                init: {
-                    body: JSON.stringify(payload),
-                    headers: {'Content-Type': 'application/json'},
-                    method: 'POST',
-                },
-                url: `/job/resume/${resumeId}`,
-            });
-        },
+        (resumeId: string, payload: Record<string, unknown>) =>
+            new Promise<void>((resolve, reject) => {
+                pendingResumeRef.current = {reject, resolve};
+
+                setMessage({content: '', role: 'assistant'});
+                setIsRunning(true);
+                setStreamRequest({
+                    init: {
+                        body: JSON.stringify(payload),
+                        headers: {'Content-Type': 'application/json'},
+                        method: 'POST',
+                    },
+                    url: `/job/resume/${resumeId}`,
+                });
+            }),
         [setIsRunning, setMessage]
     );
 

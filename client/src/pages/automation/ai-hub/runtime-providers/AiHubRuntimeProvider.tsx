@@ -19,7 +19,7 @@ import {AiHubTasksKeys} from '@/pages/automation/ai-hub/tasks/hooks/useTasks';
 import {useTruncateAiHubTaskMessagesMutation} from '@/pages/automation/ai-hub/tasks/hooks/useTruncateTaskMessages';
 import {aiHubTasksStore} from '@/pages/automation/ai-hub/tasks/stores/useAiHubTasksStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
-import {ApprovalResolutionContext} from '@/shared/components/ai-chat/approvalResolutionContext';
+import {ApprovalResolutionContext, ResumeError} from '@/shared/components/ai-chat/approvalResolutionContext';
 import {humanizeAgentErrorMessage} from '@/shared/components/ai-chat/messages/humanizeAgentErrorMessage';
 import {parseJson, toToolResultDataPart} from '@/shared/components/ai-chat/messages/toToolResultDataPart';
 import {aiChatRetryableErrorStore} from '@/shared/components/ai-chat/stores/useAiChatRetryableErrorStore';
@@ -1664,35 +1664,55 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
         [addMessage, appendToLastAssistantMessage]
     );
 
+    const pendingResumeRef = useRef<{reject: (error: Error) => void; resolve: () => void} | null>(null);
+
     const {connectionState: approvalStreamConnectionState} = useSSE(approvalStreamRequest, {
         eventHandlers: approvalStreamEventHandlers,
+        onRequestError: (status) => {
+            const pending = pendingResumeRef.current;
+
+            pendingResumeRef.current = null;
+
+            pending?.reject(new ResumeError(status));
+        },
+        onRequestSuccess: () => {
+            const pending = pendingResumeRef.current;
+
+            pendingResumeRef.current = null;
+
+            pending?.resolve();
+        },
     });
 
     const appendTaskAssistantMessageMutation = useAppendAiHubTaskAssistantMessageMutation();
 
+    // The returned promise settles from the resume request's HTTP outcome so the card only shows success on a 2xx.
     const resolveApproval = useCallback(
-        (resumeId: string, payload: Record<string, unknown>) => {
-            // A fresh assistant bubble so the continuation streams below the card instead of into it.
-            addMessage({content: '', role: 'assistant'});
+        (resumeId: string, payload: Record<string, unknown>) =>
+            new Promise<void>((resolve, reject) => {
+                pendingResumeRef.current = {reject, resolve};
 
-            const currentTaskId = useAiHubStore.getState().taskId;
+                // A fresh assistant bubble so the continuation streams below the card instead of into it.
+                addMessage({content: '', role: 'assistant'});
 
-            if (currentTaskId != null) {
-                aiHubTasksStore.getState().clearActivityState(currentTaskId);
-            }
+                const currentTaskId = useAiHubStore.getState().taskId;
 
-            approvalContinuationTextRef.current = '';
-            approvalContinuationTaskIdRef.current = aiHubTasksStore.getState().currentTaskId ?? null;
+                if (currentTaskId != null) {
+                    aiHubTasksStore.getState().clearActivityState(currentTaskId);
+                }
 
-            setApprovalStreamRequest({
-                init: {
-                    body: JSON.stringify(payload),
-                    headers: {'Content-Type': 'application/json'},
-                    method: 'POST',
-                },
-                url: `/job/resume/${resumeId}`,
-            });
-        },
+                approvalContinuationTextRef.current = '';
+                approvalContinuationTaskIdRef.current = aiHubTasksStore.getState().currentTaskId ?? null;
+
+                setApprovalStreamRequest({
+                    init: {
+                        body: JSON.stringify(payload),
+                        headers: {'Content-Type': 'application/json'},
+                        method: 'POST',
+                    },
+                    url: `/job/resume/${resumeId}`,
+                });
+            }),
         [addMessage]
     );
 
