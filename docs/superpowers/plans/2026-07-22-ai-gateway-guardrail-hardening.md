@@ -106,6 +106,20 @@ included. Resolved by documenting the concrete wiring in
 `docs/content/docs/self-hosting/observability/index.mdx` (added Splunk to the backends table +
 a "Datadog and Splunk (direct OTLP)" section). No dependency/build change.
 
+## Follow-up hardening (post-review gaps)
+
+- **Guardrail metrics**: `AiGatewayGuardrailMetrics` → `bytechef_ai_gateway_guardrail{event}`
+  counter, recorded at each redact/block/flag point in `AiGatewayGuardrails` (`@Nullable` dep,
+  `ObjectProvider<MeterRegistry>`).
+- **User docs**: expanded the guardrails section of `docs/content/docs/platform/ai-gateway.md`
+  (secret redaction, injection detection, response/streaming scanning, per-project overrides, the
+  metric).
+- **Facade test**: `AiGatewayFacadeTest` now builds guardrails via a `guardrails(responseScan)`
+  helper (fixing the constructor for the new signature) + a response-redaction flow test.
+
 ## Remaining (not implemented)
 
 - Per-API-key guardrail scoping (gap 6b) — no api-key settings-store primitive yet.
+- Per-project client settings UI (GraphQL API only so far).
+- Response tool-call arguments are not redacted (documented trade-off; avoids corrupting tool
+  calls).

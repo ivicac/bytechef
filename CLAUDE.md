@@ -721,6 +721,11 @@ trigger + post-turn query invalidation.
   `moderation-model` / `injection-model` name a catalog model identifier and fail open on any
   error. Regexes must stay free of nested optional quantifiers (SpotBugs ReDoS). Spec:
   `docs/superpowers/specs/2026-07-22-ai-gateway-guardrail-hardening-design.md`.
+- Metrics: `AiGatewayGuardrailMetrics` emits the `bytechef_ai_gateway_guardrail` counter tagged by
+  `event` (`pii_redacted` / `secret_redacted` / `response_redacted` / `blocked_term` /
+  `moderation_flagged` / `injection_flagged`) — low-cardinality (no workspace/project tag), wired
+  via `ObjectProvider<MeterRegistry>` so it no-ops without a registry. `AiGatewayGuardrails` takes
+  it as a `@Nullable` dep and records at each redact/block/flag point.
 
 ### Sidebar navigation groups (Client)
 

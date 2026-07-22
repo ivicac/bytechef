@@ -117,6 +117,7 @@ public class AiGatewayGuardrails {
     private final boolean globalSecretRedactionEnabled;
     private final boolean globalStreamingResponseScanEnabled;
     private final @Nullable AiGatewayInjectionClassifier injectionClassifier;
+    private final @Nullable AiGatewayGuardrailMetrics metrics;
     private final @Nullable AiGatewayModerationClassifier moderationClassifier;
 
     public AiGatewayGuardrails(
@@ -124,6 +125,7 @@ public class AiGatewayGuardrails {
         @Nullable AiGatewayProjectSettingsService aiGatewayProjectSettingsService,
         @Nullable AiGatewayModerationClassifier moderationClassifier,
         @Nullable AiGatewayInjectionClassifier injectionClassifier,
+        @Nullable AiGatewayGuardrailMetrics metrics,
         @Value("${bytechef.ai.gateway.guardrails.pii-redaction-enabled:false}") boolean piiRedactionEnabled,
         @Value("${bytechef.ai.gateway.guardrails.secret-redaction-enabled:false}") boolean secretRedactionEnabled,
         @Value("${bytechef.ai.gateway.guardrails.blocked-terms:}") String blockedTerms,
@@ -143,6 +145,7 @@ public class AiGatewayGuardrails {
         this.globalSecretRedactionEnabled = secretRedactionEnabled;
         this.globalStreamingResponseScanEnabled = streamingResponseScanEnabled;
         this.injectionClassifier = injectionClassifier;
+        this.metrics = metrics;
         this.moderationClassifier = moderationClassifier;
     }
 
@@ -321,6 +324,8 @@ public class AiGatewayGuardrails {
             return response;
         }
 
+        record("response_redacted");
+
         return new AiGatewayChatCompletionResponse(
             response.id(), response.object(), response.created(), response.model(), redactedChoices, response.usage(),
             response.gatewayMetadata());
@@ -458,22 +463,44 @@ public class AiGatewayGuardrails {
         String redacted = content;
 
         if (policy.redactPii()) {
-            redacted = redactPii(redacted);
+            String piiRedacted = redactPii(redacted);
+
+            if (!piiRedacted.equals(redacted)) {
+                record("pii_redacted");
+            }
+
+            redacted = piiRedacted;
         }
 
         if (policy.redactSecrets()) {
-            redacted = redactSecrets(redacted);
+            String secretRedacted = redactSecrets(redacted);
+
+            if (!secretRedacted.equals(redacted)) {
+                record("secret_redacted");
+            }
+
+            redacted = secretRedacted;
         }
 
-        checkBlockedTerms(redacted, policy.blockedTerms());
+        try {
+            checkBlockedTerms(redacted, policy.blockedTerms());
+        } catch (AiGatewayGuardrailException exception) {
+            record("blocked_term");
+
+            throw exception;
+        }
 
         if (moderate && moderationClassifier != null && moderationClassifier.isFlagged(redacted)) {
+            record("moderation_flagged");
+
             log.warn("AI Gateway request rejected by moderation classifier");
 
             throw new AiGatewayGuardrailException("Request rejected by content moderation");
         }
 
         if (policy.detectInjection() && injectionClassifier != null && injectionClassifier.isInjection(redacted)) {
+            record("injection_flagged");
+
             log.warn("AI Gateway request rejected by injection detection");
 
             throw new AiGatewayGuardrailException("Request rejected by prompt-injection detection");
@@ -556,6 +583,12 @@ public class AiGatewayGuardrails {
                 "Failed to load AI Gateway project settings for project {}: {}", projectId, exception.getMessage());
 
             return null;
+        }
+    }
+
+    private void record(String event) {
+        if (metrics != null) {
+            metrics.record(event);
         }
     }
 

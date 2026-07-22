@@ -202,13 +202,17 @@ class AiGatewayFacadeTest {
             .when(permissionService.isTenantAdmin())
             .thenReturn(true);
 
-        aiGatewayFacade = new AiGatewayFacadeImpl(
+        aiGatewayFacade = buildFacade(guardrails(false));
+    }
+
+    private AiGatewayFacadeImpl buildFacade(
+        com.bytechef.ee.automation.ai.gateway.guardrail.AiGatewayGuardrails guardrails) {
+
+        return new AiGatewayFacadeImpl(
             aiEvalExecutor, aiGatewayBudgetChecker, aiGatewayRateLimitChecker,
             aiGatewayChatModelFactory, aiGatewayContextCompressor,
             aiGatewayCostCalculator,
-            new com.bytechef.ee.automation.ai.gateway.guardrail.AiGatewayGuardrails(
-                mock(com.bytechef.ee.automation.ai.gateway.service.AiGatewayWorkspaceSettingsService.class), null,
-                false, "", false),
+            guardrails,
             aiGatewayEmbeddingModelFactory, aiGatewayModelDeploymentService,
             aiGatewayModelService, workspaceAiGatewayProjectService, aiGatewayProviderService,
             aiGatewayRequestLogService, aiGatewayResponseCache, aiGatewayRetryHandler,
@@ -223,6 +227,14 @@ class AiGatewayFacadeTest {
             new org.springframework.context.support.GenericApplicationContext(),
             permissionService,
             transactionManager);
+    }
+
+    private static com.bytechef.ee.automation.ai.gateway.guardrail.AiGatewayGuardrails guardrails(
+        boolean responseScanEnabled) {
+
+        return new com.bytechef.ee.automation.ai.gateway.guardrail.AiGatewayGuardrails(
+            mock(com.bytechef.ee.automation.ai.gateway.service.AiGatewayWorkspaceSettingsService.class), null, null,
+            null, null, false, false, "", false, false, responseScanEnabled, false);
     }
 
     @AfterEach
@@ -375,6 +387,38 @@ class AiGatewayFacadeTest {
             .content());
 
         verify(aiGatewayRequestLogService).create(any(), any());
+    }
+
+    @Test
+    void testChatCompletionRedactsResponseWhenResponseScanningEnabled() {
+        AiGatewayFacade facade = buildFacade(guardrails(true));
+
+        AiGatewayChatCompletionRequest request = createDefaultRequest();
+
+        when(aiGatewayBudgetChecker.checkBudget(1L)).thenReturn(BudgetCheckResult.allowed());
+        when(aiGatewayResponseCache.shouldCache(any())).thenReturn(false);
+
+        AiGatewayProvider provider = createProvider();
+        AiGatewayModel model = createModel(provider);
+
+        when(aiGatewayProviderService.getEnabledProviders()).thenReturn(List.of(provider));
+        when(aiGatewayModelService.getModel(provider.getId(), "gpt-4")).thenReturn(model);
+        when(aiGatewayContextCompressor.compress(any(), any(Integer.class))).thenReturn(request.messages());
+
+        ChatModel chatModel = mock(ChatModel.class);
+
+        when(aiGatewayChatModelFactory.getChatModel(any())).thenReturn(chatModel);
+        when(chatModel.call(any(Prompt.class))).thenReturn(mockChatResponse("Contact bob@acme.io"));
+        when(aiGatewayCostCalculator.calculateCost(any(), any(Integer.class), any(Integer.class)))
+            .thenReturn(BigDecimal.ZERO);
+
+        AiGatewayChatCompletionResponse response = facade.chatCompletion(request,
+            new AiObservabilityTracingHeaders(null, null, null, null, null, Map.of(), List.of()));
+
+        assertEquals("Contact [REDACTED_EMAIL]", response.choices()
+            .get(0)
+            .message()
+            .content());
     }
 
     @Test
@@ -1148,9 +1192,13 @@ class AiGatewayFacadeTest {
     }
 
     private ChatResponse mockChatResponse() {
+        return mockChatResponse("Hello");
+    }
+
+    private ChatResponse mockChatResponse(String text) {
         ChatResponse chatResponse = mock(ChatResponse.class);
         Generation generation = mock(Generation.class);
-        AssistantMessage assistantMessage = new AssistantMessage("Hello");
+        AssistantMessage assistantMessage = new AssistantMessage(text);
 
         when(generation.getOutput()).thenReturn(assistantMessage);
         when(generation.getMetadata()).thenReturn(

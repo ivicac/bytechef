@@ -30,7 +30,7 @@ The Gateway sidebar groups its sections into the data plane that routes traffic 
 | **Projects** | Gateway projects and their per-project API keys. |
 | **Routing Policies** | Routing strategies — round-robin, weighted, least-cost, least-latency, priority/failover, tag-based, model-affinity, sticky-session, and canary. |
 | **Prompts** | Version-controlled prompt registry with environment deployment and rollback. |
-| **Settings** | Workspace gateway settings — caching, log retention, and content guardrails (PII redaction, blocked terms, moderation). |
+| **Settings** | Workspace gateway settings — caching, log retention, and content guardrails (PII/secret redaction, blocked terms, moderation, injection detection, response scanning). |
 | **Budget** | Hard (block) and soft (warn) spend limits per project, provider, or policy. |
 | **Rate Limits** | Per-tenant / per-client request caps. |
 | **Monitoring** | The real-time metrics dashboard — request volume, error rate, latency percentiles, and cost. |
@@ -45,20 +45,55 @@ The Gateway sidebar groups its sections into the data plane that routes traffic 
 
 ## Content guardrails
 
-Inline guardrails run on every chat-completion request — sync and streaming — after prompt resolution and before the
-request is routed upstream. Everything is off by default and can be enabled globally (properties) or per workspace
-(**Settings**):
+Inline guardrails run on every chat-completion and embeddings request — sync and streaming — after prompt resolution
+and before the request is routed upstream. Everything is off by default and can be enabled globally (properties) or per
+workspace (**Settings**). Policy is **additive** across levels: global, workspace, and project settings union together —
+a level can enable a guardrail or add blocked terms, but never turn one off.
+
+**Request-direction guardrails**
 
 - **PII redaction** — masks emails, US SSNs, credit-card numbers, phone numbers, and IPv4 addresses with
   `[REDACTED_*]` placeholders before the prompt leaves ByteChef. Active when
   `bytechef.ai.gateway.guardrails.pii-redaction-enabled` is set globally or the workspace's **Redact PII** setting is
   on (the same setting also makes traces store SHA-256 digests instead of payloads).
+- **Secret redaction** — masks developer secrets (AWS / GitHub / Slack / OpenAI / Stripe / Google keys, JWTs, and PEM
+  private-key blocks) with a `[REDACTED_SECRET]` placeholder. Enable with
+  `bytechef.ai.gateway.guardrails.secret-redaction-enabled` or the workspace's **Redact secrets** setting. This is a
+  high-signal, ReDoS-safe subset; broader entropy-based detection lives in the workflow-layer guardrails.
 - **Blocked terms** — the union of the global `bytechef.ai.gateway.guardrails.blocked-terms` list and the workspace's
   **Blocked terms** setting (both comma-separated, case-insensitive). A request containing a term is rejected.
 - **Model-based moderation** — set `bytechef.ai.gateway.guardrails.moderation-model` to the identifier of a model in
   the gateway catalog, then enable moderation globally (`bytechef.ai.gateway.guardrails.moderation-enabled`) or per
   workspace. Each message is classified SAFE/UNSAFE through the gateway's own provider wiring; flagged content is
   rejected. The classifier **fails open** — a moderation-model outage never blocks traffic.
+- **Prompt-injection detection** — set `bytechef.ai.gateway.guardrails.injection-model` to a catalog model, then enable
+  detection globally (`bytechef.ai.gateway.guardrails.injection-detection-enabled`) or per workspace. Each message is
+  classified INJECTION/CLEAN for jailbreak / instruction-override / exfiltration attempts (including instructions hidden
+  in quoted content); flagged content is rejected. Also **fails open**.
+
+Order: redact PII → redact secrets → blocked terms → moderation → injection (every check sees the redacted text).
+Embeddings run the same set minus moderation.
+
+**Response-direction guardrails (dual-directional DLP)**
+
+- **Response scanning** — when `bytechef.ai.gateway.guardrails.response-scan-enabled` (or the workspace's **Scan
+  responses** setting) is on, the model's completion is redacted for PII and secrets before it is returned or traced, so
+  internal data doesn't leak back through the output. This is redaction only — it never blocks. It applies to
+  **non-streaming** completions by default.
+- **Streaming responses** — set the operator flag `bytechef.ai.gateway.guardrails.response-scan-streaming-enabled` (in
+  addition to response scanning) to also mask streamed output. A bounded lookahead window catches values that straddle
+  SSE chunk boundaries, at the cost of a small streaming delay — hence the separate operator-level flag.
+
+**Per-project overrides**
+
+Guardrails can be tightened for a single project on top of its workspace policy via the `aiGatewayProjectSettings`
+GraphQL query / `updateAiGatewayProjectSettings` mutation (admin only). Project overrides carry the same guardrail
+fields and union additively — a project can turn a guardrail on or add blocked terms, never turn one off.
+
+**Rejections and metrics**
 
 A rejected request returns **HTTP 422** with a `guardrail_violation` error body that names neither the offending
-content nor the matched term — the client should revise the prompt, not retry.
+content nor the matched term — the client should revise the prompt, not retry. Guardrail activity is counted in the
+`bytechef_ai_gateway_guardrail` meter, tagged by `event`
+(`pii_redacted` / `secret_redacted` / `response_redacted` / `blocked_term` / `moderation_flagged` /
+`injection_flagged`), so you can dashboard what the DLP layer is catching.
