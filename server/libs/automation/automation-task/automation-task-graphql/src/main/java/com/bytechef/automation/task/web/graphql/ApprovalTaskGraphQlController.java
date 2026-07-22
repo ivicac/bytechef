@@ -94,8 +94,8 @@ public class ApprovalTaskGraphQlController {
      */
     @QueryMapping
     @PreAuthorize("isTenantAdmin()")
-    public List<PendingApproval> pendingApprovals() {
-        return approvalTaskFacade.getPendingApprovals();
+    public List<PendingApproval> pendingApprovals(@Argument Integer environmentId) {
+        return approvalTaskFacade.getPendingApprovals(environmentId);
     }
 
     @MutationMapping

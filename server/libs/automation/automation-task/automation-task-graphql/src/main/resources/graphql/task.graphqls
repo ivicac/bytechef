@@ -50,7 +50,7 @@ extend type Query {
     approvalTask(id: ID!): ApprovalTask
     approvalTasks(environmentId: Int): [ApprovalTask]
     approvalTasksByIds(ids: [ID!]!): [ApprovalTask]
-    pendingApprovals: [PendingApproval]
+    pendingApprovals(environmentId: Int): [PendingApproval]
 }
 
 extend type Mutation {

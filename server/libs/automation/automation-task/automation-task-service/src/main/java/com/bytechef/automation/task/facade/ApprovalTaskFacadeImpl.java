@@ -95,7 +95,7 @@ public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
     }
 
     @Override
-    public List<PendingApproval> getPendingApprovals() {
+    public List<PendingApproval> getPendingApprovals(@Nullable Integer environmentId) {
         List<PendingApproval> pendingApprovals = new ArrayList<>();
 
         for (Job job : jobService.getStaleJobs(Job.Status.STOPPED, Instant.now())) {
@@ -103,6 +103,17 @@ public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
 
             if (jobResumeId == null || job.getId() == null) {
                 continue;
+            }
+
+            // Scope to the requested environment so the banner matches the environment-scoped approval-task inbox
+            // shown beside it. The environment is resolved from the run's project deployment, defaulting to
+            // DEVELOPMENT for runs with no principal-job row.
+            if (environmentId != null) {
+                Environment environment = getEnvironment(jobResumeId.toString());
+
+                if (environment.ordinal() != environmentId) {
+                    continue;
+                }
             }
 
             String formUrl = ApprovalFormUrls.buildFormUrl(publicUrl, jobResumeId.toString(), approvalTokens)

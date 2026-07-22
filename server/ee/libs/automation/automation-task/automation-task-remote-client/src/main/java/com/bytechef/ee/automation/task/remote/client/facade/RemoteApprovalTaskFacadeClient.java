@@ -12,6 +12,7 @@ import com.bytechef.automation.task.domain.PendingApproval;
 import com.bytechef.automation.task.facade.ApprovalTaskFacade;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -29,7 +30,7 @@ public class RemoteApprovalTaskFacadeClient implements ApprovalTaskFacade {
     }
 
     @Override
-    public List<PendingApproval> getPendingApprovals() {
+    public List<PendingApproval> getPendingApprovals(@Nullable Integer environmentId) {
         throw new UnsupportedOperationException();
     }
 }

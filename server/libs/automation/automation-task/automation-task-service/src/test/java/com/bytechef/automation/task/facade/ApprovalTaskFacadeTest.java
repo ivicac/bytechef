@@ -187,7 +187,7 @@ class ApprovalTaskFacadeTest {
         lenient().when(approvalTokens.toSignedTokenIfConfigured(any()))
             .thenReturn(Optional.empty());
 
-        List<PendingApproval> pendingApprovals = createApprovalTaskFacade().getPendingApprovals();
+        List<PendingApproval> pendingApprovals = createApprovalTaskFacade().getPendingApprovals(null);
 
         assertThat(pendingApprovals).hasSize(2);
 
@@ -210,7 +210,25 @@ class ApprovalTaskFacadeTest {
     void testGetPendingApprovalsReturnsEmptyListWhenNoJobsAreStopped() {
         when(jobService.getStaleJobs(any(Job.Status.class), any(Instant.class))).thenReturn(List.of());
 
-        assertThat(createApprovalTaskFacade().getPendingApprovals()).isEmpty();
+        assertThat(createApprovalTaskFacade().getPendingApprovals(null)).isEmpty();
+    }
+
+    @Test
+    void testGetPendingApprovalsFiltersByEnvironment() {
+        Job job = pendingJob(1L, "tokenA", null, Instant.now(), "workflow-a");
+
+        when(jobService.getStaleJobs(any(Job.Status.class), any(Instant.class))).thenReturn(List.of(job));
+        when(workflowService.getWorkflow("workflow-a")).thenThrow(new IllegalArgumentException("missing"));
+
+        lenient().when(approvalTokens.toSignedTokenIfConfigured(any()))
+            .thenReturn(Optional.empty());
+
+        ApprovalTaskFacadeImpl approvalTaskFacade = createApprovalTaskFacade();
+
+        // The stub token is not a resolvable principal-backed run, so its environment falls back to DEVELOPMENT: it is
+        // included when filtering to DEVELOPMENT and excluded when filtering to another environment.
+        assertThat(approvalTaskFacade.getPendingApprovals(Environment.DEVELOPMENT.ordinal())).hasSize(1);
+        assertThat(approvalTaskFacade.getPendingApprovals(Environment.PRODUCTION.ordinal())).isEmpty();
     }
 
     private ApprovalTaskFacadeImpl createApprovalTaskFacade() {
