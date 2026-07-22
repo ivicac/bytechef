@@ -65,6 +65,8 @@ import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.JobExecutionErrors;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
+import com.bytechef.platform.workflow.execution.token.ApprovalFormUrls;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Duration;
@@ -95,6 +97,7 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
 
     private static final Logger log = LoggerFactory.getLogger(EmbeddedMcpToolFacade.class);
 
+    private final ObjectProvider<ApprovalTokens> approvalTokensObjectProvider;
     private final ClusterElementDefinitionFacade clusterElementDefinitionFacade;
     private final ClusterElementDefinitionService clusterElementDefinitionService;
     private final ComponentDefinitionService componentDefinitionService;
@@ -120,6 +123,7 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
 
     @SuppressFBWarnings("EI")
     public EmbeddedMcpToolFacade(
+        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
         ClusterElementDefinitionFacade clusterElementDefinitionFacade,
         ClusterElementDefinitionService clusterElementDefinitionService,
         ComponentDefinitionService componentDefinitionService, ConnectedUserService connectedUserService,
@@ -138,6 +142,7 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
 
         super(evaluator);
 
+        this.approvalTokensObjectProvider = approvalTokensObjectProvider;
         this.clusterElementDefinitionFacade = clusterElementDefinitionFacade;
         this.clusterElementDefinitionService = clusterElementDefinitionService;
         this.componentDefinitionService = componentDefinitionService;
@@ -456,6 +461,12 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
                     Job job = jobCompletionAwaiter.await(jobId, resolveSyncTimeout())
                         .join();
 
+                    // A STOPPED run with a stored resume id is paused on a human approval, not finished — return a
+                    // clear pointer to the hosted form instead of an empty result (mirrors AutomationMcpToolFacade).
+                    if (job.getStatus() == Job.Status.STOPPED) {
+                        return describePendingApproval(job);
+                    }
+
                     JobExecutionErrors.checkForError(job, taskExecutionService);
 
                     if (job.getOutputs() == null) {
@@ -466,6 +477,36 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
                         .orElseGet(() -> taskFileStorage.readJobOutputs(job.getOutputs()));
                 });
         };
+    }
+
+    private Map<String, Object> describePendingApproval(Job job) {
+        Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+
+        String formUrl = ApprovalFormUrls
+            .buildFormUrl(
+                publicUrl, jobResumeId == null ? null : jobResumeId.toString(),
+                approvalTokensObjectProvider.getIfAvailable())
+            .orElse(null);
+
+        Map<String, Object> result = new HashMap<>();
+
+        result.put("status", "approval_required");
+        result.put(
+            "message",
+            formUrl == null
+                ? "Approval required — the workflow run is paused waiting for a human decision."
+                : "Approval required — the workflow run is paused waiting for a human decision. " +
+                    "Resolve it at: " + formUrl);
+
+        if (formUrl != null) {
+            result.put("formUrl", formUrl);
+        }
+
+        if (job.getId() != null) {
+            result.put("jobId", job.getId());
+        }
+
+        return result;
     }
 
     private boolean isToolEnabled(long integrationInstanceId, long mcpToolId) {

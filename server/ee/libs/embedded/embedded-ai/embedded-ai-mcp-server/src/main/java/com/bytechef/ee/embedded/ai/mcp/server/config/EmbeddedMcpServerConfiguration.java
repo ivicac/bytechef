@@ -47,6 +47,7 @@ import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.domain.TenantKey;
 import io.modelcontextprotocol.common.McpTransportContext;
 import io.modelcontextprotocol.server.McpServerFeatures;
@@ -154,7 +155,7 @@ public class EmbeddedMcpServerConfiguration {
 
     @Bean
     EmbeddedMcpToolFacade embeddedMcpToolFacade(
-        ApplicationProperties applicationProperties,
+        ApplicationProperties applicationProperties, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
         ClusterElementDefinitionFacade clusterElementDefinitionFacade,
         ClusterElementDefinitionService clusterElementDefinitionService,
         ComponentDefinitionService componentDefinitionService, ConnectedUserService connectedUserService,
@@ -172,7 +173,8 @@ public class EmbeddedMcpServerConfiguration {
         WorkflowService workflowService) {
 
         return new EmbeddedMcpToolFacade(
-            clusterElementDefinitionFacade, clusterElementDefinitionService, componentDefinitionService,
+            approvalTokensObjectProvider, clusterElementDefinitionFacade, clusterElementDefinitionService,
+            componentDefinitionService,
             connectedUserService, evaluator, integrationInstanceConfigurationService,
             integrationInstanceConfigurationWorkflowService, integrationInstanceService,
             integrationInstanceWorkflowService, integrationService, jobCompletionAwaiter, jwtTokenService,
