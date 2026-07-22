@@ -154,7 +154,7 @@ public class ApprovalGateToolCallback implements ToolCallback {
             // Editor test runs have no channel listeners (channels are production transports), but the agent's
             // SSE stream IS connected — send the approval card event through the ToolContext's emitter, the same
             // path ask_user_question uses, so the canvas test chat renders the card.
-            sendEditorApprovalRequestEvent(toolContext, formUrl, toolInput);
+            sendEditorApprovalRequestEvent(toolContext, formUrl, toolInput, expiresAt);
         } else {
             deliverApprovalRequest(formUrl, toolInput, expiresAt);
         }
@@ -190,7 +190,9 @@ public class ApprovalGateToolCallback implements ToolCallback {
     }
 
     @SuppressWarnings("unchecked")
-    private void sendEditorApprovalRequestEvent(@Nullable ToolContext toolContext, String formUrl, String toolInput) {
+    private void sendEditorApprovalRequestEvent(
+        @Nullable ToolContext toolContext, String formUrl, String toolInput, Instant expiresAt) {
+
         if (toolContext == null) {
             return;
         }
@@ -204,6 +206,7 @@ public class ApprovalGateToolCallback implements ToolCallback {
         eventData.put(
             FORM_DESCRIPTION,
             "The AI agent wants to call the tool '" + getName() + "' with these arguments:\n\n" + toolInput);
+        eventData.put(EXPIRES_AT, expiresAt.toString());
         eventData.put("inputs", List.of());
 
         Map<String, Object> toolContextMap = toolContext.getContext();

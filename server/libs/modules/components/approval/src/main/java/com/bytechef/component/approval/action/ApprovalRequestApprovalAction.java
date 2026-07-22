@@ -420,6 +420,10 @@ public class ApprovalRequestApprovalAction {
 
         Map<String, Object> eventData = ChatApprovalChannel.buildApprovalRequestEventData(inputParameters, formUrl);
 
+        // The builder reads the expiry from the channel input parameters, which only the production fan-out
+        // populates — the editor event gets it from the action's own computed value instead.
+        eventData.put(EXPIRES_AT, expiresAt.toString());
+
         return new SuspendAwareSseEmitterHandler(
             sseEmitter -> {
                 sseEmitter.send(eventData);

@@ -133,9 +133,10 @@ export function formatAskUserQuestionMessage(event: AskUserQuestionEventI): stri
 export function formatApprovalRequestMessage(event: ApprovalRequestEventI): string {
     const title = event.formTitle || 'Approval requested';
     const description = event.formDescription ? `\n\n${event.formDescription}` : '';
+    const expiry = event.expiresAt ? `\n\nExpires ${new Date(event.expiresAt).toLocaleString()}` : '';
     const link = event.formUrl ? `\n\n[Open the approval form](${event.formUrl})` : '';
 
-    return `**${title}**${description}${link}`;
+    return `**${title}**${description}${expiry}${link}`;
 }
 
 /**
