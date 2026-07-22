@@ -252,7 +252,6 @@ dependencies {
         .sortedBy { it.path }
         .forEach { implementation(project(it.path)) }
 
-    implementation(project(":server:libs:modules:task-dispatchers:approval"))
     implementation(project(":server:libs:modules:task-dispatchers:branch"))
     implementation(project(":server:libs:modules:task-dispatchers:condition"))
     implementation(project(":server:libs:modules:task-dispatchers:each"))

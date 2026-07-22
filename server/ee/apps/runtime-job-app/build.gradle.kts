@@ -156,7 +156,6 @@ dependencies {
     implementation(project(":server:libs:modules:components:xml-helper"))
     implementation(project(":server:libs:modules:components:zoho:zoho-crm"))
 
-    implementation(project(":server:libs:modules:task-dispatchers:approval"))
     implementation(project(":server:libs:modules:task-dispatchers:branch"))
     implementation(project(":server:libs:modules:task-dispatchers:condition"))
     implementation(project(":server:libs:modules:task-dispatchers:each"))

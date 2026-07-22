@@ -66,7 +66,6 @@ import com.bytechef.platform.workflow.test.facade.AiAgentTestFacade;
 import com.bytechef.platform.workflow.test.facade.AiAgentTestFacadeImpl;
 import com.bytechef.platform.workflow.test.facade.TestWorkflowExecutor;
 import com.bytechef.platform.workflow.test.facade.TestWorkflowExecutorImpl;
-import com.bytechef.task.dispatcher.approval.WaitForApprovalTaskDispatcher;
 import com.bytechef.task.dispatcher.branch.BranchTaskDispatcher;
 import com.bytechef.task.dispatcher.branch.completion.BranchTaskCompletionHandler;
 import com.bytechef.task.dispatcher.condition.ConditionTaskDispatcher;
@@ -266,7 +265,6 @@ public class WorkflowTestConfiguration {
                 contextService, counterService, eventPublisher, taskDispatcher, taskExecutionService,
                 taskFileStorage),
             (taskDispatcher) -> new SubflowTaskDispatcher(childJobPrincipalFactory, jobService, subflowResolver),
-            (taskDispatcher) -> new TerminateTaskDispatcher(eventPublisher, taskExecutionService),
-            (taskDispatcher) -> new WaitForApprovalTaskDispatcher(eventPublisher, jobService, taskExecutionService));
+            (taskDispatcher) -> new TerminateTaskDispatcher(eventPublisher, taskExecutionService));
     }
 }
