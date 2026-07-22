@@ -17,8 +17,11 @@
 package com.bytechef.component.ai.agent.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.mock;
@@ -30,6 +33,7 @@ import com.bytechef.component.definition.ActionContext;
 import com.bytechef.platform.ai.constant.ToolSuspendConstants;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
+import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.tool.execution.ToolExecutionEvent;
 import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
@@ -196,6 +200,57 @@ class ApprovalGateToolCallbackTest {
             .containsKey("formTitle");
 
         org.mockito.Mockito.verifyNoInteractions(clusterElementDefinitionService);
+    }
+
+    @Test
+    void testFanOutDeliversRemainingChannelsWhenOneFails() {
+        when(actionContext.getSuspend()).thenReturn(null);
+        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.isEditorEnvironment()).thenReturn(false);
+
+        when(clusterElementDefinitionService.executeApprovalChannel(
+            eq("slack"), anyInt(), anyString(), anyMap(), anyString(), any(), any()))
+                .thenThrow(new RuntimeException("channel_not_found"));
+
+        List<ClusterElement> approvalChannels = List.of(
+            new ClusterElement(null, null, Map.of(), null, "slack/v1/approvalChannel", Map.of(), "slack_1"),
+            new ClusterElement(
+                null, null, Map.of(), null, "approvalTask/v1/approvalTask", Map.of(), "approvalTask_1"));
+
+        ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
+            delegate, approvalChannels, Map.of(), clusterElementDefinitionService, actionContext);
+
+        String result = gate.call("{}", null);
+
+        assertThat(result).isEqualTo(ToolSuspendConstants.SUSPENDED_SENTINEL);
+
+        // The failing Slack channel must not stop the fallback channel from delivering or the gate from suspending.
+        verify(clusterElementDefinitionService).executeApprovalChannel(
+            eq("approvalTask"), anyInt(), anyString(), anyMap(), anyString(), any(), any());
+        verify(actionContext).suspend(any());
+    }
+
+    @Test
+    void testFanOutFailsWhenEveryChannelFails() {
+        when(actionContext.getSuspend()).thenReturn(null);
+        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.isEditorEnvironment()).thenReturn(false);
+
+        when(clusterElementDefinitionService.executeApprovalChannel(
+            anyString(), anyInt(), anyString(), anyMap(), anyString(), any(), any()))
+                .thenThrow(new RuntimeException("channel_not_found"));
+
+        List<ClusterElement> approvalChannels = List.of(
+            new ClusterElement(null, null, Map.of(), null, "slack/v1/approvalChannel", Map.of(), "slack_1"));
+
+        ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
+            delegate, approvalChannels, Map.of(), clusterElementDefinitionService, actionContext);
+
+        // When every configured channel fails nobody was notified, so the gate must fail rather than suspend into a
+        // silent no-op that would leave the run paused with no delivered approval request.
+        assertThatThrownBy(() -> gate.call("{}", null)).isInstanceOf(IllegalStateException.class);
+
+        verify(actionContext, never()).suspend(any());
     }
 
     @Test
