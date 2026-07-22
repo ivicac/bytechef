@@ -117,7 +117,7 @@ const ApprovalRequestMessage = ({data}: DataMessagePartProps<ApprovalRequestData
                 Approval required
             </div>
 
-            {resolved === null && expiryLabel && (
+            {!data.hasInputs && resolved === null && expiryLabel && (
                 <div className="text-xs text-muted-foreground">Expires {expiryLabel}</div>
             )}
 
@@ -150,6 +150,15 @@ const ApprovalRequestMessage = ({data}: DataMessagePartProps<ApprovalRequestData
                     {submitError && (
                         <div className="text-sm text-destructive" role="alert">
                             {submitError}
+
+                            {data.formUrl && (
+                                <>
+                                    {' '}
+                                    <a className="underline" href={data.formUrl} rel="noreferrer" target="_blank">
+                                        Open the approval form
+                                    </a>
+                                </>
+                            )}
                         </div>
                     )}
 
