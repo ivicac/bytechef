@@ -1,4 +1,5 @@
 import {usePendingApprovalsQuery} from '@/shared/middleware/graphql';
+import {useAuthenticationStore} from '@/shared/stores/useAuthenticationStore';
 import {ExternalLinkIcon, HourglassIcon} from 'lucide-react';
 import {useMemo} from 'react';
 
@@ -17,7 +18,14 @@ const formatDateTime = (isoDate: string | null | undefined): string | null => {
 };
 
 export default function PendingApprovalsList() {
-    const {data: pendingApprovalsData} = usePendingApprovalsQuery(undefined, {refetchInterval: 30000});
+    const isAdmin = useAuthenticationStore((state) => state.account?.authorities?.includes('ROLE_ADMIN') ?? false);
+
+    // The tenant-wide pending-approvals listing embeds each run's resume capability token, so the server restricts it
+    // to tenant admins; skip the query for everyone else to avoid a guaranteed authorization error.
+    const {data: pendingApprovalsData} = usePendingApprovalsQuery(undefined, {
+        enabled: isAdmin,
+        refetchInterval: 30000,
+    });
 
     const pendingApprovals = useMemo(
         () =>
@@ -27,7 +35,7 @@ export default function PendingApprovalsList() {
         [pendingApprovalsData]
     );
 
-    if (pendingApprovals.length === 0) {
+    if (!isAdmin || pendingApprovals.length === 0) {
         return null;
     }
 

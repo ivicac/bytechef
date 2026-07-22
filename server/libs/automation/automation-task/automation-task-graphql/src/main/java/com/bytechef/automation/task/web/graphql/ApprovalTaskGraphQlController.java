@@ -29,6 +29,7 @@ import java.util.List;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
 /**
@@ -76,7 +77,14 @@ public class ApprovalTaskGraphQlController {
         return approvalTaskService.getApprovalTasks(ids);
     }
 
+    /**
+     * Lists every run in the tenant currently blocked on an approval. Each {@link PendingApproval} embeds the run's
+     * hosted-form URL, which carries the signed resume capability token — approving/rejecting the run needs nothing
+     * more than that URL. The listing is not scoped to an assignee or workspace, so it is restricted to tenant admins
+     * to prevent a low-privileged member from enumerating and hijacking every pending approval in the tenant.
+     */
     @QueryMapping
+    @PreAuthorize("isTenantAdmin()")
     public List<PendingApproval> pendingApprovals() {
         return approvalTaskFacade.getPendingApprovals();
     }
