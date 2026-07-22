@@ -483,6 +483,15 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   anonymous `/slack/interactivity`, permit-listed) verify the `X-Slack-Signature` HMAC per
   tenant (anchored by the resume id), resolve via `JobResumeFacade`, and rewrite the message via
   `response_url`. Spec: `docs/superpowers/specs/2026-07-22-slack-inplace-approval-interactivity-design.md`.
+  In-place is also implemented for **WhatsApp (Meta)** (`appSecret` on the connection →
+  interactive reply buttons; `WhatsAppInteractivityController`/`Handler` verify `X-Hub-Signature-256`,
+  GET verify-handshake via `bytechef.webhook.whatsapp.verify-token`; button id carries the
+  decision-prefixed signed token) and **Mattermost** (interactive attachment buttons whose
+  `integration.url` = `/mattermost/interactivity` carry the token in `integration.context`; unsigned,
+  so no `approvedBy`). Remaining channels (Telegram, Discord, Twilio/Infobip, Rocket.Chat) stay on
+  URL buttons — see `docs/superpowers/plans/2026-07-22-hitl-gap-remaining-backlog.md` for the
+  per-provider designs (short-token store for Telegram/Discord, Content Templates for BSP WhatsApp,
+  SMS reply correlation, Rocket.Chat App).
 - **Tool gate**: `requiresApproval: true` in a TOOLS cluster-element entry's parameters
   (`ToolConstants.REQUIRES_APPROVAL`; editor checkbox in `AiAgentToolDropdownMenu`) wraps the
   callback in `ApprovalGateToolCallback` (inside the observable/audit wrapper). Suspends via the

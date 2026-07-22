@@ -205,45 +205,77 @@ from all environments, reading as inconsistent counts.
 
 ---
 
-## Channel in-place approvals (Slack done; others out of scope — no infra)
+## Channel in-place approvals
 
-Slack in-place resolution IS implemented (an optional `signingSecret` switches `SlackApprovalChannel`
-to `block_actions` buttons; `SlackInteractivityController`/`SlackInteractivityHandler` verify the
-HMAC and resolve via `JobResumeFacade`). It works because Slack has a **dedicated Interactivity
-Request URL** separate from event subscriptions, and a 2000-char button `value` that holds the whole
-tokenized resume id.
+In-place resolution lets the reviewer approve/reject inside the messenger (no browser, message
+rewrites to the outcome, verified identity → `approvedBy`), instead of the default URL buttons that
+open the hosted form. Field-less approvals only — approvals with form fields keep the hosted-form
+link. The reusable pattern: message carries an interactive control → provider POSTs the tap to a
+ByteChef endpoint → verify → `JobResumeFacade.resumeJob` → rewrite the message.
 
-The other channels currently deliver **URL buttons** that open the hosted form (one-click:
-pre-selected decision + a single Confirm). True in-place resolution (resolving inside the messenger,
-no browser) is **out of scope by decision — no new infrastructure.** The blockers below are confirmed
-in code, not assumed.
+### Shipped
 
-### Telegram (investigated 2026-07-22 — blocked without infra)
+- **Slack** — `signingSecret` on the connection switches to `block_actions` buttons;
+  `SlackInteractivityController`/`Handler` verify the `X-Slack-Signature` HMAC. Button `value` (2000
+  chars) holds the whole signed token; no store needed. Includes a discard-with-comment modal.
+- **WhatsApp (Meta)** — `appSecret` on the connection switches to interactive reply buttons;
+  `WhatsAppInteractivityController`/`Handler` verify `X-Hub-Signature-256` (HMAC) and answer Meta's
+  GET verify handshake (`bytechef.webhook.whatsapp.verify-token`). Button `id` (256 chars) holds the
+  decision-prefixed signed token; no store needed. Single per-app webhook — use a dedicated
+  approvals app if a WhatsApp trigger also uses that app.
+- **Mattermost** — interactive attachment buttons carry `integration.url` (`/mattermost/interactivity`)
+  + the token in `integration.context`; no store, no connection secret. Mattermost doesn't sign these,
+  so the token in context is the capability (same as the hosted-form link) and the reviewer identity
+  is not recorded.
 
-Two hard blockers, both verified in code:
+### Open — Telegram, Discord (need a short-token store wired into delivery)
 
-1. **Single per-bot webhook, owned by the trigger system.** `TelegramNewMessageTrigger.webhookEnable`
-   calls `/setWebhook` with `allowed_updates: ["message"]` (a Telegram bot has exactly one webhook).
-   Button taps arrive as `callback_query` updates on that same webhook — which points at whatever
-   workflow trigger owns the bot, or nowhere if no trigger is configured. Unlike Slack, Telegram has
-   no separate interactivity URL, so approval callbacks can't be separated from trigger messages
-   without either commandeering the bot's webhook (breaking any Telegram trigger on that bot) or
-   threading approval routing through the trigger inbound path.
-2. **`callback_data` 64-byte cap.** `JobResumeId` is `base64(tenantId:jobId:uuid)` (the uuid alone is
-   36 chars) — it does not fit in Telegram's 64-byte inline-button `callback_data`, so a new
-   server-side short-token → resume-id store would be required.
+Both cap the button id below the ~108-char signed token (**Telegram `callback_data` 64 bytes**,
+**Discord `custom_id` 100 chars**), and the channel that builds the buttons is a ServiceLoader
+component — **not a Spring bean, and it only holds the signed token (the `formUrl` tail), not a
+short id or the inner token.** So neither can be done as a self-contained channel edit like the three
+above. Required design:
 
-What true in-place would take (if the no-infra decision is ever revisited): a dedicated approval bot
-(so its single webhook can point at ByteChef without breaking triggers) + a new anonymous
-`/telegram/interactivity` endpoint (mirroring `SlackInteractivityController`) + a short-token store
-(liquibase table or cache) mapping `callback_data` → jobResumeId. Materially more than Slack needed.
+1. **Short-token store** (CE): a `approval_short_token(short_id PK, resume_token, create_date)` table
+   + Spring Data JDBC repo + service, with an age-based cleanup sweep. Distributed-safe (DB, not
+   in-memory — multiple coordinator replicas).
+2. **Mint step**: cleanest is a new anonymous, rate-limited `POST /approval/short-token {token}` →
+   `{shortId}` endpoint in platform-webhook-rest-impl that the channel calls via `context.http` at
+   send time (avoids threading the store through the core `executeApprovalChannel` path — a wrong
+   change there breaks every approval channel). The token is already the capability, so mapping it to
+   a random shortId leaks nothing.
+3. **Telegram**: send inline-keyboard callback buttons with `callback_data = <shortId>:a|d`; set the
+   bot webhook to a new anonymous `/telegram/interactivity`, verified by the
+   `X-Telegram-Bot-Api-Secret-Token` header (set via `setWebhook`). One webhook per bot → use a
+   dedicated approvals bot so it doesn't collide with a Telegram trigger (which sets
+   `allowed_updates:["message"]` on its own webhook). Resolve, then `answerCallbackQuery` +
+   `editMessageText`.
+4. **Discord**: send interaction buttons with `custom_id = <shortId>:a|d`; register an Interactions
+   Endpoint URL `/discord/interactivity`; **verify the Ed25519 signature** (X-Signature-Ed25519 /
+   -Timestamp against the app public key — JDK 15+ `Signature.getInstance("Ed25519")`, no lib) and
+   answer the `PING`(type 1)→`PONG` handshake. Resolve, then edit the message.
 
-### Discord / WhatsApp (same class of blocker)
+### Open — Twilio / Infobip WhatsApp (provider onboarding)
 
-- Discord: `custom_id` is capped at 100 chars (< the ~108-char signed token) and interactions need a
-  registered interactions endpoint.
-- WhatsApp (Meta): one webhook per app, shared with any WhatsApp trigger — same single-inbound
-  problem as Telegram.
+Feasible (inbound button-reply carries a payload that fits the token; the BSP has its own inbound
+webhook, so no single-webhook collision), BUT WhatsApp interactive buttons via a BSP require a
+**pre-approved Content Template** — provider onboarding comparable to the Outlook/Gmail actionable-
+email bureaucracy. Endpoints: `/twilio/interactivity` (verify `X-Twilio-Signature`, HMAC-SHA1 over
+URL+params) and `/infobip/interactivity` (API-key/IP allowlist — Infobip does not HMAC-sign inbound).
+
+### Open — Twilio / Infobip SMS (correlation design decision)
+
+A plain-SMS reply ("YES"/"NO") carries **no token**, so the server can't tell which pending approval
+it resolves. Needs a correlation model — reply with a per-approval short code (from the short-token
+store above), or map sender-number → most-recent-pending-approval (ambiguous with multiple pending).
+Product decision required before building.
+
+### Open — Rocket.Chat (no built-in callback)
+
+Rocket.Chat attachment action buttons only support `url` (open a link) or `msg` (post a chat
+message) — there is **no `integration.url` POST callback** like Mattermost. True in-place needs a
+deployed Rocket.Chat App (UIKit) or an outgoing-webhook + button-`msg` command parsed server-side —
+the heaviest option. Stays on URL buttons until one of those is built.
 
 ## Not doing (by decision)
 
