@@ -23,6 +23,7 @@ import static com.bytechef.component.definition.approval.ApprovalChannelFunction
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_DESCRIPTION;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.INPUTS;
+import static com.bytechef.component.whatsapp.constant.WhatsAppConstants.APP_SECRET;
 import static com.bytechef.component.whatsapp.constant.WhatsAppConstants.BODY;
 import static com.bytechef.component.whatsapp.constant.WhatsAppConstants.MESSAGING_PRODUCT;
 import static com.bytechef.component.whatsapp.constant.WhatsAppConstants.PHONE_NUMBER_ID;
@@ -68,25 +69,56 @@ public class WhatsAppApprovalChannel {
     private static Object perform(
         Parameters inputParameters, Parameters connectionParameters, String formUrl, ClusterElementContext context) {
 
-        String text = buildMessageText(inputParameters, formUrl);
+        List<Map<String, ?>> inputs = inputParameters.getList(INPUTS, new TypeReference<>() {}, List.of());
+
+        String appSecret = connectionParameters.getString(APP_SECRET);
+
+        boolean inPlace = appSecret != null && !appSecret.isBlank();
+
+        Body body;
+
+        if (inputs.isEmpty() && inPlace && formUrl != null && !formUrl.isBlank()) {
+            // The connection carries the Meta app secret, so the app's webhook can be verified server-side: send
+            // in-place reply buttons that resolve the approval without leaving WhatsApp (see
+            // WhatsAppInteractivityController). The button ids carry the tokenized resume id (the form-URL tail —
+            // WhatsApp allows 256 chars, so the signed token fits) prefixed with the decision, and must be unique
+            // within the message.
+            String resumeId = formUrl.substring(formUrl.lastIndexOf('/') + 1);
+
+            body = Body.of(
+                MESSAGING_PRODUCT, "whatsapp",
+                RECIPIENT_TYPE, "individual",
+                RECEIVE_USER, inputParameters.getRequiredString(RECEIVE_USER),
+                TYPE, "interactive",
+                "interactive", Map.of(
+                    TYPE, "button",
+                    BODY, Map.of(TEXT, buildSummaryText(inputParameters)),
+                    "action", Map.of(
+                        "buttons", List.of(
+                            replyButton("a:" + resumeId, "Approve"),
+                            replyButton("d:" + resumeId, "Discard")))));
+        } else {
+            body = Body.of(
+                MESSAGING_PRODUCT, "whatsapp",
+                RECIPIENT_TYPE, "individual",
+                RECEIVE_USER, inputParameters.getRequiredString(RECEIVE_USER),
+                TYPE, "text",
+                TEXT, Map.of(BODY, buildMessageText(inputParameters, formUrl)));
+        }
 
         return context
             .http(http -> http.post("/" + connectionParameters.getString(PHONE_NUMBER_ID) + "/messages"))
-            .body(
-                Body.of(
-                    MESSAGING_PRODUCT, "whatsapp",
-                    RECIPIENT_TYPE, "individual",
-                    RECEIVE_USER, inputParameters.getRequiredString(RECEIVE_USER),
-                    TYPE, "text",
-                    TEXT, Map.of(BODY, text)))
+            .body(body)
             .configuration(responseType(ResponseType.JSON))
             .execute()
             .getBody(new TypeReference<>() {});
     }
 
-    private static String buildMessageText(Parameters inputParameters, String formUrl) {
-        List<Map<String, ?>> inputs = inputParameters.getList(INPUTS, new TypeReference<>() {}, List.of());
+    private static Map<String, Object> replyButton(String id, String title) {
+        return Map.of(TYPE, "reply", "reply", Map.of("id", id, "title", title));
+    }
 
+    private static String buildSummaryText(Parameters inputParameters) {
         StringBuilder builder = new StringBuilder();
 
         String formTitle = inputParameters.getString(FORM_TITLE);
@@ -114,6 +146,14 @@ public class WhatsAppApprovalChannel {
                 .append(expiresAt)
                 .append("\n");
         }
+
+        return builder.toString();
+    }
+
+    private static String buildMessageText(Parameters inputParameters, String formUrl) {
+        List<Map<String, ?>> inputs = inputParameters.getList(INPUTS, new TypeReference<>() {}, List.of());
+
+        StringBuilder builder = new StringBuilder(buildSummaryText(inputParameters));
 
         if (formUrl == null || formUrl.isBlank()) {
             builder.append("\nThe approval form link is unavailable because no public URL is configured.");

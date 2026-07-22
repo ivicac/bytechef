@@ -30,6 +30,6 @@ public class WebhookAuthorizeHttpRequestContributor implements AuthorizeHttpRequ
     public List<String> getPermitAllRequestMatcherPaths() {
         return List.of(
             "/approvals/**", "/callback", "/file-entries/**", "/job/resume/**", "/oauth.html",
-            "/slack/interactivity", "/webhooks/**");
+            "/slack/interactivity", "/webhooks/**", "/whatsapp/interactivity");
     }
 }
