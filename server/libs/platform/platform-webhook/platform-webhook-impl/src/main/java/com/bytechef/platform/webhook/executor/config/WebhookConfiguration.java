@@ -52,6 +52,7 @@ import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessorReg
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.ChildJobPrincipalFactory;
 import com.bytechef.platform.workflow.task.dispatcher.subflow.SubflowResolver;
+import com.bytechef.task.dispatcher.approval.WaitForApprovalTaskDispatcher;
 import com.bytechef.task.dispatcher.branch.BranchTaskDispatcher;
 import com.bytechef.task.dispatcher.branch.completion.BranchTaskCompletionHandler;
 import com.bytechef.task.dispatcher.condition.ConditionTaskDispatcher;
@@ -216,6 +217,7 @@ public class WebhookConfiguration {
             (taskDispatcher) -> new ParallelTaskDispatcher(
                 contextService, counterService, eventPublisher, taskDispatcher, taskExecutionService,
                 taskFileStorage),
-            (taskDispatcher) -> new SubflowTaskDispatcher(childJobPrincipalFactory, jobService, subflowResolver));
+            (taskDispatcher) -> new SubflowTaskDispatcher(childJobPrincipalFactory, jobService, subflowResolver),
+            (taskDispatcher) -> new WaitForApprovalTaskDispatcher(eventPublisher, jobService, taskExecutionService));
     }
 }

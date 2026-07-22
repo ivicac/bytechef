@@ -22,7 +22,7 @@ type DefinitionType = (ComponentDefinitionBasic | TaskDispatcherDefinition) & {
 };
 
 const HIDDEN_ACTION_COMPONENT_NAMES = new Set(['approvalLink']);
-const HIDDEN_TASK_DISPATCHER_NAMES = new Set<string>([]);
+const HIDDEN_TASK_DISPATCHER_NAMES = new Set(['waitForApproval']);
 
 interface WorkflowNodesTabsProps {
     actionComponentDefinitions: Array<ComponentDefinitionBasic>;
