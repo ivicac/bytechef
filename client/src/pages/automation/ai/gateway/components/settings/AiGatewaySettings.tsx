@@ -13,10 +13,13 @@ interface SettingsFormI {
     blockedTerms: string;
     cacheEnabled: boolean;
     cacheTtlSeconds: string;
+    injectionDetectionEnabled: boolean;
     logRetentionDays: string;
     moderationEnabled: boolean;
     redactPii: boolean;
+    redactSecrets: boolean;
     retryCount: string;
+    scanResponses: boolean;
     softBudgetWarningPct: string;
     timeoutMs: string;
 }
@@ -25,10 +28,13 @@ const EMPTY_FORM: SettingsFormI = {
     blockedTerms: '',
     cacheEnabled: false,
     cacheTtlSeconds: '',
+    injectionDetectionEnabled: false,
     logRetentionDays: '',
     moderationEnabled: false,
     redactPii: false,
+    redactSecrets: false,
     retryCount: '',
+    scanResponses: false,
     softBudgetWarningPct: '',
     timeoutMs: '',
 };
@@ -72,10 +78,13 @@ const AiGatewaySettings = () => {
                 blockedTerms: settings.blockedTerms ?? '',
                 cacheEnabled: settings.cacheEnabled ?? false,
                 cacheTtlSeconds: settings.cacheTtlSeconds != null ? String(settings.cacheTtlSeconds) : '',
+                injectionDetectionEnabled: settings.injectionDetectionEnabled ?? false,
                 logRetentionDays: settings.logRetentionDays != null ? String(settings.logRetentionDays) : '',
                 moderationEnabled: settings.moderationEnabled ?? false,
                 redactPii: settings.redactPii ?? false,
+                redactSecrets: settings.redactSecrets ?? false,
                 retryCount: settings.retryCount != null ? String(settings.retryCount) : '',
+                scanResponses: settings.scanResponses ?? false,
                 softBudgetWarningPct:
                     settings.softBudgetWarningPct != null ? String(settings.softBudgetWarningPct) : '',
                 timeoutMs: settings.timeoutMs != null ? String(settings.timeoutMs) : '',
@@ -93,10 +102,13 @@ const AiGatewaySettings = () => {
                 blockedTerms: form.blockedTerms || undefined,
                 cacheEnabled: form.cacheEnabled,
                 cacheTtlSeconds: toOptionalInt(form.cacheTtlSeconds),
+                injectionDetectionEnabled: form.injectionDetectionEnabled,
                 logRetentionDays: toOptionalInt(form.logRetentionDays),
                 moderationEnabled: form.moderationEnabled,
                 redactPii: form.redactPii,
+                redactSecrets: form.redactSecrets,
                 retryCount: toOptionalInt(form.retryCount),
+                scanResponses: form.scanResponses,
                 softBudgetWarningPct: toOptionalInt(form.softBudgetWarningPct),
                 timeoutMs: toOptionalInt(form.timeoutMs),
                 workspaceId: String(currentWorkspaceId),
@@ -198,11 +210,41 @@ const AiGatewaySettings = () => {
 
                     <label className="flex items-center gap-2 text-sm">
                         <input
+                            checked={form.redactSecrets}
+                            onChange={(event) => setForm({...form, redactSecrets: event.target.checked})}
+                            type="checkbox"
+                        />
+                        Redact secrets (mask API keys, tokens, JWTs, and private keys in prompts before they leave
+                        ByteChef)
+                    </label>
+
+                    <label className="flex items-center gap-2 text-sm">
+                        <input
+                            checked={form.scanResponses}
+                            onChange={(event) => setForm({...form, scanResponses: event.target.checked})}
+                            type="checkbox"
+                        />
+                        Scan responses (redact PII and secrets from model output before returning it; non-streaming
+                        completions only)
+                    </label>
+
+                    <label className="flex items-center gap-2 text-sm">
+                        <input
                             checked={form.moderationEnabled}
                             onChange={(event) => setForm({...form, moderationEnabled: event.target.checked})}
                             type="checkbox"
                         />
                         Model-based moderation (reject unsafe prompts; requires a configured moderation model)
+                    </label>
+
+                    <label className="flex items-center gap-2 text-sm">
+                        <input
+                            checked={form.injectionDetectionEnabled}
+                            onChange={(event) => setForm({...form, injectionDetectionEnabled: event.target.checked})}
+                            type="checkbox"
+                        />
+                        Prompt-injection detection (reject jailbreak / instruction-override attempts; requires a
+                        configured injection model)
                     </label>
 
                     <label className="flex flex-col gap-1 text-sm">

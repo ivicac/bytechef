@@ -1178,14 +1178,14 @@ export type AiGatewayWorkspaceSettingsQueryVariables = Exact<{
 }>;
 
 
-export type AiGatewayWorkspaceSettingsQuery = { aiGatewayWorkspaceSettings: { blockedTerms: string | null, cacheEnabled: boolean | null, cacheTtlSeconds: number | null, defaultRoutingPolicyId: string | null, logRetentionDays: number | null, moderationEnabled: boolean | null, redactPii: boolean | null, retryCount: number | null, softBudgetWarningPct: number | null, timeoutMs: number | null, workspaceId: string } | null };
+export type AiGatewayWorkspaceSettingsQuery = { aiGatewayWorkspaceSettings: { blockedTerms: string | null, cacheEnabled: boolean | null, cacheTtlSeconds: number | null, defaultRoutingPolicyId: string | null, injectionDetectionEnabled: boolean | null, logRetentionDays: number | null, moderationEnabled: boolean | null, redactPii: boolean | null, redactSecrets: boolean | null, retryCount: number | null, scanResponses: boolean | null, softBudgetWarningPct: number | null, timeoutMs: number | null, workspaceId: string } | null };
 
 export type UpdateAiGatewayWorkspaceSettingsMutationVariables = Exact<{
   input: Types.AiGatewayWorkspaceSettingsInput;
 }>;
 
 
-export type UpdateAiGatewayWorkspaceSettingsMutation = { updateAiGatewayWorkspaceSettings: { blockedTerms: string | null, cacheEnabled: boolean | null, cacheTtlSeconds: number | null, defaultRoutingPolicyId: string | null, logRetentionDays: number | null, moderationEnabled: boolean | null, redactPii: boolean | null, retryCount: number | null, softBudgetWarningPct: number | null, timeoutMs: number | null, workspaceId: string } | null };
+export type UpdateAiGatewayWorkspaceSettingsMutation = { updateAiGatewayWorkspaceSettings: { blockedTerms: string | null, cacheEnabled: boolean | null, cacheTtlSeconds: number | null, defaultRoutingPolicyId: string | null, injectionDetectionEnabled: boolean | null, logRetentionDays: number | null, moderationEnabled: boolean | null, redactPii: boolean | null, redactSecrets: boolean | null, retryCount: number | null, scanResponses: boolean | null, softBudgetWarningPct: number | null, timeoutMs: number | null, workspaceId: string } | null };
 
 export type AiObservabilityAlertEventsQueryVariables = Exact<{
   alertRuleId: string | number;
@@ -8088,10 +8088,13 @@ export const AiGatewayWorkspaceSettingsDocument = new TypedDocumentString(`
     cacheEnabled
     cacheTtlSeconds
     defaultRoutingPolicyId
+    injectionDetectionEnabled
     logRetentionDays
     moderationEnabled
     redactPii
+    redactSecrets
     retryCount
+    scanResponses
     softBudgetWarningPct
     timeoutMs
     workspaceId
@@ -8122,10 +8125,13 @@ export const UpdateAiGatewayWorkspaceSettingsDocument = new TypedDocumentString(
     cacheEnabled
     cacheTtlSeconds
     defaultRoutingPolicyId
+    injectionDetectionEnabled
     logRetentionDays
     moderationEnabled
     redactPii
+    redactSecrets
     retryCount
+    scanResponses
     softBudgetWarningPct
     timeoutMs
     workspaceId
