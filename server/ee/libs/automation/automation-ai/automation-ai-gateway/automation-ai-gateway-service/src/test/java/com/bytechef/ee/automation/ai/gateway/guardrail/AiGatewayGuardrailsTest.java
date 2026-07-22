@@ -291,15 +291,48 @@ class AiGatewayGuardrailsTest {
         assertThat(guardrails.applyToInputs(inputs, null)).isSameAs(inputs);
     }
 
+    @Test
+    void testNewStreamingResponseRedactorNullWhenStreamingFlagOff() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, true, false);
+
+        assertThat(guardrails.newStreamingResponseRedactor(null)).isNull();
+    }
+
+    @Test
+    void testNewStreamingResponseRedactorNullWhenResponseScanOff() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, false, true);
+
+        assertThat(guardrails.newStreamingResponseRedactor(null)).isNull();
+    }
+
+    @Test
+    void testNewStreamingResponseRedactorPresentWhenBothEnabled() {
+        AiGatewayGuardrails guardrails = guardrails(null, null, false, false, "", false, false, true, true);
+
+        assertThat(guardrails.newStreamingResponseRedactor(null)).isNotNull();
+    }
+
     private AiGatewayGuardrails guardrails(
         com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifier moderationClassifier,
         com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayInjectionClassifier injectionClassifier,
         boolean piiRedactionEnabled, boolean secretRedactionEnabled, String blockedTerms, boolean moderationEnabled,
         boolean injectionDetectionEnabled, boolean responseScanEnabled) {
 
+        return guardrails(
+            moderationClassifier, injectionClassifier, piiRedactionEnabled, secretRedactionEnabled, blockedTerms,
+            moderationEnabled, injectionDetectionEnabled, responseScanEnabled, false);
+    }
+
+    private AiGatewayGuardrails guardrails(
+        com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifier moderationClassifier,
+        com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayInjectionClassifier injectionClassifier,
+        boolean piiRedactionEnabled, boolean secretRedactionEnabled, String blockedTerms, boolean moderationEnabled,
+        boolean injectionDetectionEnabled, boolean responseScanEnabled, boolean streamingResponseScanEnabled) {
+
         return new AiGatewayGuardrails(
             settingsService, moderationClassifier, injectionClassifier, piiRedactionEnabled, secretRedactionEnabled,
-            blockedTerms, moderationEnabled, injectionDetectionEnabled, responseScanEnabled);
+            blockedTerms, moderationEnabled, injectionDetectionEnabled, responseScanEnabled,
+            streamingResponseScanEnabled);
     }
 
     private static AiGatewayWorkspaceSettings settings(

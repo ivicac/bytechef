@@ -11,6 +11,7 @@ import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.ee.automation.ai.gateway.budget.AiGatewayBudgetChecker;
 import com.bytechef.ee.automation.ai.gateway.evaluation.AiEvalExecutor;
 import com.bytechef.ee.automation.ai.gateway.guardrail.AiGatewayGuardrails;
+import com.bytechef.ee.automation.ai.gateway.guardrail.StreamingResponseRedactor;
 import com.bytechef.ee.automation.ai.gateway.ratelimit.AiGatewayRateLimitChecker;
 import com.bytechef.ee.automation.ai.gateway.service.AiGatewayWorkspaceSettingsService;
 import com.bytechef.ee.automation.ai.gateway.service.WorkspaceAiGatewayProjectService;
@@ -555,10 +556,10 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
         ResolvedPrompt resolvedPrompt = resolvePrompt(promptHeaders, workspaceId, request);
 
-        // Request-direction guardrails apply as on the sync path. Response scanning (redactResponse) is NOT applied
-        // on the streaming path: tokens are flushed incrementally and a PII/secret value can straddle chunk boundaries,
-        // so per-chunk redaction is unreliable. Callers needing response-side DLP on streamed output should use
-        // non-streaming completions. See the guardrail-hardening spec for the buffered-scan follow-up.
+        // Request-direction guardrails apply as on the sync path. Response scanning on the streaming path is opt-in via
+        // the response-scan-streaming-enabled operator flag (see StreamingResponseRedactor): a null redactor here keeps
+        // the default token-by-token behavior byte-for-byte unchanged; a non-null one masks PII/secrets across chunk
+        // boundaries at the cost of a lookahead delay.
         AiGatewayChatCompletionRequest effectiveRequest = aiGatewayGuardrails.apply(
             resolvedPrompt != null
                 ? prependSystemMessage(request, resolvedPrompt.content())
@@ -616,6 +617,11 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         AtomicReference<Throwable> streamError = new AtomicReference<>();
         StringBuilder streamOutputContent = new StringBuilder();
 
+        // When streaming response scanning is active, deltas are masked through the redactor and the terminal
+        // finish_reason is deferred onto the flush chunk so the client never sees "stop" before the masked tail.
+        StreamingResponseRedactor responseRedactor = aiGatewayGuardrails.newStreamingResponseRedactor(workspaceId);
+        AtomicReference<String> deferredFinishReason = new AtomicReference<>();
+
         Flux<ChatResponse> chatResponseFlux;
 
         if (routedDeployments != null) {
@@ -644,9 +650,25 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             chatResponseFlux = chatModel.stream(prompt);
         }
 
-        return chatResponseFlux
+        Flux<AiGatewayChatCompletionResponse> chunkFlux = chatResponseFlux
             .map(chatResponse -> toStreamChunkResponse(
-                chatResponse, effectiveRequest, streamInputTokens, streamOutputTokens, streamOutputContent))
+                chatResponse, effectiveRequest, streamInputTokens, streamOutputTokens, streamOutputContent,
+                responseRedactor, deferredFinishReason));
+
+        if (responseRedactor != null) {
+            chunkFlux = chunkFlux.concatWith(Flux.defer(() -> {
+                String tail = responseRedactor.flush();
+                String finishReason = deferredFinishReason.get();
+
+                if (tail.isEmpty() && finishReason == null) {
+                    return Flux.<AiGatewayChatCompletionResponse>empty();
+                }
+
+                return Flux.just(streamChunkOf(effectiveRequest.model(), tail, finishReason));
+            }));
+        }
+
+        return chunkFlux
             .doOnError(streamError::set)
             .doFinally(signalType -> finalizeStreamRequest(
                 signalType, streamInputTokens, streamOutputTokens, streamError, streamOutputContent,
@@ -656,11 +678,15 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
     /**
      * Maps a single streamed {@link ChatResponse} chunk to a gateway response chunk, accumulating token usage and the
-     * concatenated output content for the post-stream request log.
+     * concatenated (raw) output content for the post-stream request log. When {@code responseRedactor} is non-null the
+     * emitted delta is masked for PII/secrets and the terminal {@code finish_reason} is captured into
+     * {@code deferredFinishReason} instead of being emitted here, so it can ride the redactor's flush chunk after any
+     * held-back tail. The raw output accumulation is unchanged (the trace path has its own redaction control).
      */
     private AiGatewayChatCompletionResponse toStreamChunkResponse(
         ChatResponse chatResponse, AiGatewayChatCompletionRequest effectiveRequest, AtomicLong streamInputTokens,
-        AtomicLong streamOutputTokens, StringBuilder streamOutputContent) {
+        AtomicLong streamOutputTokens, StringBuilder streamOutputContent,
+        @Nullable StreamingResponseRedactor responseRedactor, AtomicReference<String> deferredFinishReason) {
 
         if (chatResponse.getMetadata() != null && chatResponse.getMetadata()
             .getUsage() != null) {
@@ -698,19 +724,40 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             streamOutputContent.append(chunkText);
         }
 
-        AiGatewayChatMessage delta = new AiGatewayChatMessage(
-            AiGatewayChatRole.ASSISTANT, chunkText);
+        String deltaText = chunkText;
+        String finishReason = generation.getMetadata()
+            .getFinishReason();
+
+        if (responseRedactor != null) {
+            deltaText = responseRedactor.push(chunkText);
+
+            if (finishReason != null) {
+                deferredFinishReason.set(finishReason);
+            }
+
+            finishReason = null;
+        }
+
+        return streamChunkOf(effectiveRequest.model(), deltaText, finishReason);
+    }
+
+    /**
+     * Builds a single {@code chat.completion.chunk} response carrying an assistant delta with the given text and
+     * finish reason.
+     */
+    private static AiGatewayChatCompletionResponse streamChunkOf(
+        String model, @Nullable String deltaText, @Nullable String finishReason) {
+
+        AiGatewayChatMessage delta = new AiGatewayChatMessage(AiGatewayChatRole.ASSISTANT, deltaText);
 
         AiGatewayChatCompletionResponse.Choice choice =
-            new AiGatewayChatCompletionResponse.Choice(0, delta,
-                generation.getMetadata()
-                    .getFinishReason());
+            new AiGatewayChatCompletionResponse.Choice(0, delta, finishReason);
 
         return new AiGatewayChatCompletionResponse(
             UUID.randomUUID()
                 .toString(),
             "chat.completion.chunk",
-            System.currentTimeMillis() / 1000, effectiveRequest.model(), List.of(choice), null);
+            System.currentTimeMillis() / 1000, model, List.of(choice), null);
     }
 
     private void finalizeStreamRequest(

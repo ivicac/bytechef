@@ -57,12 +57,33 @@ Phase 1 closes gateway-boundary gaps 1, 2, 3, 5. Ordered so each step compiles o
 - Commit (`732 …` server, `732 client - …` client) and push to
   `claude/bytechef-branch-0-732-i2mjs0`.
 
-## Verification checklist
+## Verification checklist (Phase 1)
 
-- [ ] Secret patterns redact and are ReDoS-safe (no nested optional quantifiers).
-- [ ] Injection classifier fails open; registered only with `injection-model` set.
-- [ ] Response redaction non-streaming only; streaming limitation documented.
-- [ ] Embeddings inputs redacted/blocked before upstream call.
-- [ ] New toggles union global OR workspace, off by default.
-- [ ] All `new AiGatewayWorkspaceSettings(...)` call sites updated.
-- [ ] Tests cover each new path.
+- [x] Secret patterns redact and are ReDoS-safe (no nested optional quantifiers).
+- [x] Injection classifier fails open; registered only with `injection-model` set.
+- [x] Response redaction non-streaming; streaming handled in Phase 2a.
+- [x] Embeddings inputs redacted/blocked before upstream call.
+- [x] New toggles union global OR workspace, off by default.
+- [x] All `new AiGatewayWorkspaceSettings(...)` call sites updated.
+- [x] Tests cover each new path.
+
+## Phase 2a — streaming response redaction
+
+- `StreamingResponseRedactor` (guardrail pkg): stateful safe-cut redactor with a bounded lookahead
+  window; `push`/`flush`. Uses `AiGatewayGuardrails.sensitiveMatchRanges` (new package-private
+  helper over the combined PII+secret pattern list) to avoid emitting across a matched span.
+- `AiGatewayGuardrails`: `redactAll` made public; new global flag
+  `response-scan-streaming-enabled`; `newStreamingResponseRedactor(workspaceId)` returns a redactor
+  only when that flag AND response scanning are both active.
+- `AiGatewayFacadeImpl.chatCompletionStreamInternal`: obtain the redactor; when non-null, mask each
+  delta via `toStreamChunkResponse` and defer `finish_reason` (`AtomicReference`) onto a
+  `concatWith` flush chunk. Null → unchanged. Added `streamChunkOf` helper.
+- Tests: `StreamingResponseRedactorTest` (no-leak invariant under arbitrary chunking for windows ≥
+  longest token; clean passthrough; null/empty) + `AiGatewayGuardrailsTest` gating cases.
+- Note: activation is operator-level (latency trade-off), so no new per-workspace field / GraphQL /
+  client change.
+
+## Remaining Phase 2 (not implemented)
+
+- Datadog/Splunk native observability sinks (gap 4).
+- Per-API-key / per-project guardrail scoping (gap 6).

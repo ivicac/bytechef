@@ -21,6 +21,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.apache.commons.lang3.StringUtils;
 import org.jspecify.annotations.Nullable;
@@ -100,6 +101,10 @@ public class AiGatewayGuardrails {
         // JSON Web Tokens (three base64url segments)
         Pattern.compile("\\beyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+"));
 
+    // Every PII + secret pattern, used by the streaming redactor to locate matched spans so it never emits across the
+    // middle of one.
+    private static final List<Pattern> ALL_SENSITIVE_PATTERNS = buildAllSensitivePatterns();
+
     private final AiGatewayWorkspaceSettingsService aiGatewayWorkspaceSettingsService;
     private final List<String> globalBlockedTerms;
     private final boolean globalInjectionDetectionEnabled;
@@ -107,6 +112,7 @@ public class AiGatewayGuardrails {
     private final boolean globalPiiRedactionEnabled;
     private final boolean globalResponseScanEnabled;
     private final boolean globalSecretRedactionEnabled;
+    private final boolean globalStreamingResponseScanEnabled;
     private final @Nullable AiGatewayInjectionClassifier injectionClassifier;
     private final @Nullable AiGatewayModerationClassifier moderationClassifier;
 
@@ -119,7 +125,9 @@ public class AiGatewayGuardrails {
         @Value("${bytechef.ai.gateway.guardrails.blocked-terms:}") String blockedTerms,
         @Value("${bytechef.ai.gateway.guardrails.moderation-enabled:false}") boolean moderationEnabled,
         @Value("${bytechef.ai.gateway.guardrails.injection-detection-enabled:false}") boolean injectionDetectionEnabled,
-        @Value("${bytechef.ai.gateway.guardrails.response-scan-enabled:false}") boolean responseScanEnabled) {
+        @Value("${bytechef.ai.gateway.guardrails.response-scan-enabled:false}") boolean responseScanEnabled,
+        @Value("${bytechef.ai.gateway.guardrails.response-scan-streaming-enabled:false}")
+        boolean streamingResponseScanEnabled) {
 
         this.aiGatewayWorkspaceSettingsService = aiGatewayWorkspaceSettingsService;
         this.globalBlockedTerms = parseBlockedTerms(blockedTerms);
@@ -128,6 +136,7 @@ public class AiGatewayGuardrails {
         this.globalPiiRedactionEnabled = piiRedactionEnabled;
         this.globalResponseScanEnabled = responseScanEnabled;
         this.globalSecretRedactionEnabled = secretRedactionEnabled;
+        this.globalStreamingResponseScanEnabled = streamingResponseScanEnabled;
         this.injectionClassifier = injectionClassifier;
         this.moderationClassifier = moderationClassifier;
     }
@@ -267,6 +276,31 @@ public class AiGatewayGuardrails {
     }
 
     /**
+     * Returns a stateful redactor for masking PII/secrets in a streamed completion when streaming response scanning is
+     * active for the workspace, otherwise {@code null}. Streaming scanning requires BOTH response scanning to be
+     * effective for the workspace (global {@code response-scan-enabled} or workspace {@code scanResponses}) AND the
+     * global {@code response-scan-streaming-enabled} operator flag — because holding back a lookahead window to catch
+     * values that straddle SSE chunk boundaries trades away some of streaming's incremental latency, which is an
+     * operator-level decision. Caller uses the returned redactor across the token stream and flushes it at completion.
+     *
+     * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed
+     * @return a fresh {@link StreamingResponseRedactor}, or {@code null} when streaming scanning is inactive
+     */
+    public @Nullable StreamingResponseRedactor newStreamingResponseRedactor(@Nullable Long workspaceId) {
+        if (!globalStreamingResponseScanEnabled) {
+            return null;
+        }
+
+        EffectivePolicy policy = resolvePolicy(workspaceId);
+
+        if (!policy.scanResponses()) {
+            return null;
+        }
+
+        return new StreamingResponseRedactor();
+    }
+
+    /**
      * Replaces common PII patterns in {@code content} with {@code [REDACTED_*]} placeholders.
      */
     public static String redactPii(@Nullable String content) {
@@ -308,8 +342,44 @@ public class AiGatewayGuardrails {
         return redacted;
     }
 
-    private static String redactAll(String content) {
+    /**
+     * Applies both the PII and secret redactors to {@code content}. Used for response-direction scanning where both
+     * categories are masked regardless of the request-direction toggles.
+     */
+    public static String redactAll(String content) {
         return redactSecrets(redactPii(content));
+    }
+
+    /**
+     * Returns the {@code [start, end)} character spans of every PII/secret match in {@code content}, so the streaming
+     * redactor can avoid emitting across the middle of a match. Order is unspecified and spans may overlap.
+     */
+    static List<int[]> sensitiveMatchRanges(String content) {
+        List<int[]> ranges = new ArrayList<>();
+
+        for (Pattern sensitivePattern : ALL_SENSITIVE_PATTERNS) {
+            Matcher matcher = sensitivePattern.matcher(content);
+
+            while (matcher.find()) {
+                ranges.add(new int[] {
+                    matcher.start(), matcher.end()});
+            }
+        }
+
+        return ranges;
+    }
+
+    private static List<Pattern> buildAllSensitivePatterns() {
+        List<Pattern> patterns = new ArrayList<>();
+
+        patterns.add(EMAIL_PATTERN);
+        patterns.add(SSN_PATTERN);
+        patterns.add(CREDIT_CARD_PATTERN);
+        patterns.add(PHONE_PATTERN);
+        patterns.add(IPV4_PATTERN);
+        patterns.addAll(SECRET_PATTERNS);
+
+        return List.copyOf(patterns);
     }
 
     private String checkAndRedact(@Nullable String content, EffectivePolicy policy) {

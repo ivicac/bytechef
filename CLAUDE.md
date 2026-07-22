@@ -692,9 +692,14 @@ trigger + post-turn query invalidation.
     `AiGatewayInjectionClassifier` bean.
 - Dual-directional: response scanning (`response-scan-enabled` / `scanResponses`) redacts
   PII+secrets from the completion via `redactResponse` before it is traced/returned. Redaction
-  only, never blocks. **Non-streaming path only** — SSE tokens can straddle chunk boundaries, so
-  the streaming path scans requests but not responses (documented limitation; buffered-scan is a
-  Phase-2 follow-up).
+  only, never blocks. Streaming responses are also covered (opt-in): when the operator flag
+  `response-scan-streaming-enabled` is set AND response scanning is effective for the workspace,
+  `newStreamingResponseRedactor` returns a `StreamingResponseRedactor` that masks SSE deltas
+  across chunk boundaries (safe-cut / lookahead-window algorithm over
+  `sensitiveMatchRanges`) and defers the terminal `finish_reason` onto its flush chunk. Null
+  redactor → the streaming path is byte-for-byte unchanged. A value still incomplete and longer
+  than the window (default 512) may have a prefix emitted before its pattern matches — documented
+  trade-off of not buffering the whole stream.
 - Order (request): redact PII → redact secrets → blocked terms → moderation → injection; every
   check sees the redacted text. Embeddings run the same minus moderation. Response path is
   redaction only.

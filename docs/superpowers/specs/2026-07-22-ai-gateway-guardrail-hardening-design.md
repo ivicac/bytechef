@@ -1,6 +1,6 @@
 # AI Gateway guardrail hardening — design
 
-Status: implemented (Phase 1)
+Status: implemented (Phase 1 + Phase 2a streaming redaction)
 Date: 2026-07-22
 Area: `server/ee/libs/automation/automation-ai/automation-ai-gateway`, `server/ee/libs/platform/platform-ai/platform-ai-gateway`
 
@@ -114,13 +114,36 @@ secrets/PII from leaking back in the completion, without discarding the answer.
 Config: global `bytechef.ai.gateway.guardrails.response-scan-enabled` (default `false`) OR
 workspace `scanResponses`.
 
-**Known limitation — streaming.** The SSE streaming path (`chatCompletionStream`) emits tokens
-incrementally; a secret or PII value can straddle two chunks, so per-chunk redaction is
-unreliable and buffering the whole stream would defeat streaming. Phase 1 applies response
-redaction to the **non-streaming** path only. This is the same class of streaming-specific
-limitation the gateway already accepts for pre-first-token failover. Callers that require
-response-side DLP on streamed output should use non-streaming completions, or attach the
-workflow-layer `SanitizeText` guardrail. A future phase can add an opt-in buffered-scan mode.
+**Streaming (Phase 1 limitation, closed in Phase 2a).** The SSE streaming path
+(`chatCompletionStream`) emits tokens incrementally; a secret or PII value can straddle two
+chunks, so naive per-chunk redaction is unreliable. Phase 1 applied response redaction to the
+**non-streaming** path only. Phase 2a adds opt-in streaming redaction — see below.
+
+### 5. Streaming response redaction (Phase 2a)
+
+`StreamingResponseRedactor` is a stateful, single-subscription redactor that masks a streamed
+completion without buffering it whole. It keeps a bounded lookahead window and, each fragment,
+emits only the leading portion of its buffer up to a **safe cut** — a position no matched span
+crosses. A value straddling the tentative cut pulls the cut back to that value's start so the
+whole match stays buffered and is redacted as one unit (`AiGatewayGuardrails.sensitiveMatchRanges`
+locates the spans); a value still arriving sits inside the retained window until it completes or
+is flushed at stream end. Because no complete match crosses a cut, the concatenation of every
+`push` plus the final `flush` equals `redactAll(fullStream)`. The window bounds latency and the
+worst case: a value still incomplete (not yet matchable) and longer than the window may have a
+prefix emitted before its pattern matches — the documented trade-off of scanning a stream without
+buffering it whole (default window 512 covers every fixed-shape key/token and typical JWTs).
+
+Wiring: `AiGatewayFacadeImpl.chatCompletionStreamInternal` obtains a redactor from
+`newStreamingResponseRedactor(workspaceId)` (null unless active — see below). When non-null, each
+delta is masked through the redactor and the terminal `finish_reason` is **deferred** onto the
+redactor's flush chunk (via an `AtomicReference`), so the client never sees `stop` before the
+masked tail. When null, the streaming path is byte-for-byte unchanged. Raw output is still
+accumulated for the request log (the trace path keeps its own redaction control).
+
+Activation is intentionally an operator-level decision (holding a lookahead window trades away
+some incremental latency): streaming redaction is active only when response scanning is effective
+for the workspace (`response-scan-enabled` / `scanResponses`) **AND** the global
+`response-scan-streaming-enabled` flag is set. No new per-workspace field.
 
 ### 4. Embeddings coverage (gap 5)
 
@@ -145,6 +168,7 @@ bytechef.ai.gateway.guardrails.secret-redaction-enabled     (new)
 bytechef.ai.gateway.guardrails.injection-detection-enabled  (new)
 bytechef.ai.gateway.guardrails.injection-model              (new)
 bytechef.ai.gateway.guardrails.response-scan-enabled        (new)
+bytechef.ai.gateway.guardrails.response-scan-streaming-enabled (new, Phase 2a; operator-level)
 ```
 
 Per-workspace overrides on `AiGatewayWorkspaceSettings` (union with global):
@@ -179,4 +203,3 @@ secrets → blocked terms → injection (no moderation). Response path
   observability-egress work item.
 - **Gap 6** — per-API-key / per-project guardrail scoping. Guardrail config is workspace-scoped;
   finer scoping needs a policy-resolution redesign (`apply` currently takes only `workspaceId`).
-- **Streaming response redaction** — buffered-scan mode, as noted above.
