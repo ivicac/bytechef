@@ -17,6 +17,7 @@
 package com.bytechef.cli;
 
 import com.bytechef.cli.command.component.ComponentCommand;
+import com.bytechef.cli.command.config.ConfigureCommand;
 import com.bytechef.cli.core.error.CliException;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
@@ -33,7 +34,9 @@ import org.springframework.shell.core.command.annotation.EnableCommand;
  * @author Ivica Cardic
  */
 @SpringBootApplication
-@EnableCommand(ComponentCommand.class)
+@EnableCommand({
+    ComponentCommand.class, ConfigureCommand.class
+})
 public class CliApplication {
 
     public static void main(String... args) {
