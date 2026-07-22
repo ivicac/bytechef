@@ -86,6 +86,17 @@ Hence the product decision: extend the Slack connection definition with an optio
 
 ## Later
 
-Same pattern for Discord (interactions endpoint + public-key signature verification — Discord
-puts the public key on the app, so the connection needs an `applicationPublicKey` field) and
-WhatsApp interactive button templates (Meta webhooks already exist for triggers).
+Discord and WhatsApp in-place resolution are **explicitly deferred** (2026-07-22 product
+decision) because both require new infrastructure we chose not to take on:
+
+- **Discord** — an interactions endpoint with Ed25519 public-key verification is straightforward,
+  but Discord caps a button's `custom_id` at 100 characters while the default (signed) resume
+  token is ~108. Carrying it would need either a short-id → token store or threading the raw
+  (unsigned) inner token into the channel-delivery path — infra changes out of scope for now.
+- **WhatsApp** — Meta allows only one webhook URL per app, so interactive-button taps arrive on the
+  existing WhatsApp *trigger* webhook rather than a dedicated resolution endpoint; resolving
+  approvals from there means entangling with trigger routing.
+
+Until that infra exists, Discord and WhatsApp keep their current behavior: Approve/Discard buttons
+(or links) that open the hosted approval form, which resolves the same approval. No in-place
+resolution for these channels.
