@@ -28,6 +28,7 @@ public class WebhookSpaWebFilterContributor implements SpaWebFilterContributor {
     @Override
     public List<String> getNonSpaPathPrefixes() {
         return List.of(
-            "/approvals", "/callback", "/file-entries", "/job/resume", "/oauth", "/slack", "/webhooks", "/whatsapp");
+            "/approvals", "/callback", "/file-entries", "/job/resume", "/mattermost", "/oauth", "/slack", "/webhooks",
+            "/whatsapp");
     }
 }

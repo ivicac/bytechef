@@ -65,20 +65,53 @@ public class MattermostApprovalChannel {
     private static Object perform(
         Parameters inputParameters, Parameters connectionParameters, String formUrl, ClusterElementContext context) {
 
+        List<Map<String, ?>> inputs = inputParameters.getList(INPUTS, new TypeReference<>() {}, List.of());
+
+        Http.Body body;
+
+        if (inputs.isEmpty() && formUrl != null && !formUrl.isBlank() && formUrl.contains("/resume/")) {
+            // Post interactive buttons that resolve the approval in place. Each button's integration URL points at the
+            // Mattermost interactivity endpoint and carries the tokenized resume id in its context — the same
+            // capability the hosted-form link carries, so this is no weaker than the one-click links it replaces
+            // (Mattermost does not sign these callbacks, so the resolver identity is not trusted).
+            String publicUrl = formUrl.substring(0, formUrl.indexOf("/resume/"));
+            String resumeId = formUrl.substring(formUrl.lastIndexOf('/') + 1);
+            String integrationUrl = publicUrl + "/mattermost/interactivity";
+
+            body = Http.Body.of(
+                CHANNEL_ID, inputParameters.getRequiredString(CHANNEL_ID),
+                MESSAGE, buildSummaryText(inputParameters),
+                "props", Map.of(
+                    "attachments", List.of(
+                        Map.of(
+                            "actions", List.of(
+                                actionButton("Approve", integrationUrl, resumeId, true),
+                                actionButton("Discard", integrationUrl, resumeId, false))))));
+        } else {
+            body = Http.Body.of(
+                CHANNEL_ID, inputParameters.getRequiredString(CHANNEL_ID),
+                MESSAGE, buildMessageText(inputParameters, formUrl));
+        }
+
         return context
             .http(http -> http.post("/posts"))
-            .body(
-                Http.Body.of(
-                    CHANNEL_ID, inputParameters.getRequiredString(CHANNEL_ID),
-                    MESSAGE, buildMessageText(inputParameters, formUrl)))
+            .body(body)
             .configuration(responseType(Http.ResponseType.JSON))
             .execute()
             .getBody(new TypeReference<>() {});
     }
 
-    private static String buildMessageText(Parameters inputParameters, String formUrl) {
-        List<Map<String, ?>> inputs = inputParameters.getList(INPUTS, new TypeReference<>() {}, List.of());
+    private static Map<String, Object> actionButton(String name, String integrationUrl, String resumeId,
+        boolean approved) {
 
+        return Map.of(
+            "name", name,
+            "integration", Map.of(
+                "url", integrationUrl,
+                "context", Map.of("resumeId", resumeId, "approved", approved)));
+    }
+
+    private static String buildSummaryText(Parameters inputParameters) {
         StringBuilder builder = new StringBuilder();
 
         String formTitle = inputParameters.getString(FORM_TITLE);
@@ -107,6 +140,14 @@ public class MattermostApprovalChannel {
                 .append(expiresAt)
                 .append("\n");
         }
+
+        return builder.toString();
+    }
+
+    private static String buildMessageText(Parameters inputParameters, String formUrl) {
+        List<Map<String, ?>> inputs = inputParameters.getList(INPUTS, new TypeReference<>() {}, List.of());
+
+        StringBuilder builder = new StringBuilder(buildSummaryText(inputParameters));
 
         if (formUrl == null || formUrl.isBlank()) {
             builder.append("\nThe approval form link is unavailable because no public URL is configured.");
