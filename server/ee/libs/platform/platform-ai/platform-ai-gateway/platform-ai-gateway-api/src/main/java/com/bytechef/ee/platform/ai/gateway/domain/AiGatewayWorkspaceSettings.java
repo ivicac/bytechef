@@ -26,7 +26,10 @@ public record AiGatewayWorkspaceSettings(
     Integer softBudgetWarningPct,
     Boolean redactPii,
     String blockedTerms,
-    Boolean moderationEnabled) {
+    Boolean moderationEnabled,
+    Boolean redactSecrets,
+    Boolean injectionDetectionEnabled,
+    Boolean scanResponses) {
 
     public static final String PROPERTY_KEY = "ai_gateway_workspace_settings";
 

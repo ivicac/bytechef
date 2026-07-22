@@ -11,10 +11,13 @@ type AiGatewayWorkspaceSettings {
     cacheEnabled: Boolean
     cacheTtlSeconds: Int
     defaultRoutingPolicyId: ID
+    injectionDetectionEnabled: Boolean
     logRetentionDays: Int
     moderationEnabled: Boolean
     redactPii: Boolean
+    redactSecrets: Boolean
     retryCount: Int
+    scanResponses: Boolean
     softBudgetWarningPct: Int
     timeoutMs: Int
     workspaceId: ID!
@@ -25,10 +28,13 @@ input AiGatewayWorkspaceSettingsInput {
     cacheEnabled: Boolean
     cacheTtlSeconds: Int
     defaultRoutingPolicyId: ID
+    injectionDetectionEnabled: Boolean
     logRetentionDays: Int
     moderationEnabled: Boolean
     redactPii: Boolean
+    redactSecrets: Boolean
     retryCount: Int
+    scanResponses: Boolean
     softBudgetWarningPct: Int
     timeoutMs: Int
     workspaceId: ID!

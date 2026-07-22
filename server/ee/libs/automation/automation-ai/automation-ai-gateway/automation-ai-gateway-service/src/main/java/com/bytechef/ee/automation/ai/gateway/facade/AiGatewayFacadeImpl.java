@@ -369,6 +369,11 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
             throw exception;
         }
 
+        // Dual-directional scanning: redact PII/secrets from the completion before it is traced or returned, so
+        // internal data does not leak back through the model output. Redaction only (never blocks); non-streaming path
+        // only — see chatCompletionStream for the streaming limitation.
+        response = aiGatewayGuardrails.redactResponse(response, workspaceId);
+
         processTracingHeaders(tracingHeaders, workspaceId, request, response, startTime, success, resolvedPrompt);
 
         return withGatewayMetadata(response, request, startTime);
@@ -550,6 +555,10 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
         ResolvedPrompt resolvedPrompt = resolvePrompt(promptHeaders, workspaceId, request);
 
+        // Request-direction guardrails apply as on the sync path. Response scanning (redactResponse) is NOT applied
+        // on the streaming path: tokens are flushed incrementally and a PII/secret value can straddle chunk boundaries,
+        // so per-chunk redaction is unreliable. Callers needing response-side DLP on streamed output should use
+        // non-streaming completions. See the guardrail-hardening spec for the buffered-scan follow-up.
         AiGatewayChatCompletionRequest effectiveRequest = aiGatewayGuardrails.apply(
             resolvedPrompt != null
                 ? prependSystemMessage(request, resolvedPrompt.content())
@@ -807,6 +816,10 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
 
         Long workspaceId = resolveWorkspaceIdFromTags(request.tags());
 
+        // Cover the embeddings path with the request-direction guardrails (redact PII/secrets, block terms/injection)
+        // before the input leaves ByteChef — previously only chat completions were guardrailed.
+        List<String> guardrailedInputs = aiGatewayGuardrails.applyToInputs(request.input(), workspaceId);
+
         long startTime = System.currentTimeMillis();
 
         ModelResolution modelResolution = resolveModel(request.model());
@@ -817,7 +830,7 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
         EmbeddingModel embeddingModel = aiGatewayEmbeddingModelFactory.getEmbeddingModel(provider);
 
         EmbeddingRequest embeddingRequest = new EmbeddingRequest(
-            request.input(),
+            guardrailedInputs,
             org.springframework.ai.embedding.EmbeddingOptions.builder()
                 .model(model.getName())
                 .build());

@@ -675,20 +675,37 @@ trigger + post-turn query invalidation.
 
 ### AI Gateway content guardrails (EE)
 
-- `AiGatewayGuardrails` runs in `AiGatewayFacadeImpl` on sync + streaming paths after prompt
-  resolution. Effective policy per request = global properties
-  (`bytechef.ai.gateway.guardrails.pii-redaction-enabled` / `blocked-terms` /
-  `moderation-enabled`) OR'd/unioned with the per-workspace `AiGatewayWorkspaceSettings`
-  fields (`redactPii`, `blockedTerms`, `moderationEnabled`). The workspace `redactPii`
-  setting drives BOTH trace-payload digesting and upstream prompt masking.
+- `AiGatewayGuardrails` runs in `AiGatewayFacadeImpl` on chat sync + streaming paths (via
+  `apply`) and the embeddings path (via `applyToInputs`) after prompt resolution. Effective
+  policy per request = global properties (`bytechef.ai.gateway.guardrails.*`) OR'd/unioned with
+  the per-workspace `AiGatewayWorkspaceSettings` fields. Everything is off by default. Six
+  request-direction controls:
+  - PII redaction — `pii-redaction-enabled` / `redactPii` (email, SSN, CC, phone, IPv4 →
+    `[REDACTED_*]`). The workspace `redactPii` also drives trace-payload digesting.
+  - Secret redaction — `secret-redaction-enabled` / `redactSecrets` (AWS/GitHub/Slack/OpenAI/
+    Stripe/Google keys, JWTs, PEM private keys → `[REDACTED_SECRET]`). High-signal curated
+    regex subset; entropy detection stays in the workflow-layer `SecretKeyDetectorUtils`.
+  - Blocked terms — `blocked-terms` / `blockedTerms` (case-insensitive substring block).
+  - Moderation — `moderation-enabled` / `moderationEnabled`, needs an
+    `AiGatewayModerationClassifier` bean.
+  - Injection detection — `injection-detection-enabled` / `injectionDetectionEnabled`, needs an
+    `AiGatewayInjectionClassifier` bean.
+- Dual-directional: response scanning (`response-scan-enabled` / `scanResponses`) redacts
+  PII+secrets from the completion via `redactResponse` before it is traced/returned. Redaction
+  only, never blocks. **Non-streaming path only** — SSE tokens can straddle chunk boundaries, so
+  the streaming path scans requests but not responses (documented limitation; buffered-scan is a
+  Phase-2 follow-up).
+- Order (request): redact PII → redact secrets → blocked terms → moderation → injection; every
+  check sees the redacted text. Embeddings run the same minus moderation. Response path is
+  redaction only.
 - Violations throw `AiGatewayGuardrailException` (lives in `platform-ai-gateway-api` so the
   public-rest `AiGatewayExceptionHandler` can map it) → HTTP 422 `guardrail_violation`; the
   wire message never echoes the offending content or matched term.
-- Moderation: `AiGatewayModerationClassifier` SPI; `PromptBasedModerationClassifier`
-  registers only when `bytechef.ai.gateway.guardrails.moderation-model` names a catalog model
-  identifier and fails open on any error. Guardrails takes the classifier as a Spring-optional
-  `@Nullable` constructor dep. Order: redact → blocked terms → moderation (checks see
-  redacted text). Regexes must stay free of nested optional quantifiers (SpotBugs ReDoS).
+- Both classifier SPIs (`AiGatewayModerationClassifier`, `AiGatewayInjectionClassifier`) are
+  Spring-optional `@Nullable` constructor deps; their `PromptBased*` impls register only when
+  `moderation-model` / `injection-model` name a catalog model identifier and fail open on any
+  error. Regexes must stay free of nested optional quantifiers (SpotBugs ReDoS). Spec:
+  `docs/superpowers/specs/2026-07-22-ai-gateway-guardrail-hardening-design.md`.
 
 ### Sidebar navigation groups (Client)
 

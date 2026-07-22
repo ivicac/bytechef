@@ -10,8 +10,10 @@ package com.bytechef.ee.automation.ai.gateway.guardrail;
 import com.bytechef.ee.automation.ai.gateway.service.AiGatewayWorkspaceSettingsService;
 import com.bytechef.ee.platform.ai.gateway.domain.AiGatewayWorkspaceSettings;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionRequest;
+import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatCompletionResponse;
 import com.bytechef.ee.platform.ai.gateway.dto.AiGatewayChatMessage;
 import com.bytechef.ee.platform.ai.gateway.exception.AiGatewayGuardrailException;
+import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayInjectionClassifier;
 import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayModerationClassifier;
 import java.util.ArrayList;
 import java.util.LinkedHashSet;
@@ -28,27 +30,32 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 /**
- * Applies inline content guardrails to an AI Gateway request before it is routed upstream:
+ * Applies inline content guardrails to AI Gateway traffic before it is routed upstream and, optionally, to the model
+ * output before it is returned. All guardrails are off by default; effective policy per request is the union of global
+ * {@code bytechef.ai.gateway.guardrails.*} properties and the request workspace's {@link AiGatewayWorkspaceSettings}.
  *
  * <ul>
- * <li><b>PII redaction</b> — active when {@code bytechef.ai.gateway.guardrails.pii-redaction-enabled} is set globally
- * OR the workspace's {@code redactPii} setting is on. Message content is scanned for common personally identifiable
- * information (email, US SSN, credit-card number, phone number, IPv4 address) and each match is replaced with a
- * {@code [REDACTED_*]} placeholder before the prompt leaves ByteChef.</li>
- * <li><b>Blocked terms</b> — the union of the global {@code bytechef.ai.gateway.guardrails.blocked-terms} list and the
- * workspace's {@code blockedTerms} setting (both comma-separated). A request whose message content contains any term
- * (case-insensitive) is rejected with an {@link AiGatewayGuardrailException}.</li>
- * <li><b>Model-based moderation</b> — active when {@code bytechef.ai.gateway.guardrails.moderation-enabled} is set
- * globally OR the workspace's {@code moderationEnabled} setting is on, and an {@link AiGatewayModerationClassifier}
- * bean is present (registered when {@code bytechef.ai.gateway.guardrails.moderation-model} names a gateway model). A
- * message the classifier flags is rejected with an {@link AiGatewayGuardrailException}. The classifier fails open, so a
- * moderation-model outage never hard-blocks traffic.</li>
+ * <li><b>PII redaction</b> — {@code pii-redaction-enabled} / workspace {@code redactPii}. Email, US SSN, credit-card,
+ * phone, and IPv4 matches are replaced with {@code [REDACTED_*]} placeholders.</li>
+ * <li><b>Secret redaction</b> — {@code secret-redaction-enabled} / workspace {@code redactSecrets}. High-signal
+ * developer-secret shapes (cloud/provider API keys, tokens, JWTs, PEM private keys) are replaced with
+ * {@code [REDACTED_SECRET]}.</li>
+ * <li><b>Blocked terms</b> — union of the global {@code blocked-terms} list and the workspace's {@code blockedTerms}
+ * (both comma-separated). A request whose content contains any term (case-insensitive) is rejected.</li>
+ * <li><b>Model-based moderation</b> — {@code moderation-enabled} / workspace {@code moderationEnabled}, when an
+ * {@link AiGatewayModerationClassifier} bean is present. Flagged content is rejected. Fails open.</li>
+ * <li><b>Prompt-injection detection</b> — {@code injection-detection-enabled} / workspace
+ * {@code injectionDetectionEnabled}, when an {@link AiGatewayInjectionClassifier} bean is present. Content the
+ * classifier judges to be a jailbreak / instruction-override / exfiltration attempt is rejected. Fails open.</li>
+ * <li><b>Response scanning</b> — {@code response-scan-enabled} / workspace {@code scanResponses}. Model output is
+ * redacted for PII and secrets before it is returned (redaction only, never blocking) so internal data does not leak
+ * back through completions. Applies to the non-streaming completion path; see {@link #redactResponse}.</li>
  * </ul>
  *
  * <p>
- * Everything is off by default. Redaction runs before the blocked-term check and moderation so both evaluate the
- * redacted text. The redactor is deterministic and side-effect-free, so it is safe to run on every message of every
- * request.
+ * Redaction runs before the blocked-term check, moderation, and injection detection, so those checks all evaluate the
+ * redacted text. The redactors are deterministic and side-effect-free, so they are safe to run on every message of
+ * every request. Regexes deliberately avoid nested optional quantifiers (no catastrophic backtracking / ReDoS).
  * </p>
  *
  * @version ee
@@ -60,6 +67,8 @@ public class AiGatewayGuardrails {
 
     private static final Logger log = LoggerFactory.getLogger(AiGatewayGuardrails.class);
 
+    private static final String SECRET_PLACEHOLDER = "[REDACTED_SECRET]";
+
     private static final Pattern EMAIL_PATTERN = Pattern.compile("[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}");
     private static final Pattern SSN_PATTERN = Pattern.compile("\\b\\d{3}-\\d{2}-\\d{4}\\b");
     private static final Pattern CREDIT_CARD_PATTERN = Pattern.compile("\\b(?:\\d{4}[ -]?){3}\\d{4}\\b");
@@ -69,76 +78,85 @@ public class AiGatewayGuardrails {
     private static final Pattern IPV4_PATTERN = Pattern.compile(
         "\\b(?:(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\.){3}(?:25[0-5]|2[0-4]\\d|1?\\d?\\d)\\b");
 
+    // Developer-secret shapes. Each is anchored, fixed-length, or bounded by a single quantifier / literal terminator —
+    // no nested optional quantifiers, so all are ReDoS-safe. This is the high-signal subset; entropy/random-string
+    // detection lives in the workflow-layer SecretKeyDetectorUtils for callers who want it.
+    private static final List<Pattern> SECRET_PATTERNS = List.of(
+        // PEM private-key block (redact the whole block, not just the marker)
+        Pattern.compile("-----BEGIN [A-Z ]*PRIVATE KEY-----[\\s\\S]*?-----END [A-Z ]*PRIVATE KEY-----"),
+        // AWS access key id
+        Pattern.compile("\\bAKIA[0-9A-Z]{16}\\b"),
+        // GitHub personal/OAuth/app tokens (classic) and fine-grained PATs
+        Pattern.compile("\\bgh[pousr]_[A-Za-z0-9]{36}\\b"),
+        Pattern.compile("\\bgithub_pat_[A-Za-z0-9_]{22,}\\b"),
+        // OpenAI API keys (incl. project-scoped)
+        Pattern.compile("\\bsk-(?:proj-)?[A-Za-z0-9_-]{20,}\\b"),
+        // Slack tokens
+        Pattern.compile("\\bxox[baprs]-[A-Za-z0-9-]{10,}\\b"),
+        // Stripe secret / restricted live keys
+        Pattern.compile("\\b[sr]k_live_[0-9a-zA-Z]{24}\\b"),
+        // Google API keys
+        Pattern.compile("\\bAIza[0-9A-Za-z_-]{35}\\b"),
+        // JSON Web Tokens (three base64url segments)
+        Pattern.compile("\\beyJ[A-Za-z0-9_-]+\\.eyJ[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+"));
+
     private final AiGatewayWorkspaceSettingsService aiGatewayWorkspaceSettingsService;
     private final List<String> globalBlockedTerms;
+    private final boolean globalInjectionDetectionEnabled;
     private final boolean globalModerationEnabled;
     private final boolean globalPiiRedactionEnabled;
+    private final boolean globalResponseScanEnabled;
+    private final boolean globalSecretRedactionEnabled;
+    private final @Nullable AiGatewayInjectionClassifier injectionClassifier;
     private final @Nullable AiGatewayModerationClassifier moderationClassifier;
 
     public AiGatewayGuardrails(
         AiGatewayWorkspaceSettingsService aiGatewayWorkspaceSettingsService,
         @Nullable AiGatewayModerationClassifier moderationClassifier,
+        @Nullable AiGatewayInjectionClassifier injectionClassifier,
         @Value("${bytechef.ai.gateway.guardrails.pii-redaction-enabled:false}") boolean piiRedactionEnabled,
+        @Value("${bytechef.ai.gateway.guardrails.secret-redaction-enabled:false}") boolean secretRedactionEnabled,
         @Value("${bytechef.ai.gateway.guardrails.blocked-terms:}") String blockedTerms,
-        @Value("${bytechef.ai.gateway.guardrails.moderation-enabled:false}") boolean moderationEnabled) {
+        @Value("${bytechef.ai.gateway.guardrails.moderation-enabled:false}") boolean moderationEnabled,
+        @Value("${bytechef.ai.gateway.guardrails.injection-detection-enabled:false}") boolean injectionDetectionEnabled,
+        @Value("${bytechef.ai.gateway.guardrails.response-scan-enabled:false}") boolean responseScanEnabled) {
 
         this.aiGatewayWorkspaceSettingsService = aiGatewayWorkspaceSettingsService;
         this.globalBlockedTerms = parseBlockedTerms(blockedTerms);
+        this.globalInjectionDetectionEnabled = injectionDetectionEnabled;
         this.globalModerationEnabled = moderationEnabled;
         this.globalPiiRedactionEnabled = piiRedactionEnabled;
+        this.globalResponseScanEnabled = responseScanEnabled;
+        this.globalSecretRedactionEnabled = secretRedactionEnabled;
+        this.injectionClassifier = injectionClassifier;
         this.moderationClassifier = moderationClassifier;
     }
 
     /**
-     * Returns the request with guardrails applied for the given workspace: PII redacted (when enabled globally or for
-     * the workspace), blocked terms rejected (global list plus the workspace's), and — when moderation is active and a
-     * classifier is available — flagged content rejected. Returns the request unchanged when no guardrail is active.
+     * Returns the chat-completion request with request-direction guardrails applied for the given workspace: PII and
+     * secrets redacted, blocked terms rejected, and — when enabled and a classifier is available — content flagged by
+     * moderation or injection detection rejected. Returns the request unchanged when no guardrail is active.
      *
      * @param request     the inbound chat-completion request
      * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed (global
      *                    guardrails still apply)
      * @return the guardrailed request
-     * @throws AiGatewayGuardrailException if a message contains a blocked term or is flagged by moderation
+     * @throws AiGatewayGuardrailException if a message contains a blocked term or is flagged by moderation or injection
+     *                                     detection
      */
     public AiGatewayChatCompletionRequest apply(
         AiGatewayChatCompletionRequest request, @Nullable Long workspaceId) {
 
-        AiGatewayWorkspaceSettings settings = findSettings(workspaceId);
+        EffectivePolicy policy = resolvePolicy(workspaceId);
 
-        boolean redactPii = globalPiiRedactionEnabled ||
-            (settings != null && Boolean.TRUE.equals(settings.redactPii()));
-
-        Set<String> blockedTerms = new LinkedHashSet<>(globalBlockedTerms);
-
-        if (settings != null && settings.blockedTerms() != null) {
-            blockedTerms.addAll(parseBlockedTerms(settings.blockedTerms()));
-        }
-
-        boolean moderate = moderationClassifier != null &&
-            (globalModerationEnabled || (settings != null && Boolean.TRUE.equals(settings.moderationEnabled())));
-
-        if (!redactPii && blockedTerms.isEmpty() && !moderate) {
+        if (!policy.anyChatGuardrailActive()) {
             return request;
         }
 
         List<AiGatewayChatMessage> guardrailedMessages = new ArrayList<>();
 
         for (AiGatewayChatMessage message : request.messages()) {
-            String content = message.content();
-
-            if (content != null) {
-                if (redactPii) {
-                    content = redactPii(content);
-                }
-
-                checkBlockedTerms(content, blockedTerms);
-
-                if (moderate && moderationClassifier.isFlagged(content)) {
-                    log.warn("AI Gateway request rejected by moderation classifier");
-
-                    throw new AiGatewayGuardrailException("Request rejected by content moderation");
-                }
-            }
+            String content = checkAndRedact(message.content(), policy);
 
             guardrailedMessages.add(
                 new AiGatewayChatMessage(
@@ -149,6 +167,103 @@ public class AiGatewayGuardrails {
             request.model(), guardrailedMessages, request.temperature(), request.maxTokens(), request.topP(),
             request.stream(), request.routingPolicy(), request.cache(), request.toolChoice(), request.tools(),
             request.tags());
+    }
+
+    /**
+     * Returns the embedding inputs with request-direction guardrails applied: PII and secrets redacted, blocked terms
+     * and injection attempts rejected. Moderation is intentionally not run on embedding inputs (they are documents /
+     * records, not conversational prompts). Returns the inputs unchanged when no relevant guardrail is active.
+     *
+     * @param inputs      the embedding input strings
+     * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed
+     * @return the guardrailed inputs
+     * @throws AiGatewayGuardrailException if an input contains a blocked term or is flagged by injection detection
+     */
+    public List<String> applyToInputs(List<String> inputs, @Nullable Long workspaceId) {
+        if (inputs == null || inputs.isEmpty()) {
+            return inputs;
+        }
+
+        EffectivePolicy policy = resolvePolicy(workspaceId);
+
+        if (!policy.anyInputGuardrailActive()) {
+            return inputs;
+        }
+
+        List<String> guardrailedInputs = new ArrayList<>(inputs.size());
+
+        for (String input : inputs) {
+            guardrailedInputs.add(checkAndRedact(input, policy, false));
+        }
+
+        return guardrailedInputs;
+    }
+
+    /**
+     * Returns the completion response with each choice's message content redacted for PII and secrets when response
+     * scanning is enabled for the workspace (or globally), otherwise the response unchanged. Response scanning is
+     * redaction only — it never blocks — so a caller always receives an answer, just with internal data masked. Applies
+     * to the non-streaming completion path; the SSE streaming path emits tokens incrementally where a value can
+     * straddle chunk boundaries, so it is not scanned. Tool-call arguments are left untouched so function calling is
+     * not corrupted.
+     *
+     * @param response    the completion response
+     * @param workspaceId the workspace the request is attributed to, or {@code null} when unattributed
+     * @return the response with redacted content, or the original when response scanning is inactive or nothing matched
+     */
+    public AiGatewayChatCompletionResponse redactResponse(
+        AiGatewayChatCompletionResponse response, @Nullable Long workspaceId) {
+
+        if (response == null || response.choices() == null || response.choices()
+            .isEmpty()) {
+
+            return response;
+        }
+
+        EffectivePolicy policy = resolvePolicy(workspaceId);
+
+        if (!policy.scanResponses()) {
+            return response;
+        }
+
+        List<AiGatewayChatCompletionResponse.Choice> choices = response.choices();
+        List<AiGatewayChatCompletionResponse.Choice> redactedChoices = new ArrayList<>(choices.size());
+        boolean changed = false;
+
+        for (AiGatewayChatCompletionResponse.Choice choice : choices) {
+            AiGatewayChatMessage message = choice.message();
+            String content = message == null ? null : message.content();
+
+            if (content == null) {
+                redactedChoices.add(choice);
+
+                continue;
+            }
+
+            String redacted = redactAll(content);
+
+            if (redacted.equals(content)) {
+                redactedChoices.add(choice);
+
+                continue;
+            }
+
+            changed = true;
+
+            AiGatewayChatMessage redactedMessage = new AiGatewayChatMessage(
+                message.role(), redacted, message.contentBlocks(), message.toolCalls(), message.toolCallId());
+
+            redactedChoices.add(
+                new AiGatewayChatCompletionResponse.Choice(choice.index(), redactedMessage, choice.finishReason()));
+        }
+
+        if (!changed) {
+            return response;
+        }
+
+        return new AiGatewayChatCompletionResponse(
+            response.id(), response.object(), response.created(), response.model(), redactedChoices, response.usage(),
+            response.gatewayMetadata());
     }
 
     /**
@@ -172,6 +287,91 @@ public class AiGatewayGuardrails {
             .replaceAll("[REDACTED_IP]");
 
         return redacted;
+    }
+
+    /**
+     * Replaces recognised developer-secret shapes (cloud/provider API keys, tokens, JWTs, PEM private keys) in
+     * {@code content} with a {@code [REDACTED_SECRET]} placeholder.
+     */
+    public static String redactSecrets(@Nullable String content) {
+        if (content == null || content.isEmpty()) {
+            return content;
+        }
+
+        String redacted = content;
+
+        for (Pattern secretPattern : SECRET_PATTERNS) {
+            redacted = secretPattern.matcher(redacted)
+                .replaceAll(SECRET_PLACEHOLDER);
+        }
+
+        return redacted;
+    }
+
+    private static String redactAll(String content) {
+        return redactSecrets(redactPii(content));
+    }
+
+    private String checkAndRedact(@Nullable String content, EffectivePolicy policy) {
+        return checkAndRedact(content, policy, policy.moderate());
+    }
+
+    private String checkAndRedact(@Nullable String content, EffectivePolicy policy, boolean moderate) {
+        if (content == null) {
+            return null;
+        }
+
+        String redacted = content;
+
+        if (policy.redactPii()) {
+            redacted = redactPii(redacted);
+        }
+
+        if (policy.redactSecrets()) {
+            redacted = redactSecrets(redacted);
+        }
+
+        checkBlockedTerms(redacted, policy.blockedTerms());
+
+        if (moderate && moderationClassifier != null && moderationClassifier.isFlagged(redacted)) {
+            log.warn("AI Gateway request rejected by moderation classifier");
+
+            throw new AiGatewayGuardrailException("Request rejected by content moderation");
+        }
+
+        if (policy.detectInjection() && injectionClassifier != null && injectionClassifier.isInjection(redacted)) {
+            log.warn("AI Gateway request rejected by injection detection");
+
+            throw new AiGatewayGuardrailException("Request rejected by prompt-injection detection");
+        }
+
+        return redacted;
+    }
+
+    private EffectivePolicy resolvePolicy(@Nullable Long workspaceId) {
+        AiGatewayWorkspaceSettings settings = findSettings(workspaceId);
+
+        boolean redactPii = globalPiiRedactionEnabled ||
+            (settings != null && Boolean.TRUE.equals(settings.redactPii()));
+        boolean redactSecrets = globalSecretRedactionEnabled ||
+            (settings != null && Boolean.TRUE.equals(settings.redactSecrets()));
+
+        Set<String> blockedTerms = new LinkedHashSet<>(globalBlockedTerms);
+
+        if (settings != null && settings.blockedTerms() != null) {
+            blockedTerms.addAll(parseBlockedTerms(settings.blockedTerms()));
+        }
+
+        boolean moderate = moderationClassifier != null &&
+            (globalModerationEnabled || (settings != null && Boolean.TRUE.equals(settings.moderationEnabled())));
+        boolean detectInjection = injectionClassifier != null &&
+            (globalInjectionDetectionEnabled ||
+                (settings != null && Boolean.TRUE.equals(settings.injectionDetectionEnabled())));
+        boolean scanResponses = globalResponseScanEnabled ||
+            (settings != null && Boolean.TRUE.equals(settings.scanResponses()));
+
+        return new EffectivePolicy(
+            redactPii, redactSecrets, blockedTerms, moderate, detectInjection, scanResponses);
     }
 
     private @Nullable AiGatewayWorkspaceSettings findSettings(@Nullable Long workspaceId) {
@@ -227,5 +427,21 @@ public class AiGatewayGuardrails {
         }
 
         return terms;
+    }
+
+    /**
+     * The guardrail policy resolved for one request from the union of global properties and workspace settings.
+     */
+    private record EffectivePolicy(
+        boolean redactPii, boolean redactSecrets, Set<String> blockedTerms, boolean moderate, boolean detectInjection,
+        boolean scanResponses) {
+
+        boolean anyChatGuardrailActive() {
+            return redactPii || redactSecrets || !blockedTerms.isEmpty() || moderate || detectInjection;
+        }
+
+        boolean anyInputGuardrailActive() {
+            return redactPii || redactSecrets || !blockedTerms.isEmpty() || detectInjection;
+        }
     }
 }

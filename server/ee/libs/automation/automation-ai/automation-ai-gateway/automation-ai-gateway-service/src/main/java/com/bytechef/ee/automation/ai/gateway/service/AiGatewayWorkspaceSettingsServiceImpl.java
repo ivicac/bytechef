@@ -39,10 +39,13 @@ class AiGatewayWorkspaceSettingsServiceImpl implements AiGatewayWorkspaceSetting
     private static final String KEY_CACHE_ENABLED = "cacheEnabled";
     private static final String KEY_CACHE_TTL_SECONDS = "cacheTtlSeconds";
     private static final String KEY_DEFAULT_ROUTING_POLICY_ID = "defaultRoutingPolicyId";
+    private static final String KEY_INJECTION_DETECTION_ENABLED = "injectionDetectionEnabled";
     private static final String KEY_LOG_RETENTION_DAYS = "logRetentionDays";
     private static final String KEY_MODERATION_ENABLED = "moderationEnabled";
     private static final String KEY_REDACT_PII = "redactPii";
+    private static final String KEY_REDACT_SECRETS = "redactSecrets";
     private static final String KEY_RETRY_COUNT = "retryCount";
+    private static final String KEY_SCAN_RESPONSES = "scanResponses";
     private static final String KEY_SOFT_BUDGET_WARNING_PCT = "softBudgetWarningPct";
     private static final String KEY_TIMEOUT_MS = "timeoutMs";
 
@@ -120,6 +123,18 @@ class AiGatewayWorkspaceSettingsServiceImpl implements AiGatewayWorkspaceSetting
             value.put(KEY_MODERATION_ENABLED, settings.moderationEnabled());
         }
 
+        if (settings.redactSecrets() != null) {
+            value.put(KEY_REDACT_SECRETS, settings.redactSecrets());
+        }
+
+        if (settings.injectionDetectionEnabled() != null) {
+            value.put(KEY_INJECTION_DETECTION_ENABLED, settings.injectionDetectionEnabled());
+        }
+
+        if (settings.scanResponses() != null) {
+            value.put(KEY_SCAN_RESPONSES, settings.scanResponses());
+        }
+
         return value;
     }
 
@@ -135,7 +150,10 @@ class AiGatewayWorkspaceSettingsServiceImpl implements AiGatewayWorkspaceSetting
             intValue(value, KEY_SOFT_BUDGET_WARNING_PCT),
             (Boolean) value.get(KEY_REDACT_PII),
             (String) value.get(KEY_BLOCKED_TERMS),
-            (Boolean) value.get(KEY_MODERATION_ENABLED));
+            (Boolean) value.get(KEY_MODERATION_ENABLED),
+            (Boolean) value.get(KEY_REDACT_SECRETS),
+            (Boolean) value.get(KEY_INJECTION_DETECTION_ENABLED),
+            (Boolean) value.get(KEY_SCAN_RESPONSES));
     }
 
     private static Integer intValue(Map<String, ?> value, String key) {

@@ -58,12 +58,16 @@ class AiGatewayWorkspaceSettingsGraphQlController {
             input.softBudgetWarningPct(),
             input.redactPii(),
             input.blockedTerms(),
-            input.moderationEnabled()));
+            input.moderationEnabled(),
+            input.redactSecrets(),
+            input.injectionDetectionEnabled(),
+            input.scanResponses()));
     }
 
     public record AiGatewayWorkspaceSettingsInput(
         String blockedTerms, Boolean cacheEnabled, Integer cacheTtlSeconds, Long defaultRoutingPolicyId,
-        Integer logRetentionDays, Boolean moderationEnabled, Boolean redactPii, Integer retryCount,
-        Integer softBudgetWarningPct, Integer timeoutMs, Long workspaceId) {
+        Boolean injectionDetectionEnabled, Integer logRetentionDays, Boolean moderationEnabled, Boolean redactPii,
+        Boolean redactSecrets, Integer retryCount, Boolean scanResponses, Integer softBudgetWarningPct,
+        Integer timeoutMs, Long workspaceId) {
     }
 }
