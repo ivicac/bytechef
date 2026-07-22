@@ -30,6 +30,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
@@ -39,6 +41,8 @@ import org.springframework.util.Assert;
  */
 @Service
 public class DataTableServiceImpl implements DataTableService {
+
+    private static final Logger log = LoggerFactory.getLogger(DataTableServiceImpl.class);
 
     private final DataTableAuditPublisher dataTableAuditPublisher;
     private final DataTableRepository dataTableRepository;
@@ -248,22 +252,19 @@ public class DataTableServiceImpl implements DataTableService {
             DataTable dataTable = dataTableRepository.findByName(baseName)
                 .orElse(null);
 
-            Long id;
-            String description;
-
+            // Every path that creates a physical dt_ table registers it in the same transaction, so an unregistered
+            // physical table is an anomaly (e.g. manual DB edit). Listing is a read: skip it rather than self-heal the
+            // registry, which would require a write and break under a read-only transaction.
             if (dataTable == null) {
-                id = checkRegistry(baseName, null);
-
-                dataTableInfos.add(new DataTableInfo(id, baseName, null, columnSpecs, null));
+                log.warn("Skipping unregistered physical data table '{}' in environment {}", baseName, environmentId);
 
                 continue;
-            } else {
-                id = dataTable.getId();
-                description = dataTable.getDescription();
             }
 
             dataTableInfos.add(
-                new DataTableInfo(id, baseName, description, columnSpecs, dataTable.getLastModifiedDate()));
+                new DataTableInfo(
+                    dataTable.getId(), baseName, dataTable.getDescription(), columnSpecs,
+                    dataTable.getLastModifiedDate()));
         }
 
         return dataTableInfos;
