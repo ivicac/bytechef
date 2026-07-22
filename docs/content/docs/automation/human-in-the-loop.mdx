@@ -63,9 +63,11 @@ links in delivered messages — from silently resolving approvals.
 Channels fan out simultaneously; the first response wins and later resolutions are rejected.
 Delivery is best-effort per channel: a channel that fails to send (deleted Slack channel, closed
 WhatsApp window) is logged and skipped while the others still deliver and the run still pauses —
-the step only fails when every configured channel fails. Each channel also receives the request's
-computed expiry (the `expiresAt` input, ISO-8601), which the newer channels include in the
-message.
+the step only fails when every configured channel fails. Operators can track per-channel
+delivery with the `bytechef_approval_request` (successes) and
+`bytechef_approval_delivery_failure` (failures) counters, both tagged by channel. Each channel
+also receives the request's computed expiry (the `expiresAt` input, ISO-8601) and includes the
+deadline in its message.
 
 ## Where the approval card appears
 
@@ -86,10 +88,11 @@ state.
 ## Expiry
 
 The Approval action's **Expires In** / **Expires In Unit** properties (hours or days) control how
-long the request stays resolvable; unset, it defaults to 60 days. For a gated tool, set
-`approvalExpiresIn` / `approvalExpiresInUnit` in the tool's parameters (next to
-`requiresApproval`) — the editor exposes only the Requires approval checkbox today, so gate
-expiry is configured in the workflow definition.
+long the request stays resolvable; unset, it defaults to 60 days. For a gated tool, pick a
+preset from the **Approval expires in** submenu in the tool's menu in the AI Agent editor (or
+set `approvalExpiresIn` / `approvalExpiresInUnit` in the tool's parameters directly). Channel
+messages show the deadline, and an approval delivered to the Approval Tasks page gets the expiry
+as its due date.
 
 An expired approval can no longer be resolved (the form and
 the resume endpoint reject it), and a background sweep fails the paused run shortly afterwards so
@@ -99,6 +102,13 @@ staying open with a dead form link. Operators can watch `bytechef_approval_pendi
 currently blocked) and `bytechef_approval_expired` (approvals that lapsed, by source) and disable
 the sweep with `bytechef.workflow.execution.approval-expiry.enabled=false` (the task
 reconciliation with `bytechef.automation.approval-task.reconciliation.enabled=false`).
+
+Before an approval lapses, ByteChef can remind the operators: subscribe a notification (email,
+webhook, or Slack — Settings → Notifications) to the **Approval expiring** event, and each run
+still pending inside the lead-time window (default 24 hours before expiry, configurable via
+`bytechef.workflow.execution.approval-reminder.lead-time`) fires it once, with the workflow
+name, expiry, and form link. Disable with
+`bytechef.workflow.execution.approval-reminder.enabled=false`.
 
 ## Outcome shape
 

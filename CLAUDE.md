@@ -466,11 +466,19 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   folds a persist-only markdown form-link marker into accumulated text for reload.
 - **Channel fan-out is best-effort**: `ApprovalRequestApprovalAction.deliverToChannels` and
   `ApprovalGateToolCallback.deliverApprovalRequest` try/catch per channel (warn log), failing the
-  step ONLY when every configured channel fails. Channels receive the computed expiry under
-  `ApprovalChannelFunction.EXPIRES_AT` (ISO-8601). One-click `?approved=` links NEVER auto-submit:
+  step ONLY when every configured channel fails. Per-channel counters:
+  `bytechef_approval_request` (success) + `bytechef_approval_delivery_failure` (failure), both
+  incremented in `ClusterElementDefinitionServiceImpl.executeApprovalChannel`. Channels receive
+  the computed expiry under `ApprovalChannelFunction.EXPIRES_AT` (ISO-8601) and render it in
+  their messages; the approval-task channel maps it onto the task's `dueDate`; the chat channel
+  carries it in the `approval_request` event. Markdown channels (Mattermost, Rocket.Chat) escape
+  link-forming characters in title/description — gate descriptions embed AI-chosen tool args.
+  One-click `?approved=` links NEVER auto-submit:
   `ApprovalForm` shows a pre-selected Confirm view (link scanners must not resolve approvals).
   Delivery channels: chat, Slack, Discord, Telegram, Mattermost, Rocket.Chat, Gmail, Outlook 365,
   generic SMTP email, WhatsApp (Meta/Twilio/Infobip), SMS (Twilio/Infobip), approval task.
+  In-place Slack resolution is spec'd but NOT implemented (needs a connection-schema decision):
+  `docs/superpowers/specs/2026-07-22-slack-inplace-approval-interactivity-design.md`.
 - **Tool gate**: `requiresApproval: true` in a TOOLS cluster-element entry's parameters
   (`ToolConstants.REQUIRES_APPROVAL`; editor checkbox in `AiAgentToolDropdownMenu`) wraps the
   callback in `ApprovalGateToolCallback` (inside the observable/audit wrapper). Suspends via the
@@ -516,7 +524,14 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   `ApprovalExpiryMonitor` (platform-coordinator, 15-min per-tenant sweep over
   `getStaleJobs(STOPPED, now)`, `bytechef.workflow.execution.approval-expiry.enabled` default on)
   fails runs whose suspend `expiresAt` passed. Metrics: `bytechef_approval_expired{source=resume|sweep}`
-  counter + `bytechef_approval_pending` gauge. `ApprovalTaskReconciliationMonitor`
+  counter + `bytechef_approval_pending` gauge. `ApprovalReminderMonitor` (platform-coordinator,
+  15-min sweep, `bytechef.workflow.execution.approval-reminder.*` — `enabled` default on,
+  `lead-time` default PT24H) fires a `JOB_APPROVAL_EXPIRING` notification (new
+  `NotificationEvent.Type`, append-only ordinal; `ApprovalReminder{Email,Slack,Webhook}NotificationHandler`)
+  through the central notification registry once per run (idempotence via job metadata
+  `approvalReminderSentAt`), carrying expiry + form URL in `NotificationHandlerContext`.
+  The gate's expiry is editable via the "Approval expires in" preset submenu in
+  `AiAgentToolDropdownMenu` (expiresIn 0 = clear override). `ApprovalTaskReconciliationMonitor`
   (automation-task-service, per-tenant sweep) closes OPEN/IN_PROGRESS Approval Task rows whose
   backing run is no longer STOPPED: COMPLETED run → COMPLETED row (covers cross-process resumes
   the in-JVM `ApprovalTaskCompletionListener` misses), FAILED/CANCELLED/purged run → EXPIRED row
