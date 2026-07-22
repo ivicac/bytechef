@@ -20,10 +20,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.PosixFilePermission;
+import java.nio.file.attribute.PosixFilePermissions;
 import java.util.EnumSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Reads and writes the CLI configuration file, an INI-style file with one section per named profile.
@@ -31,6 +33,9 @@ import java.util.Map;
  * @author Ivica Cardic
  */
 public final class ConfigFile {
+
+    private static final Set<PosixFilePermission> OWNER_ONLY = EnumSet.of(
+        PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE);
 
     private ConfigFile() {
     }
@@ -120,9 +125,14 @@ public final class ConfigFile {
             stringBuilder.append('\n');
         }
 
+        // Create the file with owner-only permissions BEFORE writing the token, so the secret is
+        // never briefly readable by group/other during the write.
+        if (!Files.exists(file)) {
+            Files.createFile(file, PosixFilePermissions.asFileAttribute(OWNER_ONLY));
+        }
+
+        Files.setPosixFilePermissions(file, OWNER_ONLY);
         Files.writeString(file, stringBuilder.toString());
-        Files.setPosixFilePermissions(
-            file, EnumSet.of(PosixFilePermission.OWNER_READ, PosixFilePermission.OWNER_WRITE));
     }
 
     private static Profile toProfile(Map<String, String> values) {
