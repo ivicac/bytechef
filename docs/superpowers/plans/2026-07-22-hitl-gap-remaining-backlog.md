@@ -228,54 +228,44 @@ ByteChef endpoint → verify → `JobResumeFacade.resumeJob` → rewrite the mes
   so the token in context is the capability (same as the hosted-form link) and the reviewer identity
   is not recorded.
 
-### Open — Telegram, Discord (need a short-token store wired into delivery)
+- **Telegram** — inline-keyboard callback buttons with `callback_data = <shortId>:a|d`; the bot
+  webhook (set with a secret token) points at `/telegram/interactivity`, verified by the
+  `X-Telegram-Bot-Api-Secret-Token` header. Because `callback_data` caps at 64 bytes, the channel
+  mints a short id at send time via `POST /approval/short-token` (its own `HttpClient` — it's a
+  ServiceLoader component with no Spring beans) and keeps the form link in the text as a fallback.
+  Resolve → `answerCallbackQuery` + `editMessageText`. Use a dedicated approvals bot (one webhook
+  per bot).
+- **Discord** — interaction buttons with `custom_id = <shortId>:a|d` (100-char cap → short id);
+  Interactions Endpoint URL `/discord/interactivity` verifies the Ed25519 signature
+  (`bytechef.webhook.discord.public-key`, JDK-native Ed25519) and answers `PING`→`PONG`; a button
+  returns an inline `UPDATE_MESSAGE`. Reuses the short-token store + mint endpoint.
 
-Both cap the button id below the ~108-char signed token (**Telegram `callback_data` 64 bytes**,
-**Discord `custom_id` 100 chars**), and the channel that builds the buttons is a ServiceLoader
-component — **not a Spring bean, and it only holds the signed token (the `formUrl` tail), not a
-short id or the inner token.** So neither can be done as a self-contained channel edit like the three
-above. Required design:
+**Shared short-token store** (`ApprovalShortTokenStore` + `POST /approval/short-token`,
+platform-webhook-rest-impl): maps a random short id → the signed token, for channels whose button
+payload is too small to carry the whole token (Telegram/Discord). **Process-local, lost on restart**
+— acceptable because those channels also keep the hosted-form link in the message, so a lost mapping
+degrades to the form link. A distributed EE deployment with multiple coordinator replicas needs a
+shared store (Redis / DB) — the one remaining open item for these two.
 
-1. **Short-token store** (CE): a `approval_short_token(short_id PK, resume_token, create_date)` table
-   + Spring Data JDBC repo + service, with an age-based cleanup sweep. Distributed-safe (DB, not
-   in-memory — multiple coordinator replicas).
-2. **Mint step**: cleanest is a new anonymous, rate-limited `POST /approval/short-token {token}` →
-   `{shortId}` endpoint in platform-webhook-rest-impl that the channel calls via `context.http` at
-   send time (avoids threading the store through the core `executeApprovalChannel` path — a wrong
-   change there breaks every approval channel). The token is already the capability, so mapping it to
-   a random shortId leaks nothing.
-3. **Telegram**: send inline-keyboard callback buttons with `callback_data = <shortId>:a|d`; set the
-   bot webhook to a new anonymous `/telegram/interactivity`, verified by the
-   `X-Telegram-Bot-Api-Secret-Token` header (set via `setWebhook`). One webhook per bot → use a
-   dedicated approvals bot so it doesn't collide with a Telegram trigger (which sets
-   `allowed_updates:["message"]` on its own webhook). Resolve, then `answerCallbackQuery` +
-   `editMessageText`.
-4. **Discord**: send interaction buttons with `custom_id = <shortId>:a|d`; register an Interactions
-   Endpoint URL `/discord/interactivity`; **verify the Ed25519 signature** (X-Signature-Ed25519 /
-   -Timestamp against the app public key — JDK 15+ `Signature.getInstance("Ed25519")`, no lib) and
-   answer the `PING`(type 1)→`PONG` handshake. Resolve, then edit the message.
+### Open — Twilio / Infobip SMS + WhatsApp (buildable via reply-code; needs live-provider verify)
 
-### Open — Twilio / Infobip WhatsApp (provider onboarding)
+Buildable — NOT blocked — but with a worse UX and provider-signature verification that can only be
+validated live, so deferred rather than shipped blind. SMS has no buttons and BSP WhatsApp
+interactive buttons need a pre-approved Content Template, so both use a **reply-code** flow instead:
+the outbound message says *"reply `A <code>` to approve or `D <code>` to discard"* where `code` is a
+short id from the store; the BSP's inbound webhook (`/twilio/interactivity`, `/infobip/interactivity`)
+parses the reply body. Verification: Twilio `X-Twilio-Signature` (HMAC-SHA1 over the exact URL +
+sorted params — fiddly to reconstruct); Infobip has no inbound HMAC (API-key / IP allowlist). Tenant
+anchored via the short id → token. The reply-code UX is a real downgrade from buttons — worth a
+product nod before building.
 
-Feasible (inbound button-reply carries a payload that fits the token; the BSP has its own inbound
-webhook, so no single-webhook collision), BUT WhatsApp interactive buttons via a BSP require a
-**pre-approved Content Template** — provider onboarding comparable to the Outlook/Gmail actionable-
-email bureaucracy. Endpoints: `/twilio/interactivity` (verify `X-Twilio-Signature`, HMAC-SHA1 over
-URL+params) and `/infobip/interactivity` (API-key/IP allowlist — Infobip does not HMAC-sign inbound).
+### Open — Rocket.Chat (no built-in callback; heaviest)
 
-### Open — Twilio / Infobip SMS (correlation design decision)
-
-A plain-SMS reply ("YES"/"NO") carries **no token**, so the server can't tell which pending approval
-it resolves. Needs a correlation model — reply with a per-approval short code (from the short-token
-store above), or map sender-number → most-recent-pending-approval (ambiguous with multiple pending).
-Product decision required before building.
-
-### Open — Rocket.Chat (no built-in callback)
-
-Rocket.Chat attachment action buttons only support `url` (open a link) or `msg` (post a chat
-message) — there is **no `integration.url` POST callback** like Mattermost. True in-place needs a
-deployed Rocket.Chat App (UIKit) or an outgoing-webhook + button-`msg` command parsed server-side —
-the heaviest option. Stays on URL buttons until one of those is built.
+Rocket.Chat attachment buttons only support `url` (open) or `msg` (post a chat message) — no
+`integration.url` POST callback like Mattermost. Options: a deployed Rocket.Chat App (UIKit), or a
+button-`msg` command (e.g. `!approve <shortId>`) + an operator-configured outgoing-webhook integration
+that POSTs matching messages to `/rocketchat/interactivity`. Both are heavier and need live setup.
+Stays on URL buttons until one is built.
 
 ## Not doing (by decision)
 

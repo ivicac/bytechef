@@ -486,12 +486,17 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   In-place is also implemented for **WhatsApp (Meta)** (`appSecret` on the connection →
   interactive reply buttons; `WhatsAppInteractivityController`/`Handler` verify `X-Hub-Signature-256`,
   GET verify-handshake via `bytechef.webhook.whatsapp.verify-token`; button id carries the
-  decision-prefixed signed token) and **Mattermost** (interactive attachment buttons whose
+  decision-prefixed signed token), **Mattermost** (interactive attachment buttons whose
   `integration.url` = `/mattermost/interactivity` carry the token in `integration.context`; unsigned,
-  so no `approvedBy`). Remaining channels (Telegram, Discord, Twilio/Infobip, Rocket.Chat) stay on
-  URL buttons — see `docs/superpowers/plans/2026-07-22-hitl-gap-remaining-backlog.md` for the
-  per-provider designs (short-token store for Telegram/Discord, Content Templates for BSP WhatsApp,
-  SMS reply correlation, Rocket.Chat App).
+  so no `approvedBy`), **Telegram** (`webhookSecretToken` on the connection → inline-keyboard callback
+  buttons; `/telegram/interactivity` verifies `X-Telegram-Bot-Api-Secret-Token`), and **Discord**
+  (`publicKey` on the connection → interaction buttons; `/discord/interactivity` verifies the Ed25519
+  signature against `bytechef.webhook.discord.public-key`, answers `PING`→`PONG`). Telegram/Discord
+  cap the button payload below the signed token, so the channel mints a short id via the anonymous
+  `POST /approval/short-token` (`ApprovalShortTokenStore`, process-local — form-link fallback covers a
+  restart; distributed EE needs a shared store). Remaining channels (Twilio/Infobip SMS+WhatsApp,
+  Rocket.Chat) stay on URL buttons — see
+  `docs/superpowers/plans/2026-07-22-hitl-gap-remaining-backlog.md` for their reply-code / App designs.
 - **Tool gate**: `requiresApproval: true` in a TOOLS cluster-element entry's parameters
   (`ToolConstants.REQUIRES_APPROVAL`; editor checkbox in `AiAgentToolDropdownMenu`) wraps the
   callback in `ApprovalGateToolCallback` (inside the observable/audit wrapper). Suspends via the
