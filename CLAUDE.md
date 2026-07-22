@@ -472,7 +472,10 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   `AbstractAiAgentChatAction.resolveGatedToolResumeData`: approve → RAW callback executes original
   args; reject → denial JSON. Agent node declares APPROVAL_CHANNELS
   (`AiAgentComponentDefinition`); empty list defaults to the chat channel. Editor runs deliver the
-  card via the agent's ToolContext SSE emitter (channels are production transports).
+  card via the agent's ToolContext SSE emitter (channels are production transports); the standalone
+  Approval action delivers it in editor runs by returning a one-shot `SuspendAwareSseEmitterHandler`
+  (suspend happens INSIDE the handler — suspending before returning makes `checkSuspend` swallow
+  the emitter output) that the in-process post-output processor drains into the test-run stream.
 - **Client cards**: `ApprovalRequestMessage` (`data-approval-request` in `aiChatDataComponents`) —
   self-contained buttons+comment for field-less approvals (`hasInputs` flag threaded from event
   `inputs`), embeds `ApprovalForm` only when fields exist. Resolution goes through

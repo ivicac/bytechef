@@ -79,6 +79,24 @@ public class ChatApprovalChannel {
                     "channel for runs that are not started from a chat conversation.");
         }
 
+        Map<String, Object> eventData = buildApprovalRequestEventData(inputParameters, formUrl);
+
+        SseStreamEvent sseStreamEvent = new SseStreamEvent(jobId, SseStreamEvent.EVENT_TYPE_DATA, eventData);
+
+        sseStreamEvent.putMetadata(TenantContext.CURRENT_TENANT_ID, TenantContext.getCurrentTenantId());
+
+        messageBroker.send(SseStreamMessageRoute.SSE_STREAM_EVENTS, sseStreamEvent);
+
+        return null;
+    }
+
+    /**
+     * Builds the {@code approval_request} data-event payload rendered as an inline approval card by chat surfaces. The
+     * payload carries the resume id and hosted-form URL plus the optional form title, description, and input fields.
+     * Shared with the approval action's editor-run emission, which delivers the same card onto the workflow test
+     * stream without going through a channel.
+     */
+    public static Map<String, Object> buildApprovalRequestEventData(Parameters inputParameters, String formUrl) {
         Map<String, Object> eventData = new LinkedHashMap<>();
 
         eventData.put(EVENT_TYPE, APPROVAL_REQUEST);
@@ -101,12 +119,6 @@ public class ChatApprovalChannel {
 
         eventData.put(INPUTS, inputs);
 
-        SseStreamEvent sseStreamEvent = new SseStreamEvent(jobId, SseStreamEvent.EVENT_TYPE_DATA, eventData);
-
-        sseStreamEvent.putMetadata(TenantContext.CURRENT_TENANT_ID, TenantContext.getCurrentTenantId());
-
-        messageBroker.send(SseStreamMessageRoute.SSE_STREAM_EVENTS, sseStreamEvent);
-
-        return null;
+        return eventData;
     }
 }

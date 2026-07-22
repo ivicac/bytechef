@@ -180,8 +180,14 @@ Phases 1–2 are independent of 3 and deliver the visible differentiation first.
   (the same path `ask_user_question` uses), so the canvas test chat renders the card for gated
   tools. The card itself is self-contained for field-less approvals — buttons + comment rendered
   from the event data, no approval-form endpoint dependency — and only embeds `ApprovalForm` when
-  the approval carries form fields. The standalone Approval *action* still surfaces nothing in
-  editor runs (a non-streaming action has no emitter access).
+  the approval carries form fields. CLOSED: the standalone Approval *action* now also surfaces the
+  card in editor test runs — in the editor environment (with a jobId) `perform` returns a one-shot
+  `SuspendAwareSseEmitterHandler` that sends the `approval_request` event
+  (`ChatApprovalChannel.buildApprovalRequestEventData`, the same payload the chat channel
+  publishes) and suspends inside the handler; the in-process post-output processor drains the
+  event into the test-run stream bridges and finalizes the suspend, exactly like the agent's
+  mid-stream suspends. Suspending before returning would not work — `checkSuspend` replaces the
+  perform result with the `Suspend`, so the emitter output would never be drained.
 - **SDK widget continuation.** The `@bytechef/chat` inline card resolves with
   `Accept: text/event-stream` and drains the resumed run's output through the widget's existing
   SSE event handlers — deltas stream into a fresh bubble, and a nested approval re-opens the card.

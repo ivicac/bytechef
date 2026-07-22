@@ -54,7 +54,7 @@ Channels fan out simultaneously; the first response wins and later resolutions a
 |---|---|
 | Chats page (`/automation/chats`) | Inline card; resolution streams the resumed run's output back into the conversation. |
 | AI Hub workflow chat | Inline card; continuation streams live and is persisted to the conversation history. |
-| Workflow editor test chat | Inline card, including for gated tools in test runs. |
+| Workflow editor test chat | Inline card, for gated tools and the Approval action alike in test runs. |
 | `@bytechef/chat` embeddable widget | Field-less approvals resolve inline (buttons + comment above the composer) with streamed continuation; approvals with form fields link to the hosted form. |
 | MCP tool call | A paused run returns an `approval_required` result with the hosted form URL. Clients supporting URL elicitation are prompted to open the form; clients supporting only form elicitation get an inline approve/comment form instead. Once approved, the same tool call returns the resumed run's real output — including chained approvals (up to three elicitation rounds per call). |
 | A2A `message/send` | A paused run surfaces the task with `input-required` status and the form URL in the agent message. A later `tasks/get` re-checks the run and returns the final output once it's resolved. |

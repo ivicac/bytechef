@@ -59,6 +59,7 @@ import static com.bytechef.component.definition.approval.ApprovalChannelFunction
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.INPUTS;
 
 import com.bytechef.commons.util.MapUtils;
+import com.bytechef.component.approval.cluster.ChatApprovalChannel;
 import com.bytechef.component.approval.util.FieldType;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionContext.Suspend;
@@ -71,6 +72,7 @@ import com.bytechef.definition.BaseOutputDefinition.OutputResponse;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunction;
+import com.bytechef.platform.component.definition.SuspendAwareSseEmitterHandler;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
@@ -279,7 +281,16 @@ public class ApprovalRequestApprovalAction {
 
         String formUrl = resumeUrl.replace("/job/resume/", "/resume/");
 
-        if (!actionContextAware.isEditorEnvironment()) {
+        if (actionContextAware.isEditorEnvironment()) {
+            // Editor test runs skip channels (they are production transports), but the canvas test run listens on
+            // the job's SSE stream. Deliver the same approval card event the chat channel would send by returning a
+            // one-shot SSE emitter output: the in-process post-output processor drains it into the test-run stream
+            // bridges. The suspend must happen inside the emitter handler — suspending before returning would make
+            // the service layer replace the emitter output with the Suspend and the card would never be sent.
+            if (actionContextAware.getJobId() != null) {
+                return createEditorApprovalRequestEmitterHandler(inputParameters, formUrl, actionContextAware);
+            }
+        } else {
             ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
 
             List<ClusterElement> approvalChannels = clusterElementMap.getClusterElements(APPROVAL_CHANNELS);
@@ -298,12 +309,38 @@ public class ApprovalRequestApprovalAction {
             }
         }
 
+        suspend(context, formUrl);
+
+        return null;
+    }
+
+    private static void suspend(ActionContext context, String formUrl) {
         Instant expiresAt = Instant.now()
             .plus(60, ChronoUnit.DAYS);
 
         context.suspend(new Suspend(Map.of(FORM_URL, formUrl), expiresAt));
+    }
 
-        return null;
+    /**
+     * Builds the editor-run delivery for the approval card: a {@link SuspendAwareSseEmitterHandler} that sends the
+     * {@code approval_request} data event onto the run's SSE stream, suspends the run, and completes. The wrapper
+     * carries the action context so the post-output processor can observe the suspend once the stream is drained —
+     * the same mechanism the AI agent's streaming action uses for mid-stream suspends.
+     */
+    private static SuspendAwareSseEmitterHandler createEditorApprovalRequestEmitterHandler(
+        Parameters inputParameters, String formUrl, ActionContextAware actionContextAware) {
+
+        Map<String, Object> eventData = ChatApprovalChannel.buildApprovalRequestEventData(inputParameters, formUrl);
+
+        return new SuspendAwareSseEmitterHandler(
+            sseEmitter -> {
+                sseEmitter.send(eventData);
+
+                suspend(actionContextAware, formUrl);
+
+                sseEmitter.complete();
+            },
+            actionContextAware);
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
