@@ -1436,6 +1436,7 @@ export enum ApprovalTaskPriority {
 
 export enum ApprovalTaskStatus {
   Completed = 'COMPLETED',
+  Expired = 'EXPIRED',
   InProgress = 'IN_PROGRESS',
   Open = 'OPEN'
 }

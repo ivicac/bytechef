@@ -509,7 +509,11 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   `ApprovalExpiryMonitor` (platform-coordinator, 15-min per-tenant sweep over
   `getStaleJobs(STOPPED, now)`, `bytechef.workflow.execution.approval-expiry.enabled` default on)
   fails runs whose suspend `expiresAt` passed. Metrics: `bytechef_approval_expired{source=resume|sweep}`
-  counter + `bytechef_approval_pending` gauge. The **pending-approvals inbox**
+  counter + `bytechef_approval_pending` gauge. `ApprovalTaskReconciliationMonitor`
+  (automation-task-service, per-tenant sweep) closes OPEN/IN_PROGRESS Approval Task rows whose
+  backing run is no longer STOPPED: COMPLETED run → COMPLETED row (covers cross-process resumes
+  the in-JVM `ApprovalTaskCompletionListener` misses), FAILED/CANCELLED/purged run → EXPIRED row
+  (`ApprovalTask.Status.EXPIRED`, appended last — ordinal storage). The **pending-approvals inbox**
   (`ApprovalTaskFacade.getPendingApprovals` → `pendingApprovals` GraphQL query →
   `PendingApprovalsList` on the Approval Tasks page) lists all STOPPED runs carrying a
   `jobResumeId`, with workflow label, form URL, createdDate, and expiry — channel-independent.

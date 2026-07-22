@@ -79,9 +79,12 @@ expiry is configured in the workflow definition.
 
 An expired approval can no longer be resolved (the form and
 the resume endpoint reject it), and a background sweep fails the paused run shortly afterwards so
-it doesn't linger forever. Operators can watch `bytechef_approval_pending` (runs currently
-blocked) and `bytechef_approval_expired` (approvals that lapsed, by source) and disable the sweep
-with `bytechef.workflow.execution.approval-expiry.enabled=false`.
+it doesn't linger forever. An entry on the Approval Tasks page whose request lapsed — or whose
+backing run failed or was purged — is marked **Expired** by a periodic reconciliation instead of
+staying open with a dead form link. Operators can watch `bytechef_approval_pending` (runs
+currently blocked) and `bytechef_approval_expired` (approvals that lapsed, by source) and disable
+the sweep with `bytechef.workflow.execution.approval-expiry.enabled=false` (the task
+reconciliation with `bytechef.automation.approval-task.reconciliation.enabled=false`).
 
 ## Outcome shape
 

@@ -2,6 +2,7 @@ enum ApprovalTaskStatus {
     OPEN
     IN_PROGRESS
     COMPLETED
+    EXPIRED
 }
 
 enum ApprovalTaskPriority {
