@@ -656,6 +656,7 @@ include("server:ee:libs:platform:platform-tool-invocation-log:platform-tool-invo
 include("server:ee:libs:platform:platform-tool-invocation-log:platform-tool-invocation-log-service")
 include("server:ee:libs:automation:automation-data-table:automation-data-table-remote-client")
 include("server:ee:libs:automation:automation-task:automation-task-remote-client")
+include("server:ee:libs:automation:automation-task:automation-task-remote-rest")
 include("server:ee:libs:automation:automation-workflow-alert:automation-workflow-alert-api")
 include("server:ee:libs:automation:automation-workflow-alert:automation-workflow-alert-graphql")
 include("server:ee:libs:automation:automation-workflow-alert:automation-workflow-alert-service")
