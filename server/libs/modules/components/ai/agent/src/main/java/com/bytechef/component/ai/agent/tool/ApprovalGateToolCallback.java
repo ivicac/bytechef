@@ -229,7 +229,18 @@ public class ApprovalGateToolCallback implements ToolCallback {
 
         if (bufferedEventsObject instanceof Queue<?> queue) {
             ((Queue<Map<String, Object>>) queue).add(eventData);
+
+            return;
         }
+
+        // Neither an SSE emitter nor a buffered-events queue is present — only the streaming Chat action wires these
+        // into the ToolContext, so an editor test run of the non-streaming Chat action reaches here and the approval
+        // card is silently dropped (the run still suspends and is resolvable via the hosted form). Warn so a hung
+        // test run is diagnosable instead of failing silently.
+        log.warn(
+            "No SSE emitter or buffered-events queue in the tool context; the editor approval card for tool '{}' was " +
+                "not delivered. The run is still suspended and resolvable via the hosted approval form.",
+            getName());
     }
 
     private void deliverApprovalRequest(String formUrl, String toolInput, Instant expiresAt) {

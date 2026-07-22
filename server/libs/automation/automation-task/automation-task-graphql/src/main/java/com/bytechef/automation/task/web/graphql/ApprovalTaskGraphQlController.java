@@ -62,17 +62,26 @@ public class ApprovalTaskGraphQlController {
         return true;
     }
 
+    // The ApprovalTask reads expose the row's jobResumeId — the signed resume capability token that, via the hosted
+    // form's one-click links, is sufficient to approve/reject the run. getApprovalTasks(environmentId) is NOT scoped to
+    // an assignee, so leaving these open to any authenticated member lets a low-privileged user of one workspace
+    // enumerate and hijack every pending approval in the tenant. Restricted to tenant admins, matching pendingApprovals
+    // below. A future per-user inbox (returning tasks where assigneeId == the caller) would relax this for assignees;
+    // that needs current-user-id resolution the assignee_id (a user id, not a login) matching requires.
     @QueryMapping
+    @PreAuthorize("isTenantAdmin()")
     public ApprovalTask approvalTask(@Argument long id) {
         return approvalTaskService.getApprovalTask(id);
     }
 
     @QueryMapping
+    @PreAuthorize("isTenantAdmin()")
     public List<ApprovalTask> approvalTasks(@Argument Integer environmentId) {
         return approvalTaskService.getApprovalTasks(environmentId);
     }
 
     @QueryMapping
+    @PreAuthorize("isTenantAdmin()")
     public List<ApprovalTask> approvalTasksByIds(@Argument List<Long> ids) {
         return approvalTaskService.getApprovalTasks(ids);
     }
