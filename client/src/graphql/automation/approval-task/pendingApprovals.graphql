@@ -1,5 +1,5 @@
-query pendingApprovals {
-    pendingApprovals {
+query pendingApprovals($environmentId: Int) {
+    pendingApprovals(environmentId: $environmentId) {
         createdDate
         expiresAt
         formUrl

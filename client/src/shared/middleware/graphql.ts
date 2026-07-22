@@ -1596,7 +1596,9 @@ export type DeleteApprovalTaskMutationVariables = Exact<{
 
 export type DeleteApprovalTaskMutation = { deleteApprovalTask: boolean | null };
 
-export type PendingApprovalsQueryVariables = Exact<{ [key: string]: never; }>;
+export type PendingApprovalsQueryVariables = Exact<{
+  environmentId?: number | null | undefined;
+}>;
 
 
 export type PendingApprovalsQuery = { pendingApprovals: Array<{ createdDate: string | null, expiresAt: string | null, formUrl: string | null, jobId: string, workflowLabel: string } | null> | null };
@@ -9825,8 +9827,8 @@ export const useDeleteApprovalTaskMutation = <
     )};
 
 export const PendingApprovalsDocument = new TypedDocumentString(`
-    query pendingApprovals {
-  pendingApprovals {
+    query pendingApprovals($environmentId: Int) {
+  pendingApprovals(environmentId: $environmentId) {
     createdDate
     expiresAt
     formUrl

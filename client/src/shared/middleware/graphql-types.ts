@@ -7175,6 +7175,11 @@ export type QueryOrganizationConnectionsArgs = {
 };
 
 
+export type QueryPendingApprovalsArgs = {
+  environmentId?: InputMaybe<Scalars['Int']['input']>;
+};
+
+
 export type QueryPreBuiltProjectTemplatesArgs = {
   category?: InputMaybe<Scalars['String']['input']>;
   query?: InputMaybe<Scalars['String']['input']>;
