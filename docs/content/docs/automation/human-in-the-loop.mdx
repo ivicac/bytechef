@@ -41,8 +41,13 @@ to the Approval action — or to the AI Agent node's **Channels** section for ga
   pending run approvals list and the hosted form, and workflow validation warns about this
   configuration — so configure a fallback channel. With no channels configured on an AI Agent,
   the chat channel is the default.
-- **Slack**, **Google Mail**, **Microsoft Outlook 365** — message with Approve/Discard links or
-  a form link.
+- **Slack**, **Discord** — message with one-click Approve/Discard buttons (field-less approvals)
+  or an "Open Approval Form" button.
+- **Google Mail**, **Microsoft Outlook 365** — email with Approve/Discard links or a form link.
+- **WhatsApp** (Meta Cloud, **Twilio**, or **Infobip**) — text message with one-click
+  Approve/Discard links or the form link. Free-form WhatsApp messages only deliver inside an open
+  24-hour customer-service window; outside it the providers require a pre-approved template, so
+  pair WhatsApp with a fallback channel for cold outreach.
 - **Approval task** — creates an entry on the Approval Tasks page.
 - The hosted form link works from any channel; the tokenized URL requires no login.
 

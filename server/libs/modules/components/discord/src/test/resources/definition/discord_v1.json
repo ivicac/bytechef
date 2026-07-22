@@ -6403,6 +6403,73 @@
     },
     "workflowNodeDescription": null
   }, {
+    "name": "discord",
+    "description": "Sends an approval request message to a Discord channel.",
+    "element": { },
+    "help": null,
+    "outputDefinition": null,
+    "processErrorResponse": null,
+    "properties": [ {
+      "advancedOption": null,
+      "controlType": "SELECT",
+      "defaultValue": null,
+      "description": "ID of the guild (server) containing the channel.",
+      "displayCondition": null,
+      "exampleValue": null,
+      "expressionEnabled": null,
+      "hidden": null,
+      "label": "Guild ID",
+      "languageId": null,
+      "maxLength": null,
+      "metadata": { },
+      "minLength": null,
+      "name": "guildId",
+      "options": null,
+      "optionsDataSource": {
+        "options": { },
+        "optionsLookupDependsOn": null
+      },
+      "optionsLoadedDynamically": null,
+      "placeholder": null,
+      "regex": null,
+      "required": true,
+      "type": "STRING"
+    }, {
+      "advancedOption": null,
+      "controlType": "SELECT",
+      "defaultValue": null,
+      "description": "ID of the channel where to send the approval request.",
+      "displayCondition": null,
+      "exampleValue": null,
+      "expressionEnabled": null,
+      "hidden": null,
+      "label": "Channel ID",
+      "languageId": null,
+      "maxLength": null,
+      "metadata": { },
+      "minLength": null,
+      "name": "channelId",
+      "options": null,
+      "optionsDataSource": {
+        "options": { },
+        "optionsLookupDependsOn": [ "guildId" ]
+      },
+      "optionsLoadedDynamically": null,
+      "placeholder": null,
+      "regex": null,
+      "required": true,
+      "type": "STRING"
+    } ],
+    "title": "Discord",
+    "type": {
+      "name": "APPROVAL_CHANNELS",
+      "key": "approvalChannels",
+      "label": "Channels",
+      "multipleElements": true,
+      "required": false
+    },
+    "workflowNodeDescription": null
+  }, {
     "name": "sendDirectMessage",
     "description": "Send direct message guild member.",
     "element": { },
