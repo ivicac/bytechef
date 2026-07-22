@@ -25,6 +25,8 @@ import com.bytechef.commons.util.MapUtils;
 import com.bytechef.error.ExecutionError;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.SuspendUtils;
+import com.bytechef.platform.workflow.execution.JobResumeId;
+import com.bytechef.platform.workflow.execution.service.TaskStateService;
 import com.bytechef.tenant.TenantContext;
 import com.bytechef.tenant.service.TenantService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -67,6 +69,7 @@ public class ApprovalExpiryMonitor {
     private final ObjectProvider<MeterRegistry> meterRegistryObjectProvider;
     private final AtomicLong pendingApprovalCount = new AtomicLong();
     private final TaskExecutionService taskExecutionService;
+    private final @Nullable TaskStateService taskStateService;
     private final TenantService tenantService;
 
     private boolean gaugeRegistered;
@@ -75,12 +78,13 @@ public class ApprovalExpiryMonitor {
     public ApprovalExpiryMonitor(
         ApplicationEventPublisher eventPublisher, JobService jobService,
         ObjectProvider<MeterRegistry> meterRegistryObjectProvider, TaskExecutionService taskExecutionService,
-        TenantService tenantService) {
+        @Nullable TaskStateService taskStateService, TenantService tenantService) {
 
         this.eventPublisher = eventPublisher;
         this.jobService = jobService;
         this.meterRegistryObjectProvider = meterRegistryObjectProvider;
         this.taskExecutionService = taskExecutionService;
+        this.taskStateService = taskStateService;
         this.tenantService = tenantService;
     }
 
@@ -194,9 +198,33 @@ public class ApprovalExpiryMonitor {
 
         jobService.update(job);
 
+        // The suspended-task state row (keyed by jobResumeId) is otherwise deleted only on resume, so an expired
+        // approval would leak it — and the stored suspend payload (the rendered approval request) with it. Delete it
+        // best-effort: a cleanup failure must never keep the run STOPPED.
+        deleteTaskState(job);
+
         log.warn("Failed job {}: its pending approval expired at {}", jobId, expiresAt);
 
         eventPublisher.publishEvent(new JobStatusApplicationEvent(jobId, Job.Status.FAILED));
+    }
+
+    private void deleteTaskState(Job job) {
+        if (taskStateService == null) {
+            return;
+        }
+
+        Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+
+        if (jobResumeId == null) {
+            return;
+        }
+
+        try {
+            taskStateService.delete(JobResumeId.parse(jobResumeId.toString()));
+        } catch (Exception exception) {
+            log.warn(
+                "Could not delete task state for expired job {}: {}", job.getId(), exception.getMessage());
+        }
     }
 
     private void incrementExpiredCounter() {

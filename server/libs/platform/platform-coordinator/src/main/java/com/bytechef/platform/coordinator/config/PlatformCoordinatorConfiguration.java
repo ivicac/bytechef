@@ -39,6 +39,7 @@ import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
 import com.bytechef.platform.notification.handler.NotificationHandlerRegistry;
 import com.bytechef.platform.notification.handler.NotificationSenderRegistry;
 import com.bytechef.platform.notification.service.NotificationService;
+import com.bytechef.platform.workflow.execution.service.TaskStateService;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.ratelimit.ConcurrentExecutionGate;
@@ -167,10 +168,12 @@ public class PlatformCoordinatorConfiguration {
         name = "bytechef.workflow.execution.approval-expiry.enabled", havingValue = "true", matchIfMissing = true)
     ApprovalExpiryMonitor approvalExpiryMonitor(
         ApplicationEventPublisher eventPublisher, ObjectProvider<MeterRegistry> meterRegistryObjectProvider,
-        TaskExecutionService taskExecutionService, TenantService tenantService) {
+        TaskExecutionService taskExecutionService,
+        ObjectProvider<TaskStateService> taskStateServiceObjectProvider, TenantService tenantService) {
 
         return new ApprovalExpiryMonitor(
-            eventPublisher, jobService, meterRegistryObjectProvider, taskExecutionService, tenantService);
+            eventPublisher, jobService, meterRegistryObjectProvider, taskExecutionService,
+            taskStateServiceObjectProvider.getIfAvailable(), tenantService);
     }
 
     @Bean

@@ -71,6 +71,9 @@ class ApprovalExpiryMonitorTest {
     private TaskExecutionService taskExecutionService;
 
     @Mock
+    private com.bytechef.platform.workflow.execution.service.TaskStateService taskStateService;
+
+    @Mock
     private TenantService tenantService;
 
     private SimpleMeterRegistry meterRegistry;
@@ -89,7 +92,8 @@ class ApprovalExpiryMonitorTest {
             .thenReturn(List.of("public"));
 
         monitor = new ApprovalExpiryMonitor(
-            eventPublisher, jobService, meterRegistryObjectProvider, taskExecutionService, tenantService);
+            eventPublisher, jobService, meterRegistryObjectProvider, taskExecutionService, taskStateService,
+            tenantService);
     }
 
     @Test
@@ -111,6 +115,9 @@ class ApprovalExpiryMonitorTest {
 
         verify(jobService).update(job);
         verify(taskExecutionService).update(taskExecution);
+
+        // The suspended-task state row is cleaned up so an expired approval does not leak it.
+        verify(taskStateService).delete(any());
 
         ArgumentCaptor<JobStatusApplicationEvent> eventCaptor =
             ArgumentCaptor.forClass(JobStatusApplicationEvent.class);
@@ -172,7 +179,10 @@ class ApprovalExpiryMonitorTest {
 
         Map<String, Object> metadata = new HashMap<>();
 
-        metadata.put("jobResumeId", "token");
+        metadata.put(
+            "jobResumeId",
+            com.bytechef.commons.util.EncodingUtils.base64EncodeToString(
+                "public:42:123e4567-e89b-12d3-a456-426614174000".getBytes(java.nio.charset.StandardCharsets.UTF_8)));
         metadata.put("taskExecutionResumeId", TASK_EXECUTION_ID);
 
         job.setMetadata(metadata);
