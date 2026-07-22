@@ -85,14 +85,14 @@ public class MattermostApprovalChannel {
 
         if (formTitle != null && !formTitle.isBlank()) {
             builder.append("**")
-                .append(formTitle.trim())
+                .append(escapeMarkdown(formTitle.trim()))
                 .append("**\n");
         }
 
         String formDescription = inputParameters.getString(FORM_DESCRIPTION);
 
         if (formDescription != null && !formDescription.isBlank()) {
-            builder.append(formDescription.trim())
+            builder.append(escapeMarkdown(formDescription.trim()))
                 .append("\n");
         }
 
@@ -123,5 +123,17 @@ public class MattermostApprovalChannel {
         }
 
         return builder.toString();
+    }
+
+    /**
+     * Escapes markdown-link-forming characters so caller-supplied text — for a gated tool the description embeds the
+     * AI-chosen tool arguments verbatim — cannot forge clickable links next to the real Approve/Discard links.
+     */
+    private static String escapeMarkdown(String text) {
+        return text.replace("\\", "\\\\")
+            .replace("[", "\\[")
+            .replace("]", "\\]")
+            .replace("(", "\\(")
+            .replace(")", "\\)");
     }
 }

@@ -101,6 +101,7 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
             .expressionEnabled(false)
             .required(false));
 
+    private static final String APPROVAL_DELIVERY_FAILURE_METRIC_NAME = "bytechef_approval_delivery_failure";
     private static final String APPROVAL_REQUEST_METRIC_NAME = "bytechef_approval_request";
 
     private final ComponentDefinitionRegistry componentDefinitionRegistry;
@@ -360,10 +361,12 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
             Object result = approvalChannelFunction.apply(inputParams, connectionParams, formUrl,
                 clusterElementContext);
 
-            incrementApprovalRequestCounter(componentName, clusterElementName);
+            incrementApprovalChannelCounter(APPROVAL_REQUEST_METRIC_NAME, componentName, clusterElementName);
 
             return result;
         } catch (Exception exception) {
+            incrementApprovalChannelCounter(APPROVAL_DELIVERY_FAILURE_METRIC_NAME, componentName, clusterElementName);
+
             if (exception instanceof ProviderException) {
                 throw (ProviderException) exception;
             }
@@ -373,14 +376,14 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
         }
     }
 
-    private void incrementApprovalRequestCounter(String componentName, String clusterElementName) {
+    private void incrementApprovalChannelCounter(String metricName, String componentName, String clusterElementName) {
         MeterRegistry meterRegistry = meterRegistryObjectProvider.getIfAvailable();
 
         if (meterRegistry == null) {
             return;
         }
 
-        meterRegistry.counter(APPROVAL_REQUEST_METRIC_NAME, "channel", componentName + "/" + clusterElementName)
+        meterRegistry.counter(metricName, "channel", componentName + "/" + clusterElementName)
             .increment();
     }
 

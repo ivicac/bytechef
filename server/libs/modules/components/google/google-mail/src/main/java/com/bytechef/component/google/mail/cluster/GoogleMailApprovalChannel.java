@@ -19,6 +19,7 @@ package com.bytechef.component.google.mail.cluster;
 import static com.bytechef.component.definition.ComponentDsl.array;
 import static com.bytechef.component.definition.ComponentDsl.string;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.APPROVAL_CHANNELS;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.EXPIRES_AT;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_DESCRIPTION;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.INPUTS;
@@ -110,6 +111,14 @@ public class GoogleMailApprovalChannel {
             if (descTrim != null && !descTrim.isBlank()) {
                 builder.append("<p>")
                     .append((String) context.escaper(escaper -> escaper.escapeHtml(descTrim)))
+                    .append("</p>");
+            }
+
+            String expiresAt = inputParameters.getString(EXPIRES_AT);
+
+            if (expiresAt != null && !expiresAt.isBlank()) {
+                builder.append("<p>Expires: ")
+                    .append((String) context.escaper(escaper -> escaper.escapeHtml(expiresAt)))
                     .append("</p>");
             }
 

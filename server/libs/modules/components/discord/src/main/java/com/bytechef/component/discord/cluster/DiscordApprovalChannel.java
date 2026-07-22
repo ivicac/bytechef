@@ -19,6 +19,7 @@ package com.bytechef.component.discord.cluster;
 import static com.bytechef.component.definition.ComponentDsl.string;
 import static com.bytechef.component.definition.Context.Http.responseType;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.APPROVAL_CHANNELS;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.EXPIRES_AT;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_DESCRIPTION;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.INPUTS;
@@ -132,7 +133,14 @@ public class DiscordApprovalChannel {
         }
 
         if (builder.isEmpty()) {
-            return "You have a new approval request.";
+            builder.append("You have a new approval request.");
+        }
+
+        String expiresAt = inputParameters.getString(EXPIRES_AT);
+
+        if (expiresAt != null && !expiresAt.isBlank()) {
+            builder.append("\nExpires: ")
+                .append(expiresAt);
         }
 
         return builder.toString();

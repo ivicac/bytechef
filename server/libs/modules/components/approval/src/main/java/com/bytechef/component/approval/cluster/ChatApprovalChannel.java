@@ -17,6 +17,7 @@
 package com.bytechef.component.approval.cluster;
 
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.APPROVAL_CHANNELS;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.EXPIRES_AT;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_DESCRIPTION;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.INPUTS;
@@ -113,6 +114,12 @@ public class ChatApprovalChannel {
 
         if (formDescription != null) {
             eventData.put(FORM_DESCRIPTION, formDescription);
+        }
+
+        String expiresAt = inputParameters.getString(EXPIRES_AT);
+
+        if (expiresAt != null) {
+            eventData.put(EXPIRES_AT, expiresAt);
         }
 
         List<Map<String, ?>> inputs = inputParameters.getList(INPUTS, new TypeReference<>() {}, List.of());
