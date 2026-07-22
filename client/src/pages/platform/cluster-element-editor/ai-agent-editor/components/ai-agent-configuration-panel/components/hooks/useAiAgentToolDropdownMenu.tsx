@@ -17,6 +17,7 @@ import {ToolItemI} from './useAiAgentTools';
 interface UseAiAgentToolDropdownMenuI {
     handleConfigureTool: (tool: ToolItemI) => Promise<void>;
     handleRemoveTool: (tool: ToolItemI) => void;
+    handleSetApprovalExpiry: (tool: ToolItemI, expiresIn: number, expiresInUnit: string) => void;
     handleToggleRequiresApproval: (tool: ToolItemI) => void;
 }
 
@@ -205,9 +206,96 @@ export default function useAiAgentToolDropdownMenu(): UseAiAgentToolDropdownMenu
         ]
     );
 
+    const handleSetApprovalExpiry = useCallback(
+        (tool: ToolItemI, expiresIn: number, expiresInUnit: string) => {
+            if (!workflow.id || !rootClusterElementNodeData?.workflowNodeName) {
+                return;
+            }
+
+            const workflowNodeName = rootClusterElementNodeData.workflowNodeName;
+
+            // Two parameters describe the expiry (value + unit); write them sequentially and mirror the editor
+            // store copy from the second response so the submenu check mark re-renders without a workflow refetch.
+            updateClusterElementParameterMutation.mutate(
+                {
+                    clusterElementType: 'tools',
+                    clusterElementWorkflowNodeName: tool.name,
+                    environmentId: currentEnvironmentId,
+                    id: workflow.id,
+                    updateClusterElementParameterRequest: {
+                        includeInMetadata: false,
+                        path: 'approvalExpiresIn',
+                        type: 'INTEGER',
+                        // The generated request model types `value` as object, but the endpoint accepts any JSON
+                        // scalar — numbers included — the same way saveProperty submits primitive values.
+                        value: expiresIn as unknown as object,
+                    },
+                    workflowNodeName,
+                },
+                {
+                    onSuccess: () => {
+                        if (!workflow.id) {
+                            return;
+                        }
+
+                        updateClusterElementParameterMutation.mutate(
+                            {
+                                clusterElementType: 'tools',
+                                clusterElementWorkflowNodeName: tool.name,
+                                environmentId: currentEnvironmentId,
+                                id: workflow.id,
+                                updateClusterElementParameterRequest: {
+                                    includeInMetadata: false,
+                                    path: 'approvalExpiresInUnit',
+                                    type: 'STRING',
+                                    value: expiresInUnit as unknown as object,
+                                },
+                                workflowNodeName,
+                            },
+                            {
+                                onSuccess: (response) => {
+                                    const clusterElements = rootClusterElementNodeData.clusterElements;
+
+                                    if (clusterElements && !Array.isArray(clusterElements)) {
+                                        const toolElements = clusterElements['tools'];
+
+                                        if (Array.isArray(toolElements)) {
+                                            const updatedToolElements = toolElements.map((toolElement) => {
+                                                const element = toolElement as ClusterElementItemType &
+                                                    NodeDataType & {name?: string};
+                                                const elementName = element.workflowNodeName || element.name;
+
+                                                return elementName === tool.name
+                                                    ? {...element, parameters: response.parameters}
+                                                    : toolElement;
+                                            });
+
+                                            setRootClusterElementNodeData({
+                                                ...rootClusterElementNodeData,
+                                                clusterElements: {...clusterElements, tools: updatedToolElements},
+                                            });
+                                        }
+                                    }
+                                },
+                            }
+                        );
+                    },
+                }
+            );
+        },
+        [
+            currentEnvironmentId,
+            rootClusterElementNodeData,
+            setRootClusterElementNodeData,
+            updateClusterElementParameterMutation,
+            workflow.id,
+        ]
+    );
+
     return {
         handleConfigureTool,
         handleRemoveTool,
+        handleSetApprovalExpiry,
         handleToggleRequiresApproval,
     };
 }

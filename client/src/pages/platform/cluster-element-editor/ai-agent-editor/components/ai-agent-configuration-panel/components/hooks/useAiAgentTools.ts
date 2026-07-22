@@ -6,6 +6,8 @@ import {NodeDataType} from '@/shared/types';
 import {useMemo} from 'react';
 
 export interface ToolItemI {
+    approvalExpiresIn?: number;
+    approvalExpiresInUnit?: string;
     componentName: string;
     componentVersion: number;
     icon?: string;
@@ -57,15 +59,23 @@ export default function useAiAgentTools(): UseAiAgentToolsI {
             const componentDefinition = definitionsMap.get(componentName);
             const toolName = tool.workflowNodeName || tool.name || '';
 
+            const toolParameters = tool.parameters as
+                | {approvalExpiresIn?: number; approvalExpiresInUnit?: string; requiresApproval?: boolean}
+                | undefined;
+
             return {
+                approvalExpiresIn:
+                    typeof toolParameters?.approvalExpiresIn === 'number'
+                        ? toolParameters.approvalExpiresIn
+                        : undefined,
+                approvalExpiresInUnit: toolParameters?.approvalExpiresInUnit,
                 componentName,
                 componentVersion,
                 icon: componentDefinition?.icon,
                 label: tool.label || toolName,
                 name: toolName,
                 operationName,
-                requiresApproval:
-                    (tool.parameters as {requiresApproval?: boolean} | undefined)?.requiresApproval === true,
+                requiresApproval: toolParameters?.requiresApproval === true,
                 title: componentDefinition?.title || componentName,
                 type: tool.type || '',
             };
