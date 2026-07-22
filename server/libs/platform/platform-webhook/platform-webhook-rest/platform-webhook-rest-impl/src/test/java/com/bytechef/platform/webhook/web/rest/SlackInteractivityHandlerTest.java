@@ -32,6 +32,7 @@ import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -63,8 +64,10 @@ class SlackInteractivityHandlerTest {
     void setUp() throws Exception {
         // The message rewrite through response_url is best-effort; the mock RestClient throws on use in this test
         // setup, exercising exactly that tolerance.
+        // ApprovalTokens null -> the button value is treated as the raw inner token (unconfigured-signer path);
+        // the tests carry raw JobResumeId strings as the value.
         slackInteractivityHandler = new SlackInteractivityHandler(
-            connectionService, jobResumeFacade, RestClient.create("http://localhost:1"));
+            connectionService, jobResumeFacade, null, RestClient.create("http://localhost:1"));
 
         Connection connection = new Connection();
 
@@ -184,14 +187,47 @@ class SlackInteractivityHandlerTest {
         verify(jobResumeFacade, never()).resumeJob(anyString(), any(), any());
     }
 
+    @Test
+    void testSignedTokenValueIsUnwrappedBeforeParsing() throws Exception {
+        String innerToken = EncodingUtils.base64EncodeToString(
+            "public:42:123e4567-e89b-12d3-a456-426614174000".getBytes(StandardCharsets.UTF_8));
+        String signedValue = "v1.9999999999." + innerToken + ".signature";
+
+        ApprovalTokens approvalTokens = mock(ApprovalTokens.class);
+
+        when(approvalTokens.resolveInnerToken(signedValue)).thenReturn(java.util.Optional.of(innerToken));
+
+        SlackInteractivityHandler handler = new SlackInteractivityHandler(
+            connectionService, jobResumeFacade, approvalTokens, RestClient.create("http://localhost:1"));
+
+        String rawBody = rawBody(SlackInteractivityHandler.ACTION_APPROVE, signedValue);
+        String timestamp = String.valueOf(Instant.now()
+            .getEpochSecond());
+
+        when(jobResumeFacade.resumeJob(eq(signedValue), eq(Map.of("approved", true)), eq("@jane")))
+            .thenReturn(JobResumeOutcome.OK);
+
+        SlackInteractivityHandler.Result result = handler.handle(
+            rawBody, timestamp, sign(timestamp, rawBody, SIGNING_SECRET));
+
+        assertEquals(SlackInteractivityHandler.Result.HANDLED, result);
+
+        // resumeJob still receives the ORIGINAL (signed) value; the facade re-resolves it.
+        verify(jobResumeFacade).resumeJob(eq(signedValue), eq(Map.of("approved", true)), eq("@jane"));
+    }
+
     private static String rawBody(String actionId) {
         // A JobResumeId is base64("tenantId:jobId:uuid"); the handler parses it to anchor the tenant.
         String resumeId = EncodingUtils.base64EncodeToString(
             "public:42:123e4567-e89b-12d3-a456-426614174000".getBytes(StandardCharsets.UTF_8));
 
+        return rawBody(actionId, resumeId);
+    }
+
+    private static String rawBody(String actionId, String value) {
         String payload = """
             {"type":"block_actions","user":{"username":"jane"},"response_url":"https://hooks.slack.invalid/actions/x",
-             "actions":[{"action_id":"%s","value":"%s"}]}""".formatted(actionId, resumeId);
+             "actions":[{"action_id":"%s","value":"%s"}]}""".formatted(actionId, value);
 
         return "payload=" + URLEncoder.encode(payload, StandardCharsets.UTF_8);
     }

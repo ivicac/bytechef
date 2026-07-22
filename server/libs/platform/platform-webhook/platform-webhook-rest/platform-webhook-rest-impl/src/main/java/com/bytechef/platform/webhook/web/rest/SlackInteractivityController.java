@@ -19,7 +19,9 @@ package com.bytechef.platform.webhook.web.rest;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -43,9 +45,12 @@ public class SlackInteractivityController {
     private final SlackInteractivityHandler slackInteractivityHandler;
 
     @SuppressFBWarnings("EI")
-    public SlackInteractivityController(ConnectionService connectionService, JobResumeFacade jobResumeFacade) {
+    public SlackInteractivityController(
+        ConnectionService connectionService, JobResumeFacade jobResumeFacade,
+        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
+
         this.slackInteractivityHandler = new SlackInteractivityHandler(
-            connectionService, jobResumeFacade, RestClient.create());
+            connectionService, jobResumeFacade, approvalTokensObjectProvider.getIfAvailable(), RestClient.create());
     }
 
     /**

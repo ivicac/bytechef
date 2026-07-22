@@ -23,6 +23,7 @@ import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.workflow.execution.JobResumeId;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.net.URLDecoder;
@@ -78,14 +79,17 @@ public class SlackInteractivityHandler {
 
     private final ConnectionService connectionService;
     private final JobResumeFacade jobResumeFacade;
+    private final @Nullable ApprovalTokens approvalTokens;
     private final RestClient restClient;
 
     @SuppressFBWarnings("EI")
     public SlackInteractivityHandler(
-        ConnectionService connectionService, JobResumeFacade jobResumeFacade, RestClient restClient) {
+        ConnectionService connectionService, JobResumeFacade jobResumeFacade,
+        @Nullable ApprovalTokens approvalTokens, RestClient restClient) {
 
         this.connectionService = connectionService;
         this.jobResumeFacade = jobResumeFacade;
+        this.approvalTokens = approvalTokens;
         this.restClient = restClient;
     }
 
@@ -228,10 +232,27 @@ public class SlackInteractivityHandler {
     private Connection verify(
         @Nullable String resumeId, String rawBody, @Nullable String timestamp, @Nullable String signature) {
 
+        if (resumeId == null) {
+            return UNPARSEABLE;
+        }
+
+        // The button value is the form-URL tail, which is an HMAC-SIGNED token when a signer is configured (the
+        // default). Unwrap it to the raw inner token before parsing the tenant/job id — JobResumeId.parse only
+        // understands the inner token. The full (possibly signed) value is still handed to resumeJob, which
+        // re-resolves it.
+        String innerToken = approvalTokens == null
+            ? resumeId
+            : approvalTokens.resolveInnerToken(resumeId)
+                .orElse(null);
+
+        if (innerToken == null) {
+            return UNPARSEABLE;
+        }
+
         JobResumeId jobResumeId;
 
         try {
-            jobResumeId = JobResumeId.parse(Objects.requireNonNull(resumeId, "value"));
+            jobResumeId = JobResumeId.parse(innerToken);
         } catch (Exception exception) {
             return UNPARSEABLE;
         }
