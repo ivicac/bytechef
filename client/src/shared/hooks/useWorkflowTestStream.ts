@@ -119,6 +119,7 @@ export function useWorkflowTestStream({
                     content: [
                         {
                             data: {
+                                expiresAt: approvalEvent.expiresAt,
                                 formDescription: approvalEvent.formDescription,
                                 formTitle: approvalEvent.formTitle,
                                 formUrl: approvalEvent.formUrl,

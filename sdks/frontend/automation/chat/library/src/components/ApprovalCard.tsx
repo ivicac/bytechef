@@ -81,6 +81,12 @@ export const ApprovalCard: FC = () => {
                 <div className="whitespace-pre-line text-muted-foreground">{pendingApproval.formDescription}</div>
             )}
 
+            {pendingApproval.expiresAt && (
+                <div className="text-xs text-muted-foreground">
+                    Expires {new Date(pendingApproval.expiresAt).toLocaleString()}
+                </div>
+            )}
+
             <textarea
                 className="min-h-16 w-full resize-y rounded-md border border-border bg-background p-2 text-sm outline-none"
                 disabled={submitting}

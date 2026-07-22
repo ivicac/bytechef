@@ -18,6 +18,7 @@ export interface AskUserQuestionEventI {
 }
 
 export interface ApprovalRequestEventI {
+    expiresAt?: string;
     formDescription?: string;
     formTitle?: string;
     formUrl?: string;

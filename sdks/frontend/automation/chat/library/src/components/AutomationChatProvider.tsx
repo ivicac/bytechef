@@ -51,6 +51,7 @@ interface AskUserQuestionEventI {
 // Approve/Discard card (see ApprovalCard); approvals with form fields render as markdown with a link to
 // the hosted approval form. Either way, resolution never happens through the chat input.
 interface ApprovalRequestEventI {
+    expiresAt?: string;
     formDescription?: string;
     formTitle?: string;
     formUrl?: string;
@@ -61,9 +62,10 @@ interface ApprovalRequestEventI {
 function formatApprovalRequest(event: ApprovalRequestEventI): string {
     const title = event.formTitle || 'Approval requested';
     const description = event.formDescription ? `\n\n${event.formDescription}` : '';
+    const expiry = event.expiresAt ? `\n\nExpires ${new Date(event.expiresAt).toLocaleString()}` : '';
     const link = event.formUrl ? `\n\n[Open the approval form](${event.formUrl})` : '';
 
-    return `**${title}**${description}${link}`;
+    return `**${title}**${description}${expiry}${link}`;
 }
 
 function formatAskUserQuestion(event: AskUserQuestionEventI): string {
@@ -290,6 +292,7 @@ export const AutomationChatProvider = memo(function AutomationChatProvider({
             // the inline card's buttons or the linked hosted form do.
             if (!hasInputs && approvalResumeUrl) {
                 useChatStore.getState().setPendingApproval({
+                    expiresAt: event.expiresAt,
                     formDescription: event.formDescription,
                     formTitle: event.formTitle,
                     resumeUrl: approvalResumeUrl,

@@ -161,6 +161,7 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
                 content: [
                     {
                         data: {
+                            expiresAt: approvalEvent.expiresAt,
                             formDescription: approvalEvent.formDescription,
                             formTitle: approvalEvent.formTitle,
                             formUrl: approvalEvent.formUrl,

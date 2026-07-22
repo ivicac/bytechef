@@ -481,6 +481,7 @@ export const buildAiHubSubscriber = ({
                         content: [
                             {
                                 data: {
+                                    expiresAt: approvalEvent.expiresAt,
                                     formDescription: approvalEvent.formDescription,
                                     formTitle: approvalEvent.formTitle,
                                     formUrl: approvalEvent.formUrl,
@@ -1614,6 +1615,7 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
                         content: [
                             {
                                 data: {
+                                    expiresAt: approvalEvent.expiresAt,
                                     formDescription: approvalEvent.formDescription,
                                     formTitle: approvalEvent.formTitle,
                                     formUrl: approvalEvent.formUrl,

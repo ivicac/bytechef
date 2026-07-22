@@ -9,6 +9,7 @@ import {ShieldCheckIcon} from 'lucide-react';
 import {useMemo, useState} from 'react';
 
 export interface ApprovalRequestDataI {
+    expiresAt?: string;
     formDescription?: string;
     formTitle?: string;
     formUrl?: string;
@@ -16,6 +17,20 @@ export interface ApprovalRequestDataI {
     kind: 'approval-request';
     resumeId: string;
 }
+
+const formatExpiry = (expiresAt?: string): string | null => {
+    if (!expiresAt) {
+        return null;
+    }
+
+    const timestamp = Date.parse(expiresAt);
+
+    if (Number.isNaN(timestamp)) {
+        return null;
+    }
+
+    return new Date(timestamp).toLocaleString();
+};
 
 /**
  * Renders an approval request raised by a running workflow as an inline card in the chat conversation.
@@ -57,6 +72,8 @@ const ApprovalRequestMessage = ({data}: DataMessagePartProps<ApprovalRequestData
         return null;
     }
 
+    const expiryLabel = formatExpiry(data.expiresAt);
+
     const resolve = async (approved: boolean) => {
         setSubmitting(true);
         setSubmitError(null);
@@ -95,6 +112,10 @@ const ApprovalRequestMessage = ({data}: DataMessagePartProps<ApprovalRequestData
                 <ShieldCheckIcon className="size-3.5" />
                 Approval required
             </div>
+
+            {resolved === null && expiryLabel && (
+                <div className="text-xs text-muted-foreground">Expires {expiryLabel}</div>
+            )}
 
             {data.hasInputs ? (
                 <ApprovalForm id={resumeId} showHeader submitHandler={submitHandler} />

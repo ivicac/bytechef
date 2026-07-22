@@ -7,6 +7,7 @@ import {create} from 'zustand';
  * markdown link to the hosted approval form instead.
  */
 export interface PendingApprovalI {
+    expiresAt?: string;
     formDescription?: string;
     formTitle?: string;
     resumeUrl: string;
