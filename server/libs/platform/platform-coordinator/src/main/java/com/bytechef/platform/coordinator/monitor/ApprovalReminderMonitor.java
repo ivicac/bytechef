@@ -44,6 +44,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.scheduling.annotation.Scheduled;
 
 /**
@@ -131,10 +132,18 @@ public class ApprovalReminderMonitor {
                 continue;
             }
 
+            // Claim the reminder BEFORE sending so two coordinator replicas cannot both send it: the first to commit
+            // the APPROVAL_REMINDER_SENT_AT marker wins under the job's @Version, and the loser's stale-version update
+            // throws and skips. Writing the marker first degrades a send failure to a missed reminder rather than a
+            // duplicate — acceptable because the expiry sweep is the real safety net.
+            try {
+                markReminderSent(job, now);
+            } catch (OptimisticLockingFailureException optimisticLockingFailureException) {
+                continue;
+            }
+
             try {
                 sendReminder(job, jobResumeId.toString(), expiresAt);
-
-                markReminderSent(job, now);
             } catch (Exception exception) {
                 log.warn(
                     "Could not send approval reminder for job {}: {}", job.getId(), exception.getMessage());

@@ -47,6 +47,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.OptimisticLockingFailureException;
 
 /**
  * @author Ivica Cardic
@@ -117,6 +118,22 @@ class ApprovalReminderMonitorTest {
         Job updatedJob = jobArgumentCaptor.getValue();
 
         assertNotNull(updatedJob.getMetadata("approvalReminderSentAt"));
+    }
+
+    @Test
+    void testReminderNotSentWhenAnotherReplicaAlreadyClaimedIt() {
+        Job job = stoppedApprovalJob(Instant.now()
+            .plus(Duration.ofHours(4)));
+
+        when(jobService.getStaleJobs(any(), any())).thenReturn(List.of(job));
+        when(jobService.update(any()))
+            .thenThrow(new OptimisticLockingFailureException("claimed by another replica"));
+
+        approvalReminderMonitor.remindExpiringApprovals();
+
+        // Losing the pre-send optimistic claim (another coordinator replica marked the reminder first) must skip the
+        // send, so two replicas never emit duplicate JOB_APPROVAL_EXPIRING notifications.
+        verify(notificationSender, never()).send(any(), any(), any());
     }
 
     @Test
