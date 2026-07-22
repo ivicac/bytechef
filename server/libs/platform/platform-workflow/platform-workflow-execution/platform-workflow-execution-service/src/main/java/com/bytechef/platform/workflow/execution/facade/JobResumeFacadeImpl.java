@@ -40,6 +40,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -145,6 +146,25 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
                 log.warn("Rejected resume for job {}: the pending approval expired", jobResumeId.getJobId());
 
                 incrementApprovalExpiredCounter("resume");
+
+                return JobResumeOutcome.GONE;
+            }
+
+            // Atomic single-winner claim. The STOPPED check above is advisory: two concurrent resolutions of the same
+            // run (e.g. a chat-card Approve and an email-form Reject) both pass it, and the actual resume conflict is
+            // only settled later by the coordinator's optimistic lock — telling the loser OK and double-counting the
+            // resolution. Claim the run here by transitioning STOPPED -> STARTED under the job's @Version: only the
+            // first update commits; the loser's stale-version update throws and is told GONE. The same version guard
+            // rejects resurrecting a run the expiry sweep concurrently flipped to FAILED (that update bumps the
+            // version too), so a resume can never flip an already-terminal run back to STARTED.
+            job.setStatus(Job.Status.STARTED);
+
+            try {
+                jobService.update(job);
+            } catch (OptimisticLockingFailureException optimisticLockingFailureException) {
+                log.warn(
+                    "Lost the resume claim for job {} to a concurrent resolution or the expiry sweep",
+                    jobResumeId.getJobId());
 
                 return JobResumeOutcome.GONE;
             }

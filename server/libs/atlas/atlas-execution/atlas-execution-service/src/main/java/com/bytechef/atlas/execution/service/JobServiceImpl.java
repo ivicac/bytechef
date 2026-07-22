@@ -159,6 +159,15 @@ public class JobServiceImpl implements JobService {
         Job job = OptionalUtils.get(jobRepository.findById(id), String.format("Unknown job %s", id));
 
         Assert.isTrue(job.getParentTaskExecutionId() == null, "Can't resume a subflow");
+
+        // The approval-resume facade atomically claims the run (STOPPED -> STARTED) before publishing the resume
+        // event, so a job that is already STARTED here has been claimed and only needs executing — re-transitioning it
+        // would be a redundant write and would defeat that claim. Other resume paths (explicit restart of a STOPPED or
+        // FAILED run) still perform the transition.
+        if (job.getStatus() == Job.Status.STARTED) {
+            return job;
+        }
+
         Assert.isTrue(isRestartable(job), "can't resume job " + id + " as it is " + job.getStatus());
 
         job.setStatus(Job.Status.STARTED);

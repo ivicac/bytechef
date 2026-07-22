@@ -56,6 +56,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.dao.OptimisticLockingFailureException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -206,6 +207,28 @@ public class JobResumeFacadeTest {
         verify(applicationEventPublisher).publishEvent(any(JobResumedEvent.class));
 
         // No "approved" key (ask-user-question style resume) -> no approval-resolution counter.
+        assertThat(meterRegistry.find("bytechef_approval_resolution")
+            .counter()).isNull();
+    }
+
+    @Test
+    public void testResumeJobReturnsGoneWhenTheClaimIsLostToAConcurrentResolutionOrExpiry() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+        when(jobService.update(any(Job.class))).thenThrow(new OptimisticLockingFailureException("already claimed"));
+
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(jobResumeId.toString(), Map.of("approved", true));
+
+        // The loser of a concurrent resolution — or a resume that raced the expiry sweep flipping the run to FAILED —
+        // must be told GONE, with no resume dispatch, no resumed event, and no approval-resolution counter increment.
+        assertThat(outcome).isEqualTo(JobResumeOutcome.GONE);
+
+        verify(jobFacade, never()).resumeJob(anyLong(), anyLong(), any());
+        verify(applicationEventPublisher, never()).publishEvent(any(JobResumedEvent.class));
+
         assertThat(meterRegistry.find("bytechef_approval_resolution")
             .counter()).isNull();
     }
