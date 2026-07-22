@@ -663,6 +663,11 @@ public class AiGatewayFacadeImpl implements AiGatewayFacade {
                 String tail = responseRedactor.flush();
                 String finishReason = deferredFinishReason.get();
 
+                // One redaction metric per stream (the redactor masks per-chunk); mirrors the non-streaming path.
+                if (responseRedactor.isRedacted()) {
+                    aiGatewayGuardrails.recordResponseRedacted();
+                }
+
                 if (tail.isEmpty() && finishReason == null) {
                     return Flux.<AiGatewayChatCompletionResponse>empty();
                 }

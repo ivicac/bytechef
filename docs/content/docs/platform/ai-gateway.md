@@ -97,3 +97,20 @@ content nor the matched term — the client should revise the prompt, not retry.
 `bytechef_ai_gateway_guardrail` meter, tagged by `event`
 (`pii_redacted` / `secret_redacted` / `response_redacted` / `blocked_term` / `moderation_flagged` /
 `injection_flagged`), so you can dashboard what the DLP layer is catching.
+
+**Configuration reference**
+
+All properties are under `bytechef.ai.gateway.guardrails.*` and default to off. Each may be enabled globally (property)
+or, except where noted, per workspace (**Settings**) or per project (GraphQL) — levels union additively.
+
+| Property | Default | Workspace setting | Effect |
+|---|---|---|---|
+| `pii-redaction-enabled` | `false` | Redact PII | Mask PII in requests. |
+| `secret-redaction-enabled` | `false` | Redact secrets | Mask developer secrets in requests. |
+| `blocked-terms` | _(empty)_ | Blocked terms | Comma-separated deny-list; a match rejects the request. |
+| `moderation-enabled` | `false` | Moderation enabled | Reject unsafe prompts (needs `moderation-model`). |
+| `moderation-model` | _(unset)_ | — | Catalog model id used for moderation; unset disables the classifier. |
+| `injection-detection-enabled` | `false` | Injection detection | Reject prompt-injection attempts (needs `injection-model`). |
+| `injection-model` | _(unset)_ | — | Catalog model id used for injection detection; unset disables the classifier. |
+| `response-scan-enabled` | `false` | Scan responses | Redact PII/secrets from non-streaming completions. |
+| `response-scan-streaming-enabled` | `false` | _(operator only)_ | Also redact streamed completions (adds a lookahead delay). |

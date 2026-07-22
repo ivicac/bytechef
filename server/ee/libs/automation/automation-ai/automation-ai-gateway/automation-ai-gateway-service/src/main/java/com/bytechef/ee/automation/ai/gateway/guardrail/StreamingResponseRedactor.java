@@ -41,6 +41,8 @@ public final class StreamingResponseRedactor {
     private final StringBuilder carry = new StringBuilder();
     private final int window;
 
+    private boolean redacted;
+
     public StreamingResponseRedactor() {
         this(DEFAULT_WINDOW);
     }
@@ -90,7 +92,12 @@ public final class StreamingResponseRedactor {
             return "";
         }
 
-        String emitted = AiGatewayGuardrails.redactAll(carry.substring(0, safeCut));
+        String rawSegment = carry.substring(0, safeCut);
+        String emitted = AiGatewayGuardrails.redactAll(rawSegment);
+
+        if (!emitted.equals(rawSegment)) {
+            redacted = true;
+        }
 
         carry.delete(0, safeCut);
 
@@ -108,10 +115,25 @@ public final class StreamingResponseRedactor {
             return "";
         }
 
-        String remainder = AiGatewayGuardrails.redactAll(carry.toString());
+        String raw = carry.toString();
+        String remainder = AiGatewayGuardrails.redactAll(raw);
+
+        if (!remainder.equals(raw)) {
+            redacted = true;
+        }
 
         carry.setLength(0);
 
         return remainder;
+    }
+
+    /**
+     * Returns whether any {@link #push} or {@link #flush} so far actually masked content, so the caller can emit a
+     * single redaction metric per stream instead of one per chunk.
+     *
+     * @return {@code true} if at least one value has been redacted over the stream's lifetime
+     */
+    public boolean isRedacted() {
+        return redacted;
     }
 }

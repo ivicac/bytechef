@@ -132,4 +132,24 @@ class StreamingResponseRedactorTest {
         assertThat(redactor.push("")).isEmpty();
         assertThat(redactor.flush()).isEmpty();
     }
+
+    @Test
+    void testIsRedactedTrueAfterMaskingSecret() {
+        StreamingResponseRedactor redactor = new StreamingResponseRedactor(32);
+
+        redactor.push("token " + AWS_KEY + " and a long tail of clean words to push past the window");
+        redactor.flush();
+
+        assertThat(redactor.isRedacted()).isTrue();
+    }
+
+    @Test
+    void testIsRedactedFalseForCleanStream() {
+        StreamingResponseRedactor redactor = new StreamingResponseRedactor(16);
+
+        redactor.push("all clean text here with nothing sensitive at all across this stream of words");
+        redactor.flush();
+
+        assertThat(redactor.isRedacted()).isFalse();
+    }
 }

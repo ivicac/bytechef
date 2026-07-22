@@ -586,6 +586,15 @@ public class AiGatewayGuardrails {
         }
     }
 
+    /**
+     * Records a single {@code response_redacted} guardrail metric. Used by the streaming path to emit one metric per
+     * stream (via {@link StreamingResponseRedactor#isRedacted()}) rather than one per chunk; the non-streaming path
+     * records inline in {@link #redactResponse}.
+     */
+    public void recordResponseRedacted() {
+        record("response_redacted");
+    }
+
     private void record(String event) {
         if (metrics != null) {
             metrics.record(event);
