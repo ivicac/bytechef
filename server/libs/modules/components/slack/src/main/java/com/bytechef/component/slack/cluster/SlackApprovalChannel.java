@@ -96,7 +96,7 @@ public class SlackApprovalChannel {
                     TYPE, "button", TEXT, Map.of(TYPE, "plain_text", TEXT, "Discard"),
                     "style", "danger", "url", formUrl + "?approved=false"));
         } else {
-            text = "You have a new approval request. Please review and respond using the link below.";
+            text = buildSummaryText(inputParameters);
             elements = List.of(
                 Map.of(
                     TYPE, "button", TEXT, Map.of(TYPE, "plain_text", TEXT, "Open Approval Form"),
