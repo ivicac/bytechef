@@ -41,17 +41,31 @@ to the Approval action — or to the AI Agent node's **Channels** section for ga
   pending run approvals list and the hosted form, and workflow validation warns about this
   configuration — so configure a fallback channel. With no channels configured on an AI Agent,
   the chat channel is the default.
-- **Slack**, **Discord** — message with one-click Approve/Discard buttons (field-less approvals)
-  or an "Open Approval Form" button.
-- **Google Mail**, **Microsoft Outlook 365** — email with Approve/Discard links or a form link.
+- **Slack**, **Discord**, **Telegram** — message with one-click Approve/Discard buttons
+  (field-less approvals) or an "Open Approval Form" button.
+- **Mattermost**, **Rocket.Chat** — message with Approve/Discard markdown links or a form link.
+- **Google Mail**, **Microsoft Outlook 365**, **Email** (any SMTP server) — email with
+  Approve/Discard links or a form link.
 - **WhatsApp** (Meta Cloud, **Twilio**, or **Infobip**) — text message with one-click
   Approve/Discard links or the form link. Free-form WhatsApp messages only deliver inside an open
   24-hour customer-service window; outside it the providers require a pre-approved template, so
   pair WhatsApp with a fallback channel for cold outreach.
+- **SMS** (**Twilio** or **Infobip**) — plain text message with the Approve/Discard links or the
+  form link.
 - **Approval task** — creates an entry on the Approval Tasks page.
 - The hosted form link works from any channel; the tokenized URL requires no login.
 
+A one-click Approve/Discard link never resolves the approval on page open: it lands on the hosted
+form with the decision pre-selected, and a single Confirm click (with an optional comment)
+submits it. This keeps corporate email link scanners and messenger preview bots — which follow
+links in delivered messages — from silently resolving approvals.
+
 Channels fan out simultaneously; the first response wins and later resolutions are rejected.
+Delivery is best-effort per channel: a channel that fails to send (deleted Slack channel, closed
+WhatsApp window) is logged and skipped while the others still deliver and the run still pauses —
+the step only fails when every configured channel fails. Each channel also receives the request's
+computed expiry (the `expiresAt` input, ISO-8601), which the newer channels include in the
+message.
 
 ## Where the approval card appears
 

@@ -464,6 +464,13 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   `JobContextAware`), throws without one. Both SSE bridges + `JobResumeSseStreamBridge` map
   `__eventType` payloads to named events; `AgUiStreamBridge` passes them as AG-UI CustomEvents and
   folds a persist-only markdown form-link marker into accumulated text for reload.
+- **Channel fan-out is best-effort**: `ApprovalRequestApprovalAction.deliverToChannels` and
+  `ApprovalGateToolCallback.deliverApprovalRequest` try/catch per channel (warn log), failing the
+  step ONLY when every configured channel fails. Channels receive the computed expiry under
+  `ApprovalChannelFunction.EXPIRES_AT` (ISO-8601). One-click `?approved=` links NEVER auto-submit:
+  `ApprovalForm` shows a pre-selected Confirm view (link scanners must not resolve approvals).
+  Delivery channels: chat, Slack, Discord, Telegram, Mattermost, Rocket.Chat, Gmail, Outlook 365,
+  generic SMTP email, WhatsApp (Meta/Twilio/Infobip), SMS (Twilio/Infobip), approval task.
 - **Tool gate**: `requiresApproval: true` in a TOOLS cluster-element entry's parameters
   (`ToolConstants.REQUIRES_APPROVAL`; editor checkbox in `AiAgentToolDropdownMenu`) wraps the
   callback in `ApprovalGateToolCallback` (inside the observable/audit wrapper). Suspends via the

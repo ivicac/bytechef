@@ -6299,10 +6299,49 @@
     "workflowNodeDescription": null
   } ],
   "clusterElements": [ {
-    "name": "sendMedia",
+    "description": "Sends an approval request message to a Telegram chat.",
+    "element": { },
+    "help": null,
+    "name": "telegram",
+    "outputDefinition": null,
+    "processErrorResponse": null,
+    "properties": [ {
+      "advancedOption": null,
+      "controlType": "TEXT",
+      "defaultValue": null,
+      "description": "Unique identifier for the target chat or username of the target channel. Your bot has to be a member of that chat or group.",
+      "displayCondition": null,
+      "exampleValue": null,
+      "expressionEnabled": null,
+      "hidden": null,
+      "label": "Chat ID",
+      "languageId": null,
+      "maxLength": null,
+      "metadata": { },
+      "minLength": null,
+      "name": "chat_id",
+      "options": null,
+      "optionsDataSource": null,
+      "optionsLoadedDynamically": null,
+      "placeholder": null,
+      "regex": null,
+      "required": true,
+      "type": "STRING"
+    } ],
+    "title": "Telegram",
+    "type": {
+      "name": "APPROVAL_CHANNELS",
+      "key": "approvalChannels",
+      "label": "Channels",
+      "multipleElements": true,
+      "required": false
+    },
+    "workflowNodeDescription": null
+  }, {
     "description": "Sends a media message through a Telegram bot.",
     "element": { },
     "help": null,
+    "name": "sendMedia",
     "outputDefinition": {
       "output": null,
       "outputResponse": {
@@ -9607,10 +9646,10 @@
     },
     "workflowNodeDescription": null
   }, {
-    "name": "sendMessage",
     "description": "Sends a message through a Telegram bot.",
     "element": { },
     "help": null,
+    "name": "sendMessage",
     "outputDefinition": {
       "output": null,
       "outputResponse": {
