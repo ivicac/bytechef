@@ -247,25 +247,22 @@ payload is too small to carry the whole token (Telegram/Discord). **Process-loca
 degrades to the form link. A distributed EE deployment with multiple coordinator replicas needs a
 shared store (Redis / DB) — the one remaining open item for these two.
 
-### Open — Twilio / Infobip SMS + WhatsApp (buildable via reply-code; needs live-provider verify)
+### Will NOT build (by decision, 2026-07-22) — Twilio / Infobip SMS+WhatsApp, Rocket.Chat
 
-Buildable — NOT blocked — but with a worse UX and provider-signature verification that can only be
-validated live, so deferred rather than shipped blind. SMS has no buttons and BSP WhatsApp
-interactive buttons need a pre-approved Content Template, so both use a **reply-code** flow instead:
-the outbound message says *"reply `A <code>` to approve or `D <code>` to discard"* where `code` is a
-short id from the store; the BSP's inbound webhook (`/twilio/interactivity`, `/infobip/interactivity`)
-parses the reply body. Verification: Twilio `X-Twilio-Signature` (HMAC-SHA1 over the exact URL +
-sorted params — fiddly to reconstruct); Infobip has no inbound HMAC (API-key / IP allowlist). Tenant
-anchored via the short id → token. The reply-code UX is a real downgrade from buttons — worth a
-product nod before building.
+These stay on the current URL buttons (open the hosted form) — a deliberate decision, not a backlog
+item. They are technically buildable but only through a degraded path, so they are not worth the
+build + maintenance:
 
-### Open — Rocket.Chat (no built-in callback; heaviest)
+- **Twilio / Infobip SMS + WhatsApp** — SMS has no buttons and BSP WhatsApp interactive buttons need
+  a pre-approved Content Template, so the only route is a **reply-code** flow (*"reply `A <code>` /
+  `D <code>`"*), parsed by a BSP inbound webhook. Worse UX than buttons, plus Twilio's `X-Twilio-
+  Signature` (HMAC-SHA1 over the exact URL + sorted params) verification is fiddly and only
+  checkable live.
+- **Rocket.Chat** — no `integration.url` callback like Mattermost; would need a deployed Rocket.Chat
+  App (UIKit) or a button-`msg` command + an operator-configured outgoing-webhook. Too heavy for the
+  payoff.
 
-Rocket.Chat attachment buttons only support `url` (open) or `msg` (post a chat message) — no
-`integration.url` POST callback like Mattermost. Options: a deployed Rocket.Chat App (UIKit), or a
-button-`msg` command (e.g. `!approve <shortId>`) + an operator-configured outgoing-webhook integration
-that POSTs matching messages to `/rocketchat/interactivity`. Both are heavier and need live setup.
-Stays on URL buttons until one is built.
+The design sketches above are retained only as a record of why; there is no plan to implement them.
 
 ## Not doing (by decision)
 

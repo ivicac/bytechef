@@ -494,9 +494,9 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   signature against `bytechef.webhook.discord.public-key`, answers `PING`→`PONG`). Telegram/Discord
   cap the button payload below the signed token, so the channel mints a short id via the anonymous
   `POST /approval/short-token` (`ApprovalShortTokenStore`, process-local — form-link fallback covers a
-  restart; distributed EE needs a shared store). Remaining channels (Twilio/Infobip SMS+WhatsApp,
-  Rocket.Chat) stay on URL buttons — see
-  `docs/superpowers/plans/2026-07-22-hitl-gap-remaining-backlog.md` for their reply-code / App designs.
+  restart; distributed EE needs a shared store). Twilio/Infobip SMS+WhatsApp and Rocket.Chat
+  intentionally stay on URL buttons (won't be built — SMS/BSP reply-code UX and Rocket.Chat's lack of
+  a callback aren't worth it; see `docs/superpowers/plans/2026-07-22-hitl-gap-remaining-backlog.md`).
 - **Tool gate**: `requiresApproval: true` in a TOOLS cluster-element entry's parameters
   (`ToolConstants.REQUIRES_APPROVAL`; editor checkbox in `AiAgentToolDropdownMenu`) wraps the
   callback in `ApprovalGateToolCallback` (inside the observable/audit wrapper). Suspends via the
