@@ -60,14 +60,6 @@ export default function ApprovalForm({
         };
     }, [setDocumentTitle, uiDefinition?.title]);
 
-    if (submitError) {
-        return (
-            <div className="p-6">
-                <span className="text-sm text-destructive">{submitError}</span>
-            </div>
-        );
-    }
-
     if (loading) {
         return <div className="p-6 text-center text-sm text-muted-foreground">Loading form...</div>;
     }
@@ -126,6 +118,12 @@ export default function ApprovalForm({
                     </div>
                 )}
 
+                {submitError && (
+                    <p className="mt-4 text-sm text-destructive" role="alert">
+                        {submitError}
+                    </p>
+                )}
+
                 <Button
                     className="mt-6"
                     disabled={submitting}
@@ -181,6 +179,12 @@ export default function ApprovalForm({
                                 value={comment}
                             />
                         </div>
+                    )}
+
+                    {submitError && (
+                        <p className="text-sm text-destructive" role="alert">
+                            {submitError}
+                        </p>
                     )}
 
                     <div className="mt-4 flex gap-3">
