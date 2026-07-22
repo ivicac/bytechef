@@ -58,6 +58,7 @@ import static com.bytechef.component.definition.ComponentDsl.option;
 import static com.bytechef.component.definition.ComponentDsl.string;
 import static com.bytechef.component.definition.Property.ControlType.TEXT_AREA;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.APPROVAL_CHANNELS;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.EXPIRES_AT;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_DESCRIPTION;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.INPUTS;
@@ -86,11 +87,15 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Ivica Cardic
  */
 public class ApprovalRequestApprovalAction {
+
+    private static final Logger log = LoggerFactory.getLogger(ApprovalRequestApprovalAction.class);
 
     private static final String FORM_URL = "formUrl";
 
@@ -300,6 +305,8 @@ public class ApprovalRequestApprovalAction {
 
         String formUrl = resumeUrl.replace("/job/resume/", "/resume/");
 
+        Instant expiresAt = getExpiresAt(inputParameters);
+
         if (actionContextAware.isEditorEnvironment()) {
             // Editor test runs skip channels (they are production transports), but the canvas test run listens on
             // the job's SSE stream. Deliver the same approval card event the chat channel would send by returning a
@@ -307,34 +314,79 @@ public class ApprovalRequestApprovalAction {
             // bridges. The suspend must happen inside the emitter handler — suspending before returning would make
             // the service layer replace the emitter output with the Suspend and the card would never be sent.
             if (actionContextAware.getJobId() != null) {
-                return createEditorApprovalRequestEmitterHandler(inputParameters, formUrl, actionContextAware);
+                return createEditorApprovalRequestEmitterHandler(inputParameters, formUrl, expiresAt,
+                    actionContextAware);
             }
         } else {
             ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
 
             List<ClusterElement> approvalChannels = clusterElementMap.getClusterElements(APPROVAL_CHANNELS);
 
-            for (ClusterElement approvalChannel : approvalChannels) {
-                ComponentConnection componentConnection = componentConnections.get(
-                    approvalChannel.getWorkflowNodeName());
-
-                Map<String, Object> channelInputParameters = MapUtils.concat(
-                    new HashMap<>(inputParameters.toMap()), new HashMap<>(approvalChannel.getParameters()));
-
-                clusterElementDefinitionService.executeApprovalChannel(
-                    approvalChannel.getComponentName(), approvalChannel.getComponentVersion(),
-                    approvalChannel.getClusterElementName(), channelInputParameters, formUrl, componentConnection,
-                    actionContextAware);
-            }
+            deliverToChannels(
+                approvalChannels, inputParameters, componentConnections, formUrl, expiresAt, actionContextAware);
         }
 
-        suspend(context, inputParameters, formUrl);
+        suspend(context, formUrl, expiresAt);
 
         return null;
     }
 
-    private static void suspend(ActionContext context, Parameters inputParameters, String formUrl) {
-        context.suspend(new Suspend(Map.of(FORM_URL, formUrl), getExpiresAt(inputParameters)));
+    /**
+     * Delivers the approval request to every configured channel, best-effort: a channel whose send fails is logged and
+     * skipped so the remaining channels (and the suspend itself) still happen — a deleted Slack channel must not
+     * prevent the email fallback from delivering, and a delivery failure must pause the run rather than fail it. Only
+     * when EVERY configured channel fails is the action failed, because then nobody was notified and pausing would be
+     * the silent no-op the fallback advice exists to prevent. Channels additionally receive the computed expiry under
+     * the well-known {@code expiresAt} key (ISO-8601) so messages can tell the approver when the request lapses.
+     */
+    private void deliverToChannels(
+        List<ClusterElement> approvalChannels, Parameters inputParameters,
+        Map<String, ComponentConnection> componentConnections, String formUrl, Instant expiresAt,
+        ActionContextAware actionContextAware) {
+
+        if (approvalChannels.isEmpty()) {
+            return;
+        }
+
+        int deliveredCount = 0;
+        Exception lastException = null;
+
+        for (ClusterElement approvalChannel : approvalChannels) {
+            ComponentConnection componentConnection = componentConnections.get(
+                approvalChannel.getWorkflowNodeName());
+
+            Map<String, Object> channelInputParameters = MapUtils.concat(
+                new HashMap<>(inputParameters.toMap()), new HashMap<>(approvalChannel.getParameters()));
+
+            channelInputParameters.put(EXPIRES_AT, expiresAt.toString());
+
+            try {
+                clusterElementDefinitionService.executeApprovalChannel(
+                    approvalChannel.getComponentName(), approvalChannel.getComponentVersion(),
+                    approvalChannel.getClusterElementName(), channelInputParameters, formUrl, componentConnection,
+                    actionContextAware);
+
+                deliveredCount++;
+            } catch (Exception exception) {
+                lastException = exception;
+
+                log.warn(
+                    "Approval channel {}/{} failed to deliver the approval request: {}",
+                    approvalChannel.getComponentName(), approvalChannel.getClusterElementName(),
+                    exception.getMessage());
+            }
+        }
+
+        if (deliveredCount == 0) {
+            throw new IllegalStateException(
+                "None of the " + approvalChannels.size() + " configured approval channels could deliver the " +
+                    "approval request.",
+                lastException);
+        }
+    }
+
+    private static void suspend(ActionContext context, String formUrl, Instant expiresAt) {
+        context.suspend(new Suspend(Map.of(FORM_URL, formUrl), expiresAt));
     }
 
     /**
@@ -364,7 +416,7 @@ public class ApprovalRequestApprovalAction {
      * the same mechanism the AI agent's streaming action uses for mid-stream suspends.
      */
     private static SuspendAwareSseEmitterHandler createEditorApprovalRequestEmitterHandler(
-        Parameters inputParameters, String formUrl, ActionContextAware actionContextAware) {
+        Parameters inputParameters, String formUrl, Instant expiresAt, ActionContextAware actionContextAware) {
 
         Map<String, Object> eventData = ChatApprovalChannel.buildApprovalRequestEventData(inputParameters, formUrl);
 
@@ -372,7 +424,7 @@ public class ApprovalRequestApprovalAction {
             sseEmitter -> {
                 sseEmitter.send(eventData);
 
-                suspend(actionContextAware, inputParameters, formUrl);
+                suspend(actionContextAware, formUrl, expiresAt);
 
                 sseEmitter.complete();
             },

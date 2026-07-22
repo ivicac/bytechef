@@ -16,6 +16,7 @@
 
 package com.bytechef.component.ai.agent.tool;
 
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.EXPIRES_AT;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_DESCRIPTION;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
 
@@ -146,13 +147,16 @@ public class ApprovalGateToolCallback implements ToolCallback {
 
         String formUrl = resumeUrl.replace("/job/resume/", "/resume/");
 
+        Instant expiresAt = Instant.now()
+            .plus(approvalExpiry != null ? approvalExpiry : DEFAULT_APPROVAL_EXPIRY);
+
         if (actionContext.isEditorEnvironment()) {
             // Editor test runs have no channel listeners (channels are production transports), but the agent's
             // SSE stream IS connected — send the approval card event through the ToolContext's emitter, the same
             // path ask_user_question uses, so the canvas test chat renders the card.
             sendEditorApprovalRequestEvent(toolContext, formUrl, toolInput);
         } else {
-            deliverApprovalRequest(formUrl, toolInput);
+            deliverApprovalRequest(formUrl, toolInput, expiresAt);
         }
 
         Map<String, Object> continueParameters = new HashMap<>();
@@ -160,9 +164,6 @@ public class ApprovalGateToolCallback implements ToolCallback {
         continueParameters.put(ToolSuspendConstants.GATED_TOOL_NAME, getName());
         continueParameters.put(ToolSuspendConstants.GATED_TOOL_INPUT, toolInput);
         continueParameters.put("formUrl", formUrl);
-
-        Instant expiresAt = Instant.now()
-            .plus(approvalExpiry != null ? approvalExpiry : DEFAULT_APPROVAL_EXPIRY);
 
         actionContext.suspend(new ActionContext.Suspend(continueParameters, expiresAt));
 
@@ -228,13 +229,14 @@ public class ApprovalGateToolCallback implements ToolCallback {
         }
     }
 
-    private void deliverApprovalRequest(String formUrl, String toolInput) {
+    private void deliverApprovalRequest(String formUrl, String toolInput, Instant expiresAt) {
         Map<String, Object> channelInputParameters = new HashMap<>();
 
         channelInputParameters.put(FORM_TITLE, "Approve tool call: " + getName());
         channelInputParameters.put(
             FORM_DESCRIPTION,
             "The AI agent wants to call the tool '" + getName() + "' with these arguments:\n\n" + toolInput);
+        channelInputParameters.put(EXPIRES_AT, expiresAt.toString());
 
         if (approvalChannelClusterElements.isEmpty()) {
             // No channels configured on the agent node — default to the chat channel targeting the run's
@@ -248,6 +250,12 @@ public class ApprovalGateToolCallback implements ToolCallback {
             return;
         }
 
+        // Best-effort per channel: a failing channel is logged and skipped so the remaining channels still deliver
+        // and the gate still suspends. Only when every configured channel fails is the call failed — then nobody
+        // was notified and suspending would be a silent no-op.
+        int deliveredCount = 0;
+        Exception lastException = null;
+
         for (ClusterElement approvalChannel : approvalChannelClusterElements) {
             ComponentConnection componentConnection = componentConnections.get(
                 approvalChannel.getWorkflowNodeName());
@@ -256,10 +264,28 @@ public class ApprovalGateToolCallback implements ToolCallback {
 
             mergedInputParameters.putAll(approvalChannel.getParameters());
 
-            clusterElementDefinitionService.executeApprovalChannel(
-                approvalChannel.getComponentName(), approvalChannel.getComponentVersion(),
-                approvalChannel.getClusterElementName(), mergedInputParameters, formUrl, componentConnection,
-                actionContext);
+            try {
+                clusterElementDefinitionService.executeApprovalChannel(
+                    approvalChannel.getComponentName(), approvalChannel.getComponentVersion(),
+                    approvalChannel.getClusterElementName(), mergedInputParameters, formUrl, componentConnection,
+                    actionContext);
+
+                deliveredCount++;
+            } catch (Exception exception) {
+                lastException = exception;
+
+                log.warn(
+                    "Approval channel {}/{} failed to deliver the tool-gate approval request: {}",
+                    approvalChannel.getComponentName(), approvalChannel.getClusterElementName(),
+                    exception.getMessage());
+            }
+        }
+
+        if (deliveredCount == 0) {
+            throw new IllegalStateException(
+                "None of the " + approvalChannelClusterElements.size() + " configured approval channels could " +
+                    "deliver the approval request for tool '" + getName() + "'.",
+                lastException);
         }
     }
 

@@ -19,6 +19,7 @@ package com.bytechef.component.approval.action;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -94,6 +95,122 @@ class ApprovalRequestApprovalActionTest {
         verify(clusterElementDefinitionService, times(1)).executeApprovalChannel(
             eq("googleMail"), eq(1), eq("googleMail"), any(), eq("https://example.com/api/resume/abc"),
             eq(componentConnection), eq(context));
+    }
+
+    @Test
+    void testPerformDeliversRemainingChannelsWhenOneFails() throws Exception {
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+
+        ModifiableActionDefinition actionDefinition = ApprovalRequestApprovalAction.of(clusterElementDefinitionService);
+
+        MultipleConnectionsPerformFunction performFunction = (MultipleConnectionsPerformFunction) actionDefinition
+            .getPerform()
+            .orElseThrow();
+
+        ActionContextAware context = mock(ActionContextAware.class);
+
+        when(context.isEditorEnvironment()).thenReturn(false);
+        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+
+        when(clusterElementDefinitionService.executeApprovalChannel(
+            eq("slack"), anyInt(), anyString(), any(), anyString(), any(), any()))
+                .thenThrow(new RuntimeException("channel_not_found"));
+
+        Parameters inputParameters = ParametersFactory.create(Map.of());
+        Parameters extensions = ParametersFactory.create(
+            Map.of(
+                "clusterElements",
+                Map.of(
+                    "approvalChannels",
+                    List.of(
+                        Map.of("name", "slack_1", "parameters", Map.of(), "type", "slack/v1/approvalChannel"),
+                        Map.of(
+                            "name", "approvalTask_1", "parameters", Map.of(),
+                            "type", "approvalTask/v1/approvalTask")))));
+
+        performFunction.apply(inputParameters, Map.of(), extensions, context);
+
+        // The failing Slack channel must not prevent the fallback channel from delivering or the run from pausing.
+        verify(clusterElementDefinitionService).executeApprovalChannel(
+            eq("approvalTask"), anyInt(), anyString(), any(), anyString(), any(), any());
+        verify(context).suspend(any(ActionContext.Suspend.class));
+    }
+
+    @Test
+    void testPerformFailsWhenEveryChannelFails() throws Exception {
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+
+        ModifiableActionDefinition actionDefinition = ApprovalRequestApprovalAction.of(clusterElementDefinitionService);
+
+        MultipleConnectionsPerformFunction performFunction = (MultipleConnectionsPerformFunction) actionDefinition
+            .getPerform()
+            .orElseThrow();
+
+        ActionContextAware context = mock(ActionContextAware.class);
+
+        when(context.isEditorEnvironment()).thenReturn(false);
+        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+
+        when(clusterElementDefinitionService.executeApprovalChannel(
+            anyString(), anyInt(), anyString(), any(), anyString(), any(), any()))
+                .thenThrow(new RuntimeException("channel_not_found"));
+
+        Parameters inputParameters = ParametersFactory.create(Map.of());
+        Parameters extensions = ParametersFactory.create(
+            Map.of(
+                "clusterElements",
+                Map.of(
+                    "approvalChannels",
+                    List.of(
+                        Map.of("name", "slack_1", "parameters", Map.of(), "type", "slack/v1/approvalChannel")))));
+
+        assertThrows(
+            IllegalStateException.class,
+            () -> performFunction.apply(inputParameters, Map.of(), extensions, context));
+
+        verify(context, never()).suspend(any(ActionContext.Suspend.class));
+    }
+
+    @Test
+    void testPerformPublishesExpiresAtToChannels() throws Exception {
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+
+        ModifiableActionDefinition actionDefinition = ApprovalRequestApprovalAction.of(clusterElementDefinitionService);
+
+        MultipleConnectionsPerformFunction performFunction = (MultipleConnectionsPerformFunction) actionDefinition
+            .getPerform()
+            .orElseThrow();
+
+        ActionContextAware context = mock(ActionContextAware.class);
+
+        when(context.isEditorEnvironment()).thenReturn(false);
+        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+
+        Parameters inputParameters = ParametersFactory.create(Map.of("expiresIn", 4, "expiresInUnit", "HOURS"));
+        Parameters extensions = ParametersFactory.create(
+            Map.of(
+                "clusterElements",
+                Map.of(
+                    "approvalChannels",
+                    List.of(
+                        Map.of("name", "slack_1", "parameters", Map.of(), "type", "slack/v1/approvalChannel")))));
+
+        performFunction.apply(inputParameters, Map.of(), extensions, context);
+
+        ArgumentCaptor<Map<String, ?>> channelInputParametersArgumentCaptor = ArgumentCaptor.captor();
+
+        verify(clusterElementDefinitionService).executeApprovalChannel(
+            eq("slack"), anyInt(), anyString(), channelInputParametersArgumentCaptor.capture(), anyString(), any(),
+            any());
+
+        Map<String, ?> channelInputParameters = channelInputParametersArgumentCaptor.getValue();
+
+        Instant expiresAt = Instant.parse((String) channelInputParameters.get("expiresAt"));
+
+        assertTrue(expiresAt.isAfter(Instant.now()
+            .plus(3, ChronoUnit.HOURS)));
+        assertTrue(expiresAt.isBefore(Instant.now()
+            .plus(5, ChronoUnit.HOURS)));
     }
 
     @Test
