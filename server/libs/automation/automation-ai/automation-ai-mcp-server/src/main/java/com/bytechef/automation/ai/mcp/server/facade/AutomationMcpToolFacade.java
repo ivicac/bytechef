@@ -423,12 +423,22 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
             for (McpProjectWorkflow mcpProjectWorkflow : mcpProjectWorkflowService.getMcpProjectMcpProjectWorkflows(
                 mcpProject.getId())) {
 
-                ProjectDeploymentWorkflow projectDeploymentWorkflow =
-                    projectDeploymentWorkflowService.getProjectDeploymentWorkflow(
-                        mcpProjectWorkflow.getProjectDeploymentWorkflowId());
+                try {
+                    ProjectDeploymentWorkflow projectDeploymentWorkflow =
+                        projectDeploymentWorkflowService.getProjectDeploymentWorkflow(
+                            mcpProjectWorkflow.getProjectDeploymentWorkflowId());
 
-                if (workflowId.equals(projectDeploymentWorkflow.getWorkflowId())) {
-                    return true;
+                    if (workflowId.equals(projectDeploymentWorkflow.getWorkflowId())) {
+                        return true;
+                    }
+                } catch (Exception exception) {
+                    // A stale mcp_project_workflow row (its deployment workflow deleted) must not fail the approval
+                    // tool call — skip it, staying fail-closed: an entry that cannot be resolved does not expose a job.
+                    if (log.isDebugEnabled()) {
+                        log.debug(
+                            "Skipping unresolvable project-deployment-workflow {} while checking MCP exposure: {}",
+                            mcpProjectWorkflow.getProjectDeploymentWorkflowId(), exception.getMessage());
+                    }
                 }
             }
         }
