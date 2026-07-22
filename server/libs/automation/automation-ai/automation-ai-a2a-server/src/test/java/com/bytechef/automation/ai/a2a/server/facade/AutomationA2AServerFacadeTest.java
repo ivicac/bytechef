@@ -21,6 +21,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
@@ -36,6 +37,7 @@ import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
 
@@ -47,6 +49,7 @@ class AutomationA2AServerFacadeTest {
     private final A2aProjectService a2aProjectService = mock(A2aProjectService.class);
     private final A2aProjectWorkflowService a2aProjectWorkflowService = mock(A2aProjectWorkflowService.class);
     private final A2aServerService a2aServerService = mock(A2aServerService.class);
+    private final JobService jobService = mock(JobService.class);
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService =
         mock(ProjectDeploymentWorkflowService.class);
 
@@ -60,7 +63,7 @@ class AutomationA2AServerFacadeTest {
 
     private final AutomationA2AServerFacade facade = new AutomationA2AServerFacade(
         a2aProjectService, a2aProjectWorkflowService, a2aServerService, approvalTokensObjectProvider,
-        mock(JobCompletionAwaiter.class), mock(JobService.class), planLimitsProviderObjectProvider,
+        mock(JobCompletionAwaiter.class), jobService, planLimitsProviderObjectProvider,
         mock(PrincipalJobFacade.class), projectDeploymentWorkflowService, "https://example.com",
         mock(TaskExecutionService.class), mock(TaskFileStorage.class), mock(WorkflowService.class));
 
@@ -92,5 +95,69 @@ class AutomationA2AServerFacadeTest {
 
         assertThat(result.success()).isFalse();
         assertThat(result.errorMessage()).contains("No agent-backed workflow");
+    }
+
+    @Test
+    void testPollRunReturnsNullWhenJobIsMissing() {
+        when(jobService.fetchJob(1L)).thenReturn(Optional.empty());
+
+        assertThat(facade.pollRun(1L)).isNull();
+    }
+
+    @Test
+    void testPollRunReturnsNullWhileRunIsMidResume() {
+        Job job = mock(Job.class);
+
+        // STARTED = the resume is in flight; the stored task must stay input-required until the run settles.
+        when(job.getStatus()).thenReturn(Job.Status.STARTED);
+        when(jobService.fetchJob(2L)).thenReturn(Optional.of(job));
+
+        assertThat(facade.pollRun(2L)).isNull();
+    }
+
+    @Test
+    void testPollRunReturnsInputRequiredWhileRunStaysStopped() {
+        Job job = mock(Job.class);
+
+        when(job.getId()).thenReturn(3L);
+        when(job.getStatus()).thenReturn(Job.Status.STOPPED);
+        when(jobService.fetchJob(3L)).thenReturn(Optional.of(job));
+
+        A2AAgentResult result = facade.pollRun(3L);
+
+        assertThat(result).isNotNull();
+        assertThat(result.inputRequired()).isTrue();
+        assertThat(result.jobId()).isEqualTo(3L);
+        assertThat(result.text()).contains("Approval required");
+    }
+
+    @Test
+    void testPollRunReturnsTextWhenRunCompletes() {
+        Job job = mock(Job.class);
+
+        when(job.getStatus()).thenReturn(Job.Status.COMPLETED);
+        when(job.getOutputs()).thenReturn(null);
+        when(jobService.fetchJob(4L)).thenReturn(Optional.of(job));
+
+        A2AAgentResult result = facade.pollRun(4L);
+
+        assertThat(result).isNotNull();
+        assertThat(result.success()).isTrue();
+        assertThat(result.inputRequired()).isFalse();
+        assertThat(result.text()).isEmpty();
+    }
+
+    @Test
+    void testPollRunReturnsErrorWhenRunFails() {
+        Job job = mock(Job.class);
+
+        when(job.getStatus()).thenReturn(Job.Status.FAILED);
+        when(jobService.fetchJob(5L)).thenReturn(Optional.of(job));
+
+        A2AAgentResult result = facade.pollRun(5L);
+
+        assertThat(result).isNotNull();
+        assertThat(result.success()).isFalse();
+        assertThat(result.errorMessage()).contains("failed after the approval");
     }
 }
