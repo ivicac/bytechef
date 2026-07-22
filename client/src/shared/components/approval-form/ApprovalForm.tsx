@@ -4,7 +4,7 @@ import {Label} from '@/components/ui/label';
 import {Textarea} from '@/components/ui/textarea';
 import {renderFormField} from '@/shared/components/form/renderFormField';
 import useApprovalForm from '@/shared/hooks/useApprovalForm';
-import {useEffect, useRef, useState} from 'react';
+import {useEffect, useState} from 'react';
 import {useSearchParams} from 'react-router-dom';
 
 interface ApprovalFormPropsI {
@@ -34,8 +34,7 @@ export default function ApprovalForm({
 
     const [searchParams] = useSearchParams();
     const approvedParam = searchParams.get('approved');
-    const autoApproved = approvedParam === 'true' ? true : approvedParam === 'false' ? false : null;
-    const autoSubmittedRef = useRef(false);
+    const presetApproved = approvedParam === 'true' ? true : approvedParam === 'false' ? false : null;
 
     // "comment" is a reserved key in the approval outcome; a user-defined field with that name takes precedence and
     // suppresses the built-in comment box.
@@ -46,15 +45,6 @@ export default function ApprovalForm({
 
         return trimmedComment && !hasCommentField ? {...values, comment: trimmedComment} : values;
     };
-
-    useEffect(() => {
-        if (autoApproved !== null && !autoSubmittedRef.current) {
-            autoSubmittedRef.current = true;
-
-            void handleSubmit({}, autoApproved);
-        }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [autoApproved]);
 
     useEffect(() => {
         if (!setDocumentTitle) {
@@ -76,26 +66,6 @@ export default function ApprovalForm({
                 <span className="text-sm text-destructive">{submitError}</span>
             </div>
         );
-    }
-
-    if (autoApproved !== null) {
-        if (submitted) {
-            const resolvedApproved = approved ?? autoApproved;
-
-            return (
-                <div className="p-6 text-center">
-                    <h2 className="text-lg font-semibold tracking-tight">
-                        {resolvedApproved ? 'Approved' : 'Discarded'}
-                    </h2>
-
-                    <p className="mt-2 text-sm text-muted-foreground">
-                        {resolvedApproved ? 'Your approval has been submitted.' : 'The request has been discarded.'}
-                    </p>
-                </div>
-            );
-        }
-
-        return <div className="p-6 text-center text-sm text-muted-foreground">Submitting...</div>;
     }
 
     if (loading) {
@@ -123,6 +93,48 @@ export default function ApprovalForm({
                 <p className="mt-2 text-sm text-muted-foreground">
                     {approved ? 'Your approval has been submitted.' : 'The request has been discarded.'}
                 </p>
+            </div>
+        );
+    }
+
+    // A one-click Approve/Discard link only pre-selects the decision; it must never submit on page load. Email link
+    // scanners and messenger preview bots follow links in delivered messages, so an on-load submit would let a
+    // crawler silently resolve the approval. Approvals with form fields ignore the shortcut and render the full form.
+    if (presetApproved !== null && !uiDefinition.inputs?.length) {
+        return (
+            <div className="mx-auto max-w-md p-6 text-center">
+                <h2 className="text-lg font-semibold tracking-tight">{uiDefinition.title || 'Approval requested'}</h2>
+
+                {uiDefinition.description && (
+                    <p className="mt-2 text-sm whitespace-pre-line text-muted-foreground">{uiDefinition.description}</p>
+                )}
+
+                <p className="mt-4 text-sm text-muted-foreground">
+                    {presetApproved ? 'Confirm to approve this request.' : 'Confirm to discard this request.'}
+                </p>
+
+                {!hasCommentField && (
+                    <div className="mt-4 space-y-2 text-left">
+                        <Label htmlFor="approval-comment">Comment (optional)</Label>
+
+                        <Textarea
+                            id="approval-comment"
+                            onChange={(event) => setComment(event.target.value)}
+                            placeholder="Add a note for the requester — included whether you approve or discard."
+                            value={comment}
+                        />
+                    </div>
+                )}
+
+                <Button
+                    className="mt-6"
+                    disabled={submitting}
+                    onClick={() => handleSubmit(withComment({}), presetApproved)}
+                    type="button"
+                    variant={presetApproved ? 'default' : 'outline'}
+                >
+                    {submitting ? 'Submitting...' : presetApproved ? 'Confirm approval' : 'Confirm discard'}
+                </Button>
             </div>
         );
     }
