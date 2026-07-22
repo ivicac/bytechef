@@ -566,6 +566,13 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   (`ApprovalTaskFacade.getPendingApprovals` → `pendingApprovals` GraphQL query →
   `PendingApprovalsList` on the Approval Tasks page) lists all STOPPED runs carrying a
   `jobResumeId`, with workflow label, form URL, createdDate, and expiry — channel-independent.
+  In distributed EE the approval-task channel + inbox are NOT monolith-only: worker-app's
+  `RemoteApprovalTaskFacadeClient` issues real `LoadBalancedRestClient` calls to configuration-app's
+  `automation-task-remote-rest` `RemoteApprovalTaskFacadeController` (`/remote/approval-task-facade`),
+  and configuration-app hosts the real `automation-task-service` (facade + `ApprovalTaskReconciliationMonitor`
+  + `ApprovalTaskCompletionListener`) and `automation-task-graphql`. The service-level
+  `RemoteApprovalTaskServiceClient` stays a stub — `ApprovalTaskService` is only consumed by the
+  GraphQL controller, which runs in configuration-app against the real bean.
 - **Chat-only channel validation**: `WorkflowValidator.validateChatOnlyApprovalChannels`
   (platform-workflow-validator-service) warns when a task's `approvalChannels` are chat-only — or
   an AI agent has a `requiresApproval` tool with no channels, which defaults to chat — and the
