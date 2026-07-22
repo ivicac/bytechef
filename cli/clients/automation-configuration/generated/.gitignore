@@ -1,0 +1,5 @@
+# Only the generated Java client sources are committed; the openapi-generator
+# project scaffolding (build files, CI, docs) is regenerated and ignored.
+/*
+!/.gitignore
+!/src/
