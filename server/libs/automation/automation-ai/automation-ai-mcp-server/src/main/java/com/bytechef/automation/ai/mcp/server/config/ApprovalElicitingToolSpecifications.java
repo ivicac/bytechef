@@ -62,7 +62,8 @@ public final class ApprovalElicitingToolSpecifications {
     }
 
     public static McpServerFeatures.AsyncToolSpecification decorate(
-        McpServerFeatures.AsyncToolSpecification toolSpecification, AutomationMcpToolFacade mcpToolFacade) {
+        McpServerFeatures.AsyncToolSpecification toolSpecification, AutomationMcpToolFacade mcpToolFacade,
+        long mcpServerId) {
 
         return new McpServerFeatures.AsyncToolSpecification(
             toolSpecification.tool(),
@@ -73,13 +74,14 @@ public final class ApprovalElicitingToolSpecifications {
 
                 return toolSpecification.callHandler()
                     .apply(exchange, request)
-                    .flatMap(result -> elicitApprovalIfPending(exchange, result, mcpToolFacade, tenantId, 1));
+                    .flatMap(result -> elicitApprovalIfPending(exchange, result, mcpToolFacade, tenantId, mcpServerId,
+                        1));
             });
     }
 
     private static Mono<McpSchema.CallToolResult> elicitApprovalIfPending(
         McpAsyncServerExchange exchange, McpSchema.CallToolResult result, AutomationMcpToolFacade mcpToolFacade,
-        String tenantId, int round) {
+        String tenantId, long mcpServerId, int round) {
 
         if (round > MAX_ELICITATION_ROUNDS) {
             return Mono.just(result);
@@ -104,11 +106,20 @@ public final class ApprovalElicitingToolSpecifications {
         // lookups run on boundedElastic to keep the reactor thread non-blocking, and under the captured tenant so they
         // can only ever name this tenant.
         return Mono
-            .fromCallable(() -> TenantContext.callWithTenantId(tenantId, () -> new PendingApprovalResolution(
-                mcpToolFacade.resolvePendingApprovalFormUrl(jobId.longValue())
-                    .orElse(null),
-                mcpToolFacade.resolvePendingApprovalResumeToken(jobId.longValue())
-                    .orElse(null))))
+            .fromCallable(() -> TenantContext.callWithTenantId(tenantId, () -> {
+                // Fail-closed: a crafted approval_required descriptor could name a genuinely-paused run in another
+                // workspace of the same tenant. Only resolve (and later read the outputs of) runs whose workflow this
+                // MCP server actually exposes.
+                if (!mcpToolFacade.isJobWorkflowExposedByMcpServer(jobId.longValue(), mcpServerId)) {
+                    return new PendingApprovalResolution(null, null);
+                }
+
+                return new PendingApprovalResolution(
+                    mcpToolFacade.resolvePendingApprovalFormUrl(jobId.longValue())
+                        .orElse(null),
+                    mcpToolFacade.resolvePendingApprovalResumeToken(jobId.longValue())
+                        .orElse(null));
+            }))
             .subscribeOn(Schedulers.boundedElastic())
             .flatMap(resolution -> {
                 String formUrl = resolution.formUrl();
@@ -130,7 +141,8 @@ public final class ApprovalElicitingToolSpecifications {
                 return elicited.flatMap(
                     nextResult -> nextResult == result
                         ? Mono.just(nextResult)
-                        : elicitApprovalIfPending(exchange, nextResult, mcpToolFacade, tenantId, round + 1));
+                        : elicitApprovalIfPending(
+                            exchange, nextResult, mcpToolFacade, tenantId, mcpServerId, round + 1));
             });
     }
 

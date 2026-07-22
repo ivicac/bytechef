@@ -133,7 +133,7 @@ public class AutomationMcpServerConfiguration {
         ClusterElementDefinitionFacade clusterElementDefinitionFacade,
         ClusterElementDefinitionService clusterElementDefinitionService, TaskFileStorage durableTaskFileStorage,
         Evaluator evaluator, JobCompletionAwaiter jobCompletionAwaiter, JobResumeFacade jobResumeFacade,
-        JobService jobService, McpComponentService mcpComponentService,
+        JobService jobService, McpComponentService mcpComponentService, McpProjectService mcpProjectService,
         McpProjectWorkflowService mcpProjectWorkflowService, McpServerService mcpServerService,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
         PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
@@ -143,8 +143,8 @@ public class AutomationMcpServerConfiguration {
 
         return new AutomationMcpToolFacade(
             approvalTokensObjectProvider, clusterElementDefinitionFacade, clusterElementDefinitionService, evaluator,
-            jobCompletionAwaiter, jobResumeFacade, jobService, mcpComponentService, mcpProjectWorkflowService,
-            mcpServerService, planLimitsProviderObjectProvider, principalJobFacade,
+            jobCompletionAwaiter, jobResumeFacade, jobService, mcpComponentService, mcpProjectService,
+            mcpProjectWorkflowService, mcpServerService, planLimitsProviderObjectProvider, principalJobFacade,
             projectDeploymentWorkflowService, publicUrl, taskExecutionService, durableTaskFileStorage,
             toolExecutionRecorder, workflowService, workspaceMcpServerService);
     }
@@ -235,7 +235,9 @@ public class AutomationMcpServerConfiguration {
             .stream()
             .flatMap(mcpProject -> CollectionUtils.stream(mcpToolFacade.getFunctionToolCallbacks(mcpProject)))
             .map(McpToolUtils::toAsyncToolSpecification)
-            .map(toolSpecification -> ApprovalElicitingToolSpecifications.decorate(toolSpecification, mcpToolFacade))
+            .map(
+                toolSpecification -> ApprovalElicitingToolSpecifications.decorate(
+                    toolSpecification, mcpToolFacade, mcpServer.getId()))
             .forEach(tools::add);
 
         workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(mcpServer.getId())

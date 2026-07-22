@@ -53,6 +53,8 @@ class ApprovalElicitingToolSpecificationsTest {
         .inputSchema(Map.of("type", "object"))
         .build();
 
+    private static final long MCP_SERVER_ID = 7L;
+
     private final AutomationMcpToolFacade mcpToolFacade = mock(AutomationMcpToolFacade.class);
     private final McpAsyncServerExchange exchange = mock(McpAsyncServerExchange.class);
 
@@ -133,6 +135,25 @@ class ApprovalElicitingToolSpecificationsTest {
     }
 
     @Test
+    void testPendingApprovalForRunNotExposedByThisServerIsNotElicited() {
+        stubUrlCapability();
+
+        // The run is genuinely paused (form URL / token resolvable) but its workflow is not one this MCP server
+        // exposes — a crafted descriptor naming another workspace's job. Fail-closed: no elicitation, so its outputs
+        // are never read.
+        when(mcpToolFacade.isJobWorkflowExposedByMcpServer(42L, MCP_SERVER_ID)).thenReturn(false);
+
+        McpSchema.CallToolResult innerResult = pendingApprovalResult();
+
+        McpSchema.CallToolResult result = call(innerResult);
+
+        assertThat(result).isSameAs(innerResult);
+
+        verify(exchange, never()).createElicitation(any());
+        verify(mcpToolFacade, never()).awaitApprovedWorkflowRun(42L);
+    }
+
+    @Test
     void testFormElicitationFallbackResolvesTheApprovalDirectly() {
         stubServerSideResolution();
 
@@ -196,7 +217,7 @@ class ApprovalElicitingToolSpecificationsTest {
             TOOL, (currentExchange, request) -> Mono.just(innerResult));
 
         McpServerFeatures.AsyncToolSpecification decorated = ApprovalElicitingToolSpecifications.decorate(
-            innerSpecification, mcpToolFacade);
+            innerSpecification, mcpToolFacade, MCP_SERVER_ID);
 
         return decorated.callHandler()
             .apply(exchange, new McpSchema.CallToolRequest("run_workflow", Map.of()))
@@ -204,6 +225,7 @@ class ApprovalElicitingToolSpecificationsTest {
     }
 
     private void stubServerSideResolution() {
+        when(mcpToolFacade.isJobWorkflowExposedByMcpServer(42L, MCP_SERVER_ID)).thenReturn(true);
         when(mcpToolFacade.resolvePendingApprovalFormUrl(42L))
             .thenReturn(Optional.of("https://example.com/resume/tok"));
         when(mcpToolFacade.resolvePendingApprovalResumeToken(42L))

@@ -26,6 +26,7 @@ import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.automation.ai.mcp.domain.McpProject;
 import com.bytechef.automation.ai.mcp.domain.McpProjectWorkflow;
 import com.bytechef.automation.ai.mcp.server.exception.McpServerErrorType;
+import com.bytechef.automation.ai.mcp.service.McpProjectService;
 import com.bytechef.automation.ai.mcp.service.McpProjectWorkflowService;
 import com.bytechef.automation.ai.mcp.service.WorkspaceMcpServerService;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
@@ -98,6 +99,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
     private final JobService jobService;
     private final @Nullable String publicUrl;
     private final McpComponentService mcpComponentService;
+    private final McpProjectService mcpProjectService;
     private final McpProjectWorkflowService mcpProjectWorkflowService;
     private final McpServerService mcpServerService;
     private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
@@ -115,7 +117,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         ClusterElementDefinitionFacade clusterElementDefinitionFacade,
         ClusterElementDefinitionService clusterElementDefinitionService, Evaluator evaluator,
         JobCompletionAwaiter jobCompletionAwaiter, JobResumeFacade jobResumeFacade, JobService jobService,
-        McpComponentService mcpComponentService,
+        McpComponentService mcpComponentService, McpProjectService mcpProjectService,
         McpProjectWorkflowService mcpProjectWorkflowService, McpServerService mcpServerService,
         ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
         PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
@@ -133,6 +135,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         this.jobService = jobService;
         this.publicUrl = publicUrl;
         this.mcpComponentService = mcpComponentService;
+        this.mcpProjectService = mcpProjectService;
         this.mcpProjectWorkflowService = mcpProjectWorkflowService;
         this.mcpServerService = mcpServerService;
         this.planLimitsProviderObjectProvider = planLimitsProviderObjectProvider;
@@ -398,6 +401,39 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
 
         return ApprovalFormUrls.buildResumeToken(
             jobResumeId.toString(), approvalTokensObjectProvider.getIfAvailable());
+    }
+
+    /**
+     * Verifies that {@code jobId}'s workflow is one this MCP server actually exposes, so the approval-elicitation
+     * decorator never resolves or returns the outputs of a run this server has no business seeing. Tenant scoping alone
+     * is insufficient: a genuinely-paused run in another workspace of the same tenant would otherwise be readable by id
+     * through a crafted {@code approval_required} descriptor. Fail-closed — an unresolvable job, or one whose workflow
+     * is not in this server's exposed set, returns {@code false}.
+     */
+    public boolean isJobWorkflowExposedByMcpServer(long jobId, long mcpServerId) {
+        String workflowId = jobService.fetchJob(jobId)
+            .map(Job::getWorkflowId)
+            .orElse(null);
+
+        if (workflowId == null) {
+            return false;
+        }
+
+        for (McpProject mcpProject : mcpProjectService.getMcpServerMcpProjects(mcpServerId)) {
+            for (McpProjectWorkflow mcpProjectWorkflow : mcpProjectWorkflowService.getMcpProjectMcpProjectWorkflows(
+                mcpProject.getId())) {
+
+                ProjectDeploymentWorkflow projectDeploymentWorkflow =
+                    projectDeploymentWorkflowService.getProjectDeploymentWorkflow(
+                        mcpProjectWorkflow.getProjectDeploymentWorkflowId());
+
+                if (workflowId.equals(projectDeploymentWorkflow.getWorkflowId())) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**
