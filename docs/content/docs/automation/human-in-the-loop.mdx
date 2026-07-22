@@ -87,8 +87,10 @@ deadline in its message.
 | Approval Tasks page | A **Pending run approvals** section lists every run currently blocked on an approval — whatever channel delivered it — with the workflow name, start time, expiry, and a form link. |
 
 Typing in the chat never resolves an approval, in either direction — only the card's buttons or
-the hosted form do. Cards for already-resolved approvals degrade to a "no longer available"
-state.
+the hosted form do. A card with form fields whose approval was already resolved shows a "no longer
+available" state; a field-less card whose approval was resolved elsewhere surfaces the failure when
+you act on it (an expired approval reports that it has expired) and offers a link to the hosted
+form.
 
 ## Expiry
 

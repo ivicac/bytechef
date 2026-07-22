@@ -61,7 +61,11 @@ export default function ApprovalForm({
     }, [setDocumentTitle, uiDefinition?.title]);
 
     if (loading) {
-        return <div className="p-6 text-center text-sm text-muted-foreground">Loading form...</div>;
+        return (
+            <div className="p-6 text-center text-sm text-muted-foreground" role="status">
+                Loading form...
+            </div>
+        );
     }
 
     if (error || !uiDefinition || !definition) {
@@ -79,7 +83,7 @@ export default function ApprovalForm({
 
     if (submitted) {
         return (
-            <div className="p-6 text-center">
+            <div className="p-6 text-center" role="status">
                 <h2 className="text-lg font-semibold tracking-tight">{approved ? 'Approved' : 'Discarded'}</h2>
 
                 <p className="mt-2 text-sm text-muted-foreground">
