@@ -111,6 +111,27 @@ class ApprovalTaskFacadeTest {
     }
 
     @Test
+    void testCreateApprovalTaskFallsBackToDevelopmentWhenEnvironmentCannotBeResolved() {
+        String innerToken = Base64.getEncoder()
+            .encodeToString(("public:789:" + UUID.randomUUID()).getBytes(StandardCharsets.UTF_8));
+
+        when(approvalTokens.resolveInnerToken(innerToken)).thenReturn(Optional.of(innerToken));
+        // A run not backed by an automation project deployment has no principal-job row.
+        when(principalJobService.getJobPrincipalId(789L, PlatformType.AUTOMATION))
+            .thenThrow(new IllegalArgumentException("no principal job"));
+
+        ApprovalTask approvalTask = ApprovalTask.builder()
+            .jobResumeId(innerToken)
+            .build();
+
+        when(approvalTaskService.create(approvalTask)).thenReturn(approvalTask);
+
+        ApprovalTask result = createApprovalTaskFacade().createApprovalTask(approvalTask);
+
+        assertThat(result.getEnvironment()).isEqualTo(Environment.DEVELOPMENT);
+    }
+
+    @Test
     void testCreateApprovalTaskAcceptsLegacyUnsignedInnerToken() {
         String innerToken = Base64.getEncoder()
             .encodeToString(("public:456:" + UUID.randomUUID()).getBytes(StandardCharsets.UTF_8));

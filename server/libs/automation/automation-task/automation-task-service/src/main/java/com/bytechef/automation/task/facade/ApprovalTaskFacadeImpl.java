@@ -54,6 +54,9 @@ import org.springframework.util.Assert;
 @Transactional
 public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
 
+    private static final org.slf4j.Logger logger =
+        org.slf4j.LoggerFactory.getLogger(ApprovalTaskFacadeImpl.class);
+
     private final ApprovalTaskService approvalTaskService;
     private final ApprovalTokens approvalTokens;
     private final JobService jobService;
@@ -153,13 +156,26 @@ public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
     }
 
     private Environment getEnvironment(String jobResumeIdString) {
-        JobResumeId jobResumeId = JobResumeId.parse(jobResumeIdString);
+        try {
+            JobResumeId jobResumeId = JobResumeId.parse(jobResumeIdString);
 
-        long projectDeploymentId = principalJobService.getJobPrincipalId(
-            jobResumeId.getJobId(), PlatformType.AUTOMATION);
+            long projectDeploymentId = principalJobService.getJobPrincipalId(
+                jobResumeId.getJobId(), PlatformType.AUTOMATION);
 
-        ProjectDeployment projectDeployment = projectDeploymentService.getProjectDeployment(projectDeploymentId);
+            ProjectDeployment projectDeployment = projectDeploymentService.getProjectDeployment(projectDeploymentId);
 
-        return projectDeployment.getEnvironment();
+            return projectDeployment.getEnvironment();
+        } catch (Exception exception) {
+            // A run that is not backed by an automation project deployment (no principal-job row) has no environment
+            // to derive — fall back to DEVELOPMENT per the facade contract instead of failing the approval-task
+            // delivery for that run.
+            if (logger.isDebugEnabled()) {
+                logger.debug(
+                    "Could not resolve the environment for approval task {}; defaulting to DEVELOPMENT: {}",
+                    jobResumeIdString, exception.getMessage());
+            }
+
+            return Environment.DEVELOPMENT;
+        }
     }
 }
