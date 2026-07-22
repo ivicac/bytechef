@@ -26,6 +26,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import org.springframework.data.domain.Page;
@@ -175,6 +176,16 @@ public class JobServiceImpl implements JobService {
         jobRepository.save(job);
 
         return job;
+    }
+
+    @Override
+    public boolean tryClaimResume(Job job) {
+        // A conditional UPDATE ... WHERE status = STOPPED (not an entity save) is the atomic single-winner claim: it
+        // reports the lost race as a 0 row count rather than throwing OptimisticLockingFailureException, so the
+        // @Transactional approval-resume facade is never left with a rollback-only transaction when it reports GONE.
+        // It also bumps the version, so a concurrent expiry-sweep entity update that read the STOPPED version loses.
+        return jobRepository.updateStatusIfCurrentStatus(
+            Objects.requireNonNull(job.getId(), "id"), Job.Status.STOPPED.ordinal(), Job.Status.STARTED.ordinal()) == 1;
     }
 
     @Override

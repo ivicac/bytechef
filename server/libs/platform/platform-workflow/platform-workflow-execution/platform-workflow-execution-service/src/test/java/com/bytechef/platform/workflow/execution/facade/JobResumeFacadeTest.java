@@ -56,7 +56,6 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
-import org.springframework.dao.OptimisticLockingFailureException;
 import tools.jackson.databind.ObjectMapper;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -104,6 +103,10 @@ public class JobResumeFacadeTest {
 
         lenient().when(meterRegistryObjectProvider.getIfAvailable())
             .thenReturn(meterRegistry);
+
+        // Default: the run's resume claim succeeds. The lost-claim case overrides this to false.
+        lenient().when(jobService.tryClaimResume(any()))
+            .thenReturn(true);
 
         jobResumeFacade = new JobResumeFacadeImpl(
             applicationEventPublisher, approvalTokens, jobFacade, jobService, meterRegistryObjectProvider,
@@ -218,7 +221,7 @@ public class JobResumeFacadeTest {
         Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
 
         when(jobService.getJob(JOB_ID)).thenReturn(job);
-        when(jobService.update(any(Job.class))).thenThrow(new OptimisticLockingFailureException("already claimed"));
+        when(jobService.tryClaimResume(any())).thenReturn(false);
 
         JobResumeOutcome outcome = jobResumeFacade.resumeJob(jobResumeId.toString(), Map.of("approved", true));
 

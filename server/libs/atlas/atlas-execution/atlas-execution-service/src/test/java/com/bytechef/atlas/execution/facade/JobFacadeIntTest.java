@@ -161,6 +161,27 @@ public class JobFacadeIntTest {
     }
 
     @Test
+    public void testTryClaimResumeReturnsFalseWithoutThrowingWhenClaimIsLost() {
+        Job job = newJob();
+
+        job.setStatus(Job.Status.STOPPED);
+
+        long jobId = Validate.notNull(jobRepository.save(job)
+            .getId(), "id");
+
+        Job racerA = jobRepository.findById(jobId)
+            .orElseThrow();
+        Job racerB = jobRepository.findById(jobId)
+            .orElseThrow();
+
+        assertThat(jobService.tryClaimResume(racerA)).isTrue();
+
+        // The loser's stale-version claim must return false, NOT throw OptimisticLockingFailureException, so the
+        // @Transactional resume facade is not left with a rollback-only transaction when it reports GONE.
+        assertThat(jobService.tryClaimResume(racerB)).isFalse();
+    }
+
+    @Test
     public void testResumeToStatusStartedTransitionsStoppedJob() {
         Job job = newJob();
 
