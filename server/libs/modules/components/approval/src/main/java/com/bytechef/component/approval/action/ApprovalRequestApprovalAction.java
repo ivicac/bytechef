@@ -255,6 +255,9 @@ public class ApprovalRequestApprovalAction {
         // "comment" is a reserved key on the approval form; a user-defined field with that name takes precedence and
         // suppresses the built-in comment box.
         properties.add(string("comment"));
+        // The verified identity of whoever resolved the approval, when the resolving channel could establish one
+        // (e.g. Slack in-place resolution). Absent for the anonymous hosted form, which has no trusted identity.
+        properties.add(string("approvedBy"));
 
         for (Map<String, ?> input : inputs) {
             String fieldName = (String) input.get(FIELD_NAME);

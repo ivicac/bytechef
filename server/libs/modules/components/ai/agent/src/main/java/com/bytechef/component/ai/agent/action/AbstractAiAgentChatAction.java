@@ -415,6 +415,10 @@ public abstract class AbstractAiAgentChatAction {
         boolean approved = data.getBoolean("approved", false);
         String comment = data.getString("comment");
         boolean hasComment = comment != null && !comment.isBlank();
+        // Reserved, server-verified key set by JobResumeFacade when the resolving channel established an identity;
+        // absent for the anonymous hosted form.
+        String approvedBy = data.getString("approvedBy");
+        boolean hasApprovedBy = approvedBy != null && !approvedBy.isBlank();
         ToolExecutionRecorder toolExecutionRecorder = fetchToolExecutionRecorder();
 
         if (!approved) {
@@ -425,6 +429,10 @@ public abstract class AbstractAiAgentChatAction {
 
             denial.put("denied", true);
             denial.put("reason", hasComment ? "Denied by reviewer: " + comment : "Denied by reviewer.");
+
+            if (hasApprovedBy) {
+                denial.put("deniedBy", approvedBy);
+            }
 
             return JsonUtils.write(denial);
         }
@@ -456,6 +464,10 @@ public abstract class AbstractAiAgentChatAction {
 
         if (hasComment) {
             approvedResult.put("reviewerComment", comment);
+        }
+
+        if (hasApprovedBy) {
+            approvedResult.put("reviewer", approvedBy);
         }
 
         ToolContext toolContext = new ToolContext(Map.of(AiAgentToolContextKey.ACTION_CONTEXT, context));

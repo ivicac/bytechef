@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -50,6 +51,7 @@ import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.ObjectProvider;
@@ -223,6 +225,46 @@ public class JobResumeFacadeTest {
 
         assertThat(meterRegistry.counter("bytechef_approval_resolution", "approved", "false")
             .count()).isEqualTo(1.0);
+    }
+
+    @Test
+    public void testResumeJobStampsVerifiedApprovedBy() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(
+            jobResumeId.toString(), Map.of("approved", true), "@jane");
+
+        assertThat(outcome).isEqualTo(JobResumeOutcome.OK);
+
+        ArgumentCaptor<Map<String, Object>> dataCaptor = ArgumentCaptor.captor();
+
+        verify(jobFacade).resumeJob(eq(JOB_ID), eq(TASK_EXECUTION_ID), dataCaptor.capture());
+
+        assertThat(dataCaptor.getValue()).containsEntry("approvedBy", "@jane");
+    }
+
+    @Test
+    public void testResumeJobStripsSpoofedApprovedByWhenNoVerifiedIdentity() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(
+            jobResumeId.toString(), Map.of("approved", true, "approvedBy", "@attacker"));
+
+        assertThat(outcome).isEqualTo(JobResumeOutcome.OK);
+
+        ArgumentCaptor<Map<String, Object>> dataCaptor = ArgumentCaptor.captor();
+
+        verify(jobFacade).resumeJob(eq(JOB_ID), eq(TASK_EXECUTION_ID), dataCaptor.capture());
+
+        assertThat(dataCaptor.getValue()).doesNotContainKey("approvedBy");
     }
 
     @Test

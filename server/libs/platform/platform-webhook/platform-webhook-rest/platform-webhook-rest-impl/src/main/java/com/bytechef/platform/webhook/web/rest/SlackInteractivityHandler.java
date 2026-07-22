@@ -132,11 +132,26 @@ public class SlackInteractivityHandler {
             return Result.UNAUTHORIZED;
         }
 
-        JobResumeOutcome outcome = jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved));
+        // The Slack user is verified by the same signature check above, so it is a trustworthy resolver identity.
+        String userName = extractUserName(payload);
 
-        rewriteMessage(payload, outcome, approved);
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(
+            resumeId, Map.of("approved", approved), userName == null ? null : "@" + userName);
+
+        rewriteMessage(payload, outcome, approved, userName);
 
         return Result.HANDLED;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static @Nullable String extractUserName(Map<String, ?> payload) {
+        if (payload.get("user") instanceof Map<?, ?> user) {
+            Map<String, ?> userMap = (Map<String, ?>) user;
+
+            return (String) (userMap.get("username") != null ? userMap.get("username") : userMap.get("name"));
+        }
+
+        return null;
     }
 
     private static @Nullable Map<String, ?> parsePayload(String rawBody) {
@@ -250,20 +265,13 @@ public class SlackInteractivityHandler {
      * Rewrites the originating Slack message through the payload's {@code response_url} so the channel shows the
      * outcome and the buttons stop being actionable. Best-effort — a rewrite failure never fails the resolution.
      */
-    @SuppressWarnings("unchecked")
-    private void rewriteMessage(Map<String, ?> payload, JobResumeOutcome outcome, boolean approved) {
+    private void rewriteMessage(
+        Map<String, ?> payload, JobResumeOutcome outcome, boolean approved, @Nullable String userName) {
+
         String responseUrl = (String) payload.get("response_url");
 
         if (responseUrl == null || responseUrl.isBlank()) {
             return;
-        }
-
-        String userName = null;
-
-        if (payload.get("user") instanceof Map<?, ?> user) {
-            Map<String, ?> userMap = (Map<String, ?>) user;
-
-            userName = (String) (userMap.get("username") != null ? userMap.get("username") : userMap.get("name"));
         }
 
         String by = userName == null ? "" : " by @" + userName;

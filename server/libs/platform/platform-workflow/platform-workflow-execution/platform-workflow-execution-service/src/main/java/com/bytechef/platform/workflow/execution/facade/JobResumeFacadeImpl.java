@@ -33,6 +33,7 @@ import io.micrometer.core.instrument.MeterRegistry;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.function.LongConsumer;
 import org.slf4j.Logger;
@@ -57,6 +58,11 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
     // resumes, absent on ask-user-question resumes — only approval resolutions are counted.
     private static final String APPROVED = "approved";
 
+    // Reserved, server-controlled key carrying the verified resolver identity into the approval outcome. Stripped
+    // from inbound payloads so an anonymous form submission cannot spoof an identity; only a caller-supplied,
+    // out-of-band-verified value is written back.
+    private static final String APPROVED_BY = "approvedBy";
+
     private final ApplicationEventPublisher applicationEventPublisher;
     private final ApprovalTokens approvalTokens;
     private final JobFacade jobFacade;
@@ -80,12 +86,25 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
 
     @Override
     public JobResumeOutcome resumeJob(String id, Map<String, Object> data) {
-        return resumeJobStreaming(id, data, jobId -> {});
+        return doResume(id, data, null, jobId -> {});
     }
 
     @Override
-    @SuppressFBWarnings("CRLF_INJECTION_LOGS")
+    public JobResumeOutcome resumeJob(String id, Map<String, Object> data, String approvedBy) {
+        return doResume(id, data, approvedBy, jobId -> {});
+    }
+
+    @Override
     public JobResumeOutcome resumeJobStreaming(String id, Map<String, Object> data, LongConsumer jobIdConsumer) {
+        return doResume(id, data, null, jobIdConsumer);
+    }
+
+    @SuppressFBWarnings("CRLF_INJECTION_LOGS")
+    private JobResumeOutcome doResume(
+        String id, Map<String, Object> data, String approvedBy, LongConsumer jobIdConsumer) {
+
+        Map<String, Object> resumeData = normalizeApprovedBy(data, approvedBy);
+
         String innerToken = approvalTokens.resolveInnerToken(id)
             .orElse(null);
 
@@ -134,14 +153,31 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
 
             jobFacade.resumeJob(
                 jobResumeId.getJobId(), MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID),
-                data);
+                resumeData);
 
             applicationEventPublisher.publishEvent(new JobResumedEvent(innerToken));
 
-            incrementApprovalResolutionCounter(data);
+            incrementApprovalResolutionCounter(resumeData);
 
             return JobResumeOutcome.OK;
         });
+    }
+
+    /**
+     * Produces the resume payload actually dispatched to the job: a mutable copy of {@code data} with the reserved
+     * {@code approvedBy} key removed (so an anonymous form submission cannot spoof an identity) and re-added only when
+     * a non-blank, server-verified {@code approvedBy} was supplied by the caller.
+     */
+    private static Map<String, Object> normalizeApprovedBy(Map<String, Object> data, String approvedBy) {
+        Map<String, Object> resumeData = data == null ? new HashMap<>() : new HashMap<>(data);
+
+        resumeData.remove(APPROVED_BY);
+
+        if (approvedBy != null && !approvedBy.isBlank()) {
+            resumeData.put(APPROVED_BY, approvedBy);
+        }
+
+        return resumeData;
     }
 
     private void incrementApprovalResolutionCounter(Map<String, Object> data) {

@@ -116,7 +116,12 @@ name, expiry, and form link. Disable with
 
 ## Outcome shape
 
-The approval step's output is flat: `approved` (boolean), `comment` (string, optional), plus one
-key per form field — so downstream expressions like `${approval_1.amount}` work directly. For a
-gated tool, the agent receives the tool's real result (plus the reviewer comment) on approve, or
-an explicit denial on discard.
+The approval step's output is flat: `approved` (boolean), `comment` (string, optional),
+`approvedBy` (string, optional), plus one key per form field — so downstream expressions like
+`${approval_1.amount}` work directly. `approvedBy` carries the resolver's identity only when the
+resolving channel could establish a **verified** one — today that means Slack in-place resolution,
+where the request signature authenticates the clicking user. The anonymous hosted form has no
+trusted identity, so `approvedBy` is absent there, and a value supplied in the form body is
+stripped rather than trusted. For a gated tool, the agent receives the tool's real result (plus
+the reviewer comment and, when verified, the `reviewer`) on approve, or an explicit denial (with
+`deniedBy` when verified) on discard.

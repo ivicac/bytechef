@@ -134,6 +134,32 @@ class AbstractAiAgentChatActionResumeGateTest {
     }
 
     @Test
+    void testApprovedCarriesVerifiedReviewerIdentity() {
+        when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
+
+        String resumeData = action.resolveGatedToolResumeData(
+            continueParameters(GATED_TOOL_NAME), dataWithApprovedBy(true, "@jane"), Map.of(), EXTENSIONS, context);
+
+        assertThat(resumeData)
+            .contains("approvedByReviewer")
+            .contains("\"reviewer\"")
+            .contains("@jane");
+    }
+
+    @Test
+    void testRejectedCarriesVerifiedReviewerIdentity() {
+        String resumeData = action.resolveGatedToolResumeData(
+            continueParameters(GATED_TOOL_NAME), dataWithApprovedBy(false, "@jane"), Map.of(), EXTENSIONS, context);
+
+        assertThat(resumeData)
+            .contains("denied")
+            .contains("\"deniedBy\"")
+            .contains("@jane");
+
+        verifyNoInteractions(toolCallback);
+    }
+
+    @Test
     void testApprovedButToolNoLongerConfiguredFailsLoudly() {
         assertThatThrownBy(
             () -> action.resolveGatedToolResumeData(
@@ -220,5 +246,9 @@ class AbstractAiAgentChatActionResumeGateTest {
     private static Parameters data(boolean approved, String comment) {
         return ParametersFactory.create(
             comment == null ? Map.of("approved", approved) : Map.of("approved", approved, "comment", comment));
+    }
+
+    private static Parameters dataWithApprovedBy(boolean approved, String approvedBy) {
+        return ParametersFactory.create(Map.of("approved", approved, "approvedBy", approvedBy));
     }
 }

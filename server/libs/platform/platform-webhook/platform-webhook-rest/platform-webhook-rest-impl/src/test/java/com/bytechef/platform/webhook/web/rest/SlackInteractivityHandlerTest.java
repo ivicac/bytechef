@@ -78,7 +78,7 @@ class SlackInteractivityHandlerTest {
         String timestamp = String.valueOf(Instant.now()
             .getEpochSecond());
 
-        when(jobResumeFacade.resumeJob(anyString(), eq(Map.of("approved", true))))
+        when(jobResumeFacade.resumeJob(anyString(), eq(Map.of("approved", true)), eq("@jane")))
             .thenReturn(JobResumeOutcome.OK);
 
         SlackInteractivityHandler.Result result = slackInteractivityHandler.handle(
@@ -86,7 +86,8 @@ class SlackInteractivityHandlerTest {
 
         assertEquals(SlackInteractivityHandler.Result.HANDLED, result);
 
-        verify(jobResumeFacade).resumeJob(anyString(), eq(Map.of("approved", true)));
+        // The Slack user is signature-verified, so it flows through as the trusted resolver identity.
+        verify(jobResumeFacade).resumeJob(anyString(), eq(Map.of("approved", true)), eq("@jane"));
     }
 
     @Test
@@ -100,7 +101,7 @@ class SlackInteractivityHandlerTest {
 
         assertEquals(SlackInteractivityHandler.Result.UNAUTHORIZED, result);
 
-        verify(jobResumeFacade, never()).resumeJob(anyString(), any());
+        verify(jobResumeFacade, never()).resumeJob(anyString(), any(), any());
     }
 
     @Test
@@ -114,7 +115,7 @@ class SlackInteractivityHandlerTest {
 
         assertEquals(SlackInteractivityHandler.Result.UNAUTHORIZED, result);
 
-        verify(jobResumeFacade, never()).resumeJob(anyString(), any());
+        verify(jobResumeFacade, never()).resumeJob(anyString(), any(), any());
     }
 
     @Test
@@ -127,7 +128,7 @@ class SlackInteractivityHandlerTest {
 
         assertEquals(SlackInteractivityHandler.Result.IGNORED, result);
 
-        verify(jobResumeFacade, never()).resumeJob(anyString(), any());
+        verify(jobResumeFacade, never()).resumeJob(anyString(), any(), any());
     }
 
     private static String rawBody(String actionId) {
