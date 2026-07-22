@@ -13,6 +13,7 @@ import com.bytechef.platform.mcp.facade.McpServerFacade;
 import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpToolService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,6 +45,7 @@ class EmbeddedMcpServerFacadeImpl implements EmbeddedMcpServerFacade {
     }
 
     @Override
+    @PreAuthorize("isTenantAdmin()")
     public void deleteEmbeddedMcpServer(long mcpServerId) {
         for (var mcpComponent : mcpComponentService.getMcpServerMcpComponents(mcpServerId)) {
             for (var mcpTool : mcpToolService.getMcpComponentMcpTools(mcpComponent.getId())) {

@@ -14,6 +14,7 @@ import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -37,6 +38,7 @@ public class SigningKeyFacadeImpl implements SigningKeyFacade {
     }
 
     @Override
+    @PreAuthorize("isTenantAdmin()")
     public String create(SigningKey signingKey, PlatformType type) {
         User user = userService.getCurrentUser();
 
