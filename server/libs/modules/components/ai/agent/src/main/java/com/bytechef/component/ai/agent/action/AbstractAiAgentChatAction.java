@@ -882,6 +882,17 @@ public abstract class AbstractAiAgentChatAction {
         return combinedToolCallbacks;
     }
 
+    /**
+     * Whether a TOOLS entry is the approval tool itself (the suspending {@code approval/requestApproval} cluster
+     * element). Wrapping a suspending tool in the approval gate would deliver a second approval request and set a
+     * suspend whose continueParameters cannot be resumed — a dead run plus a dangling delivered request. An approval
+     * tool is already an approval, so the gate flag is a no-op on it.
+     */
+    private static boolean isSuspendingApprovalTool(ClusterElement clusterElement) {
+        return "approval".equals(clusterElement.getComponentName())
+            && "requestApproval".equals(clusterElement.getClusterElementName());
+    }
+
     private List<ToolCallback> getToolCallbacks(
         List<ClusterElement> toolClusterElements, List<ClusterElement> approvalChannelClusterElements,
         Map<String, ComponentConnection> connectionParameters, boolean editorEnvironment,
@@ -900,7 +911,9 @@ public abstract class AbstractAiAgentChatAction {
             // requiresApproval: true is wrapped so every invocation raises an approval request and suspends
             // instead of executing. Applied INSIDE the observable wrapper so the audit listener records the
             // gate outcome (suspension, later the approved result or denial) like any other tool result.
-            if (Boolean.TRUE.equals(clusterElementParameters.get(ToolConstants.REQUIRES_APPROVAL))) {
+            if (Boolean.TRUE.equals(clusterElementParameters.get(ToolConstants.REQUIRES_APPROVAL))
+                && !isSuspendingApprovalTool(clusterElement)) {
+
                 ToolExecutionRecorder toolExecutionRecorder = fetchToolExecutionRecorder();
 
                 Duration approvalExpiry = getApprovalExpiry(clusterElementParameters);
