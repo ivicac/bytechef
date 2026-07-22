@@ -27,6 +27,7 @@ import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition
 import com.bytechef.component.definition.ComponentDsl.ModifiableClusterElementDefinition;
 import com.bytechef.component.definition.Property;
 import com.bytechef.platform.ai.constant.ToolSuspendConstants;
+import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ClusterElementContextAware;
 import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunction;
 import com.bytechef.platform.component.definition.SuspendAwareSseEmitterHandler;
@@ -78,8 +79,20 @@ public class ApprovalRequestApprovalTool {
             .object(() -> (inputParameters, connectionParameters, extensions, componentConnections, context) -> {
                 ClusterElementContextAware clusterElementContextAware = (ClusterElementContextAware) context;
 
+                // On the agent path toActionContext returns the LIVE shared agent context, so this is the same
+                // surface SuspendableToolCallingManager reads.
                 ActionContext actionContext = clusterElementContextAware.toActionContext(
                     APPROVAL, 1, "requestApproval", null);
+
+                // Only ONE suspend may exist per tool round (two sentinels make the loop manager throw and fail the
+                // whole turn — after channels already delivered live requests). If another tool call already
+                // suspended this round (a second requestApproval, or a gated tool that ran first), defer this one
+                // with a plain response so the model retries it after the pending approval resolves — mirroring
+                // ApprovalGateToolCallback's guard.
+                if (((ActionContextAware) actionContext).getSuspend() != null) {
+                    return "{\"deferred\": true, \"reason\": \"Another tool call is awaiting approval. Retry this " +
+                        "tool call after the pending approval is resolved.\"}";
+                }
 
                 Object result = performFunction.apply(inputParameters, componentConnections, extensions, actionContext);
 

@@ -228,6 +228,23 @@ public class JobResumeFacadeTest {
     }
 
     @Test
+    public void testResumeJobWithNullDataDoesNotThrow() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+
+        // A GET or body-less POST to /job/resume passes null data; it must normalize to an empty map, not NPE inside
+        // the transaction (which would roll back an already-accepted resume).
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(jobResumeId.toString(), null);
+
+        assertThat(outcome).isEqualTo(JobResumeOutcome.OK);
+
+        verify(jobFacade).resumeJob(eq(JOB_ID), eq(TASK_EXECUTION_ID), anyMap());
+    }
+
+    @Test
     public void testResumeJobStampsVerifiedApprovedBy() {
         JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
 
