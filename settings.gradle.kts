@@ -30,6 +30,7 @@ include("cli:cli-app")
 include("cli:cli-core")
 include("cli:clients:automation-configuration")
 include("cli:commands:config")
+include("cli:commands:automation")
 include("cli:commands:component")
 include("cli:commands:component:init:openapi")
 

@@ -16,6 +16,7 @@
 
 package com.bytechef.cli;
 
+import com.bytechef.cli.command.automation.AutomationExecutionCommand;
 import com.bytechef.cli.command.component.ComponentCommand;
 import com.bytechef.cli.command.config.ConfigureCommand;
 import com.bytechef.cli.core.error.CliException;
@@ -35,7 +36,7 @@ import org.springframework.shell.core.command.annotation.EnableCommand;
  */
 @SpringBootApplication
 @EnableCommand({
-    ComponentCommand.class, ConfigureCommand.class
+    ComponentCommand.class, ConfigureCommand.class, AutomationExecutionCommand.class
 })
 public class CliApplication {
 

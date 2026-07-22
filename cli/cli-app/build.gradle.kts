@@ -19,6 +19,7 @@ tasks.compileJava {
 
 dependencies {
     implementation(project(":cli:cli-core"))
+    implementation(project(":cli:commands:automation"))
     implementation(project(":cli:commands:component"))
     implementation(project(":cli:commands:config"))
 
