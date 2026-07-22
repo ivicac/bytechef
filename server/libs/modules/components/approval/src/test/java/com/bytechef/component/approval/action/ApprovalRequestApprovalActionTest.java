@@ -19,6 +19,7 @@ package com.bytechef.component.approval.action;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -42,6 +43,8 @@ import com.bytechef.platform.component.definition.ParametersFactory;
 import com.bytechef.platform.component.definition.SuspendAwareSseEmitterHandler;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -143,6 +146,76 @@ class ApprovalRequestApprovalActionTest {
 
         verify(clusterElementDefinitionService, never()).executeApprovalChannel(
             anyString(), anyInt(), anyString(), any(), anyString(), any(), any());
+    }
+
+    @Test
+    void testPerformUsesConfiguredExpiry() throws Exception {
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+
+        ModifiableActionDefinition actionDefinition = ApprovalRequestApprovalAction.of(clusterElementDefinitionService);
+
+        MultipleConnectionsPerformFunction performFunction = (MultipleConnectionsPerformFunction) actionDefinition
+            .getPerform()
+            .orElseThrow();
+
+        ActionContextAware context = mock(ActionContextAware.class);
+
+        when(context.isEditorEnvironment()).thenReturn(false);
+        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+
+        Parameters inputParameters = ParametersFactory.create(Map.of("expiresIn", 4, "expiresInUnit", "HOURS"));
+        Parameters extensions = ParametersFactory.create(Map.of());
+
+        performFunction.apply(inputParameters, Map.of(), extensions, context);
+
+        ArgumentCaptor<ActionContext.Suspend> suspendArgumentCaptor = ArgumentCaptor.forClass(
+            ActionContext.Suspend.class);
+
+        verify(context).suspend(suspendArgumentCaptor.capture());
+
+        ActionContext.Suspend suspend = suspendArgumentCaptor.getValue();
+
+        Instant expiresAt = suspend.expiresAt();
+
+        assertTrue(expiresAt.isAfter(Instant.now()
+            .plus(3, ChronoUnit.HOURS)));
+        assertTrue(expiresAt.isBefore(Instant.now()
+            .plus(5, ChronoUnit.HOURS)));
+    }
+
+    @Test
+    void testPerformDefaultsExpiryToSixtyDays() throws Exception {
+        ClusterElementDefinitionService clusterElementDefinitionService = mock(ClusterElementDefinitionService.class);
+
+        ModifiableActionDefinition actionDefinition = ApprovalRequestApprovalAction.of(clusterElementDefinitionService);
+
+        MultipleConnectionsPerformFunction performFunction = (MultipleConnectionsPerformFunction) actionDefinition
+            .getPerform()
+            .orElseThrow();
+
+        ActionContextAware context = mock(ActionContextAware.class);
+
+        when(context.isEditorEnvironment()).thenReturn(false);
+        when(context.getResumeUrl()).thenReturn("https://example.com/api/job/resume/abc");
+
+        Parameters inputParameters = ParametersFactory.create(Map.of());
+        Parameters extensions = ParametersFactory.create(Map.of());
+
+        performFunction.apply(inputParameters, Map.of(), extensions, context);
+
+        ArgumentCaptor<ActionContext.Suspend> suspendArgumentCaptor = ArgumentCaptor.forClass(
+            ActionContext.Suspend.class);
+
+        verify(context).suspend(suspendArgumentCaptor.capture());
+
+        ActionContext.Suspend suspend = suspendArgumentCaptor.getValue();
+
+        Instant expiresAt = suspend.expiresAt();
+
+        assertTrue(expiresAt.isAfter(Instant.now()
+            .plus(59, ChronoUnit.DAYS)));
+        assertTrue(expiresAt.isBefore(Instant.now()
+            .plus(61, ChronoUnit.DAYS)));
     }
 
     @Test

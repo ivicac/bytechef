@@ -502,7 +502,10 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   `A2AAgentExecutor.pollRun(jobId)` SPI. Enriched `task_started` events
   (`{event, payload:{taskExecutionId,name,type}}` from the coordinator) render as AG-UI tool-call
   step chips in `AgUiStreamBridge` and as a floating step chip on the CE Chats page.
-- **Suspend expiry is enforced**: `JobResumeFacadeImpl` rejects expired resumes (GONE), and
+- **Suspend expiry is enforced and configurable**: the Approval action's `expiresIn`/`expiresInUnit`
+  properties (HOURS/DAYS, default 60 days) and a gated tool's `approvalExpiresIn`/
+  `approvalExpiresInUnit` entry parameters (`ToolConstants`) drive the suspend `expiresAt`.
+  `JobResumeFacadeImpl` rejects expired resumes (GONE), and
   `ApprovalExpiryMonitor` (platform-coordinator, 15-min per-tenant sweep over
   `getStaleJobs(STOPPED, now)`, `bytechef.workflow.execution.approval-expiry.enabled` default on)
   fails runs whose suspend `expiresAt` passed. Metrics: `bytechef_approval_expired{source=resume|sweep}`

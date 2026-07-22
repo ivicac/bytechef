@@ -17,6 +17,10 @@
 package com.bytechef.component.approval.action;
 
 import static com.bytechef.component.approval.constant.ApprovalConstants.DEFAULT_VALUE;
+import static com.bytechef.component.approval.constant.ApprovalConstants.EXPIRES_IN;
+import static com.bytechef.component.approval.constant.ApprovalConstants.EXPIRES_IN_UNIT;
+import static com.bytechef.component.approval.constant.ApprovalConstants.EXPIRES_IN_UNIT_DAYS;
+import static com.bytechef.component.approval.constant.ApprovalConstants.EXPIRES_IN_UNIT_HOURS;
 import static com.bytechef.component.approval.constant.ApprovalConstants.FIELD_DESCRIPTION;
 import static com.bytechef.component.approval.constant.ApprovalConstants.FIELD_LABEL;
 import static com.bytechef.component.approval.constant.ApprovalConstants.FIELD_NAME;
@@ -213,6 +217,21 @@ public class ApprovalRequestApprovalAction {
                                     .description("Whether this field is required.")
                                     .defaultValue(false)
                                     .required(false)))
+                    .required(false),
+                integer(EXPIRES_IN)
+                    .label("Expires In")
+                    .description(
+                        "How long the approval request stays resolvable. When it lapses, the request can no longer " +
+                            "be approved and the paused run is failed. Defaults to 60 days.")
+                    .minValue(1)
+                    .required(false),
+                string(EXPIRES_IN_UNIT)
+                    .label("Expires In Unit")
+                    .description("The time unit for the Expires In value.")
+                    .options(
+                        option("Hours", EXPIRES_IN_UNIT_HOURS),
+                        option("Days", EXPIRES_IN_UNIT_DAYS))
+                    .defaultValue(EXPIRES_IN_UNIT_DAYS)
                     .required(false))
             .output(ApprovalRequestApprovalAction::output)
             .perform((MultipleConnectionsPerformFunction) approvalRequestApprovalAction::perform)
@@ -309,16 +328,33 @@ public class ApprovalRequestApprovalAction {
             }
         }
 
-        suspend(context, formUrl);
+        suspend(context, inputParameters, formUrl);
 
         return null;
     }
 
-    private static void suspend(ActionContext context, String formUrl) {
-        Instant expiresAt = Instant.now()
-            .plus(60, ChronoUnit.DAYS);
+    private static void suspend(ActionContext context, Parameters inputParameters, String formUrl) {
+        context.suspend(new Suspend(Map.of(FORM_URL, formUrl), getExpiresAt(inputParameters)));
+    }
 
-        context.suspend(new Suspend(Map.of(FORM_URL, formUrl), expiresAt));
+    /**
+     * Resolves the suspend expiry from the optional Expires In / Expires In Unit properties; an unset or invalid value
+     * falls back to the 60-day default.
+     */
+    private static Instant getExpiresAt(Parameters inputParameters) {
+        Integer expiresIn = inputParameters.getInteger(EXPIRES_IN);
+
+        if (expiresIn == null || expiresIn < 1) {
+            return Instant.now()
+                .plus(60, ChronoUnit.DAYS);
+        }
+
+        String expiresInUnit = inputParameters.getString(EXPIRES_IN_UNIT, EXPIRES_IN_UNIT_DAYS);
+
+        ChronoUnit chronoUnit = EXPIRES_IN_UNIT_HOURS.equals(expiresInUnit) ? ChronoUnit.HOURS : ChronoUnit.DAYS;
+
+        return Instant.now()
+            .plus(expiresIn, chronoUnit);
     }
 
     /**
@@ -336,7 +372,7 @@ public class ApprovalRequestApprovalAction {
             sseEmitter -> {
                 sseEmitter.send(eventData);
 
-                suspend(actionContextAware, formUrl);
+                suspend(actionContextAware, inputParameters, formUrl);
 
                 sseEmitter.complete();
             },

@@ -33,8 +33,8 @@ import com.bytechef.platform.tool.execution.ToolExecutionKind;
 import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.tool.execution.ToolExecutionSurface;
+import java.time.Duration;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -67,6 +67,8 @@ public class ApprovalGateToolCallback implements ToolCallback {
     private static final String CHAT_APPROVAL_CHANNEL_NAME = "chat";
 
     private final ToolCallback delegate;
+    private static final Duration DEFAULT_APPROVAL_EXPIRY = Duration.ofDays(60);
+
     private final List<ClusterElement> approvalChannelClusterElements;
     private final Map<String, ComponentConnection> componentConnections;
     private final ClusterElementDefinitionService clusterElementDefinitionService;
@@ -75,6 +77,9 @@ public class ApprovalGateToolCallback implements ToolCallback {
     @Nullable
     private final ToolExecutionRecorder toolExecutionRecorder;
 
+    @Nullable
+    private final Duration approvalExpiry;
+
     public ApprovalGateToolCallback(
         ToolCallback delegate, List<ClusterElement> approvalChannelClusterElements,
         Map<String, ComponentConnection> componentConnections,
@@ -82,7 +87,7 @@ public class ApprovalGateToolCallback implements ToolCallback {
 
         this(
             delegate, approvalChannelClusterElements, componentConnections, clusterElementDefinitionService,
-            actionContext, null);
+            actionContext, null, null);
     }
 
     public ApprovalGateToolCallback(
@@ -91,12 +96,24 @@ public class ApprovalGateToolCallback implements ToolCallback {
         ClusterElementDefinitionService clusterElementDefinitionService, ActionContext actionContext,
         @Nullable ToolExecutionRecorder toolExecutionRecorder) {
 
+        this(
+            delegate, approvalChannelClusterElements, componentConnections, clusterElementDefinitionService,
+            actionContext, toolExecutionRecorder, null);
+    }
+
+    public ApprovalGateToolCallback(
+        ToolCallback delegate, List<ClusterElement> approvalChannelClusterElements,
+        Map<String, ComponentConnection> componentConnections,
+        ClusterElementDefinitionService clusterElementDefinitionService, ActionContext actionContext,
+        @Nullable ToolExecutionRecorder toolExecutionRecorder, @Nullable Duration approvalExpiry) {
+
         this.delegate = delegate;
         this.approvalChannelClusterElements = List.copyOf(approvalChannelClusterElements);
         this.componentConnections = Map.copyOf(componentConnections);
         this.clusterElementDefinitionService = clusterElementDefinitionService;
         this.actionContext = (ActionContextAware) actionContext;
         this.toolExecutionRecorder = toolExecutionRecorder;
+        this.approvalExpiry = approvalExpiry;
     }
 
     @Override
@@ -145,7 +162,7 @@ public class ApprovalGateToolCallback implements ToolCallback {
         continueParameters.put("formUrl", formUrl);
 
         Instant expiresAt = Instant.now()
-            .plus(60, ChronoUnit.DAYS);
+            .plus(approvalExpiry != null ? approvalExpiry : DEFAULT_APPROVAL_EXPIRY);
 
         actionContext.suspend(new ActionContext.Suspend(continueParameters, expiresAt));
 

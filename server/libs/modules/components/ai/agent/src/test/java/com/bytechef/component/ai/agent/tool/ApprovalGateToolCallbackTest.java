@@ -34,6 +34,8 @@ import com.bytechef.platform.tool.execution.ToolExecutionEvent;
 import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.tool.execution.ToolExecutionSurface;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -194,5 +196,32 @@ class ApprovalGateToolCallbackTest {
             .containsKey("formTitle");
 
         org.mockito.Mockito.verifyNoInteractions(clusterElementDefinitionService);
+    }
+
+    @Test
+    void testConfiguredApprovalExpiryDrivesSuspendExpiry() {
+        when(actionContext.getSuspend()).thenReturn(null);
+        when(actionContext.getResumeUrl()).thenReturn("https://example.com/job/resume/abc123");
+        when(actionContext.isEditorEnvironment()).thenReturn(false);
+
+        ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
+            delegate, List.of(), Map.of(), clusterElementDefinitionService, actionContext, null,
+            Duration.ofHours(4));
+
+        gate.call("{}", null);
+
+        ArgumentCaptor<ActionContext.Suspend> suspendCaptor = ArgumentCaptor.forClass(ActionContext.Suspend.class);
+
+        verify(actionContext).suspend(suspendCaptor.capture());
+
+        ActionContext.Suspend suspend = suspendCaptor.getValue();
+
+        Instant expiresAt = suspend.expiresAt();
+
+        assertThat(expiresAt).isBetween(
+            Instant.now()
+                .plus(Duration.ofHours(3)),
+            Instant.now()
+                .plus(Duration.ofHours(5)));
     }
 }

@@ -71,7 +71,13 @@ state.
 
 ## Expiry
 
-An approval step can set an expiry. An expired approval can no longer be resolved (the form and
+The Approval action's **Expires In** / **Expires In Unit** properties (hours or days) control how
+long the request stays resolvable; unset, it defaults to 60 days. For a gated tool, set
+`approvalExpiresIn` / `approvalExpiresInUnit` in the tool's parameters (next to
+`requiresApproval`) — the editor exposes only the Requires approval checkbox today, so gate
+expiry is configured in the workflow definition.
+
+An expired approval can no longer be resolved (the form and
 the resume endpoint reject it), and a background sweep fails the paused run shortly afterwards so
 it doesn't linger forever. Operators can watch `bytechef_approval_pending` (runs currently
 blocked) and `bytechef_approval_expired` (approvals that lapsed, by source) and disable the sweep

@@ -72,6 +72,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -146,6 +147,27 @@ public abstract class AbstractAiAgentChatAction {
     private @Nullable ToolExecutionRecorder fetchToolExecutionRecorder() {
         return toolExecutionRecorderObjectProvider == null
             ? null : toolExecutionRecorderObjectProvider.getIfAvailable();
+    }
+
+    /**
+     * Resolves the optional per-tool approval expiry from a gated TOOLS entry's parameters
+     * ({@code approvalExpiresIn} + {@code approvalExpiresInUnit}). Returns {@code null} when unset or invalid, which
+     * makes the gate fall back to its 60-day default.
+     */
+    private static @Nullable Duration getApprovalExpiry(Map<String, ?> clusterElementParameters) {
+        Object approvalExpiresIn = clusterElementParameters.get(ToolConstants.APPROVAL_EXPIRES_IN);
+
+        if (!(approvalExpiresIn instanceof Number approvalExpiresInNumber) || approvalExpiresInNumber.longValue() < 1) {
+            return null;
+        }
+
+        Object approvalExpiresInUnit = clusterElementParameters.get(ToolConstants.APPROVAL_EXPIRES_IN_UNIT);
+
+        if (ToolConstants.APPROVAL_EXPIRES_IN_UNIT_HOURS.equals(approvalExpiresInUnit)) {
+            return Duration.ofHours(approvalExpiresInNumber.longValue());
+        }
+
+        return Duration.ofDays(approvalExpiresInNumber.longValue());
     }
 
     protected ChatClient.ChatClientRequestSpec getChatClientRequestSpec(
@@ -869,11 +891,13 @@ public abstract class AbstractAiAgentChatAction {
             if (Boolean.TRUE.equals(clusterElementParameters.get(ToolConstants.REQUIRES_APPROVAL))) {
                 ToolExecutionRecorder toolExecutionRecorder = fetchToolExecutionRecorder();
 
+                Duration approvalExpiry = getApprovalExpiry(clusterElementParameters);
+
                 elementToolCallbacks = elementToolCallbacks.stream()
                     .map(
                         toolCallback -> (ToolCallback) new ApprovalGateToolCallback(
                             toolCallback, approvalChannelClusterElements, connectionParameters,
-                            clusterElementDefinitionService, context, toolExecutionRecorder))
+                            clusterElementDefinitionService, context, toolExecutionRecorder, approvalExpiry))
                     .toList();
             }
 

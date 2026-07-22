@@ -21,6 +21,7 @@ import static com.bytechef.component.definition.ai.agent.BaseToolFunction.TOOLS;
 
 import com.bytechef.component.approval.action.ApprovalRequestApprovalAction;
 import com.bytechef.component.definition.ActionContext;
+import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
 import com.bytechef.component.definition.ComponentDsl.ModifiableClusterElementDefinition;
@@ -28,6 +29,7 @@ import com.bytechef.component.definition.Property;
 import com.bytechef.platform.ai.constant.ToolSuspendConstants;
 import com.bytechef.platform.component.definition.ClusterElementContextAware;
 import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunction;
+import com.bytechef.platform.component.definition.SuspendAwareSseEmitterHandler;
 import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsToolFunction;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import java.util.List;
@@ -79,11 +81,39 @@ public class ApprovalRequestApprovalTool {
                 ActionContext actionContext = clusterElementContextAware.toActionContext(
                     APPROVAL, 1, "requestApproval", null);
 
-                performFunction.apply(inputParameters, componentConnections, extensions, actionContext);
+                Object result = performFunction.apply(inputParameters, componentConnections, extensions, actionContext);
+
+                if (result instanceof SuspendAwareSseEmitterHandler suspendAwareSseEmitterHandler) {
+                    // In editor runs the action returns the approval card event as a one-shot emitter output, drained
+                    // by the task pipeline's post-output processor — but the tool path invokes perform directly and
+                    // has no post-output processing. Drain the handler inline so the suspend inside it still lands on
+                    // the shared action context; the card event itself has no tool-side listener and is dropped.
+                    suspendAwareSseEmitterHandler.handle(NOOP_SSE_EMITTER);
+                }
 
                 return ToolSuspendConstants.SUSPENDED_SENTINEL;
             });
     }
+
+    private static final ActionDefinition.SseEmitterHandler.SseEmitter NOOP_SSE_EMITTER =
+        new ActionDefinition.SseEmitterHandler.SseEmitter() {
+
+            @Override
+            public void addTimeoutListener(Runnable timeoutListener) {
+            }
+
+            @Override
+            public void complete() {
+            }
+
+            @Override
+            public void error(Throwable throwable) {
+            }
+
+            @Override
+            public void send(Object data) {
+            }
+        };
 
     private ApprovalRequestApprovalTool() {
     }
