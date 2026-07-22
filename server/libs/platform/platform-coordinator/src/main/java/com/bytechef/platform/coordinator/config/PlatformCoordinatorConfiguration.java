@@ -25,6 +25,7 @@ import com.bytechef.message.broker.MessageBroker;
 import com.bytechef.platform.coordinator.event.listener.ConcurrencySlotReleaseApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.NotificationJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.SseStreamApplicationEventListener;
+import com.bytechef.platform.coordinator.event.listener.SuspendedTaskStateJobDeletionListener;
 import com.bytechef.platform.coordinator.event.listener.WebhookJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.WebhookTaskStartedApplicationEventListener;
 import com.bytechef.platform.coordinator.metrics.JobExecutionCounter;
@@ -174,6 +175,13 @@ public class PlatformCoordinatorConfiguration {
         return new ApprovalExpiryMonitor(
             eventPublisher, jobService, meterRegistryObjectProvider, taskExecutionService,
             taskStateServiceObjectProvider.getIfAvailable(), tenantService);
+    }
+
+    @Bean
+    SuspendedTaskStateJobDeletionListener suspendedTaskStateJobDeletionListener(
+        ObjectProvider<TaskStateService> taskStateServiceObjectProvider) {
+
+        return new SuspendedTaskStateJobDeletionListener(taskStateServiceObjectProvider.getIfAvailable());
     }
 
     @Bean
