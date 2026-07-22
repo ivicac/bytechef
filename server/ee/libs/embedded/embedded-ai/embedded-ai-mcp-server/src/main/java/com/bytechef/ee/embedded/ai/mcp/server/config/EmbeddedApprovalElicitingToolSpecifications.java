@@ -90,25 +90,33 @@ public final class EmbeddedApprovalElicitingToolSpecifications {
 
         String message = pendingMessage(pendingApproval);
 
-        // Re-derive the form URL from the run's OWN state rather than trusting the formUrl echoed in tool-output text:
-        // a workflow can author a crafted approval_required descriptor as its normal output and point the reviewer at
-        // an attacker-controlled URL (or name another run's job id). An empty result means the job is not actually
-        // paused on an approval (stale/spoofed descriptor) → no elicitation. The DB lookup runs on boundedElastic to
-        // keep the reactor thread non-blocking, and under the captured tenant so it can only ever name this tenant.
+        // Re-derive both the form URL and the resume token from the run's OWN state rather than trusting anything
+        // echoed in tool-output text: a workflow can author a crafted approval_required descriptor as its normal output
+        // and point the reviewer at an attacker-controlled URL (or name another run's job id). A missing resume token
+        // means the job is not actually paused on an approval (stale/spoofed descriptor) → no elicitation. The DB
+        // lookups run on boundedElastic to keep the reactor thread non-blocking, and under the captured tenant so they
+        // can only ever name this tenant.
         return Mono
-            .fromCallable(() -> TenantContext.callWithTenantId(
-                tenantId, () -> mcpToolFacade.resolvePendingApprovalFormUrl(jobId.longValue())))
+            .fromCallable(() -> TenantContext.callWithTenantId(tenantId, () -> new PendingApprovalResolution(
+                mcpToolFacade.resolvePendingApprovalFormUrl(jobId.longValue())
+                    .orElse(null),
+                mcpToolFacade.resolvePendingApprovalResumeToken(jobId.longValue())
+                    .orElse(null))))
             .subscribeOn(Schedulers.boundedElastic())
-            .flatMap(optionalFormUrl -> {
-                String formUrl = optionalFormUrl.orElse(null);
+            .flatMap(resolution -> {
+                String formUrl = resolution.formUrl();
+                String resumeToken = resolution.resumeToken();
 
-                if (formUrl == null) {
+                if (resumeToken == null) {
                     return Mono.just(result);
                 }
 
-                Mono<McpSchema.CallToolResult> elicited = supportsUrlElicitation(exchange)
+                // URL elicitation is the strongest mode but needs the hosted approval form, so it is gated on a
+                // configured public URL; form elicitation only needs the resume token and therefore still works when
+                // no public URL is configured.
+                Mono<McpSchema.CallToolResult> elicited = supportsUrlElicitation(exchange) && formUrl != null
                     ? elicitViaUrl(exchange, mcpToolFacade, tenantId, message, formUrl, jobId.longValue(), result)
-                    : elicitViaForm(exchange, mcpToolFacade, tenantId, message, formUrl, jobId.longValue(), result);
+                    : elicitViaForm(exchange, mcpToolFacade, tenantId, message, resumeToken, jobId.longValue(), result);
 
                 // A run that pauses on a SECOND approval after resuming produces a fresh pending descriptor —
                 // re-elicit it, bounded by the round counter so a long chain degrades to descriptor text.
@@ -117,6 +125,9 @@ public final class EmbeddedApprovalElicitingToolSpecifications {
                         ? Mono.just(nextResult)
                         : elicitApprovalIfPending(exchange, nextResult, mcpToolFacade, tenantId, round + 1));
             });
+    }
+
+    private record PendingApprovalResolution(@Nullable String formUrl, @Nullable String resumeToken) {
     }
 
     private static Mono<McpSchema.CallToolResult> elicitViaUrl(
@@ -141,9 +152,7 @@ public final class EmbeddedApprovalElicitingToolSpecifications {
 
     private static Mono<McpSchema.CallToolResult> elicitViaForm(
         McpAsyncServerExchange exchange, EmbeddedMcpToolFacade mcpToolFacade, String tenantId, String message,
-        String formUrl, long jobId, McpSchema.CallToolResult fallbackResult) {
-
-        String resumeToken = formUrl.substring(formUrl.lastIndexOf('/') + 1);
+        String resumeToken, long jobId, McpSchema.CallToolResult fallbackResult) {
 
         McpSchema.ElicitRequest elicitRequest = McpSchema.ElicitFormRequest
             .builder(message, decisionSchema())

@@ -35,15 +35,31 @@ public final class ApprovalFormUrls {
     public static Optional<String> buildFormUrl(
         @Nullable String publicUrl, @Nullable String jobResumeId, @Nullable ApprovalTokens approvalTokens) {
 
-        if (publicUrl == null || publicUrl.isBlank() || jobResumeId == null || jobResumeId.isBlank()) {
+        if (publicUrl == null || publicUrl.isBlank()) {
             return Optional.empty();
         }
 
-        String token = approvalTokens == null
-            ? jobResumeId
-            : approvalTokens.toSignedTokenIfConfigured(jobResumeId)
-                .orElse(jobResumeId);
+        return buildResumeToken(jobResumeId, approvalTokens)
+            .map(token -> publicUrl + "/resume/" + token);
+    }
 
-        return Optional.of(publicUrl + "/resume/" + token);
+    /**
+     * Builds the HMAC-signed resume token for a suspended run (falling back to the unsigned inner {@code jobResumeId}
+     * when no signer is configured), independent of any public URL. Form-mode approval elicitation needs only this token
+     * — the run's public hosted form (and thus {@code publicUrl}) is irrelevant to it — so a deployment without a
+     * configured public URL can still collect an inline approval decision.
+     */
+    public static Optional<String> buildResumeToken(
+        @Nullable String jobResumeId, @Nullable ApprovalTokens approvalTokens) {
+
+        if (jobResumeId == null || jobResumeId.isBlank()) {
+            return Optional.empty();
+        }
+
+        return Optional.of(
+            approvalTokens == null
+                ? jobResumeId
+                : approvalTokens.toSignedTokenIfConfigured(jobResumeId)
+                    .orElse(jobResumeId));
     }
 }

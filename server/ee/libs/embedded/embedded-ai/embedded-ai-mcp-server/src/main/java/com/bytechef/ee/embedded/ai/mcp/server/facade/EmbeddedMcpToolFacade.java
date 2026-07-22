@@ -492,10 +492,11 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
     private Map<String, Object> describePendingApproval(Job job) {
         Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
 
+        String jobResumeIdString = jobResumeId == null ? null : jobResumeId.toString();
+        ApprovalTokens approvalTokens = approvalTokensObjectProvider.getIfAvailable();
+
         String formUrl = ApprovalFormUrls
-            .buildFormUrl(
-                publicUrl, jobResumeId == null ? null : jobResumeId.toString(),
-                approvalTokensObjectProvider.getIfAvailable())
+            .buildFormUrl(publicUrl, jobResumeIdString, approvalTokens)
             .orElse(null);
 
         Map<String, Object> result = new HashMap<>();
@@ -511,6 +512,11 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
         if (formUrl != null) {
             result.put("formUrl", formUrl);
         }
+
+        // Carried independently of formUrl so form-mode elicitation works without a configured public URL — the hosted
+        // form needs a public URL, an inline approval decision only needs the token.
+        ApprovalFormUrls.buildResumeToken(jobResumeIdString, approvalTokens)
+            .ifPresent(resumeToken -> result.put("resumeToken", resumeToken));
 
         if (job.getId() != null) {
             result.put("jobId", job.getId());
@@ -542,6 +548,30 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
 
         return ApprovalFormUrls.buildFormUrl(
             publicUrl, jobResumeId.toString(), approvalTokensObjectProvider.getIfAvailable());
+    }
+
+    /**
+     * Returns the server-authoritative signed resume token for a run genuinely paused on a human approval (STOPPED with
+     * a stored resume id), or empty otherwise. Re-derived from the run's OWN state — like
+     * {@link #resolvePendingApprovalFormUrl} — and available even when no public URL is configured so form-mode
+     * elicitation still functions.
+     */
+    public Optional<String> resolvePendingApprovalResumeToken(long jobId) {
+        Job job = jobService.fetchJob(jobId)
+            .orElse(null);
+
+        if (job == null || job.getStatus() != Job.Status.STOPPED) {
+            return Optional.empty();
+        }
+
+        Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
+
+        if (jobResumeId == null) {
+            return Optional.empty();
+        }
+
+        return ApprovalFormUrls.buildResumeToken(
+            jobResumeId.toString(), approvalTokensObjectProvider.getIfAvailable());
     }
 
     /**

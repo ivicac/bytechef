@@ -31,6 +31,7 @@ import io.modelcontextprotocol.server.McpAsyncServerExchange;
 import io.modelcontextprotocol.server.McpServerFeatures;
 import io.modelcontextprotocol.spec.McpSchema;
 import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import reactor.core.publisher.Mono;
@@ -83,6 +84,7 @@ class ApprovalElicitingToolSpecificationsTest {
 
     @Test
     void testAcceptedElicitationReturnsTheResumedRunOutput() {
+        stubServerSideResolution();
         stubUrlCapability();
 
         when(exchange.createElicitation(any())).thenReturn(
@@ -132,6 +134,8 @@ class ApprovalElicitingToolSpecificationsTest {
 
     @Test
     void testFormElicitationFallbackResolvesTheApprovalDirectly() {
+        stubServerSideResolution();
+
         // Form-only client: no URL capability, so the decorator collects the decision inline.
         when(exchange.getClientCapabilities()).thenReturn(
             McpSchema.ClientCapabilities.builder()
@@ -164,6 +168,7 @@ class ApprovalElicitingToolSpecificationsTest {
 
     @Test
     void testSecondApprovalReElicitsBounded() {
+        stubServerSideResolution();
         stubUrlCapability();
 
         when(exchange.createElicitation(any())).thenReturn(
@@ -196,6 +201,13 @@ class ApprovalElicitingToolSpecificationsTest {
         return decorated.callHandler()
             .apply(exchange, new McpSchema.CallToolRequest("run_workflow", Map.of()))
             .block();
+    }
+
+    private void stubServerSideResolution() {
+        when(mcpToolFacade.resolvePendingApprovalFormUrl(42L))
+            .thenReturn(Optional.of("https://example.com/resume/tok"));
+        when(mcpToolFacade.resolvePendingApprovalResumeToken(42L))
+            .thenReturn(Optional.of("tok"));
     }
 
     private void stubUrlCapability() {

@@ -50,4 +50,26 @@ class ApprovalFormUrlsTest {
         assertThat(ApprovalFormUrls.buildFormUrl("https://example.com", null, null)).isEmpty();
         assertThat(ApprovalFormUrls.buildFormUrl(" ", "inner", null)).isEmpty();
     }
+
+    @Test
+    void testResumeTokenIsSignedAndIndependentOfPublicUrl() {
+        ApprovalTokens approvalTokens = mock(ApprovalTokens.class);
+
+        when(approvalTokens.toSignedTokenIfConfigured("inner")).thenReturn(Optional.of("v1.signed"));
+
+        // The resume token must be available even when no public URL is configured (form-mode elicitation needs only
+        // the token, not the hosted form).
+        assertThat(ApprovalFormUrls.buildResumeToken("inner", approvalTokens)).contains("v1.signed");
+    }
+
+    @Test
+    void testResumeTokenFallsBackToInnerTokenWithoutSigner() {
+        assertThat(ApprovalFormUrls.buildResumeToken("inner", null)).contains("inner");
+    }
+
+    @Test
+    void testResumeTokenEmptyWithoutResumeId() {
+        assertThat(ApprovalFormUrls.buildResumeToken(null, null)).isEmpty();
+        assertThat(ApprovalFormUrls.buildResumeToken(" ", null)).isEmpty();
+    }
 }
