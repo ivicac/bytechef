@@ -168,8 +168,10 @@ Spring-optional `@Nullable` constructor dep — absent bean → project layer is
 
 Config surface: `aiGatewayProjectSettings(projectId)` GraphQL query +
 `updateAiGatewayProjectSettings(input)` mutation (`AiGatewayProjectSettingsFacade`, admin-only for
-both read and write — project guardrail config is administrative). No client UI in this phase (the
-capability is exposed via the GraphQL API; a project-settings panel is a follow-up).
+both read and write — project guardrail config is administrative). Client:
+`AiGatewayProjectGuardrailsSection` renders the six guardrail toggles inside the project **edit**
+dialog (only for a saved project with a numeric id), loading/saving through the operation above
+with its own query invalidation.
 
 ### 4. Embeddings coverage (gap 5)
 

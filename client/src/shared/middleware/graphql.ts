@@ -1038,6 +1038,20 @@ export type PlaygroundChatCompletionMutationVariables = Exact<{
 
 export type PlaygroundChatCompletionMutation = { playgroundChatCompletion: { completionTokens: number | null, content: string | null, cost: number | null, finishReason: string | null, latencyMs: number | null, model: string | null, promptTokens: number | null, totalTokens: number | null, traceId: string | null } | null };
 
+export type AiGatewayProjectSettingsQueryVariables = Exact<{
+  projectId: string | number;
+}>;
+
+
+export type AiGatewayProjectSettingsQuery = { aiGatewayProjectSettings: { blockedTerms: string | null, injectionDetectionEnabled: boolean | null, moderationEnabled: boolean | null, projectId: string, redactPii: boolean | null, redactSecrets: boolean | null, scanResponses: boolean | null } | null };
+
+export type UpdateAiGatewayProjectSettingsMutationVariables = Exact<{
+  input: Types.AiGatewayProjectSettingsInput;
+}>;
+
+
+export type UpdateAiGatewayProjectSettingsMutation = { updateAiGatewayProjectSettings: { blockedTerms: string | null, injectionDetectionEnabled: boolean | null, moderationEnabled: boolean | null, projectId: string, redactPii: boolean | null, redactSecrets: boolean | null, scanResponses: boolean | null } | null };
+
 export type AiGatewayProjectsQueryVariables = Exact<{
   workspaceId: string | number;
 }>;
@@ -7516,6 +7530,63 @@ export const usePlaygroundChatCompletionMutation = <
       {
     mutationKey: ['playgroundChatCompletion'],
     mutationFn: (variables?: PlaygroundChatCompletionMutationVariables) => fetcher<PlaygroundChatCompletionMutation, PlaygroundChatCompletionMutationVariables>(PlaygroundChatCompletionDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const AiGatewayProjectSettingsDocument = new TypedDocumentString(`
+    query aiGatewayProjectSettings($projectId: ID!) {
+  aiGatewayProjectSettings(projectId: $projectId) {
+    blockedTerms
+    injectionDetectionEnabled
+    moderationEnabled
+    projectId
+    redactPii
+    redactSecrets
+    scanResponses
+  }
+}
+    `);
+
+export const useAiGatewayProjectSettingsQuery = <
+      TData = AiGatewayProjectSettingsQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayProjectSettingsQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayProjectSettingsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayProjectSettingsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayProjectSettingsQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayProjectSettings', variables],
+    queryFn: fetcher<AiGatewayProjectSettingsQuery, AiGatewayProjectSettingsQueryVariables>(AiGatewayProjectSettingsDocument, variables),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayProjectSettingsDocument = new TypedDocumentString(`
+    mutation updateAiGatewayProjectSettings($input: AiGatewayProjectSettingsInput!) {
+  updateAiGatewayProjectSettings(input: $input) {
+    blockedTerms
+    injectionDetectionEnabled
+    moderationEnabled
+    projectId
+    redactPii
+    redactSecrets
+    scanResponses
+  }
+}
+    `);
+
+export const useUpdateAiGatewayProjectSettingsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayProjectSettingsMutation, TError, UpdateAiGatewayProjectSettingsMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayProjectSettingsMutation, TError, UpdateAiGatewayProjectSettingsMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayProjectSettings'],
+    mutationFn: (variables?: UpdateAiGatewayProjectSettingsMutationVariables) => fetcher<UpdateAiGatewayProjectSettingsMutation, UpdateAiGatewayProjectSettingsMutationVariables>(UpdateAiGatewayProjectSettingsDocument, variables)(),
     ...options
   }
     )};

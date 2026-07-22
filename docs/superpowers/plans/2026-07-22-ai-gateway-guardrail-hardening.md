@@ -117,9 +117,15 @@ a "Datadog and Splunk (direct OTLP)" section). No dependency/build change.
 - **Facade test**: `AiGatewayFacadeTest` now builds guardrails via a `guardrails(responseScan)`
   helper (fixing the constructor for the new signature) + a response-redaction flow test.
 
+## Per-project client UI
+
+- `aiGatewayProjectSettings.graphql` operation (query + mutation) + regenerated hooks.
+- `AiGatewayProjectGuardrailsSection` — the six guardrail toggles + blocked-terms input, embedded
+  in the project **edit** dialog (`AiGatewayProjectDialog`, edit mode only), self-contained
+  load/save with query invalidation. Verified: tsc + eslint + prettier clean.
+
 ## Remaining (not implemented)
 
 - Per-API-key guardrail scoping (gap 6b) — no api-key settings-store primitive yet.
-- Per-project client settings UI (GraphQL API only so far).
 - Response tool-call arguments are not redacted (documented trade-off; avoids corrupting tool
-  calls).
+  calls); response-side blocking not added (redaction-only by design).
