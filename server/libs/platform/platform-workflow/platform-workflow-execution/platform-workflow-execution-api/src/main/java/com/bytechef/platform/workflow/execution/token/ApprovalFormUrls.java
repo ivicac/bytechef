@@ -45,8 +45,8 @@ public final class ApprovalFormUrls {
 
     /**
      * Builds the HMAC-signed resume token for a suspended run (falling back to the unsigned inner {@code jobResumeId}
-     * when no signer is configured), independent of any public URL. Form-mode approval elicitation needs only this token
-     * — the run's public hosted form (and thus {@code publicUrl}) is irrelevant to it — so a deployment without a
+     * when no signer is configured), independent of any public URL. Form-mode approval elicitation needs only this
+     * token — the run's public hosted form (and thus {@code publicUrl}) is irrelevant to it — so a deployment without a
      * configured public URL can still collect an inline approval decision.
      */
     public static Optional<String> buildResumeToken(

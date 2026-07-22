@@ -21,10 +21,10 @@ import java.util.Map;
 
 /**
  * Published locally just before a job row is deleted so platform-layer listeners can release resources keyed off the
- * job that atlas cannot reach directly (atlas must not depend on platform). Carries the job's metadata map so a listener
- * can extract platform-specific keys (e.g. {@code jobResumeId}) without re-reading the job that is about to be deleted.
- * Deliberately a plain application event — not an {@link AbstractEvent} — so it stays in-process and is not routed over
- * the message broker.
+ * job that atlas cannot reach directly (atlas must not depend on platform). Carries the job's metadata map so a
+ * listener can extract platform-specific keys (e.g. {@code jobResumeId}) without re-reading the job that is about to be
+ * deleted. Deliberately a plain application event — not an {@link AbstractEvent} — so it stays in-process and is not
+ * routed over the message broker.
  *
  * @author Ivica Cardic
  */
