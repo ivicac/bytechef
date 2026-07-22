@@ -43,6 +43,7 @@ import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.security.web.config.SecurityConfigurerContributor;
 import com.bytechef.platform.security.web.mcp.oauth2.McpJwtDecoderFactory;
+import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
@@ -60,6 +61,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.ai.mcp.McpToolUtils;
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcSseServerTransportProvider;
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcStreamableServerTransportProvider;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -165,8 +167,9 @@ public class EmbeddedMcpServerConfiguration {
         McpComponentService mcpComponentService,
         McpIntegrationInstanceConfigurationWorkflowService mcpIntegrationInstanceConfigurationWorkflowService,
         McpIntegrationInstanceToolService mcpIntegrationInstanceToolService, McpServerService mcpServerService,
-        PrincipalJobFacade principalJobFacade, TaskExecutionService taskExecutionService,
-        ToolExecutionRecorder toolExecutionRecorder, WorkflowService workflowService) {
+        ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider, PrincipalJobFacade principalJobFacade,
+        TaskExecutionService taskExecutionService, ToolExecutionRecorder toolExecutionRecorder,
+        WorkflowService workflowService) {
 
         return new EmbeddedMcpToolFacade(
             clusterElementDefinitionFacade, clusterElementDefinitionService, componentDefinitionService,
@@ -174,8 +177,9 @@ public class EmbeddedMcpServerConfiguration {
             integrationInstanceConfigurationWorkflowService, integrationInstanceService,
             integrationInstanceWorkflowService, integrationService, jobCompletionAwaiter, jwtTokenService,
             mcpComponentService, mcpIntegrationInstanceConfigurationWorkflowService, mcpIntegrationInstanceToolService,
-            mcpServerService, principalJobFacade, applicationProperties.getPublicUrl(), taskExecutionService,
-            durableTaskFileStorage, toolExecutionRecorder, workflowService);
+            mcpServerService, planLimitsProviderObjectProvider, principalJobFacade,
+            applicationProperties.getPublicUrl(), taskExecutionService, durableTaskFileStorage, toolExecutionRecorder,
+            workflowService);
     }
 
     @Bean

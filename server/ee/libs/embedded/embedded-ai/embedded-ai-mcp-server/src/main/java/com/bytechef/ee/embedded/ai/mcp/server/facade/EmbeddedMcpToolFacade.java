@@ -57,6 +57,7 @@ import com.bytechef.platform.mcp.domain.McpTool;
 import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
 import com.bytechef.platform.tool.execution.ToolExecutionEvent;
+import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.tool.execution.ToolExecutionKind;
 import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
@@ -64,7 +65,9 @@ import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.JobExecutionErrors;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
+import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -77,6 +80,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Tool facade for the embedded MCP server. Handles both component-level tools (direct action execution) and integration
@@ -106,6 +110,7 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
     private final IntegrationInstanceWorkflowService integrationInstanceWorkflowService;
     private final McpIntegrationInstanceConfigurationWorkflowService mcpIntegrationInstanceConfigurationWorkflowService;
     private final McpServerService mcpServerService;
+    private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider;
     private final PrincipalJobFacade principalJobFacade;
     private final String publicUrl;
     private final TaskExecutionService taskExecutionService;
@@ -126,7 +131,8 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
         McpComponentService mcpComponentService,
         McpIntegrationInstanceConfigurationWorkflowService mcpIntegrationInstanceConfigurationWorkflowService,
         McpIntegrationInstanceToolService mcpIntegrationInstanceToolService,
-        McpServerService mcpServerService, PrincipalJobFacade principalJobFacade, String publicUrl,
+        McpServerService mcpServerService, ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider,
+        PrincipalJobFacade principalJobFacade, String publicUrl,
         TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage,
         ToolExecutionRecorder toolExecutionRecorder, WorkflowService workflowService) {
 
@@ -147,12 +153,37 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
         this.mcpIntegrationInstanceToolService = mcpIntegrationInstanceToolService;
         this.mcpIntegrationInstanceConfigurationWorkflowService = mcpIntegrationInstanceConfigurationWorkflowService;
         this.mcpServerService = mcpServerService;
+        this.planLimitsProviderObjectProvider = planLimitsProviderObjectProvider;
         this.principalJobFacade = principalJobFacade;
         this.publicUrl = publicUrl;
         this.taskExecutionService = taskExecutionService;
         this.taskFileStorage = taskFileStorage;
         this.toolExecutionRecorder = toolExecutionRecorder;
         this.workflowService = workflowService;
+    }
+
+    /**
+     * Resolves the synchronous-run await timeout: the configured default, tightened to the tenant plan's
+     * {@code syncRunTimeout} when one is set. The plan can only tighten the limit, never extend it — mirroring the
+     * automation MCP and A2A sync surfaces.
+     */
+    private Duration resolveSyncTimeout() {
+        PlanLimitsProvider planLimitsProvider = planLimitsProviderObjectProvider.getIfAvailable();
+
+        if (planLimitsProvider == null) {
+            return JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT;
+        }
+
+        Duration planSyncRunTimeout = planLimitsProvider.getPlanLimits(TenantContext.getCurrentTenantId())
+            .syncRunTimeout();
+
+        if (planSyncRunTimeout == null ||
+            planSyncRunTimeout.compareTo(JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT) >= 0) {
+
+            return JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT;
+        }
+
+        return planSyncRunTimeout;
     }
 
     public @Nullable FunctionToolCallback<Map<String, Object>, Object> getFunctionToolCallback(
@@ -422,7 +453,7 @@ public class EmbeddedMcpToolFacade extends AbstractToolFacade {
             return toolExecutionRecorder.record(
                 eventBuilder.jobId(jobId),
                 () -> {
-                    Job job = jobCompletionAwaiter.await(jobId, JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT)
+                    Job job = jobCompletionAwaiter.await(jobId, resolveSyncTimeout())
                         .join();
 
                     JobExecutionErrors.checkForError(job, taskExecutionService);
