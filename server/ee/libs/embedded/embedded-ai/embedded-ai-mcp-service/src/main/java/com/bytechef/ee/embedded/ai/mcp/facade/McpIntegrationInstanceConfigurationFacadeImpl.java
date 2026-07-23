@@ -315,4 +315,25 @@ public class McpIntegrationInstanceConfigurationFacadeImpl implements McpIntegra
             }
         }
     }
+
+    @Override
+    @PreAuthorize("isTenantAdmin()")
+    public McpIntegrationInstanceConfiguration getMcpIntegrationInstanceConfiguration(long id) {
+        return mcpIntegrationInstanceConfigurationService.fetchMcpIntegrationInstanceConfiguration(id)
+            .orElse(null);
+    }
+
+    @Override
+    @PreAuthorize("isTenantAdmin()")
+    public List<McpIntegrationInstanceConfiguration> getMcpIntegrationInstanceConfigurations() {
+        return mcpIntegrationInstanceConfigurationService.getMcpIntegrationInstanceConfigurations();
+    }
+
+    @Override
+    @PreAuthorize("isTenantAdmin()")
+    public List<McpIntegrationInstanceConfiguration> getMcpServerMcpIntegrationInstanceConfigurations(
+        long mcpServerId) {
+
+        return mcpIntegrationInstanceConfigurationService.getMcpServerMcpIntegrationInstanceConfigurations(mcpServerId);
+    }
 }

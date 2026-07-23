@@ -8,24 +8,16 @@
 package com.bytechef.ee.embedded.ai.mcp.web.graphql;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
-import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.ee.embedded.ai.mcp.facade.EmbeddedMcpServerFacade;
-import com.bytechef.ee.embedded.configuration.domain.Integration;
-import com.bytechef.ee.embedded.configuration.domain.IntegrationVersion.Status;
-import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationService;
-import com.bytechef.ee.embedded.configuration.service.IntegrationService;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.component.domain.ComponentDefinition;
-import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.service.McpServerService;
 import com.bytechef.platform.tag.domain.Tag;
-import com.bytechef.platform.tag.service.TagService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
-import java.util.Set;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
@@ -42,66 +34,30 @@ import org.springframework.stereotype.Controller;
 @ConditionalOnCoordinator
 class EmbeddedMcpServerGraphQlController {
 
-    private final ComponentDefinitionService componentDefinitionService;
     private final EmbeddedMcpServerFacade embeddedMcpServerFacade;
-    private final IntegrationInstanceConfigurationService integrationInstanceConfigurationService;
-    private final IntegrationService integrationService;
     private final McpServerService mcpServerService;
-    private final TagService tagService;
 
     @SuppressFBWarnings("EI")
     EmbeddedMcpServerGraphQlController(
-        ComponentDefinitionService componentDefinitionService, EmbeddedMcpServerFacade embeddedMcpServerFacade,
-        IntegrationInstanceConfigurationService integrationInstanceConfigurationService,
-        IntegrationService integrationService, McpServerService mcpServerService, TagService tagService) {
+        EmbeddedMcpServerFacade embeddedMcpServerFacade, McpServerService mcpServerService) {
 
-        this.componentDefinitionService = componentDefinitionService;
         this.embeddedMcpServerFacade = embeddedMcpServerFacade;
-        this.integrationInstanceConfigurationService = integrationInstanceConfigurationService;
-        this.integrationService = integrationService;
         this.mcpServerService = mcpServerService;
-        this.tagService = tagService;
     }
 
     @QueryMapping
     List<McpServer> embeddedMcpServers() {
-        return mcpServerService.getMcpServers(PlatformType.EMBEDDED);
+        return embeddedMcpServerFacade.getEmbeddedMcpServers();
     }
 
     @QueryMapping
     List<Tag> embeddedMcpServerTags() {
-        List<Long> tagIds = mcpServerService.getMcpServers(PlatformType.EMBEDDED)
-            .stream()
-            .flatMap(mcpServer -> CollectionUtils.stream(mcpServer.getTagIds()))
-            .distinct()
-            .toList();
-
-        if (tagIds.isEmpty()) {
-            return List.of();
-        }
-
-        return tagService.getTags(tagIds);
+        return embeddedMcpServerFacade.getEmbeddedMcpServerTags();
     }
 
     @QueryMapping
     List<ComponentDefinition> mcpComponentDefinitions() {
-        Set<Long> configuredIntegrationIds =
-            Set.copyOf(integrationInstanceConfigurationService.getIntegrationIds());
-
-        List<String> componentNames = integrationService.getIntegrations(
-            null, List.of(), null, Status.PUBLISHED)
-            .stream()
-            .filter(integration -> configuredIntegrationIds.contains(integration.getId()))
-            .map(Integration::getComponentName)
-            .distinct()
-            .toList();
-
-        if (componentNames.isEmpty()) {
-            return List.of();
-        }
-
-        return componentDefinitionService.getComponentDefinitions(
-            true, null, null, null, componentNames, PlatformType.EMBEDDED);
+        return embeddedMcpServerFacade.getMcpComponentDefinitions();
     }
 
     @MutationMapping
