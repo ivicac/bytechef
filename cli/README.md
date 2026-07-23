@@ -41,6 +41,45 @@ Output is JSON by default; add `--output table` on `execution list` for a compac
 Requests are sent to `<host>/api/automation/v1` with `Authorization: Bearer <token>` and
 `X-Environment: <environment>` headers.
 
+## Embedded commands
+
+Embedded commands act on behalf of a connected user, identified by `--external-user-id`, and hit
+`<host>/api/embedded/v1`.
+
+```bash
+# Integrations and integration instances
+bytechef embedded integration list --external-user-id user-42
+bytechef embedded integration get --external-user-id user-42 --id 3
+bytechef embedded integration-instance create --external-user-id user-42 --id 3 --data @instance.json
+bytechef embedded integration-instance delete --external-user-id user-42 --id 9
+bytechef embedded integration-instance workflow-enable --external-user-id user-42 --id 9 --workflow-uuid wf-1
+
+# Projects and project workflows
+bytechef embedded project list --external-user-id user-42
+bytechef embedded workflow list --external-user-id user-42
+bytechef embedded workflow get|enable|disable|delete --external-user-id user-42 --workflow-uuid wf-1
+bytechef embedded workflow publish --external-user-id user-42 --workflow-uuid wf-1 --description "v2"
+
+# Executions, tools and actions
+bytechef embedded execution list --external-user-id user-42
+bytechef embedded execution get --external-user-id user-42 --id 12
+bytechef embedded tool list --external-user-id user-42
+bytechef embedded tool execute --external-user-id user-42 --data '{"name":"my_tool"}'
+bytechef embedded action execute --external-user-id user-42 --component-name slack \
+  --component-version 1 --action-name sendMessage --data @input.json
+bytechef embedded tool-invocation list --external-user-id user-42
+
+# Connected user and connections
+bytechef embedded user update --external-user-id user-42 --data '{"name":"New Name"}'
+bytechef embedded connection list --external-user-id user-42 --component-name slack
+```
+
+Commands that take a request body accept `--data` as either literal JSON or `@path/to/file.json`.
+
+The **frontend** variants of the embedded API (connected-user session token, for the browser SDK) and
+the AI Gateway and webhook endpoints are intentionally not exposed as CLI commands — their auth or
+inbound-call model doesn't fit a CLI.
+
 ## Component scaffolding
 
 ```bash
