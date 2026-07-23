@@ -161,7 +161,15 @@ public class WorkflowExecutionApi {
     File file = null;
     if (filename != null) {
       java.nio.file.Path tempDir = java.nio.file.Files.createTempDirectory("swagger-gen-native");
-      java.nio.file.Path filePath = java.nio.file.Files.createFile(tempDir.resolve(filename));
+      java.nio.file.Path safeName = java.nio.file.Path.of(filename).getFileName();
+      if (safeName == null) {
+        throw new java.io.IOException("Rejected unsafe filename: " + filename);
+      }
+      java.nio.file.Path filePath = tempDir.resolve(safeName.toString()).normalize();
+      if (!filePath.startsWith(tempDir)) {
+        throw new java.io.IOException("Rejected unsafe filename: " + filename);
+      }
+      filePath = java.nio.file.Files.createFile(filePath);
       file = filePath.toFile();
       tempDir.toFile().deleteOnExit();   // best effort cleanup
       file.deleteOnExit(); // best effort cleanup
