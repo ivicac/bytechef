@@ -22,6 +22,7 @@ dependencies {
     implementation(project(":cli:commands:automation"))
     implementation(project(":cli:commands:component"))
     implementation(project(":cli:commands:config"))
+    implementation(project(":cli:commands:embedded"))
 
     implementation("org.springframework.boot:spring-boot-starter")
     implementation("org.springframework.boot:spring-boot-starter-validation")

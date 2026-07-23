@@ -33,6 +33,7 @@ include("cli:clients:embedded-configuration")
 include("cli:clients:embedded-execution")
 include("cli:commands:config")
 include("cli:commands:automation")
+include("cli:commands:embedded")
 include("cli:commands:component")
 include("cli:commands:component:init:openapi")
 
