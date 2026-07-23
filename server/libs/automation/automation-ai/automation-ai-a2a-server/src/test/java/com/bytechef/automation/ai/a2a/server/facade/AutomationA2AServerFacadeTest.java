@@ -17,28 +17,41 @@
 package com.bytechef.automation.ai.a2a.server.facade;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
+import com.bytechef.automation.ai.a2a.domain.A2aProject;
+import com.bytechef.automation.ai.a2a.domain.A2aProjectWorkflow;
 import com.bytechef.automation.ai.a2a.domain.A2aServer;
 import com.bytechef.automation.ai.a2a.service.A2aProjectService;
 import com.bytechef.automation.ai.a2a.service.A2aProjectWorkflowService;
 import com.bytechef.automation.ai.a2a.service.A2aServerService;
+import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.platform.ai.a2a.A2AAgentRequest;
 import com.bytechef.platform.ai.a2a.A2AAgentResult;
+import com.bytechef.platform.component.constant.WorkflowConstants;
+import com.bytechef.platform.configuration.domain.WorkflowTrigger;
+import com.bytechef.platform.definition.WorkflowNodeType;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.springframework.beans.factory.ObjectProvider;
 
 /**
@@ -49,9 +62,12 @@ class AutomationA2AServerFacadeTest {
     private final A2aProjectService a2aProjectService = mock(A2aProjectService.class);
     private final A2aProjectWorkflowService a2aProjectWorkflowService = mock(A2aProjectWorkflowService.class);
     private final A2aServerService a2aServerService = mock(A2aServerService.class);
+    private final JobCompletionAwaiter jobCompletionAwaiter = mock(JobCompletionAwaiter.class);
     private final JobService jobService = mock(JobService.class);
+    private final PrincipalJobFacade principalJobFacade = mock(PrincipalJobFacade.class);
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService =
         mock(ProjectDeploymentWorkflowService.class);
+    private final WorkflowService workflowService = mock(WorkflowService.class);
 
     @SuppressWarnings("unchecked")
     private final ObjectProvider<PlanLimitsProvider> planLimitsProviderObjectProvider =
@@ -63,9 +79,9 @@ class AutomationA2AServerFacadeTest {
 
     private final AutomationA2AServerFacade facade = new AutomationA2AServerFacade(
         a2aProjectService, a2aProjectWorkflowService, a2aServerService, approvalTokensObjectProvider,
-        mock(JobCompletionAwaiter.class), jobService, planLimitsProviderObjectProvider,
-        mock(PrincipalJobFacade.class), projectDeploymentWorkflowService, "https://example.com",
-        mock(TaskExecutionService.class), mock(TaskFileStorage.class), mock(WorkflowService.class));
+        jobCompletionAwaiter, jobService, planLimitsProviderObjectProvider,
+        principalJobFacade, projectDeploymentWorkflowService, "https://example.com",
+        mock(TaskExecutionService.class), mock(TaskFileStorage.class), workflowService);
 
     @Test
     void testExecuteReturnsErrorWhenServerDisabled() {
@@ -95,6 +111,60 @@ class AutomationA2AServerFacadeTest {
 
         assertThat(result.success()).isFalse();
         assertThat(result.errorMessage()).contains("No agent-backed workflow");
+    }
+
+    @Test
+    void testExecuteReturnsInputRequiredWhenRunPausesOnApproval() {
+        A2aServer a2aServer = new A2aServer();
+
+        a2aServer.setEnabled(true);
+        a2aServer.setId(1L);
+
+        A2aProject a2aProject = mock(A2aProject.class);
+        A2aProjectWorkflow a2aProjectWorkflow = mock(A2aProjectWorkflow.class);
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = mock(ProjectDeploymentWorkflow.class);
+        Workflow workflow = mock(Workflow.class);
+        WorkflowTrigger workflowTrigger = mock(WorkflowTrigger.class);
+        WorkflowNodeType workflowNodeType = mock(WorkflowNodeType.class);
+        Job job = mock(Job.class);
+
+        when(a2aProject.getId()).thenReturn(10L);
+        when(a2aProjectWorkflow.getProjectDeploymentWorkflowId()).thenReturn(20L);
+        when(projectDeploymentWorkflow.isEnabled()).thenReturn(true);
+        when(projectDeploymentWorkflow.getWorkflowId()).thenReturn("wf1");
+        when(projectDeploymentWorkflow.getProjectDeploymentId()).thenReturn(30L);
+        when(projectDeploymentWorkflow.getInputs()).thenReturn(Map.of());
+        when(workflowTrigger.getType()).thenReturn("workflow/v1/newWorkflowCall");
+        when(workflowTrigger.getName()).thenReturn("newWorkflowCall_1");
+        when(workflowNodeType.name()).thenReturn(WorkflowConstants.WORKFLOW);
+        when(workflowNodeType.operation()).thenReturn(WorkflowConstants.NEW_WORKFLOW_CALL);
+        when(job.getId()).thenReturn(100L);
+        when(job.getStatus()).thenReturn(Job.Status.STOPPED);
+
+        when(a2aServerService.getA2aServer("secret")).thenReturn(a2aServer);
+        when(a2aProjectService.getA2aServerA2aProjects(1L)).thenReturn(List.of(a2aProject));
+        when(a2aProjectWorkflowService.getA2aProjectA2aProjectWorkflows(10L)).thenReturn(List.of(a2aProjectWorkflow));
+        when(projectDeploymentWorkflowService.getProjectDeploymentWorkflow(20L)).thenReturn(projectDeploymentWorkflow);
+        when(workflowService.getWorkflow("wf1")).thenReturn(workflow);
+        when(principalJobFacade.createJob(any(), anyLong(), any())).thenReturn(100L);
+        when(jobCompletionAwaiter.await(anyLong(), any())).thenReturn(CompletableFuture.completedFuture(job));
+
+        try (MockedStatic<WorkflowTrigger> workflowTriggerMockedStatic = mockStatic(WorkflowTrigger.class);
+            MockedStatic<WorkflowNodeType> workflowNodeTypeMockedStatic = mockStatic(WorkflowNodeType.class)) {
+
+            workflowTriggerMockedStatic.when(() -> WorkflowTrigger.of(workflow))
+                .thenReturn(List.of(workflowTrigger));
+            workflowNodeTypeMockedStatic.when(() -> WorkflowNodeType.ofType("workflow/v1/newWorkflowCall"))
+                .thenReturn(workflowNodeType);
+
+            A2AAgentResult result = facade.execute(new A2AAgentRequest("secret", "hi", null, null));
+
+            // A run that comes back STOPPED is paused on a human approval, not finished — the task surfaces as
+            // input-required carrying the paused run's job id for a later tasks/get refresh.
+            assertThat(result.inputRequired()).isTrue();
+            assertThat(result.jobId()).isEqualTo(100L);
+            assertThat(result.text()).contains("Approval required");
+        }
     }
 
     @Test
