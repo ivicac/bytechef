@@ -6,7 +6,7 @@
     "build": "next build && npm run build:post",
     "build:pre": "bun ./scripts/pre-build.ts",
     "build:post": "bun ./scripts/post-build.ts",
-    "types:check": "fumadocs-mdx && next typegen && tsc --noEmit",
+    "types:check": "next typegen && fumadocs-mdx && tsc --noEmit",
     "clean": "rimraf .next",
     "dev": "next dev",
     "generate:openapi": "bun ./scripts/generate-openapi.ts",
