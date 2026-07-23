@@ -87,4 +87,6 @@ Both filters are fail-closed: an expression that errors or evaluates to `false` 
 
 ## AI Copilot
 
+> **Coming soon.** The AI Copilot is on the upcoming release track and is not yet available in the latest released version of ByteChef.
+
 The integration workflow editor carries the [AI Copilot](/platform/copilot) panel on par with the automation project editor — an integration-scoped assistant with **Ask** and **Build** modes for understanding and building the current integration's workflows. Copilot is an Enterprise Edition feature and is disabled by default.
