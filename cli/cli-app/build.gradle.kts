@@ -10,6 +10,7 @@ graalvmNative {
 }
 
 application {
+    applicationName = "bytechef"
     mainClass.set("com.bytechef.cli.CliApplication")
 }
 
