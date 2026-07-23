@@ -90,6 +90,21 @@ class EmbeddedCommandTest {
     }
 
     @Test
+    void testConnectionListHitsTemplatedExternalUserIdPath() throws Exception {
+        try (StubApi stub = StubApi.start(200, "[]")) {
+            int code = CliApplication.execute(
+                "embedded", "connection", "list", "--external-user-id", "user-1", "--component-name", "slack",
+                "--host", stub.host(), "--token", "btc_x", "--environment", "PRODUCTION");
+
+            assertEquals(0, code);
+            assertTrue(
+                stub.lastPath()
+                    .startsWith("/api/embedded/v1/user-1/components/slack/connections"),
+                stub.lastPath());
+        }
+    }
+
+    @Test
     void testUnauthorizedReturnsExitCode2() throws Exception {
         try (StubApi stub = StubApi.start(401, "")) {
             int code = CliApplication.execute(

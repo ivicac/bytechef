@@ -44,9 +44,9 @@ public interface ConnectionApi {
         return Optional.empty();
     }
 
-    String PATH_GET_CONNECTIONS = "/externalUserId/components/{componentName}/connections";
+    String PATH_GET_CONNECTIONS = "/{externalUserId}/components/{componentName}/connections";
     /**
-     * GET /externalUserId/components/{componentName}/connections : Get all connected user&#39;s connections
+     * GET /{externalUserId}/components/{componentName}/connections : Get all connected user&#39;s connections
      * Get all connected user&#39;s connections.
      *
      * @param externalUserId The external user id. (required)

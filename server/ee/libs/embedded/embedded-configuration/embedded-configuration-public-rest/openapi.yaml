@@ -1258,7 +1258,7 @@ paths:
           description: "Successful operation."
       security:
         - bearerAuth: [ ]
-  /externalUserId/components/{componentName}/connections:
+  /{externalUserId}/components/{componentName}/connections:
     get:
       description: "Get all connected user's connections."
       summary: "Get all connected user's connections"

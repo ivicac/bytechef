@@ -286,7 +286,7 @@ public class ConnectionApi {
 
     HttpRequest.Builder localVarRequestBuilder = HttpRequest.newBuilder();
 
-    String localVarPath = "/externalUserId/components/{componentName}/connections"
+    String localVarPath = "/{externalUserId}/components/{componentName}/connections"
         .replace("{externalUserId}", ApiClient.urlEncode(externalUserId.toString()))
         .replace("{componentName}", ApiClient.urlEncode(componentName.toString()));
 
