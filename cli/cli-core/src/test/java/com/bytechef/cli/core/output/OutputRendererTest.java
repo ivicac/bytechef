@@ -44,6 +44,63 @@ class OutputRendererTest {
     }
 
     @Test
+    void testRenderTableFromJsonArray() {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+        OutputRenderer renderer = new OutputRenderer(buffer);
+
+        renderer.render(List.of(Map.of("id", 1, "name", "Slack"), Map.of("id", 2, "name", "GitHub")), "table");
+
+        String output = buffer.toString(StandardCharsets.UTF_8);
+
+        assertTrue(output.contains("ID"), "uppercased header expected");
+        assertTrue(output.contains("NAME"));
+        assertTrue(output.contains("Slack"));
+        assertTrue(output.contains("GitHub"));
+    }
+
+    @Test
+    void testRenderTableFromPagedContent() {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+        OutputRenderer renderer = new OutputRenderer(buffer);
+
+        renderer.render(Map.of("content", List.of(Map.of("id", 7, "status", "COMPLETED")), "totalElements", 1),
+            "table");
+
+        String output = buffer.toString(StandardCharsets.UTF_8);
+
+        assertTrue(output.contains("STATUS"));
+        assertTrue(output.contains("COMPLETED"));
+    }
+
+    @Test
+    void testRenderTableFallsBackToJsonForNonList() {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+        OutputRenderer renderer = new OutputRenderer(buffer);
+
+        renderer.render(Map.of("id", 7, "status", "COMPLETED"), "table");
+
+        String output = buffer.toString(StandardCharsets.UTF_8);
+
+        assertTrue(output.contains("\"status\""), "non-list should fall back to JSON");
+    }
+
+    @Test
+    void testRenderJsonWhenOutputNotTable() {
+        ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+        OutputRenderer renderer = new OutputRenderer(buffer);
+
+        renderer.render(List.of(Map.of("id", 1)), "json");
+
+        String output = buffer.toString(StandardCharsets.UTF_8);
+
+        assertTrue(output.contains("\"id\""), "json output expected");
+    }
+
+    @Test
     void testRenderTableAlignsColumns() {
         ByteArrayOutputStream buffer = new ByteArrayOutputStream();
 

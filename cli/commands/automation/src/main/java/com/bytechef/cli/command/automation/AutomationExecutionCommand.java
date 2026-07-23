@@ -19,7 +19,6 @@ package com.bytechef.cli.command.automation;
 import com.bytechef.cli.client.automation.ApiException;
 import com.bytechef.cli.client.automation.api.WorkflowExecutionApi;
 import com.bytechef.cli.client.automation.model.PageModel;
-import com.bytechef.cli.client.automation.model.WorkflowExecutionBasicModel;
 import com.bytechef.cli.client.automation.model.WorkflowExecutionStatusModel;
 import com.bytechef.cli.core.config.CliConfig;
 import com.bytechef.cli.core.config.Environment;
@@ -27,8 +26,6 @@ import com.bytechef.cli.core.config.Overrides;
 import com.bytechef.cli.core.config.ProfileResolver;
 import com.bytechef.cli.core.output.OutputRenderer;
 import java.nio.file.Path;
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Map;
 import org.springframework.shell.core.command.annotation.Command;
 import org.springframework.shell.core.command.annotation.Option;
@@ -72,7 +69,7 @@ public class AutomationExecutionCommand {
             throw AutomationClientFactory.toCliException(e);
         }
 
-        renderPage(pageModel, output);
+        new OutputRenderer(System.out).render(pageModel, output);
     }
 
     @Command(name = "automation execution get", description = "Get a workflow execution by id.")
@@ -81,8 +78,7 @@ public class AutomationExecutionCommand {
         @Option(longName = "profile") String profile,
         @Option(longName = "host") String host,
         @Option(longName = "token") String token,
-        @Option(longName = "environment") String environment,
-        @Option(longName = "output", defaultValue = "json") String output) {
+        @Option(longName = "environment") String environment) {
 
         CliConfig config = resolve(profile, host, token, environment, null);
 
@@ -101,27 +97,6 @@ public class AutomationExecutionCommand {
 
     void setEnvironmentVariables(Map<String, String> environmentVariables) {
         this.environmentVariables = environmentVariables;
-    }
-
-    private void renderPage(PageModel pageModel, String output) {
-        OutputRenderer renderer = new OutputRenderer(System.out);
-
-        if (!"table".equalsIgnoreCase(output)) {
-            renderer.renderJson(pageModel);
-
-            return;
-        }
-
-        List<List<String>> rows = new ArrayList<>();
-
-        if (pageModel.getContent() != null) {
-            for (WorkflowExecutionBasicModel execution : pageModel.getContent()) {
-                rows.add(
-                    List.of(String.valueOf(execution.getId()), String.valueOf(execution.getStatus())));
-            }
-        }
-
-        renderer.renderTable(List.of("ID", "STATUS"), rows);
     }
 
     private CliConfig resolve(String profile, String host, String token, String environment, Long workspaceId) {
