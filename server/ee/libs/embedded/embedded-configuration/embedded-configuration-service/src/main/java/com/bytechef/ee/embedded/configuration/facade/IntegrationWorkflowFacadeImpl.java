@@ -131,6 +131,12 @@ public class IntegrationWorkflowFacadeImpl implements IntegrationWorkflowFacade 
     }
 
     @Override
+    @PreAuthorize("isTenantAdmin()")
+    public void updatePermissionExpression(long integrationWorkflowId, String permissionExpression) {
+        integrationWorkflowService.updatePermissionExpression(integrationWorkflowId, permissionExpression);
+    }
+
+    @Override
     @Transactional(readOnly = true)
     @PreAuthorize("isTenantAdmin()")
     public IntegrationWorkflowDTO getIntegrationWorkflow(String workflowId) {

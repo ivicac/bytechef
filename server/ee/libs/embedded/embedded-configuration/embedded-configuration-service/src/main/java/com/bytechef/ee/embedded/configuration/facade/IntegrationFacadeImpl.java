@@ -13,6 +13,7 @@ import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.ee.embedded.configuration.domain.Integration;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationCodeWorkflow;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfiguration;
+import com.bytechef.ee.embedded.configuration.domain.IntegrationVersion;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationVersion.Status;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationWorkflow;
 import com.bytechef.ee.embedded.configuration.dto.IntegrationDTO;
@@ -157,6 +158,13 @@ public class IntegrationFacadeImpl implements IntegrationFacade {
         Integration integration = integrationService.getIntegration(id);
 
         return toIntegrationDTO(integration);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    @PreAuthorize("isTenantAdmin()")
+    public List<IntegrationVersion> getIntegrationVersions(long id) {
+        return integrationService.getIntegrationVersions(id);
     }
 
     @Override
