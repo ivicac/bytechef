@@ -19,7 +19,6 @@ import com.bytechef.component.definition.Property.ControlType;
 import com.bytechef.definition.BaseProperty.BaseValueProperty;
 import com.bytechef.ee.embedded.ai.mcp.domain.McpIntegrationInstanceConfigurationWorkflow;
 import com.bytechef.ee.embedded.ai.mcp.facade.McpIntegrationInstanceConfigurationWorkflowFacade;
-import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigurationWorkflow;
 import com.bytechef.ee.embedded.configuration.dto.IntegrationWorkflowDTO;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationWorkflowService;
@@ -55,18 +54,15 @@ class McpIntegrationInstanceConfigurationWorkflowGraphQlController {
 
     private final IntegrationInstanceConfigurationWorkflowService integrationInstanceConfigurationWorkflowService;
     private final McpIntegrationInstanceConfigurationWorkflowFacade mcpIntegrationInstanceConfigurationWorkflowFacade;
-    private final McpIntegrationInstanceConfigurationWorkflowService mcpIntegrationInstanceConfigurationWorkflowService;
     private final WorkflowService workflowService;
 
     McpIntegrationInstanceConfigurationWorkflowGraphQlController(
         IntegrationInstanceConfigurationWorkflowService integrationInstanceConfigurationWorkflowService,
         McpIntegrationInstanceConfigurationWorkflowFacade mcpIntegrationInstanceConfigurationWorkflowFacade,
-        McpIntegrationInstanceConfigurationWorkflowService mcpIntegrationInstanceConfigurationWorkflowService,
         WorkflowService workflowService) {
 
         this.integrationInstanceConfigurationWorkflowService = integrationInstanceConfigurationWorkflowService;
         this.mcpIntegrationInstanceConfigurationWorkflowFacade = mcpIntegrationInstanceConfigurationWorkflowFacade;
-        this.mcpIntegrationInstanceConfigurationWorkflowService = mcpIntegrationInstanceConfigurationWorkflowService;
         this.workflowService = workflowService;
     }
 
@@ -186,8 +182,8 @@ class McpIntegrationInstanceConfigurationWorkflowGraphQlController {
         Long integrationInstanceConfigurationWorkflowId = Long.valueOf(
             String.valueOf(input.get("integrationInstanceConfigurationWorkflowId")));
 
-        return mcpIntegrationInstanceConfigurationWorkflowService.create(mcpIntegrationInstanceConfigurationId,
-            integrationInstanceConfigurationWorkflowId);
+        return mcpIntegrationInstanceConfigurationWorkflowFacade.createMcpIntegrationInstanceConfigurationWorkflow(
+            mcpIntegrationInstanceConfigurationId, integrationInstanceConfigurationWorkflowId);
     }
 
     @SuppressWarnings("unchecked")
@@ -210,7 +206,7 @@ class McpIntegrationInstanceConfigurationWorkflowGraphQlController {
         }
 
         McpIntegrationInstanceConfigurationWorkflow mcpIntegrationInstanceConfigurationWorkflow =
-            mcpIntegrationInstanceConfigurationWorkflowService.update(
+            mcpIntegrationInstanceConfigurationWorkflowFacade.updateMcpIntegrationInstanceConfigurationWorkflow(
                 id, mcpIntegrationInstanceConfigurationId, integrationInstanceConfigurationWorkflowId);
 
         if (input.containsKey("parameters")) {
@@ -224,8 +220,8 @@ class McpIntegrationInstanceConfigurationWorkflowGraphQlController {
 
             Map<String, ?> parameters = parametersObject != null ? (Map<String, ?>) parametersObject : Map.of();
 
-            mcpIntegrationInstanceConfigurationWorkflow =
-                mcpIntegrationInstanceConfigurationWorkflowService.updateParameters(id, parameters);
+            mcpIntegrationInstanceConfigurationWorkflow = mcpIntegrationInstanceConfigurationWorkflowFacade
+                .updateMcpIntegrationInstanceConfigurationWorkflowParameters(id, parameters);
         }
 
         return mcpIntegrationInstanceConfigurationWorkflow;

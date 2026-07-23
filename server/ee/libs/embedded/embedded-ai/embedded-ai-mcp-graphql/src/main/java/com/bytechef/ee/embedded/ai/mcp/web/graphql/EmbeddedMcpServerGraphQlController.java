@@ -12,9 +12,7 @@ import com.bytechef.ee.embedded.ai.mcp.facade.EmbeddedMcpServerFacade;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.configuration.domain.Environment;
-import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.mcp.domain.McpServer;
-import com.bytechef.platform.mcp.service.McpServerService;
 import com.bytechef.platform.tag.domain.Tag;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
@@ -35,14 +33,10 @@ import org.springframework.stereotype.Controller;
 class EmbeddedMcpServerGraphQlController {
 
     private final EmbeddedMcpServerFacade embeddedMcpServerFacade;
-    private final McpServerService mcpServerService;
 
     @SuppressFBWarnings("EI")
-    EmbeddedMcpServerGraphQlController(
-        EmbeddedMcpServerFacade embeddedMcpServerFacade, McpServerService mcpServerService) {
-
+    EmbeddedMcpServerGraphQlController(EmbeddedMcpServerFacade embeddedMcpServerFacade) {
         this.embeddedMcpServerFacade = embeddedMcpServerFacade;
-        this.mcpServerService = mcpServerService;
     }
 
     @QueryMapping
@@ -70,8 +64,8 @@ class EmbeddedMcpServerGraphQlController {
             throw new IllegalArgumentException("Invalid environmentId: " + input.environmentId());
         }
 
-        return mcpServerService.create(
-            input.name(), PlatformType.EMBEDDED, environments[environmentIndex], input.enabled());
+        return embeddedMcpServerFacade.createEmbeddedMcpServer(
+            input.name(), environments[environmentIndex], input.enabled());
     }
 
     @MutationMapping

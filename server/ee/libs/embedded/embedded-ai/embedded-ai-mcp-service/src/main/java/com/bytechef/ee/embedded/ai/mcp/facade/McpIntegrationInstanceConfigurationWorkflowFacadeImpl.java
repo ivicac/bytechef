@@ -23,6 +23,7 @@ import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.definition.WorkflowNodeType;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -85,6 +86,33 @@ class McpIntegrationInstanceConfigurationWorkflowFacadeImpl
 
         integrationInstanceConfigurationWorkflowService.updateEnabled(integrationInstanceConfigurationWorkflowId,
             false);
+    }
+
+    @Override
+    @PreAuthorize("isTenantAdmin()")
+    public McpIntegrationInstanceConfigurationWorkflow createMcpIntegrationInstanceConfigurationWorkflow(
+        long mcpIntegrationInstanceConfigurationId, long integrationInstanceConfigurationWorkflowId) {
+
+        return mcpIntegrationInstanceConfigurationWorkflowService.create(
+            mcpIntegrationInstanceConfigurationId, integrationInstanceConfigurationWorkflowId);
+    }
+
+    @Override
+    @PreAuthorize("isTenantAdmin()")
+    public McpIntegrationInstanceConfigurationWorkflow updateMcpIntegrationInstanceConfigurationWorkflow(
+        long id, @Nullable Long mcpIntegrationInstanceConfigurationId,
+        @Nullable Long integrationInstanceConfigurationWorkflowId) {
+
+        return mcpIntegrationInstanceConfigurationWorkflowService.update(
+            id, mcpIntegrationInstanceConfigurationId, integrationInstanceConfigurationWorkflowId);
+    }
+
+    @Override
+    @PreAuthorize("isTenantAdmin()")
+    public McpIntegrationInstanceConfigurationWorkflow updateMcpIntegrationInstanceConfigurationWorkflowParameters(
+        long id, Map<String, ?> parameters) {
+
+        return mcpIntegrationInstanceConfigurationWorkflowService.updateParameters(id, parameters);
     }
 
     @Override

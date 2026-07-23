@@ -16,6 +16,7 @@ import com.bytechef.ee.embedded.configuration.service.IntegrationService;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
+import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.facade.McpServerFacade;
@@ -68,6 +69,12 @@ class EmbeddedMcpServerFacadeImpl implements EmbeddedMcpServerFacade {
         this.mcpServerService = mcpServerService;
         this.mcpToolService = mcpToolService;
         this.tagService = tagService;
+    }
+
+    @Override
+    @PreAuthorize("isTenantAdmin()")
+    public McpServer createEmbeddedMcpServer(String name, Environment environment, boolean enabled) {
+        return mcpServerService.create(name, PlatformType.EMBEDDED, environment, enabled);
     }
 
     @Override
