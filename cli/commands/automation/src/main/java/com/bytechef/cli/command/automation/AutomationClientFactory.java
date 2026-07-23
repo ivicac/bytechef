@@ -33,13 +33,15 @@ import com.bytechef.cli.core.http.AuthInterceptor;
  */
 final class AutomationClientFactory {
 
+    private static final String AUTOMATION_API_PATH = "/api/automation/v1";
+
     private AutomationClientFactory() {
     }
 
     static ApiClient apiClient(CliConfig config) {
         ApiClient apiClient = new ApiClient();
 
-        apiClient.updateBaseUri(AuthInterceptor.baseUri(config));
+        apiClient.updateBaseUri(AuthInterceptor.baseUri(config, AUTOMATION_API_PATH));
         apiClient.setRequestInterceptor(new AuthInterceptor(config));
 
         return apiClient;

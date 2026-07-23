@@ -53,7 +53,7 @@ class AuthInterceptorTest {
     @Test
     void testBaseUriAppendsApiPath() {
         assertTrue(
-            AuthInterceptor.baseUri(new CliConfig("https://h", "t", Environment.PRODUCTION, null))
-                .endsWith("/api/automation/v1"));
+            AuthInterceptor.baseUri(new CliConfig("https://h", "t", Environment.PRODUCTION, null), "/api/embedded/v1")
+                .endsWith("/api/embedded/v1"));
     }
 }

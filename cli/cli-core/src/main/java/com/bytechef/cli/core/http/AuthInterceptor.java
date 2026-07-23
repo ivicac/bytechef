@@ -27,8 +27,6 @@ import java.util.function.Consumer;
  */
 public class AuthInterceptor implements Consumer<HttpRequest.Builder> {
 
-    private static final String AUTOMATION_API_PATH = "/api/automation/v1";
-
     private final CliConfig config;
 
     public AuthInterceptor(CliConfig config) {
@@ -43,7 +41,7 @@ public class AuthInterceptor implements Consumer<HttpRequest.Builder> {
                 .name());
     }
 
-    public static String baseUri(CliConfig config) {
-        return config.host() + AUTOMATION_API_PATH;
+    public static String baseUri(CliConfig config, String apiPath) {
+        return config.host() + apiPath;
     }
 }
