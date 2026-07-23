@@ -116,6 +116,32 @@ class EmbeddedCommandTest {
     }
 
     @Test
+    void testIntegrationListTableOutput() throws Exception {
+        String body = "[{\"id\":1,\"name\":\"Slack\"},{\"id\":2,\"name\":\"GitHub\"}]";
+
+        try (StubApi stub = StubApi.start(200, body)) {
+            java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+            java.io.PrintStream original = System.out;
+
+            System.setOut(new java.io.PrintStream(out, true, java.nio.charset.StandardCharsets.UTF_8));
+
+            try {
+                CliApplication.execute(
+                    "embedded", "integration", "list", "--external-user-id", "user-1", "--output", "table", "--host",
+                    stub.host(), "--token", "btc_x", "--environment", "PRODUCTION");
+            } finally {
+                System.setOut(original);
+            }
+
+            String rendered = out.toString(java.nio.charset.StandardCharsets.UTF_8);
+
+            assertTrue(rendered.contains("NAME"), rendered);
+            assertTrue(rendered.contains("Slack"));
+            assertTrue(rendered.contains("GitHub"));
+        }
+    }
+
+    @Test
     void testInvalidDataJsonReturnsExitCode1() {
         int code = CliApplication.execute(
             "embedded", "tool", "execute", "--external-user-id", "user-1", "--data", "not-json", "--host",

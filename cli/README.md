@@ -52,13 +52,21 @@ bytechef embedded integration list --external-user-id user-42
 bytechef embedded integration get --external-user-id user-42 --id 3
 bytechef embedded integration-instance create --external-user-id user-42 --id 3 --data @instance.json
 bytechef embedded integration-instance delete --external-user-id user-42 --id 9
-bytechef embedded integration-instance workflow-enable --external-user-id user-42 --id 9 --workflow-uuid wf-1
+bytechef embedded integration-instance workflow-enable|workflow-disable --external-user-id user-42 --id 9 --workflow-uuid wf-1
+bytechef embedded integration-instance workflow-update --external-user-id user-42 --id 9 --workflow-uuid wf-1 --data @cfg.json
+bytechef embedded integration-instance input-options --external-user-id user-42 --id 9 --data @req.json
 
 # Projects and project workflows
 bytechef embedded project list --external-user-id user-42
 bytechef embedded workflow list --external-user-id user-42
 bytechef embedded workflow get|enable|disable|delete --external-user-id user-42 --workflow-uuid wf-1
 bytechef embedded workflow publish --external-user-id user-42 --workflow-uuid wf-1 --description "v2"
+bytechef embedded workflow create --external-user-id user-42 --data @workflow.json
+bytechef embedded workflow update --external-user-id user-42 --workflow-uuid wf-1 --data @workflow.json
+bytechef embedded workflow generate --external-user-id user-42 --data '{"prompt":"a workflow that..."}'
+bytechef embedded workflow update-from-prompt --external-user-id user-42 --workflow-uuid wf-1 --data '{"prompt":"..."}'
+bytechef embedded workflow copy-template --external-user-id user-42 --workflow-uuid tmpl-1
+bytechef embedded workflow set-connection --external-user-id user-42 --workflow-uuid wf-1 --node-name n1 --connection-key c1 --data @conn.json
 
 # Executions, tools and actions
 bytechef embedded execution list --external-user-id user-42
@@ -75,6 +83,7 @@ bytechef embedded connection list --external-user-id user-42 --component-name sl
 ```
 
 Commands that take a request body accept `--data` as either literal JSON or `@path/to/file.json`.
+List commands accept `--output table` for a compact summary (JSON is the default).
 
 The **frontend** variants of the embedded API (connected-user session token, for the browser SDK) and
 the AI Gateway and webhook endpoints are intentionally not exposed as CLI commands — their auth or

@@ -63,6 +63,7 @@ public class EmbeddedUserCommand {
     public void connectionList(
         @Option(longName = "external-user-id", required = true) String externalUserId,
         @Option(longName = "component-name", required = true) String componentName,
+        @Option(longName = "output", defaultValue = "json") String output,
         @Option(longName = "profile") String profile,
         @Option(longName = "host") String host,
         @Option(longName = "token") String token,
@@ -71,9 +72,10 @@ public class EmbeddedUserCommand {
         CliConfig config = resolve(profile, host, token, environment);
 
         try {
-            new OutputRenderer(System.out).renderJson(
+            new OutputRenderer(System.out).render(
                 EmbeddedConfigurationClientFactory.connectionApi(config)
-                    .getConnections(externalUserId, componentName, null, null));
+                    .getConnections(externalUserId, componentName, null, null),
+                output);
         } catch (ApiException e) {
             throw EmbeddedConfigurationClientFactory.toCliException(e);
         }

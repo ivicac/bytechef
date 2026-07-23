@@ -41,6 +41,7 @@ public class EmbeddedExecutionCommand {
     public void executionList(
         @Option(longName = "external-user-id", required = true) String externalUserId,
         @Option(longName = "page", defaultValue = "0") Integer page,
+        @Option(longName = "output", defaultValue = "json") String output,
         @Option(longName = "profile") String profile,
         @Option(longName = "host") String host,
         @Option(longName = "token") String token,
@@ -49,9 +50,10 @@ public class EmbeddedExecutionCommand {
         CliConfig config = resolve(profile, host, token, environment);
 
         try {
-            new OutputRenderer(System.out).renderJson(
+            new OutputRenderer(System.out).render(
                 EmbeddedExecutionClientFactory.workflowExecutionApi(config)
-                    .getWorkflowExecutionsPage(externalUserId, null, null, null, null, null, page));
+                    .getWorkflowExecutionsPage(externalUserId, null, null, null, null, null, page),
+                output);
         } catch (ApiException e) {
             throw EmbeddedExecutionClientFactory.toCliException(e);
         }
@@ -150,6 +152,7 @@ public class EmbeddedExecutionCommand {
     public void toolInvocationList(
         @Option(longName = "external-user-id", required = true) String externalUserId,
         @Option(longName = "page", defaultValue = "0") Integer page,
+        @Option(longName = "output", defaultValue = "json") String output,
         @Option(longName = "profile") String profile,
         @Option(longName = "host") String host,
         @Option(longName = "token") String token,
@@ -158,9 +161,10 @@ public class EmbeddedExecutionCommand {
         CliConfig config = resolve(profile, host, token, environment);
 
         try {
-            new OutputRenderer(System.out).renderJson(
+            new OutputRenderer(System.out).render(
                 EmbeddedExecutionClientFactory.toolInvocationApi(config)
-                    .getToolInvocationsPage(externalUserId, null, null, null, null, null, page));
+                    .getToolInvocationsPage(externalUserId, null, null, null, null, null, page),
+                output);
         } catch (ApiException e) {
             throw EmbeddedExecutionClientFactory.toCliException(e);
         }

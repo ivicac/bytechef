@@ -17,7 +17,9 @@
 package com.bytechef.cli.command.embedded;
 
 import com.bytechef.cli.client.embeddedconfiguration.ApiException;
+import com.bytechef.cli.client.embeddedconfiguration.model.ComponentInputOptionsRequestModel;
 import com.bytechef.cli.client.embeddedconfiguration.model.CreateFrontendIntegrationInstanceRequestModel;
+import com.bytechef.cli.client.embeddedconfiguration.model.UpdateFrontendIntegrationInstanceWorkflowRequestModel;
 import com.bytechef.cli.core.config.CliConfig;
 import com.bytechef.cli.core.output.OutputRenderer;
 import java.nio.file.Path;
@@ -39,6 +41,7 @@ public class EmbeddedIntegrationCommand {
     @Command(name = "embedded integration list", description = "List integrations for a connected user.")
     public void integrationList(
         @Option(longName = "external-user-id", required = true) String externalUserId,
+        @Option(longName = "output", defaultValue = "json") String output,
         @Option(longName = "profile") String profile,
         @Option(longName = "host") String host,
         @Option(longName = "token") String token,
@@ -47,9 +50,10 @@ public class EmbeddedIntegrationCommand {
         CliConfig config = resolve(profile, host, token, environment);
 
         try {
-            new OutputRenderer(System.out).renderJson(
+            new OutputRenderer(System.out).render(
                 EmbeddedConfigurationClientFactory.integrationApi(config)
-                    .getIntegrations(externalUserId, null));
+                    .getIntegrations(externalUserId, null),
+                output);
         } catch (ApiException e) {
             throw EmbeddedConfigurationClientFactory.toCliException(e);
         }
@@ -166,6 +170,62 @@ public class EmbeddedIntegrationCommand {
                 .disableIntegrationInstanceWorkflow(externalUserId, id, workflowUuid);
 
             new OutputRenderer(System.out).message("Disabled workflow " + workflowUuid + ".");
+        } catch (ApiException e) {
+            throw EmbeddedConfigurationClientFactory.toCliException(e);
+        }
+    }
+
+    @Command(
+        name = "embedded integration-instance workflow-update",
+        description = "Update a workflow's configuration on an integration instance from a JSON body.")
+    public void integrationInstanceWorkflowUpdate(
+        @Option(longName = "external-user-id", required = true) String externalUserId,
+        @Option(longName = "id", required = true) Long id,
+        @Option(longName = "workflow-uuid", required = true) String workflowUuid,
+        @Option(longName = "data", required = true) String data,
+        @Option(longName = "profile") String profile,
+        @Option(longName = "host") String host,
+        @Option(longName = "token") String token,
+        @Option(longName = "environment") String environment) {
+
+        CliConfig config = resolve(profile, host, token, environment);
+
+        UpdateFrontendIntegrationInstanceWorkflowRequestModel body = EmbeddedSupport.readBody(
+            data, UpdateFrontendIntegrationInstanceWorkflowRequestModel.class);
+
+        try {
+            EmbeddedConfigurationClientFactory.integrationInstanceWorkflowApi(config)
+                .updateIntegrationInstanceWorkflow(externalUserId, id, workflowUuid, body);
+
+            new OutputRenderer(System.out).message("Updated workflow " + workflowUuid + " configuration.");
+        } catch (ApiException e) {
+            throw EmbeddedConfigurationClientFactory.toCliException(e);
+        }
+    }
+
+    @Command(
+        name = "embedded integration-instance input-options",
+        description = "Fetch dynamic component input options for an integration instance from a JSON body.")
+    public void integrationInstanceInputOptions(
+        @Option(longName = "external-user-id", required = true) String externalUserId,
+        @Option(longName = "id", required = true) Long id,
+        @Option(longName = "data", required = true) String data,
+        @Option(longName = "output", defaultValue = "json") String output,
+        @Option(longName = "profile") String profile,
+        @Option(longName = "host") String host,
+        @Option(longName = "token") String token,
+        @Option(longName = "environment") String environment) {
+
+        CliConfig config = resolve(profile, host, token, environment);
+
+        ComponentInputOptionsRequestModel body = EmbeddedSupport.readBody(
+            data, ComponentInputOptionsRequestModel.class);
+
+        try {
+            new OutputRenderer(System.out).render(
+                EmbeddedConfigurationClientFactory.integrationInstanceWorkflowApi(config)
+                    .getComponentInputOptions(externalUserId, id, body),
+                output);
         } catch (ApiException e) {
             throw EmbeddedConfigurationClientFactory.toCliException(e);
         }
