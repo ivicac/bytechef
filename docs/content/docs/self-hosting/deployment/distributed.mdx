@@ -201,6 +201,11 @@ dispatcher stack.
 
 ## Plan-limit enforcement in HA
 
+<Callout type="warn" title="Coming soon">
+    Plan-limit enforcement is on the upcoming release track and is not yet available in the latest
+    released version of ByteChef.
+</Callout>
+
 If you configure a plan tier (`bytechef.plan.tier`), rate limits and concurrency slots are
 enforced per node by default — an N-node deployment admits up to N× the budget. For strict
 global limits set:
@@ -220,6 +225,11 @@ The monthly-cost cap and the quota checks (workspaces, members, storage) read sh
 state, so they are naturally global and need no Redis provider.
 
 ## Crash recovery and run governance
+
+<Callout type="warn" title="Coming soon">
+    The crash-recovery, per-run timeout, and retention monitors described here are on the upcoming
+    release track and are not yet available in the latest released version of ByteChef.
+</Callout>
 
 Workers heartbeat every in-flight task every 30 seconds; `coordinator-app` runs the recovery
 monitors. Both the orphaned-job recovery monitor (fails jobs whose heartbeats went stale, making

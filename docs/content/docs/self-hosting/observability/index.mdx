@@ -160,7 +160,7 @@ You don't have to commit to one — the collector fans out to multiple backends.
 
 ### Datadog and Splunk (direct OTLP)
 
-Because export is plain OTLP/HTTP, Datadog and Splunk need no ByteChef-specific integration — you point the same per-signal endpoints at their OTLP receivers. The AI Gateway's request telemetry rides the same pipeline: its `ai_gateway.*` Micrometer meters (trace count, latency timer, budget/rate-limit rejections) and the spans it emits flow to whichever backend you configure, so gateway spend, latency, and routing show up alongside the rest of your platform metrics.
+Because export is plain OTLP/HTTP, Datadog and Splunk need no ByteChef-specific integration — you point the same per-signal endpoints at their OTLP receivers. The AI Gateway's request telemetry rides the same pipeline: its `ai_gateway.*` Micrometer meters (trace count, latency timer, budget/rate-limit rejections) and the spans it emits flow to whichever backend you configure, so gateway spend, latency, and routing show up alongside the rest of your platform metrics _(the AI Gateway itself is coming soon — not yet available in the latest released version)_.
 
 **Datadog** — run the Datadog Agent with its OTLP receiver enabled (`otlp_config.receiver.protocols.http.endpoint: 0.0.0.0:4318`) and point ByteChef at it (the Agent attaches your API key, so no key handling in ByteChef):
 

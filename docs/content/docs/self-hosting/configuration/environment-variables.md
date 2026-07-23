@@ -318,6 +318,8 @@ The Context Store sync engine writes records to Postgres by default (the same da
 
 ## Plan Limits Configuration
 
+> **Coming soon.** Plan-limit enforcement (tiers, rate limiting, concurrency slots, cost caps, and the quota variables below) is on the upcoming release track and is not yet available in the latest released version of ByteChef.
+
 | Environment Variable | Description | Default Value |
 |---|---|---|
 | `BYTECHEF_PLAN_TIER` | Plan tier whose limits apply to the deployment (`SELF_HOSTED`, `FREE`, `PRO`, `TEAM`, `ENTERPRISE`). `SELF_HOSTED` leaves every limit unset — the pre-plan unlimited behavior | `SELF_HOSTED` |
@@ -452,6 +454,8 @@ System administrator is used for accessing protected data reachable through /act
 ## Workflow Configuration
 
 ### Execution Recovery
+
+> **Coming soon.** The execution recovery, timeout, and retention monitors (the variables in this and the following two subsections) are on the upcoming release track and are not yet available in the latest released version of ByteChef.
 
 | Environment Variable | Description | Default Value |
 |---|---|---|

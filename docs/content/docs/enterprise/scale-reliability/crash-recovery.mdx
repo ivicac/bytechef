@@ -1,0 +1,53 @@
+---
+title: "Crash Recovery & Run Governance"
+description: "Automatic recovery of orphaned jobs after a worker or coordinator crash, per-run timeouts, and retention purging — the monitors that keep a distributed deployment's run state healthy."
+---
+
+<Callout type="warn" title="Coming soon">
+    The crash-recovery, per-run timeout, and retention monitors described here are on the upcoming
+    release track and are not yet available in the latest released version of ByteChef.
+</Callout>
+
+In a distributed deployment a worker or coordinator can die mid-run. ByteChef ships a set of
+coordinator-side monitors that detect and recover that state automatically, plus governance monitors
+that bound how long a run may take and how long its history is kept. Detection lives **outside** the
+Atlas engine — only the heartbeat primitives are engine-owned.
+
+## Orphaned-job recovery
+
+Workers publish a **heartbeat** for every in-flight task every 30 seconds. The
+`OrphanedJobRecoveryMonitor` (runs every minute) treats a job as orphaned only when the job row **and**
+all its non-terminal task executions have gone stale past
+`bytechef.workflow.execution.recovery.staleness-threshold` (default 5 minutes) — a child's heartbeat
+keeps its control-flow parents alive transitively. Recovery marks the job and its tasks `FAILED`, which
+makes the run resumable through the normal resume path.
+
+Set `bytechef.workflow.execution.recovery.auto-resume=true` (default off) to have the monitor also
+re-dispatch the run automatically — at-least-once semantics, so the interrupted task re-runs from the
+last completed node, bounded by `max-auto-resume-attempts` (default 3). Disable the whole monitor with
+`bytechef.workflow.execution.recovery.enabled=false`.
+
+## Per-run timeouts
+
+The `JobTimeoutMonitor` (every minute) fails `STARTED` jobs whose runtime exceeds the plan's
+`asyncRunTimeout` or the operator fallback
+`bytechef.workflow.execution.timeout.default-timeout`. With neither set it is a no-op. There is no
+auto-resume — a timed-out run would immediately exceed again.
+
+## Retention purging
+
+The `JobRetentionMonitor` (every 6 hours) permanently deletes finished jobs — along with their task
+executions, job/task outputs, context rows, and current-execution data — older than the plan's
+`logRetentionDays` or the operator fallback
+`bytechef.workflow.execution.retention.default-retention-days`. Blob and context cleanup is best-effort:
+a storage failure never blocks the row delete. Disable with
+`bytechef.workflow.execution.retention.enabled=false`.
+
+## Redis broker redelivery
+
+On the Redis message broker, pending consumer-group entries left by a crashed consumer are reclaimed
+(XPENDING + XCLAIM sweep) and redelivered through the normal invoke-then-ack path — at-least-once
+delivery, matching the AMQP behavior.
+
+See the [execution recovery/timeout/retention environment variables](/self-hosting/configuration/environment-variables#execution-recovery)
+for the full configuration surface.

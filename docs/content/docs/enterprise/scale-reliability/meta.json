@@ -6,6 +6,8 @@
     "cloud-native-storage",
     "multi-tenant-isolation",
     "horizontal-scaling",
+    "plan-limits",
+    "crash-recovery",
     "runtime-job"
   ]
 }

@@ -1,0 +1,52 @@
+---
+title: "Plan Limits, Quotas & Cost Controls"
+description: "Per-tenant plan tiers with rate limits, concurrency slots, monthly cost caps, and resource quotas — enforced at the edges of the engine, fail-open on backing-store outages."
+---
+
+<Callout type="warn" title="Coming soon">
+    Plan-limit enforcement is on the upcoming release track and is not yet available in the latest
+    released version of ByteChef.
+</Callout>
+
+ByteChef can cap what a tenant consumes through a **plan tier** — a named bundle of limits. Self-hosted
+deployments run unlimited by default (`SELF_HOSTED`); the other tiers (`FREE`, `PRO`, `TEAM`,
+`ENTERPRISE`) apply progressively higher ceilings. Every individual limit is nullable, and **null means
+unlimited — never zero**, so an unset limit is simply not enforced.
+
+Set the active tier and per-field overrides through configuration
+(`bytechef.plan.tier`, `bytechef.plan.limits.*`); see the
+[Plan Limits Configuration](/self-hosting/configuration/environment-variables#plan-limits-configuration)
+environment variables. A billing integration can replace the default policy provider to resolve tiers
+per tenant.
+
+## What gets enforced
+
+Enforcement lives **outside** the workflow engine — at the request boundary and at job admission — so the
+Atlas engine stays limit-agnostic.
+
+- **Rate limits** — login attempts per IP, synchronous surfaces (webhooks, the MCP/A2A secret-key
+  endpoints), public API calls, and per-tenant async submissions. A rejection returns **HTTP 429** with a
+  `Retry-After` header.
+- **Concurrency slots** — a bounded number of concurrently-running async jobs per tenant. Admission takes
+  a slot before dispatch; the slot is released on terminal job status.
+- **Monthly cost cap** — a per-tenant spend ceiling over accumulated AI/execution cost; over-cap
+  submissions are rejected unless the tenant's on-demand overage terms admit them.
+- **Quotas** — `maxWorkspaces`, `maxMembers` (pending invites hold a seat), and `maxStorageBytes`
+  (tenant-wide asset storage). A quota rejection returns **HTTP 403** (a capacity ceiling, not a
+  retryable rate limit — so no `Retry-After`).
+- **Run governance windows** — `syncRunTimeout` caps synchronous runs, `asyncRunTimeout` fails
+  over-long async runs, and `logRetentionDays` drives execution-history purging (see
+  [Crash Recovery & Run Governance](/enterprise/scale-reliability/crash-recovery)).
+
+## Local vs. global enforcement
+
+By default limits are enforced **per node** (local token buckets), so an N-node deployment admits up to
+N× the budget. For strict global limits set `bytechef.plan.enforcement.provider=redis` — a Redis token
+bucket and a bounded concurrency gate coordinate across nodes. Both Redis paths **fail open** on a Redis
+outage: availability is preferred over hard-blocking when the coordinator is unreachable.
+
+## Observability
+
+Every rejection increments `bytechef_plan_limit_rejection`, tagged by `limit`
+(`login | sync | api | preauth | async | concurrency | cost | timeout | workspace | member | storage`),
+so you can see which ceiling a tenant is hitting.
