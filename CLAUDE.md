@@ -906,12 +906,23 @@ npm run format           # Format code
 npm run check            # Run lint, typecheck, and tests
 ```
 
-### Creating Custom Components via CLI
-ByteChef includes a CLI tool for scaffolding components:
+### CLI
+ByteChef includes a CLI (`cli/`, Spring Boot + Spring Shell) that scaffolds custom components and
+calls the public REST API (automation and embedded). It uses the `application` plugin — run it in
+development with the `run` task, or build a `bytechef` binary with `installDist`:
 ```bash
-cd cli
-./gradlew :cli-app:bootRun --args="component init openapi --name=my-component --openapi-path=/path/to/openapi.yaml"
+# Dev: scaffold a component from an OpenAPI spec
+./gradlew :cli:cli-app:run --args="component init --name my-component --open-api-path /path/to/openapi.yaml --output-path ."
+
+# Build the distribution; binary lands at cli/cli-app/build/install/bytechef/bin/bytechef
+./gradlew :cli:cli-app:installDist
+
+# Public API commands (store a profile first)
+bytechef configure --host https://app.bytechef.io --token <public-api-token> --environment PRODUCTION --workspace-id 1
+bytechef automation execution list --output table
+bytechef embedded integration list --external-user-id user-42
 ```
+See `cli/README.md` for the full command reference.
 
 ### Resolving PR Review Comments
 - Use `gh api graphql` with `resolveReviewThread` mutation to close threads programmatically
