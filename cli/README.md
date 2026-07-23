@@ -24,7 +24,8 @@ Every value can be overridden per command, in this precedence:
 
 ```bash
 # List workflow executions (uses the profile's workspace-id unless overridden)
-bytechef automation execution list --status COMPLETED --output table
+# Filters: --status --project-id --project-deployment-id --workflow-id --start-date --end-date --page
+bytechef automation execution list --status COMPLETED --start-date 2026-01-01T00:00:00Z --output table
 
 # Fetch a single execution with full inputs/outputs/task detail
 bytechef automation execution get --id 42
@@ -83,7 +84,11 @@ bytechef embedded connection list --external-user-id user-42 --component-name sl
 ```
 
 Commands that take a request body accept `--data` as either literal JSON or `@path/to/file.json`.
-List commands accept `--output table` for a compact summary (JSON is the default).
+List commands accept `--output table` for a compact summary (JSON is the default), plus the API's
+filter flags: `execution list` takes `--status/--start-date/--end-date/--integration-instance-configuration-id`,
+`tool list` takes `--categories/--components/--tools`, `tool-invocation list` takes
+`--surface/--outcome/--start-date/--end-date`, and `connection list` takes `--connection-ids`
+(comma-separated). Dates are ISO-8601.
 
 The **frontend** variants of the embedded API (connected-user session token, for the browser SDK) and
 the AI Gateway and webhook endpoints are intentionally not exposed as CLI commands — their auth or

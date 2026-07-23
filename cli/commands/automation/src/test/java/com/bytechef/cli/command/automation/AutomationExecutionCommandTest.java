@@ -51,6 +51,30 @@ class AutomationExecutionCommandTest {
     }
 
     @Test
+    void testExecutionListForwardsDateAndDeploymentFilters() throws Exception {
+        try (StubApi stub = StubApi.start(200, "{\"content\":[],\"totalElements\":0}")) {
+            int code = CliApplication.execute(
+                "automation", "execution", "list", "--host", stub.host(), "--token", "btc_x", "--environment",
+                "PRODUCTION", "--workspace-id", "1", "--project-deployment-id", "8", "--start-date",
+                "2026-01-01T00:00:00Z", "--end-date", "2026-02-01T00:00:00Z");
+
+            assertEquals(0, code);
+            assertTrue(
+                stub.lastPath()
+                    .contains("projectDeploymentId=8"),
+                stub.lastPath());
+            assertTrue(
+                stub.lastPath()
+                    .contains("startDate="),
+                stub.lastPath());
+            assertTrue(
+                stub.lastPath()
+                    .contains("endDate="),
+                stub.lastPath());
+        }
+    }
+
+    @Test
     void testExecutionGetHitsByIdPath() throws Exception {
         try (StubApi stub = StubApi.start(200, "{\"id\":7,\"status\":\"COMPLETED\"}")) {
             int code = CliApplication.execute(

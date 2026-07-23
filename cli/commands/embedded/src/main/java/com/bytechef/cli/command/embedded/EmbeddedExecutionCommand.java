@@ -19,7 +19,11 @@ package com.bytechef.cli.command.embedded;
 import com.bytechef.cli.client.embeddedexecution.ApiException;
 import com.bytechef.cli.client.embeddedexecution.model.ExecuteActionRequestModel;
 import com.bytechef.cli.client.embeddedexecution.model.ExecuteToolRequestModel;
+import com.bytechef.cli.client.embeddedexecution.model.ToolInvocationOutcomeModel;
+import com.bytechef.cli.client.embeddedexecution.model.ToolInvocationSurfaceModel;
+import com.bytechef.cli.client.embeddedexecution.model.WorkflowExecutionStatusModel;
 import com.bytechef.cli.core.config.CliConfig;
+import com.bytechef.cli.core.input.CliArgs;
 import com.bytechef.cli.core.output.OutputRenderer;
 import java.nio.file.Path;
 import java.util.Map;
@@ -40,6 +44,10 @@ public class EmbeddedExecutionCommand {
     @Command(name = "embedded execution list", description = "List a connected user's workflow executions.")
     public void executionList(
         @Option(longName = "external-user-id", required = true) String externalUserId,
+        @Option(longName = "status") String status,
+        @Option(longName = "start-date") String startDate,
+        @Option(longName = "end-date") String endDate,
+        @Option(longName = "integration-instance-configuration-id") Long integrationInstanceConfigurationId,
         @Option(longName = "page", defaultValue = "0") Integer page,
         @Option(longName = "output", defaultValue = "json") String output,
         @Option(longName = "profile") String profile,
@@ -52,7 +60,11 @@ public class EmbeddedExecutionCommand {
         try {
             new OutputRenderer(System.out).render(
                 EmbeddedExecutionClientFactory.workflowExecutionApi(config)
-                    .getWorkflowExecutionsPage(externalUserId, null, null, null, null, null, page),
+                    .getWorkflowExecutionsPage(
+                        externalUserId, null,
+                        status == null ? null : WorkflowExecutionStatusModel.fromValue(status),
+                        CliArgs.parseDateTime(startDate), CliArgs.parseDateTime(endDate),
+                        integrationInstanceConfigurationId, page),
                 output);
         } catch (ApiException e) {
             throw EmbeddedExecutionClientFactory.toCliException(e);
@@ -82,6 +94,9 @@ public class EmbeddedExecutionCommand {
     @Command(name = "embedded tool list", description = "List the tools available to a connected user.")
     public void toolList(
         @Option(longName = "external-user-id", required = true) String externalUserId,
+        @Option(longName = "categories") String categories,
+        @Option(longName = "components") String components,
+        @Option(longName = "tools") String tools,
         @Option(longName = "profile") String profile,
         @Option(longName = "host") String host,
         @Option(longName = "token") String token,
@@ -92,7 +107,9 @@ public class EmbeddedExecutionCommand {
         try {
             new OutputRenderer(System.out).renderJson(
                 EmbeddedExecutionClientFactory.toolApi(config)
-                    .getTools(externalUserId, null, null, null, null));
+                    .getTools(
+                        externalUserId, null, CliArgs.splitCsv(categories), CliArgs.splitCsv(components),
+                        CliArgs.splitCsv(tools)));
         } catch (ApiException e) {
             throw EmbeddedExecutionClientFactory.toCliException(e);
         }
@@ -151,6 +168,10 @@ public class EmbeddedExecutionCommand {
     @Command(name = "embedded tool-invocation list", description = "List a connected user's tool invocations.")
     public void toolInvocationList(
         @Option(longName = "external-user-id", required = true) String externalUserId,
+        @Option(longName = "surface") String surface,
+        @Option(longName = "outcome") String outcome,
+        @Option(longName = "start-date") String startDate,
+        @Option(longName = "end-date") String endDate,
         @Option(longName = "page", defaultValue = "0") Integer page,
         @Option(longName = "output", defaultValue = "json") String output,
         @Option(longName = "profile") String profile,
@@ -163,7 +184,10 @@ public class EmbeddedExecutionCommand {
         try {
             new OutputRenderer(System.out).render(
                 EmbeddedExecutionClientFactory.toolInvocationApi(config)
-                    .getToolInvocationsPage(externalUserId, null, null, null, null, null, page),
+                    .getToolInvocationsPage(
+                        externalUserId, null, surface == null ? null : ToolInvocationSurfaceModel.fromValue(surface),
+                        outcome == null ? null : ToolInvocationOutcomeModel.fromValue(outcome),
+                        CliArgs.parseDateTime(startDate), CliArgs.parseDateTime(endDate), page),
                 output);
         } catch (ApiException e) {
             throw EmbeddedExecutionClientFactory.toCliException(e);

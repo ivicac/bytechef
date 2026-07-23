@@ -18,6 +18,7 @@ package com.bytechef.cli.command.embedded;
 
 import com.bytechef.cli.client.embeddedconfiguration.ApiException;
 import com.bytechef.cli.core.config.CliConfig;
+import com.bytechef.cli.core.input.CliArgs;
 import com.bytechef.cli.core.output.OutputRenderer;
 import java.nio.file.Path;
 import java.util.Map;
@@ -63,6 +64,7 @@ public class EmbeddedUserCommand {
     public void connectionList(
         @Option(longName = "external-user-id", required = true) String externalUserId,
         @Option(longName = "component-name", required = true) String componentName,
+        @Option(longName = "connection-ids") String connectionIds,
         @Option(longName = "output", defaultValue = "json") String output,
         @Option(longName = "profile") String profile,
         @Option(longName = "host") String host,
@@ -74,7 +76,7 @@ public class EmbeddedUserCommand {
         try {
             new OutputRenderer(System.out).render(
                 EmbeddedConfigurationClientFactory.connectionApi(config)
-                    .getConnections(externalUserId, componentName, null, null),
+                    .getConnections(externalUserId, componentName, null, CliArgs.splitCsvLong(connectionIds)),
                 output);
         } catch (ApiException e) {
             throw EmbeddedConfigurationClientFactory.toCliException(e);

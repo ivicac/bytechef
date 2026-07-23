@@ -24,6 +24,7 @@ import com.bytechef.cli.core.config.CliConfig;
 import com.bytechef.cli.core.config.Environment;
 import com.bytechef.cli.core.config.Overrides;
 import com.bytechef.cli.core.config.ProfileResolver;
+import com.bytechef.cli.core.input.CliArgs;
 import com.bytechef.cli.core.output.OutputRenderer;
 import java.nio.file.Path;
 import java.util.Map;
@@ -50,7 +51,10 @@ public class AutomationExecutionCommand {
         @Option(longName = "workspace-id") Long workspaceId,
         @Option(longName = "status") String status,
         @Option(longName = "project-id") Long projectId,
+        @Option(longName = "project-deployment-id") Long projectDeploymentId,
         @Option(longName = "workflow-id") String workflowId,
+        @Option(longName = "start-date") String startDate,
+        @Option(longName = "end-date") String endDate,
         @Option(longName = "page", defaultValue = "0") Integer page,
         @Option(longName = "output", defaultValue = "json") String output) {
 
@@ -63,8 +67,9 @@ public class AutomationExecutionCommand {
         try {
             pageModel = api.getWorkflowExecutionsPage(
                 config.workspaceId(), null,
-                status == null ? null : WorkflowExecutionStatusModel.fromValue(status), null, null, projectId, null,
-                workflowId, page);
+                status == null ? null : WorkflowExecutionStatusModel.fromValue(status),
+                CliArgs.parseDateTime(startDate),
+                CliArgs.parseDateTime(endDate), projectId, projectDeploymentId, workflowId, page);
         } catch (ApiException e) {
             throw AutomationClientFactory.toCliException(e);
         }

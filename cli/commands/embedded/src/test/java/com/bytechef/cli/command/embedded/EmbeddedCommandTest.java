@@ -149,4 +149,43 @@ class EmbeddedCommandTest {
 
         assertEquals(1, code);
     }
+
+    @Test
+    void testDataFromFile(@org.junit.jupiter.api.io.TempDir java.nio.file.Path tempDir) throws Exception {
+        java.nio.file.Path dataFile = tempDir.resolve("tool.json");
+
+        java.nio.file.Files.writeString(dataFile, "{\"name\":\"my_tool\"}");
+
+        try (StubApi stub = StubApi.start(200, "{\"result\":\"ok\"}")) {
+            int code = CliApplication.execute(
+                "embedded", "tool", "execute", "--external-user-id", "user-1", "--data", "@" + dataFile, "--host",
+                stub.host(), "--token", "btc_x", "--environment", "PRODUCTION");
+
+            assertEquals(0, code);
+            assertTrue(
+                stub.lastPath()
+                    .startsWith("/api/embedded/v1/user-1/tools"),
+                stub.lastPath());
+        }
+    }
+
+    @Test
+    void testExecutionListForwardsFilters() throws Exception {
+        try (StubApi stub = StubApi.start(200, "{\"content\":[],\"totalElements\":0}")) {
+            int code = CliApplication.execute(
+                "embedded", "execution", "list", "--external-user-id", "user-1", "--status", "COMPLETED",
+                "--start-date", "2026-01-01T00:00:00Z", "--host", stub.host(), "--token", "btc_x", "--environment",
+                "PRODUCTION");
+
+            assertEquals(0, code);
+            assertTrue(
+                stub.lastPath()
+                    .contains("status=COMPLETED"),
+                stub.lastPath());
+            assertTrue(
+                stub.lastPath()
+                    .contains("startDate="),
+                stub.lastPath());
+        }
+    }
 }
