@@ -12,22 +12,19 @@ import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectCateg
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectTagDTO;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectVersionDTO;
-import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
+import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectAdminFacade;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
-import com.bytechef.platform.security.constant.AuthorityConstants;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
 /**
- * This is the embedded admin console's workflow-project-template surface. Its backing facade carries
- * {@code @SkipAutomationAuthorization} (workspace RBAC is intentionally skipped for the embedded model), so the admin
- * authorization must be enforced here at the controller layer — {@code hasAuthority} is evaluated before the skip
- * aspect fires and is not softened by skip mode.
+ * The embedded admin console's workflow-project-template surface. Authorization is enforced at the facade layer:
+ * {@link AutomationWorkflowProjectAdminFacade} wraps the shared, {@code @SkipAutomationAuthorization}-carrying facade
+ * behind {@code isTenantAdmin()}, so this controller needs no controller-layer gate.
  *
  * @version ee
  *
@@ -36,13 +33,14 @@ import org.springframework.stereotype.Controller;
 @Controller
 @ConditionalOnCoordinator
 @ConditionalOnEEVersion
-@PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
 public class AutomationWorkflowProjectGraphQlController {
 
-    private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
+    private final AutomationWorkflowProjectAdminFacade automationWorkflowProjectFacade;
 
     @SuppressFBWarnings("EI")
-    public AutomationWorkflowProjectGraphQlController(AutomationWorkflowProjectFacade automationWorkflowProjectFacade) {
+    public AutomationWorkflowProjectGraphQlController(
+        AutomationWorkflowProjectAdminFacade automationWorkflowProjectFacade) {
+
         this.automationWorkflowProjectFacade = automationWorkflowProjectFacade;
     }
 

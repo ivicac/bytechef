@@ -9,24 +9,21 @@ package com.bytechef.ee.embedded.configuration.web.graphql;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserProjectDTO;
-import com.bytechef.ee.embedded.configuration.facade.ConnectedUserProjectFacade;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserProjectAdminFacade;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.service.EnvironmentService;
-import com.bytechef.platform.security.constant.AuthorityConstants;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
 /**
- * This is the embedded admin console's connected-user-projects surface — an admin acts across connected users, so its
- * methods take a row id and derive the owning user from the row. The backing facade carries
- * {@code @SkipAutomationAuthorization} (workspace RBAC is intentionally skipped for the embedded model), so admin
- * authorization is enforced here at the controller layer, where {@code hasAuthority} runs before the skip aspect and is
- * not softened by skip mode.
+ * The embedded admin console's connected-user-projects surface — an admin acts across connected users, so its methods
+ * take a row id and derive the owning user from the row. Authorization is enforced at the facade layer:
+ * {@link ConnectedUserProjectAdminFacade} wraps the shared, {@code @SkipAutomationAuthorization}-carrying facade behind
+ * {@code isTenantAdmin()}, so this controller needs no controller-layer gate.
  *
  * @version ee
  *
@@ -35,15 +32,14 @@ import org.springframework.stereotype.Controller;
 @Controller
 @ConditionalOnCoordinator
 @ConditionalOnEEVersion
-@PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
 public class ConnectedUserProjectGraphQlController {
 
-    private final ConnectedUserProjectFacade connectedUserProjectFacade;
+    private final ConnectedUserProjectAdminFacade connectedUserProjectFacade;
     private final EnvironmentService environmentService;
 
     @SuppressFBWarnings("EI")
     public ConnectedUserProjectGraphQlController(
-        ConnectedUserProjectFacade connectedUserProjectFacade, EnvironmentService environmentService) {
+        ConnectedUserProjectAdminFacade connectedUserProjectFacade, EnvironmentService environmentService) {
 
         this.connectedUserProjectFacade = connectedUserProjectFacade;
         this.environmentService = environmentService;
