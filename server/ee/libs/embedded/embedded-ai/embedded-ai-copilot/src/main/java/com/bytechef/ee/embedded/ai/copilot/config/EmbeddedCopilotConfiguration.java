@@ -37,6 +37,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.api.Advisor;
 import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.model.ChatModel;
@@ -169,6 +170,26 @@ public class EmbeddedCopilotConfiguration {
             .permissionService(permissionService)
             .securityContextRehydrator(securityContextRehydrator)
             .overrideChatClientResolver(overrideChatClientResolverProvider.getIfAvailable())
+            .build();
+    }
+
+    /**
+     * Stateless embedded workflow-editor BUILD subagent {@link ChatClient} — the embedded mirror of
+     * {@code workflowEditorBuildSubAgentChatClient}, bound to the integration + integration-workflow tools and the
+     * embedded BUILD prompt. Contributed to the management MCP server (via
+     * {@code ToolCallbackContributorConfiguration}) as the {@code workflow_editor_embedded_agent} tool so MCP clients
+     * can build integration workflows; not wired into the AI-Hub routing agent.
+     */
+    @Bean
+    ChatClient workflowEditorEmbeddedBuildSubAgentChatClient(
+        ChatModel chatModel, IntegrationTools integrationTools, IntegrationWorkflowTools integrationWorkflowTools,
+        ComponentTools componentTools, TaskTools taskTools) {
+
+        return ChatClient.builder(chatModel)
+            .defaultSystem(getSystemPrompt(promptWorkflowEditorEmbeddedBuildResource))
+            .defaultTools(
+                integrationTools, integrationWorkflowTools, componentTools, taskTools, workflowValidatorTools,
+                workflowInstructionTools)
             .build();
     }
 
