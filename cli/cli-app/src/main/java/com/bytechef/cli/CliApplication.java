@@ -65,7 +65,10 @@ public class CliApplication {
                 cause = cause.getCause();
             }
 
-            System.err.println(throwable.getMessage());
+            String message = throwable.getMessage();
+
+            System.err.println(message == null ? "Command failed: " + throwable.getClass()
+                .getSimpleName() : message);
 
             return 1;
         }

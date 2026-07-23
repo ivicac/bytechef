@@ -9,6 +9,10 @@
         </encoder>
     </appender>
 
+    <!-- execute() already prints a clean error message and exit code, so Spring's own
+         "Application run failed" ERROR log on a command failure is redundant noise. -->
+    <logger name="org.springframework.boot.SpringApplication" level="off"/>
+
     <root level="warn">
         <appender-ref ref="CONSOLE"/>
     </root>
