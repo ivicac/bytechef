@@ -37,8 +37,11 @@
 - Modify: EE files still referencing the two moved classes (api_collection + personal managers, the old contributor) — update imports.
 
 **Interfaces:**
-- Produces: `com.bytechef.automation.ai.tool.ManagerAgentType` — enum `implements com.bytechef.ai.agent.tool.AgentType` with `MCP_MANAGER`, `DEPLOYMENT_MANAGER`, `API_COLLECTION_MANAGER`; constructor `(String name, boolean …)` mirroring `AiHubAgentType`; getter names identical to `AiHubAgentType`'s (so `ManagerSubAgentToolCallback` uses either interchangeably).
+- Produces: `com.bytechef.automation.ai.tool.ManagerAgentType` — enum `implements com.bytechef.ai.agent.tool.AgentType` with `MCP_MANAGER("mcp_manager")`, `DEPLOYMENT_MANAGER("deployment_manager")`, `API_COLLECTION_MANAGER("api_collection_manager")`; constructor `(String key, boolean fallback)` mirroring `AiHubAgentType`; `key()`/`isFallback()` identical to `AiHubAgentType`'s.
+- Produces: `com.bytechef.automation.ai.tool.ManagerAgentTypeProvider` — `@AutoService(AgentTypeProvider.class)` returning `Set.of(ManagerAgentType.values())`.
 - Produces: `com.bytechef.automation.ai.tool.ManagerSubAgentToolCallback(AgentType, ChatClient, String)` and `com.bytechef.automation.ai.tool.WorkspaceScopedManagerToolCallback(ManagerSubAgentToolCallback, WorkspaceService)` — same public API as today, new package.
+
+**CRITICAL — AgentType key collision:** `ManagerSubAgentToolCallback` uses `agentType.key()` and `CurrentAgentContext.callWith(agentType, …)`, and `AgentTypeProvider` keys must be **unique across all providers**. So the three constants MUST be **removed from `AiHubAgentType`** in this task (they only appear in the moving configs + their tests) at the same time they are added to `ManagerAgentType`. `AiHubAgentType` retains `PERSONAL_AGENT_MANAGER` and all non-manager values. The CE `ManagerAgentTypeProvider` replaces those three keys in the registry.
 
 - [ ] **Step 1: Read the AgentType interface and AiHubAgentType** to copy the exact method set the label enum must satisfy.
 
