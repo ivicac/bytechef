@@ -187,29 +187,9 @@ public class AgUiStreamBridge implements SseStreamBridge {
         }
 
         if (payload instanceof Map<?, ?> map) {
-            // The workflow executor emits {event=start, payload.jobId=...} when a streaming run begins. Capture
-            // that jobId into the cancel registry so a user-initiated cancel can map back to the right
-            // JobFacade.stopJob target. The event itself isn't surfaced to the client — the AG-UI client doesn't
-            // need to know about server-side job ids — so we stop processing here.
-            if ("start".equals(map.get("event")) && map.get("payload") instanceof Map<?, ?> payloadMap) {
-                Object jobIdObject = payloadMap.get("jobId");
-
-                if (jobIdObject != null) {
-                    try {
-                        long jobId = jobIdObject instanceof Number jobIdNumber
-                            ? jobIdNumber.longValue()
-                            : Long.parseLong(jobIdObject.toString());
-
-                        jobRegistry.register(taskId, jobId);
-                    } catch (NumberFormatException exception) {
-                        if (log.isDebugEnabled()) {
-                            log.debug(
-                                "Could not parse jobId from start event for task {}: {}",
-                                taskId, jobIdObject);
-                        }
-                    }
-                }
-
+            // The workflow executor emits {event=start, payload.jobId=...} when a streaming run begins; capture the
+            // jobId into the cancel registry. The event itself is not surfaced to the client.
+            if (registerJobIdFromStartEvent(map)) {
                 return;
             }
 
@@ -273,35 +253,7 @@ public class AgUiStreamBridge implements SseStreamBridge {
 
             // AI Agent SSE event types from the underlying workflow's AI nodes. Pass them through unchanged so the
             // client's existing AI-agent event handlers see them.
-            if (map.containsKey(AiAgentSseEventType.EVENT_TYPE)) {
-                String eventType = (String) map.get(AiAgentSseEventType.EVENT_TYPE);
-
-                Map<String, Object> eventData = new LinkedHashMap<>();
-
-                for (Map.Entry<?, ?> entry : map.entrySet()) {
-                    if (!AiAgentSseEventType.EVENT_TYPE.equals(entry.getKey())) {
-                        eventData.put(String.valueOf(entry.getKey()), entry.getValue());
-                    }
-                }
-
-                // The live client renders approval_request as an inline card (CustomEvent below), but cards are
-                // client-only and never reconstructed from chat history. Fold a persist-only markdown marker with
-                // the form link into the accumulated assistant text so a reloaded conversation still surfaces the
-                // pending approval — the tokenized form link stays valid until the approval is resolved.
-                if (AiAgentSseEventType.APPROVAL_REQUEST.equals(eventType)
-                    && map.get("formUrl") instanceof String formUrl && !formUrl.isBlank()) {
-
-                    if (assistantTextBuilder.length() > 0) {
-                        assistantTextBuilder.append("\n\n");
-                    }
-
-                    assistantTextBuilder.append("Approval requested — [open the approval form](")
-                        .append(formUrl)
-                        .append(").");
-                }
-
-                emitCustomEvent(eventType, eventData);
-
+            if (emitAiAgentSseEvent(map)) {
                 return;
             }
 
@@ -341,6 +293,73 @@ public class AgUiStreamBridge implements SseStreamBridge {
         // Accumulate for chat-memory persistence after the run finalizes. Done after dispatch so a render failure
         // doesn't pollute the buffer with a chunk the client never saw.
         assistantTextBuilder.append(stringPayload);
+    }
+
+    /**
+     * Captures the {@code jobId} from a {@code {event=start, payload.jobId=...}} event into the cancel registry so a
+     * user-initiated cancel maps back to the right {@code JobFacade.stopJob} target. Returns {@code true} when the
+     * event was a start event (handled, not surfaced to the client), {@code false} otherwise.
+     */
+    private boolean registerJobIdFromStartEvent(Map<?, ?> map) {
+        if (!("start".equals(map.get("event")) && map.get("payload") instanceof Map<?, ?> payloadMap)) {
+            return false;
+        }
+
+        Object jobIdObject = payloadMap.get("jobId");
+
+        if (jobIdObject != null) {
+            try {
+                long jobId = jobIdObject instanceof Number jobIdNumber
+                    ? jobIdNumber.longValue()
+                    : Long.parseLong(jobIdObject.toString());
+
+                jobRegistry.register(taskId, jobId);
+            } catch (NumberFormatException exception) {
+                if (log.isDebugEnabled()) {
+                    log.debug("Could not parse jobId from start event for task {}: {}", taskId, jobIdObject);
+                }
+            }
+        }
+
+        return true;
+    }
+
+    /**
+     * Passes an AI Agent SSE event (keyed by {@link AiAgentSseEventType#EVENT_TYPE}) through as a CustomEvent so the
+     * client's existing AI-agent handlers see it. For {@code approval_request} it also folds a persist-only markdown
+     * form-link marker into the accumulated assistant text so a reloaded conversation still surfaces the pending
+     * approval. Returns {@code true} when the map carried an AI Agent SSE event type, {@code false} otherwise.
+     */
+    private boolean emitAiAgentSseEvent(Map<?, ?> map) {
+        if (!map.containsKey(AiAgentSseEventType.EVENT_TYPE)) {
+            return false;
+        }
+
+        String eventType = (String) map.get(AiAgentSseEventType.EVENT_TYPE);
+
+        Map<String, Object> eventData = new LinkedHashMap<>();
+
+        for (Map.Entry<?, ?> entry : map.entrySet()) {
+            if (!AiAgentSseEventType.EVENT_TYPE.equals(entry.getKey())) {
+                eventData.put(String.valueOf(entry.getKey()), entry.getValue());
+            }
+        }
+
+        if (AiAgentSseEventType.APPROVAL_REQUEST.equals(eventType)
+            && map.get("formUrl") instanceof String formUrl && !formUrl.isBlank()) {
+
+            if (assistantTextBuilder.length() > 0) {
+                assistantTextBuilder.append("\n\n");
+            }
+
+            assistantTextBuilder.append("Approval requested — [open the approval form](")
+                .append(formUrl)
+                .append(").");
+        }
+
+        emitCustomEvent(eventType, eventData);
+
+        return true;
     }
 
     /**
