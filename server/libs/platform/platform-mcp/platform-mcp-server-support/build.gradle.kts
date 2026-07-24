@@ -1,22 +1,32 @@
-// Bundles the MCP App widget (mcp-apps/workflow-editor) into this module's resources as mcp-apps/workflow-editor.html
-// (see McpAppWorkflowEditor). Requires Node.js, so it is NOT part of the regular build: run the buildWorkflowEditor
-// task (npm run build) first; processResources picks the artifact up only when it exists.
-val workflowEditorDirectory = rootProject.layout.projectDirectory.dir("mcp-apps/workflow-editor")
+// Bundles the MCP App widgets (mcp-apps/<name>) into this module's resources as mcp-apps/<name>.html (served by
+// McpAppWorkflowEditor / McpAppViewer). Building the widgets requires Node.js, so it is NOT part of the regular build:
+// run the build<Name> task (npm run build) first; processResources picks up each artifact only when it exists.
+val mcpAppWidgets =
+    mapOf(
+        "workflow-editor" to "WorkflowEditor",
+        "data-table-viewer" to "DataTableViewer",
+        "code-workflow-viewer" to "CodeWorkflowViewer",
+        "custom-component-viewer" to "CustomComponentViewer",
+        "file-viewer" to "FileViewer",
+    )
 
-tasks.register<Exec>("buildWorkflowEditor") {
-    description =
-        "Builds the MCP App workflow editor widget (requires Node.js and npm install in mcp-apps/workflow-editor)."
-    group = "build"
+mcpAppWidgets.forEach { (dirName, taskSuffix) ->
+    val widgetDirectory = rootProject.layout.projectDirectory.dir("mcp-apps/$dirName")
 
-    workingDir = workflowEditorDirectory.asFile
+    tasks.register<Exec>("build$taskSuffix") {
+        description = "Builds the MCP App $dirName widget (requires Node.js and npm install in mcp-apps/$dirName)."
+        group = "build"
 
-    commandLine("npm", "run", "build")
-}
+        workingDir = widgetDirectory.asFile
 
-tasks.processResources {
-    from(workflowEditorDirectory.file("dist/index.html")) {
-        into("mcp-apps")
-        rename { "workflow-editor.html" }
+        commandLine("npm", "run", "build")
+    }
+
+    tasks.processResources {
+        from(widgetDirectory.file("dist/index.html")) {
+            into("mcp-apps")
+            rename { "$dirName.html" }
+        }
     }
 }
 
