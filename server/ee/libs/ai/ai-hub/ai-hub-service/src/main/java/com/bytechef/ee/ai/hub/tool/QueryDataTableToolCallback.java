@@ -36,6 +36,16 @@ import tools.jackson.databind.json.JsonMapper;
  * Spring AI {@link ToolCallback} that queries rows from a data table by id. An optional simple equals filter can be
  * supplied via the {@code where} parameter (e.g. {@code "status = 'qualified'"}). Results are capped at 50 rows.
  *
+ * <p>
+ * This is the AI-Hub <em>superset</em> variant: on top of the inline-query behaviour it adds an {@code exportToCsv}
+ * branch that materialises the rowset as a CSV {@code asset_file} through the EE AI-Hub artifact pipeline
+ * ({@code ArtifactGeneratorRegistry} / {@code CsvArtifactGenerator} / {@code AiHubTaskService}). That branch is
+ * genuinely AI-Hub-coupled, so it cannot live in the shared lib. The canonical inline-only version is
+ * {@link com.bytechef.automation.ai.tool.datatable.QueryDataTableToolCallback} in {@code automation-ai-tool} (used by
+ * the copilot data-table subagent and the management MCP data-table viewer); this class is retained only for the
+ * {@code data_analyst} subagent, which has the artifact pipeline and needs CSV export. The two share the same inline
+ * query/filter/format semantics — keep them in sync until the shared row-query logic is extracted into a CE helper.
+ *
  * @version ee
  *
  * @author Ivica Cardic
