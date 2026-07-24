@@ -9,8 +9,8 @@ package com.bytechef.ee.automation.ai.tool.datatable;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.automation.ai.tool.ToolArtifactRecorder;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
-import com.bytechef.ee.automation.ai.tool.ToolMutationArtifactRecorder;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import java.util.List;
@@ -30,7 +30,7 @@ class DataTableToolCallbacksFactoryTest {
         Mockito.mock(WorkspaceDataTableFacade.class),
         Mockito.mock(DataTableService.class),
         Mockito.mock(DataTableRowService.class),
-        Mockito.mock(ToolMutationArtifactRecorder.class));
+        Mockito.mock(ToolArtifactRecorder.class));
 
     @Test
     void readListExcludesMutations() {

@@ -7,8 +7,8 @@
 
 package com.bytechef.ee.automation.ai.tool.knowledgebase;
 
+import com.bytechef.automation.ai.tool.ToolArtifactRecorder;
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
-import com.bytechef.ee.automation.ai.tool.ToolMutationArtifactRecorder;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseFacade;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
@@ -33,7 +33,7 @@ public class KnowledgeBaseToolCallbacksFactory {
     private final KnowledgeBaseService knowledgeBaseService;
     private final KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade;
     private final KnowledgeBaseDocumentService knowledgeBaseDocumentService;
-    private final @Nullable ToolMutationArtifactRecorder artifactRecorder;
+    private final @Nullable ToolArtifactRecorder artifactRecorder;
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public KnowledgeBaseToolCallbacksFactory(
@@ -42,7 +42,7 @@ public class KnowledgeBaseToolCallbacksFactory {
         KnowledgeBaseService knowledgeBaseService,
         KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade,
         KnowledgeBaseDocumentService knowledgeBaseDocumentService,
-        @Nullable ToolMutationArtifactRecorder artifactRecorder) {
+        @Nullable ToolArtifactRecorder artifactRecorder) {
 
         this.workspaceKnowledgeBaseFacade = workspaceKnowledgeBaseFacade;
         this.knowledgeBaseFacade = knowledgeBaseFacade;

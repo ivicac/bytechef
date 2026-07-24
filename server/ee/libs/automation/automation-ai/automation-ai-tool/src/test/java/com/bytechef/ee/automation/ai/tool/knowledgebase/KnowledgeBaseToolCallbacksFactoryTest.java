@@ -9,8 +9,8 @@ package com.bytechef.ee.automation.ai.tool.knowledgebase;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.automation.ai.tool.ToolArtifactRecorder;
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
-import com.bytechef.ee.automation.ai.tool.ToolMutationArtifactRecorder;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseFacade;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
@@ -34,7 +34,7 @@ class KnowledgeBaseToolCallbacksFactoryTest {
         Mockito.mock(KnowledgeBaseService.class),
         Mockito.mock(KnowledgeBaseDocumentFacade.class),
         Mockito.mock(KnowledgeBaseDocumentService.class),
-        Mockito.mock(ToolMutationArtifactRecorder.class));
+        Mockito.mock(ToolArtifactRecorder.class));
 
     @Test
     void readListExcludesMutations() {

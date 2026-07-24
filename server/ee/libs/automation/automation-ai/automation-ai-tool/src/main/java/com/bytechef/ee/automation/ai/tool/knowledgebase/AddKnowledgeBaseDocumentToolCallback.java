@@ -9,8 +9,8 @@ package com.bytechef.ee.automation.ai.tool.knowledgebase;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
+import com.bytechef.automation.ai.tool.ToolArtifactRecorder;
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
-import com.bytechef.ee.automation.ai.tool.ToolMutationArtifactRecorder;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocument;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
@@ -28,8 +28,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Spring AI {@link ToolCallback} that adds a text document to a knowledge base. The mutation is executed immediately —
- * every server-side mutation lands in real time and, when a {@link ToolMutationArtifactRecorder} is supplied (AI Hub
- * only), is recorded as a task artifact for audit purposes.
+ * every server-side mutation lands in real time and, when a {@link ToolArtifactRecorder} is supplied (AI Hub only), is
+ * recorded as a task artifact for audit purposes.
  *
  * <p>
  * This callback is registered on {@code aiHubBuildSpringAIAgent} only — the ASK variant is read-only.
@@ -74,14 +74,14 @@ public class AddKnowledgeBaseDocumentToolCallback implements ToolCallback {
 
     private final KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade;
     private final WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade;
-    private final @Nullable ToolMutationArtifactRecorder artifactRecorder;
+    private final @Nullable ToolArtifactRecorder artifactRecorder;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public AddKnowledgeBaseDocumentToolCallback(
         KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade,
         WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade,
-        @Nullable ToolMutationArtifactRecorder artifactRecorder) {
+        @Nullable ToolArtifactRecorder artifactRecorder) {
 
         this.knowledgeBaseDocumentFacade = knowledgeBaseDocumentFacade;
         this.workspaceKnowledgeBaseFacade = workspaceKnowledgeBaseFacade;

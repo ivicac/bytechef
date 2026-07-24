@@ -9,8 +9,8 @@ package com.bytechef.ee.automation.ai.tool.datatable;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
+import com.bytechef.automation.ai.tool.ToolArtifactRecorder;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
-import com.bytechef.ee.automation.ai.tool.ToolMutationArtifactRecorder;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
@@ -30,8 +30,8 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Spring AI {@link ToolCallback} that adds a new column to an existing data table. The mutation is executed immediately
- * — every server-side mutation lands in real time and, when a {@link ToolMutationArtifactRecorder} is supplied (AI Hub
- * only), is recorded as a task artifact for audit purposes.
+ * — every server-side mutation lands in real time and, when a {@link ToolArtifactRecorder} is supplied (AI Hub only),
+ * is recorded as a task artifact for audit purposes.
  *
  * <p>
  * This callback is registered on {@code aiHubBuildSpringAIAgent} only — the ASK variant is read-only.
@@ -77,13 +77,13 @@ public class AddDataTableColumnToolCallback implements ToolCallback {
 
     private final DataTableService dataTableService;
     private final WorkspaceDataTableFacade workspaceDataTableFacade;
-    private final @Nullable ToolMutationArtifactRecorder artifactRecorder;
+    private final @Nullable ToolArtifactRecorder artifactRecorder;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public AddDataTableColumnToolCallback(
         DataTableService dataTableService, WorkspaceDataTableFacade workspaceDataTableFacade,
-        @Nullable ToolMutationArtifactRecorder artifactRecorder) {
+        @Nullable ToolArtifactRecorder artifactRecorder) {
 
         this.dataTableService = dataTableService;
         this.workspaceDataTableFacade = workspaceDataTableFacade;

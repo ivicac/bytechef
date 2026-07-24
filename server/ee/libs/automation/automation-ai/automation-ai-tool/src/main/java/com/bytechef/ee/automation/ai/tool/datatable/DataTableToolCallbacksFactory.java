@@ -7,8 +7,9 @@
 
 package com.bytechef.ee.automation.ai.tool.datatable;
 
+import com.bytechef.automation.ai.tool.ToolArtifactRecorder;
+import com.bytechef.automation.ai.tool.datatable.QueryDataTableToolCallback;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
-import com.bytechef.ee.automation.ai.tool.ToolMutationArtifactRecorder;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -29,14 +30,14 @@ public class DataTableToolCallbacksFactory {
     private final WorkspaceDataTableFacade workspaceDataTableFacade;
     private final DataTableService dataTableService;
     private final DataTableRowService dataTableRowService;
-    private final @Nullable ToolMutationArtifactRecorder artifactRecorder;
+    private final @Nullable ToolArtifactRecorder artifactRecorder;
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public DataTableToolCallbacksFactory(
         WorkspaceDataTableFacade workspaceDataTableFacade,
         DataTableService dataTableService,
         DataTableRowService dataTableRowService,
-        @Nullable ToolMutationArtifactRecorder artifactRecorder) {
+        @Nullable ToolArtifactRecorder artifactRecorder) {
 
         this.workspaceDataTableFacade = workspaceDataTableFacade;
         this.dataTableService = dataTableService;

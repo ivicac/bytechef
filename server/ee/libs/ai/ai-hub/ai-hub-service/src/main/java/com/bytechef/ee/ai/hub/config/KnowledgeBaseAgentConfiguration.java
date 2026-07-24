@@ -16,8 +16,7 @@ import com.bytechef.ai.copilot.tool.SecurityContextRehydrator;
 import com.bytechef.ai.copilot.util.Mode;
 import com.bytechef.ai.copilot.util.Source;
 import com.bytechef.automation.knowledgebase.facade.WorkspaceKnowledgeBaseFacade;
-import com.bytechef.ee.ai.hub.task.AiHubTaskArtifactService;
-import com.bytechef.ee.ai.hub.tool.AiHubToolMutationArtifactRecorder;
+import com.bytechef.ee.ai.hub.tool.AiHubTaskArtifactRecorder;
 import com.bytechef.ee.automation.ai.tool.knowledgebase.KnowledgeBaseToolCallbacksFactory;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseFacade;
@@ -70,15 +69,12 @@ public class KnowledgeBaseAgentConfiguration {
         WorkspaceKnowledgeBaseFacade workspaceKnowledgeBaseFacade, KnowledgeBaseFacade knowledgeBaseFacade,
         KnowledgeBaseService knowledgeBaseService, KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade,
         KnowledgeBaseDocumentService knowledgeBaseDocumentService,
-        ObjectProvider<AiHubTaskArtifactService> aiHubTaskArtifactServiceProvider) {
-
-        AiHubTaskArtifactService aiHubTaskArtifactService = aiHubTaskArtifactServiceProvider.getIfAvailable();
+        ObjectProvider<AiHubTaskArtifactRecorder> aiHubTaskArtifactRecorderProvider) {
 
         return new KnowledgeBaseToolCallbacksFactory(
             workspaceKnowledgeBaseFacade, knowledgeBaseFacade, knowledgeBaseService, knowledgeBaseDocumentFacade,
             knowledgeBaseDocumentService,
-            aiHubTaskArtifactService != null ? new AiHubToolMutationArtifactRecorder(aiHubTaskArtifactService)
-                : null);
+            aiHubTaskArtifactRecorderProvider.getIfAvailable());
     }
 
     @Bean
