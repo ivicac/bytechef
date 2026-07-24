@@ -229,3 +229,17 @@ The MCP server exposes the following tools to connected AI assistants.
 | `getTaskProperties` | Get properties for a task |
 | `getTaskOutputProperty` | Get the output property of a task |
 | `getProperties` | Get general properties |
+
+## Rich in-chat viewers
+
+On MCP Apps–capable hosts (Claude Desktop, Claude.ai), several tools render their result as a **read-only visual viewer** inline in the conversation instead of as raw JSON. The host fetches a small self-contained widget and the server pushes the tool result into it — the widget only projects what the tool returned; it makes no further calls.
+
+| When you call | The host renders |
+|---|---|
+| `getWorkflow` / `createProjectWorkflow` / `updateWorkflow` | The workflow canvas (read-only) |
+| `queryDataTable` | The data table's rows as a grid |
+| `getCodeWorkflowSource` | The code workflow source, syntax-highlighted |
+| `getCustomComponentSource` | The custom component source, syntax-highlighted |
+| `getAssetFileContent` | The file's text content, syntax-highlighted |
+
+Hosts that don't support MCP Apps simply ignore the viewers and show the tool's text result as usual. The viewers are read-only — they display, they don't edit.
