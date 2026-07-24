@@ -169,11 +169,17 @@ public class UpdateMcpProjectWorkflowParametersToolCallback implements ToolCallb
         }
     }
 
+    @SuppressFBWarnings({
+        "EI_EXPOSE_REP", "EI_EXPOSE_REP2"
+    })
     public record UpdateMcpProjectWorkflowParametersInput(
         @Nullable Long mcpProjectWorkflowId, @Nullable String toolName, @Nullable String toolDescription,
         @Nullable Map<String, Object> parameters) {
     }
 
+    @SuppressFBWarnings({
+        "EI_EXPOSE_REP", "EI_EXPOSE_REP2"
+    })
     public record UpdateMcpProjectWorkflowParametersOutput(
         Long mcpProjectWorkflowId, @Nullable String toolName, @Nullable String toolDescription,
         Map<String, ?> parameters) {

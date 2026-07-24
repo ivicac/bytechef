@@ -179,6 +179,9 @@ public class ListMcpProjectWorkflowsToolCallback implements ToolCallback {
     public record ListMcpProjectWorkflowsInput(@Nullable Long mcpServerId) {
     }
 
+    @SuppressFBWarnings({
+        "EI_EXPOSE_REP", "EI_EXPOSE_REP2"
+    })
     public record McpProjectWorkflowSummary(
         Long mcpProjectId, Long mcpProjectWorkflowId, String workflowId, @Nullable String workflowLabel,
         boolean toolCallable, @Nullable String toolName, @Nullable String toolDescription,
