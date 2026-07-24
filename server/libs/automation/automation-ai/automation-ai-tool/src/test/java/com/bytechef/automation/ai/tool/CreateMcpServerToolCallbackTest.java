@@ -57,7 +57,7 @@ class CreateMcpServerToolCallbackTest {
         CreateMcpServerToolCallback callback = new CreateMcpServerToolCallback(facade);
 
         ToolContext toolContext = new ToolContext(
-            Map.of(ManagerToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 99L));
+            Map.of(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 99L));
 
         String result = callback.call("{\"name\":\"Support tools\",\"environment\":\"STAGING\"}", toolContext);
 
@@ -93,7 +93,7 @@ class CreateMcpServerToolCallbackTest {
         CreateMcpServerToolCallback callback = new CreateMcpServerToolCallback(facade);
 
         ToolContext toolContext = new ToolContext(
-            Map.of(ManagerToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 99L));
+            Map.of(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 99L));
 
         String result = callback.call(
             "{\"name\":\"Live tools\",\"environment\":\"PRODUCTION\",\"enabled\":true}", toolContext);
@@ -125,7 +125,7 @@ class CreateMcpServerToolCallbackTest {
         CreateMcpServerToolCallback callback = new CreateMcpServerToolCallback(mock(WorkspaceMcpServerFacade.class));
 
         ToolContext toolContext = new ToolContext(
-            Map.of(ManagerToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 99L));
+            Map.of(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 99L));
 
         String result = callback.call("{\"name\":\"X\",\"environment\":\"NOPE\"}", toolContext);
 

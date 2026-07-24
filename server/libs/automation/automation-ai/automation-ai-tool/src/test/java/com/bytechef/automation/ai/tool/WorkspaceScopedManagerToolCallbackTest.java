@@ -69,7 +69,7 @@ class WorkspaceScopedManagerToolCallbackTest {
 
         assertThat(result).isEqualTo("done");
         assertThat(delegate.capturedContext)
-            .containsEntry(ManagerToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 42L);
+            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 42L);
         assertThat(delegate.capturedInput).contains("list servers");
     }
 
@@ -86,7 +86,7 @@ class WorkspaceScopedManagerToolCallbackTest {
 
         assertThat(result).isEqualTo("done");
         assertThat(delegate.capturedContext)
-            .containsEntry(ManagerToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 7L);
+            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 7L);
     }
 
     @Test

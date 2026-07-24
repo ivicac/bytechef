@@ -1,11 +1,20 @@
 /*
  * Copyright 2025 ByteChef
  *
- * Licensed under the ByteChef Enterprise license (the "Enterprise License");
- * you may not use this file except in compliance with the Enterprise License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.automation.ai.tool;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
@@ -25,7 +34,6 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.ai.chat.model.ToolContext;
 
 /**
- * @version ee
  *
  * @author Ivica Cardic
  */
@@ -45,9 +53,9 @@ class CreateAssetFileToolCallbackTest {
     @Test
     void testCallHappyPath() {
         ToolContext toolContext = new ToolContext(Map.of(
-            AiHubToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 7L,
-            AiHubToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY, (short) 0,
-            AiHubToolInvocationContext.TOOL_CONTEXT_LAST_USER_PROMPT_KEY, "write a runbook"));
+            AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 7L,
+            AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY, (short) 0,
+            AutomationToolInvocationContext.TOOL_CONTEXT_LAST_USER_PROMPT_KEY, "write a runbook"));
 
         AssetFile saved = new AssetFile();
 
@@ -96,9 +104,9 @@ class CreateAssetFileToolCallbackTest {
                     .thenReturn(saved);
 
         ToolContext toolContext = new ToolContext(Map.of(
-            AiHubToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 88L,
-            AiHubToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY, (short) 7,
-            AiHubToolInvocationContext.TOOL_CONTEXT_LAST_USER_PROMPT_KEY, "tool-context prompt"));
+            AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 88L,
+            AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY, (short) 7,
+            AutomationToolInvocationContext.TOOL_CONTEXT_LAST_USER_PROMPT_KEY, "tool-context prompt"));
 
         String input = "{\"filename\":\"doc.md\",\"mimeType\":\"text/markdown\",\"content\":\"body\"}";
 

@@ -100,7 +100,7 @@ public class CreateMcpServerToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            ManagerToolInvocationContext context = ManagerToolInvocationContext.fromToolContext(toolContext);
+            AutomationToolInvocationContext context = AutomationToolInvocationContext.fromToolContext(toolContext);
 
             if (context == null || context.workspaceId() == null) {
                 return toolError("Workspace context unavailable — open this chat from the AI Hub of a workspace.");

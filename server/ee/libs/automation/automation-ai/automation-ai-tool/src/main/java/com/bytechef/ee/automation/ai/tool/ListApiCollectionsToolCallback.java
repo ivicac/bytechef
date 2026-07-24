@@ -8,7 +8,7 @@
 package com.bytechef.ee.automation.ai.tool;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
-import com.bytechef.automation.ai.tool.ManagerToolInvocationContext;
+import com.bytechef.automation.ai.tool.AutomationToolInvocationContext;
 import com.bytechef.ee.automation.apiplatform.configuration.dto.ApiCollectionDTO;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
 import com.bytechef.platform.configuration.domain.Environment;
@@ -84,8 +84,8 @@ public class ListApiCollectionsToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            ManagerToolInvocationContext context =
-                ManagerToolInvocationContext.fromToolContext(toolContext);
+            AutomationToolInvocationContext context =
+                AutomationToolInvocationContext.fromToolContext(toolContext);
 
             if (context == null || context.workspaceId() == null) {
                 return ToolErrors.toolError(

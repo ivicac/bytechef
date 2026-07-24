@@ -63,8 +63,8 @@ class ListProjectDeploymentsToolCallbackTest {
         ListProjectDeploymentsToolCallback callback = new ListProjectDeploymentsToolCallback(facade);
 
         ToolContext toolContext = new ToolContext(Map.of(
-            ManagerToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 99L,
-            ManagerToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, 5L));
+            AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 99L,
+            AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, 5L));
 
         String result = callback.call("{}", toolContext);
 
@@ -96,7 +96,7 @@ class ListProjectDeploymentsToolCallbackTest {
         ListProjectDeploymentsToolCallback callback = new ListProjectDeploymentsToolCallback(facade);
 
         ToolContext toolContext = new ToolContext(
-            Map.of(ManagerToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 99L));
+            Map.of(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 99L));
 
         callback.call("{\"projectId\":\"7\"}", toolContext);
 

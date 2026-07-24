@@ -1,11 +1,20 @@
 /*
  * Copyright 2025 ByteChef
  *
- * Licensed under the ByteChef Enterprise license (the "Enterprise License");
- * you may not use this file except in compliance with the Enterprise License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.automation.ai.tool;
 
 import com.bytechef.automation.assetfile.domain.AssetFile;
 import com.bytechef.automation.assetfile.exception.AssetFileNotFoundException;
@@ -28,7 +37,6 @@ import tools.jackson.databind.json.JsonMapper;
  * edit-in-place counterpart to {@code createAssetFile}. The file's ownership is gated through
  * {@link AssetFileFacade#findByIdInWorkspace(Long, Long)} so a file id from another workspace cannot be written to.
  *
- * @version ee
  *
  * @author Ivica Cardic
  */
@@ -63,20 +71,20 @@ public class UpdateAssetFileContentToolCallback implements ToolCallback {
             }""";
 
     private final AssetFileFacade facade;
-    private final @Nullable AiHubTaskArtifactRecorder artifactRecorder;
+    private final @Nullable ToolArtifactRecorder artifactRecorder;
     private final long maxContentBytes;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public UpdateAssetFileContentToolCallback(
-        AssetFileFacade facade, @Nullable AiHubTaskArtifactRecorder artifactRecorder) {
+        AssetFileFacade facade, @Nullable ToolArtifactRecorder artifactRecorder) {
 
         this(facade, artifactRecorder, MAX_CONTENT_BYTES);
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     UpdateAssetFileContentToolCallback(
-        AssetFileFacade facade, @Nullable AiHubTaskArtifactRecorder artifactRecorder, long maxContentBytes) {
+        AssetFileFacade facade, @Nullable ToolArtifactRecorder artifactRecorder, long maxContentBytes) {
 
         this.facade = facade;
         this.artifactRecorder = artifactRecorder;
@@ -120,8 +128,8 @@ public class UpdateAssetFileContentToolCallback implements ToolCallback {
                     "File content too large (~%d bytes, limit %d)".formatted(estimatedEncodedBytes, maxContentBytes));
             }
 
-            AiHubToolInvocationContext invocationContext =
-                AiHubToolInvocationContext.fromToolContext(toolContext);
+            AutomationToolInvocationContext invocationContext =
+                AutomationToolInvocationContext.fromToolContext(toolContext);
 
             Long workspaceId = invocationContext == null ? null : invocationContext.workspaceId();
 

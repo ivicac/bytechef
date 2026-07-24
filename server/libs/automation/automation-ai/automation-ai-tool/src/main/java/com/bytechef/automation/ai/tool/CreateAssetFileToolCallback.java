@@ -1,11 +1,20 @@
 /*
  * Copyright 2025 ByteChef
  *
- * Licensed under the ByteChef Enterprise license (the "Enterprise License");
- * you may not use this file except in compliance with the Enterprise License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.automation.ai.tool;
 
 import com.bytechef.automation.assetfile.domain.AssetFile;
 import com.bytechef.automation.assetfile.service.AssetFileFacade;
@@ -27,7 +36,6 @@ import tools.jackson.databind.json.JsonMapper;
  * Returns a JSON payload describing the saved file (or an error object if the mime type is unsupported or a quota has
  * been exceeded).
  *
- * @version ee
  *
  * @author Ivica Cardic
  */
@@ -74,7 +82,7 @@ public class CreateAssetFileToolCallback implements ToolCallback {
         }""";
 
     private final AssetFileFacade facade;
-    private final AiHubTaskArtifactRecorder artifactRecorder;
+    private final ToolArtifactRecorder artifactRecorder;
     private final long maxContentBytes;
     private final JsonMapper jsonMapper = new JsonMapper();
 
@@ -85,7 +93,7 @@ public class CreateAssetFileToolCallback implements ToolCallback {
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public CreateAssetFileToolCallback(
-        AssetFileFacade facade, AiHubTaskArtifactRecorder artifactRecorder) {
+        AssetFileFacade facade, ToolArtifactRecorder artifactRecorder) {
 
         this(facade, artifactRecorder, MAX_CONTENT_BYTES);
     }
@@ -98,7 +106,7 @@ public class CreateAssetFileToolCallback implements ToolCallback {
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     CreateAssetFileToolCallback(
         AssetFileFacade facade,
-        @Nullable AiHubTaskArtifactRecorder artifactRecorder, long maxContentBytes) {
+        @Nullable ToolArtifactRecorder artifactRecorder, long maxContentBytes) {
 
         this.facade = facade;
         this.artifactRecorder = artifactRecorder;
@@ -145,8 +153,8 @@ public class CreateAssetFileToolCallback implements ToolCallback {
                 }
             }
 
-            AiHubToolInvocationContext invocationContext =
-                AiHubToolInvocationContext.fromToolContext(toolContext);
+            AutomationToolInvocationContext invocationContext =
+                AutomationToolInvocationContext.fromToolContext(toolContext);
 
             Long workspaceId = invocationContext == null ? null : invocationContext.workspaceId();
 
@@ -157,7 +165,7 @@ public class CreateAssetFileToolCallback implements ToolCallback {
 
             AssetFile created = facade.createFromAi(
                 workspaceId,
-                AiHubToolInvocationContext.resolveEnvironmentOrDefault(invocationContext),
+                AutomationToolInvocationContext.resolveEnvironmentOrDefault(invocationContext),
                 input.filename(),
                 input.mimeType(),
                 input.content(),

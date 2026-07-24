@@ -1,11 +1,20 @@
 /*
  * Copyright 2025 ByteChef
  *
- * Licensed under the ByteChef Enterprise license (the "Enterprise License");
- * you may not use this file except in compliance with the Enterprise License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
-package com.bytechef.ee.ai.hub.tool;
+package com.bytechef.automation.ai.tool;
 
 import com.bytechef.automation.assetfile.domain.AssetFile;
 import com.bytechef.automation.assetfile.service.AssetFileFacade;
@@ -29,7 +38,6 @@ import tools.jackson.databind.json.JsonMapper;
  * {@link AssetFileFacade#createBinaryFromAi}. Returns a JSON payload describing the saved file, or an error object when
  * the MIME type is unsupported, the base64 is malformed, or a quota has been exceeded.
  *
- * @version ee
  *
  * @author Ivica Cardic
  */
@@ -69,7 +77,7 @@ public class CreateBinaryAssetFileToolCallback implements ToolCallback {
             }""";
 
     private final AssetFileFacade facade;
-    private final AiHubTaskArtifactRecorder artifactRecorder;
+    private final ToolArtifactRecorder artifactRecorder;
     private final int maxBinaryBytes;
     private final JsonMapper jsonMapper;
 
@@ -80,14 +88,14 @@ public class CreateBinaryAssetFileToolCallback implements ToolCallback {
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public CreateBinaryAssetFileToolCallback(
-        AssetFileFacade facade, AiHubTaskArtifactRecorder artifactRecorder) {
+        AssetFileFacade facade, ToolArtifactRecorder artifactRecorder) {
 
         this(facade, artifactRecorder, new JsonMapper());
     }
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public CreateBinaryAssetFileToolCallback(
-        AssetFileFacade facade, AiHubTaskArtifactRecorder artifactRecorder,
+        AssetFileFacade facade, ToolArtifactRecorder artifactRecorder,
         JsonMapper jsonMapper) {
 
         this(facade, artifactRecorder, jsonMapper, MAX_BINARY_BYTES);
@@ -100,7 +108,7 @@ public class CreateBinaryAssetFileToolCallback implements ToolCallback {
      */
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     CreateBinaryAssetFileToolCallback(
-        AssetFileFacade facade, AiHubTaskArtifactRecorder artifactRecorder,
+        AssetFileFacade facade, ToolArtifactRecorder artifactRecorder,
         int maxBinaryBytes) {
 
         this(facade, artifactRecorder, new JsonMapper(), maxBinaryBytes);
@@ -108,7 +116,7 @@ public class CreateBinaryAssetFileToolCallback implements ToolCallback {
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     CreateBinaryAssetFileToolCallback(
-        AssetFileFacade facade, AiHubTaskArtifactRecorder artifactRecorder,
+        AssetFileFacade facade, ToolArtifactRecorder artifactRecorder,
         JsonMapper jsonMapper, int maxBinaryBytes) {
 
         this.facade = facade;
@@ -174,8 +182,8 @@ public class CreateBinaryAssetFileToolCallback implements ToolCallback {
                     "Binary payload exceeds the maximum allowed size of " + maxBinaryBytes + " bytes");
             }
 
-            AiHubToolInvocationContext invocationContext =
-                AiHubToolInvocationContext.fromToolContext(toolContext);
+            AutomationToolInvocationContext invocationContext =
+                AutomationToolInvocationContext.fromToolContext(toolContext);
 
             Long workspaceId = invocationContext == null ? null : invocationContext.workspaceId();
 
@@ -186,7 +194,7 @@ public class CreateBinaryAssetFileToolCallback implements ToolCallback {
 
             AssetFile created = facade.createBinaryFromAi(
                 workspaceId,
-                AiHubToolInvocationContext.resolveEnvironmentOrDefault(invocationContext),
+                AutomationToolInvocationContext.resolveEnvironmentOrDefault(invocationContext),
                 input.filename(),
                 input.mimeType(),
                 data,

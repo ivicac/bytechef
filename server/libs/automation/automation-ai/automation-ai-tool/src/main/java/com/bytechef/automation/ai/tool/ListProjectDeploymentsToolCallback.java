@@ -39,7 +39,7 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>
  * The optional {@code projectId} filter narrows the list to one project — useful when the user has many projects and
  * only cares about deployments of one of them. The {@code environmentId} comes from
- * {@link ManagerToolInvocationContext}; the result therefore scopes to the chat surface's currently selected
+ * {@link AutomationToolInvocationContext}; the result therefore scopes to the chat surface's currently selected
  * environment.
  * </p>
  *
@@ -93,7 +93,8 @@ public class ListProjectDeploymentsToolCallback implements ToolCallback {
         try {
             ListProjectDeploymentsInput input = jsonMapper.readValue(toolInput, ListProjectDeploymentsInput.class);
 
-            ManagerToolInvocationContext invocationContext = ManagerToolInvocationContext.fromToolContext(toolContext);
+            AutomationToolInvocationContext invocationContext =
+                AutomationToolInvocationContext.fromToolContext(toolContext);
 
             Long workspaceId = invocationContext == null ? null : invocationContext.workspaceId();
 

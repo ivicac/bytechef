@@ -41,7 +41,7 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * <p>
  * The parent's {@link ToolContext} is forwarded into the specialist so its workspace-scoped tools (which resolve
- * {@link ManagerToolInvocationContext} for workspaceId / environment) keep working. Same mechanics as
+ * {@link AutomationToolInvocationContext} for workspaceId / environment) keep working. Same mechanics as
  * {@link ResearchToolCallback}; hand-rolled for the same reason — no API exists to register a named subagent backed by
  * an externally-constructed {@link ChatClient}.
  * </p>

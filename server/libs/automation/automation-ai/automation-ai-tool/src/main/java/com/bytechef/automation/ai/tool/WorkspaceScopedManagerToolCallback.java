@@ -32,11 +32,11 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Adapts a {@link ManagerSubAgentToolCallback} for the management MCP server, where no AI Hub chat state exists to
- * inject the workspace-scoped {@link ManagerToolInvocationContext}. The wrapper extends the delegate's input with an
+ * inject the workspace-scoped {@link AutomationToolInvocationContext}. The wrapper extends the delegate's input with an
  * optional {@code workspaceId}, resolves it (explicit input, else the tenant's sole workspace, else a typed error
  * listing the candidates), and forwards it to the specialist through the {@link ToolContext} under
- * {@link ManagerToolInvocationContext#TOOL_CONTEXT_WORKSPACE_ID_KEY} — exactly what the specialist's workspace-scoped
- * tools read on the chat surface.
+ * {@link AutomationToolInvocationContext#TOOL_CONTEXT_WORKSPACE_ID_KEY} — exactly what the specialist's
+ * workspace-scoped tools read on the chat surface.
  *
  * <p>
  * No authorization is added or bypassed here: the management MCP request is already authenticated, and every mutation
@@ -131,7 +131,7 @@ public class WorkspaceScopedManagerToolCallback implements ToolCallback {
                 forwardedContext.putAll(toolContext.getContext());
             }
 
-            forwardedContext.put(ManagerToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, workspaceId);
+            forwardedContext.put(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, workspaceId);
 
             String delegateInput = jsonMapper.writeValueAsString(Map.of("request", input.request()));
 
