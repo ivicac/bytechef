@@ -18,13 +18,13 @@ package com.bytechef.automation.ai.tool.datatable;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
+import com.bytechef.automation.ai.tool.datatable.DataTableQuerySupport.DataTableNotFoundException;
+import com.bytechef.automation.ai.tool.datatable.DataTableQuerySupport.WhereParseException;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
-import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
@@ -37,19 +37,17 @@ import tools.jackson.databind.json.JsonMapper;
  * supplied via the {@code where} parameter (e.g. {@code "status = 'qualified'"}). Results are capped at 50 rows.
  *
  * <p>
- * Ports the non-CSV path of the ai-hub {@code QueryDataTableToolCallback}'s convenience 2-arg constructor: this class
- * has no CSV-export capability at all (unlike its ai-hub sibling, which exports via an
+ * The inline query/filter logic is shared with the AI-Hub superset variant via {@link DataTableQuerySupport}. This
+ * class has no CSV-export capability at all (unlike its ai-hub sibling, which exports via an
  * {@code ArtifactGeneratorRegistry} + {@code AiHubTaskService} the shared lib cannot depend on), so a request with
  * {@code exportToCsv=true} is always rejected at the tool boundary with a structured error pointing the LLM at the
- * inline path — mirroring exactly what the ai-hub class's 2-arg constructor already does.
+ * inline path.
  * </p>
- *
  *
  * @author Ivica Cardic
  */
 public class QueryDataTableToolCallback implements ToolCallback {
 
-    static final int MAX_LIMIT = 50;
     private static final long DEFAULT_ENVIRONMENT_ORDINAL = 0L;
     private static final String TOOL_NAME = "queryDataTable";
 
@@ -111,9 +109,7 @@ public class QueryDataTableToolCallback implements ToolCallback {
                 return toolError("dataTableId is required");
             }
 
-            boolean exportToCsv = Boolean.TRUE.equals(input.exportToCsv());
-
-            if (exportToCsv) {
+            if (Boolean.TRUE.equals(input.exportToCsv())) {
                 return toolError(
                     "exportToCsv is not available in this tool context — request the inline rows instead.");
             }
@@ -121,9 +117,7 @@ public class QueryDataTableToolCallback implements ToolCallback {
             AgentToolInvocationContext invocationContext =
                 AgentToolInvocationContext.fromToolContext(toolContext);
 
-            Long workspaceId = invocationContext.workspaceId();
-
-            if (workspaceId == null) {
+            if (invocationContext.workspaceId() == null) {
                 return toolError(
                     "Workspace context unavailable - open this chat from the AI Hub of a workspace.");
             }
@@ -136,33 +130,18 @@ public class QueryDataTableToolCallback implements ToolCallback {
                 return toolError("Invalid dataTableId - must be a numeric id obtained from listDataTables");
             }
 
-            String baseName = dataTableService.getBaseNameById(dataTableId);
+            String baseName;
 
-            if (baseName == null || baseName.isBlank()) {
+            try {
+                baseName = DataTableQuerySupport.resolveBaseName(dataTableService, dataTableId);
+            } catch (DataTableNotFoundException exception) {
                 return toolError("Data table not found: " + input.dataTableId());
             }
 
-            int fetchLimit = resolveLimit(input.limit());
-            long environmentId = resolveEnvironmentId(invocationContext);
+            int fetchLimit = DataTableQuerySupport.resolveLimit(input.limit());
 
-            List<DataTableRow> rows = dataTableRowService.listRows(baseName, fetchLimit, 0, environmentId);
-
-            List<Map<String, Object>> rowMaps;
-
-            if (input.where() != null && !input.where()
-                .isBlank()) {
-                WhereClause whereClause = parseWhere(input.where());
-
-                rowMaps = rows.stream()
-                    .map(DataTableRow::values)
-                    .filter(values -> matchesWhereClause(values, whereClause))
-                    .limit(fetchLimit)
-                    .toList();
-            } else {
-                rowMaps = rows.stream()
-                    .map(DataTableRow::values)
-                    .toList();
-            }
+            List<Map<String, Object>> rowMaps = DataTableQuerySupport.queryRowMaps(
+                dataTableRowService, baseName, input.where(), fetchLimit, resolveEnvironmentId(invocationContext));
 
             return jsonMapper.writeValueAsString(rowMaps);
         } catch (WhereParseException exception) {
@@ -182,65 +161,11 @@ public class QueryDataTableToolCallback implements ToolCallback {
         return environmentId != null ? environmentId : DEFAULT_ENVIRONMENT_ORDINAL;
     }
 
-    private int resolveLimit(@Nullable Integer requestedLimit) {
-        if (requestedLimit == null || requestedLimit <= 0) {
-            return MAX_LIMIT;
-        }
-
-        return Math.min(requestedLimit, MAX_LIMIT);
-    }
-
-    private WhereClause parseWhere(String where) throws WhereParseException {
-        int equalsIndex = where.indexOf('=');
-
-        if (equalsIndex < 0) {
-            throw new WhereParseException("Missing '=' operator in: " + where);
-        }
-
-        String columnName = where.substring(0, equalsIndex)
-            .trim();
-        String rawValue = where.substring(equalsIndex + 1)
-            .trim();
-
-        if (columnName.isEmpty()) {
-            throw new WhereParseException("Column name is empty in: " + where);
-        }
-
-        String value = rawValue;
-
-        if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith("\"") && value.endsWith("\""))) {
-            value = value.substring(1, value.length() - 1);
-        }
-
-        return new WhereClause(columnName, value);
-    }
-
-    private boolean matchesWhereClause(Map<String, Object> values, WhereClause whereClause) {
-        Object actualValue = values.get(whereClause.columnName());
-
-        if (actualValue == null) {
-            return whereClause.value()
-                .isEmpty();
-        }
-
-        return Objects.equals(whereClause.value(), actualValue.toString());
-    }
-
     private String toolError(String message) {
         return ToolErrors.toolError(jsonMapper, message);
     }
 
     public record QueryDataTableInput(
         String dataTableId, @Nullable String where, @Nullable Integer limit, @Nullable Boolean exportToCsv) {
-    }
-
-    private record WhereClause(String columnName, String value) {
-    }
-
-    private static class WhereParseException extends Exception {
-
-        WhereParseException(String message) {
-            super(message);
-        }
     }
 }

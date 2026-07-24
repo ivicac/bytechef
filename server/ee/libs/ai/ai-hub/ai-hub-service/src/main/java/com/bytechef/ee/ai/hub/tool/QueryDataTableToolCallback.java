@@ -8,6 +8,9 @@
 package com.bytechef.ee.ai.hub.tool;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.automation.ai.tool.datatable.DataTableQuerySupport;
+import com.bytechef.automation.ai.tool.datatable.DataTableQuerySupport.DataTableNotFoundException;
+import com.bytechef.automation.ai.tool.datatable.DataTableQuerySupport.WhereParseException;
 import com.bytechef.automation.assetfile.domain.AssetFileFormat;
 import com.bytechef.ee.ai.hub.artifact.ArtifactGeneratorRegistry;
 import com.bytechef.ee.ai.hub.artifact.GenerationRequest;
@@ -15,7 +18,6 @@ import com.bytechef.ee.ai.hub.artifact.GenerationResult;
 import com.bytechef.ee.ai.hub.task.AiHubTask;
 import com.bytechef.ee.ai.hub.task.AiHubTaskService;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
-import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.LocalDateTime;
@@ -23,7 +25,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
@@ -40,11 +41,10 @@ import tools.jackson.databind.json.JsonMapper;
  * This is the AI-Hub <em>superset</em> variant: on top of the inline-query behaviour it adds an {@code exportToCsv}
  * branch that materialises the rowset as a CSV {@code asset_file} through the EE AI-Hub artifact pipeline
  * ({@code ArtifactGeneratorRegistry} / {@code CsvArtifactGenerator} / {@code AiHubTaskService}). That branch is
- * genuinely AI-Hub-coupled, so it cannot live in the shared lib. The canonical inline-only version is
- * {@link com.bytechef.automation.ai.tool.datatable.QueryDataTableToolCallback} in {@code automation-ai-tool} (used by
- * the copilot data-table subagent and the management MCP data-table viewer); this class is retained only for the
- * {@code data_analyst} subagent, which has the artifact pipeline and needs CSV export. The two share the same inline
- * query/filter/format semantics — keep them in sync until the shared row-query logic is extracted into a CE helper.
+ * genuinely AI-Hub-coupled, so it cannot live in the shared lib. The inline query/filter semantics are shared with the
+ * canonical inline-only version {@link com.bytechef.automation.ai.tool.datatable.QueryDataTableToolCallback} through
+ * {@link DataTableQuerySupport}; this class is retained only for the {@code data_analyst} subagent, which has the
+ * artifact pipeline and needs CSV export.
  *
  * @version ee
  *
@@ -52,7 +52,6 @@ import tools.jackson.databind.json.JsonMapper;
  */
 public class QueryDataTableToolCallback implements ToolCallback {
 
-    static final int MAX_LIMIT = 50;
     private static final long DEFAULT_ENVIRONMENT_ORDINAL = 0L;
 
     private static final String DESCRIPTION = """
@@ -144,9 +143,7 @@ public class QueryDataTableToolCallback implements ToolCallback {
             AiHubToolInvocationContext invocationContext =
                 AiHubToolInvocationContext.fromToolContext(toolContext);
 
-            Long workspaceId = invocationContext.workspaceId();
-
-            if (workspaceId == null) {
+            if (invocationContext.workspaceId() == null) {
                 return toolError(
                     "Workspace context unavailable - open this chat from the AI Hub of a workspace.");
             }
@@ -159,9 +156,11 @@ public class QueryDataTableToolCallback implements ToolCallback {
                 return toolError("Invalid dataTableId - must be a numeric id obtained from listDataTables");
             }
 
-            String baseName = dataTableService.getBaseNameById(dataTableId);
+            String baseName;
 
-            if (baseName == null || baseName.isBlank()) {
+            try {
+                baseName = DataTableQuerySupport.resolveBaseName(dataTableService, dataTableId);
+            } catch (DataTableNotFoundException exception) {
                 return toolError("Data table not found: " + input.dataTableId());
             }
 
@@ -172,27 +171,10 @@ public class QueryDataTableToolCallback implements ToolCallback {
                     "exportToCsv is not available in this tool context — request the inline rows instead.");
             }
 
-            int fetchLimit = exportToCsv ? CSV_EXPORT_MAX_ROWS : resolveLimit(input.limit());
-            long environmentId = resolveEnvironmentId(invocationContext);
+            int fetchLimit = exportToCsv ? CSV_EXPORT_MAX_ROWS : DataTableQuerySupport.resolveLimit(input.limit());
 
-            List<DataTableRow> rows = dataTableRowService.listRows(baseName, fetchLimit, 0, environmentId);
-
-            List<Map<String, Object>> rowMaps;
-
-            if (input.where() != null && !input.where()
-                .isBlank()) {
-                WhereClause whereClause = parseWhere(input.where());
-
-                rowMaps = rows.stream()
-                    .map(DataTableRow::values)
-                    .filter(values -> matchesWhereClause(values, whereClause))
-                    .limit(fetchLimit)
-                    .toList();
-            } else {
-                rowMaps = rows.stream()
-                    .map(DataTableRow::values)
-                    .toList();
-            }
+            List<Map<String, Object>> rowMaps = DataTableQuerySupport.queryRowMaps(
+                dataTableRowService, baseName, input.where(), fetchLimit, resolveEnvironmentId(invocationContext));
 
             if (exportToCsv) {
                 return exportToCsvAsset(baseName, rowMaps, invocationContext);
@@ -214,50 +196,6 @@ public class QueryDataTableToolCallback implements ToolCallback {
         Long environmentId = invocationContext.environmentId();
 
         return environmentId != null ? environmentId : DEFAULT_ENVIRONMENT_ORDINAL;
-    }
-
-    private int resolveLimit(@Nullable Integer requestedLimit) {
-        if (requestedLimit == null || requestedLimit <= 0) {
-            return MAX_LIMIT;
-        }
-
-        return Math.min(requestedLimit, MAX_LIMIT);
-    }
-
-    private WhereClause parseWhere(String where) throws WhereParseException {
-        int equalsIndex = where.indexOf('=');
-
-        if (equalsIndex < 0) {
-            throw new WhereParseException("Missing '=' operator in: " + where);
-        }
-
-        String columnName = where.substring(0, equalsIndex)
-            .trim();
-        String rawValue = where.substring(equalsIndex + 1)
-            .trim();
-
-        if (columnName.isEmpty()) {
-            throw new WhereParseException("Column name is empty in: " + where);
-        }
-
-        String value = rawValue;
-
-        if ((value.startsWith("'") && value.endsWith("'")) || (value.startsWith("\"") && value.endsWith("\""))) {
-            value = value.substring(1, value.length() - 1);
-        }
-
-        return new WhereClause(columnName, value);
-    }
-
-    private boolean matchesWhereClause(Map<String, Object> values, WhereClause whereClause) {
-        Object actualValue = values.get(whereClause.columnName());
-
-        if (actualValue == null) {
-            return whereClause.value()
-                .isEmpty();
-        }
-
-        return Objects.equals(whereClause.value(), actualValue.toString());
     }
 
     private String toolError(String message) {
@@ -376,15 +314,5 @@ public class QueryDataTableToolCallback implements ToolCallback {
 
     public record QueryDataTableInput(
         String dataTableId, @Nullable String where, @Nullable Integer limit, @Nullable Boolean exportToCsv) {
-    }
-
-    private record WhereClause(String columnName, String value) {
-    }
-
-    private static class WhereParseException extends Exception {
-
-        WhereParseException(String message) {
-            super(message);
-        }
     }
 }
