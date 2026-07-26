@@ -16,12 +16,12 @@
 
 package com.bytechef.automation.configuration.facade;
 
-import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.config.ApplicationProperties;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentMatchers;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Mockito;
@@ -47,44 +47,25 @@ class ProjectErrorWorkflowFacadeTest {
 
     @Test
     void testValidatesBeforeSaving() {
-        Project project = new Project();
-
-        project.setId(1L);
-
-        Mockito.when(projectService.getProject(1L))
-            .thenReturn(project);
-
         projectFacade.updateProjectErrorWorkflow(1L, 5L);
 
         Mockito.verify(errorWorkflowConfigurationValidator)
             .validate(1L, 5L, null);
-        Assertions.assertEquals(5L, project.getErrorProjectWorkflowId());
+        Mockito.verify(projectService)
+            .updateErrorWorkflow(1L, 5L);
     }
 
     @Test
     void testClearingSkipsValidation() {
-        Project project = new Project();
-
-        project.setId(1L);
-        project.setErrorProjectWorkflowId(5L);
-
-        Mockito.when(projectService.getProject(1L))
-            .thenReturn(project);
-
         projectFacade.updateProjectErrorWorkflow(1L, null);
 
         Mockito.verifyNoInteractions(errorWorkflowConfigurationValidator);
-        Assertions.assertNull(project.getErrorProjectWorkflowId());
+        Mockito.verify(projectService)
+            .updateErrorWorkflow(1L, null);
     }
 
     @Test
     void testRejectedReferenceIsNotSaved() {
-        Project project = new Project();
-
-        project.setId(1L);
-
-        Mockito.when(projectService.getProject(1L))
-            .thenReturn(project);
         Mockito.doThrow(new IllegalArgumentException("nope"))
             .when(errorWorkflowConfigurationValidator)
             .validate(1L, 5L, null);
@@ -92,6 +73,6 @@ class ProjectErrorWorkflowFacadeTest {
         Assertions.assertThrows(
             IllegalArgumentException.class, () -> projectFacade.updateProjectErrorWorkflow(1L, 5L));
         Mockito.verify(projectService, Mockito.never())
-            .update(Mockito.any(Project.class));
+            .updateErrorWorkflow(ArgumentMatchers.anyLong(), ArgumentMatchers.any());
     }
 }

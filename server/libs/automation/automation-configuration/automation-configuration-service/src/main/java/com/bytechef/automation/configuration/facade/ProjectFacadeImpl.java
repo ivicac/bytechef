@@ -483,16 +483,12 @@ public class ProjectFacadeImpl implements ProjectFacade {
     @Override
     @PreAuthorize("hasPermission(#projectId, 'Project', 'WORKFLOW_EDIT')")
     public void updateProjectErrorWorkflow(long projectId, @Nullable Long errorProjectWorkflowId) {
-        Project project = projectService.getProject(projectId);
-
         // Clearing needs no validation: there is no reference left to be invalid.
         if (errorProjectWorkflowId != null) {
             errorWorkflowConfigurationValidator.validate(projectId, errorProjectWorkflowId, null);
         }
 
-        project.setErrorProjectWorkflowId(errorProjectWorkflowId);
-
-        projectService.update(project);
+        projectService.updateErrorWorkflow(projectId, errorProjectWorkflowId);
     }
 
     private List<Tag> checkTags(List<Tag> tags) {
