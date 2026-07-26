@@ -6299,10 +6299,10 @@
     "workflowNodeDescription": null
   } ],
   "clusterElements": [ {
+    "name": "telegram",
     "description": "Sends an approval request message to a Telegram chat.",
     "element": { },
     "help": null,
-    "name": "telegram",
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ {
@@ -6338,10 +6338,10 @@
     },
     "workflowNodeDescription": null
   }, {
+    "name": "sendMedia",
     "description": "Sends a media message through a Telegram bot.",
     "element": { },
     "help": null,
-    "name": "sendMedia",
     "outputDefinition": {
       "output": null,
       "outputResponse": {
@@ -9646,10 +9646,10 @@
     },
     "workflowNodeDescription": null
   }, {
+    "name": "sendMessage",
     "description": "Sends a message through a Telegram bot.",
     "element": { },
     "help": null,
-    "name": "sendMessage",
     "outputDefinition": {
       "output": null,
       "outputResponse": {
@@ -12669,6 +12669,28 @@
         "placeholder": null,
         "regex": null,
         "required": true,
+        "type": "STRING"
+      }, {
+        "advancedOption": null,
+        "controlType": "TEXT",
+        "defaultValue": null,
+        "description": "Optional secret token set when registering this bot's webhook (setWebhook) at <public-url>/telegram/interactivity. When set, field-less approval requests use in-place Approve/Discard buttons resolved through that webhook, verified against this token. Use a bot dedicated to approvals, since a bot has a single webhook. Leave empty to deliver approval links to the hosted form.",
+        "displayCondition": null,
+        "exampleValue": null,
+        "expressionEnabled": null,
+        "hidden": null,
+        "label": "Webhook Secret Token",
+        "languageId": null,
+        "maxLength": null,
+        "metadata": { },
+        "minLength": null,
+        "name": "webhookSecretToken",
+        "options": null,
+        "optionsDataSource": null,
+        "optionsLoadedDynamically": null,
+        "placeholder": null,
+        "regex": null,
+        "required": false,
         "type": "STRING"
       } ],
       "refresh": null,

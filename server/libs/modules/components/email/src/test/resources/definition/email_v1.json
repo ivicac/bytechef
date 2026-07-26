@@ -869,10 +869,10 @@
     "workflowNodeDescription": null
   } ],
   "clusterElements": [ {
+    "name": "email",
     "description": "Sends an approval request email via the connected SMTP server.",
     "element": { },
     "help": null,
-    "name": "email",
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ {
@@ -945,7 +945,7 @@
         "optionsLoadedDynamically": null,
         "placeholder": null,
         "regex": null,
-        "required": null,
+        "required": false,
         "type": "STRING"
       } ],
       "label": "To Email",
