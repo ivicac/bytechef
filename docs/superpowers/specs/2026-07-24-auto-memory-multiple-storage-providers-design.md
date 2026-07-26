@@ -1,7 +1,7 @@
 # Auto-memory: multiple storage providers (JDBC, filesystem, AWS)
 
 **Date:** 2026-07-24
-**Status:** Design — approved to proceed
+**Status:** Implemented — JDBC (default), FILESYSTEM and AWS providers, with a cross-provider contract suite
 **Author:** Ivica Cardic
 
 ## Motivation
