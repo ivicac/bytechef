@@ -49,7 +49,8 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * Two endpoints per A2A server secret key:
  * <ul>
  * <li>{@code GET /api/automation/a2a/{secretKey}/.well-known/agent-card.json} — the discovery agent card.</li>
- * <li>{@code POST /api/automation/a2a/{secretKey}} — the JSON-RPC surface; only {@code message/send} is handled.</li>
+ * <li>{@code POST /api/automation/a2a/{secretKey}} — the JSON-RPC surface, handling {@code message/send},
+ * {@code message/stream} (SSE), {@code tasks/get}, and {@code tasks/cancel}.</li>
  * </ul>
  * Both are authenticated by the secret-key API-key stack (see the A2A security configurer). CSRF is intentionally
  * disabled for these endpoints — external A2A clients cannot present CSRF tokens; security is the API key.
