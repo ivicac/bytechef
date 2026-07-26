@@ -91,11 +91,25 @@ END $$;
         <renameColumn tableName="ai_observability_alert_rule_channel" oldColumnName="notification_channel_id"
             newColumnName="notification_id"/>
 
+        <dropTable tableName="workspace_ai_observability_notification_channel"/>
+        <dropTable tableName="ai_observability_notification_channel"/>
+    </changeSet>
+
+    <!-- The foreign key targets the notification table, which is owned by the platform/notification changelog.
+         Module-scoped test contexts load only a subset of changelogs, so notification may be absent there; the
+         tableExists precondition skips the constraint in that case instead of failing the whole migration. -->
+    <changeSet id="20260720000004-4" author="Ivica Cardic">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="notification"/>
+
+            <not>
+                <foreignKeyConstraintExists foreignKeyName="fk_ai_obs_arc_notification"
+                    foreignKeyTableName="ai_observability_alert_rule_channel"/>
+            </not>
+        </preConditions>
+
         <addForeignKeyConstraint constraintName="fk_ai_obs_arc_notification"
             baseTableName="ai_observability_alert_rule_channel" baseColumnNames="notification_id"
             referencedTableName="notification" referencedColumnNames="id" onDelete="CASCADE"/>
-
-        <dropTable tableName="workspace_ai_observability_notification_channel"/>
-        <dropTable tableName="ai_observability_notification_channel"/>
     </changeSet>
 </databaseChangeLog>
