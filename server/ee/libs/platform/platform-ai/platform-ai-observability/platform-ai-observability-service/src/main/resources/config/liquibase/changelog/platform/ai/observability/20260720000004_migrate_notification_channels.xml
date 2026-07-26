@@ -7,11 +7,11 @@
     <!-- Migrate the legacy AI-observability notification channels onto the central platform-notification registry:
          each channel row becomes a notification row (type remap: channel WEBHOOK=0/EMAIL=1/SLACK=2 ->
          notification EMAIL=0/WEBHOOK=1/SLACK=2; config JSON remapped onto the notification settings keys), its
-         workspace membership moves to workspace_notification, and ai_observability_alert_rule_channel is
-         repointed at the new notification ids. Lossy by design: multi-recipient email channels collapse to the
-         first recipient (notification email settings hold one address) and custom webhook headers are dropped
-         (the central webhook sender does not use them). Runs after platform/notification (master.xml include
-         order), so notification + workspace_notification already exist. -->
+         workspace membership moves onto the new notification row's workspace_id (null = global), and
+         ai_observability_alert_rule_channel is repointed at the new notification ids. Lossy by design:
+         multi-recipient email channels collapse to the first recipient (notification email settings hold one
+         address) and custom webhook headers are dropped (the central webhook sender does not use them). Runs
+         after platform/notification (master.xml include order), so notification already carries workspace_id. -->
     <changeSet id="20260720000004-1" author="Ivica Cardic">
         <preConditions onFail="MARK_RAN">
             <foreignKeyConstraintExists foreignKeyName="fk_ai_obs_arc_notif_channel"
@@ -60,20 +60,18 @@ BEGIN
             settings := jsonb_build_object('slackWebhookUrl', config->>'webhookUrl')::text;
         END IF;
 
-        INSERT INTO notification (
-            name, type, settings, created_by, created_date, last_modified_by, last_modified_date, version)
-        VALUES (channel.name, notification_type, settings, 'system', now(), 'system', now(), 1)
-        RETURNING id INTO new_notification_id;
-
         SELECT workspace_id INTO target_workspace_id
         FROM workspace_ai_observability_notification_channel
         WHERE ai_observability_notification_channel_id = channel.id
         LIMIT 1;
 
-        IF target_workspace_id IS NOT NULL THEN
-            INSERT INTO workspace_notification (workspace_id, notification_id, created_date, version)
-            VALUES (target_workspace_id, new_notification_id, now(), 0);
-        END IF;
+        -- target_workspace_id stays NULL when the channel had no workspace membership, which is exactly the
+        -- global notification that channel should become.
+        INSERT INTO notification (
+            name, type, settings, workspace_id, created_by, created_date, last_modified_by, last_modified_date,
+            version)
+        VALUES (channel.name, notification_type, settings, target_workspace_id, 'system', now(), 'system', now(), 1)
+        RETURNING id INTO new_notification_id;
 
         UPDATE ai_observability_alert_rule_channel
         SET notification_channel_id = new_notification_id
