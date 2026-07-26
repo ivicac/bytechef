@@ -3393,6 +3393,7 @@ export type Mutation = {
   cancelWorkflowChatTurn: Scalars['Boolean']['output'];
   createA2aProject?: Maybe<A2aProject>;
   createA2aServer?: Maybe<A2aServer>;
+  createAdditionalFilesInSkill: AiSkill;
   createAiAgentEvalScenario: AiAgentEvalScenario;
   createAiAgentEvalTest: AiAgentEvalTest;
   createAiAgentJudge: AiAgentJudge;
@@ -3640,6 +3641,7 @@ export type Mutation = {
   /** Remove a user connector (cascades its tool config). Idempotent — returns false when not found/owned. */
   removeAiHubUserConnector: Scalars['Boolean']['output'];
   removeDataTableColumn: Scalars['Boolean']['output'];
+  removeFileInSkill: AiSkill;
   /** Remove a user from a workspace. Requires ADMIN workspace role. */
   removeWorkspaceUser: Scalars['Boolean']['output'];
   renameDataTable: Scalars['Boolean']['output'];
@@ -3913,6 +3915,12 @@ export type MutationCreateA2aProjectArgs = {
 
 export type MutationCreateA2aServerArgs = {
   input: CreateA2aServerInput;
+};
+
+
+export type MutationCreateAdditionalFilesInSkillArgs = {
+  additionalFiles: Scalars['Map']['input'];
+  id: Scalars['ID']['input'];
 };
 
 
@@ -4855,6 +4863,12 @@ export type MutationRemoveAiHubUserConnectorArgs = {
 
 export type MutationRemoveDataTableColumnArgs = {
   input: RemoveColumnInput;
+};
+
+
+export type MutationRemoveFileInSkillArgs = {
+  id: Scalars['ID']['input'];
+  path: Scalars['String']['input'];
 };
 
 
