@@ -1030,6 +1030,31 @@ when an `openapi.yaml` changes. The surrounding `docs/`, `gradlew`, `pom.xml` sc
   (`workflow.alert` eventType) / SlackNotificationClient. Semantics pinned by
   `WorkflowAlertEvaluatorTest`.
 
+### Workflow error handler
+
+When an automation run ends `FAILED`, `ErrorWorkflowJobStatusApplicationEventListener`
+(platform-coordinator, `@Order(300)`, after cost and workflow alerts) dispatches the configured
+error workflow through `PrincipalJobFacade.createJob`. Config is a nullable
+`project.error_project_workflow_id` (set via the `updateProjectErrorWorkflow` GraphQL mutation)
+with a per-workflow override + a separate `error_workflow_disabled` flag on `project_workflow`
+(null already means inherit) — **those two columns exist and the resolver honours them, but there
+is no API to set them yet; only the project-level mutation is wired.** The handler must live in the
+same project and carry a `workflow/newWorkflowError` trigger; both are validated when configured
+(`ErrorWorkflowConfigurationValidator`), not at failure time. `errorHandlerFor` job metadata caps
+recursion at depth 1 — a failing handler does not spawn another; a subflow child job is also
+skipped (only the top-level failed run dispatches). Admission gates are deliberately not bypassed,
+so a failure storm is bounded by plan limits, not deduped — N failures can produce up to N handler
+runs. This layers on the `on-error` task dispatcher rather than competing with it: `on-error` is an
+intra-workflow catch (a handled error ends the job `COMPLETED`), so an error workflow only fires on
+a genuinely uncaught, inter-workflow failure. **Monolith only** — resolution needs
+`ProjectWorkflowService` lookups, and `RemoteProjectWorkflowServiceClient` is all
+`UnsupportedOperationException` stubs, so distributed EE can't resolve the handler at all (same
+root cause as orphaned-job recovery); the listener detects this, logs once, and records the
+`skipped_unsupported` outcome instead of warning on every failed job. Payload's `execution.mode`
+and `execution.resumeOf` fields are reserved but always `null` — nothing populates those
+job-metadata keys yet. Metric: `bytechef_error_workflow_dispatch{outcome=dispatched|
+skipped_recursion|skipped_subflow_child|skipped_no_config|skipped_unsupported|failed}`.
+
 ## Public URL Signing
 
 - `/file-entries/{id}/content` is intentionally unauthenticated (serves webhook outputs to anonymous callers). As of the 2026-05-18 signing rollout, the preferred form is an HMAC-SHA256 signed token (`v1.<exp>.<payload>.<sig>`) minted via `FileEntryTokens.toSignedToken`. Legacy unsigned `FileEntry.toId()` IDs are still accepted while `bytechef.file-storage.signed-url.required=false` (default).

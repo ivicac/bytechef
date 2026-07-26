@@ -33,6 +33,8 @@
     "...workflow-chats",
     "---Human in the Loop---",
     "human-in-the-loop",
+    "---Error Workflows---",
+    "error-workflows",
     "---MCP Servers---",
     "mcp-servers",
     "---A2A Servers---",
