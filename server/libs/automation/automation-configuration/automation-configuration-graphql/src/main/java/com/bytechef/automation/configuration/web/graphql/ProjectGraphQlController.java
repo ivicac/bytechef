@@ -31,6 +31,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.BatchMapping;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
@@ -97,6 +98,15 @@ public class ProjectGraphQlController {
         @Argument String id, @Argument Long workspaceId, @Argument boolean sharedProject) {
 
         return projectFacade.importProjectTemplate(id, workspaceId, sharedProject);
+    }
+
+    @MutationMapping(name = "updateProjectErrorWorkflow")
+    public Boolean updateProjectErrorWorkflow(
+        @Argument long projectId, @Argument @Nullable Long errorProjectWorkflowId) {
+
+        projectFacade.updateProjectErrorWorkflow(projectId, errorProjectWorkflowId);
+
+        return true;
     }
 
     @QueryMapping(name = "project")
