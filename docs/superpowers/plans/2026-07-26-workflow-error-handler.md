@@ -1431,9 +1431,174 @@ project, depth-1 recursion cap, no failure-storm dedup."
 
 ---
 
+### Task 9: Configuration API
+
+This is `ErrorWorkflowConfigurationValidator`'s production caller. Until this task lands, Task 4's validator is
+correct but unreachable and the columns are settable only by direct SQL.
+
+**Files:**
+- Modify: `server/libs/automation/automation-configuration/automation-configuration-api/src/main/java/com/bytechef/automation/configuration/facade/ProjectFacade.java`
+- Modify: `server/libs/automation/automation-configuration/automation-configuration-service/src/main/java/com/bytechef/automation/configuration/facade/ProjectFacadeImpl.java`
+- Modify: `server/libs/automation/automation-configuration/automation-configuration-graphql/src/main/java/com/bytechef/automation/configuration/web/graphql/ProjectGraphQlController.java`
+- Modify: `server/libs/automation/automation-configuration/automation-configuration-graphql/src/main/resources/graphql/project.graphqls`
+- Test: `server/libs/automation/automation-configuration/automation-configuration-service/src/test/java/com/bytechef/automation/configuration/facade/ProjectErrorWorkflowFacadeTest.java`
+
+**Interfaces:**
+- Consumes: `ErrorWorkflowConfigurationValidator.validate(long projectId, long targetProjectWorkflowId, Long configuredOnProjectWorkflowId)` from Task 4; `Project.setErrorProjectWorkflowId(Long)` from Task 1.
+- Produces: `ProjectFacade.updateProjectErrorWorkflow(long projectId, @Nullable Long errorProjectWorkflowId)`.
+
+- [ ] **Step 1: Write the failing test**
+
+```java
+@ExtendWith(MockitoExtension.class)
+class ProjectErrorWorkflowFacadeTest {
+
+    @Mock
+    private ErrorWorkflowConfigurationValidator errorWorkflowConfigurationValidator;
+
+    @Mock
+    private ProjectService projectService;
+
+    @InjectMocks
+    private ProjectFacadeImpl projectFacade;
+
+    @Test
+    void testValidatesBeforeSaving() {
+        Project project = new Project();
+
+        project.setId(1L);
+
+        Mockito.when(projectService.getProject(1L))
+            .thenReturn(project);
+
+        projectFacade.updateProjectErrorWorkflow(1L, 5L);
+
+        Mockito.verify(errorWorkflowConfigurationValidator)
+            .validate(1L, 5L, null);
+        Assertions.assertEquals(5L, project.getErrorProjectWorkflowId());
+    }
+
+    @Test
+    void testClearingSkipsValidation() {
+        Project project = new Project();
+
+        project.setId(1L);
+        project.setErrorProjectWorkflowId(5L);
+
+        Mockito.when(projectService.getProject(1L))
+            .thenReturn(project);
+
+        projectFacade.updateProjectErrorWorkflow(1L, null);
+
+        Mockito.verifyNoInteractions(errorWorkflowConfigurationValidator);
+        Assertions.assertNull(project.getErrorProjectWorkflowId());
+    }
+
+    @Test
+    void testRejectedReferenceIsNotSaved() {
+        Project project = new Project();
+
+        project.setId(1L);
+
+        Mockito.when(projectService.getProject(1L))
+            .thenReturn(project);
+        Mockito.doThrow(new IllegalArgumentException("nope"))
+            .when(errorWorkflowConfigurationValidator)
+            .validate(1L, 5L, null);
+
+        Assertions.assertThrows(
+            IllegalArgumentException.class, () -> projectFacade.updateProjectErrorWorkflow(1L, 5L));
+        Mockito.verify(projectService, Mockito.never())
+            .updateProject(Mockito.any());
+    }
+}
+```
+
+- [ ] **Step 2: Run it to verify it fails**
+
+Run: `./gradlew :server:libs:automation:automation-configuration:automation-configuration-service:test --tests "*ProjectErrorWorkflowFacadeTest*" > /tmp/t9.log 2>&1; echo $?`
+Expected: non-zero, `cannot find symbol: method updateProjectErrorWorkflow`.
+
+- [ ] **Step 3: Add the facade method**
+
+On `ProjectFacade`:
+
+```java
+    void updateProjectErrorWorkflow(long projectId, @Nullable Long errorProjectWorkflowId);
+```
+
+On `ProjectFacadeImpl` (inject `ErrorWorkflowConfigurationValidator` through the constructor alongside the existing
+dependencies):
+
+```java
+    @Override
+    public void updateProjectErrorWorkflow(long projectId, @Nullable Long errorProjectWorkflowId) {
+        Project project = projectService.getProject(projectId);
+
+        // Clearing needs no validation: there is no reference left to be invalid.
+        if (errorProjectWorkflowId != null) {
+            errorWorkflowConfigurationValidator.validate(projectId, errorProjectWorkflowId, null);
+        }
+
+        project.setErrorProjectWorkflowId(errorProjectWorkflowId);
+
+        projectService.updateProject(project);
+    }
+```
+
+- [ ] **Step 4: Run the test to verify it passes**
+
+Run: `./gradlew :server:libs:automation:automation-configuration:automation-configuration-service:test --tests "*ProjectErrorWorkflowFacadeTest*" > /tmp/t9.log 2>&1; echo $?`
+Expected: `0`.
+
+- [ ] **Step 5: Expose it over GraphQL**
+
+In `project.graphqls`, add to the `Mutation` type:
+
+```graphql
+    updateProjectErrorWorkflow(projectId: ID!, errorProjectWorkflowId: ID): Boolean
+```
+
+In `ProjectGraphQlController`:
+
+```java
+    @MutationMapping
+    public Boolean updateProjectErrorWorkflow(
+        @Argument long projectId, @Argument @Nullable Long errorProjectWorkflowId) {
+
+        projectFacade.updateProjectErrorWorkflow(projectId, errorProjectWorkflowId);
+
+        return true;
+    }
+```
+
+- [ ] **Step 6: Verify the module still builds and its tests pass**
+
+Run: `./gradlew :server:libs:automation:automation-configuration:automation-configuration-graphql:test :server:libs:automation:automation-configuration:automation-configuration-service:test > /tmp/t9b.log 2>&1; echo $?`
+Expected: `0`.
+
+- [ ] **Step 7: Commit**
+
+```bash
+./gradlew spotlessApply
+git add server/libs/automation/automation-configuration
+git commit -m "Add the project error-workflow configuration API
+
+Gives ErrorWorkflowConfigurationValidator its production caller: the facade
+validates any non-null reference before saving, so a bad reference is rejected at
+configuration time rather than surfacing as a second failure while the first is
+being handled. Clearing skips validation because there is no reference left to be
+invalid."
+```
+
+---
+
 ## Not in this plan
 
-- **The configuration API, and therefore the validator's caller.** Tasks 1–7 make the handler *fire*; nothing here lets a user *set* `error_project_workflow_id`. `ErrorWorkflowConfigurationValidator` (Task 4) is written and unit-tested but has no production caller until that API exists — deliberate, and called out here so a reviewer does not mistake it for an oversight. The follow-up plan adds the facade methods that call `validate(...)`, the GraphQL mutations, and the editor surface. Until then the columns are settable only directly in the database, which is enough to run the integration test in Task 7 but is not a shippable feature.
-- **Client UI**, which comes with that same follow-up.
+- **The per-workflow override API.** Task 9 adds the project-level setter only. Setting `error_project_workflow_id`
+  or `error_workflow_disabled` on an individual `project_workflow` still requires direct SQL. The resolver (Task 3)
+  reads both, and the integration test (Task 7) exercises the project-level path, so the override is implemented and
+  tested but not yet settable through an API.
+- **Client UI.** No editor surface for picking the error workflow; configuration is GraphQL-only after Task 9.
 - **Stop And Error action** — out of scope per the spec.
 - **Cross-project and embedded handlers, failure-storm dedup** — out of scope per the spec.
