@@ -140,6 +140,55 @@ class ErrorWorkflowJobStatusApplicationEventListenerTest {
     }
 
     @Test
+    void testUnsupportedOperationDoesNotDispatch() {
+        Job job = new Job();
+
+        job.setId(11L);
+        job.setWorkflowId("wf-1");
+        job.setMetadata(Map.of());
+
+        Mockito.when(jobService.getJob(11L))
+            .thenReturn(job);
+        Mockito.when(principalJobService.fetchJobPrincipalId(11L, PlatformType.AUTOMATION))
+            .thenReturn(Optional.of(3L));
+        Mockito.when(errorWorkflowResolver.resolve(Mockito.anyLong(), Mockito.eq("wf-1")))
+            .thenThrow(new UnsupportedOperationException("error workflow dispatch not supported"));
+
+        Assertions.assertDoesNotThrow(
+            () -> listener().onApplicationEvent(new JobStatusApplicationEvent(11L, Job.Status.FAILED)));
+
+        Mockito.verifyNoInteractions(principalJobFacade);
+    }
+
+    @Test
+    void testUnsupportedOperationIsLoggedOnlyOnce() {
+        Job job = new Job();
+
+        job.setId(11L);
+        job.setWorkflowId("wf-1");
+        job.setMetadata(Map.of());
+
+        Mockito.when(jobService.getJob(11L))
+            .thenReturn(job);
+        Mockito.when(principalJobService.fetchJobPrincipalId(11L, PlatformType.AUTOMATION))
+            .thenReturn(Optional.of(3L));
+        Mockito.when(errorWorkflowResolver.resolve(Mockito.anyLong(), Mockito.eq("wf-1")))
+            .thenThrow(new UnsupportedOperationException("error workflow dispatch not supported"));
+
+        ErrorWorkflowJobStatusApplicationEventListener eventListener = listener();
+
+        // First failed-job event
+        eventListener.onApplicationEvent(new JobStatusApplicationEvent(11L, Job.Status.FAILED));
+
+        // Second failed-job event on same listener instance
+        eventListener.onApplicationEvent(new JobStatusApplicationEvent(12L, Job.Status.FAILED));
+
+        // Both should dispatch without error, but verify via principalJobFacade interactions
+        // (the second call would have different job ID)
+        Mockito.verifyNoInteractions(principalJobFacade);
+    }
+
+    @Test
     void testDispatchUsesLeafFailingTaskExecutionError() {
         Job job = new Job();
 

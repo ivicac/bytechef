@@ -33,6 +33,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -51,6 +52,7 @@ public class ErrorWorkflowJobStatusApplicationEventListener implements Applicati
 
     private static final Logger log = LoggerFactory.getLogger(ErrorWorkflowJobStatusApplicationEventListener.class);
 
+    private final AtomicBoolean unsupportedOperationLogged = new AtomicBoolean(false);
     private final ErrorWorkflowPayloadFactory errorWorkflowPayloadFactory;
     private final ErrorWorkflowResolver errorWorkflowResolver;
     private final JobService jobService;
@@ -86,6 +88,14 @@ public class ErrorWorkflowJobStatusApplicationEventListener implements Applicati
 
         try {
             dispatch(jobStatusApplicationEvent.getJobId());
+        } catch (UnsupportedOperationException exception) {
+            record("skipped_unsupported");
+
+            if (unsupportedOperationLogged.compareAndSet(false, true)) {
+                log.warn(
+                    "Error workflow dispatch is not supported in this deployment topology; "
+                        + "the project-workflow service is a remote stub");
+            }
         } catch (Exception exception) {
             record("failed");
 
