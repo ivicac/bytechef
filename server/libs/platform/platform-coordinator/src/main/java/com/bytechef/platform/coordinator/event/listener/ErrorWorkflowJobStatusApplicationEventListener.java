@@ -25,7 +25,6 @@ import com.bytechef.atlas.execution.dto.JobParametersDTO;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.automation.configuration.domain.ErrorWorkflowDispatch;
-import com.bytechef.automation.configuration.service.ErrorWorkflowResolver;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.coordinator.ErrorWorkflowDispatchCounter;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
@@ -140,7 +139,7 @@ public class ErrorWorkflowJobStatusApplicationEventListener implements Applicati
             job, fetchFailingTaskExecution(jobId),
             new ErrorWorkflowPayloadFactory.ErrorWorkflowContext(
                 dispatch.projectId(), dispatch.failedProjectWorkflowId(), dispatch.failedWorkflowId(),
-                dispatch.failedWorkflowLabel(), String.valueOf(job.getMetadata("environment"))));
+                dispatch.failedWorkflowLabel(), dispatch.environment()));
 
         JobParametersDTO jobParametersDTO = new JobParametersDTO(
             dispatch.handlerWorkflowId(), inputs, Map.of(ERROR_HANDLER_FOR, String.valueOf(jobId)));

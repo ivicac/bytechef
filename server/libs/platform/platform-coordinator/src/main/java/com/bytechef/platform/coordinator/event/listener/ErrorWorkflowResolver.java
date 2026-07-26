@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bytechef.automation.configuration.service;
+package com.bytechef.platform.coordinator.event.listener;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
@@ -22,18 +22,26 @@ import com.bytechef.automation.configuration.domain.ErrorWorkflowDispatch;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.service.ProjectDeploymentService;
+import com.bytechef.automation.configuration.service.ProjectService;
+import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Optional;
-import org.springframework.stereotype.Service;
 
 /**
  * Resolves which workflow handles a failed run: the failing workflow's own override, else the project default, else
  * none. An explicit disable on the workflow beats an inherited project default, which is why the disable flag is
  * separate from the nullable reference.
+ * <p>
+ * Only calls interface types ({@code ProjectService}, {@code ProjectDeploymentService}, {@code ProjectWorkflowService},
+ * {@code WorkflowService}) that live in {@code automation-configuration-api} (and {@code atlas-configuration}), so it
+ * can live in {@code platform-coordinator} and be wired identically in both the monolith (real service impls) and
+ * distributed EE (remote clients) -- unlike a dependency on {@code automation-configuration-service}, which pulls
+ * concrete JDBC-backed {@code @Service} classes onto the datasource-less coordinator's classpath.
  *
  * @author Ivica Cardic
  */
-@Service
 public class ErrorWorkflowResolver {
 
     private final ProjectDeploymentService projectDeploymentService;
@@ -41,7 +49,7 @@ public class ErrorWorkflowResolver {
     private final ProjectWorkflowService projectWorkflowService;
     private final WorkflowService workflowService;
 
-    @SuppressFBWarnings("EI")
+    @SuppressFBWarnings("EI2")
     public ErrorWorkflowResolver(
         ProjectDeploymentService projectDeploymentService, ProjectService projectService,
         ProjectWorkflowService projectWorkflowService, WorkflowService workflowService) {
@@ -89,9 +97,11 @@ public class ErrorWorkflowResolver {
 
         Workflow failedWorkflow = workflowService.getWorkflow(failedWorkflowId);
 
+        Environment environment = projectDeployment.getEnvironment();
+
         return Optional.of(
             new ErrorWorkflowDispatch(
                 target.getWorkflowId(), projectId, failingProjectWorkflow.getId(), failedWorkflowId,
-                failedWorkflow.getLabel()));
+                failedWorkflow.getLabel(), environment == null ? null : environment.name()));
     }
 }

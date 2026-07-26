@@ -23,7 +23,6 @@ import com.bytechef.atlas.execution.dto.JobParametersDTO;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.automation.configuration.domain.ErrorWorkflowDispatch;
-import com.bytechef.automation.configuration.service.ErrorWorkflowResolver;
 import com.bytechef.error.ExecutionError;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
@@ -149,7 +148,7 @@ class ErrorWorkflowJobStatusApplicationEventListenerTest {
         job.setMetadata(Map.of());
 
         ErrorWorkflowDispatch dispatch =
-            new ErrorWorkflowDispatch("handler-wf", 1L, 2L, "wf-1", "Failing Workflow");
+            new ErrorWorkflowDispatch("handler-wf", 1L, 2L, "wf-1", "Failing Workflow", "STAGING");
 
         // The ancestor task execution is marked FAILED by TaskExecutionErrorEventListener but its error is left
         // null -- only the leaf carries the real cause.
@@ -198,6 +197,12 @@ class ErrorWorkflowJobStatusApplicationEventListenerTest {
 
         Assertions.assertEquals("leaf failure", error.get("message"));
         Assertions.assertEquals("leafNode", execution.get("lastTaskExecuted"));
+
+        // The environment must come from the dispatch (ultimately the ProjectDeployment), never from job metadata
+        // -- job.setMetadata(Map.of()) above carries no "environment" key, so a regression back to
+        // String.valueOf(job.getMetadata("environment")) would show up here as the literal string "null".
+        Assertions.assertEquals("STAGING", jobParametersDTO.getInputs()
+            .get("environment"));
     }
 
     private ErrorWorkflowJobStatusApplicationEventListener listener() {

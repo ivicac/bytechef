@@ -13,7 +13,6 @@ dependencies {
     implementation(project(":server:libs:atlas:atlas-execution:atlas-execution-service"))
     implementation(project(":server:libs:atlas:atlas-worker:atlas-worker-impl"))
     implementation(project(":server:libs:automation:automation-configuration:automation-configuration-api"))
-    implementation(project(":server:libs:automation:automation-configuration:automation-configuration-service"))
     implementation(project(":server:libs:core:commons:commons-util"))
     implementation(project(":server:libs:core:message:message-broker:message-broker-memory"))
     implementation(project(":server:libs:core:tenant:tenant-api"))

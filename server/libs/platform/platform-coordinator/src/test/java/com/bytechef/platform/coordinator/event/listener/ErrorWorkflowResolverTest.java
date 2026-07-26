@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bytechef.automation.configuration.service;
+package com.bytechef.platform.coordinator.event.listener;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
@@ -22,6 +22,10 @@ import com.bytechef.automation.configuration.domain.ErrorWorkflowDispatch;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.service.ProjectDeploymentService;
+import com.bytechef.automation.configuration.service.ProjectService;
+import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.platform.configuration.domain.Environment;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -59,6 +63,7 @@ class ErrorWorkflowResolverTest {
         ProjectDeployment projectDeployment = new ProjectDeployment();
 
         projectDeployment.setProjectId(1L);
+        projectDeployment.setEnvironment(Environment.STAGING);
 
         Mockito.lenient()
             .when(projectDeploymentService.getProjectDeployment(1L))
@@ -136,6 +141,21 @@ class ErrorWorkflowResolverTest {
 
         Assertions.assertTrue(errorWorkflowResolver.resolve(1L, "wf-1")
             .isEmpty());
+    }
+
+    @Test
+    void testDispatchCarriesRealEnvironmentFromProjectDeployment() {
+        Mockito.when(projectWorkflowService.getWorkflowProjectWorkflow("wf-1"))
+            .thenReturn(projectWorkflow(10L, 99L, false));
+        Mockito.when(projectWorkflowService.getProjectWorkflow(99L))
+            .thenReturn(projectWorkflow(99L, null, false));
+
+        Optional<ErrorWorkflowDispatch> result = errorWorkflowResolver.resolve(1L, "wf-1");
+
+        // The environment must be the deployment's real value ("STAGING", per setUp), never the literal string
+        // "null" that String.valueOf(job.getMetadata("environment")) would produce.
+        Assertions.assertEquals("STAGING", result.orElseThrow()
+            .environment());
     }
 
     private static Project project(Long errorProjectWorkflowId) {

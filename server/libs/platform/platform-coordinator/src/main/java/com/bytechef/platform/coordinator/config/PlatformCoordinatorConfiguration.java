@@ -16,17 +16,21 @@
 
 package com.bytechef.platform.coordinator.config;
 
+import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
-import com.bytechef.automation.configuration.service.ErrorWorkflowResolver;
+import com.bytechef.automation.configuration.service.ProjectDeploymentService;
+import com.bytechef.automation.configuration.service.ProjectService;
+import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.message.broker.MessageBroker;
 import com.bytechef.platform.coordinator.ErrorWorkflowDispatchCounter;
 import com.bytechef.platform.coordinator.event.listener.ConcurrencySlotReleaseApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.ErrorWorkflowJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.ErrorWorkflowPayloadFactory;
+import com.bytechef.platform.coordinator.event.listener.ErrorWorkflowResolver;
 import com.bytechef.platform.coordinator.event.listener.NotificationJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.SseStreamApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.SuspendedTaskStateJobDeletionListener;
@@ -218,6 +222,15 @@ public class PlatformCoordinatorConfiguration {
         return new ApprovalEscalationMonitor(
             after, approvalTokensObjectProvider.getIfAvailable(), jobService, notificationHandlerRegistry,
             notificationSenderRegistry, notificationService, publicUrl, taskExecutionService, tenantService);
+    }
+
+    @Bean
+    ErrorWorkflowResolver errorWorkflowResolver(
+        ProjectDeploymentService projectDeploymentService, ProjectService projectService,
+        ProjectWorkflowService projectWorkflowService, WorkflowService workflowService) {
+
+        return new ErrorWorkflowResolver(
+            projectDeploymentService, projectService, projectWorkflowService, workflowService);
     }
 
     @Bean

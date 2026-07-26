@@ -20,10 +20,14 @@ package com.bytechef.automation.configuration.domain;
  * Everything the coordinator needs to dispatch a handler: the workflow id to submit, plus the failed run's identity for
  * the payload. The {@code failed*} fields describe the run that failed, not the handler — the payload's workflow block
  * identifies the failed workflow, as it does in n8n.
+ * <p>
+ * {@code environment} is read from the failed run's {@code ProjectDeployment} -- never from job metadata, which nothing
+ * in this codebase populates -- so it carries a real value (or {@code null}) rather than the literal string
+ * {@code "null"}.
  *
  * @author Ivica Cardic
  */
 public record ErrorWorkflowDispatch(
     String handlerWorkflowId, long projectId, long failedProjectWorkflowId, String failedWorkflowId,
-    String failedWorkflowLabel) {
+    String failedWorkflowLabel, String environment) {
 }

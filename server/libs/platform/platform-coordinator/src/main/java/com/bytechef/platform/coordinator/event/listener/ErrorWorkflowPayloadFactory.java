@@ -67,7 +67,9 @@ public class ErrorWorkflowPayloadFactory {
         Map<String, Object> execution = new LinkedHashMap<>();
 
         execution.put("jobId", String.valueOf(job.getId()));
-        execution.put("url", publicUrl + "/automation/executions/" + job.getId());
+        execution.put(
+            "url", publicUrl == null || publicUrl.isBlank() ? null : publicUrl + "/automation/executions/"
+                + job.getId());
         execution.put("error", error);
         execution.put("lastTaskExecuted", lastTaskExecution == null ? null : lastTaskExecution.getName());
         execution.put("mode", job.getMetadata("mode"));

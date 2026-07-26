@@ -123,6 +123,38 @@ class ErrorWorkflowPayloadFactoryTest {
         Assertions.assertNull(error.get("stackTrace"));
     }
 
+    @Test
+    void testUrlIsNullWhenPublicUrlIsNull() {
+        Job job = new Job();
+
+        job.setId(11L);
+
+        Map<String, Object> payload = new ErrorWorkflowPayloadFactory(null)
+            .build(job, null, context());
+
+        Map<String, Object> execution = (Map<String, Object>) payload.get("execution");
+
+        // The "url" key must stay present -- it's a pinned part of the payload's public contract -- but its value
+        // must be null, never the literal string "null" that plain concatenation would have produced.
+        Assertions.assertTrue(execution.containsKey("url"));
+        Assertions.assertNull(execution.get("url"));
+    }
+
+    @Test
+    void testUrlIsNullWhenPublicUrlIsBlank() {
+        Job job = new Job();
+
+        job.setId(11L);
+
+        Map<String, Object> payload = new ErrorWorkflowPayloadFactory("   ")
+            .build(job, null, context());
+
+        Map<String, Object> execution = (Map<String, Object>) payload.get("execution");
+
+        Assertions.assertTrue(execution.containsKey("url"));
+        Assertions.assertNull(execution.get("url"));
+    }
+
     private static ErrorWorkflowPayloadFactory.ErrorWorkflowContext context() {
         return new ErrorWorkflowPayloadFactory.ErrorWorkflowContext(
             1L, 2L, "wf-1", "My Workflow", "PRODUCTION");
