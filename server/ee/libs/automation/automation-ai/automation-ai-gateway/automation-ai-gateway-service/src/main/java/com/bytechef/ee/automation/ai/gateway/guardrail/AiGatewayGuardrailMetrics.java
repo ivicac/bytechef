@@ -7,10 +7,13 @@
 
 package com.bytechef.ee.automation.ai.gateway.guardrail;
 
+import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.MeterRegistry;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
@@ -26,12 +29,17 @@ import org.springframework.stereotype.Component;
  * @author Ivica Cardic
  */
 @Component
+@ConditionalOnEEVersion
+@ConditionalOnProperty(prefix = "bytechef.ai.gateway", name = "enabled", havingValue = "true")
 public class AiGatewayGuardrailMetrics {
 
     static final String COUNTER_NAME = "bytechef_ai_gateway_guardrail";
 
     private final @Nullable MeterRegistry meterRegistry;
 
+    // Two constructors are declared, so Spring cannot pick an autowire candidate implicitly and would fall back to a
+    // (non-existent) default constructor. @Autowired marks this one as the container's entry point.
+    @Autowired
     public AiGatewayGuardrailMetrics(ObjectProvider<MeterRegistry> meterRegistryProvider) {
         this(meterRegistryProvider.getIfAvailable());
     }

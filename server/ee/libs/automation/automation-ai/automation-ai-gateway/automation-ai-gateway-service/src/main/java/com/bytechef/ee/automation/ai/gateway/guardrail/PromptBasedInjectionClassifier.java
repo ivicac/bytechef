@@ -13,6 +13,7 @@ import com.bytechef.ee.platform.ai.gateway.guardrail.AiGatewayInjectionClassifie
 import com.bytechef.ee.platform.ai.gateway.provider.AiGatewayChatModelFactory;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayModelService;
 import com.bytechef.ee.platform.ai.gateway.service.AiGatewayProviderService;
+import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Locale;
 import java.util.Optional;
@@ -35,6 +36,7 @@ import org.springframework.stereotype.Component;
  * @author Ivica Cardic
  */
 @Component
+@ConditionalOnEEVersion
 @ConditionalOnProperty(prefix = "bytechef.ai.gateway.guardrails", name = "injection-model")
 public class PromptBasedInjectionClassifier implements AiGatewayInjectionClassifier {
 

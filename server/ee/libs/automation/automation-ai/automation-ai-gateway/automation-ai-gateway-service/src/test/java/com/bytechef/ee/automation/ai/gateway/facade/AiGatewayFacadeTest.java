@@ -407,8 +407,12 @@ class AiGatewayFacadeTest {
 
         ChatModel chatModel = mock(ChatModel.class);
 
+        // mockChatResponse() itself stubs mocks, so it must be built before when(...) opens a stubbing, otherwise
+        // Mockito reports an UnfinishedStubbingException for the nested stubbing.
+        ChatResponse chatResponse = mockChatResponse("Contact bob@acme.io");
+
         when(aiGatewayChatModelFactory.getChatModel(any())).thenReturn(chatModel);
-        when(chatModel.call(any(Prompt.class))).thenReturn(mockChatResponse("Contact bob@acme.io"));
+        when(chatModel.call(any(Prompt.class))).thenReturn(chatResponse);
         when(aiGatewayCostCalculator.calculateCost(any(), any(Integer.class), any(Integer.class)))
             .thenReturn(BigDecimal.ZERO);
 
