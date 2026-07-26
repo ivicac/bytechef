@@ -112,11 +112,25 @@ auditable choice.
 `NotificationJobStatusApplicationEventListener`, at `@Order(300)` — after the cost listener (100) and
 workflow alerts (200), so dispatch never delays alerting. Both are configured, alerts fire first.
 
-`platform-coordinator` gains a dependency on `platform-workflow-execution-api` only. The monolith
-binds the impl; distributed binds `RemotePrincipalJobFacadeClient`, whose `createJob` is a real REST
-call rather than an `UnsupportedOperationException` stub. **This feature therefore works in both
-topologies** — unlike orphaned-job recovery, which is monolith-only precisely because its finders are
-stubs.
+`platform-coordinator` gains dependencies on `platform-workflow-execution-api` and
+`automation-configuration-api` — **interfaces only**. Depending on `automation-configuration-service`
+instead would put a second set of `ProjectService` / `ProjectDeploymentService` /
+`ProjectWorkflowService` beans on the deliberately datasource-less `coordinator-app`, which already
+binds those interfaces from `automation-configuration-remote-client`, and the app would fail to boot.
+
+**The feature is monolith-only.** An earlier draft of this spec claimed it worked in both topologies,
+reasoning from `RemotePrincipalJobFacadeClient.createJob` being a real REST call rather than a stub.
+That reasoning was incomplete: dispatch is only the last step, and resolution comes first.
+`RemoteProjectWorkflowServiceClient` is entirely `UnsupportedOperationException` stubs, so in a
+distributed deployment the resolver cannot look up the failing workflow at all. This is the same
+limitation, for the same reason, as orphaned-job recovery.
+
+Because the listener is fail-open, that would otherwise mean swallowing an exception on every failed
+job, forever, in a distributed deployment. The listener therefore detects the unsupported operation,
+logs it once, records it as a distinct metric outcome, and skips — so the limitation reads as a
+capability gap rather than a recurring error. Lifting it means implementing
+`getWorkflowProjectWorkflow` and `getProjectWorkflow` on that remote client plus the matching
+`configuration-app` endpoints.
 
 On `JobStatusApplicationEvent` with status `FAILED`:
 
