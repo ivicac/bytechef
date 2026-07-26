@@ -73,7 +73,7 @@ class ErrorWorkflowConfigurationValidatorTest {
         WorkflowTrigger callTrigger = Mockito.mock(WorkflowTrigger.class);
 
         Mockito.when(callTrigger.getType())
-            .thenReturn("workflow/newWorkflowCall");
+            .thenReturn("workflow/v1/newWorkflowCall");
 
         try (MockedStatic<WorkflowTrigger> mockedWorkflowTrigger = Mockito.mockStatic(WorkflowTrigger.class)) {
             mockedWorkflowTrigger.when(() -> WorkflowTrigger.of(workflow))
@@ -102,7 +102,7 @@ class ErrorWorkflowConfigurationValidatorTest {
         WorkflowTrigger errorTrigger = Mockito.mock(WorkflowTrigger.class);
 
         Mockito.when(errorTrigger.getType())
-            .thenReturn("workflow/newWorkflowError");
+            .thenReturn("workflow/v1/newWorkflowError");
 
         try (MockedStatic<WorkflowTrigger> mockedWorkflowTrigger = Mockito.mockStatic(WorkflowTrigger.class)) {
             mockedWorkflowTrigger.when(() -> WorkflowTrigger.of(workflow))

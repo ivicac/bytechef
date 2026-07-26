@@ -22,6 +22,7 @@ import com.bytechef.automation.configuration.domain.ErrorWorkflowDispatch;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Optional;
 import org.springframework.stereotype.Service;
 
@@ -40,6 +41,7 @@ public class ErrorWorkflowResolver {
     private final ProjectWorkflowService projectWorkflowService;
     private final WorkflowService workflowService;
 
+    @SuppressFBWarnings("EI")
     public ErrorWorkflowResolver(
         ProjectDeploymentService projectDeploymentService, ProjectService projectService,
         ProjectWorkflowService projectWorkflowService, WorkflowService workflowService) {

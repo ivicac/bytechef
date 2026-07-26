@@ -21,7 +21,9 @@ import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
+import com.bytechef.platform.definition.WorkflowNodeType;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
@@ -34,12 +36,14 @@ import org.springframework.stereotype.Component;
 @Component
 public class ErrorWorkflowConfigurationValidator {
 
-    private static final String ERROR_TRIGGER_TYPE = "workflow/newWorkflowError";
+    private static final String ERROR_TRIGGER_COMPONENT_NAME = "workflow";
+    private static final String ERROR_TRIGGER_OPERATION_NAME = "newWorkflowError";
+    private static final String ERROR_TRIGGER_TYPE = ERROR_TRIGGER_COMPONENT_NAME + "/" + ERROR_TRIGGER_OPERATION_NAME;
 
     private final ProjectWorkflowService projectWorkflowService;
     private final WorkflowService workflowService;
 
-    @SuppressFBWarnings("EI_EXPOSE_REP2")
+    @SuppressFBWarnings("EI")
     public ErrorWorkflowConfigurationValidator(
         ProjectWorkflowService projectWorkflowService, WorkflowService workflowService) {
 
@@ -78,11 +82,23 @@ public class ErrorWorkflowConfigurationValidator {
 
         boolean hasErrorTrigger = WorkflowTrigger.of(workflow)
             .stream()
-            .anyMatch(trigger -> ERROR_TRIGGER_TYPE.equals(trigger.getType()));
+            .anyMatch(ErrorWorkflowConfigurationValidator::isErrorTrigger);
 
         if (!hasErrorTrigger) {
             throw new IllegalArgumentException(
                 "The error workflow must contain a " + ERROR_TRIGGER_TYPE + " trigger");
         }
+    }
+
+    /**
+     * Trigger types stored in workflow definitions are version-qualified (e.g. {@code workflow/v1/newWorkflowError}),
+     * so the component name and operation name must be parsed out and compared individually rather than matching the
+     * raw type string against an unqualified literal.
+     */
+    private static boolean isErrorTrigger(WorkflowTrigger trigger) {
+        WorkflowNodeType workflowNodeType = WorkflowNodeType.ofType(trigger.getType());
+
+        return Objects.equals(workflowNodeType.name(), ERROR_TRIGGER_COMPONENT_NAME) &&
+            Objects.equals(workflowNodeType.operation(), ERROR_TRIGGER_OPERATION_NAME);
     }
 }
