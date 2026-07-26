@@ -36,6 +36,8 @@ import org.jspecify.annotations.Nullable;
  */
 public class ErrorWorkflowPayloadFactory {
 
+    private static final String DEFAULT_ERROR_MESSAGE = "Workflow run failed";
+
     public record ErrorWorkflowContext(
         long projectId, long projectWorkflowId, String workflowId, String label, String environment) {
     }
@@ -57,7 +59,9 @@ public class ErrorWorkflowPayloadFactory {
             executionError = lastTaskExecution.getError();
         }
 
-        error.put("message", executionError == null ? null : executionError.getMessage());
+        String message = executionError == null ? null : executionError.getMessage();
+
+        error.put("message", message == null ? DEFAULT_ERROR_MESSAGE : message);
         error.put("stackTrace", executionError == null ? null : String.join("\n", executionError.getStackTrace()));
 
         Map<String, Object> execution = new LinkedHashMap<>();

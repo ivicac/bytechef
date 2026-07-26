@@ -87,7 +87,10 @@ class ErrorWorkflowPayloadFactoryTest {
         job.setId(11L);
 
         TaskExecution taskExecution = TaskExecution.builder()
-            .workflowTask(new WorkflowTask(Map.of("name", "task1", "type", "logger/v1/info")))
+            .workflowTask(new WorkflowTask(
+                Map.of(
+                    "name", "task1", "type", "logger/v1/info", "parameters",
+                    Map.of("apiKey", "secret-input"))))
             .build();
 
         taskExecution.setOutput(new FileEntry("secret-output", "file:/tmp/secret-output"));
@@ -97,6 +100,27 @@ class ErrorWorkflowPayloadFactoryTest {
             .toString();
 
         Assertions.assertFalse(rendered.contains("secret-output"));
+        Assertions.assertFalse(rendered.contains("secret-input"));
+    }
+
+    @Test
+    void testPayloadHasDefaultErrorMessageWhenNoErrorIsSet() {
+        Job job = new Job();
+
+        job.setId(11L);
+
+        TaskExecution taskExecution = TaskExecution.builder()
+            .workflowTask(new WorkflowTask(Map.of("name", "task1", "type", "logger/v1/info")))
+            .build();
+
+        Map<String, Object> payload = new ErrorWorkflowPayloadFactory("https://app.example.com")
+            .build(job, taskExecution, context());
+
+        Map<String, Object> execution = (Map<String, Object>) payload.get("execution");
+        Map<String, Object> error = (Map<String, Object>) execution.get("error");
+
+        Assertions.assertEquals("Workflow run failed", error.get("message"));
+        Assertions.assertNull(error.get("stackTrace"));
     }
 
     private static ErrorWorkflowPayloadFactory.ErrorWorkflowContext context() {
