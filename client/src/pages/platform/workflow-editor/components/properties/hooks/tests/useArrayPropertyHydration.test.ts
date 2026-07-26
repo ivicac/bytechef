@@ -151,7 +151,7 @@ describe('useArrayProperty — hydration from currentNode.parameters', () => {
     });
 
     it('does not crash when a nested condition array contains a null hole (issue #5402)', async () => {
-        hoisted.storeState.currentComponent = {
+        hoisted.storeState.currentNode = {
             componentName: 'condition',
             parameters: {
                 conditions: [[{operation: 'CONTAINS', type: 'string', value1: '${var_1}', value2: 'x'}, null]],
