@@ -225,9 +225,13 @@ class SlackInteractivityHandlerTest {
     }
 
     private static String rawBody(String actionId, String value) {
-        String payload = """
-            {"type":"block_actions","user":{"username":"jane"},"response_url":"https://hooks.slack.invalid/actions/x",
-             "actions":[{"action_id":"%s","value":"%s"}]}""".formatted(actionId, value);
+        // Built via concatenation rather than String.formatted(...): the embedded newline between the two JSON
+        // fragments is part of the signed payload byte-for-byte, and a %s-based format string containing a literal
+        // \n (instead of %n) trips SpotBugs' VA_FORMAT_STRING_USES_NEWLINE. Concatenation keeps the exact same bytes
+        // without going through a format-string API.
+        String payload = "{\"type\":\"block_actions\",\"user\":{\"username\":\"jane\"},\"response_url\":"
+            + "\"https://hooks.slack.invalid/actions/x\",\n"
+            + " \"actions\":[{\"action_id\":\"" + actionId + "\",\"value\":\"" + value + "\"}]}";
 
         return "payload=" + URLEncoder.encode(payload, StandardCharsets.UTF_8);
     }

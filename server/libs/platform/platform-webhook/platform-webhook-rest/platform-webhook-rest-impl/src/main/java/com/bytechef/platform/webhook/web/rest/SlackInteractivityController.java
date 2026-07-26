@@ -40,11 +40,16 @@ import org.springframework.web.client.RestClient;
  */
 @RestController
 @ConditionalOnCoordinator
-public class SlackInteractivityController {
+public final class SlackInteractivityController {
 
     private final SlackInteractivityHandler slackInteractivityHandler;
 
-    @SuppressFBWarnings("EI")
+    // approvalTokensObjectProvider.getIfAvailable() can throw if the ApprovalTokens bean is ambiguous, which
+    // SpotBugs flags as a finalizer-attack vector (CT_CONSTRUCTOR_THROW). The class is final, so nothing can
+    // subclass it to exploit a partially-constructed instance; the residual warning is safe to suppress.
+    @SuppressFBWarnings({
+        "EI", "CT_CONSTRUCTOR_THROW"
+    })
     public SlackInteractivityController(
         ConnectionService connectionService, JobResumeFacade jobResumeFacade,
         ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {

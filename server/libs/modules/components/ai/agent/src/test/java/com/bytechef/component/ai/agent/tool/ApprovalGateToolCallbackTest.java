@@ -137,7 +137,7 @@ class ApprovalGateToolCallbackTest {
     @Test
     void testSecondFlaggedCallInSameRoundDefersWithoutSecondSuspend() {
         when(actionContext.getSuspend()).thenReturn(
-            new ActionContext.Suspend(Map.of(), java.time.Instant.now()));
+            new ActionContext.Suspend(Map.of(), Instant.now()));
 
         ApprovalGateToolCallback gate = new ApprovalGateToolCallback(
             delegate, List.of(), Map.of(), clusterElementDefinitionService, actionContext);

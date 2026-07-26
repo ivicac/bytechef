@@ -42,6 +42,8 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,8 +56,7 @@ import org.springframework.util.Assert;
 @Transactional
 public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
 
-    private static final org.slf4j.Logger logger =
-        org.slf4j.LoggerFactory.getLogger(ApprovalTaskFacadeImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(ApprovalTaskFacadeImpl.class);
 
     private final ApprovalTaskService approvalTaskService;
     private final ApprovalTokens approvalTokens;
@@ -180,8 +181,8 @@ public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
             // A run that is not backed by an automation project deployment (no principal-job row) has no environment
             // to derive — fall back to DEVELOPMENT per the facade contract instead of failing the approval-task
             // delivery for that run.
-            if (logger.isDebugEnabled()) {
-                logger.debug(
+            if (log.isDebugEnabled()) {
+                log.debug(
                     "Could not resolve the environment for approval task {}; defaulting to DEVELOPMENT: {}",
                     jobResumeIdString, exception.getMessage());
             }

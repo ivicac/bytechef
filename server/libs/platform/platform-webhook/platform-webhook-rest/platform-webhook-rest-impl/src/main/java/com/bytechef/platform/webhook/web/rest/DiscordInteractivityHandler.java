@@ -73,6 +73,12 @@ public class DiscordInteractivityHandler {
      * @param statusCode HTTP status to return
      * @param body       interaction response body (null → empty)
      */
+    // Every call site builds body from Map.of(...), which is already immutable; SpotBugs cannot see that through the
+    // static Map type, so it still flags the accessor/constructor as exposing a mutable reference. Same suppression
+    // as other ByteChef records carrying Maps (e.g. Violation.ClassifiedViolation).
+    @SuppressFBWarnings({
+        "EI_EXPOSE_REP", "EI_EXPOSE_REP2"
+    })
     public record Response(int statusCode, @Nullable Map<String, Object> body) {
     }
 

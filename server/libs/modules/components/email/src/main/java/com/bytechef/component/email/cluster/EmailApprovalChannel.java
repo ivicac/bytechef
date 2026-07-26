@@ -36,6 +36,7 @@ import com.bytechef.component.definition.TypeReference;
 import com.bytechef.component.definition.approval.ApprovalChannelFunction;
 import com.bytechef.component.email.EmailProtocol;
 import com.bytechef.component.email.commons.EmailUtils;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.mail.Authenticator;
 import jakarta.mail.Message;
 import jakarta.mail.Message.RecipientType;
@@ -138,6 +139,12 @@ public class EmailApprovalChannel {
         return null;
     }
 
+    // Every interpolated value below is routed through context.escaper(...).escapeHtml(...) (backed by Apache
+    // Commons StringEscapeUtils.escapeHtml4), which is real HTML4 escaping. SpotBugs' taint analysis cannot trace
+    // sanitization through the generic ContextFunction/lambda indirection used to reach the Escaper, so it still
+    // flags these appends as POTENTIAL_XML_INJECTION even though the content is safe. Same false positive, same
+    // fix, as GoogleMailApprovalChannel#perform and MicrosoftOutlook365ApprovalChannel#perform.
+    @SuppressFBWarnings("POTENTIAL_XML_INJECTION")
     private static String buildHtmlBody(Parameters inputParameters, String formUrl, ClusterElementContext context) {
         List<Map<String, ?>> inputs = inputParameters.getList(INPUTS, new TypeReference<>() {}, List.of());
 

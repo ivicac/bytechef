@@ -38,12 +38,17 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @ConditionalOnCoordinator
-public class ApprovalShortTokenController {
+public final class ApprovalShortTokenController {
 
     private final ApprovalShortTokenStore approvalShortTokenStore;
     private final @Nullable ApprovalTokens approvalTokens;
 
-    @SuppressFBWarnings("EI")
+    // approvalTokensObjectProvider.getIfAvailable() can throw if the ApprovalTokens bean is ambiguous, which
+    // SpotBugs flags as a finalizer-attack vector (CT_CONSTRUCTOR_THROW). The class is final, so nothing can
+    // subclass it to exploit a partially-constructed instance; the residual warning is safe to suppress.
+    @SuppressFBWarnings({
+        "EI", "CT_CONSTRUCTOR_THROW"
+    })
     public ApprovalShortTokenController(
         ApprovalShortTokenStore approvalShortTokenStore, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
 

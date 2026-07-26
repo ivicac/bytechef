@@ -15,13 +15,6 @@
             <column name="assignee_id" type="BIGINT"/>
         </addColumn>
 
-        <addForeignKeyConstraint
-            baseColumnNames="assignee_id"
-            baseTableName="approval_task"
-            constraintName="fk_approval_task_assignee"
-            referencedColumnNames="id"
-            referencedTableName="user"/>
-
         <createIndex indexName="idx_approval_task_assignee_id" tableName="approval_task">
             <column name="assignee_id"/>
         </createIndex>
@@ -29,5 +22,26 @@
         <createIndex indexName="idx_approval_task_status" tableName="approval_task">
             <column name="status"/>
         </createIndex>
+    </changeSet>
+
+    <!-- The foreign key targets the user table, which is owned by the platform/user changelog. Module-scoped test
+         contexts load only a subset of changelogs, so user may be absent there; the tableExists precondition skips
+         the constraint in that case instead of failing the whole migration. -->
+    <changeSet id="20260425120000-2" author="Ivica Cardic">
+        <preConditions onFail="MARK_RAN">
+            <tableExists tableName="user"/>
+
+            <not>
+                <foreignKeyConstraintExists foreignKeyName="fk_approval_task_assignee"
+                    foreignKeyTableName="approval_task"/>
+            </not>
+        </preConditions>
+
+        <addForeignKeyConstraint
+            baseColumnNames="assignee_id"
+            baseTableName="approval_task"
+            constraintName="fk_approval_task_assignee"
+            referencedColumnNames="id"
+            referencedTableName="user"/>
     </changeSet>
 </databaseChangeLog>

@@ -14,6 +14,10 @@ dependencies {
     implementation(project(":server:libs:core:tenant:tenant-api"))
     implementation(project(":server:libs:platform:platform-component:platform-component-api"))
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-api"))
+    // ApprovalTaskFacadeImpl requires a real ApprovalTokens signer (resolveInnerToken on every approval-task
+    // creation, form URLs for the pending-approvals inbox), so the module carrying its auto-configuration has to
+    // reach the runtime classpath of every app hosting this service (monolith and configuration-app alike).
+    implementation(project(":server:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-token-service"))
 
     testImplementation(project(":server:libs:config:liquibase-config"))
     testImplementation(project(":server:libs:test:test-int-support"))
