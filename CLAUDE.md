@@ -580,6 +580,32 @@ Spec: `docs/superpowers/specs/2026-07-21-agent-hitl-approval-chat-design.md`; us
   only reachable via the pending-approvals inbox or the hosted form.
 - AI Hub copilot chat is OUT of scope (keeps its pinned `askUserQuestion`).
 
+### Auto-memory storage providers
+
+`bytechef.ai.auto-memory.provider` selects where AI auto-memories are stored:
+
+- `JDBC` (**default**) — the relational `ai_auto_memory` / `workspace_ai_auto_memory` tables. Existing
+  deployments are unaffected; the JDBC binding is gated with `matchIfMissing = true`.
+- `FILESYSTEM` / `AWS` — one JSON object per memory through the shared `FileStorageService`
+  (`platform-ai-auto-memory-repository-file-storage`). Both values use the SAME CE implementation and
+  differ only in which service `FileStorageServiceRegistry` resolves, so `AWS` needs no module of its
+  own — it works wherever the EE `file-storage-aws` module is on the classpath and configured.
+
+Exactly one binding is ever active. Selecting a provider whose `FileStorageService` is not registered
+**fails fast at startup** rather than falling back, since a fallback would write memories to storage
+the operator did not choose.
+
+File-backed layout:
+`ai_auto_memory/{workspaceId}/{principalType}_{principalId}/{environment}/{id}.json`. Path segments use
+only lowercase alphanumerics and `_` — `FilesystemFileStorageService` normalizes directories to that
+alphabet, so a hyphen is stripped and distinct names could otherwise collide.
+
+Limitations, by design: file backends are **best-effort single-writer** (whole-object writes,
+last-write-wins on concurrent edits of the same memory, no cross-object transaction); the duplicate-name
+check stays the service layer's job as it already is for JDBC; ordering comes from the stored
+`updatedAt` because `FileEntry` carries no modification time; and there is **no migration path between
+providers** — switching does not move existing memories.
+
 ### Domain copilot slice pattern (context store / knowledge base / data table)
 
 Each domain slice follows the same shape (see `docs/superpowers/plans/` for the slice plans):
