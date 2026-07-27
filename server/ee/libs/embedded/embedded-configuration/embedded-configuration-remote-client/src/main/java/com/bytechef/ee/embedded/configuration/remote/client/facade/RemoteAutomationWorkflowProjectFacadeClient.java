@@ -12,10 +12,13 @@ import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectTagDTO;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectVersionDTO;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
+import com.bytechef.ee.remote.client.LoadBalancedRestClient;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.domain.Environment;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Optional;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 
 /**
@@ -26,6 +29,16 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnEEVersion
 public class RemoteAutomationWorkflowProjectFacadeClient implements AutomationWorkflowProjectFacade {
+
+    private static final String CONFIGURATION_APP = "configuration-app";
+    private static final String AUTOMATION_WORKFLOW_PROJECT_FACADE = "/remote/automation-workflow-project-facade";
+
+    private final LoadBalancedRestClient loadBalancedRestClient;
+
+    @SuppressFBWarnings("EI")
+    public RemoteAutomationWorkflowProjectFacadeClient(LoadBalancedRestClient loadBalancedRestClient) {
+        this.loadBalancedRestClient = loadBalancedRestClient;
+    }
 
     @Override
     public long createProject(
@@ -91,7 +104,12 @@ public class RemoteAutomationWorkflowProjectFacadeClient implements AutomationWo
 
     @Override
     public List<AutomationWorkflowProjectDTO> getPublishedProjects() {
-        throw new UnsupportedOperationException();
+        return loadBalancedRestClient.get(
+            uriBuilder -> uriBuilder
+                .host(CONFIGURATION_APP)
+                .path(AUTOMATION_WORKFLOW_PROJECT_FACADE + "/get-published-projects")
+                .build(),
+            new ParameterizedTypeReference<>() {});
     }
 
     @Override
