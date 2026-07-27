@@ -36,9 +36,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 class AutomationProjectCodeWorkflowAdminApiControllerAuthTest {
 
     /**
-     * Mirrors {@code EmbeddedApiKeySecurityConfigurer}'s connected-user matcher ({@code ^/api/embedded/v[0-9]+/.+},
-     * plus the separate {@code /api/(automation|embedded|platform)/internal/.+} branch) -- the auth chain this fix
-     * moves the CLI command off of.
+     * Mirrors {@code EmbeddedApiKeySecurityConfigurer}'s connected-user matcher ({@code ^/api/embedded/v[0-9]+/.+}) --
+     * the auth chain this fix moves the CLI command off of.
      */
     private static final Pattern EMBEDDED_CONNECTED_USER_PATTERN = Pattern.compile("^/api/embedded/v[0-9]+/.+");
 

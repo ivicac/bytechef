@@ -97,8 +97,8 @@ inbound-call model doesn't fit a CLI.
 ## Embedded code-workflow commands
 
 Deploy-once, reference-per-user catalog projects (the admin-only counterpart to the connected-user-scoped
-`embedded integration`/`embedded workflow` commands above). These hit `<host>/api/embedded/internal` with
-the profile's admin token — no `--external-user-id`.
+`embedded integration`/`embedded workflow` commands above). These hit `<host>/api/platform/v1/automation-project-code-workflows`
+authenticated with the profile's API token (configured via `bytechef configure --token ...`) — no `--external-user-id`.
 
 ```bash
 bytechef embedded code-workflow deploy --file ./project.js
