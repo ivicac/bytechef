@@ -15,6 +15,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.commons.util.EncodingUtils;
+import com.bytechef.ee.embedded.connected.user.constant.ConnectedUserConstants;
 import com.bytechef.ee.embedded.security.service.JwtTokenService;
 import com.bytechef.ee.embedded.security.service.SigningKeyService;
 import com.bytechef.ee.embedded.security.web.authentication.EmbeddedApiKeyAuthenticationToken;
@@ -27,6 +28,8 @@ import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 
@@ -231,14 +234,23 @@ class EmbeddedApiKeyAuthenticationConverterTest {
      * row. The converter must now reject before a token is even produced, so the provider (and its get-or-create) is
      * never reached -- see {@code EmbeddedApiKeyAuthenticationConverterProviderIntegrationTest} for the
      * no-ConnectedUser-created proof.
+     *
+     * <p>
+     * Exercises {@link EmbeddedApiKeyAuthenticationConverter#convert(HttpServletRequest)} for EVERY entry in
+     * {@link ConnectedUserConstants#FRONTEND_RESERVED_PATH_SEGMENTS}, not just a couple of samples, so a future
+     * addition to the allowlist that isn't wired through {@code convert()} correctly is caught immediately.
      */
-    @Test
-    void testConvertWithNonJwtTokenAndFrontendRouteThrowsBadCredentialsException() {
+    @ParameterizedTest
+    @ValueSource(strings = {
+        "app-events", "automation", "components", "integration-instances", "integrations", "me", "unified",
+        "workflows"
+    })
+    void testConvertWithNonJwtTokenAndReservedSegmentThrowsBadCredentialsException(String reservedSegment) {
         String tenantKey = EncodingUtils.base64EncodeToString("test-tenant" + ":randomData");
 
         when(request.getHeader("Authorization")).thenReturn("Bearer " + tenantKey);
         when(request.getHeader("X-ENVIRONMENT")).thenReturn(null);
-        when(request.getRequestURI()).thenReturn("/api/embedded/v1/automation/projects");
+        when(request.getRequestURI()).thenReturn("/api/embedded/v1/" + reservedSegment + "/probe");
 
         assertThatThrownBy(() -> converter.convert(request))
             .isInstanceOf(BadCredentialsException.class);
@@ -256,20 +268,6 @@ class EmbeddedApiKeyAuthenticationConverterTest {
 
         assertThatThrownBy(() -> converter.convert(request))
             .isInstanceOf(IllegalArgumentException.class);
-    }
-
-    @Test
-    void testConvertWithNonJwtTokenAndWorkflowsFrontendRouteThrowsBadCredentialsException() {
-        // The embedded-webhook /workflows/{workflowUuid} trigger endpoint is also a no-externalUserId route and was
-        // equally exposed to the phantom-ConnectedUser bug.
-        String tenantKey = EncodingUtils.base64EncodeToString("test-tenant" + ":randomData");
-
-        when(request.getHeader("Authorization")).thenReturn("Bearer " + tenantKey);
-        when(request.getHeader("X-ENVIRONMENT")).thenReturn(null);
-        when(request.getRequestURI()).thenReturn("/api/embedded/v1/workflows/some-workflow-uuid");
-
-        assertThatThrownBy(() -> converter.convert(request))
-            .isInstanceOf(BadCredentialsException.class);
     }
 
     @Test
@@ -292,12 +290,5 @@ class EmbeddedApiKeyAuthenticationConverterTest {
 
         assertThat(token.getExternalUserId()).isEqualTo(externalUserId);
         assertThat(token.getTenantId()).isEqualTo(tenantId);
-    }
-
-    @Test
-    void testFrontendReservedPathSegmentsContainsEveryKnownFrontendSegment() {
-        assertThat(EmbeddedApiKeyAuthenticationConverter.FRONTEND_RESERVED_PATH_SEGMENTS).containsExactlyInAnyOrder(
-            "app-events", "automation", "components", "integration-instances", "integrations", "me", "unified",
-            "workflows");
     }
 }

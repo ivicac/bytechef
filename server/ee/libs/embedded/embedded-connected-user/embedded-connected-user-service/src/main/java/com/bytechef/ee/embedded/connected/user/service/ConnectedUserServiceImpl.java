@@ -8,6 +8,7 @@
 package com.bytechef.ee.embedded.connected.user.service;
 
 import com.bytechef.commons.util.MapUtils;
+import com.bytechef.ee.embedded.connected.user.constant.ConnectedUserConstants;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.repository.ConnectedUserRepository;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
@@ -46,6 +47,11 @@ public class ConnectedUserServiceImpl implements ConnectedUserService {
 
     @Override
     public ConnectedUser createConnectedUser(String externalId, Environment environment) {
+        if (ConnectedUserConstants.FRONTEND_RESERVED_PATH_SEGMENTS.contains(externalId)) {
+            throw new IllegalArgumentException(
+                "externalId '%s' is reserved and cannot be used for a connected user".formatted(externalId));
+        }
+
         ConnectedUser connectedUser = new ConnectedUser();
 
         connectedUser.setEnabled(true);
