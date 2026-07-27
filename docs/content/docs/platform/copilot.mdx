@@ -133,6 +133,19 @@ If no override is selected (or the selection can't be resolved), Copilot falls b
 
 ---
 
+## Dry-run validation
+
+<Callout type="warn" title="Coming soon">
+    Workflow simulation is on the upcoming release track and is not yet available in the latest
+    released version of ByteChef.
+</Callout>
+
+When Build mode assembles a workflow, Copilot can **simulate** it before you ever run it for real: the
+workflow executes end to end with no external side effects — every action returns its declared sample
+output instead of calling the outside service — and Copilot reports per-node reachability and failure
+reasons. The Build agent uses this automatically to validate what it just built; there is no separate
+button to press.
+
 ## How Copilot grounds answers
 
 To answer documentation questions accurately, Copilot indexes the ByteChef documentation and component references into a vector store and retrieves the most relevant passages on each turn (retrieval-augmented generation).

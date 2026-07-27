@@ -142,6 +142,28 @@ On success a "Memory ... deleted" confirmation appears and the row disappears fr
 
 ---
 
+## Storage providers
+
+> **Coming soon.** Configurable memory storage is on the upcoming release track and is not yet
+> available in the latest released version of ByteChef.
+
+By default, memories are stored in ByteChef's relational database. Self-hosted operators can select
+where they live with the `BYTECHEF_AI_AUTO_MEMORY_PROVIDER` environment variable
+(`bytechef.ai.auto-memory.provider`):
+
+| Provider | Where memories live |
+|---|---|
+| `JDBC` (default) | The ByteChef database. Existing deployments are unaffected. |
+| `FILESYSTEM` | One JSON file per memory on the server's file system, via the configured file storage. |
+| `AWS` | The same file-based layout on S3. Requires the Enterprise Edition AWS file-storage module. |
+
+Selecting a provider whose file-storage backend is not configured fails fast at startup rather than
+falling back — a silent fallback would write memories to storage the operator did not choose. File
+backends are best-effort single-writer: concurrent edits of the same memory resolve last-write-wins,
+and there is no migration path between providers — switching does not move existing memories.
+
+---
+
 ## Frequently Asked Questions (FAQs)
 
 #### Why can't I create a memory from this page?
