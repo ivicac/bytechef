@@ -40,7 +40,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.CacheManager;
@@ -82,6 +84,7 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
     private final CodeWorkflowContainerFacade codeWorkflowContainerFacade;
     private final CodeWorkflowContainerService codeWorkflowContainerService;
+    private final ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
     private final ProjectCodeWorkflowService projectCodeWorkflowService;
     private final ProjectService projectService;
     private final ProjectWorkflowService projectWorkflowService;
@@ -94,6 +97,7 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
         AutomationWorkflowProjectFacade automationWorkflowProjectFacade,
         CodeWorkflowContainerFacade codeWorkflowContainerFacade,
         CodeWorkflowContainerService codeWorkflowContainerService,
+        ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade,
         ProjectCodeWorkflowService projectCodeWorkflowService, ProjectService projectService,
         ProjectWorkflowService projectWorkflowService) {
 
@@ -101,6 +105,7 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
         this.automationWorkflowProjectFacade = automationWorkflowProjectFacade;
         this.codeWorkflowContainerFacade = codeWorkflowContainerFacade;
         this.codeWorkflowContainerService = codeWorkflowContainerService;
+        this.connectedUserCodeWorkflowReferenceFacade = connectedUserCodeWorkflowReferenceFacade;
         this.projectCodeWorkflowService = projectCodeWorkflowService;
         this.projectService = projectService;
         this.projectWorkflowService = projectWorkflowService;
@@ -166,6 +171,14 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
         }
 
         projectService.publishProject(project.getId(), null, false);
+
+        Set<String> currentUuids = projectWorkflowService
+            .getProjectWorkflows(project.getId(), project.getLastProjectVersion())
+            .stream()
+            .map(ProjectWorkflow::getUuidAsString)
+            .collect(Collectors.toSet());
+
+        connectedUserCodeWorkflowReferenceFacade.markDanglingReferences(project.getId(), currentUuids);
 
         for (WorkflowDefinition workflowDefinition : projectDefinition.getWorkflows()) {
             warnIfNotPubliclyInvocable(projectDefinition.getName(), workflowDefinition);
