@@ -16,11 +16,13 @@ import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectCo
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.security.constant.AuthorityConstants;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -53,6 +55,10 @@ import org.springframework.web.multipart.MultipartFile;
  * the literal path segment {@code "automation"} for a no-externalUserId path and silently creates a phantom
  * {@code ConnectedUser} row per tenant/environment as a side effect. Listing here instead reuses
  * {@link AutomationWorkflowProjectFacade#getPublishedProjects()} directly, with no connected-user identity involved.
+ * That facade method itself carries no {@code @PreAuthorize} -- it also backs the public connected-user catalog
+ * listing, so it cannot be gated at the shared layer. The {@code ROLE_ADMIN} guard is therefore applied directly on
+ * this method, mirroring the {@code hasAuthority(ADMIN)} guard already enforced on
+ * {@code AutomationWorkflowProjectCodeWorkflowFacadeImpl#save} for the sibling deploy endpoint.
  *
  * @version ee
  *
@@ -94,6 +100,7 @@ public class AutomationProjectCodeWorkflowAdminApiController implements Automati
     }
 
     @Override
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
     public ResponseEntity<List<AutomationWorkflowProjectModel>> listAutomationProjectCodeWorkflows() {
         List<AutomationWorkflowProjectModel> models = automationWorkflowProjectFacade.getPublishedProjects()
             .stream()

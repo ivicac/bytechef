@@ -52,5 +52,6 @@ dependencies {
     testImplementation(project(":server:ee:libs:embedded:embedded-security-web:embedded-security-web-impl"))
     testImplementation("org.springframework:spring-webflux")
     testImplementation("org.springframework.boot:spring-boot-starter-webmvc-test")
+    testImplementation("org.springframework.security:spring-security-config")
     testImplementation(project(":server:libs:test:test-int-support"))
 }

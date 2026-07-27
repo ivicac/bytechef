@@ -24,8 +24,10 @@ import io.jsonwebtoken.Locator;
 import jakarta.servlet.http.HttpServletRequest;
 import java.security.Key;
 import java.security.PublicKey;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.core.Authentication;
 
 /**
@@ -36,6 +38,35 @@ import org.springframework.security.core.Authentication;
  * @author Ivica Cardic
  */
 class EmbeddedApiKeyAuthenticationConverter extends AbstractApiKeyAuthenticationConverter {
+
+    /**
+     * Literal first path segments of every "Frontend" (no-{@code {externalUserId}}) route mounted under
+     * {@code /api/embedded/v<n>/}. Those routes are JWT-only by design -- the caller's externalUserId comes from the
+     * JWT {@code sub} claim, never from the URL. {@link #EXTERNAL_USER_ID_PATTERN} cannot tell a Frontend route's
+     * literal resource segment apart from a genuine {@code {externalUserId}} path segment (both are just "the first
+     * path component after {@code /v<n>/}"), so a non-JWT bearer token hitting one of these routes would otherwise mint
+     * a phantom {@code ConnectedUser} named after the literal segment (e.g. {@code "automation"}, {@code "me"}) via
+     * {@code EmbeddedApiKeyAuthenticationProvider}'s get-or-create.
+     *
+     * <p>
+     * This is a maintained allowlist-of-what-to-reject, not a route-agnostic derivation, so it must be kept in sync by
+     * hand when a new no-{@code {externalUserId}} route is added under {@code /api/embedded/v<n>/}. Each entry below is
+     * traceable to its {@code openapi.yaml}:
+     * <ul>
+     * <li>{@code automation}, {@code me}, {@code components}, {@code integration-instances}, {@code integrations} --
+     * embedded-configuration-public-rest (the {@code getFrontendProjects}-style operations, {@code /me}, etc.)</li>
+     * <li>{@code app-events}, {@code workflows} -- embedded-webhook-public-rest ({@code /app-events},
+     * {@code /workflows/{workflowUuid}})</li>
+     * <li>{@code unified} -- embedded-unified-rest ({@code /v1/unified/accounting/**}, {@code /v1/unified/crm/**})</li>
+     * </ul>
+     * {@code EmbeddedApiKeyAuthenticationConverterTest} pins one regression case per module above (plus the
+     * already-safe {@code /me} single-segment case) so a change here that stops rejecting a known Frontend route is
+     * caught immediately. When adding a NEW no-{@code {externalUserId}} route under {@code /api/embedded/v<n>/} in any
+     * module, add its literal first path segment here and a matching regression test.
+     */
+    static final Set<String> FRONTEND_RESERVED_PATH_SEGMENTS = Set.of(
+        "app-events", "automation", "components", "integration-instances", "integrations", "me", "unified",
+        "workflows");
 
     static final Pattern EXTERNAL_USER_ID_PATTERN = Pattern.compile(".*/v\\d+/([^/]+)/.*");
     static final Pattern JWT_TOKEN_PATTERN =
@@ -82,6 +113,13 @@ class EmbeddedApiKeyAuthenticationConverter extends AbstractApiKeyAuthentication
                 externalUserId = matcher.group(1);
             } else {
                 throw new IllegalArgumentException("externalUserId parameter is required");
+            }
+
+            if (FRONTEND_RESERVED_PATH_SEGMENTS.contains(externalUserId)) {
+                // Frontend routes are JWT-only by design (see FRONTEND_RESERVED_PATH_SEGMENTS). A non-JWT bearer
+                // token landing here means EXTERNAL_USER_ID_PATTERN merely captured a Frontend route's literal
+                // top-level resource segment -- reject instead of authenticating as a phantom connected user.
+                throw new BadCredentialsException("Non-JWT tokens are not accepted on this endpoint");
             }
 
             TenantKey tenantKey = TenantKey.parse(authToken);

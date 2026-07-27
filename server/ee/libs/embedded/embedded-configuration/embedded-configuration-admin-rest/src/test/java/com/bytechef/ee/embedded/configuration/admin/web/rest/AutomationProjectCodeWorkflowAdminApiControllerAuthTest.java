@@ -9,10 +9,13 @@ package com.bytechef.ee.embedded.configuration.admin.web.rest;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.security.web.configurer.PlatformApiKeySecurityConfigurer;
 import java.lang.reflect.Field;
+import java.lang.reflect.Method;
 import java.util.regex.Pattern;
 import org.junit.jupiter.api.Test;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.RequestMapping;
 
 /**
@@ -88,6 +91,27 @@ class AutomationProjectCodeWorkflowAdminApiControllerAuthTest {
 
         assertThat(EMBEDDED_CONNECTED_USER_PATTERN.matcher(resolvedPath)
             .matches()).isFalse();
+    }
+
+    /**
+     * Pins the Important-severity fix: {@code listAutomationProjectCodeWorkflows} reaches
+     * {@code AutomationWorkflowProjectFacade#getPublishedProjects()}, which carries no {@code @PreAuthorize} because it
+     * also backs the public connected-user catalog listing. The gate is therefore applied here, at the admin controller
+     * method, mirroring the {@code hasAuthority(ADMIN)} guard on
+     * {@code AutomationWorkflowProjectCodeWorkflowFacadeImpl#save} for the sibling deploy endpoint. Behavioral 403/200
+     * coverage lives in {@code AutomationProjectCodeWorkflowAdminApiControllerListAuthorizationIntTest}.
+     */
+    @Test
+    void testListAutomationProjectCodeWorkflowsRequiresAdminAuthority() throws Exception {
+        Method method = AutomationProjectCodeWorkflowAdminApiController.class.getMethod(
+            "listAutomationProjectCodeWorkflows");
+
+        PreAuthorize preAuthorize = method.getAnnotation(PreAuthorize.class);
+
+        assertThat(preAuthorize)
+            .as("@PreAuthorize on listAutomationProjectCodeWorkflows")
+            .isNotNull();
+        assertThat(preAuthorize.value()).isEqualTo("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")");
     }
 
     private static String readPlatformApiKeyPathPattern() throws Exception {
