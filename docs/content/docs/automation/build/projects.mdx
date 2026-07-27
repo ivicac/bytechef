@@ -3,6 +3,8 @@ title: "Projects"
 description: "Learn how to create, manage, and organize projects within ByteChef."
 ---
 
+import {Callout} from "fumadocs-ui/components/callout";
+
 Every project on ByteChef consists of one or more workflows. Projects help organize and manage workflows, making it
 easier to group related automation processes together.
 
@@ -112,6 +114,34 @@ A code workflow runs on the same engine as a visually built one — see [Build A
 <div style={{ position: 'relative', height: 0, width: '100%', overflow: 'hidden', zindex: 49, boxSizing: 'border-box', paddingBottom: 'calc(53.02672956% + 32px)' }}>
 <iframe src="https://www.guidejar.com/embed/QTdT12o09JYLf3Ia0veD?type=1&controls=on" width="100%" height="100%" style={{ height: '100%', position: 'absolute', inset: 0 }} allowFullScreen frameBorder="0"></iframe>
 </div>
+
+## Share Projects and Workflows as Templates
+
+<Callout type="warn" title="Coming soon">
+    Sharing projects and workflows as templates is on the upcoming release track and is not yet
+    available in the latest released version of ByteChef.
+</Callout>
+
+Beyond [exporting a project](#export-project) to a `.zip` file for your own backups, a project — or
+an individual workflow, from its own three-dot menu — can be shared as a **template** that anyone
+with the link can import into their own workspace.
+
+1. Click on the three dots next to the project (or workflow) name and choose **Share**.
+2. Write a **Description** of what it does — this is required before you can export it.
+3. Click **Export and generate template link**. The dialog turns into a link card with a **Copy
+   link** button; anyone who opens the link can import it through `/import/shared/projects/{uuid}`
+   (workflows use `/import/shared/workflows/{uuid}`).
+4. Use the toggle at the top of the dialog to **disable** the link at any time — the existing link
+   stops working — and to re-enable it later, which generates a fresh export.
+5. If you keep editing the project after sharing it, the dialog notes that "an older version... is
+   shared as a template" and offers an **Update template based on the current version** button, so
+   the link always points at what you intend.
+
+<!-- TODO screenshot: Share project dialog with an active template link and the Copy link button -->
+
+A second, separate action — **Share with Community** — opens ByteChef's public template submission
+form in a new tab, for projects and workflows you want listed in the official gallery (see
+[Templates](/automation/templates)) rather than shared privately by link.
 
 ## Delete Project
 

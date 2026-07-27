@@ -3,6 +3,8 @@ title: "Workflows"
 description: "Learn how to create, edit, and manage workflows effectively."
 ---
 
+import {Callout} from "fumadocs-ui/components/callout";
+
 ## Create Workflow
 
 1. Click on the three dots next to the project name where you want to add a workflow.
@@ -214,6 +216,66 @@ Workflow outputs declare what the workflow returns to its caller. Open the **Wor
 <div style={{ position: 'relative', height: 0, width: '100%', overflow: 'hidden', zindex: 49, boxSizing: 'border-box', paddingBottom: 'calc(53.02672956% + 32px)' }}>
   <iframe src="https://www.guidejar.com/embed/9bff3896-dc20-45de-8eac-41cb7d2f3d47?type=1&controls=on" width="100%" height="100%" style={{ height: '100%', position: 'absolute', inset: 0 }} allowFullScreen frameBorder="0"></iframe>
 </div>
+
+## Editor Header Controls
+
+The project editor's header, next to **Publish**, carries the rest of the run/deploy loop for the
+project you're currently editing.
+
+### Deploy
+
+**Deploy** opens the same [Create Deployment](/automation/deploy/projects#deploy-project) dialog
+used from the Project Deployments page, pre-scoped to the current project. It's disabled — with a
+"Publish the project to enable deployment" tooltip — until the project has at least one published
+version, since a deployment always targets a published version, never a draft. Its **New** tab
+creates a fresh deployment (**Environment**, **Version**, **Name**, **Description**, **Tags**); its
+**Change Version** tab repoints an existing deployment at a different published version.
+
+### Run, Test, and the Output panel
+
+The header's **Test** button runs the current workflow from its trigger and streams the run's
+progress and result into the **Output panel** at the bottom of the editor; while a run is
+in-flight, the button turns into a **Stop** button that cancels it. If the workflow's trigger is a
+chat trigger, the same button is labeled **Chat** instead — clicking it opens the
+[test chat panel](#test-with-chat) rather than starting a run immediately, and you drive the run by
+sending it messages.
+
+The icon button beside Test/Chat (tooltip: "Show the current workflow test execution output")
+toggles the Output panel open or closed on its own, so you can revisit the last run's result
+without triggering a new one.
+
+### Project History
+
+The settings menu's **Project** tab has a **Project History** entry that opens a side sheet listing
+every version of the project — version number, publish date, a **Published**/**Draft** badge, and
+the version's description. It's the project-scoped, always-available counterpart to the
+environment-pinning story covered in
+[Workflow Versioning](/enterprise/collaboration-devops/workflow-versioning): Project History shows
+every version regardless of which environment, if any, currently has it pinned.
+
+<!-- TODO screenshot: Project History sheet open, showing a Published and a Draft version -->
+
+### Test with Chat
+
+For a chat-triggered workflow, the test chat panel lets you exchange messages with the workflow the
+same way an end user would through a deployed [workflow chat](/automation/workflow-chats) — type a
+message, send it, and the reply streams into the same thread as the run executes.
+
+<Callout type="warn" title="Coming soon">
+    Voice test sessions are on the upcoming release track and are not yet available in the latest
+    released version of ByteChef.
+</Callout>
+
+On top of typed messages, the panel offers a **voice test session**. A round mic button appears
+next to the composer only when your browser supports the required APIs (`AudioContext`,
+`AudioWorklet`, microphone access, and `WebSocket`, over a secure connection) and the trigger you're
+testing is one that supports a live, streaming connection. Starting a session asks for microphone
+permission, streams your audio to the workflow over a WebSocket, and speaks the assistant's replies
+back while transcribing both sides into the same chat thread as typed messages. Click the button
+again — now shown as a red stop icon — to end the session; a red banner surfaces any connection or
+permission error inline in the panel.
+
+<!-- TODO screenshot: test chat panel with an active voice session, mic button in its recording state -->
 
 ## Delete Workflow
 

@@ -9,22 +9,37 @@ OAuth2 Clients, API Keys, API Connectors, and the three embedded editor/API page
 (integration workflows, automation workflows, Unified API). AI Hub connectors and the AI Agent
 cross-link were folded into existing pages.
 
-## Deferred — feature-flagged or "coming soon"
+**2026-07-27 policy change:** features that are built on branch `0_732` but not yet in `master`
+now get documented immediately, carrying the "Coming soon" marker, instead of sitting in this
+backlog — see `docs/content/docs/automation/error-workflows.mdx` (`.mdx` `<Callout>` form) and
+`docs/content/docs/platform/ai-gateway.md` (`.md` blockquote form) for the exact wording. All four
+entries previously listed under the two "Deferred" sections below were verified against the code
+and documented under that policy:
 
-These surfaces are gated behind feature flags and/or the docs deliberately track the released
-version, which still marks them "coming soon". Document them when they ship / the flag defaults on.
-
-| Surface | Evidence | Suggested home |
-|---|---|---|
-| **AI Gateway** detail sections — Providers, Routing Policies, Prompts, Playground, Traces/Sessions, Scores, Alerts, Exports, Datasets, Experiments, Budget, Rate Limits (~17 CRUD sub-surfaces) | `client/src/pages/automation/ai/gateway/components/**`; servers `automation-ai-gateway`, `platform-ai-observability`, `platform-ai-eval` | Expand `platform/ai-gateway.md` into a section per surface (page is currently a single overview and marked "coming soon") |
-| **Project settings-menu extras** — Share, Share with Community, Pull from Git, Git Configuration, Project History | `client/src/pages/automation/project/**/settings-menu/**` and `project-list/ProjectListItem.tsx` (flags `ff_1042`, `ff_2939`, `ff_1039`) | `automation/build/projects.mdx` (community sharing) + an EE Git-integration page for per-project Git config/pull |
-
-## Deferred — needs design or a natural home
-
-| Surface | Evidence | Suggested home |
-|---|---|---|
-| **Voice test sessions** in the workflow test chat panel (Start/Stop voice button, browser-support gating on triggers carrying a `websocketTasks` extension) | `client/src/pages/platform/workflow-editor/components/workflow-test-chat/WorkflowTestChatPanel.tsx` (`WorkflowTestVoiceModeButton`, `useWorkflowTestVoiceSession`); `client/src/shared/lib/browser-voice/**` | A "Testing" subsection in `automation/build/workflows.mdx` or on the workflow-chats pages |
-| **Project editor header controls** — version-history sheet, Deploy button, Run/Test, Output-panel toggle | `client/src/pages/automation/project/components/project-header/**` (`ProjectVersionHistorySheet.tsx`, `DeployButton.tsx`) | A fuller "editor header" subsection in the `automation/deploy` cluster (currently only Publish is documented) |
+- **AI Gateway detail sections** (Providers/Models/Projects, Routing Policies, Budgets & Rate
+  Limits, Prompts, Playground, Traces & Sessions, Scores, Alerts, Exports, Datasets &
+  Experiments) — `platform/ai-gateway.md` now has one `##` section per group, grounded in the
+  actual `client/src/pages/automation/ai/gateway/components/**` UI. No per-section "Coming soon"
+  badge was added — the page-level one already covers every section.
+- **Share / Share with Community** (project + workflow three-dot menus, flags `ff-1042` /
+  `ff-2939`) — new "Share Projects and Workflows as Templates" section in
+  `automation/build/projects.mdx`, marked "Coming soon".
+- **Pull from Git / Git Configuration** (flag `ff-1039`) — already fully and accurately documented
+  in `enterprise/collaboration-devops/git-backed-change-tracking.mdx` (verified against
+  `ProjectGitConfigurationDialog.tsx` / `ProjectTabButtons.tsx`); no changes were needed there.
+  Note: that page carries no page-level "Coming soon" marker of its own — pre-existing, out of
+  scope for this pass.
+- **Project History** (version-history sheet), **Deploy button**, **Run/Test**, and the
+  **Output-panel toggle** — new "Editor Header Controls" section in `automation/build/workflows.mdx`.
+  These four all already exist on `master` (verified: `DeployButton.tsx` is byte-identical between
+  `master` and `0_732`; `OutputButton.tsx`/`WorkflowActionsButton.tsx`/`ProjectVersionHistorySheet.tsx`
+  predate this branch by months), so they were documented as regular, already-available
+  functionality — **no** "Coming soon" marker.
+- **Voice test sessions** in the workflow test chat panel — a "Test with Chat" subsection (nested
+  under the same "Editor Header Controls" section, `automation/build/workflows.mdx`) covers the
+  base (already-`master`) test chat panel plainly, then marks the voice-session part "Coming soon".
+  Verified `useWorkflowTestVoiceSession.ts` and `browser-voice/BrowserVoiceSession.ts` do **not**
+  exist on `master` — genuinely 0_732-only, unlike the rest of the panel.
 
 ## Verified-absent / do NOT document
 
