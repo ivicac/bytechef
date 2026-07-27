@@ -1,0 +1,6 @@
+.openapi-generator-ignore
+README.md
+pom.xml
+src/main/java/com/bytechef/ee/embedded/configuration/admin/web/rest/ApiUtil.java
+src/main/java/com/bytechef/ee/embedded/configuration/admin/web/rest/AutomationProjectCodeWorkflowAdminApi.java
+src/main/java/com/bytechef/ee/embedded/configuration/admin/web/rest/model/AutomationProjectCodeWorkflowDeployResultModel.java

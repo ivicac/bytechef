@@ -1,0 +1,56 @@
+openapi: 3.0.1
+info:
+  title: The Embedded Configuration Admin API
+  version: "1"
+servers:
+- url: /api/platform/v1
+tags:
+- description: The Embedded Automation Project Code Workflow Admin API
+  name: automation-project-code-workflow-admin
+paths:
+  /automation-project-code-workflows/deploy:
+    post:
+      description: "Deploy a new automation code workflow into the embedded catalog.\
+        \ Unlike the connected-user-scoped embedded internal endpoint, this operation\
+        \ is reachable with a plain platform API-key bearer token."
+      operationId: deployAutomationProjectCodeWorkflow
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/deployAutomationProjectCodeWorkflow_request"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutomationProjectCodeWorkflowDeployResult"
+          description: Successful operation.
+      summary: Deploy a new automation code workflow into the embedded catalog
+      tags:
+      - automation-project-code-workflow-admin
+      x-content-type: multipart/form-data
+      x-accepts:
+      - application/json
+components:
+  schemas:
+    AutomationProjectCodeWorkflowDeployResult:
+      example:
+        warnings:
+        - warnings
+        - warnings
+      properties:
+        warnings:
+          items:
+            type: string
+          type: array
+      type: object
+    deployAutomationProjectCodeWorkflow_request:
+      properties:
+        projectFile:
+          description: The file of a code-native automation project.
+          format: binary
+          type: string
+      type: object
+

@@ -16,8 +16,8 @@
 
 package com.bytechef.cli.command.embedded;
 
-import com.bytechef.cli.client.embeddedconfigurationinternal.ApiException;
-import com.bytechef.cli.client.embeddedconfigurationinternal.model.AutomationProjectCodeWorkflowDeployResultModel;
+import com.bytechef.cli.client.embeddedconfigurationadmin.ApiException;
+import com.bytechef.cli.client.embeddedconfigurationadmin.model.AutomationProjectCodeWorkflowDeployResultModel;
 import com.bytechef.cli.core.config.CliConfig;
 import com.bytechef.cli.core.error.CliException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -29,9 +29,15 @@ import org.springframework.shell.core.command.annotation.Command;
 import org.springframework.shell.core.command.annotation.Option;
 
 /**
- * Commands for deploying and listing automation code workflows served through the embedded bridge (deploy-once,
- * reference-per-user catalog projects) -- the admin-only counterpart to the connected-user-scoped
- * {@code embedded integration} commands.
+ * Commands for deploying automation code workflows served through the embedded bridge (deploy-once, reference-per-user
+ * catalog projects) -- the admin-only counterpart to the connected-user-scoped {@code embedded integration} commands.
+ *
+ * <p>
+ * Deploys go through the {@code /api/platform/v1/**} admin surface (matched by
+ * {@code PlatformApiKeySecurityConfigurer}), not the {@code /api/embedded/internal/**} surface used by the admin
+ * console: the latter is matched by {@code EmbeddedApiKeySecurityConfigurer}'s connected-user auth, which requires a
+ * {@code /v<n>/{externalUserId}/} path segment and grants zero authorities, so a plain profile Bearer token could never
+ * satisfy the facade's {@code ROLE_ADMIN} guard through it.
  *
  * @author Ivica Cardic
  */
@@ -62,7 +68,7 @@ public class EmbeddedCodeWorkflowCommand {
 
         try {
             AutomationProjectCodeWorkflowDeployResultModel result =
-                EmbeddedConfigurationClientFactory.automationProjectCodeWorkflowApi(config)
+                EmbeddedConfigurationClientFactory.automationProjectCodeWorkflowAdminApi(config)
                     .deployAutomationProjectCodeWorkflow(projectFile);
 
             System.out.println("Project deployed.");
