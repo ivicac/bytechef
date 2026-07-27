@@ -935,6 +935,69 @@ paths:
                 type: "string"
       security:
         - bearerAuth: [ ]
+  /{externalUserId}/automation/workflow-templates/{workflowUuid}/provision:
+    post:
+      description: "Explicitly provision a reference to a catalog code workflow ahead of first invocation."
+      summary: "Provision a reference to a catalog code workflow"
+      tags:
+        - "connected-user-project-workflow"
+      operationId: "provisionWorkflowReference"
+      parameters:
+        - name: "X-Environment"
+          description: "The environment."
+          in: "header"
+          required: false
+          schema:
+            $ref: '#/components/schemas/Environment'
+        - name: "externalUserId"
+          description: "The external user id."
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+        - name: "workflowUuid"
+          description: "The workflow template uuid."
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "204":
+          description: "Successful operation."
+        "409":
+          description: "A required connection could not be auto-wired."
+      security:
+        - bearerAuth: [ ]
+    delete:
+      description: "De-provision a reference to a catalog code workflow."
+      summary: "De-provision a reference to a catalog code workflow"
+      tags:
+        - "connected-user-project-workflow"
+      operationId: "deprovisionWorkflowReference"
+      parameters:
+        - name: "X-Environment"
+          description: "The environment."
+          in: "header"
+          required: false
+          schema:
+            $ref: '#/components/schemas/Environment'
+        - name: "externalUserId"
+          description: "The external user id."
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+        - name: "workflowUuid"
+          description: "The workflow template uuid."
+          in: "path"
+          required: true
+          schema:
+            type: "string"
+      responses:
+        "204":
+          description: "Successful operation."
+      security:
+        - bearerAuth: [ ]
   /{externalUserId}/automation/workflows:
     get:
       description: "Get automation workflows for particular external user."
@@ -2032,6 +2095,12 @@ components:
           type: "array"
           items:
             $ref: "#/components/schemas/AutomationWorkflowProjectWorkflowTemplate"
+        kind:
+          description: "Whether copying this project's templates creates a per-user copy or a shared reference."
+          type: "string"
+          enum:
+            - "COPY"
+            - "REFERENCE"
     AutomationWorkflowProjectWorkflowTemplate:
       type: "object"
       description: "A catalog workflow template within an automation workflow project."

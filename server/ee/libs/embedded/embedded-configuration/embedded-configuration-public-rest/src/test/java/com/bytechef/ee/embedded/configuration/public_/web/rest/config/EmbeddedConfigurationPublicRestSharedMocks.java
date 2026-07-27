@@ -8,11 +8,13 @@
 package com.bytechef.ee.embedded.configuration.public_.web.rest.config;
 
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
 import com.bytechef.ee.embedded.ai.mcp.facade.McpIntegrationInstanceToolFacade;
 import com.bytechef.ee.embedded.ai.mcp.facade.McpIntegrationInstanceWorkflowFacade;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceToolService;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserConnectionFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserIntegrationFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserIntegrationInstanceFacade;
@@ -40,14 +42,15 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @Target(ElementType.TYPE)
 @Retention(RetentionPolicy.RUNTIME)
 @MockitoBean(types = {
-    ClusterElementDefinitionService.class, ComponentDefinitionService.class, ConnectedUserConnectionFacade.class,
+    ClusterElementDefinitionService.class, ComponentDefinitionService.class,
+    ConnectedUserCodeWorkflowReferenceFacade.class, ConnectedUserConnectionFacade.class,
     ConnectedUserIntegrationFacade.class,
     ConnectedUserIntegrationInstanceFacade.class, ConnectedUserProjectFacade.class, ConnectedUserService.class,
     IntegrationInstanceConfigurationWorkflowService.class, IntegrationInstanceWorkflowService.class,
     IntegrationWorkflowService.class, McpComponentService.class, McpIntegrationInstanceConfigurationService.class,
     McpIntegrationInstanceConfigurationWorkflowService.class, McpIntegrationInstanceToolFacade.class,
     McpIntegrationInstanceToolService.class, McpIntegrationInstanceWorkflowFacade.class, McpServerService.class,
-    McpToolService.class, WorkflowService.class
+    McpToolService.class, ProjectCodeWorkflowService.class, WorkflowService.class
 })
 public @interface EmbeddedConfigurationPublicRestSharedMocks {
 }
