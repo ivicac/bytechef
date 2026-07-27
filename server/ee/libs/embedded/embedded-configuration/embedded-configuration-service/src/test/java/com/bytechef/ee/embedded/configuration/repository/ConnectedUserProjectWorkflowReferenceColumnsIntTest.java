@@ -212,6 +212,83 @@ public class ConnectedUserProjectWorkflowReferenceColumnsIntTest {
     }
 
     @Test
+    public void testCopiedFromWorkflowUuidRoundTrip() {
+        long workspaceId = insertWorkspace();
+        long projectId = insertProject(workspaceId);
+        long connectedUserProjectId = insertConnectedUserProject(projectId);
+        long projectWorkflowId = insertProjectWorkflow(projectId);
+
+        ConnectedUserProjectWorkflow copyModeRow = new ConnectedUserProjectWorkflow();
+
+        copyModeRow.setConnectedUserProjectId(connectedUserProjectId);
+        copyModeRow.setProjectWorkflowId(projectWorkflowId);
+        copyModeRow.setCopiedFromWorkflowUuid("55555555-5555-5555-5555-555555555555");
+
+        ConnectedUserProjectWorkflow saved = connectedUserProjectWorkflowRepository.save(copyModeRow);
+
+        ConnectedUserProjectWorkflow reloaded = connectedUserProjectWorkflowRepository.findById(saved.getId())
+            .orElseThrow();
+
+        assertThat(reloaded.getCopiedFromWorkflowUuid()).isEqualTo("55555555-5555-5555-5555-555555555555");
+    }
+
+    @Test
+    public void testPartialUniqueIndexRejectsDuplicateCopyFromSameTemplate() {
+        long workspaceId = insertWorkspace();
+        long projectId = insertProject(workspaceId);
+        long connectedUserProjectId = insertConnectedUserProject(projectId);
+        long firstProjectWorkflowId = insertProjectWorkflow(projectId, "workflow1");
+        long secondProjectWorkflowId = insertProjectWorkflow(projectId, "workflow2");
+
+        String templateUuid = "66666666-6666-6666-6666-666666666666";
+
+        jdbcTemplate.update(
+            """
+                INSERT INTO connected_user_project_workflow
+                    (connected_user_project_id, project_workflow_id, copied_from_workflow_uuid)
+                VALUES (?, ?, ?)
+                """,
+            connectedUserProjectId, firstProjectWorkflowId, templateUuid);
+
+        assertThatThrownBy(() -> {
+            jdbcTemplate.update(
+                """
+                    INSERT INTO connected_user_project_workflow
+                        (connected_user_project_id, project_workflow_id, copied_from_workflow_uuid)
+                    VALUES (?, ?, ?)
+                    """,
+                connectedUserProjectId, secondProjectWorkflowId, templateUuid);
+        }).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    public void testPartialUniqueIndexExemptsRowsWithoutCopiedFromWorkflowUuid() {
+        long workspaceId = insertWorkspace();
+        long projectId = insertProject(workspaceId);
+        long connectedUserProjectId = insertConnectedUserProject(projectId);
+        long firstProjectWorkflowId = insertProjectWorkflow(projectId, "workflow1");
+        long secondProjectWorkflowId = insertProjectWorkflow(projectId, "workflow2");
+
+        ConnectedUserProjectWorkflow firstCopyModeRow = new ConnectedUserProjectWorkflow();
+
+        firstCopyModeRow.setConnectedUserProjectId(connectedUserProjectId);
+        firstCopyModeRow.setProjectWorkflowId(firstProjectWorkflowId);
+
+        ConnectedUserProjectWorkflow secondCopyModeRow = new ConnectedUserProjectWorkflow();
+
+        secondCopyModeRow.setConnectedUserProjectId(connectedUserProjectId);
+        secondCopyModeRow.setProjectWorkflowId(secondProjectWorkflowId);
+
+        ConnectedUserProjectWorkflow savedFirstCopyModeRow = connectedUserProjectWorkflowRepository.save(
+            firstCopyModeRow);
+        ConnectedUserProjectWorkflow savedSecondCopyModeRow = connectedUserProjectWorkflowRepository.save(
+            secondCopyModeRow);
+
+        assertThat(connectedUserProjectWorkflowRepository.findById(savedFirstCopyModeRow.getId())).isPresent();
+        assertThat(connectedUserProjectWorkflowRepository.findById(savedSecondCopyModeRow.getId())).isPresent();
+    }
+
+    @Test
     public void testPartialUniqueIndexExemptsCopyModeRows() {
         long workspaceId = insertWorkspace();
         long projectId = insertProject(workspaceId);

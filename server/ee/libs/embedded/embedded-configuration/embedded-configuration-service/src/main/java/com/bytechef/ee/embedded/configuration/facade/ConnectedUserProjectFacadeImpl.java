@@ -178,7 +178,12 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
 
         Workflow workflow = workflowService.getWorkflow(publishedWorkflowId);
 
-        return createProjectWorkflow(externalUserId, workflow.getDefinition(), environment);
+        // Records the source template uuid on the new copy so a later sync invocation
+        // (RequestTriggerApiController's automation-bridge branch) that provisions a copy implicitly can detect an
+        // existing one and avoid creating a duplicate. This endpoint's own contract is unaffected: it still always
+        // creates a new copy and returns its uuid.
+        return connectedUserProjectWorkflowManager.createProjectWorkflow(
+            externalUserId, workflow.getDefinition(), environment, workflowUuid);
     }
 
     @Override

@@ -16,18 +16,22 @@ import static org.mockito.Mockito.when;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
+import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
+import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceToolService;
+import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
+import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.security.EmbeddedPermissionEvaluator;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
@@ -137,7 +141,13 @@ public class AutomationWorkflowProjectFacadeIntTest {
     private ConnectedUserProjectFacade connectedUserProjectFacade;
 
     @Autowired
+    private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
+
+    @Autowired
     private ProjectCodeWorkflowService projectCodeWorkflowService;
+
+    @Autowired
+    private ProjectWorkflowService projectWorkflowService;
 
     @Autowired
     private TagService tagService;
@@ -171,6 +181,43 @@ public class AutomationWorkflowProjectFacadeIntTest {
 
         assertThat(newWorkflowUuid).isNotBlank()
             .isNotEqualTo(publishedWorkflowUuid);
+    }
+
+    @Test
+    void testCopyWorkflowTemplateRecordsCopiedFromWorkflowUuid() {
+        long projectId = automationWorkflowProjectFacade.createProject("Onboarding", "", null, List.of(), null);
+        automationWorkflowProjectFacade.createProjectWorkflow(projectId, null, null);
+        automationWorkflowProjectFacade.publishProject(projectId);
+
+        String publishedWorkflowUuid = automationWorkflowProjectFacade.getPublishedProjects()
+            .stream()
+            .filter(project -> project.id() == projectId)
+            .flatMap(project -> project.workflowTemplates()
+                .stream())
+            .findFirst()
+            .map(ConnectedUserWorkflowTemplateDTO::workflowUuid)
+            .orElseThrow();
+
+        String newWorkflowUuid = connectedUserProjectFacade.copyWorkflowTemplate(
+            TEST_EXTERNAL_USER_ID, publishedWorkflowUuid, Environment.PRODUCTION);
+
+        // The sync invocation endpoint's dedup lookup (RequestTriggerApiController's automation-bridge branch)
+        // relies on this bookkeeping surviving a real round trip through Spring Data JDBC, not just an in-memory
+        // domain object.
+        ConnectedUserProjectWorkflow copy = connectedUserProjectWorkflowRepository.findAllByConnectedUserId(1L)
+            .stream()
+            .filter(row -> row.getCatalogWorkflowUuid() == null)
+            .filter(row -> {
+                ProjectWorkflow projectWorkflow = projectWorkflowService.getProjectWorkflow(
+                    row.getProjectWorkflowId());
+
+                return projectWorkflow.getUuidAsString()
+                    .equals(newWorkflowUuid);
+            })
+            .findFirst()
+            .orElseThrow();
+
+        assertThat(copy.getCopiedFromWorkflowUuid()).isEqualTo(publishedWorkflowUuid);
     }
 
     @Test

@@ -66,10 +66,14 @@ new invocation surface:
 Deploy-time validation is advisory, not a hard rejection: a workflow with neither trigger still
 deploys, but the server logs a warning that it will never be reachable from either endpoint.
 
-The async endpoint's fan-out also fires visual bridge copies, addressed by the copy's own workflow
-uuid (not the template's) — both reference-mode and copy-mode rows are in scope there. The sync
-endpoint's automation-bridge branch, as shipped, resolves catalog code-workflow uuids only; a visual
-copy's own uuid is not yet reachable through `POST /workflows/{workflowUuid}`.
+Both endpoints resolve the whole bridge, not just code-workflow references: the async endpoint's
+fan-out iterates every `ConnectedUserProjectWorkflow` row for the connected user, firing both
+reference-mode rows (code workflows) and copy-mode rows (visual bridge copies, addressed by the
+copy's own workflow uuid, not the template's). The sync endpoint resolves the same three shapes
+against a single `workflowUuid`: a connected user's own copy uuid dispatches directly; a catalog uuid
+for a code workflow (`kind: "REFERENCE"`) goes through the existing reference resolution; a catalog
+uuid for a visual template (`kind: "COPY"`) provisions a per-user copy on first call, sync-only — see
+[Implicit provisioning on first call](#implicit-provisioning-on-first-call) below.
 
 ## Implicit provisioning on first call
 
@@ -97,6 +101,18 @@ part of the call**:
    connection created after the fact, de-provision and provision again (next section) — that deletes
    the row outright, so the follow-up provision call creates a fresh one and reruns auto-wiring from
    scratch.
+
+The steps above describe reference-mode (code workflow) provisioning, reachable from either
+invocation endpoint. **Visual-template provisioning is sync-only** and behaves a little differently:
+calling `POST /workflows/{workflowUuid}` with a visual template's catalog uuid the connected user has
+never copied before performs the same copy the explicit
+`POST /automation/workflow-templates/{uuid}/copy` endpoint performs — including its best-effort
+connection auto-wiring — and dispatches the new copy. A component with no matching connection is
+silently left unwired rather than producing the 409 the reference path returns; the copy still runs,
+just without that connection configured. Calling the same template uuid again resolves the copy
+already provisioned for that connected user instead of creating a duplicate — the copy is
+subsequently addressable by its own uuid, same as an explicitly-provisioned one. The async endpoint
+has no implicit-provisioning case for either kind: there is nothing to iterate before a row exists.
 
 ## Explicit provisioning
 

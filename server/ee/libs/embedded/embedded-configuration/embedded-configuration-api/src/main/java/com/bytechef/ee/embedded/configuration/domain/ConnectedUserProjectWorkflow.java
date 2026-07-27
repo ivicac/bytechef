@@ -47,6 +47,9 @@ public class ConnectedUserProjectWorkflow {
     @Column("catalog_workflow_uuid")
     private String catalogWorkflowUuid;
 
+    @Column("copied_from_workflow_uuid")
+    private String copiedFromWorkflowUuid;
+
     @Column("project_deployment_id")
     private Long projectDeploymentId;
 
@@ -139,6 +142,21 @@ public class ConnectedUserProjectWorkflow {
         this.catalogWorkflowUuid = catalogWorkflowUuid;
     }
 
+    /**
+     * Set only on a copy-mode row provisioned implicitly by a sync {@code POST /workflows/{workflowUuid}} call against
+     * a visual template's catalog uuid; records that catalog uuid so a repeated call against the same template resolves
+     * this row instead of provisioning a second copy. Null for copy-mode rows created through any other path
+     * (blank-workflow creation, prompt generation, the explicit copy endpoint) and for every reference-mode row.
+     */
+    @Nullable
+    public String getCopiedFromWorkflowUuid() {
+        return copiedFromWorkflowUuid;
+    }
+
+    public void setCopiedFromWorkflowUuid(@Nullable String copiedFromWorkflowUuid) {
+        this.copiedFromWorkflowUuid = copiedFromWorkflowUuid;
+    }
+
     @Nullable
     public Long getProjectDeploymentId() {
         return projectDeploymentId;
@@ -225,6 +243,7 @@ public class ConnectedUserProjectWorkflow {
             ", projectWorkflowId=" + projectWorkflowId +
             ", workflowVersion=" + workflowVersion +
             ", catalogWorkflowUuid='" + catalogWorkflowUuid + '\'' +
+            ", copiedFromWorkflowUuid='" + copiedFromWorkflowUuid + '\'' +
             ", projectDeploymentId=" + projectDeploymentId +
             ", enabled=" + enabled +
             ", dangling=" + dangling +

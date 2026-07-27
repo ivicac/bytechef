@@ -13,7 +13,6 @@ import static com.bytechef.platform.component.definition.AppEventComponentDefini
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
-import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.commons.util.OptionalUtils;
@@ -51,6 +50,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -73,6 +73,7 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
     private static final Logger log = LoggerFactory.getLogger(AppEventTriggerApiController.class);
 
     private final ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
+    private final ConnectedUserCopyModeWorkflowResolver copyModeWorkflowResolver;
     private final ConnectedUserService connectedUserService;
     private final HttpServletRequest httpServletRequest;
     private final HttpServletResponse httpServletResponse;
@@ -80,7 +81,6 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
     private final IntegrationInstanceService integrationInstanceService;
     private final IntegrationInstanceWorkflowService integrationInstanceWorkflowService;
     private final IntegrationWorkflowService integrationWorkflowService;
-    private final ProjectDeploymentService projectDeploymentService;
     private final ProjectWorkflowService projectWorkflowService;
     private final WebhookWorkflowExecutor webhookWorkflowExecutor;
     private final WorkflowService workflowService;
@@ -103,6 +103,8 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
         super(fileEntryTokens, applicationProperties.getPublicUrl(), tempFileStorage, webhookWorkflowExecutor);
 
         this.connectedUserCodeWorkflowReferenceFacade = connectedUserCodeWorkflowReferenceFacade;
+        this.copyModeWorkflowResolver = new ConnectedUserCopyModeWorkflowResolver(
+            projectDeploymentService, projectWorkflowService);
         this.connectedUserService = connectedUserService;
         this.environmentService = environmentService;
         this.httpServletRequest = httpServletRequest;
@@ -111,7 +113,6 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
         this.integrationInstanceService = integrationInstanceService;
         this.integrationInstanceWorkflowService = integrationInstanceWorkflowService;
         this.integrationWorkflowService = integrationWorkflowService;
-        this.projectDeploymentService = projectDeploymentService;
         this.projectWorkflowService = projectWorkflowService;
         this.webhookWorkflowExecutor = webhookWorkflowExecutor;
         this.workflowService = workflowService;
@@ -228,33 +229,24 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
     }
 
     /**
-     * Mirrors {@code ConnectedUserProjectFacadeImpl.enableProjectWorkflow(long, boolean)}'s copy-mode resolution: a
-     * copy's {@code projectWorkflowId} points at a {@link ProjectWorkflow} owned by the connected user's own project
-     * (one project per connected user per environment, provisioned by {@code ConnectedUserProjectWorkflowManager}), so
-     * that project's currently active deployment -- not the row's (always-null, for copy mode) projectDeploymentId --
-     * is what must be resolved and used as the job principal.
+     * Copy-mode resolution is shared with {@link RequestTriggerApiController} through
+     * {@link ConnectedUserCopyModeWorkflowResolver} so the two controllers never resolve a copy's project deployment
+     * and workflow id differently.
      */
     private void dispatchCopyModeWorkflow(
         ConnectedUserProjectWorkflow connectedUserProjectWorkflow, Environment environment)
         throws IOException, ServletException {
 
-        ProjectWorkflow projectWorkflow = projectWorkflowService.getProjectWorkflow(
-            connectedUserProjectWorkflow.getProjectWorkflowId());
+        Optional<ConnectedUserCopyModeWorkflowResolver.Resolved> resolvedOptional = copyModeWorkflowResolver.resolve(
+            connectedUserProjectWorkflow, environment);
 
-        long projectDeploymentId = projectDeploymentService.getProjectDeploymentId(
-            projectWorkflow.getProjectId(), environment);
-
-        String workflowUuid = projectWorkflow.getUuidAsString();
-
-        String workflowId = projectWorkflowService
-            .fetchProjectWorkflowWorkflowId(projectDeploymentId, workflowUuid)
-            .orElse(null);
-
-        if (workflowId == null) {
+        if (resolvedOptional.isEmpty()) {
             return;
         }
 
-        Workflow workflow = workflowService.getWorkflow(workflowId);
+        ConnectedUserCopyModeWorkflowResolver.Resolved resolved = resolvedOptional.get();
+
+        Workflow workflow = workflowService.getWorkflow(resolved.workflowId());
 
         String appEventTriggerName = findAppEventTriggerName(workflow);
 
@@ -263,7 +255,7 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
         }
 
         WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.of(
-            PlatformType.AUTOMATION, projectDeploymentId, workflowUuid, appEventTriggerName);
+            PlatformType.AUTOMATION, resolved.projectDeploymentId(), resolved.workflowUuid(), appEventTriggerName);
 
         if (webhookWorkflowExecutor.isWorkflowDisabled(workflowExecutionId)) {
             return;
