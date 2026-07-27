@@ -19,6 +19,16 @@ version, which still marks them "coming soon". Document them when they ship / th
 | **AI Gateway** detail sections — Providers, Routing Policies, Prompts, Playground, Traces/Sessions, Scores, Alerts, Exports, Datasets, Experiments, Budget, Rate Limits (~17 CRUD sub-surfaces) | `client/src/pages/automation/ai/gateway/components/**`; servers `automation-ai-gateway`, `platform-ai-observability`, `platform-ai-eval` | Expand `platform/ai-gateway.md` into a section per surface (page is currently a single overview and marked "coming soon") |
 | **Project settings-menu extras** — Share, Share with Community, Pull from Git, Git Configuration, Project History | `client/src/pages/automation/project/**/settings-menu/**` and `project-list/ProjectListItem.tsx` (flags `ff_1042`, `ff_2939`, `ff_1039`) | `automation/build/projects.mdx` (community sharing) + an EE Git-integration page for per-project Git config/pull |
 
+## Deferred — added on branch 0_732, document when released
+
+Found in the 2026-07-27 audit of the branch's recent commits (error workflows already got their page,
+`automation/error-workflows.mdx`, in the same branch as the feature).
+
+| Surface | Evidence | Suggested home |
+|---|---|---|
+| **Auto-memory storage providers** — `bytechef.ai.auto-memory.provider` selects JDBC (default) / FILESYSTEM / AWS; selecting an unregistered provider fails fast at startup; no migration path between providers | `platform-ai-auto-memory-repository-file-storage`; spec `docs/superpowers/specs/2026-07-24-auto-memory-multiple-storage-providers-design.md` | Self-hosted configuration reference (operator-facing property), plus one line on the Memories section of `automation/ai-hub.mdx` |
+| **Workflow execution simulation (dry run)** — `simulateWorkflow` runs a workflow end-to-end with no external side effects; today it is an AI-copilot tool for the workflow-editor build subagent, not a UI surface | `platform-job-sync` `WorkflowSimulationFacade`; spec `docs/superpowers/specs/2026-07-24-workflow-execution-simulation-design.md` | No page while agent-only; document if/when a UI dry-run button ships |
+
 ## Deferred — needs design or a natural home
 
 | Surface | Evidence | Suggested home |
