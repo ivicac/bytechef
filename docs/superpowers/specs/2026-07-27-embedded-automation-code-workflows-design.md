@@ -87,6 +87,25 @@ integration behavior stays byte-for-byte unchanged, same URLs, auth, and respons
   exact same rules integration workflows follow today; the bridge branch inherits them by reusing
   the same controller machinery, adding no new trigger types and no new rules.
 
+## Provisioning — implicit on first call, explicit where wanted
+
+A backend may invoke a catalog template for a connected user who never provisioned it; the call
+itself provisions. Applies to **both kinds**:
+
+- **Code workflow**: no reference exists → the invocation creates the reference implicitly
+  (enabled), auto-wiring connections from the user's existing connections by component — the same
+  mechanism the visual copy flow uses today — then runs.
+- **Visual template**: no copy exists → the invocation performs the same copy the explicit
+  `POST /automation/workflow-templates/{uuid}/copy` endpoint performs (connection auto-wiring
+  included), then runs the copy. Subsequent calls hit the copy's own uuid as usual; calling the
+  template uuid again resolves to the existing copy rather than duplicating it.
+- **Unresolvable required connection** → HTTP 409 naming the missing connection; the
+  reference/copy is left in place but disabled, so the backend can create the connection and
+  retry without redoing provisioning.
+- **Explicit provisioning stays**: the existing visual copy endpoint is untouched, and a new
+  public endpoint provisions a code reference ahead of time for backends that want to pre-wire
+  connections before first call.
+
 ## Copilot and the Claude Code plugin
 
 - Admin authoring reuses the existing project-bound `code_workflow_ask` / `code_workflow_build`
