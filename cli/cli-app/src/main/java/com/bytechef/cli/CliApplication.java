@@ -20,6 +20,7 @@ import com.bytechef.cli.command.automation.AutomationExecutionCommand;
 import com.bytechef.cli.command.automation.AutomationProjectCommand;
 import com.bytechef.cli.command.component.ComponentCommand;
 import com.bytechef.cli.command.config.ConfigureCommand;
+import com.bytechef.cli.command.embedded.EmbeddedCodeWorkflowCommand;
 import com.bytechef.cli.command.embedded.EmbeddedExecutionCommand;
 import com.bytechef.cli.command.embedded.EmbeddedIntegrationCommand;
 import com.bytechef.cli.command.embedded.EmbeddedUserCommand;
@@ -43,7 +44,7 @@ import org.springframework.shell.core.command.annotation.EnableCommand;
 @EnableCommand({
     ComponentCommand.class, ConfigureCommand.class, AutomationExecutionCommand.class, AutomationProjectCommand.class,
     EmbeddedIntegrationCommand.class, EmbeddedWorkflowCommand.class, EmbeddedExecutionCommand.class,
-    EmbeddedUserCommand.class
+    EmbeddedUserCommand.class, EmbeddedCodeWorkflowCommand.class
 })
 public class CliApplication {
 

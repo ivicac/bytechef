@@ -94,6 +94,21 @@ The **frontend** variants of the embedded API (connected-user session token, for
 the AI Gateway and webhook endpoints are intentionally not exposed as CLI commands — their auth or
 inbound-call model doesn't fit a CLI.
 
+## Embedded code-workflow commands
+
+Deploy-once, reference-per-user catalog projects (the admin-only counterpart to the connected-user-scoped
+`embedded integration`/`embedded workflow` commands above). These hit `<host>/api/embedded/internal` with
+the profile's admin token — no `--external-user-id`.
+
+```bash
+bytechef embedded code-workflow deploy --file ./project.js
+```
+
+The uploaded file's extension determines the language server-side; `--language` is accepted for
+forward-compatibility but not currently sent. A successful deploy prints any trigger-validation
+warnings for workflows that declare no request/app-event trigger (still deployed, just not invocable
+through the embedded public endpoints until fixed).
+
 ## Component scaffolding
 
 ```bash

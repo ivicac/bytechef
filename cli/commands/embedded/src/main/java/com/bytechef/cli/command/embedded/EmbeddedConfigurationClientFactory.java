@@ -89,4 +89,31 @@ final class EmbeddedConfigurationClientFactory {
 
         return new CliException(1, "Request failed (HTTP " + status + ").");
     }
+
+    static com.bytechef.cli.client.embeddedconfigurationinternal.ApiClient internalApiClient(CliConfig config) {
+        com.bytechef.cli.client.embeddedconfigurationinternal.ApiClient apiClient =
+            new com.bytechef.cli.client.embeddedconfigurationinternal.ApiClient();
+
+        apiClient.updateBaseUri(AuthInterceptor.baseUri(config, "/api/embedded/internal"));
+        apiClient.setRequestInterceptor(new AuthInterceptor(config));
+
+        return apiClient;
+    }
+
+    static com.bytechef.cli.client.embeddedconfigurationinternal.api.AutomationProjectCodeWorkflowApi
+        automationProjectCodeWorkflowApi(CliConfig config) {
+
+        return new com.bytechef.cli.client.embeddedconfigurationinternal.api.AutomationProjectCodeWorkflowApi(
+            internalApiClient(config));
+    }
+
+    static CliException toCliException(com.bytechef.cli.client.embeddedconfigurationinternal.ApiException exception) {
+        int status = exception.getCode();
+
+        if (status == 401 || status == 403) {
+            return new CliException(2, "Authentication failed (HTTP " + status + ").");
+        }
+
+        return new CliException(1, "Request failed (HTTP " + status + ").");
+    }
 }

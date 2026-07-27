@@ -1,0 +1,3742 @@
+openapi: 3.0.1
+info:
+  title: The Embedded Configuration Internal API
+  version: "1"
+servers:
+- url: /api/embedded/internal
+tags:
+- description: The Embedded App Event Internal API
+  name: app-event
+- description: The Embedded Category Internal API
+  name: category
+- description: The Embedded Component Definition Internal API
+  name: component-definition
+- description: The Embedded Connection Tag Internal API
+  name: connection-tag
+- description: The Embedded Connected User Project Workflow Internal API
+  name: connected-user-project-workflow
+- description: The Embedded Connection Internal API
+  name: connection
+- description: The Embedded Tag Internal API
+  name: integration-tag
+- description: The Embedded Integration Internal API
+  name: integration
+- description: The Embedded Integration Code Workflow Internal API
+  name: integration-code-workflow
+- description: The Embedded Unified Integration Management Internal API
+  name: unified-integration
+- description: The Automation Webhook Trigger Internal API
+  name: webhook-trigger-test
+- description: The Embedded Workflow Internal API
+  name: workflow
+paths:
+  /component-definitions:
+    get:
+      description: Get all component definitions.
+      operationId: getComponentDefinitions
+      parameters:
+      - description: Use for filtering components which define action definitions.
+        explode: true
+        in: query
+        name: actionDefinitions
+        required: false
+        schema:
+          type: boolean
+        style: form
+      - description: Use for filtering components which define cluster element definitions.
+        explode: true
+        in: query
+        name: clusterElementDefinitions
+        required: false
+        schema:
+          type: boolean
+        style: form
+      - description: Use for filtering components which define connection definitions.
+        explode: true
+        in: query
+        name: connectionDefinitions
+        required: false
+        schema:
+          type: boolean
+        style: form
+      - description: Use for filtering components which define trigger definitions.
+        explode: true
+        in: query
+        name: triggerDefinitions
+        required: false
+        schema:
+          type: boolean
+        style: form
+      - description: The list of component names to include in the result.
+        explode: true
+        in: query
+        name: include
+        required: false
+        schema:
+          items:
+            type: string
+          type: array
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/ComponentDefinitionBasic"
+                type: array
+          description: Successful operation.
+      summary: Get all component definitions
+      tags:
+      - component-definition
+      x-accepts:
+      - application/json
+  /app-events:
+    get:
+      description: Get app events.
+      operationId: getAppEvents
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/AppEvent"
+                type: array
+          description: The list of app events.
+      summary: Get app events
+      tags:
+      - app-event
+      x-accepts:
+      - application/json
+    post:
+      description: Create a new app event.
+      operationId: createAppEvent
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppEvent"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                format: int64
+                type: integer
+          description: The app event id.
+      summary: Create a new app event
+      tags:
+      - app-event
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /app-events/{id}:
+    delete:
+      description: Delete an app event.
+      operationId: deleteAppEvent
+      parameters:
+      - description: The id of an app event.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Delete an app event
+      tags:
+      - app-event
+      x-accepts:
+      - application/json
+    get:
+      description: Get an app event by id.
+      operationId: getAppEvent
+      parameters:
+      - description: The id of an app event.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AppEvent"
+          description: The app event object.
+      summary: Get an app event by id
+      tags:
+      - app-event
+      x-accepts:
+      - application/json
+    put:
+      description: Update an existing app event.
+      operationId: updateAppEvent
+      parameters:
+      - description: The id of an app event.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AppEvent"
+        required: true
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Update an existing app event
+      tags:
+      - app-event
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /connections:
+    get:
+      description: Get all connections.
+      operationId: getConnections
+      parameters:
+      - description: The component name used for filtering connections.
+        explode: true
+        in: query
+        name: componentName
+        required: false
+        schema:
+          type: string
+        style: form
+      - description: The connection version.
+        explode: true
+        in: query
+        name: connectionVersion
+        required: false
+        schema:
+          type: integer
+        style: form
+      - description: The environment id.
+        explode: true
+        in: query
+        name: environmentId
+        required: false
+        schema:
+          format: int64
+          type: integer
+        style: form
+      - description: The tag id of used for filtering connections.
+        explode: true
+        in: query
+        name: tagId
+        required: false
+        schema:
+          format: int64
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Connection"
+                type: array
+          description: The list of connections.
+      summary: Get all connections
+      tags:
+      - connection
+      x-accepts:
+      - application/json
+    post:
+      description: Create a new connection.
+      operationId: createConnection
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Connection"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                format: int64
+                type: integer
+          description: The connection id.
+      summary: Create a new connection
+      tags:
+      - connection
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /connections/tags:
+    get:
+      description: Get connection tags.
+      operationId: getConnectionTags
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                description: The response object that contains the array of tags.
+                items:
+                  $ref: "#/components/schemas/Tag"
+                type: array
+          description: The list of connection tags.
+      summary: Get connection tags
+      tags:
+      - connection-tag
+      x-accepts:
+      - application/json
+  /connections/{id}:
+    delete:
+      description: Delete a connection.
+      operationId: deleteConnection
+      parameters:
+      - description: The id of a connection.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Delete a connection
+      tags:
+      - connection
+      x-accepts:
+      - application/json
+    get:
+      description: Get a connection by id.
+      operationId: getConnection
+      parameters:
+      - description: The id of a connection.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Connection"
+          description: The connection object.
+      summary: Get a connection by id
+      tags:
+      - connection
+      x-accepts:
+      - application/json
+    patch:
+      description: Update an existing connection.
+      operationId: updateConnection
+      parameters:
+      - description: The id of a connection.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateConnectionRequest"
+        required: true
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Update an existing connection
+      tags:
+      - connection
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /connections/{id}/tags:
+    put:
+      description: Updates tags of an existing connection.
+      operationId: updateConnectionTags
+      parameters:
+      - description: The id of the connection.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTagsRequest"
+        required: true
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Updates tags of an existing connection
+      tags:
+      - connection-tag
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /connected-users/{connectedUserId}/components/{componentName}/connections:
+    get:
+      description: Get all connected user's connections.
+      operationId: getConnectedUserConnections
+      parameters:
+      - description: The id of a connected user.
+        explode: false
+        in: path
+        name: connectedUserId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      - description: The component name.
+        explode: false
+        in: path
+        name: componentName
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The list of allowed connection ids.
+        explode: true
+        in: query
+        name: connectionIds
+        required: false
+        schema:
+          items:
+            format: int64
+            type: integer
+          type: array
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Connection"
+                type: array
+          description: The list of connections.
+      summary: Get all connected user's connections
+      tags:
+      - connection
+      x-accepts:
+      - application/json
+  /connected-users/{connectedUserId}/connections:
+    post:
+      description: Create a new connection for the connected user.
+      operationId: createConnectedUserConnection
+      parameters:
+      - description: The id of a connected user.
+        explode: false
+        in: path
+        name: connectedUserId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Connection"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                format: int64
+                type: integer
+          description: The connection id.
+      summary: Create a new connection for the connected user
+      tags:
+      - connection
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /connected-user-project-workflows/{workflowUuid}:
+    get:
+      description: Get connected user project workflow.
+      operationId: getConnectedUserProjectWorkflow
+      parameters:
+      - description: The environment.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      - description: The workflow uuid.
+        explode: false
+        in: path
+        name: workflowUuid
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectedUserProjectWorkflow"
+          description: The connected user project workflow object.
+      summary: Get connected user project workflow.
+      tags:
+      - connected-user-project-workflow
+      x-accepts:
+      - application/json
+  /connected-user-project-workflows/{workflowUuid}/publish:
+    post:
+      description: Publishes existing connected user project workflow.
+      operationId: publishConnectedUserProjectWorkflow
+      parameters:
+      - description: The environment.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      - description: The workflow uuid.
+        explode: false
+        in: path
+        name: workflowUuid
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/publishConnectedUserProjectWorkflow_request"
+        required: true
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Publishes existing connected user project workflow
+      tags:
+      - connected-user-project-workflow
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /connected-user-project-workflows/{workflowUuid}/enable/{enable}:
+    patch:
+      description: Enable/disable a connected user project workflow.
+      operationId: enableConnectedUserProjectWorkflow
+      parameters:
+      - description: The environment.
+        explode: false
+        in: header
+        name: X-Environment
+        required: false
+        schema:
+          $ref: "#/components/schemas/Environment"
+        style: simple
+      - description: The workflow uuid.
+        explode: false
+        in: path
+        name: workflowUuid
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Enable/disable the project deployment.
+        explode: false
+        in: path
+        name: enable
+        required: true
+        schema:
+          type: boolean
+        style: simple
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Enable/disable a connected user project workflow
+      tags:
+      - connected-user-project-workflow
+      x-accepts:
+      - application/json
+  /integration-instance-configurations/tags:
+    get:
+      description: Get integration instance configuration tags.
+      operationId: getIntegrationInstanceConfigurationTags
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                description: The response object that contains the array of tags.
+                items:
+                  $ref: "#/components/schemas/Tag"
+                type: array
+          description: The list of integration instance configuration tags.
+      summary: Get integration instance configuration tags
+      tags:
+      - integration-instance-configuration-tag
+      x-accepts:
+      - application/json
+  /integration-instance-configurations:
+    get:
+      description: Get integration instance configurations.
+      operationId: getIntegrationInstanceConfigurations
+      parameters:
+      - description: The environment id.
+        explode: true
+        in: query
+        name: environmentId
+        required: false
+        schema:
+          format: int64
+          type: integer
+        style: form
+      - description: The integration id used for filtering integration instance configurations.
+        explode: true
+        in: query
+        name: integrationId
+        required: false
+        schema:
+          format: int64
+          type: integer
+        style: form
+      - description: The tag id of used for filtering integration instance configurations.
+        explode: true
+        in: query
+        name: tagId
+        required: false
+        schema:
+          format: int64
+          type: integer
+        style: form
+      - description: Use for including all fields or just basic ones.
+        explode: true
+        in: query
+        name: includeAllFields
+        required: false
+        schema:
+          default: true
+          type: boolean
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/IntegrationInstanceConfiguration"
+                type: array
+          description: The list of integration instance configurations.
+      summary: Get integration instance configurations
+      tags:
+      - integration-instance-configuration
+      x-accepts:
+      - application/json
+    post:
+      description: Create a new integration instance configuration.
+      operationId: createIntegrationInstanceConfiguration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrationInstanceConfiguration"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                format: int64
+                type: integer
+          description: The integration instance configuration id.
+      summary: Create a new integration instance configuration
+      tags:
+      - integration-instance-configuration
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /integration-instance-configurations/{id}:
+    delete:
+      description: Delete an integration instance configuration.
+      operationId: deleteIntegrationInstanceConfiguration
+      parameters:
+      - description: The id of an integration instance configuration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Delete an integration instance configuration
+      tags:
+      - integration-instance-configuration
+      x-accepts:
+      - application/json
+    get:
+      description: Get an integration instance configuration by id.
+      operationId: getIntegrationInstanceConfiguration
+      parameters:
+      - description: The id of an integration instance configuration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationInstanceConfiguration"
+          description: The integration instance configuration object.
+      summary: Get an integration instance configuration by id
+      tags:
+      - integration-instance-configuration
+      x-accepts:
+      - application/json
+    put:
+      description: Update an existing integration instance configuration.
+      operationId: updateIntegrationInstanceConfiguration
+      parameters:
+      - description: The id of an integration instance configuration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrationInstanceConfiguration"
+        required: true
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Update an existing integration instance configuration
+      tags:
+      - integration-instance-configuration
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /integration-instance-configurations/{id}/enable/{enable}:
+    patch:
+      description: Enable/disable an integration instance configuration.
+      operationId: enableIntegrationInstanceConfiguration
+      parameters:
+      - description: The id of an integration instance configuration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      - description: Enable/disable the integration instance configuration.
+        explode: false
+        in: path
+        name: enable
+        required: true
+        schema:
+          type: boolean
+        style: simple
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Enable/disable an integration instance configuration
+      tags:
+      - integration-instance-configuration
+      x-accepts:
+      - application/json
+  /integration-instance-configurations/{id}/tags:
+    put:
+      description: Updates tags of an existing integration instance configuration.
+      operationId: updateIntegrationInstanceConfigurationTags
+      parameters:
+      - description: The id of an integration instance configuration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTagsRequest"
+        required: true
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Updates tags of an existing integration instance configuration
+      tags:
+      - integration-instance-configuration-tag
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /integration-instance-configurations/{id}/workflows/{workflowId}/enable/{enable}:
+    patch:
+      description: Enable/disable a workflow of an integration instance configuration.
+      operationId: enableIntegrationInstanceConfigurationWorkflow
+      parameters:
+      - description: The id of an integration instance configuration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      - description: The id of an integration workflow.
+        explode: false
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Enable/disable the workflow of an integration instance configuration.
+        explode: false
+        in: path
+        name: enable
+        required: true
+        schema:
+          type: boolean
+        style: simple
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Enable/disable a workflow of an integration instance configuration
+      tags:
+      - integration-instance-configuration
+      x-accepts:
+      - application/json
+  /integration-instance-configurations/{id}/workflows/{workflowId}:
+    put:
+      description: Update an existing integration instance configuration workflow.
+      operationId: updateIntegrationInstanceConfigurationWorkflow
+      parameters:
+      - description: The id of an integration instance configuration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      - description: The id of an integration instance configuration workflow.
+        explode: false
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/IntegrationInstanceConfigurationWorkflow"
+        required: true
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Update an existing integration instance configuration workflow
+      tags:
+      - integration-instance-configuration
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /integration-instance-configurations/{id}/workflows/{workflowId}/jobs:
+    post:
+      description: Create a request for running a new job.
+      operationId: createIntegrationInstanceConfigurationWorkflowJob
+      parameters:
+      - description: The id of an integration instance configuration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      - description: The id of the workflow to execute.
+        explode: false
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/createIntegrationInstanceConfigurationWorkflowJob_200_response"
+          description: The id of a created job.
+      summary: Create a request for running a new job
+      tags:
+      - integration-instance-configuration
+      x-accepts:
+      - application/json
+  /integration-instances/{id}:
+    delete:
+      description: Delete an integration instance.
+      operationId: deleteIntegrationInstance
+      parameters:
+      - description: The id of an integration instance.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Delete an integration instance
+      tags:
+      - integration-instance
+      x-accepts:
+      - application/json
+    get:
+      description: Get an integration instance by id.
+      operationId: getIntegrationInstance
+      parameters:
+      - description: The id of an integration instance.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/IntegrationInstance"
+          description: The integration instance object.
+      summary: Get an integration instance by id
+      tags:
+      - integration-instance
+      x-accepts:
+      - application/json
+  /integration-instances/{id}/enable/{enable}:
+    patch:
+      description: Enable/disable an integration instance.
+      operationId: enableIntegrationInstance
+      parameters:
+      - description: The id of an integration instance.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      - description: Enable/disable the integration instance.
+        explode: false
+        in: path
+        name: enable
+        required: true
+        schema:
+          type: boolean
+        style: simple
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Enable/disable an integration instance
+      tags:
+      - integration-instance
+      x-accepts:
+      - application/json
+  /integration-instances/{id}/workflows/{workflowId}/enable/{enable}:
+    patch:
+      description: Enable/disable an integration instance workflow.
+      operationId: enableIntegrationInstanceWorkflow
+      parameters:
+      - description: The id of an integration instance.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      - description: The id of an integration instance workflow.
+        explode: false
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: Enable/disable the integration instance workflow.
+        explode: false
+        in: path
+        name: enable
+        required: true
+        schema:
+          type: boolean
+        style: simple
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Enable/disable an integration instance workflow
+      tags:
+      - integration-instance
+      x-accepts:
+      - application/json
+  /integrations:
+    get:
+      description: Get integrations.
+      operationId: getIntegrations
+      parameters:
+      - description: The category id used for filtering integrations.
+        explode: true
+        in: query
+        name: categoryId
+        required: false
+        schema:
+          format: int64
+          type: integer
+        style: form
+      - description: Use for filtering integrations for which integration instance
+          configurations exist.
+        explode: true
+        in: query
+        name: integrationInstanceConfigurations
+        required: false
+        schema:
+          type: boolean
+        style: form
+      - description: Use for filtering integrations by status.
+        explode: true
+        in: query
+        name: status
+        required: false
+        schema:
+          $ref: "#/components/schemas/IntegrationStatus"
+        style: form
+      - description: The tag id of used for filtering integrations.
+        explode: true
+        in: query
+        name: tagId
+        required: false
+        schema:
+          format: int64
+          type: integer
+        style: form
+      - description: Use for including all fields or just basic ones.
+        explode: true
+        in: query
+        name: includeAllFields
+        required: false
+        schema:
+          default: true
+          type: boolean
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Integration"
+                type: array
+          description: The list of integrations.
+      summary: Get integrations
+      tags:
+      - integration
+      x-accepts:
+      - application/json
+    post:
+      description: Create a new integration.
+      operationId: createIntegration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Integration"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                format: int64
+                type: integer
+          description: The integration id.
+      summary: Create a new integration
+      tags:
+      - integration
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /integrations/deploy:
+    post:
+      description: Deploy a new code based integration.
+      operationId: deployIntegration
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/deployIntegration_request"
+        required: true
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Deploy a new code based integration
+      tags:
+      - integration-code-workflow
+      x-content-type: multipart/form-data
+      x-accepts:
+      - application/json
+  /automation/projects/deploy:
+    post:
+      description: Deploy a new automation code workflow into the embedded catalog.
+      operationId: deployAutomationProjectCodeWorkflow
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/deployAutomationProjectCodeWorkflow_request"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutomationProjectCodeWorkflowDeployResult"
+          description: Successful operation.
+      summary: Deploy a new automation code workflow into the embedded catalog
+      tags:
+      - automation-project-code-workflow
+      x-content-type: multipart/form-data
+      x-accepts:
+      - application/json
+  /integrations/categories:
+    get:
+      description: Get integration categories.
+      operationId: getIntegrationCategories
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                description: The response object that contains the array of categories.
+                items:
+                  $ref: "#/components/schemas/Category"
+                type: array
+          description: The list of categories.
+      summary: Get integration categories
+      tags:
+      - category
+      x-accepts:
+      - application/json
+  /integrations/tags:
+    get:
+      description: Get integration tags.
+      operationId: getIntegrationTags
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                description: The response object that contains the array of tags.
+                items:
+                  $ref: "#/components/schemas/Tag"
+                type: array
+          description: The list of integration tags.
+      summary: Get integration tags
+      tags:
+      - integration-tag
+      x-accepts:
+      - application/json
+  /integrations/{id}:
+    delete:
+      description: Delete an integration.
+      operationId: deleteIntegration
+      parameters:
+      - description: The id of an integration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Delete an integration
+      tags:
+      - integration
+      x-accepts:
+      - application/json
+    get:
+      description: Get an integration by id.
+      operationId: getIntegration
+      parameters:
+      - description: The id of an integration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Integration"
+          description: The integration object.
+      summary: Get an integration by id
+      tags:
+      - integration
+      x-accepts:
+      - application/json
+    put:
+      description: Update an existing integration.
+      operationId: updateIntegration
+      parameters:
+      - description: The id of an integration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Integration"
+        required: true
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Update an existing integration
+      tags:
+      - integration
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /integrations/{id}/publish:
+    post:
+      description: Publishes existing integration.
+      operationId: publishIntegration
+      parameters:
+      - description: The id of a integration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/publishIntegration_request"
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Publishes existing integration.
+      tags:
+      - integration
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /integrations/{id}/versions:
+    get:
+      description: Get a integration versions.
+      operationId: getIntegrationVersions
+      parameters:
+      - description: The id of an integration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/IntegrationVersion"
+                type: array
+          description: The list of integration version objects.
+      summary: Get a integration versions.
+      tags:
+      - integration
+      x-accepts:
+      - application/json
+  /integrations/{id}/versions/{integrationVersion}/workflows:
+    get:
+      description: Get workflows for particular integration version.
+      operationId: getIntegrationVersionWorkflows
+      parameters:
+      - description: The id of a integration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      - description: The version of a integration.
+        explode: false
+        in: path
+        name: integrationVersion
+        required: true
+        schema:
+          type: integer
+        style: simple
+      - description: Use for including all fields or just basic ones.
+        explode: true
+        in: query
+        name: includeAllFields
+        required: false
+        schema:
+          default: true
+          type: boolean
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Workflow"
+                type: array
+          description: The array of integration workflows.
+      summary: Get workflows for particular integration version.
+      tags:
+      - workflow
+      x-accepts:
+      - application/json
+  /integrations/{id}/tags:
+    put:
+      description: Updates tags of an existing integration.
+      operationId: updateIntegrationTags
+      parameters:
+      - description: The id of an integration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTagsRequest"
+        required: true
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Updates tags of an existing integration
+      tags:
+      - integration-tag
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /integrations/{id}/workflows:
+    get:
+      description: Get integration workflows for particular integration.
+      operationId: getIntegrationWorkflows
+      parameters:
+      - description: The id of an integration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                items:
+                  $ref: "#/components/schemas/Workflow"
+                type: array
+          description: The updated integration object.
+      summary: Get integration workflows for particular integration
+      tags:
+      - workflow
+      x-accepts:
+      - application/json
+    post:
+      description: Create new workflow and adds it to an existing integration.
+      operationId: createIntegrationWorkflow
+      parameters:
+      - description: The id of an integration.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Workflow"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                format: int64
+                type: integer
+          description: The integration workflow id.
+      summary: Create new workflow and adds it to an existing integration
+      tags:
+      - integration
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /webhooks/{workflowId}/test/start:
+    post:
+      description: Test a webhook trigger.
+      operationId: startWebhookTriggerTest
+      parameters:
+      - description: The id of a workflow.
+        explode: false
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The id of an environment.
+        explode: true
+        in: query
+        name: environmentId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: form
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/startWebhookTriggerTest_200_response"
+          description: Returns the webhook URL.
+      summary: Test a webhook trigger
+      tags:
+      - webhook-trigger-test
+      x-accepts:
+      - application/json
+  /webhooks/{workflowId}/test/stop:
+    post:
+      description: Test a webhook trigger.
+      operationId: stopWebhookTriggerTest
+      parameters:
+      - description: The id of a workflow.
+        explode: false
+        in: path
+        name: workflowId
+        required: true
+        schema:
+          type: string
+        style: simple
+      - description: The id of an environment.
+        explode: true
+        in: query
+        name: environmentId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: form
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Test a webhook trigger
+      tags:
+      - webhook-trigger-test
+      x-accepts:
+      - application/json
+  /workflows/{id}:
+    delete:
+      description: Delete a workflow.
+      operationId: deleteWorkflow
+      parameters:
+      - description: The id of the workflow to delete.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "204":
+          description: Successful operation.
+      summary: Delete a workflow
+      tags:
+      - workflow
+      x-accepts:
+      - application/json
+    get:
+      description: Get a workflow by id.
+      operationId: getWorkflow
+      parameters:
+      - description: The id of the workflow to get.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workflow"
+          description: The workflow object.
+      summary: Get a workflow by id
+      tags:
+      - workflow
+      x-accepts:
+      - application/json
+    put:
+      description: Update an existing workflow.
+      operationId: updateWorkflow
+      parameters:
+      - description: The id of the workflow to update.
+        explode: false
+        in: path
+        name: id
+        required: true
+        schema:
+          type: string
+        style: simple
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Workflow"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workflow"
+          description: The updated workflow object.
+      summary: Update an existing workflow
+      tags:
+      - workflow
+      x-content-type: application/json
+      x-accepts:
+      - application/json
+  /workflows/by-integration-workflow-id/{integrationWorkflowId}:
+    get:
+      description: Get workflow for particular integration.
+      operationId: getIntegrationWorkflow
+      parameters:
+      - description: The id of an integration workflow.
+        explode: false
+        in: path
+        name: integrationWorkflowId
+        required: true
+        schema:
+          format: int64
+          type: integer
+        style: simple
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Workflow"
+          description: The integration workflow object.
+      summary: Get workflow for particular integration.
+      tags:
+      - workflow
+      x-accepts:
+      - application/json
+components:
+  schemas:
+    AppEvent:
+      description: An app event.
+      example:
+        schema: schema
+        __version: 6
+        createdDate: 2000-01-23T04:56:07.000+00:00
+        createdBy: createdBy
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+        lastModifiedBy: lastModifiedBy
+        name: name
+        id: 0
+      properties:
+        createdBy:
+          description: The created by.
+          readOnly: true
+          type: string
+        createdDate:
+          description: The created date.
+          format: date-time
+          readOnly: true
+          type: string
+        id:
+          description: The id of an app event.
+          format: int64
+          type: integer
+        name:
+          description: The name of an app event.
+          type: string
+        lastModifiedBy:
+          description: The last modified by.
+          readOnly: true
+          type: string
+        lastModifiedDate:
+          description: The last modified date.
+          format: date-time
+          readOnly: true
+          type: string
+        schema:
+          description: The schema of an app event.
+          type: string
+        __version:
+          format: int32
+          type: integer
+      required:
+      - name
+      - schema
+    AutomationProjectCodeWorkflowDeployResult:
+      description: The result of deploying an automation code workflow into the embedded
+        catalog.
+      example:
+        warnings:
+        - warnings
+        - warnings
+      properties:
+        warnings:
+          description: Deploy-time trigger validation warnings; a deployed workflow
+            is still usable even with warnings.
+          items:
+            type: string
+          type: array
+      type: object
+    Category:
+      description: A category.
+      example:
+        __version: 5
+        createdDate: 2000-01-23T04:56:07.000+00:00
+        createdBy: createdBy
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+        lastModifiedBy: lastModifiedBy
+        name: name
+        id: 1
+      properties:
+        createdBy:
+          description: The created by.
+          readOnly: true
+          type: string
+        createdDate:
+          description: The created date.
+          format: date-time
+          readOnly: true
+          type: string
+        id:
+          description: The id of the category.
+          format: int64
+          type: integer
+        name:
+          description: The name of the category.
+          type: string
+        lastModifiedBy:
+          description: The last modified by.
+          readOnly: true
+          type: string
+        lastModifiedDate:
+          description: The last modified date.
+          format: date-time
+          readOnly: true
+          type: string
+        __version:
+          format: int32
+          type: integer
+      required:
+      - name
+    ConnectedUserProjectWorkflow:
+      example:
+        connectedUserId: 0
+        workflow:
+          outputs:
+          - name: name
+            value: "{}"
+          - name: name
+            value: "{}"
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          inputs:
+          - internalOnly: false
+            name: name
+            objectName: objectName
+            label: label
+            type: string
+            componentReference:
+              groupName: groupName
+              componentName: componentName
+              componentVersion: 5
+            required: false
+          - internalOnly: false
+            name: name
+            objectName: objectName
+            label: label
+            type: string
+            componentReference:
+              groupName: groupName
+              componentName: componentName
+              componentVersion: 5
+            required: false
+          lastModifiedBy: lastModifiedBy
+          format: JSON
+          description: description
+          workflowTaskComponentNames:
+          - workflowTaskComponentNames
+          - workflowTaskComponentNames
+          label: label
+          inputsCount: 2
+          triggers:
+          - metadata:
+              key: ""
+            name: name
+            description: description
+            label: label
+            type: type
+            parameters:
+              key: ""
+            connections:
+            - workflowNodeName: workflowNodeName
+              componentName: componentName
+              componentVersion: 9
+              key: key
+              required: true
+            - workflowNodeName: workflowNodeName
+              componentName: componentName
+              componentVersion: 9
+              key: key
+              required: true
+            timeout: timeout
+          - metadata:
+              key: ""
+            name: name
+            description: description
+            label: label
+            type: type
+            parameters:
+              key: ""
+            connections:
+            - workflowNodeName: workflowNodeName
+              componentName: componentName
+              componentVersion: 9
+              key: key
+              required: true
+            - workflowNodeName: workflowNodeName
+              componentName: componentName
+              componentVersion: 9
+              key: key
+              required: true
+            timeout: timeout
+          connectionsCount: 5
+          __version: 2
+          maxRetries: 7
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          sourceType: CLASSPATH
+          workflowTriggerComponentNames:
+          - workflowTriggerComponentNames
+          - workflowTriggerComponentNames
+          integrationWorkflowId: 4
+          definition: definition
+          id: id
+          tasks:
+          - metadata:
+              key: ""
+            pre:
+            - null
+            - null
+            clusterRoot: false
+            description: description
+            label: label
+            type: type
+            timeout: timeout
+            node: node
+            maxRetries: 3
+            post:
+            - null
+            - null
+            clusterElements:
+              key: ""
+            name: name
+            finalize:
+            - null
+            - null
+            parameters:
+              key: ""
+            connections:
+            - workflowNodeName: workflowNodeName
+              componentName: componentName
+              componentVersion: 9
+              key: key
+              required: true
+            - workflowNodeName: workflowNodeName
+              componentName: componentName
+              componentVersion: 9
+              key: key
+              required: true
+          - metadata:
+              key: ""
+            pre:
+            - null
+            - null
+            clusterRoot: false
+            description: description
+            label: label
+            type: type
+            timeout: timeout
+            node: node
+            maxRetries: 3
+            post:
+            - null
+            - null
+            clusterElements:
+              key: ""
+            name: name
+            finalize:
+            - null
+            - null
+            parameters:
+              key: ""
+            connections:
+            - workflowNodeName: workflowNodeName
+              componentName: componentName
+              componentVersion: 9
+              key: key
+              required: true
+            - workflowNodeName: workflowNodeName
+              componentName: componentName
+              componentVersion: 9
+              key: key
+              required: true
+          workflowUuid: workflowUuid
+        workflowVersion: 1
+        projectId: 6
+      properties:
+        connectedUserId:
+          description: The connected user id
+          format: int64
+          type: integer
+        projectId:
+          description: The project id
+          format: int64
+          type: integer
+        workflowVersion:
+          description: The workflow version
+          type: integer
+        workflow:
+          $ref: "#/components/schemas/Workflow"
+      type: object
+    Connection:
+      description: Contains all required information to open a connection to a service
+        defined by componentName parameter.
+      example:
+        visibility: PRIVATE
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+        credentialStoreType: DATABASE
+        lastModifiedBy: lastModifiedBy
+        active: true
+        credentialStatus: VALID
+        tags:
+        - __version: 5
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          lastModifiedBy: lastModifiedBy
+          name: name
+          id: 5
+        - __version: 5
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          lastModifiedBy: lastModifiedBy
+          name: name
+          id: 5
+        authorizationParameters:
+          key: ""
+        __version: 2
+        connectionParameters:
+          key: ""
+        createdDate: 2000-01-23T04:56:07.000+00:00
+        environmentId: 6
+        createdBy: createdBy
+        managed: true
+        baseUri: baseUri
+        name: name
+        authorizationType: API_KEY
+        componentName: componentName
+        id: 1
+        parameters:
+          key: ""
+        connectionVersion: 0
+        status: ACTIVE
+      properties:
+        active:
+          description: If a connection is used in any of active workflows.
+          readOnly: true
+          type: boolean
+        managed:
+          description: True when this connection is system-managed (e.g. an enabled
+            AI provider) and cannot be edited or deleted.
+          readOnly: true
+          type: boolean
+        authorizationType:
+          $ref: "#/components/schemas/AuthorizationType"
+        authorizationParameters:
+          additionalProperties: true
+          description: The authorization parameters of a connection.
+          readOnly: true
+          type: object
+        baseUri:
+          description: The base URI of a connection.
+          type: string
+        componentName:
+          description: The name of a component that uses this connection.
+          type: string
+        connectionParameters:
+          additionalProperties: true
+          description: The connection parameters of a connection.
+          readOnly: true
+          type: object
+        connectionVersion:
+          description: The version of a component that uses this connection.
+          type: integer
+        createdBy:
+          description: The created by.
+          readOnly: true
+          type: string
+        createdDate:
+          description: The created date.
+          format: date-time
+          readOnly: true
+          type: string
+        credentialStatus:
+          $ref: "#/components/schemas/credential_status"
+        credentialStoreType:
+          default: DATABASE
+          description: Backend that stores the credential payload. Defaults to DATABASE.
+          enum:
+          - DATABASE
+          - AWS_SECRETS_MANAGER
+          - HASHICORP_VAULT
+          type: string
+        environmentId:
+          description: The id of an environment.
+          format: int64
+          type: integer
+        id:
+          description: The id of a connection.
+          format: int64
+          readOnly: true
+          type: integer
+        lastModifiedBy:
+          description: The last modified by.
+          readOnly: true
+          type: string
+        lastModifiedDate:
+          description: The last modified date.
+          format: date-time
+          readOnly: true
+          type: string
+        name:
+          description: The name of a connection.
+          type: string
+        parameters:
+          additionalProperties: true
+          description: The parameters of a connection.
+          type: object
+          writeOnly: true
+        tags:
+          items:
+            $ref: "#/components/schemas/Tag"
+          type: array
+        status:
+          description: Lifecycle state of the connection. ACTIVE is the normal operating
+            state. PENDING_REASSIGNMENT indicates the owner was removed from the workspace
+            and the connection awaits reassignment. REVOKED is terminal and cannot
+            transition back.
+          enum:
+          - ACTIVE
+          - PENDING_REASSIGNMENT
+          - REVOKED
+          readOnly: true
+          type: string
+        visibility:
+          description: "Visibility scope controlling which users can see and use a\
+            \ connection. Accepted on create: PRIVATE (default) or WORKSPACE — setting\
+            \ WORKSPACE requires ROLE_ADMIN. ORGANIZATION is assigned by organization\
+            \ flows, not by direct client request. On CE or embedded surfaces the\
+            \ server always forces PRIVATE regardless of the request body."
+          enum:
+          - PRIVATE
+          - WORKSPACE
+          - ORGANIZATION
+          type: string
+        __version:
+          format: int32
+          type: integer
+      required:
+      - componentName
+      - connectionVersion
+      - name
+      - parameters
+      type: object
+    UpdateConnectionRequest:
+      description: Contains all connection parameters that can be updated.
+      properties:
+        name:
+          description: The name of a connection.
+          type: string
+        tags:
+          items:
+            $ref: "#/components/schemas/Tag"
+          type: array
+        __version:
+          format: int32
+          type: integer
+      required:
+      - name
+      - tags
+      type: object
+    Environment:
+      description: The environment of a project.
+      enum:
+      - DEVELOPMENT
+      - STAGING
+      - PRODUCTION
+      readOnly: true
+      type: string
+    Integration:
+      allOf:
+      - $ref: "#/components/schemas/IntegrationBasic"
+      - properties:
+          category:
+            $ref: "#/components/schemas/Category"
+          codeWorkflow:
+            description: Whether the integration is backed by a code workflow.
+            readOnly: true
+            type: boolean
+          codeWorkflowLanguage:
+            description: "The programming language of the code workflow, if the integration\
+              \ is code-backed."
+            readOnly: true
+            type: string
+          integrationWorkflowIds:
+            description: The integration workflow ids belonging to this integration.
+            items:
+              format: int64
+              type: integer
+            type: array
+          tags:
+            items:
+              $ref: "#/components/schemas/Tag"
+            type: array
+          __version:
+            type: integer
+        type: object
+      description: A group of workflows that make one logical integration.
+      example:
+        integrationWorkflowIds:
+        - 5
+        - 5
+        lastPublishedDate: 2000-01-23T04:56:07.000+00:00
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+        lastModifiedBy: lastModifiedBy
+        icon: icon
+        codeWorkflowLanguage: codeWorkflowLanguage
+        description: description
+        multipleInstances: false
+        permissionExpression: permissionExpression
+        codeWorkflow: true
+        tags:
+        - __version: 5
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          lastModifiedBy: lastModifiedBy
+          name: name
+          id: 5
+        - __version: 5
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          lastModifiedBy: lastModifiedBy
+          name: name
+          id: 5
+        __version: 2
+        createdDate: 2000-01-23T04:56:07.000+00:00
+        createdBy: createdBy
+        name: name
+        componentName: componentName
+        id: 0
+        category:
+          __version: 5
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          lastModifiedBy: lastModifiedBy
+          name: name
+          id: 1
+        lastIntegrationVersion: 6
+        lastStatus: DRAFT
+    IntegrationBasic:
+      description: A group of workflows that make one logical integration.
+      example:
+        lastPublishedDate: 2000-01-23T04:56:07.000+00:00
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+        lastModifiedBy: lastModifiedBy
+        icon: icon
+        description: description
+        multipleInstances: false
+        permissionExpression: permissionExpression
+        createdDate: 2000-01-23T04:56:07.000+00:00
+        createdBy: createdBy
+        name: name
+        componentName: componentName
+        id: 5
+        lastIntegrationVersion: 2
+        lastStatus: DRAFT
+      properties:
+        componentName:
+          description: The name of the integration's component.
+          type: string
+        createdBy:
+          description: The created by.
+          readOnly: true
+          type: string
+        createdDate:
+          description: The created date.
+          format: date-time
+          readOnly: true
+          type: string
+        description:
+          description: The description of an integration.
+          type: string
+        icon:
+          description: The icon.
+          type: string
+        id:
+          description: The id of an integration.
+          format: int64
+          readOnly: true
+          type: integer
+        lastModifiedBy:
+          description: The last modified by.
+          readOnly: true
+          type: string
+        lastModifiedDate:
+          description: The last modified date.
+          format: date-time
+          readOnly: true
+          type: string
+        lastPublishedDate:
+          description: The last published date.
+          format: date-time
+          readOnly: true
+          type: string
+        lastStatus:
+          $ref: "#/components/schemas/IntegrationStatus"
+        lastIntegrationVersion:
+          description: The last version of an integration.
+          readOnly: true
+          type: integer
+        multipleInstances:
+          default: false
+          description: If multiple instances of an integration are allowed or not.
+          type: boolean
+        name:
+          description: The name of an integration.
+          type: string
+        permissionExpression:
+          description: The SpEL permission expression evaluated against the connected
+            user to control integration visibility.
+          type: string
+      required:
+      - componentName
+      - multipleInstances
+      type: object
+    IntegrationInstance:
+      allOf:
+      - $ref: "#/components/schemas/IntegrationInstanceBasic"
+      - properties:
+          integrationInstanceConfiguration:
+            $ref: "#/components/schemas/IntegrationInstanceConfigurationBasic"
+          integrationInstanceWorkflows:
+            description: The array of integration instance workflows.
+            items:
+              $ref: "#/components/schemas/IntegrationInstanceWorkflow"
+            readOnly: true
+            type: array
+          __version:
+            type: integer
+        required:
+        - connectionId
+        - name
+        type: object
+      description: Contains configurations and connections required for the execution
+        of integration workflows for a connected user.
+      example:
+        integrationInstanceConfigurationId: 5
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+        lastModifiedBy: lastModifiedBy
+        integrationInstanceConfiguration:
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          environmentId: 2
+          createdBy: createdBy
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          lastModifiedBy: lastModifiedBy
+          integrationVersion: 3
+          name: name
+          description: description
+          integrationId: 9
+          authorizationType: API_KEY
+          id: 7
+          enabled: true
+        enabled: true
+        connectedUserId: 6
+        __version: 7
+        createdDate: 2000-01-23T04:56:07.000+00:00
+        environmentId: 1
+        integrationInstanceWorkflows:
+        - integrationInstanceConfigurationWorkflowId: 4
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          inputs:
+            key: ""
+          lastModifiedBy: lastModifiedBy
+          id: 2
+          enabled: true
+          workflowId: workflowId
+        - integrationInstanceConfigurationWorkflowId: 4
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          inputs:
+            key: ""
+          lastModifiedBy: lastModifiedBy
+          id: 2
+          enabled: true
+          workflowId: workflowId
+        createdBy: createdBy
+        connectionId: 0
+        id: 5
+        lastExecutionDate: 2000-01-23T04:56:07.000+00:00
+    IntegrationInstanceBasic:
+      description: Contains configurations and connections required for the execution
+        of integration workflows for a connected user.
+      properties:
+        connectionId:
+          description: The id of a connection.
+          format: int64
+          readOnly: true
+          type: integer
+        connectedUserId:
+          description: The id of a connected user.
+          format: int64
+          readOnly: true
+          type: integer
+        createdBy:
+          description: The created by.
+          readOnly: true
+          type: string
+        createdDate:
+          description: The created date.
+          format: date-time
+          readOnly: true
+          type: string
+        enabled:
+          description: If an integration instance is enabled or not.
+          type: boolean
+        environmentId:
+          description: The id of an environment.
+          format: int64
+          type: integer
+        id:
+          description: The id of an integration instance.
+          format: int64
+          readOnly: true
+          type: integer
+        lastExecutionDate:
+          description: The last execution date.
+          format: date-time
+          readOnly: true
+          type: string
+        lastModifiedBy:
+          description: The last modified by.
+          readOnly: true
+          type: string
+        lastModifiedDate:
+          description: The last modified date.
+          format: date-time
+          readOnly: true
+          type: string
+        integrationInstanceConfigurationId:
+          description: Th id of an integration instance configuration.
+          format: int64
+          type: integer
+      required:
+      - connectionId
+      - name
+      type: object
+    IntegrationInstanceConfiguration:
+      allOf:
+      - $ref: "#/components/schemas/IntegrationInstanceConfigurationBasic"
+      - properties:
+          connectionAuthorizationParameters:
+            additionalProperties: true
+            description: The connection authorization parameters of a connection.
+            readOnly: true
+            type: object
+          connectionConnectionParameters:
+            additionalProperties: true
+            description: The connection parameters of a connection.
+            readOnly: true
+            type: object
+          connectionParameters:
+            additionalProperties: true
+            description: "The parameters of an integration connection, usually oauth2\
+              \ related data."
+            type: object
+            writeOnly: true
+          integration:
+            $ref: "#/components/schemas/IntegrationBasic"
+          integrationInstanceConfigurationWorkflows:
+            description: The array of integration instance configuration workflows.
+            items:
+              $ref: "#/components/schemas/IntegrationInstanceConfigurationWorkflow"
+            type: array
+          tags:
+            description: The array of tags.
+            items:
+              $ref: "#/components/schemas/Tag"
+            type: array
+          __version:
+            type: integer
+        required:
+        - name
+        type: object
+      description: Contains configurations and connections required for the execution
+        of integration workflows.
+      example:
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+        lastModifiedBy: lastModifiedBy
+        description: description
+        integrationId: 1
+        integrationInstanceConfigurationWorkflows:
+        - integrationInstanceConfigurationId: 3
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          inputs:
+            key: ""
+          lastModifiedBy: lastModifiedBy
+          enabled: true
+          __version: 2
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          id: 9
+          lastExecutionDate: 2000-01-23T04:56:07.000+00:00
+          connections:
+          - workflowNodeName: workflowNodeName
+            workflowConnectionKey: workflowConnectionKey
+            connectionId: 7
+          - workflowNodeName: workflowNodeName
+            workflowConnectionKey: workflowConnectionKey
+            connectionId: 7
+          workflowId: workflowId
+          workflowUuid: workflowUuid
+        - integrationInstanceConfigurationId: 3
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          inputs:
+            key: ""
+          lastModifiedBy: lastModifiedBy
+          enabled: true
+          __version: 2
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          id: 9
+          lastExecutionDate: 2000-01-23T04:56:07.000+00:00
+          connections:
+          - workflowNodeName: workflowNodeName
+            workflowConnectionKey: workflowConnectionKey
+            connectionId: 7
+          - workflowNodeName: workflowNodeName
+            workflowConnectionKey: workflowConnectionKey
+            connectionId: 7
+          workflowId: workflowId
+          workflowUuid: workflowUuid
+        connectionAuthorizationParameters:
+          key: ""
+        enabled: true
+        tags:
+        - __version: 5
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          lastModifiedBy: lastModifiedBy
+          name: name
+          id: 5
+        - __version: 5
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          lastModifiedBy: lastModifiedBy
+          name: name
+          id: 5
+        __version: 4
+        createdDate: 2000-01-23T04:56:07.000+00:00
+        environmentId: 0
+        connectionParameters:
+          key: ""
+        createdBy: createdBy
+        integrationVersion: 5
+        name: name
+        integration:
+          lastPublishedDate: 2000-01-23T04:56:07.000+00:00
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          lastModifiedBy: lastModifiedBy
+          icon: icon
+          description: description
+          multipleInstances: false
+          permissionExpression: permissionExpression
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          name: name
+          componentName: componentName
+          id: 5
+          lastIntegrationVersion: 2
+          lastStatus: DRAFT
+        authorizationType: API_KEY
+        connectionConnectionParameters:
+          key: ""
+        id: 6
+    IntegrationInstanceConfigurationBasic:
+      description: Contains configurations and connections required for the execution
+        of integration workflows.
+      example:
+        createdDate: 2000-01-23T04:56:07.000+00:00
+        environmentId: 2
+        createdBy: createdBy
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+        lastModifiedBy: lastModifiedBy
+        integrationVersion: 3
+        name: name
+        description: description
+        integrationId: 9
+        authorizationType: API_KEY
+        id: 7
+        enabled: true
+      properties:
+        createdBy:
+          description: The created by.
+          readOnly: true
+          type: string
+        createdDate:
+          description: The created date.
+          format: date-time
+          readOnly: true
+          type: string
+        description:
+          description: The description of an integration configuration.
+          type: string
+        enabled:
+          description: If an integration instance configuration is enabled or not.
+          type: boolean
+        environmentId:
+          description: The id of an environment.
+          format: int64
+          type: integer
+        id:
+          description: The id of an integration instance configuration.
+          format: int64
+          readOnly: true
+          type: integer
+        integrationId:
+          description: Th id of an integration.
+          format: int64
+          type: integer
+        integrationVersion:
+          description: The version of an integration.
+          type: integer
+        lastModifiedBy:
+          description: The last modified by.
+          readOnly: true
+          type: string
+        lastModifiedDate:
+          description: The last modified date.
+          format: date-time
+          readOnly: true
+          type: string
+        name:
+          description: The name of an integration instance configuration.
+          type: string
+        authorizationType:
+          $ref: "#/components/schemas/AuthorizationType"
+      required:
+      - name
+      type: object
+    IntegrationInstanceConfigurationWorkflow:
+      description: Contains configuration and connections required for the execution
+        of a particular integration workflow.
+      example:
+        integrationInstanceConfigurationId: 3
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+        inputs:
+          key: ""
+        lastModifiedBy: lastModifiedBy
+        enabled: true
+        __version: 2
+        createdDate: 2000-01-23T04:56:07.000+00:00
+        createdBy: createdBy
+        id: 9
+        lastExecutionDate: 2000-01-23T04:56:07.000+00:00
+        connections:
+        - workflowNodeName: workflowNodeName
+          workflowConnectionKey: workflowConnectionKey
+          connectionId: 7
+        - workflowNodeName: workflowNodeName
+          workflowConnectionKey: workflowConnectionKey
+          connectionId: 7
+        workflowId: workflowId
+        workflowUuid: workflowUuid
+      properties:
+        createdBy:
+          description: The created by.
+          readOnly: true
+          type: string
+        createdDate:
+          description: The created date.
+          format: date-time
+          readOnly: true
+          type: string
+        inputs:
+          additionalProperties: true
+          description: The input parameters of an integration instance configuration
+            used as workflow input values.
+          type: object
+        connections:
+          description: The connections used by an integration instance configuration.
+          items:
+            $ref: "#/components/schemas/IntegrationInstanceConfigurationWorkflowConnection"
+          type: array
+        enabled:
+          description: If a workflow is enabled or not in the integration instance
+            configuration workflow.
+          type: boolean
+        id:
+          description: The id of an integration instance configuration workflow.
+          format: int64
+          readOnly: true
+          type: integer
+        integrationInstanceConfigurationId:
+          description: The id of an integration instance configuration.
+          format: int64
+          type: integer
+        lastExecutionDate:
+          description: The last execution date of an integration instance configuration
+            workflow.
+          format: date-time
+          type: string
+        lastModifiedBy:
+          description: The last modified by.
+          readOnly: true
+          type: string
+        lastModifiedDate:
+          description: The last modified date.
+          format: date-time
+          readOnly: true
+          type: string
+        workflowId:
+          description: The id of a workflow.
+          type: string
+        workflowUuid:
+          description: The workflow uuid
+          readOnly: true
+          type: string
+        __version:
+          type: integer
+      required:
+      - name
+      type: object
+    IntegrationInstanceConfigurationWorkflowConnection:
+      description: The connection used in a particular task or trigger.
+      example:
+        workflowNodeName: workflowNodeName
+        workflowConnectionKey: workflowConnectionKey
+        connectionId: 7
+      properties:
+        connectionId:
+          description: The connection id
+          format: int64
+          type: integer
+        workflowConnectionKey:
+          description: The connection key under which a connection is defined in a
+            workflow definition.
+          type: string
+        workflowNodeName:
+          description: The action/trigger name to which a connection belongs.
+          type: string
+      type: object
+    IntegrationStatus:
+      description: The status of an integration.
+      enum:
+      - DRAFT
+      - PUBLISHED
+      type: string
+    IntegrationVersion:
+      description: The integration version.
+      example:
+        description: description
+        publishedDate: 2000-01-23T04:56:07.000+00:00
+        version: 0
+        status: DRAFT
+      properties:
+        description:
+          description: The description of an integration version.
+          type: string
+        publishedDate:
+          description: The published date.
+          format: date-time
+          type: string
+        version:
+          description: The version of an integration.
+          readOnly: true
+          type: integer
+        status:
+          $ref: "#/components/schemas/IntegrationStatus"
+      type: object
+    IntegrationInstanceWorkflow:
+      description: Contains user configurations for the execution of a particular
+        integration workflow.
+      example:
+        integrationInstanceConfigurationWorkflowId: 4
+        createdDate: 2000-01-23T04:56:07.000+00:00
+        createdBy: createdBy
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+        inputs:
+          key: ""
+        lastModifiedBy: lastModifiedBy
+        id: 2
+        enabled: true
+        workflowId: workflowId
+      properties:
+        createdBy:
+          description: The created by.
+          readOnly: true
+          type: string
+        createdDate:
+          description: The created date.
+          format: date-time
+          readOnly: true
+          type: string
+        inputs:
+          additionalProperties: true
+          description: The input parameters of an integration instance used as workflow
+            input values.
+          type: object
+        enabled:
+          description: If a workflow is enabled or not in the integration instance
+            workflow.
+          type: boolean
+        id:
+          description: The id of a project deployment workflow.
+          format: int64
+          readOnly: true
+          type: integer
+        integrationInstanceConfigurationWorkflowId:
+          description: The id of a integration instance configuration workflow.
+          format: int64
+          type: integer
+        lastModifiedBy:
+          description: The last modified by.
+          readOnly: true
+          type: string
+        lastModifiedDate:
+          description: The last modified date.
+          format: date-time
+          readOnly: true
+          type: string
+        workflowId:
+          description: The id of a workflow.
+          type: string
+      required:
+      - enabled
+      - integrationInstanceConfigurationWorkflowId
+      - workflowId
+      type: object
+    Page:
+      description: A sublist of a list of objects. It allows gain information about
+        the position of it in the containing entire list.
+      properties:
+        number:
+          description: The current page.
+          type: integer
+        size:
+          description: The size of the page.
+          type: integer
+        numberOfElements:
+          description: The number of elements.
+          type: integer
+        totalPages:
+          description: The total number of pages.
+          type: integer
+        totalElements:
+          description: The total number of elements.
+          type: integer
+        content:
+          description: The list of elements.
+          items:
+            type: object
+          type: array
+      type: object
+    Tag:
+      description: A tag.
+      example:
+        __version: 5
+        createdDate: 2000-01-23T04:56:07.000+00:00
+        createdBy: createdBy
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+        lastModifiedBy: lastModifiedBy
+        name: name
+        id: 5
+      properties:
+        createdBy:
+          description: The created by.
+          readOnly: true
+          type: string
+        createdDate:
+          description: The created date.
+          format: date-time
+          readOnly: true
+          type: string
+        id:
+          description: The id of the tag.
+          format: int64
+          type: integer
+        lastModifiedBy:
+          description: The last modified by.
+          readOnly: true
+          type: string
+        lastModifiedDate:
+          description: The last modified date.
+          format: date-time
+          readOnly: true
+          type: string
+        name:
+          description: The name of the tag.
+          type: string
+        __version:
+          type: integer
+      required:
+      - name
+      type: object
+    UpdateTagsRequest:
+      description: The request object that contains the array of tags.
+      properties:
+        tags:
+          items:
+            $ref: "#/components/schemas/Tag"
+          type: array
+      type: object
+    Workflow:
+      allOf:
+      - $ref: "#/components/schemas/Workflow_1"
+      - properties:
+          integrationWorkflowId:
+            description: The integration workflow id
+            format: int64
+            readOnly: true
+            type: integer
+          workflowUuid:
+            description: The workflow uuid
+            readOnly: true
+            type: string
+        type: object
+      description: The blueprint that describe the execution of a job.
+      example:
+        outputs:
+        - name: name
+          value: "{}"
+        - name: name
+          value: "{}"
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+        inputs:
+        - internalOnly: false
+          name: name
+          objectName: objectName
+          label: label
+          type: string
+          componentReference:
+            groupName: groupName
+            componentName: componentName
+            componentVersion: 5
+          required: false
+        - internalOnly: false
+          name: name
+          objectName: objectName
+          label: label
+          type: string
+          componentReference:
+            groupName: groupName
+            componentName: componentName
+            componentVersion: 5
+          required: false
+        lastModifiedBy: lastModifiedBy
+        format: JSON
+        description: description
+        workflowTaskComponentNames:
+        - workflowTaskComponentNames
+        - workflowTaskComponentNames
+        label: label
+        inputsCount: 2
+        triggers:
+        - metadata:
+            key: ""
+          name: name
+          description: description
+          label: label
+          type: type
+          parameters:
+            key: ""
+          connections:
+          - workflowNodeName: workflowNodeName
+            componentName: componentName
+            componentVersion: 9
+            key: key
+            required: true
+          - workflowNodeName: workflowNodeName
+            componentName: componentName
+            componentVersion: 9
+            key: key
+            required: true
+          timeout: timeout
+        - metadata:
+            key: ""
+          name: name
+          description: description
+          label: label
+          type: type
+          parameters:
+            key: ""
+          connections:
+          - workflowNodeName: workflowNodeName
+            componentName: componentName
+            componentVersion: 9
+            key: key
+            required: true
+          - workflowNodeName: workflowNodeName
+            componentName: componentName
+            componentVersion: 9
+            key: key
+            required: true
+          timeout: timeout
+        connectionsCount: 5
+        __version: 2
+        maxRetries: 7
+        createdDate: 2000-01-23T04:56:07.000+00:00
+        createdBy: createdBy
+        sourceType: CLASSPATH
+        workflowTriggerComponentNames:
+        - workflowTriggerComponentNames
+        - workflowTriggerComponentNames
+        integrationWorkflowId: 4
+        definition: definition
+        id: id
+        tasks:
+        - metadata:
+            key: ""
+          pre:
+          - null
+          - null
+          clusterRoot: false
+          description: description
+          label: label
+          type: type
+          timeout: timeout
+          node: node
+          maxRetries: 3
+          post:
+          - null
+          - null
+          clusterElements:
+            key: ""
+          name: name
+          finalize:
+          - null
+          - null
+          parameters:
+            key: ""
+          connections:
+          - workflowNodeName: workflowNodeName
+            componentName: componentName
+            componentVersion: 9
+            key: key
+            required: true
+          - workflowNodeName: workflowNodeName
+            componentName: componentName
+            componentVersion: 9
+            key: key
+            required: true
+        - metadata:
+            key: ""
+          pre:
+          - null
+          - null
+          clusterRoot: false
+          description: description
+          label: label
+          type: type
+          timeout: timeout
+          node: node
+          maxRetries: 3
+          post:
+          - null
+          - null
+          clusterElements:
+            key: ""
+          name: name
+          finalize:
+          - null
+          - null
+          parameters:
+            key: ""
+          connections:
+          - workflowNodeName: workflowNodeName
+            componentName: componentName
+            componentVersion: 9
+            key: key
+            required: true
+          - workflowNodeName: workflowNodeName
+            componentName: componentName
+            componentVersion: 9
+            key: key
+            required: true
+        workflowUuid: workflowUuid
+      x-implements:
+      - com.bytechef.platform.configuration.web.rest.model.WorkflowModelAware
+    WorkflowBasic:
+      allOf:
+      - $ref: "#/components/schemas/WorkflowBasic_1"
+      - properties:
+          integrationWorkflowId:
+            description: The integration workflow id
+            format: int64
+            readOnly: true
+            type: integer
+          workflowUuid:
+            description: The workflow uuid
+            readOnly: true
+            type: string
+        type: object
+      description: The blueprint that describe the execution of a job.
+    ComponentDefinitionBasic:
+      description: "A component contains a set of reusable code(actions) that accomplish\
+        \ specific tasks, triggers and connections if there is a need for a connection\
+        \ to an outside service."
+      example:
+        componentCategories:
+        - name: name
+          label: label
+        - name: name
+          label: label
+        icon: icon
+        name: name
+        actionsCount: 0
+        clusterElementsCount:
+          key: 6
+        description: description
+        inputsCount: 1
+        title: title
+        version: 5
+        triggersCount: 5
+      properties:
+        actionsCount:
+          description: The number of actions a component has
+          type: integer
+        clusterElementsCount:
+          additionalProperties:
+            type: integer
+          description: The number of cluster elements a component has
+          type: object
+        componentCategories:
+          description: The list of categories the component belongs to.
+          items:
+            $ref: "#/components/schemas/ComponentCategory"
+          type: array
+        description:
+          description: The description.
+          type: string
+        icon:
+          description: The icon.
+          type: string
+        inputsCount:
+          description: The number of selectable workflow inputs a component declares
+          type: integer
+        name:
+          description: The name of a component.
+          type: string
+        title:
+          description: The title
+          type: string
+        triggersCount:
+          description: The number of triggers a component has
+          type: integer
+        version:
+          description: The version of a component.
+          type: integer
+      required:
+      - name
+      - version
+      type: object
+    ComponentCategory:
+      description: A category of component.
+      example:
+        name: name
+        label: label
+      properties:
+        name:
+          description: The name of a category.
+          type: string
+        label:
+          description: The label of a category.
+          type: string
+      required:
+      - name
+      type: object
+    connection_base:
+      description: Contains all required information to open a connection to a service
+        defined by componentName parameter.
+      example:
+        visibility: PRIVATE
+        lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+        credentialStoreType: DATABASE
+        lastModifiedBy: lastModifiedBy
+        active: true
+        credentialStatus: VALID
+        tags:
+        - __version: 5
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          lastModifiedBy: lastModifiedBy
+          name: name
+          id: 5
+        - __version: 5
+          createdDate: 2000-01-23T04:56:07.000+00:00
+          createdBy: createdBy
+          lastModifiedDate: 2000-01-23T04:56:07.000+00:00
+          lastModifiedBy: lastModifiedBy
+          name: name
+          id: 5
+        authorizationParameters:
+          key: ""
+        __version: 2
+        connectionParameters:
+          key: ""
+        createdDate: 2000-01-23T04:56:07.000+00:00
+        environmentId: 6
+        createdBy: createdBy
+        managed: true
+        baseUri: baseUri
+        name: name
+        authorizationType: API_KEY
+        componentName: componentName
+        id: 1
+        parameters:
+          key: ""
+        connectionVersion: 0
+        status: ACTIVE
+      properties:
+        active:
+          description: If a connection is used in any of active workflows.
+          readOnly: true
+          type: boolean
+        managed:
+          description: True when this connection is system-managed (e.g. an enabled
+            AI provider) and cannot be edited or deleted.
+          readOnly: true
+          type: boolean
+        authorizationType:
+          $ref: "#/components/schemas/AuthorizationType"
+        authorizationParameters:
+          additionalProperties: true
+          description: The authorization parameters of a connection.
+          readOnly: true
+          type: object
+        baseUri:
+          description: The base URI of a connection.
+          type: string
+        componentName:
+          description: The name of a component that uses this connection.
+          type: string
+        connectionParameters:
+          additionalProperties: true
+          description: The connection parameters of a connection.
+          readOnly: true
+          type: object
+        connectionVersion:
+          description: The version of a component that uses this connection.
+          type: integer
+        createdBy:
+          description: The created by.
+          readOnly: true
+          type: string
+        createdDate:
+          description: The created date.
+          format: date-time
+          readOnly: true
+          type: string
+        credentialStatus:
+          $ref: "#/components/schemas/credential_status"
+        credentialStoreType:
+          default: DATABASE
+          description: Backend that stores the credential payload. Defaults to DATABASE.
+          enum:
+          - DATABASE
+          - AWS_SECRETS_MANAGER
+          - HASHICORP_VAULT
+          type: string
+        environmentId:
+          description: The id of an environment.
+          format: int64
+          type: integer
+        id:
+          description: The id of a connection.
+          format: int64
+          readOnly: true
+          type: integer
+        lastModifiedBy:
+          description: The last modified by.
+          readOnly: true
+          type: string
+        lastModifiedDate:
+          description: The last modified date.
+          format: date-time
+          readOnly: true
+          type: string
+        name:
+          description: The name of a connection.
+          type: string
+        parameters:
+          additionalProperties: true
+          description: The parameters of a connection.
+          type: object
+          writeOnly: true
+        tags:
+          items:
+            $ref: "#/components/schemas/Tag"
+          type: array
+        status:
+          description: Lifecycle state of the connection. ACTIVE is the normal operating
+            state. PENDING_REASSIGNMENT indicates the owner was removed from the workspace
+            and the connection awaits reassignment. REVOKED is terminal and cannot
+            transition back.
+          enum:
+          - ACTIVE
+          - PENDING_REASSIGNMENT
+          - REVOKED
+          readOnly: true
+          type: string
+        visibility:
+          description: "Visibility scope controlling which users can see and use a\
+            \ connection. Accepted on create: PRIVATE (default) or WORKSPACE — setting\
+            \ WORKSPACE requires ROLE_ADMIN. ORGANIZATION is assigned by organization\
+            \ flows, not by direct client request. On CE or embedded surfaces the\
+            \ server always forces PRIVATE regardless of the request body."
+          enum:
+          - PRIVATE
+          - WORKSPACE
+          - ORGANIZATION
+          type: string
+        __version:
+          format: int32
+          type: integer
+      required:
+      - componentName
+      - connectionVersion
+      - name
+      - parameters
+      type: object
+    AuthorizationType:
+      description: The authorization type.
+      enum:
+      - API_KEY
+      - BASIC_AUTH
+      - BEARER_TOKEN
+      - CUSTOM
+      - DIGEST_AUTH
+      - OAUTH2_AUTHORIZATION_CODE
+      - OAUTH2_AUTHORIZATION_CODE_PKCE
+      - OAUTH2_CLIENT_CREDENTIALS
+      - OAUTH2_IMPLICIT_CODE
+      - OAUTH2_RESOURCE_OWNER_PASSWORD
+      type: string
+    Workflow_1:
+      description: The blueprint that describe the execution of a job.
+      properties:
+        createdBy:
+          description: The created by.
+          readOnly: true
+          type: string
+        createdDate:
+          description: The created date.
+          format: date-time
+          readOnly: true
+          type: string
+        connectionsCount:
+          description: The number of workflow connections
+          readOnly: true
+          type: integer
+        definition:
+          description: The definition of a workflow.
+          type: string
+          writeOnly: true
+        description:
+          description: The description of a workflow.
+          type: string
+          writeOnly: true
+        format:
+          $ref: "#/components/schemas/WorkflowFormat"
+        id:
+          description: The id of a workflow.
+          readOnly: true
+          type: string
+        inputs:
+          description: The workflow's expected list of inputs.
+          items:
+            $ref: "#/components/schemas/WorkflowInput"
+          readOnly: true
+          type: array
+        inputsCount:
+          description: The number of workflow inputs
+          readOnly: true
+          type: integer
+        label:
+          description: The descriptive name for the workflow
+          readOnly: true
+          type: string
+        lastModifiedBy:
+          description: The last modified by.
+          readOnly: true
+          type: string
+        lastModifiedDate:
+          description: The last modified date.
+          format: date-time
+          readOnly: true
+          type: string
+        outputs:
+          description: The workflow's list of expected outputs.
+          items:
+            $ref: "#/components/schemas/WorkflowOutput"
+          readOnly: true
+          type: array
+        sourceType:
+          description: The type of the source which stores the workflow definition.
+          enum:
+          - CLASSPATH
+          - FILESYSTEM
+          - GIT
+          - JDBC
+          type: string
+        maxRetries:
+          description: The maximum number of times a task may retry.
+          format: int32
+          readOnly: true
+          type: integer
+        workflowTaskComponentNames:
+          items:
+            type: string
+          readOnly: true
+          type: array
+        workflowTriggerComponentNames:
+          items:
+            type: string
+          readOnly: true
+          type: array
+        tasks:
+          description: The steps that make up the workflow.
+          items:
+            $ref: "#/components/schemas/WorkflowTask"
+          readOnly: true
+          type: array
+        triggers:
+          description: The steps that make up the workflow.
+          items:
+            $ref: "#/components/schemas/WorkflowTrigger"
+          readOnly: true
+          type: array
+        __version:
+          type: integer
+      type: object
+      x-implements:
+      - com.bytechef.platform.configuration.web.rest.model.WorkflowModelAware
+    WorkflowFormat:
+      enum:
+      - JSON
+      - YAML
+      type: string
+    WorkflowInput:
+      example:
+        internalOnly: false
+        name: name
+        objectName: objectName
+        label: label
+        type: string
+        componentReference:
+          groupName: groupName
+          componentName: componentName
+          componentVersion: 5
+        required: false
+      properties:
+        internalOnly:
+          default: false
+          description: "If true, the input is configured in the admin integration\
+            \ instance configuration; if false (default), it is rendered in the end-user\
+            \ connect dialog."
+          type: boolean
+        label:
+          description: The descriptive name of an input
+          type: string
+        name:
+          description: The name of an input
+          type: string
+        objectName:
+          description: "For field_mapping inputs, the name of the object whose fields\
+            \ are being mapped."
+          type: string
+        required:
+          default: false
+          description: "If an input is required, or not"
+          type: boolean
+        type:
+          default: string
+          description: "The type of an input, for example \\\"string\\\""
+          type: string
+        componentReference:
+          $ref: "#/components/schemas/ComponentInputReference"
+      required:
+      - name
+      - value
+      type: object
+    ComponentInputReference:
+      description: An all-or-nothing reference from a workflow input to a component-defined
+        input group.
+      example:
+        groupName: groupName
+        componentName: componentName
+        componentVersion: 5
+      properties:
+        componentName:
+          description: The name of the referenced component.
+          type: string
+        componentVersion:
+          description: The version of the referenced component.
+          format: int32
+          type: integer
+        groupName:
+          description: The name of the referenced component input group.
+          type: string
+      required:
+      - componentName
+      - componentVersion
+      - groupName
+      title: Component input reference
+      type: object
+    WorkflowOutput:
+      example:
+        name: name
+        value: "{}"
+      properties:
+        name:
+          description: The name of an output
+          type: string
+        value:
+          description: The value of an output
+          type: object
+      required:
+      - name
+      - value
+      type: object
+    WorkflowTask:
+      description: Represents a definition of a workflow task.
+      example:
+        metadata:
+          key: ""
+        pre:
+        - null
+        - null
+        clusterRoot: false
+        description: description
+        label: label
+        type: type
+        timeout: timeout
+        node: node
+        maxRetries: 3
+        post:
+        - null
+        - null
+        clusterElements:
+          key: ""
+        name: name
+        finalize:
+        - null
+        - null
+        parameters:
+          key: ""
+        connections:
+        - workflowNodeName: workflowNodeName
+          componentName: componentName
+          componentVersion: 9
+          key: key
+          required: true
+        - workflowNodeName: workflowNodeName
+          componentName: componentName
+          componentVersion: 9
+          key: key
+          required: true
+      properties:
+        clusterRoot:
+          default: false
+          readOnly: true
+          type: boolean
+        clusterElements:
+          additionalProperties: true
+          readOnly: true
+          type: object
+        connections:
+          items:
+            $ref: "#/components/schemas/ComponentConnection"
+          readOnly: true
+          type: array
+        description:
+          description: The description of the task.
+          type: string
+        finalize:
+          description: The (optional) list of tasks that are to be executed after
+            execution of a task -- regardless of whether it had failed or not.
+          items:
+            $ref: "#/components/schemas/WorkflowTask"
+          type: array
+        label:
+          description: The human-readable description of the task.
+          type: string
+        maxRetries:
+          description: The maximum number of times a task may retry.
+          format: int32
+          type: integer
+        metadata:
+          additionalProperties: true
+          description: Key-value map of metadata.
+          type: object
+        name:
+          description: The identifier name of the task. Task names are used for assigning
+            the output of one task so it can be later used by subsequent tasks.
+          type: string
+        node:
+          description: "Defines the name of the type of the node that the task execution\
+            \ will be routed to. For instance, if the node value is \"encoder\", then\
+            \ the task will be routed to the \"encoder\" queue which is presumably\
+            \ subscribed to by worker nodes of \"encoder\" type."
+          type: string
+        parameters:
+          additionalProperties: true
+          description: Key-value map of task parameters.
+          type: object
+        post:
+          description: The (optional) list of tasks that are to be executed after
+            the successful execution of a task.
+          items:
+            $ref: "#/components/schemas/WorkflowTask"
+          type: array
+        pre:
+          description: The (optional) list of tasks that are to be executed prior
+            to a task.
+          items:
+            $ref: "#/components/schemas/WorkflowTask"
+          type: array
+        timeout:
+          description: The timeout expression which describes when a task should be
+            deemed as timed-out.
+          type: string
+        type:
+          description: The type of the task.
+          type: string
+      required:
+      - name
+      - type
+      type: object
+    ComponentConnection:
+      example:
+        workflowNodeName: workflowNodeName
+        componentName: componentName
+        componentVersion: 9
+        key: key
+        required: true
+      properties:
+        componentName:
+          description: The name of the component
+          type: string
+        componentVersion:
+          description: The version of the component
+          type: integer
+        key:
+          description: The key of the connection
+          type: string
+        required:
+          description: "If the connection is required, or not"
+          type: boolean
+        workflowNodeName:
+          type: string
+      required:
+      - componentName
+      - componentVersion
+      - key
+      - required
+      - workflowNodeName
+      type: object
+    WorkflowTrigger:
+      description: Represents a definition of a workflow trigger.
+      example:
+        metadata:
+          key: ""
+        name: name
+        description: description
+        label: label
+        type: type
+        parameters:
+          key: ""
+        connections:
+        - workflowNodeName: workflowNodeName
+          componentName: componentName
+          componentVersion: 9
+          key: key
+          required: true
+        - workflowNodeName: workflowNodeName
+          componentName: componentName
+          componentVersion: 9
+          key: key
+          required: true
+        timeout: timeout
+      properties:
+        connections:
+          items:
+            $ref: "#/components/schemas/ComponentConnection"
+          readOnly: true
+          type: array
+        description:
+          description: The description of the task.
+          type: string
+        label:
+          description: The human-readable description of the task.
+          type: string
+        metadata:
+          additionalProperties: true
+          description: Key-value map of metadata.
+          type: object
+        name:
+          description: The identifier name of the task. Task names are used for assigning
+            the output of one task so it can be later used by subsequent tasks.
+          type: string
+        parameters:
+          additionalProperties: true
+          description: Key-value map of task parameters.
+          type: object
+        timeout:
+          description: The timeout expression which describes when a trigger should
+            be deemed as timed-out.
+          type: string
+        type:
+          description: The type of the trigger.
+          type: string
+      required:
+      - name
+      - type
+      type: object
+    WorkflowBasic_1:
+      description: The blueprint that describe the execution of a job.
+      properties:
+        createdBy:
+          description: The created by.
+          readOnly: true
+          type: string
+        createdDate:
+          description: The created date.
+          format: date-time
+          readOnly: true
+          type: string
+        description:
+          description: The description of a workflow.
+          type: string
+          writeOnly: true
+        id:
+          description: The id of a workflow.
+          readOnly: true
+          type: string
+        label:
+          description: The descriptive name for the workflow
+          readOnly: true
+          type: string
+        lastModifiedBy:
+          description: The last modified by.
+          readOnly: true
+          type: string
+        lastModifiedDate:
+          description: The last modified date.
+          format: date-time
+          readOnly: true
+          type: string
+        __version:
+          type: integer
+      type: object
+    credential_status:
+      enum:
+      - VALID
+      - INVALID
+      readOnly: true
+      type: string
+    publishConnectedUserProjectWorkflow_request:
+      properties:
+        description:
+          description: The description of a connected user project workflow version.
+          type: string
+      type: object
+    createIntegrationInstanceConfigurationWorkflowJob_200_response:
+      example:
+        jobId: 0
+      properties:
+        jobId:
+          description: The id of an executed job.
+          format: int64
+          type: integer
+      type: object
+    deployIntegration_request:
+      properties:
+        integrationFile:
+          description: The file of a code-native integration.
+          format: binary
+          type: string
+      type: object
+    deployAutomationProjectCodeWorkflow_request:
+      properties:
+        projectFile:
+          description: The file of a code-native automation project.
+          format: binary
+          type: string
+      type: object
+    publishIntegration_request:
+      properties:
+        description:
+          description: The description of a integration version.
+          type: string
+      type: object
+    startWebhookTriggerTest_200_response:
+      example:
+        webhookUrl: webhookUrl
+      properties:
+        webhookUrl:
+          description: The webhook URL.
+          type: string
+      type: object
+
