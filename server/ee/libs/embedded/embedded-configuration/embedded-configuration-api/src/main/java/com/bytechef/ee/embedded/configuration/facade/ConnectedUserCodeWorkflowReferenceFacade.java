@@ -10,12 +10,15 @@ package com.bytechef.ee.embedded.configuration.facade;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.platform.configuration.domain.Environment;
+import java.util.List;
 import java.util.Set;
 
 /**
  * Owns the lifecycle of a connected user's reference to a shared catalog code workflow: provisioning on first use,
  * per-user connection auto-wiring, enable/disable, deletion, and flagging references whose catalog workflow was removed
- * on redeploy ("dangling").
+ * on redeploy ("dangling"). Also serves as the read seam for callers that need every
+ * {@link ConnectedUserProjectWorkflow} row (both reference-mode and copy-mode) belonging to a connected user, so those
+ * callers never need to depend on the repository directly.
  *
  * @version ee
  *
@@ -26,6 +29,13 @@ public interface ConnectedUserCodeWorkflowReferenceFacade {
     void deleteReference(String externalUserId, String catalogWorkflowUuid, Environment environment);
 
     void enableReference(String externalUserId, String catalogWorkflowUuid, boolean enable, Environment environment);
+
+    /**
+     * Returns every {@link ConnectedUserProjectWorkflow} row belonging to the connected user, across all of their
+     * {@code ConnectedUserProject}s, regardless of whether the row is reference-mode
+     * ({@code catalogWorkflowUuid != null}) or copy-mode ({@code projectWorkflowId != null}).
+     */
+    List<ConnectedUserProjectWorkflow> getConnectedUserWorkflows(long connectedUserId);
 
     /**
      * @throws MissingConnectionException if the reference cannot be auto-wired because a component it uses has no

@@ -11,6 +11,8 @@ import static org.mockito.Mockito.mock;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
@@ -18,7 +20,7 @@ import com.bytechef.ee.embedded.configuration.domain.IntegrationInstance;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigurationWorkflow;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceWorkflow;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationWorkflow;
-import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceWorkflowService;
@@ -27,6 +29,7 @@ import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.file.storage.token.FileEntryTokens;
 import com.bytechef.platform.component.domain.WebhookTriggerFlags;
+import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.file.storage.TempFileStorage;
@@ -64,7 +67,7 @@ import org.springframework.http.ResponseEntity;
 class AppEventTriggerApiControllerAutomationBridgeTest {
 
     @Mock
-    private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
+    private ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
 
     @Mock
     private ConnectedUserService connectedUserService;
@@ -80,6 +83,9 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
 
     @Mock
     private IntegrationWorkflowService integrationWorkflowService;
+
+    @Mock
+    private ProjectDeploymentService projectDeploymentService;
 
     @Mock
     private ProjectWorkflowService projectWorkflowService;
@@ -101,7 +107,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
 
         ConnectedUserProjectWorkflow reference = referenceFor("catalog-uuid-1", 77L, true, false);
 
-        Mockito.when(connectedUserProjectWorkflowRepository.findAllByConnectedUserId(1L))
+        Mockito.when(connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(1L))
             .thenReturn(List.of(reference));
         Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid-1"))
             .thenReturn("catalog-wf-1");
@@ -141,7 +147,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
 
         ConnectedUserProjectWorkflow dangling = referenceFor("catalog-uuid-2", 78L, true, true);
 
-        Mockito.when(connectedUserProjectWorkflowRepository.findAllByConnectedUserId(1L))
+        Mockito.when(connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(1L))
             .thenReturn(List.of(dangling));
 
         try (MockedStatic<SecurityUtils> securityUtils = Mockito.mockStatic(SecurityUtils.class)) {
@@ -166,7 +172,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
 
         ConnectedUserProjectWorkflow disabled = referenceFor("catalog-uuid-3", 79L, false, false);
 
-        Mockito.when(connectedUserProjectWorkflowRepository.findAllByConnectedUserId(1L))
+        Mockito.when(connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(1L))
             .thenReturn(List.of(disabled));
 
         try (MockedStatic<SecurityUtils> securityUtils = Mockito.mockStatic(SecurityUtils.class)) {
@@ -191,7 +197,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
 
         ConnectedUserProjectWorkflow reference = referenceFor("catalog-uuid-4", 80L, true, false);
 
-        Mockito.when(connectedUserProjectWorkflowRepository.findAllByConnectedUserId(1L))
+        Mockito.when(connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(1L))
             .thenReturn(List.of(reference));
         Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid-4"))
             .thenReturn("catalog-wf-4");
@@ -224,7 +230,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
         ConnectedUserProjectWorkflow failingReference = referenceFor("catalog-uuid-fail", 90L, true, false);
         ConnectedUserProjectWorkflow healthyReference = referenceFor("catalog-uuid-ok", 91L, true, false);
 
-        Mockito.when(connectedUserProjectWorkflowRepository.findAllByConnectedUserId(1L))
+        Mockito.when(connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(1L))
             .thenReturn(List.of(failingReference, healthyReference));
 
         Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid-fail"))
@@ -270,7 +276,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
 
         ConnectedUserProjectWorkflow referenceA = referenceFor("catalog-uuid-a", 77L, true, false);
 
-        Mockito.when(connectedUserProjectWorkflowRepository.findAllByConnectedUserId(10L))
+        Mockito.when(connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(10L))
             .thenReturn(List.of(referenceA));
         Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid-a"))
             .thenReturn("catalog-wf-a");
@@ -286,13 +292,13 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
             controller.executeWorkflows(null);
         }
 
-        Mockito.verify(connectedUserProjectWorkflowRepository)
-            .findAllByConnectedUserId(10L);
+        Mockito.verify(connectedUserCodeWorkflowReferenceFacade)
+            .getConnectedUserWorkflows(10L);
 
         // No cross-user leak: another connected user's id and login are never consulted while resolving this
         // request's fan-out.
-        Mockito.verify(connectedUserProjectWorkflowRepository, Mockito.never())
-            .findAllByConnectedUserId(20L);
+        Mockito.verify(connectedUserCodeWorkflowReferenceFacade, Mockito.never())
+            .getConnectedUserWorkflows(20L);
         Mockito.verify(connectedUserService, Mockito.never())
             .getConnectedUser(Mockito.eq("login-b"), Mockito.any());
     }
@@ -342,7 +348,7 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
         // integration loop rather than displacing it.
         ConnectedUserProjectWorkflow reference = referenceFor("catalog-uuid-1", 77L, true, false);
 
-        Mockito.when(connectedUserProjectWorkflowRepository.findAllByConnectedUserId(1L))
+        Mockito.when(connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(1L))
             .thenReturn(List.of(reference));
         Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid-1"))
             .thenReturn("catalog-wf-1");
@@ -387,6 +393,122 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
                             .equals("t_auto")));
     }
 
+    @Test
+    void testCopyModeWorkflowWithAppEventTriggerFires() {
+        AppEventTriggerApiController controller = controller();
+
+        ConnectedUser connectedUser = new ConnectedUser(Map.of(), "user-1@example.com", true, "ext-1", 1L, "User 1", 0);
+
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.anyString(), Mockito.any()))
+            .thenReturn(connectedUser);
+
+        ConnectedUserProjectWorkflow copy = copyModeFor(200L, true, false);
+
+        Mockito.when(connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(1L))
+            .thenReturn(List.of(copy));
+
+        ProjectWorkflow projectWorkflow = new ProjectWorkflow(6L, 2, "copy-wf-1", UUID.fromString(
+            "00000000-0000-0000-0000-000000000201"));
+
+        Mockito.when(projectWorkflowService.getProjectWorkflow(200L))
+            .thenReturn(projectWorkflow);
+        Mockito.when(projectDeploymentService.getProjectDeploymentId(6L, Environment.PRODUCTION))
+            .thenReturn(500L);
+        Mockito.when(
+            projectWorkflowService.fetchProjectWorkflowWorkflowId(500L, projectWorkflow.getUuidAsString()))
+            .thenReturn(Optional.of("copy-wf-1"));
+        Mockito.when(workflowService.getWorkflow("copy-wf-1"))
+            .thenReturn(appEventWorkflow("t_copy"));
+        Mockito.when(webhookWorkflowExecutor.isWorkflowDisabled(Mockito.any()))
+            .thenReturn(false);
+
+        try (MockedStatic<SecurityUtils> securityUtils = Mockito.mockStatic(SecurityUtils.class)) {
+            securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
+                .thenReturn(Optional.of("user-1"));
+
+            controller.executeWorkflows(null);
+        }
+
+        ArgumentCaptor<WorkflowExecutionId> captor = ArgumentCaptor.forClass(WorkflowExecutionId.class);
+
+        Mockito.verify(webhookWorkflowExecutor)
+            .isWorkflowDisabled(captor.capture());
+
+        WorkflowExecutionId workflowExecutionId = captor.getValue();
+
+        Assertions.assertEquals(PlatformType.AUTOMATION, workflowExecutionId.getType());
+        Assertions.assertEquals(500L, workflowExecutionId.getJobPrincipalId());
+        Assertions.assertEquals(projectWorkflow.getUuidAsString(), workflowExecutionId.getWorkflowUuid());
+        Assertions.assertEquals("t_copy", workflowExecutionId.getTriggerName());
+    }
+
+    @Test
+    void testMixedCopyAndReferenceWorkflowsBothFire() {
+        AppEventTriggerApiController controller = controller();
+
+        ConnectedUser connectedUser = new ConnectedUser(Map.of(), "user-1@example.com", true, "ext-1", 1L, "User 1", 0);
+
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.anyString(), Mockito.any()))
+            .thenReturn(connectedUser);
+
+        ConnectedUserProjectWorkflow copy = copyModeFor(201L, true, false);
+        ConnectedUserProjectWorkflow reference = referenceFor("catalog-uuid-mixed", 88L, true, false);
+
+        Mockito.when(connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(1L))
+            .thenReturn(List.of(copy, reference));
+
+        ProjectWorkflow projectWorkflow = new ProjectWorkflow(7L, 2, "copy-wf-2", UUID.fromString(
+            "00000000-0000-0000-0000-000000000202"));
+
+        Mockito.when(projectWorkflowService.getProjectWorkflow(201L))
+            .thenReturn(projectWorkflow);
+        Mockito.when(projectDeploymentService.getProjectDeploymentId(7L, Environment.PRODUCTION))
+            .thenReturn(501L);
+        Mockito.when(
+            projectWorkflowService.fetchProjectWorkflowWorkflowId(501L, projectWorkflow.getUuidAsString()))
+            .thenReturn(Optional.of("copy-wf-2"));
+        Mockito.when(workflowService.getWorkflow("copy-wf-2"))
+            .thenReturn(appEventWorkflow("t_copy_mixed"));
+
+        Mockito.when(projectWorkflowService.getLastPublishedWorkflowId("catalog-uuid-mixed"))
+            .thenReturn("catalog-wf-mixed");
+        Mockito.when(workflowService.getWorkflow("catalog-wf-mixed"))
+            .thenReturn(appEventWorkflow("t_reference_mixed"));
+
+        Mockito.when(webhookWorkflowExecutor.isWorkflowDisabled(Mockito.any()))
+            .thenReturn(false);
+
+        try (MockedStatic<SecurityUtils> securityUtils = Mockito.mockStatic(SecurityUtils.class)) {
+            securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
+                .thenReturn(Optional.of("user-1"));
+
+            controller.executeWorkflows(null);
+        }
+
+        ArgumentCaptor<WorkflowExecutionId> captor = ArgumentCaptor.forClass(WorkflowExecutionId.class);
+
+        Mockito.verify(webhookWorkflowExecutor, Mockito.times(2))
+            .isWorkflowDisabled(captor.capture());
+
+        List<WorkflowExecutionId> capturedIds = captor.getAllValues();
+
+        Assertions.assertTrue(
+            capturedIds.stream()
+                .anyMatch(
+                    workflowExecutionId -> workflowExecutionId.getJobPrincipalId() == 501L &&
+                        workflowExecutionId.getTriggerName()
+                            .equals("t_copy_mixed")),
+            "copy-mode row must fire");
+
+        Assertions.assertTrue(
+            capturedIds.stream()
+                .anyMatch(
+                    workflowExecutionId -> workflowExecutionId.getJobPrincipalId() == 88L &&
+                        workflowExecutionId.getTriggerName()
+                            .equals("t_reference_mixed")),
+            "reference-mode row must fire");
+    }
+
     private static Workflow appEventWorkflow(String triggerName) {
         return new Workflow(
             "{\"label\":\"App Event Workflow\",\"triggers\":[{\"name\":\"" + triggerName
@@ -399,6 +521,13 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
 
         return new ConnectedUserProjectWorkflow(
             1L, 5L, null, 1, catalogWorkflowUuid, projectDeploymentId, enabled, dangling, null, 0);
+    }
+
+    private static ConnectedUserProjectWorkflow copyModeFor(
+        Long projectWorkflowId, boolean enabled, boolean dangling) {
+
+        return new ConnectedUserProjectWorkflow(
+            2L, 5L, projectWorkflowId, 1, null, null, enabled, dangling, null, 0);
     }
 
     private AppEventTriggerApiController controller() {
@@ -431,10 +560,10 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
             .thenReturn(List.of());
 
         return new AppEventTriggerApiController(
-            new ApplicationProperties(), connectedUserProjectWorkflowRepository, connectedUserService,
+            new ApplicationProperties(), connectedUserCodeWorkflowReferenceFacade, connectedUserService,
             environmentService, mock(FileEntryTokens.class), httpServletRequest, mock(HttpServletResponse.class),
             integrationInstanceConfigurationWorkflowService, integrationInstanceService,
-            integrationInstanceWorkflowService, integrationWorkflowService, projectWorkflowService,
-            mock(TempFileStorage.class), webhookWorkflowExecutor, workflowService);
+            integrationInstanceWorkflowService, integrationWorkflowService, projectDeploymentService,
+            projectWorkflowService, mock(TempFileStorage.class), webhookWorkflowExecutor, workflowService);
     }
 }

@@ -254,6 +254,11 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
     }
 
     @Override
+    public List<ConnectedUserProjectWorkflow> getConnectedUserWorkflows(long connectedUserId) {
+        return connectedUserProjectWorkflowRepository.findAllByConnectedUserId(connectedUserId);
+    }
+
+    @Override
     public void deleteReference(String externalUserId, String catalogWorkflowUuid, Environment environment) {
         ConnectedUserProjectWorkflow reference = requireReference(externalUserId, catalogWorkflowUuid, environment);
 
