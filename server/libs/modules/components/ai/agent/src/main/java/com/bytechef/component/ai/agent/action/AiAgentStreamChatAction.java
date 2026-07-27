@@ -67,6 +67,11 @@ import reactor.core.publisher.Flux;
  */
 public class AiAgentStreamChatAction extends AbstractAiAgentChatAction {
 
+    @Override
+    protected boolean isStreaming() {
+        return true;
+    }
+
     public static ActionDefinition of(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
         ToolCallingManager toolCallingManager,
