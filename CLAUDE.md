@@ -548,6 +548,62 @@ trigger + post-turn query invalidation.
   `docs/superpowers/specs/2026-07-19-expose-ai-agent-a2a-server-design.md`; user docs:
   `docs/content/docs/automation/a2a-servers.mdx`.
 
+### Embedded automation code workflow bridge
+
+`POST /api/embedded/internal/automation/projects/deploy` (`ADMIN`-only via `@PreAuthorize` on
+`AutomationWorkflowProjectCodeWorkflowFacadeImpl#save`, not the controller — same posture as
+`/integrations/deploy`) deploys a plain automation code workflow (`ProjectHandler`/`project-api`)
+behind `AutomationWorkflowProjectFacade`'s `__EMBEDDED_AUTOMATION__` marker via
+`AutomationWorkflowProjectCodeWorkflowFacadeImpl` -- the SAME artifact deployed through the plain
+`/api/automation/v1/projects/deploy` endpoint creates an unmarked, unrelated project; the marker is
+what makes it embedded-servable. `ConnectedUserProjectWorkflow` gained a nullable
+`catalog_workflow_uuid` discriminator (XOR with `project_workflow_id`, never both): non-null means
+the row is a reference to a shared catalog workflow (never a per-user copy, never editable) instead
+of a copy-mode row. A catalog project's client-facing `kind` (`COPY`/`REFERENCE`,
+`AutomationWorkflowProjectMapper#mapKind`) mirrors that split at the project level. Per-user
+connection wiring for a reference lives in a new `connected_user_project_workflow_connection` table
+(`ConnectedUserProjectWorkflowConnection`), NOT `WorkflowTestConfiguration` (that table is keyed by
+`workflowId` alone, and a shared catalog workflow has exactly one `workflowId` across every
+referencing user -- reusing it would leak one user's connection into another's run;
+`ConnectedUserWorkflowConnectionResolver` is a deliberately separate node-scanning class rather than
+a refactor of that path). Each reference gets its own `ProjectDeployment` scoped to (catalog project,
+external user id, **environment** -- the name is `__EMBEDDED__<externalUserId>__<ENVIRONMENT>`, since
+one external user can be connected in more than one environment), looked up by name via
+`ProjectDeploymentService.fetchProjectDeploymentByName` (new; the existing
+`fetchProjectDeployment(projectId, environment)` assumes one deployment per project+environment,
+which only holds because copy-mode gives each user their own private project).
+`RequestTriggerApiController#executeWorkflow` (sync `POST /workflows/{workflowUuid}`) and
+`AppEventTriggerApiController#executeWorkflows` (async `POST /app-events`) both gained an
+automation-bridge fallback branch that only runs once the existing integration-workflow lookup comes
+back empty (regression-pinned unchanged); dispatch reuses `AbstractWebhookTriggerController
+#doProcessTrigger` unmodified with `PlatformType.AUTOMATION` and the reference's
+`ProjectDeploymentId` in place of an `IntegrationInstance` id. The two branches are NOT symmetric:
+the async fan-out iterates every `ConnectedUserProjectWorkflow` row for the connected user and
+dispatches both reference-mode and copy-mode rows (so it also makes visual bridge copies invocable,
+addressed by the copy's own uuid), but the sync branch only resolves catalog code-workflow uuids
+against `AutomationWorkflowProjectFacade#getPublishedProjects()` -- a visual copy's own uuid is not
+reachable through the sync endpoint as shipped. A redeploy that drops a workflow flips existing
+references to a disabled `dangling` state (`ConnectedUserCodeWorkflowReferenceFacade
+#markDanglingReferences`, comparing one catalog project's previous-vs-current published uuid sets)
+instead of deleting them; nothing ever clears `dangling` back to false, and since uuid carry-forward
+(`AutomationWorkflowProjectCodeWorkflowFacadeImpl#fetchPreviousWorkflowUuidsByName`) only looks one
+deploy back, restoring a same-named workflow after an intervening deploy that dropped it mints a
+**new** uuid -- a dangling reference never self-heals; recovery is de-provision the dangling row,
+then provision fresh against the new uuid. `getOrCreateReference` is NOT self-healing on repeat calls
+either: once a disabled row exists (missing-connection case, `MissingConnectionException` -> HTTP
+409 `{"missingConnectionComponentName": ...}`), later calls -- invocation or the explicit
+`POST .../automation/workflow-templates/{workflowUuid}/provision` -- find the existing row and
+return it unchanged rather than re-resolving; only de-provision (`DELETE` on the same path) + a
+fresh provision reruns connection auto-wiring. That method's single `@Transactional(noRollbackFor =
+MissingConnectionException.class)` is required for the "still create the row, just disabled"
+contract to hold at all -- without it Spring's default rollback rule would erase the row the method's
+own Javadoc promises to keep. **Not yet done**: no remote-client stub for
+`ConnectedUserCodeWorkflowReferenceFacade` in `embedded-configuration-remote-client` -- webhook-app
+pulls that module (not `embedded-configuration-service`) so the bean is simply absent there,
+leaving distributed-deployment invocation of this bridge unwired (monolith server-app, which carries
+both modules, works). Spec:
+`docs/superpowers/specs/2026-07-27-embedded-automation-code-workflows-design.md`.
+
 ### Agentic AI component (Embabel GOAP, opt-in)
 
 - `server/libs/modules/components/ai/agentic-ai` wraps Embabel **1.0.0**'s GOAP planner

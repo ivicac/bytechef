@@ -114,6 +114,41 @@ curl -sf -X POST "$BYTECHEF_BASE_URL/api/embedded/internal/integrations/deploy" 
 - File extension selects the language: `.jar`/`.js`/`.py`/`.rb`. Success: `204 No Content`.
 - The automation `/api/automation/v1/**` surface accepts admin API keys (Bearer) and is CSRF-exempt.
 
+## Bridge: serving a code workflow to embedded connected users
+
+A third deploy target exists for the **automation** artifact only (same `ProjectHandler` /
+`name`-identity contract as the automation row above — nothing in the artifact changes): the embedded
+bridge. Use it when the intent is "serve this to embedded connected users" instead of, or in addition
+to, a standalone automation project.
+
+| | Plain automation deploy | Embedded bridge deploy |
+|---|---|---|
+| Endpoint | `POST /api/automation/v1/projects/deploy` | `POST /api/embedded/internal/automation/projects/deploy` |
+| Artifact | `ProjectHandler`, identical contract | Same `ProjectHandler` artifact, byte-for-byte |
+| Result | A plain automation project, nothing embedded-reachable | The same kind of project, but marked so embedded connected users can reach it |
+
+Deploying the same bytes through the plain endpoint instead creates an unrelated, unmarked project —
+the endpoint you deploy through, not anything in the artifact, is what makes it embedded-servable.
+
+**Model: deploy once, reference per user.** Every connected user shares the one deployed workflow —
+there is no per-user copy and no per-user editing. A connected user's reference is provisioned
+automatically the first time they invoke the workflow (auto-wiring their connections by component),
+or ahead of time via `POST /api/embedded/v1/{externalUserId}/automation/workflow-templates/{workflowUuid}/provision`.
+Redeploying the artifact upgrades every referencing connected user at once — there is no version
+pinning per user.
+
+**Invocable-trigger requirement.** A deployed workflow is only reachable by connected users if it
+declares a trigger the embedded public endpoints understand: a `request` trigger (plus an action that
+writes the response) for synchronous `POST /api/embedded/v1/workflows/{workflowUuid}` calls, or the
+App Event trigger for asynchronous `POST /api/embedded/v1/app-events` fan-out — the same rule
+`/integrations/deploy`-based embedded integrations already follow. A workflow with neither trigger
+still deploys, but no connected user can ever call it; check for a WARN in the server log at deploy
+time if a workflow isn't showing up as invocable.
+
+Full write-up, including the reference-vs-copy split, the 409 unresolvable-connection contract, and
+dangling references on redeploy: [Automation Code Workflows](/embedded/automation-code-workflows) in
+the docs site.
+
 ## Editing after deploy
 
 Code-backed projects/integrations open a **source editor** (Monaco) instead of the visual canvas in the ByteChef UI, with compile-gated saves: an edit that fails to load, or that changes the identity member, is rejected. Iterate locally, redeploy, or edit in the UI — both paths re-register the workflows and publish.

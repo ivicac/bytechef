@@ -24,6 +24,7 @@
     "...app-events",
     "automations/index",
     "...automations",
+    "automation-code-workflows",
     "workflow-builder-tools",
     "componentkit",
     "connected-users/index",
