@@ -13,12 +13,15 @@ import static com.bytechef.platform.component.definition.AppEventComponentDefini
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
+import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.commons.util.OptionalUtils;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstance;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigurationWorkflow;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceWorkflow;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationWorkflow;
+import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceWorkflowService;
@@ -46,6 +49,8 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
@@ -63,6 +68,9 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnEEVersion
 public class AppEventTriggerApiController extends AbstractWebhookTriggerController implements AppEventTriggerApi {
 
+    private static final Logger log = LoggerFactory.getLogger(AppEventTriggerApiController.class);
+
+    private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
     private final ConnectedUserService connectedUserService;
     private final HttpServletRequest httpServletRequest;
     private final HttpServletResponse httpServletResponse;
@@ -70,22 +78,28 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
     private final IntegrationInstanceService integrationInstanceService;
     private final IntegrationInstanceWorkflowService integrationInstanceWorkflowService;
     private final IntegrationWorkflowService integrationWorkflowService;
+    private final ProjectWorkflowService projectWorkflowService;
+    private final WebhookWorkflowExecutor webhookWorkflowExecutor;
     private final WorkflowService workflowService;
     private final EnvironmentService environmentService;
 
     @SuppressFBWarnings("EI")
     public AppEventTriggerApiController(
-        ApplicationProperties applicationProperties, ConnectedUserService connectedUserService,
-        EnvironmentService environmentService, FileEntryTokens fileEntryTokens,
-        HttpServletRequest httpServletRequest, HttpServletResponse httpServletResponse,
+        ApplicationProperties applicationProperties,
+        ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository,
+        ConnectedUserService connectedUserService, EnvironmentService environmentService,
+        FileEntryTokens fileEntryTokens, HttpServletRequest httpServletRequest,
+        HttpServletResponse httpServletResponse,
         IntegrationInstanceConfigurationWorkflowService integrationInstanceConfigurationWorkflowService,
         IntegrationInstanceService integrationInstanceService,
         IntegrationInstanceWorkflowService integrationInstanceWorkflowService,
-        IntegrationWorkflowService integrationWorkflowService, TempFileStorage tempFileStorage,
-        WebhookWorkflowExecutor webhookWorkflowExecutor, WorkflowService workflowService) {
+        IntegrationWorkflowService integrationWorkflowService, ProjectWorkflowService projectWorkflowService,
+        TempFileStorage tempFileStorage, WebhookWorkflowExecutor webhookWorkflowExecutor,
+        WorkflowService workflowService) {
 
         super(fileEntryTokens, applicationProperties.getPublicUrl(), tempFileStorage, webhookWorkflowExecutor);
 
+        this.connectedUserProjectWorkflowRepository = connectedUserProjectWorkflowRepository;
         this.connectedUserService = connectedUserService;
         this.environmentService = environmentService;
         this.httpServletRequest = httpServletRequest;
@@ -94,6 +108,8 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
         this.integrationInstanceService = integrationInstanceService;
         this.integrationInstanceWorkflowService = integrationInstanceWorkflowService;
         this.integrationWorkflowService = integrationWorkflowService;
+        this.projectWorkflowService = projectWorkflowService;
+        this.webhookWorkflowExecutor = webhookWorkflowExecutor;
         this.workflowService = workflowService;
     }
 
@@ -143,8 +159,51 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
             }
         }
 
+        List<ConnectedUserProjectWorkflow> references = connectedUserProjectWorkflowRepository
+            .findAllByConnectedUserId(connectedUser.getId());
+
+        for (ConnectedUserProjectWorkflow reference : references) {
+            if (!reference.isEnabled() || reference.isDangling()) {
+                continue;
+            }
+
+            // Isolated per reference: one reference's lookup or dispatch failure must not stop the fan-out to the
+            // remaining references, so every step for this reference lives inside the try.
+            try {
+                dispatchAutomationBridgeReference(reference);
+            } catch (IOException | ServletException | RuntimeException e) {
+                log.warn("Failed to dispatch app event to automation-bridge reference {}", reference.getId(), e);
+            }
+        }
+
         return ResponseEntity.ok()
             .build();
+    }
+
+    private void dispatchAutomationBridgeReference(ConnectedUserProjectWorkflow reference)
+        throws IOException, ServletException {
+
+        String catalogWorkflowId = projectWorkflowService.getLastPublishedWorkflowId(
+            reference.getCatalogWorkflowUuid());
+
+        Workflow workflow = workflowService.getWorkflow(catalogWorkflowId);
+
+        String appEventTriggerName = findAppEventTriggerName(workflow);
+
+        if (appEventTriggerName == null) {
+            return;
+        }
+
+        WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.of(
+            PlatformType.AUTOMATION, reference.getProjectDeploymentId(), reference.getCatalogWorkflowUuid(),
+            appEventTriggerName);
+
+        if (webhookWorkflowExecutor.isWorkflowDisabled(workflowExecutionId)) {
+            return;
+        }
+
+        doProcessTrigger(workflowExecutionId, null, httpServletRequest, httpServletResponse)
+            .join();
     }
 
     @InitBinder
