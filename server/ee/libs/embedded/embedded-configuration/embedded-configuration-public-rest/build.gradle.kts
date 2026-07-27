@@ -57,7 +57,6 @@ dependencies {
     implementation(project(":server:libs:platform:platform-mcp:platform-mcp-api"))
 
     implementation(project(":server:libs:ai:ai-copilot:ai-copilot-api"))
-    implementation(project(":server:ee:libs:automation:automation-configuration:automation-configuration-api"))
     implementation(project(":server:ee:libs:embedded:embedded-configuration:embedded-configuration-api"))
     implementation(project(":server:ee:libs:embedded:embedded-connected-user:embedded-connected-user-api"))
     implementation(project(":server:ee:libs:embedded:embedded-ai:embedded-ai-mcp-api"))

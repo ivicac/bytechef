@@ -7,18 +7,14 @@
 
 package com.bytechef.ee.embedded.configuration.public_.web.rest.mapper;
 
-import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
 import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.mapper.config.EmbeddedConfigurationPublicMapperSpringConfig;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectComponentModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectWorkflowTemplateModel;
-import org.mapstruct.AfterMapping;
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import org.mapstruct.MappingTarget;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.convert.converter.Converter;
 
 /**
@@ -29,39 +25,27 @@ import org.springframework.core.convert.converter.Converter;
 @Mapper(
     config = EmbeddedConfigurationPublicMapperSpringConfig.class,
     implementationName = "EmbeddedPublic<CLASS_NAME>Impl")
-public abstract class AutomationWorkflowProjectMapper
-    implements Converter<AutomationWorkflowProjectDTO, AutomationWorkflowProjectModel> {
-
-    @Autowired
-    private ProjectCodeWorkflowService projectCodeWorkflowService;
+public interface AutomationWorkflowProjectMapper
+    extends Converter<AutomationWorkflowProjectDTO, AutomationWorkflowProjectModel> {
 
     @Override
-    @Mapping(target = "kind", ignore = true)
-    public abstract AutomationWorkflowProjectModel convert(AutomationWorkflowProjectDTO automationWorkflowProjectDTO);
+    @Mapping(target = "kind", source = "codeWorkflowProject")
+    AutomationWorkflowProjectModel convert(AutomationWorkflowProjectDTO automationWorkflowProjectDTO);
 
-    public abstract AutomationWorkflowProjectComponentModel toComponentModel(
-        ConnectedUserWorkflowTemplateDTO.Component component);
+    AutomationWorkflowProjectComponentModel toComponentModel(ConnectedUserWorkflowTemplateDTO.Component component);
 
     @Mapping(target = "id", source = "workflowUuid")
-    public abstract AutomationWorkflowProjectWorkflowTemplateModel toWorkflowTemplateModel(
+    AutomationWorkflowProjectWorkflowTemplateModel toWorkflowTemplateModel(
         ConnectedUserWorkflowTemplateDTO workflowTemplateDTO);
 
     /**
      * A catalog project's {@code kind} tells clients whether copying one of its workflow templates creates a per-user
-     * copy ({@code COPY}) or a shared reference ({@code REFERENCE}) -- mirroring the same code-workflow-project
-     * existence check the catalog deploy path relies on to know which projects are code-workflow-backed.
+     * copy ({@code COPY}) or a shared reference ({@code REFERENCE}); the boolean-to-enum conversion is expressed here
+     * so MapStruct can wire it directly into the generated {@link #convert} implementation.
      */
-    @AfterMapping
-    protected void afterMapping(
-        AutomationWorkflowProjectDTO automationWorkflowProjectDTO,
-        @MappingTarget AutomationWorkflowProjectModel automationWorkflowProjectModel) {
-
-        boolean codeWorkflowProject = projectCodeWorkflowService.getCodeWorkflowProjectIds()
-            .contains(automationWorkflowProjectDTO.id());
-
-        automationWorkflowProjectModel.setKind(
-            codeWorkflowProject
-                ? AutomationWorkflowProjectModel.KindEnum.REFERENCE
-                : AutomationWorkflowProjectModel.KindEnum.COPY);
+    default AutomationWorkflowProjectModel.KindEnum mapKind(boolean codeWorkflowProject) {
+        return codeWorkflowProject
+            ? AutomationWorkflowProjectModel.KindEnum.REFERENCE
+            : AutomationWorkflowProjectModel.KindEnum.COPY;
     }
 }

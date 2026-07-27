@@ -25,6 +25,7 @@ import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.security.util.SecurityUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import org.springframework.core.convert.ConversionService;
 import org.springframework.http.HttpStatus;
@@ -402,7 +403,7 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
     }
 
     @Override
-    public ResponseEntity<Void> provisionWorkflowReference(
+    public ResponseEntity<Object> provisionWorkflowReference(
         String externalUserId, String workflowUuid, EnvironmentModel xEnvironment) {
 
         SecurityUtils.checkCurrentUserLogin(externalUserId);
@@ -412,7 +413,7 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
                 externalUserId, workflowUuid, getEnvironment(xEnvironment));
         } catch (MissingConnectionException missingConnectionException) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
-                .build();
+                .body(Map.of("missingConnectionComponentName", missingConnectionException.getComponentName()));
         }
 
         return ResponseEntity.noContent()

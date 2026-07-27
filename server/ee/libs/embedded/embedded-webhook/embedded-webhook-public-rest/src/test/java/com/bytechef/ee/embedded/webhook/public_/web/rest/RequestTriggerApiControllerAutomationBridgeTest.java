@@ -353,7 +353,7 @@ class RequestTriggerApiControllerAutomationBridgeTest {
             .toList();
 
         AutomationWorkflowProjectDTO project = new AutomationWorkflowProjectDTO(
-            1L, "Project", "Description", null, List.of(), true, 1, 1, workflowTemplates, null);
+            1L, "Project", "Description", null, List.of(), true, 1, 1, workflowTemplates, null, false);
 
         return List.of(project);
     }

@@ -115,7 +115,10 @@ public class ConnectedUserProjectWorkflowApiControllerReferenceIntTest {
                     WORKFLOW_UUID)
                 .exchange()
                 .expectStatus()
-                .isEqualTo(409);
+                .isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.missingConnectionComponentName")
+                .isEqualTo("slack");
         } catch (Exception exception) {
             Assertions.fail(exception);
         }

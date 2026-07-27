@@ -9,6 +9,7 @@ import com.bytechef.ee.embedded.configuration.public_.web.rest.model.ConnectedUs
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.CreateFrontendProjectWorkflowFromPromptRequestModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.CreateFrontendProjectWorkflowRequestModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.EnvironmentModel;
+import com.bytechef.ee.embedded.configuration.public_.web.rest.model.MissingConnectionErrorModel;
 import org.springframework.lang.Nullable;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.PublishFrontendProjectWorkflowRequestModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.UpdateFrontendWorkflowConfigurationConnectionRequestModel;
@@ -39,7 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-27T18:41:17.017420+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-27T19:08:16.583110+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 @Validated
 @Tag(name = "connected-user-project-workflow", description = "The Embedded Connected User Project Workflow Public API")
 public interface ConnectedUserProjectWorkflowApi {
@@ -709,8 +710,12 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Explicitly provision a reference to a catalog code workflow ahead of first invocation.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation."),
-            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.")
+            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
+            }),
+            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
+            })
         },
         security = {
             @SecurityRequirement(name = "bearerAuth")
@@ -718,13 +723,23 @@ public interface ConnectedUserProjectWorkflowApi {
     )
     @RequestMapping(
         method = RequestMethod.POST,
-        value = ConnectedUserProjectWorkflowApi.PATH_PROVISION_WORKFLOW_REFERENCE
+        value = ConnectedUserProjectWorkflowApi.PATH_PROVISION_WORKFLOW_REFERENCE,
+        produces = { "application/json" }
     )
-    default ResponseEntity<Void> provisionWorkflowReference(
+    default ResponseEntity<Object> provisionWorkflowReference(
         @Parameter(name = "externalUserId", description = "The external user id.", required = true, in = ParameterIn.PATH) @PathVariable("externalUserId") String externalUserId,
         @Parameter(name = "workflowUuid", description = "The workflow template uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"missingConnectionComponentName\" : \"missingConnectionComponentName\" }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }

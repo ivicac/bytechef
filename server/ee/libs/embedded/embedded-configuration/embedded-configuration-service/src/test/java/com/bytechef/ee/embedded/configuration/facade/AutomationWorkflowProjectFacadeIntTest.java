@@ -137,6 +137,9 @@ public class AutomationWorkflowProjectFacadeIntTest {
     private ConnectedUserProjectFacade connectedUserProjectFacade;
 
     @Autowired
+    private ProjectCodeWorkflowService projectCodeWorkflowService;
+
+    @Autowired
     private TagService tagService;
 
     @BeforeEach
@@ -204,6 +207,36 @@ public class AutomationWorkflowProjectFacadeIntTest {
         assertThat(project.description()).isEqualTo("Onboarding flows");
         assertThat(automationWorkflowProjectFacade.getProjects()).extracting(AutomationWorkflowProjectDTO::id)
             .contains(projectId);
+    }
+
+    @Test
+    void testGetProjectMarksCodeWorkflowProjectWhenIdIsInCodeWorkflowSet() {
+        long projectId = automationWorkflowProjectFacade.createProject(
+            "Code Workflow Project", "", null, List.of(), null);
+
+        when(projectCodeWorkflowService.getCodeWorkflowProjectIds()).thenReturn(List.of(projectId));
+
+        assertThat(automationWorkflowProjectFacade.getProject(projectId)
+            .codeWorkflowProject()).isTrue();
+        assertThat(automationWorkflowProjectFacade.getProjects())
+            .filteredOn(project -> project.id() == projectId)
+            .extracting(AutomationWorkflowProjectDTO::codeWorkflowProject)
+            .containsExactly(true);
+    }
+
+    @Test
+    void testGetProjectDoesNotMarkCodeWorkflowProjectWhenIdIsNotInCodeWorkflowSet() {
+        long projectId = automationWorkflowProjectFacade.createProject(
+            "Visual Project", "", null, List.of(), null);
+
+        when(projectCodeWorkflowService.getCodeWorkflowProjectIds()).thenReturn(List.of());
+
+        assertThat(automationWorkflowProjectFacade.getProject(projectId)
+            .codeWorkflowProject()).isFalse();
+        assertThat(automationWorkflowProjectFacade.getProjects())
+            .filteredOn(project -> project.id() == projectId)
+            .extracting(AutomationWorkflowProjectDTO::codeWorkflowProject)
+            .containsExactly(false);
     }
 
     @Test
