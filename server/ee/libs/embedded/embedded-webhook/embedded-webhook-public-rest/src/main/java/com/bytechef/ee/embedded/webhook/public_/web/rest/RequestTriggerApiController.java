@@ -49,6 +49,9 @@ import java.io.IOException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.WebDataBinder;
@@ -68,6 +71,9 @@ import org.springframework.web.bind.annotation.RestController;
 @ConditionalOnEEVersion
 public class RequestTriggerApiController extends AbstractWebhookTriggerController implements RequestTriggerApi {
 
+    private static final Logger log = LoggerFactory.getLogger(RequestTriggerApiController.class);
+
+    private final AtomicBoolean automationBridgeUnsupportedLogged = new AtomicBoolean(false);
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
     private final ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
     private final ConnectedUserProjectFacade connectedUserProjectFacade;
@@ -127,7 +133,23 @@ public class RequestTriggerApiController extends AbstractWebhookTriggerControlle
             return executeIntegrationWorkflow(connectedUser, workflowUuid, integrationWorkflowId.get(), environment);
         }
 
-        return executeAutomationBridgeWorkflow(connectedUser, workflowUuid, environment);
+        // The automation-bridge facades (AutomationWorkflowProjectFacade, ConnectedUserProjectFacade,
+        // ConnectedUserCodeWorkflowReferenceFacade) are backed by remote-client stubs in deployment topologies that
+        // do not carry embedded-configuration-service (e.g. a distributed webhook-app). Treat that the same as
+        // "bridge absent" -- the same 404 an unknown workflowUuid always returns -- rather than letting the
+        // UnsupportedOperationException propagate as a 500.
+        try {
+            return executeAutomationBridgeWorkflow(connectedUser, workflowUuid, environment);
+        } catch (UnsupportedOperationException unsupportedOperationException) {
+            if (automationBridgeUnsupportedLogged.compareAndSet(false, true)) {
+                log.warn(
+                    "The embedded automation-bridge is not supported in this deployment topology; "
+                        + "the embedded-configuration facades are remote stubs");
+            }
+
+            return ResponseEntity.notFound()
+                .build();
+        }
     }
 
     private ResponseEntity<Object> executeIntegrationWorkflow(

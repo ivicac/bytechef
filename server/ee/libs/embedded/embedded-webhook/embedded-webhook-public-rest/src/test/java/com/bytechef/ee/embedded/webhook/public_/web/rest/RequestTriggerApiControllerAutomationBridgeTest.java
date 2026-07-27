@@ -133,6 +133,40 @@ class RequestTriggerApiControllerAutomationBridgeTest {
     }
 
     @Test
+    void testAutomationBridgeUnsupportedOperationExceptionReturnsNotFoundAndIsLoggedOnceAcrossTwoCalls() {
+        RequestTriggerApiController controller = controller();
+
+        Mockito.when(integrationWorkflowService.fetchLastWorkflowId(Mockito.eq("uuid-unsupported"), Mockito.any()))
+            .thenReturn(Optional.empty());
+        Mockito.when(automationWorkflowProjectFacade.getPublishedProjects())
+            .thenThrow(new UnsupportedOperationException());
+
+        ConnectedUser connectedUser = new ConnectedUser(Map.of(), "user-1@example.com", true, "ext-1", 1L, "User 1", 0);
+
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.anyString(), Mockito.any()))
+            .thenReturn(connectedUser);
+
+        ResponseEntity<Object> firstResponseEntity;
+        ResponseEntity<Object> secondResponseEntity;
+
+        try (MockedStatic<SecurityUtils> securityUtils = Mockito.mockStatic(SecurityUtils.class)) {
+            securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
+                .thenReturn(Optional.of("user-1"));
+
+            // The exception must not propagate out of executeWorkflow (it would surface as a 500 in a distributed
+            // webhook-app that only carries remote-client stubs for the automation-bridge facades) and must resolve
+            // to the same 404 an unknown workflowUuid returns.
+            firstResponseEntity = controller.executeWorkflow("uuid-unsupported", null);
+            secondResponseEntity = controller.executeWorkflow("uuid-unsupported", null);
+        }
+
+        Assertions.assertEquals(HttpStatus.NOT_FOUND, firstResponseEntity.getStatusCode());
+        Assertions.assertNull(firstResponseEntity.getBody());
+        Assertions.assertEquals(HttpStatus.NOT_FOUND, secondResponseEntity.getStatusCode());
+        Assertions.assertNull(secondResponseEntity.getBody());
+    }
+
+    @Test
     void testUnknownWorkflowFallsThroughToTheAutomationBridge() {
         RequestTriggerApiController controller = controller();
 

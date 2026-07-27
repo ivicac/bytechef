@@ -10,6 +10,8 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -20,6 +22,7 @@ import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflo
 import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserProjectFacade;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.config.EmbeddedConfigurationPublicRestSharedMocks;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.config.EmbeddedConfigurationPublicRestTestConfiguration;
 import com.bytechef.platform.configuration.domain.Environment;
@@ -54,6 +57,9 @@ public class ConnectedUserProjectWorkflowApiControllerReferenceIntTest {
 
     @Autowired
     private ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
+
+    @Autowired
+    private ConnectedUserProjectFacade connectedUserProjectFacade;
 
     @MockitoBean
     private AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
@@ -189,5 +195,99 @@ public class ConnectedUserProjectWorkflowApiControllerReferenceIntTest {
 
         verify(connectedUserCodeWorkflowReferenceFacade, never())
             .deleteReference(any(), any(), any());
+    }
+
+    /**
+     * The public enable/disable endpoints route to {@link ConnectedUserProjectFacade}'s String-uuid overload of
+     * {@code enableProjectWorkflow}, which (after this fix) can resolve {@code workflowUuid} to one of the caller's
+     * automation-bridge reference rows and surface the same {@link MissingConnectionException} the explicit provision
+     * endpoint above does. This test pins that the enable endpoint maps it to the same 409 shape.
+     */
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testEnableReferenceMissingConnectionReturns409() {
+        doThrow(new MissingConnectionException("slack"))
+            .when(connectedUserProjectFacade)
+            .enableProjectWorkflow(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), eq(true), any());
+
+        try {
+            webTestClient
+                .post()
+                .uri("/v1/automation/workflows/{workflowUuid}/enable", WORKFLOW_UUID)
+                .exchange()
+                .expectStatus()
+                .isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.missingConnectionComponentName")
+                .isEqualTo("slack");
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+    }
+
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testEnableReferenceSucceeds() {
+        doNothing()
+            .when(connectedUserProjectFacade)
+            .enableProjectWorkflow(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), eq(true), any());
+
+        try {
+            webTestClient
+                .post()
+                .uri("/v1/automation/workflows/{workflowUuid}/enable", WORKFLOW_UUID)
+                .exchange()
+                .expectStatus()
+                .isNoContent();
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+
+        verify(connectedUserProjectFacade)
+            .enableProjectWorkflow(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), eq(true), any());
+    }
+
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testDisableReferenceSucceeds() {
+        doNothing()
+            .when(connectedUserProjectFacade)
+            .enableProjectWorkflow(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), eq(false), any());
+
+        try {
+            webTestClient
+                .delete()
+                .uri("/v1/automation/workflows/{workflowUuid}/enable", WORKFLOW_UUID)
+                .exchange()
+                .expectStatus()
+                .isNoContent();
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
+
+        verify(connectedUserProjectFacade)
+            .enableProjectWorkflow(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), eq(false), any());
+    }
+
+    @Test
+    @WithMockUser(username = EXTERNAL_USER_ID)
+    public void testDisableReferenceMissingConnectionReturns409() {
+        doThrow(new MissingConnectionException("slack"))
+            .when(connectedUserProjectFacade)
+            .enableProjectWorkflow(eq(EXTERNAL_USER_ID), eq(WORKFLOW_UUID), eq(false), any());
+
+        try {
+            webTestClient
+                .delete()
+                .uri("/v1/automation/workflows/{workflowUuid}/enable", WORKFLOW_UUID)
+                .exchange()
+                .expectStatus()
+                .isEqualTo(409)
+                .expectBody()
+                .jsonPath("$.missingConnectionComponentName")
+                .isEqualTo("slack");
+        } catch (Exception exception) {
+            Assertions.fail(exception);
+        }
     }
 }

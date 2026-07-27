@@ -116,53 +116,64 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
     }
 
     @Override
-    public ResponseEntity<Void> disableFrontendProjectWorkflow(
+    public ResponseEntity<Object> disableFrontendProjectWorkflow(
         String workflowUuid, EnvironmentModel xEnvironment) {
 
-        connectedUserProjectFacade.enableProjectWorkflow(
+        return doEnableProjectWorkflow(
             OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found"), workflowUuid, false,
-            (long) getEnvironment(xEnvironment).ordinal());
-
-        return ResponseEntity.noContent()
-            .build();
+            xEnvironment);
     }
 
     @Override
-    public ResponseEntity<Void> disableProjectWorkflow(
+    public ResponseEntity<Object> disableProjectWorkflow(
         String externalUserId, String workflowUuid, EnvironmentModel xEnvironment) {
 
         SecurityUtils.checkCurrentUserLogin(externalUserId);
 
-        connectedUserProjectFacade.enableProjectWorkflow(
+        return doEnableProjectWorkflow(
             OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found"), workflowUuid, false,
-            (long) getEnvironment(xEnvironment).ordinal());
-
-        return ResponseEntity.noContent()
-            .build();
+            xEnvironment);
     }
 
     @Override
     @CrossOrigin
-    public ResponseEntity<Void> enableFrontendProjectWorkflow(
+    public ResponseEntity<Object> enableFrontendProjectWorkflow(
         String workflowUuid, EnvironmentModel xEnvironment) {
 
-        connectedUserProjectFacade.enableProjectWorkflow(
+        return doEnableProjectWorkflow(
             OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found"), workflowUuid, true,
-            (long) getEnvironment(xEnvironment).ordinal());
-
-        return ResponseEntity.noContent()
-            .build();
+            xEnvironment);
     }
 
     @Override
-    public ResponseEntity<Void> enableProjectWorkflow(
+    public ResponseEntity<Object> enableProjectWorkflow(
         String externalUserId, String workflowUuid, EnvironmentModel xEnvironment) {
 
         SecurityUtils.checkCurrentUserLogin(externalUserId);
 
-        connectedUserProjectFacade.enableProjectWorkflow(
+        return doEnableProjectWorkflow(
             OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found"), workflowUuid, true,
-            (long) getEnvironment(xEnvironment).ordinal());
+            xEnvironment);
+    }
+
+    /**
+     * Shared by all four enable/disable endpoints (frontend and externalUserId-scoped, enable and disable): a
+     * workflowUuid that resolves to one of the caller's automation-bridge reference rows can surface
+     * {@link MissingConnectionException} out of
+     * {@link ConnectedUserProjectFacade#enableProjectWorkflow(String, String, boolean, Long)} the same way
+     * {@link #provisionWorkflowReference} already does, so it must be mapped to the same 409 shape here instead of
+     * propagating as an unhandled 500.
+     */
+    private ResponseEntity<Object> doEnableProjectWorkflow(
+        String externalUserId, String workflowUuid, boolean enable, EnvironmentModel xEnvironment) {
+
+        try {
+            connectedUserProjectFacade.enableProjectWorkflow(
+                externalUserId, workflowUuid, enable, (long) getEnvironment(xEnvironment).ordinal());
+        } catch (MissingConnectionException missingConnectionException) {
+            return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(Map.of("missingConnectionComponentName", missingConnectionException.getComponentName()));
+        }
 
         return ResponseEntity.noContent()
             .build();

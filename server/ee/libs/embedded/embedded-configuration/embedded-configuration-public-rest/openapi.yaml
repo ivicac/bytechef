@@ -455,6 +455,16 @@ paths:
       responses:
         "204":
           description: "Successful operation."
+          content:
+            application/json:
+              schema:
+                type: "object"
+        "409":
+          description: "A required connection could not be auto-wired."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingConnectionError"
       security:
         - jwtBearerAuth: [ ]
     delete:
@@ -479,6 +489,16 @@ paths:
       responses:
         "204":
           description: "Successful operation."
+          content:
+            application/json:
+              schema:
+                type: "object"
+        "409":
+          description: "A required connection could not be auto-wired."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingConnectionError"
       security:
         - jwtBearerAuth: [ ]
   /automation/workflows/{workflowUuid}/publish:
@@ -1256,6 +1276,16 @@ paths:
       responses:
         "204":
           description: "Successful operation."
+          content:
+            application/json:
+              schema:
+                type: "object"
+        "409":
+          description: "A required connection could not be auto-wired."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingConnectionError"
       security:
         - bearerAuth: [ ]
     delete:
@@ -1286,6 +1316,16 @@ paths:
       responses:
         "204":
           description: "Successful operation."
+          content:
+            application/json:
+              schema:
+                type: "object"
+        "409":
+          description: "A required connection could not be auto-wired."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingConnectionError"
       security:
         - bearerAuth: [ ]
   /{externalUserId}/automation/workflows/{workflowUuid}/publish:

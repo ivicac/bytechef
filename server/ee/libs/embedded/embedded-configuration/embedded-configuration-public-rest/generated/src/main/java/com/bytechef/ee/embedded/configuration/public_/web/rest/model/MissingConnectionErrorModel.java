@@ -22,7 +22,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "MissingConnectionError", description = "Returned when a required connection could not be auto-wired for a catalog code workflow reference.")
 @JsonTypeName("MissingConnectionError")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-27T19:08:16.583110+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-27T21:42:20.429973+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 public class MissingConnectionErrorModel {
 
   private @Nullable String missingConnectionComponentName;

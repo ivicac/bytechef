@@ -137,6 +137,80 @@ class AppEventTriggerApiControllerAutomationBridgeTest {
     }
 
     @Test
+    void testAutomationBridgeUnsupportedOperationExceptionSkipsTheBridgeSourceWithoutAffectingIntegrationFanOut() {
+        AppEventTriggerApiController controller = controller();
+
+        ConnectedUser connectedUser = new ConnectedUser(Map.of(), "user-1@example.com", true, "ext-1", 1L, "User 1", 0);
+
+        Mockito.when(connectedUserService.getConnectedUser(Mockito.anyString(), Mockito.any()))
+            .thenReturn(connectedUser);
+        Mockito.when(connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(1L))
+            .thenThrow(new UnsupportedOperationException());
+
+        // Existing integration-instance fan-out, set up exactly as it was before this task, to prove it is
+        // unaffected when the automation-bridge facade is a remote-client stub.
+        IntegrationInstance integrationInstance = new IntegrationInstance();
+
+        integrationInstance.setId(5L);
+
+        Mockito.when(integrationInstanceService.getConnectedUserIntegrationInstances(1L, true))
+            .thenReturn(List.of(integrationInstance));
+
+        IntegrationInstanceWorkflow integrationInstanceWorkflow = new IntegrationInstanceWorkflow();
+
+        integrationInstanceWorkflow.setEnabled(true);
+        integrationInstanceWorkflow.setIntegrationInstanceConfigurationWorkflowId(30L);
+
+        Mockito.when(integrationInstanceWorkflowService.getIntegrationInstanceWorkflows(5L))
+            .thenReturn(List.of(integrationInstanceWorkflow));
+
+        IntegrationInstanceConfigurationWorkflow configurationWorkflow = new IntegrationInstanceConfigurationWorkflow();
+
+        configurationWorkflow.setWorkflowId("int-wf-1");
+
+        Mockito.when(
+            integrationInstanceConfigurationWorkflowService.getIntegrationInstanceConfigurationWorkflow(30L))
+            .thenReturn(configurationWorkflow);
+
+        Mockito.when(workflowService.getWorkflow("int-wf-1"))
+            .thenReturn(appEventWorkflow("t_int"));
+
+        IntegrationWorkflow integrationWorkflow = new IntegrationWorkflow(5L, 1, "int-wf-1", UUID.randomUUID());
+
+        Mockito.when(integrationWorkflowService.getWorkflowIntegrationWorkflow("int-wf-1"))
+            .thenReturn(integrationWorkflow);
+
+        ResponseEntity<Void> firstResponseEntity;
+        ResponseEntity<Void> secondResponseEntity;
+
+        try (MockedStatic<SecurityUtils> securityUtils = Mockito.mockStatic(SecurityUtils.class)) {
+            securityUtils.when(SecurityUtils::fetchCurrentUserLogin)
+                .thenReturn(Optional.of("user-1"));
+
+            // Called twice: the exception must never propagate and must not break a subsequent call either.
+            firstResponseEntity = controller.executeWorkflows(null);
+            secondResponseEntity = controller.executeWorkflows(null);
+        }
+
+        Assertions.assertEquals(HttpStatus.OK, firstResponseEntity.getStatusCode());
+        Assertions.assertEquals(HttpStatus.OK, secondResponseEntity.getStatusCode());
+
+        ArgumentCaptor<WorkflowExecutionId> captor = ArgumentCaptor.forClass(WorkflowExecutionId.class);
+
+        // Only the pre-existing integration-instance loop fired, twice over (once per call) -- the automation-bridge
+        // loop contributed nothing once its facade started throwing.
+        Mockito.verify(webhookWorkflowExecutor, Mockito.times(2))
+            .getWebhookTriggerFlags(captor.capture());
+
+        Assertions.assertTrue(
+            captor.getAllValues()
+                .stream()
+                .allMatch(
+                    workflowExecutionId -> workflowExecutionId.getType() == PlatformType.EMBEDDED &&
+                        workflowExecutionId.getJobPrincipalId() == 5L));
+    }
+
+    @Test
     void testDanglingReferenceIsSkipped() {
         AppEventTriggerApiController controller = controller();
 

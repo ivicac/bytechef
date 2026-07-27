@@ -51,6 +51,7 @@ import java.io.IOException;
 import java.util.List;
 import java.util.Objects;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicBoolean;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
@@ -72,6 +73,7 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
 
     private static final Logger log = LoggerFactory.getLogger(AppEventTriggerApiController.class);
 
+    private final AtomicBoolean automationBridgeUnsupportedLogged = new AtomicBoolean(false);
     private final ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
     private final ConnectedUserCopyModeWorkflowResolver copyModeWorkflowResolver;
     private final ConnectedUserService connectedUserService;
@@ -164,10 +166,8 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
             }
         }
 
-        List<ConnectedUserProjectWorkflow> connectedUserProjectWorkflows = connectedUserCodeWorkflowReferenceFacade
-            .getConnectedUserWorkflows(connectedUser.getId());
-
-        for (ConnectedUserProjectWorkflow connectedUserProjectWorkflow : connectedUserProjectWorkflows) {
+        for (ConnectedUserProjectWorkflow connectedUserProjectWorkflow : fetchConnectedUserProjectWorkflows(
+            connectedUser.getId())) {
             if (!connectedUserProjectWorkflow.isEnabled() || connectedUserProjectWorkflow.isDangling()) {
                 continue;
             }
@@ -185,6 +185,26 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
 
         return ResponseEntity.ok()
             .build();
+    }
+
+    /**
+     * The automation-bridge facade ({@link ConnectedUserCodeWorkflowReferenceFacade}) is backed by a remote-client stub
+     * in deployment topologies that do not carry embedded-configuration-service (e.g. a distributed webhook-app). Treat
+     * that the same as "no automation-bridge rows" -- the pre-existing integration-instance fan-out above is unaffected
+     * -- rather than letting the {@link UnsupportedOperationException} propagate and abort the whole request.
+     */
+    private List<ConnectedUserProjectWorkflow> fetchConnectedUserProjectWorkflows(long connectedUserId) {
+        try {
+            return connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(connectedUserId);
+        } catch (UnsupportedOperationException unsupportedOperationException) {
+            if (automationBridgeUnsupportedLogged.compareAndSet(false, true)) {
+                log.warn(
+                    "The embedded automation-bridge is not supported in this deployment topology; "
+                        + "the embedded-configuration facades are remote stubs");
+            }
+
+            return List.of();
+        }
     }
 
     private void dispatchAutomationBridgeWorkflow(

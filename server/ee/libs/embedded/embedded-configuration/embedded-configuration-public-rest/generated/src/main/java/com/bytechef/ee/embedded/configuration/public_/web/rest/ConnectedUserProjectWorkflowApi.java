@@ -40,7 +40,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-27T19:08:16.583110+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-27T21:42:20.429973+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 @Validated
 @Tag(name = "connected-user-project-workflow", description = "The Embedded Connected User Project Workflow Public API")
 public interface ConnectedUserProjectWorkflowApi {
@@ -389,6 +389,7 @@ public interface ConnectedUserProjectWorkflowApi {
      * @param workflowUuid The workflow uuid. (required)
      * @param xEnvironment The environment. (optional)
      * @return Successful operation. (status code 204)
+     *         or A required connection could not be auto-wired. (status code 409)
      */
     @Operation(
         operationId = "disableFrontendProjectWorkflow",
@@ -396,7 +397,12 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Disable a workflow.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation.")
+            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
+            }),
+            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
+            })
         },
         security = {
             @SecurityRequirement(name = "jwtBearerAuth")
@@ -404,12 +410,22 @@ public interface ConnectedUserProjectWorkflowApi {
     )
     @RequestMapping(
         method = RequestMethod.DELETE,
-        value = ConnectedUserProjectWorkflowApi.PATH_DISABLE_FRONTEND_PROJECT_WORKFLOW
+        value = ConnectedUserProjectWorkflowApi.PATH_DISABLE_FRONTEND_PROJECT_WORKFLOW,
+        produces = { "application/json" }
     )
-    default ResponseEntity<Void> disableFrontendProjectWorkflow(
+    default ResponseEntity<Object> disableFrontendProjectWorkflow(
         @Parameter(name = "workflowUuid", description = "The workflow uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"missingConnectionComponentName\" : \"missingConnectionComponentName\" }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
@@ -424,6 +440,7 @@ public interface ConnectedUserProjectWorkflowApi {
      * @param workflowUuid The workflow uuid. (required)
      * @param xEnvironment The environment. (optional)
      * @return Successful operation. (status code 204)
+     *         or A required connection could not be auto-wired. (status code 409)
      */
     @Operation(
         operationId = "disableProjectWorkflow",
@@ -431,7 +448,12 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Disable a workflow.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation.")
+            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
+            }),
+            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
+            })
         },
         security = {
             @SecurityRequirement(name = "bearerAuth")
@@ -439,13 +461,23 @@ public interface ConnectedUserProjectWorkflowApi {
     )
     @RequestMapping(
         method = RequestMethod.DELETE,
-        value = ConnectedUserProjectWorkflowApi.PATH_DISABLE_PROJECT_WORKFLOW
+        value = ConnectedUserProjectWorkflowApi.PATH_DISABLE_PROJECT_WORKFLOW,
+        produces = { "application/json" }
     )
-    default ResponseEntity<Void> disableProjectWorkflow(
+    default ResponseEntity<Object> disableProjectWorkflow(
         @Parameter(name = "externalUserId", description = "The external user id.", required = true, in = ParameterIn.PATH) @PathVariable("externalUserId") String externalUserId,
         @Parameter(name = "workflowUuid", description = "The workflow uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"missingConnectionComponentName\" : \"missingConnectionComponentName\" }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
@@ -459,6 +491,7 @@ public interface ConnectedUserProjectWorkflowApi {
      * @param workflowUuid The workflow uuid. (required)
      * @param xEnvironment The environment. (optional)
      * @return Successful operation. (status code 204)
+     *         or A required connection could not be auto-wired. (status code 409)
      */
     @Operation(
         operationId = "enableFrontendProjectWorkflow",
@@ -466,7 +499,12 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Enable a workflow.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation.")
+            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
+            }),
+            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
+            })
         },
         security = {
             @SecurityRequirement(name = "jwtBearerAuth")
@@ -474,12 +512,22 @@ public interface ConnectedUserProjectWorkflowApi {
     )
     @RequestMapping(
         method = RequestMethod.POST,
-        value = ConnectedUserProjectWorkflowApi.PATH_ENABLE_FRONTEND_PROJECT_WORKFLOW
+        value = ConnectedUserProjectWorkflowApi.PATH_ENABLE_FRONTEND_PROJECT_WORKFLOW,
+        produces = { "application/json" }
     )
-    default ResponseEntity<Void> enableFrontendProjectWorkflow(
+    default ResponseEntity<Object> enableFrontendProjectWorkflow(
         @Parameter(name = "workflowUuid", description = "The workflow uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"missingConnectionComponentName\" : \"missingConnectionComponentName\" }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
@@ -494,6 +542,7 @@ public interface ConnectedUserProjectWorkflowApi {
      * @param workflowUuid The workflow uuid. (required)
      * @param xEnvironment The environment. (optional)
      * @return Successful operation. (status code 204)
+     *         or A required connection could not be auto-wired. (status code 409)
      */
     @Operation(
         operationId = "enableProjectWorkflow",
@@ -501,7 +550,12 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Enable a workflow.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation.")
+            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
+            }),
+            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
+            })
         },
         security = {
             @SecurityRequirement(name = "bearerAuth")
@@ -509,13 +563,23 @@ public interface ConnectedUserProjectWorkflowApi {
     )
     @RequestMapping(
         method = RequestMethod.POST,
-        value = ConnectedUserProjectWorkflowApi.PATH_ENABLE_PROJECT_WORKFLOW
+        value = ConnectedUserProjectWorkflowApi.PATH_ENABLE_PROJECT_WORKFLOW,
+        produces = { "application/json" }
     )
-    default ResponseEntity<Void> enableProjectWorkflow(
+    default ResponseEntity<Object> enableProjectWorkflow(
         @Parameter(name = "externalUserId", description = "The external user id.", required = true, in = ParameterIn.PATH) @PathVariable("externalUserId") String externalUserId,
         @Parameter(name = "workflowUuid", description = "The workflow uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"missingConnectionComponentName\" : \"missingConnectionComponentName\" }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }

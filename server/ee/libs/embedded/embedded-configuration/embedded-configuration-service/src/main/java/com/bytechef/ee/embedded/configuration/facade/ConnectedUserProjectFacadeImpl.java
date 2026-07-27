@@ -35,6 +35,7 @@ import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigur
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserProjectWorkflowDTO;
 import com.bytechef.ee.embedded.configuration.dto.CopilotChatContextDTO;
+import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectService;
 import com.bytechef.ee.embedded.configuration.service.ConnectedUserProjectWorkflowService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationService;
@@ -90,6 +91,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
     private final ConnectedUserProjectService connectUserProjectService;
     private final ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
     private final ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
+    private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
     private final ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
     private final ConnectedUserService connectedUserService;
     private final ConnectionService connectionService;
@@ -118,6 +120,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         ConnectedUserProjectService connectUserProjectService,
         ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade,
         ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager,
+        ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository,
         ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService,
         ConnectedUserService connectedUserService, ConnectionService connectionService,
         @Lazy @Nullable CopilotWorkflowGenerator copilotWorkflowGenerator, EnvironmentService environmentService,
@@ -135,6 +138,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         this.connectUserProjectService = connectUserProjectService;
         this.connectedUserCodeWorkflowReferenceFacade = connectedUserCodeWorkflowReferenceFacade;
         this.connectedUserProjectWorkflowManager = connectedUserProjectWorkflowManager;
+        this.connectedUserProjectWorkflowRepository = connectedUserProjectWorkflowRepository;
         this.connectedUserProjectWorkflowService = connectedUserProjectWorkflowService;
         this.connectedUserService = connectedUserService;
         this.connectionService = connectionService;
@@ -275,6 +279,22 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
 
         ConnectedUserProject connectedUserProject = connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
             externalUserId, environment);
+
+        // workflowUuid resolves against two disjoint row shapes: the caller's own copy-mode ProjectWorkflow (handled
+        // below, unchanged), or a catalogWorkflowUuid on one of the caller's automation-bridge reference rows. A
+        // reference has no ProjectWorkflow of its own in the caller's project, so resolving it through
+        // fetchProjectWorkflowWorkflowId below would always miss and surface a false WORKFLOW_NOT_FOUND -- the same
+        // reference-vs-copy branch enableProjectWorkflow(long, boolean) already makes on a known row must be made
+        // here too, keyed by uuid instead.
+        boolean isReference = connectedUserProjectWorkflowRepository
+            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(connectedUserProject.getId(), workflowUuid)
+            .isPresent();
+
+        if (isReference) {
+            connectedUserCodeWorkflowReferenceFacade.enableReference(externalUserId, workflowUuid, enable, environment);
+
+            return;
+        }
 
         long projectDeploymentId = projectDeploymentService.getProjectDeploymentId(
             connectedUserProject.getProjectId(), environment);
