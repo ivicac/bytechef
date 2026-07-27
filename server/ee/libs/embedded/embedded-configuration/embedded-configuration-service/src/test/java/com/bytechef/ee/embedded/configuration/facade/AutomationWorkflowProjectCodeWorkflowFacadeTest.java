@@ -10,18 +10,23 @@ package com.bytechef.ee.embedded.configuration.facade;
 import static org.mockito.Mockito.mock;
 
 import com.bytechef.automation.configuration.domain.Project;
+import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.ee.automation.configuration.domain.ProjectCodeWorkflow;
 import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
 import com.bytechef.ee.platform.codeworkflow.configuration.facade.CodeWorkflowContainerFacade;
+import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowContainerService;
 import com.bytechef.platform.constant.PlatformType;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -50,6 +55,9 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
     private CodeWorkflowContainerFacade codeWorkflowContainerFacade;
 
     @Mock
+    private CodeWorkflowContainerService codeWorkflowContainerService;
+
+    @Mock
     private ProjectCodeWorkflowService projectCodeWorkflowService;
 
     @Mock
@@ -66,7 +74,8 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
 
         facade = new AutomationWorkflowProjectCodeWorkflowFacadeImpl(
             applicationProperties, mock(CacheManager.class), automationWorkflowProjectFacade,
-            codeWorkflowContainerFacade, projectCodeWorkflowService, projectService, projectWorkflowService);
+            codeWorkflowContainerFacade, codeWorkflowContainerService, projectCodeWorkflowService, projectService,
+            projectWorkflowService);
     }
 
     @Test
@@ -105,6 +114,125 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
             .publishProject(Mockito.anyLong());
     }
 
+    /**
+     * Verifies the uuid carry-forward invariant: {@link ProjectWorkflowService#addWorkflow} always mints a fresh uuid,
+     * so a workflow whose name is unchanged across a redeploy must have that fresh uuid overwritten with the uuid the
+     * previous deploy's same-named {@link ProjectWorkflow} row carried -- otherwise per-user references pinned on
+     * {@code catalog_workflow_uuid} would go dangling on every redeploy.
+     */
+    @Test
+    void testRedeployWithUnchangedWorkflowNameCarriesUuidForward() {
+        Mockito.when(automationWorkflowProjectFacade.fetchProjectIdByName("acme-billing"))
+            .thenReturn(Optional.of(100L));
+
+        Project project = new Project();
+
+        project.setId(100L);
+
+        Mockito.when(projectService.getProject(100L))
+            .thenReturn(project);
+
+        ProjectCodeWorkflow previousProjectCodeWorkflow = mock(ProjectCodeWorkflow.class);
+
+        Mockito.when(previousProjectCodeWorkflow.getCodeWorkflowContainerId())
+            .thenReturn(55L);
+        Mockito.when(projectCodeWorkflowService.getProjectCodeWorkflow(100L))
+            .thenReturn(previousProjectCodeWorkflow);
+
+        CodeWorkflowContainer previousContainer = codeWorkflowContainer(Map.of("charge", "wf-old-1"));
+
+        Mockito.when(codeWorkflowContainerService.getCodeWorkflowContainer(55L))
+            .thenReturn(previousContainer);
+
+        UUID previousUuid = UUID.randomUUID();
+
+        ProjectWorkflow previousProjectWorkflow = new ProjectWorkflow(100L, 1, "wf-old-1", previousUuid);
+
+        Mockito.when(projectWorkflowService.getWorkflowProjectWorkflow("wf-old-1"))
+            .thenReturn(previousProjectWorkflow);
+
+        CodeWorkflowContainer newContainer = codeWorkflowContainer(Map.of("charge", "wf-new-1"));
+
+        Mockito.when(codeWorkflowContainerFacade.create(
+            Mockito.eq("acme-billing"), Mockito.any(), Mockito.any(), Mockito.eq(Language.JAVASCRIPT),
+            Mockito.any(), Mockito.eq(PlatformType.AUTOMATION)))
+            .thenReturn(newContainer);
+
+        ProjectWorkflow savedProjectWorkflow = new ProjectWorkflow(200L);
+
+        Mockito.when(projectWorkflowService.addWorkflow(100L, project.getLastProjectVersion(), "wf-new-1"))
+            .thenReturn(savedProjectWorkflow);
+
+        facade.save(fakeProjectDefinitionBytes("acme-billing"), Language.JAVASCRIPT);
+
+        Mockito.verify(projectWorkflowService)
+            .update(savedProjectWorkflow);
+        Assertions.assertEquals(previousUuid, savedProjectWorkflow.getUuid());
+    }
+
+    /**
+     * Companion to {@link #testRedeployWithUnchangedWorkflowNameCarriesUuidForward}: a redeploy that both keeps an
+     * existing workflow name and introduces a new one must carry the uuid forward only for the unchanged name -- the
+     * genuinely new name gets the fresh uuid {@link ProjectWorkflowService#addWorkflow} minted, untouched.
+     */
+    @Test
+    void testRedeployWithNewWorkflowNameGetsFreshUuidWhileExistingNameCarriesForward() {
+        Mockito.when(automationWorkflowProjectFacade.fetchProjectIdByName("acme-billing"))
+            .thenReturn(Optional.of(100L));
+
+        Project project = new Project();
+
+        project.setId(100L);
+
+        Mockito.when(projectService.getProject(100L))
+            .thenReturn(project);
+
+        ProjectCodeWorkflow previousProjectCodeWorkflow = mock(ProjectCodeWorkflow.class);
+
+        Mockito.when(previousProjectCodeWorkflow.getCodeWorkflowContainerId())
+            .thenReturn(55L);
+        Mockito.when(projectCodeWorkflowService.getProjectCodeWorkflow(100L))
+            .thenReturn(previousProjectCodeWorkflow);
+
+        CodeWorkflowContainer previousContainer = codeWorkflowContainer(Map.of("charge", "wf-old-1"));
+
+        Mockito.when(codeWorkflowContainerService.getCodeWorkflowContainer(55L))
+            .thenReturn(previousContainer);
+
+        UUID previousUuid = UUID.randomUUID();
+
+        ProjectWorkflow previousProjectWorkflow = new ProjectWorkflow(100L, 1, "wf-old-1", previousUuid);
+
+        Mockito.when(projectWorkflowService.getWorkflowProjectWorkflow("wf-old-1"))
+            .thenReturn(previousProjectWorkflow);
+
+        CodeWorkflowContainer newContainer = codeWorkflowContainer(
+            Map.of("charge", "wf-new-1", "refund", "wf-new-2"));
+
+        Mockito.when(codeWorkflowContainerFacade.create(
+            Mockito.eq("acme-billing"), Mockito.any(), Mockito.any(), Mockito.eq(Language.JAVASCRIPT),
+            Mockito.any(), Mockito.eq(PlatformType.AUTOMATION)))
+            .thenReturn(newContainer);
+
+        ProjectWorkflow chargeProjectWorkflow = new ProjectWorkflow(201L);
+        ProjectWorkflow refundProjectWorkflow = new ProjectWorkflow(202L);
+
+        Mockito.when(projectWorkflowService.addWorkflow(100L, project.getLastProjectVersion(), "wf-new-1"))
+            .thenReturn(chargeProjectWorkflow);
+        Mockito.when(projectWorkflowService.addWorkflow(100L, project.getLastProjectVersion(), "wf-new-2"))
+            .thenReturn(refundProjectWorkflow);
+
+        facade.save(fakeProjectDefinitionBytesTwoWorkflows("acme-billing"), Language.JAVASCRIPT);
+
+        Mockito.verify(projectWorkflowService)
+            .update(chargeProjectWorkflow);
+        Assertions.assertEquals(previousUuid, chargeProjectWorkflow.getUuid());
+
+        Mockito.verify(projectWorkflowService, Mockito.never())
+            .update(refundProjectWorkflow);
+        Assertions.assertNull(refundProjectWorkflow.getUuid());
+    }
+
     private static CodeWorkflowContainer codeWorkflowContainer(Map<String, String> workflowNameIds) {
         CodeWorkflowContainer codeWorkflowContainer = mock(CodeWorkflowContainer.class);
 
@@ -124,6 +252,46 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
                     {
                         name: "charge",
                         label: "Charge",
+                        tasks: [
+                            {
+                                name: "my-task",
+                                label: "My Task",
+                                perform: function () {
+                                    return "hello";
+                                }
+                            }
+                        ]
+                    }
+                ]
+            })
+            """.formatted(name);
+
+        return source.getBytes(StandardCharsets.UTF_8);
+    }
+
+    private static byte[] fakeProjectDefinitionBytesTwoWorkflows(String name) {
+        String source = """
+            ({
+                name: "%s",
+                version: "1",
+                description: "A code workflow.",
+                workflows: [
+                    {
+                        name: "charge",
+                        label: "Charge",
+                        tasks: [
+                            {
+                                name: "my-task",
+                                label: "My Task",
+                                perform: function () {
+                                    return "hello";
+                                }
+                            }
+                        ]
+                    },
+                    {
+                        name: "refund",
+                        label: "Refund",
                         tasks: [
                             {
                                 name: "my-task",

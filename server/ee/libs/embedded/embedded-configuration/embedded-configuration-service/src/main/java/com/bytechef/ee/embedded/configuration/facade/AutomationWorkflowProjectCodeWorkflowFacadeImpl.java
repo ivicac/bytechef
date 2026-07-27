@@ -8,17 +8,20 @@
 package com.bytechef.ee.embedded.configuration.facade;
 
 import com.bytechef.automation.configuration.domain.Project;
+import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.automation.project.ProjectHandler;
 import com.bytechef.automation.project.definition.ProjectDefinition;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.config.ApplicationProperties.Workflow.CodeWorkflow;
+import com.bytechef.ee.automation.configuration.domain.ProjectCodeWorkflow;
 import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
 import com.bytechef.ee.embedded.configuration.exception.CodeWorkflowErrorType;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
 import com.bytechef.ee.platform.codeworkflow.configuration.facade.CodeWorkflowContainerFacade;
+import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowContainerService;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.codeworkflow.loader.automation.ProjectHandlerLoader;
@@ -33,6 +36,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -54,6 +58,15 @@ import org.springframework.transaction.annotation.Transactional;
  * through {@link AutomationWorkflowProjectFacade#publishProject}, which additionally duplicates workflow rows for the
  * visual-editor versioning story that code workflows don't need.
  *
+ * <p>
+ * Redeploying the same artifact must keep each {@link ProjectWorkflow#getUuid()} stable across versions, since per-user
+ * references pin on {@code catalog_workflow_uuid}. {@link ProjectWorkflowService#addWorkflow} always mints a fresh uuid
+ * for a new row, so before the new version's workflows are added, {@link #fetchPreviousWorkflowUuidsByName} reads the
+ * previous deploy's {@link CodeWorkflowContainer} (via its {@link ProjectCodeWorkflow} row) to map each still-present
+ * workflow name to its previously-assigned uuid, mirroring the uuid carry-forward principle in
+ * {@code ProjectFacadeImpl#publishProject} -- a same-named workflow keeps its uuid across redeploys, and only a
+ * genuinely new name gets a fresh one.
+ *
  * @version ee
  *
  * @author Ivica Cardic
@@ -68,6 +81,7 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
     private final CacheManager cacheManager;
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
     private final CodeWorkflowContainerFacade codeWorkflowContainerFacade;
+    private final CodeWorkflowContainerService codeWorkflowContainerService;
     private final ProjectCodeWorkflowService projectCodeWorkflowService;
     private final ProjectService projectService;
     private final ProjectWorkflowService projectWorkflowService;
@@ -79,12 +93,14 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
         ApplicationProperties applicationProperties, CacheManager cacheManager,
         AutomationWorkflowProjectFacade automationWorkflowProjectFacade,
         CodeWorkflowContainerFacade codeWorkflowContainerFacade,
+        CodeWorkflowContainerService codeWorkflowContainerService,
         ProjectCodeWorkflowService projectCodeWorkflowService, ProjectService projectService,
         ProjectWorkflowService projectWorkflowService) {
 
         this.cacheManager = cacheManager;
         this.automationWorkflowProjectFacade = automationWorkflowProjectFacade;
         this.codeWorkflowContainerFacade = codeWorkflowContainerFacade;
+        this.codeWorkflowContainerService = codeWorkflowContainerService;
         this.projectCodeWorkflowService = projectCodeWorkflowService;
         this.projectService = projectService;
         this.projectWorkflowService = projectWorkflowService;
@@ -123,6 +139,11 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
 
         Project project = projectService.getProject(projectId);
 
+        // Must be captured before projectCodeWorkflowService.create(...) below, since
+        // ProjectCodeWorkflowService#getProjectCodeWorkflow always resolves the most recently created row for the
+        // project -- fetching after would return this deploy's own row instead of the previous one.
+        Map<String, UUID> previousWorkflowUuidsByName = fetchPreviousWorkflowUuidsByName(project.getId());
+
         CodeWorkflowContainer codeWorkflowContainer = codeWorkflowContainerFacade.create(
             projectDefinition.getName(), projectDefinition.getVersion(), projectDefinition.getWorkflows(), language,
             bytes, PlatformType.AUTOMATION);
@@ -132,7 +153,16 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
         for (Map.Entry<String, String> entry : codeWorkflowContainer.getWorkflowNameIds()
             .entrySet()) {
 
-            projectWorkflowService.addWorkflow(project.getId(), project.getLastProjectVersion(), entry.getValue());
+            ProjectWorkflow projectWorkflow = projectWorkflowService.addWorkflow(
+                project.getId(), project.getLastProjectVersion(), entry.getValue());
+
+            UUID previousUuid = previousWorkflowUuidsByName.get(entry.getKey());
+
+            if (previousUuid != null) {
+                projectWorkflow.setUuid(previousUuid);
+
+                projectWorkflowService.update(projectWorkflow);
+            }
         }
 
         projectService.publishProject(project.getId(), null, false);
@@ -140,6 +170,51 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
         for (WorkflowDefinition workflowDefinition : projectDefinition.getWorkflows()) {
             warnIfNotPubliclyInvocable(projectDefinition.getName(), workflowDefinition);
         }
+    }
+
+    /**
+     * Maps each workflow name still present in the previous deploy to its previously-assigned
+     * {@link ProjectWorkflow#getUuid()}, so the new version's same-named rows can carry it forward instead of getting a
+     * fresh one from {@link ProjectWorkflowService#addWorkflow}. Returns an empty map on the first deploy of a project
+     * (no previous {@link ProjectCodeWorkflow} row) or when a previously-named workflow no longer has a matching
+     * {@link ProjectWorkflow} row -- both cases simply leave the corresponding new row with a fresh uuid.
+     */
+    private Map<String, UUID> fetchPreviousWorkflowUuidsByName(long projectId) {
+        ProjectCodeWorkflow previousProjectCodeWorkflow;
+
+        try {
+            previousProjectCodeWorkflow = projectCodeWorkflowService.getProjectCodeWorkflow(projectId);
+        } catch (IllegalArgumentException e) {
+            return Map.of();
+        }
+
+        if (previousProjectCodeWorkflow == null) {
+            return Map.of();
+        }
+
+        CodeWorkflowContainer previousCodeWorkflowContainer = codeWorkflowContainerService.getCodeWorkflowContainer(
+            previousProjectCodeWorkflow.getCodeWorkflowContainerId());
+
+        Map<String, UUID> previousWorkflowUuidsByName = new HashMap<>();
+
+        for (Map.Entry<String, String> entry : previousCodeWorkflowContainer.getWorkflowNameIds()
+            .entrySet()) {
+
+            String workflowName = entry.getKey();
+            String previousWorkflowId = entry.getValue();
+
+            try {
+                ProjectWorkflow previousProjectWorkflow = projectWorkflowService.getWorkflowProjectWorkflow(
+                    previousWorkflowId);
+
+                previousWorkflowUuidsByName.put(workflowName, previousProjectWorkflow.getUuid());
+            } catch (IllegalArgumentException e) {
+                // No project-workflow row for this previously-deployed workflow id; the new row keeps its fresh
+                // uuid.
+            }
+        }
+
+        return previousWorkflowUuidsByName;
     }
 
     /**
