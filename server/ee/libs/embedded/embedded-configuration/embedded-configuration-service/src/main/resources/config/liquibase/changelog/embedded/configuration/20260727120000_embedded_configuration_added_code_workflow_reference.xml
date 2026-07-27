@@ -98,4 +98,26 @@
             <sql>ALTER TABLE connected_user_project_workflow DROP CONSTRAINT IF EXISTS ck_cupw_project_or_catalog_not_both;</sql>
         </rollback>
     </changeSet>
+
+    <!-- Closes the concurrent-first-call duplicate-row race: two parallel requests for the same
+         (connected user project, catalog workflow uuid) can each observe "no reference exists yet" and
+         separately insert a reference row. Partial index (predicate WHERE catalog_workflow_uuid IS NOT
+         NULL) so copy-mode rows, whose catalog_workflow_uuid is always null, never collide on the index. -->
+    <changeSet id="20260727120000-4" author="Ivica Cardic">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM pg_indexes WHERE indexname = 'uk_cupw_connected_user_project_id_catalog_workflow_uuid'
+            </sqlCheck>
+        </preConditions>
+
+        <sql>
+            CREATE UNIQUE INDEX uk_cupw_connected_user_project_id_catalog_workflow_uuid
+            ON connected_user_project_workflow (connected_user_project_id, catalog_workflow_uuid)
+            WHERE catalog_workflow_uuid IS NOT NULL
+        </sql>
+
+        <rollback>
+            <sql>DROP INDEX IF EXISTS uk_cupw_connected_user_project_id_catalog_workflow_uuid;</sql>
+        </rollback>
+    </changeSet>
 </databaseChangeLog>

@@ -168,11 +168,18 @@ public class RequestTriggerApiController extends AbstractWebhookTriggerControlle
                 .build();
         }
 
+        Long projectDeploymentId = reference.getProjectDeploymentId();
+
+        if (projectDeploymentId == null) {
+            return ResponseEntity.notFound()
+                .build();
+        }
+
         String catalogWorkflowId = projectWorkflowService.getLastPublishedWorkflowId(workflowUuid);
         Workflow workflow = workflowService.getWorkflow(catalogWorkflowId);
 
         WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.of(
-            PlatformType.AUTOMATION, reference.getProjectDeploymentId(), workflowUuid,
+            PlatformType.AUTOMATION, projectDeploymentId, workflowUuid,
             findRequestTriggerName(workflow));
 
         return dispatch(workflowExecutionId);
