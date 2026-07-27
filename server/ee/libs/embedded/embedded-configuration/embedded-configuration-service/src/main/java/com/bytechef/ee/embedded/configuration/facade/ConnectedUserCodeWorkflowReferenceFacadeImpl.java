@@ -90,8 +90,17 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
      * still created (and any successfully resolved connections up to that point are still wired), just left
      * {@code enabled = false}, and {@link MissingConnectionException} is rethrown afterward so the caller can surface
      * which connection is missing.
+     *
+     * <p>
+     * {@code noRollbackFor} is required for that "still create the row, just disabled" contract to actually hold:
+     * without it, Spring's default rollback rule for a {@code @Transactional} method rolls back everything this method
+     * wrote (the {@code ConnectedUserProject}, the disabled reference row, any partially-resolved connection rows) the
+     * instant {@link MissingConnectionException} propagates out -- silently contradicting this method's own documented
+     * behavior. This only surfaces against a real transactional datasource; mocked unit tests never exercise the real
+     * proxy chain, so they never catch it.
      */
     @Override
+    @Transactional(noRollbackFor = MissingConnectionException.class)
     public ConnectedUserProjectWorkflow getOrCreateReference(
         String externalUserId, String catalogWorkflowUuid, Environment environment) {
 
