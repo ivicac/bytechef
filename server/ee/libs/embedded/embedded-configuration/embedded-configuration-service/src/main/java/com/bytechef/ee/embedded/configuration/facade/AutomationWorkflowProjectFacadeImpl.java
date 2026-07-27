@@ -178,6 +178,16 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         projectWorkflowFacade.deleteWorkflow(workflowUuid);
     }
 
+    /**
+     * Uses the same {@link #MARKER}-prefixed lookup as {@link #createProject} so that this resolves the exact catalog
+     * project a prior deploy created, without leaking marked/unmarked project name collisions.
+     */
+    @Override
+    public Optional<Long> fetchProjectIdByName(String name) {
+        return projectService.fetchProject(MARKER + name)
+            .map(Project::getId);
+    }
+
     @Override
     public String duplicateProjectWorkflow(String workflowId) {
         ProjectWorkflow sourceProjectWorkflow = projectWorkflowService.getWorkflowProjectWorkflow(workflowId);

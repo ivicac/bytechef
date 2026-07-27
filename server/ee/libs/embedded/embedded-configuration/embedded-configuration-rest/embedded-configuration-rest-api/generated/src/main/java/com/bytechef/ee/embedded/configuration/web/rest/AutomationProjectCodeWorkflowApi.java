@@ -35,37 +35,37 @@ import jakarta.annotation.Generated;
 
 @Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-27T15:20:48.170125+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 @Validated
-@Tag(name = "integration-code-workflow", description = "The Embedded Integration Code Workflow Internal API")
-public interface IntegrationCodeWorkflowApi {
+@Tag(name = "automation-project-code-workflow", description = "the automation-project-code-workflow API")
+public interface AutomationProjectCodeWorkflowApi {
 
     default Optional<NativeWebRequest> getRequest() {
         return Optional.empty();
     }
 
-    String PATH_DEPLOY_INTEGRATION = "/integrations/deploy";
+    String PATH_DEPLOY_AUTOMATION_PROJECT_CODE_WORKFLOW = "/automation/projects/deploy";
     /**
-     * POST /integrations/deploy : Deploy a new code based integration
-     * Deploy a new code based integration.
+     * POST /automation/projects/deploy : Deploy a new automation code workflow into the embedded catalog
+     * Deploy a new automation code workflow into the embedded catalog.
      *
-     * @param integrationFile The file of a code-native integration. (optional)
+     * @param projectFile The file of a code-native automation project. (optional)
      * @return Successful operation. (status code 204)
      */
     @Operation(
-        operationId = "deployIntegration",
-        summary = "Deploy a new code based integration",
-        description = "Deploy a new code based integration.",
-        tags = { "integration-code-workflow" },
+        operationId = "deployAutomationProjectCodeWorkflow",
+        summary = "Deploy a new automation code workflow into the embedded catalog",
+        description = "Deploy a new automation code workflow into the embedded catalog.",
+        tags = { "automation-project-code-workflow" },
         responses = {
             @ApiResponse(responseCode = "204", description = "Successful operation.")
         }
     )
     @RequestMapping(
         method = RequestMethod.POST,
-        value = IntegrationCodeWorkflowApi.PATH_DEPLOY_INTEGRATION,
+        value = AutomationProjectCodeWorkflowApi.PATH_DEPLOY_AUTOMATION_PROJECT_CODE_WORKFLOW,
         consumes = { "multipart/form-data" }
     )
-    default ResponseEntity<Void> deployIntegration(
-        @Parameter(name = "integrationFile", description = "The file of a code-native integration.") @RequestPart(value = "integrationFile", required = false) MultipartFile integrationFile
+    default ResponseEntity<Void> deployAutomationProjectCodeWorkflow(
+        @Parameter(name = "projectFile", description = "The file of a code-native automation project.") @RequestPart(value = "projectFile", required = false) MultipartFile projectFile
     ) {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 

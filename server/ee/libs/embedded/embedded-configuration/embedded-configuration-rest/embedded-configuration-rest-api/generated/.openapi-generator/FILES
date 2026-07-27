@@ -2,6 +2,7 @@ README.md
 pom.xml
 src/main/java/com/bytechef/ee/embedded/configuration/web/rest/ApiUtil.java
 src/main/java/com/bytechef/ee/embedded/configuration/web/rest/AppEventApi.java
+src/main/java/com/bytechef/ee/embedded/configuration/web/rest/AutomationProjectCodeWorkflowApi.java
 src/main/java/com/bytechef/ee/embedded/configuration/web/rest/CategoryApi.java
 src/main/java/com/bytechef/ee/embedded/configuration/web/rest/ComponentDefinitionApi.java
 src/main/java/com/bytechef/ee/embedded/configuration/web/rest/ConnectedUserProjectWorkflowApi.java

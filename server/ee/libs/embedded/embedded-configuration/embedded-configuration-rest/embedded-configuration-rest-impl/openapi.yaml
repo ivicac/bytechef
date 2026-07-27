@@ -1002,6 +1002,27 @@ paths:
       responses:
         "204":
           description: "Successful operation."
+  /automation/projects/deploy:
+    post:
+      description: "Deploy a new automation code workflow into the embedded catalog."
+      summary: "Deploy a new automation code workflow into the embedded catalog"
+      tags:
+      - "automation-project-code-workflow"
+      operationId: "deployAutomationProjectCodeWorkflow"
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: "object"
+              properties:
+                projectFile:
+                  description: "The file of a code-native automation project."
+                  type: "string"
+                  format: "binary"
+        required: true
+      responses:
+        "204":
+          description: "Successful operation."
   /integrations/categories:
     get:
       description: "Get integration categories."
