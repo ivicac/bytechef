@@ -102,12 +102,20 @@ authenticated with the profile's API token (configured via `bytechef configure -
 
 ```bash
 bytechef embedded code-workflow deploy --file ./project.js
+bytechef embedded code-workflow list --output table
 ```
 
 The uploaded file's extension determines the language server-side; `--language` is accepted for
 forward-compatibility but not currently sent. A successful deploy prints any trigger-validation
 warnings for workflows that declare no request/app-event trigger (still deployed, just not invocable
 through the embedded public endpoints until fixed).
+
+`list` prints each catalog project's name, `kind` (`COPY` for a per-user copy, `REFERENCE` for a
+shared reference), and workflow templates. It deliberately does not reuse the embedded public
+`getFrontendProjects` endpoint — that endpoint's connected-user auth converter incidentally treats
+a no-`--external-user-id` path as belonging to a connected user literally named `automation`,
+silently creating that phantom row per tenant/environment as a side effect. `list` instead stays on
+the same admin surface as `deploy`.
 
 ## Component scaffolding
 

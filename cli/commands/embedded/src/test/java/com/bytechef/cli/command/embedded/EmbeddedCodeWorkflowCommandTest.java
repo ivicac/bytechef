@@ -16,8 +16,11 @@
 
 package com.bytechef.cli.command.embedded;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.bytechef.cli.CliApplication;
 import com.bytechef.cli.core.error.CliException;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.file.Path;
@@ -47,5 +50,21 @@ class EmbeddedCodeWorkflowCommandTest {
                 "/nonexistent/project.js", null, "default", "http://localhost:8080", "token", "PRODUCTION"));
 
         org.junit.jupiter.api.Assertions.assertEquals(1, exception.exitCode());
+    }
+
+    @Test
+    void testListHitsThePlatformAdminSurfaceNotTheEmbeddedConnectedUserSurface() throws Exception {
+        try (StubApi stub = StubApi.start(200, "[]")) {
+            int code = CliApplication.execute(new String[] {
+                "embedded", "code-workflow", "list", "--host", stub.host(), "--token", "btc_x", "--environment",
+                "PRODUCTION"
+            });
+
+            assertEquals(0, code);
+            assertTrue(
+                stub.lastPath()
+                    .startsWith("/api/platform/v1/automation-project-code-workflows"),
+                "expected path /api/platform/v1/automation-project-code-workflows but was " + stub.lastPath());
+        }
     }
 }

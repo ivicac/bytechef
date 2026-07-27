@@ -1,6 +1,5 @@
 .github/workflows/maven.yml
 .gitignore
-.openapi-generator-ignore
 .travis.yml
 README.md
 api/openapi.yaml
@@ -8,6 +7,8 @@ build.gradle
 build.sbt
 docs/AutomationProjectCodeWorkflowAdminApi.md
 docs/AutomationProjectCodeWorkflowDeployResultModel.md
+docs/AutomationWorkflowProjectModel.md
+docs/AutomationWorkflowProjectWorkflowTemplateModel.md
 git_push.sh
 gradle.properties
 gradle/wrapper/gradle-wrapper.jar
@@ -31,5 +32,7 @@ src/main/java/com/bytechef/cli/client/embeddedconfigurationadmin/ServerVariable.
 src/main/java/com/bytechef/cli/client/embeddedconfigurationadmin/api/AutomationProjectCodeWorkflowAdminApi.java
 src/main/java/com/bytechef/cli/client/embeddedconfigurationadmin/model/AbstractOpenApiSchema.java
 src/main/java/com/bytechef/cli/client/embeddedconfigurationadmin/model/AutomationProjectCodeWorkflowDeployResultModel.java
-src/test/java/com/bytechef/cli/client/embeddedconfigurationadmin/api/AutomationProjectCodeWorkflowAdminApiTest.java
-src/test/java/com/bytechef/cli/client/embeddedconfigurationadmin/model/AutomationProjectCodeWorkflowDeployResultModelTest.java
+src/main/java/com/bytechef/cli/client/embeddedconfigurationadmin/model/AutomationWorkflowProjectModel.java
+src/main/java/com/bytechef/cli/client/embeddedconfigurationadmin/model/AutomationWorkflowProjectWorkflowTemplateModel.java
+src/test/java/com/bytechef/cli/client/embeddedconfigurationadmin/model/AutomationWorkflowProjectModelTest.java
+src/test/java/com/bytechef/cli/client/embeddedconfigurationadmin/model/AutomationWorkflowProjectWorkflowTemplateModelTest.java

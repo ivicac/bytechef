@@ -109,11 +109,15 @@ Class | Method | HTTP request | Description
 ------------ | ------------- | ------------- | -------------
 *AutomationProjectCodeWorkflowAdminApi* | [**deployAutomationProjectCodeWorkflow**](docs/AutomationProjectCodeWorkflowAdminApi.md#deployAutomationProjectCodeWorkflow) | **POST** /automation-project-code-workflows/deploy | Deploy a new automation code workflow into the embedded catalog
 *AutomationProjectCodeWorkflowAdminApi* | [**deployAutomationProjectCodeWorkflowWithHttpInfo**](docs/AutomationProjectCodeWorkflowAdminApi.md#deployAutomationProjectCodeWorkflowWithHttpInfo) | **POST** /automation-project-code-workflows/deploy | Deploy a new automation code workflow into the embedded catalog
+*AutomationProjectCodeWorkflowAdminApi* | [**listAutomationProjectCodeWorkflows**](docs/AutomationProjectCodeWorkflowAdminApi.md#listAutomationProjectCodeWorkflows) | **GET** /automation-project-code-workflows | List catalog projects in the embedded automation bridge
+*AutomationProjectCodeWorkflowAdminApi* | [**listAutomationProjectCodeWorkflowsWithHttpInfo**](docs/AutomationProjectCodeWorkflowAdminApi.md#listAutomationProjectCodeWorkflowsWithHttpInfo) | **GET** /automation-project-code-workflows | List catalog projects in the embedded automation bridge
 
 
 ## Documentation for Models
 
  - [AutomationProjectCodeWorkflowDeployResultModel](docs/AutomationProjectCodeWorkflowDeployResultModel.md)
+ - [AutomationWorkflowProjectModel](docs/AutomationWorkflowProjectModel.md)
+ - [AutomationWorkflowProjectWorkflowTemplateModel](docs/AutomationWorkflowProjectWorkflowTemplateModel.md)
 
 
 <a id="documentation-for-authorization"></a>

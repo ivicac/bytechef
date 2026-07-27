@@ -96,12 +96,20 @@ Integrations implement `IntegrationHandler` with `IntegrationDsl.integration(...
 ## Deploying
 
 ```bash
-# Automation project (workspaceId optional; defaults server-side)
+# Automation project — via the CLI (workspaceId optional; defaults server-side)
+bytechef automation project deploy --project-file my-code-project.js --workspace-id 1049
+```
+
+No CLI available? Same endpoint over curl:
+
+```bash
 curl -sf -X POST "$BYTECHEF_BASE_URL/api/automation/v1/projects/deploy" \
   -H "Authorization: Bearer $BYTECHEF_API_KEY" \
   -F "workspaceId=1049" \
   -F "projectFile=@my-code-project.js"
+```
 
+```bash
 # Embedded integration — NOTE: Authorization headers on the internal surface are
 # routed to the embedded connected-user authenticator, which carries no admin
 # authorities — a Bearer token will typically be rejected (401/403). Use an admin
@@ -123,12 +131,33 @@ to, a standalone automation project.
 
 | | Plain automation deploy | Embedded bridge deploy |
 |---|---|---|
-| Endpoint | `POST /api/automation/v1/projects/deploy` | `POST /api/embedded/internal/automation/projects/deploy` |
+| Endpoint | `POST /api/automation/v1/projects/deploy` | `POST /api/platform/v1/automation-project-code-workflows/deploy` (admin API-key bearer token) or `POST /api/embedded/internal/automation/projects/deploy` (admin browser session only) |
 | Artifact | `ProjectHandler`, identical contract | Same `ProjectHandler` artifact, byte-for-byte |
 | Result | A plain automation project, nothing embedded-reachable | The same kind of project, but marked so embedded connected users can reach it |
 
 Deploying the same bytes through the plain endpoint instead creates an unrelated, unmarked project —
-the endpoint you deploy through, not anything in the artifact, is what makes it embedded-servable.
+the endpoint you deploy through, not anything in the artifact, is what makes it embedded-servable. The
+two bridge endpoints reach the same facade and are interchangeable in effect; pick whichever your
+caller can authenticate with — `/api/embedded/internal/**` only accepts an admin browser session
+(cookie + X-XSRF-TOKEN), a bearer token there is rejected (401/403).
+
+Deploy through the CLI once it's configured (`bytechef configure ...`):
+
+```bash
+bytechef embedded code-workflow deploy --file my-project.js
+bytechef embedded code-workflow list --output table
+```
+
+No CLI available? The same deploy is a plain multipart POST with a bearer token:
+
+```bash
+curl -sf -X POST "$BYTECHEF_BASE_URL/api/platform/v1/automation-project-code-workflows/deploy" \
+  -H "Authorization: Bearer $BYTECHEF_API_KEY" \
+  -F "projectFile=@my-project.js"
+```
+
+`list` has no admin-console equivalent to fall back to — it also goes through
+`GET /api/platform/v1/automation-project-code-workflows` with the same bearer token.
 
 **Model: deploy once, reference per user.** Every connected user shares the one deployed workflow —
 there is no per-user copy and no per-user editing. A connected user's reference is provisioned

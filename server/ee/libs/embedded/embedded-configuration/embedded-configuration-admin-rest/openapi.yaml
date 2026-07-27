@@ -9,6 +9,24 @@ tags:
   - name: "automation-project-code-workflow-admin"
     description: "The Embedded Automation Project Code Workflow Admin API"
 paths:
+  /automation-project-code-workflows:
+    get:
+      description: "List catalog projects in the embedded automation bridge. Unlike the connected-user-scoped\
+        \ embedded public endpoint, this operation is reachable with a plain platform API-key bearer token and does\
+        \ not fabricate a connected-user identity."
+      summary: "List catalog projects in the embedded automation bridge"
+      tags:
+        - "automation-project-code-workflow-admin"
+      operationId: "listAutomationProjectCodeWorkflows"
+      responses:
+        "200":
+          description: "The list of automation workflow projects."
+          content:
+            application/json:
+              schema:
+                type: "array"
+                items:
+                  $ref: "#/components/schemas/AutomationWorkflowProject"
   /automation-project-code-workflows/deploy:
     post:
       description: "Deploy a new automation code workflow into the embedded catalog. Unlike the connected-user-scoped\
@@ -44,3 +62,28 @@ components:
           type: "array"
           items:
             type: "string"
+    AutomationWorkflowProject:
+      type: "object"
+      description: "An automation workflow catalog project."
+      properties:
+        name:
+          description: "The name of the automation workflow project."
+          type: "string"
+        kind:
+          description: "Whether copying this project's templates creates a per-user copy or a shared reference."
+          type: "string"
+          enum:
+            - "COPY"
+            - "REFERENCE"
+        workflowTemplates:
+          description: "The list of catalog workflow templates belonging to this project."
+          type: "array"
+          items:
+            $ref: "#/components/schemas/AutomationWorkflowProjectWorkflowTemplate"
+    AutomationWorkflowProjectWorkflowTemplate:
+      type: "object"
+      description: "A catalog workflow template within an automation workflow project."
+      properties:
+        label:
+          description: "The label of the workflow."
+          type: "string"

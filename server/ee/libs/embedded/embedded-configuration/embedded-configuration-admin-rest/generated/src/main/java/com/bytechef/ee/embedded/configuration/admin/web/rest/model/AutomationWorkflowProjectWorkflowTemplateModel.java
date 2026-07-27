@@ -5,9 +5,6 @@ import java.util.Objects;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
 import org.springframework.lang.Nullable;
 import org.openapitools.jackson.nullable.JsonNullable;
 import java.time.OffsetDateTime;
@@ -20,43 +17,35 @@ import java.util.*;
 import jakarta.annotation.Generated;
 
 /**
- * AutomationProjectCodeWorkflowDeployResultModel
+ * A catalog workflow template within an automation workflow project.
  */
 
-@JsonTypeName("AutomationProjectCodeWorkflowDeployResult")
+@Schema(name = "AutomationWorkflowProjectWorkflowTemplate", description = "A catalog workflow template within an automation workflow project.")
+@JsonTypeName("AutomationWorkflowProjectWorkflowTemplate")
 @Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-28T00:53:58.627309+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
-public class AutomationProjectCodeWorkflowDeployResultModel {
+public class AutomationWorkflowProjectWorkflowTemplateModel {
 
-  @Valid
-  private List<String> warnings = new ArrayList<>();
+  private @Nullable String label;
 
-  public AutomationProjectCodeWorkflowDeployResultModel warnings(List<String> warnings) {
-    this.warnings = warnings;
-    return this;
-  }
-
-  public AutomationProjectCodeWorkflowDeployResultModel addWarningsItem(String warningsItem) {
-    if (this.warnings == null) {
-      this.warnings = new ArrayList<>();
-    }
-    this.warnings.add(warningsItem);
+  public AutomationWorkflowProjectWorkflowTemplateModel label(@Nullable String label) {
+    this.label = label;
     return this;
   }
 
   /**
-   * Get warnings
-   * @return warnings
+   * The label of the workflow.
+   * @return label
    */
   
-  @Schema(name = "warnings", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-  @JsonProperty("warnings")
-  public List<String> getWarnings() {
-    return warnings;
+  @Schema(name = "label", description = "The label of the workflow.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("label")
+  public @Nullable String getLabel() {
+    return label;
   }
 
-  @JsonProperty("warnings")
-  public void setWarnings(List<String> warnings) {
-    this.warnings = warnings;
+  @JsonProperty("label")
+  public void setLabel(@Nullable String label) {
+    this.label = label;
   }
 
   @Override
@@ -67,20 +56,20 @@ public class AutomationProjectCodeWorkflowDeployResultModel {
     if (o == null || getClass() != o.getClass()) {
       return false;
     }
-    AutomationProjectCodeWorkflowDeployResultModel automationProjectCodeWorkflowDeployResult = (AutomationProjectCodeWorkflowDeployResultModel) o;
-    return Objects.equals(this.warnings, automationProjectCodeWorkflowDeployResult.warnings);
+    AutomationWorkflowProjectWorkflowTemplateModel automationWorkflowProjectWorkflowTemplate = (AutomationWorkflowProjectWorkflowTemplateModel) o;
+    return Objects.equals(this.label, automationWorkflowProjectWorkflowTemplate.label);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(warnings);
+    return Objects.hash(label);
   }
 
   @Override
   public String toString() {
     StringBuilder sb = new StringBuilder();
-    sb.append("class AutomationProjectCodeWorkflowDeployResultModel {\n");
-    sb.append("    warnings: ").append(toIndentedString(warnings)).append("\n");
+    sb.append("class AutomationWorkflowProjectWorkflowTemplateModel {\n");
+    sb.append("    label: ").append(toIndentedString(label)).append("\n");
     sb.append("}");
     return sb.toString();
   }

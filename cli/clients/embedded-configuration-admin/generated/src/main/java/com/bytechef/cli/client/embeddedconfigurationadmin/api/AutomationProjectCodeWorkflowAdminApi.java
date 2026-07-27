@@ -19,6 +19,7 @@ import com.bytechef.cli.client.embeddedconfigurationadmin.Configuration;
 import com.bytechef.cli.client.embeddedconfigurationadmin.Pair;
 
 import com.bytechef.cli.client.embeddedconfigurationadmin.model.AutomationProjectCodeWorkflowDeployResultModel;
+import com.bytechef.cli.client.embeddedconfigurationadmin.model.AutomationWorkflowProjectModel;
 import java.io.File;
 
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -313,6 +314,115 @@ public class AutomationProjectCodeWorkflowAdminApi {
     localVarRequestBuilder
         .header("Content-Type", entity.getContentType().getValue())
         .method("POST", formDataPublisher);
+    if (memberVarReadTimeout != null) {
+      localVarRequestBuilder.timeout(memberVarReadTimeout);
+    }
+    // Add custom headers if provided
+    localVarRequestBuilder = HttpRequestBuilderExtensions.withAdditionalHeaders(localVarRequestBuilder, headers);
+    if (memberVarInterceptor != null) {
+      memberVarInterceptor.accept(localVarRequestBuilder);
+    }
+    return localVarRequestBuilder;
+  }
+
+  /**
+   * List catalog projects in the embedded automation bridge
+   * List catalog projects in the embedded automation bridge. Unlike the connected-user-scoped embedded public endpoint, this operation is reachable with a plain platform API-key bearer token and does not fabricate a connected-user identity.
+   * @return List&lt;AutomationWorkflowProjectModel&gt;
+   * @throws ApiException if fails to make API call
+   */
+  public List<AutomationWorkflowProjectModel> listAutomationProjectCodeWorkflows() throws ApiException {
+    return listAutomationProjectCodeWorkflows(null);
+  }
+
+  /**
+   * List catalog projects in the embedded automation bridge
+   * List catalog projects in the embedded automation bridge. Unlike the connected-user-scoped embedded public endpoint, this operation is reachable with a plain platform API-key bearer token and does not fabricate a connected-user identity.
+   * @param headers Optional headers to include in the request
+   * @return List&lt;AutomationWorkflowProjectModel&gt;
+   * @throws ApiException if fails to make API call
+   */
+  public List<AutomationWorkflowProjectModel> listAutomationProjectCodeWorkflows(Map<String, String> headers) throws ApiException {
+    ApiResponse<List<AutomationWorkflowProjectModel>> localVarResponse = listAutomationProjectCodeWorkflowsWithHttpInfo(headers);
+    return localVarResponse.getData();
+  }
+
+  /**
+   * List catalog projects in the embedded automation bridge
+   * List catalog projects in the embedded automation bridge. Unlike the connected-user-scoped embedded public endpoint, this operation is reachable with a plain platform API-key bearer token and does not fabricate a connected-user identity.
+   * @return ApiResponse&lt;List&lt;AutomationWorkflowProjectModel&gt;&gt;
+   * @throws ApiException if fails to make API call
+   */
+  public ApiResponse<List<AutomationWorkflowProjectModel>> listAutomationProjectCodeWorkflowsWithHttpInfo() throws ApiException {
+    return listAutomationProjectCodeWorkflowsWithHttpInfo(null);
+  }
+
+  /**
+   * List catalog projects in the embedded automation bridge
+   * List catalog projects in the embedded automation bridge. Unlike the connected-user-scoped embedded public endpoint, this operation is reachable with a plain platform API-key bearer token and does not fabricate a connected-user identity.
+   * @param headers Optional headers to include in the request
+   * @return ApiResponse&lt;List&lt;AutomationWorkflowProjectModel&gt;&gt;
+   * @throws ApiException if fails to make API call
+   */
+  public ApiResponse<List<AutomationWorkflowProjectModel>> listAutomationProjectCodeWorkflowsWithHttpInfo(Map<String, String> headers) throws ApiException {
+    HttpRequest.Builder localVarRequestBuilder = listAutomationProjectCodeWorkflowsRequestBuilder(headers);
+    try {
+      HttpResponse<InputStream> localVarResponse = memberVarHttpClient.send(
+          localVarRequestBuilder.build(),
+          HttpResponse.BodyHandlers.ofInputStream());
+      if (memberVarResponseInterceptor != null) {
+        memberVarResponseInterceptor.accept(localVarResponse);
+      }
+      InputStream localVarResponseBody = null;
+      try {
+        if (localVarResponse.statusCode()/ 100 != 2) {
+          throw getApiException("listAutomationProjectCodeWorkflows", localVarResponse);
+        }
+        localVarResponseBody = ApiClient.getResponseBody(localVarResponse);
+        if (localVarResponseBody == null) {
+          return new ApiResponse<List<AutomationWorkflowProjectModel>>(
+              localVarResponse.statusCode(),
+              localVarResponse.headers().map(),
+              null
+          );
+        }
+
+        
+        
+        String responseBody = new String(localVarResponseBody.readAllBytes());
+        List<AutomationWorkflowProjectModel> responseValue = responseBody.isBlank()? null: memberVarObjectMapper.readValue(responseBody, new TypeReference<List<AutomationWorkflowProjectModel>>() {});
+        
+
+        return new ApiResponse<List<AutomationWorkflowProjectModel>>(
+            localVarResponse.statusCode(),
+            localVarResponse.headers().map(),
+            responseValue
+        );
+      } finally {
+        if (localVarResponseBody != null) {
+          localVarResponseBody.close();
+        }
+      }
+    } catch (IOException e) {
+      throw new ApiException(e);
+    }
+    catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new ApiException(e);
+    }
+  }
+
+  private HttpRequest.Builder listAutomationProjectCodeWorkflowsRequestBuilder(Map<String, String> headers) throws ApiException {
+
+    HttpRequest.Builder localVarRequestBuilder = HttpRequest.newBuilder();
+
+    String localVarPath = "/automation-project-code-workflows";
+
+    localVarRequestBuilder.uri(URI.create(memberVarBaseUri + localVarPath));
+
+    localVarRequestBuilder.header("Accept", "application/json");
+
+    localVarRequestBuilder.method("GET", HttpRequest.BodyPublishers.noBody());
     if (memberVarReadTimeout != null) {
       localVarRequestBuilder.timeout(memberVarReadTimeout);
     }

@@ -71,6 +71,25 @@ class AutomationProjectCodeWorkflowAdminApiControllerAuthTest {
             .matches()).isFalse();
     }
 
+    @Test
+    void testAdminListPathIsMatchedByPlatformApiKeySecurityConfigurer() throws Exception {
+        String platformApiKeyPathPattern = readPlatformApiKeyPathPattern();
+
+        String resolvedPath =
+            "/api/platform/v1" + AutomationProjectCodeWorkflowAdminApi.PATH_LIST_AUTOMATION_PROJECT_CODE_WORKFLOWS;
+
+        assertThat(resolvedPath).matches(platformApiKeyPathPattern);
+    }
+
+    @Test
+    void testAdminListPathIsNotMatchedByEmbeddedConnectedUserAuth() {
+        String resolvedPath =
+            "/api/platform/v1" + AutomationProjectCodeWorkflowAdminApi.PATH_LIST_AUTOMATION_PROJECT_CODE_WORKFLOWS;
+
+        assertThat(EMBEDDED_CONNECTED_USER_PATTERN.matcher(resolvedPath)
+            .matches()).isFalse();
+    }
+
     private static String readPlatformApiKeyPathPattern() throws Exception {
         Field field = PlatformApiKeySecurityConfigurer.class.getDeclaredField("PATH_PATTERN");
 

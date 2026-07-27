@@ -6,6 +6,7 @@
 package com.bytechef.ee.embedded.configuration.admin.web.rest;
 
 import com.bytechef.ee.embedded.configuration.admin.web.rest.model.AutomationProjectCodeWorkflowDeployResultModel;
+import com.bytechef.ee.embedded.configuration.admin.web.rest.model.AutomationWorkflowProjectModel;
 import org.springframework.lang.Nullable;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
@@ -34,7 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-28T00:27:03.792225+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-28T00:53:58.627309+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 @Validated
 @Tag(name = "automation-project-code-workflow-admin", description = "The Embedded Automation Project Code Workflow Admin API")
 public interface AutomationProjectCodeWorkflowAdminApi {
@@ -75,6 +76,46 @@ public interface AutomationProjectCodeWorkflowAdminApi {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
                     String exampleString = "{ \"warnings\" : [ \"warnings\", \"warnings\" ] }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
+        return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
+
+    }
+
+
+    String PATH_LIST_AUTOMATION_PROJECT_CODE_WORKFLOWS = "/automation-project-code-workflows";
+    /**
+     * GET /automation-project-code-workflows : List catalog projects in the embedded automation bridge
+     * List catalog projects in the embedded automation bridge. Unlike the connected-user-scoped embedded public endpoint, this operation is reachable with a plain platform API-key bearer token and does not fabricate a connected-user identity.
+     *
+     * @return The list of automation workflow projects. (status code 200)
+     */
+    @Operation(
+        operationId = "listAutomationProjectCodeWorkflows",
+        summary = "List catalog projects in the embedded automation bridge",
+        description = "List catalog projects in the embedded automation bridge. Unlike the connected-user-scoped embedded public endpoint, this operation is reachable with a plain platform API-key bearer token and does not fabricate a connected-user identity.",
+        tags = { "automation-project-code-workflow-admin" },
+        responses = {
+            @ApiResponse(responseCode = "200", description = "The list of automation workflow projects.", content = {
+                @Content(mediaType = "application/json", array = @ArraySchema(schema = @Schema(implementation = AutomationWorkflowProjectModel.class)))
+            })
+        }
+    )
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = AutomationProjectCodeWorkflowAdminApi.PATH_LIST_AUTOMATION_PROJECT_CODE_WORKFLOWS,
+        produces = { "application/json" }
+    )
+    default ResponseEntity<List<AutomationWorkflowProjectModel>> listAutomationProjectCodeWorkflows(
+        
+    ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "[ { \"kind\" : \"COPY\", \"name\" : \"name\", \"workflowTemplates\" : [ { \"label\" : \"label\" }, { \"label\" : \"label\" } ] }, { \"kind\" : \"COPY\", \"name\" : \"name\", \"workflowTemplates\" : [ { \"label\" : \"label\" }, { \"label\" : \"label\" } ] } ]";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }

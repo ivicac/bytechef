@@ -9,7 +9,11 @@ package com.bytechef.ee.embedded.configuration.admin.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.ee.embedded.configuration.admin.web.rest.model.AutomationProjectCodeWorkflowDeployResultModel;
+import com.bytechef.ee.embedded.configuration.admin.web.rest.model.AutomationWorkflowProjectModel;
+import com.bytechef.ee.embedded.configuration.admin.web.rest.model.AutomationWorkflowProjectWorkflowTemplateModel;
+import com.bytechef.ee.embedded.configuration.dto.AutomationWorkflowProjectDTO;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectCodeWorkflowFacade;
+import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectFacade;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -42,6 +46,14 @@ import org.springframework.web.multipart.MultipartFile;
  * controller reaches the facade. The internal endpoint keeps working unchanged for the admin console (browser session);
  * this endpoint exists in addition to it, for token-authenticated callers such as the CLI.
  *
+ * <p>
+ * {@link #listAutomationProjectCodeWorkflows()} deliberately does not mirror
+ * {@code AutomationWorkflowProjectApiController#getFrontendProjects} (embedded public-rest): that endpoint is matched
+ * by {@code EmbeddedApiKeySecurityConfigurer}'s connected-user auth, whose externalUserId regex incidentally captures
+ * the literal path segment {@code "automation"} for a no-externalUserId path and silently creates a phantom
+ * {@code ConnectedUser} row per tenant/environment as a side effect. Listing here instead reuses
+ * {@link AutomationWorkflowProjectFacade#getPublishedProjects()} directly, with no connected-user identity involved.
+ *
  * @version ee
  *
  * @author Ivica Cardic
@@ -53,12 +65,15 @@ import org.springframework.web.multipart.MultipartFile;
 public class AutomationProjectCodeWorkflowAdminApiController implements AutomationProjectCodeWorkflowAdminApi {
 
     private final AutomationWorkflowProjectCodeWorkflowFacade automationWorkflowProjectCodeWorkflowFacade;
+    private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
 
     @SuppressFBWarnings("EI")
     public AutomationProjectCodeWorkflowAdminApiController(
-        AutomationWorkflowProjectCodeWorkflowFacade automationWorkflowProjectCodeWorkflowFacade) {
+        AutomationWorkflowProjectCodeWorkflowFacade automationWorkflowProjectCodeWorkflowFacade,
+        AutomationWorkflowProjectFacade automationWorkflowProjectFacade) {
 
         this.automationWorkflowProjectCodeWorkflowFacade = automationWorkflowProjectCodeWorkflowFacade;
+        this.automationWorkflowProjectFacade = automationWorkflowProjectFacade;
     }
 
     @Override
@@ -76,5 +91,31 @@ public class AutomationProjectCodeWorkflowAdminApiController implements Automati
         }
 
         return ResponseEntity.ok(new AutomationProjectCodeWorkflowDeployResultModel().warnings(warnings));
+    }
+
+    @Override
+    public ResponseEntity<List<AutomationWorkflowProjectModel>> listAutomationProjectCodeWorkflows() {
+        List<AutomationWorkflowProjectModel> models = automationWorkflowProjectFacade.getPublishedProjects()
+            .stream()
+            .map(this::toModel)
+            .toList();
+
+        return ResponseEntity.ok(models);
+    }
+
+    private AutomationWorkflowProjectModel toModel(AutomationWorkflowProjectDTO project) {
+        List<AutomationWorkflowProjectWorkflowTemplateModel> workflowTemplateModels = project.workflowTemplates()
+            .stream()
+            .map(workflowTemplate -> new AutomationWorkflowProjectWorkflowTemplateModel()
+                .label(workflowTemplate.label()))
+            .toList();
+
+        return new AutomationWorkflowProjectModel()
+            .name(project.name())
+            .kind(
+                project.codeWorkflowProject()
+                    ? AutomationWorkflowProjectModel.KindEnum.REFERENCE
+                    : AutomationWorkflowProjectModel.KindEnum.COPY)
+            .workflowTemplates(workflowTemplateModels);
     }
 }

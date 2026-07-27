@@ -20,6 +20,7 @@ import com.bytechef.cli.client.embeddedconfigurationadmin.ApiException;
 import com.bytechef.cli.client.embeddedconfigurationadmin.model.AutomationProjectCodeWorkflowDeployResultModel;
 import com.bytechef.cli.core.config.CliConfig;
 import com.bytechef.cli.core.error.CliException;
+import com.bytechef.cli.core.output.OutputRenderer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.File;
 import java.nio.file.Path;
@@ -29,15 +30,19 @@ import org.springframework.shell.core.command.annotation.Command;
 import org.springframework.shell.core.command.annotation.Option;
 
 /**
- * Commands for deploying automation code workflows served through the embedded bridge (deploy-once, reference-per-user
- * catalog projects) -- the admin-only counterpart to the connected-user-scoped {@code embedded integration} commands.
+ * Commands for deploying and listing automation code workflows served through the embedded bridge (deploy-once,
+ * reference-per-user catalog projects) -- the admin-only counterpart to the connected-user-scoped
+ * {@code embedded integration} commands.
  *
  * <p>
- * Deploys go through the {@code /api/platform/v1/**} admin surface (matched by
+ * Both operations go through the {@code /api/platform/v1/**} admin surface (matched by
  * {@code PlatformApiKeySecurityConfigurer}), not the {@code /api/embedded/internal/**} surface used by the admin
  * console: the latter is matched by {@code EmbeddedApiKeySecurityConfigurer}'s connected-user auth, which requires a
  * {@code /v<n>/{externalUserId}/} path segment and grants zero authorities, so a plain profile Bearer token could never
- * satisfy the facade's {@code ROLE_ADMIN} guard through it.
+ * satisfy the facade's {@code ROLE_ADMIN} guard through it. Listing deliberately does not reuse the embedded
+ * public-rest {@code getFrontendProjects} endpoint either: its no-externalUserId path incidentally matches that same
+ * connected-user auth converter's regex (capturing the literal segment {@code "automation"}), which silently fabricates
+ * a phantom connected user per tenant/environment as a side effect.
  *
  * @author Ivica Cardic
  */
@@ -80,6 +85,28 @@ public class EmbeddedCodeWorkflowCommand {
                     System.out.println("WARNING: " + warning);
                 }
             }
+        } catch (ApiException e) {
+            throw EmbeddedConfigurationClientFactory.toCliException(e);
+        }
+    }
+
+    @Command(
+        name = "embedded code-workflow list",
+        description = "List catalog projects in the embedded automation bridge.")
+    public void codeWorkflowList(
+        @Option(longName = "output", defaultValue = "json") String output,
+        @Option(longName = "profile") String profile,
+        @Option(longName = "host") String host,
+        @Option(longName = "token") String token,
+        @Option(longName = "environment") String environment) {
+
+        CliConfig config = resolve(profile, host, token, environment);
+
+        try {
+            new OutputRenderer(System.out).render(
+                EmbeddedConfigurationClientFactory.automationProjectCodeWorkflowAdminApi(config)
+                    .listAutomationProjectCodeWorkflows(),
+                output);
         } catch (ApiException e) {
             throw EmbeddedConfigurationClientFactory.toCliException(e);
         }

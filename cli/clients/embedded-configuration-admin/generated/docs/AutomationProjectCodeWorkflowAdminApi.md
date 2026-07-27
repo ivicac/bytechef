@@ -6,6 +6,8 @@ All URIs are relative to */api/platform/v1*
 |------------- | ------------- | -------------|
 | [**deployAutomationProjectCodeWorkflow**](AutomationProjectCodeWorkflowAdminApi.md#deployAutomationProjectCodeWorkflow) | **POST** /automation-project-code-workflows/deploy | Deploy a new automation code workflow into the embedded catalog |
 | [**deployAutomationProjectCodeWorkflowWithHttpInfo**](AutomationProjectCodeWorkflowAdminApi.md#deployAutomationProjectCodeWorkflowWithHttpInfo) | **POST** /automation-project-code-workflows/deploy | Deploy a new automation code workflow into the embedded catalog |
+| [**listAutomationProjectCodeWorkflows**](AutomationProjectCodeWorkflowAdminApi.md#listAutomationProjectCodeWorkflows) | **GET** /automation-project-code-workflows | List catalog projects in the embedded automation bridge |
+| [**listAutomationProjectCodeWorkflowsWithHttpInfo**](AutomationProjectCodeWorkflowAdminApi.md#listAutomationProjectCodeWorkflowsWithHttpInfo) | **GET** /automation-project-code-workflows | List catalog projects in the embedded automation bridge |
 
 
 
@@ -141,4 +143,130 @@ No authorization required
 | Status code | Description | Response headers |
 |-------------|-------------|------------------|
 | **200** | Successful operation. |  -  |
+
+
+## listAutomationProjectCodeWorkflows
+
+> List<AutomationWorkflowProjectModel> listAutomationProjectCodeWorkflows()
+
+List catalog projects in the embedded automation bridge
+
+List catalog projects in the embedded automation bridge. Unlike the connected-user-scoped embedded public endpoint, this operation is reachable with a plain platform API-key bearer token and does not fabricate a connected-user identity.
+
+### Example
+
+```java
+// Import classes:
+import com.bytechef.cli.client.embeddedconfigurationadmin.ApiClient;
+import com.bytechef.cli.client.embeddedconfigurationadmin.ApiException;
+import com.bytechef.cli.client.embeddedconfigurationadmin.Configuration;
+import com.bytechef.cli.client.embeddedconfigurationadmin.models.*;
+import com.bytechef.cli.client.embeddedconfigurationadmin.api.AutomationProjectCodeWorkflowAdminApi;
+
+public class Example {
+    public static void main(String[] args) {
+        ApiClient defaultClient = Configuration.getDefaultApiClient();
+        defaultClient.setBasePath("/api/platform/v1");
+
+        AutomationProjectCodeWorkflowAdminApi apiInstance = new AutomationProjectCodeWorkflowAdminApi(defaultClient);
+        try {
+            List<AutomationWorkflowProjectModel> result = apiInstance.listAutomationProjectCodeWorkflows();
+            System.out.println(result);
+        } catch (ApiException e) {
+            System.err.println("Exception when calling AutomationProjectCodeWorkflowAdminApi#listAutomationProjectCodeWorkflows");
+            System.err.println("Status code: " + e.getCode());
+            System.err.println("Reason: " + e.getResponseBody());
+            System.err.println("Response headers: " + e.getResponseHeaders());
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+### Parameters
+
+This endpoint does not need any parameter.
+
+### Return type
+
+[**List&lt;AutomationWorkflowProjectModel&gt;**](AutomationWorkflowProjectModel.md)
+
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/json
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | The list of automation workflow projects. |  -  |
+
+## listAutomationProjectCodeWorkflowsWithHttpInfo
+
+> ApiResponse<List<AutomationWorkflowProjectModel>> listAutomationProjectCodeWorkflowsWithHttpInfo()
+
+List catalog projects in the embedded automation bridge
+
+List catalog projects in the embedded automation bridge. Unlike the connected-user-scoped embedded public endpoint, this operation is reachable with a plain platform API-key bearer token and does not fabricate a connected-user identity.
+
+### Example
+
+```java
+// Import classes:
+import com.bytechef.cli.client.embeddedconfigurationadmin.ApiClient;
+import com.bytechef.cli.client.embeddedconfigurationadmin.ApiException;
+import com.bytechef.cli.client.embeddedconfigurationadmin.ApiResponse;
+import com.bytechef.cli.client.embeddedconfigurationadmin.Configuration;
+import com.bytechef.cli.client.embeddedconfigurationadmin.models.*;
+import com.bytechef.cli.client.embeddedconfigurationadmin.api.AutomationProjectCodeWorkflowAdminApi;
+
+public class Example {
+    public static void main(String[] args) {
+        ApiClient defaultClient = Configuration.getDefaultApiClient();
+        defaultClient.setBasePath("/api/platform/v1");
+
+        AutomationProjectCodeWorkflowAdminApi apiInstance = new AutomationProjectCodeWorkflowAdminApi(defaultClient);
+        try {
+            ApiResponse<List<AutomationWorkflowProjectModel>> response = apiInstance.listAutomationProjectCodeWorkflowsWithHttpInfo();
+            System.out.println("Status code: " + response.getStatusCode());
+            System.out.println("Response headers: " + response.getHeaders());
+            System.out.println("Response body: " + response.getData());
+        } catch (ApiException e) {
+            System.err.println("Exception when calling AutomationProjectCodeWorkflowAdminApi#listAutomationProjectCodeWorkflows");
+            System.err.println("Status code: " + e.getCode());
+            System.err.println("Response headers: " + e.getResponseHeaders());
+            System.err.println("Reason: " + e.getResponseBody());
+            e.printStackTrace();
+        }
+    }
+}
+```
+
+### Parameters
+
+This endpoint does not need any parameter.
+
+### Return type
+
+ApiResponse<[**List&lt;AutomationWorkflowProjectModel&gt;**](AutomationWorkflowProjectModel.md)>
+
+
+### Authorization
+
+No authorization required
+
+### HTTP request headers
+
+- **Content-Type**: Not defined
+- **Accept**: application/json
+
+### HTTP response details
+| Status code | Description | Response headers |
+|-------------|-------------|------------------|
+| **200** | The list of automation workflow projects. |  -  |
 
