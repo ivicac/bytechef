@@ -21,6 +21,7 @@ import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowCo
 import com.bytechef.ee.platform.codeworkflow.configuration.facade.CodeWorkflowContainerFacade;
 import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowContainerService;
 import com.bytechef.platform.constant.PlatformType;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Map;
@@ -290,6 +291,8 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
         return codeWorkflowContainer;
     }
 
+    // The newlines are embedded JavaScript source content, not console formatting; %n would corrupt the script.
+    @SuppressFBWarnings("VA_FORMAT_STRING_USES_NEWLINE")
     private static byte[] fakeProjectDefinitionBytes(String name) {
         String source = """
             ({
@@ -317,6 +320,8 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
         return source.getBytes(StandardCharsets.UTF_8);
     }
 
+    // The newlines are embedded JavaScript source content, not console formatting; %n would corrupt the script.
+    @SuppressFBWarnings("VA_FORMAT_STRING_USES_NEWLINE")
     private static byte[] fakeProjectDefinitionBytesTwoWorkflows(String name) {
         String source = """
             ({

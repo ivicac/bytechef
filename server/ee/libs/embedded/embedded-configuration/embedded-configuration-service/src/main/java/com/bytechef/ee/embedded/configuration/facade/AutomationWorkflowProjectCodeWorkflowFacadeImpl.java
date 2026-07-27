@@ -78,7 +78,7 @@ import org.springframework.transaction.annotation.Transactional;
 @ConditionalOnEEVersion
 public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements AutomationWorkflowProjectCodeWorkflowFacade {
 
-    private static final Logger LOGGER = LoggerFactory.getLogger(AutomationWorkflowProjectCodeWorkflowFacadeImpl.class);
+    private static final Logger log = LoggerFactory.getLogger(AutomationWorkflowProjectCodeWorkflowFacadeImpl.class);
 
     private final CacheManager cacheManager;
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
@@ -226,9 +226,11 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
                     previousWorkflowId);
 
                 previousWorkflowUuidsByName.put(workflowName, previousProjectWorkflow.getUuid());
-            } catch (IllegalArgumentException e) {
-                // No project-workflow row for this previously-deployed workflow id; the new row keeps its fresh
-                // uuid.
+            } catch (IllegalArgumentException illegalArgumentException) {
+                // No project-workflow row for this previously-deployed workflow id; the new row keeps its fresh uuid.
+                log.trace(
+                    "No previous project workflow for workflow id {}; keeping fresh uuid", previousWorkflowId,
+                    illegalArgumentException);
             }
         }
 
@@ -249,7 +251,7 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
             .anyMatch(AutomationWorkflowProjectCodeWorkflowFacadeImpl::isPubliclyInvocableTrigger);
 
         if (!publiclyInvocable) {
-            LOGGER.warn(
+            log.warn(
                 "Workflow '{}' in deployed automation code workflow project '{}' declares neither a request "
                     + "trigger nor an app-event trigger; it will not be invocable through the embedded public "
                     + "endpoints",
