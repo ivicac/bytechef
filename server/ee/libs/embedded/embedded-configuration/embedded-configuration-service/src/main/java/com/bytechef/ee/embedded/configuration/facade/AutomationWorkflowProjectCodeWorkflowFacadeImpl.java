@@ -178,7 +178,12 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
             .map(ProjectWorkflow::getUuidAsString)
             .collect(Collectors.toSet());
 
-        connectedUserCodeWorkflowReferenceFacade.markDanglingReferences(project.getId(), currentUuids);
+        Set<String> previousUuids = previousWorkflowUuidsByName.values()
+            .stream()
+            .map(UUID::toString)
+            .collect(Collectors.toSet());
+
+        connectedUserCodeWorkflowReferenceFacade.markDanglingReferences(project.getId(), previousUuids, currentUuids);
 
         for (WorkflowDefinition workflowDefinition : projectDefinition.getWorkflows()) {
             warnIfNotPubliclyInvocable(projectDefinition.getName(), workflowDefinition);

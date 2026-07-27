@@ -11,11 +11,13 @@ import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.exception.WorkflowErrorType;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
+import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflow;
 import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
 import com.bytechef.automation.configuration.security.SkipAutomationAuthorization;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
+import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
@@ -53,6 +55,7 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
     private final ConnectedUserWorkflowConnectionResolver connectedUserWorkflowConnectionResolver;
     private final ProjectDeploymentFacade projectDeploymentFacade;
     private final ProjectDeploymentService projectDeploymentService;
+    private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
     private final ProjectWorkflowService projectWorkflowService;
     private final WorkflowService workflowService;
 
@@ -63,6 +66,7 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
         ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager,
         ConnectedUserWorkflowConnectionResolver connectedUserWorkflowConnectionResolver,
         ProjectDeploymentFacade projectDeploymentFacade, ProjectDeploymentService projectDeploymentService,
+        ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
         ProjectWorkflowService projectWorkflowService, WorkflowService workflowService) {
 
         this.connectedUserProjectWorkflowConnectionRepository = connectedUserProjectWorkflowConnectionRepository;
@@ -71,6 +75,7 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
         this.connectedUserWorkflowConnectionResolver = connectedUserWorkflowConnectionResolver;
         this.projectDeploymentFacade = projectDeploymentFacade;
         this.projectDeploymentService = projectDeploymentService;
+        this.projectDeploymentWorkflowService = projectDeploymentWorkflowService;
         this.projectWorkflowService = projectWorkflowService;
         this.workflowService = workflowService;
     }
@@ -152,7 +157,11 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
         long catalogProjectId, String externalUserId, Environment environment, String catalogWorkflowId,
         Map<String, Long> resolvedConnections) {
 
-        String name = MARKER + externalUserId;
+        // The environment must be part of the name: the same external user can be connected in more than one
+        // Environment (e.g. PRODUCTION and STAGING), and the ProjectDeployment lookup below is scoped to
+        // (catalogProjectId, name) only -- without the environment suffix, the two environments would collide onto
+        // the single deployment created by whichever environment provisioned first.
+        String name = MARKER + externalUserId + "__" + environment.name();
 
         List<ProjectDeploymentWorkflowConnection> connections = resolvedConnections.entrySet()
             .stream()
@@ -175,20 +184,73 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
             });
     }
 
+    /**
+     * Enabling a reference re-runs {@link ConnectedUserWorkflowConnectionResolver#resolve} and re-populates the
+     * connection wiring before flipping the flag, so that a reference whose provisioning (or a previous enable) failed
+     * with {@link MissingConnectionException} does not silently start running once re-enabled: if the connected user
+     * has since created the missing connection, the wiring is refreshed and enabling proceeds; if the connection is
+     * still missing, the same {@link MissingConnectionException} propagates and the reference is left unchanged --
+     * enabling must never succeed while wiring is missing or stale.
+     */
     @Override
     public void enableReference(
         String externalUserId, String catalogWorkflowUuid, boolean enable, Environment environment) {
 
         ConnectedUserProjectWorkflow reference = requireReference(externalUserId, catalogWorkflowUuid, environment);
 
+        String catalogWorkflowId = projectWorkflowService.getLastPublishedWorkflowId(catalogWorkflowUuid);
+
+        if (enable) {
+            rewireConnections(reference, catalogWorkflowId);
+        }
+
         reference.setEnabled(enable);
 
         connectedUserProjectWorkflowRepository.save(reference);
 
-        String catalogWorkflowId = projectWorkflowService.getLastPublishedWorkflowId(catalogWorkflowUuid);
-
         projectDeploymentFacade.enableProjectDeploymentWorkflow(
             reference.getProjectDeploymentId(), catalogWorkflowId, enable);
+    }
+
+    /**
+     * Replaces the reference's {@link ConnectedUserProjectWorkflowConnection} bookkeeping rows and the underlying
+     * {@link ProjectDeploymentWorkflow}'s real execution-time connections with a freshly resolved set, mirroring the
+     * wiring performed in {@link #getOrCreateReference}. Left to propagate, {@link MissingConnectionException} aborts
+     * {@link #enableReference} before the reference is flipped to enabled.
+     */
+    private void rewireConnections(ConnectedUserProjectWorkflow reference, String catalogWorkflowId) {
+        Workflow catalogWorkflow = workflowService.getWorkflow(catalogWorkflowId);
+
+        Map<String, Long> resolvedConnections = connectedUserWorkflowConnectionResolver.resolve(
+            catalogWorkflow.getDefinition());
+
+        for (ConnectedUserProjectWorkflowConnection connection : connectedUserProjectWorkflowConnectionRepository
+            .findAllByConnectedUserProjectWorkflowId(reference.getId())) {
+
+            connectedUserProjectWorkflowConnectionRepository.deleteById(connection.getId());
+        }
+
+        for (Map.Entry<String, Long> entry : resolvedConnections.entrySet()) {
+            ConnectedUserProjectWorkflowConnection connection = new ConnectedUserProjectWorkflowConnection();
+
+            connection.setConnectedUserProjectWorkflowId(reference.getId());
+            connection.setWorkflowNodeName(entry.getKey());
+            connection.setConnectionId(entry.getValue());
+
+            connectedUserProjectWorkflowConnectionRepository.save(connection);
+        }
+
+        ProjectDeploymentWorkflow projectDeploymentWorkflow = projectDeploymentWorkflowService
+            .getProjectDeploymentWorkflow(reference.getProjectDeploymentId(), catalogWorkflowId);
+
+        projectDeploymentWorkflow.setConnections(
+            resolvedConnections.entrySet()
+                .stream()
+                .map(entry -> new ProjectDeploymentWorkflowConnection(
+                    entry.getValue(), entry.getKey(), entry.getKey()))
+                .toList());
+
+        projectDeploymentWorkflowService.update(projectDeploymentWorkflow);
     }
 
     @Override
@@ -205,11 +267,18 @@ public class ConnectedUserCodeWorkflowReferenceFacadeImpl implements ConnectedUs
     }
 
     @Override
-    public void markDanglingReferences(long catalogProjectId, Set<String> currentCatalogWorkflowUuids) {
+    public void markDanglingReferences(
+        long catalogProjectId, Set<String> previousCatalogWorkflowUuids, Set<String> currentCatalogWorkflowUuids) {
+
         for (ConnectedUserProjectWorkflow reference : connectedUserProjectWorkflowRepository.findAll()) {
             String catalogWorkflowUuid = reference.getCatalogWorkflowUuid();
 
-            if (catalogWorkflowUuid == null || currentCatalogWorkflowUuids.contains(catalogWorkflowUuid)) {
+            // A reference dangles only if its uuid was served by THIS catalog project's previous deploy and is not
+            // served by the current one -- a uuid never previously served by this project (i.e. one belonging to a
+            // different catalog project entirely) is never touched, regardless of what the current set contains.
+            if (catalogWorkflowUuid == null || !previousCatalogWorkflowUuids.contains(catalogWorkflowUuid) ||
+                currentCatalogWorkflowUuids.contains(catalogWorkflowUuid)) {
+
                 continue;
             }
 

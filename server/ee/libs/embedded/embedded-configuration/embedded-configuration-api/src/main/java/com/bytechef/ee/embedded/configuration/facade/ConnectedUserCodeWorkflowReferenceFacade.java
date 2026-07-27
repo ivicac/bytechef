@@ -35,5 +35,12 @@ public interface ConnectedUserCodeWorkflowReferenceFacade {
     ConnectedUserProjectWorkflow getOrCreateReference(
         String externalUserId, String catalogWorkflowUuid, Environment environment);
 
-    void markDanglingReferences(long catalogProjectId, Set<String> currentCatalogWorkflowUuids);
+    /**
+     * A reference dangles iff its {@code catalog_workflow_uuid} was served by this catalog project in the previous
+     * deploy and is no longer served by the current one. Both sets are scoped to a SINGLE catalog project (uuids the
+     * project served before vs. now), so a redeploy of one catalog project can never dangle a reference to a different
+     * catalog project -- there is deliberately no repository-wide "not in the current set" scan.
+     */
+    void markDanglingReferences(
+        long catalogProjectId, Set<String> previousCatalogWorkflowUuids, Set<String> currentCatalogWorkflowUuids);
 }

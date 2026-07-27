@@ -156,8 +156,10 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
 
         facade.save(fakeProjectDefinitionBytes("acme-billing"), Language.JAVASCRIPT);
 
+        // First deploy of this catalog project: there is no previous published version, so the previous-uuid set
+        // must be empty.
         Mockito.verify(connectedUserCodeWorkflowReferenceFacade)
-            .markDanglingReferences(100L, Set.of(chargeUuid.toString()));
+            .markDanglingReferences(100L, Set.of(), Set.of(chargeUuid.toString()));
     }
 
     /**
