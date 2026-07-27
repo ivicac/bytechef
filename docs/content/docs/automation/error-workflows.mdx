@@ -80,6 +80,12 @@ The error workflow receives exactly these fields as its input — no task inputs
 failed run are copied over. The `jobId` is the handle; a handler that needs more can fetch it
 through the existing execution APIs.
 
+Like every other trigger in ByteChef, the payload is nested under the **New Workflow Error**
+trigger's node name, not passed at the top level — that's also why the editor's data pills for
+this trigger are prefixed with its node name (`${newWorkflowError_1.execution.jobId}`, for
+example, if the trigger node is named `newWorkflowError_1`). Reference the fields below through
+that prefix, matching whatever the trigger node is actually named in your workflow.
+
 | Field | Type | Notes |
 |---|---|---|
 | `execution.jobId` | string | The failed run's job id. |

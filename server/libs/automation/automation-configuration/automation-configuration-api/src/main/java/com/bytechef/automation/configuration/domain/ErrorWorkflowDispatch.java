@@ -24,10 +24,16 @@ package com.bytechef.automation.configuration.domain;
  * {@code environment} is read from the failed run's {@code ProjectDeployment} -- never from job metadata, which nothing
  * in this codebase populates -- so it carries a real value (or {@code null}) rather than the literal string
  * {@code "null"}.
+ * <p>
+ * {@code errorTriggerName} is the handler workflow's {@code workflow/newWorkflowError} trigger node name. ByteChef
+ * exposes a trigger's output to the rest of the workflow under that node name (see
+ * {@code TriggerCompletionHandler}), and editor data pills are emitted node-name-prefixed
+ * ({@code ${<triggerName>.execution.jobId}}). The dispatched payload must be nested under this name -- not passed as
+ * top-level inputs -- or every pill in a handler built in the editor resolves to null.
  *
  * @author Ivica Cardic
  */
 public record ErrorWorkflowDispatch(
     String handlerWorkflowId, long projectId, long failedProjectWorkflowId, String failedWorkflowId,
-    String failedWorkflowLabel, String environment) {
+    String failedWorkflowLabel, String environment, String errorTriggerName) {
 }

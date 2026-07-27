@@ -24,7 +24,9 @@ import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.automation.configuration.domain.ErrorWorkflowDispatch;
 import com.bytechef.error.ExecutionError;
+import com.bytechef.exception.RateLimitExceededException;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.coordinator.ErrorWorkflowDispatchCounter;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import java.util.List;
@@ -101,6 +103,51 @@ class ErrorWorkflowJobStatusApplicationEventListenerTest {
         listener().onApplicationEvent(new JobStatusApplicationEvent(11L, Job.Status.FAILED));
 
         Mockito.verifyNoInteractions(principalJobFacade);
+    }
+
+    /**
+     * {@code JobConcurrencyLimitExceededException}, {@code JobRateLimitExceededException} and
+     * {@code JobCostLimitExceededException} all extend {@link RateLimitExceededException}, and the handler job goes
+     * through the same admission gate as any other job submission. During a failure storm that saturates a plan limit,
+     * every one of these rejections must record the distinct {@code "rejected"} outcome (not the generic
+     * {@code "failed"} outcome used for genuine dispatch bugs) and must not propagate out of the listener.
+     */
+    @Test
+    void testAdmissionGateRejectionIsRecordedAsRejectedNotFailed() {
+        Job job = new Job();
+
+        job.setId(11L);
+        job.setWorkflowId("wf-1");
+        job.setMetadata(Map.of());
+
+        ErrorWorkflowDispatch dispatch = new ErrorWorkflowDispatch(
+            "handler-wf", 1L, 2L, "wf-1", "Failing Workflow", "STAGING", "newWorkflowError_1");
+
+        Mockito.when(jobService.getJob(11L))
+            .thenReturn(job);
+        Mockito.when(principalJobService.fetchJobPrincipalId(11L, PlatformType.AUTOMATION))
+            .thenReturn(Optional.of(3L));
+        Mockito.when(errorWorkflowResolver.resolve(3L, "wf-1"))
+            .thenReturn(Optional.of(dispatch));
+        Mockito.when(taskExecutionService.getJobTaskExecutions(11L))
+            .thenReturn(List.of());
+        Mockito.when(principalJobFacade.createJob(Mockito.any(), Mockito.eq(3L), Mockito.eq(PlatformType.AUTOMATION)))
+            .thenThrow(new RateLimitExceededException("Concurrent execution limit reached (allowed=10)"));
+
+        ErrorWorkflowDispatchCounter counter = Mockito.mock(ErrorWorkflowDispatchCounter.class);
+
+        ErrorWorkflowJobStatusApplicationEventListener eventListener =
+            new ErrorWorkflowJobStatusApplicationEventListener(
+                new ErrorWorkflowPayloadFactory("https://app.example.com"), errorWorkflowResolver, jobService,
+                principalJobFacade, principalJobService, taskExecutionService, counter);
+
+        Assertions.assertDoesNotThrow(
+            () -> eventListener.onApplicationEvent(new JobStatusApplicationEvent(11L, Job.Status.FAILED)));
+
+        Mockito.verify(counter)
+            .record("rejected");
+        Mockito.verify(counter, Mockito.never())
+            .record("failed");
     }
 
     @Test
@@ -196,8 +243,8 @@ class ErrorWorkflowJobStatusApplicationEventListenerTest {
         job.setWorkflowId("wf-1");
         job.setMetadata(Map.of());
 
-        ErrorWorkflowDispatch dispatch =
-            new ErrorWorkflowDispatch("handler-wf", 1L, 2L, "wf-1", "Failing Workflow", "STAGING");
+        ErrorWorkflowDispatch dispatch = new ErrorWorkflowDispatch(
+            "handler-wf", 1L, 2L, "wf-1", "Failing Workflow", "STAGING", "newWorkflowError_1");
 
         // The ancestor task execution is marked FAILED by TaskExecutionErrorEventListener but its error is left
         // null -- only the leaf carries the real cause.
@@ -238,9 +285,18 @@ class ErrorWorkflowJobStatusApplicationEventListenerTest {
             "11", jobParametersDTO.getMetadata()
                 .get(ErrorWorkflowJobStatusApplicationEventListener.ERROR_HANDLER_FOR));
 
+        // The payload must be nested under the handler workflow's error-trigger node name -- not passed as
+        // top-level inputs -- so that editor data pills like ${newWorkflowError_1.execution.jobId} resolve. A
+        // regression back to top-level inputs would put "execution"/"environment" directly on getInputs() and this
+        // lookup would come back null.
         @SuppressWarnings("unchecked")
-        Map<String, Object> execution = (Map<String, Object>) jobParametersDTO.getInputs()
-            .get("execution");
+        Map<String, Object> payload = (Map<String, Object>) jobParametersDTO.getInputs()
+            .get("newWorkflowError_1");
+
+        Assertions.assertNotNull(payload, "payload must be namespaced under the error trigger's node name");
+
+        @SuppressWarnings("unchecked")
+        Map<String, Object> execution = (Map<String, Object>) payload.get("execution");
         @SuppressWarnings("unchecked")
         Map<String, Object> error = (Map<String, Object>) execution.get("error");
 
@@ -250,8 +306,7 @@ class ErrorWorkflowJobStatusApplicationEventListenerTest {
         // The environment must come from the dispatch (ultimately the ProjectDeployment), never from job metadata
         // -- job.setMetadata(Map.of()) above carries no "environment" key, so a regression back to
         // String.valueOf(job.getMetadata("environment")) would show up here as the literal string "null".
-        Assertions.assertEquals("STAGING", jobParametersDTO.getInputs()
-            .get("environment"));
+        Assertions.assertEquals("STAGING", payload.get("environment"));
     }
 
     private ErrorWorkflowJobStatusApplicationEventListener listener() {

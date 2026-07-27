@@ -26,7 +26,10 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.domain.WorkflowTrigger;
+import com.bytechef.platform.definition.WorkflowNodeType;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.Objects;
 import java.util.Optional;
 
 /**
@@ -43,6 +46,9 @@ import java.util.Optional;
  * @author Ivica Cardic
  */
 public class ErrorWorkflowResolver {
+
+    private static final String ERROR_TRIGGER_COMPONENT_NAME = "workflow";
+    private static final String ERROR_TRIGGER_OPERATION_NAME = "newWorkflowError";
 
     private final ProjectDeploymentService projectDeploymentService;
     private final ProjectService projectService;
@@ -95,6 +101,22 @@ public class ErrorWorkflowResolver {
 
         ProjectWorkflow target = projectWorkflowService.getProjectWorkflow(targetId);
 
+        Workflow handlerWorkflow = workflowService.getWorkflow(target.getWorkflowId());
+
+        // The dispatched payload must be nested under the handler's error-trigger node name (see
+        // ErrorWorkflowDispatch's javadoc), so a handler with no such trigger cannot be dispatched into meaningfully.
+        // Configuration-time validation (ErrorWorkflowConfigurationValidator) already rejects this at setup time, but
+        // the handler workflow can be edited afterwards to remove the trigger, so this is re-checked here too.
+        Optional<String> errorTriggerName = WorkflowTrigger.of(handlerWorkflow)
+            .stream()
+            .filter(ErrorWorkflowResolver::isErrorTrigger)
+            .map(WorkflowTrigger::getName)
+            .findFirst();
+
+        if (errorTriggerName.isEmpty()) {
+            return Optional.empty();
+        }
+
         Workflow failedWorkflow = workflowService.getWorkflow(failedWorkflowId);
 
         Environment environment = projectDeployment.getEnvironment();
@@ -102,6 +124,19 @@ public class ErrorWorkflowResolver {
         return Optional.of(
             new ErrorWorkflowDispatch(
                 target.getWorkflowId(), projectId, failingProjectWorkflow.getId(), failedWorkflowId,
-                failedWorkflow.getLabel(), environment == null ? null : environment.name()));
+                failedWorkflow.getLabel(), environment == null ? null : environment.name(),
+                errorTriggerName.get()));
+    }
+
+    /**
+     * Trigger types stored in workflow definitions are version-qualified (e.g. {@code workflow/v1/newWorkflowError}),
+     * so the component name and operation name must be parsed out and compared individually rather than matching the
+     * raw type string against an unqualified literal.
+     */
+    private static boolean isErrorTrigger(WorkflowTrigger trigger) {
+        WorkflowNodeType workflowNodeType = WorkflowNodeType.ofType(trigger.getType());
+
+        return Objects.equals(workflowNodeType.name(), ERROR_TRIGGER_COMPONENT_NAME) &&
+            Objects.equals(workflowNodeType.operation(), ERROR_TRIGGER_OPERATION_NAME);
     }
 }

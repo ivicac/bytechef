@@ -26,6 +26,8 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.domain.WorkflowTrigger;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -91,10 +94,13 @@ class ErrorWorkflowResolverTest {
         Mockito.when(projectWorkflowService.getProjectWorkflow(99L))
             .thenReturn(projectWorkflow(99L, null, false));
 
-        Optional<ErrorWorkflowDispatch> result = errorWorkflowResolver.resolve(1L, "wf-1");
+        try (MockedStatic<WorkflowTrigger> mockedWorkflowTrigger = stubErrorTrigger("wf-99", "newWorkflowError_1")) {
+            Optional<ErrorWorkflowDispatch> result = errorWorkflowResolver.resolve(1L, "wf-1");
 
-        Assertions.assertEquals("wf-99", result.orElseThrow()
-            .handlerWorkflowId());
+            Assertions.assertEquals("wf-99", result.orElseThrow()
+                .handlerWorkflowId());
+        }
+
         Mockito.verifyNoInteractions(projectService);
     }
 
@@ -107,10 +113,12 @@ class ErrorWorkflowResolverTest {
         Mockito.when(projectWorkflowService.getProjectWorkflow(7L))
             .thenReturn(projectWorkflow(7L, null, false));
 
-        Optional<ErrorWorkflowDispatch> result = errorWorkflowResolver.resolve(1L, "wf-1");
+        try (MockedStatic<WorkflowTrigger> mockedWorkflowTrigger = stubErrorTrigger("wf-7", "newWorkflowError_1")) {
+            Optional<ErrorWorkflowDispatch> result = errorWorkflowResolver.resolve(1L, "wf-1");
 
-        Assertions.assertEquals("wf-7", result.orElseThrow()
-            .handlerWorkflowId());
+            Assertions.assertEquals("wf-7", result.orElseThrow()
+                .handlerWorkflowId());
+        }
     }
 
     @Test
@@ -150,12 +158,93 @@ class ErrorWorkflowResolverTest {
         Mockito.when(projectWorkflowService.getProjectWorkflow(99L))
             .thenReturn(projectWorkflow(99L, null, false));
 
-        Optional<ErrorWorkflowDispatch> result = errorWorkflowResolver.resolve(1L, "wf-1");
+        try (MockedStatic<WorkflowTrigger> mockedWorkflowTrigger = stubErrorTrigger("wf-99", "newWorkflowError_1")) {
+            Optional<ErrorWorkflowDispatch> result = errorWorkflowResolver.resolve(1L, "wf-1");
 
-        // The environment must be the deployment's real value ("STAGING", per setUp), never the literal string
-        // "null" that String.valueOf(job.getMetadata("environment")) would produce.
-        Assertions.assertEquals("STAGING", result.orElseThrow()
-            .environment());
+            // The environment must be the deployment's real value ("STAGING", per setUp), never the literal string
+            // "null" that String.valueOf(job.getMetadata("environment")) would produce.
+            Assertions.assertEquals("STAGING", result.orElseThrow()
+                .environment());
+        }
+    }
+
+    /**
+     * The dispatched payload must be nested under the handler workflow's error-trigger node name (see
+     * {@link ErrorWorkflowDispatch}'s javadoc) so editor data pills resolve. This pins that the resolver actually reads
+     * the trigger's name off the handler workflow rather than inventing one.
+     */
+    @Test
+    void testDispatchCarriesHandlerErrorTriggerName() {
+        Mockito.when(projectWorkflowService.getWorkflowProjectWorkflow("wf-1"))
+            .thenReturn(projectWorkflow(10L, 99L, false));
+        Mockito.when(projectWorkflowService.getProjectWorkflow(99L))
+            .thenReturn(projectWorkflow(99L, null, false));
+
+        try (MockedStatic<WorkflowTrigger> mockedWorkflowTrigger =
+            stubErrorTrigger("wf-99", "newWorkflowError_1")) {
+
+            Optional<ErrorWorkflowDispatch> result = errorWorkflowResolver.resolve(1L, "wf-1");
+
+            Assertions.assertEquals("newWorkflowError_1", result.orElseThrow()
+                .errorTriggerName());
+        }
+    }
+
+    /**
+     * Config drift: the reference is otherwise valid, but the handler workflow no longer has a
+     * {@code workflow/newWorkflowError} trigger (e.g. it was removed after configuration-time validation passed).
+     * Dispatching into a handler that cannot see its input is worse than not dispatching at all.
+     */
+    @Test
+    void testHandlerWithoutErrorTriggerSkipsDispatch() {
+        Mockito.when(projectWorkflowService.getWorkflowProjectWorkflow("wf-1"))
+            .thenReturn(projectWorkflow(10L, 99L, false));
+        Mockito.when(projectWorkflowService.getProjectWorkflow(99L))
+            .thenReturn(projectWorkflow(99L, null, false));
+
+        Workflow handlerWorkflow = Mockito.mock(Workflow.class);
+
+        Mockito.when(workflowService.getWorkflow("wf-99"))
+            .thenReturn(handlerWorkflow);
+
+        WorkflowTrigger callTrigger = Mockito.mock(WorkflowTrigger.class);
+
+        Mockito.when(callTrigger.getType())
+            .thenReturn("workflow/v1/newWorkflowCall");
+
+        try (MockedStatic<WorkflowTrigger> mockedWorkflowTrigger = Mockito.mockStatic(WorkflowTrigger.class)) {
+            mockedWorkflowTrigger.when(() -> WorkflowTrigger.of(handlerWorkflow))
+                .thenReturn(List.of(callTrigger));
+
+            Assertions.assertTrue(errorWorkflowResolver.resolve(1L, "wf-1")
+                .isEmpty());
+        }
+    }
+
+    /**
+     * Stubs {@code workflowService.getWorkflow(handlerWorkflowId)} to return a mocked handler workflow whose sole
+     * trigger is a {@code workflow/v1/newWorkflowError} trigger named {@code triggerName}. Caller must use the returned
+     * {@link MockedStatic} in a try-with-resources block.
+     */
+    private MockedStatic<WorkflowTrigger> stubErrorTrigger(String handlerWorkflowId, String triggerName) {
+        Workflow handlerWorkflow = Mockito.mock(Workflow.class);
+
+        Mockito.when(workflowService.getWorkflow(handlerWorkflowId))
+            .thenReturn(handlerWorkflow);
+
+        WorkflowTrigger errorTrigger = Mockito.mock(WorkflowTrigger.class);
+
+        Mockito.when(errorTrigger.getType())
+            .thenReturn("workflow/v1/newWorkflowError");
+        Mockito.when(errorTrigger.getName())
+            .thenReturn(triggerName);
+
+        MockedStatic<WorkflowTrigger> mockedWorkflowTrigger = Mockito.mockStatic(WorkflowTrigger.class);
+
+        mockedWorkflowTrigger.when(() -> WorkflowTrigger.of(handlerWorkflow))
+            .thenReturn(List.of(errorTrigger));
+
+        return mockedWorkflowTrigger;
     }
 
     private static Project project(Long errorProjectWorkflowId) {

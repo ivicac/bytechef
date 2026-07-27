@@ -17,6 +17,7 @@
 package com.bytechef.platform.coordinator;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
@@ -35,16 +36,19 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.coordinator.event.listener.ErrorWorkflowJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.ErrorWorkflowPayloadFactory;
 import com.bytechef.platform.coordinator.event.listener.ErrorWorkflowResolver;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
+import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import tools.jackson.databind.json.JsonMapper;
 
@@ -73,6 +77,7 @@ class ErrorWorkflowIntTest {
 
     private static final String FAILED_WORKFLOW_ID = "wf-failed";
     private static final String HANDLER_WORKFLOW_ID = "wf-handler";
+    private static final String HANDLER_ERROR_TRIGGER_NAME = "newWorkflowError_1";
     private static final long PROJECT_ID = 1L;
     private static final long PROJECT_DEPLOYMENT_ID = 100L;
     private static final long FAILING_PROJECT_WORKFLOW_ID = 10L;
@@ -125,25 +130,42 @@ class ErrorWorkflowIntTest {
      */
     @Test
     void testFailedRunDispatchesTheHandler() {
-        long failedJobId = givenFailedJobWithConfiguredHandler();
+        HandlerSetup handlerSetup = givenFailedJobWithConfiguredHandler();
 
-        listener.onApplicationEvent(new JobStatusApplicationEvent(failedJobId, Job.Status.FAILED));
+        try (MockedStatic<WorkflowTrigger> mockedWorkflowTrigger = stubHandlerErrorTrigger(
+            handlerSetup.handlerWorkflow())) {
+
+            listener.onApplicationEvent(new JobStatusApplicationEvent(handlerSetup.failedJobId(), Job.Status.FAILED));
+        }
 
         assertEquals(1, principalJobFacade.createJobCallCount());
 
         Job handlerJob = jobService.getJob(principalJobFacade.lastCreatedJobId());
 
         assertEquals(
-            String.valueOf(failedJobId), handlerJob.getMetadata(
+            String.valueOf(handlerSetup.failedJobId()), handlerJob.getMetadata(
                 ErrorWorkflowJobStatusApplicationEventListener.ERROR_HANDLER_FOR));
+
+        // The handler job's inputs must be namespaced under the handler workflow's error-trigger node name -- not
+        // passed as top-level inputs -- so that editor data pills like ${newWorkflowError_1.execution.jobId}
+        // actually resolve against the dispatched job.
+        @SuppressWarnings("unchecked")
+        Map<String, Object> payload = (Map<String, Object>) handlerJob.getInputs()
+            .get(HANDLER_ERROR_TRIGGER_NAME);
+
+        assertNotNull(payload, "handler job inputs must be namespaced under the error trigger's node name");
+        assertEquals(true, payload.containsKey("execution"));
     }
 
     /**
      * Persists a real FAILED job linked (via the mocked {@link PrincipalJobService}) to a project deployment whose
      * failing project-workflow carries an override pointing at a second project-workflow that exposes a
-     * {@code workflow/newWorkflowError} trigger.
+     * {@code workflow/newWorkflowError} trigger. Returns the failed job's id together with the mocked handler
+     * {@link Workflow}, whose error-trigger name must additionally be stubbed via {@link #stubHandlerErrorTrigger}
+     * before the returned failed job id is dispatched -- {@link WorkflowTrigger#of(Workflow)} is static and cannot be
+     * stubbed with a plain {@code Mockito.when(...)} here.
      */
-    private long givenFailedJobWithConfiguredHandler() {
+    private HandlerSetup givenFailedJobWithConfiguredHandler() {
         long failedJobId = persistFailedJob(FAILED_WORKFLOW_ID, Map.of());
 
         Mockito.when(principalJobService.fetchJobPrincipalId(failedJobId, PlatformType.AUTOMATION))
@@ -182,7 +204,40 @@ class ErrorWorkflowIntTest {
         Mockito.when(workflowService.getWorkflow(FAILED_WORKFLOW_ID))
             .thenReturn(failedWorkflow);
 
-        return failedJobId;
+        Workflow handlerWorkflow = Mockito.mock(Workflow.class);
+
+        Mockito.when(workflowService.getWorkflow(HANDLER_WORKFLOW_ID))
+            .thenReturn(handlerWorkflow);
+
+        return new HandlerSetup(failedJobId, handlerWorkflow);
+    }
+
+    /**
+     * Stubs the static {@link WorkflowTrigger#of(Workflow)} so {@code handlerWorkflow} exposes a single
+     * {@code workflow/v1/newWorkflowError} trigger named {@link #HANDLER_ERROR_TRIGGER_NAME}. Must be used in a
+     * try-with-resources block spanning the {@code listener.onApplicationEvent(...)} call it supports.
+     */
+    private static MockedStatic<WorkflowTrigger> stubHandlerErrorTrigger(Workflow handlerWorkflow) {
+        WorkflowTrigger errorTrigger = Mockito.mock(WorkflowTrigger.class);
+
+        Mockito.when(errorTrigger.getType())
+            .thenReturn("workflow/v1/newWorkflowError");
+        Mockito.when(errorTrigger.getName())
+            .thenReturn(HANDLER_ERROR_TRIGGER_NAME);
+
+        MockedStatic<WorkflowTrigger> mockedWorkflowTrigger = Mockito.mockStatic(WorkflowTrigger.class);
+
+        mockedWorkflowTrigger.when(() -> WorkflowTrigger.of(handlerWorkflow))
+            .thenReturn(List.of(errorTrigger));
+
+        return mockedWorkflowTrigger;
+    }
+
+    /**
+     * Pairs the persisted failed job's id with the mocked handler {@link Workflow}, so the caller can stub its
+     * error-trigger name via {@link #stubHandlerErrorTrigger} before dispatching.
+     */
+    private record HandlerSetup(long failedJobId, Workflow handlerWorkflow) {
     }
 
     /**

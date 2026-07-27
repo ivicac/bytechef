@@ -25,6 +25,7 @@ import com.bytechef.atlas.execution.dto.JobParametersDTO;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.automation.configuration.domain.ErrorWorkflowDispatch;
+import com.bytechef.exception.RateLimitExceededException;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.coordinator.ErrorWorkflowDispatchCounter;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
@@ -96,6 +97,18 @@ public class ErrorWorkflowJobStatusApplicationEventListener implements Applicati
                     "Error workflow dispatch is not supported in this deployment topology; "
                         + "the project-workflow service is a remote stub");
             }
+        } catch (RateLimitExceededException exception) {
+            // The handler job goes through the normal admission gate, so a failure storm that saturates the plan's
+            // concurrency/rate/cost limits rejects handler dispatch the same way it would reject any other job
+            // submission. That is the gate working as intended, not a dispatch bug -- log it at DEBUG without a
+            // stack trace so the storm the gates exist to bound doesn't itself flood the logs.
+            record("rejected");
+
+            if (log.isDebugEnabled()) {
+                log.debug(
+                    "Error workflow dispatch rejected by an admission gate for job {}: {}",
+                    jobStatusApplicationEvent.getJobId(), exception.getMessage());
+            }
         } catch (Exception exception) {
             record("failed");
 
@@ -145,11 +158,16 @@ public class ErrorWorkflowJobStatusApplicationEventListener implements Applicati
 
         // The payload is the handler's INPUT. Passing Map.of() here would dispatch a handler that receives
         // nothing, which is the whole point of the feature. The workflow block describes the FAILED run.
-        Map<String, Object> inputs = errorWorkflowPayloadFactory.build(
+        Map<String, Object> payload = errorWorkflowPayloadFactory.build(
             job, fetchFailingTaskExecution(jobId),
             new ErrorWorkflowPayloadFactory.ErrorWorkflowContext(
                 dispatch.projectId(), dispatch.failedProjectWorkflowId(), dispatch.failedWorkflowId(),
                 dispatch.failedWorkflowLabel(), dispatch.environment()));
+
+        // Every other trigger dispatch in this codebase (see TriggerCompletionHandler) nests its output under the
+        // trigger's node name, and editor data pills are emitted node-name-prefixed accordingly. Passing the payload
+        // as top-level inputs would leave every pill in a handler built in the editor resolving to null.
+        Map<String, Object> inputs = Map.of(dispatch.errorTriggerName(), payload);
 
         JobParametersDTO jobParametersDTO = new JobParametersDTO(
             dispatch.handlerWorkflowId(), inputs, Map.of(ERROR_HANDLER_FOR, String.valueOf(jobId)));
