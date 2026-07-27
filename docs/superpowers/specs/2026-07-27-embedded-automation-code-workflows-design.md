@@ -106,6 +106,19 @@ itself provisions. Applies to **both kinds**:
   public endpoint provisions a code reference ahead of time for backends that want to pre-wire
   connections before first call.
 
+## Final decisions (closing brainstorm round)
+
+- **Environments**: one deploy serves all environments. The catalog project and container are
+  environment-agnostic; a user's reference binds it to their environment and connections resolve
+  per environment. One upgrade point.
+- **Upgrade flow**: deploy = publish, instantly for all users — matching the existing automation
+  code-workflow flow. Vendors stage risk in their own staging environment.
+- **De-provisioning**: full public parity — disable and delete for code references, matching the
+  visual bridge's existing enable/delete operations.
+- **Discovery**: code catalog projects appear in the existing `GET /automation/projects` listing
+  beside visual templates, with a `kind` field so clients distinguish reference-provisioning from
+  copy-provisioning.
+
 ## Copilot and the Claude Code plugin
 
 - Admin authoring reuses the existing project-bound `code_workflow_ask` / `code_workflow_build`
