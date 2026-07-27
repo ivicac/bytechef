@@ -79,8 +79,13 @@ integration behavior stays byte-for-byte unchanged, same URLs, auth, and respons
   whose workflow declares the app-event trigger, fired per user with that user's connections.
 - **Side benefit, in scope**: the branch resolves visual bridge copies too, making the whole
   bridge programmatically invocable — previously impossible.
-- DSL implication: a bridge code workflow's triggers must be the app-event trigger and/or the
-  sync-callable trigger — the types these endpoints dispatch on. No new trigger types.
+- DSL implication (verified against `RequestTriggerApiController` / `AbstractWebhookTriggerController`):
+  sync callability requires a **`request` trigger** (`findRequestTriggerName` matches
+  `WorkflowNodeType.name() == "request"`; `workflow/newWorkflowCall` is a different gate and does
+  not count) **plus an action that writes `MetadataConstants.WEBHOOK_RESPONSE`** — without it the
+  caller gets an acknowledgment, not a payload. Async requires the app-event trigger. These are the
+  exact same rules integration workflows follow today; the bridge branch inherits them by reusing
+  the same controller machinery, adding no new trigger types and no new rules.
 
 ## Copilot and the Claude Code plugin
 
