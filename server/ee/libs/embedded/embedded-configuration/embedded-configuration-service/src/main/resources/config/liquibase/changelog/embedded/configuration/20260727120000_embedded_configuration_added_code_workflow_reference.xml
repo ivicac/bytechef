@@ -78,4 +78,24 @@
             referencedTableName="connected_user_project_workflow"
             referencedColumnNames="id"/>
     </changeSet>
+
+    <!-- XOR constraint: a row must be either copy-mode (project_workflow_id non-null) or reference-mode
+         (catalog_workflow_uuid non-null), never both or neither. -->
+    <changeSet id="20260727120000-3" author="Ivica Cardic">
+        <preConditions onFail="MARK_RAN">
+            <sqlCheck expectedResult="0">
+                SELECT COUNT(*) FROM pg_constraint WHERE conname = 'ck_cupw_project_or_catalog_not_both'
+            </sqlCheck>
+        </preConditions>
+
+        <sql>
+            ALTER TABLE connected_user_project_workflow
+            ADD CONSTRAINT ck_cupw_project_or_catalog_not_both
+            CHECK ((project_workflow_id IS NOT NULL) != (catalog_workflow_uuid IS NOT NULL))
+        </sql>
+
+        <rollback>
+            <sql>ALTER TABLE connected_user_project_workflow DROP CONSTRAINT IF EXISTS ck_cupw_project_or_catalog_not_both;</sql>
+        </rollback>
+    </changeSet>
 </databaseChangeLog>

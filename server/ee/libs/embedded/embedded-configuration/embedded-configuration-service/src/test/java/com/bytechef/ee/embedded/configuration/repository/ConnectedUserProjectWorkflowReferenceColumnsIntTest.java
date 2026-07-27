@@ -8,6 +8,7 @@
 package com.bytechef.ee.embedded.configuration.repository;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import com.bytechef.ee.embedded.configuration.config.IntegrationIntTestConfiguration;
 import com.bytechef.ee.embedded.configuration.config.IntegrationIntTestConfigurationSharedMocks;
@@ -20,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
@@ -152,6 +154,38 @@ public class ConnectedUserProjectWorkflowReferenceColumnsIntTest {
                 connectedUserProjectId, "22222222-2222-2222-2222-222222222222");
 
         assertThat(found).isPresent();
+    }
+
+    @Test
+    public void testConstraintRejectsBothProjectWorkflowIdAndCatalogWorkflowUuid() {
+        long workspaceId = insertWorkspace();
+        long projectId = insertProject(workspaceId);
+        long connectedUserProjectId = insertConnectedUserProject(projectId);
+        long projectWorkflowId = insertProjectWorkflow(projectId);
+
+        assertThatThrownBy(() -> {
+            jdbcTemplate.update(
+                """
+                    INSERT INTO connected_user_project_workflow
+                        (connected_user_project_id, project_workflow_id, catalog_workflow_uuid)
+                    VALUES (?, ?, ?)
+                    """,
+                connectedUserProjectId, projectWorkflowId, "33333333-3333-3333-3333-333333333333");
+        }).isInstanceOf(DataIntegrityViolationException.class);
+    }
+
+    @Test
+    public void testConstraintRejectsNeitherProjectWorkflowIdNorCatalogWorkflowUuid() {
+        long connectedUserProjectId = insertConnectedUserProject(insertProject(insertWorkspace()));
+
+        assertThatThrownBy(() -> {
+            jdbcTemplate.update(
+                """
+                    INSERT INTO connected_user_project_workflow (connected_user_project_id)
+                    VALUES (?)
+                    """,
+                connectedUserProjectId);
+        }).isInstanceOf(DataIntegrityViolationException.class);
     }
 
     private long insertWorkspace() {
