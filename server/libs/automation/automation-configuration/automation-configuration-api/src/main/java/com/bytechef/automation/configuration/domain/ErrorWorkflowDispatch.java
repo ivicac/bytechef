@@ -26,10 +26,10 @@ package com.bytechef.automation.configuration.domain;
  * {@code "null"}.
  * <p>
  * {@code errorTriggerName} is the handler workflow's {@code workflow/newWorkflowError} trigger node name. ByteChef
- * exposes a trigger's output to the rest of the workflow under that node name (see
- * {@code TriggerCompletionHandler}), and editor data pills are emitted node-name-prefixed
- * ({@code ${<triggerName>.execution.jobId}}). The dispatched payload must be nested under this name -- not passed as
- * top-level inputs -- or every pill in a handler built in the editor resolves to null.
+ * exposes a trigger's output to the rest of the workflow under that node name (see {@code TriggerCompletionHandler}),
+ * and editor data pills are emitted node-name-prefixed ({@code ${<triggerName>.execution.jobId}}). The dispatched
+ * payload must be nested under this name -- not passed as top-level inputs -- or every pill in a handler built in the
+ * editor resolves to null.
  *
  * @author Ivica Cardic
  */
