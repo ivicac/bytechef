@@ -35,6 +35,11 @@ Extend the existing `bytechef` CLI (`cli/`, Spring Shell; profile auth already h
 - Out of scope: provision/enable commands (connected-user operations belong to customer backends,
   not the operator CLI).
 - Follow the CLI's existing command/option/output conventions; docs in `cli/README.md`.
+- Update `claude-code-plugin/bytechef-dev/skills/bytechef-code-workflow/SKILL.md` deploy examples
+  to CLI-first (curl retained as the no-CLI fallback) — matching the plugin convention: CLI where a
+  command exists (`bytechef component init` precedent), curl only where none does. Also swap the
+  automation deploy example to `bytechef` CLI if an automation deploy command exists; add one if
+  trivial, else leave curl.
 
 ## 3. Admin console UI (admin-only)
 
