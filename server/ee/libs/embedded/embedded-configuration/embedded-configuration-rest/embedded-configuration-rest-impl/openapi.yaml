@@ -1021,8 +1021,12 @@ paths:
                   format: "binary"
         required: true
       responses:
-        "204":
+        "200":
           description: "Successful operation."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AutomationProjectCodeWorkflowDeployResult"
   /integrations/categories:
     get:
       description: "Get integration categories."
@@ -1463,6 +1467,15 @@ components:
         __version:
           type: "integer"
           format: "int32"
+    AutomationProjectCodeWorkflowDeployResult:
+      type: "object"
+      description: "The result of deploying an automation code workflow into the embedded catalog."
+      properties:
+        warnings:
+          description: "Deploy-time trigger validation warnings; a deployed workflow is still usable even with warnings."
+          type: "array"
+          items:
+            type: "string"
     Category:
       $ref: "../../../../../../libs/platform/platform-category/platform-category-rest/openapi.yaml#/components/schemas/Category"
     ConnectedUserProjectWorkflow:

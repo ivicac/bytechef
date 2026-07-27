@@ -282,6 +282,35 @@ class AutomationWorkflowProjectCodeWorkflowFacadeTest {
         Assertions.assertNull(refundProjectWorkflow.getUuid());
     }
 
+    @Test
+    void testSaveReturnsWarningForWorkflowWithNoPubliclyInvocableTrigger() {
+        Mockito.when(automationWorkflowProjectFacade.fetchProjectIdByName("acme-billing"))
+            .thenReturn(Optional.empty());
+        Mockito.when(automationWorkflowProjectFacade.createProject(
+            Mockito.eq("acme-billing"), Mockito.any(), Mockito.isNull(), Mockito.eq(List.of()), Mockito.isNull()))
+            .thenReturn(100L);
+
+        Project project = new Project();
+
+        project.setId(100L);
+
+        Mockito.when(projectService.getProject(100L))
+            .thenReturn(project);
+
+        CodeWorkflowContainer container = codeWorkflowContainer(Map.of("charge", "wf-1"));
+
+        Mockito.when(codeWorkflowContainerFacade.create(
+            Mockito.eq("acme-billing"), Mockito.any(), Mockito.any(), Mockito.eq(Language.JAVASCRIPT),
+            Mockito.any(), Mockito.eq(PlatformType.AUTOMATION)))
+            .thenReturn(container);
+
+        List<String> warnings = facade.save(fakeProjectDefinitionBytes("acme-billing"), Language.JAVASCRIPT);
+
+        Assertions.assertEquals(1, warnings.size());
+        Assertions.assertTrue(warnings.getFirst()
+            .contains("will not be invocable"));
+    }
+
     private static CodeWorkflowContainer codeWorkflowContainer(Map<String, String> workflowNameIds) {
         CodeWorkflowContainer codeWorkflowContainer = mock(CodeWorkflowContainer.class);
 

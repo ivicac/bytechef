@@ -5,6 +5,7 @@
  */
 package com.bytechef.ee.embedded.configuration.web.rest;
 
+import com.bytechef.ee.embedded.configuration.web.rest.model.AutomationProjectCodeWorkflowDeployResultModel;
 import org.springframework.lang.Nullable;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
@@ -33,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-27T15:20:48.170125+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-27T23:40:49.562437+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 @Validated
 @Tag(name = "automation-project-code-workflow", description = "the automation-project-code-workflow API")
 public interface AutomationProjectCodeWorkflowApi {
@@ -48,7 +49,7 @@ public interface AutomationProjectCodeWorkflowApi {
      * Deploy a new automation code workflow into the embedded catalog.
      *
      * @param projectFile The file of a code-native automation project. (optional)
-     * @return Successful operation. (status code 204)
+     * @return Successful operation. (status code 200)
      */
     @Operation(
         operationId = "deployAutomationProjectCodeWorkflow",
@@ -56,17 +57,29 @@ public interface AutomationProjectCodeWorkflowApi {
         description = "Deploy a new automation code workflow into the embedded catalog.",
         tags = { "automation-project-code-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation.")
+            @ApiResponse(responseCode = "200", description = "Successful operation.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = AutomationProjectCodeWorkflowDeployResultModel.class))
+            })
         }
     )
     @RequestMapping(
         method = RequestMethod.POST,
         value = AutomationProjectCodeWorkflowApi.PATH_DEPLOY_AUTOMATION_PROJECT_CODE_WORKFLOW,
+        produces = { "application/json" },
         consumes = { "multipart/form-data" }
     )
-    default ResponseEntity<Void> deployAutomationProjectCodeWorkflow(
+    default ResponseEntity<AutomationProjectCodeWorkflowDeployResultModel> deployAutomationProjectCodeWorkflow(
         @Parameter(name = "projectFile", description = "The file of a code-native automation project.") @RequestPart(value = "projectFile", required = false) MultipartFile projectFile
     ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"warnings\" : [ \"warnings\", \"warnings\" ] }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }

@@ -8,6 +8,7 @@
 package com.bytechef.ee.embedded.configuration.facade;
 
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
+import java.util.List;
 
 /**
  * Deploys a plain automation code-workflow artifact into the embedded catalog.
@@ -24,5 +25,5 @@ import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowCo
  */
 public interface AutomationWorkflowProjectCodeWorkflowFacade {
 
-    void save(byte[] bytes, Language language);
+    List<String> save(byte[] bytes, Language language);
 }

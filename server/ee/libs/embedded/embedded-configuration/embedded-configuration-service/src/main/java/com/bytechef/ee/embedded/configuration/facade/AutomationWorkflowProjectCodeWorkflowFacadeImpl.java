@@ -36,6 +36,7 @@ import java.io.IOException;
 import java.net.URI;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -126,7 +127,7 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
      */
     @Override
     @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
-    public void save(byte[] bytes, Language language) {
+    public List<String> save(byte[] bytes, Language language) {
         if (!javaEnabled && language == Language.JAVA) {
             throw new ConfigurationException(
                 "Uploading of Java code workflows is disabled",
@@ -185,9 +186,13 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
 
         connectedUserCodeWorkflowReferenceFacade.markDanglingReferences(project.getId(), previousUuids, currentUuids);
 
+        List<String> warnings = new ArrayList<>();
+
         for (WorkflowDefinition workflowDefinition : projectDefinition.getWorkflows()) {
-            warnIfNotPubliclyInvocable(projectDefinition.getName(), workflowDefinition);
+            warnIfNotPubliclyInvocable(projectDefinition.getName(), workflowDefinition, warnings);
         }
+
+        return warnings;
     }
 
     /**
@@ -243,7 +248,9 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
      * deployed, but it will not be invocable through the embedded public endpoints, so a WARN is logged to surface the
      * gap to operators.
      */
-    private void warnIfNotPubliclyInvocable(String projectName, WorkflowDefinition workflowDefinition) {
+    private void warnIfNotPubliclyInvocable(
+        String projectName, WorkflowDefinition workflowDefinition, List<String> warnings) {
+
         List<? extends TriggerDefinition> triggerDefinitions = workflowDefinition.getTriggers()
             .orElseGet(List::of);
 
@@ -251,11 +258,13 @@ public class AutomationWorkflowProjectCodeWorkflowFacadeImpl implements Automati
             .anyMatch(AutomationWorkflowProjectCodeWorkflowFacadeImpl::isPubliclyInvocableTrigger);
 
         if (!publiclyInvocable) {
-            log.warn(
-                "Workflow '{}' in deployed automation code workflow project '{}' declares neither a request "
-                    + "trigger nor an app-event trigger; it will not be invocable through the embedded public "
-                    + "endpoints",
-                workflowDefinition.getName(), projectName);
+            String warning = ("Workflow '%s' in deployed automation code workflow project '%s' declares neither a "
+                + "request trigger nor an app-event trigger; it will not be invocable through the embedded public "
+                + "endpoints").formatted(workflowDefinition.getName(), projectName);
+
+            log.warn(warning);
+
+            warnings.add(warning);
         }
     }
 

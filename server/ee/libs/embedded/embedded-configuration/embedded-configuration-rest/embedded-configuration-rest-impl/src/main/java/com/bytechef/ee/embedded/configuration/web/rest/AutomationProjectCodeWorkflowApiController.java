@@ -9,10 +9,12 @@ package com.bytechef.ee.embedded.configuration.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.ee.embedded.configuration.facade.AutomationWorkflowProjectCodeWorkflowFacade;
+import com.bytechef.ee.embedded.configuration.web.rest.model.AutomationProjectCodeWorkflowDeployResultModel;
 import com.bytechef.ee.platform.codeworkflow.configuration.domain.CodeWorkflowContainer.Language;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
+import java.util.List;
 import java.util.Objects;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -52,16 +54,19 @@ public class AutomationProjectCodeWorkflowApiController implements AutomationPro
      * {@code EmbeddedApiKeyAuthenticationProvider}) is denied at the facade regardless of what reaches this controller.
      */
     @Override
-    public ResponseEntity<Void> deployAutomationProjectCodeWorkflow(MultipartFile projectFile) {
+    public ResponseEntity<AutomationProjectCodeWorkflowDeployResultModel> deployAutomationProjectCodeWorkflow(
+        MultipartFile projectFile) {
+
+        List<String> warnings;
+
         try {
-            automationWorkflowProjectCodeWorkflowFacade.save(
+            warnings = automationWorkflowProjectCodeWorkflowFacade.save(
                 projectFile.getBytes(),
                 Language.of(Objects.requireNonNull(projectFile.getOriginalFilename())));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
 
-        return ResponseEntity.noContent()
-            .build();
+        return ResponseEntity.ok(new AutomationProjectCodeWorkflowDeployResultModel().warnings(warnings));
     }
 }
