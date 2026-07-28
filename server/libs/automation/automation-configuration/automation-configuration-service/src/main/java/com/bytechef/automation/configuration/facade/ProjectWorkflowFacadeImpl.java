@@ -518,6 +518,16 @@ public class ProjectWorkflowFacadeImpl implements ProjectWorkflowFacade {
         long projectId, long projectWorkflowId, @Nullable Long errorProjectWorkflowId,
         boolean errorWorkflowDisabled) {
 
+        // The authz gate keys on projectId, so the mutated workflow MUST belong to that project -- otherwise an
+        // editor of project A could repoint or clear the error handling of any workflow in the tenant by naming
+        // their own projectId alongside a foreign projectWorkflowId. Checked on BOTH the set and clear paths.
+        ProjectWorkflow projectWorkflow = projectWorkflowService.getProjectWorkflow(projectWorkflowId);
+
+        if (projectWorkflow.getProjectId() != projectId) {
+            throw new IllegalArgumentException(
+                "The workflow does not belong to the project the update was authorized against");
+        }
+
         // Clearing needs no validation: there is no reference left to be invalid -- mirrors
         // ProjectFacadeImpl.updateProjectErrorWorkflow exactly.
         if (errorProjectWorkflowId != null) {

@@ -22,6 +22,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
+import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.config.ApplicationProperties;
 import org.junit.jupiter.api.Assertions;
@@ -50,6 +51,41 @@ class ProjectWorkflowFacadeUpdateErrorWorkflowTest {
 
     @InjectMocks
     private ProjectWorkflowFacadeImpl projectWorkflowFacade;
+
+    @org.junit.jupiter.api.BeforeEach
+    void setUp() {
+        // The facade verifies the mutated workflow belongs to the authorized project before doing anything else.
+        Mockito.lenient()
+            .when(projectWorkflowService.getProjectWorkflow(10L))
+            .thenReturn(new ProjectWorkflow(1L, 1, "wf-10"));
+    }
+
+    @Test
+    void testCrossProjectSetIsRejectedAndNothingSaved() {
+        Mockito.when(projectWorkflowService.getProjectWorkflow(20L))
+            .thenReturn(new ProjectWorkflow(2L, 1, "wf-20"));
+
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> projectWorkflowFacade.updateWorkflowErrorWorkflow(1L, 20L, 99L, false));
+
+        verifyNoInteractions(errorWorkflowConfigurationValidator);
+        verify(projectWorkflowService, never())
+            .updateErrorWorkflow(anyLong(), ArgumentMatchers.any(), Mockito.anyBoolean());
+    }
+
+    @Test
+    void testCrossProjectClearIsRejectedAndNothingSaved() {
+        Mockito.when(projectWorkflowService.getProjectWorkflow(20L))
+            .thenReturn(new ProjectWorkflow(2L, 1, "wf-20"));
+
+        Assertions.assertThrows(
+            IllegalArgumentException.class,
+            () -> projectWorkflowFacade.updateWorkflowErrorWorkflow(1L, 20L, null, true));
+
+        verify(projectWorkflowService, never())
+            .updateErrorWorkflow(anyLong(), ArgumentMatchers.any(), Mockito.anyBoolean());
+    }
 
     @Test
     void testValidatesBeforeSaving() {

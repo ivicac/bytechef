@@ -17,7 +17,7 @@ import {
     useUpdateProjectWorkflowErrorWorkflowMutation,
 } from '@/shared/middleware/graphql';
 import {useQueryClient} from '@tanstack/react-query';
-import {useMemo, useState} from 'react';
+import {useEffect, useMemo, useState} from 'react';
 
 type ModeType = 'disabled' | 'inherit' | 'override';
 
@@ -37,7 +37,7 @@ const WorkflowErrorHandlingDialog = ({
     const queryClient = useQueryClient();
 
     const {data: eligibleData} = useEligibleErrorWorkflowsQuery({projectId, projectVersion});
-    const {data: configData} = useProjectWorkflowErrorConfigQuery({id: projectWorkflowId});
+    const {data: configData, isLoading: configLoading} = useProjectWorkflowErrorConfigQuery({id: projectWorkflowId});
 
     const currentConfig = configData?.projectWorkflow;
 
@@ -67,6 +67,26 @@ const WorkflowErrorHandlingDialog = ({
             onClose();
         },
     });
+
+    // The query is async: useState initializers ran before it settled, so re-seed the three-state control when the
+    // persisted config arrives. Without this the dialog shows 'inherit' on an uncached open and Save would clear a
+    // real override/disable.
+    useEffect(() => {
+        if (configData?.projectWorkflow) {
+            const loadedConfig = configData.projectWorkflow;
+
+            setMode(
+                loadedConfig.errorWorkflowDisabled
+                    ? 'disabled'
+                    : loadedConfig.errorProjectWorkflowId
+                      ? 'override'
+                      : 'inherit'
+            );
+            setSelectedWorkflowId(
+                loadedConfig.errorProjectWorkflowId ? String(loadedConfig.errorProjectWorkflowId) : ''
+            );
+        }
+    }, [configData]);
 
     const handleSave = () => {
         updateMutation.mutate({
@@ -138,7 +158,11 @@ const WorkflowErrorHandlingDialog = ({
                         <Button label="Cancel" type="button" variant="outline" />
                     </DialogClose>
 
-                    <Button disabled={mode === 'override' && !selectedWorkflowId} label="Save" onClick={handleSave} />
+                    <Button
+                        disabled={configLoading || (mode === 'override' && !selectedWorkflowId)}
+                        label="Save"
+                        onClick={handleSave}
+                    />
                 </DialogFooter>
             </DialogContent>
         </Dialog>
