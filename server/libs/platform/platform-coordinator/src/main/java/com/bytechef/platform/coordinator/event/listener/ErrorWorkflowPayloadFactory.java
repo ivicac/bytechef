@@ -19,6 +19,7 @@ package com.bytechef.platform.coordinator.event.listener;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.error.ExecutionError;
+import com.bytechef.platform.coordinator.monitor.OrphanedJobRecoveryMonitor;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
@@ -48,6 +49,16 @@ public class ErrorWorkflowPayloadFactory {
         this.publicUrl = publicUrl;
     }
 
+    private static int getAutoRecoveryAttempts(Job job) {
+        Object attempts = job.getMetadata(OrphanedJobRecoveryMonitor.AUTO_RECOVERY_ATTEMPTS);
+
+        if (attempts instanceof Number number) {
+            return number.intValue();
+        }
+
+        return 0;
+    }
+
     public Map<String, Object> build(
         Job job, @Nullable TaskExecution lastTaskExecution, ErrorWorkflowContext context) {
 
@@ -72,8 +83,10 @@ public class ErrorWorkflowPayloadFactory {
                 + job.getId());
         execution.put("error", error);
         execution.put("lastTaskExecuted", lastTaskExecution == null ? null : lastTaskExecution.getName());
-        execution.put("mode", job.getMetadata("mode"));
-        execution.put("resumeOf", job.getMetadata("resumeOf"));
+        // autoRecoveryAttempts, not n8n's retryOf: ByteChef resumes a job IN PLACE
+        // (JobService.resumeToStatusStarted reuses the same id), so there is no prior job to point at. What a handler
+        // can actually use is whether this run has already been auto-recovered from a crash, and how often.
+        execution.put("autoRecoveryAttempts", getAutoRecoveryAttempts(job));
 
         Map<String, Object> workflow = new LinkedHashMap<>();
 

@@ -57,7 +57,7 @@ class ErrorWorkflowPayloadFactoryTest {
         Map<String, Object> workflow = (Map<String, Object>) payload.get("workflow");
 
         Assertions.assertEquals(
-            Set.of("jobId", "url", "error", "lastTaskExecuted", "mode", "resumeOf"), execution.keySet());
+            Set.of("jobId", "url", "error", "lastTaskExecuted", "autoRecoveryAttempts"), execution.keySet());
         Assertions.assertEquals(Set.of("message", "stackTrace"), error.keySet());
         Assertions.assertEquals(
             Set.of("projectId", "projectWorkflowId", "workflowId", "label"), workflow.keySet());

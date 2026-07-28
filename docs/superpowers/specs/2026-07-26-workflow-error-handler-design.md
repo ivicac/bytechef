@@ -87,7 +87,7 @@ execution:
   error: { message, stackTrace }
   lastTaskExecuted        // failing task name + type; null if the run failed before any task
   mode                    // webhook / schedule / manual / api
-  resumeOf                // prior job id when auto-resumed after a crash, else null
+  autoRecoveryAttempts    // how many times this run was already auto-recovered after a crash
 workflow:
   projectId, projectWorkflowId, workflowId, label
 environment
@@ -97,8 +97,11 @@ Three deliberate departures from n8n:
 
 - **`environment`** — ByteChef runs one workflow across environments; a handler that cannot tell
   production from staging is close to useless.
-- **`resumeOf`, not `retryOf`** — the analogous ByteChef mechanism is crash-recovery auto-resume
-  (`maxAutoResumeAttempts` in job metadata). The field names the mechanism that exists.
+- **`autoRecoveryAttempts`, not `retryOf`** — n8n creates a NEW execution on retry and points
+  `retryOf` at the old one; ByteChef resumes a job IN PLACE (`resumeToStatusStarted` reuses the same
+  id), so no prior job exists to reference. An earlier draft specified `resumeOf` as "the prior job
+  id", which was unimplementable for exactly that reason. The field now carries the count that
+  `OrphanedJobRecoveryMonitor` actually writes.
 - **One shape, not two** — n8n emits a structurally different payload when the trigger itself fails.
   Here `lastTaskExecuted` is simply null, and handlers test for it.
 

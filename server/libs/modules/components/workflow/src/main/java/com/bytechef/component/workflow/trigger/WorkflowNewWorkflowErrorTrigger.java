@@ -16,6 +16,7 @@
 
 package com.bytechef.component.workflow.trigger;
 
+import static com.bytechef.component.definition.ComponentDsl.integer;
 import static com.bytechef.component.definition.ComponentDsl.object;
 import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 import static com.bytechef.component.definition.ComponentDsl.string;
@@ -50,8 +51,7 @@ public class WorkflowNewWorkflowErrorTrigger {
                                 object("error")
                                     .properties(string("message"), string("stackTrace")),
                                 string("lastTaskExecuted"),
-                                string("mode"),
-                                string("resumeOf")),
+                                integer("autoRecoveryAttempts")),
                         object("workflow")
                             .properties(
                                 string("projectId"),

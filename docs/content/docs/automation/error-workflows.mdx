@@ -129,16 +129,12 @@ that prefix, matching whatever the trigger node is actually named in your workfl
 | `execution.error.message` | string | The failure message, or a generic placeholder if none was captured. |
 | `execution.error.stackTrace` | string \| null | The captured stack trace, if any. |
 | `execution.lastTaskExecuted` | string \| null | The name of the task that actually failed. **`null`** if the run failed before any task started. |
-| `execution.mode` | string \| null | Reserved for how the run was started (webhook / schedule / manual / API). **Always `null` today** — nothing in the codebase populates this job-metadata key yet. |
-| `execution.resumeOf` | string \| null | Reserved for the prior job id when a run was auto-resumed after a crash. **Always `null` today**, for the same reason. |
+| `execution.autoRecoveryAttempts` | integer | How many times this run has already been auto-recovered after a crash. `0` for a run that never needed recovery. |
 | `workflow.projectId` | string | The failed workflow's project. |
 | `workflow.projectWorkflowId` | string | The failed workflow's project-workflow id. |
 | `workflow.workflowId` | string | The failed workflow's id. |
 | `workflow.label` | string | The failed workflow's label. |
 | `environment` | string \| null | The environment the failed run executed in (Development / Staging / Production). |
-
-Treat `mode` and `resumeOf` as placeholders for a future release, not as fields you can branch on
-today — a handler that checks them will always see `null`.
 
 ## Limits
 

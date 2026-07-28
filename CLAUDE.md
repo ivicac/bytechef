@@ -1131,9 +1131,11 @@ a genuinely uncaught, inter-workflow failure. **Monolith only** — resolution n
 `ProjectWorkflowService` lookups, and `RemoteProjectWorkflowServiceClient` is all
 `UnsupportedOperationException` stubs, so distributed EE can't resolve the handler at all (same
 root cause as orphaned-job recovery); the listener detects this, logs once, and records the
-`skipped_unsupported` outcome instead of warning on every failed job. Payload's `execution.mode`
-and `execution.resumeOf` fields are reserved but always `null` — nothing populates those
-job-metadata keys yet. Metric: `bytechef_error_workflow_dispatch{outcome=dispatched|
+`skipped_unsupported` outcome instead of warning on every failed job. The payload carries
+`execution.autoRecoveryAttempts` rather than n8n's `retryOf`: ByteChef resumes a job IN PLACE
+(`resumeToStatusStarted` reuses the same id), so there is no prior job to point at — what a handler
+can use is how many times this run was already auto-recovered. Metric:
+`bytechef_error_workflow_dispatch{outcome=dispatched|rejected|
 skipped_recursion|skipped_subflow_child|skipped_no_config|skipped_unsupported|failed}`.
 
 ## Public URL Signing
