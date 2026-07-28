@@ -16,6 +16,7 @@ import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.LocalDate;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.springframework.data.domain.Page;
@@ -111,6 +112,12 @@ public class ConnectedUserServiceImpl implements ConnectedUserService {
         return connectedUserRepository.findAll(
             environment == null ? null : environment.ordinal(), search, createDateFrom, createDateTo, integrationId,
             pageRequest);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ConnectedUser> getConnectedUsers(List<Long> ids) {
+        return connectedUserRepository.findAllById(ids);
     }
 
     @Override

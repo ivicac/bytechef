@@ -17,7 +17,10 @@ import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 
@@ -25,17 +28,19 @@ import org.springframework.stereotype.Service;
  * Admin-only read seam over automation-bridge references, joined back to the connected user each reference belongs to
  * -- the direction {@link com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade}
  * deliberately does not serve (it reads per connected user, not per catalog workflow). Gated the same way
- * {@code AutomationWorkflowProjectAdminFacade} already is: a plain {@code isTenantAdmin()} guard rather than a role
- * literal, since the embedded admin console has no {@code ROLE_ADMIN} authority of its own.
+ * {@code AutomationWorkflowProjectAdminFacade} already is: a class-level plain {@code isTenantAdmin()} guard rather
+ * than a role literal, since the embedded admin console has no {@code ROLE_ADMIN} authority of its own -- and
+ * class-level so a future method on this facade can't be added without the guard.
  *
  * <p>
  * The join back to {@link ConnectedUser} goes through {@link ConnectedUserProjectService} rather than a new method on
  * {@link ConnectedUserService} that would accept a {@link ConnectedUserProjectWorkflow}:
  * {@code embedded-configuration-api} already depends on {@code embedded-connected-user-api} (for
  * {@link ConnectedUserProject}), so the reverse dependency that a {@link ConnectedUserProjectWorkflow}-typed parameter
- * on {@link ConnectedUserService} would require is a circular module dependency. Composing the two existing lookups --
- * {@code ConnectedUserProjectService#getConnectedUserProject} then {@code ConnectedUserService#getConnectedUser} --
- * reaches the same row without changing any module's dependency graph.
+ * on {@link ConnectedUserService} would require is a circular module dependency. {@code getReferences} batches both
+ * hops -- {@code ConnectedUserProjectService#getConnectedUserProjects(List)} then
+ * {@code ConnectedUserService#getConnectedUsers(List)} -- into one query each, joining in memory via maps, instead of
+ * issuing two per-row lookups (an unbounded 1+2N query pattern for large reference sets).
  *
  * @version ee
  *
@@ -43,6 +48,7 @@ import org.springframework.stereotype.Service;
  */
 @Service
 @ConditionalOnEEVersion
+@PreAuthorize("isTenantAdmin()")
 public class ConnectedUserCodeWorkflowReferenceAdminFacadeImpl
     implements ConnectedUserCodeWorkflowReferenceAdminFacade {
 
@@ -62,20 +68,43 @@ public class ConnectedUserCodeWorkflowReferenceAdminFacadeImpl
     }
 
     @Override
-    @PreAuthorize("isTenantAdmin()")
     public List<ConnectedUserCodeWorkflowReferenceDTO> getReferences(Set<String> catalogWorkflowUuids) {
-        return connectedUserProjectWorkflowRepository.findAllByCatalogWorkflowUuidIn(catalogWorkflowUuids)
+        List<ConnectedUserProjectWorkflow> references =
+            connectedUserProjectWorkflowRepository.findAllByCatalogWorkflowUuidIn(catalogWorkflowUuids);
+
+        List<Long> connectedUserProjectIds = references.stream()
+            .map(ConnectedUserProjectWorkflow::getConnectedUserProjectId)
+            .distinct()
+            .toList();
+
+        Map<Long, ConnectedUserProject> connectedUserProjectMap =
+            connectedUserProjectService.getConnectedUserProjects(connectedUserProjectIds)
+                .stream()
+                .collect(Collectors.toMap(ConnectedUserProject::getId, Function.identity()));
+
+        List<Long> connectedUserIds = connectedUserProjectMap.values()
             .stream()
-            .map(this::toDTO)
+            .map(ConnectedUserProject::getConnectedUserId)
+            .distinct()
+            .toList();
+
+        Map<Long, ConnectedUser> connectedUserMap = connectedUserService.getConnectedUsers(connectedUserIds)
+            .stream()
+            .collect(Collectors.toMap(ConnectedUser::getId, Function.identity()));
+
+        return references.stream()
+            .map(reference -> toDTO(reference, connectedUserProjectMap, connectedUserMap))
             .toList();
     }
 
-    private ConnectedUserCodeWorkflowReferenceDTO toDTO(ConnectedUserProjectWorkflow reference) {
-        ConnectedUserProject connectedUserProject = connectedUserProjectService.getConnectedUserProject(
+    private ConnectedUserCodeWorkflowReferenceDTO toDTO(
+        ConnectedUserProjectWorkflow reference, Map<Long, ConnectedUserProject> connectedUserProjectMap,
+        Map<Long, ConnectedUser> connectedUserMap) {
+
+        ConnectedUserProject connectedUserProject = connectedUserProjectMap.get(
             reference.getConnectedUserProjectId());
 
-        ConnectedUser connectedUser = connectedUserService.getConnectedUser(
-            connectedUserProject.getConnectedUserId());
+        ConnectedUser connectedUser = connectedUserMap.get(connectedUserProject.getConnectedUserId());
 
         return new ConnectedUserCodeWorkflowReferenceDTO(
             reference.getCatalogWorkflowUuid(), connectedUser.getExternalId(), reference.isEnabled(),
