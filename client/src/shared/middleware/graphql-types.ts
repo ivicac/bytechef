@@ -3810,6 +3810,7 @@ export type Mutation = {
   /** Update an organization connection's name and tags. (admin only, EE only) */
   updateOrganizationConnection: Scalars['Boolean']['output'];
   updateProjectErrorWorkflow?: Maybe<Scalars['Boolean']['output']>;
+  updateProjectWorkflowErrorWorkflow?: Maybe<Scalars['Boolean']['output']>;
   updateUser: AdminUser;
   updateWorkflowAlertRule: WorkflowAlertRule;
   updateWorkspaceAiGatewayModel?: Maybe<AiGatewayModel>;
@@ -5525,6 +5526,14 @@ export type MutationUpdateProjectErrorWorkflowArgs = {
 };
 
 
+export type MutationUpdateProjectWorkflowErrorWorkflowArgs = {
+  errorProjectWorkflowId?: InputMaybe<Scalars['ID']['input']>;
+  errorWorkflowDisabled: Scalars['Boolean']['input'];
+  projectId: Scalars['ID']['input'];
+  projectWorkflowId: Scalars['ID']['input'];
+};
+
+
 export type MutationUpdateUserArgs = {
   login: Scalars['String']['input'];
   role: Scalars['String']['input'];
@@ -5732,6 +5741,7 @@ export enum PlaygroundChatRole {
 export type Project = {
   __typename?: 'Project';
   category?: Maybe<Category>;
+  errorProjectWorkflowId?: Maybe<Scalars['ID']['output']>;
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
   tags?: Maybe<Array<Maybe<Tag>>>;
@@ -5825,6 +5835,8 @@ export type ProjectWorkflow = {
   __typename?: 'ProjectWorkflow';
   createdBy?: Maybe<Scalars['String']['output']>;
   createdDate?: Maybe<Scalars['String']['output']>;
+  errorProjectWorkflowId?: Maybe<Scalars['ID']['output']>;
+  errorWorkflowDisabled: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   lastModifiedBy?: Maybe<Scalars['String']['output']>;
   lastModifiedDate?: Maybe<Scalars['String']['output']>;
@@ -6121,6 +6133,7 @@ export type Query = {
   editorJobFileLogs: LogPage;
   editorJobFileLogsExist: Scalars['Boolean']['output'];
   editorTaskExecutionFileLogs: Array<LogEntry>;
+  eligibleErrorWorkflows: Array<ProjectWorkflow>;
   embeddedMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   embeddedMcpServers?: Maybe<Array<Maybe<McpServer>>>;
   endpointDiscoveryStatus?: Maybe<EndpointDiscoveryResult>;
@@ -6188,6 +6201,7 @@ export type Query = {
   project?: Maybe<Project>;
   projectDeploymentWorkflow?: Maybe<ProjectDeploymentWorkflow>;
   projectTemplate?: Maybe<ProjectTemplate>;
+  projectWorkflow?: Maybe<ProjectWorkflow>;
   projects?: Maybe<Array<Maybe<Project>>>;
   registeredClients?: Maybe<Array<Maybe<RegisteredClient>>>;
   searchKnowledgeBase?: Maybe<Array<Maybe<KnowledgeBaseDocumentChunk>>>;
@@ -7005,6 +7019,12 @@ export type QueryEditorTaskExecutionFileLogsArgs = {
 };
 
 
+export type QueryEligibleErrorWorkflowsArgs = {
+  projectId: Scalars['ID']['input'];
+  projectVersion: Scalars['Int']['input'];
+};
+
+
 export type QueryEndpointDiscoveryStatusArgs = {
   jobId: Scalars['String']['input'];
 };
@@ -7242,6 +7262,11 @@ export type QueryProjectDeploymentWorkflowArgs = {
 export type QueryProjectTemplateArgs = {
   id: Scalars['String']['input'];
   sharedProject: Scalars['Boolean']['input'];
+};
+
+
+export type QueryProjectWorkflowArgs = {
+  id: Scalars['ID']['input'];
 };
 
 

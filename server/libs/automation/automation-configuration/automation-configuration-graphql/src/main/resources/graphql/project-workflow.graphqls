@@ -1,6 +1,7 @@
 extend type Query {
     eligibleErrorWorkflows(projectId: ID!, projectVersion: Int!): [ProjectWorkflow!]!
     preBuiltWorkflowTemplates(query: String, category: String): [WorkflowTemplate!]!
+    projectWorkflow(id: ID!): ProjectWorkflow
     sharedWorkflow(workflowUuid: String!): SharedWorkflow
     workflowTemplate(id: String!, sharedWorkflow: Boolean!): WorkflowTemplate
 }

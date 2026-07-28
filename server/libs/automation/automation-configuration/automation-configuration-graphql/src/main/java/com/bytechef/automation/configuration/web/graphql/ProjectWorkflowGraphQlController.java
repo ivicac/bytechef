@@ -117,6 +117,11 @@ public class ProjectWorkflowGraphQlController {
         return projectWorkflowFacade.getPreBuiltWorkflowTemplates(query, category);
     }
 
+    @QueryMapping
+    public ProjectWorkflow projectWorkflow(@Argument long id) {
+        return projectWorkflowService.getProjectWorkflow(id);
+    }
+
     @SchemaMapping(typeName = "ProjectDeploymentWorkflow", field = "projectWorkflow")
     public ProjectWorkflow projectWorkflow(ProjectDeploymentWorkflow projectDeploymentWorkflow) {
         Workflow workflow = workflowService.getWorkflow(projectDeploymentWorkflow.getWorkflowId());
