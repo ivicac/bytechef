@@ -2715,7 +2715,7 @@ export type AutomationWorkflowProjectVersionsQuery = { automationWorkflowProject
 export type AutomationWorkflowProjectsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type AutomationWorkflowProjectsQuery = { automationWorkflowProjects: Array<{ id: string, name: string, description: string | null, categoryId: string | null, tagIds: Array<string>, published: boolean, version: number, lastPublishedVersion: number | null, permissionExpression: string | null, workflowTemplates: Array<{ workflowUuid: string, label: string | null, description: string | null, permissionExpression: string | null, lastModifiedDate: string | null, triggers: Array<{ name: string, title: string | null, icon: string | null }>, components: Array<{ name: string, title: string | null, icon: string | null }> }> }> };
+export type AutomationWorkflowProjectsQuery = { automationWorkflowProjects: Array<{ id: string, name: string, description: string | null, categoryId: string | null, tagIds: Array<string>, published: boolean, version: number, lastPublishedVersion: number | null, permissionExpression: string | null, codeWorkflowProject: boolean, workflowTemplates: Array<{ workflowUuid: string, label: string | null, description: string | null, permissionExpression: string | null, lastModifiedDate: string | null, triggers: Array<{ name: string, title: string | null, icon: string | null }>, components: Array<{ name: string, title: string | null, icon: string | null }> }> }> };
 
 export type CreateAutomationWorkflowProjectMutationVariables = Exact<{
   name: string;
@@ -2786,6 +2786,13 @@ export type PublishAutomationWorkflowProjectMutationVariables = Exact<{
 
 
 export type PublishAutomationWorkflowProjectMutation = { publishAutomationWorkflowProject: boolean };
+
+export type ConnectedUserCodeWorkflowReferencesQueryVariables = Exact<{
+  catalogWorkflowUuids: Array<string | number> | string | number;
+}>;
+
+
+export type ConnectedUserCodeWorkflowReferencesQuery = { connectedUserCodeWorkflowReferences: Array<{ catalogWorkflowUuid: string, externalUserId: string, enabled: boolean, dangling: boolean, danglingReason: string | null }> };
 
 export type ConnectedUserMcpServersQueryVariables = Exact<{
   connectedUserId: string | number;
@@ -13685,6 +13692,7 @@ export const AutomationWorkflowProjectsDocument = new TypedDocumentString(`
     version
     lastPublishedVersion
     permissionExpression
+    codeWorkflowProject
     workflowTemplates {
       workflowUuid
       label
@@ -13894,6 +13902,34 @@ export const usePublishAutomationWorkflowProjectMutation = <
       {
     mutationKey: ['publishAutomationWorkflowProject'],
     mutationFn: (variables?: PublishAutomationWorkflowProjectMutationVariables) => fetcher<PublishAutomationWorkflowProjectMutation, PublishAutomationWorkflowProjectMutationVariables>(PublishAutomationWorkflowProjectDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const ConnectedUserCodeWorkflowReferencesDocument = new TypedDocumentString(`
+    query connectedUserCodeWorkflowReferences($catalogWorkflowUuids: [ID!]!) {
+  connectedUserCodeWorkflowReferences(catalogWorkflowUuids: $catalogWorkflowUuids) {
+    catalogWorkflowUuid
+    externalUserId
+    enabled
+    dangling
+    danglingReason
+  }
+}
+    `);
+
+export const useConnectedUserCodeWorkflowReferencesQuery = <
+      TData = ConnectedUserCodeWorkflowReferencesQuery,
+      TError = unknown
+    >(
+      variables: ConnectedUserCodeWorkflowReferencesQueryVariables,
+      options?: Omit<UseQueryOptions<ConnectedUserCodeWorkflowReferencesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ConnectedUserCodeWorkflowReferencesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ConnectedUserCodeWorkflowReferencesQuery, TError, TData>(
+      {
+    queryKey: ['connectedUserCodeWorkflowReferences', variables],
+    queryFn: fetcher<ConnectedUserCodeWorkflowReferencesQuery, ConnectedUserCodeWorkflowReferencesQueryVariables>(ConnectedUserCodeWorkflowReferencesDocument, variables),
     ...options
   }
     )};

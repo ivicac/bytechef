@@ -1588,6 +1588,7 @@ export enum AuthorizationType {
 export type AutomationWorkflowProject = {
   __typename?: 'AutomationWorkflowProject';
   categoryId?: Maybe<Scalars['ID']['output']>;
+  codeWorkflowProject: Scalars['Boolean']['output'];
   description?: Maybe<Scalars['String']['output']>;
   id: Scalars['ID']['output'];
   lastPublishedVersion?: Maybe<Scalars['Int']['output']>;
@@ -1825,6 +1826,15 @@ export type ConnectedUser = {
   lastModifiedBy?: Maybe<Scalars['String']['output']>;
   lastModifiedDate?: Maybe<Scalars['String']['output']>;
   version?: Maybe<Scalars['Int']['output']>;
+};
+
+export type ConnectedUserCodeWorkflowReference = {
+  __typename?: 'ConnectedUserCodeWorkflowReference';
+  catalogWorkflowUuid: Scalars['ID']['output'];
+  dangling: Scalars['Boolean']['output'];
+  danglingReason?: Maybe<Scalars['String']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  externalUserId: Scalars['String']['output'];
 };
 
 export type ConnectedUserMcpServer = {
@@ -3799,6 +3809,7 @@ export type Mutation = {
   updateMcpToolEnabled?: Maybe<McpTool>;
   /** Update an organization connection's name and tags. (admin only, EE only) */
   updateOrganizationConnection: Scalars['Boolean']['output'];
+  updateProjectErrorWorkflow?: Maybe<Scalars['Boolean']['output']>;
   updateUser: AdminUser;
   updateWorkflowAlertRule: WorkflowAlertRule;
   updateWorkspaceAiGatewayModel?: Maybe<AiGatewayModel>;
@@ -5508,6 +5519,12 @@ export type MutationUpdateOrganizationConnectionArgs = {
 };
 
 
+export type MutationUpdateProjectErrorWorkflowArgs = {
+  errorProjectWorkflowId?: InputMaybe<Scalars['ID']['input']>;
+  projectId: Scalars['ID']['input'];
+};
+
+
 export type MutationUpdateUserArgs = {
   login: Scalars['String']['input'];
   role: Scalars['String']['input'];
@@ -6052,6 +6069,7 @@ export type Query = {
    */
   componentPolicies: Array<ComponentPolicy>;
   connectedUser?: Maybe<ConnectedUser>;
+  connectedUserCodeWorkflowReferences: Array<ConnectedUserCodeWorkflowReference>;
   connectedUserMcpServers: Array<ConnectedUserMcpServer>;
   connectedUserProjects: Array<ConnectedUserProject>;
   connectedUsers?: Maybe<ConnectedUserPage>;
@@ -6829,6 +6847,11 @@ export type QueryComponentDefinitionsArgs = {
 
 export type QueryConnectedUserArgs = {
   id?: InputMaybe<Scalars['ID']['input']>;
+};
+
+
+export type QueryConnectedUserCodeWorkflowReferencesArgs = {
+  catalogWorkflowUuids: Array<Scalars['ID']['input']>;
 };
 
 
