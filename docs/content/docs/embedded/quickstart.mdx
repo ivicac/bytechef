@@ -39,13 +39,13 @@ You'll store the private key as a secret in your backend (e.g. `BYTECHEF_SIGNING
 
 ## 2. Create an API Key (optional, for server-to-server calls)
 
-If your backend needs to list integrations, look up connected users, or perform admin work, create an API Key:
+If your backend needs to call the embedded API on behalf of your users without minting a JWT — listing a user's integrations, executing actions, reading workflow executions — create an API Key:
 
 1. Go to **Embedded → Settings → API Keys**.
 2. Click **New API Key**, give it a name.
 3. Copy the **secret key** — also shown only once.
 
-Use this in an `Authorization: Bearer <secret>` header for the admin/internal `/api/embedded/internal` endpoints.
+Use it in an `Authorization: Bearer <secret>` header against the public API's `/{externalUserId}`-prefixed routes, e.g. `GET /api/embedded/v1/{externalUserId}/integrations` — with an API Key, the connected user is identified by the path segment instead of a JWT `sub` claim. API Keys are not accepted on the `/api/embedded/internal` admin endpoints; those are reserved for browser sessions in the ByteChef admin UI.
 
 ---
 
@@ -95,6 +95,10 @@ const token = jwt.sign(
 ```
 
 Keep the TTL short (10 minutes is a good default) and mint a fresh token per session.
+
+<Callout title="Connected Users are created automatically">
+    There is no "create connected user" endpoint. The first request authenticated with a user's JWT (or with an API Key against that user's `/{externalUserId}/…` routes) automatically creates the **Connected User** record for that external id. If a user was disabled by an admin, later requests are rejected until they are re-enabled under **Embedded → Connected Users**.
+</Callout>
 
 ---
 
@@ -205,7 +209,7 @@ You can also generate a starter workflow for a user from a natural-language prom
 
 ## Next steps
 
-- Customize the connect dialog branding (see the SDK README).
+- Connect-dialog branding customization is on the roadmap; today the dialog ships with a neutral built-in theme.
 - Add more integrations and version them — publish a `V2` while `V1` continues running for existing users.
 - Restrict integrations or individual workflows to a subset of users with **[Permission Expressions](/embedded/integrations)**.
 - Configure additional environments (Stage, Production) and promote configurations between them.

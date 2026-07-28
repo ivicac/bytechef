@@ -5,6 +5,10 @@ description: "Programmatic project, workflow, and connection management — desi
 
 The Embedded Configuration API is the programmatic surface for managing the same things the visual UI manages — projects, workflows, connections, environments — but from your product's backend, on behalf of your customers.
 
+<Callout type="warn" title="Roadmap notice">
+    This page describes the design direction of the configuration API. The core resources exist today (see the [Quick Start](/embedded/quickstart) and the public OpenAPI spec), but several conveniences described below — idempotency keys, webhook callbacks for long-running operations, and stable cursor pagination on every list endpoint — are planned rather than shipped. Verify against the OpenAPI spec before building on them.
+</Callout>
+
 ## Why a configuration API
 
 Embedded customers shouldn't need to leave your product to manage their integrations. Every action the UI exposes — create a project, import a workflow, configure a connection, promote a version — needs to be callable from your code so you can wrap it in your own UX.

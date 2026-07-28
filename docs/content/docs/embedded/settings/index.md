@@ -101,13 +101,15 @@ They do **not** replace Signing Keys: end-user-scoped calls (those made on behal
 
 #### Using the key
 
-Pass it as a bearer token:
+Pass it as a bearer token against the public API's `/{externalUserId}`-prefixed routes — the connected user is identified by the path segment:
 
 ```http
-GET /api/embedded/internal/integrations HTTP/1.1
+GET /api/embedded/v1/user-42/integrations HTTP/1.1
 Authorization: Bearer <your-api-key-secret>
 X-Environment: DEVELOPMENT
 ```
+
+API Keys are not accepted on the `/api/embedded/internal` admin endpoints — those require a ByteChef admin session. For calls made from your end user's browser (no user id in the path), use a Signing Key JWT instead.
 
 #### Losing an API Key
 
