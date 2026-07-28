@@ -23,6 +23,7 @@ import com.bytechef.automation.configuration.dto.SharedProjectDTO;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.commons.util.CollectionUtils;
+import com.bytechef.graphql.error.GraphQlBadRequestException;
 import com.bytechef.platform.category.domain.Category;
 import com.bytechef.platform.category.service.CategoryService;
 import com.bytechef.platform.tag.domain.Tag;
@@ -104,7 +105,11 @@ public class ProjectGraphQlController {
     public Boolean updateProjectErrorWorkflow(
         @Argument long projectId, @Argument @Nullable Long errorProjectWorkflowId) {
 
-        projectFacade.updateProjectErrorWorkflow(projectId, errorProjectWorkflowId);
+        try {
+            projectFacade.updateProjectErrorWorkflow(projectId, errorProjectWorkflowId);
+        } catch (IllegalArgumentException illegalArgumentException) {
+            throw new GraphQlBadRequestException(illegalArgumentException.getMessage(), illegalArgumentException);
+        }
 
         return true;
     }

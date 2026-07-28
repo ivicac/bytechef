@@ -24,6 +24,7 @@ import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectWorkflowFacade;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.graphql.error.GraphQlBadRequestException;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
 import org.junit.jupiter.api.Assertions;
@@ -70,6 +71,19 @@ class ProjectWorkflowGraphQlControllerErrorWorkflowTest {
         assertTrue(result);
 
         verify(projectWorkflowFacade).updateWorkflowErrorWorkflow(1L, 10L, null, true);
+    }
+
+    @Test
+    void testUpdateProjectWorkflowErrorWorkflowWrapsValidationFailureAsGraphQlBadRequest() {
+        Mockito.doThrow(new IllegalArgumentException("A workflow cannot be its own error workflow"))
+            .when(projectWorkflowFacade)
+            .updateWorkflowErrorWorkflow(1L, 10L, 10L, false);
+
+        GraphQlBadRequestException exception = Assertions.assertThrows(
+            GraphQlBadRequestException.class,
+            () -> projectWorkflowGraphQlController.updateProjectWorkflowErrorWorkflow(1L, 10L, 10L, false));
+
+        Assertions.assertEquals("A workflow cannot be its own error workflow", exception.getMessage());
     }
 
     @Test

@@ -25,6 +25,7 @@ import com.bytechef.automation.configuration.dto.SharedWorkflowDTO;
 import com.bytechef.automation.configuration.dto.WorkflowTemplateDTO;
 import com.bytechef.automation.configuration.facade.ProjectWorkflowFacade;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.graphql.error.GraphQlBadRequestException;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.configuration.dto.WorkflowDTO;
 import com.bytechef.platform.configuration.facade.WorkflowFacade;
@@ -93,8 +94,12 @@ public class ProjectWorkflowGraphQlController {
         @Argument long projectId, @Argument long projectWorkflowId,
         @Argument @Nullable Long errorProjectWorkflowId, @Argument boolean errorWorkflowDisabled) {
 
-        projectWorkflowFacade.updateWorkflowErrorWorkflow(
-            projectId, projectWorkflowId, errorProjectWorkflowId, errorWorkflowDisabled);
+        try {
+            projectWorkflowFacade.updateWorkflowErrorWorkflow(
+                projectId, projectWorkflowId, errorProjectWorkflowId, errorWorkflowDisabled);
+        } catch (IllegalArgumentException illegalArgumentException) {
+            throw new GraphQlBadRequestException(illegalArgumentException.getMessage(), illegalArgumentException);
+        }
 
         return true;
     }
