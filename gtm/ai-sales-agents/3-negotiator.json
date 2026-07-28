@@ -1,0 +1,167 @@
+{
+  "label": "Agent 3 - Negotiator",
+  "description": "Watches the inbox. On every reply from a lead it negotiates within your price ranges, and every outgoing email waits for your approve / correct on Telegram. On acceptance it sends the booking link and writes the deal to the Deals sheet.",
+  "inputs": [],
+  "triggers": [
+    {
+      "name": "googleMail_1",
+      "type": "googleMail/v1/newEmailPolling",
+      "parameters": {
+        "format": "SIMPLE"
+      },
+      "connections": {
+        "googleMail": {
+          "componentName": "googleMail",
+          "componentVersion": 1
+        }
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "name": "googleSheets_1",
+      "type": "googleSheets/v1/getRows",
+      "parameters": {
+        "spreadsheetId": "REPLACE_WITH_SPREADSHEET_ID",
+        "sheetName": "Leads",
+        "isTheFirstRowHeader": true
+      },
+      "connections": {
+        "googleSheets": {
+          "componentName": "googleSheets",
+          "componentVersion": 1
+        }
+      }
+    },
+    {
+      "name": "aiAgent_1",
+      "type": "aiAgent/v1/chat",
+      "parameters": {
+        "format": "SIMPLE",
+        "systemPrompt": "You are my negotiation agent. You handle replies from leads in my inbox.\n\nOFFER (edit this block):\n- LinkedIn Masterclass delivered in-house for company teams\n- Moderating and hosting conferences, panels and fireside chats\n- Keynote talks at conferences\n- Marketing campaigns run on my personal LinkedIn profile\n\nPRICE RANGES in EUR, excl. VAT (edit this block):\n- LinkedIn Masterclass: up to 15 people 2500-3500, 16-30 people 3500-5000. Floor: 2200.\n- Keynote talk: 1500-3000 depending on audience size and travel. Floor: 1200.\n- Moderation / hosting: half day 1200-1800, full day 2000-2800. Floor: 1000.\n- LinkedIn campaign: 1500-4000 per campaign. Floor: 1200.\nTravel outside Zagreb is billed extra.\n\nHow you work:\n1. Use the Leads sheet rows in the prompt to find the sender (match by email). If the sender is NOT a lead, do nothing and answer \"ignored\".\n2. Classify the reply:\n   - interested / asks for price / counter-offer -> negotiate\n   - \"not now, contact me in <month>\" -> set status \"nurturing\", nextTouch to that date, send a short friendly acknowledgement\n   - not interested -> set status \"lost\", send a one line thank you\n3. Negotiating: open at the top of the range. On a counter-offer, concede at most 10% per round and always trade something (fewer hours, remote, smaller group, payment upfront). Never go below the floor.\n4. Every email you send goes through my approval first. If I reject with a comment (for example \"offer 1800\"), follow the comment exactly and send again.\n5. When the client clearly accepts a price: reply to confirm, include my booking link https://calendly.com/REPLACE_WITH_YOUR_LINK so they can pick the date, add the deal to the Deals sheet and set the lead status to \"won\".\n6. Always update the lead row (rowNumber = position in the list + 2, the first row in the list is row 2).\nWrite in the sender's language, short, warm and concrete, no em dashes.\nFinish with a one line summary of what you did.",
+        "userPrompt": "New email\nFrom: ${googleMail_1.from}\nSubject: ${googleMail_1.subject}\nThread: ${googleMail_1.threadId}\n\n${googleMail_1.bodyPlain}\n\nLeads sheet rows: ${googleSheets_1}",
+        "maxToolCalls": 15
+      },
+      "clusterElements": {
+        "model": {
+          "name": "openAi_1",
+          "type": "openAi/v1/model",
+          "parameters": {
+            "model": "gpt-5-mini"
+          },
+          "connections": {
+            "openAi_1": {
+              "componentName": "openAi",
+              "componentVersion": 1
+            }
+          }
+        },
+        "tools": [
+          {
+            "name": "googleSheets_2",
+            "type": "googleSheets/v1/updateRow",
+            "parameters": {
+              "spreadsheetId": "REPLACE_WITH_SPREADSHEET_ID",
+              "sheetName": "Leads",
+              "rowNumber": "=fromAi('rowNumber', 'INTEGER', 'Sheet row of the lead: position in the Leads list + 2')",
+              "isTheFirstRowHeader": true,
+              "updateWholeRow": false,
+              "row": {
+                "values": [
+                  {
+                    "column": "status",
+                    "value": "=fromAi('status', 'STRING', 'negotiating, nurturing, won or lost')"
+                  },
+                  {
+                    "column": "nextTouch",
+                    "value": "=fromAi('nextTouch', 'STRING', 'yyyy-MM-dd for the next follow-up, empty if none')"
+                  },
+                  {
+                    "column": "notes",
+                    "value": "=fromAi('notes', 'STRING', 'One line on where the negotiation stands, incl. last offered price')"
+                  }
+                ]
+              }
+            },
+            "connections": {
+              "googleSheets_2": {
+                "componentName": "googleSheets",
+                "componentVersion": 1
+              }
+            }
+          },
+          {
+            "name": "aiAgentUtils_1",
+            "type": "aiAgentUtils/v1/approvalGateTool",
+            "parameters": {
+              "name": "Approve outgoing email",
+              "approvalExpiresIn": 2,
+              "approvalExpiresInUnit": "DAYS"
+            },
+            "clusterElements": {
+              "tools": [
+                {
+                  "name": "googleMail_2",
+                  "type": "googleMail/v1/replyToEmail",
+                  "parameters": {
+                    "id": "${googleMail_1.id}",
+                    "to": [
+                      "=fromAi('to', 'STRING', 'Email address of the lead, address only')"
+                    ],
+                    "bodyType": "plain",
+                    "body": "=fromAi('body', 'STRING', 'The reply text')"
+                  },
+                  "connections": {
+                    "googleMail_2": {
+                      "componentName": "googleMail",
+                      "componentVersion": 1
+                    }
+                  }
+                },
+                {
+                  "name": "googleSheets_3",
+                  "type": "googleSheets/v1/insertRow",
+                  "parameters": {
+                    "spreadsheetId": "REPLACE_WITH_SPREADSHEET_ID",
+                    "sheetName": "Deals",
+                    "isTheFirstRowHeader": true,
+                    "row": {
+                      "values": {
+                        "email": "=fromAi('email', 'STRING', 'Client email')",
+                        "name": "=fromAi('name', 'STRING', 'Client contact name')",
+                        "company": "=fromAi('company', 'STRING', 'Client company')",
+                        "engagement": "=fromAi('engagement', 'STRING', 'Masterclass, Keynote, Moderation or LinkedIn campaign, plus a short description')",
+                        "details": "=fromAi('details', 'STRING', 'Group size, duration, location, event name, anything agreed')",
+                        "price": "=fromAi('price', 'NUMBER', 'Agreed price in EUR excl. VAT')",
+                        "status": "won"
+                      }
+                    }
+                  },
+                  "connections": {
+                    "googleSheets_3": {
+                      "componentName": "googleSheets",
+                      "componentVersion": 1
+                    }
+                  }
+                }
+              ],
+              "approvalChannels": [
+                {
+                  "name": "telegram_ch_1",
+                  "type": "telegram/v1/telegram",
+                  "parameters": {},
+                  "connections": {
+                    "telegram_ch_1": {
+                      "componentName": "telegram",
+                      "componentVersion": 1
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
