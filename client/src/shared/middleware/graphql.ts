@@ -2832,7 +2832,7 @@ export type ConnectedUserCodeWorkflowReferencesQueryVariables = Exact<{
 }>;
 
 
-export type ConnectedUserCodeWorkflowReferencesQuery = { connectedUserCodeWorkflowReferences: Array<{ catalogWorkflowUuid: string, externalUserId: string, enabled: boolean, dangling: boolean, danglingReason: string | null }> };
+export type ConnectedUserCodeWorkflowReferencesQuery = { connectedUserCodeWorkflowReferences: Array<{ catalogWorkflowUuid: string, externalUserId: string, environment: string, enabled: boolean, dangling: boolean, danglingReason: string | null }> };
 
 export type ConnectedUserMcpServersQueryVariables = Exact<{
   connectedUserId: string | number;
@@ -14074,6 +14074,7 @@ export const ConnectedUserCodeWorkflowReferencesDocument = new TypedDocumentStri
   connectedUserCodeWorkflowReferences(catalogWorkflowUuids: $catalogWorkflowUuids) {
     catalogWorkflowUuid
     externalUserId
+    environment
     enabled
     dangling
     danglingReason

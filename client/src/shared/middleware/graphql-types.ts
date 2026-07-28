@@ -1834,6 +1834,7 @@ export type ConnectedUserCodeWorkflowReference = {
   dangling: Scalars['Boolean']['output'];
   danglingReason?: Maybe<Scalars['String']['output']>;
   enabled: Scalars['Boolean']['output'];
+  environment: Scalars['String']['output'];
   externalUserId: Scalars['String']['output'];
 };
 

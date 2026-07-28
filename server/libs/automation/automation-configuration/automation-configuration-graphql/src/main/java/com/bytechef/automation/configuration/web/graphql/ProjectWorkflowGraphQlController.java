@@ -38,6 +38,7 @@ import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
 /**
@@ -104,7 +105,10 @@ public class ProjectWorkflowGraphQlController {
         return true;
     }
 
+    // Gated: these back the error-workflow pickers, whose mutation is authorized on the same project. Leaving the
+    // reads open would let any authenticated user enumerate another workspace's workflow ids and labels.
     @QueryMapping
+    @PreAuthorize("hasPermission(#projectId, 'Project', 'WORKFLOW_EDIT')")
     public List<ProjectWorkflow> eligibleErrorWorkflows(@Argument long projectId, @Argument int projectVersion) {
         return projectWorkflowService.getProjectWorkflows(projectId, projectVersion)
             .stream()
@@ -118,6 +122,7 @@ public class ProjectWorkflowGraphQlController {
     }
 
     @QueryMapping
+    @PreAuthorize("hasPermission(#id, 'ProjectWorkflow', 'WORKFLOW_EDIT')")
     public ProjectWorkflow projectWorkflow(@Argument long id) {
         return projectWorkflowService.getProjectWorkflow(id);
     }
