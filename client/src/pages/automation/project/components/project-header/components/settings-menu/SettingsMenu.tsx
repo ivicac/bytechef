@@ -2,6 +2,7 @@ import Button from '@/components/Button/Button';
 import {DropdownMenu, DropdownMenuContent, DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import {Tabs, TabsContent, TabsList, TabsTrigger} from '@/components/ui/tabs';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
+import ErrorWorkflowDialog from '@/pages/automation/project/components/ErrorWorkflowDialog';
 import ProjectGitConfigurationDialog from '@/pages/automation/project/components/ProjectGitConfigurationDialog';
 import {ProjectShareDialog} from '@/pages/automation/project/components/ProjectShareDialog';
 import ProjectVersionHistorySheet from '@/pages/automation/project/components/ProjectVersionHistorySheet';
@@ -34,6 +35,7 @@ const SettingsMenu = ({project, updateWorkflowMutation, workflow}: ProjectHeader
     const [showDeleteProjectAlertDialog, setShowDeleteProjectAlertDialog] = useState(false);
     const [showDeleteWorkflowAlertDialog, setShowDeleteWorkflowAlertDialog] = useState(false);
     const [showEditProjectDialog, setShowEditProjectDialog] = useState(false);
+    const [showErrorWorkflowDialog, setShowErrorWorkflowDialog] = useState(false);
     const [showProjectGitConfigurationDialog, setShowProjectGitConfigurationDialog] = useState(false);
     const [showProjectShareDialog, setShowProjectShareDialog] = useState(false);
     const [showProjectVersionHistorySheet, setShowProjectVersionHistorySheet] = useState(false);
@@ -114,6 +116,7 @@ const SettingsMenu = ({project, updateWorkflowMutation, workflow}: ProjectHeader
                                 onPullProjectFromGitClick={handlePullProjectFromGitClick}
                                 onShareProject={() => setShowProjectShareDialog(true)}
                                 onShowEditProjectDialogClick={() => setShowEditProjectDialog(true)}
+                                onShowErrorWorkflowDialog={() => setShowErrorWorkflowDialog(true)}
                                 onShowProjectGitConfigurationDialog={() => setShowProjectGitConfigurationDialog(true)}
                                 onShowProjectVersionHistorySheet={() => setShowProjectVersionHistorySheet(true)}
                                 projectGitConfigurationEnabled={projectGitConfiguration?.enabled ?? false}
@@ -157,6 +160,14 @@ const SettingsMenu = ({project, updateWorkflowMutation, workflow}: ProjectHeader
                     updateWorkflowMutation={updateWorkflowMutation}
                     useGetWorkflowQuery={useGetWorkflowQuery}
                     workflowId={workflow.id!}
+                />
+            )}
+
+            {showErrorWorkflowDialog && (
+                <ErrorWorkflowDialog
+                    onClose={() => setShowErrorWorkflowDialog(false)}
+                    projectId={String(project.id!)}
+                    projectVersion={project.lastProjectVersion!}
                 />
             )}
 
