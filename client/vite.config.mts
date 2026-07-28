@@ -27,10 +27,6 @@ export default ({mode}) => {
                 },
                 output: {
                     manualChunks(id) {
-                        if (id.includes('posthog-js')) {
-                            return 'vendor-analytics';
-                        }
-
                         if (id.includes('@tanstack/react-query')) {
                             return 'vendor-query';
                         }
