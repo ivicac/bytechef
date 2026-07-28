@@ -18,7 +18,7 @@ const DIST_PATH = path.resolve(__dirname, '../dist');
 
 const ENTRY_KEYS = ['index.html', 'workflow-builder.html'];
 
-const FORBIDDEN_CONTENT_PATTERN = /monaco-editor|@assistant-ui\/react|posthog-js/;
+const FORBIDDEN_CONTENT_PATTERN = /monaco-editor|assistant-ui|posthog-js/;
 
 async function loadManifest() {
     const raw = await readFile(MANIFEST_PATH, 'utf-8');
@@ -33,6 +33,9 @@ async function walkStaticImports(manifest, entryKey) {
     const visited = new Set();
     const stack = [entryKey];
     let offender;
+    let candidateCount = 0;
+    let scannedCount = 0;
+    const failures = [];
 
     while (stack.length > 0) {
         const key = stack.pop();
@@ -49,17 +52,24 @@ async function walkStaticImports(manifest, entryKey) {
             continue;
         }
 
-        if (chunk.file && !offender) {
-            try {
-                const chunkPath = path.resolve(DIST_PATH, 'assets', chunk.file);
-                const content = await readFile(chunkPath, 'utf-8');
-                const match = content.match(FORBIDDEN_CONTENT_PATTERN);
+        if (chunk.file) {
+            candidateCount++;
 
-                if (match) {
-                    offender = {chunkFile: chunk.file, chunkKey: key, pattern: match[0]};
+            if (!offender) {
+                const chunkPath = path.resolve(DIST_PATH, chunk.file);
+
+                try {
+                    const content = await readFile(chunkPath, 'utf-8');
+                    const match = content.match(FORBIDDEN_CONTENT_PATTERN);
+
+                    scannedCount++;
+
+                    if (match) {
+                        offender = {chunkFile: chunk.file, chunkKey: key, pattern: match[0]};
+                    }
+                } catch (error) {
+                    failures.push({chunkFile: chunk.file, chunkKey: key, chunkPath, error});
                 }
-            } catch (error) {
-                // File read error - skip this chunk
             }
         }
 
@@ -70,7 +80,7 @@ async function walkStaticImports(manifest, entryKey) {
         }
     }
 
-    return {offender, visited};
+    return {candidateCount, failures, offender, scannedCount, visited};
 }
 
 async function main() {
@@ -87,7 +97,7 @@ async function main() {
             return;
         }
 
-        const {offender, visited} = await walkStaticImports(manifest, entryKey);
+        const {candidateCount, failures, offender, scannedCount} = await walkStaticImports(manifest, entryKey);
 
         if (offender) {
             console.error(
@@ -104,11 +114,39 @@ async function main() {
             return;
         }
 
-        results.push({entryKey, staticChunkCount: visited.size});
+        if (failures.length > 0) {
+            console.error(
+                `Entry "${entryKey}": assertion cannot run: ${failures.length} of ${candidateCount} chunks unreadable.`
+            );
+
+            for (const failure of failures.slice(0, 5)) {
+                console.error(
+                    `  - ${failure.chunkFile} (manifest key "${failure.chunkKey}", path: ${failure.chunkPath}): ` +
+                        `${failure.error.message}`
+                );
+            }
+
+            process.exit(1);
+
+            return;
+        }
+
+        if (scannedCount !== candidateCount) {
+            console.error(
+                `Entry "${entryKey}": scanned ${scannedCount} chunks but expected ${candidateCount} ` +
+                    '(scanned-chunk count mismatch) — assertion cannot be trusted.'
+            );
+
+            process.exit(1);
+
+            return;
+        }
+
+        results.push({entryKey, scannedCount});
     }
 
-    for (const {entryKey, staticChunkCount} of results) {
-        console.log(`${entryKey}: ${staticChunkCount} statically reachable chunk(s), none forbidden.`);
+    for (const {entryKey, scannedCount} of results) {
+        console.log(`${entryKey}: ${scannedCount} chunks scanned, none forbidden.`);
     }
 
     process.exit(0);
