@@ -1,0 +1,162 @@
+{
+  "label": "Agent 5 - Proposal generator",
+  "description": "When a deal lands in the Deals sheet: writes a personalised proposal in your voice, builds it from your Google Docs template, sends it to you on Telegram for a 3-minute review and emails it to the client once you approve.",
+  "inputs": [],
+  "triggers": [
+    {
+      "name": "googleSheets_1",
+      "type": "googleSheets/v1/newRow",
+      "parameters": {
+        "spreadsheetId": "REPLACE_WITH_SPREADSHEET_ID",
+        "isTheFirstRowHeader": true,
+        "sheetName": "Deals"
+      },
+      "connections": {
+        "googleSheets": {
+          "componentName": "googleSheets",
+          "componentVersion": 1
+        }
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "name": "aiAgent_1",
+      "type": "aiAgent/v1/chat",
+      "parameters": {
+        "format": "SIMPLE",
+        "systemPrompt": "You write my proposals. They must sound like I wrote them myself.\n\nMY PAST PROPOSALS (paste 2-3 real ones here, the agent copies tone, structure and payment terms from them):\n<<PASTE HERE>>\n\nRules:\n- Use only facts from the deal row. If something is missing (date, group size, location), write \"to be confirmed\" instead of inventing it.\n- Payment terms default: 50% on order, 50% within 15 days after delivery, unless the deal row says otherwise.\n- Valid for 15 days.\n- Write in the client's language (Croatian for Croatian companies), no em dashes.\n- emailBody: 3-4 sentences max, ends with a request to confirm.",
+        "userPrompt": "Deal: ${googleSheets_1}",
+        "maxToolCalls": 15,
+        "response": {
+          "responseFormat": "JSON",
+          "responseSchema": "{\"type\": \"object\", \"properties\": {\"language\": {\"type\": \"string\"}, \"title\": {\"type\": \"string\"}, \"intro\": {\"type\": \"string\"}, \"scope\": {\"type\": \"string\"}, \"duration\": {\"type\": \"string\"}, \"deliverables\": {\"type\": \"string\"}, \"price\": {\"type\": \"string\", \"description\": \"Formatted price incl. currency and VAT note\"}, \"paymentTerms\": {\"type\": \"string\"}, \"validUntil\": {\"type\": \"string\"}, \"emailSubject\": {\"type\": \"string\"}, \"emailBody\": {\"type\": \"string\"}}, \"required\": [\"language\", \"title\", \"intro\", \"scope\", \"duration\", \"deliverables\", \"price\", \"paymentTerms\", \"validUntil\", \"emailSubject\", \"emailBody\"]}"
+        }
+      },
+      "clusterElements": {
+        "model": {
+          "name": "openAi_1",
+          "type": "openAi/v1/model",
+          "parameters": {
+            "model": "gpt-5-mini"
+          },
+          "connections": {
+            "openAi_1": {
+              "componentName": "openAi",
+              "componentVersion": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "name": "googleDocs_1",
+      "type": "googleDocs/v1/createDocumentFromTemplate",
+      "parameters": {
+        "fileId": "REPLACE_WITH_PROPOSAL_TEMPLATE_DOC_ID",
+        "placeholderFormat": "{{}}",
+        "fileName": "Ponuda - ${googleSheets_1.company} - ${aiAgent_1.title}",
+        "values": {
+          "client": "${googleSheets_1.company}",
+          "contact": "${googleSheets_1.name}",
+          "title": "${aiAgent_1.title}",
+          "intro": "${aiAgent_1.intro}",
+          "scope": "${aiAgent_1.scope}",
+          "duration": "${aiAgent_1.duration}",
+          "deliverables": "${aiAgent_1.deliverables}",
+          "price": "${aiAgent_1.price}",
+          "paymentTerms": "${aiAgent_1.paymentTerms}",
+          "validUntil": "${aiAgent_1.validUntil}"
+        }
+      },
+      "connections": {
+        "googleDocs": {
+          "componentName": "googleDocs",
+          "componentVersion": 1
+        }
+      }
+    },
+    {
+      "name": "approval_1",
+      "type": "approval/v1/requestApproval",
+      "parameters": {
+        "formTitle": "Proposal for ${googleSheets_1.company}",
+        "formDescription": "${aiAgent_1.title}, ${aiAgent_1.price}\nReview: https://docs.google.com/document/d/${googleDocs_1.documentId}/edit\n\nEmail to client:\n${aiAgent_1.emailBody}",
+        "expiresIn": 7,
+        "expiresInUnit": "DAYS"
+      },
+      "clusterElements": {
+        "approvalChannels": [
+          {
+            "name": "telegram_ch_1",
+            "type": "telegram/v1/telegram",
+            "parameters": {},
+            "connections": {
+              "telegram_ch_1": {
+                "componentName": "telegram",
+                "componentVersion": 1
+              }
+            }
+          }
+        ]
+      }
+    },
+    {
+      "name": "condition_1",
+      "type": "condition/v1",
+      "parameters": {
+        "rawExpression": true,
+        "expression": "=${approval_1.approved} == true",
+        "caseTrue": [
+          {
+            "name": "googleDrive_1",
+            "type": "googleDrive/v1/shareFile",
+            "parameters": {
+              "fileId": "${googleDocs_1.documentId}"
+            },
+            "connections": {
+              "googleDrive": {
+                "componentName": "googleDrive",
+                "componentVersion": 1
+              }
+            }
+          },
+          {
+            "name": "googleMail_1",
+            "type": "googleMail/v1/sendEmail",
+            "parameters": {
+              "to": [
+                "${googleSheets_1.email}"
+              ],
+              "subject": "${aiAgent_1.emailSubject}",
+              "bodyType": "plain",
+              "body": "${aiAgent_1.emailBody}\n\nhttps://docs.google.com/document/d/${googleDocs_1.documentId}/view"
+            },
+            "connections": {
+              "googleMail": {
+                "componentName": "googleMail",
+                "componentVersion": 1
+              }
+            }
+          }
+        ],
+        "caseFalse": [
+          {
+            "name": "telegram_1",
+            "type": "telegram/v1/sendMessage",
+            "parameters": {
+              "chat_id": "REPLACE_WITH_TELEGRAM_CHAT_ID",
+              "text": "Proposal for ${googleSheets_1.company} not sent. Your note: ${approval_1.comment}"
+            },
+            "connections": {
+              "telegram": {
+                "componentName": "telegram",
+                "componentVersion": 1
+              }
+            }
+          }
+        ]
+      }
+    }
+  ]
+}

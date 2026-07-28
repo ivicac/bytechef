@@ -1,0 +1,240 @@
+{
+  "label": "Agent 1 - Prospector",
+  "description": "Every weekday morning: takes new leads from the Leads sheet, enriches them with Apollo and Hunter, writes a personalised first message and sends it by email, WhatsApp or (via you) LinkedIn.",
+  "inputs": [],
+  "triggers": [
+    {
+      "name": "schedule_1",
+      "type": "schedule/v1/cron",
+      "parameters": {
+        "timezone": "Europe/Zagreb",
+        "expression": "0 9 * * 1-5"
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "name": "googleSheets_1",
+      "type": "googleSheets/v1/getRows",
+      "parameters": {
+        "spreadsheetId": "REPLACE_WITH_SPREADSHEET_ID",
+        "sheetName": "Leads",
+        "isTheFirstRowHeader": true
+      },
+      "connections": {
+        "googleSheets": {
+          "componentName": "googleSheets",
+          "componentVersion": 1
+        }
+      }
+    },
+    {
+      "name": "loop_1",
+      "type": "loop/v1",
+      "parameters": {
+        "items": "${googleSheets_1}",
+        "iteratee": [
+          {
+            "name": "condition_1",
+            "type": "condition/v1",
+            "parameters": {
+              "rawExpression": false,
+              "conditions": [
+                [
+                  {
+                    "type": "string",
+                    "value1": "${loop_1.item.status}",
+                    "operation": "EQUALS",
+                    "value2": "new"
+                  }
+                ]
+              ],
+              "caseTrue": [
+                {
+                  "name": "apollo_1",
+                  "type": "apollo/v1/enrichPerson",
+                  "parameters": {
+                    "name": "${loop_1.item.name}",
+                    "email": "${loop_1.item.email}",
+                    "organization_name": "${loop_1.item.company}",
+                    "domain": "${loop_1.item.domain}",
+                    "linkedin_url": "${loop_1.item.linkedinUrl}"
+                  },
+                  "connections": {
+                    "apollo": {
+                      "componentName": "apollo",
+                      "componentVersion": 1
+                    }
+                  }
+                },
+                {
+                  "name": "hunter_1",
+                  "type": "hunter/v1/companyEnrichment",
+                  "parameters": {
+                    "domain": "${loop_1.item.domain}"
+                  },
+                  "connections": {
+                    "hunter": {
+                      "componentName": "hunter",
+                      "componentVersion": 1
+                    }
+                  }
+                },
+                {
+                  "name": "aiAgent_1",
+                  "type": "aiAgent/v1/chat",
+                  "parameters": {
+                    "format": "SIMPLE",
+                    "systemPrompt": "You are my prospecting agent. You write the first message to a new lead.\n\nOFFER (edit this block):\n- LinkedIn Masterclass delivered in-house for company teams\n- Moderating and hosting conferences, panels and fireside chats\n- Keynote talks at conferences\n- Marketing campaigns run on my personal LinkedIn profile\n\nRules:\n- Pick ONE channel with the best chance of a reply for this type of lead:\n  \"email\" for corporate decision makers (HR, L&D, marketing, C-level),\n  \"whatsapp\" only if a phone number is present and the lead is an event organizer or a warm contact,\n  \"linkedin\" when there is a LinkedIn URL and no email, or the person is clearly LinkedIn-native.\n- Pick the ONE offer that fits the lead best (an IT company with 200 people gets the Masterclass, a conference organizer gets moderation or a keynote).\n- Write in the lead's language. Default to Croatian for .hr domains, English otherwise.\n- Max 90 words. One concrete hook from the enrichment data. One clear ask (a 15 minute call). No buzzwords, no em dashes.\n- For whatsapp and linkedin leave subject empty.",
+                    "userPrompt": "Lead from my sheet: ${loop_1.item}\n\nApollo person enrichment: ${apollo_1}\n\nHunter company enrichment: ${hunter_1}",
+                    "maxToolCalls": 15,
+                    "response": {
+                      "responseFormat": "JSON",
+                      "responseSchema": "{\"type\": \"object\", \"properties\": {\"channel\": {\"type\": \"string\", \"enum\": [\"email\", \"whatsapp\", \"linkedin\"]}, \"offer\": {\"type\": \"string\"}, \"subject\": {\"type\": \"string\"}, \"message\": {\"type\": \"string\"}, \"email\": {\"type\": \"string\", \"description\": \"Best email for the lead, from the sheet or Apollo. Empty if none.\"}}, \"required\": [\"channel\", \"offer\", \"subject\", \"message\", \"email\"]}"
+                    }
+                  },
+                  "clusterElements": {
+                    "model": {
+                      "name": "openAi_1",
+                      "type": "openAi/v1/model",
+                      "parameters": {
+                        "model": "gpt-5-mini"
+                      },
+                      "connections": {
+                        "openAi_1": {
+                          "componentName": "openAi",
+                          "componentVersion": 1
+                        }
+                      }
+                    }
+                  }
+                },
+                {
+                  "name": "branch_1",
+                  "type": "branch/v1",
+                  "parameters": {
+                    "expression": "${aiAgent_1.channel}",
+                    "cases": [
+                      {
+                        "key": "email",
+                        "tasks": [
+                          {
+                            "name": "googleMail_1",
+                            "type": "googleMail/v1/sendEmail",
+                            "parameters": {
+                              "to": [
+                                "${aiAgent_1.email}"
+                              ],
+                              "subject": "${aiAgent_1.subject}",
+                              "bodyType": "plain",
+                              "body": "${aiAgent_1.message}"
+                            },
+                            "connections": {
+                              "googleMail": {
+                                "componentName": "googleMail",
+                                "componentVersion": 1
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "key": "whatsapp",
+                        "tasks": [
+                          {
+                            "name": "whatsApp_1",
+                            "type": "whatsApp/v1/sendMessage",
+                            "parameters": {
+                              "to": "${loop_1.item.phone}",
+                              "body": "${aiAgent_1.message}"
+                            },
+                            "connections": {
+                              "whatsApp": {
+                                "componentName": "whatsApp",
+                                "componentVersion": 1
+                              }
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "key": "linkedin",
+                        "tasks": [
+                          {
+                            "name": "telegram_1",
+                            "type": "telegram/v1/sendMessage",
+                            "parameters": {
+                              "chat_id": "REPLACE_WITH_TELEGRAM_CHAT_ID",
+                              "text": "LinkedIn DM to send (LinkedIn API does not allow automated DMs):\n${loop_1.item.name}, ${loop_1.item.company}\n${loop_1.item.linkedinUrl}\n\n${aiAgent_1.message}"
+                            },
+                            "connections": {
+                              "telegram": {
+                                "componentName": "telegram",
+                                "componentVersion": 1
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "default": []
+                  }
+                },
+                {
+                  "name": "googleSheets_2",
+                  "type": "googleSheets/v1/updateRow",
+                  "parameters": {
+                    "spreadsheetId": "REPLACE_WITH_SPREADSHEET_ID",
+                    "sheetName": "Leads",
+                    "rowNumber": "=${loop_1.index} + 2",
+                    "isTheFirstRowHeader": true,
+                    "updateWholeRow": false,
+                    "row": {
+                      "values": [
+                        {
+                          "column": "email",
+                          "value": "${aiAgent_1.email}"
+                        },
+                        {
+                          "column": "status",
+                          "value": "contacted"
+                        },
+                        {
+                          "column": "channel",
+                          "value": "${aiAgent_1.channel}"
+                        },
+                        {
+                          "column": "offer",
+                          "value": "${aiAgent_1.offer}"
+                        },
+                        {
+                          "column": "touchCount",
+                          "value": "1"
+                        },
+                        {
+                          "column": "nextTouch",
+                          "value": "=format(plusDays(now(), 4), 'yyyy-MM-dd')"
+                        },
+                        {
+                          "column": "lastMessage",
+                          "value": "${aiAgent_1.message}"
+                        }
+                      ]
+                    }
+                  },
+                  "connections": {
+                    "googleSheets": {
+                      "componentName": "googleSheets",
+                      "componentVersion": 1
+                    }
+                  }
+                }
+              ],
+              "caseFalse": []
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
