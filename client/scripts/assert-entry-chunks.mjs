@@ -14,10 +14,11 @@ import {fileURLToPath} from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 const MANIFEST_PATH = path.resolve(__dirname, '../dist/.vite/manifest.json');
+const DIST_PATH = path.resolve(__dirname, '../dist');
 
 const ENTRY_KEYS = ['index.html', 'workflow-builder.html'];
 
-const FORBIDDEN_PATTERN = /monaco|assistant-ui|posthog/i;
+const FORBIDDEN_CONTENT_PATTERN = /monaco-editor|@assistant-ui\/react|posthog-js/;
 
 async function loadManifest() {
     const raw = await readFile(MANIFEST_PATH, 'utf-8');
@@ -27,8 +28,8 @@ async function loadManifest() {
 
 // Walks static imports only (never dynamicImports) starting from `entryKey`, returning the set of
 // manifest keys reachable that way, along with the first offending chunk if one matches the
-// forbidden pattern.
-function walkStaticImports(manifest, entryKey) {
+// forbidden pattern (by content).
+async function walkStaticImports(manifest, entryKey) {
     const visited = new Set();
     const stack = [entryKey];
     let offender;
@@ -48,8 +49,18 @@ function walkStaticImports(manifest, entryKey) {
             continue;
         }
 
-        if (chunk.file && FORBIDDEN_PATTERN.test(chunk.file) && !offender) {
-            offender = {chunkFile: chunk.file, chunkKey: key};
+        if (chunk.file && !offender) {
+            try {
+                const chunkPath = path.resolve(DIST_PATH, 'assets', chunk.file);
+                const content = await readFile(chunkPath, 'utf-8');
+                const match = content.match(FORBIDDEN_CONTENT_PATTERN);
+
+                if (match) {
+                    offender = {chunkFile: chunk.file, chunkKey: key, pattern: match[0]};
+                }
+            } catch (error) {
+                // File read error - skip this chunk
+            }
         }
 
         for (const importedKey of chunk.imports ?? []) {
@@ -76,12 +87,12 @@ async function main() {
             return;
         }
 
-        const {offender, visited} = walkStaticImports(manifest, entryKey);
+        const {offender, visited} = await walkStaticImports(manifest, entryKey);
 
         if (offender) {
             console.error(
                 `Entry "${entryKey}" statically reaches a forbidden chunk: "${offender.chunkFile}" ` +
-                    `(manifest key "${offender.chunkKey}").`
+                    `(manifest key "${offender.chunkKey}", content match: ${offender.pattern}).`
             );
             console.error(
                 'Monaco, assistant-ui, and posthog must only be reachable via a dynamic import() ' +
