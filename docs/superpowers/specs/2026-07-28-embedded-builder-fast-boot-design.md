@@ -54,13 +54,17 @@ path's remaining advantage is structural rather than a byte count: `workflow-bui
 legacy `main.tsx` path does), and it reaches the editor chunk via a static import resolvable
 through `modulepreload` rather than a runtime `import()` call, collapsing one fetch→parse→execute
 round trip. Monaco is confirmed absent from both boot graphs (only a 222-byte Suspense-fallback
-stub, not the editor, is statically reachable). A caveat: manifest inspection found a
-`vendor-analytics` chunk (containing the full posthog-js library, ~220 KB) and an
-`aiChatDataComponents` chunk (~277 KB, assistant-ui-adjacent, reached via `useRun`) statically
-reachable in **both** boot graphs despite their consumers using `import('posthog-js')` and a lazy
-copilot/test-chat panel at the source level — the code-splitting boundary does not fully hold at
-the bundler-output level for these two. Not addressed here (verification-only task); tracked as a
-follow-up.
+stub, not the editor, is statically reachable).
+
+Two residual static leaks found during verification were closed by the final-review fix wave:
+a `vendor-analytics` chunk (full posthog-js, ~220 KB) was statically reachable only because a
+`manualChunks` rule forced dynamically-imported posthog into a named chunk — the rule is removed;
+and `aiChatDataComponents` (~277 KB of assistant-ui runtime) leaked through
+`WorkflowEditorLayout`'s static import of `ClusterElementsCanvasDialog` — now a lazy boundary.
+The invariant is guarded by `npm run assert:chunks`
+(`client/scripts/assert-entry-chunks.mjs`): a content-based scan of every statically reachable
+chunk of both entries, verified non-vacuous by a tamper test (a package-name literal appended to
+a reachable chunk fails the run).
 
 ## Design
 
