@@ -9,6 +9,7 @@ import ProjectVersionHistorySheet from '@/pages/automation/project/components/Pr
 import {WorkflowShareDialog} from '@/pages/automation/project/components/WorkflowShareDialog';
 import DeleteProjectAlertDialog from '@/pages/automation/project/components/project-header/components/settings-menu/components/DeleteProjectAlertDialog';
 import ProjectTabButtons from '@/pages/automation/project/components/project-header/components/settings-menu/components/ProjectTabButtons/ProjectTabButtons';
+import WorkflowErrorHandlingDialog from '@/pages/automation/project/components/project-header/components/settings-menu/components/WorkflowErrorHandlingDialog';
 import WorkflowTabButtons from '@/pages/automation/project/components/project-header/components/settings-menu/components/WorkflowTabButtons';
 import {useSettingsMenu} from '@/pages/automation/project/components/project-header/components/settings-menu/hooks/useSettingsMenu';
 import ProjectDialog from '@/pages/automation/projects/components/ProjectDialog';
@@ -39,6 +40,7 @@ const SettingsMenu = ({project, updateWorkflowMutation, workflow}: ProjectHeader
     const [showProjectGitConfigurationDialog, setShowProjectGitConfigurationDialog] = useState(false);
     const [showProjectShareDialog, setShowProjectShareDialog] = useState(false);
     const [showProjectVersionHistorySheet, setShowProjectVersionHistorySheet] = useState(false);
+    const [showWorkflowErrorHandlingDialog, setShowWorkflowErrorHandlingDialog] = useState(false);
     const [showWorkflowShareDialog, setShowWorkflowShareDialog] = useState(false);
 
     const {setShowEditWorkflowDialog, showEditWorkflowDialog} = useWorkflowEditorStore(
@@ -104,6 +106,7 @@ const SettingsMenu = ({project, updateWorkflowMutation, workflow}: ProjectHeader
                                 onShareWorkflow={() => setShowWorkflowShareDialog(true)}
                                 onShowDeleteWorkflowAlertDialog={() => setShowDeleteWorkflowAlertDialog(true)}
                                 onShowEditWorkflowDialog={() => setShowEditWorkflowDialog(true)}
+                                onShowErrorHandlingDialog={() => setShowWorkflowErrorHandlingDialog(true)}
                                 workflowId={workflow.id!}
                             />
                         </TabsContent>
@@ -195,6 +198,15 @@ const SettingsMenu = ({project, updateWorkflowMutation, workflow}: ProjectHeader
                     onSheetOpenChange={setShowProjectVersionHistorySheet}
                     projectVersions={projectVersions}
                     sheetOpen={showProjectVersionHistorySheet}
+                />
+            )}
+
+            {showWorkflowErrorHandlingDialog && (
+                <WorkflowErrorHandlingDialog
+                    onClose={() => setShowWorkflowErrorHandlingDialog(false)}
+                    projectId={String(project.id!)}
+                    projectVersion={project.lastProjectVersion!}
+                    projectWorkflowId={String((workflow as Workflow).projectWorkflowId)}
                 />
             )}
 
