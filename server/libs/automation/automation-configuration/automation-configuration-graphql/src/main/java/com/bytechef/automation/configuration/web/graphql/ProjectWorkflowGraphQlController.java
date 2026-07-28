@@ -25,10 +25,13 @@ import com.bytechef.automation.configuration.dto.SharedWorkflowDTO;
 import com.bytechef.automation.configuration.dto.WorkflowTemplateDTO;
 import com.bytechef.automation.configuration.facade.ProjectWorkflowFacade;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.platform.configuration.domain.WorkflowTrigger;
 import com.bytechef.platform.configuration.dto.WorkflowDTO;
 import com.bytechef.platform.configuration.facade.WorkflowFacade;
+import com.bytechef.platform.definition.WorkflowNodeType;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
@@ -44,6 +47,9 @@ import org.springframework.stereotype.Controller;
 @Controller
 @ConditionalOnCoordinator
 public class ProjectWorkflowGraphQlController {
+
+    private static final String ERROR_TRIGGER_COMPONENT_NAME = "workflow";
+    private static final String ERROR_TRIGGER_OPERATION_NAME = "newWorkflowError";
 
     private final ProjectWorkflowFacade projectWorkflowFacade;
     private final ProjectWorkflowService projectWorkflowService;
@@ -93,6 +99,14 @@ public class ProjectWorkflowGraphQlController {
         return true;
     }
 
+    @QueryMapping
+    public List<ProjectWorkflow> eligibleErrorWorkflows(@Argument long projectId, @Argument int projectVersion) {
+        return projectWorkflowService.getProjectWorkflows(projectId, projectVersion)
+            .stream()
+            .filter(projectWorkflow -> hasErrorTrigger(workflowService.getWorkflow(projectWorkflow.getWorkflowId())))
+            .toList();
+    }
+
     @QueryMapping(name = "preBuiltWorkflowTemplates")
     public List<WorkflowTemplateDTO> preBuiltWorkflowTemplates(@Argument String query, @Argument String category) {
         return projectWorkflowFacade.getPreBuiltWorkflowTemplates(query, category);
@@ -125,5 +139,25 @@ public class ProjectWorkflowGraphQlController {
     @QueryMapping(name = "workflowTemplate")
     public WorkflowTemplateDTO workflowTemplate(@Argument String id, @Argument boolean sharedWorkflow) {
         return projectWorkflowFacade.getWorkflowTemplate(id, sharedWorkflow);
+    }
+
+    /*
+     * Deliberately duplicated from ErrorWorkflowConfigurationValidator#isErrorTrigger (and
+     * ErrorWorkflowResolver#isErrorTrigger) rather than shared cross-module: this module
+     * (automation-configuration-graphql) depends only on automation-configuration-api, so it cannot reach the -service
+     * class that owns the canonical check.
+     */
+    private static boolean hasErrorTrigger(Workflow workflow) {
+        for (WorkflowTrigger workflowTrigger : WorkflowTrigger.of(workflow)) {
+            WorkflowNodeType workflowNodeType = WorkflowNodeType.ofType(workflowTrigger.getType());
+
+            if (Objects.equals(workflowNodeType.name(), ERROR_TRIGGER_COMPONENT_NAME) &&
+                Objects.equals(workflowNodeType.operation(), ERROR_TRIGGER_OPERATION_NAME)) {
+
+                return true;
+            }
+        }
+
+        return false;
     }
 }

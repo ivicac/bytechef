@@ -19,21 +19,37 @@ package com.bytechef.automation.configuration.web.graphql;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.verify;
 
+import com.bytechef.atlas.configuration.domain.Workflow;
+import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectWorkflowFacade;
+import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.test.extension.ObjectMapperSetupExtension;
+import java.util.List;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
+import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 /**
  * @author Ivica Cardic
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({
+    MockitoExtension.class, ObjectMapperSetupExtension.class
+})
 class ProjectWorkflowGraphQlControllerErrorWorkflowTest {
 
     @Mock
     private ProjectWorkflowFacade projectWorkflowFacade;
+
+    @Mock
+    private ProjectWorkflowService projectWorkflowService;
+
+    @Mock
+    private WorkflowService workflowService;
 
     @InjectMocks
     private ProjectWorkflowGraphQlController projectWorkflowGraphQlController;
@@ -54,5 +70,34 @@ class ProjectWorkflowGraphQlControllerErrorWorkflowTest {
         assertTrue(result);
 
         verify(projectWorkflowFacade).updateWorkflowErrorWorkflow(1L, 10L, null, true);
+    }
+
+    @Test
+    void testEligibleErrorWorkflowsFiltersByTrigger() {
+        ProjectWorkflow eligible = new ProjectWorkflow(1L);
+
+        eligible.setWorkflowId("wf-1");
+
+        ProjectWorkflow ineligible = new ProjectWorkflow(2L);
+
+        ineligible.setWorkflowId("wf-2");
+
+        Mockito.when(projectWorkflowService.getProjectWorkflows(1L, 3))
+            .thenReturn(List.of(eligible, ineligible));
+
+        Workflow errorHandlerWorkflow = new Workflow(
+            "wf-1", "{\"triggers\":[{\"name\":\"t1\",\"type\":\"workflow/v1/newWorkflowError\"}],\"tasks\":[]}",
+            Workflow.Format.JSON);
+
+        Workflow plainWorkflow = new Workflow("wf-2", "{\"triggers\":[],\"tasks\":[]}", Workflow.Format.JSON);
+
+        Mockito.when(workflowService.getWorkflow("wf-1"))
+            .thenReturn(errorHandlerWorkflow);
+        Mockito.when(workflowService.getWorkflow("wf-2"))
+            .thenReturn(plainWorkflow);
+
+        List<ProjectWorkflow> result = projectWorkflowGraphQlController.eligibleErrorWorkflows(1L, 3);
+
+        Assertions.assertEquals(List.of(eligible), result);
     }
 }
