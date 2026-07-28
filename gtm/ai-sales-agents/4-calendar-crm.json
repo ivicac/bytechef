@@ -1,0 +1,171 @@
+{
+  "label": "Agent 4 - Calendar and CRM",
+  "description": "When a won client books a date through Calendly: creates the contact and closed-won deal in HubSpot, puts the engagement in Google Calendar with reminders a week, a day and an hour before, marks the deal booked and pings you on Telegram.",
+  "inputs": [],
+  "triggers": [
+    {
+      "name": "calendly_1",
+      "type": "calendly/v1/inviteeCreated",
+      "parameters": {
+        "scope": "user"
+      },
+      "connections": {
+        "calendly": {
+          "componentName": "calendly",
+          "componentVersion": 1
+        }
+      }
+    }
+  ],
+  "tasks": [
+    {
+      "name": "googleSheets_1",
+      "type": "googleSheets/v1/getRows",
+      "parameters": {
+        "spreadsheetId": "REPLACE_WITH_SPREADSHEET_ID",
+        "sheetName": "Deals",
+        "isTheFirstRowHeader": true
+      },
+      "connections": {
+        "googleSheets": {
+          "componentName": "googleSheets",
+          "componentVersion": 1
+        }
+      }
+    },
+    {
+      "name": "loop_1",
+      "type": "loop/v1",
+      "parameters": {
+        "items": "${googleSheets_1}",
+        "iteratee": [
+          {
+            "name": "condition_1",
+            "type": "condition/v1",
+            "parameters": {
+              "rawExpression": true,
+              "expression": "=${loop_1.item.email}.equalsIgnoreCase(${calendly_1.payload.email}) and ${loop_1.item.status} == 'won'",
+              "caseTrue": [
+                {
+                  "name": "hubspot_1",
+                  "type": "hubspot/v1/createContact",
+                  "parameters": {
+                    "properties": {
+                      "firstname": "${loop_1.item.name}",
+                      "email": "${loop_1.item.email}",
+                      "company": "${loop_1.item.company}"
+                    }
+                  },
+                  "connections": {
+                    "hubspot": {
+                      "componentName": "hubspot",
+                      "componentVersion": 1
+                    }
+                  }
+                },
+                {
+                  "name": "hubspot_2",
+                  "type": "hubspot/v1/createDeal",
+                  "parameters": {
+                    "properties": {
+                      "dealname": "${loop_1.item.engagement} - ${loop_1.item.company}",
+                      "amount": "${loop_1.item.price}",
+                      "pipeline": "default",
+                      "dealstage": "closedwon"
+                    }
+                  },
+                  "connections": {
+                    "hubspot": {
+                      "componentName": "hubspot",
+                      "componentVersion": 1
+                    }
+                  }
+                },
+                {
+                  "name": "googleCalendar_1",
+                  "type": "googleCalendar/v1/createEvent",
+                  "parameters": {
+                    "calendarId": "primary",
+                    "summary": "${loop_1.item.engagement} - ${loop_1.item.company}",
+                    "allDay": false,
+                    "start": "${calendly_1.payload.scheduled_event.start_time}",
+                    "end": "${calendly_1.payload.scheduled_event.end_time}",
+                    "description": "${loop_1.item.details}\nContact: ${loop_1.item.name} <${loop_1.item.email}>\nPrice: ${loop_1.item.price} EUR",
+                    "attendees": [
+                      "${calendly_1.payload.email}"
+                    ],
+                    "useDefault": false,
+                    "reminders": [
+                      {
+                        "method": "popup",
+                        "minutes": 10080
+                      },
+                      {
+                        "method": "email",
+                        "minutes": 1440
+                      },
+                      {
+                        "method": "popup",
+                        "minutes": 60
+                      }
+                    ]
+                  },
+                  "connections": {
+                    "googleCalendar": {
+                      "componentName": "googleCalendar",
+                      "componentVersion": 1
+                    }
+                  }
+                },
+                {
+                  "name": "googleSheets_2",
+                  "type": "googleSheets/v1/updateRow",
+                  "parameters": {
+                    "spreadsheetId": "REPLACE_WITH_SPREADSHEET_ID",
+                    "sheetName": "Deals",
+                    "rowNumber": "=${loop_1.index} + 2",
+                    "isTheFirstRowHeader": true,
+                    "updateWholeRow": false,
+                    "row": {
+                      "values": [
+                        {
+                          "column": "status",
+                          "value": "booked"
+                        },
+                        {
+                          "column": "date",
+                          "value": "${calendly_1.payload.scheduled_event.start_time}"
+                        }
+                      ]
+                    }
+                  },
+                  "connections": {
+                    "googleSheets": {
+                      "componentName": "googleSheets",
+                      "componentVersion": 1
+                    }
+                  }
+                },
+                {
+                  "name": "telegram_1",
+                  "type": "telegram/v1/sendMessage",
+                  "parameters": {
+                    "chat_id": "REPLACE_WITH_TELEGRAM_CHAT_ID",
+                    "text": "New date confirmed: ${calendly_1.payload.scheduled_event.start_time}\n${loop_1.item.engagement}, ${loop_1.item.company}\n${loop_1.item.price} EUR, in HubSpot and calendar."
+                  },
+                  "connections": {
+                    "telegram": {
+                      "componentName": "telegram",
+                      "componentVersion": 1
+                    }
+                  }
+                }
+              ],
+              "caseFalse": []
+            }
+          }
+        ]
+      }
+    }
+  ]
+}
