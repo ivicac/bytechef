@@ -28,6 +28,14 @@ describe('DeployCodeWorkflowDialog', () => {
             )
         );
 
+        const [, requestInit] = fetchMock.mock.calls[0];
+        const body = requestInit.body as FormData;
+        const uploadedFile = body.get('projectFile') as File;
+
+        expect(uploadedFile).toBeInstanceOf(File);
+        expect(uploadedFile.name).toBe('my-project.js');
+        expect(await uploadedFile.text()).toBe('export default {}');
+
         expect(await screen.findByText(/no publicly invocable trigger/i)).toBeInTheDocument();
     });
 });
