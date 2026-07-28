@@ -46,4 +46,13 @@ class ProjectWorkflowGraphQlControllerErrorWorkflowTest {
 
         verify(projectWorkflowFacade).updateWorkflowErrorWorkflow(1L, 10L, 99L, false);
     }
+
+    @Test
+    void testUpdateProjectWorkflowErrorWorkflowDelegatesToTheFacadeWithExplicitNull() {
+        Boolean result = projectWorkflowGraphQlController.updateProjectWorkflowErrorWorkflow(1L, 10L, null, true);
+
+        assertTrue(result);
+
+        verify(projectWorkflowFacade).updateWorkflowErrorWorkflow(1L, 10L, null, true);
+    }
 }
