@@ -2,7 +2,6 @@ import {ReactFlowProvider} from '@xyflow/react';
 
 import './WorkflowEditorLayout.css';
 
-import ClusterElementsCanvasDialog from '@/pages/platform/workflow-editor/components/ClusterElementsCanvasDialog';
 import WorkflowNodeDetailsPanel from '@/pages/platform/workflow-editor/components/WorkflowNodeDetailsPanel';
 import useWorkflowEditorLayout from '@/pages/platform/workflow-editor/hooks/useWorkflowEditorLayout';
 import {useWorkflowLayout} from '@/pages/platform/workflow-editor/hooks/useWorkflowLayout';
@@ -38,6 +37,9 @@ import useWorkflowNodeDetailsPanelStore from './stores/useWorkflowNodeDetailsPan
 import useWorkflowTestChatStore from './stores/useWorkflowTestChatStore';
 import {clearAllWorkflowMutations} from './utils/workflowMutationGuard';
 
+const ClusterElementsCanvasDialog = lazy(
+    () => import('@/pages/platform/workflow-editor/components/ClusterElementsCanvasDialog')
+);
 const IntegrationCodeWorkflowDetail = lazy(
     () => import('@/pages/platform/code-workflow/IntegrationCodeWorkflowDetail')
 );
@@ -318,14 +320,16 @@ const WorkflowEditorLayout = ({
             )}
 
             {clusterDialogMounted && (
-                <ClusterElementsCanvasDialog
-                    onOpenChange={handleClusterElementsCanvasOpenChange}
-                    open={clusterElementsCanvasOpen}
-                    previousComponentDefinitions={previousComponentDefinitions}
-                    updateWorkflowMutation={updateWorkflowMutation!}
-                    workflowNodeOutputs={filteredWorkflowNodeOutputs ?? []}
-                    workflowReferenceId={workflowReferenceId}
-                />
+                <Suspense fallback={null}>
+                    <ClusterElementsCanvasDialog
+                        onOpenChange={handleClusterElementsCanvasOpenChange}
+                        open={clusterElementsCanvasOpen}
+                        previousComponentDefinitions={previousComponentDefinitions}
+                        updateWorkflowMutation={updateWorkflowMutation!}
+                        workflowNodeOutputs={filteredWorkflowNodeOutputs ?? []}
+                        workflowReferenceId={workflowReferenceId}
+                    />
+                </Suspense>
             )}
 
             {workflow.id && workflowTestChatPanelOpen && (
