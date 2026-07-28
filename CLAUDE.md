@@ -1114,11 +1114,13 @@ when an `openapi.yaml` changes. The surrounding `docs/`, `gradlew`, `pom.xml` sc
 When an automation run ends `FAILED`, `ErrorWorkflowJobStatusApplicationEventListener`
 (platform-coordinator, `@Order(300)`, after cost and workflow alerts) dispatches the configured
 error workflow through `PrincipalJobFacade.createJob`. Config is a nullable
-`project.error_project_workflow_id` (set via the `updateProjectErrorWorkflow` GraphQL mutation)
-with a per-workflow override + a separate `error_workflow_disabled` flag on `project_workflow`
-(null already means inherit) — **those two columns exist and the resolver honours them, but there
-is no API to set them yet; only the project-level mutation is wired.** The handler must live in the
-same project and carry a `workflow/newWorkflowError` trigger; both are validated when configured
+`project.error_project_workflow_id` (set via the `updateProjectErrorWorkflow` GraphQL mutation, and
+in the client via the project header's Settings menu → Project tab → Error Workflow dialog) with a
+per-workflow override + a separate `error_workflow_disabled` flag on `project_workflow` (null
+already means inherit) — set together via `updateProjectWorkflowErrorWorkflow` (client: Settings
+menu → Workflow tab → Error Handling dialog's three-state Inherit/Override/Disabled radio). The
+handler must live in the same project and carry a `workflow/newWorkflowError` trigger; both are
+validated when configured
 (`ErrorWorkflowConfigurationValidator`), not at failure time. `errorHandlerFor` job metadata caps
 recursion at depth 1 — a failing handler does not spawn another; a subflow child job is also
 skipped (only the top-level failed run dispatches). Admission gates are deliberately not bypassed,

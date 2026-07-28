@@ -45,9 +45,24 @@ data table, whatever the escalation should be.
 
 ## Configure it
 
-Error-workflow configuration is **GraphQL-only** today — there is no page in the client for it.
+Both the project default and any per-workflow override live in the same place: the **Settings**
+(gear icon) menu in the project header of the workflow editor. That menu has a **Workflow** tab and
+a **Project** tab.
 
-Set a project's default error workflow with the `updateProjectErrorWorkflow` mutation:
+### Project default
+
+On the **Project** tab, **Error Workflow** opens a dialog with a single **Handler workflow**
+dropdown. Pick **None** to leave the project without a default, or pick any eligible workflow to
+run it whenever a workflow in this project fails and hasn't overridden or disabled the default.
+
+The dropdown only lists workflows that are eligible to act as a handler — same-project workflows
+that carry the `workflow/newWorkflowError` trigger. If none exist yet, the dialog shows a hint
+instead of an empty dropdown:
+
+> No eligible handlers yet — add a New Workflow Error trigger to a workflow in this project first.
+
+Under the hood this saves through the `updateProjectErrorWorkflow` mutation
+(`errorProjectWorkflowId: null` clears the default):
 
 ```graphql
 mutation {
@@ -55,24 +70,45 @@ mutation {
 }
 ```
 
-Pass `errorProjectWorkflowId: null` to clear the project's default. The referenced workflow is
-validated at configuration time, not at failure time — a broken reference must not surface as a
-second failure while the first one is being handled:
+### Per-workflow override
+
+On the **Workflow** tab (with a workflow open in the editor), **Error Handling** opens a dialog
+with three radio options:
+
+- **Inherit project default** — use whatever the project's default handler is (or none, if the
+  project has none configured). This is the default state for every workflow.
+- **Override** — pick a different eligible handler for just this workflow, from the same
+  same-project, New-Workflow-Error-trigger-filtered list used by the project dialog (with the
+  workflow itself excluded, since it can't be its own handler). The radio is disabled when no
+  eligible workflow exists besides the current one.
+- **Disabled** — opt this workflow out of error handling entirely, even if the project has a
+  default configured.
+
+This saves through `updateProjectWorkflowErrorWorkflow`, which carries both fields at once —
+`errorWorkflowDisabled` is a separate boolean rather than overloading the nullable reference,
+because `null` already means "inherit the project default":
+
+```graphql
+mutation {
+    updateProjectWorkflowErrorWorkflow(
+        projectId: 123
+        projectWorkflowId: 789
+        errorProjectWorkflowId: 456
+        errorWorkflowDisabled: false
+    )
+}
+```
+
+The referenced workflow — for either the project default or a per-workflow override — is validated
+at configuration time, not at failure time, so a broken reference can't surface as a second failure
+while the first one is being handled:
 
 - it must belong to the **same project** as the workflow(s) it will handle,
 - it must carry the `workflow/newWorkflowError` trigger,
 - it cannot be the workflow it's configured on.
 
-**Per-workflow overrides exist in the data model but have no API yet.** The `project_workflow`
-table carries `error_project_workflow_id` (override the project default for one workflow) and
-`error_workflow_disabled` (opt this workflow out entirely, even though a project default is
-configured) columns, and the resolver honors both at failure time. There is currently no GraphQL
-mutation, REST endpoint, or UI control that sets them — the only way to populate them today is a
-direct database write. Don't document or promise a UI path for this until one ships.
-
-Resolution at failure time is: **workflow override → project default → none.** The disabled flag is
-a separate boolean rather than overloading the nullable reference, because `null` already means
-"inherit the project default" — there needs to be a way to opt out that isn't also "inherit."
+Resolution at failure time is: **workflow override → project default → none** (and disabled always
+wins over both).
 
 ## The payload
 
