@@ -18,10 +18,12 @@ export default ({mode}) => {
 
     return defineConfig({
         build: {
+            manifest: true,
             rollupOptions: {
                 input: {
                     connect: resolve(__dirname, 'connect.html'),
                     main: resolve(__dirname, 'index.html'),
+                    workflowBuilder: resolve(__dirname, 'workflow-builder.html'),
                 },
                 output: {
                     manualChunks(id) {
