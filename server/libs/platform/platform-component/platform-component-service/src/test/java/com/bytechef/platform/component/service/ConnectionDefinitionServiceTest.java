@@ -16,18 +16,22 @@
 
 package com.bytechef.platform.component.service;
 
-import static com.bytechef.component.definition.Authorization.DEFAULT_REFRESH_ON;
+import static com.bytechef.component.definition.ComponentDsl.action;
+import static com.bytechef.component.definition.ComponentDsl.component;
+import static com.bytechef.component.definition.ComponentDsl.connection;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.bytechef.component.definition.Authorization.AuthorizationType;
-import com.bytechef.component.definition.ComponentDsl;
+import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.platform.component.ComponentDefinitionRegistry;
 import com.bytechef.platform.component.aspect.TokenRefreshHandler;
 import com.bytechef.platform.component.context.ContextFactory;
-import java.util.Map;
-import java.util.Optional;
+import com.bytechef.platform.component.definition.ScriptComponentDefinition;
+import com.bytechef.platform.component.domain.ConnectionDefinition;
+import java.util.List;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -37,41 +41,63 @@ import org.junit.jupiter.api.Test;
 public class ConnectionDefinitionServiceTest {
 
     private final ComponentDefinitionRegistry componentDefinitionRegistry = mock(ComponentDefinitionRegistry.class);
-    private final ConnectionDefinitionService connectionDefinitionService = new ConnectionDefinitionServiceImpl(
-        componentDefinitionRegistry, mock(ContextFactory.class), mock(TokenRefreshHandler.class));
+    private final ContextFactory contextFactory = mock(ContextFactory.class);
+    private final TokenRefreshHandler tokenRefreshHandler = mock(TokenRefreshHandler.class);
+
+    private final ConnectionDefinitionServiceImpl connectionDefinitionService = new ConnectionDefinitionServiceImpl(
+        componentDefinitionRegistry, contextFactory, tokenRefreshHandler);
 
     @Test
-    public void testGetAuthorizationRefreshOnIsEmptyForCustomAuthorizationWithoutAcquire() {
-        when(componentDefinitionRegistry.fetchAuthorization("telegram", 1, AuthorizationType.CUSTOM))
-            .thenReturn(Optional.of(ComponentDsl.authorization(AuthorizationType.CUSTOM)));
+    void testGetConnectionDefinitionsForScriptComponentUsesStubEnumeration() {
+        ScriptComponentDefinition scriptComponentDefinition = mock(ScriptComponentDefinition.class);
 
-        assertThat(connectionDefinitionService.getAuthorizationRefreshOn("telegram", 1, AuthorizationType.CUSTOM))
-            .isEmpty();
+        ComponentDefinition connectableComponentDefinition = component("slack")
+            .version(1)
+            .title("Slack")
+            .connection(connection().version(3))
+            .actions(action("sendMessage"));
+
+        when(componentDefinitionRegistry.getComponentDefinition("script", 1)).thenReturn(scriptComponentDefinition);
+        when(componentDefinitionRegistry.getStaticComponentDefinitions())
+            .thenReturn(List.of(connectableComponentDefinition));
+
+        List<ConnectionDefinition> connectionDefinitions =
+            connectionDefinitionService.getConnectionDefinitions("script", 1);
+
+        // The connectable-components list must come from index stubs, never the full catalog...
+        verify(componentDefinitionRegistry).getStaticComponentDefinitions();
+        verify(componentDefinitionRegistry, never()).getComponentDefinitions();
+
+        // ...and toConnectionDefinition must build cleanly from a summary-only stub connection (identity + version).
+        assertThat(connectionDefinitions).singleElement()
+            .satisfies(connectionDefinition -> {
+                assertThat(connectionDefinition.getComponentName()).isEqualTo("slack");
+                assertThat(connectionDefinition.getVersion()).isEqualTo(3);
+            });
     }
 
     @Test
-    public void testGetAuthorizationRefreshOnKeepsTheDefaultForCustomAuthorizationWithAcquire() {
-        when(componentDefinitionRegistry.fetchAuthorization("custom", 1, AuthorizationType.CUSTOM))
-            .thenReturn(
-                Optional.of(
-                    ComponentDsl.authorization(AuthorizationType.CUSTOM)
-                        .acquire((connectionParameters, context) -> Map.of("token", "acquired"))));
+    void testGetConnectionDefinitionsUsesStubEnumeration() {
+        ComponentDefinition connectableComponentDefinition = component("slack")
+            .version(1)
+            .title("Slack")
+            .connection(connection().version(3))
+            .actions(action("sendMessage"));
 
-        assertThat(connectionDefinitionService.getAuthorizationRefreshOn("custom", 1, AuthorizationType.CUSTOM))
-            .isNotEmpty();
-    }
+        when(componentDefinitionRegistry.getStaticComponentDefinitions())
+            .thenReturn(List.of(connectableComponentDefinition));
 
-    @Test
-    public void testGetAuthorizationRefreshOnKeepsTheDefaultForOAuth2AuthorizationCode() {
-        when(
-            componentDefinitionRegistry.fetchAuthorization(
-                "oauth", 1, AuthorizationType.OAUTH2_AUTHORIZATION_CODE))
-                    .thenReturn(Optional.of(ComponentDsl.authorization(AuthorizationType.OAUTH2_AUTHORIZATION_CODE)));
+        List<ConnectionDefinition> connectionDefinitions = connectionDefinitionService.getConnectionDefinitions();
 
-        assertThat(
-            connectionDefinitionService.getAuthorizationRefreshOn(
-                "oauth", 1, AuthorizationType.OAUTH2_AUTHORIZATION_CODE))
-                    .isEqualTo(DEFAULT_REFRESH_ON);
+        // The no-arg connections list must come from index stubs, never the full catalog.
+        verify(componentDefinitionRegistry).getStaticComponentDefinitions();
+        verify(componentDefinitionRegistry, never()).getComponentDefinitions();
+
+        assertThat(connectionDefinitions).singleElement()
+            .satisfies(connectionDefinition -> {
+                assertThat(connectionDefinition.getComponentName()).isEqualTo("slack");
+                assertThat(connectionDefinition.getVersion()).isEqualTo(3);
+            });
     }
 
     @Disabled
