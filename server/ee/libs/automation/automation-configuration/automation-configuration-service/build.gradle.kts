@@ -24,10 +24,12 @@ dependencies {
     implementation(project(":server:ee:libs:automation:automation-configuration:automation-configuration-api"))
     implementation(project(":server:ee:libs:platform:platform-resource-grant:platform-resource-grant-api"))
     implementation(project(":server:ee:libs:platform:platform-audit:platform-audit-api"))
+    implementation(project(":server:ee:libs:platform:platform-code-workflow:platform-code-workflow-file-storage:platform-code-workflow-file-storage-api"))
     implementation(project(":server:ee:libs:platform:platform-configuration:platform-configuration-api"))
     implementation(project(":server:ee:libs:platform:platform-connection:platform-connection-audit"))
 
     testImplementation("jakarta.servlet:jakarta.servlet-api")
+    testImplementation(rootProject.libs.org.graalvm.polyglot.polyglot)
     testImplementation("org.liquibase:liquibase-core")
     testImplementation("org.springframework.data:spring-data-jdbc")
     testImplementation("org.springframework.security:spring-security-config")

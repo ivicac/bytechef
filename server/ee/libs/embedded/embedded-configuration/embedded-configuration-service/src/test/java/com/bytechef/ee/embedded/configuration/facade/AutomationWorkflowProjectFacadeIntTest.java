@@ -54,6 +54,9 @@ import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.evaluator.SpelEvaluator;
 import com.bytechef.exception.ConfigurationException;
+import com.bytechef.ee.platform.codeworkflow.configuration.facade.CodeWorkflowContainerFacade;
+import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowContainerService;
+import com.bytechef.ee.platform.codeworkflow.file.storage.CodeWorkflowFileStorage;
 import com.bytechef.platform.category.domain.Category;
 import com.bytechef.platform.category.service.CategoryService;
 import com.bytechef.platform.component.domain.ComponentDefinition;
@@ -131,6 +134,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @MockitoBean(types = {
     ActionDefinitionFacade.class, ApiKeyFacade.class, ApiKeyService.class, AuthorityService.class,
     ClusterElementDefinitionService.class, TriggerDefinitionFacade.class,
+    CodeWorkflowContainerFacade.class, CodeWorkflowContainerService.class, CodeWorkflowFileStorage.class,
     ComponentConnectionFacade.class,
     ComponentDefinitionService.class, ConnectionDefinitionService.class,
     ConnectionFacade.class, ConnectionLifecycleFacade.class, ConnectionService.class,

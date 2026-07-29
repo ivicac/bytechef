@@ -24,4 +24,6 @@ public interface ProjectCodeWorkflowService {
     void delete(long projectId);
 
     List<ProjectCodeWorkflow> getProjectCodeWorkflows(long projectId);
+
+    ProjectCodeWorkflow getProjectCodeWorkflow(long projectId);
 }
