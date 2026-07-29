@@ -119,7 +119,7 @@ public interface ActionDefinition {
     /**
      * Returns optional, implementation-specific metadata associated with the action.
      *
-     * @return the metadata map, or an empty map if none is defined
+     * @return an {@code Optional} containing the metadata map if defined, or an empty {@code Optional} otherwise
      */
     default Map<String, Object> getMetadata() {
         return Map.of();
@@ -164,26 +164,27 @@ public interface ActionDefinition {
     /**
      * Returns the list of input properties that define the parameters the action accepts.
      *
-     * @return the list of properties, or an empty list if none are defined
+     * @return an {@code Optional} containing the list of properties if defined, or an empty {@code Optional} otherwise
      */
     default List<? extends Property> getProperties() {
         return List.of();
     }
 
     /**
-     * Returns the optional function invoked to resume the action after it has been suspended.
+     * Returns the human-readable title of the action displayed in the user interface.
      *
-     * @return an {@code Optional} containing the resume-perform function if defined, or an empty {@code Optional}
-     *         otherwise
+     * @return an {@code Optional} containing the title if defined, or an empty {@code Optional} otherwise
      */
     default Optional<? extends BaseResumePerformFunction> getResumePerform() {
         return Optional.empty();
     }
 
     /**
-     * Returns the human-readable title of the action displayed in the user interface.
+     * Returns the optional function that dynamically produces the description shown for the action's node in the
+     * workflow editor.
      *
-     * @return an {@code Optional} containing the title if defined, or an empty {@code Optional} otherwise
+     * @return an {@code Optional} containing the workflow-node-description function if defined, or an empty
+     *         {@code Optional} otherwise
      */
     default Optional<String> getTitle() {
         return Optional.empty();
@@ -434,6 +435,15 @@ public interface ActionDefinition {
             default void addTurnCancelListener(Consumer<String> turnCancelListener) {
             }
 
+            /**
+             * Signals that a turn was cancelled (typically due to user barge-in). The runtime propagates this across
+             * all emitters in the chain plus the WS session itself (which flushes any queued outbound audio bytes).
+             *
+             * <p>
+             * Default implementation is a no-op so emitter consumers that don't need cancellation keep compiling.
+             *
+             * @param turnId the turn to cancel
+             */
             default void cancelTurn(String turnId) {
             }
 

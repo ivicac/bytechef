@@ -45,7 +45,8 @@ public interface TriggerDefinition {
         HYBRID,
         LISTENER,
         POLLING,
-        STATIC_WEBHOOK
+        STATIC_WEBHOOK,
+        WEBSOCKET
     }
 
     /**
@@ -202,7 +203,7 @@ public interface TriggerDefinition {
     /**
      * Returns the input properties the user configures for this trigger.
      *
-     * @return the list of properties, or an empty list if none are defined
+     * @return an {@link Optional} containing the list of properties, or an empty {@link Optional} if none are defined
      */
     default List<? extends Property> getProperties() {
         return List.of();
@@ -227,7 +228,8 @@ public interface TriggerDefinition {
     /**
      * Indicates whether the raw, unparsed request body should be preserved for webhook processing.
      *
-     * @return {@code true} to keep the raw body, {@code false} otherwise
+     * @return an {@link Optional} containing {@code true} to keep the raw body, or an empty {@link Optional} if not
+     *         specified
      */
     default boolean getWebhookRawBody() {
         return false;
@@ -266,7 +268,8 @@ public interface TriggerDefinition {
     /**
      * Indicates whether the workflow started by this trigger should be executed synchronously.
      *
-     * @return {@code true} for synchronous execution, {@code false} otherwise
+     * @return an {@link Optional} containing {@code true} for synchronous execution, or an empty {@link Optional} if
+     *         not specified
      */
     default boolean getWorkflowSyncExecution() {
         return false;
@@ -575,8 +578,23 @@ public interface TriggerDefinition {
          */
         Object getContent();
 
+        /**
+         * Returns the request body content converted to the given type.
+         *
+         * @param valueType the type the content should be converted to
+         * @param <T>       the requested content type
+         * @return the converted content
+         */
         <T> T getContent(Class<T> valueType);
 
+        /**
+         * Returns the request body content converted using the supplied {@link TypeReference} to preserve generic type
+         * information.
+         *
+         * @param valueTypeRef the type reference describing the target type
+         * @param <T>          the requested content type
+         * @return the converted content
+         */
         <T> T getContent(TypeReference<T> valueTypeRef);
 
         /**
@@ -790,29 +808,69 @@ public interface TriggerDefinition {
     record WebhookEnableOutput(Map<String, ?> parameters, Instant webhookExpirationDate) {
     }
 
+    /**
+     * Represents the response returned by a webhook validation, pairing an HTTP status with an optional body and
+     * headers to send back to the caller.
+     *
+     * @param body    the response body to return to the caller, or {@code null} for none
+     * @param headers the response headers to return to the caller, or {@code null} for none
+     * @param status  the HTTP status code communicating the validation result
+     */
     @SuppressFBWarnings("EI")
     record WebhookValidateResponse(Object body, Map<String, List<String>> headers, int status) {
 
+        /**
+         * Creates a validation response carrying only an HTTP status, with no body or headers.
+         *
+         * @param status the HTTP status code
+         */
         public WebhookValidateResponse(int status) {
             this(null, null, status);
         }
 
+        /**
+         * Creates a validation response carrying a body and an HTTP status, with no headers.
+         *
+         * @param body   the response body
+         * @param status the HTTP status code
+         */
         public WebhookValidateResponse(Object body, int status) {
             this(body, null, status);
         }
 
+        /**
+         * Creates a validation response indicating the request is invalid (HTTP 400 Bad Request).
+         *
+         * @return a bad-request validation response
+         */
         public static WebhookValidateResponse badRequest() {
             return new WebhookValidateResponse(HttpStatus.BAD_REQUEST.getValue());
         }
 
+        /**
+         * Creates a validation response indicating the request is valid (HTTP 200 OK).
+         *
+         * @return a successful validation response
+         */
         public static WebhookValidateResponse ok() {
             return new WebhookValidateResponse(HttpStatus.OK.getValue());
         }
 
+        /**
+         * Creates a successful validation response (HTTP 200 OK) carrying the given body.
+         *
+         * @param body the response body to return to the caller
+         * @return a successful validation response with the given body
+         */
         public static WebhookValidateResponse ok(Object body) {
             return new WebhookValidateResponse(body, null, HttpStatus.OK.getValue());
         }
 
+        /**
+         * Creates a validation response indicating the request is not authorized (HTTP 401 Unauthorized).
+         *
+         * @return an unauthorized validation response
+         */
         public static WebhookValidateResponse unauthorized() {
             return new WebhookValidateResponse(HttpStatus.UNAUTHORIZED.getValue());
         }

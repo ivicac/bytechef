@@ -30,7 +30,7 @@ public interface WorkflowComponentDefinition {
     /**
      * Returns the actions this component contributes to workflows.
      *
-     * @return the list of actions, or an empty list if none are defined
+     * @return an {@link Optional} containing the list of actions, or an empty {@link Optional} if none are defined
      */
     default List<ActionDefinition> getActions() {
         return List.of();
@@ -39,7 +39,8 @@ public interface WorkflowComponentDefinition {
     /**
      * Indicates whether this component supports user-defined custom actions.
      *
-     * @return {@code true} when custom actions are supported, {@code false} otherwise
+     * @return an {@link Optional} containing {@code true} when custom actions are supported, or an empty
+     *         {@link Optional} if not specified
      */
     default boolean getCustomAction() {
         return false;
@@ -58,7 +59,8 @@ public interface WorkflowComponentDefinition {
      * Returns the component-level workflow inputs, always modeled as property groups (a lone property is a group with
      * one property).
      *
-     * @return the list of input property groups, or an empty list if none are defined
+     * @return an {@link Optional} containing the list of input property groups, or an empty {@link Optional} if none
+     *         are defined
      */
     default List<? extends PropertyGroup> getInputs() {
         return List.of();
@@ -67,7 +69,7 @@ public interface WorkflowComponentDefinition {
     /**
      * Returns the triggers this component contributes to workflows.
      *
-     * @return the list of triggers, or an empty list if none are defined
+     * @return an {@link Optional} containing the list of triggers, or an empty {@link Optional} if none are defined
      */
     default List<TriggerDefinition> getTriggers() {
         return List.of();

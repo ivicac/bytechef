@@ -34,11 +34,6 @@ import java.util.Optional;
 public interface Authorization {
 
     /**
-     * The signals that trigger re-authorization when an authorization declares none of its own: an HTTP 401 response.
-     */
-    List<Object> DEFAULT_REFRESH_ON = List.of(401);
-
-    /**
      * Parameter key under which an OAuth2 access token is stored.
      */
     String ACCESS_TOKEN = "access_token";
@@ -200,6 +195,11 @@ public interface Authorization {
 
         private final boolean requiresTokenRefresh;
 
+        /**
+         * Returns whether this authorization type requires periodic refreshing of an access token.
+         *
+         * @return {@code true} if the authorization type relies on refreshable tokens, {@code false} otherwise
+         */
         public boolean requiresTokenRefresh() {
             return requiresTokenRefresh;
         }
@@ -323,11 +323,20 @@ public interface Authorization {
         return Optional.empty();
     }
 
+    /**
+     * Returns the unique name that identifies this authorization within its connection.
+     *
+     * @return the authorization name
+     */
     String getName();
 
-    default Optional<OAuth2AuthorizationExtraQueryParametersFunction> getOauth2AuthorizationExtraQueryParameters() {
-        return Optional.empty();
-    }
+    /**
+     * Returns the optional function that supplies extra query parameters appended to the OAuth2 authorization request.
+     *
+     * @return an {@code Optional} containing the {@link OAuth2AuthorizationExtraQueryParametersFunction} if defined, or
+     *         an empty {@code Optional} otherwise
+     */
+    Optional<OAuth2AuthorizationExtraQueryParametersFunction> getOauth2AuthorizationExtraQueryParameters();
 
     /**
      * TODO
@@ -342,7 +351,7 @@ public interface Authorization {
      * Returns the input properties that define the credentials and settings collected from the user for this
      * authorization.
      *
-     * @return the list of properties, or an empty list if none are declared
+     * @return an {@code Optional} containing the list of properties if defined, or an empty {@code Optional} otherwise
      */
     default List<? extends Property> getProperties() {
         return List.of();

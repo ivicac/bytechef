@@ -76,14 +76,19 @@ public interface ClusterElementDefinition<T> {
      */
     String getName();
 
-    default Optional<ProcessErrorResponseFunction> getProcessErrorResponse() {
-        return Optional.empty();
-    }
+    /**
+     * Returns the optional function used to map an error response to a {@link ProviderException} during the cluster
+     * element's execution.
+     *
+     * @return an {@code Optional} containing the error-processing function if defined, or an empty {@code Optional}
+     *         otherwise
+     */
+    Optional<ProcessErrorResponseFunction> getProcessErrorResponse();
 
     /**
      * Returns the input properties that define the parameters the cluster element accepts.
      *
-     * @return the list of properties, or an empty list if none are defined
+     * @return an {@code Optional} containing the list of properties if defined, or an empty {@code Optional} otherwise
      */
     default List<? extends Property> getProperties() {
         return List.of();
@@ -239,10 +244,25 @@ public interface ClusterElementDefinition<T> {
     record ClusterElementType(
         String name, String key, String label, boolean multipleElements, boolean required) {
 
+        /**
+         * Creates a cluster element type that accepts a single element.
+         *
+         * @param name     the name identifying the cluster element type
+         * @param key      the key under which elements of this type are stored within the cluster
+         * @param label    the human-readable label for the type displayed in the user interface
+         * @param required whether an element of this type is required
+         */
         public ClusterElementType(String name, String key, String label, boolean required) {
             this(name, key, label, false, required);
         }
 
+        /**
+         * Creates an optional cluster element type that accepts a single element.
+         *
+         * @param name  the name identifying the cluster element type
+         * @param key   the key under which elements of this type are stored within the cluster
+         * @param label the human-readable label for the type displayed in the user interface
+         */
         public ClusterElementType(String name, String key, String label) {
             this(name, key, label, false, false);
         }

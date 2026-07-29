@@ -29,7 +29,8 @@ public interface ClusterElementComponentDefinition {
     /**
      * Returns the cluster elements contributed by this component.
      *
-     * @return the list of cluster element definitions, or an empty list if none are defined
+     * @return an {@code Optional} containing the list of cluster element definitions if any are defined, or an empty
+     *         {@code Optional} otherwise
      */
     default List<ClusterElementDefinition<?>> getClusterElements() {
         return List.of();

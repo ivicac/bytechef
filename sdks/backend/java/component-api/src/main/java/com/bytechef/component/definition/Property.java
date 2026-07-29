@@ -96,7 +96,8 @@ public interface Property extends BaseProperty {
         /**
          * Returns the property definitions describing the allowed types of the array's elements.
          *
-         * @return the list of item properties, or an empty list if the element type is unconstrained
+         * @return an {@link Optional} containing the list of item properties, or an empty {@link Optional} if the
+         *         element type is unconstrained
          */
         default List<? extends Property.ValueProperty<?>> getItems() {
             return List.of();
@@ -138,10 +139,9 @@ public interface Property extends BaseProperty {
         }
 
         /**
-         * Returns the data source that resolves this property's nested properties at runtime. A dynamic properties
-         * property exists only to resolve its nested properties, so the data source is required.
+         * Returns the data source that resolves this property's nested properties at runtime.
          *
-         * @return the dynamic properties data source, never {@code null}
+         * @return the dynamic properties data source
          */
         PropertiesDataSource<?> getDynamicPropertiesDataSource();
     }
@@ -186,7 +186,8 @@ public interface Property extends BaseProperty {
         /**
          * Returns the property definitions describing values allowed for keys beyond the explicitly declared ones.
          *
-         * @return the additional-property definitions, or an empty list if additional properties are not permitted
+         * @return an {@link Optional} containing the additional-property definitions, or an empty {@link Optional} if
+         *         additional properties are not permitted
          */
         default List<? extends Property.ValueProperty<?>> getAdditionalProperties() {
             return List.of();
@@ -195,7 +196,8 @@ public interface Property extends BaseProperty {
         /**
          * Returns the property definitions describing the object's explicitly declared fields.
          *
-         * @return the list of properties, or an empty list if none are declared
+         * @return an {@link Optional} containing the list of properties, or an empty {@link Optional} if none are
+         *         declared
          */
         default List<? extends Property.ValueProperty<?>> getProperties() {
             return List.of();

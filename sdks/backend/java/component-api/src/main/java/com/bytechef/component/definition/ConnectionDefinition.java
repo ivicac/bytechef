@@ -38,7 +38,8 @@ public interface ConnectionDefinition {
     /**
      * Returns whether an authorization must be configured for this connection to be usable.
      *
-     * @return {@code true} if authorization is required, {@code false} if it is optional
+     * @return an {@code Optional} containing {@code true} if authorization is required, {@code false} if it is
+     *         optional, or an empty {@code Optional} if not specified
      */
     default boolean getAuthorizationRequired() {
         return true;
@@ -47,7 +48,8 @@ public interface ConnectionDefinition {
     /**
      * Returns the authorization schemes supported by this connection.
      *
-     * @return the list of authorizations, or an empty list if none are defined
+     * @return an {@code Optional} containing the list of authorizations if defined, or an empty {@code Optional}
+     *         otherwise
      */
     default List<? extends Authorization> getAuthorizations() {
         return List.of();
@@ -63,9 +65,12 @@ public interface ConnectionDefinition {
         return Optional.empty();
     }
 
-    default Optional<Help> getHelp() {
-        return Optional.empty();
-    }
+    /**
+     * Returns the optional {@link Help} content that provides additional guidance to users configuring the connection.
+     *
+     * @return an {@code Optional} containing the help content if defined, or an empty {@code Optional} otherwise
+     */
+    Optional<Help> getHelp();
 
     /**
      * Returns the optional function used to process HTTP error responses and map them to {@link ProviderException}
@@ -81,7 +86,7 @@ public interface ConnectionDefinition {
     /**
      * Returns the input properties that define the parameters collected from the user to configure the connection.
      *
-     * @return the list of properties, or an empty list if none are defined
+     * @return an {@code Optional} containing the list of properties if defined, or an empty {@code Optional} otherwise
      */
     default List<? extends Property> getProperties() {
         return List.of();

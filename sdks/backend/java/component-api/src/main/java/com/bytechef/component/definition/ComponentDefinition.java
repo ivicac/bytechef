@@ -33,7 +33,8 @@ public interface ComponentDefinition
     /**
      * Returns the categories under which this component is classified.
      *
-     * @return the list of component categories, or an empty list if none are defined
+     * @return an {@code Optional} containing the list of component categories if defined, or an empty {@code Optional}
+     *         otherwise
      */
     default List<ComponentCategory> getComponentCategories() {
         return List.of();
@@ -71,7 +72,7 @@ public interface ComponentDefinition
     /**
      * Returns optional, implementation-specific metadata associated with the component.
      *
-     * @return the metadata map, or an empty map if none is defined
+     * @return an {@code Optional} containing the metadata map if defined, or an empty {@code Optional} otherwise
      */
     default Map<String, Object> getMetadata() {
         return Map.of();

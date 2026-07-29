@@ -36,7 +36,7 @@ public interface BaseResources {
     /**
      * Returns the optional supplementary links, keyed by a descriptive label.
      *
-     * @return a map of labels to URLs, or an empty map if none are defined
+     * @return an {@link Optional} containing a map of labels to URLs, or an empty {@link Optional} if none are defined
      */
     default Map<String, String> getAdditionalUrls() {
         return Map.of();
