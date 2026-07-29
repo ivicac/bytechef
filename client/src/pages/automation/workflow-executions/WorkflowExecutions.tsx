@@ -6,8 +6,8 @@ import PageLoader from '@/components/PageLoader';
 import TablePagination from '@/components/TablePagination';
 import {Label} from '@/components/ui/label';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
-import WorkflowExecutionsFilterTitle from '@/pages/automation/workflow-executions/components/WorkflowExecutionsFilterTitle';
 import {useWorkflowExecutions} from '@/pages/automation/workflow-executions/hooks/useWorkflowExecutions';
+import ExecutionsTabs from '@/shared/components/ExecutionsTabs';
 import Footer from '@/shared/layout/Footer';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
@@ -57,7 +57,6 @@ const ProjectLabel = ({project}: {project: Project}) => (
 
 export const WorkflowExecutions = () => {
     const {
-        currentEnvironmentId,
         emptyListMessage,
         filterEndDate,
         filterPageNumber,
@@ -128,15 +127,7 @@ export const WorkflowExecutions = () => {
                             </Tooltip>
                         </div>
                     }
-                    title={
-                        workflowExecutionPage?.content && workflowExecutionPage.content.length > 0 ? (
-                            <WorkflowExecutionsFilterTitle
-                                filterData={{environment: currentEnvironmentId, status: filterStatus}}
-                            />
-                        ) : (
-                            ''
-                        )
-                    }
+                    title={<ExecutionsTabs basePath="/automation/executions" />}
                 />
             }
             leftSidebarBody={
