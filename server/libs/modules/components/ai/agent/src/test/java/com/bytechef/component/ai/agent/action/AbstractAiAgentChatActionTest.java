@@ -27,7 +27,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.mock;
@@ -441,7 +441,7 @@ class AbstractAiAgentChatActionTest {
                     .hasMessageContaining("guardrails");
         }
 
-        verify(actionContext, org.mockito.Mockito.atLeastOnce()).log(any());
+        verify(actionContext, atLeastOnce()).log(any());
     }
 
     @Test
@@ -520,7 +520,7 @@ class AbstractAiAgentChatActionTest {
         ArgumentCaptor<Context.ContextConsumer<Context.Log>> logConsumerCaptor = ArgumentCaptor.forClass(
             Context.ContextConsumer.class);
 
-        verify(actionContext, org.mockito.Mockito.atLeastOnce()).log(logConsumerCaptor.capture());
+        verify(actionContext, atLeastOnce()).log(logConsumerCaptor.capture());
 
         Context.Log log = mock(Context.Log.class);
 
@@ -2063,448 +2063,54 @@ class AbstractAiAgentChatActionTest {
         };
     }
 
-    @Nested
-    @ExtendWith(ObjectMapperSetupExtension.class)
-    class ResumeGateTests {
-
-        private static final String GATED_TOOL_INPUT = "{\"channel\": \"#general\", \"text\": \"hi\"}";
-        private static final String GATED_TOOL_NAME = "SLACK_SEND_MESSAGE";
-
-        private static final Parameters NO_SIMULATION_INPUT = ParametersFactory.create(Map.of());
-
-        private static final Parameters GATED_EXTENSIONS = ParametersFactory.create(
-            Map.of(
-                "clusterElements",
-                Map.of(
-                    "tools",
-                    List.of(
-                        Map.of(
-                            "name", "approvalGate_1",
-                            "type", "aiAgentUtils/v1/approvalGate",
-                            "parameters", Map.of("name", "Outbound messages"),
-                            "clusterElements",
-                            Map.of(
-                                "tools",
-                                List.of(
-                                    Map.of(
-                                        "name", "slack_1",
-                                        "type", "slack/v1/sendMessage",
-                                        "parameters", Map.of()))))))));
-
-        private static final Parameters EXTENSIONS = ParametersFactory.create(
-            Map.of(
-                "clusterElements",
-                Map.of(
-                    "tools",
-                    List.of(
-                        Map.of(
-                            "name", "slack_1",
-                            "type", "slack/v1/sendMessage",
-                            "parameters", Map.of())))));
-
-        private final ToolCallback toolCallback = mock(ToolCallback.class);
-
-        private final ActionContextAware context = mock(
-            ActionContextAware.class, withSettings().extraInterfaces(ActionContext.class));
-
-        private AbstractAiAgentChatAction action;
-
-        @BeforeEach
-        void setUp() {
-            action = new AbstractAiAgentChatAction(
-                aiAgentToolFacade, clusterElementDefinitionService, mock(ToolCallingManager.class)) {};
-
-            lenient().when(context.isEditorEnvironment())
-                .thenReturn(false);
-            lenient().when(clusterElementDefinitionService.getClusterElement("slack", 1, "sendMessage"))
-                .thenReturn(mock(MultipleConnectionsToolFunction.class));
-            lenient().when(toolCallback.getToolDefinition())
-                .thenReturn(
-                    DefaultToolDefinition.builder()
-                        .name(GATED_TOOL_NAME)
-                        .description("Send a Slack message")
-                        .inputSchema("{}")
-                        .build());
-            lenient().when(aiAgentToolFacade.getFunctionToolCallback(any(), anyMap(), isNull(), any()))
-                .thenReturn(toolCallback);
-        }
-
-        @Test
-        void testApprovedToolNestedUnderAnApprovalGateRunsTheUnwrappedTool() throws Exception {
-            stubApprovalGate();
-
-            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
-
-            String resumeData = action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME), data(true, null), Map.of(),
-                GATED_EXTENSIONS, context, null);
-
-            verify(toolCallback).call(eq(GATED_TOOL_INPUT), any(ToolContext.class));
-            verify(clusterElementDefinitionService, never()).executeApprovalChannel(
-                anyString(), anyInt(), anyString(), anyMap(), anyString(), any(), any());
-            verify(context, never()).suspend(any());
-
-            assertThat(resumeData)
-                .contains("approvedByReviewer")
-                .contains("message sent: ts=1721");
-        }
-
-        @Test
-        void testApprovedToolThatSuspendsReturnsItsSuspendedToolResult() throws Exception {
-            String childSuspendedToolResult = "__BYTECHEF_TOOL_SUSPENDED__:child";
-
-            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn(childSuspendedToolResult);
-            when(context.getSuspend()).thenReturn(
-                new ActionContext.Suspend(
-                    Map.of(ToolSuspension.SUSPENDED_TOOL_RESULT, childSuspendedToolResult, "childJobId", 42L),
-                    null));
-
-            String resumeData = action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME), data(true, null), Map.of(), EXTENSIONS,
-                context, null);
-
-            assertThat(resumeData).isEqualTo(childSuspendedToolResult);
-        }
-
-        @Test
-        void testResumingAnApprovedToolThatSuspendsKeepsTheAgentSuspendedWithoutCallingTheModel() throws Exception {
-            String gateSuspendedToolResult = "__BYTECHEF_TOOL_SUSPENDED__:gate";
-            String childSuspendedToolResult = "__BYTECHEF_TOOL_SUSPENDED__:child";
-
-            AgentToolSuspension agentToolSuspension = new AgentToolSuspension(
-                ConversationState.from(
-                    List.of(
-                        new UserMessage("send the message"),
-                        ToolResponseMessage.builder()
-                            .responses(
-                                List.of(
-                                    new ToolResponseMessage.ToolResponse(
-                                        "call_1", GATED_TOOL_NAME, gateSuspendedToolResult)))
-                            .build())),
-                "call_1", gateSuspendedToolResult, null, null);
-
-            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn(childSuspendedToolResult);
-            when(context.getSuspend()).thenReturn(
-                new ActionContext.Suspend(
-                    Map.of(ToolSuspension.SUSPENDED_TOOL_RESULT, childSuspendedToolResult, "childJobId", 42L),
-                    null));
-
-            Map<String, Object> continueParameters = new HashMap<>();
-
-            continueParameters.put(AgentToolSuspension.CONTINUE_PARAMETER_KEY, agentToolSuspension);
-            continueParameters.put(ToolSuspendConstants.GATED_TOOL_NAME, GATED_TOOL_NAME);
-            continueParameters.put(ToolSuspendConstants.GATED_TOOL_INPUT, GATED_TOOL_INPUT);
-
-            ChatClient.ChatClientRequestSpec chatClientRequestSpec = action.buildResumedRequestSpec(
-                NO_SIMULATION_INPUT, Map.of(), EXTENSIONS, ParametersFactory.create(continueParameters),
-                ParametersFactory.create(Map.of("approved", true)), null, (ActionContext) context);
-
-            assertThat(chatClientRequestSpec).isNull();
-
-            ArgumentCaptor<ActionContext.Suspend> suspendCaptor = ArgumentCaptor.forClass(ActionContext.Suspend.class);
-
-            verify(context).suspend(suspendCaptor.capture());
-
-            ActionContext.Suspend suspend = suspendCaptor.getValue();
-
-            Map<String, Object> suspendedContinueParameters = new HashMap<>(suspend.continueParameters());
-
-            assertThat(suspendedContinueParameters)
-                .containsEntry("childJobId", 42L)
-                .containsEntry(ToolSuspension.SUSPENDED_TOOL_RESULT, childSuspendedToolResult);
-            assertThat(suspendedContinueParameters.get(AgentToolSuspension.CONTINUE_PARAMETER_KEY))
-                .usingRecursiveComparison()
-                .ignoringFields("suspendedClusterElementCallId", "suspendedClusterElementWorkflowNodeName")
-                .isEqualTo(agentToolSuspension);
-        }
-
-        @Test
-        void testApprovedToolNestedUnderAnApprovalGateIsRecordedUnderItsOwnNode() throws Exception {
-            stubApprovalGate();
-
-            when(context.getJobId()).thenReturn(TOOL_CALL_JOB_ID);
-            when(context.getTaskExecutionId()).thenReturn(TOOL_CALL_TASK_EXECUTION_ID);
-            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
-
-            List<ClusterElementCallRecord> records;
-
-            try {
-                action.resolveGatedToolResumeData(
-                    NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME), data(true, null), Map.of(),
-                    GATED_EXTENSIONS, context, new ClusterElementCallRef("gate-call", "approvalGate_1"));
-            } finally {
-                records = ClusterElementCallRecorder.getInstance()
-                    .drain(TOOL_CALL_TASK_EXECUTION_ID)
-                    .records();
-            }
-
-            assertThat(records).hasSize(1);
-
-            ClusterElementCallRecord callRecord = records.getFirst();
-
-            assertThat(callRecord.parentId()).isEqualTo("gate-call");
-            assertThat(callRecord.workflowNodeName()).isEqualTo("slack_1");
-            assertThat(callRecord.componentName()).isEqualTo("slack");
-            assertThat(callRecord.status()).isEqualTo(ClusterElementCallRecord.Status.COMPLETED);
-        }
-
-        @Test
-        void testResumingAnApprovedToolThatSuspendsRecordsTheApprovalAndResumesTheToolCall() throws Exception {
-            stubApprovalGate();
-
-            String gateSuspendedToolResult = "__BYTECHEF_TOOL_SUSPENDED__:gate";
-            String childSuspendedToolResult = "__BYTECHEF_TOOL_SUSPENDED__:child";
-
-            AgentToolSuspension agentToolSuspension = new AgentToolSuspension(
-                ConversationState.from(
-                    List.of(
-                        new UserMessage("send the message"),
-                        ToolResponseMessage.builder()
-                            .responses(
-                                List.of(
-                                    new ToolResponseMessage.ToolResponse(
-                                        "call_1", GATED_TOOL_NAME, gateSuspendedToolResult)))
-                            .build())),
-                "call_1", gateSuspendedToolResult, "gate-call", "approvalGate_1");
-
-            when(context.getJobId()).thenReturn(TOOL_CALL_JOB_ID);
-            when(context.getTaskExecutionId()).thenReturn(TOOL_CALL_TASK_EXECUTION_ID);
-            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn(childSuspendedToolResult);
-            when(context.getSuspend()).thenReturn(
-                new ActionContext.Suspend(
-                    Map.of(ToolSuspension.SUSPENDED_TOOL_RESULT, childSuspendedToolResult, "childJobId", 42L),
-                    null));
-
-            Map<String, Object> continueParameters = new HashMap<>();
-
-            continueParameters.put(AgentToolSuspension.CONTINUE_PARAMETER_KEY, agentToolSuspension);
-            continueParameters.put(ToolSuspendConstants.GATED_TOOL_NAME, GATED_TOOL_NAME);
-            continueParameters.put(ToolSuspendConstants.GATED_TOOL_INPUT, GATED_TOOL_INPUT);
-
-            List<ClusterElementCallRecord> records;
-
-            try {
-                action.buildResumedRequestSpec(
-                    NO_SIMULATION_INPUT, Map.of(), GATED_EXTENSIONS, ParametersFactory.create(continueParameters),
-                    ParametersFactory.create(Map.of("approved", true, "comment", "ship it")), null,
-                    (ActionContext) context);
-            } finally {
-                records = ClusterElementCallRecorder.getInstance()
-                    .drain(TOOL_CALL_TASK_EXECUTION_ID)
-                    .records();
-            }
-
-            ArgumentCaptor<ActionContext.Suspend> suspendCaptor = ArgumentCaptor.forClass(ActionContext.Suspend.class);
-
-            verify(context).suspend(suspendCaptor.capture());
-
-            ActionContext.Suspend suspend = suspendCaptor.getValue();
-
-            Map<String, ?> suspendedContinueParameters = suspend.continueParameters();
-
-            AgentToolSuspension resumedAgentToolSuspension =
-                (AgentToolSuspension) suspendedContinueParameters.get(AgentToolSuspension.CONTINUE_PARAMETER_KEY);
-
-            assertThat(records).hasSize(2);
-
-            ClusterElementCallRecord gateRecord = findRecord(records, "gate-call");
-
-            assertThat(gateRecord.status()).isEqualTo(ClusterElementCallRecord.Status.APPROVED);
-            assertThat(gateRecord.output()).contains("\"comment\":\"ship it\"");
-
-            ClusterElementCallRecord toolRecord = records.get(records.indexOf(gateRecord) == 0 ? 1 : 0);
-
-            assertThat(toolRecord.parentId()).isEqualTo("gate-call");
-            assertThat(toolRecord.workflowNodeName()).isEqualTo("slack_1");
-            assertThat(toolRecord.status()).isEqualTo(ClusterElementCallRecord.Status.SUSPENDED);
-
-            assertThat(resumedAgentToolSuspension.pendingToolCallId()).isEqualTo("call_1");
-            assertThat(resumedAgentToolSuspension.suspendedToolResult()).isEqualTo(gateSuspendedToolResult);
-            assertThat(resumedAgentToolSuspension.suspendedClusterElementCallId()).isEqualTo(toolRecord.id());
-            assertThat(resumedAgentToolSuspension.suspendedClusterElementWorkflowNodeName()).isEqualTo("slack_1");
-        }
-
-        @Test
-        @SuppressWarnings("PMD.UnusedLocalVariable")
-        void testApprovedRunIsRecordedAsAnAgentCallNestedUnderTheGateCall() throws Exception {
-            when(context.getJobId()).thenReturn(TOOL_CALL_JOB_ID);
-            when(context.getTaskExecutionId()).thenReturn(TOOL_CALL_TASK_EXECUTION_ID);
-            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
-
-            ClusterElementCallRecorder recorder = ClusterElementCallRecorder.getInstance();
-
-            List<ClusterElementCallRecord> records;
-
-            try (AutoCloseable handle = recorder.addListener(TOOL_CALL_JOB_ID, event -> {})) {
-                action.resolveGatedToolResumeData(
-                    NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME), data(true, "ship it"), Map.of(),
-                    EXTENSIONS, context, new ClusterElementCallRef("gate-call", "slack_1"));
-            } finally {
-                records = recorder.drain(TOOL_CALL_TASK_EXECUTION_ID)
-                    .records();
-            }
-
-            assertThat(records).hasSize(1);
-
-            ClusterElementCallRecord callRecord = records.getFirst();
-
-            assertThat(callRecord.parentId()).isEqualTo("gate-call");
-            assertThat(callRecord.workflowNodeName()).isEqualTo("slack_1");
-            assertThat(callRecord.componentName()).isEqualTo("slack");
-            assertThat(callRecord.toolName()).isEqualTo(GATED_TOOL_NAME);
-            assertThat(callRecord.status()).isEqualTo(ClusterElementCallRecord.Status.COMPLETED);
-            assertThat(callRecord.input()).isEqualTo(GATED_TOOL_INPUT);
-            assertThat(callRecord.output()).isEqualTo("message sent: ts=1721");
-        }
-
-        @Test
-        void testApprovedRunFailureIsRecordedAsAFailedAgentCall() throws Exception {
-            when(context.getJobId()).thenReturn(TOOL_CALL_JOB_ID);
-            when(context.getTaskExecutionId()).thenReturn(TOOL_CALL_TASK_EXECUTION_ID);
-            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class)))
-                .thenThrow(new IllegalStateException("slack is down"));
-
-            String resumeData;
-            List<ClusterElementCallRecord> records;
-
-            try {
-                resumeData = action.resolveGatedToolResumeData(
-                    NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME), data(true, null), Map.of(), EXTENSIONS,
-                    context, null);
-            } finally {
-                records = ClusterElementCallRecorder.getInstance()
-                    .drain(TOOL_CALL_TASK_EXECUTION_ID)
-                    .records();
-            }
-
-            assertThat(resumeData).contains("slack is down");
-            assertThat(records).hasSize(1);
-            assertThat(records.getFirst()
-                .status()).isEqualTo(ClusterElementCallRecord.Status.FAILED);
-        }
-
-        @Test
-        void testApprovedExecutesToolWithOriginalArgumentsAndReportsResult() throws Exception {
-            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
-
-            String resumeData = action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                data(true, "ship it"), Map.of(), EXTENSIONS, context, null);
-
-            verify(toolCallback).call(eq(GATED_TOOL_INPUT), any(ToolContext.class));
-
-            assertThat(resumeData)
-                .contains("approvedByReviewer")
-                .contains("message sent: ts=1721")
-                .contains("ship it");
-        }
-
-        @Test
-        void testRejectedFeedsDenialWithCommentWithoutExecutingTheTool() throws Exception {
-            String resumeData = action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                data(false, "not now"), Map.of(), EXTENSIONS, context, null);
-
-            assertThat(resumeData)
-                .contains("denied")
-                .contains("Denied by reviewer: not now");
-
-            verifyNoInteractions(aiAgentToolFacade);
-            verifyNoInteractions(toolCallback);
-        }
-
-        @Test
-        void testApprovedCarriesVerifiedReviewerIdentity() throws Exception {
-            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class))).thenReturn("message sent: ts=1721");
-
-            String resumeData = action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                dataWithApprovedBy(true, "@jane"), Map.of(), EXTENSIONS, context, null);
-
-            assertThat(resumeData)
-                .contains("approvedByReviewer")
-                .contains("\"reviewer\"")
-                .contains("@jane");
-        }
-
-        @Test
-        void testRejectedCarriesVerifiedReviewerIdentity() throws Exception {
-            String resumeData = action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                dataWithApprovedBy(false, "@jane"), Map.of(), EXTENSIONS, context, null);
-
-            assertThat(resumeData)
-                .contains("denied")
-                .contains("\"deniedBy\"")
-                .contains("@jane");
-
-            verifyNoInteractions(toolCallback);
-        }
-
-        @Test
-        void testApprovedButToolNoLongerConfiguredFailsLoudly() {
-            assertThatThrownBy(
-                () -> action.resolveGatedToolResumeData(
-                    NO_SIMULATION_INPUT, continueParameters("REMOVED_TOOL"),
-                    data(true, null), Map.of(), EXTENSIONS, context, null))
-                        .isInstanceOf(IllegalStateException.class)
-                        .hasMessageContaining("REMOVED_TOOL");
-        }
-
-        @Test
-        void testApprovedToolFailureIsReportedAsErrorInsteadOfPropagating() throws Exception {
-            when(toolCallback.call(eq(GATED_TOOL_INPUT), any(ToolContext.class)))
-                .thenThrow(new RuntimeException("connection refused"));
-
-            String resumeData = action.resolveGatedToolResumeData(
-                NO_SIMULATION_INPUT, continueParameters(GATED_TOOL_NAME),
-                data(true, null), Map.of(), EXTENSIONS, context, null);
-
-            assertThat(resumeData)
-                .contains("approvedByReviewer")
-                .contains("connection refused")
-                .doesNotContain("\"result\"");
-        }
-
-        private void stubApprovalGate() {
-            AiAgentUtilsApprovalGate aiAgentUtilsApprovalGate = new AiAgentUtilsApprovalGate(
-                new ClusterElementToolCallbacks(aiAgentToolFacade, clusterElementDefinitionService),
-                clusterElementDefinitionService);
-
-            ClusterElementDefinition<MultipleConnectionsToolCallbackProviderFunction> approvalGateDefinition =
-                aiAgentUtilsApprovalGate.clusterElementDefinition;
-
-            when(clusterElementDefinitionService.getClusterElement("aiAgentUtils", 1, "approvalGate"))
-                .thenReturn(approvalGateDefinition.getElement());
-        }
-
-        private static ClusterElementCallRecord findRecord(List<ClusterElementCallRecord> records, String id) {
-            for (ClusterElementCallRecord record : records) {
-                if (id.equals(record.id())) {
-                    return record;
-                }
-            }
-
-            throw new AssertionError("No call record with id " + id);
-        }
-
-        private static GatedToolSuspension continueParameters(String gatedToolName) {
-            Map<String, Object> continueParameters = Map.of(
-                ToolSuspendConstants.GATED_TOOL_NAME, gatedToolName,
-                ToolSuspendConstants.GATED_TOOL_INPUT, GATED_TOOL_INPUT);
-
-            return GatedToolSuspension.from(continueParameters)
-                .orElseThrow();
-        }
-
-        private static GateDecision data(boolean approved, String comment) {
-            return GateDecision.from(
-                comment == null ? Map.of("approved", approved) : Map.of("approved", approved, "comment", comment));
-        }
-
-        private static GateDecision dataWithApprovedBy(boolean approved, String approvedBy) {
-            return GateDecision.from(Map.of("approved", approved, "approvedBy", approvedBy));
-        }
+    @Test
+    void testCreatePromptForcesTextResponseFormatWhenStreaming() {
+        Parameters inputParameters = MockParametersFactory.create(
+            Map.of("response", Map.of("responseFormat", "JSON", "responseSchema", "{\"type\":\"object\"}")));
+
+        ActionContext context = mock(ActionContext.class);
+
+        AbstractAiAgentChatAction action = new StreamingTestAiAgentChatAction(
+            mock(AiAgentToolFacade.class), mock(ClusterElementDefinitionService.class),
+            mock(ToolCallingManager.class));
+
+        action.createPrompt(
+            ChatClient.builder(mock(ChatModel.class))
+                .build(),
+            inputParameters, context);
+
+        // A streaming action forces TEXT, so the JSON schema converter is never built and context.json is untouched —
+        // the model is not asked for structured output on a path that cannot validate or self-correct it.
+        verifyNoInteractions(context);
+    }
+
+    @Test
+    void testCreatePromptHonorsJsonResponseFormatWhenNotStreaming() {
+        Parameters inputParameters = MockParametersFactory.create(
+            Map.of("response", Map.of("responseFormat", "JSON", "responseSchema", "{\"type\":\"object\"}")));
+
+        ActionContext context = mock(ActionContext.class);
+        Context.Json json = mock(Context.Json.class);
+
+        when(json.readMap(anyString(), eq(Object.class))).thenReturn(new LinkedHashMap<>(Map.of("type", "object")));
+        when(json.write(any())).thenReturn("{\"type\":\"object\"}");
+        when(context.json(any())).thenAnswer(invocation -> {
+            Context.ContextFunction<Context.Json, Object> contextFunction = invocation.getArgument(0);
+
+            return contextFunction.apply(json);
+        });
+
+        AbstractAiAgentChatAction action = new TestAiAgentChatAction(
+            mock(AiAgentToolFacade.class), mock(ClusterElementDefinitionService.class),
+            mock(ToolCallingManager.class));
+
+        action.createPrompt(
+            ChatClient.builder(mock(ChatModel.class))
+                .build(),
+            inputParameters, context);
+
+        // The non-streaming path builds the JSON schema converter, so the structured-output format instruction is sent.
+        verify(context, atLeastOnce()).json(any());
     }
 
     private static class TestAiAgentChatAction extends AbstractAiAgentChatAction {
@@ -2513,7 +2119,22 @@ class AbstractAiAgentChatActionTest {
             AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
             ToolCallingManager toolCallingManager) {
 
+            super(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager, null);
+        }
+    }
+
+    private static class StreamingTestAiAgentChatAction extends TestAiAgentChatAction {
+
+        StreamingTestAiAgentChatAction(
+            AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
+            ToolCallingManager toolCallingManager) {
+
             super(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
+        }
+
+        @Override
+        protected boolean isStreaming() {
+            return true;
         }
     }
 }
