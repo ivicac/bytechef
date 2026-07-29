@@ -1,7 +1,7 @@
 import ComboBox from '@/components/ComboBox/ComboBox';
 import {DataMessagePartProps, useAui} from '@assistant-ui/react';
 import {CheckIcon} from 'lucide-react';
-import {useEffect, useState} from 'react';
+import {useState} from 'react';
 
 export interface SelectPropertyOptionItemI {
     label: string;
@@ -26,19 +26,8 @@ export interface SelectPropertyOptionDataI {
  */
 const SelectPropertyOptionMessage = ({data}: DataMessagePartProps<SelectPropertyOptionDataI>) => {
     const [picked, setPicked] = useState<SelectPropertyOptionItemI | undefined>();
-    const [superseded, setSuperseded] = useState(false);
 
     const aui = useAui();
-
-    useEffect(() => {
-        const initialCount = aui.thread.getState().messages.length;
-
-        return aui.subscribe(() => {
-            if (aui.thread.getState().messages.length > initialCount) {
-                setSuperseded(true);
-            }
-        });
-    }, [aui]);
 
     if (picked) {
         return (
@@ -65,7 +54,7 @@ const SelectPropertyOptionMessage = ({data}: DataMessagePartProps<SelectProperty
     const items = options.map((option) => ({label: option.label, value: option.label}));
 
     return (
-        <div className={`mt-2 flex w-full min-w-0 flex-col gap-1${superseded ? 'opacity-60' : ''}`}>
+        <div className="mt-2 flex w-full min-w-0 flex-col gap-1">
             <ComboBox
                 emptyMessage="No match"
                 items={items}
