@@ -658,7 +658,7 @@ class AbstractAiAgentChatActionTest {
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
 
         List<Advisor> advisors = action.getAdvisors(
-            clusterElementMap, Map.of(), chatModel, actionContext, Optional.empty());
+            clusterElementMap, Map.of(), chatModel, actionContext, Optional.empty(), null);
 
         ToolCallingAdvisor toolCallAdvisor = findToolCallAdvisor(advisors);
 
@@ -699,7 +699,7 @@ class AbstractAiAgentChatActionTest {
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
 
         List<Advisor> advisors = action.getAdvisors(
-            clusterElementMap, connectionParameters, chatModel, actionContext, chatMemoryResult);
+            clusterElementMap, connectionParameters, chatModel, actionContext, chatMemoryResult, null);
 
         int chatMemoryIndex = advisors.indexOf(chatMemoryAdvisor);
         ToolCallingAdvisor toolCallAdvisor = findToolCallAdvisor(advisors);
