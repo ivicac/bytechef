@@ -199,6 +199,20 @@ export function formatApprovalRequestMessage(event: ApprovalRequestEventI): stri
 }
 
 /**
+ * Formats an approval_request event as a readable assistant message with a link to the hosted approval form. Used by
+ * chat surfaces that render plain markdown instead of the interactive approval card — the link resolves the approval
+ * on the hosted form page, never through the chat input.
+ */
+export function formatApprovalRequestMessage(event: ApprovalRequestEventI): string {
+    const title = event.formTitle || 'Approval requested';
+    const description = event.formDescription ? `\n\n${event.formDescription}` : '';
+    const expiry = event.expiresAt ? `\n\nExpires ${new Date(event.expiresAt).toLocaleString()}` : '';
+    const link = event.formUrl ? `\n\n[Open the approval form](${event.formUrl})` : '';
+
+    return `**${title}**${description}${expiry}${link}`;
+}
+
+/**
  * Adds a tool execution event as a tool-call content part to the last assistant message.
  * Converts the assistant message content to array format if needed.
  */

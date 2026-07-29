@@ -49,6 +49,10 @@ export const toSubmittedValues = (
 interface UseApprovalFormOptionsI {
     onSubmitted?: (approved: boolean) => void;
 
+    /**
+     * Replaces the default resume-job mutation as the submission transport. Chat surfaces use this to resolve the
+     * approval through their SSE machinery so the resumed run's output streams back into the conversation.
+     */
     submitOverride?: (data: Record<string, unknown>, approved: boolean) => Promise<void>;
 }
 
@@ -88,14 +92,12 @@ export default function useApprovalForm(id: string | undefined, options?: UseApp
             return;
         }
 
-        const submittedValues = toSubmittedValues(definition?.inputs, values);
-
         if (options?.submitOverride) {
             setOverrideSubmitting(true);
             setOverrideError(null);
 
             try {
-                await options.submitOverride(submittedValues, approveValue);
+                await options.submitOverride(values, approveValue);
 
                 setApproved(approveValue);
                 setOverrideSubmitted(true);

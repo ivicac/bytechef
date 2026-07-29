@@ -24,6 +24,9 @@ const outcomeOptions = [
     {label: 'Error', value: 'ERROR'},
     {label: 'Connection required', value: 'CONNECTION_REQUIRED'},
     {label: 'Timeout', value: 'TIMEOUT'},
+    {label: 'Approval required', value: 'APPROVAL_REQUIRED'},
+    {label: 'Approval denied', value: 'APPROVAL_DENIED'},
+    {label: 'Suspended', value: 'SUSPENDED'},
 ];
 
 const surfaceOptions = [
@@ -33,6 +36,7 @@ const surfaceOptions = [
     {label: 'Management MCP', value: 'MCP_MANAGEMENT'},
     {label: 'Embedded API (Action)', value: 'EMBEDDED_API_ACTION'},
     {label: 'Embedded API (Tool)', value: 'EMBEDDED_API_TOOL'},
+    {label: 'AI Agent', value: 'AI_AGENT'},
 ];
 
 interface ToolInvocationsProps {

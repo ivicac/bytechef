@@ -1,6 +1,6 @@
 import {useChatsStore} from '@/pages/automation/chats/stores/useChatsStore';
 import {ApprovalResolutionContext, ResumeError} from '@/shared/components/ai-chat/approvalResolutionContext';
-import {SSERequestType, useSSE} from '@/shared/hooks/useSSE';
+import {useSSE} from '@/shared/hooks/useSSE';
 import {
     ApprovalRequestEventI,
     AskUserQuestionEventI,
@@ -63,11 +63,7 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
     const approvalCardShownRef = useRef(false);
     const approvalStreamRef = useRef(false);
     const awaitingStreamEventRef = useRef(false);
-    const pendingResumeRef = useRef<{
-        reject: (error: Error) => void;
-        request: SSERequestType;
-        resolve: () => void;
-    } | null>(null);
+    const pendingResumeRef = useRef<{reject: (error: Error) => void; resolve: () => void} | null>(null);
     const pendingResumeUrlRef = useRef<string | null>(null);
     const questionShownRef = useRef(false);
 
@@ -75,6 +71,7 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
         appendToLastAssistantMessage,
         isRunning,
         messages,
+        setCurrentStepName,
         setIsRunning,
         setLastAssistantMessageContent,
         setLastEmptyAssistantMessage,
@@ -85,6 +82,7 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
             appendToLastAssistantMessage: state.appendToLastAssistantMessage,
             isRunning: state.isRunning,
             messages: state.messages,
+            setCurrentStepName: state.setCurrentStepName,
             setIsRunning: state.setIsRunning,
             setLastAssistantMessageContent: state.setLastAssistantMessageContent,
             setLastEmptyAssistantMessage: state.setLastEmptyAssistantMessage,
@@ -165,6 +163,24 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
         [appendToLastAssistantMessage]
     );
 
+    const handleTaskStarted = useCallback(
+        (data: unknown) => {
+            // Enriched coordinator task_started: {taskExecutionId, name, type}. Surface a transient step
+            // indicator while the workflow runs; cleared when the run stops (setIsRunning(false)).
+            if (typeof data !== 'object' || data === null) {
+                return;
+            }
+
+            const payload = data as {name?: string; type?: string};
+            const stepName = payload.name || payload.type;
+
+            if (stepName) {
+                setCurrentStepName(stepName);
+            }
+        },
+        [setCurrentStepName]
+    );
+
     const handleAskUserQuestion = useCallback(
         (data: unknown) => {
             if (
@@ -206,10 +222,10 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
 
             const approvalEvent = data as ApprovalRequestEventI;
 
-            approvalCardShownRef.current = true;
-            awaitingStreamEventRef.current = false;
-
-            setLastEmptyAssistantMessage({
+            // Render an interactive approval card (see ApprovalRequestMessage) that resolves through the
+            // job-resume endpoint. Deliberately do NOT set a resume URL for the chat input — typing never
+            // resolves an approval; only the card (or the hosted form) does.
+            setMessage({
                 content: [
                     {
                         data: {
@@ -229,7 +245,7 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
             setIsRunning(false);
             setStreamRequest(null);
         },
-        [setIsRunning, setLastEmptyAssistantMessage]
+        [setIsRunning, setMessage]
     );
 
     const handleSuspended = useCallback(() => {
@@ -251,8 +267,17 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
             result: handleResult,
             stream: handleStream,
             suspended: handleSuspended,
+            task_started: handleTaskStarted,
         }),
-        [handleApprovalRequest, handleAskUserQuestion, handleError, handleResult, handleStream, handleSuspended]
+        [
+            handleApprovalRequest,
+            handleAskUserQuestion,
+            handleError,
+            handleResult,
+            handleStream,
+            handleSuspended,
+            handleTaskStarted,
+        ]
     );
 
     const onNew = useCallback(
@@ -428,68 +453,44 @@ export const ChatRuntimeProvider = memo(function ChatRuntimeProvider({
         )
     );
 
-    const takePendingResume = (request: SSERequestType) => {
-        const pending = pendingResumeRef.current;
-
-        if (!pending || pending.request !== request) {
-            return null;
-        }
-
-        pendingResumeRef.current = null;
-
-        return pending;
-    };
-
     const {connectionState, error, errorStatus} = useSSE(streamRequest, {
         eventHandlers,
-        onRequestAbort: (request) => {
-            takePendingResume(request)?.reject(new ResumeError(null));
+        onRequestError: (status) => {
+            const pending = pendingResumeRef.current;
+
+            pendingResumeRef.current = null;
+
+            pending?.reject(new ResumeError(status));
         },
-        onRequestError: (status, request) => {
-            takePendingResume(request)?.reject(new ResumeError(status));
-        },
-        onRequestSuccess: (request) => {
-            const pending = takePendingResume(request);
+        onRequestSuccess: () => {
+            const pending = pendingResumeRef.current;
 
-            if (pending) {
-                approvalCardShownRef.current = false;
-                approvalStreamRef.current = false;
+            pendingResumeRef.current = null;
 
-                setMessage({content: '', role: 'assistant'});
-
-                pending.resolve();
-            }
+            pending?.resolve();
         },
     });
 
+    // Continuation streaming for inline approval cards: resolve through the SSE-negotiated resume endpoint and
+    // pipe the resumed run's output back into this conversation via the same event handlers as a normal turn. The
+    // returned promise settles from the resume request's HTTP outcome so the card only shows success on a 2xx.
     const resolveApproval = useCallback(
-        (resumeId: string, payload: Record<string, unknown>) => {
-            if (pendingResumeRef.current) {
-                return Promise.reject(
-                    new Error('Another decision is being submitted. Wait for it to finish, then try again.')
-                );
-            }
+        (resumeId: string, payload: Record<string, unknown>) =>
+            new Promise<void>((resolve, reject) => {
+                pendingResumeRef.current = {reject, resolve};
 
-            return new Promise<void>((resolve, reject) => {
-                const request: SSERequestType = {
+                setMessage({content: '', role: 'assistant'});
+                setIsRunning(true);
+                setStreamRequest({
                     init: {
                         body: JSON.stringify(payload),
                         headers: {'Content-Type': 'application/json'},
                         method: 'POST',
                     },
                     url: `/job/resume/${resumeId}`,
-                };
-
-                pendingResumeRef.current = {reject, request, resolve};
-                approvalStreamRef.current = true;
-                awaitingStreamEventRef.current = false;
-                pendingResumeUrlRef.current = null;
-
-                setIsRunning(true);
-                setStreamRequest(request);
-            });
-        },
-        [setIsRunning]
+                });
+            }),
+        [setIsRunning, setMessage]
     );
 
     const approvalResolution = useMemo(() => ({resolveApproval}), [resolveApproval]);
