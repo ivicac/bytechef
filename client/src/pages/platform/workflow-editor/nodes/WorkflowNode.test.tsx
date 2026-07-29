@@ -106,6 +106,7 @@ vi.mock('../stores/useWorkflowEditorStore', () => ({
             setCopiedWorkflowId: vi.fn(),
             setRenamingNodeName: vi.fn(),
             setRootClusterElementNodeData: vi.fn(),
+            workflowTestNodeStates: {},
         }),
 }));
 
