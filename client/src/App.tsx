@@ -89,7 +89,7 @@ const automationNavigation: NavigationType[] = [
     {
         href: '/automation/executions',
         icon: ActivityIcon,
-        name: 'Workflow Executions',
+        name: 'Executions',
     },
     {href: '/automation/connections', icon: Link2Icon, name: 'Connections'},
     {
@@ -140,7 +140,7 @@ const embeddedNavigation: NavigationType[] = [
     {
         href: '/embedded/executions',
         icon: ActivityIcon,
-        name: 'Workflow Executions',
+        name: 'Executions',
     },
     {href: '/embedded/connections', icon: Link2Icon, name: 'Connections'},
 ];
