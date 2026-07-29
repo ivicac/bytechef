@@ -29,24 +29,16 @@ import java.time.Duration;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
- * Completes per-job futures from the broker-published {@code SSE_STREAM_EVENTS} job-status signal, so synchronous
- * callers can await a distributed-coordinator job without the embedded {@code JobSyncExecutor}. The signal is the only
- * job-completion notification that crosses process boundaries (a microservices coordinator runs in a different JVM than
- * the awaiting node), which is why this listens to the SSE stream route rather than the in-JVM
- * {@code JobStatusApplicationEvent}.
- *
- * <p>
- * Lives in {@code platform-webhook-impl} (alongside its primary consumer {@code WebhookWorkflowExecutorImpl} and the
- * sibling {@code SseStreamBridgeRegistry}) rather than {@code platform-workflow-execution-service}, so that lightweight
- * EE apps which depend on {@code platform-workflow-execution-remote-client} (e.g. {@code webhook-app}) still obtain the
- * bean: the awaiter is a local, broker-fed primitive that must run in-process wherever {@code await} is called, not a
- * remote service stub.
- *
  * @author Ivica Cardic
  */
 public class JobCompletionAwaiterImpl implements JobCompletionAwaiter {
+
+    private static final Logger log = LoggerFactory.getLogger(JobCompletionAwaiterImpl.class);
 
     private final Cache<String, CompletableFuture<Job>> futures = Caffeine.newBuilder()
         .expireAfterAccess(30, TimeUnit.MINUTES)
@@ -75,7 +67,12 @@ public class JobCompletionAwaiterImpl implements JobCompletionAwaiter {
             return future;
         }
 
-        return future.orTimeout(timeout.toMillis(), TimeUnit.MILLISECONDS);
+        String tenantId = TenantContext.getCurrentTenantId();
+
+        CompletableFuture.delayedExecutor(timeout.toMillis(), TimeUnit.MILLISECONDS)
+            .execute(() -> TenantContext.runWithTenantId(tenantId, () -> completeOnTimeout(jobId, timeout, future)));
+
+        return future;
     }
 
     public void onSseStreamEvent(SseStreamEvent sseStreamEvent) {
@@ -94,7 +91,8 @@ public class JobCompletionAwaiterImpl implements JobCompletionAwaiter {
         Object payload = sseStreamEvent.getPayload();
         String status = payload != null ? payload.toString() : "";
 
-        if ("COMPLETED".equals(status) || "FAILED".equals(status) || "STOPPED".equals(status)) {
+        if ("COMPLETED".equals(status) || "FAILED".equals(status) || "STOPPED".equals(status)
+            || "CANCELLED".equals(status)) {
             try {
                 future.complete(jobService.getJob(jobId));
             } catch (Exception exception) {
@@ -103,9 +101,33 @@ public class JobCompletionAwaiterImpl implements JobCompletionAwaiter {
         }
     }
 
+    private void completeOnTimeout(long jobId, Duration timeout, CompletableFuture<Job> future) {
+        if (future.isDone()) {
+            return;
+        }
+
+        try {
+            Optional<Job> jobOptional = jobService.fetchJob(jobId);
+
+            if (jobOptional.isPresent() && isTerminal(jobOptional.get())) {
+                future.complete(jobOptional.get());
+
+                return;
+            }
+        } catch (RuntimeException exception) {
+            log.error("Unable to read the status of job {} after waiting {}", jobId, timeout, exception);
+        }
+
+        future.completeExceptionally(
+            new TimeoutException(
+                "Job %d did not finish within %s".formatted(
+                    jobId, timeout)));
+    }
+
     private static boolean isTerminal(Job job) {
         Job.Status status = job.getStatus();
 
-        return status == Job.Status.COMPLETED || status == Job.Status.FAILED || status == Job.Status.STOPPED;
+        return status == Job.Status.COMPLETED || status == Job.Status.FAILED || status == Job.Status.STOPPED
+            || status == Job.Status.CANCELLED;
     }
 }
