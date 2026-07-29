@@ -37,11 +37,14 @@ import java.util.concurrent.TimeUnit;
  * {@code JobStatusApplicationEvent}.
  *
  * <p>
- * Lives in {@code platform-webhook-impl} (alongside its primary consumer {@code WebhookWorkflowExecutorImpl} and the
- * sibling {@code SseStreamBridgeRegistry}) rather than {@code platform-workflow-execution-service}, so that lightweight
- * EE apps which depend on {@code platform-workflow-execution-remote-client} (e.g. {@code webhook-app}) still obtain the
- * bean: the awaiter is a local, broker-fed primitive that must run in-process wherever {@code await} is called, not a
- * remote service stub.
+ * Its consumers are the MCP tool and A2A facades, whose runs can suspend for an approval and must be resumable later;
+ * the synchronous webhook path does not use it (it runs in-process on {@code JobSyncExecutor}).
+ *
+ * <p>
+ * Lives in {@code platform-webhook-impl} (alongside the sibling {@code SseStreamBridgeRegistry}, the other consumer of
+ * the same route) rather than {@code platform-workflow-execution-service}, so that lightweight EE apps which depend on
+ * {@code platform-workflow-execution-remote-client} (e.g. {@code webhook-app}) still obtain the bean: the awaiter is a
+ * local, broker-fed primitive that must run in-process wherever {@code await} is called, not a remote service stub.
  *
  * @author Ivica Cardic
  */
@@ -96,7 +99,8 @@ public class JobCompletionAwaiterImpl implements JobCompletionAwaiter {
         Object payload = sseStreamEvent.getPayload();
         String status = payload != null ? payload.toString() : "";
 
-        if ("COMPLETED".equals(status) || "FAILED".equals(status) || "STOPPED".equals(status)) {
+        if ("COMPLETED".equals(status) || "FAILED".equals(status) || "STOPPED".equals(status)
+            || "CANCELLED".equals(status)) {
             try {
                 future.complete(jobService.getJob(jobId));
             } catch (Exception exception) {
@@ -108,6 +112,7 @@ public class JobCompletionAwaiterImpl implements JobCompletionAwaiter {
     private static boolean isTerminal(Job job) {
         Job.Status status = job.getStatus();
 
-        return status == Job.Status.COMPLETED || status == Job.Status.FAILED || status == Job.Status.STOPPED;
+        return status == Job.Status.COMPLETED || status == Job.Status.FAILED || status == Job.Status.STOPPED
+            || status == Job.Status.CANCELLED;
     }
 }
