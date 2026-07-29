@@ -791,6 +791,29 @@ cd cli
 - Use `gh api graphql` with `resolveReviewThread` mutation to close threads programmatically
 - Get thread IDs via: `gh api graphql -f query='{ repository(owner: "X", name: "Y") { pullRequest(number: N) { reviewThreads(first: 20) { nodes { id isResolved path } } } }'`
 
+## Execution retention and sync waits
+
+- `JobRetentionMonitor` (platform-coordinator, 6h per-tenant sweep, `getEndedJobs(endDateBefore)`
+  finder — endDate exists only on terminal jobs) deletes through `JobFacade.deleteJob`'s cascade and
+  skips subflow children; works distributed via the remote job service/facade endpoints. The window is
+  `bytechef.workflow.execution.retention.default-retention-days` (unset = keep forever); disable with
+  `bytechef.workflow.execution.retention.enabled=false`. `JobFacadeImpl.deleteJob` also releases
+  file-storage blobs (task outputs, job outputs, context values via `TaskFileStorage.delete*`) and
+  context rows (`ContextService.getStackFileEntries`/`deleteStackContexts`) best-effort — a storage
+  failure never blocks the row delete; in-memory repos throw `UnsupportedOperationException` for
+  context enumeration and the facade skips that portion. The retention monitor additionally drops
+  the purged job's `data_storage` CURRENT_EXECUTION rows via `DataStorage.deleteScopeData(scope,
+  scopeId)` (jdbc provider + remote client implement it; the file-storage provider throws and the
+  monitor skips).
+- Synchronous runs wait at most `JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT` (300 s) on the
+  awaiter-based surfaces (`AutomationMcpToolFacade`, `EmbeddedMcpToolFacade`,
+  `AutomationA2AServerFacade`) and in the in-process `JobSyncExecutor` wait behind synchronous
+  webhooks and the API Platform. The SSE streaming path (`WebhookWorkflowExecutorImpl.stream`) waits
+  for the terminal job-status event over a 30-minute default matching the `SseEmitter` and the
+  `SseStreamBridgeRegistry` expiry; it bounds a `copy()` of the registry future so a resume on the same
+  job id does not inherit the timeout, and on timeout only the stream fails — the job keeps running
+  under `JobTimeoutMonitor`.
+
 ## Crash recovery (orphaned jobs)
 
 - Workers publish `TaskHeartbeatApplicationEvent` every 30s per in-flight task (scheduler inside
@@ -808,7 +831,16 @@ cd cli
   Stale-row finders are `getStaleTaskExecutions`/`getStaleJobs` (EE remote clients throw
   `UnsupportedOperationException`; the monitor warn-skips, so orphan detection is monolith-only
   for now). Detection lives OUTSIDE `server/libs/atlas/` except the engine-owned heartbeat
-  primitives; semantics pinned by `OrphanedJobRecoveryMonitorTest`.
+  primitives; semantics pinned by `OrphanedJobRecoveryMonitorTest`, and the underlying
+  stale/long-running SQL finders by `StaleExecutionFinderIntTest` (Testcontainers PG).
+- **Per-run timeouts**: `JobTimeoutMonitor` (platform-coordinator, every minute,
+  `bytechef.workflow.execution.timeout.enabled` default on) fails STARTED jobs whose runtime
+  exceeds `bytechef.workflow.execution.timeout.default-timeout`; unset, it is a no-op. Uses the
+  startDate-based finder `getLongRunningJobs` (remote clients throw, monitor skips). No
+  auto-resume — a timed-out run would immediately exceed again. Pinned by `JobTimeoutMonitorTest`.
+- **Mockito gotcha**: unstubbed wrapper-returning methods (Long/Integer) return 0, NOT null — stub
+  `thenReturn(null)` explicitly when a null-means-absent field (e.g. `Job.getParentTaskExecutionId`)
+  drives branching.
 - **Redis broker redelivery**: `RedisListenerEndpointRegistrar` reclaims consumer-group pending
   entries left by crashed consumers (XPENDING + XCLAIM sweep every 10s, min idle 60s) and
   redelivers them through the normal invoke-then-ack path — at-least-once semantics like amqp.
@@ -858,7 +890,17 @@ cd cli
   email alike. `EmailNotificationSender` and the EE
   `AiObservabilityNotificationDispatcher` both call `mailService.sendEmail(...)` — no inline
   `JavaMailSender` remains anywhere in notification delivery.
-- Consumers: CE `WebhookNotificationSender` (job-status webhook channel; settings keys `webhook` +
+- Consumers: all three CE senders (`Email|Webhook|SlackNotificationSender`) live in
+  platform-notification-delivery (so coordinator-app carries them). `EmailNotificationSender`
+  reaches mail through the `NotificationEmailGateway` port (platform-notification-api):
+  monolith/configuration-app bind it to MailService (`MailServiceNotificationEmailGateway`),
+  coordinator/webhook apps bind it to `RemoteNotificationEmailGatewayClient` which proxies to
+  configuration-app's `/remote/notification-email-gateway/send-email` — SMTP credentials stay in
+  one app; no gateway bean at all = the EMAIL channel warn-skips. In the distributed deployment
+  the coordinator resolves delivery targets through `configuration-app`'s
+  `/remote/notification-service` read endpoints (platform-notification-remote-rest + the
+  implemented `RemoteNotificationServiceClient` reads).
+  `WebhookNotificationSender` (job-status webhook channel; settings keys `webhook` +
   optional `webhookSecret`, `@Async`), payload shaped by `JobStatusWebhookNotificationHandler` in
   platform-coordinator; platform-coordinator's `WebhookJobStatusApplicationEventListener` delegates the
   Atlas job-callback delivery to `deliverEvent` with the `Job.Retry` schedule (defaults: 5 attempts,
