@@ -7,11 +7,14 @@
 
 package com.bytechef.ee.platform.ai.observability.service;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.contains;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -22,18 +25,22 @@ import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityAlertMetr
 import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityAlertRule;
 import com.bytechef.ee.platform.ai.observability.domain.AiObservabilityAlertRuleChannel;
 import com.bytechef.platform.mail.MailService;
-import com.bytechef.platform.notification.delivery.SlackNotificationClient;
-import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
+import com.bytechef.platform.notification.delivery.WebhookDelivery;
+import com.bytechef.platform.notification.delivery.WebhookDeliveryService;
+import com.bytechef.platform.notification.delivery.WebhookPayload;
 import com.bytechef.platform.notification.domain.Notification;
 import com.bytechef.platform.notification.service.NotificationService;
+import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.math.BigDecimal;
 import java.util.Map;
 import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Pins the post-migration dispatch behavior: alerts deliver through the central platform-notification registry via the
@@ -43,7 +50,9 @@ import org.mockito.junit.jupiter.MockitoExtension;
  *
  * @author Ivica Cardic
  */
-@ExtendWith(MockitoExtension.class)
+@ExtendWith({
+    MockitoExtension.class, ObjectMapperSetupExtension.class
+})
 class AiObservabilityNotificationDispatcherTest {
 
     @Mock
@@ -53,17 +62,14 @@ class AiObservabilityNotificationDispatcherTest {
     private NotificationService notificationService;
 
     @Mock
-    private SlackNotificationClient slackNotificationClient;
-
-    @Mock
-    private WebhookNotificationClient webhookNotificationClient;
+    private WebhookDeliveryService webhookDeliveryService;
 
     private AiObservabilityNotificationDispatcher dispatcher;
 
     @BeforeEach
     void setUp() {
         dispatcher = new AiObservabilityNotificationDispatcher(
-            mailService, notificationService, slackNotificationClient, webhookNotificationClient);
+            mailServiceObjectProvider(mailService), notificationService, webhookDeliveryService);
     }
 
     @Test
@@ -87,7 +93,18 @@ class AiObservabilityNotificationDispatcherTest {
 
         dispatcher.dispatch(rule(11L), event());
 
-        verify(slackNotificationClient).send(eq("https://hooks.slack.com/services/T/C/X"), contains("breach"));
+        ArgumentCaptor<WebhookDelivery> webhookDeliveryArgumentCaptor = ArgumentCaptor.forClass(WebhookDelivery.class);
+
+        verify(webhookDeliveryService).submit(webhookDeliveryArgumentCaptor.capture());
+
+        WebhookDelivery webhookDelivery = webhookDeliveryArgumentCaptor.getValue();
+
+        assertThat(webhookDelivery.url()).isEqualTo("https://hooks.slack.com/services/T/C/X");
+
+        WebhookPayload webhookPayload = webhookDelivery.payloads()
+            .getFirst();
+
+        assertThat(webhookPayload.json()).contains("breach");
     }
 
     @Test
@@ -116,7 +133,32 @@ class AiObservabilityNotificationDispatcherTest {
 
         dispatcher.dispatch(rule, event());
 
-        verify(slackNotificationClient).send(any(), anyString());
+        verify(webhookDeliveryService).submit(any(WebhookDelivery.class));
+    }
+
+    @Test
+    void testEmailIsSkippedWhenNoMailServiceIsAvailable() {
+        Notification notification = notification(Notification.Type.EMAIL, Map.of("email", "ops@example.com"));
+
+        when(notificationService.getNotification(15L)).thenReturn(notification);
+
+        AiObservabilityNotificationDispatcher mailLessDispatcher = new AiObservabilityNotificationDispatcher(
+            mailServiceObjectProvider(null), notificationService, webhookDeliveryService);
+
+        mailLessDispatcher.dispatch(rule(15L), event());
+
+        verify(mailService, never()).sendEmail(anyString(), anyString(), anyString(), anyBoolean(), anyBoolean());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<MailService> mailServiceObjectProvider(MailService mailService) {
+        ObjectProvider<MailService> objectProvider = mock(ObjectProvider.class);
+
+        lenient()
+            .when(objectProvider.getIfAvailable())
+            .thenReturn(mailService);
+
+        return objectProvider;
     }
 
     private static AiObservabilityAlertRule rule(long notificationId) {
