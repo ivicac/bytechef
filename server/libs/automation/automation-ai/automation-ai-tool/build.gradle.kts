@@ -1,6 +1,9 @@
 dependencies {
+    annotationProcessor(rootProject.libs.com.google.auto.service.auto.service)
+
     implementation("org.apache.commons:commons-lang3")
     implementation("org.slf4j:slf4j-api")
+    implementation(rootProject.libs.com.google.auto.service.auto.service.annotations)
     implementation("org.springframework:spring-context")
     implementation("org.springframework.ai:spring-ai-client-chat")
     implementation("org.springframework.ai:spring-ai-model")
@@ -12,6 +15,9 @@ dependencies {
     implementation(project(":server:libs:atlas:atlas-execution:atlas-execution-api"))
     implementation(project(":server:libs:automation:automation-ai:automation-ai-mcp:automation-ai-mcp-api"))
     implementation(project(":server:libs:automation:automation-configuration:automation-configuration-api"))
+    implementation(project(":server:libs:ai:ai-mcp:ai-mcp-server-api"))
+    implementation(project(":server:libs:automation:automation-asset-file:automation-asset-file-api"))
+    implementation(project(":server:libs:automation:automation-data-table:automation-data-table-api"))
     implementation(project(":server:libs:automation:automation-knowledge-base:automation-knowledge-base-api"))
     implementation(project(":server:libs:automation:automation-workflow:automation-workflow-execution:automation-workflow-execution-api"))
     implementation(project(":server:libs:core:commons:commons-util"))
@@ -25,6 +31,7 @@ dependencies {
     implementation(project(":server:libs:platform:platform-knowledge-base:platform-knowledge-base-api"))
     implementation(project(":server:libs:platform:platform-mcp:platform-mcp-api"))
     implementation(project(":server:libs:platform:platform-security-web:platform-security-web-api"))
+    implementation(project(":server:libs:platform:platform-data-table:platform-data-table-api"))
     implementation(project(":server:libs:platform:platform-user:platform-user-api"))
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-api"))
 

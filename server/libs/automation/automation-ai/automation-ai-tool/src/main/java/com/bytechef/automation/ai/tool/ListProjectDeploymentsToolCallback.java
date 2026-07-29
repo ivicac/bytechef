@@ -90,12 +90,12 @@ public class ListProjectDeploymentsToolCallback implements ToolCallback {
             }
 
             Long environmentId = invocationContext.environmentId();
-            String projectId = input.projectId();
             Long projectIdFilter = null;
 
-            if (projectId != null && !projectId.isBlank()) {
+            if (input.projectId() != null && !input.projectId()
+                .isBlank()) {
                 try {
-                    projectIdFilter = Long.parseLong(projectId);
+                    projectIdFilter = Long.parseLong(input.projectId());
                 } catch (NumberFormatException exception) {
                     return toolError("Invalid projectId — must be a numeric id");
                 }

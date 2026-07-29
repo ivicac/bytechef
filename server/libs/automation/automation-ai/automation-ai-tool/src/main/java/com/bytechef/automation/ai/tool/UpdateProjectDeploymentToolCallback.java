@@ -82,15 +82,13 @@ public class UpdateProjectDeploymentToolCallback implements ToolCallback {
             UpdateProjectDeploymentInput input = jsonMapper.readValue(
                 toolInput, UpdateProjectDeploymentInput.class);
 
-            String projectDeploymentIdString = input.projectDeploymentId();
-
-            if (projectDeploymentIdString == null || projectDeploymentIdString.isBlank()) {
+            if (input.projectDeploymentId() == null || input.projectDeploymentId()
+                .isBlank()) {
                 return toolError("projectDeploymentId is required");
             }
 
-            String name = input.name();
-
-            boolean nameSupplied = name != null && !name.isBlank();
+            boolean nameSupplied = input.name() != null && !input.name()
+                .isBlank();
             boolean descriptionSupplied = input.description() != null;
 
             if (!nameSupplied && !descriptionSupplied) {
@@ -100,25 +98,12 @@ public class UpdateProjectDeploymentToolCallback implements ToolCallback {
             long projectDeploymentId;
 
             try {
-                projectDeploymentId = Long.parseLong(projectDeploymentIdString);
+                projectDeploymentId = Long.parseLong(input.projectDeploymentId());
             } catch (NumberFormatException exception) {
                 return toolError("Invalid projectDeploymentId — must be a numeric id");
             }
 
-            String workspaceError = ProjectDeploymentWorkspaceGuard.findWorkspaceError(
-                projectDeploymentFacade, toolContext, projectDeploymentId);
-
-            if (workspaceError != null) {
-                return toolError(workspaceError);
-            }
-
-            ProjectDeploymentDTO existing;
-
-            try {
-                existing = projectDeploymentFacade.getProjectDeployment(projectDeploymentId);
-            } catch (NoSuchElementException exception) {
-                return toolError("Project deployment " + projectDeploymentId + " not found");
-            }
+            ProjectDeploymentDTO existing = projectDeploymentFacade.getProjectDeployment(projectDeploymentId);
 
             ProjectDeploymentDTO updated = ProjectDeploymentDTO.builder()
                 .createdBy(existing.createdBy())
@@ -127,7 +112,7 @@ public class UpdateProjectDeploymentToolCallback implements ToolCallback {
                 .enabled(existing.enabled())
                 .environment(existing.environment())
                 .id(existing.id())
-                .name(nameSupplied ? name : existing.name())
+                .name(nameSupplied ? input.name() : existing.name())
                 .lastModifiedBy(existing.lastModifiedBy())
                 .lastModifiedDate(existing.lastModifiedDate())
                 .project(existing.project())
@@ -138,13 +123,7 @@ public class UpdateProjectDeploymentToolCallback implements ToolCallback {
                 .version(existing.version())
                 .build();
 
-            try {
-                projectDeploymentFacade.updateProjectDeployment(updated);
-            } catch (NoSuchElementException exception) {
-                return toolError(
-                    "Project deployment " + projectDeploymentId
-                        + " could not be updated — one of its workflows no longer exists");
-            }
+            projectDeploymentFacade.updateProjectDeployment(updated);
 
             return jsonMapper.writeValueAsString(
                 new UpdateProjectDeploymentOutput(projectDeploymentId, updated.name(), updated.description()));

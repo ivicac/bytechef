@@ -90,9 +90,7 @@ public class CreateMcpServerToolCallback implements ToolCallback {
         try {
             AutomationToolInvocationContext context = AutomationToolInvocationContext.fromToolContext(toolContext);
 
-            Long workspaceId = context == null ? null : context.workspaceId();
-
-            if (workspaceId == null) {
+            if (context == null || context.workspaceId() == null) {
                 return toolError("Workspace context unavailable — open this chat from the AI Hub of a workspace.");
             }
 
@@ -118,12 +116,10 @@ public class CreateMcpServerToolCallback implements ToolCallback {
                     "Unknown environment '" + input.environment() + "'. Supported: " + SUPPORTED_ENVIRONMENTS);
             }
 
-            Boolean enabledInput = input.enabled();
-
-            boolean enabled = enabledInput != null && enabledInput;
+            boolean enabled = input.enabled() != null && input.enabled();
 
             McpServer mcpServer = workspaceMcpServerFacade.createWorkspaceMcpServer(
-                input.name(), PlatformType.AUTOMATION, environment, enabled, null, workspaceId);
+                input.name(), PlatformType.AUTOMATION, environment, enabled, context.workspaceId());
 
             return jsonMapper.writeValueAsString(
                 new CreateMcpServerOutput(
