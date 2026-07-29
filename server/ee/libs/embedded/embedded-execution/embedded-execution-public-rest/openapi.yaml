@@ -626,9 +626,9 @@ paths:
           $ref: "#/components/responses/internalServerError"
   /{externalUserId}/tool-invocations:
     get:
-      description: "Get the page of a connected user's direct tool/action invocations (MCP component tools,\
-        \ workflow-as-tool calls, and executeAction/executeTool). Input and output payloads are never included."
-      summary: "Get tool invocations"
+      description: "Returns a page of the connected user's tool invocations: embedded MCP component and workflow\
+        \ tool calls, executeAction calls and executeTool calls. Tool inputs and outputs are not included."
+      summary: "Returns a page of the connected user's tool invocations"
       tags:
         - "tool-invocation"
       operationId: "getToolInvocationsPage"
@@ -646,13 +646,13 @@ paths:
           schema:
             type: "string"
         - name: "surface"
-          description: "The surface a tool invocation was made through."
+          description: "Return only invocations made through this surface."
           in: "query"
           required: false
           schema:
             $ref: "#/components/schemas/ToolInvocationSurface"
         - name: "outcome"
-          description: "The outcome of a tool invocation."
+          description: "Return only invocations with this outcome."
           in: "query"
           required: false
           schema:
@@ -685,15 +685,20 @@ paths:
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Page"
+                $ref: "#/components/schemas/ToolInvocationPage"
         "400":
           $ref: "#/components/responses/badRequest"
         "401":
           $ref: "#/components/responses/unauthorized"
         "403":
           $ref: "#/components/responses/forbidden"
+        "404":
+          $ref: "#/components/responses/notFound"
         "500":
           $ref: "#/components/responses/internalServerError"
+      security:
+        - bearerAuth: [ ]
+        - jwtBearerAuth: [ ]
 components:
   securitySchemes:
     bearerAuth:
@@ -811,67 +816,6 @@ components:
           type: "array"
           items:
             type: "object"
-    ToolInvocationSurface:
-      description: "The surface a tool invocation was made through."
-      type: "string"
-      enum:
-        - "MCP_AUTOMATION"
-        - "MCP_EMBEDDED"
-        - "MCP_MANAGEMENT"
-        - "EMBEDDED_API_ACTION"
-        - "EMBEDDED_API_TOOL"
-    ToolInvocationKind:
-      description: "The kind of thing a tool invocation ran."
-      type: "string"
-      enum:
-        - "COMPONENT"
-        - "WORKFLOW"
-        - "CONTRIBUTED"
-        - "MANAGEMENT_TOOL"
-    ToolInvocationOutcome:
-      description: "The outcome of a tool invocation."
-      type: "string"
-      enum:
-        - "SUCCESS"
-        - "ERROR"
-        - "CONNECTION_REQUIRED"
-        - "TIMEOUT"
-    ToolInvocation:
-      description: "A record of a single direct tool/action invocation."
-      type: "object"
-      properties:
-        id:
-          type: "integer"
-          format: "int64"
-        surface:
-          $ref: "#/components/schemas/ToolInvocationSurface"
-        kind:
-          $ref: "#/components/schemas/ToolInvocationKind"
-        toolName:
-          type: "string"
-        componentName:
-          type: "string"
-        componentVersion:
-          type: "integer"
-          format: "int32"
-        operationName:
-          type: "string"
-        integrationInstanceId:
-          type: "integer"
-          format: "int64"
-        jobId:
-          type: "integer"
-          format: "int64"
-        outcome:
-          $ref: "#/components/schemas/ToolInvocationOutcome"
-        errorMessage:
-          type: "string"
-        durationMs:
-          type: "integer"
-          format: "int32"
-        createdDate:
-          type: "string"
-          format: "date-time"
     WorkflowExecutionStatus:
       description: "The status of a workflow execution."
       type: "string"
@@ -879,6 +823,7 @@ components:
         - "CREATED"
         - "STARTED"
         - "STOPPED"
+        - "CANCELLED"
         - "FAILED"
         - "COMPLETED"
     ExecutionError:
@@ -1560,6 +1505,8 @@ components:
       enum:
         - "COMPONENT"
         - "WORKFLOW"
+        - "CONTRIBUTED"
+        - "HTTP_PROXY"
     ToolInvocationOutcome:
       description: "The outcome of a tool invocation."
       type: "string"
