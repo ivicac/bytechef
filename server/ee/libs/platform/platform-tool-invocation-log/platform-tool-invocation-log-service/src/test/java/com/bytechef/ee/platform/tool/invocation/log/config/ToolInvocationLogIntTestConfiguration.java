@@ -7,12 +7,20 @@
 
 package com.bytechef.ee.platform.tool.invocation.log.config;
 
+import static org.mockito.Mockito.mock;
+
+import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.atlas.execution.service.JobService;
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
+import com.bytechef.tenant.single.SingleTenantService;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.List;
 import org.springframework.boot.autoconfigure.AutoConfigurationExcludeFilter;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
+import org.springframework.boot.context.properties.EnableConfigurationProperties;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.ComponentScan.Filter;
 import org.springframework.context.annotation.Configuration;
@@ -20,28 +28,32 @@ import org.springframework.context.annotation.FilterType;
 import org.springframework.context.annotation.Import;
 
 /**
- * Boots the tool_invocation_log repository/service against a real PostgreSQL container. The EE listener and retention
- * job are excluded — they need the {@code ee} edition and scheduling, which are out of scope for the persistence test.
- *
  * @version ee
  *
  * @author Ivica Cardic
  */
 @ComponentScan(
     basePackages = "com.bytechef.ee.platform.tool.invocation.log",
-    excludeFilters = @ComponentScan.Filter(
-        type = FilterType.REGEX,
-        pattern = {
-            "com\\.bytechef\\.ee\\.platform\\.tool\\.invocation\\.log\\.ToolInvocationLogEventListener",
-            "com\\.bytechef\\.ee\\.platform\\.tool\\.invocation\\.log\\.ToolInvocationLogRetentionJob"
-        }))
+    excludeFilters = @Filter(type = FilterType.CUSTOM, classes = AutoConfigurationExcludeFilter.class))
 @Import({
-    LiquibaseConfiguration.class, PostgreSQLContainerConfiguration.class
+    LiquibaseConfiguration.class, PostgreSQLContainerConfiguration.class, SingleTenantService.class
 })
 @EnableAutoConfiguration
+@EnableConfigurationProperties(ApplicationProperties.class)
 @Configuration
 public class ToolInvocationLogIntTestConfiguration {
 
+    @Bean
+    JobService jobService() {
+        return mock(JobService.class);
+    }
+
+    @Bean
+    WorkflowService workflowService() {
+        return mock(WorkflowService.class);
+    }
+
+    @Configuration
     public static class ToolInvocationLogIntTestJdbcConfiguration extends AbstractIntTestJdbcConfiguration {
 
         @Override
