@@ -9,6 +9,7 @@ dependencies {
     implementation(project(":server:libs:core:exception:exception-api"))
     implementation(project(":server:libs:platform:platform-ai:platform-ai-api"))
     implementation(project(":server:libs:platform:platform-component:platform-component-api"))
+    implementation(project(":server:libs:platform:platform-job-sync"))
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-task-dispatcher:platform-workflow-task-dispatcher-api"))
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-validator:platform-workflow-validator-api"))
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-validator:platform-workflow-validator-service"))
