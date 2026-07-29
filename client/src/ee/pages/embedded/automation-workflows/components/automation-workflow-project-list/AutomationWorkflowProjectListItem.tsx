@@ -17,12 +17,15 @@ import {
     EditIcon,
     EllipsisVerticalIcon,
     FolderIcon,
+    LinkIcon,
     PlusIcon,
     SendIcon,
     Trash2Icon,
     UploadIcon,
 } from 'lucide-react';
 import {MouseEvent, useCallback, useMemo, useRef, useState} from 'react';
+
+import CodeWorkflowReferencesDialog from '../CodeWorkflowReferencesDialog';
 
 type AutomationWorkflowProjectType = AutomationWorkflowProjectsQuery['automationWorkflowProjects'][number];
 type EmbeddedTagType = AutomationWorkflowProjectTagsQuery['automationWorkflowProjectTags'][number];
@@ -51,6 +54,7 @@ const AutomationWorkflowProjectListItem = ({
     tags,
 }: AutomationWorkflowProjectListItemProps) => {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+    const [showReferencesDialog, setShowReferencesDialog] = useState(false);
 
     const workflowsCollapsibleTriggerRef = useRef<HTMLButtonElement | null>(null);
 
@@ -159,6 +163,10 @@ const AutomationWorkflowProjectListItem = ({
                     <div className="flex items-center justify-end gap-x-6">
                         <div className="flex min-w-52 flex-col items-end gap-y-2">
                             <div className="flex min-h-8 items-center space-x-2">
+                                {project.codeWorkflowProject && (
+                                    <Badge label="Reference" styleType="secondary-outline" />
+                                )}
+
                                 {project.published ? (
                                     <Badge
                                         className="flex space-x-1 border-transparent"
@@ -209,6 +217,15 @@ const AutomationWorkflowProjectListItem = ({
                                     label="Publish"
                                     onClick={() => onPublishProject(project.id)}
                                 />
+
+                                {project.codeWorkflowProject && (
+                                    <DropdownMenuItem
+                                        aria-label="View References"
+                                        icon={<LinkIcon />}
+                                        label="View References"
+                                        onClick={() => setShowReferencesDialog(true)}
+                                    />
+                                )}
 
                                 <DropdownMenuSeparator />
 
@@ -261,6 +278,14 @@ const AutomationWorkflowProjectListItem = ({
                 }}
                 open={showDeleteDialog}
             />
+
+            {showReferencesDialog && (
+                <CodeWorkflowReferencesDialog
+                    onClose={() => setShowReferencesDialog(false)}
+                    projectName={project.name}
+                    workflowTemplates={project.workflowTemplates}
+                />
+            )}
         </>
     );
 };

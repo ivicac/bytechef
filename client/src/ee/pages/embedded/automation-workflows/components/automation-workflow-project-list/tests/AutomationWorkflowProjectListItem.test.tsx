@@ -19,6 +19,7 @@ const handlers = {
 
 const project: AutomationWorkflowProjectType = {
     categoryId: null,
+    codeWorkflowProject: false,
     configurationCount: 0,
     description: null,
     id: 'project-1',
