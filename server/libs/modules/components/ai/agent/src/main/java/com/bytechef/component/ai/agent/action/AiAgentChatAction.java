@@ -37,6 +37,7 @@ import com.bytechef.platform.component.definition.MultipleConnectionsOutputFunct
 import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunction;
 import com.bytechef.platform.component.definition.MultipleConnectionsResumePerformFunction;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -46,6 +47,7 @@ import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.ChatClient.ChatClientRequestSpec;
+import org.springframework.ai.chat.messages.Message;
 import org.springframework.ai.model.tool.ToolCallingManager;
 
 /**
@@ -84,6 +86,7 @@ public class AiAgentChatAction extends AbstractAiAgentChatAction {
 
     public class ChatActionDefinitionWrapper extends AbstractActionDefinitionWrapper {
 
+        @SuppressFBWarnings("EI_EXPOSE_REP2")
         public ChatActionDefinitionWrapper(ActionDefinition actionDefinition) {
             super(actionDefinition);
         }
@@ -131,8 +134,13 @@ public class AiAgentChatAction extends AbstractAiAgentChatAction {
             }
         };
 
-        ChatClientRequestSpec chatClientRequestSpec = getChatClientRequestSpec(
-            inputParameters, connectionParameters, extensions, toolExecutionListener, context);
+        List<Message> checkpointedConversation = fetchCheckpointedConversation(inputParameters, context);
+
+        ChatClientRequestSpec chatClientRequestSpec = checkpointedConversation == null
+            ? getChatClientRequestSpec(inputParameters, connectionParameters, extensions, toolExecutionListener,
+                context)
+            : getChatClientRequestSpec(inputParameters, connectionParameters, extensions, toolExecutionListener,
+                context, checkpointedConversation);
 
         applyStructuredOutputValidation(chatClientRequestSpec, inputParameters, context);
 
@@ -142,6 +150,8 @@ public class AiAgentChatAction extends AbstractAiAgentChatAction {
 
         ModelUtils.ChatActionResult chatActionResult = ModelUtils.getChatActionResult(
             call, inputParameters, context);
+
+        clearConversationCheckpoint(context);
 
         Object chatResponse = chatActionResult.response();
 
