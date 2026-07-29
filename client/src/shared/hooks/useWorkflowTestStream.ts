@@ -2,12 +2,12 @@ import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useW
 import useWorkflowTestChatStore from '@/pages/platform/workflow-editor/stores/useWorkflowTestChatStore';
 import {usePersistJobId} from '@/shared/hooks/usePersistJobId';
 import {SSERequestType, useSSE} from '@/shared/hooks/useSSE';
-import {WorkflowTestExecution} from '@/shared/middleware/platform/workflow/test';
+import {JobStatusEnum, WorkflowTestExecution} from '@/shared/middleware/platform/workflow/test';
 import {WorkflowTestExecutionFromJSON} from '@/shared/middleware/platform/workflow/test/models/WorkflowTestExecution';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {AskUserQuestionEventI, formatAskUserQuestionMessage} from '@/shared/util/assistant-message-utils';
 import {extractStreamChunk} from '@/shared/util/stream-utils';
-import {useState} from 'react';
+import {useCallback, useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
 export interface UseWorkflowTestStreamProps {
@@ -15,6 +15,58 @@ export interface UseWorkflowTestStreamProps {
     onResult?: (execution: WorkflowTestExecution) => void;
     onError?: (errorMessage?: string) => void;
     onStart?: (jobId: string) => void;
+}
+
+interface TaskLifecyclePayloadI {
+    endDate?: string;
+    error?: string;
+    name?: string;
+    startDate?: string;
+    status?: string;
+    taskExecutionId?: string;
+}
+
+function computeDurationMillis(startDate?: string, endDate?: string): number | undefined {
+    if (!startDate || !endDate) {
+        return undefined;
+    }
+
+    const startMillis = Date.parse(startDate);
+    const endMillis = Date.parse(endDate);
+
+    if (Number.isNaN(startMillis) || Number.isNaN(endMillis) || endMillis < startMillis) {
+        return undefined;
+    }
+
+    return endMillis - startMillis;
+}
+
+/**
+ * Drops a `progress` snapshot left behind by a run that ends without a `result` event. Such a snapshot still reads as
+ * running, so keeping it would show a stopped run as in flight; a finished result is left alone.
+ */
+function clearProgressSnapshot() {
+    const {setWorkflowTestExecution, workflowTestExecution} = useWorkflowEditorStore.getState();
+
+    const jobStatus = workflowTestExecution?.job?.status;
+
+    if (jobStatus === JobStatusEnum.Created || jobStatus === JobStatusEnum.Started) {
+        setWorkflowTestExecution(undefined);
+    }
+}
+
+function parseTaskLifecyclePayload(data: unknown): TaskLifecyclePayloadI | undefined {
+    try {
+        const payload = typeof data === 'string' ? JSON.parse(data) : data;
+
+        if (payload && typeof payload === 'object') {
+            return payload as TaskLifecyclePayloadI;
+        }
+    } catch (error) {
+        console.error('Failed to parse task lifecycle event:', error);
+    }
+
+    return undefined;
 }
 
 export interface UseWorkflowTestStreamResultI {
@@ -34,12 +86,15 @@ export function useWorkflowTestStream({
     const [streamRequest, setStreamRequest] = useState<SSERequestType>(null);
 
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
-    const {setWorkflowIsRunning, setWorkflowTestExecution} = useWorkflowEditorStore(
-        useShallow((state) => ({
-            setWorkflowIsRunning: state.setWorkflowIsRunning,
-            setWorkflowTestExecution: state.setWorkflowTestExecution,
-        }))
-    );
+    const {resetWorkflowTestNodeStates, setWorkflowIsRunning, setWorkflowTestExecution, setWorkflowTestNodeState} =
+        useWorkflowEditorStore(
+            useShallow((state) => ({
+                resetWorkflowTestNodeStates: state.resetWorkflowTestNodeStates,
+                setWorkflowIsRunning: state.setWorkflowIsRunning,
+                setWorkflowTestExecution: state.setWorkflowTestExecution,
+                setWorkflowTestNodeState: state.setWorkflowTestNodeState,
+            }))
+        );
     const {appendToLastAssistantMessage, setLastAssistantMessageContent, setResumeUrl} = useWorkflowTestChatStore(
         useShallow((state) => ({
             appendToLastAssistantMessage: state.appendToLastAssistantMessage,
@@ -50,7 +105,7 @@ export function useWorkflowTestStream({
 
     const {getPersistedJobId, persistJobId} = usePersistJobId(workflowId, currentEnvironmentId);
 
-    const {close, error} = useSSE<WorkflowTestExecution>(streamRequest, {
+    const {close: closeSSE, error} = useSSE<WorkflowTestExecution>(streamRequest, {
         eventHandlers: {
             ask_user_question: (data) => {
                 if (
@@ -88,6 +143,21 @@ export function useWorkflowTestStream({
                     onError(errorMessage);
                 }
             },
+            progress: (data) => {
+                // A snapshot that lands after the run was stopped (or already finished) must not repaint the panel
+                // as running.
+                if (!useWorkflowEditorStore.getState().workflowIsRunning) {
+                    return;
+                }
+
+                try {
+                    const progressData = typeof data === 'string' ? JSON.parse(data) : data;
+
+                    setWorkflowTestExecution(WorkflowTestExecutionFromJSON(progressData));
+                } catch (error) {
+                    console.error('Failed to parse workflow test execution progress:', error);
+                }
+            },
             result: (data) => {
                 try {
                     const resultData = typeof data === 'string' ? JSON.parse(data) : data;
@@ -120,6 +190,8 @@ export function useWorkflowTestStream({
 
                     const jobId = String(startData.jobId);
 
+                    resetWorkflowTestNodeStates();
+
                     persistJobId(jobId);
 
                     if (onStart) {
@@ -143,8 +215,39 @@ export function useWorkflowTestStream({
                     appendToLastAssistantMessage(chunk);
                 }
             },
+            task_completed: (data) => {
+                const payload = parseTaskLifecyclePayload(data);
+
+                if (payload?.name) {
+                    const durationMillis = computeDurationMillis(payload.startDate, payload.endDate);
+
+                    setWorkflowTestNodeState(payload.name, {
+                        ...(durationMillis != null && {durationMillis}),
+                        status: payload.status === 'FAILED' ? 'FAILED' : 'COMPLETED',
+                    });
+                }
+            },
+            task_failed: (data) => {
+                const payload = parseTaskLifecyclePayload(data);
+
+                if (payload?.name) {
+                    setWorkflowTestNodeState(payload.name, {error: payload.error, status: 'FAILED'});
+                }
+            },
+            task_started: (data) => {
+                const payload = parseTaskLifecyclePayload(data);
+
+                if (payload?.name) {
+                    setWorkflowTestNodeState(payload.name, {status: 'RUNNING'});
+                }
+            },
         },
     });
+
+    const close = useCallback(() => {
+        closeSSE();
+        clearProgressSnapshot();
+    }, [closeSSE]);
 
     return {
         close,
