@@ -24,6 +24,9 @@ import org.jspecify.annotations.Nullable;
  */
 public interface CopilotWorkflowGenerator {
 
+    /**
+     * Drives the workflow-editor BUILD agent to fill {@code workflowId}.
+     */
     void generateWorkflow(
         String workflowId, long projectId, long environmentId, String prompt, @Nullable String systemPrompt,
         Set<String> allowedComponentNames);

@@ -248,8 +248,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         Set<String> allowedComponentNames = resolveAllowedComponentNames(environment);
 
         copilotWorkflowGenerator.generateWorkflow(
-            workflowId, projectWorkflow.getProjectId(), environment.ordinal(), prompt, systemPrompt,
-            allowedComponentNames);
+            workflowId, prompt, systemPrompt, allowedComponentNames, environment.ordinal());
 
         return workflowUuid;
     }
@@ -626,8 +625,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         Set<String> allowedComponentNames = resolveAllowedComponentNames(environment);
 
         copilotWorkflowGenerator.generateWorkflow(
-            projectWorkflow.getWorkflowId(), connectedUserProject.getProjectId(), environment.ordinal(), prompt, null,
-            allowedComponentNames);
+            projectWorkflow.getWorkflowId(), prompt, null, allowedComponentNames, environment.ordinal());
 
         return workflowUuid;
     }
