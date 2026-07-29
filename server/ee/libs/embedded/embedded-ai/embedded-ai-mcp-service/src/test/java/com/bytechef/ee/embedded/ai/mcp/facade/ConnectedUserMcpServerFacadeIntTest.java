@@ -26,6 +26,7 @@ import com.bytechef.ee.embedded.ai.mcp.dto.ConnectedUserMcpServerWorkflowDTO;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationServiceImpl;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowServiceImpl;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceToolService;
+import com.bytechef.ee.embedded.configuration.audit.IntegrationAuditPublisher;
 import com.bytechef.ee.embedded.configuration.facade.IntegrationInstanceFacade;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationServiceImpl;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationWorkflowServiceImpl;
@@ -84,6 +85,9 @@ public class ConnectedUserMcpServerFacadeIntTest {
 
     @Autowired
     private Encryption encryption;
+
+    @MockitoBean
+    private IntegrationAuditPublisher integrationAuditPublisher;
 
     @MockitoBean
     private IntegrationInstanceFacade integrationInstanceFacade;

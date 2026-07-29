@@ -42,4 +42,5 @@ dependencies {
     testImplementation(project(":server:ee:libs:embedded:embedded-configuration:embedded-configuration-service"))
     testImplementation(project(":server:ee:libs:embedded:embedded-connected-user:embedded-connected-user-service"))
     testImplementation(project(":server:ee:libs:embedded:embedded-security-web:embedded-security-web-impl"))
+    testImplementation(project(":server:ee:libs:platform:platform-code-workflow:platform-code-workflow-configuration:platform-code-workflow-configuration-service"))
 }
