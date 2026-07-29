@@ -776,6 +776,7 @@ export type DeleteAiSkillMutation = { deleteAiSkill: boolean };
 
 export type GenerateAiSkillMutationVariables = Exact<{
   prompt: string;
+  environmentId: number;
 }>;
 
 
@@ -1122,6 +1123,20 @@ export type PlaygroundChatCompletionMutationVariables = Exact<{
 
 export type PlaygroundChatCompletionMutation = { playgroundChatCompletion: { completionTokens: number | null, content: string | null, cost: number | null, finishReason: string | null, latencyMs: number | null, model: string | null, promptTokens: number | null, totalTokens: number | null, traceId: string | null } | null };
 
+export type AiGatewayProjectSettingsQueryVariables = Exact<{
+  projectId: string | number;
+}>;
+
+
+export type AiGatewayProjectSettingsQuery = { aiGatewayProjectSettings: { blockedTerms: string | null, injectionDetectionEnabled: boolean | null, moderationEnabled: boolean | null, projectId: string, redactPii: boolean | null, redactSecrets: boolean | null, scanResponses: boolean | null } | null };
+
+export type UpdateAiGatewayProjectSettingsMutationVariables = Exact<{
+  input: Types.AiGatewayProjectSettingsInput;
+}>;
+
+
+export type UpdateAiGatewayProjectSettingsMutation = { updateAiGatewayProjectSettings: { blockedTerms: string | null, injectionDetectionEnabled: boolean | null, moderationEnabled: boolean | null, projectId: string, redactPii: boolean | null, redactSecrets: boolean | null, scanResponses: boolean | null } | null };
+
 export type AiGatewayProjectsQueryVariables = Exact<{
   workspaceId: string | number;
 }>;
@@ -1263,14 +1278,14 @@ export type AiGatewayWorkspaceSettingsQueryVariables = Exact<{
 }>;
 
 
-export type AiGatewayWorkspaceSettingsQuery = { aiGatewayWorkspaceSettings: { cacheEnabled: boolean | null, cacheTtlSeconds: number | null, defaultRoutingPolicyId: string | null, logRetentionDays: number | null, redactPii: boolean | null, retryCount: number | null, softBudgetWarningPct: number | null, timeoutMs: number | null, workspaceId: string } | null };
+export type AiGatewayWorkspaceSettingsQuery = { aiGatewayWorkspaceSettings: { blockedTerms: string | null, cacheEnabled: boolean | null, cacheTtlSeconds: number | null, defaultRoutingPolicyId: string | null, injectionDetectionEnabled: boolean | null, logRetentionDays: number | null, moderationEnabled: boolean | null, redactPii: boolean | null, redactSecrets: boolean | null, retryCount: number | null, scanResponses: boolean | null, softBudgetWarningPct: number | null, timeoutMs: number | null, workspaceId: string } | null };
 
 export type UpdateAiGatewayWorkspaceSettingsMutationVariables = Exact<{
   input: Types.AiGatewayWorkspaceSettingsInput;
 }>;
 
 
-export type UpdateAiGatewayWorkspaceSettingsMutation = { updateAiGatewayWorkspaceSettings: { cacheEnabled: boolean | null, cacheTtlSeconds: number | null, defaultRoutingPolicyId: string | null, logRetentionDays: number | null, redactPii: boolean | null, retryCount: number | null, softBudgetWarningPct: number | null, timeoutMs: number | null, workspaceId: string } | null };
+export type UpdateAiGatewayWorkspaceSettingsMutation = { updateAiGatewayWorkspaceSettings: { blockedTerms: string | null, cacheEnabled: boolean | null, cacheTtlSeconds: number | null, defaultRoutingPolicyId: string | null, injectionDetectionEnabled: boolean | null, logRetentionDays: number | null, moderationEnabled: boolean | null, redactPii: boolean | null, redactSecrets: boolean | null, retryCount: number | null, scanResponses: boolean | null, softBudgetWarningPct: number | null, timeoutMs: number | null, workspaceId: string } | null };
 
 export type AiObservabilityAlertEventsQueryVariables = Exact<{
   alertRuleId: string | number;
@@ -1291,21 +1306,21 @@ export type AiObservabilityAlertRulesQueryVariables = Exact<{
 }>;
 
 
-export type AiObservabilityAlertRulesQuery = { aiObservabilityAlertRules: Array<{ channelIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, snoozedUntil: any, threshold: number, version: number | null, windowMinutes: number } | null> | null };
+export type AiObservabilityAlertRulesQuery = { aiObservabilityAlertRules: Array<{ notificationIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, snoozedUntil: any, threshold: number, version: number | null, windowMinutes: number } | null> | null };
 
 export type AiObservabilityAlertRuleQueryVariables = Exact<{
   id: string | number;
 }>;
 
 
-export type AiObservabilityAlertRuleQuery = { aiObservabilityAlertRule: { channelIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, snoozedUntil: any, threshold: number, version: number | null, windowMinutes: number } | null };
+export type AiObservabilityAlertRuleQuery = { aiObservabilityAlertRule: { notificationIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, snoozedUntil: any, threshold: number, version: number | null, windowMinutes: number } | null };
 
 export type CreateAiObservabilityAlertRuleMutationVariables = Exact<{
   input: Types.AiObservabilityAlertRuleInput;
 }>;
 
 
-export type CreateAiObservabilityAlertRuleMutation = { createAiObservabilityAlertRule: { channelIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, threshold: number, version: number | null, windowMinutes: number } | null };
+export type CreateAiObservabilityAlertRuleMutation = { createAiObservabilityAlertRule: { notificationIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, threshold: number, version: number | null, windowMinutes: number } | null };
 
 export type UpdateAiObservabilityAlertRuleMutationVariables = Exact<{
   id: string | number;
@@ -1313,7 +1328,7 @@ export type UpdateAiObservabilityAlertRuleMutationVariables = Exact<{
 }>;
 
 
-export type UpdateAiObservabilityAlertRuleMutation = { updateAiObservabilityAlertRule: { channelIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, threshold: number, version: number | null, windowMinutes: number } | null };
+export type UpdateAiObservabilityAlertRuleMutation = { updateAiObservabilityAlertRule: { notificationIds: Array<string | null> | null, condition: Types.AiObservabilityAlertCondition, cooldownMinutes: number, createdDate: any, enabled: boolean, filters: string | null, id: string, lastModifiedDate: any, metric: Types.AiObservabilityAlertMetric, name: string, projectId: string | null, threshold: number, version: number | null, windowMinutes: number } | null };
 
 export type DeleteAiObservabilityAlertRuleMutationVariables = Exact<{
   id: string | number;
@@ -1375,42 +1390,6 @@ export type CancelAiObservabilityExportJobMutationVariables = Exact<{
 
 
 export type CancelAiObservabilityExportJobMutation = { cancelAiObservabilityExportJob: { id: string, status: Types.AiObservabilityExportJobStatus } | null };
-
-export type AiObservabilityNotificationChannelsQueryVariables = Exact<{
-  workspaceId: string | number;
-}>;
-
-
-export type AiObservabilityNotificationChannelsQuery = { aiObservabilityNotificationChannels: Array<{ config: string, createdDate: any, enabled: boolean, id: string, lastModifiedDate: any, name: string, type: Types.AiObservabilityNotificationChannelType, version: number | null } | null> | null };
-
-export type CreateAiObservabilityNotificationChannelMutationVariables = Exact<{
-  input: Types.AiObservabilityNotificationChannelInput;
-}>;
-
-
-export type CreateAiObservabilityNotificationChannelMutation = { createAiObservabilityNotificationChannel: { config: string, createdDate: any, enabled: boolean, id: string, lastModifiedDate: any, name: string, type: Types.AiObservabilityNotificationChannelType, version: number | null } | null };
-
-export type UpdateAiObservabilityNotificationChannelMutationVariables = Exact<{
-  id: string | number;
-  input: Types.AiObservabilityNotificationChannelInput;
-}>;
-
-
-export type UpdateAiObservabilityNotificationChannelMutation = { updateAiObservabilityNotificationChannel: { config: string, createdDate: any, enabled: boolean, id: string, lastModifiedDate: any, name: string, type: Types.AiObservabilityNotificationChannelType, version: number | null } | null };
-
-export type DeleteAiObservabilityNotificationChannelMutationVariables = Exact<{
-  id: string | number;
-}>;
-
-
-export type DeleteAiObservabilityNotificationChannelMutation = { deleteAiObservabilityNotificationChannel: boolean | null };
-
-export type TestAiObservabilityNotificationChannelMutationVariables = Exact<{
-  id: string | number;
-}>;
-
-
-export type TestAiObservabilityNotificationChannelMutation = { testAiObservabilityNotificationChannel: boolean | null };
 
 export type AiObservabilitySessionsQueryVariables = Exact<{
   workspaceId: string | number;
@@ -1703,6 +1682,13 @@ export type DeleteApprovalTaskMutationVariables = Exact<{
 
 export type DeleteApprovalTaskMutation = { deleteApprovalTask: boolean | null };
 
+export type PendingApprovalsQueryVariables = Exact<{
+  environmentId?: number | null | undefined;
+}>;
+
+
+export type PendingApprovalsQuery = { pendingApprovals: Array<{ createdDate: string | null, expiresAt: string | null, formUrl: string | null, jobId: string, workflowLabel: string } | null> | null };
+
 export type UpdateApprovalTaskMutationVariables = Exact<{
   approvalTask: Types.ApprovalTaskInput;
 }>;
@@ -1990,6 +1976,46 @@ export type DisconnectConnectionMutationVariables = Exact<{
 
 export type DisconnectConnectionMutation = { disconnectConnection: boolean };
 
+export type ProjectErrorWorkflowQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type ProjectErrorWorkflowQuery = { project: { errorProjectWorkflowId: string | null } | null };
+
+export type UpdateProjectErrorWorkflowMutationVariables = Exact<{
+  projectId: string | number;
+  errorProjectWorkflowId?: string | number | null | undefined;
+}>;
+
+
+export type UpdateProjectErrorWorkflowMutation = { updateProjectErrorWorkflow: boolean | null };
+
+export type EligibleErrorWorkflowsQueryVariables = Exact<{
+  projectId: string | number;
+  projectVersion: number;
+}>;
+
+
+export type EligibleErrorWorkflowsQuery = { eligibleErrorWorkflows: Array<{ id: string, workflowId: string, workflow: { label: string } }> };
+
+export type ProjectWorkflowErrorConfigQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type ProjectWorkflowErrorConfigQuery = { projectWorkflow: { errorProjectWorkflowId: string | null, errorWorkflowDisabled: boolean } | null };
+
+export type UpdateProjectWorkflowErrorWorkflowMutationVariables = Exact<{
+  projectId: string | number;
+  projectWorkflowId: string | number;
+  errorProjectWorkflowId?: string | number | null | undefined;
+  errorWorkflowDisabled: boolean;
+}>;
+
+
+export type UpdateProjectWorkflowErrorWorkflowMutation = { updateProjectWorkflowErrorWorkflow: boolean | null };
+
 export type ExportSharedProjectMutationVariables = Exact<{
   id: string | number;
   description?: string | null | undefined;
@@ -2246,7 +2272,7 @@ export type UpdateMcpServerMutationVariables = Exact<{
 }>;
 
 
-export type UpdateMcpServerMutation = { updateMcpServer: { id: string, name: string, enabled: boolean, enforceToolAuthorization: boolean } | null };
+export type UpdateMcpServerMutation = { updateMcpServer: { id: string, name: string, enabled: boolean, enforceToolAuthorization: boolean, authenticationRequired: boolean } | null };
 
 export type UpdateMcpServerTagsMutationVariables = Exact<{
   id: string | number;
@@ -2334,7 +2360,7 @@ export type WorkspaceMcpServersQueryVariables = Exact<{
 }>;
 
 
-export type WorkspaceMcpServersQuery = { workspaceMcpServers: Array<{ id: string, name: string, type: Types.PlatformType, environmentId: string, enabled: boolean, enforceToolAuthorization: boolean, url: string, lastModifiedDate: any, mcpComponents: Array<{ id: string, mcpServerId: string, componentName: string, componentVersion: number, title: string | null, mcpTools: Array<{ id: string } | null> | null } | null> | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
+export type WorkspaceMcpServersQuery = { workspaceMcpServers: Array<{ id: string, name: string, type: Types.PlatformType, environmentId: string, enabled: boolean, enforceToolAuthorization: boolean, authenticationRequired: boolean, url: string, lastModifiedDate: any, mcpComponents: Array<{ id: string, mcpServerId: string, componentName: string, componentVersion: number, title: string | null, mcpTools: Array<{ id: string } | null> | null } | null> | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
 
 export type WorkspaceUsersQueryVariables = Exact<{
   workspaceId: string | number;
@@ -2788,6 +2814,89 @@ export type AutomationSearchQuery = { automationSearch: Array<
     | { projectId: string, label: string, id: string, name: string, description: string | null, type: Types.SearchAssetType }
   > };
 
+export type WorkflowAlertRulesQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type WorkflowAlertRulesQuery = { workflowAlertRules: Array<{ cooldownMinutes: number, enabled: boolean, id: string, lastTriggeredDate: string | null, name: string, notificationIds: Array<string>, ruleType: Types.WorkflowAlertRuleType, threshold: number, windowMinutes: number | null, workflowId: string | null }> };
+
+export type WorkflowAlertEventsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type WorkflowAlertEventsQuery = { workflowAlertEvents: Array<{ createdDate: string | null, id: string, jobId: string | null, message: string | null, triggeredValue: number | null, workflowAlertRuleId: string }> };
+
+export type CreateWorkflowAlertRuleMutationVariables = Exact<{
+  workspaceId: string | number;
+  input: Types.WorkflowAlertRuleInput;
+}>;
+
+
+export type CreateWorkflowAlertRuleMutation = { createWorkflowAlertRule: { id: string } };
+
+export type UpdateWorkflowAlertRuleMutationVariables = Exact<{
+  id: string | number;
+  input: Types.WorkflowAlertRuleInput;
+}>;
+
+
+export type UpdateWorkflowAlertRuleMutation = { updateWorkflowAlertRule: { id: string } };
+
+export type DeleteWorkflowAlertRuleMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteWorkflowAlertRuleMutation = { deleteWorkflowAlertRule: boolean };
+
+export type SendTestWorkflowAlertMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type SendTestWorkflowAlertMutation = { sendTestWorkflowAlert: boolean };
+
+export type EnableWorkflowAlertRuleMutationVariables = Exact<{
+  id: string | number;
+  enabled: boolean;
+}>;
+
+
+export type EnableWorkflowAlertRuleMutation = { enableWorkflowAlertRule: { enabled: boolean, id: string } };
+
+export type WorkflowExecutionCostQueryVariables = Exact<{
+  jobId: string | number;
+}>;
+
+
+export type WorkflowExecutionCostQuery = { workflowExecutionCost: { aiCost: number, baseRunCharge: number, currency: string, id: string, jobId: string, totalCost: number } | null };
+
+export type CodeWorkflowSourceQueryVariables = Exact<{
+  projectId: string | number;
+}>;
+
+
+export type CodeWorkflowSourceQuery = { codeWorkflowSource: string };
+
+export type CreateCodeWorkflowMutationVariables = Exact<{
+  workspaceId: string | number;
+  name: string;
+  language: Types.CodeWorkflowLanguage;
+}>;
+
+
+export type CreateCodeWorkflowMutation = { createCodeWorkflow: string };
+
+export type UpdateCodeWorkflowSourceMutationVariables = Exact<{
+  projectId: string | number;
+  content: string;
+}>;
+
+
+export type UpdateCodeWorkflowSourceMutation = { updateCodeWorkflowSource: boolean };
+
 export type AutomationWorkflowProjectCategoriesQueryVariables = Exact<{ [key: string]: never; }>;
 
 
@@ -2808,7 +2917,7 @@ export type AutomationWorkflowProjectVersionsQuery = { automationWorkflowProject
 export type AutomationWorkflowProjectsQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type AutomationWorkflowProjectsQuery = { automationWorkflowProjects: Array<{ id: string, name: string, description: string | null, categoryId: string | null, tagIds: Array<string>, published: boolean, version: number, lastPublishedVersion: number | null, permissionExpression: string | null, automationHubVisible: boolean, workflowTemplates: Array<{ workflowUuid: string, workflowId: string, label: string | null, description: string | null, permissionExpression: string | null, lastModifiedDate: string | null, triggers: Array<{ name: string, title: string | null, icon: string | null }>, components: Array<{ name: string, title: string | null, icon: string | null }> }> }> };
+export type AutomationWorkflowProjectsQuery = { automationWorkflowProjects: Array<{ id: string, name: string, description: string | null, categoryId: string | null, tagIds: Array<string>, published: boolean, version: number, lastPublishedVersion: number | null, permissionExpression: string | null, automationHubVisible: boolean, codeWorkflowProject: boolean, workflowTemplates: Array<{ workflowUuid: string, workflowId: string, label: string | null, description: string | null, permissionExpression: string | null, lastModifiedDate: string | null, triggers: Array<{ name: string, title: string | null, icon: string | null }>, components: Array<{ name: string, title: string | null, icon: string | null }> }> }> };
 
 export type CreateAutomationWorkflowProjectMutationVariables = Exact<{
   name: string;
@@ -2881,6 +2990,13 @@ export type PublishAutomationWorkflowProjectMutationVariables = Exact<{
 
 
 export type PublishAutomationWorkflowProjectMutation = { publishAutomationWorkflowProject: boolean };
+
+export type ConnectedUserCodeWorkflowReferencesQueryVariables = Exact<{
+  automationWorkflowUuids: Array<string | number> | string | number;
+}>;
+
+
+export type ConnectedUserCodeWorkflowReferencesQuery = { connectedUserCodeWorkflowReferences: Array<{ automationWorkflowUuid: string, externalUserId: string, environment: string, enabled: boolean, dangling: boolean, danglingReason: string | null }> };
 
 export type ConnectedUserMcpServersQueryVariables = Exact<{
   connectedUserId: string | number;
@@ -2997,7 +3113,7 @@ export type EmbeddedMcpServerTagsQuery = { embeddedMcpServerTags: Array<{ id: st
 export type EmbeddedMcpServersQueryVariables = Exact<{ [key: string]: never; }>;
 
 
-export type EmbeddedMcpServersQuery = { embeddedMcpServers: Array<{ id: string, enabled: boolean, enforceToolAuthorization: boolean, environmentId: string, lastModifiedDate: any, name: string, type: Types.PlatformType, url: string, mcpComponents: Array<{ componentName: string, componentVersion: number, connectionId: string | null, id: string, lastModifiedDate: any, mcpServerId: string, title: string | null, mcpTools: Array<{ id: string, enabled: boolean, mcpComponentId: string, name: string, title: string | null, parameters: any } | null> | null } | null> | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
+export type EmbeddedMcpServersQuery = { embeddedMcpServers: Array<{ id: string, enabled: boolean, enforceToolAuthorization: boolean, authenticationRequired: boolean, environmentId: string, lastModifiedDate: any, name: string, type: Types.PlatformType, url: string, mcpComponents: Array<{ componentName: string, componentVersion: number, connectionId: string | null, id: string, lastModifiedDate: any, mcpServerId: string, title: string | null, mcpTools: Array<{ id: string, enabled: boolean, mcpComponentId: string, name: string, title: string | null, parameters: any } | null> | null } | null> | null, tags: Array<{ id: string, name: string } | null> | null } | null> | null };
 
 export type EmbeddedMcpToolsByComponentIdQueryVariables = Exact<{
   mcpComponentId: string | number;
@@ -3173,6 +3289,29 @@ export type UpdateMcpIntegrationInstanceConfigurationWorkflowMutationVariables =
 
 
 export type UpdateMcpIntegrationInstanceConfigurationWorkflowMutation = { updateMcpIntegrationInstanceConfigurationWorkflow: { id: string, mcpIntegrationInstanceConfigurationId: any, integrationInstanceConfigurationWorkflowId: any, parameters: any } | null };
+
+export type CreateIntegrationCodeWorkflowMutationVariables = Exact<{
+  componentName: string;
+  language: Types.CodeWorkflowLanguage;
+}>;
+
+
+export type CreateIntegrationCodeWorkflowMutation = { createIntegrationCodeWorkflow: string };
+
+export type IntegrationCodeWorkflowSourceQueryVariables = Exact<{
+  integrationId: string | number;
+}>;
+
+
+export type IntegrationCodeWorkflowSourceQuery = { integrationCodeWorkflowSource: string };
+
+export type UpdateIntegrationCodeWorkflowSourceMutationVariables = Exact<{
+  integrationId: string | number;
+  content: string;
+}>;
+
+
+export type UpdateIntegrationCodeWorkflowSourceMutation = { updateIntegrationCodeWorkflowSource: boolean };
 
 export type AiDefaultModelQueryVariables = Exact<{
   environment: string | number;
@@ -3787,6 +3926,14 @@ export type GenerateWorkflowDescriptionMutationVariables = Exact<{
 
 export type GenerateWorkflowDescriptionMutation = { generateWorkflowDescription: { value: string } };
 
+export type CreateCustomComponentMutationVariables = Exact<{
+  name: string;
+  language: Types.CustomComponentLanguage;
+}>;
+
+
+export type CreateCustomComponentMutation = { createCustomComponent: { id: string, name: string, language: Types.CustomComponentLanguage | null } };
+
 export type CustomComponentQueryVariables = Exact<{
   id: string | number;
 }>;
@@ -3800,6 +3947,13 @@ export type CustomComponentDefinitionQueryVariables = Exact<{
 
 
 export type CustomComponentDefinitionQuery = { customComponentDefinition: { actions: Array<{ name: string, title: string | null, description: string | null }>, triggers: Array<{ name: string, title: string | null, description: string | null }> } | null };
+
+export type CustomComponentSourceQueryVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type CustomComponentSourceQuery = { customComponentSource: string };
 
 export type CustomComponentsQueryVariables = Exact<{ [key: string]: never; }>;
 
@@ -3820,6 +3974,14 @@ export type EnableCustomComponentMutationVariables = Exact<{
 
 
 export type EnableCustomComponentMutation = { enableCustomComponent: boolean };
+
+export type UpdateCustomComponentSourceMutationVariables = Exact<{
+  id: string | number;
+  content: string;
+}>;
+
+
+export type UpdateCustomComponentSourceMutation = { updateCustomComponentSource: boolean };
 
 export type DeleteLicenceMutationVariables = Exact<{ [key: string]: never; }>;
 
@@ -3920,6 +4082,28 @@ export type UsersQueryVariables = Exact<{
 
 
 export type UsersQuery = { users: { number: number, size: number, totalElements: number, totalPages: number, content: Array<{ id: string | null, login: string | null, email: string | null, firstName: string | null, lastName: string | null, activated: boolean | null, authorities: Array<string | null> | null } | null> } | null };
+
+export type WorkspaceNotificationsQueryVariables = Exact<{
+  workspaceId: string | number;
+}>;
+
+
+export type WorkspaceNotificationsQuery = { workspaceNotifications: Array<{ id: string, name: string, type: string }> };
+
+export type ToolInvocationLogsQueryVariables = Exact<{
+  environmentId?: string | number | null | undefined;
+  surface?: string | null | undefined;
+  outcome?: string | null | undefined;
+  mcpServerId?: any;
+  connectedUserId?: any;
+  integrationInstanceId?: any;
+  fromDate?: any;
+  toDate?: any;
+  page?: number | null | undefined;
+}>;
+
+
+export type ToolInvocationLogsQuery = { toolInvocationLogs: { number: number, size: number, totalElements: number, totalPages: number, content: Array<{ id: string, surface: string, kind: string, toolName: string | null, componentName: string | null, componentVersion: number | null, operationName: string | null, connectionId: any, environment: number | null, externalUserId: string | null, connectedUserId: any, integrationInstanceId: any, mcpServerId: any, jobId: any, outcome: string, errorType: string | null, errorMessage: string | null, durationMs: number, createdDate: any }> } };
 
 
 export class TypedDocumentString<TResult, TVariables>
@@ -6591,8 +6775,8 @@ export const useDeleteAiSkillMutation = <
     )};
 
 export const GenerateAiSkillDocument = new TypedDocumentString(`
-    mutation generateAiSkill($prompt: String!) {
-  generateAiSkill(prompt: $prompt) {
+    mutation generateAiSkill($prompt: String!, $environmentId: Int!) {
+  generateAiSkill(prompt: $prompt, environmentId: $environmentId) {
     id
     name
     description
@@ -7862,6 +8046,63 @@ export const usePlaygroundChatCompletionMutation = <
   }
     )};
 
+export const AiGatewayProjectSettingsDocument = new TypedDocumentString(`
+    query aiGatewayProjectSettings($projectId: ID!) {
+  aiGatewayProjectSettings(projectId: $projectId) {
+    blockedTerms
+    injectionDetectionEnabled
+    moderationEnabled
+    projectId
+    redactPii
+    redactSecrets
+    scanResponses
+  }
+}
+    `);
+
+export const useAiGatewayProjectSettingsQuery = <
+      TData = AiGatewayProjectSettingsQuery,
+      TError = unknown
+    >(
+      variables: AiGatewayProjectSettingsQueryVariables,
+      options?: Omit<UseQueryOptions<AiGatewayProjectSettingsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiGatewayProjectSettingsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<AiGatewayProjectSettingsQuery, TError, TData>(
+      {
+    queryKey: ['aiGatewayProjectSettings', variables],
+    queryFn: fetcher<AiGatewayProjectSettingsQuery, AiGatewayProjectSettingsQueryVariables>(AiGatewayProjectSettingsDocument, variables),
+    ...options
+  }
+    )};
+
+export const UpdateAiGatewayProjectSettingsDocument = new TypedDocumentString(`
+    mutation updateAiGatewayProjectSettings($input: AiGatewayProjectSettingsInput!) {
+  updateAiGatewayProjectSettings(input: $input) {
+    blockedTerms
+    injectionDetectionEnabled
+    moderationEnabled
+    projectId
+    redactPii
+    redactSecrets
+    scanResponses
+  }
+}
+    `);
+
+export const useUpdateAiGatewayProjectSettingsMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateAiGatewayProjectSettingsMutation, TError, UpdateAiGatewayProjectSettingsMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateAiGatewayProjectSettingsMutation, TError, UpdateAiGatewayProjectSettingsMutationVariables, TContext>(
+      {
+    mutationKey: ['updateAiGatewayProjectSettings'],
+    mutationFn: (variables?: UpdateAiGatewayProjectSettingsMutationVariables) => fetcher<UpdateAiGatewayProjectSettingsMutation, UpdateAiGatewayProjectSettingsMutationVariables>(UpdateAiGatewayProjectSettingsDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const AiGatewayProjectsDocument = new TypedDocumentString(`
     query aiGatewayProjects($workspaceId: ID!) {
   aiGatewayProjects(workspaceId: $workspaceId) {
@@ -8426,12 +8667,17 @@ export const useAiGatewaySpendSummariesQuery = <
 export const AiGatewayWorkspaceSettingsDocument = new TypedDocumentString(`
     query aiGatewayWorkspaceSettings($workspaceId: ID!) {
   aiGatewayWorkspaceSettings(workspaceId: $workspaceId) {
+    blockedTerms
     cacheEnabled
     cacheTtlSeconds
     defaultRoutingPolicyId
+    injectionDetectionEnabled
     logRetentionDays
+    moderationEnabled
     redactPii
+    redactSecrets
     retryCount
+    scanResponses
     softBudgetWarningPct
     timeoutMs
     workspaceId
@@ -8458,12 +8704,17 @@ export const useAiGatewayWorkspaceSettingsQuery = <
 export const UpdateAiGatewayWorkspaceSettingsDocument = new TypedDocumentString(`
     mutation updateAiGatewayWorkspaceSettings($input: AiGatewayWorkspaceSettingsInput!) {
   updateAiGatewayWorkspaceSettings(input: $input) {
+    blockedTerms
     cacheEnabled
     cacheTtlSeconds
     defaultRoutingPolicyId
+    injectionDetectionEnabled
     logRetentionDays
+    moderationEnabled
     redactPii
+    redactSecrets
     retryCount
+    scanResponses
     softBudgetWarningPct
     timeoutMs
     workspaceId
@@ -8542,7 +8793,7 @@ export const useAcknowledgeAiObservabilityAlertEventMutation = <
 export const AiObservabilityAlertRulesDocument = new TypedDocumentString(`
     query aiObservabilityAlertRules($workspaceId: ID!) {
   aiObservabilityAlertRules(workspaceId: $workspaceId) {
-    channelIds
+    notificationIds
     condition
     cooldownMinutes
     createdDate
@@ -8580,7 +8831,7 @@ export const useAiObservabilityAlertRulesQuery = <
 export const AiObservabilityAlertRuleDocument = new TypedDocumentString(`
     query aiObservabilityAlertRule($id: ID!) {
   aiObservabilityAlertRule(id: $id) {
-    channelIds
+    notificationIds
     condition
     cooldownMinutes
     createdDate
@@ -8618,7 +8869,7 @@ export const useAiObservabilityAlertRuleQuery = <
 export const CreateAiObservabilityAlertRuleDocument = new TypedDocumentString(`
     mutation createAiObservabilityAlertRule($input: AiObservabilityAlertRuleInput!) {
   createAiObservabilityAlertRule(input: $input) {
-    channelIds
+    notificationIds
     condition
     cooldownMinutes
     createdDate
@@ -8652,7 +8903,7 @@ export const useCreateAiObservabilityAlertRuleMutation = <
 export const UpdateAiObservabilityAlertRuleDocument = new TypedDocumentString(`
     mutation updateAiObservabilityAlertRule($id: ID!, $input: AiObservabilityAlertRuleInput!) {
   updateAiObservabilityAlertRule(id: $id, input: $input) {
-    channelIds
+    notificationIds
     condition
     cooldownMinutes
     createdDate
@@ -8886,131 +9137,6 @@ export const useCancelAiObservabilityExportJobMutation = <
       {
     mutationKey: ['cancelAiObservabilityExportJob'],
     mutationFn: (variables?: CancelAiObservabilityExportJobMutationVariables) => fetcher<CancelAiObservabilityExportJobMutation, CancelAiObservabilityExportJobMutationVariables>(CancelAiObservabilityExportJobDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const AiObservabilityNotificationChannelsDocument = new TypedDocumentString(`
-    query aiObservabilityNotificationChannels($workspaceId: ID!) {
-  aiObservabilityNotificationChannels(workspaceId: $workspaceId) {
-    config
-    createdDate
-    enabled
-    id
-    lastModifiedDate
-    name
-    type
-    version
-  }
-}
-    `);
-
-export const useAiObservabilityNotificationChannelsQuery = <
-      TData = AiObservabilityNotificationChannelsQuery,
-      TError = unknown
-    >(
-      variables: AiObservabilityNotificationChannelsQueryVariables,
-      options?: Omit<UseQueryOptions<AiObservabilityNotificationChannelsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<AiObservabilityNotificationChannelsQuery, TError, TData>['queryKey'] }
-    ) => {
-    
-    return useQuery<AiObservabilityNotificationChannelsQuery, TError, TData>(
-      {
-    queryKey: ['aiObservabilityNotificationChannels', variables],
-    queryFn: fetcher<AiObservabilityNotificationChannelsQuery, AiObservabilityNotificationChannelsQueryVariables>(AiObservabilityNotificationChannelsDocument, variables),
-    ...options
-  }
-    )};
-
-export const CreateAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
-    mutation createAiObservabilityNotificationChannel($input: AiObservabilityNotificationChannelInput!) {
-  createAiObservabilityNotificationChannel(input: $input) {
-    config
-    createdDate
-    enabled
-    id
-    lastModifiedDate
-    name
-    type
-    version
-  }
-}
-    `);
-
-export const useCreateAiObservabilityNotificationChannelMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<CreateAiObservabilityNotificationChannelMutation, TError, CreateAiObservabilityNotificationChannelMutationVariables, TContext>) => {
-    
-    return useMutation<CreateAiObservabilityNotificationChannelMutation, TError, CreateAiObservabilityNotificationChannelMutationVariables, TContext>(
-      {
-    mutationKey: ['createAiObservabilityNotificationChannel'],
-    mutationFn: (variables?: CreateAiObservabilityNotificationChannelMutationVariables) => fetcher<CreateAiObservabilityNotificationChannelMutation, CreateAiObservabilityNotificationChannelMutationVariables>(CreateAiObservabilityNotificationChannelDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const UpdateAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
-    mutation updateAiObservabilityNotificationChannel($id: ID!, $input: AiObservabilityNotificationChannelInput!) {
-  updateAiObservabilityNotificationChannel(id: $id, input: $input) {
-    config
-    createdDate
-    enabled
-    id
-    lastModifiedDate
-    name
-    type
-    version
-  }
-}
-    `);
-
-export const useUpdateAiObservabilityNotificationChannelMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<UpdateAiObservabilityNotificationChannelMutation, TError, UpdateAiObservabilityNotificationChannelMutationVariables, TContext>) => {
-    
-    return useMutation<UpdateAiObservabilityNotificationChannelMutation, TError, UpdateAiObservabilityNotificationChannelMutationVariables, TContext>(
-      {
-    mutationKey: ['updateAiObservabilityNotificationChannel'],
-    mutationFn: (variables?: UpdateAiObservabilityNotificationChannelMutationVariables) => fetcher<UpdateAiObservabilityNotificationChannelMutation, UpdateAiObservabilityNotificationChannelMutationVariables>(UpdateAiObservabilityNotificationChannelDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const DeleteAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
-    mutation deleteAiObservabilityNotificationChannel($id: ID!) {
-  deleteAiObservabilityNotificationChannel(id: $id)
-}
-    `);
-
-export const useDeleteAiObservabilityNotificationChannelMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<DeleteAiObservabilityNotificationChannelMutation, TError, DeleteAiObservabilityNotificationChannelMutationVariables, TContext>) => {
-    
-    return useMutation<DeleteAiObservabilityNotificationChannelMutation, TError, DeleteAiObservabilityNotificationChannelMutationVariables, TContext>(
-      {
-    mutationKey: ['deleteAiObservabilityNotificationChannel'],
-    mutationFn: (variables?: DeleteAiObservabilityNotificationChannelMutationVariables) => fetcher<DeleteAiObservabilityNotificationChannelMutation, DeleteAiObservabilityNotificationChannelMutationVariables>(DeleteAiObservabilityNotificationChannelDocument, variables)(),
-    ...options
-  }
-    )};
-
-export const TestAiObservabilityNotificationChannelDocument = new TypedDocumentString(`
-    mutation testAiObservabilityNotificationChannel($id: ID!) {
-  testAiObservabilityNotificationChannel(id: $id)
-}
-    `);
-
-export const useTestAiObservabilityNotificationChannelMutation = <
-      TError = unknown,
-      TContext = unknown
-    >(options?: UseMutationOptions<TestAiObservabilityNotificationChannelMutation, TError, TestAiObservabilityNotificationChannelMutationVariables, TContext>) => {
-    
-    return useMutation<TestAiObservabilityNotificationChannelMutation, TError, TestAiObservabilityNotificationChannelMutationVariables, TContext>(
-      {
-    mutationKey: ['testAiObservabilityNotificationChannel'],
-    mutationFn: (variables?: TestAiObservabilityNotificationChannelMutationVariables) => fetcher<TestAiObservabilityNotificationChannelMutation, TestAiObservabilityNotificationChannelMutationVariables>(TestAiObservabilityNotificationChannelDocument, variables)(),
     ...options
   }
     )};
@@ -10210,6 +10336,34 @@ export const useDeleteApprovalTaskMutation = <
   }
     )};
 
+export const PendingApprovalsDocument = new TypedDocumentString(`
+    query pendingApprovals($environmentId: Int) {
+  pendingApprovals(environmentId: $environmentId) {
+    createdDate
+    expiresAt
+    formUrl
+    jobId
+    workflowLabel
+  }
+}
+    `);
+
+export const usePendingApprovalsQuery = <
+      TData = PendingApprovalsQuery,
+      TError = unknown
+    >(
+      variables?: PendingApprovalsQueryVariables,
+      options?: Omit<UseQueryOptions<PendingApprovalsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<PendingApprovalsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<PendingApprovalsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['pendingApprovals'] : ['pendingApprovals', variables],
+    queryFn: fetcher<PendingApprovalsQuery, PendingApprovalsQueryVariables>(PendingApprovalsDocument, variables),
+    ...options
+  }
+    )};
+
 export const UpdateApprovalTaskDocument = new TypedDocumentString(`
     mutation updateApprovalTask($approvalTask: ApprovalTaskInput!) {
   updateApprovalTask(approvalTask: $approvalTask) {
@@ -11201,6 +11355,129 @@ export const useDisconnectConnectionMutation = <
   }
     )};
 
+export const ProjectErrorWorkflowDocument = new TypedDocumentString(`
+    query projectErrorWorkflow($id: ID!) {
+  project(id: $id) {
+    errorProjectWorkflowId
+  }
+}
+    `);
+
+export const useProjectErrorWorkflowQuery = <
+      TData = ProjectErrorWorkflowQuery,
+      TError = unknown
+    >(
+      variables: ProjectErrorWorkflowQueryVariables,
+      options?: Omit<UseQueryOptions<ProjectErrorWorkflowQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ProjectErrorWorkflowQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ProjectErrorWorkflowQuery, TError, TData>(
+      {
+    queryKey: ['projectErrorWorkflow', variables],
+    queryFn: fetcher<ProjectErrorWorkflowQuery, ProjectErrorWorkflowQueryVariables>(ProjectErrorWorkflowDocument, variables),
+    ...options
+  }
+    )};
+
+export const UpdateProjectErrorWorkflowDocument = new TypedDocumentString(`
+    mutation updateProjectErrorWorkflow($projectId: ID!, $errorProjectWorkflowId: ID) {
+  updateProjectErrorWorkflow(
+    projectId: $projectId
+    errorProjectWorkflowId: $errorProjectWorkflowId
+  )
+}
+    `);
+
+export const useUpdateProjectErrorWorkflowMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateProjectErrorWorkflowMutation, TError, UpdateProjectErrorWorkflowMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateProjectErrorWorkflowMutation, TError, UpdateProjectErrorWorkflowMutationVariables, TContext>(
+      {
+    mutationKey: ['updateProjectErrorWorkflow'],
+    mutationFn: (variables?: UpdateProjectErrorWorkflowMutationVariables) => fetcher<UpdateProjectErrorWorkflowMutation, UpdateProjectErrorWorkflowMutationVariables>(UpdateProjectErrorWorkflowDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const EligibleErrorWorkflowsDocument = new TypedDocumentString(`
+    query eligibleErrorWorkflows($projectId: ID!, $projectVersion: Int!) {
+  eligibleErrorWorkflows(projectId: $projectId, projectVersion: $projectVersion) {
+    id
+    workflowId
+    workflow {
+      label
+    }
+  }
+}
+    `);
+
+export const useEligibleErrorWorkflowsQuery = <
+      TData = EligibleErrorWorkflowsQuery,
+      TError = unknown
+    >(
+      variables: EligibleErrorWorkflowsQueryVariables,
+      options?: Omit<UseQueryOptions<EligibleErrorWorkflowsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<EligibleErrorWorkflowsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<EligibleErrorWorkflowsQuery, TError, TData>(
+      {
+    queryKey: ['eligibleErrorWorkflows', variables],
+    queryFn: fetcher<EligibleErrorWorkflowsQuery, EligibleErrorWorkflowsQueryVariables>(EligibleErrorWorkflowsDocument, variables),
+    ...options
+  }
+    )};
+
+export const ProjectWorkflowErrorConfigDocument = new TypedDocumentString(`
+    query projectWorkflowErrorConfig($id: ID!) {
+  projectWorkflow(id: $id) {
+    errorProjectWorkflowId
+    errorWorkflowDisabled
+  }
+}
+    `);
+
+export const useProjectWorkflowErrorConfigQuery = <
+      TData = ProjectWorkflowErrorConfigQuery,
+      TError = unknown
+    >(
+      variables: ProjectWorkflowErrorConfigQueryVariables,
+      options?: Omit<UseQueryOptions<ProjectWorkflowErrorConfigQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ProjectWorkflowErrorConfigQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ProjectWorkflowErrorConfigQuery, TError, TData>(
+      {
+    queryKey: ['projectWorkflowErrorConfig', variables],
+    queryFn: fetcher<ProjectWorkflowErrorConfigQuery, ProjectWorkflowErrorConfigQueryVariables>(ProjectWorkflowErrorConfigDocument, variables),
+    ...options
+  }
+    )};
+
+export const UpdateProjectWorkflowErrorWorkflowDocument = new TypedDocumentString(`
+    mutation updateProjectWorkflowErrorWorkflow($projectId: ID!, $projectWorkflowId: ID!, $errorProjectWorkflowId: ID, $errorWorkflowDisabled: Boolean!) {
+  updateProjectWorkflowErrorWorkflow(
+    projectId: $projectId
+    projectWorkflowId: $projectWorkflowId
+    errorProjectWorkflowId: $errorProjectWorkflowId
+    errorWorkflowDisabled: $errorWorkflowDisabled
+  )
+}
+    `);
+
+export const useUpdateProjectWorkflowErrorWorkflowMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateProjectWorkflowErrorWorkflowMutation, TError, UpdateProjectWorkflowErrorWorkflowMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateProjectWorkflowErrorWorkflowMutation, TError, UpdateProjectWorkflowErrorWorkflowMutationVariables, TContext>(
+      {
+    mutationKey: ['updateProjectWorkflowErrorWorkflow'],
+    mutationFn: (variables?: UpdateProjectWorkflowErrorWorkflowMutationVariables) => fetcher<UpdateProjectWorkflowErrorWorkflowMutation, UpdateProjectWorkflowErrorWorkflowMutationVariables>(UpdateProjectWorkflowErrorWorkflowDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const ExportSharedProjectDocument = new TypedDocumentString(`
     mutation exportSharedProject($id: ID!, $description: String) {
   exportSharedProject(id: $id, description: $description)
@@ -12080,6 +12357,7 @@ export const UpdateMcpServerDocument = new TypedDocumentString(`
     name
     enabled
     enforceToolAuthorization
+    authenticationRequired
   }
 }
     `);
@@ -12387,6 +12665,7 @@ export const WorkspaceMcpServersDocument = new TypedDocumentString(`
     environmentId
     enabled
     enforceToolAuthorization
+    authenticationRequired
     url
     mcpComponents {
       id
@@ -13950,6 +14229,259 @@ export const useAutomationSearchQuery = <
   }
     )};
 
+export const WorkflowAlertRulesDocument = new TypedDocumentString(`
+    query workflowAlertRules($workspaceId: ID!) {
+  workflowAlertRules(workspaceId: $workspaceId) {
+    cooldownMinutes
+    enabled
+    id
+    lastTriggeredDate
+    name
+    notificationIds
+    ruleType
+    threshold
+    windowMinutes
+    workflowId
+  }
+}
+    `);
+
+export const useWorkflowAlertRulesQuery = <
+      TData = WorkflowAlertRulesQuery,
+      TError = unknown
+    >(
+      variables: WorkflowAlertRulesQueryVariables,
+      options?: Omit<UseQueryOptions<WorkflowAlertRulesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkflowAlertRulesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkflowAlertRulesQuery, TError, TData>(
+      {
+    queryKey: ['workflowAlertRules', variables],
+    queryFn: fetcher<WorkflowAlertRulesQuery, WorkflowAlertRulesQueryVariables>(WorkflowAlertRulesDocument, variables),
+    ...options
+  }
+    )};
+
+export const WorkflowAlertEventsDocument = new TypedDocumentString(`
+    query workflowAlertEvents($workspaceId: ID!) {
+  workflowAlertEvents(workspaceId: $workspaceId) {
+    createdDate
+    id
+    jobId
+    message
+    triggeredValue
+    workflowAlertRuleId
+  }
+}
+    `);
+
+export const useWorkflowAlertEventsQuery = <
+      TData = WorkflowAlertEventsQuery,
+      TError = unknown
+    >(
+      variables: WorkflowAlertEventsQueryVariables,
+      options?: Omit<UseQueryOptions<WorkflowAlertEventsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkflowAlertEventsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkflowAlertEventsQuery, TError, TData>(
+      {
+    queryKey: ['workflowAlertEvents', variables],
+    queryFn: fetcher<WorkflowAlertEventsQuery, WorkflowAlertEventsQueryVariables>(WorkflowAlertEventsDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateWorkflowAlertRuleDocument = new TypedDocumentString(`
+    mutation createWorkflowAlertRule($workspaceId: ID!, $input: WorkflowAlertRuleInput!) {
+  createWorkflowAlertRule(workspaceId: $workspaceId, input: $input) {
+    id
+  }
+}
+    `);
+
+export const useCreateWorkflowAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateWorkflowAlertRuleMutation, TError, CreateWorkflowAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<CreateWorkflowAlertRuleMutation, TError, CreateWorkflowAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['createWorkflowAlertRule'],
+    mutationFn: (variables?: CreateWorkflowAlertRuleMutationVariables) => fetcher<CreateWorkflowAlertRuleMutation, CreateWorkflowAlertRuleMutationVariables>(CreateWorkflowAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateWorkflowAlertRuleDocument = new TypedDocumentString(`
+    mutation updateWorkflowAlertRule($id: ID!, $input: WorkflowAlertRuleInput!) {
+  updateWorkflowAlertRule(id: $id, input: $input) {
+    id
+  }
+}
+    `);
+
+export const useUpdateWorkflowAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateWorkflowAlertRuleMutation, TError, UpdateWorkflowAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateWorkflowAlertRuleMutation, TError, UpdateWorkflowAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['updateWorkflowAlertRule'],
+    mutationFn: (variables?: UpdateWorkflowAlertRuleMutationVariables) => fetcher<UpdateWorkflowAlertRuleMutation, UpdateWorkflowAlertRuleMutationVariables>(UpdateWorkflowAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const DeleteWorkflowAlertRuleDocument = new TypedDocumentString(`
+    mutation deleteWorkflowAlertRule($id: ID!) {
+  deleteWorkflowAlertRule(id: $id)
+}
+    `);
+
+export const useDeleteWorkflowAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteWorkflowAlertRuleMutation, TError, DeleteWorkflowAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteWorkflowAlertRuleMutation, TError, DeleteWorkflowAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['deleteWorkflowAlertRule'],
+    mutationFn: (variables?: DeleteWorkflowAlertRuleMutationVariables) => fetcher<DeleteWorkflowAlertRuleMutation, DeleteWorkflowAlertRuleMutationVariables>(DeleteWorkflowAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SendTestWorkflowAlertDocument = new TypedDocumentString(`
+    mutation sendTestWorkflowAlert($id: ID!) {
+  sendTestWorkflowAlert(id: $id)
+}
+    `);
+
+export const useSendTestWorkflowAlertMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SendTestWorkflowAlertMutation, TError, SendTestWorkflowAlertMutationVariables, TContext>) => {
+    
+    return useMutation<SendTestWorkflowAlertMutation, TError, SendTestWorkflowAlertMutationVariables, TContext>(
+      {
+    mutationKey: ['sendTestWorkflowAlert'],
+    mutationFn: (variables?: SendTestWorkflowAlertMutationVariables) => fetcher<SendTestWorkflowAlertMutation, SendTestWorkflowAlertMutationVariables>(SendTestWorkflowAlertDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const EnableWorkflowAlertRuleDocument = new TypedDocumentString(`
+    mutation enableWorkflowAlertRule($id: ID!, $enabled: Boolean!) {
+  enableWorkflowAlertRule(id: $id, enabled: $enabled) {
+    enabled
+    id
+  }
+}
+    `);
+
+export const useEnableWorkflowAlertRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<EnableWorkflowAlertRuleMutation, TError, EnableWorkflowAlertRuleMutationVariables, TContext>) => {
+    
+    return useMutation<EnableWorkflowAlertRuleMutation, TError, EnableWorkflowAlertRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['enableWorkflowAlertRule'],
+    mutationFn: (variables?: EnableWorkflowAlertRuleMutationVariables) => fetcher<EnableWorkflowAlertRuleMutation, EnableWorkflowAlertRuleMutationVariables>(EnableWorkflowAlertRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const WorkflowExecutionCostDocument = new TypedDocumentString(`
+    query workflowExecutionCost($jobId: ID!) {
+  workflowExecutionCost(jobId: $jobId) {
+    aiCost
+    baseRunCharge
+    currency
+    id
+    jobId
+    totalCost
+  }
+}
+    `);
+
+export const useWorkflowExecutionCostQuery = <
+      TData = WorkflowExecutionCostQuery,
+      TError = unknown
+    >(
+      variables: WorkflowExecutionCostQueryVariables,
+      options?: Omit<UseQueryOptions<WorkflowExecutionCostQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkflowExecutionCostQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkflowExecutionCostQuery, TError, TData>(
+      {
+    queryKey: ['workflowExecutionCost', variables],
+    queryFn: fetcher<WorkflowExecutionCostQuery, WorkflowExecutionCostQueryVariables>(WorkflowExecutionCostDocument, variables),
+    ...options
+  }
+    )};
+
+export const CodeWorkflowSourceDocument = new TypedDocumentString(`
+    query codeWorkflowSource($projectId: ID!) {
+  codeWorkflowSource(projectId: $projectId)
+}
+    `);
+
+export const useCodeWorkflowSourceQuery = <
+      TData = CodeWorkflowSourceQuery,
+      TError = unknown
+    >(
+      variables: CodeWorkflowSourceQueryVariables,
+      options?: Omit<UseQueryOptions<CodeWorkflowSourceQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<CodeWorkflowSourceQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<CodeWorkflowSourceQuery, TError, TData>(
+      {
+    queryKey: ['codeWorkflowSource', variables],
+    queryFn: fetcher<CodeWorkflowSourceQuery, CodeWorkflowSourceQueryVariables>(CodeWorkflowSourceDocument, variables),
+    ...options
+  }
+    )};
+
+export const CreateCodeWorkflowDocument = new TypedDocumentString(`
+    mutation createCodeWorkflow($workspaceId: ID!, $name: String!, $language: CodeWorkflowLanguage!) {
+  createCodeWorkflow(workspaceId: $workspaceId, name: $name, language: $language)
+}
+    `);
+
+export const useCreateCodeWorkflowMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateCodeWorkflowMutation, TError, CreateCodeWorkflowMutationVariables, TContext>) => {
+    
+    return useMutation<CreateCodeWorkflowMutation, TError, CreateCodeWorkflowMutationVariables, TContext>(
+      {
+    mutationKey: ['createCodeWorkflow'],
+    mutationFn: (variables?: CreateCodeWorkflowMutationVariables) => fetcher<CreateCodeWorkflowMutation, CreateCodeWorkflowMutationVariables>(CreateCodeWorkflowDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateCodeWorkflowSourceDocument = new TypedDocumentString(`
+    mutation updateCodeWorkflowSource($projectId: ID!, $content: String!) {
+  updateCodeWorkflowSource(projectId: $projectId, content: $content)
+}
+    `);
+
+export const useUpdateCodeWorkflowSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateCodeWorkflowSourceMutation, TError, UpdateCodeWorkflowSourceMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateCodeWorkflowSourceMutation, TError, UpdateCodeWorkflowSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['updateCodeWorkflowSource'],
+    mutationFn: (variables?: UpdateCodeWorkflowSourceMutationVariables) => fetcher<UpdateCodeWorkflowSourceMutation, UpdateCodeWorkflowSourceMutationVariables>(UpdateCodeWorkflowSourceDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const AutomationWorkflowProjectCategoriesDocument = new TypedDocumentString(`
     query automationWorkflowProjectCategories {
   automationWorkflowProjectCategories {
@@ -14040,6 +14572,7 @@ export const AutomationWorkflowProjectsDocument = new TypedDocumentString(`
     lastPublishedVersion
     permissionExpression
     automationHubVisible
+    codeWorkflowProject
     workflowTemplates {
       workflowUuid
       workflowId
@@ -14252,6 +14785,37 @@ export const usePublishAutomationWorkflowProjectMutation = <
       {
     mutationKey: ['publishAutomationWorkflowProject'],
     mutationFn: (variables?: PublishAutomationWorkflowProjectMutationVariables) => fetcher<PublishAutomationWorkflowProjectMutation, PublishAutomationWorkflowProjectMutationVariables>(PublishAutomationWorkflowProjectDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const ConnectedUserCodeWorkflowReferencesDocument = new TypedDocumentString(`
+    query connectedUserCodeWorkflowReferences($automationWorkflowUuids: [ID!]!) {
+  connectedUserCodeWorkflowReferences(
+    automationWorkflowUuids: $automationWorkflowUuids
+  ) {
+    automationWorkflowUuid
+    externalUserId
+    environment
+    enabled
+    dangling
+    danglingReason
+  }
+}
+    `);
+
+export const useConnectedUserCodeWorkflowReferencesQuery = <
+      TData = ConnectedUserCodeWorkflowReferencesQuery,
+      TError = unknown
+    >(
+      variables: ConnectedUserCodeWorkflowReferencesQueryVariables,
+      options?: Omit<UseQueryOptions<ConnectedUserCodeWorkflowReferencesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ConnectedUserCodeWorkflowReferencesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ConnectedUserCodeWorkflowReferencesQuery, TError, TData>(
+      {
+    queryKey: ['connectedUserCodeWorkflowReferences', variables],
+    queryFn: fetcher<ConnectedUserCodeWorkflowReferencesQuery, ConnectedUserCodeWorkflowReferencesQueryVariables>(ConnectedUserCodeWorkflowReferencesDocument, variables),
     ...options
   }
     )};
@@ -14682,6 +15246,7 @@ export const EmbeddedMcpServersDocument = new TypedDocumentString(`
     id
     enabled
     enforceToolAuthorization
+    authenticationRequired
     environmentId
     lastModifiedDate
     mcpComponents {
@@ -15369,6 +15934,72 @@ export const useUpdateMcpIntegrationInstanceConfigurationWorkflowMutation = <
       {
     mutationKey: ['updateMcpIntegrationInstanceConfigurationWorkflow'],
     mutationFn: (variables?: UpdateMcpIntegrationInstanceConfigurationWorkflowMutationVariables) => fetcher<UpdateMcpIntegrationInstanceConfigurationWorkflowMutation, UpdateMcpIntegrationInstanceConfigurationWorkflowMutationVariables>(UpdateMcpIntegrationInstanceConfigurationWorkflowDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const CreateIntegrationCodeWorkflowDocument = new TypedDocumentString(`
+    mutation createIntegrationCodeWorkflow($componentName: String!, $language: CodeWorkflowLanguage!) {
+  createIntegrationCodeWorkflow(
+    componentName: $componentName
+    language: $language
+  )
+}
+    `);
+
+export const useCreateIntegrationCodeWorkflowMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateIntegrationCodeWorkflowMutation, TError, CreateIntegrationCodeWorkflowMutationVariables, TContext>) => {
+    
+    return useMutation<CreateIntegrationCodeWorkflowMutation, TError, CreateIntegrationCodeWorkflowMutationVariables, TContext>(
+      {
+    mutationKey: ['createIntegrationCodeWorkflow'],
+    mutationFn: (variables?: CreateIntegrationCodeWorkflowMutationVariables) => fetcher<CreateIntegrationCodeWorkflowMutation, CreateIntegrationCodeWorkflowMutationVariables>(CreateIntegrationCodeWorkflowDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const IntegrationCodeWorkflowSourceDocument = new TypedDocumentString(`
+    query integrationCodeWorkflowSource($integrationId: ID!) {
+  integrationCodeWorkflowSource(integrationId: $integrationId)
+}
+    `);
+
+export const useIntegrationCodeWorkflowSourceQuery = <
+      TData = IntegrationCodeWorkflowSourceQuery,
+      TError = unknown
+    >(
+      variables: IntegrationCodeWorkflowSourceQueryVariables,
+      options?: Omit<UseQueryOptions<IntegrationCodeWorkflowSourceQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<IntegrationCodeWorkflowSourceQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<IntegrationCodeWorkflowSourceQuery, TError, TData>(
+      {
+    queryKey: ['integrationCodeWorkflowSource', variables],
+    queryFn: fetcher<IntegrationCodeWorkflowSourceQuery, IntegrationCodeWorkflowSourceQueryVariables>(IntegrationCodeWorkflowSourceDocument, variables),
+    ...options
+  }
+    )};
+
+export const UpdateIntegrationCodeWorkflowSourceDocument = new TypedDocumentString(`
+    mutation updateIntegrationCodeWorkflowSource($integrationId: ID!, $content: String!) {
+  updateIntegrationCodeWorkflowSource(
+    integrationId: $integrationId
+    content: $content
+  )
+}
+    `);
+
+export const useUpdateIntegrationCodeWorkflowSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateIntegrationCodeWorkflowSourceMutation, TError, UpdateIntegrationCodeWorkflowSourceMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateIntegrationCodeWorkflowSourceMutation, TError, UpdateIntegrationCodeWorkflowSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['updateIntegrationCodeWorkflowSource'],
+    mutationFn: (variables?: UpdateIntegrationCodeWorkflowSourceMutationVariables) => fetcher<UpdateIntegrationCodeWorkflowSourceMutation, UpdateIntegrationCodeWorkflowSourceMutationVariables>(UpdateIntegrationCodeWorkflowSourceDocument, variables)(),
     ...options
   }
     )};
@@ -17857,6 +18488,29 @@ export const useGenerateWorkflowDescriptionMutation = <
   }
     )};
 
+export const CreateCustomComponentDocument = new TypedDocumentString(`
+    mutation createCustomComponent($name: String!, $language: CustomComponentLanguage!) {
+  createCustomComponent(name: $name, language: $language) {
+    id
+    name
+    language
+  }
+}
+    `);
+
+export const useCreateCustomComponentMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<CreateCustomComponentMutation, TError, CreateCustomComponentMutationVariables, TContext>) => {
+    
+    return useMutation<CreateCustomComponentMutation, TError, CreateCustomComponentMutationVariables, TContext>(
+      {
+    mutationKey: ['createCustomComponent'],
+    mutationFn: (variables?: CreateCustomComponentMutationVariables) => fetcher<CreateCustomComponentMutation, CreateCustomComponentMutationVariables>(CreateCustomComponentDocument, variables)(),
+    ...options
+  }
+    )};
+
 export const CustomComponentDocument = new TypedDocumentString(`
     query customComponent($id: ID!) {
   customComponent(id: $id) {
@@ -17922,6 +18576,28 @@ export const useCustomComponentDefinitionQuery = <
       {
     queryKey: ['customComponentDefinition', variables],
     queryFn: fetcher<CustomComponentDefinitionQuery, CustomComponentDefinitionQueryVariables>(CustomComponentDefinitionDocument, variables),
+    ...options
+  }
+    )};
+
+export const CustomComponentSourceDocument = new TypedDocumentString(`
+    query customComponentSource($id: ID!) {
+  customComponentSource(id: $id)
+}
+    `);
+
+export const useCustomComponentSourceQuery = <
+      TData = CustomComponentSourceQuery,
+      TError = unknown
+    >(
+      variables: CustomComponentSourceQueryVariables,
+      options?: Omit<UseQueryOptions<CustomComponentSourceQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<CustomComponentSourceQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<CustomComponentSourceQuery, TError, TData>(
+      {
+    queryKey: ['customComponentSource', variables],
+    queryFn: fetcher<CustomComponentSourceQuery, CustomComponentSourceQueryVariables>(CustomComponentSourceDocument, variables),
     ...options
   }
     )};
@@ -17996,6 +18672,25 @@ export const useEnableCustomComponentMutation = <
       {
     mutationKey: ['enableCustomComponent'],
     mutationFn: (variables?: EnableCustomComponentMutationVariables) => fetcher<EnableCustomComponentMutation, EnableCustomComponentMutationVariables>(EnableCustomComponentDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const UpdateCustomComponentSourceDocument = new TypedDocumentString(`
+    mutation updateCustomComponentSource($id: ID!, $content: String!) {
+  updateCustomComponentSource(id: $id, content: $content)
+}
+    `);
+
+export const useUpdateCustomComponentSourceMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<UpdateCustomComponentSourceMutation, TError, UpdateCustomComponentSourceMutationVariables, TContext>) => {
+    
+    return useMutation<UpdateCustomComponentSourceMutation, TError, UpdateCustomComponentSourceMutationVariables, TContext>(
+      {
+    mutationKey: ['updateCustomComponentSource'],
+    mutationFn: (variables?: UpdateCustomComponentSourceMutationVariables) => fetcher<UpdateCustomComponentSourceMutation, UpdateCustomComponentSourceMutationVariables>(UpdateCustomComponentSourceDocument, variables)(),
     ...options
   }
     )};
@@ -18471,6 +19166,90 @@ export const useUsersQuery = <
       {
     queryKey: variables === undefined ? ['users'] : ['users', variables],
     queryFn: fetcher<UsersQuery, UsersQueryVariables>(UsersDocument, variables),
+    ...options
+  }
+    )};
+
+export const WorkspaceNotificationsDocument = new TypedDocumentString(`
+    query workspaceNotifications($workspaceId: ID!) {
+  workspaceNotifications(workspaceId: $workspaceId) {
+    id
+    name
+    type
+  }
+}
+    `);
+
+export const useWorkspaceNotificationsQuery = <
+      TData = WorkspaceNotificationsQuery,
+      TError = unknown
+    >(
+      variables: WorkspaceNotificationsQueryVariables,
+      options?: Omit<UseQueryOptions<WorkspaceNotificationsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<WorkspaceNotificationsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<WorkspaceNotificationsQuery, TError, TData>(
+      {
+    queryKey: ['workspaceNotifications', variables],
+    queryFn: fetcher<WorkspaceNotificationsQuery, WorkspaceNotificationsQueryVariables>(WorkspaceNotificationsDocument, variables),
+    ...options
+  }
+    )};
+
+export const ToolInvocationLogsDocument = new TypedDocumentString(`
+    query ToolInvocationLogs($environmentId: ID, $surface: String, $outcome: String, $mcpServerId: Long, $connectedUserId: Long, $integrationInstanceId: Long, $fromDate: Long, $toDate: Long, $page: Int) {
+  toolInvocationLogs(
+    environmentId: $environmentId
+    surface: $surface
+    outcome: $outcome
+    mcpServerId: $mcpServerId
+    connectedUserId: $connectedUserId
+    integrationInstanceId: $integrationInstanceId
+    fromDate: $fromDate
+    toDate: $toDate
+    page: $page
+  ) {
+    content {
+      id
+      surface
+      kind
+      toolName
+      componentName
+      componentVersion
+      operationName
+      connectionId
+      environment
+      externalUserId
+      connectedUserId
+      integrationInstanceId
+      mcpServerId
+      jobId
+      outcome
+      errorType
+      errorMessage
+      durationMs
+      createdDate
+    }
+    number
+    size
+    totalElements
+    totalPages
+  }
+}
+    `);
+
+export const useToolInvocationLogsQuery = <
+      TData = ToolInvocationLogsQuery,
+      TError = unknown
+    >(
+      variables?: ToolInvocationLogsQueryVariables,
+      options?: Omit<UseQueryOptions<ToolInvocationLogsQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ToolInvocationLogsQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ToolInvocationLogsQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['ToolInvocationLogs'] : ['ToolInvocationLogs', variables],
+    queryFn: fetcher<ToolInvocationLogsQuery, ToolInvocationLogsQueryVariables>(ToolInvocationLogsDocument, variables),
     ...options
   }
     )};
