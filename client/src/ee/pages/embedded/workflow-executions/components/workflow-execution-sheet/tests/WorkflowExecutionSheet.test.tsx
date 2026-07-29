@@ -12,6 +12,8 @@ vi.mock('@/ee/shared/queries/embedded/workflowExecutions.queries', () => ({
     useGetIntegrationWorkflowExecutionQuery: () => ({data: queryState.workflowExecution, isLoading: false}),
 }));
 
+vi.mock('@/shared/components/copilot/CopilotPanel', () => ({default: () => null}));
+
 vi.mock('../WorkflowExecutionDetail', () => ({
     default: ({workflowExecutionId}: {workflowExecutionId: number}) => (
         <div>{`Execution details ${workflowExecutionId}`}</div>
