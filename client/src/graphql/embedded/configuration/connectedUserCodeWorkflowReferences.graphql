@@ -1,7 +1,8 @@
-query connectedUserCodeWorkflowReferences($catalogWorkflowUuids: [ID!]!) {
-    connectedUserCodeWorkflowReferences(catalogWorkflowUuids: $catalogWorkflowUuids) {
-        catalogWorkflowUuid
+query connectedUserCodeWorkflowReferences($automationWorkflowUuids: [ID!]!) {
+    connectedUserCodeWorkflowReferences(automationWorkflowUuids: $automationWorkflowUuids) {
+        automationWorkflowUuid
         externalUserId
+        environment
         enabled
         dangling
         danglingReason
