@@ -25,5 +25,7 @@ public interface ProjectCodeWorkflowService {
 
     List<ProjectCodeWorkflow> getProjectCodeWorkflows(long projectId);
 
+    List<Long> getCodeWorkflowProjectIds();
+
     ProjectCodeWorkflow getProjectCodeWorkflow(long projectId);
 }

@@ -27,6 +27,9 @@ public interface ProjectCodeWorkflowRepository extends ListCrudRepository<Projec
 
     List<ProjectCodeWorkflow> findAllByProjectId(long projectId);
 
+    @Query("SELECT DISTINCT project_id FROM project_code_workflow")
+    List<Long> findDistinctProjectIds();
+
     @Query("""
         SELECT * FROM project_code_workflow
         WHERE project_id = :projectId

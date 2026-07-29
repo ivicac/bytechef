@@ -54,6 +54,11 @@ public class ProjectCodeWorkflowServiceImpl implements ProjectCodeWorkflowServic
     }
 
     @Override
+    public List<Long> getCodeWorkflowProjectIds() {
+        return projectCodeWorkflowRepository.findDistinctProjectIds();
+    }
+
+    @Override
     public ProjectCodeWorkflow getProjectCodeWorkflow(long projectId) {
         return projectCodeWorkflowRepository.findFirstByProjectIdOrderByIdDesc(projectId)
             .orElseThrow(
