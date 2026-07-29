@@ -8,6 +8,7 @@ import com.bytechef.ee.embedded.execution.public_.web.rest.model.EnvironmentMode
 import com.bytechef.ee.embedded.execution.public_.web.rest.model.ToolInvocationKindModel;
 import com.bytechef.ee.embedded.execution.public_.web.rest.model.ToolInvocationOutcomeModel;
 import com.bytechef.ee.embedded.execution.public_.web.rest.model.ToolInvocationSurfaceModel;
+import com.bytechef.ee.embedded.execution.public_.web.rest.model.WorkflowExecutionStatusModel;
 
 import jakarta.annotation.Generated;
 
@@ -59,6 +60,15 @@ public class EnumConverterConfiguration {
             @Override
             public ToolInvocationSurfaceModel convert(String source) {
                 return ToolInvocationSurfaceModel.fromValue(source);
+            }
+        };
+    }
+    @Bean(name = "org.openapitools.configuration.EnumConverterConfiguration.workflowExecutionStatusConverter")
+    Converter<String, WorkflowExecutionStatusModel> workflowExecutionStatusConverter() {
+        return new Converter<String, WorkflowExecutionStatusModel>() {
+            @Override
+            public WorkflowExecutionStatusModel convert(String source) {
+                return WorkflowExecutionStatusModel.fromValue(source);
             }
         };
     }

@@ -25,7 +25,11 @@ public enum ToolInvocationKindModel {
   
   COMPONENT("COMPONENT"),
   
-  WORKFLOW("WORKFLOW");
+  WORKFLOW("WORKFLOW"),
+  
+  CONTRIBUTED("CONTRIBUTED"),
+  
+  HTTP_PROXY("HTTP_PROXY");
 
   private final String value;
 

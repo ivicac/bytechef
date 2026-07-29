@@ -111,6 +111,8 @@ public class ConnectionBaseModel {
 
   private Map<String, Object> parameters = new HashMap<>();
 
+  private Boolean shared = false;
+
   private List<@Valid TagModel> tags = new ArrayList<>();
 
   /**
@@ -609,6 +611,27 @@ public class ConnectionBaseModel {
     this.parameters = parameters;
   }
 
+  public ConnectionBaseModel shared(Boolean shared) {
+    this.shared = shared;
+    return this;
+  }
+
+  /**
+   * Embedded only. When true, every connected user in the same environment may use this connection. Stored but never read on the automation surface, and always forced to false when a connected user creates a connection for themselves.
+   * @return shared
+   */
+  
+  @Schema(name = "shared", description = "Embedded only. When true, every connected user in the same environment may use this connection. Stored but never read on the automation surface, and always forced to false when a connected user creates a connection for themselves.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("shared")
+  public Boolean getShared() {
+    return shared;
+  }
+
+  @JsonProperty("shared")
+  public void setShared(Boolean shared) {
+    this.shared = shared;
+  }
+
   public ConnectionBaseModel tags(List<@Valid TagModel> tags) {
     this.tags = tags;
     return this;
@@ -728,6 +751,7 @@ public class ConnectionBaseModel {
         Objects.equals(this.lastModifiedDate, connectionBase.lastModifiedDate) &&
         Objects.equals(this.name, connectionBase.name) &&
         Objects.equals(this.parameters, connectionBase.parameters) &&
+        Objects.equals(this.shared, connectionBase.shared) &&
         Objects.equals(this.tags, connectionBase.tags) &&
         Objects.equals(this.status, connectionBase.status) &&
         Objects.equals(this.visibility, connectionBase.visibility) &&
@@ -736,7 +760,7 @@ public class ConnectionBaseModel {
 
   @Override
   public int hashCode() {
-    return Objects.hash(active, managed, authorizationType, authorizationParameters, baseUri, componentName, connectionParameters, connectionVersion, createdBy, createdDate, credentialStatus, credentialStoreType, environmentId, id, lastModifiedBy, lastModifiedDate, name, parameters, tags, status, visibility, version);
+    return Objects.hash(active, managed, authorizationType, authorizationParameters, baseUri, componentName, connectionParameters, connectionVersion, createdBy, createdDate, credentialStatus, credentialStoreType, environmentId, id, lastModifiedBy, lastModifiedDate, name, parameters, shared, tags, status, visibility, version);
   }
 
   @Override
@@ -761,6 +785,7 @@ public class ConnectionBaseModel {
     sb.append("    lastModifiedDate: ").append(toIndentedString(lastModifiedDate)).append("\n");
     sb.append("    name: ").append(toIndentedString(name)).append("\n");
     sb.append("    parameters: ").append(toIndentedString(parameters)).append("\n");
+    sb.append("    shared: ").append(toIndentedString(shared)).append("\n");
     sb.append("    tags: ").append(toIndentedString(tags)).append("\n");
     sb.append("    status: ").append(toIndentedString(status)).append("\n");
     sb.append("    visibility: ").append(toIndentedString(visibility)).append("\n");
