@@ -86,9 +86,21 @@ export interface Project {
      */
     uuid?: string;
     /**
+     * The visibility scope of the project: WORKSPACE (default, shared with every member of the owning workspace) or PRIVATE (owner plus named grantees, EE). Accepted on create; changed afterwards via the setProjectVisibility GraphQL mutation. CE always persists WORKSPACE.
+     */
+    visibility?: ProjectVisibilityEnum;
+    /**
      * 
      */
     category?: Category;
+    /**
+     * Whether the project is backed by a code workflow.
+     */
+    readonly codeWorkflow?: boolean;
+    /**
+     * The programming language of the code workflow, if the project is code-backed.
+     */
+    codeWorkflowLanguage?: string;
     /**
      * The number of the project's deployments in the Development environment. Only set by the workspace project list.
      */
@@ -111,6 +123,15 @@ export interface Project {
     version?: number;
 }
 
+
+/**
+ * @export
+ */
+export const ProjectVisibilityEnum = {
+    Private: 'PRIVATE',
+    Workspace: 'WORKSPACE',
+} as const;
+export type ProjectVisibilityEnum = typeof ProjectVisibilityEnum[keyof typeof ProjectVisibilityEnum];
 
 
 /**
@@ -143,7 +164,10 @@ export function ProjectFromJSONTyped(json: any, ignoreDiscriminator: boolean): P
         'lastStatus': json['lastStatus'] == null ? undefined : ProjectStatusFromJSON(json['lastStatus']),
         'lastProjectVersion': json['lastProjectVersion'] == null ? undefined : json['lastProjectVersion'],
         'uuid': json['uuid'] == null ? undefined : json['uuid'],
+        'visibility': json['visibility'] == null ? undefined : json['visibility'],
         'category': json['category'] == null ? undefined : CategoryFromJSON(json['category']),
+        'codeWorkflow': json['codeWorkflow'] == null ? undefined : json['codeWorkflow'],
+        'codeWorkflowLanguage': json['codeWorkflowLanguage'] == null ? undefined : json['codeWorkflowLanguage'],
         'developmentDeploymentCount': json['developmentDeploymentCount'] == null ? undefined : json['developmentDeploymentCount'],
         'projectWorkflowIds': json['projectWorkflowIds'] == null ? undefined : json['projectWorkflowIds'],
         'tags': json['tags'] == null ? undefined : ((json['tags'] as Array<any>).map(TagFromJSON)),
@@ -156,7 +180,7 @@ export function ProjectToJSON(json: any): Project {
     return ProjectToJSONTyped(json, false);
 }
 
-export function ProjectToJSONTyped(value?: Omit<Project, 'createdBy'|'createdDate'|'id'|'lastModifiedBy'|'lastModifiedDate'|'lastPublishedDate'|'lastProjectVersion'|'developmentDeploymentCount'> | null, ignoreDiscriminator: boolean = false): any {
+export function ProjectToJSONTyped(value?: Omit<Project, 'createdBy'|'createdDate'|'id'|'lastModifiedBy'|'lastModifiedDate'|'lastPublishedDate'|'lastProjectVersion'|'codeWorkflow'|'developmentDeploymentCount'> | null, ignoreDiscriminator: boolean = false): any {
     if (value == null) {
         return value;
     }
@@ -167,7 +191,9 @@ export function ProjectToJSONTyped(value?: Omit<Project, 'createdBy'|'createdDat
         'name': value['name'],
         'lastStatus': ProjectStatusToJSON(value['lastStatus']),
         'uuid': value['uuid'],
+        'visibility': value['visibility'],
         'category': CategoryToJSON(value['category']),
+        'codeWorkflowLanguage': value['codeWorkflowLanguage'],
         'projectWorkflowIds': value['projectWorkflowIds'],
         'tags': value['tags'] == null ? undefined : ((value['tags'] as Array<any>).map(TagToJSON)),
         'workspaceId': value['workspaceId'],

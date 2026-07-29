@@ -2,10 +2,11 @@ import {ResizableHandle, ResizablePanel, ResizablePanelGroup} from '@/components
 import IntegrationHeader from '@/ee/pages/embedded/integration/components/integration-header/IntegrationHeader';
 import IntegrationsLeftSidebar from '@/ee/pages/embedded/integration/components/integrations-sidebar/IntegrationsLeftSidebar';
 import {useIntegration} from '@/ee/pages/embedded/integration/hooks/useIntegration';
-import {WebhookTriggerTestApi} from '@/ee/shared/middleware/embedded/configuration';
+import {Integration as IntegrationType} from '@/ee/shared/middleware/embedded/configuration';
 import {useCreateConnectionMutation} from '@/ee/shared/mutations/embedded/connections.mutations';
 import {useGetComponentDefinitionsQuery} from '@/ee/shared/queries/embedded/componentDefinitions.queries';
 import {ConnectionKeys, useGetConnectionTagsQuery} from '@/ee/shared/queries/embedded/connections.queries';
+import {useGetIntegrationQuery} from '@/ee/shared/queries/embedded/integrations.queries';
 import WorkflowEditorLayout from '@/pages/platform/workflow-editor/WorkflowEditorLayout';
 import WorkflowExecutionsTestOutput from '@/pages/platform/workflow-editor/components/WorkflowExecutionsTestOutput';
 import {useRun} from '@/pages/platform/workflow-editor/hooks/useRun';
@@ -16,6 +17,7 @@ import useCopilotLayoutShifted from '@/shared/components/copilot/hooks/useCopilo
 import {useWorkflowTestRunGuard} from '@/shared/hooks/useWorkflowTestRunGuard';
 import {PlatformType} from '@/shared/middleware/graphql';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
+import {useLoaderData} from 'react-router-dom';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
 
@@ -48,6 +50,8 @@ const Integration = () => {
         updateWorkflowNodeParameterMutation,
         useGetConnectionsQuery,
     } = useIntegration();
+
+    const {data: integration} = useGetIntegrationQuery(integrationId, useLoaderData() as IntegrationType);
 
     const {runDisabled} = useRun();
 
@@ -97,6 +101,8 @@ const Integration = () => {
                                 value={{
                                     ConnectionKeys: ConnectionKeys,
                                     cancelWorkflowQueries,
+                                    codeWorkflow: integration?.codeWorkflow,
+                                    codeWorkflowLanguage: integration?.codeWorkflowLanguage,
                                     connectionTagsQueryKey: ConnectionKeys.connectionTags,
                                     deleteClusterElementParameterMutation,
                                     deleteWorkflowNodeParameterMutation,

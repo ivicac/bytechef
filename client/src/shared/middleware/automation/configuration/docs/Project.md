@@ -18,7 +18,10 @@ Name | Type
 `lastStatus` | [ProjectStatus](ProjectStatus.md)
 `lastProjectVersion` | number
 `uuid` | string
+`visibility` | string
 `category` | [Category](Category.md)
+`codeWorkflow` | boolean
+`codeWorkflowLanguage` | string
 `developmentDeploymentCount` | number
 `projectWorkflowIds` | Array&lt;number&gt;
 `tags` | [Array&lt;Tag&gt;](Tag.md)
@@ -43,7 +46,10 @@ const example = {
   "lastStatus": null,
   "lastProjectVersion": null,
   "uuid": null,
+  "visibility": null,
   "category": null,
+  "codeWorkflow": null,
+  "codeWorkflowLanguage": null,
   "developmentDeploymentCount": null,
   "projectWorkflowIds": null,
   "tags": null,

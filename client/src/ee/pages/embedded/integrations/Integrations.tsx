@@ -3,9 +3,11 @@ import EmptyList from '@/components/EmptyList';
 import EmptyState from '@/components/EmptyState/EmptyState';
 import JourneySteps from '@/components/JourneySteps/JourneySteps';
 import PageLoader from '@/components/PageLoader';
-import {EMBEDDED_INTEGRATIONS_DOCUMENTATION_URL} from '@/ee/pages/embedded/embeddedDocumentationUrls';
+import {ButtonGroup} from '@/components/ui/button-group';
+import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import IntegrationDialog from '@/ee/pages/embedded/integrations/components/IntegrationDialog';
 import IntegrationsFilterTitle from '@/ee/pages/embedded/integrations/components/IntegrationsFilterTitle';
+import NewIntegrationCodeWorkflowDialog from '@/ee/pages/embedded/integrations/components/NewIntegrationCodeWorkflowDialog';
 import UnifiedApiLeftSidebarNav from '@/ee/pages/embedded/integrations/components/UnifiedApiLeftSidebarNav';
 import IntegrationList from '@/ee/pages/embedded/integrations/components/integration-list/IntegrationList';
 import {useGetComponentDefinitionsQuery} from '@/ee/shared/queries/embedded/componentDefinitions.queries';
@@ -18,7 +20,7 @@ import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {useGetTaskDispatcherDefinitionsQuery} from '@/shared/queries/platform/taskDispatcherDefinitions.queries';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
-import {SquareIcon} from 'lucide-react';
+import {ChevronDownIcon, CodeIcon, SquareIcon} from 'lucide-react';
 import {useState} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 
@@ -37,6 +39,7 @@ const INTEGRATION_STEPS = [
 const Integrations = () => {
     const [newlyCreatedIntegrationId, setNewlyCreatedIntegrationId] = useState<number | undefined>();
     const [showIntegrationDialog, setShowIntegrationDialog] = useState(false);
+    const [showNewCodeWorkflowDialog, setShowNewCodeWorkflowDialog] = useState(false);
 
     const [searchParams] = useSearchParams();
 
@@ -82,27 +85,42 @@ const Integrations = () => {
     return (
         <LayoutContainer
             header={
-                <Header
-                    centerTitle={true}
-                    position="main"
-                    right={
-                        integrations &&
-                        integrations.length > 0 && (
-                            <Button
-                                aria-label="Create Integration"
-                                label="New Integration"
-                                onClick={() => setShowIntegrationDialog(true)}
-                            />
-                        )
-                    }
-                    title={
-                        (integrations && integrations.length > 0) || hasActiveFilter ? (
-                            <IntegrationsFilterTitle categories={categories} filterData={filterData} tags={tags} />
-                        ) : (
-                            isFirstRun && 'Integrations'
-                        )
-                    }
-                />
+                integrations &&
+                integrations?.length > 0 && (
+                    <Header
+                        centerTitle={true}
+                        position="main"
+                        right={
+                            integrations &&
+                            integrations.length > 0 && (
+                                <ButtonGroup>
+                                    <Button
+                                        aria-label="Create Integration"
+                                        onClick={() => setShowIntegrationDialog(true)}
+                                    >
+                                        New Integration
+                                    </Button>
+
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button>
+                                                <ChevronDownIcon />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => setShowNewCodeWorkflowDialog(true)}>
+                                                <CodeIcon className="mr-2 size-4" />
+                                                New Code Workflow
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </ButtonGroup>
+                            )
+                        }
+                        title={<IntegrationsFilterTitle categories={categories} filterData={filterData} tags={tags} />}
+                    />
+                )
             }
             leftSidebarBody={
                 <CategoryTagLeftSidebarNav
@@ -136,18 +154,27 @@ const Integrations = () => {
                     />
                 ) : hasActiveFilter ? (
                     <EmptyList
-                        icon={<SquareIcon className="size-24 text-stroke-neutral-tertiary" />}
-                        message="No integrations match the selected filter."
-                        title="No Matching Integrations"
-                    />
-                ) : (
-                    <EmptyState
-                        actions={
-                            <Button
-                                aria-label="Create Integration"
-                                label="Create Integration"
-                                onClick={() => setShowIntegrationDialog(true)}
-                            />
+                        button={
+                            <ButtonGroup className="mx-auto">
+                                <Button aria-label="Create Integration" onClick={() => setShowIntegrationDialog(true)}>
+                                    Create Integration
+                                </Button>
+
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button>
+                                            <ChevronDownIcon />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setShowNewCodeWorkflowDialog(true)}>
+                                            <CodeIcon className="mr-2 size-4" />
+                                            New Code Workflow
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </ButtonGroup>
                         }
                         description="An integration connects your product to a third-party app, like Slack or HubSpot. You build its workflows here, and your users turn it on from inside your product."
                         docsLink={{href: EMBEDDED_INTEGRATIONS_DOCUMENTATION_URL, label: 'How integrations work'}}
@@ -173,6 +200,10 @@ const Integrations = () => {
                     }}
                     onSuccess={(integrationId) => integrationId && setNewlyCreatedIntegrationId(integrationId)}
                 />
+            )}
+
+            {showNewCodeWorkflowDialog && (
+                <NewIntegrationCodeWorkflowDialog onClose={() => setShowNewCodeWorkflowDialog(false)} />
             )}
         </LayoutContainer>
     );
