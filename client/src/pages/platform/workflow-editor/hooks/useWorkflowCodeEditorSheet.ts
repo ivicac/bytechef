@@ -12,7 +12,6 @@ import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {WorkflowDefinitionType} from '@/shared/types';
 import {getTestWorkflowAttachRequest, getTestWorkflowStreamPostRequest} from '@/shared/util/testWorkflow-utils';
-import {MarkerSeverity} from 'monaco-editor';
 import {useCallback, useEffect, useState} from 'react';
 import {useShallow} from 'zustand/shallow';
 
@@ -23,6 +22,9 @@ import saveWorkflowDefinitionUpdate from '../utils/saveWorkflowDefinitionUpdate'
 import type {editor} from 'monaco-editor';
 
 const workflowTestApi = new WorkflowTestApi();
+
+// monaco-editor's MarkerSeverity.Error — inlined so this hook does not pull monaco into the initial chunk
+const MARKER_SEVERITY_ERROR = 8;
 
 // Shown in the copilot panel in place of the workflow definition once a BUILD-mode turn has been
 // applied straight to the code editor — the editor is the source of truth, so the definition itself
@@ -82,7 +84,7 @@ const useWorkflowCodeEditorSheet = ({
     const [workflowTestExecution, setWorkflowTestExecution] = useState<WorkflowTestExecution>();
     const [markers, setMarkers] = useState<editor.IMarkerData[]>([]);
 
-    const hasErrors = markers.some((marker) => marker.severity === MarkerSeverity.Error);
+    const hasErrors = markers.some((marker) => marker.severity === MARKER_SEVERITY_ERROR);
 
     const ai = useApplicationInfoStore((state) => state.ai);
     const setContext = useCopilotStore((state) => state.setContext);
