@@ -157,6 +157,36 @@ const McpServerDialog = ({
                                 {mcpServer && (
                                     <FormField
                                         control={form.control}
+                                        name="authenticationRequired"
+                                        render={({field}) => (
+                                            <FormItem>
+                                                <div className="flex items-center space-x-2">
+                                                    <FormControl>
+                                                        <Checkbox
+                                                            checked={field.value}
+                                                            onCheckedChange={field.onChange}
+                                                        />
+                                                    </FormControl>
+
+                                                    <FormLabel className="font-normal">
+                                                        Require authentication
+                                                    </FormLabel>
+                                                </div>
+
+                                                <FormDescription>
+                                                    Require an API key or OAuth token in addition to the server URL.
+                                                    Existing servers default to off.
+                                                </FormDescription>
+
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                )}
+
+                                {mcpServer && (
+                                    <FormField
+                                        control={form.control}
                                         name="enforceToolAuthorization"
                                         render={({field}) => (
                                             <FormItem>
@@ -164,6 +194,7 @@ const McpServerDialog = ({
                                                     <FormControl>
                                                         <Checkbox
                                                             checked={field.value}
+                                                            disabled={!authenticationRequired}
                                                             onCheckedChange={field.onChange}
                                                         />
                                                     </FormControl>
