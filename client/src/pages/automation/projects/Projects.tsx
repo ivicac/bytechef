@@ -28,11 +28,12 @@ import {useGetTaskDispatcherDefinitionsQuery} from '@/shared/queries/platform/ta
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {useQueryClient} from '@tanstack/react-query';
-import {ChevronDownIcon, FolderIcon, LayoutTemplateIcon, UploadIcon} from 'lucide-react';
+import {ChevronDownIcon, CodeIcon, FolderIcon, LayoutTemplateIcon, UploadIcon} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 import {toast} from 'sonner';
 
+import NewCodeWorkflowDialog from './components/NewCodeWorkflowDialog';
 import ProjectDialog from './components/ProjectDialog';
 import ProjectList from './components/project-list/ProjectList';
 
@@ -43,6 +44,7 @@ export enum Type {
 
 const Projects = () => {
     const [newlyCreatedProjectId, setNewlyCreatedProjectId] = useState<number | undefined>();
+    const [showNewCodeWorkflowDialog, setShowNewCodeWorkflowDialog] = useState(false);
 
     const application = useApplicationInfoStore((state) => state.application);
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
@@ -165,6 +167,12 @@ const Projects = () => {
                                             label="Import Project"
                                             onClick={() => fileInputRef.current?.click()}
                                         />
+
+                                        <DropdownMenuItem
+                                            icon={<CodeIcon />}
+                                            label="New Code Workflow"
+                                            onClick={() => setShowNewCodeWorkflowDialog(true)}
+                                        />
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </ButtonGroup>
@@ -233,6 +241,12 @@ const Projects = () => {
                                             label="Import Project"
                                             onClick={() => fileInputRef.current?.click()}
                                         />
+
+                                        <DropdownMenuItem
+                                            icon={<CodeIcon />}
+                                            label="New Code Workflow"
+                                            onClick={() => setShowNewCodeWorkflowDialog(true)}
+                                        />
                                     </DropdownMenuContent>
                                 </DropdownMenu>
                             </ButtonGroup>
@@ -251,6 +265,8 @@ const Projects = () => {
                 style={{display: 'none'}}
                 type="file"
             />
+
+            {showNewCodeWorkflowDialog && <NewCodeWorkflowDialog onClose={() => setShowNewCodeWorkflowDialog(false)} />}
         </LayoutContainer>
     );
 };
