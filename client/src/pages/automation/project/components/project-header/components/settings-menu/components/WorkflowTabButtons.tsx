@@ -2,7 +2,7 @@ import '@/shared/styles/dropdownMenu.css';
 import Button from '@/components/Button/Button';
 import {Separator} from '@/components/ui/separator';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
-import {CopyIcon, DownloadIcon, EditIcon, Share2Icon, Trash2Icon} from 'lucide-react';
+import {AlertTriangleIcon, CopyIcon, DownloadIcon, EditIcon, Share2Icon, Trash2Icon} from 'lucide-react';
 import {MouseEvent} from 'react';
 
 const WorkflowTabButtons = ({
@@ -11,6 +11,7 @@ const WorkflowTabButtons = ({
     onShareWorkflow,
     onShowDeleteWorkflowAlertDialog,
     onShowEditWorkflowDialog,
+    onShowErrorHandlingDialog,
     workflowId,
 }: {
     onCloseDropdownMenu: () => void;
@@ -18,6 +19,7 @@ const WorkflowTabButtons = ({
     onShareWorkflow: () => void;
     onShowEditWorkflowDialog: () => void;
     onShowDeleteWorkflowAlertDialog: () => void;
+    onShowErrorHandlingDialog: () => void;
     workflowId: string;
 }) => {
     const templatesSubmissionForm = useApplicationInfoStore((state) => state.templatesSubmissionForm.workflows);
@@ -63,6 +65,14 @@ const WorkflowTabButtons = ({
                     variant="ghost"
                 />
             )}
+
+            <Button
+                className="dropdown-menu-item"
+                icon={<AlertTriangleIcon />}
+                label="Error Handling"
+                onClick={onShowErrorHandlingDialog}
+                variant="ghost"
+            />
 
             <Button
                 className="dropdown-menu-item"
