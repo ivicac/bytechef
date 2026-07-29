@@ -27,6 +27,10 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.ApplicationEventPublisher;
 
 /**
+ * Default {@link ToolExecutionRecorder}: increments a Micrometer counter, writes a structured log line, and publishes a
+ * {@link ToolExecutionEvent} as a Spring application event for any (EE) persistence listener. All three sinks are
+ * best-effort — a failure to record never affects the wrapped execution.
+ *
  * @author Ivica Cardic
  */
 public class ToolExecutionRecorderImpl implements ToolExecutionRecorder {
@@ -74,6 +78,11 @@ public class ToolExecutionRecorderImpl implements ToolExecutionRecorder {
         }
     }
 
+    @Override
+    public void record(ToolExecutionEvent event) {
+        emit(event);
+    }
+
     private void emit(ToolExecutionEvent event) {
         try {
             MeterRegistry meterRegistry = meterRegistryProvider.getIfAvailable();
@@ -90,8 +99,9 @@ public class ToolExecutionRecorderImpl implements ToolExecutionRecorder {
 
             if (log.isDebugEnabled()) {
                 log.debug(
-                    "Tool invocation surface={} kind={} tool={} outcome={} durationMs={}",
-                    event.surface(), event.kind(), event.toolName(), event.outcome(), event.durationMs());
+                    "Tool invocation surface={} kind={} tool={} outcome={} durationMs={} tenant={}",
+                    event.surface(), event.kind(), event.toolName(), event.outcome(), event.durationMs(),
+                    event.tenantId());
             }
 
             applicationEventPublisher.publishEvent(event);

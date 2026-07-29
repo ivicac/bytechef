@@ -116,9 +116,8 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         ClusterElementDefinitionService clusterElementDefinitionService, Evaluator evaluator,
         JobCompletionAwaiter jobCompletionAwaiter, McpComponentService mcpComponentService,
         McpProjectWorkflowService mcpProjectWorkflowService, McpServerService mcpServerService,
-        McpToolService mcpToolService, PrincipalJobFacade principalJobFacade,
-        ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
-        @Nullable String publicUrl, TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage,
+        PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
+        TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage,
         ToolExecutionRecorder toolExecutionRecorder, WorkflowService workflowService,
         WorkspaceMcpServerService workspaceMcpServerService) {
 
@@ -160,8 +159,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
                 getClusterElementToolCallbackFunction(
                     toolName, clusterElementDefinition.getComponentName(),
                     clusterElementDefinition.getComponentVersion(), clusterElementDefinition.getName(),
-                    mcpTool.getParameters(), mcpComponent.getConnectionId(), mcpComponent.getMcpServerId(),
-                    Objects.requireNonNull(mcpTool.getId())))
+                    mcpTool.getParameters(), mcpComponent.getConnectionId(), mcpComponent.getMcpServerId()))
             .inputType(Map.class)
             .inputSchema(FromAiInputSchemaUtils.generateInputSchema(fromAiResults));
 
@@ -245,7 +243,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
 
     private Function<Map<String, Object>, Object> getClusterElementToolCallbackFunction(
         String toolName, String componentName, int componentVersion, String clusterElementName,
-        Map<String, ?> parameters, @Nullable Long connectionId, long mcpServerId, long mcpToolId) {
+        Map<String, ?> parameters, @Nullable Long connectionId, long mcpServerId) {
 
         Long workspaceId = workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(mcpServerId)
             .orElse(null);
@@ -292,7 +290,6 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
 
         Long workspaceId = workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(mcpServerId)
             .orElse(null);
-        long projectDeploymentWorkflowId = Objects.requireNonNull(projectDeploymentWorkflow.getId());
 
         return inputParameters -> {
             McpServer mcpServer = readMcpServerConfiguration(() -> mcpServerService.getMcpServer(mcpServerId));
@@ -325,218 +322,26 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
                 new JobParametersDTO(projectDeploymentWorkflow.getWorkflowId(), inputs),
                 projectDeploymentWorkflow.getProjectDeploymentId(), PlatformType.AUTOMATION);
 
-            Job job = jobCompletionAwaiter.await(jobId, JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT)
-                .join();
-
-            JobExecutionErrors.checkForError(job, taskExecutionService);
-
             return toolExecutionRecorder.record(
                 ToolExecutionEvent
                     .builder(ToolExecutionSurface.MCP_AUTOMATION, ToolExecutionKind.WORKFLOW, toolName)
                     .mcpServerId(mcpServerId)
                     .workspaceId(workspaceId)
                     .jobId(jobId),
-                () -> getWorkflowRunResult(
-                    jobCompletionAwaiter.await(jobId, JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT)
-                        .join()));
+                () -> {
+                    Job job = jobCompletionAwaiter.await(jobId, JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT)
+                        .join();
+
+                    JobExecutionErrors.checkForError(job, taskExecutionService);
+
+                    if (job.getOutputs() == null) {
+                        return null;
+                    }
+
+                    return getCallableResponseOutput(job)
+                        .orElseGet(() -> taskFileStorage.readJobOutputs(job.getOutputs()));
+                });
         };
-    }
-
-    private @Nullable Object getWorkflowRunResult(Job job) {
-        if (isPausedOnApproval(job)) {
-            return describePendingApproval(job);
-        }
-
-        if (isPausedOnWait(job)) {
-            return describePendingWait(job);
-        }
-
-        JobExecutionErrors.checkForError(job, taskExecutionService);
-        JobExecutionErrors.checkCompleted(job);
-
-        if (job.getOutputs() == null) {
-            return null;
-        }
-
-        return getCallableResponseOutput(job)
-            .orElseGet(() -> taskFileStorage.readJobOutputs(job.getOutputs()));
-    }
-
-    private static boolean isPausedOnApproval(Job job) {
-        return isSuspended(job) && Boolean.TRUE.equals(job.getMetadata(MetadataConstants.APPROVAL_RESUME));
-    }
-
-    private static boolean isPausedOnWait(Job job) {
-        return isSuspended(job) && !Boolean.TRUE.equals(job.getMetadata(MetadataConstants.APPROVAL_RESUME));
-    }
-
-    private static boolean isSuspended(Job job) {
-        return job.getStatus() == Job.Status.STOPPED && job.getMetadata(MetadataConstants.JOB_RESUME_ID) != null;
-    }
-
-    private static Map<String, Object> describePendingWait(Job job) {
-        Map<String, Object> result = new HashMap<>();
-
-        result.put("status", "waiting");
-        result.put(
-            "message",
-            "The workflow run is paused at a wait step and continues on its own when the wait ends; no action " +
-                "is required.");
-
-        if (job.getId() != null) {
-            result.put("jobId", job.getId());
-        }
-
-        return result;
-    }
-
-    private Map<String, Object> describePendingApproval(Job job) {
-        Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
-
-        String jobResumeIdString = jobResumeId == null ? null : jobResumeId.toString();
-        ApprovalTokens approvalTokens = approvalTokensObjectProvider.getIfAvailable();
-
-        String formUrl = ApprovalFormUrls
-            .buildFormUrl(publicUrl, jobResumeIdString, approvalTokens)
-            .orElse(null);
-
-        Map<String, Object> result = new HashMap<>();
-
-        result.put("status", "approval_required");
-        result.put(
-            "message",
-            formUrl == null
-                ? "Approval required — the workflow run is paused waiting for a human decision."
-                : "Approval required — the workflow run is paused waiting for a human decision. " +
-                    "Resolve it at: " + formUrl);
-
-        if (formUrl != null) {
-            result.put("formUrl", formUrl);
-        }
-
-        ApprovalFormUrls.buildResumeToken(jobResumeIdString, approvalTokens)
-            .ifPresent(resumeToken -> result.put("resumeToken", resumeToken));
-
-        if (job.getId() != null) {
-            result.put("jobId", job.getId());
-        }
-
-        return result;
-    }
-
-    public Optional<String> resolvePendingApprovalResumeToken(long jobId) {
-        Job job = jobService.fetchJob(jobId)
-            .orElse(null);
-
-        if (job == null || !isPausedOnApproval(job)) {
-            return Optional.empty();
-        }
-
-        Object jobResumeId = Objects.requireNonNull(job.getMetadata(MetadataConstants.JOB_RESUME_ID));
-
-        return ApprovalFormUrls.buildResumeToken(
-            jobResumeId.toString(), approvalTokensObjectProvider.getIfAvailable());
-    }
-
-    public boolean isJobWorkflowExposedByMcpServer(long jobId, long mcpServerId) {
-        String workflowId = jobService.fetchJob(jobId)
-            .map(Job::getWorkflowId)
-            .orElse(null);
-
-        if (workflowId == null) {
-            return false;
-        }
-
-        List<McpProject> mcpProjects = readMcpServerConfiguration(
-            () -> mcpProjectService.getMcpServerMcpProjects(mcpServerId));
-
-        for (McpProject mcpProject : mcpProjects) {
-            for (McpProjectWorkflow mcpProjectWorkflow : mcpProjectWorkflowService.getMcpProjectMcpProjectWorkflows(
-                mcpProject.getId())) {
-
-                try {
-                    ProjectDeploymentWorkflow projectDeploymentWorkflow =
-                        projectDeploymentWorkflowService.getProjectDeploymentWorkflow(
-                            mcpProjectWorkflow.getProjectDeploymentWorkflowId());
-
-                    if (workflowId.equals(projectDeploymentWorkflow.getWorkflowId())) {
-                        return true;
-                    }
-                } catch (NoSuchElementException noSuchElementException) {
-                    if (log.isDebugEnabled()) {
-                        log.debug(
-                            "Skipping unresolvable project-deployment-workflow {} while checking MCP exposure: {}",
-                            mcpProjectWorkflow.getProjectDeploymentWorkflowId(), noSuchElementException.getMessage());
-                    }
-                } catch (RuntimeException runtimeException) {
-                    log.warn(
-                        "Skipping project-deployment-workflow {} while checking MCP exposure: {}",
-                        mcpProjectWorkflow.getProjectDeploymentWorkflowId(), runtimeException.getMessage(),
-                        runtimeException);
-                }
-            }
-        }
-
-        return false;
-    }
-
-    public Optional<String> resolvePendingApprovalFormUrl(long jobId) {
-        Job job = jobService.fetchJob(jobId)
-            .orElse(null);
-
-        if (job == null || !isPausedOnApproval(job)) {
-            return Optional.empty();
-        }
-
-        Object jobResumeId = Objects.requireNonNull(job.getMetadata(MetadataConstants.JOB_RESUME_ID));
-
-        return ApprovalFormUrls.buildFormUrl(
-            publicUrl, jobResumeId.toString(), approvalTokensObjectProvider.getIfAvailable());
-    }
-
-    public @Nullable Object awaitApprovedWorkflowRun(long jobId) {
-        Instant deadline = Instant.now()
-            .plus(JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT);
-
-        Job job = jobService.getJob(jobId);
-
-        while (isPausedOnApproval(job) && Instant.now()
-            .isBefore(deadline)) {
-
-            try {
-                Thread.sleep(RESUME_POLL_INTERVAL_MILLIS);
-            } catch (InterruptedException interruptedException) {
-                Thread.currentThread()
-                    .interrupt();
-
-                break;
-            }
-
-            job = jobService.getJob(jobId);
-        }
-
-        if (isPausedOnApproval(job)) {
-            return describePendingApproval(job);
-        }
-
-        Duration remaining = Duration.between(Instant.now(), deadline);
-
-        job = jobCompletionAwaiter.await(jobId, remaining.isNegative() ? Duration.ofSeconds(1) : remaining)
-            .join();
-
-        return getWorkflowRunResult(job);
-    }
-
-    public @Nullable Object resolveApprovalAndAwait(String resumeToken, Map<String, Object> data, long jobId) {
-        JobResumeFacade.JobResumeOutcome outcome = jobResumeFacade.resumeJob(resumeToken, data);
-
-        if (outcome != JobResumeFacade.JobResumeOutcome.OK) {
-            return Map.of(
-                "status", "approval_unavailable",
-                "message", "The approval could no longer be resolved (" + outcome + ").");
-        }
-
-        return awaitApprovedWorkflowRun(jobId);
     }
 
     private Optional<Object> getCallableResponseOutput(Job job) {

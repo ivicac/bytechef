@@ -19,9 +19,23 @@ package com.bytechef.platform.tool.execution;
 import java.util.function.Supplier;
 
 /**
+ * Entry point every direct tool/action execution call site uses to record its invocation. Recording is fire-and-forget
+ * telemetry: it never alters the wrapped execution's return value or the exception it throws.
+ *
  * @author Ivica Cardic
  */
 public interface ToolExecutionRecorder {
 
+    /**
+     * Times and runs {@code execution}, then emits a {@link ToolExecutionEvent} built from {@code builder} with the
+     * measured duration and the resolved outcome ({@code SUCCESS}, or {@code TIMEOUT} / {@code ERROR} when the
+     * execution throws). The original return value is returned and any thrown exception is rethrown unchanged.
+     */
     <V> V record(ToolExecutionEvent.Builder builder, Supplier<V> execution);
+
+    /**
+     * Emits a fully-built event directly, for terminal outcomes that are not produced by running an execution (e.g.
+     * {@code CONNECTION_REQUIRED}).
+     */
+    void record(ToolExecutionEvent event);
 }
