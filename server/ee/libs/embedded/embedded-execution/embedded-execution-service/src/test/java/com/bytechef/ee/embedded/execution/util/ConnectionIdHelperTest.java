@@ -8,6 +8,7 @@
 package com.bytechef.ee.embedded.execution.util;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -16,7 +17,9 @@ import com.bytechef.ee.embedded.configuration.domain.IntegrationInstance;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceService;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
+import com.bytechef.ee.embedded.execution.util.ConnectionIdHelper.ConnectedUserConnection;
 import com.bytechef.platform.configuration.domain.Environment;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.springframework.security.access.AccessDeniedException;
 
@@ -31,7 +34,7 @@ class ConnectionIdHelperTest {
         new ConnectionIdHelper(connectedUserService, integrationInstanceService);
 
     @Test
-    void testGetConnectionIdRejectsForeignInstance() {
+    void testGetConnectedUserConnectionRejectsForeignInstance() {
         ConnectedUser connectedUser = mock(ConnectedUser.class);
 
         when(connectedUser.getId()).thenReturn(1L);
@@ -44,11 +47,11 @@ class ConnectionIdHelperTest {
 
         assertThrows(
             AccessDeniedException.class,
-            () -> connectionIdHelper.getConnectionId("user-1", "slack", 5L, Environment.PRODUCTION));
+            () -> connectionIdHelper.getConnectedUserConnection("user-1", "slack", 5L, Environment.PRODUCTION));
     }
 
     @Test
-    void testGetConnectionIdReturnsConnectionForOwnedInstance() {
+    void testGetConnectedUserConnectionReturnsConnectionForOwnedInstance() {
         ConnectedUser connectedUser = mock(ConnectedUser.class);
 
         when(connectedUser.getId()).thenReturn(1L);
@@ -60,8 +63,26 @@ class ConnectionIdHelperTest {
         when(integrationInstance.getConnectionId()).thenReturn(42L);
         when(integrationInstanceService.getIntegrationInstance(5L)).thenReturn(integrationInstance);
 
-        Long connectionId = connectionIdHelper.getConnectionId("user-1", "slack", 5L, Environment.PRODUCTION);
+        ConnectedUserConnection connectedUserConnection = connectionIdHelper.getConnectedUserConnection(
+            "user-1", "slack", 5L, Environment.PRODUCTION);
 
-        assertEquals(42L, connectionId);
+        assertEquals(1L, connectedUserConnection.connectedUserId());
+        assertEquals(42L, connectedUserConnection.connectionId());
+    }
+
+    @Test
+    void testGetConnectedUserConnectionReturnsTheConnectedUserWithoutAnInstance() {
+        ConnectedUser connectedUser = mock(ConnectedUser.class);
+
+        when(connectedUser.getId()).thenReturn(1L);
+        when(connectedUserService.getConnectedUser("user-1", Environment.PRODUCTION)).thenReturn(connectedUser);
+        when(integrationInstanceService.fetchIntegrationInstance(1L, "slack", Environment.PRODUCTION))
+            .thenReturn(Optional.empty());
+
+        ConnectedUserConnection connectedUserConnection = connectionIdHelper.getConnectedUserConnection(
+            "user-1", "slack", null, Environment.PRODUCTION);
+
+        assertEquals(1L, connectedUserConnection.connectedUserId());
+        assertNull(connectedUserConnection.connectionId());
     }
 }

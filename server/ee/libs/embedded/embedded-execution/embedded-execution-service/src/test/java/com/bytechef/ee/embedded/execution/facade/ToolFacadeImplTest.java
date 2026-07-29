@@ -9,7 +9,9 @@ package com.bytechef.ee.embedded.execution.facade;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -26,6 +28,7 @@ import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.ee.embedded.execution.constant.EmbeddedToolConstants;
 import com.bytechef.ee.embedded.execution.facade.dto.ToolDTO;
 import com.bytechef.ee.embedded.execution.util.ConnectionIdHelper;
+import com.bytechef.ee.embedded.execution.util.ConnectionIdHelper.ConnectedUserConnection;
 import com.bytechef.platform.ai.tool.util.ToolPropertyUtils;
 import com.bytechef.platform.component.domain.ClusterElementDefinition;
 import com.bytechef.platform.component.domain.ComponentDefinition;
@@ -34,9 +37,13 @@ import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.tool.execution.ToolExecutionEvent;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
@@ -57,15 +64,18 @@ class ToolFacadeImplTest {
     private final IntegrationInstanceService integrationInstanceService = mock(IntegrationInstanceService.class);
     private final IntegrationService integrationService = mock(IntegrationService.class);
 
+    private final DirectToolExecutionRecorder directToolExecutionRecorder = new DirectToolExecutionRecorder();
+
     private final ToolFacadeImpl toolFacade = new ToolFacadeImpl(
         clusterElementDefinitionFacade, clusterElementDefinitionService, componentDefinitionService,
         connectedUserService, connectionIdHelper, integrationInstanceConfigurationService, integrationInstanceService,
-        integrationService);
+        integrationService, directToolExecutionRecorder);
 
     @Test
     @SuppressWarnings("unchecked")
     void testExecuteToolInjectsReservedContextParameters() {
-        when(connectionIdHelper.getConnectionId("user-1", "slack", null, Environment.PRODUCTION)).thenReturn(7L);
+        when(connectionIdHelper.getConnectedUserConnection("user-1", "slack", null, Environment.PRODUCTION))
+            .thenReturn(new ConnectedUserConnection(1L, 7L));
 
         ArgumentCaptor<Map<String, ?>> captor = ArgumentCaptor.forClass(Map.class);
 
@@ -85,6 +95,24 @@ class ToolFacadeImplTest {
         assertEquals("user-1", passed.get(EmbeddedToolConstants.EXTERNAL_USER_ID));
         assertEquals("PRODUCTION", passed.get(EmbeddedToolConstants.ENVIRONMENT));
         assertEquals("hi", passed.get("text"));
+    }
+
+    @Test
+    void testExecuteToolRecordsTheConnectedUser() {
+        when(connectionIdHelper.getConnectedUserConnection("user-1", "slack", 5L, Environment.STAGING))
+            .thenReturn(new ConnectedUserConnection(1L, 7L));
+        when(clusterElementDefinitionFacade.executeTool(eq("slack"), eq("send"), anyMap(), eq(7L)))
+            .thenReturn("ok");
+
+        toolFacade.executeTool("user-1", "slack_send", Map.of(), 5L, Environment.STAGING);
+
+        ToolExecutionEvent toolExecutionEvent = directToolExecutionRecorder.getToolExecutionEvent();
+
+        assertEquals(1L, toolExecutionEvent.connectedUserId());
+        assertEquals("user-1", toolExecutionEvent.externalUserId());
+        assertEquals(5L, toolExecutionEvent.integrationInstanceId());
+        assertEquals(7L, toolExecutionEvent.connectionId());
+        assertEquals(Environment.STAGING.ordinal(), toolExecutionEvent.environment());
     }
 
     @Test
@@ -156,5 +184,31 @@ class ToolFacadeImplTest {
         when(clusterElementDefinition.getProperties()).thenAnswer(invocation -> properties);
         when(clusterElementDefinitionService.getClusterElementDefinitions("slack", 1, BaseToolFunction.TOOLS))
             .thenReturn(List.of(clusterElementDefinition));
+    }
+
+    /**
+     * Runs the wrapped execution without publishing telemetry, so the facade's mapping is what the test observes; the
+     * event the facade described is kept for inspection.
+     */
+    private static final class DirectToolExecutionRecorder implements ToolExecutionRecorder {
+
+        private ToolExecutionEvent.@Nullable Builder builder;
+
+        @Override
+        public <V> V record(ToolExecutionEvent.Builder builder, Supplier<V> execution) {
+            this.builder = builder;
+
+            return execution.get();
+        }
+
+        ToolExecutionEvent getToolExecutionEvent() {
+            assertNotNull(builder);
+
+            return builder.build();
+        }
+
+        @Override
+        public void record(ToolExecutionEvent event) {
+        }
     }
 }
