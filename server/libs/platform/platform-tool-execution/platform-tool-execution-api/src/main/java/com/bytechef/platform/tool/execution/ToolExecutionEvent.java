@@ -20,10 +20,13 @@ import com.bytechef.platform.constant.PlatformType;
 import org.jspecify.annotations.Nullable;
 
 /**
+ * An immutable record of a single direct tool/action execution. Carries identity and outcome metadata only — never the
+ * invocation's input parameters or output payload.
+ *
  * @author Ivica Cardic
  */
 public record ToolExecutionEvent(
-    PlatformType type, ToolExecutionSurface surface, ToolExecutionKind kind, String toolName,
+    @Nullable String tenantId, ToolExecutionSurface surface, ToolExecutionKind kind, String toolName,
     @Nullable String componentName, @Nullable Integer componentVersion, @Nullable String operationName,
     @Nullable Long connectionId, @Nullable Integer environment, @Nullable Long workspaceId,
     @Nullable String externalUserId, @Nullable Long connectedUserId, @Nullable Long integrationInstanceId,
@@ -45,6 +48,7 @@ public record ToolExecutionEvent(
         private final ToolExecutionKind kind;
         private final String toolName;
 
+        private @Nullable String tenantId;
         private @Nullable String componentName;
         private @Nullable Integer componentVersion;
         private @Nullable String operationName;
@@ -66,6 +70,12 @@ public record ToolExecutionEvent(
             this.surface = surface;
             this.kind = kind;
             this.toolName = toolName;
+        }
+
+        public Builder tenantId(@Nullable String tenantId) {
+            this.tenantId = tenantId;
+
+            return this;
         }
 
         public Builder componentName(@Nullable String componentName) {
@@ -164,7 +174,7 @@ public record ToolExecutionEvent(
 
         public ToolExecutionEvent build() {
             return new ToolExecutionEvent(
-                type, surface, kind, toolName, componentName, componentVersion, operationName, connectionId,
+                tenantId, surface, kind, toolName, componentName, componentVersion, operationName, connectionId,
                 environment, workspaceId, externalUserId, connectedUserId, integrationInstanceId, mcpServerId, jobId,
                 outcome, errorType, errorMessage, durationMs);
         }
