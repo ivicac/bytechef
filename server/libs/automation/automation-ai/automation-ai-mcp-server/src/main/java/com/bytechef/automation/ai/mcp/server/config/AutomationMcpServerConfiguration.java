@@ -98,9 +98,8 @@ public class AutomationMcpServerConfiguration {
 
         return new AutomationMcpToolFacade(
             clusterElementDefinitionFacade, clusterElementDefinitionService, evaluator, jobCompletionAwaiter,
-            mcpComponentService, mcpProjectWorkflowService, mcpServerService, principalJobFacade,
-            projectDeploymentWorkflowService, taskExecutionService, durableTaskFileStorage, toolExecutionRecorder,
-            workflowService, workspaceMcpServerService);
+            mcpComponentService, mcpProjectWorkflowService, mcpServerService, principalJobFacade, projectDeploymentWorkflowService, taskExecutionService, durableTaskFileStorage,
+            toolExecutionRecorder, workflowService, workspaceMcpServerService);
     }
 
     @Bean

@@ -48,8 +48,8 @@ class AutomationA2AServerFacadeTest {
 
     private final AutomationA2AServerFacade facade = new AutomationA2AServerFacade(
         a2aProjectService, a2aProjectWorkflowService, a2aServerService, mock(JobCompletionAwaiter.class),
-        mock(PrincipalJobFacade.class), projectDeploymentWorkflowService, mock(TaskExecutionService.class),
-        mock(TaskFileStorage.class), mock(WorkflowService.class));
+        mock(PrincipalJobFacade.class), projectDeploymentWorkflowService,
+        mock(TaskExecutionService.class), mock(TaskFileStorage.class), mock(WorkflowService.class));
 
     @Test
     void testExecuteReturnsErrorWhenServerDisabled() {

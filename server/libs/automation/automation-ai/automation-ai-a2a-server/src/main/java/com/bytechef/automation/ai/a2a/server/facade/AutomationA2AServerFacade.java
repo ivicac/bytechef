@@ -91,7 +91,8 @@ public class AutomationA2AServerFacade implements A2AAgentExecutor {
     public AutomationA2AServerFacade(
         A2aProjectService a2aProjectService, A2aProjectWorkflowService a2aProjectWorkflowService,
         A2aServerService a2aServerService, JobCompletionAwaiter jobCompletionAwaiter,
-        PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
+        PrincipalJobFacade principalJobFacade,
+        ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
         TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage, WorkflowService workflowService) {
 
         this.a2aProjectService = a2aProjectService;

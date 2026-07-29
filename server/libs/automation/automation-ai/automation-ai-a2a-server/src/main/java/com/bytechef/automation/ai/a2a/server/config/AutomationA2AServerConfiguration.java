@@ -49,13 +49,15 @@ public class AutomationA2AServerConfiguration {
     AutomationA2AServerFacade automationA2AServerFacade(
         A2aProjectService a2aProjectService, A2aProjectWorkflowService a2aProjectWorkflowService,
         A2aServerService a2aServerService, JobCompletionAwaiter jobCompletionAwaiter,
-        PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
+        PrincipalJobFacade principalJobFacade,
+        ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
         TaskExecutionService taskExecutionService, TaskFileStorage durableTaskFileStorage,
         WorkflowService workflowService) {
 
         return new AutomationA2AServerFacade(
-            a2aProjectService, a2aProjectWorkflowService, a2aServerService, jobCompletionAwaiter, principalJobFacade,
-            projectDeploymentWorkflowService, taskExecutionService, durableTaskFileStorage, workflowService);
+            a2aProjectService, a2aProjectWorkflowService, a2aServerService, jobCompletionAwaiter,
+            principalJobFacade, projectDeploymentWorkflowService,
+            taskExecutionService, durableTaskFileStorage, workflowService);
     }
 
     @Bean
