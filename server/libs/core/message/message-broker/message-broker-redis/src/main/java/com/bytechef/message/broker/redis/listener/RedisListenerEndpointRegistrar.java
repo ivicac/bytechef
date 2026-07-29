@@ -26,18 +26,26 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.task.SimpleAsyncTaskExecutor;
+import org.springframework.data.domain.Range;
 import org.springframework.data.redis.connection.Message;
 import org.springframework.data.redis.connection.MessageListener;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.connection.stream.MapRecord;
+import org.springframework.data.redis.connection.stream.PendingMessage;
+import org.springframework.data.redis.connection.stream.PendingMessages;
 import org.springframework.data.redis.connection.stream.ReadOffset;
+import org.springframework.data.redis.connection.stream.RecordId;
 import org.springframework.data.redis.connection.stream.StreamOffset;
+import org.springframework.data.redis.core.StreamOperations;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer;
 import org.springframework.data.redis.stream.StreamMessageListenerContainer.StreamMessageListenerContainerOptions;
@@ -58,8 +66,10 @@ import org.springframework.util.MethodInvoker;
  * {@link MessageListener} that fans each delivery out to the delegates registered for it.</li>
  * </ul>
  *
- * Within one JVM every delegate registered for a route receives every message the JVM receives, matching the in-memory
- * broker.
+ * Within one JVM a stream record goes to a single delegate registered for the route, chosen round-robin, so a work
+ * queue stays a work queue even when several listeners share it; a pub/sub message reaches every delegate registered
+ * for the channel. Consumer names are per-instance, so a crashed instance's unacknowledged stream entries are reclaimed
+ * periodically (see {@link #reclaimAbandonedPendingMessages()}).
  *
  * @author Ivica Cardic
  */
@@ -79,11 +89,22 @@ public class RedisListenerEndpointRegistrar implements MessageListener {
 
     private static final int STREAM_READ_BATCH_SIZE = 10;
 
+    /**
+     * Minimum idle time before a pending entry left by another (crashed) consumer is reclaimed. Long enough that a
+     * healthy consumer's in-flight message is never stolen, short enough that redelivery after a crash is prompt.
+     */
+    private static final Duration RECLAIM_MIN_IDLE = Duration.ofSeconds(60);
+
+    private static final long RECLAIM_INTERVAL_MILLIS = 10_000;
+    private static final int RECLAIM_BATCH_SIZE = 100;
+
     private final String consumerName;
     private final RedisConnectionFactory redisConnectionFactory;
     private final RedisMessageDeserializer redisMessageDeserializer;
+    private ScheduledExecutorService reclaimExecutorService;
     private volatile boolean stopped;
     private StreamMessageListenerContainer<String, MapRecord<String, String, String>> streamMessageListenerContainer;
+    private final Map<String, AtomicInteger> streamInvokerSequenceMap = new ConcurrentHashMap<>();
     private final Map<String, List<Consumer<String>>> streamInvokersMap = new LinkedHashMap<>();
     private final StringRedisTemplate stringRedisTemplate;
     private final Map<String, List<Consumer<String>>> topicInvokersMap = new HashMap<>();
@@ -177,20 +198,95 @@ public class RedisListenerEndpointRegistrar implements MessageListener {
         }
 
         streamMessageListenerContainer.start();
+
+        reclaimExecutorService = Executors.newSingleThreadScheduledExecutor(runnable -> {
+            Thread thread = new Thread(runnable, "redis-stream-reclaim");
+
+            thread.setDaemon(true);
+
+            return thread;
+        });
+
+        reclaimExecutorService.scheduleWithFixedDelay(
+            this::reclaimAbandonedPendingMessagesSafely, RECLAIM_INTERVAL_MILLIS, RECLAIM_INTERVAL_MILLIS,
+            TimeUnit.MILLISECONDS);
     }
 
     public void stop() {
         stopped = true;
+
+        if (reclaimExecutorService != null) {
+            reclaimExecutorService.shutdownNow();
+        }
 
         if (streamMessageListenerContainer != null) {
             streamMessageListenerContainer.stop();
         }
     }
 
+    /**
+     * Redelivers stream entries that were read but never acknowledged by a consumer that has since died (XPENDING +
+     * XCLAIM). Consumer names are per-instance, so a crashed JVM's pending entries would otherwise sit in the consumer
+     * group's pending list forever — {@code lastConsumed} reads only deliver NEW entries. Claiming uses the same
+     * min-idle threshold as the pending filter, so an entry another live consumer touched in the meantime is skipped
+     * atomically. Processing a reclaimed entry follows the normal path (invoke, then acknowledge), giving the redis
+     * broker the same at-least-once redelivery semantics as amqp.
+     */
+    void reclaimAbandonedPendingMessages() {
+        for (Map.Entry<String, List<Consumer<String>>> entry : streamInvokersMap.entrySet()) {
+            String streamName = entry.getKey();
+
+            StreamOperations<String, Object, Object> streamOperations = stringRedisTemplate.opsForStream();
+
+            PendingMessages pendingMessages = streamOperations.pending(
+                streamName, CONSUMER_GROUP, Range.unbounded(), RECLAIM_BATCH_SIZE);
+
+            if (pendingMessages == null || pendingMessages.isEmpty()) {
+                continue;
+            }
+
+            RecordId[] abandonedRecordIds = pendingMessages.stream()
+                .filter(pendingMessage -> {
+                    Duration elapsedTimeSinceLastDelivery = pendingMessage.getElapsedTimeSinceLastDelivery();
+
+                    return elapsedTimeSinceLastDelivery.compareTo(RECLAIM_MIN_IDLE) >= 0;
+                })
+                .map(PendingMessage::getId)
+                .toArray(RecordId[]::new);
+
+            if (abandonedRecordIds.length == 0) {
+                continue;
+            }
+
+            List<MapRecord<String, Object, Object>> claimedMessages = streamOperations.claim(
+                streamName, CONSUMER_GROUP, consumerName, RECLAIM_MIN_IDLE, abandonedRecordIds);
+
+            if (claimedMessages == null || claimedMessages.isEmpty()) {
+                continue;
+            }
+
+            log.warn(
+                "Reclaimed {} abandoned pending message(s) on stream='{}' left by a crashed consumer; redelivering",
+                claimedMessages.size(), streamName);
+
+            for (MapRecord<String, Object, Object> claimedMessage : claimedMessages) {
+                Map<Object, Object> value = claimedMessage.getValue();
+
+                Consumer<String> streamInvoker = getNextStreamInvoker(streamName, entry.getValue());
+
+                streamInvoker.accept((String) value.get(MESSAGE_FIELD));
+
+                streamOperations.acknowledge(streamName, CONSUMER_GROUP, claimedMessage.getId());
+            }
+        }
+    }
+
     private void receive(String streamName, List<Consumer<String>> invokers, MapRecord<String, String, String> record) {
         Map<String, String> value = record.getValue();
 
-        dispatch(invokers, value.get(MESSAGE_FIELD));
+        Consumer<String> streamInvoker = getNextStreamInvoker(streamName, invokers);
+
+        streamInvoker.accept(value.get(MESSAGE_FIELD));
 
         stringRedisTemplate.opsForStream()
             .acknowledge(streamName, CONSUMER_GROUP, record.getId());
@@ -202,23 +298,27 @@ public class RedisListenerEndpointRegistrar implements MessageListener {
         }
     }
 
+    private Consumer<String> getNextStreamInvoker(String streamName, List<Consumer<String>> invokers) {
+        AtomicInteger streamInvokerSequence = streamInvokerSequenceMap.computeIfAbsent(
+            streamName, key -> new AtomicInteger());
+
+        return invokers.get(Math.floorMod(streamInvokerSequence.getAndIncrement(), invokers.size()));
+    }
+
     private void handleStreamError(Throwable throwable) {
         if (!stopped) {
             log.error(throwable.getMessage(), throwable);
         }
     }
 
-    private void dispatch(List<Consumer<String>> invokers, String message) {
-        for (Consumer<String> invoker : invokers) {
-            invoker.accept(message);
+    private void reclaimAbandonedPendingMessagesSafely() {
+        try {
+            reclaimAbandonedPendingMessages();
+        } catch (Exception e) {
+            if (!stopped) {
+                log.error(e.getMessage(), e);
+            }
         }
-    }
-
-    private Consumer<String> getNextStreamInvoker(String routeName, List<Consumer<String>> invokers) {
-        AtomicInteger streamInvokerSequence = streamInvokerSequenceMap.computeIfAbsent(
-            routeName, key -> new AtomicInteger());
-
-        return invokers.get(Math.floorMod(streamInvokerSequence.getAndIncrement(), invokers.size()));
     }
 
     private void invoke(Object delegate, String methodName, String messageString) {

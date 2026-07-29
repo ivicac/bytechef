@@ -32,9 +32,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.DisposableBean;
 import org.springframework.beans.factory.SmartInitializingSingleton;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.task.TaskExecutor;
 import org.springframework.data.redis.connection.RedisConnectionFactory;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
@@ -60,27 +58,25 @@ public class RedisMessageBrokerListenerRegistrarConfiguration implements SmartIn
     private final RedisMessageDeserializer redisMessageDeserializer;
     private final StringRedisTemplate stringRedisTemplate;
     private final Set<String> subscribedChannelNames = new HashSet<>();
-    private final TaskExecutor taskExecutor;
 
     @SuppressFBWarnings("EI2")
     public RedisMessageBrokerListenerRegistrarConfiguration(
         @Autowired(
             required = false) List<MessageBrokerConfigurer<RedisListenerEndpointRegistrar>> messageBrokerConfigurers,
         RedisConnectionFactory redisConnectionFactory, RedisMessageDeserializer redisMessageDeserializer,
-        StringRedisTemplate stringRedisTemplate, @Qualifier("applicationTaskExecutor") TaskExecutor taskExecutor) {
+        StringRedisTemplate stringRedisTemplate) {
 
         this.messageBrokerConfigurers = messageBrokerConfigurers == null
             ? Collections.emptyList() : messageBrokerConfigurers;
         this.redisConnectionFactory = redisConnectionFactory;
         this.redisMessageDeserializer = redisMessageDeserializer;
         this.stringRedisTemplate = stringRedisTemplate;
-        this.taskExecutor = taskExecutor;
     }
 
     @Override
     public void afterSingletonsInstantiated() {
         redisListenerEndpointRegistrar = new RedisListenerEndpointRegistrar(
-            redisMessageDeserializer, stringRedisTemplate, taskExecutor);
+            redisConnectionFactory, redisMessageDeserializer, stringRedisTemplate);
 
         redisMessageListenerContainer = new RedisMessageListenerContainer();
         messageListenerAdapter = new MessageListenerAdapter(redisListenerEndpointRegistrar);
@@ -116,6 +112,9 @@ public class RedisMessageBrokerListenerRegistrarConfiguration implements SmartIn
             log.trace("Registering Redis Listener: {} -> {}:{}", messageRoute, delegateClass, methodName);
         }
 
+        // The registrar records the delegate for both exchanges; a CONTROL route additionally needs the pub/sub channel
+        // subscription, taken out once per channel so the container delivers each message a single time and the
+        // registrar fans it out to every delegate registered for the route.
         listenerEndpointRegistrar.registerListenerEndpoint(messageRoute, delegate, methodName);
 
         if (messageRoute.isControlExchange() && subscribedChannelNames.add(messageRoute.getName())) {
