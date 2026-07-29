@@ -54,6 +54,7 @@ public enum CopilotAgentType implements AgentType {
     WORKFLOW_EDITOR_EMBEDDED_ASK("workflow_editor_embedded_ask", false),
     WORKFLOW_EDITOR_EMBEDDED_BUILD("workflow_editor_embedded_build", false),
     WORKFLOW_EDITOR_EMBEDDED("workflow_editor_embedded", true),
+    WORKFLOW_EDITOR_EMBEDDED_AGENT("workflow_editor_embedded_agent", false),
     CODE_WORKFLOW_ASK("code_workflow_ask", false),
     CODE_WORKFLOW_BUILD("code_workflow_build", false),
     CODE_WORKFLOW("code_workflow", true),
@@ -62,7 +63,19 @@ public enum CopilotAgentType implements AgentType {
     CODE_WORKFLOW_EMBEDDED("code_workflow_embedded", true),
     WORKFLOW_EXECUTION_EMBEDDED_ASK("workflow_execution_embedded_ask", false),
     WORKFLOW_EXECUTION_EMBEDDED_BUILD("workflow_execution_embedded_build", false),
-    WORKFLOW_EXECUTION_EMBEDDED("workflow_execution_embedded", true);
+    WORKFLOW_EXECUTION_EMBEDDED("workflow_execution_embedded", true),
+    CONTEXT_STORE_ASK("context_store_ask", false),
+    CONTEXT_STORE_BUILD("context_store_build", false),
+    CONTEXT_STORE("context_store", true),
+    CONTEXT_STORE_AGENT("context_store_agent", false),
+    KNOWLEDGE_BASE_ASK("knowledge_base_ask", false),
+    KNOWLEDGE_BASE_BUILD("knowledge_base_build", false),
+    KNOWLEDGE_BASE("knowledge_base", true),
+    KNOWLEDGE_BASE_AGENT("knowledge_base_agent", false),
+    DATA_TABLE_ASK("data_table_ask", false),
+    DATA_TABLE_BUILD("data_table_build", false),
+    DATA_TABLE("data_table", true),
+    DATA_TABLE_AGENT("data_table_agent", false);
 
     private final String key;
     private final boolean fallback;

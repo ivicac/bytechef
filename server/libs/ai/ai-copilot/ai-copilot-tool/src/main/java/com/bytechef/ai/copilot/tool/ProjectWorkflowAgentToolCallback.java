@@ -65,18 +65,35 @@ public class ProjectWorkflowAgentToolCallback implements ToolCallback {
                 "required": ["request"]
             }""";
 
-    private final IntelligentToolChatClientFactory chatClientFactory;
+    private final ChatClient workflowEditorChatClient;
+    private final String toolName;
+    private final String description;
+    private final CopilotAgentType agentType;
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public ProjectWorkflowAgentToolCallback(IntelligentToolChatClientFactory chatClientFactory) {
-        this.chatClientFactory = chatClientFactory;
+    public WorkflowEditorAgentToolCallback(ChatClient workflowEditorChatClient) {
+        this(workflowEditorChatClient, "workflow_editor_agent", DESCRIPTION, CopilotAgentType.WORKFLOW_EDITOR_AGENT);
+    }
+
+    /**
+     * Variant constructor for domain-specific workflow editors (e.g. the embedded integration-workflow editor), letting
+     * the parent agent expose a distinct tool name/description and bind the correct agent type for the subagent call.
+     */
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
+    public WorkflowEditorAgentToolCallback(
+        ChatClient workflowEditorChatClient, String toolName, String description, CopilotAgentType agentType) {
+
+        this.workflowEditorChatClient = workflowEditorChatClient;
+        this.toolName = toolName;
+        this.description = description;
+        this.agentType = agentType;
     }
 
     @Override
     public ToolDefinition getToolDefinition() {
         return ToolDefinition.builder()
-            .name("buildWorkflow")
-            .description(DESCRIPTION)
+            .name(toolName)
+            .description(description)
             .inputSchema(INPUT_SCHEMA)
             .build();
     }
@@ -105,7 +122,7 @@ public class ProjectWorkflowAgentToolCallback implements ToolCallback {
             Map<String, Object> forwardedContext = WorkflowPersistCaptureUtils.withCaptureHolder(parentContext);
 
             String result = CurrentAgentContext.callWith(
-                CopilotAgentType.BUILD_WORKFLOW, parentAgent,
+                agentType, parentAgent,
                 () -> workflowEditorChatClient.prompt(request)
                     .toolContext(forwardedContext)
                     .call()
