@@ -26,6 +26,7 @@ import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.List;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -120,6 +121,7 @@ public class ProjectDeploymentRepositoryIntTest {
         projectDeployment.setName(name);
         projectDeployment.setProjectId(project.getId());
         projectDeployment.setProjectVersion(1);
+        projectDeployment.setUuid(UUID.randomUUID());
 
         projectDeploymentRepository.save(projectDeployment);
     }
