@@ -61,6 +61,9 @@ public abstract class AbstractComponentHandlerLoader<T extends ComponentHandler>
 
     @Override
     public Optional<ComponentHandlerEntry> loadComponentHandler(String providerClassName) {
+        // ServiceLoader.Provider.type() loads the provider class WITHOUT initializing it, so scanning for the
+        // requested class name is cheap; only the matching provider is instantiated (which triggers its static
+        // initializer and definition construction).
         return ServiceLoader.load(serviceClass)
             .stream()
             .filter(provider -> {

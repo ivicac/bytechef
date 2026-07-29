@@ -27,6 +27,9 @@ import java.util.Optional;
 import org.junit.jupiter.api.Test;
 
 /**
+ * Covers the per-component loading API used by the build-time component index: resolving a single handler by its
+ * {@code ServiceLoader} provider class name and enumerating provider class names for index generation.
+ *
  * @author Ivica Cardic
  */
 public class DefaultComponentHandlerLoaderTest {

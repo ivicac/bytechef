@@ -52,7 +52,6 @@ import com.bytechef.platform.component.handler.DynamicComponentHandlerRegistry;
 import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader;
 import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader.ComponentHandlerEntry;
 import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader.ProviderEntry;
-import com.bytechef.platform.component.handler.loader.ComponentHandlerLoaderKind;
 import com.bytechef.platform.component.handler.loader.DefaultComponentHandlerLoader;
 import com.bytechef.platform.component.index.ComponentIndex;
 import com.bytechef.platform.component.jdbc.handler.loader.JdbcComponentHandlerLoader;
@@ -63,7 +62,6 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -79,6 +77,13 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * Registry of all component definitions, loaded <b>lazily</b>: constructing the registry is cheap (it only captures its
+ * collaborators), and the expensive work — asking every {@code ComponentHandler} for its definition, validating every
+ * action/trigger property tree, and indexing the definitions by name and version — is deferred to the first method call
+ * that actually needs a definition. Application startup therefore never pays for building the component catalog; the
+ * first caller (typically the first components-list or workflow request) pays it exactly once, and every call
+ * afterwards hits the memoized index.
+ *
  * @author Ivica Cardic
  * @author Igor Beslic
  */
@@ -141,6 +146,10 @@ public class ComponentDefinitionRegistry {
         this.stubComponentDefinitionsSupplier = MemoizationUtils.memoize(this::loadStubComponentDefinitions);
     }
 
+    /**
+     * Builds the name/version index of all component definitions. Invoked at most once, on the first registry access
+     * (guarded by the memoizing supplier), NOT at construction/startup time.
+     */
     private static Map<String, Map<Integer, ComponentDefinition>> loadComponentDefinitionsMap(
         ApplicationProperties applicationProperties, List<ComponentHandler> componentHandlers,
         Supplier<List<ComponentHandlerEntry>> componentHandlerEntriesSupplier) {
@@ -202,6 +211,12 @@ public class ComponentDefinitionRegistry {
         return CollectionUtils.contains(getExcludedComponentNames(), componentName);
     }
 
+    /**
+     * Resolves all definitions (all versions) of a single component by name, loading ONLY that component: constants
+     * (manual/missing), Spring-declared handler beans, and — via the build-time index — just the matching
+     * {@code ServiceLoader} providers, leaving every other component untouched. Loaded definitions are validated once
+     * and cached. Callers must only use this when the component index is present.
+     */
     private List<ComponentDefinition> getComponentDefinitionsFromIndex(String name, ComponentIndex componentIndex) {
         return getComponentDefinitionsFromIndex(
             name, componentIndex,
@@ -277,17 +292,25 @@ public class ComponentDefinitionRegistry {
         return componentDefinitions;
     }
 
-    private static ComponentHandlerLoader getComponentHandlerLoader(ComponentHandlerLoaderKind loaderKind) {
+    private static ComponentHandlerLoader getComponentHandlerLoader(String loaderKind) {
         return COMPONENT_HANDLER_LOADERS.stream()
-            .filter(componentHandlerLoader -> componentHandlerLoader.getKind() == loaderKind)
+            .filter(componentHandlerLoader -> Objects.equals(componentHandlerLoader.getKind(), loaderKind))
             .findFirst()
             .orElseThrow(() -> new IllegalStateException("Unknown component loader kind: " + loaderKind));
     }
 
+    /**
+     * Full definitions of every component, resolved through the index with per-component caching. Only used when the
+     * index is present; consumers that deep-read definitions (connections list, cluster elements, unified API) get
+     * complete, executable definitions — never stubs.
+     */
     private List<ComponentDefinition> loadAllComponentDefinitions() {
         ComponentIndex componentIndex = getRequiredComponentIndex();
 
-        Set<ComponentHandlerLoaderKind> loaderKinds = EnumSet.noneOf(ComponentHandlerLoaderKind.class);
+        // Resolving the full catalog through per-component loadComponentHandler calls would re-scan every
+        // ServiceLoader provider-config file once per component (~O(N^2) scans), so prefetch all handlers with a
+        // single sweep per loader kind and resolve index entries from that map instead.
+        Set<String> loaderKinds = new LinkedHashSet<>();
 
         for (ComponentIndex.Entry entry : componentIndex.entries()) {
             loaderKinds.add(entry.loaderKind());
@@ -339,6 +362,11 @@ public class ComponentDefinitionRegistry {
         return componentDefinitions;
     }
 
+    /**
+     * List-view definitions: lightweight stubs built from the build-time index (plus the real definitions of
+     * Spring-declared handlers, which exist as beans anyway, and the synthetic manual/missing components). Served ONLY
+     * by {@link #getStaticComponentDefinitions()} for the components-list view; no properties, no executable functions.
+     */
     private List<ComponentDefinition> loadStubComponentDefinitions() {
         ComponentIndex componentIndex = getRequiredComponentIndex();
 
@@ -352,6 +380,8 @@ public class ComponentDefinitionRegistry {
             try {
                 componentDefinitions.add(ComponentIndex.toStubComponentDefinition(entry));
             } catch (RuntimeException exception) {
+                // A stale or hand-edited index (e.g. an enum name that no longer exists) must not break the
+                // components list — degrade to serving full definitions, the same shape the no-index fallback uses.
                 log.warn(
                     "Failed to build the list-view stub for component '{}' v{} from the index; falling back to full "
                         + "component loading for the components list",
@@ -642,6 +672,12 @@ public class ComponentDefinitionRegistry {
             .toList();
     }
 
+    /**
+     * Definitions backing the components-list view. When the build-time component index is present, this returns
+     * lightweight stubs carrying only the list-view metadata (identity, texts, icon, categories, counts) — no property
+     * trees and no executable functions — without loading a single component handler. Detail and execution paths never
+     * see these stubs: they resolve full definitions per component on demand.
+     */
     public List<ComponentDefinition> getStaticComponentDefinitions() {
         if (fetchComponentIndex().isPresent()) {
             return stubComponentDefinitionsSupplier.get();

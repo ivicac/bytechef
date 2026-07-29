@@ -23,10 +23,8 @@ import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.component.definition.ConnectionDefinition;
 import com.bytechef.component.definition.PropertyGroup;
 import com.bytechef.component.definition.TriggerDefinition;
-import com.bytechef.component.definition.UnifiedApiDefinition;
 import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader;
 import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader.ProviderEntry;
-import com.bytechef.platform.component.handler.loader.ComponentHandlerLoaderKind;
 import com.bytechef.platform.component.handler.loader.DefaultComponentHandlerLoader;
 import com.bytechef.platform.component.index.ComponentIndex.CategorySummary;
 import com.bytechef.platform.component.index.ComponentIndex.ClusterElementSummary;
@@ -45,6 +43,11 @@ import tools.jackson.databind.SerializationFeature;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
+ * Build-time generator of the {@link ComponentIndex}. Sweeps every {@code ServiceLoader}-discoverable component handler
+ * (the same three loaders the runtime uses), projects each definition to its list-view summary plus the provider class
+ * name / loader kind needed for on-demand loading, and writes the result as JSON to the path given as the single
+ * program argument. Wired into the application build by the {@code generateComponentIndex} Gradle task.
+ *
  * @author Ivica Cardic
  */
 public class ComponentIndexGenerator {
@@ -93,7 +96,7 @@ public class ComponentIndexGenerator {
     }
 
     private static Entry toEntry(
-        ComponentDefinition componentDefinition, String providerClassName, ComponentHandlerLoaderKind loaderKind) {
+        ComponentDefinition componentDefinition, String providerClassName, String loaderKind) {
 
         return new Entry(
             componentDefinition.getName(),
@@ -125,20 +128,25 @@ public class ComponentIndexGenerator {
                 .map(ComponentIndexGenerator::toClusterElementSummary)
                 .toList(),
             componentDefinition.getInputs()
-                .stream()
-                .map(PropertyGroup::getName)
-                .toList(),
-            componentDefinition.getUnifiedApi()
-                .map(UnifiedApiDefinition::getCategory)
+                .map(inputs -> inputs.stream()
+                    .map(PropertyGroup::getName)
+                    .toList())
                 .orElse(null),
             providerClassName,
             loaderKind);
     }
 
+    /**
+     * Mirrors the effective connection-required computation of the platform domain wrapper: a connection requires
+     * configuration when any of its properties is required OR authorization is required (default true). The stub
+     * connection reproduces the same effective value through the {@code authorizationRequired} flag alone, since it
+     * carries no properties.
+     */
     private static ConnectionSummary toConnectionSummary(ConnectionDefinition connectionDefinition) {
         boolean anyPropertyRequired = connectionDefinition.getProperties()
             .stream()
-            .anyMatch(property -> Boolean.TRUE.equals(property.getRequired()));
+            .anyMatch(property -> property.getRequired()
+                .orElse(false));
 
         boolean authorizationRequired = connectionDefinition.getAuthorizationRequired();
 
@@ -155,13 +163,15 @@ public class ComponentIndexGenerator {
     }
 
     private static TriggerSummary toTriggerSummary(TriggerDefinition triggerDefinition) {
+        TriggerDefinition.TriggerType triggerType = triggerDefinition.getType();
+
         return new TriggerSummary(
             triggerDefinition.getName(),
             triggerDefinition.getTitle()
                 .orElse(null),
             triggerDefinition.getDescription()
                 .orElse(null),
-            triggerDefinition.getType());
+            triggerType == null ? null : triggerType.name());
     }
 
     private static ClusterElementSummary toClusterElementSummary(

@@ -33,8 +33,8 @@ import java.util.ServiceLoader;
 public class JdbcComponentHandlerLoader implements ComponentHandlerLoader {
 
     @Override
-    public ComponentHandlerLoaderKind getKind() {
-        return ComponentHandlerLoaderKind.JDBC;
+    public String getKind() {
+        return "jdbc";
     }
 
     @Override

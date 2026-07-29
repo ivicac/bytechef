@@ -21,9 +21,7 @@ import static com.bytechef.component.definition.ComponentDsl.clusterElement;
 import static com.bytechef.component.definition.ComponentDsl.component;
 import static com.bytechef.component.definition.ComponentDsl.connection;
 import static com.bytechef.component.definition.ComponentDsl.trigger;
-import static com.bytechef.component.definition.ComponentDsl.unifiedApi;
 
-import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType;
 import com.bytechef.component.definition.ComponentCategory;
@@ -35,9 +33,6 @@ import com.bytechef.component.definition.ComponentDsl.ModifiableComponentDefinit
 import com.bytechef.component.definition.ComponentDsl.ModifiablePropertyGroup;
 import com.bytechef.component.definition.ComponentDsl.ModifiableTriggerDefinition;
 import com.bytechef.component.definition.TriggerDefinition.TriggerType;
-import com.bytechef.component.definition.UnifiedApiDefinition.UnifiedApiCategory;
-import com.bytechef.platform.component.handler.loader.ComponentHandlerLoaderKind;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URL;
@@ -45,26 +40,40 @@ import java.util.ArrayList;
 import java.util.Enumeration;
 import java.util.HashSet;
 import java.util.List;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
+ * Build-time generated index of every {@code ServiceLoader}-discoverable component: the list-view metadata (name,
+ * version, title, description, icon, categories, action/trigger/cluster-element summaries, connection presence) plus
+ * the {@code ServiceLoader} provider class name and loader kind needed to load the full component on demand.
+ *
+ * <p>
+ * The index is written by {@code ComponentIndexGenerator} during the application build (see the
+ * {@code generateComponentIndex} Gradle task) to {@value #RESOURCE_PATH} and read back here at runtime. When no index
+ * resource is present on the classpath — component module tests, apps whose build does not run the generator — the
+ * registry transparently falls back to loading every component handler, so the index is purely an optimization.
+ * </p>
+ *
  * @author Ivica Cardic
  */
 public record ComponentIndex(List<Entry> entries) {
-
-    public ComponentIndex {
-        entries = List.copyOf(entries);
-    }
 
     public static final String RESOURCE_PATH = "META-INF/bytechef/component-index.json";
 
     private static final Logger log = LoggerFactory.getLogger(ComponentIndex.class);
 
+    private static final JsonMapper JSON_MAPPER = JsonMapper.builder()
+        .build();
+
+    /**
+     * Loads and merges every {@value #RESOURCE_PATH} resource on the classpath. Returns empty when none exist or when
+     * parsing fails, in which case callers fall back to full component loading.
+     */
     public static Optional<ComponentIndex> load(ClassLoader classLoader) {
         List<Entry> entries = new ArrayList<>();
 
@@ -77,7 +86,7 @@ public record ComponentIndex(List<Entry> entries) {
                 URL url = resources.nextElement();
 
                 try (InputStream inputStream = url.openStream()) {
-                    ComponentIndex componentIndex = JsonUtils.read(inputStream, ComponentIndex.class);
+                    ComponentIndex componentIndex = JSON_MAPPER.readValue(inputStream, ComponentIndex.class);
 
                     for (Entry entry : componentIndex.entries()) {
                         if (seenComponents.add(entry.name() + "/" + entry.version())) {
@@ -100,6 +109,12 @@ public record ComponentIndex(List<Entry> entries) {
         return Optional.of(new ComponentIndex(entries));
     }
 
+    /**
+     * Builds a lightweight {@link ComponentDefinition} carrying exactly the list-view metadata: identity, texts, icon
+     * path, categories, tags, connection presence (with the effective authorization-required flag), and action /
+     * trigger / cluster-element / input summaries — but no property trees and no executable functions. Stubs are served
+     * ONLY for the components-list view; every detail or execution path loads the real component.
+     */
     public static ComponentDefinition toStubComponentDefinition(Entry entry) {
         ModifiableComponentDefinition componentDefinition = component(entry.name())
             .version(entry.version());
@@ -116,70 +131,70 @@ public record ComponentIndex(List<Entry> entries) {
             componentDefinition.icon(entry.icon());
         }
 
-        List<CategorySummary> componentCategories = entry.componentCategories();
+        if (entry.componentCategories() != null && !entry.componentCategories()
+            .isEmpty()) {
 
-        if (!componentCategories.isEmpty()) {
             componentDefinition.categories(
-                componentCategories.stream()
+                entry.componentCategories()
+                    .stream()
                     .map(category -> new ComponentCategory(category.name(), category.label()))
                     .toList());
         }
 
-        List<String> tags = entry.tags();
+        if (entry.tags() != null && !entry.tags()
+            .isEmpty()) {
 
-        if (!tags.isEmpty()) {
-            componentDefinition.tags(tags.toArray(String[]::new));
+            componentDefinition.tags(entry.tags()
+                .toArray(String[]::new));
         }
 
-        ConnectionSummary connectionSummary = entry.connection();
-
-        if (connectionSummary != null) {
+        if (entry.connection() != null) {
             componentDefinition.connection(
                 connection()
-                    .version(connectionSummary.version())
-                    .authorizationRequired(connectionSummary.authorizationRequired()));
+                    .version(entry.connection()
+                        .version())
+                    .authorizationRequired(entry.connection()
+                        .authorizationRequired()));
         }
 
-        List<ItemSummary> actions = entry.actions();
+        if (entry.actions() != null && !entry.actions()
+            .isEmpty()) {
 
-        if (!actions.isEmpty()) {
             componentDefinition.actions(
-                actions.stream()
+                entry.actions()
+                    .stream()
                     .map(ComponentIndex::toStubActionDefinition)
                     .toList());
         }
 
-        List<TriggerSummary> triggers = entry.triggers();
+        if (entry.triggers() != null && !entry.triggers()
+            .isEmpty()) {
 
-        if (!triggers.isEmpty()) {
             componentDefinition.triggers(
-                triggers.stream()
+                entry.triggers()
+                    .stream()
                     .map(ComponentIndex::toStubTriggerDefinition)
                     .toList());
         }
 
-        List<ClusterElementSummary> clusterElements = entry.clusterElements();
+        if (entry.clusterElements() != null && !entry.clusterElements()
+            .isEmpty()) {
 
-        if (!clusterElements.isEmpty()) {
             componentDefinition.clusterElements(
-                clusterElements.stream()
+                entry.clusterElements()
+                    .stream()
                     .map(ComponentIndex::toStubClusterElementDefinition)
                     .toArray(ClusterElementDefinition<?>[]::new));
         }
 
-        List<String> inputs = entry.inputs();
+        if (entry.inputs() != null && !entry.inputs()
+            .isEmpty()) {
 
-        if (!inputs.isEmpty()) {
             componentDefinition.inputs(
-                inputs.stream()
+                entry.inputs()
+                    .stream()
                     .map(ComponentDsl::propertyGroup)
                     .toArray(ModifiablePropertyGroup[]::new));
-        }
-
-        UnifiedApiCategory unifiedApiCategory = entry.unifiedApiCategory();
-
-        if (unifiedApiCategory != null) {
-            componentDefinition.unifiedApi(unifiedApi(unifiedApiCategory));
         }
 
         return componentDefinition;
@@ -203,7 +218,7 @@ public record ComponentIndex(List<Entry> entries) {
         ModifiableTriggerDefinition triggerDefinition = trigger(triggerSummary.name());
 
         if (triggerSummary.type() != null) {
-            triggerDefinition.type(triggerSummary.type());
+            triggerDefinition.type(TriggerType.valueOf(triggerSummary.type()));
         }
 
         if (triggerSummary.title() != null) {
@@ -239,30 +254,12 @@ public record ComponentIndex(List<Entry> entries) {
         return clusterElementDefinition;
     }
 
-    @SuppressFBWarnings("EI")
     public record Entry(
         String name, int version, @Nullable String title, @Nullable String description, @Nullable String icon,
-        List<CategorySummary> componentCategories, List<String> tags, @Nullable ConnectionSummary connection,
-        List<ItemSummary> actions, List<TriggerSummary> triggers, List<ClusterElementSummary> clusterElements,
-        List<String> inputs, @Nullable UnifiedApiCategory unifiedApiCategory, String providerClassName,
-        ComponentHandlerLoaderKind loaderKind) {
-
-        public Entry {
-            Objects.requireNonNull(name, "name");
-            Objects.requireNonNull(providerClassName, "providerClassName");
-            Objects.requireNonNull(loaderKind, "loaderKind");
-
-            componentCategories = copyOrEmpty(componentCategories);
-            tags = copyOrEmpty(tags);
-            actions = copyOrEmpty(actions);
-            triggers = copyOrEmpty(triggers);
-            clusterElements = copyOrEmpty(clusterElements);
-            inputs = copyOrEmpty(inputs);
-        }
-
-        private static <T> List<T> copyOrEmpty(@Nullable List<T> list) {
-            return list == null ? List.of() : List.copyOf(list);
-        }
+        @Nullable List<CategorySummary> componentCategories, @Nullable List<String> tags,
+        @Nullable ConnectionSummary connection, @Nullable List<ItemSummary> actions,
+        @Nullable List<TriggerSummary> triggers, @Nullable List<ClusterElementSummary> clusterElements,
+        @Nullable List<String> inputs, String providerClassName, String loaderKind) {
     }
 
     public record CategorySummary(String name, @Nullable String label) {
@@ -275,7 +272,7 @@ public record ComponentIndex(List<Entry> entries) {
     }
 
     public record TriggerSummary(
-        String name, @Nullable String title, @Nullable String description, @Nullable TriggerType type) {
+        String name, @Nullable String title, @Nullable String description, @Nullable String type) {
     }
 
     public record ClusterElementSummary(

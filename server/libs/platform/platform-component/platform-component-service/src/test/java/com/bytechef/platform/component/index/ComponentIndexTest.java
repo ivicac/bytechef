@@ -18,26 +18,17 @@ package com.bytechef.platform.component.index;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-import com.bytechef.component.definition.ComponentDefinition;
-import com.bytechef.component.definition.TriggerDefinition.TriggerType;
-import com.bytechef.component.definition.UnifiedApiDefinition;
-import com.bytechef.component.definition.UnifiedApiDefinition.UnifiedApiCategory;
-import com.bytechef.platform.component.handler.loader.ComponentHandlerLoaderKind;
-import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.net.URL;
 import java.net.URLClassLoader;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Objects;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
  * @author Ivica Cardic
  */
-@ExtendWith(ObjectMapperSetupExtension.class)
 public class ComponentIndexTest {
 
     @TempDir
@@ -48,7 +39,7 @@ public class ComponentIndexTest {
 
         Path indexPath = directoryPath.resolve(ComponentIndex.RESOURCE_PATH);
 
-        Files.createDirectories(Objects.requireNonNull(indexPath.getParent()));
+        Files.createDirectories(indexPath.getParent());
         Files.writeString(indexPath, json);
 
         return directoryPath;
@@ -77,6 +68,7 @@ public class ComponentIndexTest {
         Path root = writeIndex("broken", "this is not json");
 
         try (URLClassLoader classLoader = classLoaderOf(root)) {
+            // Broken index must degrade to empty (registry then falls back to full loading), never throw.
             assertThat(ComponentIndex.load(classLoader)).isEmpty();
         }
     }
@@ -108,6 +100,7 @@ public class ComponentIndexTest {
 
             assertThat(componentIndex.entries()).hasSize(3);
 
+            // Duplicate name/version pairs keep the first occurrence.
             ComponentIndex.Entry alphaEntry = componentIndex.entries()
                 .stream()
                 .filter(entry -> "alpha".equals(entry.name()))
@@ -118,107 +111,6 @@ public class ComponentIndexTest {
             assertThat(componentIndex.entries())
                 .extracting(ComponentIndex.Entry::name)
                 .containsExactlyInAnyOrder("alpha", "beta", "gamma");
-            assertThat(componentIndex.entries())
-                .extracting(ComponentIndex.Entry::loaderKind)
-                .containsExactlyInAnyOrder(
-                    ComponentHandlerLoaderKind.DEFAULT, ComponentHandlerLoaderKind.DEFAULT,
-                    ComponentHandlerLoaderKind.JDBC);
-        }
-    }
-
-    @Test
-    public void testLoadReturnsEmptyOnUnknownLoaderKind() throws Exception {
-        Path root = writeIndex("unknown", """
-            {"entries":[
-              {"name":"alpha","version":1,"providerClassName":"a.AlphaHandler","loaderKind":"bogus"}
-            ]}""");
-
-        try (URLClassLoader classLoader = classLoaderOf(root)) {
-            assertThat(ComponentIndex.load(classLoader)).isEmpty();
-        }
-    }
-
-    @Test
-    public void testLoadReadsUnifiedApiCategoryAndTreatsMissingFieldAsNone() throws Exception {
-        Path root = writeIndex("unified", """
-            {"entries":[
-              {"name":"alpha","version":1,"providerClassName":"a.AlphaHandler","loaderKind":"default",
-               "unifiedApiCategory":"CRM"},
-              {"name":"beta","version":1,"providerClassName":"b.BetaHandler","loaderKind":"default"}
-            ]}""");
-
-        try (URLClassLoader classLoader = classLoaderOf(root)) {
-            ComponentIndex componentIndex = ComponentIndex.load(classLoader)
-                .orElseThrow();
-
-            ComponentIndex.Entry alphaEntry = componentIndex.entries()
-                .stream()
-                .filter(entry -> "alpha".equals(entry.name()))
-                .findFirst()
-                .orElseThrow();
-            ComponentIndex.Entry betaEntry = componentIndex.entries()
-                .stream()
-                .filter(entry -> "beta".equals(entry.name()))
-                .findFirst()
-                .orElseThrow();
-
-            assertThat(alphaEntry.unifiedApiCategory()).isEqualTo(UnifiedApiCategory.CRM);
-            assertThat(betaEntry.unifiedApiCategory()).isNull();
-
-            ComponentDefinition alphaStub = ComponentIndex.toStubComponentDefinition(alphaEntry);
-            ComponentDefinition betaStub = ComponentIndex.toStubComponentDefinition(betaEntry);
-
-            assertThat(alphaStub.getUnifiedApi()
-                .map(UnifiedApiDefinition::getCategory)).contains(UnifiedApiCategory.CRM);
-            assertThat(betaStub.getUnifiedApi()).isEmpty();
-        }
-    }
-
-    @Test
-    public void testLoadReturnsEmptyOnUnknownTriggerType() throws Exception {
-        Path root = writeIndex("trigger", """
-            {"entries":[
-              {"name":"alpha","version":1,"providerClassName":"a.AlphaHandler","loaderKind":"default",
-               "triggers":[{"name":"onEvent","type":"NOT_A_REAL_TRIGGER_TYPE"}]}
-            ]}""");
-
-        try (URLClassLoader classLoader = classLoaderOf(root)) {
-            assertThat(ComponentIndex.load(classLoader)).isEmpty();
-        }
-    }
-
-    @Test
-    public void testLoadReturnsEmptyOnMissingProviderClassName() throws Exception {
-        Path root = writeIndex("provider", """
-            {"entries":[
-              {"name":"alpha","version":1,"loaderKind":"default"}
-            ]}""");
-
-        try (URLClassLoader classLoader = classLoaderOf(root)) {
-            assertThat(ComponentIndex.load(classLoader)).isEmpty();
-        }
-    }
-
-    @Test
-    public void testLoadReadsTriggerTypeAndDefaultsMissingListsToEmpty() throws Exception {
-        Path root = writeIndex("lists", """
-            {"entries":[
-              {"name":"alpha","version":1,"providerClassName":"a.AlphaHandler","loaderKind":"default",
-               "triggers":[{"name":"onEvent","type":"POLLING"}]}
-            ]}""");
-
-        try (URLClassLoader classLoader = classLoaderOf(root)) {
-            ComponentIndex.Entry alphaEntry = ComponentIndex.load(classLoader)
-                .orElseThrow()
-                .entries()
-                .getFirst();
-
-            assertThat(alphaEntry.triggers()
-                .getFirst()
-                .type()).isEqualTo(TriggerType.POLLING);
-            assertThat(alphaEntry.actions()).isEmpty();
-            assertThat(alphaEntry.tags()).isEmpty();
-            assertThat(alphaEntry.inputs()).isEmpty();
         }
     }
 }
