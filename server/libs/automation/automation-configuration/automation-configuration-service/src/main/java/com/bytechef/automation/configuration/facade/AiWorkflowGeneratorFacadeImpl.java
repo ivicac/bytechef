@@ -19,6 +19,7 @@ package com.bytechef.automation.configuration.facade;
 import com.bytechef.ai.copilot.service.CopilotWorkflowGenerator;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.commons.util.JsonUtils;
+import com.bytechef.platform.configuration.context.EnvironmentContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
@@ -68,7 +69,11 @@ public class AiWorkflowGeneratorFacadeImpl implements AiWorkflowGeneratorFacade 
 
         ProjectWorkflow projectWorkflow = projectWorkflowFacade.addWorkflow(projectId, buildEmptyDefinition(prompt));
 
-        copilotWorkflowGenerator.generateWorkflow(projectWorkflow.getWorkflowId(), prompt.strip(), null, Set.of());
+        int environmentId = EnvironmentContext.getCurrentEnvironment()
+            .ordinal();
+
+        copilotWorkflowGenerator.generateWorkflow(
+            projectWorkflow.getWorkflowId(), projectId, environmentId, prompt.strip(), null, Set.of());
 
         return projectWorkflow;
     }
