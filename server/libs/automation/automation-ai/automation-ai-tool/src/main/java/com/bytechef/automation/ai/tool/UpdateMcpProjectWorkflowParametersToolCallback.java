@@ -105,47 +105,39 @@ public class UpdateMcpProjectWorkflowParametersToolCallback implements ToolCallb
             UpdateMcpProjectWorkflowParametersInput input = jsonMapper.readValue(
                 toolInput, UpdateMcpProjectWorkflowParametersInput.class);
 
-            Long mcpProjectWorkflowId = input.mcpProjectWorkflowId();
-
-            if (mcpProjectWorkflowId == null) {
+            if (input.mcpProjectWorkflowId() == null) {
                 return ToolErrors.toolError(jsonMapper, "mcpProjectWorkflowId is required");
             }
 
-            String toolName = input.toolName();
-
-            if (toolName != null && StringUtils.isBlank(toolName)) {
+            if (input.toolName() != null && StringUtils.isBlank(input.toolName())) {
                 return ToolErrors.toolError(jsonMapper, "toolName must not be blank when supplied");
             }
 
             McpProjectWorkflow mcpProjectWorkflow = mcpProjectWorkflowService
-                .fetchMcpProjectWorkflow(mcpProjectWorkflowId)
+                .fetchMcpProjectWorkflow(input.mcpProjectWorkflowId())
                 .orElse(null);
 
             if (mcpProjectWorkflow == null) {
                 return ToolErrors.toolError(
-                    jsonMapper, "McpProjectWorkflow not found: " + mcpProjectWorkflowId);
+                    jsonMapper, "McpProjectWorkflow not found: " + input.mcpProjectWorkflowId());
             }
 
             Map<String, Object> mergedParameters = new HashMap<>(mcpProjectWorkflow.getParameters());
 
-            if (toolName != null) {
-                mergedParameters.put(ToolConstants.TOOL_NAME, toolName);
+            if (input.toolName() != null) {
+                mergedParameters.put(ToolConstants.TOOL_NAME, input.toolName());
             }
 
-            String toolDescription = input.toolDescription();
-
-            if (toolDescription != null) {
-                mergedParameters.put(ToolConstants.TOOL_DESCRIPTION, toolDescription);
+            if (input.toolDescription() != null) {
+                mergedParameters.put(ToolConstants.TOOL_DESCRIPTION, input.toolDescription());
             }
 
-            Map<String, Object> inputParameters = input.parameters();
-
-            if (inputParameters != null) {
-                mergedParameters.putAll(inputParameters);
+            if (input.parameters() != null) {
+                mergedParameters.putAll(input.parameters());
             }
 
             McpProjectWorkflow updatedMcpProjectWorkflow = mcpProjectWorkflowService.updateParameters(
-                mcpProjectWorkflowId, mergedParameters);
+                input.mcpProjectWorkflowId(), mergedParameters);
 
             Map<String, ?> updatedParameters = updatedMcpProjectWorkflow.getParameters();
 

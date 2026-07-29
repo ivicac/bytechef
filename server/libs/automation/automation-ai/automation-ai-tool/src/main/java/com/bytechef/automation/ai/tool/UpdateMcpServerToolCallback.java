@@ -79,15 +79,13 @@ public class UpdateMcpServerToolCallback implements ToolCallback {
         try {
             UpdateMcpServerInput input = jsonMapper.readValue(toolInput, UpdateMcpServerInput.class);
 
-            String mcpServerIdString = input.mcpServerId();
-
-            if (mcpServerIdString == null || mcpServerIdString.isBlank()) {
+            if (input.mcpServerId() == null || input.mcpServerId()
+                .isBlank()) {
                 return toolError("mcpServerId is required");
             }
 
-            String name = input.name();
-
-            boolean nameSupplied = name != null && !name.isBlank();
+            boolean nameSupplied = input.name() != null && !input.name()
+                .isBlank();
             boolean enabledSupplied = input.enabled() != null;
 
             if (!nameSupplied && !enabledSupplied) {
@@ -97,19 +95,19 @@ public class UpdateMcpServerToolCallback implements ToolCallback {
             long mcpServerId;
 
             try {
-                mcpServerId = Long.parseLong(mcpServerIdString);
+                mcpServerId = Long.parseLong(input.mcpServerId());
             } catch (NumberFormatException exception) {
                 return toolError("Invalid mcpServerId — must be a numeric id");
             }
 
             McpServer updated = workspaceMcpServerFacade.updateWorkspaceMcpServer(
-                mcpServerId, nameSupplied ? name : null, input.enabled());
+                mcpServerId, nameSupplied ? input.name() : null, input.enabled());
 
             return jsonMapper.writeValueAsString(
                 new UpdateMcpServerOutput(updated.getId(), updated.getName(), updated.isEnabled()));
         } catch (JacksonException exception) {
             return toolError("Invalid tool input: " + exception.getMessage());
-        } catch (IllegalArgumentException | com.bytechef.exception.ConfigurationException exception) {
+        } catch (IllegalArgumentException exception) {
             return toolError(exception.getMessage());
         } catch (RuntimeException exception) {
             return ToolErrors.runtimeFailure(jsonMapper, UpdateMcpServerToolCallback.class, TOOL_NAME, exception);
