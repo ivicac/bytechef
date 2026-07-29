@@ -145,8 +145,7 @@ public class ComponentIndexGenerator {
     private static ConnectionSummary toConnectionSummary(ConnectionDefinition connectionDefinition) {
         boolean anyPropertyRequired = connectionDefinition.getProperties()
             .stream()
-            .anyMatch(property -> property.getRequired()
-                .orElse(false));
+            .anyMatch(property -> Boolean.TRUE.equals(property.getRequired()));
 
         boolean authorizationRequired = connectionDefinition.getAuthorizationRequired();
 

@@ -17,8 +17,6 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
-import com.bytechef.atlas.execution.service.JobService;
-import com.bytechef.platform.webhook.web.rest.handler.ApprovalResolutionLookup;
 import com.bytechef.platform.workflow.execution.JobResumeId;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResumeOutcome;
@@ -37,6 +35,11 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
+ * Public endpoint for Mattermost interactive message button callbacks resolving approvals in place — each button's
+ * integration URL points here. Mattermost does not sign these callbacks, so authorization rests on the tokenized resume
+ * id carried in the button's integration context, exactly the capability the hosted-form link already exposes; the
+ * reviewer identity Mattermost reports is therefore not trusted and not recorded as {@code approvedBy}.
+ *
  * @author Ivica Cardic
  */
 @RestController
@@ -45,22 +48,15 @@ public class MattermostInteractivityController {
 
     private static final Logger log = LoggerFactory.getLogger(MattermostInteractivityController.class);
 
-    private static final String NOT_YET_SUSPENDED_TEXT = "Still preparing — try again in a moment.";
-
-    private final ApprovalResolutionLookup approvalResolutionLookup;
     private final JobResumeFacade jobResumeFacade;
     private final @Nullable ApprovalTokens approvalTokens;
 
-    @SuppressFBWarnings({
-        "CT_CONSTRUCTOR_THROW", "EI"
-    })
+    @SuppressFBWarnings("EI")
     public MattermostInteractivityController(
-        JobResumeFacade jobResumeFacade, JobService jobService,
-        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
+        JobResumeFacade jobResumeFacade, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
 
         this.jobResumeFacade = jobResumeFacade;
         this.approvalTokens = approvalTokensObjectProvider.getIfAvailable();
-        this.approvalResolutionLookup = new ApprovalResolutionLookup(jobService, approvalTokens);
     }
 
     @SuppressFBWarnings(
@@ -92,19 +88,10 @@ public class MattermostInteractivityController {
         JobResumeOutcome outcome = TenantContext.callWithTenantId(
             tenantId, () -> jobResumeFacade.resumeJob(resumeId, Map.of("approved", approved)));
 
-        if (outcome == JobResumeOutcome.NOT_YET_SUSPENDED) {
-            return ResponseEntity.ok(Map.of("ephemeral_text", NOT_YET_SUSPENDED_TEXT));
-        }
-
         return ResponseEntity.ok(update(switch (outcome) {
             case OK -> approved ? ":white_check_mark: Approved." : ":no_entry_sign: Discarded.";
-            case GONE -> switch (approvalResolutionLookup.describe(resumeId)) {
-                case RESOLVED -> ":information_source: This approval was already resolved.";
-                case EXPIRED -> ":hourglass: This approval expired before it was resolved.";
-                case UNAVAILABLE -> ":warning: This approval is no longer available.";
-            };
-            case INVALID_ID, JOB_FAILED, NOT_YET_SUSPENDED, STREAMING_NOT_ALLOWED ->
-                ":warning: This approval is no longer available.";
+            case GONE -> ":hourglass: This approval expired before it was resolved.";
+            case INVALID_ID -> ":warning: This approval is no longer available.";
         }));
     }
 

@@ -17,10 +17,7 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
-import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.platform.connection.service.ConnectionService;
-import com.bytechef.platform.webhook.web.rest.handler.ApprovalResolutionLookup;
-import com.bytechef.platform.webhook.web.rest.handler.TelegramInteractivityHandler;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -34,6 +31,12 @@ import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.client.RestClient;
 
 /**
+ * Public endpoint for Telegram {@code callback_query} webhooks resolving approvals in place — the bot's webhook (set
+ * via {@code setWebhook} with a secret token) points here. Anonymous like the job-resume endpoint the handler delegates
+ * to; authenticity comes from the {@code X-Telegram-Bot-Api-Secret-Token} header verified against the secret token
+ * stored on the Telegram connection (see {@link TelegramInteractivityHandler}). Because a Telegram bot has a single
+ * webhook, use a dedicated approvals bot so this does not collide with a Telegram trigger.
+ *
  * @author Ivica Cardic
  */
 @RestController
@@ -42,20 +45,20 @@ public class TelegramInteractivityController {
 
     private final TelegramInteractivityHandler telegramInteractivityHandler;
 
-    @SuppressFBWarnings({
-        "CT_CONSTRUCTOR_THROW", "EI"
-    })
+    @SuppressFBWarnings("EI")
     public TelegramInteractivityController(
-        ConnectionService connectionService, JobResumeFacade jobResumeFacade, JobService jobService,
-        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
-
-        ApprovalTokens approvalTokens = approvalTokensObjectProvider.getIfAvailable();
+        ApprovalShortTokenStore approvalShortTokenStore, ConnectionService connectionService,
+        JobResumeFacade jobResumeFacade, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
 
         this.telegramInteractivityHandler = new TelegramInteractivityHandler(
-            new ApprovalResolutionLookup(jobService, approvalTokens), connectionService, jobResumeFacade,
-            approvalTokens, RestClient.create());
+            approvalShortTokenStore, connectionService, jobResumeFacade,
+            approvalTokensObjectProvider.getIfAvailable(), RestClient.create());
     }
 
+    /**
+     * Telegram retries webhook deliveries that do not answer 200, so ignorable payloads (non-callback updates, unknown
+     * short ids) still answer 200; only a failed secret-token check answers 401.
+     */
     @SuppressFBWarnings(
         value = "SPRING_CSRF_UNRESTRICTED_REQUEST_MAPPING",
         justification = "CSRF does not apply: Telegram posts here directly, authenticated by the secret-token header")
@@ -70,8 +73,6 @@ public class TelegramInteractivityController {
             case HANDLED, IGNORED -> ResponseEntity.ok()
                 .build();
             case UNAUTHORIZED -> ResponseEntity.status(401)
-                .build();
-            case UNAVAILABLE -> ResponseEntity.status(503)
                 .build();
         };
     }
