@@ -42,9 +42,12 @@ public final class WorkflowPersistCaptureUtils {
         return context;
     }
 
-    @SuppressFBWarnings(
-        value = "VA_FORMAT_STRING_USES_NEWLINE",
-        justification = "The trailer is LLM-facing content that must use a literal \\n, not the platform-dependent %n line separator.")
+    /**
+     * Renders an authoritative, unambiguously-labeled id trailer for the most recently persisted workflow, or
+     * {@code null} when the subagent persisted nothing (e.g. an analysis-only reply) or an id is missing. The parent
+     * agent is instructed to use these exact values, so a transposed or hallucinated {@code projectWorkflowId} can no
+     * longer reach {@code openWorkflowTab}.
+     */
     public static @Nullable String renderTrailer(Map<String, Object> context) {
         Object holder = context.get(PERSISTED_WORKFLOW_CAPTURE_KEY);
 
@@ -71,8 +74,8 @@ public final class WorkflowPersistCaptureUtils {
 
             ---
             [WORKFLOW PERSISTED — authoritative identifiers. Use these EXACT values; do NOT infer, reformat, or \
-            transpose them.] The workflow was saved. Use these exact ids: type="WORKFLOW", workflowId="%s", \
-            projectId=%s, projectWorkflowId=%s, name="%s".""".formatted(
+            transpose them.] The workflow was saved. To open it for the user, call openWorkflowTab with \
+            workflowId="%s", projectId=%s, projectWorkflowId=%s, name="%s".""".formatted(
             workflowId, projectId, projectWorkflowId, name == null ? "" : name);
     }
 }
