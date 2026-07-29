@@ -152,4 +152,13 @@ public class RemoteProjectServiceClient implements ProjectService {
         throw new UnsupportedOperationException();
     }
 
+    @Override
+    public Project updateErrorWorkflow(long id, Long errorProjectWorkflowId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Project updatePermissionExpression(long id, String permissionExpression) {
+        throw new UnsupportedOperationException();
+    }
 }
