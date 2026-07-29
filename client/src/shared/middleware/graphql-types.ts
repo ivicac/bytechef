@@ -1497,6 +1497,17 @@ export type AuditEventType = {
   principal?: Maybe<Scalars['String']['output']>;
 };
 
+export type AuthorityMappingInput = {
+  authority: Scalars['String']['input'];
+  externalGroup: Scalars['String']['input'];
+};
+
+export type AuthorityMappingType = {
+  __typename?: 'AuthorityMappingType';
+  authority: Scalars['String']['output'];
+  externalGroup: Scalars['String']['output'];
+};
+
 export type Authorization = {
   __typename?: 'Authorization';
   description?: Maybe<Scalars['String']['output']>;
@@ -2694,6 +2705,8 @@ export enum HttpMethod {
 }
 
 export type IdentityProviderInput = {
+  authoritiesClaim?: InputMaybe<Scalars['String']['input']>;
+  authorityMappings?: InputMaybe<Array<AuthorityMappingInput>>;
   autoProvision?: InputMaybe<Scalars['Boolean']['input']>;
   clientId?: InputMaybe<Scalars['String']['input']>;
   clientSecret?: InputMaybe<Scalars['String']['input']>;
@@ -2702,6 +2715,9 @@ export type IdentityProviderInput = {
   enabled?: InputMaybe<Scalars['Boolean']['input']>;
   enforced?: InputMaybe<Scalars['Boolean']['input']>;
   issuerUri?: InputMaybe<Scalars['String']['input']>;
+  mcpAutomation?: InputMaybe<Scalars['Boolean']['input']>;
+  mcpEmbedded?: InputMaybe<Scalars['Boolean']['input']>;
+  mcpManagement?: InputMaybe<Scalars['Boolean']['input']>;
   metadataUri?: InputMaybe<Scalars['String']['input']>;
   mfaMethod?: InputMaybe<Scalars['String']['input']>;
   mfaRequired?: InputMaybe<Scalars['Boolean']['input']>;
@@ -2710,10 +2726,13 @@ export type IdentityProviderInput = {
   scopes?: InputMaybe<Scalars['String']['input']>;
   signingCertificate?: InputMaybe<Scalars['String']['input']>;
   type?: InputMaybe<Scalars['String']['input']>;
+  validateMcpAudience?: InputMaybe<Scalars['Boolean']['input']>;
 };
 
 export type IdentityProviderType = {
   __typename?: 'IdentityProviderType';
+  authoritiesClaim?: Maybe<Scalars['String']['output']>;
+  authorityMappings: Array<AuthorityMappingType>;
   autoProvision: Scalars['Boolean']['output'];
   clientId?: Maybe<Scalars['String']['output']>;
   createdBy?: Maybe<Scalars['String']['output']>;
@@ -2726,6 +2745,9 @@ export type IdentityProviderType = {
   issuerUri?: Maybe<Scalars['String']['output']>;
   lastModifiedBy?: Maybe<Scalars['String']['output']>;
   lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  mcpAutomation: Scalars['Boolean']['output'];
+  mcpEmbedded: Scalars['Boolean']['output'];
+  mcpManagement: Scalars['Boolean']['output'];
   metadataUri?: Maybe<Scalars['String']['output']>;
   mfaMethod?: Maybe<Scalars['String']['output']>;
   mfaRequired: Scalars['Boolean']['output'];
@@ -2734,6 +2756,7 @@ export type IdentityProviderType = {
   scopes?: Maybe<Scalars['String']['output']>;
   signingCertificate?: Maybe<Scalars['String']['output']>;
   type: Scalars['String']['output'];
+  validateMcpAudience: Scalars['Boolean']['output'];
 };
 
 export type ImportCsvInput = {
@@ -3018,6 +3041,7 @@ export type McpComponent = {
   lastModifiedDate?: Maybe<Scalars['Long']['output']>;
   mcpServerId: Scalars['ID']['output'];
   mcpTools?: Maybe<Array<Maybe<McpTool>>>;
+  requiredAuthorities: Array<Scalars['String']['output']>;
   title?: Maybe<Scalars['String']['output']>;
   version?: Maybe<Scalars['Int']['output']>;
 };
@@ -3034,6 +3058,7 @@ export type McpComponentWithToolsInput = {
   componentVersion: Scalars['Int']['input'];
   connectionId?: InputMaybe<Scalars['ID']['input']>;
   mcpServerId: Scalars['ID']['input'];
+  requiredAuthorities?: InputMaybe<Array<Scalars['String']['input']>>;
   tools: Array<McpToolInputForComponent>;
   version?: InputMaybe<Scalars['Int']['input']>;
 };
@@ -3126,6 +3151,7 @@ export type McpServer = {
   createdBy?: Maybe<Scalars['String']['output']>;
   createdDate?: Maybe<Scalars['Long']['output']>;
   enabled: Scalars['Boolean']['output'];
+  enforceToolAuthorization: Scalars['Boolean']['output'];
   environmentId: Scalars['ID']['output'];
   id: Scalars['ID']['output'];
   lastModifiedBy?: Maybe<Scalars['String']['output']>;
@@ -3157,6 +3183,7 @@ export enum McpServerOrderBy {
 
 export type McpServerUpdateInput = {
   enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  enforceToolAuthorization?: InputMaybe<Scalars['Boolean']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
 };
 
@@ -3164,6 +3191,7 @@ export type McpTool = {
   __typename?: 'McpTool';
   createdBy?: Maybe<Scalars['String']['output']>;
   createdDate?: Maybe<Scalars['Long']['output']>;
+  enabled: Scalars['Boolean']['output'];
   id: Scalars['ID']['output'];
   lastModifiedBy?: Maybe<Scalars['String']['output']>;
   lastModifiedDate?: Maybe<Scalars['Long']['output']>;
@@ -3414,6 +3442,7 @@ export type Mutation = {
   deleteMcpTool?: Maybe<Scalars['Boolean']['output']>;
   /** Delete an organization connection. Fails if the connection is not ORGANIZATION-scoped. (admin only, EE only) */
   deleteOrganizationConnection: Scalars['Boolean']['output'];
+  deleteRegisteredClient: Scalars['Boolean']['output'];
   deleteSharedProject: Scalars['Boolean']['output'];
   deleteSharedWorkflow: Scalars['Boolean']['output'];
   deleteUser: Scalars['Boolean']['output'];
@@ -3446,6 +3475,8 @@ export type Mutation = {
    * Throws when the upstream model is unavailable so the client can surface a retryable error.
    */
   generateAiHubTaskTitle: AiHubTask;
+  /** Generate a complete skill from a single natural-language prompt using the autonomous skills agent. */
+  generateAiSkill: AiSkill;
   generateFromDocumentation: ApiConnector;
   generatePropertyValue: GeneratePropertyValuePayload;
   generateSpecification: GenerateSpecificationResponse;
@@ -3642,6 +3673,7 @@ export type Mutation = {
   updateMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   updateMcpServerUrl: Scalars['String']['output'];
   updateMcpTool?: Maybe<McpTool>;
+  updateMcpToolEnabled?: Maybe<McpTool>;
   /** Update an organization connection's name and tags. (admin only, EE only) */
   updateOrganizationConnection: Scalars['Boolean']['output'];
   updateUser: AdminUser;
@@ -4350,6 +4382,11 @@ export type MutationDeleteOrganizationConnectionArgs = {
 };
 
 
+export type MutationDeleteRegisteredClientArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationDeleteSharedProjectArgs = {
   id: Scalars['ID']['input'];
 };
@@ -4470,6 +4507,11 @@ export type MutationExportSharedWorkflowArgs = {
 export type MutationGenerateAiHubTaskTitleArgs = {
   id: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationGenerateAiSkillArgs = {
+  prompt: Scalars['String']['input'];
 };
 
 
@@ -5233,6 +5275,12 @@ export type MutationUpdateMcpToolArgs = {
 };
 
 
+export type MutationUpdateMcpToolEnabledArgs = {
+  enabled: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationUpdateOrganizationConnectionArgs = {
   connectionId: Scalars['ID']['input'];
   name: Scalars['String']['input'];
@@ -5894,6 +5942,7 @@ export type Query = {
   projectDeploymentWorkflow?: Maybe<ProjectDeploymentWorkflow>;
   projectTemplate?: Maybe<ProjectTemplate>;
   projects?: Maybe<Array<Maybe<Project>>>;
+  registeredClients?: Maybe<Array<Maybe<RegisteredClient>>>;
   searchKnowledgeBase?: Maybe<Array<Maybe<KnowledgeBaseDocumentChunk>>>;
   sharedProject?: Maybe<SharedProject>;
   sharedWorkflow?: Maybe<SharedWorkflow>;
@@ -7139,6 +7188,17 @@ export type RegisterExistingConnectionInput = {
   environmentId: Scalars['ID']['input'];
   name: Scalars['String']['input'];
   workspaceId: Scalars['ID']['input'];
+};
+
+export type RegisteredClient = {
+  __typename?: 'RegisteredClient';
+  authorizationGrantTypes?: Maybe<Array<Maybe<Scalars['String']['output']>>>;
+  clientId?: Maybe<Scalars['String']['output']>;
+  clientIdIssuedAt?: Maybe<Scalars['Long']['output']>;
+  clientName?: Maybe<Scalars['String']['output']>;
+  id?: Maybe<Scalars['ID']['output']>;
+  redirectUris?: Maybe<Array<Maybe<Scalars['String']['output']>>>;
+  scopes?: Maybe<Array<Maybe<Scalars['String']['output']>>>;
 };
 
 export type RemoveColumnInput = {
