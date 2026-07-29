@@ -16,34 +16,50 @@
 
 package com.bytechef.platform.ai.auto.memory.repository.filestorage;
 
+import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.file.storage.filesystem.service.FilesystemFileStorageService;
+import com.bytechef.platform.ai.auto.memory.AiAutoMemory;
 import com.bytechef.platform.ai.auto.memory.repository.AiAutoMemoryRepository;
 import com.bytechef.platform.ai.auto.memory.repository.AiAutoMemoryRepositoryContractTests;
-import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.nio.file.Path;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
+ * Runs the shared repository contract against the file-storage binding, backed by the filesystem provider.
+ *
  * @author Ivica Cardic
  */
-@ExtendWith(ObjectMapperSetupExtension.class)
 class FileStorageAiAutoMemoryRepositoryContractTest extends AiAutoMemoryRepositoryContractTests {
 
     @TempDir
-    private Path tempDir;
+    private static Path tempDir;
 
     private FileStorageAiAutoMemoryRepository fileStorageAiAutoMemoryRepository;
+
+    @BeforeAll
+    static void beforeAll() {
+        JsonUtils.setObjectMapper(JsonMapper.builder()
+            .build());
+    }
 
     @BeforeEach
     void beforeEach() {
         fileStorageAiAutoMemoryRepository = new FileStorageAiAutoMemoryRepository(
             new FilesystemFileStorageService(tempDir.toString()));
+
+        fileStorageAiAutoMemoryRepository.deleteAll();
     }
 
     @Override
     protected AiAutoMemoryRepository getAiAutoMemoryRepository() {
         return fileStorageAiAutoMemoryRepository;
+    }
+
+    @Override
+    protected AiAutoMemory saveInWorkspace(AiAutoMemory aiAutoMemory, long workspaceId) {
+        return fileStorageAiAutoMemoryRepository.save(aiAutoMemory, workspaceId);
     }
 }

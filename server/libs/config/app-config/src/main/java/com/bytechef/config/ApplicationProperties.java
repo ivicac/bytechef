@@ -914,6 +914,43 @@ public class ApplicationProperties {
         }
 
         /**
+         * Auto-memory storage configuration.
+         */
+        public static class AutoMemory {
+
+            /**
+             * Auto-memory storage provider type.
+             */
+            public enum Provider {
+                /**
+                 * AWS S3 object storage; requires the EE AWS file storage module on the classpath
+                 */
+                AWS,
+                /**
+                 * Local filesystem storage
+                 */
+                FILESYSTEM,
+                /**
+                 * Relational JDBC storage
+                 */
+                JDBC
+            }
+
+            /**
+             * Auto-memory storage provider
+             */
+            private Provider provider = Provider.JDBC;
+
+            public Provider getProvider() {
+                return provider;
+            }
+
+            public void setProvider(Provider provider) {
+                this.provider = provider;
+            }
+        }
+
+        /**
          * AI memory configuration. Cross-cutting concern shared by copilot, agents, and hub surfaces — not owned by any
          * single product surface. Stores conversation history for chat-style interactions.
          */
