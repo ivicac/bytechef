@@ -65,6 +65,9 @@ class McpServerServiceIntTest {
     @Autowired
     private DataSource dataSource;
 
+    @Autowired
+    private DataSource dataSource;
+
     @MockitoBean
     private MailService mailService;
 
@@ -333,6 +336,70 @@ class McpServerServiceIntTest {
             .isInstanceOf(IllegalArgumentException.class);
 
         assertThat(mcpServerRepository.count()).isZero();
+    }
+
+    @Test
+    void testNewMcpServerDefaultsAuthenticationRequiredTrue() {
+        McpServer mcpServer = mcpServerService.create(
+            "auth-default", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
+
+        McpServer loaded = mcpServerService.getMcpServer(mcpServer.getSecretKey());
+
+        assertThat(loaded.isAuthenticationRequired()).isTrue();
+    }
+
+    @Test
+    void testLegacyRowLoadsAuthenticationRequiredFalse() {
+        McpServer mcpServer = mcpServerService.create(
+            "auth-legacy", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
+
+        new JdbcTemplate(dataSource).update(
+            "UPDATE mcp_server SET authentication_required = false WHERE id = ?", mcpServer.getId());
+
+        McpServer loaded = mcpServerService.getMcpServer(mcpServer.getSecretKey());
+
+        assertThat(loaded.isAuthenticationRequired()).isFalse();
+    }
+
+    @Test
+    void testUpdatePersistsAuthenticationRequired() {
+        McpServer mcpServer = mcpServerService.create(
+            "auth-update", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
+
+        mcpServer.setAuthenticationRequired(false);
+
+        mcpServerService.update(mcpServer);
+
+        McpServer loaded = mcpServerService.getMcpServer(mcpServer.getSecretKey());
+
+        assertThat(loaded.isAuthenticationRequired()).isFalse();
+    }
+
+    @Test
+    void testUpdatePersistsEnforceToolAuthorization() {
+        McpServer mcpServer = mcpServerService.create(
+            "auth-enforce-persist", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
+
+        mcpServer.setAuthenticationRequired(true);
+        mcpServer.setEnforceToolAuthorization(true);
+
+        mcpServerService.update(mcpServer);
+
+        McpServer loaded = mcpServerService.getMcpServer(mcpServer.getSecretKey());
+
+        assertThat(loaded.isEnforceToolAuthorization()).isTrue();
+    }
+
+    @Test
+    void testUpdateRejectsNoAuthWithToolAuthorization() {
+        McpServer mcpServer = mcpServerService.create(
+            "auth-invariant", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
+
+        mcpServer.setAuthenticationRequired(false);
+        mcpServer.setEnforceToolAuthorization(true);
+
+        assertThatThrownBy(() -> mcpServerService.update(mcpServer))
+            .isInstanceOf(IllegalArgumentException.class);
     }
 
     private McpServer getMcpServer() {

@@ -10,6 +10,7 @@ package com.bytechef.ee.embedded.ai.mcp.server.security.web.configurer;
 import com.bytechef.ee.embedded.ai.mcp.server.security.web.authentication.EmbeddedMcpServerOAuth2AuthenticationToken;
 import com.bytechef.ee.embedded.ai.mcp.server.security.web.authentication.EmbeddedMcpTrustedIssuerResolver;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.security.web.filter.AbstractApiKeyAuthenticationConverter;
 import com.bytechef.platform.security.web.mcp.oauth2.McpJwtDecoderFactory;
 import com.bytechef.platform.security.web.mcp.oauth2.McpJwtIdentityMapper;
@@ -57,7 +58,10 @@ public class EmbeddedMcpServerOAuth2AuthenticationConverter extends AbstractApiK
 
     @SuppressFBWarnings("EI2")
     public EmbeddedMcpServerOAuth2AuthenticationConverter(
-        EmbeddedMcpTrustedIssuerResolver embeddedMcpTrustedIssuerResolver, McpJwtDecoderFactory mcpJwtDecoderFactory) {
+        EmbeddedMcpTrustedIssuerResolver embeddedMcpTrustedIssuerResolver, EnvironmentService environmentService,
+        McpJwtDecoderFactory mcpJwtDecoderFactory) {
+
+        super(environmentService);
 
         this.embeddedMcpTrustedIssuerResolver = embeddedMcpTrustedIssuerResolver;
         this.mcpJwtDecoderFactory = mcpJwtDecoderFactory;
@@ -101,7 +105,18 @@ public class EmbeddedMcpServerOAuth2AuthenticationConverter extends AbstractApiK
         List<GrantedAuthority> mappedAuthorities = mapAuthorities(jwt, issuer, tenantId);
 
         return new EmbeddedMcpServerOAuth2AuthenticationToken(
-            environment.ordinal(), jwt.getSubject(), tenantId, mappedAuthorities);
+            environment.ordinal(), jwt.getSubject(), tenantId, extractMcpServerSecretKey(request), mappedAuthorities);
+    }
+
+    @Nullable
+    private static String extractMcpServerSecretKey(HttpServletRequest request) {
+        Matcher matcher = PATH_PATTERN.matcher(request.getServletPath());
+
+        if (!matcher.matches()) {
+            return null;
+        }
+
+        return matcher.group(1);
     }
 
     /**
