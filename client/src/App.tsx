@@ -25,6 +25,7 @@ import {
     LayoutTemplateIcon,
     Link2Icon,
     LucideIcon,
+    MessageSquareIcon,
     MessagesSquareIcon,
     NetworkIcon,
     ServerIcon,
@@ -57,6 +58,7 @@ const automationNavigation: NavigationType[] = [
         icon: MessagesSquareIcon,
         name: 'AI Hub',
     },
+    {href: '/automation/chats', icon: MessageSquareIcon, name: 'Chats'},
     {
         href: '/automation/projects',
         icon: FolderIcon,
@@ -116,7 +118,6 @@ const automationNavigation: NavigationType[] = [
         icon: FileTextIcon,
         name: 'Files',
     },
-    {href: '/automation/chats', icon: MessagesSquareIcon, name: 'Chats'},
 ];
 
 const embeddedNavigation: NavigationType[] = [

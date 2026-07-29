@@ -7,6 +7,7 @@ import {getSuggestionOptions} from '@/pages/platform/workflow-editor/components/
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import {getWorkflowNodeComponentName} from '@/pages/platform/workflow-editor/utils/workflowNodeNameUtils';
+import {aiChatDataComponents} from '@/shared/components/ai-chat/messages/aiChatDataComponents';
 import {TASK_DISPATCHER_NAMES} from '@/shared/constants';
 import {
     ActionBarPrimitive,
@@ -436,6 +437,7 @@ const AssistantMessage: FC = () => {
                     <MessagePrimitive.Parts
                         components={{
                             Text: MarkdownText,
+                            data: {by_name: aiChatDataComponents},
                             tools: {Fallback: AiAgentTestingPanelToolFallback},
                         }}
                     />
