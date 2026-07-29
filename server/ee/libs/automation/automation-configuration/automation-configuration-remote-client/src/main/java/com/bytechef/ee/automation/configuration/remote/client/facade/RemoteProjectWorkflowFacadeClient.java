@@ -14,6 +14,7 @@ import com.bytechef.automation.configuration.dto.WorkflowTemplateDTO;
 import com.bytechef.automation.configuration.facade.ProjectWorkflowFacade;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Component;
 
 /**
@@ -66,6 +67,11 @@ public class RemoteProjectWorkflowFacadeClient implements ProjectWorkflowFacade 
     }
 
     @Override
+    public long getWorkflowProjectId(String workflowId) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public List<ProjectWorkflowDTO> getProjectWorkflows() {
         throw new UnsupportedOperationException();
     }
@@ -93,12 +99,27 @@ public class RemoteProjectWorkflowFacadeClient implements ProjectWorkflowFacade 
     }
 
     @Override
+    public void saveWorkflowTestConnection(
+        String workflowId, String workflowNodeName, String connectionKey, long connectionId, long environmentId) {
+
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public long importWorkflowTemplate(long projectId, String id, boolean sharedWorkflow) {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public ProjectWorkflowDTO updateWorkflow(String workflowId, String definition, int version) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public void updateWorkflowErrorWorkflow(
+        long projectId, long projectWorkflowId, @Nullable Long errorProjectWorkflowId,
+        boolean errorWorkflowDisabled) {
+
         throw new UnsupportedOperationException();
     }
 }
