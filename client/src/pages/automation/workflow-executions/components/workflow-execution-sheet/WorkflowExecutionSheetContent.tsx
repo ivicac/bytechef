@@ -15,9 +15,14 @@ import WorkflowTriggerExecutionItem from '@/shared/components/workflow-execution
 import {useWorkflowExecutionDetailQueries} from '@/shared/components/workflow-executions/providers/workflowExecutionDetailQueriesProvider';
 import {getExecutionSelectionKey} from '@/shared/components/workflow-executions/util/executionSelectionKey';
 import {TaskExecutionAttemptsI} from '@/shared/components/workflow-executions/util/groupTaskExecutionAttempts';
-import {isClusterElementCallTaskExecution} from '@/shared/components/workflow-executions/util/toClusterElementCallTaskExecutions';
-import {isJobEnded} from '@/shared/components/workflow-executions/util/workflowExecution-utils';
+import {
+    getWorkflowStatusType,
+    isJobEnded,
+} from '@/shared/components/workflow-executions/util/workflowExecution-utils';
+import {EXECUTIONS_PANEL_HEADER_CLASS_NAME} from '@/shared/components/workflow-executions/workflowExecutionsPanelClassNames';
 import {ExecutionError, Job, TaskExecution, TriggerExecution} from '@/shared/middleware/automation/workflow/execution';
+import {useWorkflowExecutionCostQuery} from '@/shared/middleware/graphql';
+import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {TabValueType} from '@/shared/types';
 import {ReactNode, useCallback, useMemo} from 'react';
 import {twMerge} from 'tailwind-merge';
@@ -85,6 +90,8 @@ const WorkflowExecutionSheetContent = ({
 
     const {useGetWorkflowExecutionTaskExecutionQuery} = useWorkflowExecutionDetailQueries();
 
+    const application = useApplicationInfoStore((state) => state.application);
+
     const {data: selectedTaskExecution, isLoading: selectedTaskExecutionLoading} =
         useGetWorkflowExecutionTaskExecutionQuery(
             {id: lazy.workflowExecutionId, taskExecutionId: Number(selectedItem?.id)},
@@ -92,7 +99,19 @@ const WorkflowExecutionSheetContent = ({
             false
         );
 
-    const selectedExecutionKey = getExecutionSelectionKey(selectedItem);
+    // The cost row is written by an EE listener when the job reaches terminal status, so the query is skipped in CE
+    // and while the workflow is still running; a null result (recording disabled) simply hides the cost line.
+    const {data: workflowExecutionCostData} = useWorkflowExecutionCostQuery(
+        {jobId: String(job?.id)},
+        {
+            enabled:
+                application?.edition === 'EE' &&
+                !!job?.id &&
+                getWorkflowStatusType(job, triggerExecution) !== 'running',
+        }
+    );
+
+    const workflowExecutionCost = workflowExecutionCostData?.workflowExecutionCost || undefined;
 
     const breadcrumbItems = useMemo<BreadcrumbEntryI[]>(() => {
         if (subflowStack.length === 0) {
@@ -117,6 +136,7 @@ const WorkflowExecutionSheetContent = ({
         <div className="flex size-full flex-col">
             <WorkflowExecutionsHeader
                 actions={headerActions}
+                cost={workflowExecutionCost}
                 job={job}
                 taskExecutionCount={taskExecutionCount}
                 triggerExecution={triggerExecution}

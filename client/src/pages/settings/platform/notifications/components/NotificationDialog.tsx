@@ -256,7 +256,7 @@ const NotificationDialog = ({
                                                 <FormControl>
                                                     <Input
                                                         autoComplete="email"
-                                                        onChange={(e) => field.onChange(e.target.value)}
+                                                        onChange={(event) => field.onChange(event.target.value)}
                                                         type="email"
                                                         value={(field.value as string) || ''}
                                                     />
