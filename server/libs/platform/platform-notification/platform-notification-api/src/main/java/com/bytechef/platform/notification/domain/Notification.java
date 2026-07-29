@@ -44,6 +44,7 @@ public class Notification {
 
     public enum Type {
 
+        // Persisted as INT ordinal - append new values at the end only.
         EMAIL, WEBHOOK, SLACK
     }
 

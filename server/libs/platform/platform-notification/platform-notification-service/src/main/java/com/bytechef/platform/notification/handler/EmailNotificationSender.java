@@ -18,20 +18,24 @@ package com.bytechef.platform.notification.handler;
 
 import com.bytechef.platform.mail.MailService;
 import com.bytechef.platform.notification.domain.Notification;
-import java.util.concurrent.CompletableFuture;
-import java.util.regex.Pattern;
-import org.springframework.mail.MailException;
+import java.util.Map;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 
 /**
+ * Delivers EMAIL-channel notifications through {@link MailService} — the single email path for everything the platform
+ * sends (user-account mail and notifications alike). {@code MailService.sendEmail} is already {@code @Async} and
+ * warn-skips when no mail host is configured, so no extra async or error plumbing is needed here. Settings:
+ * {@code email} (recipient address, required).
+ *
  * @author Matija Petanjek
  * @author Ivica Cardic
  */
 @Component
 public class EmailNotificationSender implements NotificationSender<EmailNotificationHandler> {
 
-    private static final int MAX_ERROR_LENGTH = 200;
-    private static final Pattern WHITESPACE_PATTERN = Pattern.compile("\\s+");
+    private static final Logger log = LoggerFactory.getLogger(EmailNotificationSender.class);
 
     private final MailService mailService;
 
@@ -52,8 +56,9 @@ public class EmailNotificationSender implements NotificationSender<EmailNotifica
         String email = (String) notification.getSetting("email");
 
         if (email == null || email.isBlank()) {
-            throw new IllegalStateException(
-                "Notification " + notification.getId() + " has no email address configured");
+            log.warn("Notification {} has no email address configured; skipping delivery", notification.getId());
+
+            return;
         }
 
         mailService.sendEmail(

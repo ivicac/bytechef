@@ -108,6 +108,8 @@ public class NotificationJobStatusApplicationEventListener implements Applicatio
                     eventType, notification.getType());
 
                 if (notificationSender == null || notificationHandler == null) {
+                    // A subscription can outlive its handler coverage (e.g. an event type no handler declares for
+                    // this channel). Skipping with a warning beats an NPE that kills the whole event fan-out.
                     log.warn(
                         "No {} found for notification {} and event type {}; skipping",
                         notificationSender == null ? "sender" : "handler", notification.getId(), eventType);
@@ -115,13 +117,7 @@ public class NotificationJobStatusApplicationEventListener implements Applicatio
                     continue;
                 }
 
-                try {
-                    notificationSender.send(notification, notificationHandler, notificationHandlerContext);
-                } catch (RuntimeException runtimeException) {
-                    log.error(
-                        "Could not send notification {} for event type {} of job {}", notification.getId(), eventType,
-                        job.getId(), runtimeException);
-                }
+                notificationSender.send(notification, notificationHandler, notificationHandlerContext);
             }
         }
     }

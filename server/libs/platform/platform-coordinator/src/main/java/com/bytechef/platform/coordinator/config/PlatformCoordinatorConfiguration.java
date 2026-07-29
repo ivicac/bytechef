@@ -32,16 +32,14 @@ import com.bytechef.platform.coordinator.event.listener.SuspendedTaskStateJobDel
 import com.bytechef.platform.coordinator.event.listener.WebhookJobStatusApplicationEventListener;
 import com.bytechef.platform.coordinator.event.listener.WebhookTaskStartedApplicationEventListener;
 import com.bytechef.platform.coordinator.metrics.JobExecutionCounter;
-import com.bytechef.platform.coordinator.monitor.ApprovalExpiryMonitor;
-import com.bytechef.platform.coordinator.notification.NotificationHandlerContexts;
-import com.bytechef.platform.data.storage.DataStorage;
-import com.bytechef.platform.notification.delivery.WebhookDeliveryService;
+import com.bytechef.platform.notification.delivery.WebhookNotificationClient;
 import com.bytechef.platform.notification.handler.NotificationHandlerRegistry;
 import com.bytechef.platform.notification.handler.NotificationSenderRegistry;
 import com.bytechef.platform.notification.service.NotificationService;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessorRegistry;
 import com.bytechef.platform.workflow.execution.facade.TaskStateFacade;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
+import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.tenant.service.TenantService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
@@ -60,6 +58,7 @@ import org.springframework.context.annotation.Configuration;
 @ConditionalOnCoordinator
 public class PlatformCoordinatorConfiguration {
 
+    private final ApplicationProperties.Workflow.Execution execution;
     private final JobService jobService;
     private final NotificationHandlerRegistry notificationHandlerRegistry;
     private final NotificationSenderRegistry notificationSenderRegistry;
@@ -72,6 +71,9 @@ public class PlatformCoordinatorConfiguration {
         NotificationHandlerRegistry notificationHandlerRegistry, NotificationSenderRegistry notificationSenderRegistry,
         NotificationService notificationService) {
 
+        ApplicationProperties.Workflow workflow = applicationProperties.getWorkflow();
+
+        this.execution = workflow.getExecution();
         this.jobService = jobService;
         this.notificationHandlerRegistry = notificationHandlerRegistry;
         this.notificationSenderRegistry = notificationSenderRegistry;
@@ -152,6 +154,25 @@ public class PlatformCoordinatorConfiguration {
         ObjectProvider<TaskStateFacade> taskStateServiceObjectProvider) {
 
         return new SuspendedTaskStateJobDeletionListener(taskStateServiceObjectProvider.getIfAvailable());
+    }
+
+    @Bean
+    ApprovalNotificationMonitor approvalNotificationMonitor(
+        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
+        NotificationHandlerContexts notificationHandlerContexts, TaskExecutionService taskExecutionService,
+        TenantService tenantService) {
+
+        ApplicationProperties.Workflow.Execution.ApprovalEscalation approvalEscalation =
+            execution.getApprovalEscalation();
+        ApplicationProperties.Workflow.Execution.ApprovalReminder approvalReminder = execution.getApprovalReminder();
+
+        return new ApprovalNotificationMonitor(
+            approvalTokensObjectProvider.getIfAvailable(),
+            approvalEscalation.isEnabled() ? approvalEscalation.getAfter() : null, jobService,
+            notificationHandlerContexts, notificationHandlerRegistry, notificationSenderRegistry, notificationService,
+            publicUrl,
+            approvalReminder.isEnabled() ? approvalReminder.getLeadTime() : null, taskExecutionService,
+            tenantService);
     }
 
     @Bean

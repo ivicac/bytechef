@@ -33,6 +33,11 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * Posts a job's registered {@code JOB_STATUS} callback webhooks on every status transition. Delivery mechanics (HTTP
+ * client, exponential-backoff retry) are delegated to the shared {@link WebhookNotificationClient} — the central
+ * transport for all outbound webhooks; only the per-job payload shaping and the {@link Job.Retry} schedule mapping live
+ * here.
+ *
  * @author Arik Cohen
  * @author Ivica Cardic
  * @since Jun 9, 2017

@@ -88,11 +88,13 @@ public class SubflowJobStatusEventListener implements ApplicationEventListener {
             switch (status) {
                 case CREATED, STARTED -> {
                 }
-                case CANCELLED -> stopParentJob(job);
-                case STOPPED -> {
-                    if (!jobStatusApplicationEvent.isSuspended()) {
-                        stopParentJob(job);
-                    }
+                case STOPPED, CANCELLED -> {
+                    TaskExecution subflowTaskExecution = taskExecutionService.getTaskExecution(
+                        job.getParentTaskExecutionId());
+
+                    eventPublisher.publishEvent(
+                        new StopJobEvent(Objects.requireNonNull(subflowTaskExecution.getJobId())));
+
                 }
                 case FAILED -> {
                     TaskExecution erroredTaskExecution = taskExecutionService.getTaskExecution(

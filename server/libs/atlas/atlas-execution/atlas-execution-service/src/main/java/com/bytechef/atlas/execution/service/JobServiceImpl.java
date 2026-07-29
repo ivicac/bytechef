@@ -223,6 +223,7 @@ public class JobServiceImpl implements JobService {
             "Job id=" + id + " can not be stopped as it is " + job.getStatus());
 
         job.setEndDate(Instant.now());
+        // A job stopped before it ever started never ran - that is a cancellation, not an interruption.
         job.setStatus(job.getStatus() == Job.Status.CREATED ? Job.Status.CANCELLED : Job.Status.STOPPED);
 
         jobRepository.save(job);
