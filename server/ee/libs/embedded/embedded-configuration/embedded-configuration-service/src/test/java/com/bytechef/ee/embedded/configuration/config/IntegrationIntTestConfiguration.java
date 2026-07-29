@@ -25,6 +25,10 @@ import com.bytechef.commons.data.jdbc.converter.MapWrapperToStringConverter;
 import com.bytechef.commons.data.jdbc.converter.StringToFileEntryConverter;
 import com.bytechef.commons.data.jdbc.converter.StringToMapWrapperConverter;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
+import com.bytechef.ee.platform.codeworkflow.configuration.facade.CodeWorkflowContainerFacade;
+import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowContainerService;
+import com.bytechef.ee.platform.codeworkflow.file.storage.CodeWorkflowFileStorage;
 import com.bytechef.encryption.Encryption;
 import com.bytechef.encryption.EncryptionKey;
 import com.bytechef.evaluator.Evaluator;
@@ -73,6 +77,21 @@ import tools.jackson.databind.ObjectMapper;
 public class IntegrationIntTestConfiguration {
 
     @Bean
+    CodeWorkflowContainerFacade codeWorkflowContainerFacade() {
+        return mock(CodeWorkflowContainerFacade.class);
+    }
+
+    @Bean
+    CodeWorkflowContainerService codeWorkflowContainerService() {
+        return mock(CodeWorkflowContainerService.class);
+    }
+
+    @Bean
+    CodeWorkflowFileStorage codeWorkflowFileStorage() {
+        return mock(CodeWorkflowFileStorage.class);
+    }
+
+    @Bean
     Evaluator evaluator() {
         return SpelEvaluator.create();
     }
@@ -80,6 +99,11 @@ public class IntegrationIntTestConfiguration {
     @Bean
     EncryptionKey encryptionKey() {
         return () -> "tTB1/UBIbYLuCXVi4PPfzA==";
+    }
+
+    @Bean
+    ProjectCodeWorkflowService projectCodeWorkflowService() {
+        return mock(ProjectCodeWorkflowService.class);
     }
 
     @Bean

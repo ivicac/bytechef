@@ -17,6 +17,7 @@ import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
@@ -50,6 +51,11 @@ public class RemoteAutomationWorkflowProjectFacadeClient implements AutomationWo
 
     @Override
     public String duplicateProjectWorkflow(String workflowUuid) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
+    public Optional<Long> fetchProjectIdByName(String name) {
         throw new UnsupportedOperationException();
     }
 

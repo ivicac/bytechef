@@ -31,7 +31,7 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
-import com.bytechef.component.definition.ComponentDsl;
+import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceToolService;
@@ -48,9 +48,6 @@ import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigu
 import com.bytechef.ee.embedded.configuration.service.IntegrationService;
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
-import com.bytechef.ee.platform.codeworkflow.configuration.facade.CodeWorkflowContainerFacade;
-import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowContainerService;
-import com.bytechef.ee.platform.codeworkflow.file.storage.CodeWorkflowFileStorage;
 import com.bytechef.platform.category.domain.Category;
 import com.bytechef.platform.category.service.CategoryService;
 import com.bytechef.platform.component.domain.ComponentDefinition;
@@ -120,7 +117,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @MockitoBean(types = {
     ActionDefinitionFacade.class, ApiKeyFacade.class, ApiKeyService.class, AuthorityService.class,
     ClusterElementDefinitionService.class, TriggerDefinitionFacade.class,
-    CodeWorkflowContainerFacade.class, CodeWorkflowContainerService.class, CodeWorkflowFileStorage.class,
     ComponentConnectionFacade.class,
     ComponentDefinitionService.class, ConnectedUserService.class, ConnectionDefinitionService.class,
     ConnectionFacade.class, ConnectionLifecycleFacade.class, ConnectionService.class,
@@ -170,10 +166,7 @@ class AutomationWorkflowProjectFacadeIntTest {
     private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
 
     @Autowired
-    private IntegrationInstanceConfigurationService integrationInstanceConfigurationService;
-
-    @Autowired
-    private IntegrationService integrationService;
+    private ProjectCodeWorkflowService projectCodeWorkflowService;
 
     @Autowired
     private ProjectService projectService;
@@ -301,20 +294,33 @@ class AutomationWorkflowProjectFacadeIntTest {
     }
 
     @Test
-    void testGetProjectVersionsListsNewestFirstWithTheirDescriptions() {
-        long projectId = automationWorkflowProjectFacade.createProject("Versioned", "", null, List.of(), null, null);
+    void testGetProjectMarksCodeWorkflowProjectWhenIdIsInCodeWorkflowSet() {
+        long projectId = automationWorkflowProjectFacade.createProject(
+            "Code Workflow Project", "", null, List.of(), null, null);
 
-        automationWorkflowProjectFacade.createProjectWorkflow(projectId, null, null);
-        automationWorkflowProjectFacade.publishProject(projectId, "First release");
-        automationWorkflowProjectFacade.publishProject(projectId, "Second release");
+        when(projectCodeWorkflowService.getCodeWorkflowProjectIds()).thenReturn(List.of(projectId));
 
-        assertThat(automationWorkflowProjectFacade.getProjectVersions(projectId))
-            .extracting(
-                AutomationWorkflowProjectVersionDTO::version, AutomationWorkflowProjectVersionDTO::status,
-                AutomationWorkflowProjectVersionDTO::description)
-            .containsExactly(
-                tuple(3, "DRAFT", null), tuple(2, "PUBLISHED", "Second release"),
-                tuple(1, "PUBLISHED", "First release"));
+        assertThat(automationWorkflowProjectFacade.getProject(projectId)
+            .codeWorkflowProject()).isTrue();
+        assertThat(automationWorkflowProjectFacade.getProjects())
+            .filteredOn(project -> project.id() == projectId)
+            .extracting(AutomationWorkflowProjectDTO::codeWorkflowProject)
+            .containsExactly(true);
+    }
+
+    @Test
+    void testGetProjectDoesNotMarkCodeWorkflowProjectWhenIdIsNotInCodeWorkflowSet() {
+        long projectId = automationWorkflowProjectFacade.createProject(
+            "Visual Project", "", null, List.of(), null, null);
+
+        when(projectCodeWorkflowService.getCodeWorkflowProjectIds()).thenReturn(List.of());
+
+        assertThat(automationWorkflowProjectFacade.getProject(projectId)
+            .codeWorkflowProject()).isFalse();
+        assertThat(automationWorkflowProjectFacade.getProjects())
+            .filteredOn(project -> project.id() == projectId)
+            .extracting(AutomationWorkflowProjectDTO::codeWorkflowProject)
+            .containsExactly(false);
     }
 
     @Test

@@ -1,4 +1,8 @@
 ---
+# NOTE: any route defined below with NO {externalUserId} path parameter (e.g. /me, /automation/**, /components/**,
+# /integration-instances/**, /integrations/**) is JWT-only by design -- add its literal first path segment to
+# ConnectedUserConstants.FRONTEND_RESERVED_PATH_SEGMENTS (embedded-connected-user-api) so
+# EmbeddedApiKeyAuthenticationConverter rejects non-JWT tokens on it instead of minting a phantom ConnectedUser.
 openapi: "3.0.1"
 info:
   title: "The Embedded Public V1 API"
@@ -620,14 +624,16 @@ paths:
       responses:
         "204":
           description: "Successful operation."
-        "409":
-          description: "A required connection could not be auto-wired, or a required workflow input has no value."
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: "#/components/schemas/MissingConnectionError"
-                  - $ref: "#/components/schemas/MissingInputError"
+                type: "object"
+        "409":
+          description: "A required connection could not be auto-wired."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingConnectionError"
       security:
         - jwtBearerAuth: [ ]
     delete:
@@ -652,51 +658,16 @@ paths:
       responses:
         "204":
           description: "Successful operation."
-        "409":
-          description: "A required connection could not be auto-wired, or a required workflow input has no value."
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: "#/components/schemas/MissingConnectionError"
-                  - $ref: "#/components/schemas/MissingInputError"
-      security:
-        - jwtBearerAuth: [ ]
-  /automation/workflows/{workflowUuid}/inputs:
-    put:
-      description: "Store the input values the connected user supplied for a workflow."
-      summary: "Store workflow input values"
-      tags:
-        - "connected-user-project-workflow"
-      operationId: "updateFrontendProjectWorkflowInputs"
-      parameters:
-        - name: "X-Environment"
-          description: "The environment."
-          in: "header"
-          required: false
-          schema:
-            $ref: '#/components/schemas/Environment'
-        - name: "workflowUuid"
-          description: "The workflow uuid."
-          in: "path"
-          required: true
-          schema:
-            type: "string"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateWorkflowInputsRequest"
-        required: true
-      responses:
-        "204":
-          description: "Successful operation."
+                type: "object"
         "409":
-          description: "A required workflow input has no value; the reference stays disabled."
+          description: "A required connection could not be auto-wired."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MissingInputError"
+                $ref: "#/components/schemas/MissingConnectionError"
       security:
         - jwtBearerAuth: [ ]
   /automation/workflows/{workflowUuid}/publish:
@@ -1190,8 +1161,8 @@ paths:
         - bearerAuth: [ ]
   /{externalUserId}/automation/workflow-templates/{workflowUuid}/provision:
     post:
-      description: "Explicitly provision a reference to an automation workflow template ahead of first invocation."
-      summary: "Provision a reference to an automation workflow template"
+      description: "Explicitly provision a reference to a catalog code workflow ahead of first invocation."
+      summary: "Provision a reference to a catalog code workflow"
       tags:
         - "connected-user-project-workflow"
       operationId: "provisionWorkflowReference"
@@ -1214,17 +1185,13 @@ paths:
           required: true
           schema:
             type: "string"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ProvisionWorkflowReferenceRequest"
       responses:
         "204":
           description: "Successful operation."
-        "400":
-          description: "A requested connection is not one of the connected user's connections."
+          content:
+            application/json:
+              schema:
+                type: "object"
         "409":
           description: "A required connection could not be auto-wired."
           content:
@@ -1234,8 +1201,8 @@ paths:
       security:
         - bearerAuth: [ ]
     delete:
-      description: "De-provision a reference to an automation workflow template."
-      summary: "De-provision a reference to an automation workflow template"
+      description: "De-provision a reference to a catalog code workflow."
+      summary: "De-provision a reference to a catalog code workflow"
       tags:
         - "connected-user-project-workflow"
       operationId: "deprovisionWorkflowReference"
@@ -1519,14 +1486,16 @@ paths:
       responses:
         "204":
           description: "Successful operation."
-        "409":
-          description: "A required connection could not be auto-wired, or a required workflow input has no value."
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: "#/components/schemas/MissingConnectionError"
-                  - $ref: "#/components/schemas/MissingInputError"
+                type: "object"
+        "409":
+          description: "A required connection could not be auto-wired."
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MissingConnectionError"
       security:
         - bearerAuth: [ ]
     delete:
@@ -1557,57 +1526,16 @@ paths:
       responses:
         "204":
           description: "Successful operation."
-        "409":
-          description: "A required connection could not be auto-wired, or a required workflow input has no value."
           content:
             application/json:
               schema:
-                oneOf:
-                  - $ref: "#/components/schemas/MissingConnectionError"
-                  - $ref: "#/components/schemas/MissingInputError"
-      security:
-        - bearerAuth: [ ]
-  /{externalUserId}/automation/workflows/{workflowUuid}/inputs:
-    put:
-      description: "Store the input values a connected user supplied for a workflow."
-      summary: "Store workflow input values"
-      tags:
-        - "connected-user-project-workflow"
-      operationId: "updateProjectWorkflowInputs"
-      parameters:
-        - name: "X-Environment"
-          description: "The environment."
-          in: "header"
-          required: false
-          schema:
-            $ref: '#/components/schemas/Environment'
-        - name: "externalUserId"
-          description: "The external user id."
-          in: "path"
-          required: true
-          schema:
-            type: "string"
-        - name: "workflowUuid"
-          description: "The workflow uuid."
-          in: "path"
-          required: true
-          schema:
-            type: "string"
-      requestBody:
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/UpdateWorkflowInputsRequest"
-        required: true
-      responses:
-        "204":
-          description: "Successful operation."
+                type: "object"
         "409":
-          description: "A required workflow input has no value; the reference stays disabled."
+          description: "A required connection could not be auto-wired."
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/MissingInputError"
+                $ref: "#/components/schemas/MissingConnectionError"
       security:
         - bearerAuth: [ ]
   /{externalUserId}/automation/workflows/{workflowUuid}/publish:
@@ -2536,35 +2464,18 @@ components:
           type: "array"
           items:
             $ref: "#/components/schemas/AutomationWorkflowProjectWorkflowTemplate"
+        kind:
+          description: "Whether copying this project's templates creates a per-user copy or a shared reference."
+          type: "string"
+          enum:
+            - "COPY"
+            - "REFERENCE"
     MissingConnectionError:
       type: "object"
-      description: "Returned when a required connection could not be auto-wired for an automation workflow template reference."
+      description: "Returned when a required connection could not be auto-wired for a catalog code workflow reference."
       properties:
         missingConnectionComponentName:
           description: "The name of the component that is missing a matching connection for the connected user."
-          type: "string"
-    ProvisionWorkflowReferenceRequest:
-      type: "object"
-      description: "Connections the connected user chose, keyed by component name, and optional workflow input values.\
-        \ Components not listed keep their current connection or are auto-matched."
-      properties:
-        connections:
-          type: "object"
-          additionalProperties:
-            type: "integer"
-            format: "int64"
-        inputs:
-          description: "Input values for the workflow's inputs, keyed by input name. When given, they replace the\
-            \ reference's stored input values before it is enabled, so a workflow with required inputs is enabled\
-            \ in the same call."
-          type: "object"
-          additionalProperties: true
-    MissingInputError:
-      type: "object"
-      description: "Returned when a reference cannot be enabled because a required workflow input has no value yet."
-      properties:
-        missingInputName:
-          description: "The name of the required input that has no value."
           type: "string"
     AutomationWorkflowProjectWorkflowTemplate:
       type: "object"
