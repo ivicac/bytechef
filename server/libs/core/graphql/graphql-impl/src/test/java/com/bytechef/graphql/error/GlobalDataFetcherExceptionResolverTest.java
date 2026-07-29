@@ -73,6 +73,19 @@ class GlobalDataFetcherExceptionResolverTest {
     }
 
     @Test
+    void testGraphQlBadRequestExceptionResolvesToBadRequestWithItsMessage() {
+        GraphQLError graphQLError = globalDataFetcherExceptionResolver.resolveToSingleError(
+            new GraphQlBadRequestException(
+                "A workflow cannot be its own error workflow",
+                new IllegalArgumentException("A workflow cannot be its own error workflow")),
+            createDataFetchingEnvironment());
+
+        assertThat(graphQLError).isNotNull();
+        assertThat(graphQLError.getErrorType()).isEqualTo(ErrorType.BAD_REQUEST);
+        assertThat(graphQLError.getMessage()).isEqualTo("A workflow cannot be its own error workflow");
+    }
+
+    @Test
     void testUnmappedExceptionIsLeftToTheDefaultHandler() {
         GraphQLError graphQLError = globalDataFetcherExceptionResolver.resolveToSingleError(
             new IllegalStateException("internal detail"), createDataFetchingEnvironment());

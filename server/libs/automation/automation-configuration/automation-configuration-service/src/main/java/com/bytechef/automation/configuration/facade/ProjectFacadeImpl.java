@@ -98,6 +98,7 @@ public class ProjectFacadeImpl implements ProjectFacade {
 
     private final CategoryService categoryService;
     private final ComponentDefinitionHelper componentDefinitionHelper;
+    private final ErrorWorkflowConfigurationValidator errorWorkflowConfigurationValidator;
     private final PreBuiltTemplateService preBuiltTemplateService;
     private final ObjectProvider<ProjectCodeWorkflowInfoSupplier> projectCodeWorkflowInfoSupplierProvider;
     private final ProjectOwnershipService projectOwnershipService;
@@ -118,7 +119,9 @@ public class ProjectFacadeImpl implements ProjectFacade {
     @SuppressFBWarnings("EI2")
     public ProjectFacadeImpl(
         ApplicationProperties applicationProperties, CategoryService categoryService,
-        ComponentDefinitionHelper componentDefinitionHelper, PreBuiltTemplateService preBuiltTemplateService,
+        ComponentDefinitionHelper componentDefinitionHelper,
+        ErrorWorkflowConfigurationValidator errorWorkflowConfigurationValidator,
+        PreBuiltTemplateService preBuiltTemplateService,
         ObjectProvider<ProjectCodeWorkflowInfoSupplier> projectCodeWorkflowInfoSupplierProvider,
         ProjectWorkflowService projectWorkflowService,
         ProjectDeploymentService projectDeploymentService, ProjectOwnershipService projectOwnershipService,
@@ -132,6 +135,7 @@ public class ProjectFacadeImpl implements ProjectFacade {
 
         this.categoryService = categoryService;
         this.componentDefinitionHelper = componentDefinitionHelper;
+        this.errorWorkflowConfigurationValidator = errorWorkflowConfigurationValidator;
         this.preBuiltTemplateService = preBuiltTemplateService;
         this.projectCodeWorkflowInfoSupplierProvider = projectCodeWorkflowInfoSupplierProvider;
         this.projectWorkflowService = projectWorkflowService;
@@ -622,6 +626,17 @@ public class ProjectFacadeImpl implements ProjectFacade {
         project.setTags(tags);
 
         projectService.update(project);
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#projectId, 'Project', 'WORKFLOW_EDIT')")
+    public void updateProjectErrorWorkflow(long projectId, @Nullable Long errorProjectWorkflowId) {
+        // Clearing needs no validation: there is no reference left to be invalid.
+        if (errorProjectWorkflowId != null) {
+            errorWorkflowConfigurationValidator.validate(projectId, errorProjectWorkflowId, null);
+        }
+
+        projectService.updateErrorWorkflow(projectId, errorProjectWorkflowId);
     }
 
     private List<Tag> checkTags(List<Tag> tags) {

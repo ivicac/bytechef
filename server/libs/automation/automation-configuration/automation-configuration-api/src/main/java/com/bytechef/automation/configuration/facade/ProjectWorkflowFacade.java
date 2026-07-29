@@ -61,11 +61,25 @@ public interface ProjectWorkflowFacade {
 
     SharedWorkflowDTO getSharedWorkflow(String workflowUuid);
 
+    /**
+     * Returns the id of the project the given workflow belongs to.
+     */
+    long getWorkflowProjectId(String workflowId);
+
     WorkflowTemplateDTO getWorkflowTemplate(String id, boolean sharedWorkflow);
+
+    /**
+     * Binds a connection to a workflow node's test configuration in the given environment.
+     */
+    void saveWorkflowTestConnection(
+        String workflowId, String workflowNodeName, String connectionKey, long connectionId, long environmentId);
 
     long importWorkflowTemplate(long projectId, String id, boolean sharedWorkflow);
 
     void restoreProjectVersionWorkflow(long projectId, int projectVersion, String workflowUuid);
 
     ProjectWorkflowDTO updateWorkflow(String workflowId, String definition, int version);
+
+    void updateWorkflowErrorWorkflow(
+        long projectId, long projectWorkflowId, @Nullable Long errorProjectWorkflowId, boolean errorWorkflowDisabled);
 }
