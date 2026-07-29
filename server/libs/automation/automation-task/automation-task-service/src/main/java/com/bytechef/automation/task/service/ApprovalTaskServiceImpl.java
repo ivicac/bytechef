@@ -106,28 +106,6 @@ public class ApprovalTaskServiceImpl implements ApprovalTaskService {
     }
 
     @Override
-    public ApprovalTask resolve(ApprovalTask approvalTask) {
-        Assert.notNull(approvalTask, "'approvalTask' must not be null");
-        Assert.notNull(approvalTask.getId(), "'id' must not be null");
-
-        ApprovalTask.Status resolvedStatus = approvalTask.getStatus();
-
-        Assert.isTrue(resolvedStatus.isTerminal(), "'status' must be COMPLETED or EXPIRED");
-
-        ApprovalTask curApprovalTask = getApprovalTask(approvalTask.getId());
-
-        if (resolvedStatus == ApprovalTask.Status.COMPLETED) {
-            curApprovalTask.complete();
-        } else {
-            curApprovalTask.expire();
-        }
-
-        curApprovalTask.setVersion(approvalTask.getVersion());
-
-        return approvalTaskRepository.save(curApprovalTask);
-    }
-
-    @Override
     public ApprovalTask update(ApprovalTask approvalTask) {
         Assert.notNull(approvalTask, "'approvalTask' must not be null");
         Assert.notNull(approvalTask.getId(), "'id' must not be null");

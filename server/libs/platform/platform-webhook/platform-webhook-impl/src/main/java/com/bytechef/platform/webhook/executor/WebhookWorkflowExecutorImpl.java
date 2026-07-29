@@ -264,10 +264,14 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
     }
 
     @Override
-    public boolean hasSuspendingTask(WorkflowExecutionId workflowExecutionId) {
-        Optional<WorkflowTask> suspendingTask = findSuspendingTask(getWorkflowId(workflowExecutionId));
+    public boolean hasApprovalTask(WorkflowExecutionId workflowExecutionId) {
+        Workflow workflow = workflowService.getWorkflow(getWorkflowId(workflowExecutionId));
 
-        return suspendingTask.isPresent();
+        return workflow.getTasks(true)
+            .stream()
+            .map(WorkflowTask::getType)
+            .filter(Objects::nonNull)
+            .anyMatch(type -> type.startsWith("approval/"));
     }
 
     @Override

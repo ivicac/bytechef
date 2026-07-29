@@ -21,6 +21,7 @@ import static com.bytechef.component.definition.ComponentDsl.component;
 
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.ai.agent.action.AiAgentChatAction;
+import com.bytechef.component.ai.agent.action.AiAgentRealtimeChatAction;
 import com.bytechef.component.ai.agent.action.AiAgentStreamChatAction;
 import com.bytechef.component.ai.agent.tool.AiAgentChatTool;
 import com.bytechef.component.ai.llm.facade.AiAgentToolFacade;
@@ -46,7 +47,9 @@ public class AiAgentComponentHandler implements ComponentHandler {
         ToolCallingManager toolCallingManager) {
 
         final ActionDefinition aiAgentChatActionDefinition =
-            AiAgentChatAction.of(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
+            AiAgentChatAction.of(
+                aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
+                toolExecutionRecorderObjectProvider);
 
         this.componentDefinition = new AiAgentComponentDefinitionImpl(
             component(AI_AGENT)
@@ -56,7 +59,12 @@ public class AiAgentComponentHandler implements ComponentHandler {
                 .categories(ComponentCategory.ARTIFICIAL_INTELLIGENCE)
                 .actions(
                     aiAgentChatActionDefinition,
-                    AiAgentStreamChatAction.of(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager))
+                    AiAgentStreamChatAction.of(
+                        aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
+                        toolExecutionRecorderObjectProvider),
+                    AiAgentRealtimeChatAction.of(
+                        aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
+                        toolExecutionRecorderObjectProvider))
                 .clusterElements(AiAgentChatTool.of(aiAgentChatActionDefinition)));
     }
 

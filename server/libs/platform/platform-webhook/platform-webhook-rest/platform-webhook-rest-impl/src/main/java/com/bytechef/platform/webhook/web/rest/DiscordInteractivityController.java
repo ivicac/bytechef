@@ -17,15 +17,12 @@
 package com.bytechef.platform.webhook.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
-import com.bytechef.atlas.execution.service.JobService;
-import com.bytechef.config.ApplicationProperties;
-import com.bytechef.platform.webhook.web.rest.handler.ApprovalResolutionLookup;
-import com.bytechef.platform.webhook.web.rest.handler.DiscordInteractivityHandler;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -34,6 +31,12 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
+ * Public endpoint for Discord interaction webhooks resolving approvals in place — the Discord app's Interactions
+ * Endpoint URL points here. Anonymous like the job-resume endpoint the handler delegates to; authenticity comes from
+ * the Ed25519 request signature verified against {@code bytechef.webhook.discord.public-key} (see
+ * {@link DiscordInteractivityHandler}). The interaction response is returned inline as the HTTP body (PONG for the
+ * registration handshake, an UPDATE_MESSAGE for a resolved button).
+ *
  * @author Ivica Cardic
  */
 @RestController
@@ -42,22 +45,19 @@ public final class DiscordInteractivityController {
 
     private final DiscordInteractivityHandler discordInteractivityHandler;
 
+    // approvalTokensObjectProvider.getIfAvailable() can throw if the ApprovalTokens bean is ambiguous, which
+    // SpotBugs flags as a finalizer-attack vector (CT_CONSTRUCTOR_THROW). The class is final, so nothing can
+    // subclass it to exploit a partially-constructed instance; the residual warning is safe to suppress.
     @SuppressFBWarnings({
         "EI", "CT_CONSTRUCTOR_THROW"
     })
     public DiscordInteractivityController(
-        ApplicationProperties applicationProperties, JobResumeFacade jobResumeFacade, JobService jobService,
-        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
-
-        ApplicationProperties.Webhook webhook = applicationProperties.getWebhook();
-
-        ApplicationProperties.Webhook.Discord discord = webhook.getDiscord();
-
-        ApprovalTokens approvalTokens = approvalTokensObjectProvider.getIfAvailable();
+        ApprovalShortTokenStore approvalShortTokenStore, JobResumeFacade jobResumeFacade,
+        ObjectProvider<ApprovalTokens> approvalTokensObjectProvider,
+        @Value("${bytechef.webhook.discord.public-key:}") String publicKey) {
 
         this.discordInteractivityHandler = new DiscordInteractivityHandler(
-            new ApprovalResolutionLookup(jobService, approvalTokens), jobResumeFacade, approvalTokens,
-            discord.getPublicKey());
+            approvalShortTokenStore, jobResumeFacade, approvalTokensObjectProvider.getIfAvailable(), publicKey);
     }
 
     @SuppressFBWarnings(

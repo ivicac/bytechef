@@ -44,14 +44,19 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @ConditionalOnCoordinator
-public class MattermostInteractivityController {
+public final class MattermostInteractivityController {
 
     private static final Logger log = LoggerFactory.getLogger(MattermostInteractivityController.class);
 
     private final JobResumeFacade jobResumeFacade;
     private final @Nullable ApprovalTokens approvalTokens;
 
-    @SuppressFBWarnings("EI")
+    // approvalTokensObjectProvider.getIfAvailable() can throw if the ApprovalTokens bean is ambiguous, which
+    // SpotBugs flags as a finalizer-attack vector (CT_CONSTRUCTOR_THROW). The class is final, so nothing can
+    // subclass it to exploit a partially-constructed instance; the residual warning is safe to suppress.
+    @SuppressFBWarnings({
+        "EI", "CT_CONSTRUCTOR_THROW"
+    })
     public MattermostInteractivityController(
         JobResumeFacade jobResumeFacade, ObjectProvider<ApprovalTokens> approvalTokensObjectProvider) {
 
@@ -92,6 +97,8 @@ public class MattermostInteractivityController {
             case OK -> approved ? ":white_check_mark: Approved." : ":no_entry_sign: Discarded.";
             case GONE -> ":hourglass: This approval expired before it was resolved.";
             case INVALID_ID -> ":warning: This approval is no longer available.";
+            case JOB_FAILED -> ":x: The workflow failed before this approval could be applied.";
+            case NOT_YET_SUSPENDED, STREAMING_NOT_ALLOWED -> ":warning: This approval could not be applied yet.";
         }));
     }
 

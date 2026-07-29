@@ -209,14 +209,11 @@ public class AutomationMcpServerConfiguration {
             .map(mcpTool -> McpToolUtils.toAsyncToolSpecification(mcpToolFacade.getFunctionToolCallback(mcpTool)))
             .forEach(tools::add);
 
-        if (!isUnscopedToolSourceAuthorized(mcpServer, principalAuthorities)) {
-            return tools;
-        }
-
-        List<McpProject> mcpProjects = readMcpServerConfiguration(
-            () -> mcpProjectService.getMcpServerMcpProjects(mcpServer.getId()));
-
-        mcpProjects.stream()
+        // Workflow-backed tools run synchronously and can pause on a human approval — decorate them with URL-mode
+        // elicitation so capable clients get pointed at the hosted approval form and receive the resumed run's
+        // real output in the same tools/call.
+        mcpProjectService.getMcpServerMcpProjects(mcpServer.getId())
+            .stream()
             .flatMap(mcpProject -> CollectionUtils.stream(mcpToolFacade.getFunctionToolCallbacks(mcpProject)))
             .map(McpToolUtils::toAsyncToolSpecification)
             .map(

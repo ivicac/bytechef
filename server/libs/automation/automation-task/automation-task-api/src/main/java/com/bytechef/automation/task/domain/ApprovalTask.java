@@ -38,11 +38,8 @@ public final class ApprovalTask {
     public enum Status {
 
         // Persisted as INT ordinal - append new values at the end only.
-        OPEN, IN_PROGRESS, COMPLETED, EXPIRED;
-
-        public boolean isTerminal() {
-            return this == COMPLETED || this == EXPIRED;
-        }
+        // EXPIRED = the backing approval can no longer be resolved (the paused run expired, failed, or was purged).
+        OPEN, IN_PROGRESS, COMPLETED, EXPIRED
     }
 
     public enum Priority {

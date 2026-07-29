@@ -149,6 +149,9 @@ public class JobFacadeImpl implements JobFacade {
 
         taskExecutionService.deleteJobTaskExecutions(id);
 
+        // Give platform-layer listeners a chance to release resources keyed off the job (e.g. a suspended run's
+        // task_state row, which otherwise leaks its rendered approval request on a user/retention delete) before the
+        // job — and its metadata — is gone. Published with the metadata so a listener need not re-read the row.
         Job job = jobService.getJob(id);
 
         eventPublisher.publishEvent(new DeleteJobEvent(id, job.getMetadata()));

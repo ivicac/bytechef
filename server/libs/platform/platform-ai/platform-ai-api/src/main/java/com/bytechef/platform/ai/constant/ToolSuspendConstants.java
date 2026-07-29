@@ -17,13 +17,34 @@
 package com.bytechef.platform.ai.constant;
 
 /**
+ * Shared constants for the agent tool-suspend protocol: the sentinel a suspending tool returns as its result, and the
+ * keys under which the resumable-loop state is stored in {@code Suspend.continueParameters}.
+ *
  * @author Ivica Cardic
  */
 public final class ToolSuspendConstants {
 
-    public static final String GATED_TOOL_NAME = "__BYTECHEF_GATED_TOOL_NAME__";
+    /**
+     * Returned by a tool as its result when it suspends. The {@code SuspendableToolCallingManager} locates the matching
+     * {@code ToolResponse} by this exact value to identify the pending tool call.
+     */
+    public static final String SUSPENDED_SENTINEL = "__bytechef_tool_suspended__";
 
-    public static final String GATED_TOOL_INPUT = "__BYTECHEF_GATED_TOOL_INPUT__";
+    /** {@code continueParameters} key holding the serialized {@code ConversationState}. */
+    public static final String CONVERSATION_STATE = "__bytechef_conversation_state__";
+
+    /** {@code continueParameters} key holding the pending tool call id (a {@code String}). */
+    public static final String PENDING_TOOL_CALL_ID = "__bytechef_pending_tool_call_id__";
+
+    /**
+     * {@code continueParameters} key holding the name of a tool call intercepted by the per-tool approval gate. Its
+     * presence marks the suspend as a gate approval: on resume, {@code approved=true} executes the tool with the
+     * original arguments, {@code approved=false} patches a denial into the loop.
+     */
+    public static final String GATED_TOOL_NAME = "__bytechef_gated_tool_name__";
+
+    /** {@code continueParameters} key holding the gated tool call's original JSON arguments (a {@code String}). */
+    public static final String GATED_TOOL_INPUT = "__bytechef_gated_tool_input__";
 
     private ToolSuspendConstants() {
     }

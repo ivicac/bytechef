@@ -27,6 +27,8 @@ class RocketchatApprovalChannelTest {
 
     @Test
     void testEscapeMarkdownNeutralizesLinkSyntax() {
+        // The description embeds AI-chosen tool arguments verbatim; without escaping, [text](url) would forge a
+        // clickable link next to the real Approve/Discard buttons.
         assertThat(RocketchatApprovalChannel.escapeMarkdown("[Approve here](https://evil.example)"))
             .isEqualTo("\\[Approve here\\]\\(https://evil.example\\)");
     }

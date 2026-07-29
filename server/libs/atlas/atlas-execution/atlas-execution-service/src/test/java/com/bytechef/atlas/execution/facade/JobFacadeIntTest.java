@@ -86,7 +86,6 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
-import org.springframework.context.event.EventListener;
 import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.jdbc.repository.config.EnableJdbcAuditing;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -126,6 +125,9 @@ public class JobFacadeIntTest {
     private JobService jobService;
 
     @Autowired
+    private JobService jobService;
+
+    @Autowired
     private TaskExecutionRepository taskExecutionRepository;
 
     @Autowired
@@ -133,6 +135,8 @@ public class JobFacadeIntTest {
 
     @Test
     public void testRequiredParameters() {
+        // The referenced workflow does not exist (the mocked WorkflowService returns null), so job creation must reject
+        // the request rather than proceed with a null workflow.
         Assertions.assertThrows(
             IllegalArgumentException.class,
             () -> jobFacade.createJob(new JobParametersDTO("aGVsbG8x", Collections.emptyMap())));
@@ -431,6 +435,85 @@ public class JobFacadeIntTest {
 
         return Validate.notNull(taskExecutionRepository.save(taskExecution)
             .getId(), "id");
+    }
+
+    @Test
+    public void testOptimisticLockRejectsConcurrentStoppedResumeClaim() {
+        Job job = newJob();
+
+        job.setStatus(Job.Status.STOPPED);
+
+        long jobId = Validate.notNull(jobRepository.save(job)
+            .getId(), "id");
+
+        // Two racers read the run at the same version and both attempt to claim it (STOPPED -> STARTED).
+        Job racerA = jobRepository.findById(jobId)
+            .orElseThrow();
+        Job racerB = jobRepository.findById(jobId)
+            .orElseThrow();
+
+        racerA.setStatus(Job.Status.STARTED);
+
+        jobRepository.save(racerA);
+
+        racerB.setStatus(Job.Status.STARTED);
+
+        // The loser's stale-version update must be rejected — the mechanism behind JobResumeFacadeImpl's single-winner
+        // resume claim (one OK, one GONE) and its rejection of resurrecting a run the expiry sweep flipped to FAILED.
+        assertThatThrownBy(() -> jobRepository.save(racerB)).isInstanceOf(OptimisticLockingFailureException.class);
+
+        assertThat(jobRepository.findById(jobId))
+            .get()
+            .extracting(Job::getStatus)
+            .isEqualTo(Job.Status.STARTED);
+    }
+
+    @Test
+    public void testTryClaimResumeReturnsFalseWithoutThrowingWhenClaimIsLost() {
+        Job job = newJob();
+
+        job.setStatus(Job.Status.STOPPED);
+
+        long jobId = Validate.notNull(jobRepository.save(job)
+            .getId(), "id");
+
+        Job racerA = jobRepository.findById(jobId)
+            .orElseThrow();
+        Job racerB = jobRepository.findById(jobId)
+            .orElseThrow();
+
+        assertThat(jobService.tryClaimResume(racerA)).isTrue();
+
+        // The loser's stale-version claim must return false, NOT throw OptimisticLockingFailureException, so the
+        // @Transactional resume facade is not left with a rollback-only transaction when it reports GONE.
+        assertThat(jobService.tryClaimResume(racerB)).isFalse();
+    }
+
+    @Test
+    public void testResumeToStatusStartedTransitionsStoppedJob() {
+        Job job = newJob();
+
+        job.setStatus(Job.Status.STOPPED);
+
+        long jobId = Validate.notNull(jobRepository.save(job)
+            .getId(), "id");
+
+        assertThat(jobService.resumeToStatusStarted(jobId)
+            .getStatus()).isEqualTo(Job.Status.STARTED);
+    }
+
+    @Test
+    public void testResumeToStatusStartedIsIdempotentForAlreadyClaimedJob() {
+        Job job = newJob();
+
+        job.setStatus(Job.Status.STARTED);
+
+        long jobId = Validate.notNull(jobRepository.save(job)
+            .getId(), "id");
+
+        // A run the resume facade already claimed (STARTED) must be returned as-is, not rejected as non-restartable.
+        assertThat(jobService.resumeToStatusStarted(jobId)
+            .getStatus()).isEqualTo(Job.Status.STARTED);
     }
 
     @Test

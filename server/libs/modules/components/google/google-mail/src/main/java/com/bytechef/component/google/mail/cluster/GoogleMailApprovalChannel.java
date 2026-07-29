@@ -82,6 +82,8 @@ public class GoogleMailApprovalChannel {
         Gmail gmail = GoogleServices.getMail(connectionParameters);
 
         List<String> toAddresses = inputParameters.getRequiredList(TO, String.class);
+        // A MIME Subject header is plain text (jakarta.mail applies its own RFC 2047 encoding), so it must NOT be
+        // HTML-escaped — escaping corrupts subjects containing &, <, or >.
         String subject = inputParameters.getRequiredString(SUBJECT);
 
         MimeMessage mimeMessage = new MimeMessage(Session.getDefaultInstance(new Properties(), null));

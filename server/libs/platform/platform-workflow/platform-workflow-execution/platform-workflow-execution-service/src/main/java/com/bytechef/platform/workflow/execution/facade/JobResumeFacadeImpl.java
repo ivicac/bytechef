@@ -25,9 +25,7 @@ import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.error.ExecutionError;
 import com.bytechef.platform.component.constant.MetadataConstants;
-import com.bytechef.platform.component.definition.ApprovalFormInputs;
 import com.bytechef.platform.component.definition.SuspendUtils;
-import com.bytechef.platform.workflow.execution.ApprovalId;
 import com.bytechef.platform.workflow.execution.JobResumeId;
 import com.bytechef.platform.workflow.execution.JobSuspends;
 import com.bytechef.platform.workflow.execution.event.JobApprovalClosedEvent;
@@ -37,8 +35,6 @@ import com.bytechef.tenant.TenantContext;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import io.micrometer.core.instrument.MeterRegistry;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,10 +62,9 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
 
     private static final Logger log = LoggerFactory.getLogger(JobResumeFacadeImpl.class);
 
+    private static final String APPROVAL_EXPIRED_METRIC_NAME = "bytechef_approval_expired";
     private static final String APPROVAL_RESOLUTION_METRIC_NAME = "bytechef_approval_resolution";
-
     private static final String APPROVED = "approved";
-
     private static final String APPROVED_BY = "approvedBy";
 
     private final ApplicationEventPublisher applicationEventPublisher;
@@ -78,7 +73,6 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
     private final JobService jobService;
     private final ObjectProvider<MeterRegistry> meterRegistryObjectProvider;
     private final TaskExecutionService taskExecutionService;
-    private final TaskStateFacade taskStateFacade;
     private final TransactionOperations transactionOperations;
 
     @Autowired
@@ -86,20 +80,18 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
     public JobResumeFacadeImpl(
         ApplicationEventPublisher applicationEventPublisher, ObjectProvider<ApprovalTokens> approvalTokensProvider,
         JobFacade jobFacade, JobService jobService, ObjectProvider<MeterRegistry> meterRegistryObjectProvider,
-        PlatformTransactionManager platformTransactionManager, TaskExecutionService taskExecutionService,
-        TaskStateFacade taskStateFacade) {
+        PlatformTransactionManager platformTransactionManager, TaskExecutionService taskExecutionService) {
 
         this(
             applicationEventPublisher, approvalTokensProvider, jobFacade, jobService, meterRegistryObjectProvider,
-            new TransactionTemplate(platformTransactionManager), taskExecutionService, taskStateFacade);
+            taskExecutionService, new TransactionTemplate(platformTransactionManager));
     }
 
     @SuppressFBWarnings("EI")
     public JobResumeFacadeImpl(
         ApplicationEventPublisher applicationEventPublisher, ObjectProvider<ApprovalTokens> approvalTokensProvider,
         JobFacade jobFacade, JobService jobService, ObjectProvider<MeterRegistry> meterRegistryObjectProvider,
-        TransactionOperations transactionOperations, TaskExecutionService taskExecutionService,
-        TaskStateFacade taskStateFacade) {
+        TaskExecutionService taskExecutionService, TransactionOperations transactionOperations) {
 
         this.applicationEventPublisher = applicationEventPublisher;
         this.approvalTokensProvider = approvalTokensProvider;
@@ -107,7 +99,6 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
         this.jobService = jobService;
         this.meterRegistryObjectProvider = meterRegistryObjectProvider;
         this.taskExecutionService = taskExecutionService;
-        this.taskStateFacade = taskStateFacade;
         this.transactionOperations = transactionOperations;
     }
 
@@ -244,7 +235,7 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
     }
 
     @Override
-    public JobResumeOutcome resumeJob(String id, Map<String, Object> data, String approvedBy) {
+    public JobResumeOutcome resumeJob(String id, Map<String, Object> data, @Nullable String approvedBy) {
         return resumeJob(id, data, approvedBy, false, jobId -> {});
     }
 
@@ -260,7 +251,7 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
         String id, Map<String, Object> data, @Nullable String approvedBy, boolean streaming,
         LongConsumer jobIdConsumer) {
 
-        boolean signedToken = isVerifiedSignedToken(id);
+        Map<String, Object> resumeData = normalizeApprovedBy(data, approvedBy);
 
         Optional<String> innerTokenOptional = resolveInnerToken(id);
 
@@ -318,23 +309,9 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
             if (isSuspendExpired(job)) {
                 log.warn("Rejected resume for job {}: the pending approval expired", jobResumeId.getJobId());
 
-                failIfApprovalExpired(job, jobResumeId);
+                incrementApprovalExpiredCounter("resume");
 
                 return JobResumeOutcome.GONE;
-            }
-
-            Map<String, Object> resolvedResumeData = resumeData;
-
-            if (JobSuspends.isSuspendedForApproval(job)) {
-                ApprovalFormInputs.Resolution resolution = resolveApprovalInputs(job, jobResumeId, resumeData);
-
-                if (!resolution.isValid()) {
-                    approvalInputErrorsReference.set(resolution.errors());
-
-                    return JobResumeOutcome.INVALID_ID;
-                }
-
-                resolvedResumeData = resolution.data();
             }
 
             consumeJobResumeId(job);
@@ -351,7 +328,7 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
 
             jobFacade.resumeClaimedJob(
                 jobResumeId.getJobId(), MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID),
-                resolvedResumeData);
+                resumeData);
 
             applicationEventPublisher.publishEvent(new JobResumedEvent(id));
 
@@ -674,13 +651,11 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
     }
 
     private static Map<String, Object> normalizeApprovedBy(
-        Job job, @Nullable Map<String, Object> data, @Nullable String approvedBy) {
+        @Nullable Map<String, Object> data, @Nullable String approvedBy) {
 
         Map<String, Object> resumeData = data == null ? new HashMap<>() : new HashMap<>(data);
 
-        if (JobSuspends.isSuspendedForApproval(job)) {
-            resumeData.remove(APPROVED_BY);
-        }
+        resumeData.remove(APPROVED_BY);
 
         if (approvedBy != null && !approvedBy.isBlank()) {
             resumeData.put(APPROVED_BY, approvedBy);
@@ -704,38 +679,6 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
             .increment();
     }
 
-    private boolean isSuspendExpired(Job job) {
-        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
-
-        if (taskExecutionResumeId == null) {
-            return false;
-        }
-
-        Optional<TaskExecution> taskExecutionOptional = taskExecutionService.fetchTaskExecution(taskExecutionResumeId);
-
-        if (taskExecutionOptional.isEmpty()) {
-            log.warn(
-                "Rejected resume for job {}: its suspended task execution {} no longer exists", job.getId(),
-                taskExecutionResumeId);
-
-            return true;
-        }
-
-        TaskExecution taskExecution = taskExecutionOptional.get();
-
-        try {
-            Instant expiresAt = SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata());
-
-            return expiresAt != null && expiresAt.isBefore(Instant.now());
-        } catch (RuntimeException exception) {
-            log.warn(
-                "Rejected resume for job {}: the suspend expiry of task execution {} is unreadable", job.getId(),
-                taskExecutionResumeId, exception);
-
-            return true;
-        }
-    }
-
     private void incrementApprovalExpiredCounter(String source) {
         MeterRegistry meterRegistry = meterRegistryObjectProvider.getIfAvailable();
 
@@ -743,8 +686,26 @@ public class JobResumeFacadeImpl implements JobResumeFacade {
             return;
         }
 
-        meterRegistry.counter("bytechef_approval_expired", "source", source)
+        meterRegistry.counter(APPROVAL_EXPIRED_METRIC_NAME, "source", source)
             .increment();
+    }
+
+    private boolean isSuspendExpired(Job job) {
+        Long taskExecutionResumeId = MapUtils.getLong(job.getMetadata(), MetadataConstants.TASK_EXECUTION_RESUME_ID);
+
+        if (taskExecutionResumeId == null) {
+            return false;
+        }
+
+        try {
+            TaskExecution taskExecution = taskExecutionService.getTaskExecution(taskExecutionResumeId);
+
+            Instant expiresAt = SuspendUtils.extractSuspendExpiresAt(taskExecution.getMetadata());
+
+            return expiresAt != null && expiresAt.isBefore(Instant.now());
+        } catch (RuntimeException runtimeException) {
+            return false;
+        }
     }
 
     private void consumeJobResumeId(Job job) {

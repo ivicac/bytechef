@@ -53,6 +53,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Approval channel that delivers the request as an HTML email over the connected SMTP server. Field-less approvals get
+ * one-click Approve/Discard links (the hosted form pre-selects the decision via the {@code approved} query parameter
+ * and confirms with a single click); approvals with form fields get an "Open Approval Form" link.
+ *
  * @author Ivica Cardic
  */
 public class EmailApprovalChannel {
@@ -135,6 +139,11 @@ public class EmailApprovalChannel {
         return null;
     }
 
+    // Every interpolated value below is routed through context.escaper(...).escapeHtml(...) (backed by Apache
+    // Commons StringEscapeUtils.escapeHtml4), which is real HTML4 escaping. SpotBugs' taint analysis cannot trace
+    // sanitization through the generic ContextFunction/lambda indirection used to reach the Escaper, so it still
+    // flags these appends as POTENTIAL_XML_INJECTION even though the content is safe. Same false positive, same
+    // fix, as GoogleMailApprovalChannel#perform and MicrosoftOutlook365ApprovalChannel#perform.
     @SuppressFBWarnings("POTENTIAL_XML_INJECTION")
     private static String buildHtmlBody(Parameters inputParameters, String formUrl, ClusterElementContext context) {
         List<Map<String, ?>> inputs = inputParameters.getList(INPUTS, new TypeReference<>() {}, List.of());

@@ -27,6 +27,8 @@ class SlackApprovalChannelTest {
 
     @Test
     void testEscapeMrkdwnNeutralizesLinkSyntax() {
+        // A gated tool's description embeds AI-chosen arguments verbatim; without escaping, mrkdwn angle brackets could
+        // forge a clickable <url|text> link next to the real Approve/Discard buttons.
         assertThat(SlackApprovalChannel.escapeMrkdwn("<https://evil.example|Approve here>"))
             .isEqualTo("&lt;https://evil.example|Approve here&gt;")
             .doesNotContain("<")

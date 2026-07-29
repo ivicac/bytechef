@@ -94,15 +94,18 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
     private final ComponentDefinitionRegistry componentDefinitionRegistry;
     private final ContextFactory contextFactory;
     private final List<ComponentVisibilityProvider> componentVisibilityProviders;
+    private final ObjectProvider<MeterRegistry> meterRegistryObjectProvider;
 
     @SuppressFBWarnings("EI")
     public ClusterElementDefinitionServiceImpl(
         @Lazy ComponentDefinitionRegistry componentDefinitionRegistry, ContextFactory contextFactory,
-        List<ComponentVisibilityProvider> componentVisibilityProviders) {
+        List<ComponentVisibilityProvider> componentVisibilityProviders,
+        ObjectProvider<MeterRegistry> meterRegistryObjectProvider) {
 
         this.componentDefinitionRegistry = componentDefinitionRegistry;
         this.contextFactory = contextFactory;
         this.componentVisibilityProviders = componentVisibilityProviders;
+        this.meterRegistryObjectProvider = meterRegistryObjectProvider;
     }
 
     @Override

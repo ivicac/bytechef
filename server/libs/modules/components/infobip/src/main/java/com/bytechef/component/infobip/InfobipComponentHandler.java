@@ -21,6 +21,7 @@ import static com.bytechef.component.definition.ComponentDsl.component;
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.definition.ComponentCategory;
 import com.bytechef.component.definition.ComponentDefinition;
+import com.bytechef.component.infobip.action.InfobipMakeCallAction;
 import com.bytechef.component.infobip.action.InfobipSendSMSAction;
 import com.bytechef.component.infobip.action.InfobipSendViberBotTextMessageAction;
 import com.bytechef.component.infobip.action.InfobipSendViberBusinessTextMessageAction;
@@ -29,6 +30,7 @@ import com.bytechef.component.infobip.action.InfobipSendWhatsappTextMessageActio
 import com.bytechef.component.infobip.cluster.InfobipSmsApprovalChannel;
 import com.bytechef.component.infobip.cluster.InfobipWhatsAppApprovalChannel;
 import com.bytechef.component.infobip.connection.InfobipConnection;
+import com.bytechef.component.infobip.trigger.InfobipInboundCallTrigger;
 import com.bytechef.component.infobip.trigger.InfobipNewSMSTrigger;
 import com.bytechef.component.infobip.trigger.InfobipNewViberBotMessageTrigger;
 import com.bytechef.component.infobip.trigger.InfobipNewViberBusinessMessageTrigger;
@@ -53,6 +55,7 @@ public class InfobipComponentHandler implements ComponentHandler {
         .categories(ComponentCategory.COMMUNICATION)
         .connection(InfobipConnection.CONNECTION_DEFINITION)
         .actions(
+            InfobipMakeCallAction.ACTION_DEFINITION,
             InfobipSendSMSAction.ACTION_DEFINITION,
             InfobipSendViberBotTextMessageAction.ACTION_DEFINITION,
             InfobipSendViberBusinessTextMessageAction.ACTION_DEFINITION,
@@ -62,6 +65,7 @@ public class InfobipComponentHandler implements ComponentHandler {
             InfobipSmsApprovalChannel.CLUSTER_ELEMENT_DEFINITION,
             InfobipWhatsAppApprovalChannel.CLUSTER_ELEMENT_DEFINITION)
         .triggers(
+            InfobipInboundCallTrigger.TRIGGER_DEFINITION,
             InfobipNewSMSTrigger.TRIGGER_DEFINITION,
             InfobipNewViberBotMessageTrigger.TRIGGER_DEFINITION,
             InfobipNewViberBusinessMessageTrigger.TRIGGER_DEFINITION,

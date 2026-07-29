@@ -36,6 +36,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Approval channel that posts the request to a Rocket.Chat channel. Field-less approvals get one-click Approve/Discard
+ * markdown links (the hosted form pre-selects the decision via the {@code approved} query parameter and confirms with a
+ * single click); approvals with form fields get a single "Open Approval Form" link.
+ *
  * @author Ivica Cardic
  */
 public class RocketchatApprovalChannel {
@@ -110,6 +114,10 @@ public class RocketchatApprovalChannel {
         return builder.toString();
     }
 
+    /**
+     * Escapes markdown-link-forming characters so caller-supplied text — for a gated tool the description embeds the
+     * AI-chosen tool arguments verbatim — cannot forge clickable links next to the real Approve/Discard links.
+     */
     static String escapeMarkdown(String text) {
         return text.replace("\\", "\\\\")
             .replace("[", "\\[")

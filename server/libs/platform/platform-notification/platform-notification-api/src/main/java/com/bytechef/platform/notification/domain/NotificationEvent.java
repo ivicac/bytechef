@@ -34,7 +34,7 @@ public class NotificationEvent {
 
     public enum Type {
 
-        // Append only: the type is persisted as its ordinal.
+        // Persisted as INT ordinal - append new values at the end only.
         JOB_CANCELLED(Source.JOB, "CANCELLED"), JOB_CREATED(Source.JOB, "CREATED"),
         JOB_COMPLETED(Source.JOB, "COMPLETED"), JOB_FAILED(Source.JOB, "FAILED"),
         JOB_STARTED(Source.JOB, "STARTED"), JOB_STOPPED(Source.JOB, "STOPPED"),

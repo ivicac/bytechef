@@ -72,6 +72,10 @@ public class SlackApprovalChannel {
         List<Map<String, Object>> elements;
 
         if (inputs.isEmpty() && inPlace) {
+            // The connection carries the Slack app's signing secret, so the app's interactivity Request URL can be
+            // verified server-side: send in-place block_actions buttons that resolve the approval without leaving
+            // Slack (see SlackInteractivityController). The button value is the tokenized resume id — the same
+            // capability the hosted-form URL carries.
             String resumeId = formUrl.substring(formUrl.lastIndexOf('/') + 1);
 
             text = buildSummaryText(inputParameters);
@@ -143,6 +147,11 @@ public class SlackApprovalChannel {
         return builder.toString();
     }
 
+    /**
+     * Escapes Slack mrkdwn control characters so caller-supplied text — for a gated tool the description embeds the
+     * AI-chosen tool arguments verbatim — cannot forge {@code <url|text>} links next to the real Approve/Discard
+     * buttons.
+     */
     static String escapeMrkdwn(String text) {
         return text.replace("&", "&amp;")
             .replace("<", "&lt;")

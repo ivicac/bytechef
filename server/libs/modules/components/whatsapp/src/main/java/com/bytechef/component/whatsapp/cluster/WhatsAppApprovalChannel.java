@@ -23,7 +23,6 @@ import static com.bytechef.component.definition.approval.ApprovalChannelFunction
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_DESCRIPTION;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.FORM_TITLE;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.INPUTS;
-import static com.bytechef.component.definition.approval.ApprovalChannelFunction.RESUME_ID;
 import static com.bytechef.component.whatsapp.constant.WhatsAppConstants.APP_SECRET;
 import static com.bytechef.component.whatsapp.constant.WhatsAppConstants.BODY;
 import static com.bytechef.component.whatsapp.constant.WhatsAppConstants.MESSAGING_PRODUCT;
@@ -45,6 +44,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Approval channel that delivers the request as a WhatsApp text message. Field-less approvals get one-click
+ * Approve/Discard links (the hosted form auto-resolves via the {@code approved} query parameter); approvals with form
+ * fields get the plain form link. Free-form WhatsApp messages only reach recipients inside an open 24-hour
+ * customer-service window — outside it the delivery is silently dropped by Meta, so pair this channel with a fallback
+ * for cold outreach.
+ *
  * @author Ivica Cardic
  */
 public class WhatsAppApprovalChannel {
@@ -68,13 +73,18 @@ public class WhatsAppApprovalChannel {
 
         String appSecret = connectionParameters.getString(APP_SECRET);
 
-        String resumeId = inputParameters.getString(RESUME_ID);
-
-        boolean inPlace = appSecret != null && !appSecret.isBlank() && resumeId != null && !resumeId.isBlank();
+        boolean inPlace = appSecret != null && !appSecret.isBlank();
 
         Body body;
 
         if (inputs.isEmpty() && inPlace && formUrl != null && !formUrl.isBlank()) {
+            // The connection carries the Meta app secret, so the app's webhook can be verified server-side: send
+            // in-place reply buttons that resolve the approval without leaving WhatsApp (see
+            // WhatsAppInteractivityController). The button ids carry the tokenized resume id (the form-URL tail —
+            // WhatsApp allows 256 chars, so the signed token fits) prefixed with the decision, and must be unique
+            // within the message.
+            String resumeId = formUrl.substring(formUrl.lastIndexOf('/') + 1);
+
             body = Body.of(
                 MESSAGING_PRODUCT, "whatsapp",
                 RECIPIENT_TYPE, "individual",

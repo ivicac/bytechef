@@ -39,6 +39,12 @@ import java.util.List;
 import java.util.Map;
 
 /**
+ * Approval channel that delivers the request as a WhatsApp text message via Infobip. Field-less approvals get one-click
+ * Approve/Discard links (the hosted form auto-resolves via the {@code approved} query parameter); approvals with form
+ * fields get the plain form link. Free-form WhatsApp messages only reach recipients inside an open 24-hour
+ * customer-service window — outside it Infobip requires a pre-approved template, so pair this channel with a fallback
+ * for cold outreach.
+ *
  * @author Ivica Cardic
  */
 public class InfobipWhatsAppApprovalChannel {

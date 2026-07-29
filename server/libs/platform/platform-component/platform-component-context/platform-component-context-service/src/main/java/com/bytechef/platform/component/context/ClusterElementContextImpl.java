@@ -41,6 +41,8 @@ import org.springframework.context.ApplicationEventPublisher;
  */
 class ClusterElementContextImpl extends ContextImpl implements ClusterElementContextAware {
 
+    private final @Nullable ActionContext agentActionContext;
+
     private final @Nullable ApprovalTokens approvalTokens;
     private final CacheManager cacheManager;
     private final @Nullable ClusterElementResolverFunction clusterElementResolver;
@@ -68,6 +70,7 @@ class ClusterElementContextImpl extends ContextImpl implements ClusterElementCon
             builder.jobId, builder.taskExecutionId, builder.editorEnvironment, builder.httpClientExecutor,
             builder.tempFileStorage, builder.logFileStorageWriter, false, null);
 
+        this.agentActionContext = builder.agentActionContext;
         this.approvalTokens = builder.approvalTokens;
         this.cacheManager = builder.cacheManager;
         this.clusterElementResolver = builder.clusterElementResolver;
@@ -120,7 +123,7 @@ class ClusterElementContextImpl extends ContextImpl implements ClusterElementCon
         return ActionContextImpl
             .builder(
                 componentName, componentVersion, actionName, editorEnvironment, cacheManager, dataStorage,
-                eventPublisher, httpClientExecutor, tempFileStorage, approvalTokens)
+                eventPublisher, httpClientExecutor, tempFileStorage, null, approvalTokens)
             .componentConnection(componentConnection)
             .environmentId(environmentId)
             .jobId(jobId)
@@ -310,6 +313,8 @@ class ClusterElementContextImpl extends ContextImpl implements ClusterElementCon
 
     static final class Builder {
 
+        private @Nullable ActionContext agentActionContext;
+
         private @Nullable ApprovalTokens approvalTokens;
         private final CacheManager cacheManager;
         private final String clusterElementName;
@@ -347,6 +352,12 @@ class ClusterElementContextImpl extends ContextImpl implements ClusterElementCon
             this.eventPublisher = eventPublisher;
             this.httpClientExecutor = httpClientExecutor;
             this.tempFileStorage = tempFileStorage;
+        }
+
+        Builder agentActionContext(@Nullable ActionContext agentActionContext) {
+            this.agentActionContext = agentActionContext;
+
+            return this;
         }
 
         Builder approvalTokens(@Nullable ApprovalTokens approvalTokens) {

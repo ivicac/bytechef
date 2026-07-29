@@ -179,6 +179,16 @@ public class JobServiceImpl implements JobService {
     public Job resumeToStatusStarted(long id) {
         Job job = OptionalUtils.get(jobRepository.findById(id), String.format("Unknown job %s", id));
 
+        Assert.isTrue(job.getParentTaskExecutionId() == null, "Can't resume a subflow");
+
+        // The approval-resume facade atomically claims the run (STOPPED -> STARTED) before publishing the resume
+        // event, so a job that is already STARTED here has been claimed and only needs executing — re-transitioning it
+        // would be a redundant write and would defeat that claim. Other resume paths (explicit restart of a STOPPED or
+        // FAILED run) still perform the transition.
+        if (job.getStatus() == Job.Status.STARTED) {
+            return job;
+        }
+
         Assert.isTrue(isRestartable(job), "can't resume job " + id + " as it is " + job.getStatus());
         Assert.isTrue(
             job.getParentTaskExecutionId() == null || job.getStatus() == Job.Status.STOPPED,
@@ -205,10 +215,12 @@ public class JobServiceImpl implements JobService {
 
     @Override
     public boolean tryClaimResume(Job job) {
-        long jobId = Objects.requireNonNull(job.getId(), "id");
-
-        return jobRepository.updateStatusAndClearEndDateIfCurrentStatus(
-            jobId, Job.Status.STOPPED.ordinal(), Job.Status.STARTED.ordinal()) == 1;
+        // A conditional UPDATE ... WHERE status = STOPPED (not an entity save) is the atomic single-winner claim: it
+        // reports the lost race as a 0 row count rather than throwing OptimisticLockingFailureException, so the
+        // @Transactional approval-resume facade is never left with a rollback-only transaction when it reports GONE.
+        // It also bumps the version, so a concurrent expiry-sweep entity update that read the STOPPED version loses.
+        return jobRepository.updateStatusIfCurrentStatus(
+            Objects.requireNonNull(job.getId(), "id"), Job.Status.STOPPED.ordinal(), Job.Status.STARTED.ordinal()) == 1;
     }
 
     @Override

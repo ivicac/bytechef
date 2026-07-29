@@ -16,82 +16,84 @@
 
 package com.bytechef.platform.component.definition;
 
-import com.bytechef.component.definition.ActionContext.Suspend;
+import com.bytechef.component.definition.ActionContext;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import java.time.Instant;
-import java.time.format.DateTimeParseException;
+import java.util.HashMap;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
+ * Utility methods for finalizing a suspend request after a streaming action completes. Used by post-output processors
+ * (Task 12) to replicate the resume-URL / {@code JobResumeId} enrichment that
+ * {@code ActionDefinitionServiceImpl.checkSuspend} performs for non-streaming actions.
+ *
+ * <p>
+ * Note: {@code BeforeSuspendConsumer} invocation is intentionally omitted here — it requires the
+ * {@code ActionDefinition} and an error-type token from the service layer. AI agent actions (the only streaming suspend
+ * callers) do not declare a {@code BeforeSuspendConsumer}, so this omission is acceptable for the streaming path.
+ * </p>
+ *
  * @author Ivica Cardic
  */
 public class SuspendUtils {
 
-    private static final Logger log = LoggerFactory.getLogger(SuspendUtils.class);
-
     private SuspendUtils() {
     }
 
+    /**
+     * Reads {@code actionContextAware.getSuspend()} and, if non-null, enriches the {@code continueParameters} map with
+     * the {@code jobResumeId} (when one was generated) and returns the final {@link ActionContext.Suspend}. Returns
+     * {@code null} when no suspension was requested.
+     *
+     * @param actionContextAware the action context to inspect
+     * @return the finalized {@link ActionContext.Suspend}, or {@code null} if the action did not suspend
+     */
+    public static ActionContext.@Nullable Suspend finalizeSuspend(ActionContextAware actionContextAware) {
+        ActionContext.Suspend suspend = actionContextAware.getSuspend();
+
+        if (suspend == null) {
+            return null;
+        }
+
+        String jobResumeId = actionContextAware.getJobResumeId();
+
+        if (jobResumeId != null) {
+            Map<String, Object> continueParameters = new HashMap<>(suspend.continueParameters());
+
+            continueParameters.put(MetadataConstants.JOB_RESUME_ID, jobResumeId);
+
+            return new ActionContext.Suspend(continueParameters, suspend.expiresAt());
+        }
+
+        return suspend;
+    }
+
+    /**
+     * Extracts the suspend expiry from a task execution's metadata (the {@code suspend.expiresAt} value the worker
+     * persisted), or {@code null} when the metadata carries no suspend or no expiry. Handles both the epoch-millis
+     * number form (JSON round-trip) and the ISO-8601 string form.
+     *
+     * @param taskExecutionMetadata the suspended task execution's metadata map
+     * @return the expiry instant, or {@code null} when absent
+     */
+    @SuppressWarnings("unchecked")
     public static @Nullable Instant extractSuspendExpiresAt(Map<String, ?> taskExecutionMetadata) {
-        if (taskExecutionMetadata.get(MetadataConstants.SUSPEND) instanceof Suspend suspend) {
-            return suspend.expiresAt();
-        }
+        Object suspendValue = taskExecutionMetadata.get(MetadataConstants.SUSPEND);
 
-        Map<?, ?> suspendMap = getSuspendMap(taskExecutionMetadata);
-
-        if (suspendMap == null) {
+        if (!(suspendValue instanceof Map)) {
             return null;
         }
 
-        return toInstant(suspendMap.get(Suspend.EXPIRES_AT), Suspend.EXPIRES_AT);
-    }
+        Object expiresAtValue = ((Map<String, ?>) suspendValue).get("expiresAt");
 
-    public static @Nullable Instant extractApprovalRaisedAt(Map<String, ?> taskExecutionMetadata) {
-        Map<?, ?> continueParameters = getContinueParameters(taskExecutionMetadata);
-
-        if (continueParameters == null) {
-            return null;
-        }
-
-        return toInstant(
-            continueParameters.get(MetadataConstants.APPROVAL_RAISED_AT), MetadataConstants.APPROVAL_RAISED_AT);
-    }
-
-    private static @Nullable Map<?, ?> getContinueParameters(Map<String, ?> taskExecutionMetadata) {
-        if (taskExecutionMetadata.get(MetadataConstants.SUSPEND) instanceof Suspend suspend) {
-            return suspend.continueParameters();
-        }
-
-        Map<?, ?> suspendMap = getSuspendMap(taskExecutionMetadata);
-
-        if (suspendMap != null && suspendMap.get(Suspend.CONTINUE_PARAMETERS) instanceof Map<?, ?> continueParameters) {
-            return continueParameters;
-        }
-
-        return null;
-    }
-
-    private static @Nullable Map<?, ?> getSuspendMap(Map<String, ?> taskExecutionMetadata) {
-        if (taskExecutionMetadata.get(MetadataConstants.SUSPEND) instanceof Map<?, ?> suspendMap) {
-            return suspendMap;
-        }
-
-        return null;
-    }
-
-    private static @Nullable Instant toInstant(@Nullable Object value, String key) {
-        if (value instanceof Number number) {
-            return Instant.ofEpochMilli(number.longValue());
-        }
-
-        if (value instanceof String string) {
+        if (expiresAtValue instanceof Number expiresAtNumber) {
+            return Instant.ofEpochMilli(expiresAtNumber.longValue());
+        } else if (expiresAtValue instanceof String expiresAtString) {
             try {
-                return Instant.parse(string);
-            } catch (DateTimeParseException dateTimeParseException) {
-                log.warn("Ignoring the unparseable suspend '{}' value '{}'", key, string, dateTimeParseException);
+                return Instant.parse(expiresAtString);
+            } catch (Exception exception) {
+                return null;
             }
         }
 
