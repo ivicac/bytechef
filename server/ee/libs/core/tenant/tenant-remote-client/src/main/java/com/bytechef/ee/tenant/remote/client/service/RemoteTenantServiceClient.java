@@ -17,6 +17,17 @@ import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 
 /**
+ * Multi-tenant {@link TenantService} binding for apps that have no datasource of their own. Resolves the tenant list
+ * over REST from configuration-app instead of reading the database directly, so an app such as coordinator-app — whose
+ * per-tenant sweeps (orphaned-job recovery, job timeout, retention, approval expiry/reminder/escalation) iterate
+ * {@link #getTenantIds()} — can run multi-tenant while staying datasource-free.
+ *
+ * <p>
+ * Only the read used by those sweeps is implemented. Tenant lifecycle operations (create/delete/changelog) and
+ * user-lookup reads belong to the app that owns the datasource and are intentionally unsupported here, matching the
+ * convention used by the other remote clients.
+ * </p>
+ *
  * @version ee
  *
  * @author Ivica Cardic

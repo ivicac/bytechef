@@ -22,18 +22,32 @@ import com.bytechef.platform.ai.auto.memory.AiAutoMemoryPrincipalType;
 import com.bytechef.platform.ai.auto.memory.AiAutoMemoryType;
 import com.bytechef.platform.configuration.domain.Environment;
 import java.time.LocalDateTime;
-import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 
 /**
+ * The persisted form of an {@link AiAutoMemory} on a file-storage backend: one JSON object per memory.
+ *
+ * <p>
+ * Workspace membership is carried here rather than in a second collection. The relational backend needs a
+ * {@code workspace_ai_auto_memory} join table, but a document store does not, and folding it in keeps every mutation a
+ * single-object write — which is what makes the documented last-write-wins semantics coherent.
+ * </p>
+ *
+ * <p>
+ * Enums are stored as their persisted INT ordinals so the JSON matches the relational columns, and timestamps as
+ * ISO-8601 strings.
+ * </p>
+ *
  * @author Ivica Cardic
  */
 public record AiAutoMemoryDocument(
     long id, long workspaceId, long principalId, int principalType, @Nullable String name, @Nullable String title,
     @Nullable String description, int memoryType, int environment, @Nullable String content,
-    @Nullable String createdAt, @Nullable String updatedAt, @Nullable Long version) {
+    @Nullable String createdAt, @Nullable String updatedAt) {
 
-    public static AiAutoMemoryDocument fromDomain(AiAutoMemory aiAutoMemory, long id, long version) {
+    public static AiAutoMemoryDocument fromDomain(AiAutoMemory aiAutoMemory, long workspaceId) {
+        Long id = aiAutoMemory.getId();
+
         AiAutoMemoryType memoryType = aiAutoMemory.getMemoryType();
         AiAutoMemoryPrincipalType principalType = aiAutoMemory.getPrincipalType();
 
@@ -41,36 +55,33 @@ public record AiAutoMemoryDocument(
         LocalDateTime updatedAt = aiAutoMemory.getUpdatedAt();
 
         return new AiAutoMemoryDocument(
-            id, aiAutoMemory.getWorkspaceId(), aiAutoMemory.getPrincipalId(), principalType.ordinal(),
-            aiAutoMemory.getName(), aiAutoMemory.getTitle(), aiAutoMemory.getDescription(), memoryType.ordinal(),
-            aiAutoMemory.getEnvironmentOrdinal(), aiAutoMemory.getContent(),
-            createdAt == null ? null : createdAt.toString(), updatedAt == null ? null : updatedAt.toString(), version);
+            id == null ? 0 : id, workspaceId, aiAutoMemory.getPrincipalId(),
+            principalType == null ? 0 : principalType.ordinal(), aiAutoMemory.getName(), aiAutoMemory.getTitle(),
+            aiAutoMemory.getDescription(), memoryType == null ? 0 : memoryType.ordinal(),
+            (int) aiAutoMemory.getEnvironmentId(), aiAutoMemory.getContent(),
+            createdAt == null ? null : createdAt.toString(), updatedAt == null ? null : updatedAt.toString());
     }
 
     public AiAutoMemory toDomain() {
-        AiAutoMemoryOwner owner = new AiAutoMemoryOwner(
-            workspaceId, toPrincipalType(principalType), principalId,
-            fromOrdinal(Environment.values(), environment, "environment"));
+        AiAutoMemory aiAutoMemory = new AiAutoMemory(
+            AiAutoMemoryPrincipalType.values()[principalType], principalId);
 
-        return AiAutoMemory.restore(
-            owner, id, Objects.requireNonNull(name, "name"), Objects.requireNonNull(title, "title"), description,
-            fromOrdinal(AiAutoMemoryType.values(), memoryType, "memoryType"),
-            Objects.requireNonNull(content, "content"),
-            createdAt == null ? null : LocalDateTime.parse(createdAt),
-            updatedAt == null ? null : LocalDateTime.parse(updatedAt), Objects.requireNonNullElse(version, 0L));
-    }
+        aiAutoMemory.setId(id);
+        aiAutoMemory.setName(name);
+        aiAutoMemory.setTitle(title);
+        aiAutoMemory.setDescription(description);
+        aiAutoMemory.setMemoryType(AiAutoMemoryType.values()[memoryType]);
+        aiAutoMemory.setEnvironment(Environment.values()[environment]);
+        aiAutoMemory.setContent(content);
 
-    private static AiAutoMemoryPrincipalType toPrincipalType(int ordinal) {
-        return fromOrdinal(AiAutoMemoryPrincipalType.values(), ordinal, "principalType");
-    }
-
-    private static <E extends Enum<E>> E fromOrdinal(E[] values, int ordinal, String fieldName) {
-        if (ordinal < 0 || ordinal >= values.length) {
-            throw new IllegalStateException(
-                "AiAutoMemoryDocument." + fieldName + " ordinal " + ordinal + " is out of range (0.."
-                    + (values.length - 1) + ")");
+        if (createdAt != null) {
+            aiAutoMemory.setCreatedAt(LocalDateTime.parse(createdAt));
         }
 
-        return values[ordinal];
+        if (updatedAt != null) {
+            aiAutoMemory.setUpdatedAt(LocalDateTime.parse(updatedAt));
+        }
+
+        return aiAutoMemory;
     }
 }

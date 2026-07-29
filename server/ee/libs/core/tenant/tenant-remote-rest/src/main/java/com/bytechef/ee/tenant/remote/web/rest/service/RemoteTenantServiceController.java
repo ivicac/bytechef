@@ -17,6 +17,10 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
+ * Serves tenant enumeration to the other apps' remote clients. Hosted by the app that owns the datasource
+ * (configuration-app), so datasource-less apps — notably coordinator-app, whose per-tenant sweeps need the tenant list
+ * — can resolve tenants without taking a database dependency.
+ *
  * @version ee
  *
  * @author Ivica Cardic
