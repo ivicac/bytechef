@@ -8,11 +8,9 @@
 package com.bytechef.ee.platform.tool.invocation.log.web.graphql;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
-import com.bytechef.ee.platform.tool.invocation.log.domain.ToolInvocationLog;
-import com.bytechef.ee.platform.tool.invocation.log.dto.ToolInvocationLogDTO;
-import com.bytechef.ee.platform.tool.invocation.log.facade.ToolInvocationLogFacade;
+import com.bytechef.ee.platform.tool.invocation.log.ToolInvocationLog;
+import com.bytechef.ee.platform.tool.invocation.log.ToolInvocationLogService;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
-import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
 import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -25,6 +23,8 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
 /**
+ * GraphQL controller exposing read-only access to the tool invocation log.
+ *
  * @version ee
  *
  * @author Ivica Cardic
@@ -34,42 +34,23 @@ import org.springframework.stereotype.Controller;
 @ConditionalOnCoordinator
 public class ToolInvocationLogGraphQlController {
 
-    private final ToolInvocationLogFacade toolInvocationLogFacade;
+    private final ToolInvocationLogService toolInvocationLogService;
 
     @SuppressFBWarnings("EI")
-    public ToolInvocationLogGraphQlController(ToolInvocationLogFacade toolInvocationLogFacade) {
-        this.toolInvocationLogFacade = toolInvocationLogFacade;
+    public ToolInvocationLogGraphQlController(ToolInvocationLogService toolInvocationLogService) {
+        this.toolInvocationLogService = toolInvocationLogService;
     }
 
     @QueryMapping(name = "toolInvocationLogs")
     public ToolInvocationLogPage toolInvocationLogs(
-        @Argument PlatformType type, @Argument @Nullable Long environmentId, @Argument @Nullable String surface,
-        @Argument @Nullable String outcome,
-        @Argument @Nullable Long mcpServerId, @Argument @Nullable Long connectedUserId,
-        @Argument @Nullable Long integrationInstanceId, @Argument @Nullable Long fromDate,
-        @Argument @Nullable Long toDate, @Argument @Nullable Integer page) {
-
-        return toPage(
-            toolInvocationLogFacade.getToolInvocationLogs(
-                type, environmentId, toSurface(surface), toOutcome(outcome), mcpServerId, connectedUserId,
-                integrationInstanceId, toInstant(fromDate), toInstant(toDate), page == null ? 0 : page));
-    }
-
-    @QueryMapping(name = "workspaceToolInvocationLogs")
-    public ToolInvocationLogPage workspaceToolInvocationLogs(
-        @Argument PlatformType type, @Argument long workspaceId, @Argument long environmentId,
-        @Argument @Nullable String surface,
-        @Argument @Nullable String outcome, @Argument @Nullable Long mcpServerId,
+        @Argument @Nullable String surface, @Argument @Nullable String outcome, @Argument @Nullable Long mcpServerId,
         @Argument @Nullable Long connectedUserId, @Argument @Nullable Long integrationInstanceId,
         @Argument @Nullable Long fromDate, @Argument @Nullable Long toDate, @Argument @Nullable Integer page) {
 
-        return toPage(
-            toolInvocationLogFacade.getWorkspaceToolInvocationLogs(
-                type, workspaceId, environmentId, toSurface(surface), toOutcome(outcome), mcpServerId, connectedUserId,
-                integrationInstanceId, toInstant(fromDate), toInstant(toDate), page == null ? 0 : page));
-    }
+        Page<ToolInvocationLog> toolInvocationLogPage = toolInvocationLogService.getToolInvocationLogs(
+            toSurface(surface), toOutcome(outcome), mcpServerId, connectedUserId, integrationInstanceId,
+            toInstant(fromDate), toInstant(toDate), page == null ? 0 : page);
 
-    private static ToolInvocationLogPage toPage(Page<ToolInvocationLogDTO> toolInvocationLogPage) {
         List<ToolInvocationLogItem> content = toolInvocationLogPage.getContent()
             .stream()
             .map(ToolInvocationLogGraphQlController::toItem)

@@ -8,18 +8,19 @@
 package com.bytechef.ee.embedded.execution.public_.web.rest;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
-import com.bytechef.ee.embedded.execution.facade.ToolInvocationFacade;
+import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
+import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.ee.embedded.execution.public_.web.rest.model.EnvironmentModel;
 import com.bytechef.ee.embedded.execution.public_.web.rest.model.ToolInvocationKindModel;
 import com.bytechef.ee.embedded.execution.public_.web.rest.model.ToolInvocationModel;
 import com.bytechef.ee.embedded.execution.public_.web.rest.model.ToolInvocationOutcomeModel;
-import com.bytechef.ee.embedded.execution.public_.web.rest.model.ToolInvocationPageModel;
 import com.bytechef.ee.embedded.execution.public_.web.rest.model.ToolInvocationSurfaceModel;
-import com.bytechef.ee.platform.tool.invocation.log.domain.ToolInvocationLog;
+import com.bytechef.ee.platform.tool.invocation.log.ToolInvocationLog;
+import com.bytechef.ee.platform.tool.invocation.log.ToolInvocationLogService;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
-import com.bytechef.platform.tool.execution.ToolExecutionKind;
+import com.bytechef.platform.security.util.SecurityUtils;
 import com.bytechef.platform.tool.execution.ToolExecutionOutcome;
 import com.bytechef.platform.tool.execution.ToolExecutionSurface;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -33,91 +34,82 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
+ * Public read-only tool-invocation history endpoint of the embedded API. Results are always scoped to the connected
+ * user resolved from the authenticated principal, in the requested environment, and never carry tool input or output
+ * payloads.
+ *
  * @version ee
  *
  * @author Ivica Cardic
  */
-@RestController
+@RestController("com.bytechef.ee.embedded.execution.public_.web.rest.ToolInvocationApiController")
 @RequestMapping("${openapi.openAPIDefinition.base-path.embedded:}/v1")
 @ConditionalOnCoordinator
 @ConditionalOnEEVersion
 public class ToolInvocationApiController implements ToolInvocationApi {
 
+    private final ConnectedUserService connectedUserService;
     private final EnvironmentService environmentService;
-    private final ToolInvocationFacade toolInvocationFacade;
+    private final ToolInvocationLogService toolInvocationLogService;
 
-    @SuppressFBWarnings("EI")
+    @SuppressFBWarnings("EI2")
     public ToolInvocationApiController(
-        EnvironmentService environmentService, ToolInvocationFacade toolInvocationFacade) {
+        ConnectedUserService connectedUserService, EnvironmentService environmentService,
+        ToolInvocationLogService toolInvocationLogService) {
 
+        this.connectedUserService = connectedUserService;
         this.environmentService = environmentService;
-        this.toolInvocationFacade = toolInvocationFacade;
+        this.toolInvocationLogService = toolInvocationLogService;
     }
 
     @Override
-    public ResponseEntity<ToolInvocationPageModel> getToolInvocationsPage(
+    @SuppressWarnings({
+        "rawtypes", "unchecked"
+    })
+    public ResponseEntity<Page> getToolInvocationsPage(
         String externalUserId, @Nullable EnvironmentModel xEnvironment, @Nullable ToolInvocationSurfaceModel surface,
         @Nullable ToolInvocationOutcomeModel outcome, @Nullable OffsetDateTime startDate,
-        @Nullable OffsetDateTime endDate, @Nullable Integer pageNumber) {
+        @Nullable OffsetDateTime endDate, Integer pageNumber) {
+
+        SecurityUtils.checkCurrentUserLogin(externalUserId);
 
         Environment environment = environmentService.getEnvironment(xEnvironment == null ? null : xEnvironment.name());
 
-        Page<ToolInvocationLog> toolInvocationLogPage = toolInvocationFacade.getToolInvocations(
-            externalUserId, environment, surface == null ? null : ToolExecutionSurface.valueOf(surface.name()),
-            outcome == null ? null : ToolExecutionOutcome.valueOf(outcome.name()), toInstant(startDate),
-            toInstant(endDate), pageNumber == null ? 0 : pageNumber);
+        ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserId, environment);
 
-        return ResponseEntity.ok(toToolInvocationPageModel(toolInvocationLogPage));
+        Page<ToolInvocationLog> toolInvocationLogsPage = toolInvocationLogService.getToolInvocationLogs(
+            environment.ordinal(), surface == null ? null : ToolExecutionSurface.valueOf(surface.name()),
+            outcome == null ? null : ToolExecutionOutcome.valueOf(outcome.name()), null, connectedUser.getId(), null,
+            toInstant(startDate), toInstant(endDate), pageNumber == null ? 0 : pageNumber);
+
+        return ResponseEntity.ok(toolInvocationLogsPage.map(this::toModel));
     }
 
-    static ToolInvocationKindModel toToolInvocationKindModel(ToolExecutionKind kind) {
-        return ToolInvocationKindModel.valueOf(kind.name());
-    }
-
-    static ToolInvocationOutcomeModel toToolInvocationOutcomeModel(ToolExecutionOutcome outcome) {
-        return ToolInvocationOutcomeModel.valueOf(outcome.name());
-    }
-
-    static ToolInvocationSurfaceModel toToolInvocationSurfaceModel(ToolExecutionSurface surface) {
-        return ToolInvocationSurfaceModel.valueOf(surface.name());
-    }
-
-    private static ToolInvocationModel toToolInvocationModel(ToolInvocationLog toolInvocationLog) {
+    private ToolInvocationModel toModel(ToolInvocationLog toolInvocationLog) {
         return new ToolInvocationModel()
+            .id(toolInvocationLog.getId())
+            .surface(ToolInvocationSurfaceModel.valueOf(toolInvocationLog.getSurface()
+                .name()))
+            .kind(ToolInvocationKindModel.valueOf(toolInvocationLog.getKind()
+                .name()))
+            .toolName(toolInvocationLog.getToolName())
             .componentName(toolInvocationLog.getComponentName())
             .componentVersion(toolInvocationLog.getComponentVersion())
-            .createdDate(toOffsetDateTime(toolInvocationLog.getCreatedDate()))
-            .durationMs(toolInvocationLog.getDurationMs())
-            .errorMessage(toolInvocationLog.getErrorMessage())
-            .errorType(toolInvocationLog.getErrorType())
-            .id(toolInvocationLog.getId())
+            .operationName(toolInvocationLog.getOperationName())
             .integrationInstanceId(toolInvocationLog.getIntegrationInstanceId())
             .jobId(toolInvocationLog.getJobId())
-            .kind(toToolInvocationKindModel(toolInvocationLog.getKind()))
-            .operationName(toolInvocationLog.getOperationName())
-            .outcome(toToolInvocationOutcomeModel(toolInvocationLog.getOutcome()))
-            .surface(toToolInvocationSurfaceModel(toolInvocationLog.getSurface()))
-            .toolName(toolInvocationLog.getToolName());
+            .outcome(ToolInvocationOutcomeModel.valueOf(toolInvocationLog.getOutcome()
+                .name()))
+            .errorMessage(toolInvocationLog.getErrorMessage())
+            .durationMs(toolInvocationLog.getDurationMs())
+            .createdDate(toOffsetDateTime(toolInvocationLog.getCreatedDate()));
     }
 
-    private static ToolInvocationPageModel toToolInvocationPageModel(Page<ToolInvocationLog> toolInvocationLogPage) {
-        return new ToolInvocationPageModel()
-            .content(
-                toolInvocationLogPage.stream()
-                    .map(ToolInvocationApiController::toToolInvocationModel)
-                    .toList())
-            .number(toolInvocationLogPage.getNumber())
-            .numberOfElements(toolInvocationLogPage.getNumberOfElements())
-            .size(toolInvocationLogPage.getSize())
-            .totalElements(Math.toIntExact(toolInvocationLogPage.getTotalElements()))
-            .totalPages(toolInvocationLogPage.getTotalPages());
-    }
-
-    private static @Nullable Instant toInstant(@Nullable OffsetDateTime offsetDateTime) {
+    private @Nullable Instant toInstant(@Nullable OffsetDateTime offsetDateTime) {
         return offsetDateTime == null ? null : offsetDateTime.toInstant();
     }
 
-    private static @Nullable OffsetDateTime toOffsetDateTime(@Nullable Instant instant) {
+    private @Nullable OffsetDateTime toOffsetDateTime(@Nullable Instant instant) {
         return instant == null ? null : instant.atOffset(ZoneOffset.UTC);
     }
 }

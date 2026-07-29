@@ -42,4 +42,5 @@ dependencies {
     testImplementation(project(":server:ee:libs:platform:platform-tool-invocation-log:platform-tool-invocation-log-service"))
 
     testRuntimeOnly("org.postgresql:postgresql")
+    testRuntimeOnly(project(":server:ee:libs:platform:platform-code-workflow:platform-code-workflow-configuration:platform-code-workflow-configuration-service"))
 }
