@@ -23,5 +23,6 @@ public enum ToolExecutionOutcome {
 
     SUCCESS,
     ERROR,
+    CONNECTION_REQUIRED,
     TIMEOUT
 }

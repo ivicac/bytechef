@@ -29,14 +29,12 @@ import com.bytechef.automation.ai.mcp.service.WorkspaceMcpServerService;
 import com.bytechef.automation.configuration.security.AutomationAuthorizationContext;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.commons.util.CollectionUtils;
-import com.bytechef.config.ApplicationProperties;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.mcp.domain.McpComponent;
 import com.bytechef.platform.mcp.domain.McpServer;
-import com.bytechef.platform.mcp.domain.McpTool;
 import com.bytechef.platform.mcp.server.FilterableMcpAsyncServer;
 import com.bytechef.platform.mcp.server.FilterableMcpServerBuilder;
 import com.bytechef.platform.mcp.server.McpAppWorkflowViewer;
@@ -66,8 +64,6 @@ import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.annotation.web.HttpSecurityBuilder;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.web.servlet.function.RouterFunction;
 import org.springframework.web.servlet.function.ServerResponse;
 
@@ -108,19 +104,20 @@ public class AutomationMcpServerConfiguration {
         Evaluator evaluator, JobCompletionAwaiter jobCompletionAwaiter, McpComponentService mcpComponentService,
         McpProjectWorkflowService mcpProjectWorkflowService, McpServerService mcpServerService,
         PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
-        TaskExecutionService taskExecutionService, WorkflowService workflowService) {
+        TaskExecutionService taskExecutionService, ToolExecutionRecorder toolExecutionRecorder,
+        WorkflowService workflowService, WorkspaceMcpServerService workspaceMcpServerService) {
 
         return new AutomationMcpToolFacade(
             clusterElementDefinitionFacade, clusterElementDefinitionService, evaluator, jobCompletionAwaiter,
             mcpComponentService, mcpProjectWorkflowService, mcpServerService, principalJobFacade,
-            projectDeploymentWorkflowService, taskExecutionService, durableTaskFileStorage, workflowService);
+            projectDeploymentWorkflowService, taskExecutionService, durableTaskFileStorage, toolExecutionRecorder,
+            workflowService, workspaceMcpServerService);
     }
 
     @Bean
     FilterableMcpAsyncServer automationMcpAsyncServer(
-        ApplicationProperties applicationProperties, McpComponentService mcpComponentService,
-        McpProjectService mcpProjectService, McpServerService mcpServerService, McpToolService mcpToolService,
-        AutomationMcpToolFacade mcpToolFacade,
+        McpComponentService mcpComponentService, McpProjectService mcpProjectService,
+        McpServerService mcpServerService, McpToolService mcpToolService, AutomationMcpToolFacade mcpToolFacade,
         ObjectProvider<McpServerWorkspaceToolCallbackContributor> workspaceToolProviders,
         WorkspaceMcpServerService workspaceMcpServerService) {
 
@@ -133,8 +130,6 @@ public class AutomationMcpServerConfiguration {
                     .prompts(true)
                     .logging()
                     .build())
-            .resourceSpecifications(
-                McpAppWorkflowViewer.getResourceSpecifications(applicationProperties.getPublicUrl()))
             .toolFilter((exchange) -> {
                 McpTransportContext mcpTransportContext = exchange.transportContext();
 
@@ -173,14 +168,6 @@ public class AutomationMcpServerConfiguration {
             .toList();
     }
 
-    static boolean isUnscopedToolSourceAuthorized(McpServer mcpServer, Set<String> principalAuthorities) {
-        if (!mcpServer.isEnforceToolAuthorization()) {
-            return true;
-        }
-
-        return TOOL_AUTHORIZATION_EVALUATOR.isComponentAuthorized(principalAuthorities, Set.of());
-    }
-
     static List<McpServerFeatures.AsyncToolSpecification> buildToolSpecifications(
         String secretKey, Set<String> principalAuthorities, McpComponentService mcpComponentService,
         McpProjectService mcpProjectService, McpServerService mcpServerService, McpToolService mcpToolService,
@@ -196,14 +183,14 @@ public class AutomationMcpServerConfiguration {
 
         List<McpServerFeatures.AsyncToolSpecification> tools = new ArrayList<>();
 
-        mcpComponentService.getMcpServerMcpComponents(mcpServer.getId())
-            .stream()
-            .flatMap(
-                mcpComponent -> CollectionUtils.stream(
-                    mcpToolService.getMcpComponentMcpTools(mcpComponent.getId())))
-            .filter(McpTool::isEnabled)
-            .map(mcpTool -> McpToolUtils.toAsyncToolSpecification(mcpToolFacade.getFunctionToolCallback(mcpTool)))
-            .forEach(tools::add);
+        authorizedComponents(
+            mcpServer, mcpComponentService.getMcpServerMcpComponents(mcpServer.getId()), principalAuthorities)
+                .stream()
+                .flatMap(
+                    mcpComponent -> CollectionUtils.stream(
+                        mcpToolService.getMcpComponentMcpTools(mcpComponent.getId())))
+                .map(mcpTool -> McpToolUtils.toAsyncToolSpecification(mcpToolFacade.getFunctionToolCallback(mcpTool)))
+                .forEach(tools::add);
 
         if (!isUnscopedToolSourceAuthorized(mcpServer, principalAuthorities)) {
             return tools;
@@ -227,19 +214,5 @@ public class AutomationMcpServerConfiguration {
                 .forEach(tools::add));
 
         return tools;
-    }
-
-    @Bean
-    SecurityConfigurerContributor automationMcpServerSecurityConfigurerContributor(McpServerService mcpServerService) {
-        return new SecurityConfigurerContributor() {
-
-            @Override
-            @SuppressWarnings("unchecked")
-            public <T extends AbstractHttpConfigurer<T, B>, B extends HttpSecurityBuilder<B>> T
-                getSecurityConfigurerAdapter() {
-
-                return (T) new AutomationMcpServerSecurityConfigurer(mcpServerService);
-            }
-        };
     }
 }

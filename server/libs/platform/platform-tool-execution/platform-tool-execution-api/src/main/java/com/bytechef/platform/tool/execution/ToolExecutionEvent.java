@@ -19,13 +19,18 @@ package com.bytechef.platform.tool.execution;
 import org.jspecify.annotations.Nullable;
 
 /**
+ * An immutable record of a single direct tool/action execution. Carries identity and outcome metadata only — never the
+ * invocation's input parameters or output payload.
+ *
  * @author Ivica Cardic
  */
 public record ToolExecutionEvent(
-    ToolExecutionSurface surface, ToolExecutionKind kind, String toolName, @Nullable String componentName,
-    @Nullable Integer componentVersion, @Nullable String operationName, @Nullable Long connectionId,
-    @Nullable Long workspaceId, @Nullable Long mcpServerId, @Nullable Long jobId, ToolExecutionOutcome outcome,
-    @Nullable String errorType, @Nullable String errorMessage, long durationMs) {
+    @Nullable String tenantId, ToolExecutionSurface surface, ToolExecutionKind kind, String toolName,
+    @Nullable String componentName, @Nullable Integer componentVersion, @Nullable String operationName,
+    @Nullable Long connectionId, @Nullable Integer environment, @Nullable Long workspaceId,
+    @Nullable String externalUserId, @Nullable Long connectedUserId, @Nullable Long integrationInstanceId,
+    @Nullable Long mcpServerId, @Nullable Long jobId, ToolExecutionOutcome outcome, @Nullable String errorType,
+    @Nullable String errorMessage, long durationMs) {
 
     public static final int ERROR_MESSAGE_MAX_LENGTH = 512;
 
@@ -39,11 +44,16 @@ public record ToolExecutionEvent(
         private final ToolExecutionKind kind;
         private final String toolName;
 
+        private @Nullable String tenantId;
         private @Nullable String componentName;
         private @Nullable Integer componentVersion;
         private @Nullable String operationName;
         private @Nullable Long connectionId;
+        private @Nullable Integer environment;
         private @Nullable Long workspaceId;
+        private @Nullable String externalUserId;
+        private @Nullable Long connectedUserId;
+        private @Nullable Long integrationInstanceId;
         private @Nullable Long mcpServerId;
         private @Nullable Long jobId;
         private ToolExecutionOutcome outcome = ToolExecutionOutcome.SUCCESS;
@@ -55,6 +65,12 @@ public record ToolExecutionEvent(
             this.surface = surface;
             this.kind = kind;
             this.toolName = toolName;
+        }
+
+        public Builder tenantId(@Nullable String tenantId) {
+            this.tenantId = tenantId;
+
+            return this;
         }
 
         public Builder componentName(@Nullable String componentName) {
@@ -81,8 +97,32 @@ public record ToolExecutionEvent(
             return this;
         }
 
+        public Builder environment(@Nullable Integer environment) {
+            this.environment = environment;
+
+            return this;
+        }
+
         public Builder workspaceId(@Nullable Long workspaceId) {
             this.workspaceId = workspaceId;
+
+            return this;
+        }
+
+        public Builder externalUserId(@Nullable String externalUserId) {
+            this.externalUserId = externalUserId;
+
+            return this;
+        }
+
+        public Builder connectedUserId(@Nullable Long connectedUserId) {
+            this.connectedUserId = connectedUserId;
+
+            return this;
+        }
+
+        public Builder integrationInstanceId(@Nullable Long integrationInstanceId) {
+            this.integrationInstanceId = integrationInstanceId;
 
             return this;
         }
@@ -129,8 +169,9 @@ public record ToolExecutionEvent(
 
         public ToolExecutionEvent build() {
             return new ToolExecutionEvent(
-                surface, kind, toolName, componentName, componentVersion, operationName, connectionId, workspaceId,
-                mcpServerId, jobId, outcome, errorType, errorMessage, durationMs);
+                tenantId, surface, kind, toolName, componentName, componentVersion, operationName, connectionId,
+                environment, workspaceId, externalUserId, connectedUserId, integrationInstanceId, mcpServerId, jobId,
+                outcome, errorType, errorMessage, durationMs);
         }
     }
 }
