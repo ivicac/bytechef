@@ -152,6 +152,12 @@ public class WorkspaceMcpServerFacadeImpl implements WorkspaceMcpServerFacade {
 
     @Override
     @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_EDIT')")
+    public McpServer updateWorkspaceMcpServer(Long mcpServerId, String name, Boolean enabled) {
+        return mcpServerService.update(mcpServerId, name, enabled);
+    }
+
+    @Override
+    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_EDIT')")
     public void deleteWorkspaceMcpServer(Long mcpServerId) {
         for (McpProject mcpProject : mcpProjectService.getMcpServerMcpProjects(mcpServerId)) {
             mcpProjectFacade.deleteMcpProject(mcpProject.getId());
