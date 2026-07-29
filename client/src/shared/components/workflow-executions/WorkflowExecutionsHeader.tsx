@@ -5,13 +5,27 @@ import {Job, TriggerExecution} from '@/shared/middleware/platform/workflow/execu
 import {CheckIcon, LoaderCircleIcon} from 'lucide-react';
 import {ReactNode} from 'react';
 
+export interface WorkflowExecutionCostInfoI {
+    currency: string;
+    totalCost: number;
+}
+
 interface WorkflowExecutionsHeaderProps {
     actions?: ReactNode;
+    cost?: WorkflowExecutionCostInfoI;
     job?: Job;
     triggerExecution?: TriggerExecution;
 }
 
-const WorkflowExecutionsHeader = ({actions, job, triggerExecution}: WorkflowExecutionsHeaderProps) => {
+const formatCost = ({currency, totalCost}: WorkflowExecutionCostInfoI) =>
+    new Intl.NumberFormat(undefined, {
+        currency,
+        maximumFractionDigits: 6,
+        minimumFractionDigits: 2,
+        style: 'currency',
+    }).format(totalCost);
+
+const WorkflowExecutionsHeader = ({actions, cost, job, triggerExecution}: WorkflowExecutionsHeaderProps) => {
     const startTime = job?.startDate?.getTime();
     const endTime = job?.endDate?.getTime();
 
@@ -66,6 +80,8 @@ const WorkflowExecutionsHeader = ({actions, job, triggerExecution}: WorkflowExec
                 <span>Duration: {duration}ms</span>
 
                 <span>{`${taskExecutionsCount} task${taskExecutionsCount > 1 ? 's' : ''} executed`}</span>
+
+                {cost && <span>{`Cost: ${formatCost(cost)}`}</span>}
             </div>
 
             {actions && <div className="ml-auto flex items-center">{actions}</div>}

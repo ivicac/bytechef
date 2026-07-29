@@ -74,6 +74,7 @@ const config: CodegenConfig = {
         '../server/libs/platform/platform-mcp/platform-mcp-graphql/src/main/resources/graphql/*.graphqls',
         '../server/libs/automation/automation-ai/automation-ai-a2a/automation-ai-a2a-graphql/src/main/resources/graphql/*.graphqls',
         '../server/libs/automation/automation-ai/automation-ai-mcp/automation-ai-mcp-graphql/src/main/resources/graphql/*.graphqls',
+        '../server/libs/automation/automation-ai/automation-ai-a2a/automation-ai-a2a-graphql/src/main/resources/graphql/*.graphqls',
         '../server/libs/automation/automation-configuration/automation-configuration-graphql/src/main/resources/graphql/*.graphqls',
         '../server/ee/libs/automation/automation-configuration/automation-configuration-graphql/src/main/resources/graphql/*.graphqls',
         '../server/libs/automation/automation-search/automation-search-graphql/src/main/resources/graphql/*.graphqls',
@@ -105,6 +106,9 @@ const config: CodegenConfig = {
         '../server/ee/libs/licence/licence-graphql/src/main/resources/graphql/*.graphqls',
         '../server/ee/libs/automation/automation-context-store/automation-context-store-graphql/src/main/resources/graphql/*.graphqls',
         '../server/ee/libs/platform/platform-audit/platform-audit-graphql/src/main/resources/graphql/*.graphqls',
+        '../server/ee/libs/automation/automation-workflow-execution-cost/automation-workflow-execution-cost-graphql/src/main/resources/graphql/*.graphqls',
+        '../server/ee/libs/automation/automation-workflow-alert/automation-workflow-alert-graphql/src/main/resources/graphql/*.graphqls',
+        '../server/ee/libs/platform/platform-notification/platform-notification-workspace/src/main/resources/graphql/*.graphqls',
     ],
 };
 
