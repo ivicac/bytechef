@@ -30,7 +30,7 @@ import {authenticationStore} from '@/shared/stores/useAuthenticationStore';
 import {environmentStore} from '@/shared/stores/useEnvironmentStore';
 import {QueryClient} from '@tanstack/react-query';
 import {Suspense, lazy} from 'react';
-import {createBrowserRouter, redirect} from 'react-router-dom';
+import {Navigate, createBrowserRouter, redirect, useLocation} from 'react-router-dom';
 
 const App = lazy(() => import('@/App'));
 const AccountProfile = lazy(() => import('@/pages/account/settings/AccountProfile'));
@@ -77,7 +77,7 @@ const AiHubConnectorsPage = lazy(() => import('@/pages/automation/ai-hub/context
 const AiProviders = lazy(() => import('@/pages/settings/platform/ai-providers/AiProviders'));
 const ApiClients = lazy(() => import('@/ee/pages/automation/api-platform/api-clients/ApiClients'));
 const ApiCollections = lazy(() => import('@/ee/pages/automation/api-platform/api-collections/ApiCollections'));
-const ApiConnectors = lazy(() => import('@/ee/pages/settings/platform/api-connectors/ApiConnectors'));
+const Components = lazy(() => import('@/ee/pages/settings/platform/components/Components'));
 const ApiConnectorManualPage = lazy(
     () => import('@/ee/pages/settings/platform/api-connectors/pages/ApiConnectorManualPage')
 );
@@ -98,7 +98,6 @@ const AutomationWorkflows = lazy(() => import('@/ee/pages/embedded/automation-wo
 const AutomationWorkflow = lazy(() => import('@/ee/pages/embedded/automation-workflow/AutomationWorkflow'));
 const ConnectedUsers = lazy(() => import('@/ee/pages/embedded/connected-users/ConnectedUsers'));
 const ComponentPolicies = lazy(() => import('@/ee/pages/settings/platform/component-policies/ComponentPolicies'));
-const CustomComponents = lazy(() => import('@/ee/pages/settings/platform/custom-components/CustomComponents'));
 const CustomComponentDetail = lazy(
     () => import('@/ee/pages/settings/platform/custom-components/CustomComponentDetail')
 );
@@ -245,6 +244,21 @@ const currentWorkspaceSettingsRoutes = {
     ],
 };
 
+// Legacy settings paths kept as redirects into the merged Components page. Location-based rewrites so the
+// same redirect works under both the /automation/settings and /embedded/settings mounts and preserves any
+// suffix (detail ids, wizard subpaths).
+const LegacyCustomComponentsRedirect = () => {
+    const location = useLocation();
+
+    return <Navigate replace to={location.pathname.replace('/custom-components', '/components/custom')} />;
+};
+
+const LegacyApiConnectorsRedirect = () => {
+    const location = useLocation();
+
+    return <Navigate replace to={location.pathname.replace('/api-connectors', '/components/api-connectors')} />;
+};
+
 const organizationSettingsNavItem = {
     title: 'Organization',
 };
@@ -339,16 +353,20 @@ const platformSettingsRoutes = {
         {
             children: [
                 {
+                    element: <Navigate replace to="custom" />,
+                    index: true,
+                },
+                {
                     element: (
                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                             <EEVersion>
                                 <LazyLoadWrapper>
-                                    <CustomComponents />
+                                    <Components tab="custom" />
                                 </LazyLoadWrapper>
                             </EEVersion>
                         </PrivateRoute>
                     ),
-                    index: true,
+                    path: 'custom',
                 },
                 {
                     element: (
@@ -360,24 +378,19 @@ const platformSettingsRoutes = {
                             </EEVersion>
                         </PrivateRoute>
                     ),
-                    path: ':id',
+                    path: 'custom/:id',
                 },
-            ],
-            path: 'custom-components',
-        },
-        {
-            children: [
                 {
                     element: (
                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                             <EEVersion>
                                 <LazyLoadWrapper>
-                                    <ApiConnectors />
+                                    <Components tab="api-connectors" />
                                 </LazyLoadWrapper>
                             </EEVersion>
                         </PrivateRoute>
                     ),
-                    index: true,
+                    path: 'api-connectors',
                 },
                 {
                     element: (
@@ -389,7 +402,7 @@ const platformSettingsRoutes = {
                             </EEVersion>
                         </PrivateRoute>
                     ),
-                    path: 'new/manual',
+                    path: 'api-connectors/new/manual',
                 },
                 {
                     element: (
@@ -401,7 +414,7 @@ const platformSettingsRoutes = {
                             </EEVersion>
                         </PrivateRoute>
                     ),
-                    path: 'new/import',
+                    path: 'api-connectors/new/import',
                 },
                 {
                     element: (
@@ -413,9 +426,25 @@ const platformSettingsRoutes = {
                             </EEVersion>
                         </PrivateRoute>
                     ),
-                    path: 'new/ai',
+                    path: 'api-connectors/new/ai',
                 },
             ],
+            path: 'components',
+        },
+        {
+            element: <LegacyCustomComponentsRedirect />,
+            path: 'custom-components/*',
+        },
+        {
+            element: <LegacyCustomComponentsRedirect />,
+            path: 'custom-components',
+        },
+        {
+            element: <LegacyApiConnectorsRedirect />,
+            path: 'api-connectors/*',
+        },
+        {
+            element: <LegacyApiConnectorsRedirect />,
             path: 'api-connectors',
         },
         {
@@ -524,12 +553,8 @@ const platformSettingsRoutes = {
             title: 'Component Policies',
         },
         {
-            href: 'custom-components',
-            title: 'Custom Components',
-        },
-        {
-            href: `api-connectors`,
-            title: 'API Connectors',
+            href: 'components',
+            title: 'Components',
         },
         {
             href: 'notifications',
