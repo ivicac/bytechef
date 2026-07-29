@@ -20,6 +20,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -27,8 +28,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.execution.domain.Job;
+import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
+import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.commons.util.EncodingUtils;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.platform.component.constant.MetadataConstants;
@@ -38,6 +41,8 @@ import com.bytechef.platform.workflow.execution.facade.JobResumeFacade.JobResume
 import com.bytechef.platform.workflow.execution.token.ApprovalTokens;
 import com.bytechef.platform.workflow.execution.token.ApprovalTokensImpl;
 import com.bytechef.tenant.TenantContext;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -49,6 +54,7 @@ import java.util.function.LongConsumer;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -84,7 +90,11 @@ class JobResumeFacadeTest {
     @Mock
     private JobService jobService;
 
+    @Mock
+    private TaskExecutionService taskExecutionService;
+
     private JobResumeFacadeImpl jobResumeFacade;
+    private SimpleMeterRegistry meterRegistry;
 
     private final List<String> transactionTenantIds = new ArrayList<>();
 
@@ -107,9 +117,9 @@ class JobResumeFacadeTest {
 
     @BeforeEach
     void setUp() {
-        jobResumeFacade = new JobResumeFacadeImpl(
-            applicationEventPublisher, approvalTokensProvider(approvalTokens), jobFacade, jobService,
-            transactionOperations);
+        meterRegistry = new SimpleMeterRegistry();
+
+        jobResumeFacade = createJobResumeFacade(approvalTokensProvider(approvalTokens));
     }
 
     @Test
@@ -152,9 +162,8 @@ class JobResumeFacadeTest {
         ApprovalTokens requiredApprovalTokens = new ApprovalTokensImpl(
             Clock.systemUTC(), SIGNING_SECRET, List.of(), Duration.ofHours(1), Duration.ofSeconds(30), true);
 
-        JobResumeFacadeImpl requiredJobResumeFacade = new JobResumeFacadeImpl(
-            applicationEventPublisher, approvalTokensProvider(requiredApprovalTokens), jobFacade, jobService,
-            transactionOperations);
+        JobResumeFacadeImpl requiredJobResumeFacade =
+            createJobResumeFacade(approvalTokensProvider(requiredApprovalTokens));
 
         JobResumeOutcome outcome = requiredJobResumeFacade.resumeJob(JobResumeId.of(JOB_ID)
             .toString(), Map.of());
@@ -169,9 +178,8 @@ class JobResumeFacadeTest {
         ApprovalTokens requiredApprovalTokens = new ApprovalTokensImpl(
             Clock.systemUTC(), SIGNING_SECRET, List.of(), Duration.ofHours(1), Duration.ofSeconds(30), true);
 
-        JobResumeFacadeImpl requiredJobResumeFacade = new JobResumeFacadeImpl(
-            applicationEventPublisher, approvalTokensProvider(requiredApprovalTokens), jobFacade, jobService,
-            transactionOperations);
+        JobResumeFacadeImpl requiredJobResumeFacade =
+            createJobResumeFacade(approvalTokensProvider(requiredApprovalTokens));
 
         JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
 
@@ -184,8 +192,7 @@ class JobResumeFacadeTest {
 
     @Test
     void testResumeJobAcceptsRawTokenWhenApprovalTokensAbsent() {
-        JobResumeFacadeImpl unsignedJobResumeFacade = new JobResumeFacadeImpl(
-            applicationEventPublisher, approvalTokensProvider(null), jobFacade, jobService, transactionOperations);
+        JobResumeFacadeImpl unsignedJobResumeFacade = createJobResumeFacade(approvalTokensProvider(null));
 
         JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
 
@@ -356,6 +363,135 @@ class JobResumeFacadeTest {
         inOrder.verify(jobFacade)
             .resumeJob(JOB_ID, TASK_EXECUTION_ID, data);
         verify(applicationEventPublisher).publishEvent(any(JobResumedEvent.class));
+
+        // No "approved" key (ask-user-question style resume) -> no approval-resolution counter.
+        assertThat(meterRegistry.find("bytechef_approval_resolution")
+            .counter()).isNull();
+    }
+
+    @Test
+    public void testResumeJobCountsApprovalResolution() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(
+            jobResumeId.toString(), Map.of("approved", false, "comment", "not now"));
+
+        assertThat(outcome).isEqualTo(JobResumeOutcome.OK);
+
+        assertThat(meterRegistry.counter("bytechef_approval_resolution", "approved", "false")
+            .count()).isEqualTo(1.0);
+    }
+
+    @Test
+    public void testResumeJobWithNullDataDoesNotThrow() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+
+        // A GET or body-less POST to /job/resume passes null data; it must normalize to an empty map, not NPE inside
+        // the transaction (which would roll back an already-accepted resume).
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(jobResumeId.toString(), null);
+
+        assertThat(outcome).isEqualTo(JobResumeOutcome.OK);
+
+        verify(jobFacade).resumeJob(eq(JOB_ID), eq(TASK_EXECUTION_ID), anyMap());
+    }
+
+    @Test
+    public void testResumeJobStampsVerifiedApprovedBy() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(
+            jobResumeId.toString(), Map.of("approved", true), "@jane");
+
+        assertThat(outcome).isEqualTo(JobResumeOutcome.OK);
+
+        ArgumentCaptor<Map<String, Object>> dataCaptor = ArgumentCaptor.captor();
+
+        verify(jobFacade).resumeJob(eq(JOB_ID), eq(TASK_EXECUTION_ID), dataCaptor.capture());
+
+        assertThat(dataCaptor.getValue()).containsEntry("approvedBy", "@jane");
+    }
+
+    @Test
+    public void testResumeJobStripsSpoofedApprovedByWhenNoVerifiedIdentity() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(
+            jobResumeId.toString(), Map.of("approved", true, "approvedBy", "@attacker"));
+
+        assertThat(outcome).isEqualTo(JobResumeOutcome.OK);
+
+        ArgumentCaptor<Map<String, Object>> dataCaptor = ArgumentCaptor.captor();
+
+        verify(jobFacade).resumeJob(eq(JOB_ID), eq(TASK_EXECUTION_ID), dataCaptor.capture());
+
+        assertThat(dataCaptor.getValue()).doesNotContainKey("approvedBy");
+    }
+
+    @Test
+    public void testResumeJobReturnsGoneWhenSuspendExpired() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+
+        TaskExecution taskExecution = new TaskExecution();
+
+        taskExecution.putMetadata(
+            "suspend",
+            Map.of("expiresAt", java.time.Instant.now()
+                .minusSeconds(60)
+                .toEpochMilli()));
+
+        when(taskExecutionService.getTaskExecution(TASK_EXECUTION_ID)).thenReturn(taskExecution);
+
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(jobResumeId.toString(), Map.of("approved", true));
+
+        assertThat(outcome).isEqualTo(JobResumeOutcome.GONE);
+
+        verify(jobFacade, never()).resumeJob(anyLong(), anyLong(), anyMap());
+
+        assertThat(meterRegistry.counter("bytechef_approval_expired", "source", "resume")
+            .count()).isEqualTo(1.0);
+    }
+
+    @Test
+    public void testResumeJobProceedsWhenSuspendNotExpired() {
+        JobResumeId jobResumeId = JobResumeId.of(JOB_ID);
+
+        Job job = jobOf(Job.Status.STOPPED, jobResumeId.toString());
+
+        when(jobService.getJob(JOB_ID)).thenReturn(job);
+
+        TaskExecution taskExecution = new TaskExecution();
+
+        taskExecution.putMetadata(
+            "suspend",
+            Map.of("expiresAt", java.time.Instant.now()
+                .plusSeconds(3600)
+                .toEpochMilli()));
+
+        when(taskExecutionService.getTaskExecution(TASK_EXECUTION_ID)).thenReturn(taskExecution);
+
+        JobResumeOutcome outcome = jobResumeFacade.resumeJob(jobResumeId.toString(), Map.of("approved", true));
+
+        assertThat(outcome).isEqualTo(JobResumeOutcome.OK);
     }
 
     @Test
@@ -727,6 +863,16 @@ class JobResumeFacadeTest {
 
     private static String encodeToken(String tenantId, long jobId, UUID uuid) {
         return EncodingUtils.base64EncodeToString(tenantId + ":" + jobId + ":" + uuid);
+    }
+
+    private JobResumeFacadeImpl createJobResumeFacade(ObjectProvider<ApprovalTokens> approvalTokensProvider) {
+        StaticListableBeanFactory beanFactory = new StaticListableBeanFactory();
+
+        beanFactory.addBean("meterRegistry", meterRegistry);
+
+        return new JobResumeFacadeImpl(
+            applicationEventPublisher, approvalTokensProvider, jobFacade, jobService,
+            beanFactory.getBeanProvider(MeterRegistry.class), taskExecutionService, transactionOperations);
     }
 
     private static ObjectProvider<ApprovalTokens> approvalTokensProvider(ApprovalTokens approvalTokens) {

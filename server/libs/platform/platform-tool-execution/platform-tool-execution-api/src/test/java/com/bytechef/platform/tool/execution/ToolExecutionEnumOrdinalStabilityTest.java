@@ -35,7 +35,8 @@ class ToolExecutionEnumOrdinalStabilityTest {
             .map(Enum::name)
             .toList())
                 .containsExactly(
-                    "MCP_AUTOMATION", "MCP_EMBEDDED", "MCP_MANAGEMENT", "EMBEDDED_API_ACTION", "EMBEDDED_API_TOOL");
+                    "MCP_AUTOMATION", "AI_AGENT", "MCP_EMBEDDED", "MCP_MANAGEMENT", "EMBEDDED_API_ACTION",
+                    "EMBEDDED_API_TOOL");
     }
 
     @Test
@@ -51,6 +52,7 @@ class ToolExecutionEnumOrdinalStabilityTest {
         assertThat(Arrays.stream(ToolExecutionOutcome.values())
             .map(Enum::name)
             .toList())
-                .containsExactly("SUCCESS", "ERROR", "TIMEOUT", "CONNECTION_REQUIRED");
+                .containsExactly(
+                    "SUCCESS", "ERROR", "TIMEOUT", "APPROVAL_DENIED", "APPROVAL_REQUIRED", "CONNECTION_REQUIRED");
     }
 }

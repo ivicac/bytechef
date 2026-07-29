@@ -7,7 +7,6 @@ dependencies {
 
     implementation(project(":server:libs:modules:components:ai:llm"))
     implementation(project(":server:libs:platform:platform-ai:platform-ai-api"))
-
     testImplementation("io.micrometer:micrometer-tracing")
     testImplementation("org.awaitility:awaitility")
     testImplementation(project(":server:libs:atlas:atlas-coordinator:atlas-coordinator-api"))
@@ -29,4 +28,5 @@ dependencies {
     testImplementation(project(":server:libs:platform:platform-job-sync"))
     testImplementation(project(":server:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-api"))
     testImplementation(project(":server:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-service"))
+    implementation(project(":server:libs:platform:platform-tool-execution:platform-tool-execution-api"))
 }

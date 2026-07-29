@@ -197,7 +197,7 @@ class ApprovalElicitingToolSpecificationsTest {
 
         McpSchema.CallToolResult result = call(pendingApprovalResult());
 
-        verify(exchange, times(3)).createElicitation(any());
+        verify(exchange, org.mockito.Mockito.times(3)).createElicitation(any());
 
         assertThat(firstText(result)).contains("approval_required");
     }

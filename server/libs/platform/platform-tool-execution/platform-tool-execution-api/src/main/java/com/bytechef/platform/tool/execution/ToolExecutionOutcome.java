@@ -24,5 +24,7 @@ public enum ToolExecutionOutcome {
     SUCCESS,
     ERROR,
     TIMEOUT,
+    APPROVAL_DENIED,
+    APPROVAL_REQUIRED,
     CONNECTION_REQUIRED
 }
