@@ -74,20 +74,17 @@ public class ListMcpProjectWorkflowsToolCallback implements ToolCallback {
     private final McpProjectWorkflowService mcpProjectWorkflowService;
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
     private final WorkflowService workflowService;
-    private final WorkspaceMcpServerFacade workspaceMcpServerFacade;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public ListMcpProjectWorkflowsToolCallback(
         McpProjectService mcpProjectService, McpProjectWorkflowService mcpProjectWorkflowService,
-        ProjectDeploymentWorkflowService projectDeploymentWorkflowService, WorkflowService workflowService,
-        WorkspaceMcpServerFacade workspaceMcpServerFacade) {
+        ProjectDeploymentWorkflowService projectDeploymentWorkflowService, WorkflowService workflowService) {
 
         this.mcpProjectService = mcpProjectService;
         this.mcpProjectWorkflowService = mcpProjectWorkflowService;
         this.projectDeploymentWorkflowService = projectDeploymentWorkflowService;
         this.workflowService = workflowService;
-        this.workspaceMcpServerFacade = workspaceMcpServerFacade;
     }
 
     @Override
@@ -109,29 +106,13 @@ public class ListMcpProjectWorkflowsToolCallback implements ToolCallback {
         try {
             ListMcpProjectWorkflowsInput input = jsonMapper.readValue(toolInput, ListMcpProjectWorkflowsInput.class);
 
-            Long mcpServerId = input.mcpServerId();
-
-            if (mcpServerId == null) {
+            if (input.mcpServerId() == null) {
                 return ToolErrors.toolError(jsonMapper, "mcpServerId is required");
-            }
-
-            AutomationToolInvocationContext context = AutomationToolInvocationContext.fromToolContext(toolContext);
-
-            Long workspaceId = context == null ? null : context.workspaceId();
-
-            if (workspaceId == null) {
-                return ToolErrors.toolError(
-                    jsonMapper, "Workspace context unavailable — open this chat from the AI Hub of a workspace.");
-            }
-
-            if (!isWorkspaceMcpServer(workspaceId, mcpServerId)) {
-                return ToolErrors.toolError(
-                    jsonMapper, "MCP server " + mcpServerId + " not found in the current workspace");
             }
 
             List<McpProjectWorkflowSummary> summaries = new ArrayList<>();
 
-            for (McpProject mcpProject : mcpProjectService.getMcpServerMcpProjects(mcpServerId)) {
+            for (McpProject mcpProject : mcpProjectService.getMcpServerMcpProjects(input.mcpServerId())) {
                 for (McpProjectWorkflow mcpProjectWorkflow : mcpProjectWorkflowService.getMcpProjectMcpProjectWorkflows(
                     mcpProject.getId())) {
 
@@ -148,13 +129,6 @@ public class ListMcpProjectWorkflowsToolCallback implements ToolCallback {
             return ToolErrors.runtimeFailure(
                 jsonMapper, ListMcpProjectWorkflowsToolCallback.class, TOOL_NAME, exception);
         }
-    }
-
-    private boolean isWorkspaceMcpServer(long workspaceId, long mcpServerId) {
-        List<McpServer> workspaceMcpServers = workspaceMcpServerFacade.getWorkspaceMcpServers(workspaceId);
-
-        return workspaceMcpServers.stream()
-            .anyMatch(mcpServer -> Objects.equals(mcpServer.getId(), mcpServerId));
     }
 
     private McpProjectWorkflowSummary toSummary(McpProject mcpProject, McpProjectWorkflow mcpProjectWorkflow) {
