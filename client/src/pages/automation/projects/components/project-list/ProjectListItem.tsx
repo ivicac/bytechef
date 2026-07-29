@@ -27,6 +27,7 @@ import ProjectPublishDialog from '@/pages/automation/projects/components/Project
 import ProjectListItemDeployButton from '@/pages/automation/projects/components/project-list/ProjectListItemDeployButton';
 import ProjectListItemPublishMenuItem from '@/pages/automation/projects/components/project-list/ProjectListItemPublishMenuItem';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
+import GenerateWorkflowDialog from '@/shared/components/workflow/GenerateWorkflowDialog';
 import WorkflowDialog from '@/shared/components/workflow/WorkflowDialog';
 import EEVersion from '@/shared/edition/EEVersion';
 import {useAnalytics} from '@/shared/hooks/useAnalytics';
@@ -55,6 +56,7 @@ import {
     LoaderCircleIcon,
     PlusIcon,
     Share2Icon,
+    SparklesIcon,
     Trash2Icon,
     UploadIcon,
     WorkflowIcon,
@@ -79,6 +81,7 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
     const [showProjectShareDialog, setShowProjectShareDialog] = useState(false);
     const [showPublishProjectDialog, setShowPublishProjectDialog] = useState(false);
     const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
+    const [showGenerateWorkflowDialog, setShowGenerateWorkflowDialog] = useState(false);
 
     const hiddenFileInputRef = useRef<HTMLInputElement>(null);
     const converterHiddenFileInputRef = useRef<HTMLInputElement>(null);
@@ -344,6 +347,18 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
                                         </DropdownMenuTrigger>
 
                                         <DropdownMenuContent align="end">
+                                            <DropdownMenuItem
+                                                aria-label="Generate Workflow with AI"
+                                                className="dropdown-menu-item"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+
+                                                    setShowGenerateWorkflowDialog(true);
+                                                }}
+                                            >
+                                                <SparklesIcon /> Generate with AI
+                                            </DropdownMenuItem>
+
                                             <DropdownMenuItem
                                                 aria-label="Create Workflow from Template"
                                                 icon={<LayoutTemplateIcon />}
@@ -626,6 +641,10 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
                     parentId={project.id}
                     useGetWorkflowQuery={useGetWorkflowQuery}
                 />
+            )}
+
+            {showGenerateWorkflowDialog && project.id != null && (
+                <GenerateWorkflowDialog onClose={() => setShowGenerateWorkflowDialog(false)} projectId={project.id} />
             )}
 
             <input
