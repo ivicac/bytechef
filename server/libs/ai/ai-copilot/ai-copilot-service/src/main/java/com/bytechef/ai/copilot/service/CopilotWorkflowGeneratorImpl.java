@@ -70,7 +70,9 @@ public class CopilotWorkflowGeneratorImpl implements CopilotWorkflowGenerator {
 
     @Override
     public void generateWorkflow(
-        String workflowId, String prompt, @Nullable String systemPrompt, Set<String> allowedComponentNames) {
+        String workflowId, String prompt, @Nullable String systemPrompt, Set<String> allowedComponentNames,
+        int environmentId) {
+
         String agentId = (Source.WORKFLOW_EDITOR.name() + "_" + Mode.BUILD.name()).toLowerCase();
 
         LocalAgent localAgent = localAgentMap.get(agentId);
@@ -84,6 +86,8 @@ public class CopilotWorkflowGeneratorImpl implements CopilotWorkflowGenerator {
         stateMap.put("workflowId", workflowId);
         stateMap.put("mode", Mode.BUILD.name());
         stateMap.put("autonomous", true);
+
+        stateMap.put(CopilotConstants.STATE_ENVIRONMENT_ID, (long) environmentId);
 
         stateMap.put(CopilotConstants.STATE_TENANT_ID, TenantContext.getCurrentTenantId());
 
