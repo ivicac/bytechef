@@ -63,6 +63,12 @@ public final class Project {
     @Column
     private String description;
 
+    @Column("error_project_workflow_id")
+    private Long errorProjectWorkflowId;
+
+    @Column("permission_expression")
+    private String permissionExpression;
+
     @Id
     private Long id;
 
@@ -149,6 +155,15 @@ public final class Project {
 
     public String getDescription() {
         return description;
+    }
+
+    @Nullable
+    public Long getErrorProjectWorkflowId() {
+        return errorProjectWorkflowId;
+    }
+
+    public String getPermissionExpression() {
+        return permissionExpression;
     }
 
     public Long getId() {
@@ -247,6 +262,14 @@ public final class Project {
 
     public void setDescription(String description) {
         this.description = description;
+    }
+
+    public void setErrorProjectWorkflowId(@Nullable Long errorProjectWorkflowId) {
+        this.errorProjectWorkflowId = errorProjectWorkflowId;
+    }
+
+    public void setPermissionExpression(String permissionExpression) {
+        this.permissionExpression = permissionExpression;
     }
 
     public void setId(Long id) {

@@ -275,4 +275,26 @@ public class ProjectWorkflowServiceImpl implements ProjectWorkflowService {
         return savedProjectWorkflow;
     }
 
+    @Override
+    public ProjectWorkflow updateErrorWorkflow(
+        long id, @Nullable Long errorProjectWorkflowId, boolean errorWorkflowDisabled) {
+
+        ProjectWorkflow projectWorkflow = projectWorkflowRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("ProjectWorkflow not found"));
+
+        projectWorkflow.setErrorProjectWorkflowId(errorProjectWorkflowId);
+        projectWorkflow.setErrorWorkflowDisabled(errorWorkflowDisabled);
+
+        return projectWorkflowRepository.save(projectWorkflow);
+    }
+
+    @Override
+    public ProjectWorkflow updatePermissionExpression(long id, @Nullable String permissionExpression) {
+        ProjectWorkflow projectWorkflow = projectWorkflowRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("ProjectWorkflow not found"));
+
+        projectWorkflow.setPermissionExpression(permissionExpression);
+
+        return projectWorkflowRepository.save(projectWorkflow);
+    }
 }
