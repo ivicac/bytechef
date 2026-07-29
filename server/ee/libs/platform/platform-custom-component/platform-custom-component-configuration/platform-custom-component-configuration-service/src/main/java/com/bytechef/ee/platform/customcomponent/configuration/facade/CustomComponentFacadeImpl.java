@@ -27,11 +27,14 @@ import com.bytechef.platform.audit.Audited;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URI;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import org.springframework.cache.CacheManager;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -64,6 +67,58 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         this.javaEnabled = applicationProperties.getComponent()
             .getCustomComponent()
             .isJavaEnabled();
+    }
+
+    @Override
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    public CustomComponent createEmptyCustomComponent(String name, Language language) {
+        if (name == null || name.isBlank() || name.indexOf('"') >= 0 || name.indexOf('\\') >= 0
+            || name.indexOf('\n') >= 0 || name.indexOf('\r') >= 0) {
+            throw new ConfigurationException(
+                "Invalid component name: must not be blank or contain quotes, backslashes, or newlines",
+                CustomComponentErrorType.INVALID_COMPONENT_NAME);
+        }
+
+        if (language != Language.JAVASCRIPT) {
+            throw new ConfigurationException(
+                "Create-empty currently supports JavaScript only",
+                CustomComponentErrorType.LANGUAGE_NOT_SUPPORTED);
+        }
+
+        if (customComponentService.fetchCustomComponent(name, 1)
+            .isPresent()) {
+            throw new ConfigurationException(
+                "A custom component named '" + name + "' already exists",
+                CustomComponentErrorType.COMPONENT_ALREADY_EXISTS);
+        }
+
+        String template = readTemplate(language).replace("__NAME__", name);
+
+        byte[] bytes = template.getBytes(StandardCharsets.UTF_8);
+
+        try {
+            ComponentDefinition componentDefinition = loadComponentDefinition(language, bytes);
+
+            FileEntry componentFileEntry = customComponentFileStorage.storeCustomComponentFile(
+                componentDefinition.getName() + "_" + componentDefinition.getVersion() + "."
+                    + language.getExtension(),
+                bytes);
+
+            CustomComponent customComponent = new CustomComponent();
+
+            customComponent.setComponentVersion(componentDefinition.getVersion());
+            customComponent.setComponent(componentFileEntry);
+            customComponent.setDescription(OptionalUtils.orElse(componentDefinition.getDescription(), null));
+            customComponent.setEnabled(true);
+            customComponent.setIcon(OptionalUtils.orElse(componentDefinition.getIcon(), null));
+            customComponent.setName(componentDefinition.getName());
+            customComponent.setTitle(OptionalUtils.orElse(componentDefinition.getTitle(), null));
+            customComponent.setLanguage(language);
+
+            return customComponentService.create(customComponent);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
     }
 
     @Override
@@ -110,6 +165,20 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         return customComponentService.getCustomComponents();
     }
 
+    @Transactional(readOnly = true)
+    @Override
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    public String getCustomComponentSource(long id) {
+        CustomComponent customComponent = customComponentService.getCustomComponent(id);
+
+        if (customComponent.getLanguage() == Language.JAVA) {
+            throw new ConfigurationException(
+                "Java custom components have no editable source", CustomComponentErrorType.JAVA_SOURCE_NOT_EDITABLE);
+        }
+
+        return customComponentFileStorage.readCustomComponentFileContent(customComponent.getComponent());
+    }
+
     @Override
     @Audited(event = CustomComponentAuditEvents.CUSTOM_COMPONENT_SAVED, data = {
         @AuditData(key = "customComponentId", value = "#result?.id"),
@@ -142,7 +211,44 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         }
     }
 
-    private CustomComponent create(
+    @Override
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    public void updateCustomComponentSource(long id, String content) {
+        CustomComponent customComponent = customComponentService.getCustomComponent(id);
+
+        Language language = customComponent.getLanguage();
+
+        if (language == Language.JAVA) {
+            throw new ConfigurationException(
+                "Java custom components have no editable source", CustomComponentErrorType.JAVA_SOURCE_NOT_EDITABLE);
+        }
+
+        byte[] bytes = content.getBytes(StandardCharsets.UTF_8);
+
+        try {
+            ComponentDefinition componentDefinition = loadComponentDefinition(language, bytes);
+
+            if (!Objects.equals(componentDefinition.getName(), customComponent.getName())) {
+                throw new ConfigurationException(
+                    "Renaming a component by editing its source is not supported (expected name '"
+                        + customComponent.getName() + "')",
+                    CustomComponentErrorType.SOURCE_RENAME_UNSUPPORTED);
+            }
+
+            FileEntry componentFileEntry = customComponentFileStorage.storeCustomComponentFile(
+                componentDefinition.getName() + "_" + componentDefinition.getVersion() + "."
+                    + language.getExtension(),
+                bytes);
+
+            customComponent.setComponent(componentFileEntry);
+
+            update(customComponent, componentDefinition);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    private void create(
         Language language, ComponentDefinition componentDefinition, int componentVersion,
         FileEntry componentFileEntry) {
 
@@ -179,6 +285,22 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
             return componentHandler.getDefinition();
         } finally {
             Files.delete(path);
+        }
+    }
+
+    private static String readTemplate(Language language) {
+        String resource = "custom-component-templates/starter." + language.getExtension();
+
+        try (InputStream inputStream =
+            CustomComponentFacadeImpl.class.getClassLoader()
+                .getResourceAsStream(resource)) {
+            if (inputStream == null) {
+                throw new IllegalStateException("Missing starter template: " + resource);
+            }
+
+            return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+        } catch (IOException e) {
+            throw new RuntimeException(e);
         }
     }
 
