@@ -14,6 +14,7 @@ import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
@@ -37,22 +38,27 @@ public class ConnectionIdHelper {
         this.integrationInstanceService = integrationInstanceService;
     }
 
-    public Long getConnectionId(String externalUserid, String componentName, Long instanceId, Environment environment) {
+    /**
+     * Resolves the connected user behind {@code externalUserId} in the environment and the connection the call runs
+     * with: the given integration instance's, which must belong to that connected user, or else the connection of the
+     * connected user's instance of the component, if any.
+     */
+    public ConnectedUserConnection getConnectedUserConnection(
+        String externalUserId, String componentName, @Nullable Long instanceId, Environment environment) {
+
+        ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserId, environment);
+
+        Long connectedUserId = connectedUser.getId();
+
         Long connectionId;
 
         if (instanceId == null) {
-            ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserid, environment);
-
             connectionId = integrationInstanceService
-                .fetchIntegrationInstance(connectedUser.getId(), componentName, environment)
+                .fetchIntegrationInstance(connectedUserId, componentName, environment)
                 .map(IntegrationInstance::getConnectionId)
                 .orElse(null);
         } else {
-            ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserid, environment);
-
             IntegrationInstance integrationInstance = integrationInstanceService.getIntegrationInstance(instanceId);
-
-            Long connectedUserId = connectedUser.getId();
 
             if (!connectedUserId.equals(integrationInstance.getConnectedUserId())) {
                 throw new AccessDeniedException(
@@ -62,6 +68,9 @@ public class ConnectionIdHelper {
             connectionId = integrationInstance.getConnectionId();
         }
 
-        return connectionId;
+        return new ConnectedUserConnection(connectedUserId, connectionId);
+    }
+
+    public record ConnectedUserConnection(long connectedUserId, @Nullable Long connectionId) {
     }
 }
