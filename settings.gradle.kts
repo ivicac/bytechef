@@ -806,6 +806,7 @@ include("server:ee:libs:platform:platform-data-storage:platform-data-storage-jdb
 include("server:ee:libs:platform:platform-data-storage:platform-data-storage-jdbc:platform-data-storage-jdbc-remote-client")
 include("server:ee:libs:platform:platform-data-table:platform-data-table-remote-client")
 include("server:ee:libs:platform:platform-notification:platform-notification-remote-client")
+include("server:ee:libs:platform:platform-notification:platform-notification-remote-rest")
 include("server:ee:libs:platform:platform-notification:platform-notification-workspace")
 include("server:ee:libs:platform:platform-resource-grant:platform-resource-grant-api")
 include("server:ee:libs:platform:platform-resource-grant:platform-resource-grant-service")
