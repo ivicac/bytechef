@@ -119,11 +119,11 @@ describe('Settings', () => {
         renderSettings([
             {title: 'Organization'},
             {href: 'users', title: 'Users'},
-            {items: [{href: 'custom-components', title: 'Custom Components'}], title: 'AI'},
+            {items: [{href: 'components', title: 'Components'}], title: 'AI'},
         ]);
 
         expect(screen.queryByText('AI')).not.toBeInTheDocument();
-        expect(screen.queryByText('Custom Components')).not.toBeInTheDocument();
+        expect(screen.queryByText('Components')).not.toBeInTheDocument();
         expect(screen.getByText('Users')).toBeInTheDocument();
     });
 });
