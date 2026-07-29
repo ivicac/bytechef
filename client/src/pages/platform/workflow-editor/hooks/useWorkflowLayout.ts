@@ -16,6 +16,7 @@ import {useGetPreviousWorkflowNodeOutputsQuery} from '@/shared/queries/platform/
 import {useGetWorkflowTestConfigurationQuery} from '@/shared/queries/platform/workflowTestConfigurations.queries';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {useEffect, useMemo} from 'react';
+import {useParams} from 'react-router-dom';
 import {useShallow} from 'zustand/react/shallow';
 
 export const useWorkflowLayout = (includeComponents?: string[]) => {
@@ -85,7 +86,8 @@ export const useWorkflowLayout = (includeComponents?: string[]) => {
         return noInputs && noConnections;
     }, [workflow]);
 
-    const {useGetComponentDefinitionsQuery} = useWorkflowEditor();
+    const {codeWorkflow, codeWorkflowLanguage, useGetComponentDefinitionsQuery} = useWorkflowEditor();
+    const {integrationId} = useParams();
 
     const componentDefinitionsQueryParameters: object = {
         actionDefinitions: true,
@@ -159,11 +161,24 @@ export const useWorkflowLayout = (includeComponents?: string[]) => {
     const handleCopilotClick = () => {
         const {context: currentContext} = useCopilotStore.getState();
 
+        const isCodeWorkflow = codeWorkflow === true && !!codeWorkflowLanguage;
+
+        const source = integrationId
+            ? isCodeWorkflow
+                ? Source.CODE_WORKFLOW_EMBEDDED
+                : Source.WORKFLOW_EDITOR_EMBEDDED
+            : isCodeWorkflow
+              ? Source.CODE_WORKFLOW
+              : Source.WORKFLOW_EDITOR;
+
         setContext({
             ...currentContext,
             mode: MODE.ASK,
-            parameters: {},
-            source: Source.WORKFLOW_EDITOR,
+            parameters: {
+                ...(integrationId ? {integrationId} : {}),
+                ...(isCodeWorkflow ? {language: codeWorkflowLanguage} : {}),
+            },
+            source,
         });
 
         if (!copilotPanelOpen) {
