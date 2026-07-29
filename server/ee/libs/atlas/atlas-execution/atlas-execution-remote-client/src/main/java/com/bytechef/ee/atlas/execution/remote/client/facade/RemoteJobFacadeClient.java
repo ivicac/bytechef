@@ -42,8 +42,12 @@ public class RemoteJobFacadeClient implements JobFacade {
     }
 
     @Override
-    public long createJob(JobParametersDTO jobParametersDTO, LongConsumer jobCreatedCallback) {
-        throw new UnsupportedOperationException();
+    public void deleteJob(long id) {
+        loadBalancedRestClient.delete(
+            uriBuilder -> uriBuilder
+                .host("execution-app")
+                .path("/remote/job-facade/delete-job/{id}")
+                .build(id));
     }
 
     @Override

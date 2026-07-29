@@ -277,7 +277,7 @@ class SubflowJobStatusEventListenerIntTest {
                         taskStateFacade),
                     new DefaultTaskCompletionHandler(
                         contextService, jobExecutor, jobService, taskExecutionService, taskFileStorage,
-                        workflowService)));
+                        null, workflowService)));
 
             List<ApplicationEventListener> applicationEventListeners = List.of(
                 subflowJobStatusEventListener,

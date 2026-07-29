@@ -65,16 +65,6 @@ public class RemoteJobServiceController {
 
     @RequestMapping(
         method = RequestMethod.GET,
-        value = "/get-child-job-ids/{parentJobId}",
-        produces = {
-            "application/json"
-        })
-    public ResponseEntity<List<Long>> getChildJobIds(@PathVariable long parentJobId) {
-        return ResponseEntity.ok(jobService.getChildJobIds(parentJobId));
-    }
-
-    @RequestMapping(
-        method = RequestMethod.GET,
         value = "/get-stale-jobs",
         produces = {
             "application/json"
@@ -84,6 +74,29 @@ public class RemoteJobServiceController {
         @RequestParam("lastModifiedDateBefore") Instant lastModifiedDateBefore) {
 
         return ResponseEntity.ok(jobService.getStaleJobs(status, lastModifiedDateBefore));
+    }
+
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/get-long-running-jobs",
+        produces = {
+            "application/json"
+        })
+    public ResponseEntity<List<Job>> getLongRunningJobs(
+        @RequestParam("status") Job.Status status,
+        @RequestParam("startDateBefore") Instant startDateBefore) {
+
+        return ResponseEntity.ok(jobService.getLongRunningJobs(status, startDateBefore));
+    }
+
+    @RequestMapping(
+        method = RequestMethod.GET,
+        value = "/get-ended-jobs",
+        produces = {
+            "application/json"
+        })
+    public ResponseEntity<List<Job>> getEndedJobs(@RequestParam("endDateBefore") Instant endDateBefore) {
+        return ResponseEntity.ok(jobService.getEndedJobs(endDateBefore));
     }
 
     @RequestMapping(

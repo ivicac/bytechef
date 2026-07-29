@@ -477,7 +477,7 @@ class AgentSubflowLauncherIntTest {
                         taskStateFacade),
                     new DefaultTaskCompletionHandler(
                         contextService, jobExecutor, jobService, taskExecutionService, taskFileStorage,
-                        workflowService)));
+                        null, workflowService)));
 
             List<ApplicationEventListener> applicationEventListeners = List.of(
                 new AgentSubflowLauncher(childJobPrincipalFactory, jobFacade, jobService, MAX_DEPTH, taskStateFacade),

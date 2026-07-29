@@ -31,13 +31,14 @@ import static com.bytechef.platform.component.definition.ai.agent.RagFunction.RA
 import static com.bytechef.platform.component.definition.ai.agent.guardrails.GuardrailCheckFunction.CHECK_FOR_VIOLATIONS;
 import static com.bytechef.platform.component.definition.ai.agent.guardrails.GuardrailSanitizerFunction.SANITIZE_TEXT;
 
+import com.bytechef.commons.util.ConvertUtils;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.ai.agent.action.event.ToolExecutionEvent;
 import com.bytechef.component.ai.agent.action.event.listener.ToolExecutionListener;
 import com.bytechef.component.ai.agent.tool.AgentToolSuspension;
-import com.bytechef.component.ai.agent.tool.AgentToolSuspensionStorage;
-import com.bytechef.component.ai.agent.tool.DeferredToolCallReplay;
+import com.bytechef.component.ai.agent.tool.AiAgentConversationCheckpoint;
+import com.bytechef.component.ai.agent.tool.ConversationState;
 import com.bytechef.component.ai.agent.tool.SuspendableToolCallingManager;
 import com.bytechef.component.ai.llm.ChatModel.ResponseFormat;
 import com.bytechef.component.ai.llm.advisor.CodeFenceStrippingAdvisor;
@@ -79,9 +80,13 @@ import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
 import com.bytechef.platform.configuration.domain.ClusterElementMap;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HexFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -148,9 +153,21 @@ public abstract class AbstractAiAgentChatAction {
             ModelUtils.getMessages(inputParameters, context), false);
     }
 
-    private ChatModel resolveChatModel(
-        Parameters inputParameters, Map<String, ComponentConnection> connectionParameters,
-        ClusterElementMap clusterElementMap, ActionContext context) {
+    protected ChatClient.ChatClientRequestSpec getChatClientRequestSpec(
+        Parameters inputParameters, Map<String, ComponentConnection> connectionParameters, Parameters extensions,
+        @Nullable ToolExecutionListener toolExecutionListener, ActionContext context,
+        List<Message> messages) throws Exception {
+
+        return getChatClientRequestSpec(
+            inputParameters, connectionParameters, extensions, toolExecutionListener, context, messages, false);
+    }
+
+    protected ChatClient.ChatClientRequestSpec getChatClientRequestSpec(
+        Parameters inputParameters, Map<String, ComponentConnection> connectionParameters, Parameters extensions,
+        @Nullable ToolExecutionListener toolExecutionListener, ActionContext context,
+        List<Message> messages, boolean resumedTurn) throws Exception {
+
+        ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
 
         ClusterElement modelClusterElement = clusterElementMap.getClusterElement(MODEL);
 
@@ -226,7 +243,7 @@ public abstract class AbstractAiAgentChatAction {
                 .advisors(
                     getAdvisors(
                         clusterElementMap, connectionParameters, chatModel, context, chatMemoryResult, conversationId,
-                        resumedTurn))
+                        resumedTurn, createConversationCheckpointer(inputParameters, context)))
                 .advisors(getConversationAdvisor(conversationId))
                 .advisors(new TextGenerationFirstAdvisor())
                 .messages(messages)
@@ -520,212 +537,79 @@ public abstract class AbstractAiAgentChatAction {
         });
     }
 
-    private static String createApprovalDetails(GateDecision.Approved approved) {
-        Map<String, Object> approval = new HashMap<>();
+    /**
+     * Creates the per-tool-round conversation checkpointer for durable (non-editor, job-attached) executions, or
+     * {@code null} when checkpointing does not apply. The checkpoint carries a fingerprint of the evaluated input
+     * parameters so a resume only replays a checkpoint written by this same agent node configuration.
+     */
+    protected @Nullable Consumer<List<Message>> createConversationCheckpointer(
+        Parameters inputParameters, ActionContext context) {
 
-        approval.put("approved", true);
+        if (!(context instanceof ActionContextAware actionContextAware) || actionContextAware.getJobId() == null ||
+            actionContextAware.isEditorEnvironment()) {
 
-        String reviewer = approved.reviewer();
+            return null;
 
-        if (reviewer != null) {
-            approval.put("approvedBy", reviewer);
-        }
+        // The fingerprint is computed lazily, at checkpoint-write time: the tool-calling manager catches and logs
+        // checkpointer failures, so a serialization problem can never fail the request-spec build or the turn.
+        return conversation -> context.data(
+            data -> data.put(
+                ActionContext.Data.Scope.CURRENT_EXECUTION, AiAgentConversationCheckpoint.DATA_KEY,
+                new AiAgentConversationCheckpoint(
+                    getConversationFingerprint(inputParameters), ConversationState.from(conversation))));
 
-        String comment = approved.comment();
+     * Returns the conversation restored from a crash checkpoint left by a previous, interrupted run of this job, or
+     * {@code null} when there is none (or it belongs to a differently-parameterized node). Restoration is best-effort:
+     * any failure logs and falls back to a fresh conversation.
+    protected @Nullable List<Message> fetchCheckpointedConversation(
 
-        if (comment != null) {
-            approval.put("comment", comment);
-        }
 
-        return JsonUtils.write(approval);
-    }
-
-    @SuppressWarnings("unchecked")
-    String resolveGatedToolResumeData(
-        Parameters inputParameters, GatedToolSuspension gatedToolSuspension, GateDecision gateDecision,
-        Map<String, ComponentConnection> connectionParameters, Parameters extensions, ActionContext context,
-        @Nullable ClusterElementCallRef suspendedCallRef)
-        throws Exception {
-
-        String comment = gateDecision.comment();
-        String reviewer = gateDecision.reviewer();
-        String gatedToolName = gatedToolSuspension.toolName();
-
-        if (gateDecision instanceof GateDecision.Denied) {
-            Map<String, Object> denial = new HashMap<>();
-
-            denial.put("denied", true);
-            denial.put("reason", comment == null ? "Denied by reviewer." : "Denied by reviewer: " + comment);
-
-            if (reviewer != null) {
-                denial.put("deniedBy", reviewer);
-            }
-
-            return JsonUtils.write(denial);
-        }
-
-        String gatedToolInput = gatedToolSuspension.toolInput();
-        ClusterElementMap clusterElementMap = ClusterElementMap.of(extensions);
-
-        ClusterElement gatedClusterElement = null;
-        ToolCallback gatedToolCallback = null;
-
-        for (ClusterElement clusterElement : clusterElementMap.getClusterElements(BaseToolFunction.TOOLS)) {
-            for (ToolCallback toolCallback : clusterElementToolCallbacks.build(
-                clusterElement, connectionParameters, context)) {
-
-                ToolDefinition toolDefinition = toolCallback.getToolDefinition();
-
-                if (gatedToolName.equals(toolDefinition.name())) {
-                    gatedClusterElement = clusterElement;
-                    gatedToolCallback = toolCallback;
-
-                    break;
-                }
-            }
-
-            if (gatedToolCallback != null) {
-                break;
-            }
-        }
-
-        if (gatedClusterElement == null || gatedToolCallback == null) {
-            throw new IllegalStateException(
-                "The approved tool '" + gatedToolName + "' is no longer configured on the agent node; the " +
-                    "approval cannot be applied.");
-        }
-
-        GatedToolCallback gate = findGatedToolCallback(gatedToolCallback);
-        ToolCallback approvedToolCallback = DelegatingToolCallback.unwrap(gatedToolCallback);
-
-        String approvedToolComponentName =
-            gate == null ? gatedClusterElement.getComponentName() : gate.getGatedComponentName();
-        String approvedToolWorkflowNodeName =
-            gate == null ? gatedClusterElement.getWorkflowNodeName() : gate.getGatedWorkflowNodeName();
-
-        Map<String, Map<String, String>> toolSimulations =
-            (Map<String, Map<String, String>>) inputParameters.get(TOOL_SIMULATIONS);
-
-        ToolCallback effectiveToolCallback = observeApprovedToolCallback(
-            toolSimulations == null || toolSimulations.isEmpty()
-                ? approvedToolCallback
-                : createSimulationAwareToolCallback(
-                    approvedToolCallback, toolSimulations,
-                    resolveChatModel(inputParameters, connectionParameters, clusterElementMap, context), context),
-            approvedToolWorkflowNodeName, approvedToolComponentName, context);
-
-        Map<String, Object> approvedResult = new HashMap<>();
-
-        approvedResult.put("approvedByReviewer", true);
-
-        if (comment != null) {
-            approvedResult.put("reviewerComment", comment);
-        }
-
-        if (reviewer != null) {
-            approvedResult.put("reviewer", reviewer);
-        }
-
-        ToolContext toolContext = new ToolContext(new AiAgentToolContext(context).toMap());
 
         try {
-            String result = ClusterElementCallScope.callWith(
-                suspendedCallRef, () -> effectiveToolCallback.call(gatedToolInput, toolContext));
+            Optional<Object> checkpointOptional = context.data(
+                data -> data.fetch(
+                    ActionContext.Data.Scope.CURRENT_EXECUTION, AiAgentConversationCheckpoint.DATA_KEY));
 
-            if (context instanceof ActionContextAware actionContextAware &&
-                ToolSuspension.isSuspendedToolResult(result, actionContextAware.getSuspend())) {
+            if (checkpointOptional.isEmpty()) {
 
-                return result;
-            }
+            AiAgentConversationCheckpoint checkpoint = ConvertUtils.convertValue(
+                checkpointOptional.get(), AiAgentConversationCheckpoint.class);
 
-            approvedResult.put("result", result);
-        } catch (Exception exception) {
-            approvedResult.put(
-                "error", Objects.toString(exception.getMessage(), "Tool execution failed after approval"));
-        }
+            if (!Objects.equals(checkpoint.fingerprint(), getConversationFingerprint(inputParameters))) {
 
-        return JsonUtils.write(approvedResult);
-    }
+            ConversationState conversationState = checkpoint.conversationState();
 
-    private static @Nullable GatedToolCallback findGatedToolCallback(ToolCallback toolCallback) {
-        ToolCallback current = toolCallback;
+            List<Message> messages = conversationState.toMessages();
 
-        while (current instanceof DelegatingToolCallback delegatingToolCallback) {
-            if (current instanceof GatedToolCallback gatedToolCallback) {
-                return gatedToolCallback;
-            }
+            context.log(logger -> logger.info(
+                "Resuming agent conversation from crash checkpoint (%d messages)".formatted(messages.size())));
 
-            current = delegatingToolCallback.getDelegate();
-        }
+            return messages;
+        } catch (RuntimeException exception) {
+            log.warn("Failed to restore agent conversation checkpoint; starting fresh", exception);
 
-        return null;
-    }
 
-    private static ToolCallback observeApprovedToolCallback(
-        ToolCallback toolCallback, String workflowNodeName, String componentName, ActionContext context) {
+    /** Removes this job's conversation checkpoint after the agent turn completed successfully. */
+    protected void clearConversationCheckpoint(ActionContext context) {
 
-        if (!(context instanceof ActionContextAware actionContextAware)) {
-            return toolCallback;
-        }
 
-        return ClusterElementCallTarget.of(context)
-            .<ToolCallback>map(target -> new ClusterElementCallObservingToolCallback(
-                toolCallback, workflowNodeName, componentName, target.jobId(), target.taskExecutionId(),
-                target.recorder(), actionContextAware::getSuspend))
-            .orElse(toolCallback);
-    }
+            context.data(
+                data -> data.remove(
+            log.warn("Failed to clear agent conversation checkpoint", exception);
 
-    private static void suspendUntilTheApprovedToolResumes(
-        ActionContextAware actionContextAware, AgentToolSuspension agentToolSuspension, GateDecision gateDecision) {
+    private static String getConversationFingerprint(Parameters inputParameters) {
+            MessageDigest messageDigest = MessageDigest.getInstance("SHA-256");
 
-        ActionContext.Suspend suspend = Objects.requireNonNull(actionContextAware.getSuspend());
+            byte[] digest = messageDigest.digest(
+                JsonUtils.write(inputParameters.toMap())
+                    .getBytes(StandardCharsets.UTF_8));
 
-        Map<String, Object> continueParameters = new HashMap<>(suspend.continueParameters());
+            HexFormat hexFormat = HexFormat.of();
 
-        AgentToolSuspensionStorage.put(
-            continueParameters, recordApprovalOfSuspendedTool(actionContextAware, agentToolSuspension, gateDecision),
-            actionContextAware);
+            return hexFormat.formatHex(digest);
+        } catch (NoSuchAlgorithmException exception) {
+            throw new IllegalStateException(exception);
 
-        actionContextAware.suspend(new ActionContext.Suspend(continueParameters, suspend.expiresAt()));
-    }
-
-    private static AgentToolSuspension recordApprovalOfSuspendedTool(
-        ActionContextAware actionContextAware, AgentToolSuspension agentToolSuspension, GateDecision gateDecision) {
-
-        Long jobId = actionContextAware.getJobId();
-        Long taskExecutionId = actionContextAware.getTaskExecutionId();
-
-        if (jobId == null || taskExecutionId == null) {
-            return agentToolSuspension;
-        }
-
-        ClusterElementCallRecorder clusterElementCallRecorder = ClusterElementCallRecorder.getInstance();
-
-        ClusterElementCallRef gateCallRef = getSuspendedCallRef(agentToolSuspension);
-        Optional<ClusterElementCallRef> approvedToolCallRefOptional =
-            clusterElementCallRecorder.findSuspendedCall(taskExecutionId);
-
-        if (gateCallRef != null && gateDecision instanceof GateDecision.Approved approved) {
-            clusterElementCallRecorder.callApproved(
-                jobId, taskExecutionId, gateCallRef, createApprovalDetails(approved));
-        }
-
-        if (approvedToolCallRefOptional.isEmpty()) {
-            return agentToolSuspension;
-        }
-
-        ClusterElementCallRef approvedToolCallRef = approvedToolCallRefOptional.get();
-        String gateCallId = gateCallRef == null ? null : gateCallRef.id();
-
-        if (Objects.equals(gateCallId, approvedToolCallRef.id())) {
-            return agentToolSuspension;
-        }
-
-        return new AgentToolSuspension(
-            agentToolSuspension.conversation(), agentToolSuspension.pendingToolCallId(),
-            agentToolSuspension.suspendedToolResult(), approvedToolCallRef.id(),
-            approvedToolCallRef.workflowNodeName());
-    }
 
     private static ChatClient.ChatClientRequestSpec createPrompt(
         ChatClient chatClient, Parameters inputParameters, ActionContext context) {
@@ -801,13 +685,15 @@ public abstract class AbstractAiAgentChatAction {
         @Nullable String conversationId) {
 
         return getAdvisors(
-            clusterElementMap, connectionParameters, chatModel, context, chatMemoryResult, conversationId, false);
+            clusterElementMap, connectionParameters, chatModel, context, chatMemoryResult, conversationId, false,
+            null);
     }
 
     List<Advisor> getAdvisors(
         ClusterElementMap clusterElementMap, Map<String, ComponentConnection> connectionParameters,
         ChatModel chatModel, ActionContext context, Optional<ChatMemoryFunction.Result> chatMemoryResult,
-        @Nullable String conversationId, boolean resumedTurn) {
+        @Nullable String conversationId, boolean resumedTurn,
+        @Nullable Consumer<List<Message>> conversationCheckpointer) {
 
         List<Advisor> advisors = new ArrayList<>();
 
@@ -866,7 +752,8 @@ public abstract class AbstractAiAgentChatAction {
         ToolCallingManager agentToolCallingManager = toolCallingManager;
 
         if (context instanceof ActionContextAware actionContextAware) {
-            agentToolCallingManager = new SuspendableToolCallingManager(toolCallingManager, actionContextAware);
+            agentToolCallingManager = new SuspendableToolCallingManager(
+                toolCallingManager, actionContextAware, conversationCheckpointer);
         }
 
         ToolCallingAdvisor toolCallingAdvisor = persistToolMessagesInLoop

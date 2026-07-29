@@ -225,8 +225,11 @@ public class JobSyncExecutor {
             contextService, evaluator, coordinatorEventPublisher, jobService, taskDispatcherChain, taskExecutionService,
             taskFileStorage, workflowService);
 
+        // The sync executor runs against in-memory services with its own event publisher, so completion
+        // stays non-transactional here (null template = pre-transactional behavior, events publish
+        // immediately).
         DefaultTaskCompletionHandler defaultTaskCompletionHandler = new DefaultTaskCompletionHandler(
-            contextService, jobExecutor, jobService, taskExecutionService, taskFileStorage, workflowService);
+            contextService, jobExecutor, jobService, taskExecutionService, taskFileStorage, null, workflowService);
 
         TaskCompletionHandlerChain taskCompletionHandlerChain = new TaskCompletionHandlerChain();
 
@@ -618,8 +621,7 @@ public class JobSyncExecutor {
 
             notifyJobStatusListeners(jobId, jobStatusEvent);
 
-            if (status == Job.Status.COMPLETED || status == Job.Status.FAILED || status == Job.Status.STOPPED ||
-                status == Job.Status.CANCELLED) {
+            if (isTerminal(status)) {
                 CountDownLatch latch = jobCompletionLatches.get(getKey(jobId));
 
                 if (latch != null) {
@@ -953,9 +955,7 @@ public class JobSyncExecutor {
             return false;
         }
 
-        if (job.getStatus() == Job.Status.COMPLETED || job.getStatus() == Job.Status.FAILED ||
-            job.getStatus() == Job.Status.STOPPED || job.getStatus() == Job.Status.CANCELLED) {
-
+        if (isTerminal(job)) {
             jobCompletionLatches.remove(getKey(jobId));
 
             return false;
@@ -1046,7 +1046,6 @@ public class JobSyncExecutor {
         return List.of(
             new CallableResponseTaskExecutionPostOutputProcessor(),
             new SseStreamTaskExecutionPostOutputProcessor(sseStreamBridges),
-            new WebSocketStreamTaskExecutionPostOutputProcessor(sseStreamBridges),
             new ClusterElementCallsTaskExecutionPostOutputProcessor(ClusterElementCallRecorder.getInstance()),
             new SuspendTaskExecutionPostOutputProcessor(null),
             new WebhookResponseTaskExecutionPostOutputProcessor());

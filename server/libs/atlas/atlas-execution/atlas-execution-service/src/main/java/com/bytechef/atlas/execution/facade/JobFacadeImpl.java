@@ -158,62 +158,48 @@ public class JobFacadeImpl implements JobFacade {
         eventPublisher.publishEvent(new JobDeletedEvent(id));
     }
 
+    /**
+     * Releases the file-storage blobs and context rows a job accumulated: task-execution outputs, job outputs, and
+     * every context value pushed under the job's and its task executions' stacks. Cleanup is best-effort — a storage
+     * failure must never block the row delete (an orphaned blob is preferable to a job that cannot be purged), so each
+     * blob delete is individually guarded. In-memory and remote-client deployments without context enumeration skip the
+     * context portion.
+     */
     private void deleteJobFiles(long jobId) {
         Job job = jobService.getJob(jobId);
 
-        List<Runnable> fileDeletions = new ArrayList<>();
-
         if (job.getOutputs() != null) {
-            fileDeletions.add(() -> taskFileStorage.deleteJobOutputs(job.getOutputs()));
+            deleteFileQuietly(() -> taskFileStorage.deleteJobOutputs(job.getOutputs()));
         }
 
         for (TaskExecution taskExecution : taskExecutionService.getJobTaskExecutions(jobId)) {
             if (taskExecution.getOutput() != null) {
-                fileDeletions.add(() -> taskFileStorage.deleteTaskExecutionOutput(taskExecution.getOutput()));
+                deleteFileQuietly(() -> taskFileStorage.deleteTaskExecutionOutput(taskExecution.getOutput()));
             }
 
-            deleteStackFiles(
-                Validate.notNull(taskExecution.getId(), "id"), Context.Classname.TASK_EXECUTION, fileDeletions);
+            deleteStackFiles(Validate.notNull(taskExecution.getId(), "id"));
         }
 
-        deleteStackFiles(jobId, Context.Classname.JOB, fileDeletions);
-
-        if (TransactionSynchronizationManager.isSynchronizationActive()) {
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-
-                @Override
-                public void afterCommit() {
-                    deleteFilesQuietly(fileDeletions);
-                }
-            });
-        } else {
-            deleteFilesQuietly(fileDeletions);
-        }
+        deleteStackFiles(jobId);
     }
 
-    private void deleteStackFiles(long stackId, Context.Classname classname, List<Runnable> fileDeletions) {
+    private void deleteStackFiles(long stackId) {
         try {
-            for (FileEntry fileEntry : contextService.getStackFileEntries(stackId, classname)) {
-                fileDeletions.add(() -> taskFileStorage.deleteContextValue(fileEntry));
+            for (FileEntry fileEntry : contextService.getStackFileEntries(stackId)) {
+                deleteFileQuietly(() -> taskFileStorage.deleteContextValue(fileEntry));
             }
 
-            contextService.deleteStackContexts(stackId, classname);
+            contextService.deleteStackContexts(stackId);
         } catch (UnsupportedOperationException exception) {
-            if (CONTEXT_CLEANUP_UNSUPPORTED_LOGGED.compareAndSet(false, true)) {
-                log.warn(
-                    "Context enumeration is unsupported by the configured context repository; job context values " +
-                        "are not deleted with their jobs");
-            }
+            log.debug("Context enumeration unsupported in this deployment; skipping context cleanup");
         }
     }
 
-    private static void deleteFilesQuietly(List<Runnable> fileDeletions) {
-        for (Runnable fileDeletion : fileDeletions) {
-            try {
-                fileDeletion.run();
-            } catch (RuntimeException exception) {
-                log.warn("Failed to delete job file-storage blob", exception);
-            }
+    private static void deleteFileQuietly(Runnable deleteAction) {
+        try {
+            deleteAction.run();
+        } catch (RuntimeException exception) {
+            log.warn("Failed to delete job file-storage blob", exception);
         }
     }
 
