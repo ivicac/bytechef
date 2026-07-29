@@ -61,13 +61,14 @@ public class CopilotPgVectorConfiguration {
     @ConditionalOnProperty(prefix = "bytechef.ai.copilot.embedding", name = "provider")
     public VectorStore copilotDocsLoaderVectorStore(
         @Qualifier("pgVectorJdbcTemplate") JdbcTemplate pgVectorJdbcTemplate,
-        PgVectorStoreProperties properties, ObjectProvider<ObservationRegistry> observationRegistry,
+        @Qualifier("copilotEmbeddingModel") EmbeddingModel copilotEmbeddingModel, PgVectorStoreProperties properties,
+        ObjectProvider<ObservationRegistry> observationRegistry,
         ObjectProvider<VectorStoreObservationConvention> customObservationConvention,
-        BatchingStrategy batchingStrategy, ApplicationProperties applicationProperties) {
+        BatchingStrategy batchingStrategy) {
 
         return buildVectorStore(
-            pgVectorJdbcTemplate, copilotDocsEmbeddingModel(applicationProperties), properties, observationRegistry,
-            customObservationConvention, batchingStrategy);
+            pgVectorJdbcTemplate, copilotEmbeddingModel, properties, observationRegistry, customObservationConvention,
+            batchingStrategy);
     }
 
     private static VectorStore buildVectorStore(
@@ -93,7 +94,23 @@ public class CopilotPgVectorConfiguration {
             .build();
     }
 
-    private static EmbeddingModel copilotDocsEmbeddingModel(ApplicationProperties applicationProperties) {
+    /**
+     * The internal, fixed-key Copilot embedding model used to <b>write</b> into the Copilot pgvector store (docs
+     * indexing) and, shared across modules, to write the AI Hub tool-search catalog. Kept environment-independent (a
+     * single configured {@code bytechef.ai.copilot.embedding.*} key) so boot-time indexing never depends on a
+     * per-environment provider being activated. Query-time reads still resolve the {@code @Primary} embedding model (in
+     * EE the per-environment {@code CatalogEmbeddingModel}); the two must resolve to the same underlying model for
+     * vectors to be comparable.
+     *
+     * <p>
+     * {@code defaultCandidate = false} keeps it out of unqualified {@code EmbeddingModel} autowiring so it never
+     * collides with the primary/query embedding model — consumers must ask for it by the {@code copilotEmbeddingModel}
+     * qualifier.
+     * </p>
+     */
+    @Bean(defaultCandidate = false)
+    @ConditionalOnProperty(prefix = "bytechef.ai.copilot.embedding", name = "provider")
+    public EmbeddingModel copilotEmbeddingModel(ApplicationProperties applicationProperties) {
         ApplicationProperties.Ai ai = applicationProperties.getAi();
 
         ApplicationProperties.Ai.Copilot.Embedding embedding = ai.getCopilot()
@@ -121,7 +138,7 @@ public class CopilotPgVectorConfiguration {
 
         if (apiKey == null || apiKey.isBlank()) {
             throw new IllegalStateException(
-                "Copilot docs embedding provider is set to OPENAI but 'bytechef.ai.copilot.embedding.api-key' " +
+                "Copilot embedding provider is set to OPENAI but 'bytechef.ai.copilot.embedding.api-key' " +
                     "is not configured");
         }
 
