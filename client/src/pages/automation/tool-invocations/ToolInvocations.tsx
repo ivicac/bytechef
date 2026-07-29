@@ -7,17 +7,13 @@ import TablePagination from '@/components/TablePagination';
 import {Label} from '@/components/ui/label';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import ToolInvocationsTable from '@/pages/automation/tool-invocations/components/ToolInvocationsTable';
-import {
-    ToolInvocationsWorkspaceScopeI,
-    useToolInvocations,
-} from '@/pages/automation/tool-invocations/hooks/useToolInvocations';
-import {useInitialLoadComplete} from '@/shared/hooks/useInitialLoadComplete';
+import {useToolInvocations} from '@/pages/automation/tool-invocations/hooks/useToolInvocations';
+import ExecutionsTabs from '@/shared/components/ExecutionsTabs';
 import Footer from '@/shared/layout/Footer';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {PlatformType} from '@/shared/middleware/graphql';
-import {HammerIcon, RefreshCwIcon} from 'lucide-react';
-import {ReactNode, useMemo} from 'react';
+import {ActivityIcon, RefreshCwIcon} from 'lucide-react';
 import {twMerge} from 'tailwind-merge';
 
 const ANY_FILTER_OPTION = {label: 'Any', value: ''};
@@ -28,36 +24,23 @@ const outcomeOptions = [
     {label: 'Error', value: 'ERROR'},
     {label: 'Connection required', value: 'CONNECTION_REQUIRED'},
     {label: 'Timeout', value: 'TIMEOUT'},
-    {label: 'Approval required', value: 'APPROVAL_REQUIRED'},
-    {label: 'Approval denied', value: 'APPROVAL_DENIED'},
-    {label: 'Suspended', value: 'SUSPENDED'},
 ];
 
-const surfaceOptionsByType: Record<PlatformType, Array<ComboBoxItemType>> = {
-    [PlatformType.Automation]: [{label: 'Automation MCP', value: 'MCP_AUTOMATION'}],
-    [PlatformType.Embedded]: [
-        {label: 'Embedded MCP', value: 'MCP_EMBEDDED'},
-        {label: 'Embedded API (Action)', value: 'EMBEDDED_API_ACTION'},
-        {label: 'Embedded API (Tool)', value: 'EMBEDDED_API_TOOL'},
-    ],
-};
+const surfaceOptions = [
+    ANY_FILTER_OPTION,
+    {label: 'Automation MCP', value: 'MCP_AUTOMATION'},
+    {label: 'Embedded MCP', value: 'MCP_EMBEDDED'},
+    {label: 'Management MCP', value: 'MCP_MANAGEMENT'},
+    {label: 'Embedded API (Action)', value: 'EMBEDDED_API_ACTION'},
+    {label: 'Embedded API (Tool)', value: 'EMBEDDED_API_TOOL'},
+];
 
 interface ToolInvocationsProps {
-    environmentId?: number;
-    /* Shown instead of the filters and the table when nothing has been recorded yet and no filter is set. */
-    firstRunEmptyState: ReactNode;
+    basePath?: string;
     mcpServerOptions?: Array<ComboBoxItemType>;
-    type: PlatformType;
-    workspaceScope?: ToolInvocationsWorkspaceScopeI;
 }
 
-export const ToolInvocations = ({
-    environmentId,
-    firstRunEmptyState,
-    mcpServerOptions,
-    type,
-    workspaceScope,
-}: ToolInvocationsProps) => {
+export const ToolInvocations = ({basePath = '/automation/executions', mcpServerOptions}: ToolInvocationsProps) => {
     const {
         filterEndDate,
         filterMcpServerId,
@@ -77,29 +60,7 @@ export const ToolInvocations = ({
         toolInvocationLogsError,
         toolInvocationLogsIsFetching,
         toolInvocationLogsIsLoading,
-    } = useToolInvocations({environmentId, type, workspaceScope});
-
-    const initialLoadComplete = useInitialLoadComplete(toolInvocationLogsIsLoading);
-
-    const mcpServerNames = useMemo(
-        () =>
-            Object.fromEntries((mcpServerOptions ?? []).map((option) => [String(option.value), String(option.label)])),
-        [mcpServerOptions]
-    );
-
-    const showSurface = surfaceOptionsByType[type].length > 1;
-
-    const visibleSurfaceOptions = useMemo(() => [ANY_FILTER_OPTION, ...surfaceOptionsByType[type]], [type]);
-
-    const hasActiveFilters =
-        !!filterEndDate || !!filterMcpServerId || !!filterOutcome || !!filterStartDate || !!filterSurface;
-
-    const isFirstRun =
-        !toolInvocationLogsIsLoading &&
-        !toolInvocationLogsError &&
-        !hasActiveFilters &&
-        filterPageNumber === 0 &&
-        toolInvocationLogs.length === 0;
+    } = useToolInvocations();
 
     return (
         <LayoutContainer
@@ -122,43 +83,35 @@ export const ToolInvocations = ({
                     className="3xl:w-full"
                     position="main"
                     right={
-                        <div className="flex items-center gap-1">
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <Button
-                                        aria-label="Refresh tool invocations"
-                                        disabled={toolInvocationLogsIsFetching}
-                                        icon={
-                                            <RefreshCwIcon
-                                                className={twMerge(toolInvocationLogsIsFetching && 'animate-spin')}
-                                            />
-                                        }
-                                        onClick={() => refetchToolInvocations()}
-                                        size="icon"
-                                        variant="ghost"
-                                    />
-                                </TooltipTrigger>
+                        <Tooltip>
+                            <TooltipTrigger asChild>
+                                <Button
+                                    aria-label="Refresh tool invocations"
+                                    disabled={toolInvocationLogsIsFetching}
+                                    icon={
+                                        <RefreshCwIcon
+                                            className={twMerge(toolInvocationLogsIsFetching && 'animate-spin')}
+                                        />
+                                    }
+                                    onClick={() => refetchToolInvocations()}
+                                    size="icon"
+                                    variant="outline"
+                                />
+                            </TooltipTrigger>
 
-                                <TooltipContent>Refresh</TooltipContent>
-                            </Tooltip>
-                        </div>
+                            <TooltipContent>Refresh</TooltipContent>
+                        </Tooltip>
                     }
-                    title="Tool Invocations"
+                    title={<ExecutionsTabs basePath={basePath} />}
                 />
             }
             leftSidebarBody={
-                <div className="space-y-4 px-2">
-                    {showSurface && (
-                        <div className="flex flex-col space-y-2">
-                            <Label>Surface</Label>
+                <div className="space-y-4 px-4">
+                    <div className="flex flex-col space-y-2">
+                        <Label>Surface</Label>
 
-                            <ComboBox
-                                items={visibleSurfaceOptions}
-                                onChange={handleSurfaceChange}
-                                value={filterSurface}
-                            />
-                        </div>
-                    )}
+                        <ComboBox items={surfaceOptions} onChange={handleSurfaceChange} value={filterSurface} />
+                    </div>
 
                     <div className="flex flex-col space-y-2">
                         <Label>Outcome</Label>
@@ -191,8 +144,7 @@ export const ToolInvocations = ({
                     </div>
                 </div>
             }
-            leftSidebarHeader={<Header position="sidebar" title="Tool Invocations" />}
-            leftSidebarHidden={!initialLoadComplete || isFirstRun}
+            leftSidebarHeader={<Header position="sidebar" title="Executions" />}
             leftSidebarWidth="64"
         >
             <PageLoader errors={[toolInvocationLogsError]} loading={toolInvocationLogsIsLoading}>
@@ -208,9 +160,9 @@ export const ToolInvocations = ({
                     firstRunEmptyState
                 ) : (
                     <EmptyList
-                        icon={<HammerIcon className="size-24 text-stroke-neutral-tertiary" />}
-                        message="No tool invocations match the current filter."
-                        title="No Matching Tool Invocations"
+                        icon={<ActivityIcon className="size-24 text-gray-300" />}
+                        message="No tool invocations have been recorded yet."
+                        title="No Tool Invocations"
                     />
                 )}
             </PageLoader>

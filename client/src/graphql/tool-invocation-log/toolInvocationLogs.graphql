@@ -1,5 +1,4 @@
 query ToolInvocationLogs(
-    $type: PlatformType!
     $environmentId: ID
     $surface: String
     $outcome: String
@@ -11,7 +10,6 @@ query ToolInvocationLogs(
     $page: Int
 ) {
     toolInvocationLogs(
-        type: $type
         environmentId: $environmentId
         surface: $surface
         outcome: $outcome

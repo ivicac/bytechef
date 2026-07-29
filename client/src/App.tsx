@@ -24,7 +24,6 @@ import {
     FileTextIcon,
     FolderIcon,
     HammerIcon,
-    HistoryIcon,
     Layers3Icon,
     LayoutTemplateIcon,
     Link2Icon,
@@ -35,6 +34,7 @@ import {
     ServerIcon,
     Settings2Icon,
     SlidersHorizontalIcon,
+    SquareActivityIcon,
     SquareIcon,
     Table2Icon,
     UnplugIcon,
@@ -62,7 +62,7 @@ type NavigationType = {
     icon: LucideIcon;
 };
 
-const executionsNavigationGroup: NavigationGroupType = {icon: ActivityIcon, name: 'Executions'};
+const executionsNavigationGroup: NavigationGroupType = {icon: SquareActivityIcon, name: 'Executions'};
 
 const serversNavigationGroup: NavigationGroupType = {icon: RadioTowerIcon, name: 'Servers'};
 
@@ -106,8 +106,8 @@ const automationNavigation: NavigationType[] = [
     },
     {
         href: '/automation/executions',
-        icon: HistoryIcon,
-        name: 'Workflow Executions',
+        icon: ActivityIcon,
+        name: 'Executions',
     },
     {
         group: executionsNavigationGroup,
@@ -165,8 +165,8 @@ const embeddedNavigation: NavigationType[] = [
     {
         group: executionsNavigationGroup,
         href: '/embedded/executions',
-        icon: HistoryIcon,
-        name: 'Workflow Executions',
+        icon: ActivityIcon,
+        name: 'Executions',
     },
     {
         group: executionsNavigationGroup,

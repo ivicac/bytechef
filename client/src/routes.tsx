@@ -44,9 +44,14 @@ const Appearance = lazy(() => import('@/pages/account/settings/Appearance'));
 const AutomationConnections = lazy(() =>
     import('@/pages/automation/connections/Connections').then((module) => ({default: module.Connections}))
 );
-const AutomationToolInvocations = lazy(() =>
+const AutomationToolInvocationsPage = lazy(() =>
     import('@/pages/automation/tool-invocations/AutomationToolInvocations').then((module) => ({
         default: module.AutomationToolInvocations,
+    }))
+);
+const ToolInvocationsPage = lazy(() =>
+    import('@/pages/automation/tool-invocations/ToolInvocations').then((module) => ({
+        default: module.ToolInvocations,
     }))
 );
 const AutomationWorkflowExecutions = lazy(() =>
@@ -926,8 +931,8 @@ export const getRouter = (queryClient: QueryClient) =>
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
-                                                <LazyLoadWrapper>
-                                                    <AutomationToolInvocations />
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <AutomationToolInvocationsPage />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
                                         </PrivateRoute>
@@ -1362,8 +1367,8 @@ export const getRouter = (queryClient: QueryClient) =>
                                     element: (
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
-                                                <LazyLoadWrapper>
-                                                    <EmbeddedToolInvocations />
+                                                <LazyLoadWrapper hasLeftSidebar>
+                                                    <ToolInvocationsPage basePath="/embedded/executions" />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
                                         </PrivateRoute>
