@@ -24,6 +24,8 @@ import org.jspecify.annotations.Nullable;
  */
 public interface EmbeddedMcpServerFacade {
 
+    McpServer createEmbeddedMcpServer(String name, Environment environment, boolean enabled);
+
     McpComponent createEmbeddedMcpComponent(McpComponent mcpComponent, List<McpTool> mcpTools);
 
     McpServer createEmbeddedMcpServer(String name, Environment environment, Boolean enabled);
