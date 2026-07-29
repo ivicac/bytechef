@@ -32,6 +32,7 @@ import com.bytechef.commons.data.jdbc.converter.StringToFileEntryConverter;
 import com.bytechef.commons.data.jdbc.converter.StringToMapWrapperConverter;
 import com.bytechef.commons.data.jdbc.converter.StringToTypedValueConverter;
 import com.bytechef.commons.data.jdbc.converter.TypedValueToStringConverter;
+import com.bytechef.ee.embedded.configuration.audit.IntegrationAuditPublisher;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationServiceImpl;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceServiceImpl;
 import com.bytechef.ee.embedded.configuration.service.IntegrationServiceImpl;
@@ -97,10 +98,11 @@ import tools.jackson.databind.ObjectMapper;
     })
 @EnableCaching
 @Import({
-    ConnectedUserServiceImpl.class, ContextServiceImpl.class, IntegrationInstanceConfigurationServiceImpl.class,
-    IntegrationInstanceServiceImpl.class, IntegrationServiceImpl.class, IntegrationWorkflowServiceImpl.class,
-    JacksonConfiguration.class, LiquibaseConfiguration.class, PrincipalJobServiceImpl.class,
-    TaskExecutionServiceImpl.class, TriggerExecutionServiceImpl.class
+    ConnectedUserServiceImpl.class, ContextServiceImpl.class, IntegrationAuditPublisher.class,
+    IntegrationInstanceConfigurationServiceImpl.class, IntegrationInstanceServiceImpl.class,
+    IntegrationServiceImpl.class,
+    IntegrationWorkflowServiceImpl.class, JacksonConfiguration.class, LiquibaseConfiguration.class,
+    PrincipalJobServiceImpl.class, TaskExecutionServiceImpl.class, TriggerExecutionServiceImpl.class
 })
 @Configuration
 public class EmbeddedWorkflowExecutionIntTestConfiguration {

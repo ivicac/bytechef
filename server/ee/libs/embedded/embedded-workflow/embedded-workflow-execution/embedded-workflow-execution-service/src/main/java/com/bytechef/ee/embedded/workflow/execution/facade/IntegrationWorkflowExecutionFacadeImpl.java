@@ -41,6 +41,8 @@ import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigu
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationWorkflowService;
+import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
+import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.ee.embedded.workflow.execution.dto.WorkflowExecutionDTO;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
@@ -84,6 +86,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -98,6 +101,7 @@ public class IntegrationWorkflowExecutionFacadeImpl implements IntegrationWorkfl
     private static final Logger log = LoggerFactory.getLogger(IntegrationWorkflowExecutionFacadeImpl.class);
 
     private final ComponentDefinitionService componentDefinitionService;
+    private final ConnectedUserService connectedUserService;
     private final ContextService contextService;
     private final EnvironmentService environmentService;
     private final Evaluator evaluator;
@@ -118,7 +122,8 @@ public class IntegrationWorkflowExecutionFacadeImpl implements IntegrationWorkfl
 
     @SuppressFBWarnings("EI")
     public IntegrationWorkflowExecutionFacadeImpl(
-        ComponentDefinitionService componentDefinitionService, ContextService contextService,
+        ComponentDefinitionService componentDefinitionService, ConnectedUserService connectedUserService,
+        ContextService contextService,
         EnvironmentService environmentService, Evaluator evaluator, PrincipalJobService principalJobService,
         IntegrationInstanceConfigurationService integrationInstanceConfigurationService,
         IntegrationInstanceService integrationInstanceService,
@@ -129,6 +134,7 @@ public class IntegrationWorkflowExecutionFacadeImpl implements IntegrationWorkfl
         TriggerFileStorage triggerFileStorage, WorkflowService workflowService) {
 
         this.componentDefinitionService = componentDefinitionService;
+        this.connectedUserService = connectedUserService;
         this.contextService = contextService;
         this.environmentService = environmentService;
         this.evaluator = evaluator;
@@ -148,6 +154,65 @@ public class IntegrationWorkflowExecutionFacadeImpl implements IntegrationWorkfl
 
         this.lazyTaskExecutionTreeBuilder = new LazyTaskExecutionTreeBuilder(
             taskExecutionService, jobService, this::createListTaskExecutionDTOConverter);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public WorkflowExecutionDTO getConnectedUserWorkflowExecution(String externalUserId, long id) {
+        WorkflowExecutionDTO workflowExecutionDTO = getWorkflowExecution(id);
+
+        IntegrationInstance integrationInstance = workflowExecutionDTO.integrationInstance();
+
+        ConnectedUser connectedUser = connectedUserService.getConnectedUser(
+            Validate.notNull(integrationInstance.getConnectedUserId(), "connectedUserId"));
+
+        if (!Objects.equals(connectedUser.getExternalId(), externalUserId)) {
+            throw new AccessDeniedException("Access is denied");
+        }
+
+        return workflowExecutionDTO;
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Page<WorkflowExecutionDTO> getConnectedUserWorkflowExecutions(
+        String externalUserId, long environmentId, Status jobStatus, Instant jobStartDate, Instant jobEndDate,
+        Long integrationInstanceConfigurationId, int pageNumber) {
+
+        Environment environment = environmentService.getEnvironment(environmentId);
+
+        ConnectedUser connectedUser = OptionalUtils.orElse(
+            connectedUserService.fetchConnectedUser(externalUserId, environment), null);
+
+        if (connectedUser == null) {
+            return Page.empty();
+        }
+
+        List<Long> integrationInstanceIds = integrationInstanceService
+            .getConnectedUserIntegrationInstances(Validate.notNull(connectedUser.getId(), "id"), environment)
+            .stream()
+            .filter(integrationInstance -> integrationInstanceConfigurationId == null ||
+                Objects.equals(
+                    integrationInstance.getIntegrationInstanceConfigurationId(), integrationInstanceConfigurationId))
+            .map(IntegrationInstance::getId)
+            .toList();
+
+        if (integrationInstanceIds.isEmpty()) {
+            return Page.empty();
+        }
+
+        List<String> workflowIds = CollectionUtils.map(
+            integrationWorkflowFacade.getIntegrationWorkflows(), IntegrationWorkflowDTO::getId);
+
+        if (workflowIds.isEmpty()) {
+            return Page.empty();
+        }
+
+        Page<Long> jobIdsPage = principalJobService.getJobIds(
+            jobStatus, jobStartDate, jobEndDate, integrationInstanceIds, PlatformType.EMBEDDED, workflowIds, true,
+            pageNumber);
+
+        return toWorkflowExecutionsPage(jobIdsPage, null);
     }
 
     @Override
