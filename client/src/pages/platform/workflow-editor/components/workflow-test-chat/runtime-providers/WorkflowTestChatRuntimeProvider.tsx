@@ -2,6 +2,7 @@ import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWor
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useWorkflowTestChatStore from '@/pages/platform/workflow-editor/stores/useWorkflowTestChatStore';
 import getChatTriggerName from '@/pages/platform/workflow-editor/utils/getChatTriggerName';
+import {ApprovalResolutionContext, ResumeError} from '@/shared/components/ai-chat/approvalResolutionContext';
 import {useWorkflowTestStream} from '@/shared/hooks/useWorkflowTestStream';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {hasLastAssistantMessageText} from '@/shared/util/assistant-message-utils';
@@ -11,14 +12,17 @@ import {
     AssistantRuntimeProvider,
     AuiConfig,
     CompositeAttachmentAdapter,
+    RealtimeVoiceAdapter,
     SimpleImageAttachmentAdapter,
     SimpleTextAttachmentAdapter,
     type SuggestionConfig,
     Suggestions,
     ThreadMessageLike,
+    WebSpeechDictationAdapter,
+    useAui,
     useExternalStoreRuntime,
 } from '@assistant-ui/react';
-import {ReactNode, useEffect, useRef, useState} from 'react';
+import {ReactNode, useCallback, useMemo, useRef, useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
 const convertMessage = (message: ThreadMessageLike): ThreadMessageLike => {
@@ -45,8 +49,10 @@ const WORKFLOW_TEST_CHAT_SUGGESTIONS: SuggestionConfig[] = [
 
 export function WorkflowTestChatRuntimeProvider({
     children,
+    voiceAdapter,
 }: Readonly<{
     children: ReactNode;
+    voiceAdapter?: RealtimeVoiceAdapter;
 }>) {
     const [isRunning, setIsRunning] = useState(false);
 
@@ -68,33 +74,53 @@ export function WorkflowTestChatRuntimeProvider({
         }))
     );
 
-    const {error: streamError, setStreamRequest} = useWorkflowTestStream({
-        onError: (errorMessage) => {
-            awaitingStreamEventRef.current = false;
+    const pendingResumeRef = useRef<{reject: (error: Error) => void; resolve: () => void} | null>(null);
 
-            showErrorMessage(errorMessage || 'An unexpected error occurred');
-            setIsRunning(false);
+    const {setStreamRequest} = useWorkflowTestStream({
+        onClosed: () => setIsRunning(false),
+        onError: () => setIsRunning(false),
+        onRequestError: (status) => {
+            const pending = pendingResumeRef.current;
+
+            pendingResumeRef.current = null;
+
+            pending?.reject(new ResumeError(status));
         },
-        onResult: () => {
-            awaitingStreamEventRef.current = false;
+        onRequestSuccess: () => {
+            const pending = pendingResumeRef.current;
 
-            setIsRunning(false);
+            pendingResumeRef.current = null;
+
+            pending?.resolve();
         },
-        onStreamEnd: () => {
-            if (
-                awaitingStreamEventRef.current &&
-                !hasLastAssistantMessageText(useWorkflowTestChatStore.getState().messages)
-            ) {
-                setLastAssistantMessageContent('The response ended unexpectedly.');
-            }
-
-            awaitingStreamEventRef.current = false;
-
-            setIsRunning(false);
-            setWorkflowIsRunning(false);
-        },
+        onResult: () => setIsRunning(false),
         workflowId: workflow.id!,
     });
+
+    // Continuation streaming for inline approval cards: resolve through the SSE-negotiated resume endpoint and pipe
+    // the resumed run's output back into this conversation. The returned promise settles from the resume request's
+    // HTTP outcome so the card only shows success on a 2xx.
+    const resolveApproval = useCallback(
+        (resumeId: string, payload: Record<string, unknown>) =>
+            new Promise<void>((resolve, reject) => {
+                pendingResumeRef.current = {reject, resolve};
+
+                setMessage({content: '', role: 'assistant'});
+                setIsRunning(true);
+                setWorkflowIsRunning(true);
+                setStreamRequest({
+                    init: {
+                        body: JSON.stringify(payload),
+                        headers: {'Content-Type': 'application/json'},
+                        method: 'POST',
+                    },
+                    url: `/job/resume/${resumeId}`,
+                });
+            }),
+        [setMessage, setStreamRequest, setWorkflowIsRunning]
+    );
+
+    const approvalResolution = useMemo(() => ({resolveApproval}), [resolveApproval]);
 
     const onNew = async (message: AppendMessage) => {
         if (message.content[0]?.type !== 'text') {
@@ -143,6 +169,9 @@ export function WorkflowTestChatRuntimeProvider({
                 new SimpleImageAttachmentAdapter(),
                 new SimpleTextAttachmentAdapter(),
             ]),
+            // Browser-native dictation (Web Speech API); replaces the former push-to-talk /transcribe call.
+            dictation: new WebSpeechDictationAdapter(),
+            ...(voiceAdapter ? {voice: voiceAdapter} : {}),
         },
         convertMessage,
         isRunning,
@@ -160,11 +189,10 @@ export function WorkflowTestChatRuntimeProvider({
     }, [setWorkflowIsRunning, streamError]);
 
     return (
-        <AssistantRuntimeProvider
-            config={AuiConfig({suggestions: Suggestions(WORKFLOW_TEST_CHAT_SUGGESTIONS)})}
-            runtime={runtime}
-        >
-            {children}
-        </AssistantRuntimeProvider>
+        <ApprovalResolutionContext.Provider value={approvalResolution}>
+            <AssistantRuntimeProvider aui={aui} runtime={runtime}>
+                {children}
+            </AssistantRuntimeProvider>
+        </ApprovalResolutionContext.Provider>
     );
 }
