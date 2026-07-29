@@ -48,6 +48,9 @@ public final class WorkflowPersistCaptureUtils {
      * agent is instructed to use these exact values, so a transposed or hallucinated {@code projectWorkflowId} can no
      * longer reach {@code openWorkflowTab}.
      */
+    @SuppressFBWarnings(
+        value = "VA_FORMAT_STRING_USES_NEWLINE",
+        justification = "The trailer is LLM-facing content that must use a literal \\n, not the platform-dependent %n line separator.")
     public static @Nullable String renderTrailer(Map<String, Object> context) {
         Object holder = context.get(PERSISTED_WORKFLOW_CAPTURE_KEY);
 
