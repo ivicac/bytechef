@@ -1,4 +1,5 @@
 dependencies {
+    implementation("io.micrometer:micrometer-core")
     implementation(("io.micrometer:micrometer-tracing"))
     implementation(libs.com.github.mizosoft.methanol)
     implementation("org.apache.commons:commons-lang3")
@@ -8,6 +9,7 @@ dependencies {
     implementation("org.springframework:spring-jdbc")
     implementation("org.springframework.boot:spring-boot")
     implementation("org.springframework.boot:spring-boot-jackson")
+    implementation("org.springframework.security:spring-security-core")
     implementation(project(":server:libs:atlas:atlas-coordinator:atlas-coordinator-api"))
     implementation(project(":server:libs:atlas:atlas-worker:atlas-worker-api"))
     implementation(project(":server:libs:config:app-config"))
