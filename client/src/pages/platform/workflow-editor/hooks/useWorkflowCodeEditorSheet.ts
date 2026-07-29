@@ -12,7 +12,7 @@ import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {WorkflowDefinitionType} from '@/shared/types';
 import {getTestWorkflowAttachRequest, getTestWorkflowStreamPostRequest} from '@/shared/util/testWorkflow-utils';
-import {useCallback, useEffect, useMemo, useRef, useState} from 'react';
+import {useCallback, useEffect, useMemo, useState} from 'react';
 import {useShallow} from 'zustand/shallow';
 
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
@@ -23,6 +23,9 @@ import saveWorkflowDefinitionUpdate from '../utils/saveWorkflowDefinitionUpdate'
 import type {editor} from 'monaco-editor';
 
 const workflowTestApi = new WorkflowTestApi();
+
+// monaco-editor's MarkerSeverity.Error — inlined so this hook does not pull monaco into the initial chunk
+const MARKER_SEVERITY_ERROR = 8;
 
 // Shown in the copilot panel in place of the workflow definition once a BUILD-mode turn has been
 // applied straight to the code editor — the editor is the source of truth, so the definition itself
@@ -81,8 +84,6 @@ const useWorkflowCodeEditorSheet = ({
     const [workflowIsRunning, setWorkflowIsRunning] = useState(false);
     const [workflowTestExecution, setWorkflowTestExecution] = useState<WorkflowTestExecution>();
     const [markers, setMarkers] = useState<editor.IMarkerData[]>([]);
-
-    const conversationTokenRef = useRef<string | null>(null);
 
     const hasErrors = markers.some((marker) => marker.severity === MARKER_SEVERITY_ERROR);
 
