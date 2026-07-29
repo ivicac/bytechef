@@ -22,6 +22,7 @@ import com.bytechef.ee.embedded.configuration.domain.IntegrationInstance;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigurationWorkflow;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceWorkflow;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationWorkflow;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserCodeWorkflowReferenceFacade;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserWorkflowReferenceFacade;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceService;
@@ -80,7 +81,7 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
     private static final Logger log = LoggerFactory.getLogger(AppEventTriggerApiController.class);
 
     private final AtomicBoolean automationBridgeUnsupportedLogged = new AtomicBoolean(false);
-    private final ConnectedUserWorkflowReferenceFacade connectedUserWorkflowReferenceFacade;
+    private final ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
     private final ConnectedUserCopyModeWorkflowResolver copyModeWorkflowResolver;
     private final ConnectedUserService connectedUserService;
     private final HttpServletRequest httpServletRequest;
@@ -97,10 +98,9 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
     @SuppressFBWarnings("EI")
     public AppEventTriggerApiController(
         ApplicationProperties applicationProperties,
-        ConnectedUserWorkflowReferenceFacade connectedUserWorkflowReferenceFacade,
+        ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade,
         ConnectedUserService connectedUserService, EnvironmentService environmentService,
-        FileEntryTokens fileEntryTokens,
-        HttpServletRequest httpServletRequest,
+        FileEntryTokens fileEntryTokens, HttpServletRequest httpServletRequest,
         HttpServletResponse httpServletResponse,
         IntegrationInstanceConfigurationWorkflowService integrationInstanceConfigurationWorkflowService,
         IntegrationInstanceService integrationInstanceService,
@@ -111,7 +111,7 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
 
         super(fileEntryTokens, applicationProperties.getPublicUrl(), tempFileStorage, webhookWorkflowExecutor);
 
-        this.connectedUserWorkflowReferenceFacade = connectedUserWorkflowReferenceFacade;
+        this.connectedUserCodeWorkflowReferenceFacade = connectedUserCodeWorkflowReferenceFacade;
         this.copyModeWorkflowResolver = new ConnectedUserCopyModeWorkflowResolver(
             projectDeploymentService, projectWorkflowService);
         this.connectedUserService = connectedUserService;
@@ -207,39 +207,36 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
             }
         }
 
-        return workflowExecutionIds;
-    }
-
-    private List<WorkflowExecutionId> resolveAutomationBridgeWorkflowExecutionIds(
-        long connectedUserId, Environment environment, List<String> failedWorkflows) {
-
-        List<WorkflowExecutionId> workflowExecutionIds = new ArrayList<>();
-
         for (ConnectedUserProjectWorkflow connectedUserProjectWorkflow : fetchConnectedUserProjectWorkflows(
-            connectedUserId)) {
-
+            connectedUser.getId())) {
             if (!connectedUserProjectWorkflow.isEnabled() || connectedUserProjectWorkflow.isDangling()) {
                 continue;
             }
 
+            // Isolated per row: one row's lookup or dispatch failure must not stop the fan-out to the remaining
+            // rows, so every step for this row lives inside the try.
             try {
-                resolveAutomationBridgeWorkflowExecutionId(connectedUserProjectWorkflow, environment)
-                    .ifPresent(workflowExecutionIds::add);
-            } catch (RuntimeException exception) {
-                log.error(
-                    "Failed to resolve automation-bridge workflow {} for an app event",
-                    connectedUserProjectWorkflow.getId(), exception);
-
-                failedWorkflows.add(getWorkflowLabel(connectedUserProjectWorkflow));
+                dispatchAutomationBridgeWorkflow(connectedUserProjectWorkflow, environment);
+            } catch (IOException | ServletException | RuntimeException e) {
+                log.warn(
+                    "Failed to dispatch app event to automation-bridge workflow {}",
+                    connectedUserProjectWorkflow.getId(), e);
             }
         }
 
-        return workflowExecutionIds;
+        return ResponseEntity.ok()
+            .build();
     }
 
+    /**
+     * The automation-bridge facade ({@link ConnectedUserCodeWorkflowReferenceFacade}) is backed by a remote-client stub
+     * in deployment topologies that do not carry embedded-configuration-service (e.g. a distributed webhook-app). Treat
+     * that the same as "no automation-bridge rows" -- the pre-existing integration-instance fan-out above is unaffected
+     * -- rather than letting the {@link UnsupportedOperationException} propagate and abort the whole request.
+     */
     private List<ConnectedUserProjectWorkflow> fetchConnectedUserProjectWorkflows(long connectedUserId) {
         try {
-            return connectedUserWorkflowReferenceFacade.getConnectedUserWorkflows(connectedUserId);
+            return connectedUserCodeWorkflowReferenceFacade.getConnectedUserWorkflows(connectedUserId);
         } catch (UnsupportedOperationException unsupportedOperationException) {
             if (automationBridgeUnsupportedLogged.compareAndSet(false, true)) {
                 log.warn(
@@ -251,49 +248,61 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
         }
     }
 
-    private Optional<WorkflowExecutionId> resolveAutomationBridgeWorkflowExecutionId(
-        ConnectedUserProjectWorkflow connectedUserProjectWorkflow, Environment environment) {
+    private void dispatchAutomationBridgeWorkflow(
+        ConnectedUserProjectWorkflow connectedUserProjectWorkflow, Environment environment)
+        throws IOException, ServletException {
 
-        if (connectedUserProjectWorkflow.getAutomationWorkflowUuid() == null) {
-            return resolveCopyModeWorkflowExecutionId(connectedUserProjectWorkflow, environment);
+        // Copy-mode rows (the connected user's own copy of a visual template) have no catalogWorkflowUuid and must be
+        // resolved through their own per-user ProjectWorkflow/deployment instead of the shared catalog workflow.
+        if (connectedUserProjectWorkflow.getCatalogWorkflowUuid() == null) {
+            dispatchCopyModeWorkflow(connectedUserProjectWorkflow, environment);
+
+            return;
         }
 
-        return resolveReferenceModeWorkflowExecutionId(connectedUserProjectWorkflow);
+        dispatchReferenceModeWorkflow(connectedUserProjectWorkflow);
     }
 
-    private Optional<WorkflowExecutionId> resolveReferenceModeWorkflowExecutionId(
-        ConnectedUserProjectWorkflow reference) {
+    private void dispatchReferenceModeWorkflow(ConnectedUserProjectWorkflow reference)
+        throws IOException, ServletException {
 
-        String automationWorkflowId = projectWorkflowService.getLastPublishedWorkflowId(
-            reference.getAutomationWorkflowUuid());
+        String catalogWorkflowId = projectWorkflowService.getLastPublishedWorkflowId(
+            reference.getCatalogWorkflowUuid());
 
-        Workflow workflow = workflowService.getWorkflow(automationWorkflowId);
+        Workflow workflow = workflowService.getWorkflow(catalogWorkflowId);
 
         String appEventTriggerName = findAppEventTriggerName(workflow);
 
         if (appEventTriggerName == null) {
-            return Optional.empty();
+            return;
         }
 
         WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.of(
-            PlatformType.AUTOMATION, reference.getProjectDeploymentId(), reference.getAutomationWorkflowUuid(),
+            PlatformType.AUTOMATION, reference.getProjectDeploymentId(), reference.getCatalogWorkflowUuid(),
             appEventTriggerName);
 
         if (webhookWorkflowExecutor.isWorkflowDisabled(workflowExecutionId)) {
-            return Optional.empty();
+            return;
         }
 
-        return Optional.of(workflowExecutionId);
+        doProcessTrigger(workflowExecutionId, null, httpServletRequest, httpServletResponse)
+            .join();
     }
 
-    private Optional<WorkflowExecutionId> resolveCopyModeWorkflowExecutionId(
-        ConnectedUserProjectWorkflow connectedUserProjectWorkflow, Environment environment) {
+    /**
+     * Copy-mode resolution is shared with {@link RequestTriggerApiController} through
+     * {@link ConnectedUserCopyModeWorkflowResolver} so the two controllers never resolve a copy's project deployment
+     * and workflow id differently.
+     */
+    private void dispatchCopyModeWorkflow(
+        ConnectedUserProjectWorkflow connectedUserProjectWorkflow, Environment environment)
+        throws IOException, ServletException {
 
         Optional<ConnectedUserCopyModeWorkflowResolver.Resolved> resolvedOptional = copyModeWorkflowResolver.resolve(
             connectedUserProjectWorkflow, environment);
 
         if (resolvedOptional.isEmpty()) {
-            return Optional.empty();
+            return;
         }
 
         ConnectedUserCopyModeWorkflowResolver.Resolved resolved = resolvedOptional.get();
@@ -303,72 +312,23 @@ public class AppEventTriggerApiController extends AbstractWebhookTriggerControll
         String appEventTriggerName = findAppEventTriggerName(workflow);
 
         if (appEventTriggerName == null) {
-            return Optional.empty();
+            return;
         }
 
         WorkflowExecutionId workflowExecutionId = WorkflowExecutionId.of(
             PlatformType.AUTOMATION, resolved.projectDeploymentId(), resolved.workflowUuid(), appEventTriggerName);
 
         if (webhookWorkflowExecutor.isWorkflowDisabled(workflowExecutionId)) {
-            return Optional.empty();
+            return;
         }
 
-        return Optional.of(workflowExecutionId);
+        doProcessTrigger(workflowExecutionId, null, httpServletRequest, httpServletResponse)
+            .join();
     }
 
-    private List<String> dispatch(List<WorkflowExecutionId> workflowExecutionIds) {
-        if (workflowExecutionIds.isEmpty()) {
-            return List.of();
-        }
-
-        WebhookRequest webhookRequest = readWebhookRequest(workflowExecutionIds.getFirst());
-
-        List<String> failedWorkflows = new ArrayList<>();
-
-        for (WorkflowExecutionId workflowExecutionId : workflowExecutionIds) {
-            try {
-                doProcessTrigger(workflowExecutionId, webhookRequest, httpServletRequest, httpServletResponse);
-            } catch (IOException | ServletException | RuntimeException exception) {
-                log.error("Failed to dispatch an app event to workflow {}", workflowExecutionId, exception);
-
-                failedWorkflows.add(workflowExecutionId.getWorkflowUuid());
-            }
-        }
-
-        return failedWorkflows;
-    }
-
-    private WebhookRequest readWebhookRequest(WorkflowExecutionId workflowExecutionId) {
-        WebhookTriggerFlags webhookTriggerFlags = webhookWorkflowExecutor.getWebhookTriggerFlags(workflowExecutionId);
-
-        try {
-            return getWebhookRequest(httpServletRequest, webhookTriggerFlags);
-        } catch (IOException | ServletException exception) {
-            throw new IllegalStateException("Failed to read the app event request", exception);
-        }
-    }
-
-    private static ErrorResponseException createDispatchFailureException(List<String> failedWorkflows) {
-        ProblemDetail problemDetail = ProblemDetail.forStatusAndDetail(
-            HttpStatus.INTERNAL_SERVER_ERROR,
-            "The app event could not be dispatched to workflows: " + String.join(", ", failedWorkflows));
-
-        problemDetail.setTitle("App event dispatch failed");
-        problemDetail.setProperty("failedWorkflows", failedWorkflows);
-
-        return new ErrorResponseException(HttpStatus.INTERNAL_SERVER_ERROR, problemDetail, null);
-    }
-
-    private static String getWorkflowLabel(ConnectedUserProjectWorkflow connectedUserProjectWorkflow) {
-        if (connectedUserProjectWorkflow.getAutomationWorkflowUuid() != null) {
-            return connectedUserProjectWorkflow.getAutomationWorkflowUuid();
-        }
-
-        if (connectedUserProjectWorkflow.getCopiedFromWorkflowUuid() != null) {
-            return connectedUserProjectWorkflow.getCopiedFromWorkflowUuid();
-        }
-
-        return "connectedUserProjectWorkflow:" + connectedUserProjectWorkflow.getId();
+    @InitBinder
+    public void initBinder(WebDataBinder dataBinder) {
+        dataBinder.registerCustomEditor(EnvironmentModel.class, new CaseInsensitiveEnumPropertyEditorSupport());
     }
 
     private static String findAppEventTriggerName(Workflow workflow) {

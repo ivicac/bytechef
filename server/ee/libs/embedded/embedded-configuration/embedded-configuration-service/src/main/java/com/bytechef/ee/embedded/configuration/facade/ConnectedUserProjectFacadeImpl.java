@@ -98,7 +98,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
     private final AutomationWorkflowProjectFacade automationWorkflowProjectFacade;
     private final ComponentDefinitionService componentDefinitionService;
     private final ConnectedUserProjectService connectUserProjectService;
-    private final ConnectedUserWorkflowReferenceFacade connectedUserWorkflowReferenceFacade;
+    private final ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
     private final ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
     private final ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
     private final ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService;
@@ -130,7 +130,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         AutomationWorkflowProjectFacade automationWorkflowProjectFacade,
         ComponentDefinitionService componentDefinitionService,
         ConnectedUserProjectService connectUserProjectService,
-        ConnectedUserWorkflowReferenceFacade connectedUserWorkflowReferenceFacade,
+        ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade,
         ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager,
         ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository,
         ConnectedUserProjectWorkflowService connectedUserProjectWorkflowService,
@@ -151,7 +151,7 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         this.automationWorkflowProjectFacade = automationWorkflowProjectFacade;
         this.componentDefinitionService = componentDefinitionService;
         this.connectUserProjectService = connectUserProjectService;
-        this.connectedUserWorkflowReferenceFacade = connectedUserWorkflowReferenceFacade;
+        this.connectedUserCodeWorkflowReferenceFacade = connectedUserCodeWorkflowReferenceFacade;
         this.connectedUserProjectWorkflowManager = connectedUserProjectWorkflowManager;
         this.connectedUserProjectWorkflowRepository = connectedUserProjectWorkflowRepository;
         this.connectedUserProjectWorkflowService = connectedUserProjectWorkflowService;
@@ -309,11 +309,14 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
 
         ConnectedUser connectedUser = connectedUserService.getConnectedUser(connectedUserProject.getConnectedUserId());
 
-        String automationWorkflowUuid = connectedUserProjectWorkflow.getAutomationWorkflowUuid();
+        String catalogWorkflowUuid = connectedUserProjectWorkflow.getCatalogWorkflowUuid();
 
-        if (automationWorkflowUuid != null) {
-            connectedUserWorkflowReferenceFacade.deleteReference(
-                connectedUser.getExternalId(), automationWorkflowUuid, connectedUser.getEnvironment());
+        // A reference row has no ProjectWorkflow of its own (it points at a shared catalog workflow instead), so it
+        // must never be resolved through ProjectWorkflowService#getProjectWorkflow -- getProjectWorkflowId() is null
+        // for these rows and would NPE on auto-unboxing.
+        if (catalogWorkflowUuid != null) {
+            connectedUserCodeWorkflowReferenceFacade.deleteReference(
+                connectedUser.getExternalId(), catalogWorkflowUuid, connectedUser.getEnvironment());
 
             return;
         }
@@ -334,12 +337,18 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         ConnectedUserProject connectedUserProject = connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
             externalUserId, environment);
 
+        // workflowUuid resolves against two disjoint row shapes: the caller's own copy-mode ProjectWorkflow (handled
+        // below, unchanged), or a catalogWorkflowUuid on one of the caller's automation-bridge reference rows. A
+        // reference has no ProjectWorkflow of its own in the caller's project, so resolving it through
+        // fetchProjectWorkflowWorkflowId below would always miss and surface a false WORKFLOW_NOT_FOUND -- the same
+        // reference-vs-copy branch enableProjectWorkflow(long, boolean) already makes on a known row must be made
+        // here too, keyed by uuid instead.
         boolean isReference = connectedUserProjectWorkflowRepository
-            .findByConnectedUserProjectIdAndAutomationWorkflowUuid(connectedUserProject.getId(), workflowUuid)
+            .findByConnectedUserProjectIdAndCatalogWorkflowUuid(connectedUserProject.getId(), workflowUuid)
             .isPresent();
 
         if (isReference) {
-            connectedUserWorkflowReferenceFacade.enableReference(externalUserId, workflowUuid, enable, environment);
+            connectedUserCodeWorkflowReferenceFacade.enableReference(externalUserId, workflowUuid, enable, environment);
 
             return;
         }
@@ -380,11 +389,13 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
 
         ConnectedUser connectedUser = connectedUserService.getConnectedUser(connectedUserProject.getConnectedUserId());
 
-        String automationWorkflowUuid = connectedUserProjectWorkflow.getAutomationWorkflowUuid();
+        String catalogWorkflowUuid = connectedUserProjectWorkflow.getCatalogWorkflowUuid();
 
-        if (automationWorkflowUuid != null) {
-            connectedUserWorkflowReferenceFacade.enableReference(
-                connectedUser.getExternalId(), automationWorkflowUuid, enable, connectedUser.getEnvironment());
+        // See deleteProjectWorkflow(long) above: a reference row's getProjectWorkflowId() is null, so it must be
+        // routed to the reference facade instead of ProjectWorkflowService#getProjectWorkflow.
+        if (catalogWorkflowUuid != null) {
+            connectedUserCodeWorkflowReferenceFacade.enableReference(
+                connectedUser.getExternalId(), catalogWorkflowUuid, enable, connectedUser.getEnvironment());
 
             return;
         }

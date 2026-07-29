@@ -165,7 +165,29 @@ class EmbeddedApiKeyAuthenticationConverterTest {
 
     @Test
     void testConvertWithJwtTokenReturnsAuthentication() throws NoSuchAlgorithmException {
-        Authentication result = convertWithJwt("jwt-user", "/api/embedded/v1/me");
+        String tenantId = "jwt_tenant";
+        String externalUserId = "jwt-user";
+        String keyId = EncodingUtils.base64EncodeToString(tenantId + ":keyId");
+
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+
+        keyPairGenerator.initialize(2048);
+
+        KeyPair keyPair = keyPairGenerator.generateKeyPair();
+
+        String jwtToken = Jwts.builder()
+            .header()
+            .keyId(keyId)
+            .and()
+            .subject(externalUserId)
+            .signWith(keyPair.getPrivate())
+            .compact();
+
+        when(request.getHeader("Authorization")).thenReturn("Bearer " + jwtToken);
+        when(request.getHeader("X-ENVIRONMENT")).thenReturn("PRODUCTION");
+        when(signingKeyService.getPublicKey(anyString(), anyLong())).thenReturn(keyPair.getPublic());
+
+        Authentication result = TenantContext.callWithTenantId(tenantId, () -> converter.convert(request));
 
         assertThat(result).isNotNull();
         assertThat(result).isInstanceOf(EmbeddedApiKeyAuthenticationToken.class);
@@ -334,10 +356,25 @@ class EmbeddedApiKeyAuthenticationConverterTest {
                 .isFalse();
     }
 
+    /**
+     * Pins the Critical-severity fix: a non-JWT token on a no-{@code {externalUserId}} "Frontend" path (e.g. the public
+     * catalog listing at {@code /api/embedded/v1/automation/projects}) used to have {@code EXTERNAL_USER_ID_PATTERN}
+     * incidentally capture the literal segment {@code "automation"} as if it were an externalUserId, which
+     * {@code EmbeddedApiKeyAuthenticationProvider}'s get-or-create then turned into a phantom {@code ConnectedUser}
+     * row. The converter must now reject before a token is even produced, so the provider (and its get-or-create) is
+     * never reached -- see {@code EmbeddedApiKeyAuthenticationConverterProviderIntegrationTest} for the
+     * no-ConnectedUser-created proof.
+     *
+     * <p>
+     * Exercises {@link EmbeddedApiKeyAuthenticationConverter#convert(HttpServletRequest)} for EVERY entry in
+     * {@link com.bytechef.ee.embedded.connected.user.constant.ConnectedUserConstants#FRONTEND_RESERVED_PATH_SEGMENTS},
+     * not just a couple of samples, so a future addition to the allowlist that isn't wired through {@code convert()}
+     * correctly is caught immediately.
+     */
     @ParameterizedTest
     @ValueSource(strings = {
-        "app-events", "automation", "components", "connections", "external", "integration-instances", "integrations",
-        "me", "unified", "workflows"
+        "app-events", "automation", "components", "external", "integration-instances", "integrations", "me",
+        "unified", "workflows"
     })
     void testConvertWithNonJwtTokenAndReservedSegmentThrowsBadCredentialsException(String reservedSegment) {
         String tenantKey = EncodingUtils.base64EncodeToString("test-tenant" + ":randomData");
@@ -393,86 +430,5 @@ class EmbeddedApiKeyAuthenticationConverterTest {
 
         assertThat(token.getExternalUserId()).isEqualTo(externalUserId);
         assertThat(token.getTenantId()).isEqualTo(tenantId);
-    }
-
-    @Test
-    void testFrontendPathNeverReachesProviderSoNoConnectedUserIsCreated() {
-        ApiKeyService apiKeyService = mock(ApiKeyService.class);
-        ConnectedUserService connectedUserService = mock(ConnectedUserService.class);
-        String tenantKey = EncodingUtils.base64EncodeToString("test-tenant" + ":randomData");
-
-        when(request.getHeader("Authorization")).thenReturn("Bearer " + tenantKey);
-        when(request.getHeader("X-ENVIRONMENT")).thenReturn(null);
-        when(request.getRequestURI()).thenReturn("/api/embedded/v1/automation/projects");
-
-        assertThatThrownBy(() -> converter.convert(request))
-            .isInstanceOf(BadCredentialsException.class);
-
-        verifyNoInteractions(connectedUserService);
-        verifyNoInteractions(apiKeyService);
-    }
-
-    private Authentication convertWithJwt(String jwtToken, String requestUri, String environment) {
-        when(request.getHeader("Authorization")).thenReturn("Bearer " + jwtToken);
-        when(request.getHeader("X-ENVIRONMENT")).thenReturn(environment);
-        when(request.getRequestURI()).thenReturn(requestUri);
-
-        return converter.convert(request);
-    }
-
-    private String createServerMintedJwt(String subject, Object environmentIdClaim) throws NoSuchAlgorithmException {
-        String keyId = EncodingUtils.base64EncodeToString(JWT_TENANT_ID + ":server");
-
-        KeyPair keyPair = generateKeyPair();
-
-        when(jwtTokenService.getPublicKey(keyId)).thenReturn(keyPair.getPublic());
-
-        return Jwts.builder()
-            .header()
-            .keyId(keyId)
-            .and()
-            .subject(subject)
-            .claim(JwtTokenService.ENVIRONMENT_ID_CLAIM, environmentIdClaim)
-            .claim("integrationId", 1L)
-            .signWith(keyPair.getPrivate())
-            .compact();
-    }
-
-    private static KeyPair generateKeyPair() throws NoSuchAlgorithmException {
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-
-        keyPairGenerator.initialize(2048);
-
-        return keyPairGenerator.generateKeyPair();
-    }
-
-    private Authentication convertWithJwt(String subject, String requestUri) throws NoSuchAlgorithmException {
-        String keyId = EncodingUtils.base64EncodeToString(JWT_TENANT_ID + ":keyId");
-
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
-
-        keyPairGenerator.initialize(2048);
-
-        KeyPair keyPair = keyPairGenerator.generateKeyPair();
-
-        JwtBuilder jwtBuilder = Jwts.builder()
-            .header()
-            .keyId(keyId)
-            .and()
-            .id("token-id");
-
-        if (subject != null) {
-            jwtBuilder = jwtBuilder.subject(subject);
-        }
-
-        String jwtToken = jwtBuilder.signWith(keyPair.getPrivate())
-            .compact();
-
-        when(request.getHeader("Authorization")).thenReturn("Bearer " + jwtToken);
-        when(request.getHeader("X-ENVIRONMENT")).thenReturn("PRODUCTION");
-        when(request.getRequestURI()).thenReturn(requestUri);
-        when(signingKeyService.getPublicKey(anyString(), anyLong())).thenReturn(keyPair.getPublic());
-
-        return converter.convert(request);
     }
 }

@@ -7,22 +7,33 @@
 
 package com.bytechef.ee.embedded.configuration.facade;
 
-import com.bytechef.automation.configuration.domain.ProjectDeploymentWorkflowConnection;
-import com.bytechef.ee.embedded.configuration.exception.ConnectionNotEntitledException;
+import com.bytechef.commons.util.JsonUtils;
+import com.bytechef.commons.util.MapUtils;
+import com.bytechef.ee.embedded.configuration.exception.MissingConnectionException;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
-import com.bytechef.platform.configuration.domain.ComponentConnection;
-import com.bytechef.platform.connection.dto.ConnectionDTO;
+import com.bytechef.platform.component.domain.ComponentDefinition;
+import com.bytechef.platform.component.service.ComponentDefinitionService;
+import com.bytechef.platform.connection.domain.Connection;
+import com.bytechef.platform.connection.service.ConnectionService;
+import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.definition.WorkflowNodeType;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.LinkedHashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import org.jspecify.annotations.Nullable;
+import java.util.Objects;
 import org.springframework.stereotype.Component;
+import tools.jackson.core.type.TypeReference;
 
 /**
+ * Resolves the per-node connection wiring for a connected user's reference to a shared catalog workflow. A small,
+ * deliberately separate class rather than a refactor of {@link ConnectedUserProjectWorkflowManager}'s private
+ * {@code checkWorkflowNodeConnection(s)} methods -- those write into {@code WorkflowTestConfiguration}, which is wrong
+ * for a shared catalog workflow (two connected users referencing the same workflow must never see each other's
+ * connections). Duplicating the small node-scanning loop here is safer than risking the existing, proven copy-mode
+ * path.
+ *
  * @version ee
  *
  * @author Ivica Cardic
@@ -31,72 +42,58 @@ import org.springframework.stereotype.Component;
 @ConditionalOnEEVersion
 public class ConnectedUserWorkflowConnectionResolver {
 
-    private final ConnectedUserConnectionFacade connectedUserConnectionFacade;
-    private final WorkflowConnectionSlot workflowConnectionSlot;
+    private final ComponentDefinitionService componentDefinitionService;
+    private final ConnectionService connectionService;
 
     @SuppressFBWarnings("EI")
     public ConnectedUserWorkflowConnectionResolver(
-        ConnectedUserConnectionFacade connectedUserConnectionFacade, WorkflowConnectionSlot workflowConnectionSlot) {
-        this.connectedUserConnectionFacade = connectedUserConnectionFacade;
-        this.workflowConnectionSlot = workflowConnectionSlot;
+        ComponentDefinitionService componentDefinitionService, ConnectionService connectionService) {
+
+        this.componentDefinitionService = componentDefinitionService;
+        this.connectionService = connectionService;
     }
 
-    public ResolvedWorkflowConnections resolve(
-        String workflowId, long connectedUserId, Map<String, Long> requestedConnectionIds,
-        List<ProjectDeploymentWorkflowConnection> currentConnections) {
-        Map<String, List<Long>> entitledConnectionIdsByComponentName = new HashMap<>();
-        List<ProjectDeploymentWorkflowConnection> connections = new ArrayList<>();
-        Set<String> missingComponentNames = new LinkedHashSet<>();
+    /**
+     * @throws MissingConnectionException if a node's component declares a connection definition and the connected user
+     *                                    has no matching connection to auto-wire.
+     */
+    public Map<String, Long> resolve(String definition) {
+        Map<String, ?> workflowMap = JsonUtils.readMap(definition);
+        List<Connection> connections = connectionService.getConnections(PlatformType.EMBEDDED);
 
-        for (ComponentConnection slot : workflowConnectionSlot.getSlots(workflowId)) {
-            String componentName = slot.componentName();
+        Map<String, Long> resolved = new LinkedHashMap<>();
 
-            List<Long> entitledConnectionIds = entitledConnectionIdsByComponentName.computeIfAbsent(
-                componentName, name -> getEntitledConnectionIds(connectedUserId, name));
+        for (Map<String, ?> nodeMap : allNodes(workflowMap)) {
+            String nodeName = MapUtils.getString(nodeMap, "name");
+            WorkflowNodeType workflowNodeType = WorkflowNodeType.ofType(MapUtils.getString(nodeMap, "type"));
 
-            Long connectionId = selectConnectionId(
-                componentName, entitledConnectionIds, requestedConnectionIds.get(componentName),
-                currentConnections);
+            ComponentDefinition componentDefinition = componentDefinitionService.getComponentDefinition(
+                workflowNodeType.name(), workflowNodeType.version());
 
-            if (connectionId == null) {
-                if (slot.required()) {
-                    missingComponentNames.add(componentName);
-                }
-
+            // A component definition that could not be resolved is treated conservatively -- as possibly requiring
+            // a connection -- rather than silently skipped, so a node whose metadata is unavailable never ends up
+            // wired to nothing.
+            if (componentDefinition != null && componentDefinition.getConnection() == null) {
                 continue;
             }
 
-            connections.add(new ProjectDeploymentWorkflowConnection(connectionId, slot.key(), slot.workflowNodeName()));
+            Connection connection = connections.stream()
+                .filter(candidate -> Objects.equals(candidate.getComponentName(), workflowNodeType.name()))
+                .findFirst()
+                .orElseThrow(() -> new MissingConnectionException(workflowNodeType.name()));
+
+            resolved.put(nodeName, connection.getId());
         }
 
-        return new ResolvedWorkflowConnections(connections, List.copyOf(missingComponentNames));
+        return resolved;
     }
 
-    private List<Long> getEntitledConnectionIds(long connectedUserId, String componentName) {
-        return connectedUserConnectionFacade.getConnections(connectedUserId, componentName, List.of())
-            .stream()
-            .map(ConnectionDTO::id)
-            .toList();
-    }
+    private static List<Map<String, ?>> allNodes(Map<String, ?> workflowMap) {
+        List<Map<String, ?>> nodes = new ArrayList<>();
 
-    @Nullable
-    private static Long selectConnectionId(
-        String componentName, List<Long> entitledConnectionIds, @Nullable Long requestedConnectionId,
-        List<ProjectDeploymentWorkflowConnection> currentConnections) {
-        if (requestedConnectionId != null) {
-            if (!entitledConnectionIds.contains(requestedConnectionId)) {
-                throw new ConnectionNotEntitledException(componentName, requestedConnectionId);
-            }
+        nodes.addAll(MapUtils.getList(workflowMap, "triggers", new TypeReference<>() {}, List.of()));
+        nodes.addAll(MapUtils.getList(workflowMap, "tasks", new TypeReference<>() {}, List.of()));
 
-            return requestedConnectionId;
-        }
-
-        for (ProjectDeploymentWorkflowConnection currentConnection : currentConnections) {
-            if (entitledConnectionIds.contains(currentConnection.getConnectionId())) {
-                return currentConnection.getConnectionId();
-            }
-        }
-
-        return entitledConnectionIds.isEmpty() ? null : entitledConnectionIds.getFirst();
+        return nodes;
     }
 }
