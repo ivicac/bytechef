@@ -10,6 +10,7 @@ query automationWorkflowProjects {
         lastPublishedVersion
         permissionExpression
         automationHubVisible
+        codeWorkflowProject
         workflowTemplates {
             workflowUuid
             workflowId
