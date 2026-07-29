@@ -105,6 +105,8 @@ public class ConverterAgentToolCallback implements ToolCallback {
 
             Map<String, Object> forwardedContext = WorkflowPersistCaptureUtils.withCaptureHolder(parentContext);
 
+            Map<String, Object> forwardedContext = WorkflowPersistCaptureUtils.withCaptureHolder(parentContext);
+
             ChatClient converterChatClient = chatClientFactory.get();
 
             String result = CurrentAgentContext.callWith(

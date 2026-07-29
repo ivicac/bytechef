@@ -104,8 +104,6 @@ public class ProjectWorkflowAgentToolCallback implements ToolCallback {
 
             Map<String, Object> forwardedContext = WorkflowPersistCaptureUtils.withCaptureHolder(parentContext);
 
-            ChatClient workflowEditorChatClient = chatClientFactory.get();
-
             String result = CurrentAgentContext.callWith(
                 CopilotAgentType.BUILD_WORKFLOW, parentAgent,
                 () -> workflowEditorChatClient.prompt(request)

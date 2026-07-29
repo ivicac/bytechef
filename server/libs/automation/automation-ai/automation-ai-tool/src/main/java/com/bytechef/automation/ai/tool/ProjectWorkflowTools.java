@@ -73,9 +73,9 @@ public class ProjectWorkflowTools {
         }
         """;
 
+    private static final String ASSET_FILE_ENVIRONMENT_ID_KEY = "bytechef.assetFile.environmentId";
     private static final String AGENT_TOOL_ENVIRONMENT_ID_KEY = "bytechef.agentTool.environmentId";
     private static final String PERSISTED_WORKFLOW_CAPTURE_KEY = "bytechef.workflowEditor.persistedWorkflows";
-    private static final String DEFAULT_WORKFLOW_NAME = "Workflow";
 
     private final ComponentDefinitionService componentDefinitionService;
     private final ProjectWorkflowFacade projectWorkflowFacade;
@@ -256,6 +256,10 @@ public class ProjectWorkflowTools {
                 projectWorkflow.getId(), extractWorkflowName(definition));
 
             recordWorkflowArtifact(
+                toolContext, true, projectWorkflow.getWorkflowId(), projectWorkflow.getProjectId(),
+                projectWorkflow.getId(), extractWorkflowName(definition));
+
+            capturePersistedWorkflow(
                 toolContext, true, projectWorkflow.getWorkflowId(), projectWorkflow.getProjectId(),
                 projectWorkflow.getId(), extractWorkflowName(definition));
 
@@ -493,10 +497,14 @@ public class ProjectWorkflowTools {
             capturePersistedWorkflow(
                 toolContext, false, workflowId, projectId, projectWorkflowDTO.getProjectWorkflowId(), workflowName);
 
-            recordWorkflowArtifact(
-                toolContext, false, workflowId, projectId, projectWorkflowDTO.getProjectWorkflowId(), workflowName);
+            WorkflowArtifactRecorder recorder = workflowArtifactRecorderProvider.getIfAvailable();
+
+            if (recorder != null) {
+                recorder.recordWorkflowArtifact(
+                    toolContext, false, workflowId, projectId, projectWorkflowDTO.getProjectWorkflowId(), workflowName);
+            }
         } catch (RuntimeException exception) {
-            log.warn("Failed to capture updated workflow (workflowId={})", workflowId, exception);
+            log.warn("Failed to record updated workflow artifact (workflowId={})", workflowId, exception);
         }
     }
 
