@@ -21,6 +21,7 @@ import com.bytechef.atlas.configuration.repository.WorkflowRepository;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.configuration.service.WorkflowServiceImpl;
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityExpressionHandler;
+import com.bytechef.automation.configuration.security.ResourceMembershipResolver;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.ee.embedded.ai.mcp.audit.McpIntegrationInstanceConfigurationAuditEvents;
 import com.bytechef.ee.embedded.ai.mcp.config.EmbeddedMcpAuditIntTestConfiguration;
@@ -462,9 +463,10 @@ class McpIntegrationInstanceConfigurationWorkflowFacadeIntTest {
         @Bean
         static MethodSecurityExpressionHandler methodSecurityExpressionHandler(
             PermissionService permissionService,
+            ObjectProvider<ResourceMembershipResolver> resourceMembershipResolverProvider,
             ObjectProvider<MethodSecurityExpressionContributor> methodSecurityExpressionContributorProvider) {
             return new AutomationMethodSecurityExpressionHandler(
-                permissionService, methodSecurityExpressionContributorProvider);
+                permissionService, resourceMembershipResolverProvider, methodSecurityExpressionContributorProvider);
         }
 
         @Bean

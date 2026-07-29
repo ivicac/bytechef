@@ -33,6 +33,7 @@ dependencies {
     testImplementation(project(":server:libs:platform:platform-component:platform-component-api"))
     testImplementation(project(":server:libs:platform:platform-configuration:platform-configuration-service"))
     testImplementation(project(":server:libs:platform:platform-connection:platform-connection-service"))
+    testImplementation(project(":server:libs:platform:platform-credential-store:platform-credential-store-service"))
     testImplementation(project(":server:libs:platform:platform-github-proxy-client"))
     testImplementation(project(":server:libs:platform:platform-mcp:platform-mcp-service"))
     testImplementation(project(":server:libs:platform:platform-security:platform-security-service"))
@@ -45,4 +46,5 @@ dependencies {
     testImplementation(project(":server:ee:libs:embedded:embedded-security-web:embedded-security-web-impl"))
     testImplementation(project(":server:ee:libs:platform:platform-audit:platform-audit-api"))
     testImplementation(project(":server:ee:libs:platform:platform-audit:platform-audit-service"))
+    testImplementation(project(":server:ee:libs:platform:platform-code-workflow:platform-code-workflow-configuration:platform-code-workflow-configuration-service"))
 }

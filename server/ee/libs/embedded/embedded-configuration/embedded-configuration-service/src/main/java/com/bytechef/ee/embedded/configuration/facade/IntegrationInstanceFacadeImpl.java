@@ -163,7 +163,7 @@ public class IntegrationInstanceFacadeImpl implements IntegrationInstanceFacade 
         @AuditData(key = "workflowId", value = "#workflowId"),
         @AuditData(key = "enabled", value = "#enable")
     })
-    @PreAuthorize("isTenantAdmin() or isConnectedUser()")
+    @PreAuthorize("isTenantAdmin()")
     public void enableIntegrationInstanceWorkflow(long integrationInstanceId, String workflowId, boolean enable) {
         validateCurrentPrincipalIntegrationInstanceOwnership(integrationInstanceId);
 

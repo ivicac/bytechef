@@ -353,6 +353,7 @@ public class IntegrationInstanceConfigurationFacadeImpl implements IntegrationIn
 
     @Override
     @Transactional(readOnly = true)
+    @PreAuthorize("isTenantAdmin()")
     public IntegrationInstanceConfigurationDTO getIntegrationInstanceConfigurationIntegration(
         long integrationId, boolean enabled, Environment environment, @Nullable ConnectedUser connectedUser) {
 
@@ -371,7 +372,7 @@ public class IntegrationInstanceConfigurationFacadeImpl implements IntegrationIn
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("isAuthenticated()")
+    @PreAuthorize("isTenantAdmin()")
     public List<IntegrationInstanceConfigurationDTO> getIntegrationInstanceConfigurationIntegrations(
         boolean enabled, Environment environment, @Nullable ConnectedUser connectedUser) {
 

@@ -18,6 +18,7 @@ import com.bytechef.ee.embedded.ai.mcp.audit.McpIntegrationInstanceAuditEvents;
 import com.bytechef.ee.embedded.ai.mcp.config.EmbeddedMcpAuditIntTestConfiguration;
 import com.bytechef.ee.embedded.ai.mcp.config.EmbeddedMcpIntTestConfiguration;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowServiceImpl;
+import com.bytechef.ee.embedded.configuration.audit.IntegrationAuditPublisher;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceWorkflow;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationWorkflow;
 import com.bytechef.ee.embedded.configuration.exception.EmbeddedIntegrationNotVisibleException;
@@ -94,6 +95,9 @@ class McpIntegrationInstanceWorkflowFacadeIntTest {
 
     @Autowired
     private Encryption encryption;
+
+    @MockitoBean
+    private IntegrationAuditPublisher integrationAuditPublisher;
 
     @MockitoBean
     private IntegrationInstanceFacade integrationInstanceFacade;

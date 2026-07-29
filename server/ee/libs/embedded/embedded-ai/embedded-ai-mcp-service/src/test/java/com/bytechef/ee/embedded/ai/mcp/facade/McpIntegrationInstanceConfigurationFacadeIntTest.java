@@ -27,6 +27,7 @@ import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurati
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationServiceImpl;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowServiceImpl;
+import com.bytechef.ee.embedded.configuration.audit.IntegrationAuditPublisher;
 import com.bytechef.ee.embedded.configuration.domain.Integration;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfiguration;
 import com.bytechef.ee.embedded.configuration.domain.IntegrationInstanceConfigurationWorkflow;
@@ -49,6 +50,7 @@ import com.bytechef.platform.connection.domain.Connection;
 import com.bytechef.platform.connection.service.ConnectionService;
 import com.bytechef.platform.connection.service.ConnectionServiceImpl;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.credential.store.service.DatabaseCredentialStore;
 import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.repository.McpServerRepository;
 import java.util.List;
@@ -91,6 +93,9 @@ class McpIntegrationInstanceConfigurationFacadeIntTest {
 
     @Autowired
     private ConnectionService connectionService;
+
+    @MockitoBean
+    private IntegrationAuditPublisher integrationAuditPublisher;
 
     @Autowired
     private IntegrationInstanceConfigurationService integrationInstanceConfigurationService;
@@ -428,7 +433,7 @@ class McpIntegrationInstanceConfigurationFacadeIntTest {
     @Configuration
     @EnableCaching
     @Import({
-        ConnectionServiceImpl.class, IntegrationInstanceConfigurationServiceImpl.class,
+        ConnectionServiceImpl.class, DatabaseCredentialStore.class, IntegrationInstanceConfigurationServiceImpl.class,
         IntegrationInstanceConfigurationWorkflowServiceImpl.class, IntegrationInstanceWorkflowServiceImpl.class,
         IntegrationServiceImpl.class, IntegrationWorkflowServiceImpl.class,
         McpIntegrationInstanceConfigurationFacadeImpl.class, McpIntegrationInstanceConfigurationServiceImpl.class,
