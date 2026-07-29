@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.springframework.data.annotation.CreatedBy;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.Id;
@@ -34,9 +35,12 @@ import org.springframework.data.annotation.Version;
 import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.MappedCollection;
 import org.springframework.data.relational.core.mapping.Table;
-import org.springframework.lang.Nullable;
 
 /**
+ * A notification belongs to at most one workspace. The association is the nullable {@code workspace_id} column: null
+ * means global (visible to every workspace), which is what every notification created before workspace scoping existed
+ * is. Only the EE workspace layer reads or writes the column; CE never sets it.
+ *
  * @author Matija Petanjek
  */
 @Table("notification")
@@ -44,7 +48,6 @@ public class Notification {
 
     public enum Type {
 
-        // Persisted as INT ordinal - append new values at the end only.
         EMAIL, WEBHOOK, SLACK
     }
 
@@ -84,6 +87,13 @@ public class Notification {
 
     @Version
     private int version;
+
+    /**
+     * The owning workspace, or {@code null} for a global notification. Boxed on purpose — a primitive would coerce the
+     * "global" case into workspace {@code 0}, which is a real workspace id.
+     */
+    @Column("workspace_id")
+    private @Nullable Long workspaceId;
 
     public Long getId() {
         return id;
@@ -147,6 +157,10 @@ public class Notification {
         return version;
     }
 
+    public @Nullable Long getWorkspaceId() {
+        return workspaceId;
+    }
+
     public void setId(Long id) {
         this.id = id;
     }
@@ -195,6 +209,10 @@ public class Notification {
         this.version = version;
     }
 
+    public void setWorkspaceId(@Nullable Long workspaceId) {
+        this.workspaceId = workspaceId;
+    }
+
     @Override
     public boolean equals(Object o) {
         if (this == o) {
@@ -219,6 +237,7 @@ public class Notification {
     public String toString() {
         return "Notification{" +
             "id=" + id +
+            ", workspaceId=" + workspaceId +
             ", createdBy='" + createdBy + '\'' +
             ", createdDate=" + createdDate +
             ", lastModifiedBy='" + lastModifiedBy + '\'' +

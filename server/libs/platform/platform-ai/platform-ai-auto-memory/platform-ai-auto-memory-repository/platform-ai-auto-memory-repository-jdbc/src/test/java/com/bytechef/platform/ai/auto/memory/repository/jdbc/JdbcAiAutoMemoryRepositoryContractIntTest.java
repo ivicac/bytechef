@@ -16,22 +16,17 @@
 
 package com.bytechef.platform.ai.auto.memory.repository.jdbc;
 
-import com.bytechef.platform.ai.auto.memory.AiAutoMemory;
-import com.bytechef.platform.ai.auto.memory.WorkspaceAiAutoMemory;
 import com.bytechef.platform.ai.auto.memory.repository.AiAutoMemoryRepository;
 import com.bytechef.platform.ai.auto.memory.repository.AiAutoMemoryRepositoryContractTests;
-import com.bytechef.platform.ai.auto.memory.repository.WorkspaceAiAutoMemoryRepository;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import org.junit.jupiter.api.AfterEach;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.namedparam.NamedParameterJdbcOperations;
 import org.springframework.test.context.ActiveProfiles;
 
 /**
- * Runs the shared repository contract against the JDBC binding, so the relational backend and the file-storage backends
- * are held to the same observable behavior.
- *
  * @author Ivica Cardic
  */
 @SpringBootTest(classes = AiAutoMemoryRepositoryIntTest.IntTestConfiguration.class)
@@ -40,32 +35,19 @@ import org.springframework.test.context.ActiveProfiles;
 public class JdbcAiAutoMemoryRepositoryContractIntTest extends AiAutoMemoryRepositoryContractTests {
 
     @Autowired
-    private AiAutoMemoryRepository aiAutoMemoryRepository;
+    private JdbcAiAutoMemoryRepository jdbcAiAutoMemoryRepository;
 
     @Autowired
-    private WorkspaceAiAutoMemoryRepository workspaceAiAutoMemoryRepository;
+    private NamedParameterJdbcOperations namedParameterJdbcOperations;
 
     @AfterEach
     void afterEach() {
-        workspaceAiAutoMemoryRepository.deleteAll();
-        aiAutoMemoryRepository.deleteAll();
+        namedParameterJdbcOperations.getJdbcOperations()
+            .update("DELETE FROM ai_auto_memory");
     }
 
     @Override
     protected AiAutoMemoryRepository getAiAutoMemoryRepository() {
-        return aiAutoMemoryRepository;
-    }
-
-    @Override
-    protected AiAutoMemory saveInWorkspace(AiAutoMemory aiAutoMemory, long workspaceId) {
-        boolean isNew = aiAutoMemory.getId() == null;
-
-        AiAutoMemory saved = aiAutoMemoryRepository.save(aiAutoMemory);
-
-        if (isNew) {
-            workspaceAiAutoMemoryRepository.save(new WorkspaceAiAutoMemory(workspaceId, saved.getId()));
-        }
-
-        return saved;
+        return jdbcAiAutoMemoryRepository;
     }
 }
