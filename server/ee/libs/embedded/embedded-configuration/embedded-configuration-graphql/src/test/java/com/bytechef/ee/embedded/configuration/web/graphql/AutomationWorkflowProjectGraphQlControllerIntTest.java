@@ -102,7 +102,7 @@ class AutomationWorkflowProjectGraphQlControllerIntTest {
     @Test
     void testAutomationWorkflowProjectsOfAnEnvironmentCountsItsConfigurations() {
         AutomationWorkflowProjectDTO project = new AutomationWorkflowProjectDTO(
-            1L, "Project One", null, null, List.of(), true, 2, 1, List.of(), null, true, 3, null);
+            1L, "Project One", null, null, List.of(), true, 2, 1, List.of(), null, false, true, 3, null);
 
         when(automationWorkflowProjectFacade.getProjects(1L)).thenReturn(List.of(project));
 
@@ -135,10 +135,11 @@ class AutomationWorkflowProjectGraphQlControllerIntTest {
             DRAFT_WORKFLOW_ID);
 
         AutomationWorkflowProjectDTO projectOne = new AutomationWorkflowProjectDTO(
-            1L, "Project One", "First project", null, List.of(), true, 5, 2, List.of(workflowTemplateOne), null, true,
+            1L, "Project One", "First project", null, List.of(), true, 5, 2, List.of(workflowTemplateOne), null, false,
+            true,
             0, null);
         AutomationWorkflowProjectDTO projectTwo = new AutomationWorkflowProjectDTO(
-            2L, "Project Two", null, 10L, List.of(20L), false, 1, null, List.of(), null, true, 0, null);
+            2L, "Project Two", null, 10L, List.of(20L), false, 1, null, List.of(), null, false, true, 0, null);
 
         when(automationWorkflowProjectFacade.getProjects()).thenReturn(List.of(projectOne, projectTwo));
 

@@ -45,6 +45,7 @@ vi.mock('@tanstack/react-query', async (importOriginal) => ({
 
 const project = {
     categoryId: null,
+    codeWorkflowProject: false,
     configurationCount: 0,
     description: null,
     id: 'project-1',

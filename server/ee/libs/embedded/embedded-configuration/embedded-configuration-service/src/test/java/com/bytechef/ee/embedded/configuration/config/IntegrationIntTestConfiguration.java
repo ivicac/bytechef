@@ -100,7 +100,9 @@ public class IntegrationIntTestConfiguration {
     WorkflowValidatorFacade workflowValidatorFacade() {
         WorkflowValidatorFacade workflowValidatorFacade = mock(WorkflowValidatorFacade.class);
 
-        when(workflowValidatorFacade.validateWorkflow(anyString(), anyLong()))
+        when(workflowValidatorFacade.validateWorkflow(anyString(), anyLong(), anyLong()))
+            .thenReturn(new WorkflowValidationResult(List.of(), List.of()));
+        when(workflowValidatorFacade.validateWorkflow(anyString(), anyString(), anyLong()))
             .thenReturn(new WorkflowValidationResult(List.of(), List.of()));
 
         return workflowValidatorFacade;

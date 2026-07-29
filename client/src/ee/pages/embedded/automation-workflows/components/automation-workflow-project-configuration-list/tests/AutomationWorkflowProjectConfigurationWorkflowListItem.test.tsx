@@ -95,6 +95,7 @@ const workflowTemplate: WorkflowTemplateType = {
 
 const project: AutomationWorkflowProjectType = {
     categoryId: null,
+    codeWorkflowProject: false,
     configurationCount: 1,
     description: null,
     id: 'project-1',

@@ -31,8 +31,7 @@ import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
-import com.bytechef.component.definition.ComponentDsl;
-import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationComponentService;
+import com.bytechef.ee.automation.configuration.service.ProjectCodeWorkflowService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceToolService;
@@ -134,7 +133,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @MockitoBean(types = {
     ActionDefinitionFacade.class, ApiKeyFacade.class, ApiKeyService.class, AuthorityService.class,
     ClusterElementDefinitionService.class, TriggerDefinitionFacade.class,
-    CodeWorkflowContainerFacade.class, CodeWorkflowContainerService.class, CodeWorkflowFileStorage.class,
     ComponentConnectionFacade.class,
     ComponentDefinitionService.class, ConnectionDefinitionService.class,
     ConnectionFacade.class, ConnectionLifecycleFacade.class, ConnectionService.class,
@@ -191,10 +189,7 @@ class AutomationWorkflowProjectFacadeIntTest {
     private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
 
     @Autowired
-    private IntegrationInstanceConfigurationService integrationInstanceConfigurationService;
-
-    @Autowired
-    private IntegrationService integrationService;
+    private ProjectCodeWorkflowService projectCodeWorkflowService;
 
     @Autowired
     private ProjectService projectService;
@@ -349,50 +344,33 @@ class AutomationWorkflowProjectFacadeIntTest {
     }
 
     @Test
-    void testGetProjectVersionWorkflowChangesReportsAddedWorkflow() {
-        long projectId = automationWorkflowProjectFacade.createProject("Changes", "", null, List.of(), null);
+    void testGetProjectMarksCodeWorkflowProjectWhenIdIsInCodeWorkflowSet() {
+        long projectId = automationWorkflowProjectFacade.createProject(
+            "Code Workflow Project", "", null, List.of(), null);
 
-        String workflowUuid = automationWorkflowProjectFacade.createProjectWorkflow(projectId, null, null);
+        when(projectCodeWorkflowService.getCodeWorkflowProjectIds()).thenReturn(List.of(projectId));
 
-        automationWorkflowProjectFacade.publishProject(projectId);
-
-        VersionWorkflowChanges versionWorkflowChanges =
-            automationWorkflowProjectFacade.getProjectVersionWorkflowChanges(projectId, 1);
-
-        assertThat(versionWorkflowChanges.baseVersion()).isNull();
-        assertThat(versionWorkflowChanges.version()).isEqualTo(1);
-        assertThat(versionWorkflowChanges.workflows()).hasSize(1);
-        assertThat(versionWorkflowChanges.workflows()
-            .getFirst()
-            .workflowUuid()).isEqualTo(workflowUuid);
-        assertThat(versionWorkflowChanges.workflows()
-            .getFirst()
-            .changeType()).isEqualTo(WorkflowChangeType.ADDED);
-
-        VersionWorkflowChange versionWorkflowChange =
-            automationWorkflowProjectFacade.getProjectVersionWorkflowChange(projectId, 1, workflowUuid);
-
-        assertThat(versionWorkflowChange.changeType()).isEqualTo(WorkflowChangeType.ADDED);
-        assertThat(versionWorkflowChange.newDefinition()).isNotNull();
+        assertThat(automationWorkflowProjectFacade.getProject(projectId)
+            .codeWorkflowProject()).isTrue();
+        assertThat(automationWorkflowProjectFacade.getProjects())
+            .filteredOn(project -> project.id() == projectId)
+            .extracting(AutomationWorkflowProjectDTO::codeWorkflowProject)
+            .containsExactly(true);
     }
 
     @Test
-    void testGetProjectVersionWorkflowChangesRejectsNonAutomationWorkflowProject() {
-        Project project = new Project();
+    void testGetProjectDoesNotMarkCodeWorkflowProjectWhenIdIsNotInCodeWorkflowSet() {
+        long projectId = automationWorkflowProjectFacade.createProject(
+            "Visual Project", "", null, List.of(), null, null);
 
-        project.setName("Plain " + UUID.randomUUID());
-        project.setWorkspaceId(Workspace.DEFAULT_WORKSPACE_ID);
+        when(projectCodeWorkflowService.getCodeWorkflowProjectIds()).thenReturn(List.of());
 
-        long projectId = projectService.create(project)
-            .getId();
-
-        assertThatThrownBy(() -> automationWorkflowProjectFacade.getProjectVersionWorkflowChanges(projectId, 1))
-            .isInstanceOf(IllegalArgumentException.class)
-            .hasMessageContaining("is not an automation workflow project");
-        assertThatThrownBy(
-            () -> automationWorkflowProjectFacade.getProjectVersionWorkflowChange(projectId, 1, "uuid"))
-                .isInstanceOf(IllegalArgumentException.class)
-                .hasMessageContaining("is not an automation workflow project");
+        assertThat(automationWorkflowProjectFacade.getProject(projectId)
+            .codeWorkflowProject()).isFalse();
+        assertThat(automationWorkflowProjectFacade.getProjects())
+            .filteredOn(project -> project.id() == projectId)
+            .extracting(AutomationWorkflowProjectDTO::codeWorkflowProject)
+            .containsExactly(false);
     }
 
     @Test

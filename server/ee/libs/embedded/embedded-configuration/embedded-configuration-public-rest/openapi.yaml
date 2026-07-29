@@ -2662,6 +2662,12 @@ components:
           type: "array"
           items:
             $ref: "#/components/schemas/AutomationWorkflowProjectWorkflowTemplate"
+        kind:
+          description: "Whether copying this project's templates creates a per-user copy or a shared reference."
+          type: "string"
+          enum:
+            - "COPY"
+            - "REFERENCE"
     MissingConnectionError:
       type: "object"
       description: "Returned when a required connection could not be auto-wired for an automation workflow template reference."
