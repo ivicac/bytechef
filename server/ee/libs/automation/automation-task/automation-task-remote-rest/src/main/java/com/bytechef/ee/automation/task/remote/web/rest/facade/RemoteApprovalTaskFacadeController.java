@@ -22,6 +22,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
+ * Serves {@link ApprovalTaskFacade} to remote callers so worker-app can create approval-task rows (and read the
+ * pending-approvals inbox) even though the real facade lives in configuration-app.
+ *
  * @version ee
  *
  * @author Ivica Cardic
