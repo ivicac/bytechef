@@ -110,10 +110,12 @@ public class ConnectionModel {
 
   private Map<String, Object> parameters = new HashMap<>();
 
+  private Boolean shared = false;
+
   private List<@Valid TagModel> tags = new ArrayList<>();
 
   /**
-   * Lifecycle state of the connection. ACTIVE is the normal operating state. PENDING_REASSIGNMENT indicates the owner was removed from the workspace and the connection awaits reassignment. REVOKED is terminal and cannot transition back.
+   * Lifecycle state of the connection. ACTIVE is the normal operating state.
    */
   public enum StatusEnum {
     ACTIVE("ACTIVE"),
@@ -191,47 +193,6 @@ public class ConnectionModel {
   private @Nullable VisibilityEnum visibility;
 
   private @Nullable Integer version;
-
-  private Boolean shared = false;
-
-  /**
-   * Lifecycle state of the connection. ACTIVE is the normal operating state.
-   */
-  public enum StatusEnum {
-    ACTIVE("ACTIVE"),
-    
-    PENDING_REASSIGNMENT("PENDING_REASSIGNMENT"),
-    
-    REVOKED("REVOKED");
-
-    private final String value;
-
-    StatusEnum(String value) {
-      this.value = value;
-    }
-
-    @JsonValue
-    public String getValue() {
-      return value;
-    }
-
-    @Override
-    public String toString() {
-      return String.valueOf(value);
-    }
-
-    @JsonCreator
-    public static StatusEnum fromValue(String value) {
-      for (StatusEnum b : StatusEnum.values()) {
-        if (b.value.equals(value)) {
-          return b;
-        }
-      }
-      throw new IllegalArgumentException("Unexpected value '" + value + "'");
-    }
-  }
-
-  private @Nullable StatusEnum status;
 
   public ConnectionModel() {
     super();
@@ -649,6 +610,27 @@ public class ConnectionModel {
     this.parameters = parameters;
   }
 
+  public ConnectionModel shared(Boolean shared) {
+    this.shared = shared;
+    return this;
+  }
+
+  /**
+   * When true, every connected user in the same environment may use this connection. Always forced to false when a connected user creates a connection for themselves.
+   * @return shared
+   */
+  
+  @Schema(name = "shared", description = "When true, every connected user in the same environment may use this connection. Always forced to false when a connected user creates a connection for themselves.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("shared")
+  public Boolean getShared() {
+    return shared;
+  }
+
+  @JsonProperty("shared")
+  public void setShared(Boolean shared) {
+    this.shared = shared;
+  }
+
   public ConnectionModel tags(List<@Valid TagModel> tags) {
     this.tags = tags;
     return this;
@@ -684,11 +666,11 @@ public class ConnectionModel {
   }
 
   /**
-   * Lifecycle state of the connection. ACTIVE is the normal operating state. PENDING_REASSIGNMENT indicates the owner was removed from the workspace and the connection awaits reassignment. REVOKED is terminal and cannot transition back.
+   * Lifecycle state of the connection. ACTIVE is the normal operating state.
    * @return status
    */
   
-  @Schema(name = "status", accessMode = Schema.AccessMode.READ_ONLY, description = "Lifecycle state of the connection. ACTIVE is the normal operating state. PENDING_REASSIGNMENT indicates the owner was removed from the workspace and the connection awaits reassignment. REVOKED is terminal and cannot transition back.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "status", accessMode = Schema.AccessMode.READ_ONLY, description = "Lifecycle state of the connection. ACTIVE is the normal operating state.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("status")
   public @Nullable StatusEnum getStatus() {
     return status;
@@ -741,48 +723,6 @@ public class ConnectionModel {
     this.version = version;
   }
 
-  public ConnectionModel shared(Boolean shared) {
-    this.shared = shared;
-    return this;
-  }
-
-  /**
-   * When true, every connected user in the same environment may use this connection. Always forced to false when a connected user creates a connection for themselves.
-   * @return shared
-   */
-  
-  @Schema(name = "shared", description = "When true, every connected user in the same environment may use this connection. Always forced to false when a connected user creates a connection for themselves.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-  @JsonProperty("shared")
-  public Boolean getShared() {
-    return shared;
-  }
-
-  @JsonProperty("shared")
-  public void setShared(Boolean shared) {
-    this.shared = shared;
-  }
-
-  public ConnectionModel status(@Nullable StatusEnum status) {
-    this.status = status;
-    return this;
-  }
-
-  /**
-   * Lifecycle state of the connection. ACTIVE is the normal operating state.
-   * @return status
-   */
-  
-  @Schema(name = "status", accessMode = Schema.AccessMode.READ_ONLY, description = "Lifecycle state of the connection. ACTIVE is the normal operating state.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-  @JsonProperty("status")
-  public @Nullable StatusEnum getStatus() {
-    return status;
-  }
-
-  @JsonProperty("status")
-  public void setStatus(@Nullable StatusEnum status) {
-    this.status = status;
-  }
-
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -810,6 +750,7 @@ public class ConnectionModel {
         Objects.equals(this.lastModifiedDate, connection.lastModifiedDate) &&
         Objects.equals(this.name, connection.name) &&
         Objects.equals(this.parameters, connection.parameters) &&
+        Objects.equals(this.shared, connection.shared) &&
         Objects.equals(this.tags, connection.tags) &&
         Objects.equals(this.status, connection.status) &&
         Objects.equals(this.visibility, connection.visibility) &&
@@ -818,7 +759,7 @@ public class ConnectionModel {
 
   @Override
   public int hashCode() {
-    return Objects.hash(active, managed, authorizationType, authorizationParameters, baseUri, componentName, connectionParameters, connectionVersion, createdBy, createdDate, credentialStatus, credentialStoreType, environmentId, id, lastModifiedBy, lastModifiedDate, name, parameters, tags, status, visibility, version);
+    return Objects.hash(active, managed, authorizationType, authorizationParameters, baseUri, componentName, connectionParameters, connectionVersion, createdBy, createdDate, credentialStatus, credentialStoreType, environmentId, id, lastModifiedBy, lastModifiedDate, name, parameters, shared, tags, status, visibility, version);
   }
 
   @Override
@@ -843,12 +784,11 @@ public class ConnectionModel {
     sb.append("    lastModifiedDate: ").append(toIndentedString(lastModifiedDate)).append("\n");
     sb.append("    name: ").append(toIndentedString(name)).append("\n");
     sb.append("    parameters: ").append(toIndentedString(parameters)).append("\n");
+    sb.append("    shared: ").append(toIndentedString(shared)).append("\n");
     sb.append("    tags: ").append(toIndentedString(tags)).append("\n");
     sb.append("    status: ").append(toIndentedString(status)).append("\n");
     sb.append("    visibility: ").append(toIndentedString(visibility)).append("\n");
     sb.append("    version: ").append(toIndentedString(version)).append("\n");
-    sb.append("    shared: ").append(toIndentedString(shared)).append("\n");
-    sb.append("    status: ").append(toIndentedString(status)).append("\n");
     sb.append("}");
     return sb.toString();
   }

@@ -83,7 +83,6 @@ public interface NotificationApi {
 
     }
 
-
     String PATH_DELETE_NOTIFICATION = "/notifications/{notificationId}";
     /**
      * DELETE /notifications/{notificationId} : Delete a notification
@@ -111,7 +110,6 @@ public interface NotificationApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_NOTIFICATIONS = "/notifications";
     /**
@@ -151,7 +149,6 @@ public interface NotificationApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_UPDATE_NOTIFICATION = "/notifications/{notificationId}";
     /**

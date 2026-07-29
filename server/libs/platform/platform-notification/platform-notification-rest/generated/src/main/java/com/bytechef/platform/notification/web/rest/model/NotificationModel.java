@@ -21,7 +21,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-
 import java.util.*;
 import jakarta.annotation.Generated;
 
@@ -54,7 +53,9 @@ public class NotificationModel {
   public enum TypeEnum {
     EMAIL("EMAIL"),
     
-    WEBHOOK("WEBHOOK");
+    WEBHOOK("WEBHOOK"),
+    
+    SLACK("SLACK");
 
     private final String value;
 

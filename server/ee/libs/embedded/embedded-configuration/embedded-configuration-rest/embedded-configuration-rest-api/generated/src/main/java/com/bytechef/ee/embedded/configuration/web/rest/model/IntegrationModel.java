@@ -67,6 +67,10 @@ public class IntegrationModel {
 
   private @Nullable CategoryModel category;
 
+  private @Nullable Boolean codeWorkflow;
+
+  private @Nullable String codeWorkflowLanguage;
+
   private List<Long> integrationWorkflowIds = new ArrayList<>();
 
   private List<@Valid TagModel> tags = new ArrayList<>();
@@ -400,6 +404,48 @@ public class IntegrationModel {
     this.category = category;
   }
 
+  public IntegrationModel codeWorkflow(@Nullable Boolean codeWorkflow) {
+    this.codeWorkflow = codeWorkflow;
+    return this;
+  }
+
+  /**
+   * Whether the integration is backed by a code workflow.
+   * @return codeWorkflow
+   */
+  
+  @Schema(name = "codeWorkflow", accessMode = Schema.AccessMode.READ_ONLY, description = "Whether the integration is backed by a code workflow.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("codeWorkflow")
+  public @Nullable Boolean getCodeWorkflow() {
+    return codeWorkflow;
+  }
+
+  @JsonProperty("codeWorkflow")
+  public void setCodeWorkflow(@Nullable Boolean codeWorkflow) {
+    this.codeWorkflow = codeWorkflow;
+  }
+
+  public IntegrationModel codeWorkflowLanguage(@Nullable String codeWorkflowLanguage) {
+    this.codeWorkflowLanguage = codeWorkflowLanguage;
+    return this;
+  }
+
+  /**
+   * The programming language of the code workflow, if the integration is code-backed.
+   * @return codeWorkflowLanguage
+   */
+  
+  @Schema(name = "codeWorkflowLanguage", accessMode = Schema.AccessMode.READ_ONLY, description = "The programming language of the code workflow, if the integration is code-backed.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("codeWorkflowLanguage")
+  public @Nullable String getCodeWorkflowLanguage() {
+    return codeWorkflowLanguage;
+  }
+
+  @JsonProperty("codeWorkflowLanguage")
+  public void setCodeWorkflowLanguage(@Nullable String codeWorkflowLanguage) {
+    this.codeWorkflowLanguage = codeWorkflowLanguage;
+  }
+
   public IntegrationModel integrationWorkflowIds(List<Long> integrationWorkflowIds) {
     this.integrationWorkflowIds = integrationWorkflowIds;
     return this;
@@ -503,6 +549,8 @@ public class IntegrationModel {
         Objects.equals(this.name, integration.name) &&
         Objects.equals(this.permissionExpression, integration.permissionExpression) &&
         Objects.equals(this.category, integration.category) &&
+        Objects.equals(this.codeWorkflow, integration.codeWorkflow) &&
+        Objects.equals(this.codeWorkflowLanguage, integration.codeWorkflowLanguage) &&
         Objects.equals(this.integrationWorkflowIds, integration.integrationWorkflowIds) &&
         Objects.equals(this.tags, integration.tags) &&
         Objects.equals(this.version, integration.version);
@@ -510,7 +558,7 @@ public class IntegrationModel {
 
   @Override
   public int hashCode() {
-    return Objects.hash(componentName, createdBy, createdDate, description, icon, id, lastModifiedBy, lastModifiedDate, lastPublishedDate, lastStatus, lastIntegrationVersion, multipleInstances, name, permissionExpression, category, integrationWorkflowIds, tags, version);
+    return Objects.hash(componentName, createdBy, createdDate, description, icon, id, lastModifiedBy, lastModifiedDate, lastPublishedDate, lastStatus, lastIntegrationVersion, multipleInstances, name, permissionExpression, category, codeWorkflow, codeWorkflowLanguage, integrationWorkflowIds, tags, version);
   }
 
   @Override
@@ -532,6 +580,8 @@ public class IntegrationModel {
     sb.append("    name: ").append(toIndentedString(name)).append("\n");
     sb.append("    permissionExpression: ").append(toIndentedString(permissionExpression)).append("\n");
     sb.append("    category: ").append(toIndentedString(category)).append("\n");
+    sb.append("    codeWorkflow: ").append(toIndentedString(codeWorkflow)).append("\n");
+    sb.append("    codeWorkflowLanguage: ").append(toIndentedString(codeWorkflowLanguage)).append("\n");
     sb.append("    integrationWorkflowIds: ").append(toIndentedString(integrationWorkflowIds)).append("\n");
     sb.append("    tags: ").append(toIndentedString(tags)).append("\n");
     sb.append("    version: ").append(toIndentedString(version)).append("\n");
