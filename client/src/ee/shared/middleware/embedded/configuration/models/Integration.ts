@@ -12,7 +12,7 @@
  * Do not edit the class manually.
  */
 
-import { mapValues } from '../runtime';
+import { mapValues, parseDate, parseDateTime, serializeDate, serializeDateTime } from '../runtime';
 import type { Category } from './Category';
 import {
     CategoryFromJSON,
@@ -43,110 +43,82 @@ import {
 export interface Integration {
     /**
      * The name of the integration's component.
-     * @type {string}
-     * @memberof Integration
      */
     componentName: string;
     /**
      * The created by.
-     * @type {string}
-     * @memberof Integration
      */
     readonly createdBy?: string;
     /**
      * The created date.
-     * @type {Date}
-     * @memberof Integration
      */
     readonly createdDate?: Date;
     /**
      * The description of an integration.
-     * @type {string}
-     * @memberof Integration
      */
     description?: string;
     /**
      * The icon.
-     * @type {string}
-     * @memberof Integration
      */
     icon?: string;
     /**
      * The id of an integration.
-     * @type {number}
-     * @memberof Integration
      */
     readonly id?: number;
     /**
      * The last modified by.
-     * @type {string}
-     * @memberof Integration
      */
     readonly lastModifiedBy?: string;
     /**
      * The last modified date.
-     * @type {Date}
-     * @memberof Integration
      */
     readonly lastModifiedDate?: Date;
     /**
      * The last published date.
-     * @type {Date}
-     * @memberof Integration
      */
     readonly lastPublishedDate?: Date;
     /**
      * 
-     * @type {IntegrationStatus}
-     * @memberof Integration
      */
     lastStatus?: IntegrationStatus;
     /**
      * The last version of an integration.
-     * @type {number}
-     * @memberof Integration
      */
     readonly lastIntegrationVersion?: number;
     /**
      * If multiple instances of an integration are allowed or not.
-     * @type {boolean}
-     * @memberof Integration
      */
     multipleInstances: boolean;
     /**
      * The name of an integration.
-     * @type {string}
-     * @memberof Integration
      */
     name?: string;
     /**
      * The SpEL permission expression evaluated against the connected user to control integration visibility.
-     * @type {string}
-     * @memberof Integration
      */
     permissionExpression?: string;
     /**
      * 
-     * @type {Category}
-     * @memberof Integration
      */
     category?: Category;
     /**
+     * Whether the integration is backed by a code workflow.
+     */
+    readonly codeWorkflow?: boolean;
+    /**
+     * The programming language of the code workflow, if the integration is code-backed.
+     */
+    readonly codeWorkflowLanguage?: string;
+    /**
      * The integration workflow ids belonging to this integration.
-     * @type {Array<number>}
-     * @memberof Integration
      */
     integrationWorkflowIds?: Array<number>;
     /**
      * 
-     * @type {Array<Tag>}
-     * @memberof Integration
      */
     tags?: Array<Tag>;
     /**
      * 
-     * @type {number}
-     * @memberof Integration
      */
     version?: number;
 }
@@ -174,19 +146,21 @@ export function IntegrationFromJSONTyped(json: any, ignoreDiscriminator: boolean
         
         'componentName': json['componentName'],
         'createdBy': json['createdBy'] == null ? undefined : json['createdBy'],
-        'createdDate': json['createdDate'] == null ? undefined : (new Date(json['createdDate'])),
+        'createdDate': json['createdDate'] == null ? undefined : (parseDateTime(json['createdDate'])),
         'description': json['description'] == null ? undefined : json['description'],
         'icon': json['icon'] == null ? undefined : json['icon'],
         'id': json['id'] == null ? undefined : json['id'],
         'lastModifiedBy': json['lastModifiedBy'] == null ? undefined : json['lastModifiedBy'],
-        'lastModifiedDate': json['lastModifiedDate'] == null ? undefined : (new Date(json['lastModifiedDate'])),
-        'lastPublishedDate': json['lastPublishedDate'] == null ? undefined : (new Date(json['lastPublishedDate'])),
+        'lastModifiedDate': json['lastModifiedDate'] == null ? undefined : (parseDateTime(json['lastModifiedDate'])),
+        'lastPublishedDate': json['lastPublishedDate'] == null ? undefined : (parseDateTime(json['lastPublishedDate'])),
         'lastStatus': json['lastStatus'] == null ? undefined : IntegrationStatusFromJSON(json['lastStatus']),
         'lastIntegrationVersion': json['lastIntegrationVersion'] == null ? undefined : json['lastIntegrationVersion'],
         'multipleInstances': json['multipleInstances'],
         'name': json['name'] == null ? undefined : json['name'],
         'permissionExpression': json['permissionExpression'] == null ? undefined : json['permissionExpression'],
         'category': json['category'] == null ? undefined : CategoryFromJSON(json['category']),
+        'codeWorkflow': json['codeWorkflow'] == null ? undefined : json['codeWorkflow'],
+        'codeWorkflowLanguage': json['codeWorkflowLanguage'] == null ? undefined : json['codeWorkflowLanguage'],
         'integrationWorkflowIds': json['integrationWorkflowIds'] == null ? undefined : json['integrationWorkflowIds'],
         'tags': json['tags'] == null ? undefined : ((json['tags'] as Array<any>).map(TagFromJSON)),
         'version': json['__version'] == null ? undefined : json['__version'],
@@ -197,7 +171,7 @@ export function IntegrationToJSON(json: any): Integration {
     return IntegrationToJSONTyped(json, false);
 }
 
-export function IntegrationToJSONTyped(value?: Omit<Integration, 'createdBy'|'createdDate'|'id'|'lastModifiedBy'|'lastModifiedDate'|'lastPublishedDate'|'lastIntegrationVersion'> | null, ignoreDiscriminator: boolean = false): any {
+export function IntegrationToJSONTyped(value?: Omit<Integration, 'createdBy'|'createdDate'|'id'|'lastModifiedBy'|'lastModifiedDate'|'lastPublishedDate'|'lastIntegrationVersion'|'codeWorkflow'|'codeWorkflowLanguage'> | null, ignoreDiscriminator: boolean = false): any {
     if (value == null) {
         return value;
     }
