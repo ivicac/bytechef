@@ -27,6 +27,7 @@ const makeProject = (
 ): AutomationWorkflowProjectType => ({
     automationHubVisible: true,
     categoryId: null,
+    codeWorkflowProject: false,
     description: null,
     lastPublishedVersion: null,
     permissionExpression: null,
