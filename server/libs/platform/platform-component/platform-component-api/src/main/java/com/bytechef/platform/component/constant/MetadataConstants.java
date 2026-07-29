@@ -25,6 +25,7 @@ public class MetadataConstants {
     public static final String APPROVAL_RESUME = "__bytechef_approval_resume__";
     public static final String CALLABLE_RESPONSE = "__callableResponse";
     public static final String CONNECTION_IDS = "connectionIds";
+    public static final String DRY_RUN = "dryRun";
     public static final String CONSUMED_JOB_RESUME_ID = "consumedJobResumeId";
     public static final String WEBHOOK_RESPONSE = "__webhookResponse";
     public static final String EDITOR_ENVIRONMENT = "editorEnvironment";
