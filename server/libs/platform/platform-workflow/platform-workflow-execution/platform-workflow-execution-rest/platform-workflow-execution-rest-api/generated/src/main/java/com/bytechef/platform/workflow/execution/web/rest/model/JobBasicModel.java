@@ -17,7 +17,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-
 import java.util.*;
 import jakarta.annotation.Generated;
 
@@ -27,7 +26,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "JobBasic", description = "Represents an execution of a workflow.")
 @JsonTypeName("JobBasic")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-01T09:51:30.214507+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-23T21:34:35.308008+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 public class JobBasicModel {
 
   private @Nullable String createdBy;
@@ -64,6 +63,8 @@ public class JobBasicModel {
     STARTED("STARTED"),
     
     STOPPED("STOPPED"),
+    
+    CANCELLED("CANCELLED"),
     
     FAILED("FAILED"),
     

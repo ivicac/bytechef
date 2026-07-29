@@ -355,44 +355,10 @@ public interface ConnectedUserProjectWorkflowApi {
     }
 
 
-    String PATH_DEPROVISION_FRONTEND_WORKFLOW_REFERENCE = "/automation/workflow-templates/{workflowUuid}/provision";
-    /**
-     * DELETE /automation/workflow-templates/{workflowUuid}/provision : De-provision a workflow reference
-     * De-provision a reference to an automation workflow template for the authenticated connected user.
-     *
-     * @param workflowUuid The workflow template uuid. (required)
-     * @param xEnvironment The environment. (optional)
-     * @return Successful operation. (status code 204)
-     */
-    @Operation(
-        operationId = "deprovisionFrontendWorkflowReference",
-        summary = "De-provision a workflow reference",
-        description = "De-provision a reference to an automation workflow template for the authenticated connected user.",
-        tags = { "connected-user-project-workflow" },
-        responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation.")
-        },
-        security = {
-            @SecurityRequirement(name = "jwtBearerAuth")
-        }
-    )
-    @RequestMapping(
-        method = RequestMethod.DELETE,
-        value = ConnectedUserProjectWorkflowApi.PATH_DEPROVISION_FRONTEND_WORKFLOW_REFERENCE
-    )
-    default ResponseEntity<Void> deprovisionFrontendWorkflowReference(
-        @Parameter(name = "workflowUuid", description = "The workflow template uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
-        @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
-    ) {
-        return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
-
-    }
-
-
     String PATH_DEPROVISION_WORKFLOW_REFERENCE = "/{externalUserId}/automation/workflow-templates/{workflowUuid}/provision";
     /**
-     * DELETE /{externalUserId}/automation/workflow-templates/{workflowUuid}/provision : De-provision a reference to an automation workflow template
-     * De-provision a reference to an automation workflow template.
+     * DELETE /{externalUserId}/automation/workflow-templates/{workflowUuid}/provision : De-provision a reference to a catalog code workflow
+     * De-provision a reference to a catalog code workflow.
      *
      * @param externalUserId The external user id. (required)
      * @param workflowUuid The workflow template uuid. (required)
@@ -401,8 +367,8 @@ public interface ConnectedUserProjectWorkflowApi {
      */
     @Operation(
         operationId = "deprovisionWorkflowReference",
-        summary = "De-provision a reference to an automation workflow template",
-        description = "De-provision a reference to an automation workflow template.",
+        summary = "De-provision a reference to a catalog code workflow",
+        description = "De-provision a reference to a catalog code workflow.",
         tags = { "connected-user-project-workflow" },
         responses = {
             @ApiResponse(responseCode = "204", description = "Successful operation.")
@@ -427,23 +393,25 @@ public interface ConnectedUserProjectWorkflowApi {
 
     String PATH_DISABLE_FRONTEND_PROJECT_WORKFLOW = "/automation/workflows/{workflowUuid}/enable";
     /**
-     * DELETE /automation/workflows/{workflowUuid}/enable : Disable a workflow
-     * Disable a workflow.
+     * DELETE /automation/workflow-templates/{workflowUuid}/provision : De-provision a workflow reference
+     * De-provision a reference to an automation workflow template for the authenticated connected user.
      *
-     * @param workflowUuid The workflow uuid. (required)
+     * @param workflowUuid The workflow template uuid. (required)
      * @param xEnvironment The environment. (optional)
      * @return Successful operation. (status code 204)
-     *         or A required connection could not be auto-wired, or a required workflow input has no value. (status code 409)
+     *         or A required connection could not be auto-wired. (status code 409)
      */
     @Operation(
-        operationId = "disableFrontendProjectWorkflow",
-        summary = "Disable a workflow",
-        description = "Disable a workflow.",
+        operationId = "deprovisionFrontendWorkflowReference",
+        summary = "De-provision a workflow reference",
+        description = "De-provision a reference to an automation workflow template for the authenticated connected user.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation."),
-            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired, or a required workflow input has no value.", content = {
-                @Content(mediaType = "application/json", schema = @Schema(implementation = EnableFrontendProjectWorkflow409ResponseModel.class))
+            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
+            }),
+            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
             })
         },
         security = {
@@ -455,7 +423,7 @@ public interface ConnectedUserProjectWorkflowApi {
         value = ConnectedUserProjectWorkflowApi.PATH_DISABLE_FRONTEND_PROJECT_WORKFLOW,
         produces = { "application/json" }
     )
-    default ResponseEntity<Void> disableFrontendProjectWorkflow(
+    default ResponseEntity<Object> disableFrontendProjectWorkflow(
         @Parameter(name = "workflowUuid", description = "The workflow uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
@@ -490,9 +458,11 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Disable a workflow.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation."),
-            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired, or a required workflow input has no value.", content = {
-                @Content(mediaType = "application/json", schema = @Schema(implementation = EnableFrontendProjectWorkflow409ResponseModel.class))
+            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
+            }),
+            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
             })
         },
         security = {
@@ -504,7 +474,7 @@ public interface ConnectedUserProjectWorkflowApi {
         value = ConnectedUserProjectWorkflowApi.PATH_DISABLE_PROJECT_WORKFLOW,
         produces = { "application/json" }
     )
-    default ResponseEntity<Void> disableProjectWorkflow(
+    default ResponseEntity<Object> disableProjectWorkflow(
         @Parameter(name = "externalUserId", description = "The external user id.", required = true, in = ParameterIn.PATH) @PathVariable("externalUserId") String externalUserId,
         @Parameter(name = "workflowUuid", description = "The workflow uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
@@ -539,9 +509,11 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Enable a workflow.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation."),
-            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired, or a required workflow input has no value.", content = {
-                @Content(mediaType = "application/json", schema = @Schema(implementation = EnableFrontendProjectWorkflow409ResponseModel.class))
+            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
+            }),
+            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
             })
         },
         security = {
@@ -553,7 +525,7 @@ public interface ConnectedUserProjectWorkflowApi {
         value = ConnectedUserProjectWorkflowApi.PATH_ENABLE_FRONTEND_PROJECT_WORKFLOW,
         produces = { "application/json" }
     )
-    default ResponseEntity<Void> enableFrontendProjectWorkflow(
+    default ResponseEntity<Object> enableFrontendProjectWorkflow(
         @Parameter(name = "workflowUuid", description = "The workflow uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
@@ -588,9 +560,11 @@ public interface ConnectedUserProjectWorkflowApi {
         description = "Enable a workflow.",
         tags = { "connected-user-project-workflow" },
         responses = {
-            @ApiResponse(responseCode = "204", description = "Successful operation."),
-            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired, or a required workflow input has no value.", content = {
-                @Content(mediaType = "application/json", schema = @Schema(implementation = EnableFrontendProjectWorkflow409ResponseModel.class))
+            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
+            }),
+            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
             })
         },
         security = {
@@ -602,7 +576,7 @@ public interface ConnectedUserProjectWorkflowApi {
         value = ConnectedUserProjectWorkflowApi.PATH_ENABLE_PROJECT_WORKFLOW,
         produces = { "application/json" }
     )
-    default ResponseEntity<Void> enableProjectWorkflow(
+    default ResponseEntity<Object> enableProjectWorkflow(
         @Parameter(name = "externalUserId", description = "The external user id.", required = true, in = ParameterIn.PATH) @PathVariable("externalUserId") String externalUserId,
         @Parameter(name = "workflowUuid", description = "The workflow uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
@@ -898,6 +872,58 @@ public interface ConnectedUserProjectWorkflowApi {
         @Parameter(name = "workflowUuid", description = "The workflow template uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
         @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment,
         @Parameter(name = "ProvisionWorkflowReferenceRequestModel", description = "") @Valid @RequestBody(required = false) @Nullable ProvisionWorkflowReferenceRequestModel provisionWorkflowReferenceRequestModel
+    ) {
+        getRequest().ifPresent(request -> {
+            for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
+                if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
+                    String exampleString = "{ \"missingConnectionComponentName\" : \"missingConnectionComponentName\" }";
+                    ApiUtil.setExampleResponse(request, "application/json", exampleString);
+                    break;
+                }
+            }
+        });
+        return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
+
+    }
+
+
+    String PATH_PROVISION_WORKFLOW_REFERENCE = "/{externalUserId}/automation/workflow-templates/{workflowUuid}/provision";
+    /**
+     * POST /{externalUserId}/automation/workflow-templates/{workflowUuid}/provision : Provision a reference to a catalog code workflow
+     * Explicitly provision a reference to a catalog code workflow ahead of first invocation.
+     *
+     * @param externalUserId The external user id. (required)
+     * @param workflowUuid The workflow template uuid. (required)
+     * @param xEnvironment The environment. (optional)
+     * @return Successful operation. (status code 204)
+     *         or A required connection could not be auto-wired. (status code 409)
+     */
+    @Operation(
+        operationId = "provisionWorkflowReference",
+        summary = "Provision a reference to a catalog code workflow",
+        description = "Explicitly provision a reference to a catalog code workflow ahead of first invocation.",
+        tags = { "connected-user-project-workflow" },
+        responses = {
+            @ApiResponse(responseCode = "204", description = "Successful operation.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = Object.class))
+            }),
+            @ApiResponse(responseCode = "409", description = "A required connection could not be auto-wired.", content = {
+                @Content(mediaType = "application/json", schema = @Schema(implementation = MissingConnectionErrorModel.class))
+            })
+        },
+        security = {
+            @SecurityRequirement(name = "bearerAuth")
+        }
+    )
+    @RequestMapping(
+        method = RequestMethod.POST,
+        value = ConnectedUserProjectWorkflowApi.PATH_PROVISION_WORKFLOW_REFERENCE,
+        produces = { "application/json" }
+    )
+    default ResponseEntity<Object> provisionWorkflowReference(
+        @Parameter(name = "externalUserId", description = "The external user id.", required = true, in = ParameterIn.PATH) @PathVariable("externalUserId") String externalUserId,
+        @Parameter(name = "workflowUuid", description = "The workflow template uuid.", required = true, in = ParameterIn.PATH) @PathVariable("workflowUuid") String workflowUuid,
+        @Parameter(name = "X-Environment", description = "The environment.", in = ParameterIn.HEADER) @RequestHeader(value = "X-Environment", required = false) @Nullable EnvironmentModel xEnvironment
     ) {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {

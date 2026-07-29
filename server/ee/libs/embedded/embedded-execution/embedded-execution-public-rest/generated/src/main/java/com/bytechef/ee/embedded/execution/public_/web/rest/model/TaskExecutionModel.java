@@ -31,7 +31,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "TaskExecution", description = "The execution of a single workflow task, including its input and output.")
 @JsonTypeName("TaskExecution")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-23T21:34:31.392269+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-10T23:08:14.930517+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 public class TaskExecutionModel {
 
   private @Nullable String id;
@@ -93,7 +93,6 @@ public class TaskExecutionModel {
 
   private @Nullable ExecutionErrorModel error;
 
-  @Valid
   private Map<String, Object> input = new HashMap<>();
 
   private JsonNullable<Object> output = JsonNullable.<Object>undefined();
@@ -305,7 +304,7 @@ public class TaskExecutionModel {
    * @return output
    */
   
-  @Schema(name = "output", description = "The output of a task execution.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "output", description = "The output of a task execution.", requiredMode = Schema.RequiredMode.NOT_REQUIRED, nullable = true)
   @JsonProperty("output")
   public JsonNullable<Object> getOutput() {
     return output;

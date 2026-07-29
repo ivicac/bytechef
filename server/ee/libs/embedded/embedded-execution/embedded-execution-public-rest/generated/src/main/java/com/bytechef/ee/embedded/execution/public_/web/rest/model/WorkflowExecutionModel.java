@@ -35,7 +35,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "WorkflowExecution", description = "The full detail of a workflow execution, including inputs, outputs, error and task executions.")
 @JsonTypeName("WorkflowExecution")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-23T21:34:31.392269+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-10T23:08:14.930517+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 public class WorkflowExecutionModel {
 
   private Long id;
@@ -50,17 +50,14 @@ public class WorkflowExecutionModel {
 
   private @Nullable ExecutionErrorModel error;
 
-  @Valid
   private Map<String, Object> inputs = new HashMap<>();
 
-  @Valid
   private Map<String, Object> outputs = new HashMap<>();
 
   private @Nullable IntegrationReferenceModel integration;
 
   private @Nullable WorkflowReferenceModel workflow;
 
-  @Valid
   private List<@Valid TaskExecutionModel> taskExecutions = new ArrayList<>();
 
   public WorkflowExecutionModel() {

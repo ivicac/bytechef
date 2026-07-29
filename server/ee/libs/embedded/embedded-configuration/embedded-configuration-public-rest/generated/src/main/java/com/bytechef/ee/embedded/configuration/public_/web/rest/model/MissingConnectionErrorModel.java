@@ -17,13 +17,13 @@ import java.util.*;
 import jakarta.annotation.Generated;
 
 /**
- * Returned when a required connection could not be auto-wired for an automation workflow template reference.
+ * Returned when a required connection could not be auto-wired for a catalog code workflow reference.
  */
 
-@Schema(name = "MissingConnectionError", description = "Returned when a required connection could not be auto-wired for an automation workflow template reference.")
+@Schema(name = "MissingConnectionError", description = "Returned when a required connection could not be auto-wired for a catalog code workflow reference.")
 @JsonTypeName("MissingConnectionError")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-23T21:34:31.743535+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
-public class MissingConnectionErrorModel implements EnableFrontendProjectWorkflow409ResponseModel {
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-27T21:42:20.429973+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+public class MissingConnectionErrorModel {
 
   private @Nullable String missingConnectionComponentName;
 

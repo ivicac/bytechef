@@ -13,7 +13,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-
 import java.util.*;
 import jakarta.annotation.Generated;
 
@@ -23,7 +22,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "NotificationEvent", description = "A notification event definition.")
 @JsonTypeName("NotificationEvent")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-01T09:51:23.900246+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-23T21:34:31.149400+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 public class NotificationEventModel {
 
   private Long id;
@@ -42,7 +41,11 @@ public class NotificationEventModel {
     
     JOB_STARTED("JOB_STARTED"),
     
-    JOB_STOPPED("JOB_STOPPED");
+    JOB_STOPPED("JOB_STOPPED"),
+    
+    JOB_APPROVAL_EXPIRING("JOB_APPROVAL_EXPIRING"),
+    
+    JOB_APPROVAL_ESCALATED("JOB_APPROVAL_ESCALATED");
 
     private final String value;
 

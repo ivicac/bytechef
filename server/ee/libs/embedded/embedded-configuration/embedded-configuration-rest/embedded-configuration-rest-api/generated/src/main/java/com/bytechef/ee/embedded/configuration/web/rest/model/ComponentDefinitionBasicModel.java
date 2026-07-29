@@ -28,17 +28,15 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "ComponentDefinitionBasic", description = "A component contains a set of reusable code(actions) that accomplish specific tasks, triggers and connections if there is a need for a connection to an outside service.")
 @JsonTypeName("ComponentDefinitionBasic")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-01T09:51:25.298245+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-10T23:08:34.669834+02:00[Europe/Zagreb]", comments = "Generator version: 7.25.0")
 public class ComponentDefinitionBasicModel {
 
   private @Nullable Integer actionsCount;
 
-  @Valid
   private Map<String, Integer> clusterElementsCount = new HashMap<>();
 
   private @Nullable Boolean clusterRoot;
 
-  @Valid
   private List<@Valid ComponentCategoryModel> componentCategories = new ArrayList<>();
 
   private @Nullable String description;
@@ -123,11 +121,11 @@ public class ComponentDefinitionBasicModel {
   }
 
   /**
-   * Is the component cluster root.
+   * Whether the component declares cluster element types of its own, meaning it is configured through its child cluster elements rather than directly.
    * @return clusterRoot
    */
   
-  @Schema(name = "clusterRoot", description = "Is the component cluster root.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "clusterRoot", description = "Whether the component declares cluster element types of its own, meaning it is configured through its child cluster elements rather than directly.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("clusterRoot")
   public @Nullable Boolean getClusterRoot() {
     return clusterRoot;

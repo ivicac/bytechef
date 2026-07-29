@@ -33,7 +33,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-01T09:51:23.900246+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-23T21:34:31.149400+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 @Validated
 @Tag(name = "notification", description = "The Platform Notification Internal API")
 public interface NotificationApi {
@@ -83,7 +83,6 @@ public interface NotificationApi {
 
     }
 
-
     String PATH_DELETE_NOTIFICATION = "/notifications/{notificationId}";
     /**
      * DELETE /notifications/{notificationId} : Delete a notification
@@ -111,7 +110,6 @@ public interface NotificationApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_NOTIFICATIONS = "/notifications";
     /**
@@ -151,7 +149,6 @@ public interface NotificationApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_UPDATE_NOTIFICATION = "/notifications/{notificationId}";
     /**

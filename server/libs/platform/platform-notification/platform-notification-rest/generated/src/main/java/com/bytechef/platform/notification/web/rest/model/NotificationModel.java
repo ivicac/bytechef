@@ -21,7 +21,6 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.*;
 import io.swagger.v3.oas.annotations.media.Schema;
 
-
 import java.util.*;
 import jakarta.annotation.Generated;
 
@@ -31,7 +30,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "Notification", description = "A Notification definition.")
 @JsonTypeName("Notification")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-01T09:51:23.900246+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-23T21:34:31.149400+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 public class NotificationModel {
 
   private @Nullable Long id;
@@ -54,7 +53,9 @@ public class NotificationModel {
   public enum TypeEnum {
     EMAIL("EMAIL"),
     
-    WEBHOOK("WEBHOOK");
+    WEBHOOK("WEBHOOK"),
+    
+    SLACK("SLACK");
 
     private final String value;
 
