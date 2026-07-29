@@ -188,7 +188,7 @@ const AutomationWorkflowEditorLeftSidebar = ({currentWorkflowId}: AutomationWork
                 <Button
                     className="w-full [&_svg]:size-5"
                     icon={<PlusIcon />}
-                    label="Workflow"
+                    label="New Workflow"
                     onClick={() => setShowWorkflowDialog(true)}
                     variant="secondary"
                 />
