@@ -34,7 +34,6 @@ import org.springframework.graphql.data.method.annotation.MutationMapping;
 import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.graphql.data.method.annotation.SchemaMapping;
 import org.springframework.security.access.AccessDeniedException;
-import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
 /**
@@ -62,12 +61,6 @@ public class McpServerGraphQlController {
         this.publicUrl = applicationProperties.getPublicUrl();
     }
 
-    /**
-     * The MCP server secret key authenticates inbound MCP traffic; only tenant admins may read it. The explicit field
-     * resolver (instead of the default {@code getSecretKey()} getter) delegates to the admin-gated service method, so a
-     * non-admin who can otherwise view the server (workspace VIEWER) is denied the secret. The authorization lives on
-     * {@code McpServerService.getMcpServerSecretKey}, not here.
-     */
     @SchemaMapping(typeName = "McpServer", field = "secretKey")
     public String secretKey(McpServer mcpServer) {
         return mcpServerService.getMcpServerSecretKey(mcpServer.getId());
@@ -75,26 +68,15 @@ public class McpServerGraphQlController {
 
     @QueryMapping
     public McpServer mcpServer(@Argument long id) {
-        return mcpServerService.getMcpServer(id);
-    }
-
-    @MutationMapping
-    public McpServer createMcpServer(@Argument McpServerInput input) {
-        return mcpServerService.create(
-            input.name(), input.type(), Environment.values()[(int) input.environmentId], input.enabled());
+        return getNonEmbeddedMcpServer(id);
     }
 
     @MutationMapping
     public McpServer updateMcpServer(@Argument long id, @Argument McpServerUpdateInput input) {
-        McpServer mcpServer = mcpServerService.update(id, input.name(), input.enabled());
+        getNonEmbeddedMcpServer(id);
 
-        if (input.enforceToolAuthorization() != null) {
-            mcpServer.setEnforceToolAuthorization(input.enforceToolAuthorization());
-
-            mcpServer = mcpServerService.update(mcpServer);
-        }
-
-        return mcpServer;
+        return mcpServerService.update(
+            id, input.name(), input.enabled(), input.enforceToolAuthorization(), input.authenticationRequired());
     }
 
     @MutationMapping
@@ -180,9 +162,7 @@ public class McpServerGraphQlController {
     public record TagInput(Long id, String name) {
     }
 
-    public record McpServerInput(String name, PlatformType type, long environmentId, Boolean enabled) {
-    }
-
-    public record McpServerUpdateInput(String name, Boolean enabled, Boolean enforceToolAuthorization) {
+    public record McpServerUpdateInput(
+        String name, Boolean enabled, Boolean enforceToolAuthorization, Boolean authenticationRequired) {
     }
 }
