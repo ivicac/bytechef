@@ -13,6 +13,9 @@ import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.stereotype.Repository;
 
 /**
+ * Workspace-scoped reads filter {@code workflow_execution_cost.workspace_id} directly; a workspace-less cost row (an
+ * editor run or an embedded execution) is invisible to them, which is the intended behavior.
+ *
  * @version ee
  *
  * @author Ivica Cardic
