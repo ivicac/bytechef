@@ -14,12 +14,14 @@ import useCopilotLayoutShifted from '@/shared/components/copilot/hooks/useCopilo
 import {useLoadWorkspacePermissions} from '@/shared/hooks/useLoadWorkspacePermissions';
 import {useLoadWorkspaceScopes} from '@/shared/hooks/useLoadWorkspaceScopes';
 import {useWorkflowTestRunGuard} from '@/shared/hooks/useWorkflowTestRunGuard';
-import {WebhookTriggerTestApi} from '@/shared/middleware/automation/configuration';
+import {Project as ProjectType, WebhookTriggerTestApi} from '@/shared/middleware/automation/configuration';
 import {PlatformType} from '@/shared/middleware/graphql';
 import {useCreateConnectionMutation} from '@/shared/mutations/automation/connections.mutations';
 import {useGetComponentDefinitionsQuery} from '@/shared/queries/automation/componentDefinitions.queries';
 import {ConnectionKeys, useGetConnectionTagsQuery} from '@/shared/queries/automation/connections.queries';
+import {useGetProjectQuery} from '@/shared/queries/automation/projects.queries';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
+import {useLoaderData} from 'react-router-dom';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
 
@@ -58,6 +60,8 @@ const Project = () => {
         updateWorkflowNodeParameterMutation,
         useGetConnectionsQuery,
     } = useProject();
+
+    const {data: project} = useGetProjectQuery(projectId, useLoaderData() as ProjectType);
 
     useLoadWorkspacePermissions(currentWorkspaceId);
     useLoadWorkspaceScopes(currentWorkspaceId);
@@ -110,6 +114,8 @@ const Project = () => {
                                 value={{
                                     ConnectionKeys: ConnectionKeys,
                                     cancelWorkflowQueries,
+                                    codeWorkflow: project?.codeWorkflow,
+                                    codeWorkflowLanguage: project?.codeWorkflowLanguage,
                                     connectionTagsQueryKey: ConnectionKeys.connectionTags(currentWorkspaceId!),
                                     deleteClusterElementParameterMutation,
                                     deleteWorkflowNodeParameterMutation,

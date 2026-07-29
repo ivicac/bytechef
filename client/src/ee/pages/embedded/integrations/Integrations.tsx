@@ -1,8 +1,11 @@
 import Button from '@/components/Button/Button';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
+import {ButtonGroup} from '@/components/ui/button-group';
+import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
 import IntegrationDialog from '@/ee/pages/embedded/integrations/components/IntegrationDialog';
 import IntegrationsFilterTitle from '@/ee/pages/embedded/integrations/components/IntegrationsFilterTitle';
+import NewIntegrationCodeWorkflowDialog from '@/ee/pages/embedded/integrations/components/NewIntegrationCodeWorkflowDialog';
 import UnifiedApiLeftSidebarNav from '@/ee/pages/embedded/integrations/components/UnifiedApiLeftSidebarNav';
 import IntegrationList from '@/ee/pages/embedded/integrations/components/integration-list/IntegrationList';
 import {useGetComponentDefinitionsQuery} from '@/ee/shared/queries/embedded/componentDefinitions.queries';
@@ -14,7 +17,7 @@ import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {useGetTaskDispatcherDefinitionsQuery} from '@/shared/queries/platform/taskDispatcherDefinitions.queries';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
-import {SquareIcon} from 'lucide-react';
+import {ChevronDownIcon, CodeIcon, SquareIcon} from 'lucide-react';
 import {useState} from 'react';
 import {useNavigate, useSearchParams} from 'react-router-dom';
 
@@ -26,6 +29,8 @@ export enum Type {
 
 const Integrations = () => {
     const [newlyCreatedIntegrationId, setNewlyCreatedIntegrationId] = useState<number | undefined>();
+    const [showIntegrationDialog, setShowIntegrationDialog] = useState(false);
+    const [showNewCodeWorkflowDialog, setShowNewCodeWorkflowDialog] = useState(false);
 
     const [searchParams] = useSearchParams();
 
@@ -73,20 +78,29 @@ const Integrations = () => {
                         right={
                             integrations &&
                             integrations.length > 0 && (
-                                <IntegrationDialog
-                                    integration={undefined}
-                                    onClose={(integration) => {
-                                        if (integration) {
-                                            navigate(
-                                                `/embedded/integrations/${integration?.id}/integration-workflows/${integration?.integrationWorkflowIds![0]}`
-                                            );
-                                        }
-                                    }}
-                                    onSuccess={(integrationId) =>
-                                        integrationId && setNewlyCreatedIntegrationId(integrationId)
-                                    }
-                                    triggerNode={<Button label="New Integration" />}
-                                />
+                                <ButtonGroup>
+                                    <Button
+                                        aria-label="Create Integration"
+                                        onClick={() => setShowIntegrationDialog(true)}
+                                    >
+                                        New Integration
+                                    </Button>
+
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button>
+                                                <ChevronDownIcon />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+
+                                        <DropdownMenuContent align="end">
+                                            <DropdownMenuItem onClick={() => setShowNewCodeWorkflowDialog(true)}>
+                                                <CodeIcon className="mr-2 size-4" />
+                                                New Code Workflow
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </ButtonGroup>
                             )
                         }
                         title={<IntegrationsFilterTitle categories={categories} filterData={filterData} tags={tags} />}
@@ -125,20 +139,26 @@ const Integrations = () => {
                 ) : (
                     <EmptyList
                         button={
-                            <IntegrationDialog
-                                integration={undefined}
-                                onClose={(integration) => {
-                                    if (integration) {
-                                        navigate(
-                                            `/embedded/integrations/${integration?.id}/integration-workflows/${integration?.integrationWorkflowIds![0]}`
-                                        );
-                                    }
-                                }}
-                                onSuccess={(integrationId) =>
-                                    integrationId && setNewlyCreatedIntegrationId(integrationId)
-                                }
-                                triggerNode={<Button label="Create Integration" />}
-                            />
+                            <ButtonGroup className="mx-auto">
+                                <Button aria-label="Create Integration" onClick={() => setShowIntegrationDialog(true)}>
+                                    Create Integration
+                                </Button>
+
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button>
+                                            <ChevronDownIcon />
+                                        </Button>
+                                    </DropdownMenuTrigger>
+
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setShowNewCodeWorkflowDialog(true)}>
+                                            <CodeIcon className="mr-2 size-4" />
+                                            New Code Workflow
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </ButtonGroup>
                         }
                         icon={<SquareIcon className="size-24 text-gray-300" />}
                         message="Get started by creating a new integrations."
@@ -146,6 +166,26 @@ const Integrations = () => {
                     />
                 )}
             </PageLoader>
+
+            {showIntegrationDialog && (
+                <IntegrationDialog
+                    integration={undefined}
+                    onClose={(integration) => {
+                        setShowIntegrationDialog(false);
+
+                        if (integration) {
+                            navigate(
+                                `/embedded/integrations/${integration?.id}/integration-workflows/${integration?.integrationWorkflowIds![0]}`
+                            );
+                        }
+                    }}
+                    onSuccess={(integrationId) => integrationId && setNewlyCreatedIntegrationId(integrationId)}
+                />
+            )}
+
+            {showNewCodeWorkflowDialog && (
+                <NewIntegrationCodeWorkflowDialog onClose={() => setShowNewCodeWorkflowDialog(false)} />
+            )}
         </LayoutContainer>
     );
 };
