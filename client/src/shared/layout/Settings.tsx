@@ -27,16 +27,12 @@ const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
     const location = useLocation();
 
     const isNavItemVisible = (navItem: SettingsNavItemI) => {
-        if (navItem.href === 'api-connectors') {
-            return isFeatureFlagEnabled('ff-207');
+        if (navItem.href === 'components') {
+            return isFeatureFlagEnabled('ff-1024') || isFeatureFlagEnabled('ff-207');
         }
 
         if (navItem.href?.includes('/account/appearance')) {
             return isFeatureFlagEnabled('ff-445');
-        }
-
-        if (navItem.href === 'custom-components') {
-            return isFeatureFlagEnabled('ff-1024');
         }
 
         if (navItem.href === 'git-configuration') {

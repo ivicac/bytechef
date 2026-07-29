@@ -1,6 +1,6 @@
 import {SidebarProvider} from '@/components/ui/sidebar';
 import {render, screen} from '@/shared/util/test-utils';
-import {FolderIcon, MessagesSquareIcon} from 'lucide-react';
+import {FolderIcon, Layers3Icon, LayoutTemplateIcon, MessagesSquareIcon} from 'lucide-react';
 import {MemoryRouter} from 'react-router-dom';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
@@ -25,6 +25,13 @@ vi.mock('@/shared/stores/useEnvironmentStore', () => ({
 const navigation = [
     {href: '/automation/ai-hub', icon: MessagesSquareIcon, name: 'AI Hub'},
     {href: '/automation/projects', icon: FolderIcon, name: 'Projects'},
+];
+
+const groupedNavigation = [
+    {href: '/automation/projects', icon: FolderIcon, name: 'Projects'},
+    {group: 'Deployments', href: '/automation/deployments', icon: Layers3Icon, name: 'Project Deployments'},
+    {group: 'Deployments', href: '/automation/api-platform', icon: LayoutTemplateIcon, name: 'API Collections'},
+    {href: '/automation/connections', icon: FolderIcon, name: 'Connections'},
 ];
 
 const renderSidebar = (open = true) =>
@@ -96,5 +103,26 @@ describe('AppSidebar', () => {
 
             expect(document.documentElement).not.toHaveAttribute('data-environment');
         });
+    });
+
+    it('renders consecutive items sharing a group under one labeled section', () => {
+        render(
+            <MemoryRouter initialEntries={['/automation/projects']}>
+                <SidebarProvider defaultOpen>
+                    <AppSidebar navigation={groupedNavigation} />
+                </SidebarProvider>
+            </MemoryRouter>
+        );
+
+        expect(screen.getAllByText('Deployments')).toHaveLength(1);
+        expect(screen.getByRole('link', {name: 'Project Deployments'})).toBeInTheDocument();
+        expect(screen.getByRole('link', {name: 'API Collections'})).toBeInTheDocument();
+        expect(screen.getByRole('link', {name: 'Connections'})).toBeInTheDocument();
+    });
+
+    it('renders ungrouped items without a group label', () => {
+        renderSidebar(true);
+
+        expect(screen.queryByText('Deployments')).not.toBeInTheDocument();
     });
 });
