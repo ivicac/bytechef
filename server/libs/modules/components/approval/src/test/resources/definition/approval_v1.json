@@ -545,10 +545,10 @@
     "required": false
   } ],
   "clusterElements": [ {
-    "name": "requestApproval",
     "description": "Sends an approval request and waits for a human to approve or reject.",
     "element": { },
     "help": null,
+    "name": "requestApproval",
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ {
@@ -1065,6 +1065,23 @@
       "name": "TOOLS",
       "key": "tools",
       "label": "Tools",
+      "multipleElements": true,
+      "required": false
+    },
+    "workflowNodeDescription": null
+  }, {
+    "description": "Delivers the approval request as an inline card in the chat conversation that started the workflow run. Pair with a fallback channel for runs not started from chat.",
+    "element": { },
+    "help": null,
+    "name": "chat",
+    "outputDefinition": null,
+    "processErrorResponse": null,
+    "properties": null,
+    "title": "Chat",
+    "type": {
+      "name": "APPROVAL_CHANNELS",
+      "key": "approvalChannels",
+      "label": "Channels",
       "multipleElements": true,
       "required": false
     },
