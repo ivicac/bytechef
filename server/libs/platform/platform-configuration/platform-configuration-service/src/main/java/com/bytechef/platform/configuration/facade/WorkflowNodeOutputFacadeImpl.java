@@ -276,6 +276,11 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
             .anyMatch(workflowTask -> Objects.equals(workflowTask.getName(), workflowNodeName));
     }
 
+    /**
+     * Returns the immediate child tasks a dispatcher task can autocomplete against, so
+     * {@link #containsWorkflowTask(List, String)} can decide whether the node currently being resolved is nested inside
+     * this dispatcher (self-reference) or a sibling of it.
+     */
     private static List<WorkflowTask> getChildWorkflowTasks(
         WorkflowTask workflowTask, WorkflowNodeType workflowNodeType) {
 
