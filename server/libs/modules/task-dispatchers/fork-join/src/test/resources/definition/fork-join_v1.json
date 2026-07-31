@@ -10,7 +10,7 @@
     "outputSchema": null,
     "sampleOutput": null
   },
-  "properties": [ ],
+  "properties": null,
   "resources": null,
   "taskProperties": [ {
     "advancedOption": false,
