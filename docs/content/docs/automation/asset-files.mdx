@@ -24,6 +24,28 @@ Drag files onto the page's upload zone, or click to browse and pick them. Files 
 
 ## Inspect a file
 
-Click a file to open its **detail sheet** (also reachable via a deep link at `/automation/asset-files/{fileId}`). The sheet shows the file's name and an environment badge, previews the content inline — text and code files render in a viewer with syntax highlighting, images render as an image — and offers a **Download** button. Text and code files can be edited in place and saved.
+Click a file to open its **detail sheet** (also reachable via a deep link at `/automation/asset-files/{fileId}`). The sheet shows the file's name and an environment badge, previews the content inline, and offers a **Download** button. Text and code files can be edited in place and saved.
+
+Preview support by type:
+
+- **Markdown** renders as formatted text; switch to the **Edit** tab to change the source.
+- **CSV** renders as a table (first 500 rows).
+- **HTML** renders in a sandboxed frame — scripts are disabled — with a fullscreen button.
+- Other **text and code** files open in an editor with syntax highlighting.
+- **Images** and **PDFs** render inline; everything else offers a download.
 
 Reuse these files in workflows and AI Hub conversations instead of re-uploading per run.
+
+## Version history
+
+Every time a file's content changes — an in-place edit, a workflow action, or an AI agent updating it — the previous content is kept as a **version**. Open the history panel from the clock icon in the detail sheet to browse versions and **Restore** any of them; restoring snapshots the current content first, so a restore is itself undoable.
+
+By default the last 10 versions per file are kept (configurable via `bytechef.asset-file.max-versions-per-file`; a negative value keeps versions forever).
+
+## Share a file
+
+From a file's row menu you can **enable a public link** — a URL with an unguessable token that allows anyone who has it to download the file (always as an attachment) without signing in. The same menu copies or disables the link; disabling it invalidates the URL immediately.
+
+Operators can turn off public links platform-wide with `bytechef.asset-file.sharing.public-link-enabled=false` — existing links stop resolving as soon as the switch flips.
+
+For programmatic integrations, the GraphQL API can also mint **short-lived signed download URLs** (`assetFileSignedDownloadUrl`) that expire on the platform's signed-URL TTL, without making the file durably public.
