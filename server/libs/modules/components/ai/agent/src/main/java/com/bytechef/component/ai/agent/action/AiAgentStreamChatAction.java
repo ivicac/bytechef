@@ -30,8 +30,10 @@ import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.ActionDefinition.SseEmitterHandler;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.ai.constant.AiAgentSseEventType;
-import com.bytechef.platform.ai.tool.AiAgentToolContext;
+import com.bytechef.platform.ai.constant.AiAgentToolContextKey;
+import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
 import com.bytechef.platform.ai.tool.AiAgentToolContext.SseTransport;
+import com.bytechef.platform.ai.tool.AiAgentToolContext;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.AbstractActionDefinitionWrapper;
 import com.bytechef.platform.component.definition.ActionContextAware;
@@ -84,21 +86,23 @@ public class AiAgentStreamChatAction extends AbstractAiAgentChatAction {
     public static ActionDefinition of(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
         ToolCallingManager toolCallingManager,
-        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider) {
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+        @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider) {
 
         return new AiAgentStreamChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
-            toolExecutionRecorderObjectProvider).build();
+            toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider).build();
     }
 
     private AiAgentStreamChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
         ToolCallingManager toolCallingManager,
-        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider) {
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+        @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider) {
 
         super(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
-            toolExecutionRecorderObjectProvider);
+            toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider);
     }
 
     /**

@@ -28,6 +28,8 @@ import com.bytechef.component.ai.llm.util.ModelUtils;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.Parameters;
+import com.bytechef.platform.ai.constant.AiAgentToolContextKey;
+import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
 import com.bytechef.platform.ai.tool.AiAgentToolContext;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.AbstractActionDefinitionWrapper;
@@ -58,21 +60,23 @@ public class AiAgentChatAction extends AbstractAiAgentChatAction {
     public static ChatActionDefinitionWrapper of(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
         ToolCallingManager toolCallingManager,
-        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider) {
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+        @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider) {
 
         return new AiAgentChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
-            toolExecutionRecorderObjectProvider).build();
+            toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider).build();
     }
 
     private AiAgentChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
         ToolCallingManager toolCallingManager,
-        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider) {
+        @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
+        @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider) {
 
         super(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
-            toolExecutionRecorderObjectProvider);
+            toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider);
     }
 
     private ChatActionDefinitionWrapper build() {
