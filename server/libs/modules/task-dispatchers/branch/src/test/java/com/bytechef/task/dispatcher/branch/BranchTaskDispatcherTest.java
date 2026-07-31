@@ -44,6 +44,7 @@ import com.bytechef.evaluator.Evaluator;
 import com.bytechef.evaluator.SpelEvaluator;
 import com.bytechef.file.storage.base64.service.Base64FileStorageService;
 import java.util.Arrays;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Assertions;
@@ -330,6 +331,7 @@ public class BranchTaskDispatcherTest {
             taskFileStorage);
         TaskExecution taskExecution = TaskExecution.builder()
             .id(1L)
+            .jobId(2L)
             .workflowTask(
                 new WorkflowTask(
                     Map.of(
@@ -362,5 +364,16 @@ public class BranchTaskDispatcherTest {
         TaskExecutionCompleteEvent taskExecutionCompleteEvent = taskExecutionCompleteEventArgumentCaptor.getValue();
 
         Assertions.assertNotNull(taskExecutionCompleteEvent);
+
+        TaskExecution completedTaskExecution = taskExecutionCompleteEvent.getTaskExecution();
+
+        Map<String, Object> expectedOutput = new HashMap<>();
+
+        expectedOutput.put("k1", null);
+        expectedOutput.put("k2", null);
+        expectedOutput.put("default", null);
+
+        Assertions.assertEquals(
+            expectedOutput, taskFileStorage.readTaskExecutionOutput(completedTaskExecution.getOutput()));
     }
 }
