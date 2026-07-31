@@ -31,7 +31,10 @@ test.describe('Workspace Files', () => {
                 name: fileName,
             });
 
-            const uploadedRow = page.locator('[data-testid^="asset-file-row-"]').filter({hasText: fileName}).first();
+            const uploadedRow = page
+                .locator('[data-testid^="asset-file-list-item-"]')
+                .filter({hasText: fileName})
+                .first();
 
             await expect(uploadedRow).toBeVisible({timeout: 15000});
 
