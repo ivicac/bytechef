@@ -527,7 +527,7 @@ public class ForkJoinTaskDispatcherIntTest {
                             contextService, counterService, EVALUATOR, taskExecutionService,
                             taskCompletionHandlerChain, taskDispatcherChain, taskFileStorage),
                         new DefaultTaskCompletionHandler(
-                            contextService, jobExecutor, jobService, taskExecutionService, taskFileStorage,
+                            contextService, jobExecutor, jobService, taskExecutionService, taskFileStorage, null,
                             workflowService)));
 
                 taskCoordinator = new TaskCoordinator(
