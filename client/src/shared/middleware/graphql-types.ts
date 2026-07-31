@@ -1507,6 +1507,7 @@ export type AssetFile = {
   metadataJson?: Maybe<Scalars['String']['output']>;
   mimeType: Scalars['String']['output'];
   name: Scalars['String']['output'];
+  publicLinkUrl?: Maybe<Scalars['String']['output']>;
   sizeBytes: Scalars['Long']['output'];
   source: AssetFileSource;
   tags: Array<Tag>;
@@ -1516,6 +1517,16 @@ export enum AssetFileSource {
   AiGenerated = 'AI_GENERATED',
   UserUpload = 'USER_UPLOAD'
 }
+
+export type AssetFileVersion = {
+  __typename?: 'AssetFileVersion';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  id: Scalars['ID']['output'];
+  mimeType: Scalars['String']['output'];
+  sizeBytes: Scalars['Long']['output'];
+  versionNumber: Scalars['Int']['output'];
+};
 
 export type AttachAiHubTaskToolInput = {
   clusterElementName: Scalars['String']['input'];
@@ -3579,6 +3590,7 @@ export type Mutation = {
    * remove all of e.g. Slack's tools at once instead of one at a time.
    */
   detachAiHubTaskComponent: Scalars['Boolean']['output'];
+  disableAssetFilePublicLink: AssetFile;
   /** Unlink a connection from all deployed workflows and test configurations, without deleting the connection itself. */
   disconnectConnection: Scalars['Boolean']['output'];
   dropDataTable: Scalars['Boolean']['output'];
@@ -3586,6 +3598,7 @@ export type Mutation = {
   duplicateAutomationWorkflowProjectWorkflow: Scalars['ID']['output'];
   duplicateDataTable: Scalars['Boolean']['output'];
   enableApiConnector: Scalars['Boolean']['output'];
+  enableAssetFilePublicLink: AssetFile;
   enableConnectedUserMcpServer?: Maybe<Scalars['Boolean']['output']>;
   enableConnectedUserMcpTool?: Maybe<Scalars['Boolean']['output']>;
   enableConnectedUserProjectWorkflow?: Maybe<Scalars['Boolean']['output']>;
@@ -3657,6 +3670,7 @@ export type Mutation = {
   removeWorkspaceUser: Scalars['Boolean']['output'];
   renameDataTable: Scalars['Boolean']['output'];
   renameDataTableColumn: Scalars['Boolean']['output'];
+  restoreAssetFileVersion: AssetFile;
   runAiEvalRuleOnHistoricalTraces?: Maybe<Scalars['Int']['output']>;
   saveClusterElementTestConfigurationConnection?: Maybe<Scalars['Boolean']['output']>;
   saveClusterElementTestOutput?: Maybe<WorkflowNodeTestOutputResult>;
@@ -4632,6 +4646,11 @@ export type MutationDetachAiHubTaskComponentArgs = {
 };
 
 
+export type MutationDisableAssetFilePublicLinkArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationDisconnectConnectionArgs = {
   connectionId: Scalars['ID']['input'];
 };
@@ -4659,6 +4678,11 @@ export type MutationDuplicateDataTableArgs = {
 
 export type MutationEnableApiConnectorArgs = {
   enable: Scalars['Boolean']['input'];
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationEnableAssetFilePublicLinkArgs = {
   id: Scalars['ID']['input'];
 };
 
@@ -4898,6 +4922,12 @@ export type MutationRenameDataTableArgs = {
 
 export type MutationRenameDataTableColumnArgs = {
   input: RenameColumnInput;
+};
+
+
+export type MutationRestoreAssetFileVersionArgs = {
+  id: Scalars['ID']['input'];
+  versionId: Scalars['ID']['input'];
 };
 
 
@@ -6047,8 +6077,10 @@ export type Query = {
   approvalTasks?: Maybe<Array<Maybe<ApprovalTask>>>;
   approvalTasksByIds?: Maybe<Array<Maybe<ApprovalTask>>>;
   assetFile?: Maybe<AssetFile>;
+  assetFileSignedDownloadUrl: Scalars['String']['output'];
   assetFileTags: Array<Tag>;
   assetFileTextContent?: Maybe<Scalars['String']['output']>;
+  assetFileVersions: Array<AssetFileVersion>;
   assetFiles: Array<AssetFile>;
   auditEventTypes: Array<Scalars['String']['output']>;
   auditEvents: AuditEventPageType;
@@ -6719,12 +6751,22 @@ export type QueryAssetFileArgs = {
 };
 
 
+export type QueryAssetFileSignedDownloadUrlArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
 export type QueryAssetFileTagsArgs = {
   workspaceId: Scalars['ID']['input'];
 };
 
 
 export type QueryAssetFileTextContentArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAssetFileVersionsArgs = {
   id: Scalars['ID']['input'];
 };
 
