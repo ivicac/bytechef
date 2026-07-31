@@ -38,11 +38,13 @@ import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.evaluator.Evaluator;
+import com.bytechef.task.dispatcher.branch.util.BranchCaseOutputUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 import org.springframework.context.ApplicationEventPublisher;
 import tools.jackson.core.type.TypeReference;
 
@@ -89,6 +91,8 @@ public class BranchTaskDispatcher extends ErrorHandlingTaskDispatcher implements
 
         Map<String, ?> selectedCase = resolveCase(taskExecution, context);
 
+        String selectedCaseOutputKey = BranchCaseOutputUtils.getCaseOutputKey(selectedCase);
+
         if (selectedCase.containsKey(TASKS)) {
             List<WorkflowTask> subWorkflowTasks = MapUtils
                 .getList(
@@ -101,6 +105,8 @@ public class BranchTaskDispatcher extends ErrorHandlingTaskDispatcher implements
                 taskExecution.setStartDate(Instant.now());
                 taskExecution.setEndDate(Instant.now());
                 taskExecution.setExecutionTime(0);
+
+                storeOutput(taskExecution, selectedCaseOutputKey, null);
 
                 eventPublisher.publishEvent(new TaskExecutionCompleteEvent(taskExecution));
             } else {
@@ -131,12 +137,7 @@ public class BranchTaskDispatcher extends ErrorHandlingTaskDispatcher implements
             taskExecution.setEndDate(Instant.now());
             taskExecution.setExecutionTime(0);
 
-            if (selectedCase.get("value") != null) {
-                taskExecution.setOutput(
-                    taskFileStorage.storeTaskExecutionOutput(
-                        Objects.requireNonNull(taskExecution.getJobId()), Objects.requireNonNull(taskExecution.getId()),
-                        selectedCase.get("value")));
-            }
+            storeOutput(taskExecution, selectedCaseOutputKey, selectedCase.get("value"));
 
             eventPublisher.publishEvent(new TaskExecutionCompleteEvent(taskExecution));
         }
@@ -149,6 +150,16 @@ public class BranchTaskDispatcher extends ErrorHandlingTaskDispatcher implements
         }
 
         return null;
+    }
+
+    private void storeOutput(
+        TaskExecution taskExecution, String selectedCaseOutputKey, @Nullable Object selectedCaseOutput) {
+
+        taskExecution.setOutput(
+            taskFileStorage.storeTaskExecutionOutput(
+                Objects.requireNonNull(taskExecution.getJobId()), Objects.requireNonNull(taskExecution.getId()),
+                BranchCaseOutputUtils.toOutput(
+                    taskExecution.getParameters(), selectedCaseOutputKey, selectedCaseOutput)));
     }
 
     private Map<String, ?> resolveCase(TaskExecution taskExecution, Map<String, ?> context) {
