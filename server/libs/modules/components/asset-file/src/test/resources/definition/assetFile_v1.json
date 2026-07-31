@@ -5,7 +5,7 @@
     "beforeSuspend": null,
     "beforeTimeoutResume": null,
     "deprecated": null,
-    "description": "Upload a workflow file entry into a workspace's asset file storage.",
+    "description": "Upload a workflow file entry into the asset file storage of the workspace owning this workflow. The file is stored in the environment the workflow runs in.",
     "help": null,
     "metadata": null,
     "name": "uploadAssetFile",
@@ -46,7 +46,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -68,7 +68,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -90,7 +90,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -112,7 +112,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -131,7 +131,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -153,7 +153,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -181,7 +181,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             } ],
             "label": "Tag IDs",
@@ -193,7 +193,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "ARRAY"
           }, {
             "advancedOption": null,
@@ -210,7 +210,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -232,7 +232,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -249,7 +249,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -271,10 +271,10 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           } ],
-          "required": null,
+          "required": false,
           "type": "OBJECT"
         },
         "placeholder": null,
@@ -314,7 +314,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -336,7 +336,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -358,7 +358,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -380,7 +380,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -399,7 +399,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -421,7 +421,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -449,7 +449,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           } ],
           "label": "Tag IDs",
@@ -461,7 +461,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "ARRAY"
         }, {
           "advancedOption": null,
@@ -478,7 +478,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -500,7 +500,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -517,7 +517,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -539,10 +539,10 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         } ],
-        "required": null,
+        "required": false,
         "type": "OBJECT"
       },
       "sampleOutput": null
@@ -550,44 +550,6 @@
     "perform": { },
     "processErrorResponse": null,
     "properties": [ {
-      "advancedOption": null,
-      "controlType": "INTEGER",
-      "defaultValue": null,
-      "description": "Workspace into which the file should be uploaded.",
-      "displayCondition": null,
-      "exampleValue": null,
-      "expressionEnabled": null,
-      "hidden": null,
-      "label": "Workspace ID",
-      "maxValue": null,
-      "metadata": { },
-      "minValue": null,
-      "name": "workspaceId",
-      "options": null,
-      "optionsDataSource": null,
-      "placeholder": null,
-      "required": true,
-      "type": "INTEGER"
-    }, {
-      "advancedOption": null,
-      "controlType": "INTEGER",
-      "defaultValue": 0,
-      "description": "Environment ordinal (0 = DEVELOPMENT, 1 = STAGING, 2 = PRODUCTION) the uploaded file should belong to. Defaults to DEVELOPMENT when omitted, matching the legacy single-environment behaviour for workflows that have not been updated.",
-      "displayCondition": null,
-      "exampleValue": null,
-      "expressionEnabled": null,
-      "hidden": null,
-      "label": "Environment",
-      "maxValue": null,
-      "metadata": { },
-      "minValue": null,
-      "name": "environment",
-      "options": null,
-      "optionsDataSource": null,
-      "placeholder": null,
-      "required": false,
-      "type": "INTEGER"
-    }, {
       "advancedOption": null,
       "controlType": "FILE_ENTRY",
       "defaultValue": null,
@@ -711,7 +673,7 @@
       "optionsLoadedDynamically": null,
       "placeholder": null,
       "regex": null,
-      "required": null,
+      "required": false,
       "type": "STRING"
     }, {
       "advancedOption": null,
@@ -733,7 +695,7 @@
       "optionsLoadedDynamically": null,
       "placeholder": null,
       "regex": null,
-      "required": null,
+      "required": false,
       "type": "STRING"
     } ],
     "resumePerform": null,
@@ -854,7 +816,7 @@
             "required": true,
             "type": "STRING"
           } ],
-          "required": null,
+          "required": false,
           "type": "FILE_ENTRY"
         },
         "placeholder": null,
@@ -962,7 +924,7 @@
           "required": true,
           "type": "STRING"
         } ],
-        "required": null,
+        "required": false,
         "type": "FILE_ENTRY"
       },
       "sampleOutput": null
@@ -1039,7 +1001,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -1061,7 +1023,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -1083,7 +1045,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -1105,7 +1067,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -1124,7 +1086,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -1146,7 +1108,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -1174,7 +1136,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             } ],
             "label": "Tag IDs",
@@ -1186,7 +1148,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "ARRAY"
           }, {
             "advancedOption": null,
@@ -1203,7 +1165,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -1225,7 +1187,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -1242,7 +1204,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -1264,10 +1226,10 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           } ],
-          "required": null,
+          "required": false,
           "type": "OBJECT"
         },
         "placeholder": null,
@@ -1307,7 +1269,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -1329,7 +1291,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -1351,7 +1313,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -1373,7 +1335,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -1392,7 +1354,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -1414,7 +1376,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -1442,7 +1404,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           } ],
           "label": "Tag IDs",
@@ -1454,7 +1416,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "ARRAY"
         }, {
           "advancedOption": null,
@@ -1471,7 +1433,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -1493,7 +1455,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -1510,7 +1472,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -1532,10 +1494,10 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         } ],
-        "required": null,
+        "required": false,
         "type": "OBJECT"
       },
       "sampleOutput": null
@@ -1571,7 +1533,7 @@
     "beforeSuspend": null,
     "beforeTimeoutResume": null,
     "deprecated": null,
-    "description": "List asset files in a workspace. Optionally filter by tag ids.",
+    "description": "List the asset files of the workspace owning this workflow, in the environment the workflow runs in. Optionally filter by tag ids.",
     "help": null,
     "metadata": null,
     "name": "findAssetFiles",
@@ -1621,7 +1583,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             }, {
               "advancedOption": null,
@@ -1643,7 +1605,7 @@
               "optionsLoadedDynamically": null,
               "placeholder": null,
               "regex": null,
-              "required": null,
+              "required": false,
               "type": "STRING"
             }, {
               "advancedOption": null,
@@ -1665,7 +1627,7 @@
               "optionsLoadedDynamically": null,
               "placeholder": null,
               "regex": null,
-              "required": null,
+              "required": false,
               "type": "STRING"
             }, {
               "advancedOption": null,
@@ -1687,7 +1649,7 @@
               "optionsLoadedDynamically": null,
               "placeholder": null,
               "regex": null,
-              "required": null,
+              "required": false,
               "type": "STRING"
             }, {
               "advancedOption": null,
@@ -1706,7 +1668,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             }, {
               "advancedOption": null,
@@ -1728,7 +1690,7 @@
               "optionsLoadedDynamically": null,
               "placeholder": null,
               "regex": null,
-              "required": null,
+              "required": false,
               "type": "STRING"
             }, {
               "advancedOption": null,
@@ -1756,7 +1718,7 @@
                 "options": null,
                 "optionsDataSource": null,
                 "placeholder": null,
-                "required": null,
+                "required": false,
                 "type": "INTEGER"
               } ],
               "label": "Tag IDs",
@@ -1768,7 +1730,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "ARRAY"
             }, {
               "advancedOption": null,
@@ -1785,7 +1747,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "DATE_TIME"
             }, {
               "advancedOption": null,
@@ -1807,7 +1769,7 @@
               "optionsLoadedDynamically": null,
               "placeholder": null,
               "regex": null,
-              "required": null,
+              "required": false,
               "type": "STRING"
             }, {
               "advancedOption": null,
@@ -1824,7 +1786,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "DATE_TIME"
             }, {
               "advancedOption": null,
@@ -1846,10 +1808,10 @@
               "optionsLoadedDynamically": null,
               "placeholder": null,
               "regex": null,
-              "required": null,
+              "required": false,
               "type": "STRING"
             } ],
-            "required": null,
+            "required": false,
             "type": "OBJECT"
           } ],
           "label": null,
@@ -1861,7 +1823,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "ARRAY"
         },
         "placeholder": null,
@@ -1910,7 +1872,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -1932,7 +1894,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -1954,7 +1916,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -1976,7 +1938,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -1995,7 +1957,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -2017,7 +1979,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -2045,7 +2007,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             } ],
             "label": "Tag IDs",
@@ -2057,7 +2019,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "ARRAY"
           }, {
             "advancedOption": null,
@@ -2074,7 +2036,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -2096,7 +2058,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -2113,7 +2075,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -2135,10 +2097,10 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           } ],
-          "required": null,
+          "required": false,
           "type": "OBJECT"
         } ],
         "label": null,
@@ -2150,7 +2112,7 @@
         "options": null,
         "optionsDataSource": null,
         "placeholder": null,
-        "required": null,
+        "required": false,
         "type": "ARRAY"
       },
       "sampleOutput": null
@@ -2158,44 +2120,6 @@
     "perform": { },
     "processErrorResponse": null,
     "properties": [ {
-      "advancedOption": null,
-      "controlType": "INTEGER",
-      "defaultValue": null,
-      "description": "Workspace whose asset files to list.",
-      "displayCondition": null,
-      "exampleValue": null,
-      "expressionEnabled": null,
-      "hidden": null,
-      "label": "Workspace ID",
-      "maxValue": null,
-      "metadata": { },
-      "minValue": null,
-      "name": "workspaceId",
-      "options": null,
-      "optionsDataSource": null,
-      "placeholder": null,
-      "required": true,
-      "type": "INTEGER"
-    }, {
-      "advancedOption": null,
-      "controlType": "INTEGER",
-      "defaultValue": 0,
-      "description": "Environment ordinal (0 = DEVELOPMENT, 1 = STAGING, 2 = PRODUCTION) to filter by. Defaults to DEVELOPMENT when omitted.",
-      "displayCondition": null,
-      "exampleValue": null,
-      "expressionEnabled": null,
-      "hidden": null,
-      "label": "Environment",
-      "maxValue": null,
-      "metadata": { },
-      "minValue": null,
-      "name": "environment",
-      "options": null,
-      "optionsDataSource": null,
-      "placeholder": null,
-      "required": false,
-      "type": "INTEGER"
-    }, {
       "advancedOption": null,
       "controlType": "ARRAY_BUILDER",
       "defaultValue": null,
@@ -2221,7 +2145,7 @@
         "options": null,
         "optionsDataSource": null,
         "placeholder": null,
-        "required": null,
+        "required": false,
         "type": "INTEGER"
       } ],
       "label": "Tag IDs",
@@ -2233,7 +2157,7 @@
       "options": null,
       "optionsDataSource": null,
       "placeholder": null,
-      "required": null,
+      "required": false,
       "type": "ARRAY"
     } ],
     "resumePerform": null,
@@ -2286,7 +2210,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -2308,7 +2232,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -2330,7 +2254,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -2352,7 +2276,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -2371,7 +2295,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -2393,7 +2317,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -2421,7 +2345,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             } ],
             "label": "Tag IDs",
@@ -2433,7 +2357,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "ARRAY"
           }, {
             "advancedOption": null,
@@ -2450,7 +2374,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -2472,7 +2396,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -2489,7 +2413,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -2511,10 +2435,10 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           } ],
-          "required": null,
+          "required": false,
           "type": "OBJECT"
         },
         "placeholder": null,
@@ -2554,7 +2478,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -2576,7 +2500,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -2598,7 +2522,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -2620,7 +2544,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -2639,7 +2563,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -2661,7 +2585,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -2689,7 +2613,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           } ],
           "label": "Tag IDs",
@@ -2701,7 +2625,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "ARRAY"
         }, {
           "advancedOption": null,
@@ -2718,7 +2642,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -2740,7 +2664,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -2757,7 +2681,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -2779,10 +2703,10 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         } ],
-        "required": null,
+        "required": false,
         "type": "OBJECT"
       },
       "sampleOutput": null
@@ -2932,7 +2856,7 @@
       "optionsLoadedDynamically": null,
       "placeholder": null,
       "regex": null,
-      "required": null,
+      "required": false,
       "type": "STRING"
     } ],
     "resumePerform": null,
@@ -2985,7 +2909,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -3007,7 +2931,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -3029,7 +2953,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -3051,7 +2975,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -3070,7 +2994,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -3092,7 +3016,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -3120,7 +3044,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             } ],
             "label": "Tag IDs",
@@ -3132,7 +3056,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "ARRAY"
           }, {
             "advancedOption": null,
@@ -3149,7 +3073,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -3171,7 +3095,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -3188,7 +3112,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -3210,10 +3134,10 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           } ],
-          "required": null,
+          "required": false,
           "type": "OBJECT"
         },
         "placeholder": null,
@@ -3253,7 +3177,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -3275,7 +3199,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -3297,7 +3221,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -3319,7 +3243,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -3338,7 +3262,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -3360,7 +3284,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -3388,7 +3312,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           } ],
           "label": "Tag IDs",
@@ -3400,7 +3324,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "ARRAY"
         }, {
           "advancedOption": null,
@@ -3417,7 +3341,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -3439,7 +3363,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -3456,7 +3380,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -3478,10 +3402,10 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         } ],
-        "required": null,
+        "required": false,
         "type": "OBJECT"
       },
       "sampleOutput": null
@@ -3585,7 +3509,7 @@
               "value": false
             } ],
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "BOOLEAN"
           }, {
             "advancedOption": null,
@@ -3604,10 +3528,10 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           } ],
-          "required": null,
+          "required": false,
           "type": "OBJECT"
         },
         "placeholder": null,
@@ -3652,7 +3576,7 @@
             "value": false
           } ],
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "BOOLEAN"
         }, {
           "advancedOption": null,
@@ -3671,10 +3595,10 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         } ],
-        "required": null,
+        "required": false,
         "type": "OBJECT"
       },
       "sampleOutput": null
@@ -3707,7 +3631,7 @@
   } ],
   "clusterElements": [ {
     "name": "uploadAssetFile",
-    "description": "Upload a workflow file entry into a workspace's asset file storage.",
+    "description": "Upload a workflow file entry into the asset file storage of the workspace owning this workflow. The file is stored in the environment the workflow runs in.",
     "element": { },
     "help": null,
     "outputDefinition": {
@@ -3747,7 +3671,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -3769,7 +3693,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -3791,7 +3715,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -3813,7 +3737,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -3832,7 +3756,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -3854,7 +3778,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -3882,7 +3806,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             } ],
             "label": "Tag IDs",
@@ -3894,7 +3818,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "ARRAY"
           }, {
             "advancedOption": null,
@@ -3911,7 +3835,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -3933,7 +3857,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -3950,7 +3874,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -3972,10 +3896,10 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           } ],
-          "required": null,
+          "required": false,
           "type": "OBJECT"
         },
         "placeholder": null,
@@ -4015,7 +3939,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -4037,7 +3961,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -4059,7 +3983,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -4081,7 +4005,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -4100,7 +4024,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -4122,7 +4046,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -4150,7 +4074,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           } ],
           "label": "Tag IDs",
@@ -4162,7 +4086,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "ARRAY"
         }, {
           "advancedOption": null,
@@ -4179,7 +4103,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -4201,7 +4125,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -4218,7 +4142,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -4240,54 +4164,16 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         } ],
-        "required": null,
+        "required": false,
         "type": "OBJECT"
       },
       "sampleOutput": null
     },
     "processErrorResponse": null,
     "properties": [ {
-      "advancedOption": null,
-      "controlType": "INTEGER",
-      "defaultValue": null,
-      "description": "Workspace into which the file should be uploaded.",
-      "displayCondition": null,
-      "exampleValue": null,
-      "expressionEnabled": null,
-      "hidden": null,
-      "label": "Workspace ID",
-      "maxValue": null,
-      "metadata": { },
-      "minValue": null,
-      "name": "workspaceId",
-      "options": null,
-      "optionsDataSource": null,
-      "placeholder": null,
-      "required": true,
-      "type": "INTEGER"
-    }, {
-      "advancedOption": null,
-      "controlType": "INTEGER",
-      "defaultValue": 0,
-      "description": "Environment ordinal (0 = DEVELOPMENT, 1 = STAGING, 2 = PRODUCTION) the uploaded file should belong to. Defaults to DEVELOPMENT when omitted, matching the legacy single-environment behaviour for workflows that have not been updated.",
-      "displayCondition": null,
-      "exampleValue": null,
-      "expressionEnabled": null,
-      "hidden": null,
-      "label": "Environment",
-      "maxValue": null,
-      "metadata": { },
-      "minValue": null,
-      "name": "environment",
-      "options": null,
-      "optionsDataSource": null,
-      "placeholder": null,
-      "required": false,
-      "type": "INTEGER"
-    }, {
       "advancedOption": null,
       "controlType": "FILE_ENTRY",
       "defaultValue": null,
@@ -4411,7 +4297,7 @@
       "optionsLoadedDynamically": null,
       "placeholder": null,
       "regex": null,
-      "required": null,
+      "required": false,
       "type": "STRING"
     }, {
       "advancedOption": null,
@@ -4433,7 +4319,7 @@
       "optionsLoadedDynamically": null,
       "placeholder": null,
       "regex": null,
-      "required": null,
+      "required": false,
       "type": "STRING"
     } ],
     "title": "Upload Asset File",
@@ -4555,7 +4441,7 @@
             "required": true,
             "type": "STRING"
           } ],
-          "required": null,
+          "required": false,
           "type": "FILE_ENTRY"
         },
         "placeholder": null,
@@ -4663,7 +4549,7 @@
           "required": true,
           "type": "STRING"
         } ],
-        "required": null,
+        "required": false,
         "type": "FILE_ENTRY"
       },
       "sampleOutput": null
@@ -4740,7 +4626,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -4762,7 +4648,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -4784,7 +4670,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -4806,7 +4692,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -4825,7 +4711,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -4847,7 +4733,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -4875,7 +4761,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             } ],
             "label": "Tag IDs",
@@ -4887,7 +4773,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "ARRAY"
           }, {
             "advancedOption": null,
@@ -4904,7 +4790,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -4926,7 +4812,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -4943,7 +4829,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -4965,10 +4851,10 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           } ],
-          "required": null,
+          "required": false,
           "type": "OBJECT"
         },
         "placeholder": null,
@@ -5008,7 +4894,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -5030,7 +4916,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -5052,7 +4938,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -5074,7 +4960,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -5093,7 +4979,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -5115,7 +5001,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -5143,7 +5029,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           } ],
           "label": "Tag IDs",
@@ -5155,7 +5041,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "ARRAY"
         }, {
           "advancedOption": null,
@@ -5172,7 +5058,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -5194,7 +5080,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -5211,7 +5097,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -5233,10 +5119,10 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         } ],
-        "required": null,
+        "required": false,
         "type": "OBJECT"
       },
       "sampleOutput": null
@@ -5273,7 +5159,7 @@
     "workflowNodeDescription": null
   }, {
     "name": "findAssetFiles",
-    "description": "List asset files in a workspace. Optionally filter by tag ids.",
+    "description": "List the asset files of the workspace owning this workflow, in the environment the workflow runs in. Optionally filter by tag ids.",
     "element": { },
     "help": null,
     "outputDefinition": {
@@ -5322,7 +5208,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             }, {
               "advancedOption": null,
@@ -5344,7 +5230,7 @@
               "optionsLoadedDynamically": null,
               "placeholder": null,
               "regex": null,
-              "required": null,
+              "required": false,
               "type": "STRING"
             }, {
               "advancedOption": null,
@@ -5366,7 +5252,7 @@
               "optionsLoadedDynamically": null,
               "placeholder": null,
               "regex": null,
-              "required": null,
+              "required": false,
               "type": "STRING"
             }, {
               "advancedOption": null,
@@ -5388,7 +5274,7 @@
               "optionsLoadedDynamically": null,
               "placeholder": null,
               "regex": null,
-              "required": null,
+              "required": false,
               "type": "STRING"
             }, {
               "advancedOption": null,
@@ -5407,7 +5293,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             }, {
               "advancedOption": null,
@@ -5429,7 +5315,7 @@
               "optionsLoadedDynamically": null,
               "placeholder": null,
               "regex": null,
-              "required": null,
+              "required": false,
               "type": "STRING"
             }, {
               "advancedOption": null,
@@ -5457,7 +5343,7 @@
                 "options": null,
                 "optionsDataSource": null,
                 "placeholder": null,
-                "required": null,
+                "required": false,
                 "type": "INTEGER"
               } ],
               "label": "Tag IDs",
@@ -5469,7 +5355,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "ARRAY"
             }, {
               "advancedOption": null,
@@ -5486,7 +5372,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "DATE_TIME"
             }, {
               "advancedOption": null,
@@ -5508,7 +5394,7 @@
               "optionsLoadedDynamically": null,
               "placeholder": null,
               "regex": null,
-              "required": null,
+              "required": false,
               "type": "STRING"
             }, {
               "advancedOption": null,
@@ -5525,7 +5411,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "DATE_TIME"
             }, {
               "advancedOption": null,
@@ -5547,10 +5433,10 @@
               "optionsLoadedDynamically": null,
               "placeholder": null,
               "regex": null,
-              "required": null,
+              "required": false,
               "type": "STRING"
             } ],
-            "required": null,
+            "required": false,
             "type": "OBJECT"
           } ],
           "label": null,
@@ -5562,7 +5448,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "ARRAY"
         },
         "placeholder": null,
@@ -5611,7 +5497,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -5633,7 +5519,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -5655,7 +5541,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -5677,7 +5563,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -5696,7 +5582,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -5718,7 +5604,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -5746,7 +5632,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             } ],
             "label": "Tag IDs",
@@ -5758,7 +5644,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "ARRAY"
           }, {
             "advancedOption": null,
@@ -5775,7 +5661,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -5797,7 +5683,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -5814,7 +5700,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -5836,10 +5722,10 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           } ],
-          "required": null,
+          "required": false,
           "type": "OBJECT"
         } ],
         "label": null,
@@ -5851,51 +5737,13 @@
         "options": null,
         "optionsDataSource": null,
         "placeholder": null,
-        "required": null,
+        "required": false,
         "type": "ARRAY"
       },
       "sampleOutput": null
     },
     "processErrorResponse": null,
     "properties": [ {
-      "advancedOption": null,
-      "controlType": "INTEGER",
-      "defaultValue": null,
-      "description": "Workspace whose asset files to list.",
-      "displayCondition": null,
-      "exampleValue": null,
-      "expressionEnabled": null,
-      "hidden": null,
-      "label": "Workspace ID",
-      "maxValue": null,
-      "metadata": { },
-      "minValue": null,
-      "name": "workspaceId",
-      "options": null,
-      "optionsDataSource": null,
-      "placeholder": null,
-      "required": true,
-      "type": "INTEGER"
-    }, {
-      "advancedOption": null,
-      "controlType": "INTEGER",
-      "defaultValue": 0,
-      "description": "Environment ordinal (0 = DEVELOPMENT, 1 = STAGING, 2 = PRODUCTION) to filter by. Defaults to DEVELOPMENT when omitted.",
-      "displayCondition": null,
-      "exampleValue": null,
-      "expressionEnabled": null,
-      "hidden": null,
-      "label": "Environment",
-      "maxValue": null,
-      "metadata": { },
-      "minValue": null,
-      "name": "environment",
-      "options": null,
-      "optionsDataSource": null,
-      "placeholder": null,
-      "required": false,
-      "type": "INTEGER"
-    }, {
       "advancedOption": null,
       "controlType": "ARRAY_BUILDER",
       "defaultValue": null,
@@ -5921,7 +5769,7 @@
         "options": null,
         "optionsDataSource": null,
         "placeholder": null,
-        "required": null,
+        "required": false,
         "type": "INTEGER"
       } ],
       "label": "Tag IDs",
@@ -5933,7 +5781,7 @@
       "options": null,
       "optionsDataSource": null,
       "placeholder": null,
-      "required": null,
+      "required": false,
       "type": "ARRAY"
     } ],
     "title": "Find Asset Files",
@@ -5987,7 +5835,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -6009,7 +5857,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -6031,7 +5879,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -6053,7 +5901,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -6072,7 +5920,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -6094,7 +5942,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -6122,7 +5970,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             } ],
             "label": "Tag IDs",
@@ -6134,7 +5982,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "ARRAY"
           }, {
             "advancedOption": null,
@@ -6151,7 +5999,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -6173,7 +6021,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -6190,7 +6038,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -6212,10 +6060,10 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           } ],
-          "required": null,
+          "required": false,
           "type": "OBJECT"
         },
         "placeholder": null,
@@ -6255,7 +6103,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -6277,7 +6125,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -6299,7 +6147,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -6321,7 +6169,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -6340,7 +6188,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -6362,7 +6210,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -6390,7 +6238,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           } ],
           "label": "Tag IDs",
@@ -6402,7 +6250,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "ARRAY"
         }, {
           "advancedOption": null,
@@ -6419,7 +6267,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -6441,7 +6289,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -6458,7 +6306,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -6480,10 +6328,10 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         } ],
-        "required": null,
+        "required": false,
         "type": "OBJECT"
       },
       "sampleOutput": null
@@ -6632,7 +6480,7 @@
       "optionsLoadedDynamically": null,
       "placeholder": null,
       "regex": null,
-      "required": null,
+      "required": false,
       "type": "STRING"
     } ],
     "title": "Update Asset File Content",
@@ -6686,7 +6534,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -6708,7 +6556,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -6730,7 +6578,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -6752,7 +6600,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -6771,7 +6619,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           }, {
             "advancedOption": null,
@@ -6793,7 +6641,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -6821,7 +6669,7 @@
               "options": null,
               "optionsDataSource": null,
               "placeholder": null,
-              "required": null,
+              "required": false,
               "type": "INTEGER"
             } ],
             "label": "Tag IDs",
@@ -6833,7 +6681,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "ARRAY"
           }, {
             "advancedOption": null,
@@ -6850,7 +6698,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -6872,7 +6720,7 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           }, {
             "advancedOption": null,
@@ -6889,7 +6737,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "DATE_TIME"
           }, {
             "advancedOption": null,
@@ -6911,10 +6759,10 @@
             "optionsLoadedDynamically": null,
             "placeholder": null,
             "regex": null,
-            "required": null,
+            "required": false,
             "type": "STRING"
           } ],
-          "required": null,
+          "required": false,
           "type": "OBJECT"
         },
         "placeholder": null,
@@ -6954,7 +6802,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -6976,7 +6824,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -6998,7 +6846,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -7020,7 +6868,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -7039,7 +6887,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         }, {
           "advancedOption": null,
@@ -7061,7 +6909,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -7089,7 +6937,7 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           } ],
           "label": "Tag IDs",
@@ -7101,7 +6949,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "ARRAY"
         }, {
           "advancedOption": null,
@@ -7118,7 +6966,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -7140,7 +6988,7 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         }, {
           "advancedOption": null,
@@ -7157,7 +7005,7 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "DATE_TIME"
         }, {
           "advancedOption": null,
@@ -7179,10 +7027,10 @@
           "optionsLoadedDynamically": null,
           "placeholder": null,
           "regex": null,
-          "required": null,
+          "required": false,
           "type": "STRING"
         } ],
-        "required": null,
+        "required": false,
         "type": "OBJECT"
       },
       "sampleOutput": null
@@ -7286,7 +7134,7 @@
               "value": false
             } ],
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "BOOLEAN"
           }, {
             "advancedOption": null,
@@ -7305,10 +7153,10 @@
             "options": null,
             "optionsDataSource": null,
             "placeholder": null,
-            "required": null,
+            "required": false,
             "type": "INTEGER"
           } ],
-          "required": null,
+          "required": false,
           "type": "OBJECT"
         },
         "placeholder": null,
@@ -7353,7 +7201,7 @@
             "value": false
           } ],
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "BOOLEAN"
         }, {
           "advancedOption": null,
@@ -7372,10 +7220,10 @@
           "options": null,
           "optionsDataSource": null,
           "placeholder": null,
-          "required": null,
+          "required": false,
           "type": "INTEGER"
         } ],
-        "required": null,
+        "required": false,
         "type": "OBJECT"
       },
       "sampleOutput": null
