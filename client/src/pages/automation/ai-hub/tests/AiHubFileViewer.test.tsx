@@ -14,7 +14,7 @@ vi.mock('@/shared/middleware/graphql', () => ({
     useGetAssetFileQuery: () => ({data: undefined, error: null, isLoading: false}),
 }));
 
-vi.mock('../hooks/useFileContent', () => ({
+vi.mock('@/shared/components/asset-file-viewer/useAssetFileContent', () => ({
     default: () => ({content: '# Hello\n\nThis is **markdown**.', loading: false, mimeType: 'text/markdown'}),
 }));
 
@@ -47,7 +47,7 @@ describe('AiHubFileViewer with unknown binary mime type', () => {
         // For truly unrecognised types the iframe goes blank and the user falls back to the Download link.
         vi.resetModules();
 
-        vi.doMock('../hooks/useFileContent', () => ({
+        vi.doMock('@/shared/components/asset-file-viewer/useAssetFileContent', () => ({
             default: () => ({content: '', loading: false, mimeType: 'application/octet-stream'}),
         }));
 
@@ -72,7 +72,7 @@ describe('AiHubFileViewer with unknown binary mime type', () => {
     it('renders a borderless iframe for PDFs so the browser PDF viewer takes over', async () => {
         vi.resetModules();
 
-        vi.doMock('../hooks/useFileContent', () => ({
+        vi.doMock('@/shared/components/asset-file-viewer/useAssetFileContent', () => ({
             default: () => ({content: '', loading: false, mimeType: 'application/pdf'}),
         }));
 
@@ -97,7 +97,7 @@ describe('AiHubFileViewer with image mime type', () => {
     it('renders an img element with the correct src and alt', async () => {
         vi.resetModules();
 
-        vi.doMock('../hooks/useFileContent', () => ({
+        vi.doMock('@/shared/components/asset-file-viewer/useAssetFileContent', () => ({
             default: () => ({content: '', loading: false, mimeType: 'image/png'}),
         }));
 
@@ -121,7 +121,7 @@ describe('AiHubFileViewer with pptx mime type', () => {
     it('renders a download link with the file name and PowerPoint label', async () => {
         vi.resetModules();
 
-        vi.doMock('../hooks/useFileContent', () => ({
+        vi.doMock('@/shared/components/asset-file-viewer/useAssetFileContent', () => ({
             default: () => ({
                 content: '',
                 loading: false,
@@ -168,7 +168,7 @@ describe('AiHubFileViewer with CHART format', () => {
             }),
         }));
 
-        vi.doMock('../hooks/useFileContent', () => ({
+        vi.doMock('@/shared/components/asset-file-viewer/useAssetFileContent', () => ({
             default: () => ({
                 content:
                     '{"type":"bar","title":"Revenue","xKey":"region","yKeys":["revenue"],"data":[{"region":"NA","revenue":100}]}',
@@ -214,7 +214,7 @@ describe('AiHubFileViewer with CHART format', () => {
             }),
         }));
 
-        vi.doMock('../hooks/useFileContent', () => ({
+        vi.doMock('@/shared/components/asset-file-viewer/useAssetFileContent', () => ({
             default: () => ({
                 content: '{"type":"line","title":"Legacy","xKey":"day","yKeys":["v"],"data":[{"day":"Mon","v":1}]}',
                 loading: false,
@@ -257,7 +257,7 @@ describe('AiHubFileViewer with HTML format', () => {
             }),
         }));
 
-        vi.doMock('../hooks/useFileContent', () => ({
+        vi.doMock('@/shared/components/asset-file-viewer/useAssetFileContent', () => ({
             default: () => ({
                 content: '<!doctype html><html><head></head><body><h1>App</h1></body></html>',
                 loading: false,
@@ -292,7 +292,7 @@ describe('AiHubFileViewer with HTML format', () => {
             }),
         }));
 
-        vi.doMock('../hooks/useFileContent', () => ({
+        vi.doMock('@/shared/components/asset-file-viewer/useAssetFileContent', () => ({
             default: () => ({
                 content: '<!doctype html><html><head></head><body>uploaded</body></html>',
                 loading: false,

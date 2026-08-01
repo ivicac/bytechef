@@ -6,11 +6,16 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import AssetFileDetailSheet from './AssetFileDetailSheet';
 
 const hoisted = vi.hoisted(() => ({
+    mockUseAssetFileContent: vi.fn(),
     mockUseGetAssetFileQuery: vi.fn(),
     mockUseGetAssetFileTextContentQuery: vi.fn(),
     mockUseGetAssetFileVersionsQuery: vi.fn(),
     mockUseRestoreAssetFileVersionMutation: vi.fn(),
     mockUseUpdateAssetFileTextContentMutation: vi.fn(),
+}));
+
+vi.mock('@/shared/components/asset-file-viewer/useAssetFileContent', () => ({
+    default: hoisted.mockUseAssetFileContent,
 }));
 
 vi.mock('@/shared/middleware/graphql', async () => {
@@ -60,6 +65,7 @@ beforeEach(() => {
         selectedTagIds: [],
     });
 
+    hoisted.mockUseAssetFileContent.mockReturnValue({content: '# Hello', loading: false, mimeType: 'text/markdown'});
     hoisted.mockUseGetAssetFileTextContentQuery.mockReturnValue({
         data: {assetFileTextContent: '# Hello'},
     });
@@ -101,6 +107,11 @@ describe('AssetFileDetailSheet', () => {
     });
 
     it('renders Monaco editor directly for non-previewable text files', async () => {
+        hoisted.mockUseAssetFileContent.mockReturnValue({
+            content: 'plain notes',
+            loading: false,
+            mimeType: 'text/plain',
+        });
         hoisted.mockUseGetAssetFileQuery.mockReturnValue({
             data: {
                 assetFile: {
@@ -118,6 +129,11 @@ describe('AssetFileDetailSheet', () => {
     });
 
     it('renders a sandboxed iframe preview for text/html files', async () => {
+        hoisted.mockUseAssetFileContent.mockReturnValue({
+            content: '<h1>hi</h1>',
+            loading: false,
+            mimeType: 'text/html',
+        });
         hoisted.mockUseGetAssetFileQuery.mockReturnValue({
             data: {
                 assetFile: {
@@ -138,6 +154,7 @@ describe('AssetFileDetailSheet', () => {
     });
 
     it('renders a CSV table preview for text/csv files', async () => {
+        hoisted.mockUseAssetFileContent.mockReturnValue({content: 'a,b\n1,2', loading: false, mimeType: 'text/csv'});
         hoisted.mockUseGetAssetFileQuery.mockReturnValue({
             data: {
                 assetFile: {
@@ -172,6 +189,7 @@ describe('AssetFileDetailSheet', () => {
     });
 
     it('renders an img element for image/png files', async () => {
+        hoisted.mockUseAssetFileContent.mockReturnValue({content: '', loading: false, mimeType: 'image/png'});
         hoisted.mockUseGetAssetFileQuery.mockReturnValue({
             data: {
                 assetFile: {
@@ -189,6 +207,11 @@ describe('AssetFileDetailSheet', () => {
     });
 
     it('renders an iframe with inline disposition for application/pdf files', async () => {
+        // The viewer builds content URLs from the sheet's selected file id, so keep the store selection and the
+        // mocked row id consistent the way they always are in production.
+        assetFilesStore.setState({selectedFileId: 7});
+
+        hoisted.mockUseAssetFileContent.mockReturnValue({content: '', loading: false, mimeType: 'application/pdf'});
         hoisted.mockUseGetAssetFileQuery.mockReturnValue({
             data: {
                 assetFile: {
@@ -209,6 +232,11 @@ describe('AssetFileDetailSheet', () => {
     });
 
     it('renders a Download button for application/octet-stream files', async () => {
+        hoisted.mockUseAssetFileContent.mockReturnValue({
+            content: '',
+            loading: false,
+            mimeType: 'application/octet-stream',
+        });
         hoisted.mockUseGetAssetFileQuery.mockReturnValue({
             data: {
                 assetFile: {

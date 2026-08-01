@@ -2,7 +2,7 @@ import Badge from '@/components/Badge/Badge';
 import Button from '@/components/Button/Button';
 import {Sheet, SheetCloseButton, SheetContent, SheetTitle} from '@/components/ui/sheet';
 import {useAssetFilesStore} from '@/pages/automation/asset-files/stores/useAssetFilesStore';
-import MonacoEditorLoader from '@/shared/components/MonacoEditorLoader';
+import AssetFileViewer, {type AssetFileViewerModeType} from '@/shared/components/asset-file-viewer/AssetFileViewer';
 import {
     useGetAssetFileQuery,
     useGetAssetFileTextContentQuery,
@@ -12,10 +12,9 @@ import {
 } from '@/shared/middleware/graphql';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {useQueryClient} from '@tanstack/react-query';
-import {DownloadIcon, FileTextIcon, HistoryIcon, MaximizeIcon, SaveIcon} from 'lucide-react';
+import {FileTextIcon, HistoryIcon, SaveIcon} from 'lucide-react';
 import {VisuallyHidden} from 'radix-ui';
-import {Suspense, lazy, useEffect, useMemo, useRef, useState} from 'react';
-import Markdown from 'react-markdown';
+import {useEffect, useState} from 'react';
 import {toast} from 'sonner';
 
 /**
@@ -37,79 +36,29 @@ const environmentLabel = (environmentId: number): string => {
     }
 };
 
-const MonacoEditor = lazy(() => import('@/shared/components/MonacoEditorWrapper'));
-
 const isTextMime = (mimeType: string): boolean => mimeType.startsWith('text/') || mimeType === 'application/json';
 
-const isImageMime = (mimeType: string): boolean => mimeType.startsWith('image/');
-
-const isPdfMime = (mimeType: string): boolean => mimeType === 'application/pdf';
-
-const isMarkdownFile = (fileName: string, mimeType: string): boolean =>
-    mimeType === 'text/markdown' || fileName.endsWith('.md') || fileName.endsWith('.markdown');
-
-const isCsvFile = (fileName: string, mimeType: string): boolean => mimeType === 'text/csv' || fileName.endsWith('.csv');
-
-const isHtmlFile = (fileName: string, mimeType: string): boolean =>
-    mimeType === 'text/html' || fileName.endsWith('.html') || fileName.endsWith('.htm');
-
-const CSV_PREVIEW_MAX_ROWS = 500;
-
 /**
- * Minimal RFC-4180-ish CSV parser for the preview table: handles quoted fields (including escaped quotes and embedded
- * commas/newlines) and caps the row count so a huge file cannot lock up the sheet. Preview-only — the editor tab
- * always shows the raw text.
+ * True when the shared viewer has a rendered (non-editor) representation for the file — either through the
+ * format column (AI-generated artifacts) or through mime/extension sniffing. Drives the default view mode:
+ * renderable files open in Preview, plain text/code files open straight in the editor.
  */
-const parseCsvPreview = (content: string): string[][] => {
-    const rows: string[][] = [];
-
-    let currentField = '';
-    let currentRow: string[] = [];
-    let insideQuotes = false;
-
-    for (let index = 0; index < content.length; index++) {
-        const character = content[index];
-
-        if (insideQuotes) {
-            if (character === '"') {
-                if (content[index + 1] === '"') {
-                    currentField += '"';
-                    index++;
-                } else {
-                    insideQuotes = false;
-                }
-            } else {
-                currentField += character;
-            }
-        } else if (character === '"') {
-            insideQuotes = true;
-        } else if (character === ',') {
-            currentRow.push(currentField);
-            currentField = '';
-        } else if (character === '\n' || character === '\r') {
-            if (character === '\r' && content[index + 1] === '\n') {
-                index++;
-            }
-
-            currentRow.push(currentField);
-            currentField = '';
-            rows.push(currentRow);
-            currentRow = [];
-
-            if (rows.length >= CSV_PREVIEW_MAX_ROWS) {
-                return rows;
-            }
-        } else {
-            currentField += character;
-        }
+const hasRenderedPreview = (fileName: string, mimeType: string, format: string | null | undefined): boolean => {
+    if (format === 'CHART' || format === 'CSV' || format === 'HTML' || format === 'MARKDOWN') {
+        return true;
     }
 
-    if (currentField !== '' || currentRow.length > 0) {
-        currentRow.push(currentField);
-        rows.push(currentRow);
+    if (mimeType === 'text/markdown' || mimeType === 'text/csv' || mimeType === 'text/html') {
+        return true;
     }
 
-    return rows;
+    return (
+        fileName.endsWith('.md') ||
+        fileName.endsWith('.markdown') ||
+        fileName.endsWith('.csv') ||
+        fileName.endsWith('.html') ||
+        fileName.endsWith('.htm')
+    );
 };
 
 const formatBytes = (bytes: number): string => {
@@ -138,60 +87,10 @@ const formatDate = (value: number | string | null | undefined): string => {
     return new Date(millis).toLocaleString();
 };
 
-const inferLanguage = (fileName: string, mimeType: string): string => {
-    const extension = fileName.includes('.') ? fileName.split('.').pop()?.toLowerCase() : undefined;
-
-    switch (extension) {
-        case 'js':
-        case 'mjs':
-        case 'cjs':
-            return 'javascript';
-        case 'ts':
-        case 'tsx':
-            return 'typescript';
-        case 'json':
-            return 'json';
-        case 'md':
-        case 'markdown':
-            return 'markdown';
-        case 'py':
-            return 'python';
-        case 'rb':
-            return 'ruby';
-        case 'yml':
-        case 'yaml':
-            return 'yaml';
-        case 'html':
-        case 'htm':
-            return 'html';
-        case 'css':
-            return 'css';
-        case 'sql':
-            return 'sql';
-        case 'xml':
-            return 'xml';
-        case 'sh':
-        case 'bash':
-            return 'shell';
-        default:
-            if (mimeType === 'application/json') {
-                return 'json';
-            }
-
-            if (mimeType === 'text/markdown') {
-                return 'markdown';
-            }
-
-            return 'plaintext';
-    }
-};
-
 const AssetFileDetailSheet = () => {
     const [editorValue, setEditorValue] = useState<string>('');
     const [showVersions, setShowVersions] = useState(false);
-    const [viewMode, setViewMode] = useState<'edit' | 'preview'>('preview');
-
-    const htmlPreviewContainerRef = useRef<HTMLDivElement>(null);
+    const [viewMode, setViewMode] = useState<AssetFileViewerModeType>('preview');
 
     const selectedFileId = useAssetFilesStore((state) => state.selectedFileId);
     const setSelectedFileId = useAssetFilesStore((state) => state.setSelectedFileId);
@@ -207,13 +106,7 @@ const AssetFileDetailSheet = () => {
     const file = fileData?.assetFile ?? null;
 
     const isText = file ? isTextMime(file.mimeType) : false;
-    const isImage = file ? isImageMime(file.mimeType) : false;
-    const isPdf = file ? isPdfMime(file.mimeType) : false;
-
-    const isMarkdown = file ? isMarkdownFile(file.name, file.mimeType) : false;
-    const isCsv = file ? isCsvFile(file.name, file.mimeType) : false;
-    const isHtml = file ? isHtmlFile(file.name, file.mimeType) : false;
-    const isPreviewableText = isText && (isMarkdown || isCsv || isHtml);
+    const isRenderable = file ? hasRenderedPreview(file.name, file.mimeType, file.format) : false;
 
     const {data: textContentData} = useGetAssetFileTextContentQuery({id: fileIdAsString}, {enabled: enabled && isText});
 
@@ -242,17 +135,7 @@ const AssetFileDetailSheet = () => {
         },
     });
 
-    const language = useMemo(() => (file ? inferLanguage(file.name, file.mimeType) : 'plaintext'), [file]);
-
-    const csvRows = useMemo(
-        () => (isCsv && viewMode === 'preview' ? parseCsvPreview(editorValue) : []),
-        [editorValue, isCsv, viewMode]
-    );
-
     const versions = versionsData?.assetFileVersions ?? [];
-
-    const showEditor = isText && (!isPreviewableText || viewMode === 'edit');
-    const showPreviewPane = isPreviewableText && viewMode === 'preview';
 
     const handleOpenChange = (open: boolean) => {
         if (!open) {
@@ -279,10 +162,6 @@ const AssetFileDetailSheet = () => {
         restoreVersionMutation.mutate({id: file.id, versionId});
     };
 
-    const handleHtmlFullscreenClick = () => {
-        void htmlPreviewContainerRef.current?.requestFullscreen();
-    };
-
     useEffect(() => {
         if (textContentData?.assetFileTextContent != null) {
             setEditorValue(textContentData.assetFileTextContent);
@@ -291,8 +170,19 @@ const AssetFileDetailSheet = () => {
 
     useEffect(() => {
         setShowVersions(false);
-        setViewMode('preview');
     }, [selectedFileId]);
+
+    // Plain text/code files open straight in the editor (there is nothing to render), everything with a
+    // rendered representation opens in Preview. Runs when the file row loads because the decision needs the
+    // file's mime/format, which arrive async.
+    useEffect(() => {
+        if (!file) {
+            return;
+        }
+
+        setViewMode(isText && !isRenderable ? 'editor' : 'preview');
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [file?.id]);
 
     return (
         <Sheet onOpenChange={handleOpenChange} open={selectedFileId !== null}>
@@ -341,7 +231,7 @@ const AssetFileDetailSheet = () => {
                             </div>
 
                             <div className="flex items-center gap-x-2">
-                                {isPreviewableText && (
+                                {isText && (
                                     <div className="flex items-center rounded-md border border-border/50">
                                         <Button
                                             data-testid="asset-file-preview-toggle"
@@ -352,11 +242,19 @@ const AssetFileDetailSheet = () => {
                                         />
 
                                         <Button
+                                            data-testid="asset-file-split-toggle"
+                                            label="Split"
+                                            onClick={() => setViewMode('split')}
+                                            size="sm"
+                                            variant={viewMode === 'split' ? 'secondary' : 'ghost'}
+                                        />
+
+                                        <Button
                                             data-testid="asset-file-edit-toggle"
                                             label="Edit"
-                                            onClick={() => setViewMode('edit')}
+                                            onClick={() => setViewMode('editor')}
                                             size="sm"
-                                            variant={viewMode === 'edit' ? 'secondary' : 'ghost'}
+                                            variant={viewMode === 'editor' ? 'secondary' : 'ghost'}
                                         />
                                     </div>
                                 )}
@@ -370,7 +268,7 @@ const AssetFileDetailSheet = () => {
                                     variant={showVersions ? 'secondary' : 'ghost'}
                                 />
 
-                                {showEditor && (
+                                {isText && (
                                     <Button
                                         disabled={updateTextContentMutation.isPending}
                                         icon={<SaveIcon />}
@@ -451,125 +349,13 @@ const AssetFileDetailSheet = () => {
 
                         <div className="flex min-h-0 flex-1 p-3">
                             <div className="flex min-w-0 flex-1 flex-col overflow-hidden rounded-md bg-surface-neutral-primary">
-                                {showEditor && (
-                                    <div className="flex-1" data-testid="asset-file-monaco">
-                                        <Suspense fallback={<MonacoEditorLoader />}>
-                                            <MonacoEditor
-                                                defaultLanguage={language}
-                                                onChange={(value) => setEditorValue(value ?? '')}
-                                                onMount={() => {}}
-                                                options={{
-                                                    automaticLayout: true,
-                                                    fontSize: 12,
-                                                    minimap: {enabled: false},
-                                                    scrollBeyondLastLine: false,
-                                                    wordWrap: 'on',
-                                                }}
-                                                value={editorValue}
-                                            />
-                                        </Suspense>
-                                    </div>
-                                )}
-
-                                {showPreviewPane && isMarkdown && (
-                                    <div
-                                        className="prose max-w-none flex-1 overflow-auto p-4"
-                                        data-testid="asset-file-markdown-preview"
-                                    >
-                                        <Markdown>{editorValue}</Markdown>
-                                    </div>
-                                )}
-
-                                {showPreviewPane && isCsv && (
-                                    <div className="flex-1 overflow-auto p-2" data-testid="asset-file-csv-preview">
-                                        <table className="w-full border-collapse text-xs">
-                                            <tbody>
-                                                {csvRows.map((row, rowIndex) => (
-                                                    <tr key={rowIndex}>
-                                                        {row.map((cell, cellIndex) => (
-                                                            <td
-                                                                className="border border-border/50 px-2 py-1"
-                                                                key={cellIndex}
-                                                            >
-                                                                {cell}
-                                                            </td>
-                                                        ))}
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-
-                                        {csvRows.length >= CSV_PREVIEW_MAX_ROWS && (
-                                            <p className="p-2 text-xs text-muted-foreground">
-                                                Preview truncated to the first {CSV_PREVIEW_MAX_ROWS} rows. Download the
-                                                file for the full data.
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-
-                                {showPreviewPane && isHtml && !isMarkdown && !isCsv && (
-                                    <div
-                                        className="relative flex flex-1 flex-col"
-                                        data-testid="asset-file-html-preview"
-                                        ref={htmlPreviewContainerRef}
-                                    >
-                                        <Button
-                                            className="absolute top-2 right-2 z-10"
-                                            icon={<MaximizeIcon />}
-                                            onClick={handleHtmlFullscreenClick}
-                                            size="iconSm"
-                                            title="Fullscreen"
-                                            variant="secondary"
-                                        />
-
-                                        {/* sandbox="" blocks scripts and same-origin access: the HTML is user or
-                                            AI supplied content and must not run with application-origin powers. */}
-
-                                        <iframe
-                                            className="size-full flex-1 border-0 bg-white"
-                                            sandbox=""
-                                            srcDoc={editorValue}
-                                            title={file.name}
-                                        />
-                                    </div>
-                                )}
-
-                                {isImage && (
-                                    <div className="flex flex-1 items-center justify-center overflow-auto p-4">
-                                        <img
-                                            alt={file.name}
-                                            className="max-h-full max-w-full"
-                                            data-testid="asset-file-image"
-                                            src={file.downloadUrl}
-                                        />
-                                    </div>
-                                )}
-
-                                {isPdf && (
-                                    <iframe
-                                        className="flex-1 rounded-md"
-                                        data-testid="asset-file-iframe"
-                                        src={`${file.downloadUrl}?disposition=inline`}
-                                        title={file.name}
-                                    />
-                                )}
-
-                                {!isText && !isImage && !isPdf && (
-                                    <div className="flex flex-1 flex-col items-center justify-center gap-4 p-8">
-                                        <p className="text-sm text-muted-foreground">Preview not available</p>
-
-                                        <a
-                                            className="inline-flex h-9 items-center justify-center gap-2 rounded-md bg-surface-brand-primary px-4 py-2 text-sm font-medium text-content-onsurface-primary hover:bg-surface-brand-primary-hover"
-                                            data-testid="asset-file-download"
-                                            download={file.name}
-                                            href={file.downloadUrl}
-                                            rel="noreferrer"
-                                        >
-                                            <DownloadIcon className="size-4" /> Download
-                                        </a>
-                                    </div>
-                                )}
+                                <AssetFileViewer
+                                    editorContent={isText ? editorValue : undefined}
+                                    fileId={fileIdAsString}
+                                    name={file.name}
+                                    onEditorContentChange={isText ? setEditorValue : undefined}
+                                    viewMode={viewMode}
+                                />
                             </div>
                         </div>
                     </>

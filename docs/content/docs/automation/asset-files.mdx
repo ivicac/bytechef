@@ -26,13 +26,16 @@ Drag files onto the page's upload zone, or click to browse and pick them. Files 
 
 Click a file to open its **detail sheet** (also reachable via a deep link at `/automation/asset-files/{fileId}`). The sheet shows the file's name and an environment badge, previews the content inline, and offers a **Download** button. Text and code files can be edited in place and saved.
 
-Preview support by type:
+The detail sheet renders files through the same viewer as the AI Hub resource panel, so a file looks identical on both surfaces. Preview support by type:
 
-- **Markdown** renders as formatted text; switch to the **Edit** tab to change the source.
+- **Markdown** renders as formatted text.
 - **CSV** renders as a table (first 500 rows).
-- **HTML** renders in a sandboxed frame — scripts are disabled — with a fullscreen button.
-- Other **text and code** files open in an editor with syntax highlighting.
-- **Images** and **PDFs** render inline; everything else offers a download.
+- **Charts** (AI-generated, `format=CHART`) render as interactive charts from their stored spec.
+- **Interactive HTML** (AI-generated, `format=HTML`) renders with scripts enabled in an isolated frame; plain HTML files render in a fully sandboxed frame instead.
+- Other **text and code** files open straight in an editor with syntax highlighting.
+- **Images** and **PDFs** render inline; PowerPoint and other binaries offer a download.
+
+Text files get a **Preview / Split / Edit** toggle — Split shows the editor and the rendered preview side by side, updating live as you type.
 
 Reuse these files in workflows and AI Hub conversations instead of re-uploading per run.
 
