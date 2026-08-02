@@ -6,8 +6,9 @@ import {
     PLACEHOLDER_NODE_HEIGHT,
     PLACEHOLDER_NODE_WIDTH,
     TRIGGER_PLACEHOLDER_NODE_ID,
+    TRIGGER_PLACEHOLDER_NODE_SIZE,
 } from '@/shared/constants';
-import {NodeDataType} from '@/shared/types';
+import {GraphNodeType, NodeDataType} from '@/shared/types';
 import {Edge, Node} from '@xyflow/react';
 
 import {getCrossAxis} from './directionUtils';
@@ -22,6 +23,7 @@ import {
     getLayoutElements,
     positionTriggerPlaceholder,
 } from './layoutUtils';
+import orderGraphNodeIndexes from './orderGraphNodeIndexes';
 import {
     CHAIN_CENTERING_MAX_SLACK,
     applySavedPositions,
@@ -600,6 +602,30 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
     // Condition ranks are intrinsic (caseTrue < caseFalse); branch ranks need
     // the scope dispatcher's params-derived ordinal list — unknown or missing
     // keys rank last, stable, as a fail-safe for malformed state.
+    // orderGraphNodeIndexes is pure but runs a topological sort, and getMemberCaseRank is called
+    // once per container member — memoize per dispatcher so an n-lane graph sorts once, not n+1
+    // times. Scoped to this buildElkGraph call, so it never outlives one layout pass.
+    const graphVisualOrderByDispatcherId = new Map<string, number[]>();
+
+    const getGraphVisualOrder = (dispatcherNode: Node): number[] => {
+        const cachedOrder = graphVisualOrderByDispatcherId.get(dispatcherNode.id);
+
+        if (cachedOrder) {
+            return cachedOrder;
+        }
+
+        const dispatcherData = dispatcherNode.data as NodeDataType;
+        const graphNodes = (dispatcherData.parameters?.nodes ?? []) as Array<GraphNodeType>;
+        const visualOrder = orderGraphNodeIndexes(
+            graphNodes,
+            dispatcherData.parameters?.startNode as string | undefined
+        );
+
+        graphVisualOrderByDispatcherId.set(dispatcherNode.id, visualOrder);
+
+        return visualOrder;
+    };
+
     const getMemberCaseRank = (memberNode: Node | undefined, scopeDispatcherNode: Node | undefined): number => {
         if (!memberNode) {
             return -1;
@@ -643,6 +669,34 @@ export function buildElkGraph(nodes: Node[], edges: Edge[], direction: LayoutDir
             // carry an explicit branchIndex; the trailing add-a-branch
             // placeholder gets branchCount and so ranks last naturally
             return memberData.forkJoinData?.branchIndex ?? memberData.branchIndex ?? Number.MAX_SAFE_INTEGER;
+        }
+
+        if (scopeComponentName === 'graph') {
+            // Both children (graphData) and placeholders (top-level field) carry an explicit
+            // declaration nodeIndex. Lanes rank by their VISUAL position so the canvas reads in
+            // transition order; the trailing add-node placeholder carries nodes.length, which is
+            // outside the permutation and so keeps ranking last. With no node metadata at all the
+            // permutation is empty and every member falls back to its declaration index, which is
+            // exactly the pre-topological behaviour.
+            const declaredNodeIndex = memberData.graphData?.nodeIndex ?? memberData.nodeIndex;
+
+            if (declaredNodeIndex === undefined) {
+                return Number.MAX_SAFE_INTEGER;
+            }
+
+            if (!scopeDispatcherNode) {
+                return declaredNodeIndex;
+            }
+
+            const visualOrder = getGraphVisualOrder(scopeDispatcherNode);
+
+            if (declaredNodeIndex >= visualOrder.length) {
+                return declaredNodeIndex;
+            }
+
+            const visualPosition = visualOrder.indexOf(declaredNodeIndex);
+
+            return visualPosition === -1 ? declaredNodeIndex : visualPosition;
         }
 
         if (scopeComponentName === 'on-error') {
@@ -792,6 +846,12 @@ function getRenderedNodeSize(node: Node, direction: LayoutDirectionType): {heigh
             return {height: PLACEHOLDER_NODE_HEIGHT, width: NODE_ANCHOR_SIZE};
         }
 
+        if (node.type === 'triggerPlaceholder') {
+            // The 56px dashed "+" box renders with mx-2 margins (TriggerPlaceholderNode.tsx),
+            // so the node's DOM box is 72px wide with the box at its center
+            return {height: TRIGGER_PLACEHOLDER_NODE_SIZE, width: NODE_ANCHOR_SIZE};
+        }
+
         if (isSmallNode) {
             return {height: PLACEHOLDER_NODE_HEIGHT, width: PLACEHOLDER_NODE_WIDTH};
         }
@@ -811,6 +871,11 @@ function getRenderedNodeSize(node: Node, direction: LayoutDirectionType): {heigh
     if (node.type === 'placeholder') {
         // See LR branch: the placeholder's DOM box is 72px wide (mx-[22px] margins)
         return {height: PLACEHOLDER_NODE_HEIGHT, width: NODE_ANCHOR_SIZE};
+    }
+
+    if (node.type === 'triggerPlaceholder') {
+        // See LR branch: the 56px dashed box's DOM box is 72px wide (mx-2 margins)
+        return {height: TRIGGER_PLACEHOLDER_NODE_SIZE, width: NODE_ANCHOR_SIZE};
     }
 
     if (isSmallNode) {

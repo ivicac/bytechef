@@ -44,6 +44,7 @@ import InlineSVG from 'react-inlinesvg';
 import {calculateNodeWidth, getHandlePosition} from '../../cluster-element-editor/utils/clusterElementsUtils';
 import {getConditionBranchSide} from './createConditionEdges';
 import {getForkJoinBranchSide} from './createForkJoinEdges';
+import createGraphEdges, {getGraphNodeSide} from './createGraphEdges';
 import {getOnErrorBranchSide} from './createOnErrorEdges';
 import {getCrossAxis, getCrossAxisNodeSize} from './directionUtils';
 import {
@@ -967,6 +968,44 @@ export function filterAndDedupeLayoutEdges(allNodes: Node[], edges: Edge[]): Edg
     return [...existingEdges.filter(touchesPlaceholder), ...existingEdges.filter((edge) => !touchesPlaceholder(edge))];
 }
 
+/**
+ * getElkLayoutElements's error-fallback branch (see the `graphTransition` filter's comment in
+ * `getLayoutElements` immediately below) re-invokes this function with the SAME edges array ELK
+ * was given. Beyond the `graphTransition` overlay edges themselves, those edges' STRUCTURAL
+ * handles are also tainted: they were built with `orderLanesByVisualPosition: true` (see
+ * `CreateGraphEdgesOptionsI`, threaded from `useLayout.tsx`'s `isElkLayoutActive` check), so every
+ * graph dispatcher's shared top/bottom-ghost handle (left/middle/right, see
+ * `distributeGraphNodeIndexes`) — including a nested dispatcher's own bottom-ghost edge into that
+ * same handle, via `getGraphNodeSide` — follows the VISUAL lane permutation. Dagre always lays
+ * lanes out in DECLARATION order, so reusing those edges verbatim reproduces the exact
+ * boxy-staircase / apparent-empty-column regression the visual lane ordering feature was written
+ * around: a lane's edges leave from a handle that no longer matches its physical column.
+ *
+ * Each graph dispatcher's own edges are regenerated in declaration order (`createGraphEdges` with
+ * no options) and spliced back in by id — ids are derived from node ids alone (never from lane
+ * position, per the no-visual-position-in-ids invariant), so they are stable regardless of which
+ * order produced the edge being replaced. This mirrors the `graphTransition` filter immediately
+ * below: closing the gap at this one seam covers every downstream consumer, including a bare call
+ * into `getLayoutElements` that happens to be handed ELK-ordered edges for any other reason.
+ */
+export function realignGraphLaneHandlesToDeclarationOrder(nodes: Node[], edges: Edge[]): Edge[] {
+    const graphDispatcherNodes = nodes.filter((node) => (node.data as NodeDataType).componentName === 'graph');
+
+    if (graphDispatcherNodes.length === 0) {
+        return edges;
+    }
+
+    const declarationOrderEdgesById = new Map<string, Edge>();
+
+    graphDispatcherNodes.forEach((graphDispatcherNode) => {
+        createGraphEdges(graphDispatcherNode).forEach((declarationOrderEdge) => {
+            declarationOrderEdgesById.set(declarationOrderEdge.id, declarationOrderEdge);
+        });
+    });
+
+    return edges.map((edge) => declarationOrderEdgesById.get(edge.id) ?? edge);
+}
+
 export const getLayoutElements = async ({
     canvasHeight,
     canvasWidth,
@@ -975,6 +1014,20 @@ export const getLayoutElements = async ({
     nodes,
     savedPositionCrossAxisShift = 0,
 }: GetLayoutElementsProps) => {
+    // `graphTransition` overlay edges (ELK-only, see createGraphTransitionEdges) must
+    // never reach dagre or this function's post-dagre chain-walker pipeline — dagre
+    // keeps the phase-2 badges as its sole transition visualization. The happy path
+    // never creates them for the dagre engine (see usesElkGraphTransitionOverlay in
+    // useLayout), but getElkLayoutElements's error-fallback branch re-invokes this
+    // function with the SAME edges array ELK was given, which may include them —
+    // filtering here closes that gap for every downstream consumer in one place,
+    // including dagre's own ranking (a cyclic pair would corrupt it exactly like the
+    // ELK case).
+    edges = edges.filter((edge) => edge.type !== 'graphTransition');
+
+    // Closes the handle-side half of the same gap — see the function's own doc comment.
+    edges = realignGraphLaneHandlesToDeclarationOrder(nodes, edges);
+
     const dagreModule = await loadDagre();
 
     const dagreGraph = new dagreModule.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
@@ -1129,6 +1182,10 @@ interface CreateEdgeFromTaskDispatcherBottomGhostNodeProps {
     allNodes?: Node[];
     index?: number;
     node: Node;
+    // ELK-only, forwarded straight to `getGraphNodeSide` (see that function's doc comment) — this
+    // is the shared edge path both dagre and ELK call, so the flag must default to off and only
+    // be passed true from the ELK call site.
+    orderLanesByVisualPosition?: boolean;
     tasks?: WorkflowTask[];
 }
 
@@ -1136,6 +1193,7 @@ export const createEdgeFromTaskDispatcherBottomGhostNode = ({
     allNodes = [],
     index = 0,
     node,
+    orderLanesByVisualPosition = false,
     tasks = [],
 }: CreateEdgeFromTaskDispatcherBottomGhostNodeProps): Edge | null => {
     const nodeData = node.data as NodeDataType;
@@ -1267,6 +1325,15 @@ export const createEdgeFromTaskDispatcherBottomGhostNode = ({
             targetHandle = `${parentTaskDispatcherBottomGhostId}-${branchSide}`;
         } else if (componentName === 'fork-join') {
             const branchSide = getForkJoinBranchSide(taskDispatcherId, tasks, parentTaskDispatcher.name);
+
+            targetHandle = `${parentTaskDispatcherBottomGhostId}-${branchSide}`;
+        } else if (componentName === 'graph') {
+            const branchSide = getGraphNodeSide(
+                taskDispatcherId,
+                tasks,
+                parentTaskDispatcher.name,
+                orderLanesByVisualPosition
+            );
 
             targetHandle = `${parentTaskDispatcherBottomGhostId}-${branchSide}`;
         } else if (componentName === 'branch') {
