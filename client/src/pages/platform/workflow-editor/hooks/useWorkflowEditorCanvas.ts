@@ -17,8 +17,9 @@ import {Node, NodeChange, XYPosition, useNodesInitialized, useReactFlow} from '@
 import {DragEventHandler, useCallback, useEffect, useMemo, useRef} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
-import LabeledClusterElementsEdge from '../../cluster-element-editor/edges/LabeledClusterElementsEdge';
+import GraphTransitionEdge from '../edges/GraphTransitionEdge';
 import LabeledBranchCaseEdge from '../edges/LabeledBranchCaseEdge';
+import LabeledGraphNodeEdge from '../edges/LabeledGraphNodeEdge';
 import PlaceholderEdge from '../edges/PlaceholderEdge';
 import RoundedSmoothStepEdge from '../edges/RoundedSmoothStepEdge';
 import WorkflowEdge from '../edges/WorkflowEdge';
@@ -206,8 +207,9 @@ const useWorkflowEditorCanvas = ({
 
     const edgeTypes = useMemo(
         () => ({
+            graphTransition: GraphTransitionEdge,
             labeledBranchCase: LabeledBranchCaseEdge,
-            labeledClusterElementsEdge: LabeledClusterElementsEdge,
+            labeledGraphNode: LabeledGraphNodeEdge,
             placeholder: PlaceholderEdge,
             smoothstep: RoundedSmoothStepEdge,
             workflow: WorkflowEdge,
