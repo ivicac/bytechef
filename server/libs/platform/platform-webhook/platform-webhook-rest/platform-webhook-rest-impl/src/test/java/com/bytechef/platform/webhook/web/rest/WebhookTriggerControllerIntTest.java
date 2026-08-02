@@ -25,12 +25,16 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.head;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import com.bytechef.component.definition.ActionDefinition.WebhookResponse;
 import com.bytechef.component.definition.TriggerDefinition.WebhookValidateResponse;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.exception.ConfigurationException;
+import com.bytechef.file.storage.token.FileEntryTokens;
+import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.domain.WebhookTriggerFlags;
 import com.bytechef.platform.component.trigger.WebhookRequest;
 import com.bytechef.platform.constant.PlatformType;
@@ -46,6 +50,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -73,6 +78,9 @@ class WebhookTriggerControllerIntTest {
 
     @MockitoBean
     private ApplicationProperties applicationProperties;
+
+    @MockitoBean
+    private FileEntryTokens fileEntryTokens;
 
     @Autowired
     private MockMvc mockMvc;
@@ -180,6 +188,43 @@ class WebhookTriggerControllerIntTest {
         WebhookRequest executedWebhookRequest = webhookRequestArgumentCaptor.getValue();
 
         assertThat(executedWebhookRequest.validated()).isTrue();
+    }
+
+    @Test
+    void testSyncTriggerRendersWebhookResponse() throws Exception {
+        when(webhookWorkflowExecutor.getWebhookTriggerFlags(any()))
+            .thenReturn(SYNC_EXECUTION_FLAGS);
+        when(webhookWorkflowExecutor.executeSync(any(), any()))
+            .thenReturn(Map.of(MetadataConstants.WEBHOOK_RESPONSE, WebhookResponse.json(Map.of("message", "ok"))));
+
+        mockMvc.perform(post("/webhooks/{id}", workflowExecutionId.toString()))
+            .andExpect(status().isOk())
+            .andExpect(content().contentTypeCompatibleWith(MediaType.APPLICATION_JSON))
+            .andExpect(jsonPath("$.message").value("ok"));
+    }
+
+    /**
+     * The path variable is an unsigned {@code WorkflowExecutionId} (base64 of a colon-joined string), so a caller
+     * holding a webhook URL can edit any field in it, including {@code jobPrincipalId}, which {@code -1} turns into the
+     * test-mode sentinel that resolves a workflow by uuid alone, ignoring the deployment's pinned version. The
+     * controller must therefore consult {@code isWorkflowDisabled} and answer before dispatching, since an unknown
+     * deployment reports "not enabled" (pinned by
+     * {@code ProjectDeploymentJobPrincipalAccessorTest#testIsWorkflowEnabledFailsClosedForUnknownJobPrincipal}). Moving
+     * execution ahead of that check, or treating a disabled workflow as merely a different response, would make the
+     * tampered id reach workflow resolution.
+     */
+    @Test
+    void testTamperedTestModeIdDoesNotExecuteWhenWorkflowDisabled() throws Exception {
+        when(webhookWorkflowExecutor.getWebhookTriggerFlags(any())).thenReturn(SYNC_EXECUTION_FLAGS);
+        when(webhookWorkflowExecutor.isWorkflowDisabled(any())).thenReturn(true);
+
+        WorkflowExecutionId tamperedWorkflowExecutionId = WorkflowExecutionId.of(
+            PlatformType.AUTOMATION, -1L, "workflow-uuid", "trigger_1");
+
+        mockMvc.perform(post("/webhooks/{id}", tamperedWorkflowExecutionId.toString()))
+            .andExpect(status().isGone());
+
+        verify(webhookWorkflowExecutor, never()).executeSync(any(), any());
     }
 
     @Test
