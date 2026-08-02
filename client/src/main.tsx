@@ -16,7 +16,6 @@ import {StrictMode} from 'react';
 import {RouterProvider} from 'react-router-dom';
 
 import {initUserGuiding} from './hooks/useUserGuiding';
-import {getRouter as getMainRouter} from './routes';
 
 const legacyEmbeddedWorkflowBuilderUrl = getLegacyEmbeddedWorkflowBuilderUrl(window.location);
 
@@ -46,7 +45,11 @@ async function renderApp() {
     const root = createRoot(container);
     const queryClient = new QueryClient();
 
-    const router = getMainRouter(queryClient);
+    const isEmbeddedWorkflowBuilder = window.location.pathname.includes('/embedded/workflow-builder');
+
+    const router = isEmbeddedWorkflowBuilder
+        ? (await import('@/embeddedWorkflowBuilderRoutes')).getRouter()
+        : (await import('./routes')).getRouter(queryClient);
 
     await applicationInfoStore.getState().getApplicationInfo();
 
@@ -76,7 +79,7 @@ async function renderApp() {
     root.render(
         <StrictMode>
             <I18n>
-                <ThemeProvider defaultTheme="light">
+                <ThemeProvider defaultTheme="system">
                     <QueryClientProvider client={queryClient}>
                         <ConditionalPostHogProvider>
                             <TooltipProvider>
