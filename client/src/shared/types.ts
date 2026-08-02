@@ -141,6 +141,12 @@ type ForkJoinDataType = {
     index: number;
 };
 
+type GraphDataType = {
+    graphId: string;
+    index: number;
+    nodeIndex: number;
+};
+
 export type TaskDispatcherDataType = BranchDataType &
     EachDataType &
     LoopDataType &
@@ -151,7 +157,8 @@ export type TaskDispatcherDataType = BranchDataType &
     TerminateDataType &
     ConditionDataType &
     ParallelDataType &
-    ForkJoinDataType;
+    ForkJoinDataType &
+    GraphDataType;
 
 export type NestedClusterRootComponentDefinitionType = {
     actionClusterElementTypes: {[key: string]: Array<string>};
@@ -210,12 +217,8 @@ export type NodeDataType = {
     eachData?: EachDataType;
     forkJoinId?: string;
     forkJoinData?: ForkJoinDataType;
-    clusterFrame?: {
-        clusterRootId: string;
-        contentOrigin: {x: number; y: number};
-        height: number;
-        width: number;
-    };
+    graphData?: GraphDataType;
+    graphId?: string;
     icon?: ReactNode;
     isEffectivelyDisabled?: boolean;
     isNestedClusterRoot?: boolean;
@@ -241,6 +244,7 @@ export type NodeDataType = {
     };
     multipleClusterElementsNode?: boolean;
     name: string;
+    nodeIndex?: number;
     operationName?: string;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     parameters?: {[key: string]: any};
@@ -265,6 +269,17 @@ export type NodeDataType = {
 
 export type BranchCaseType = {
     key: string | number;
+    tasks: Array<WorkflowTask>;
+};
+
+/**
+ * A single lane within a `graph` task dispatcher's `nodes` array. Addressed by INDEX
+ * (not by name) when the editor inserts/deletes tasks — `name` is display/runtime
+ * identity and a rename must not re-home the node's tasks.
+ */
+export type GraphNodeType = {
+    name: string;
+    next?: string;
     tasks: Array<WorkflowTask>;
 };
 
@@ -389,10 +404,12 @@ export type TaskDispatcherContextType = {
     conditionId?: string;
     eachId?: string;
     forkJoinId?: string;
+    graphId?: string;
     index?: number;
     loopBreakId?: string;
     loopId?: string;
     mapId?: string;
+    nodeIndex?: number;
     onErrorCase?: 'mainBranch' | 'onErrorBranch';
     onErrorId?: string;
     parallelId?: string;
@@ -425,6 +442,7 @@ export type LoopChildTasksType = {[loopId: string]: {iteratee: string[]}};
 export type MapChildTasksType = {[mapId: string]: {iteratee: string[]}};
 export type ParallelChildTasksType = {[parallelId: string]: {tasks: string[]}};
 export type ForkJoinChildTasksType = {[forkJoinId: string]: {branches: string[][]}};
+export type GraphChildTasksType = {[graphId: string]: {nodes: string[][]}};
 
 export type WorkflowInputType = WorkflowInput & {
     testValue?: string;
