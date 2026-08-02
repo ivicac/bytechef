@@ -196,6 +196,7 @@ const isTaskDispatcherSubtask = (node?: Node) =>
     !!node?.data?.parallelData ||
     !!node?.data?.eachData ||
     !!node?.data?.forkJoinData ||
+    !!node?.data?.graphData ||
     !!node?.data?.onErrorData ||
     !!node?.data?.terminateData;
 

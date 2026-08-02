@@ -19,7 +19,9 @@ import {useShallow} from 'zustand/react/shallow';
 
 import ClusterElementEdge from '../../cluster-element-editor/edges/ClusterElementEdge';
 import LabeledClusterElementsEdge from '../../cluster-element-editor/edges/LabeledClusterElementsEdge';
+import GraphTransitionEdge from '../edges/GraphTransitionEdge';
 import LabeledBranchCaseEdge from '../edges/LabeledBranchCaseEdge';
+import LabeledGraphNodeEdge from '../edges/LabeledGraphNodeEdge';
 import PlaceholderEdge from '../edges/PlaceholderEdge';
 import RoundedSmoothStepEdge from '../edges/RoundedSmoothStepEdge';
 import WorkflowEdge from '../edges/WorkflowEdge';
@@ -209,8 +211,10 @@ const useWorkflowEditorCanvas = ({
     const edgeTypes = useMemo(
         () => ({
             clusterElement: ClusterElementEdge,
+            graphTransition: GraphTransitionEdge,
             labeledBranchCase: LabeledBranchCaseEdge,
             labeledClusterElementsEdge: LabeledClusterElementsEdge,
+            labeledGraphNode: LabeledGraphNodeEdge,
             placeholder: PlaceholderEdge,
             smoothstep: RoundedSmoothStepEdge,
             workflow: WorkflowEdge,
