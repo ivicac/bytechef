@@ -1,11 +1,22 @@
 import Button from '@/components/Button/Button';
 import {
+    Dialog,
+    DialogBody,
+    DialogCancelButton,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogMain,
+} from '@/components/Dialog';
+import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/Select/Select';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {
     AiGatewayRoutingStrategyType,
     useCreateWorkspaceAiGatewayRoutingPolicyMutation,
     useUpdateWorkspaceAiGatewayRoutingPolicyMutation,
 } from '@/shared/middleware/graphql';
 import {useQueryClient} from '@tanstack/react-query';
-import {XIcon} from 'lucide-react';
 import {useCallback, useState} from 'react';
 
 import {AiGatewayRoutingPolicyType} from '../../types';
@@ -79,67 +90,81 @@ const AiGatewayRoutingPolicyDialog = ({onClose, routingPolicy, workspaceId}: AiG
     }, [createMutation, fallbackModel, isEditMode, name, routingPolicy, strategy, updateMutation, workspaceId]);
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="w-full max-w-md rounded-lg bg-background p-6 shadow-lg">
-                <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-lg font-medium">{isEditMode ? 'Edit Routing Policy' : 'Add Routing Policy'}</h3>
+        <Dialog
+            onOpenChange={(open) => {
+                if (!open) {
+                    onClose();
+                }
+            }}
+            open
+        >
+            <DialogContent aria-describedby={undefined}>
+                <DialogMain>
+                    <DialogHeader title={isEditMode ? 'Edit Routing Policy' : 'Add Routing Policy'} />
 
-                    <button onClick={onClose}>
-                        <XIcon className="size-4" />
-                    </button>
-                </div>
+                    <DialogBody>
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="ai-gateway-routing-policy-name">
+                                Name
+                            </Label>
 
-                <div className="space-y-4">
-                    <fieldset className="border-0">
-                        <label className="mb-1 block text-sm font-medium">Name</label>
+                            <Input
+                                id="ai-gateway-routing-policy-name"
+                                onChange={(event) => setName(event.target.value)}
+                                placeholder="My Routing Policy"
+                                value={name}
+                            />
+                        </fieldset>
 
-                        <input
-                            className="w-full rounded-md border px-3 py-2 text-sm"
-                            onChange={(event) => setName(event.target.value)}
-                            placeholder="My Routing Policy"
-                            value={name}
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="ai-gateway-routing-policy-strategy">
+                                Strategy
+                            </Label>
+
+                            <Select
+                                onValueChange={(value) => setStrategy(value as AiGatewayRoutingStrategyType)}
+                                value={strategy}
+                            >
+                                <SelectTrigger id="ai-gateway-routing-policy-strategy">
+                                    <SelectValue />
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                    {STRATEGY_TYPES.map((strategyType) => (
+                                        <SelectItem key={strategyType} value={strategyType}>
+                                            {strategyType}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </fieldset>
+
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="ai-gateway-routing-policy-fallback-model">
+                                Fallback Model (optional)
+                            </Label>
+
+                            <Input
+                                id="ai-gateway-routing-policy-fallback-model"
+                                onChange={(event) => setFallbackModel(event.target.value)}
+                                placeholder="gpt-4o"
+                                value={fallbackModel}
+                            />
+                        </fieldset>
+                    </DialogBody>
+
+                    <DialogFooter>
+                        <DialogCancelButton />
+
+                        <Button
+                            disabled={!name || createMutation.isPending || updateMutation.isPending}
+                            label={isEditMode ? 'Save' : 'Create'}
+                            onClick={handleSubmit}
                         />
-                    </fieldset>
-
-                    <fieldset className="border-0">
-                        <label className="mb-1 block text-sm font-medium">Strategy</label>
-
-                        <select
-                            className="w-full rounded-md border px-3 py-2 text-sm"
-                            onChange={(event) => setStrategy(event.target.value as AiGatewayRoutingStrategyType)}
-                            value={strategy}
-                        >
-                            {STRATEGY_TYPES.map((strategyType) => (
-                                <option key={strategyType} value={strategyType}>
-                                    {strategyType}
-                                </option>
-                            ))}
-                        </select>
-                    </fieldset>
-
-                    <fieldset className="border-0">
-                        <label className="mb-1 block text-sm font-medium">Fallback Model (optional)</label>
-
-                        <input
-                            className="w-full rounded-md border px-3 py-2 text-sm"
-                            onChange={(event) => setFallbackModel(event.target.value)}
-                            placeholder="gpt-4o"
-                            value={fallbackModel}
-                        />
-                    </fieldset>
-                </div>
-
-                <div className="mt-6 flex justify-end gap-2">
-                    <Button label="Cancel" onClick={onClose} variant="outline" />
-
-                    <Button
-                        disabled={!name || createMutation.isPending || updateMutation.isPending}
-                        label={isEditMode ? 'Save' : 'Create'}
-                        onClick={handleSubmit}
-                    />
-                </div>
-            </div>
-        </div>
+                    </DialogFooter>
+                </DialogMain>
+            </DialogContent>
+        </Dialog>
     );
 };
 
