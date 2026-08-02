@@ -1,7 +1,18 @@
 import Button from '@/components/Button/Button';
+import {
+    Dialog,
+    DialogBody,
+    DialogCancelButton,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogMain,
+} from '@/components/Dialog';
+import {Input} from '@/components/ui/input';
+import {Label} from '@/components/ui/label';
+import {Textarea} from '@/components/ui/textarea';
 import {useCreateAiPromptMutation, useUpdateAiPromptMutation} from '@/shared/middleware/graphql';
 import {useQueryClient} from '@tanstack/react-query';
-import {XIcon} from 'lucide-react';
 import {useCallback, useState} from 'react';
 
 import {AiPromptType} from '../../types';
@@ -57,52 +68,59 @@ const AiPromptDialog = ({onClose, prompt, workspaceId}: AiPromptDialogProps) => 
     }, [createMutation, description, isEditMode, name, prompt, updateMutation, workspaceId]);
 
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="w-full max-w-md rounded-lg bg-background p-6 shadow-lg">
-                <div className="mb-4 flex items-center justify-between">
-                    <h3 className="text-lg font-medium">{isEditMode ? 'Edit Prompt' : 'Create Prompt'}</h3>
+        <Dialog
+            onOpenChange={(open) => {
+                if (!open) {
+                    onClose();
+                }
+            }}
+            open
+        >
+            <DialogContent aria-describedby={undefined}>
+                <DialogMain>
+                    <DialogHeader title={isEditMode ? 'Edit Prompt' : 'Create Prompt'} />
 
-                    <button onClick={onClose}>
-                        <XIcon className="size-4" />
-                    </button>
-                </div>
+                    <DialogBody>
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="ai-prompt-name">
+                                Name
+                            </Label>
 
-                <div className="space-y-4">
-                    <fieldset className="border-0">
-                        <label className="mb-1 block text-sm font-medium">Name</label>
+                            <Input
+                                id="ai-prompt-name"
+                                onChange={(event) => setName(event.target.value)}
+                                placeholder="My Prompt Template"
+                                value={name}
+                            />
+                        </fieldset>
 
-                        <input
-                            className="w-full rounded-md border px-3 py-2 text-sm"
-                            onChange={(event) => setName(event.target.value)}
-                            placeholder="My Prompt Template"
-                            value={name}
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="ai-prompt-description">
+                                Description (optional)
+                            </Label>
+
+                            <Textarea
+                                id="ai-prompt-description"
+                                onChange={(event) => setDescription(event.target.value)}
+                                placeholder="Describe what this prompt does..."
+                                rows={3}
+                                value={description}
+                            />
+                        </fieldset>
+                    </DialogBody>
+
+                    <DialogFooter>
+                        <DialogCancelButton />
+
+                        <Button
+                            disabled={!name || createMutation.isPending || updateMutation.isPending}
+                            label={isEditMode ? 'Save' : 'Create'}
+                            onClick={handleSubmit}
                         />
-                    </fieldset>
-
-                    <fieldset className="border-0">
-                        <label className="mb-1 block text-sm font-medium">Description (optional)</label>
-
-                        <textarea
-                            className="w-full rounded-md border px-3 py-2 text-sm"
-                            onChange={(event) => setDescription(event.target.value)}
-                            placeholder="Describe what this prompt does..."
-                            rows={3}
-                            value={description}
-                        />
-                    </fieldset>
-                </div>
-
-                <div className="mt-6 flex justify-end gap-2">
-                    <Button label="Cancel" onClick={onClose} variant="outline" />
-
-                    <Button
-                        disabled={!name || createMutation.isPending || updateMutation.isPending}
-                        label={isEditMode ? 'Save' : 'Create'}
-                        onClick={handleSubmit}
-                    />
-                </div>
-            </div>
-        </div>
+                    </DialogFooter>
+                </DialogMain>
+            </DialogContent>
+        </Dialog>
     );
 };
 
