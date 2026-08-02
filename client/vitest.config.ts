@@ -13,7 +13,7 @@ export default defineConfig({
     },
     test: {
         coverage: {
-            exclude: ['.vitest/', 'node_modules/', 'src/middleware', '**/*.test.tsx'],
+            exclude: ['.vitest/', 'node_modules/', 'src/middleware', '**/*.test.ts', '**/*.test.tsx'],
             reporter: ['html', 'lcov', 'text'],
         },
         environment: 'jsdom',
