@@ -58,6 +58,7 @@ function getParentDispatcherId(nodeData: NodeDataType): string | undefined {
         nodeData.parallelData?.parallelId ||
         nodeData.eachData?.eachId ||
         nodeData.forkJoinData?.forkJoinId ||
+        nodeData.graphData?.graphId ||
         nodeData.onErrorData?.onErrorId ||
         nodeData.taskDispatcherId
     );
@@ -120,6 +121,7 @@ function collectNestedDispatcherNodes(dispatcherId: string, allNodes: Node[], co
             data.eachData?.eachId === dispatcherId ||
             data.parallelData?.parallelId === dispatcherId ||
             data.forkJoinData?.forkJoinId === dispatcherId ||
+            data.graphData?.graphId === dispatcherId ||
             data.onErrorData?.onErrorId === dispatcherId;
 
         if (belongsToDispatcher) {
@@ -1897,6 +1899,7 @@ export function applySavedPositions(
                         nodeData.eachData?.eachId ||
                         nodeData.parallelData?.parallelId ||
                         nodeData.forkJoinData?.forkJoinId ||
+                        nodeData.graphData?.graphId ||
                         nodeData.onErrorData?.onErrorId;
 
                     if (!parentDispatcherId) {
@@ -1994,6 +1997,7 @@ export function adjustBottomGhostForMovedChildren(
             dispatcherData.eachData?.eachId ||
             dispatcherData.parallelData?.parallelId ||
             dispatcherData.forkJoinData?.forkJoinId ||
+            dispatcherData.graphData?.graphId ||
             dispatcherData.onErrorData?.onErrorId;
 
         const parentMainAxisDelta = parentDispatcherId

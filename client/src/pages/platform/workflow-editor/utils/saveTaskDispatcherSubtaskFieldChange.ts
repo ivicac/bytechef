@@ -60,6 +60,7 @@ export default function saveTaskDispatcherSubtaskFieldChange(props: SaveTaskDisp
         | 'condition'
         | 'each'
         | 'fork-join'
+        | 'graph'
         | 'loop'
         | 'on-error'
         | 'parallel'
@@ -167,6 +168,21 @@ export default function saveTaskDispatcherSubtaskFieldChange(props: SaveTaskDisp
             };
 
             taskDispatcherComponentName = 'fork-join';
+
+            break;
+        }
+        case 'graphData': {
+            if (!currentNode.graphData) {
+                break;
+            }
+
+            taskDispatcherContext = {
+                index: currentNodeIndex,
+                nodeIndex: currentNode.graphData.nodeIndex,
+                taskDispatcherId: currentNode.graphData.graphId,
+            };
+
+            taskDispatcherComponentName = 'graph';
 
             break;
         }
