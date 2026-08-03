@@ -203,7 +203,7 @@ public interface TriggerDefinition {
     /**
      * Returns the input properties the user configures for this trigger.
      *
-     * @return an {@link Optional} containing the list of properties, or an empty {@link Optional} if none are defined
+     * @return the list of properties, or an empty list if none are defined
      */
     default List<? extends Property> getProperties() {
         return List.of();
@@ -228,8 +228,7 @@ public interface TriggerDefinition {
     /**
      * Indicates whether the raw, unparsed request body should be preserved for webhook processing.
      *
-     * @return an {@link Optional} containing {@code true} to keep the raw body, or an empty {@link Optional} if not
-     *         specified
+     * @return {@code true} to keep the raw body, {@code false} otherwise
      */
     default boolean getWebhookRawBody() {
         return false;
@@ -268,8 +267,7 @@ public interface TriggerDefinition {
     /**
      * Indicates whether the workflow started by this trigger should be executed synchronously.
      *
-     * @return an {@link Optional} containing {@code true} for synchronous execution, or an empty {@link Optional} if
-     *         not specified
+     * @return {@code true} for synchronous execution, {@code false} otherwise
      */
     default boolean getWorkflowSyncExecution() {
         return false;

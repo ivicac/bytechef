@@ -119,7 +119,7 @@ public interface ActionDefinition {
     /**
      * Returns optional, implementation-specific metadata associated with the action.
      *
-     * @return an {@code Optional} containing the metadata map if defined, or an empty {@code Optional} otherwise
+     * @return the metadata map, or an empty map if none is defined
      */
     default Map<String, Object> getMetadata() {
         return Map.of();
@@ -164,10 +164,20 @@ public interface ActionDefinition {
     /**
      * Returns the list of input properties that define the parameters the action accepts.
      *
-     * @return an {@code Optional} containing the list of properties if defined, or an empty {@code Optional} otherwise
+     * @return the list of properties, or an empty list if none are defined
      */
     default List<? extends Property> getProperties() {
         return List.of();
+    }
+
+    /**
+     * Returns the optional function invoked to resume the action after it has been suspended.
+     *
+     * @return an {@code Optional} containing the resume-perform function if defined, or an empty {@code Optional}
+     *         otherwise
+     */
+    default Optional<? extends BaseResumePerformFunction> getResumePerform() {
+        return Optional.empty();
     }
 
     /**
@@ -175,7 +185,7 @@ public interface ActionDefinition {
      *
      * @return an {@code Optional} containing the title if defined, or an empty {@code Optional} otherwise
      */
-    default Optional<? extends BaseResumePerformFunction> getResumePerform() {
+    default Optional<String> getTitle() {
         return Optional.empty();
     }
 
@@ -186,10 +196,6 @@ public interface ActionDefinition {
      * @return an {@code Optional} containing the workflow-node-description function if defined, or an empty
      *         {@code Optional} otherwise
      */
-    default Optional<String> getTitle() {
-        return Optional.empty();
-    }
-
     default Optional<WorkflowNodeDescriptionFunction> getWorkflowNodeDescription() {
         return Optional.empty();
     }

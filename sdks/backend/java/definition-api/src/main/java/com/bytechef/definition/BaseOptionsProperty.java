@@ -31,7 +31,7 @@ public interface BaseOptionsProperty<T, I extends BaseOption<T>> {
     /**
      * Returns the selectable options offered by this property.
      *
-     * @return an {@link Optional} containing the list of options, or an empty {@link Optional} if none are defined
+     * @return the list of options, or an empty list if none are defined
      */
     default List<? extends I> getOptions() {
         return List.of();

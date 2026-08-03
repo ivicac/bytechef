@@ -40,8 +40,7 @@ public interface BaseProperty {
     /**
      * Returns whether this property is shown only when advanced options are revealed.
      *
-     * @return an {@link Optional} containing {@code true} if the property is an advanced option, or an empty
-     *         {@link Optional} if unspecified
+     * @return {@code true} if the property is an advanced option, {@code false} otherwise (the default)
      */
     default boolean getAdvancedOption() {
         return false;
@@ -69,8 +68,7 @@ public interface BaseProperty {
     /**
      * Returns whether expressions may be used to compute this property's value.
      *
-     * @return an {@link Optional} containing {@code true} if expressions are enabled, or an empty {@link Optional} if
-     *         unspecified
+     * @return {@code true} if expressions are enabled, {@code false} otherwise (the default is {@code true})
      */
     default boolean getExpressionEnabled() {
         return true;
@@ -79,8 +77,7 @@ public interface BaseProperty {
     /**
      * Returns whether this property is hidden from the user interface.
      *
-     * @return an {@link Optional} containing {@code true} if the property is hidden, or an empty {@link Optional} if
-     *         unspecified
+     * @return {@code true} if the property is hidden, {@code false} otherwise (the default)
      */
     default boolean getHidden() {
         return false;
@@ -89,7 +86,7 @@ public interface BaseProperty {
     /**
      * Returns the additional metadata associated with this property.
      *
-     * @return a map of metadata keys to their values
+     * @return the metadata map, or an empty map if none is defined
      */
     default Map<String, Object> getMetadata() {
         return Map.of();
@@ -105,8 +102,7 @@ public interface BaseProperty {
     /**
      * Returns whether a value for this property is required.
      *
-     * @return an {@link Optional} containing {@code true} if the property is required, or an empty {@link Optional} if
-     *         unspecified
+     * @return {@code true} if the property is required, {@code false} otherwise (the default)
      */
     default boolean getRequired() {
         return false;
@@ -122,8 +118,7 @@ public interface BaseProperty {
         /**
          * Returns the property definitions describing the items allowed in the array.
          *
-         * @return an {@link Optional} containing the list of item property definitions, or an empty {@link Optional} if
-         *         none are defined
+         * @return the list of item property definitions, or an empty list if none are defined
          */
         default List<? extends I> getItems() {
             return List.of();
@@ -150,8 +145,7 @@ public interface BaseProperty {
         /**
          * Returns whether the array accepts multiple values.
          *
-         * @return an {@link Optional} containing {@code true} if multiple values are allowed, or an empty
-         *         {@link Optional} if unspecified
+         * @return {@code true} if multiple values are allowed, {@code false} otherwise (the default is {@code true})
          */
         default boolean getMultipleValues() {
             return true;
@@ -282,8 +276,7 @@ public interface BaseProperty {
         /**
          * Returns the property definitions describing dynamically added properties not covered by the fixed schema.
          *
-         * @return an {@link Optional} containing the list of additional property definitions, or an empty
-         *         {@link Optional} if none are defined
+         * @return the list of additional property definitions, or an empty list if none are defined
          */
         default List<? extends P> getAdditionalProperties() {
             return List.of();
@@ -292,8 +285,7 @@ public interface BaseProperty {
         /**
          * Returns whether the object accepts multiple values.
          *
-         * @return an {@link Optional} containing {@code true} if multiple values are allowed, or an empty
-         *         {@link Optional} if unspecified
+         * @return {@code true} if multiple values are allowed, {@code false} otherwise (the default is {@code true})
          */
         default boolean getMultipleValues() {
             return true;
@@ -302,8 +294,7 @@ public interface BaseProperty {
         /**
          * Returns the fixed property definitions describing the fields of the object.
          *
-         * @return an {@link Optional} containing the list of nested property definitions, or an empty {@link Optional}
-         *         if none are defined
+         * @return the list of nested property definitions, or an empty list if none are defined
          */
         default List<? extends P> getProperties() {
             return List.of();
@@ -345,8 +336,7 @@ public interface BaseProperty {
         /**
          * Returns whether the selectable options for this property are loaded dynamically at runtime.
          *
-         * @return an {@link Optional} containing {@code true} if options are loaded dynamically, or an empty
-         *         {@link Optional} if unspecified
+         * @return {@code true} if options are loaded dynamically, {@code false} otherwise (the default)
          */
         default boolean getOptionsLoadedDynamically() {
             return false;

@@ -83,12 +83,14 @@ public interface ClusterElementDefinition<T> {
      * @return an {@code Optional} containing the error-processing function if defined, or an empty {@code Optional}
      *         otherwise
      */
-    Optional<ProcessErrorResponseFunction> getProcessErrorResponse();
+    default Optional<ProcessErrorResponseFunction> getProcessErrorResponse() {
+        return Optional.empty();
+    }
 
     /**
      * Returns the input properties that define the parameters the cluster element accepts.
      *
-     * @return an {@code Optional} containing the list of properties if defined, or an empty {@code Optional} otherwise
+     * @return the list of properties, or an empty list if none are defined
      */
     default List<? extends Property> getProperties() {
         return List.of();

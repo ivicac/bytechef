@@ -3135,7 +3135,7 @@ public final class ComponentDsl {
         private Boolean advancedOption = Boolean.FALSE;
         private String description;
         private String displayCondition;
-        private Boolean expressionEnabled = Boolean.TRUE;
+        private Boolean expressionEnabled = Boolean.TRUE; // Defaults to true
         private Boolean hidden = Boolean.FALSE;
         private Map<String, Object> metadata = new HashMap<>();
         private Boolean required = Boolean.FALSE;

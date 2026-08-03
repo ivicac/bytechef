@@ -32,8 +32,7 @@ public interface OptionsProperty<T> extends BaseOptionsProperty<T, Option<T>> {
     /**
      * Retrieves the statically defined options available for this property.
      *
-     * @return an {@link Optional} containing the list of options when they are defined; otherwise an empty
-     *         {@link Optional}
+     * @return the list of options, or an empty list if none are defined
      */
     List<? extends Option<T>> getOptions();
 }

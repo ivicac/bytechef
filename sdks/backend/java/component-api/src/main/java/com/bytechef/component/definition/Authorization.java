@@ -34,6 +34,11 @@ import java.util.Optional;
 public interface Authorization {
 
     /**
+     * The signals that trigger re-authorization when an authorization declares none of its own: an HTTP 401 response.
+     */
+    List<Object> DEFAULT_REFRESH_ON = List.of(401);
+
+    /**
      * Parameter key under which an OAuth2 access token is stored.
      */
     String ACCESS_TOKEN = "access_token";
@@ -336,7 +341,9 @@ public interface Authorization {
      * @return an {@code Optional} containing the {@link OAuth2AuthorizationExtraQueryParametersFunction} if defined, or
      *         an empty {@code Optional} otherwise
      */
-    Optional<OAuth2AuthorizationExtraQueryParametersFunction> getOauth2AuthorizationExtraQueryParameters();
+    default Optional<OAuth2AuthorizationExtraQueryParametersFunction> getOauth2AuthorizationExtraQueryParameters() {
+        return Optional.empty();
+    }
 
     /**
      * TODO
@@ -351,7 +358,7 @@ public interface Authorization {
      * Returns the input properties that define the credentials and settings collected from the user for this
      * authorization.
      *
-     * @return an {@code Optional} containing the list of properties if defined, or an empty {@code Optional} otherwise
+     * @return the list of properties, or an empty list if none are declared
      */
     default List<? extends Property> getProperties() {
         return List.of();
