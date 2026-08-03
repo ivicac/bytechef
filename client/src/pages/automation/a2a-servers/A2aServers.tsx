@@ -2,6 +2,7 @@ import Button from '@/components/Button/Button';
 import EmptyFilterResult from '@/components/EmptyFilterResult';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
+import EnvironmentSelect from '@/shared/components/EnvironmentSelect';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {A2aServer} from '@/shared/middleware/graphql';
@@ -51,7 +52,9 @@ const A2aServers = () => {
                     centerTitle={true}
                     position="main"
                     right={
-                        <div className="flex items-center gap-1">
+                        <div className="flex items-center gap-4">
+                            <EnvironmentSelect />
+
                             {a2aServers.length > 0 && (
                                 <A2aServerDialog triggerNode={<Button label="New A2A Server" />} />
                             )}

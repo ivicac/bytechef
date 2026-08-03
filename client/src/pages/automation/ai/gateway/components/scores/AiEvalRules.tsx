@@ -1,7 +1,15 @@
 import Button from '@/components/Button/Button';
+import {
+    Dialog,
+    DialogBody,
+    DialogCancelButton,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogMain,
+} from '@/components/Dialog';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
-import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {useRunAiEvalRuleOnHistoricalTracesMutation} from '@/shared/middleware/graphql';
@@ -99,7 +107,9 @@ const AiEvalRules = ({evalRules, isLoading}: AiEvalRulesProps) => {
                             <td className="px-3 py-2">
                                 <span
                                     className={`rounded-full px-2 py-0.5 text-xs font-medium ${
-                                        rule.enabled ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+                                        rule.enabled
+                                            ? 'bg-surface-success-secondary text-content-success-primary'
+                                            : 'bg-surface-neutral-secondary text-content-neutral-primary'
                                     }`}
                                 >
                                     {rule.enabled ? 'Enabled' : 'Disabled'}
@@ -108,7 +118,7 @@ const AiEvalRules = ({evalRules, isLoading}: AiEvalRulesProps) => {
 
                             <td className="px-3 py-2">
                                 <button
-                                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                                    className="flex items-center gap-1 text-xs text-content-brand-primary"
                                     onClick={() => setHistoryRule(rule)}
                                     title="Run on historical traces"
                                 >
@@ -130,48 +140,48 @@ const AiEvalRules = ({evalRules, isLoading}: AiEvalRulesProps) => {
                     }}
                     open
                 >
-                    <DialogContent aria-describedby={undefined} className="max-w-md">
-                        <DialogHeader>
-                            <DialogTitle>Run {historyRule.name} on History</DialogTitle>
-                        </DialogHeader>
+                    <DialogContent aria-describedby={undefined}>
+                        <DialogMain>
+                            <DialogHeader title={`Run ${historyRule.name} on History`} />
 
-                        <div className="space-y-4">
-                            <fieldset className="border-0">
-                                <Label className="mb-1 block" htmlFor="ai-eval-rule-history-start-date">
-                                    Start Date
-                                </Label>
+                            <DialogBody>
+                                <fieldset className="border-0">
+                                    <Label className="mb-1 block" htmlFor="ai-eval-rule-history-start-date">
+                                        Start Date
+                                    </Label>
 
-                                <Input
-                                    id="ai-eval-rule-history-start-date"
-                                    onChange={(event) => setStartDate(event.target.value)}
-                                    type="datetime-local"
-                                    value={startDate}
+                                    <Input
+                                        id="ai-eval-rule-history-start-date"
+                                        onChange={(event) => setStartDate(event.target.value)}
+                                        type="datetime-local"
+                                        value={startDate}
+                                    />
+                                </fieldset>
+
+                                <fieldset className="border-0">
+                                    <Label className="mb-1 block" htmlFor="ai-eval-rule-history-end-date">
+                                        End Date
+                                    </Label>
+
+                                    <Input
+                                        id="ai-eval-rule-history-end-date"
+                                        onChange={(event) => setEndDate(event.target.value)}
+                                        type="datetime-local"
+                                        value={endDate}
+                                    />
+                                </fieldset>
+                            </DialogBody>
+
+                            <DialogFooter>
+                                <DialogCancelButton />
+
+                                <Button
+                                    disabled={runHistoricalMutation.isPending}
+                                    label={runHistoricalMutation.isPending ? 'Queuing...' : 'Run'}
+                                    onClick={handleRun}
                                 />
-                            </fieldset>
-
-                            <fieldset className="border-0">
-                                <Label className="mb-1 block" htmlFor="ai-eval-rule-history-end-date">
-                                    End Date
-                                </Label>
-
-                                <Input
-                                    id="ai-eval-rule-history-end-date"
-                                    onChange={(event) => setEndDate(event.target.value)}
-                                    type="datetime-local"
-                                    value={endDate}
-                                />
-                            </fieldset>
-                        </div>
-
-                        <DialogFooter>
-                            <Button label="Cancel" onClick={() => setHistoryRule(undefined)} variant="outline" />
-
-                            <Button
-                                disabled={runHistoricalMutation.isPending}
-                                label={runHistoricalMutation.isPending ? 'Queuing...' : 'Run'}
-                                onClick={handleRun}
-                            />
-                        </DialogFooter>
+                            </DialogFooter>
+                        </DialogMain>
                     </DialogContent>
                 </Dialog>
             )}
