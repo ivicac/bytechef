@@ -164,9 +164,9 @@ export const ToolInvocations = ({basePath = '/automation/executions', mcpServerO
                     firstRunEmptyState
                 ) : (
                     <EmptyList
-                        icon={<ActivityIcon className="size-24 text-gray-300" />}
-                        message="No tool invocations have been recorded yet."
-                        title="No Tool Invocations"
+                        icon={<HammerIcon className="size-24 text-stroke-neutral-tertiary" />}
+                        message="No tool invocations match the current filter."
+                        title="No Matching Tool Invocations"
                     />
                 )}
             </PageLoader>
