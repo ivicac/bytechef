@@ -697,37 +697,53 @@ export type AiGatewaySpendSummary = {
 
 export type AiGatewayWorkspaceSettings = {
   __typename?: 'AiGatewayWorkspaceSettings';
-  blockedTerms?: Maybe<Scalars['String']['output']>;
   cacheEnabled?: Maybe<Scalars['Boolean']['output']>;
   cacheTtlSeconds?: Maybe<Scalars['Int']['output']>;
   defaultRoutingPolicyId?: Maybe<Scalars['ID']['output']>;
-  injectionDetectionEnabled?: Maybe<Scalars['Boolean']['output']>;
   logRetentionDays?: Maybe<Scalars['Int']['output']>;
-  moderationEnabled?: Maybe<Scalars['Boolean']['output']>;
-  redactPii?: Maybe<Scalars['Boolean']['output']>;
-  redactSecrets?: Maybe<Scalars['Boolean']['output']>;
   retryCount?: Maybe<Scalars['Int']['output']>;
-  scanResponses?: Maybe<Scalars['Boolean']['output']>;
   softBudgetWarningPct?: Maybe<Scalars['Int']['output']>;
   timeoutMs?: Maybe<Scalars['Int']['output']>;
   workspaceId: Scalars['ID']['output'];
 };
 
 export type AiGatewayWorkspaceSettingsInput = {
-  blockedTerms?: InputMaybe<Scalars['String']['input']>;
   cacheEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   cacheTtlSeconds?: InputMaybe<Scalars['Int']['input']>;
   defaultRoutingPolicyId?: InputMaybe<Scalars['ID']['input']>;
-  injectionDetectionEnabled?: InputMaybe<Scalars['Boolean']['input']>;
   logRetentionDays?: InputMaybe<Scalars['Int']['input']>;
-  moderationEnabled?: InputMaybe<Scalars['Boolean']['input']>;
-  redactPii?: InputMaybe<Scalars['Boolean']['input']>;
-  redactSecrets?: InputMaybe<Scalars['Boolean']['input']>;
   retryCount?: InputMaybe<Scalars['Int']['input']>;
-  scanResponses?: InputMaybe<Scalars['Boolean']['input']>;
   softBudgetWarningPct?: InputMaybe<Scalars['Int']['input']>;
   timeoutMs?: InputMaybe<Scalars['Int']['input']>;
   workspaceId: Scalars['ID']['input'];
+};
+
+export enum AiGuardrailsBlockingMode {
+  Block = 'BLOCK',
+  RedactAndContinue = 'REDACT_AND_CONTINUE'
+}
+
+export type AiGuardrailsWorkspaceSettings = {
+  __typename?: 'AiGuardrailsWorkspaceSettings';
+  blockedTerms?: Maybe<Scalars['String']['output']>;
+  blockingMode?: Maybe<AiGuardrailsBlockingMode>;
+  injectionDetectionEnabled?: Maybe<Scalars['Boolean']['output']>;
+  moderationEnabled?: Maybe<Scalars['Boolean']['output']>;
+  redactPii?: Maybe<Scalars['Boolean']['output']>;
+  redactSecrets?: Maybe<Scalars['Boolean']['output']>;
+  scanResponses?: Maybe<Scalars['Boolean']['output']>;
+  workspaceId?: Maybe<Scalars['ID']['output']>;
+};
+
+export type AiGuardrailsWorkspaceSettingsInput = {
+  blockedTerms?: InputMaybe<Scalars['String']['input']>;
+  blockingMode?: InputMaybe<AiGuardrailsBlockingMode>;
+  injectionDetectionEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+  moderationEnabled?: InputMaybe<Scalars['Boolean']['input']>;
+  redactPii?: InputMaybe<Scalars['Boolean']['input']>;
+  redactSecrets?: InputMaybe<Scalars['Boolean']['input']>;
+  scanResponses?: InputMaybe<Scalars['Boolean']['input']>;
+  workspaceId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 /**
@@ -1793,6 +1809,13 @@ export type ComponentDefinitionTuple = {
   value: Array<Maybe<ComponentDefinition>>;
 };
 
+export type ComponentOperationPolicy = {
+  __typename?: 'ComponentOperationPolicy';
+  componentName: Scalars['String']['output'];
+  operationName: Scalars['String']['output'];
+  operationType: ComponentOperationType;
+};
+
 export enum ComponentOperationType {
   Action = 'ACTION',
   ClusterElement = 'CLUSTER_ELEMENT',
@@ -2336,6 +2359,8 @@ export type CustomComponent = {
   lastModifiedBy?: Maybe<Scalars['String']['output']>;
   lastModifiedDate?: Maybe<Scalars['Long']['output']>;
   name: Scalars['String']['output'];
+  publishedDate?: Maybe<Scalars['Long']['output']>;
+  status?: Maybe<CustomComponentStatus>;
   title?: Maybe<Scalars['String']['output']>;
   version?: Maybe<Scalars['Int']['output']>;
 };
@@ -2358,6 +2383,11 @@ export enum CustomComponentLanguage {
   Javascript = 'JAVASCRIPT',
   Python = 'PYTHON',
   Ruby = 'RUBY'
+}
+
+export enum CustomComponentStatus {
+  Draft = 'DRAFT',
+  Published = 'PUBLISHED'
 }
 
 export type CustomComponentTriggerDefinition = {
@@ -3578,6 +3608,7 @@ export type Mutation = {
   markConnectionsPendingReassignment: BulkReassignResult;
   playgroundChatCompletion?: Maybe<PlaygroundChatCompletionResponse>;
   publishAutomationWorkflowProject: Scalars['Boolean']['output'];
+  publishCustomComponent: CustomComponent;
   /** Reassign all of a user's unresolved connections to a new owner. (admin only) */
   reassignAllConnections: Scalars['Boolean']['output'];
   /** Reassign a single connection to a new owner. Resets status to ACTIVE if pending. (admin only) */
@@ -3714,6 +3745,7 @@ export type Mutation = {
   updateAiGatewayRateLimit?: Maybe<AiGatewayRateLimit>;
   updateAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
   updateAiGatewayWorkspaceSettings?: Maybe<AiGatewayWorkspaceSettings>;
+  updateAiGuardrailsWorkspaceSettings?: Maybe<AiGuardrailsWorkspaceSettings>;
   /**
    * Partial update of a chat by primary key. At least one of {@code title}, {@code lastPreview},
    * {@code messageCount}, {@code status} must be non-null — an all-null patch is rejected with an error.
@@ -3742,6 +3774,8 @@ export type Mutation = {
   updateAutomationWorkflowProjectWorkflow: Scalars['Boolean']['output'];
   updateAutomationWorkflowProjectWorkflowPermissionExpression: Scalars['Boolean']['output'];
   updateCodeWorkflowSource: Scalars['Boolean']['output'];
+  /** Disables (enabled: false) or re-enables (enabled: true) a single action or trigger tenant-wide. Admin-only. */
+  updateComponentOperationPolicy: Scalars['Boolean']['output'];
   /** Enables or disables a component tenant-wide. Admin-only. */
   updateComponentPolicy: ComponentPolicy;
   updateContextStore: ContextStore;
@@ -3752,7 +3786,7 @@ export type Mutation = {
    * so the client can refresh its remainingTags cache.
    */
   updateContextStoreTags: Array<Tag>;
-  updateCustomComponentSource: Scalars['Boolean']['output'];
+  updateCustomComponentSource: CustomComponent;
   /** Update an existing custom role. Requires tenant admin. */
   updateCustomRole: CustomRole;
   updateDataTableRow: DataTableRow;
@@ -3794,6 +3828,7 @@ export type Mutation = {
   updateWorkspaceAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
   updateWorkspaceApiKey: Scalars['Boolean']['output'];
   updateWorkspaceMcpToolEnabled?: Maybe<McpTool>;
+  updateWorkspaceSystemPrompt?: Maybe<WorkspaceSystemPrompt>;
   /** Update a workspace user's role. Requires ADMIN workspace role. */
   updateWorkspaceUserRole: WorkspaceUser;
   uploadLicence: LicenceType;
@@ -4128,8 +4163,11 @@ export type MutationCreateAutomationWorkflowProjectWorkflowArgs = {
 
 
 export type MutationCreateCodeWorkflowArgs = {
+  categoryId?: InputMaybe<Scalars['ID']['input']>;
+  description?: InputMaybe<Scalars['String']['input']>;
   language: CodeWorkflowLanguage;
   name: Scalars['String']['input'];
+  tags?: InputMaybe<Array<Scalars['String']['input']>>;
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -4178,8 +4216,13 @@ export type MutationCreateIdentityProviderArgs = {
 
 
 export type MutationCreateIntegrationCodeWorkflowArgs = {
+  categoryId?: InputMaybe<Scalars['ID']['input']>;
   componentName: Scalars['String']['input'];
+  description?: InputMaybe<Scalars['String']['input']>;
   language: CodeWorkflowLanguage;
+  name?: InputMaybe<Scalars['String']['input']>;
+  permissionExpression?: InputMaybe<Scalars['String']['input']>;
+  tags?: InputMaybe<Array<Scalars['String']['input']>>;
 };
 
 
@@ -4804,6 +4847,11 @@ export type MutationPublishAutomationWorkflowProjectArgs = {
 };
 
 
+export type MutationPublishCustomComponentArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationReassignAllConnectionsArgs = {
   newOwnerLogin: Scalars['String']['input'];
   userLogin: Scalars['String']['input'];
@@ -5279,6 +5327,11 @@ export type MutationUpdateAiGatewayWorkspaceSettingsArgs = {
 };
 
 
+export type MutationUpdateAiGuardrailsWorkspaceSettingsArgs = {
+  input: AiGuardrailsWorkspaceSettingsInput;
+};
+
+
 export type MutationUpdateAiHubChatArgs = {
   input: AiHubChatPatchInput;
 };
@@ -5398,6 +5451,14 @@ export type MutationUpdateAutomationWorkflowProjectWorkflowPermissionExpressionA
 export type MutationUpdateCodeWorkflowSourceArgs = {
   content: Scalars['String']['input'];
   projectId: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateComponentOperationPolicyArgs = {
+  componentName: Scalars['String']['input'];
+  enabled: Scalars['Boolean']['input'];
+  operationName: Scalars['String']['input'];
+  operationType: ComponentOperationType;
 };
 
 
@@ -5657,6 +5718,11 @@ export type MutationUpdateWorkspaceApiKeyArgs = {
 export type MutationUpdateWorkspaceMcpToolEnabledArgs = {
   enabled: Scalars['Boolean']['input'];
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateWorkspaceSystemPromptArgs = {
+  input: WorkspaceSystemPromptInput;
 };
 
 
@@ -6072,6 +6138,7 @@ export type Query = {
   aiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
   aiGatewaySpendSummaries?: Maybe<Array<Maybe<AiGatewaySpendSummary>>>;
   aiGatewayWorkspaceSettings?: Maybe<AiGatewayWorkspaceSettings>;
+  aiGuardrailsWorkspaceSettings?: Maybe<AiGuardrailsWorkspaceSettings>;
   /**
    * Paginated, filtered audit listing across all aiHubChats in the workspace. Admin-only — gated by
    * ADMIN authority on AiHubChatArtifactFacade. {@code page} and {@code size} are silently
@@ -6197,6 +6264,8 @@ export type Query = {
   componentDefinitionSearch: Array<ComponentDefinition>;
   componentDefinitionVersions: Array<ComponentDefinition>;
   componentDefinitions: Array<ComponentDefinition>;
+  /** Lists the disabled operations of a component (deny-list rows only). Admin-only. */
+  componentOperationPolicies: Array<ComponentOperationPolicy>;
   /**
    * Lists every registry component with its tenant-wide visibility flag. Components with no policy row are reported
    * enabled. Admin-only.
@@ -6378,6 +6447,8 @@ export type Query = {
    */
   workspaceNotifications: Array<WorkspaceScopedNotification>;
   workspaceProjectDeployments: Array<ProjectDeployment>;
+  workspaceProjectWorkflows: Array<WorkspaceProjectWorkflow>;
+  workspaceSystemPrompt?: Maybe<WorkspaceSystemPrompt>;
   /** List all users of a workspace. Requires at least VIEWER workspace role. */
   workspaceUsers: Array<WorkspaceUser>;
 };
@@ -6633,6 +6704,11 @@ export type QueryAiGatewaySpendSummariesArgs = {
 
 export type QueryAiGatewayWorkspaceSettingsArgs = {
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiGuardrailsWorkspaceSettingsArgs = {
+  workspaceId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 
@@ -7012,6 +7088,11 @@ export type QueryComponentDefinitionsArgs = {
   include?: InputMaybe<Array<InputMaybe<Scalars['String']['input']>>>;
   platformType: PlatformType;
   triggerDefinitions?: InputMaybe<Scalars['Boolean']['input']>;
+};
+
+
+export type QueryComponentOperationPoliciesArgs = {
+  componentName: Scalars['String']['input'];
 };
 
 
@@ -7674,6 +7755,16 @@ export type QueryWorkspaceProjectDeploymentsArgs = {
   environmentId: Scalars['ID']['input'];
   projectId?: InputMaybe<Scalars['ID']['input']>;
   tagId?: InputMaybe<Scalars['ID']['input']>;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkspaceProjectWorkflowsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkspaceSystemPromptArgs = {
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -8367,6 +8458,20 @@ export type WorkflowValidationResult = {
   warnings: Array<Scalars['String']['output']>;
 };
 
+/**
+ * A flat, workspace-wide listing entry: one latest-version project workflow reduced to its label and ids.
+ * Deliberately excludes the workflow definition — this powers pickers that list every workflow in a workspace,
+ * where returning `ProjectWorkflow.workflow` per row would mean parsing every definition in the workspace.
+ */
+export type WorkspaceProjectWorkflow = {
+  __typename?: 'WorkspaceProjectWorkflow';
+  projectId: Scalars['ID']['output'];
+  projectName: Scalars['String']['output'];
+  projectWorkflowId: Scalars['ID']['output'];
+  workflowId: Scalars['String']['output'];
+  workflowLabel: Scalars['String']['output'];
+};
+
 export enum WorkspaceRole {
   Admin = 'ADMIN',
   Editor = 'EDITOR',
@@ -8379,6 +8484,17 @@ export type WorkspaceScopedNotification = {
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
   type: Scalars['String']['output'];
+};
+
+export type WorkspaceSystemPrompt = {
+  __typename?: 'WorkspaceSystemPrompt';
+  prompt: Scalars['String']['output'];
+  workspaceId: Scalars['ID']['output'];
+};
+
+export type WorkspaceSystemPromptInput = {
+  prompt?: InputMaybe<Scalars['String']['input']>;
+  workspaceId: Scalars['ID']['input'];
 };
 
 export type WorkspaceUser = {
