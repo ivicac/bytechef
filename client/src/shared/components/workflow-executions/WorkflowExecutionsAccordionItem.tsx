@@ -5,8 +5,10 @@ import LazyTaskExecutionChildren, {
 } from '@/shared/components/workflow-executions/LazyTaskExecutionChildren';
 import TaskExecutionChildrenList from '@/shared/components/workflow-executions/TaskExecutionChildrenList';
 import WorkflowTaskExecutionItem from '@/shared/components/workflow-executions/WorkflowTaskExecutionItem';
-import {getExecutionSelectionKey} from '@/shared/components/workflow-executions/util/executionSelectionKey';
-import toClusterElementCallTaskExecutions from '@/shared/components/workflow-executions/util/toClusterElementCallTaskExecutions';
+import {
+    groupGraphChildTaskExecutions,
+    isGraphTaskExecution,
+} from '@/shared/components/workflow-executions/util/groupGraphChildTaskExecutions';
 import {TaskExecution, TriggerExecution} from '@/shared/middleware/automation/workflow/execution';
 import {TaskExecution as PlatformTaskExecution} from '@/shared/middleware/platform/workflow/execution';
 import {type ReactNode, useCallback, useEffect, useMemo, useRef, useState} from 'react';
@@ -78,6 +80,16 @@ const WorkflowExecutionsAccordionItem = ({
     const remainingIterationCount = (taskExecution?.iterations?.length ?? 0) - visibleIterationCount;
     const hasMoreIterations = remainingIterationCount > 0;
     const hasPreviousTaskExecutions = previousTaskExecutions.length > 0;
+
+    const graphNodeVisits = useMemo(() => {
+        if (!taskExecution || hasIterations || !isGraphTaskExecution(taskExecution)) {
+            return [];
+        }
+
+        return groupGraphChildTaskExecutions(taskExecution.children ?? []);
+    }, [hasIterations, taskExecution]);
+
+    const hasGraphNodeVisits = graphNodeVisits.length > 0;
 
     const hasLazyChildren = (taskExecution?.childCount ?? 0) > 0;
     const hasClusterElementCallChildren = !hasLazyChildren && hasChildren;
@@ -182,6 +194,65 @@ const WorkflowExecutionsAccordionItem = ({
                             selectedExecutionKey={selectedExecutionKey}
                         />
                     )
+                ) : hasGraphNodeVisits ? (
+                    <>
+                        <div className="flex items-center gap-x-1 p-2 text-xs text-content-neutral-secondary">
+                            <span>
+                                {graphNodeVisits.length} node {graphNodeVisits.length === 1 ? 'visit' : 'visits'}
+                            </span>
+                        </div>
+
+                        <Accordion className="space-y-2" defaultValue={defaultValue} type="multiple">
+                            {graphNodeVisits.map((graphNodeVisit, graphNodeVisitIndex) => {
+                                const graphNodeVisitValue = `${taskExecution.id}-node-${graphNodeVisitIndex}`;
+
+                                return (
+                                    <AccordionItem
+                                        className="border-b-0"
+                                        key={graphNodeVisitValue}
+                                        value={graphNodeVisitValue}
+                                    >
+                                        <AccordionTrigger className="flex w-full min-w-0 items-center justify-between rounded-md border border-stroke-neutral-primary p-2 hover:border-stroke-brand-primary hover:no-underline focus-visible:outline-stroke-brand-focus focus-visible:transition-colors [&_svg]:size-5">
+                                            <div className="flex w-full items-center justify-between">
+                                                <span className="text-sm font-medium text-content-neutral-primary">
+                                                    {graphNodeVisit.nodeName} (visit {graphNodeVisit.visitNumber})
+                                                </span>
+
+                                                <div className="mr-2 flex items-center gap-x-1 text-xs text-content-neutral-secondary">
+                                                    <span>{graphNodeVisit.taskExecutions.length}</span>
+
+                                                    <span>
+                                                        {graphNodeVisit.taskExecutions.length > 1 ? 'tasks' : 'task'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </AccordionTrigger>
+
+                                        <AccordionContent className="border-l border-stroke-neutral-secondary p-0 pl-4">
+                                            <Accordion
+                                                className="mt-2 space-y-2"
+                                                defaultValue={defaultValue}
+                                                type="multiple"
+                                            >
+                                                {graphNodeVisit.taskExecutions.map((childTaskExecution) => (
+                                                    <WorkflowExecutionsAccordionItem
+                                                        defaultValue={defaultValue}
+                                                        execution={childTaskExecution}
+                                                        jobEnded={jobEnded}
+                                                        key={childTaskExecution.id}
+                                                        onExecutionClick={onExecutionClick}
+                                                        selectedExecutionId={selectedExecutionId}
+                                                    >
+                                                        <WorkflowTaskExecutionItem jobEnded={jobEnded} taskExecution={childTaskExecution} />
+                                                    </WorkflowExecutionsAccordionItem>
+                                                ))}
+                                            </Accordion>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                );
+                            })}
+                        </Accordion>
+                    </>
                 ) : (
                     <TaskExecutionChildrenList
                         defaultValue={defaultValue}
