@@ -116,6 +116,11 @@ class ComponentHandlerPolyglotEngine {
         String name, String title, String description, String languageId, String script) implements ActionDefinition {
 
         @Override
+        public boolean getBatch() {
+            return false;
+        }
+
+        @Override
         public Optional<BeforeResumeFunction> getBeforeResume() {
             return Optional.empty();
         }
@@ -128,6 +133,11 @@ class ComponentHandlerPolyglotEngine {
         @Override
         public Optional<BeforeTimeoutResumeFunction> getBeforeTimeoutResume() {
             return Optional.empty();
+        }
+
+        @Override
+        public boolean getDeprecated() {
+            return false;
         }
 
         @Override
@@ -153,6 +163,11 @@ class ComponentHandlerPolyglotEngine {
         }
 
         @Override
+        public Map<String, Object> getMetadata() {
+            return Map.of();
+        }
+
+        @Override
         public String getName() {
             return name;
         }
@@ -160,6 +175,11 @@ class ComponentHandlerPolyglotEngine {
         @Override
         public Optional<OutputDefinition> getOutputDefinition() {
             return Optional.empty();
+        }
+
+        @Override
+        public List<? extends Property> getProperties() {
+            return List.of();
         }
 
         @Override
@@ -188,8 +208,23 @@ class ComponentHandlerPolyglotEngine {
         }
 
         @Override
+        public List<ComponentCategory> getComponentCategories() {
+            return List.of();
+        }
+
+        @Override
+        public List<ClusterElementDefinition<?>> getClusterElements() {
+            return List.of();
+        }
+
+        @Override
         public Optional<ConnectionDefinition> getConnection() {
             return Optional.empty();
+        }
+
+        @Override
+        public boolean getCustomAction() {
+            return false;
         }
 
         @Override
@@ -208,6 +243,16 @@ class ComponentHandlerPolyglotEngine {
         }
 
         @Override
+        public List<? extends PropertyGroup> getInputs() {
+            return List.of();
+        }
+
+        @Override
+        public Map<String, Object> getMetadata() {
+            return Map.of();
+        }
+
+        @Override
         public String getName() {
             return name;
         }
@@ -218,8 +263,18 @@ class ComponentHandlerPolyglotEngine {
         }
 
         @Override
+        public List<String> getTags() {
+            return List.of();
+        }
+
+        @Override
         public Optional<String> getTitle() {
             return Optional.ofNullable(title);
+        }
+
+        @Override
+        public List<TriggerDefinition> getTriggers() {
+            return List.of();
         }
 
         @Override

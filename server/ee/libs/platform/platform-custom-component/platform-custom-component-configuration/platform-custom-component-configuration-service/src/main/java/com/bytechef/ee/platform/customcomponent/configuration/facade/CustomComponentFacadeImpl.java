@@ -100,8 +100,7 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
             ComponentDefinition componentDefinition = loadComponentDefinition(language, bytes);
 
             FileEntry componentFileEntry = customComponentFileStorage.storeCustomComponentFile(
-                componentDefinition.getName() + "_" + componentDefinition.getVersion() + "."
-                    + language.getExtension(),
+                componentDefinition.getName() + "_" + componentDefinition.getVersion() + "." + language.getExtension(),
                 bytes);
 
             CustomComponent customComponent = new CustomComponent();
@@ -201,11 +200,12 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
                 componentDefinition.getName() + "_" + componentDefinition.getVersion() + "." + language.getExtension(),
                 bytes);
 
-            return customComponentService
-                .fetchCustomComponent(componentDefinition.getName(), componentDefinition.getVersion())
-                .map(customComponent -> update(customComponent, componentDefinition))
-                .orElseGet(
-                    () -> create(language, componentDefinition, componentDefinition.getVersion(), componentFileEntry));
+            int version = componentDefinition.getVersion();
+
+            customComponentService.fetchCustomComponent(componentDefinition.getName(), version)
+                .ifPresentOrElse(
+                    customComponent -> update(customComponent, componentDefinition),
+                    () -> create(language, componentDefinition, version, componentFileEntry));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -248,7 +248,7 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         }
     }
 
-    private void create(
+    private CustomComponent create(
         Language language, ComponentDefinition componentDefinition, int componentVersion,
         FileEntry componentFileEntry) {
 
