@@ -283,7 +283,7 @@ public class ComponentDefinitionRegistry {
             componentDefinitions.add(componentDefinition);
         }
 
-        componentDefinitions.sort(Comparator.comparing(ComponentDefinition::getVersion));
+        componentDefinitions.sort(Comparator.comparingInt(ComponentDefinition::getVersion));
 
         if (log.isDebugEnabled() && !componentDefinitions.isEmpty()) {
             log.debug("Loaded component '{}' on demand ({} version(s))", name, componentDefinitions.size());
@@ -442,7 +442,7 @@ public class ComponentDefinitionRegistry {
             if (componentIndexOptional.isPresent()) {
                 componentDefinition = getComponentDefinitionsFromIndex(name, componentIndexOptional.get())
                     .stream()
-                    .filter(curComponentDefinition -> curComponentDefinition.getVersion() == version)
+                    .filter(curComponentDefinition -> version.equals(curComponentDefinition.getVersion()))
                     .findFirst()
                     .orElse(null);
             } else {

@@ -19,7 +19,6 @@ package com.bytechef.platform.component.service;
 import static com.bytechef.component.definition.ai.agent.BaseToolFunction.TOOLS;
 import static com.bytechef.platform.component.util.ClusterElementTypeUtils.isSameClusterElementType;
 
-import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.ClusterElementContext;
@@ -495,19 +494,12 @@ public class ClusterElementDefinitionServiceImpl implements ClusterElementDefini
         List<ComponentDefinition> componentDefinitions, ClusterElementType clusterElementType) {
 
         return componentDefinitions.stream()
-            .filter(componentDefinition -> componentDefinition.getClusterElements()
-                .isPresent())
-            .flatMap(componentDefinition -> CollectionUtils.stream(
-                componentDefinition.getClusterElements()
-                    .orElseThrow(() -> new IllegalArgumentException(
-                        "Cluster elements not found in component %s".formatted(componentDefinition.getName())))
-                    .stream()
-                    .filter(clusterElementDefinition -> isSameClusterElementType(
-                        clusterElementType, clusterElementDefinition.getType()))
-                    .map(clusterElementDefinition -> toClusterElementDefinition(
-                        clusterElementDefinition, componentDefinition.getName(), componentDefinition.getVersion(),
-                        getIcon(componentDefinition)))
-                    .toList()))
+            .flatMap(componentDefinition -> componentDefinition.getClusterElements()
+                .stream()
+                .filter(clusterElementDefinition -> clusterElementType.equals(clusterElementDefinition.getType()))
+                .map(clusterElementDefinition -> toClusterElementDefinition(
+                    clusterElementDefinition, componentDefinition.getName(), componentDefinition.getVersion(),
+                    getIcon(componentDefinition))))
             .distinct()
             .toList();
     }

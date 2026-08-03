@@ -81,7 +81,6 @@ public final class ClusterElementDefinition {
             clusterElementDefinition.getProperties();
 
         this.properties = CollectionUtils.map(properties, Property::toProperty);
-        this.testable = isTestable(clusterElementDefinition.getElement());
         this.title = clusterElementDefinition.getTitle()
             .orElse(null);
         this.type = Objects.requireNonNull(clusterElementDefinition.getType(), "type is required");

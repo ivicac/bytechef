@@ -418,7 +418,7 @@ class ClusterElementDefinitionServiceTest {
 
         ComponentDefinition componentDefinition = mock(ComponentDefinition.class);
 
-        when(componentDefinition.getClusterElements()).thenReturn(Optional.of(List.of(elementDefinition)));
+        when(componentDefinition.getClusterElements()).thenReturn(List.of(elementDefinition));
         when(componentDefinitionRegistry.getComponentDefinition(COMPONENT_NAME, COMPONENT_VERSION))
             .thenReturn(componentDefinition);
 
@@ -458,7 +458,7 @@ class ClusterElementDefinitionServiceTest {
 
         ComponentDefinition componentDefinition = mock(ComponentDefinition.class);
 
-        when(componentDefinition.getClusterElements()).thenReturn(Optional.of(List.of(elementDefinition)));
+        when(componentDefinition.getClusterElements()).thenReturn(List.of(elementDefinition));
         when(componentDefinitionRegistry.getComponentDefinition(COMPONENT_NAME, COMPONENT_VERSION))
             .thenReturn(componentDefinition);
 
@@ -554,7 +554,7 @@ class ClusterElementDefinitionServiceTest {
         when(rootComponentDefinition.getName()).thenReturn("aiAgent");
         when(rootComponentDefinition.getVersion()).thenReturn(1);
         when(rootComponentDefinition.getIcon()).thenReturn(Optional.empty());
-        when(rootComponentDefinition.getClusterElements()).thenReturn(Optional.of(List.of(elementDefinition)));
+        when(rootComponentDefinition.getClusterElements()).thenReturn(List.of(elementDefinition));
         when(((ClusterRootComponentDefinition) rootComponentDefinition).getClusterElementTypes())
             .thenReturn(List.of(TOOLS));
 

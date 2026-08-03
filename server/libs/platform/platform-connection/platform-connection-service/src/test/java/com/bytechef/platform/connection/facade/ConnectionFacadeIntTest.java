@@ -98,8 +98,8 @@ class ConnectionFacadeIntTest {
     }
 
     @BeforeEach
-    void beforeEach() {
-        when(connectionDefinitionService.getConnectionConnectionDefinition("componentName", 1))
+    public void beforeEach() {
+        when(connectionDefinitionService.getConnectionConnectionDefinition(eq("componentName"), eq(1)))
             .thenReturn(
                 new ConnectionDefinition(new MockConnectionDefinition(), "componentName", "componentTitle", null));
     }

@@ -52,6 +52,8 @@ public abstract class BaseProperty {
 
         this.resourceType = getResourceType(property.getMetadata());
         this.required = property.getRequired();
+        // Not requireNonNull: anonymous properties (an output schema's root, an array's item template) carry no
+        // name, so SchemaUtils.toOutput legitimately builds nameless properties.
         this.name = property.getName();
     }
 

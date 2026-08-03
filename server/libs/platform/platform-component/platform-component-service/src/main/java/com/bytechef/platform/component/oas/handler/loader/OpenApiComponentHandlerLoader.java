@@ -86,8 +86,8 @@ public class OpenApiComponentHandlerLoader extends AbstractComponentHandlerLoade
     }
 
     @Override
-    public String getKind() {
-        return "openapi";
+    public ComponentHandlerLoaderKind getKind() {
+        return ComponentHandlerLoaderKind.OPEN_API;
     }
 
     @Override
