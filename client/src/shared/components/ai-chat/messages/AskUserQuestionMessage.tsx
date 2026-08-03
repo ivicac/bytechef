@@ -106,6 +106,11 @@ const AskUserQuestionMessage = ({data}: DataMessagePartProps<AskUserQuestionData
 
         markAnswered(fingerprint, summary);
 
+        // Append as a USER message (not 'system'). Both drive the agent's next turn identically, but Spring
+        // AI chat memory persists only user/assistant messages — system messages are dropped from history,
+        // so a 'system' answer vanished on a page refresh (the ephemeral answered-store also resets, and the
+        // question card itself isn't persisted). As a user message the pick survives reload and rehydrates
+        // as plain text on the user side — where it already renders live.
         aui.thread.append({
             content: [{text: messageText, type: 'text'}],
             role: 'user',
@@ -414,7 +419,7 @@ const AnsweredSummary = ({persistedAnswer}: {persistedAnswer?: string}) => {
     if (!persistedAnswer) {
         return (
             <div className="mt-2 flex items-center gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
-                <CheckIcon className="size-4 text-emerald-600" />
+                <CheckIcon className="size-4 text-content-success-primary" />
 
                 <span>
                     Picked: <span className="font-medium">(answered)</span>
@@ -430,7 +435,7 @@ const AnsweredSummary = ({persistedAnswer}: {persistedAnswer?: string}) => {
     if (!isMultiLine) {
         return (
             <div className="mt-2 flex items-center gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
-                <CheckIcon className="size-4 text-emerald-600" />
+                <CheckIcon className="size-4 text-content-success-primary" />
 
                 <span>
                     Picked: <span className="font-medium">{persistedAnswer}</span>
@@ -441,7 +446,7 @@ const AnsweredSummary = ({persistedAnswer}: {persistedAnswer?: string}) => {
 
     return (
         <div className="mt-2 flex items-start gap-2 rounded-md border border-border bg-muted/30 p-3 text-sm">
-            <CheckIcon className="mt-0.5 size-4 shrink-0 text-emerald-600" />
+            <CheckIcon className="mt-0.5 size-4 shrink-0 text-content-success-primary" />
 
             <div className="flex flex-col gap-1">
                 <span className="font-medium">Picked:</span>
