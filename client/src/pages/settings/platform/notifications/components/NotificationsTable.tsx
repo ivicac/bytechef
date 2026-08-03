@@ -43,7 +43,7 @@ const NotificationsTable = ({columns, notifications}: NotificationsTableProps) =
                         <TableRow
                             className={twMerge(
                                 'border-b border-stroke-neutral-secondary hover:bg-transparent',
-                                index % 2 === 1 && 'bg-gray-50 hover:bg-gray-50'
+                                index % 2 === 1 && 'bg-surface-neutral-secondary hover:bg-surface-neutral-secondary'
                             )}
                             key={row.id}
                         >
