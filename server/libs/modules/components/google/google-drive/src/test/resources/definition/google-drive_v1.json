@@ -1406,9 +1406,9 @@
         },
         "placeholder": null,
         "sampleOutput": {
+          "name": "new-folder",
           "mimeType": "application/vnd.google-apps.folder",
-          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-          "name": "new-folder"
+          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
         }
       },
       "outputSchema": {
@@ -1521,9 +1521,9 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
+        "name": "new-folder",
         "mimeType": "application/vnd.google-apps.folder",
-        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-        "name": "new-folder"
+        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
       }
     },
     "perform": { },
@@ -4436,9 +4436,9 @@
         },
         "placeholder": null,
         "sampleOutput": {
+          "name": "new-folder",
           "mimeType": "application/vnd.google-apps.folder",
-          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-          "name": "new-folder"
+          "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
         }
       },
       "outputSchema": {
@@ -4551,9 +4551,9 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
+        "name": "new-folder",
         "mimeType": "application/vnd.google-apps.folder",
-        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr",
-        "name": "new-folder"
+        "id": "1hPJ7kjhStTX90amAWSJ-V0K1-nhDlsIr"
       }
     },
     "processErrorResponse": null,

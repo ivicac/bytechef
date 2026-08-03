@@ -1378,6 +1378,8 @@
         },
         "placeholder": null,
         "sampleOutput": {
+          "tags_count": 0,
+          "unique_email_id": "string",
           "email_client": "string",
           "consents_to_one_to_one_messaging": true,
           "source": "string",
@@ -1411,13 +1413,13 @@
           } ],
           "ip_signup": "string",
           "location": {
+            "timezone": "string",
             "dstoff": 0,
             "latitude": 0,
             "region": "string",
             "longitude": 0,
             "gmtoff": 0,
-            "country_code": "string",
-            "timezone": "string"
+            "country_code": "string"
           },
           "ip_opt": "string",
           "timestamp_opt": "2019-08-24T14:15:22",
@@ -1445,9 +1447,7 @@
             "property2": ""
           },
           "full_name": "string",
-          "list_id": "string",
-          "tags_count": 0,
-          "unique_email_id": "string"
+          "list_id": "string"
         }
       },
       "outputSchema": {
@@ -2807,6 +2807,8 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
+        "tags_count": 0,
+        "unique_email_id": "string",
         "email_client": "string",
         "consents_to_one_to_one_messaging": true,
         "source": "string",
@@ -2840,13 +2842,13 @@
         } ],
         "ip_signup": "string",
         "location": {
+          "timezone": "string",
           "dstoff": 0,
           "latitude": 0,
           "region": "string",
           "longitude": 0,
           "gmtoff": 0,
-          "country_code": "string",
-          "timezone": "string"
+          "country_code": "string"
         },
         "ip_opt": "string",
         "timestamp_opt": "2019-08-24T14:15:22",
@@ -2874,9 +2876,7 @@
           "property2": ""
         },
         "full_name": "string",
-        "list_id": "string",
-        "tags_count": 0,
-        "unique_email_id": "string"
+        "list_id": "string"
       }
     },
     "perform": null,
@@ -4841,6 +4841,8 @@
         },
         "placeholder": null,
         "sampleOutput": {
+          "tags_count": 0,
+          "unique_email_id": "string",
           "email_client": "string",
           "consents_to_one_to_one_messaging": true,
           "source": "string",
@@ -4874,13 +4876,13 @@
           } ],
           "ip_signup": "string",
           "location": {
+            "timezone": "string",
             "dstoff": 0,
             "latitude": 0,
             "region": "string",
             "longitude": 0,
             "gmtoff": 0,
-            "country_code": "string",
-            "timezone": "string"
+            "country_code": "string"
           },
           "ip_opt": "string",
           "timestamp_opt": "2019-08-24T14:15:22",
@@ -4908,9 +4910,7 @@
             "property2": ""
           },
           "full_name": "string",
-          "list_id": "string",
-          "tags_count": 0,
-          "unique_email_id": "string"
+          "list_id": "string"
         }
       },
       "outputSchema": {
@@ -6270,6 +6270,8 @@
         "type": "OBJECT"
       },
       "sampleOutput": {
+        "tags_count": 0,
+        "unique_email_id": "string",
         "email_client": "string",
         "consents_to_one_to_one_messaging": true,
         "source": "string",
@@ -6303,13 +6305,13 @@
         } ],
         "ip_signup": "string",
         "location": {
+          "timezone": "string",
           "dstoff": 0,
           "latitude": 0,
           "region": "string",
           "longitude": 0,
           "gmtoff": 0,
-          "country_code": "string",
-          "timezone": "string"
+          "country_code": "string"
         },
         "ip_opt": "string",
         "timestamp_opt": "2019-08-24T14:15:22",
@@ -6337,9 +6339,7 @@
           "property2": ""
         },
         "full_name": "string",
-        "list_id": "string",
-        "tags_count": 0,
-        "unique_email_id": "string"
+        "list_id": "string"
       }
     },
     "processErrorResponse": null,
