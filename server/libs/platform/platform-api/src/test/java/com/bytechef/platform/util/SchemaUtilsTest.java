@@ -98,14 +98,10 @@ class SchemaUtilsTest {
             @Override
             public List<BaseValueProperty<?>> getChildren(BaseValueProperty<?> property) {
                 if (property instanceof ModifiableArrayProperty modifiableArrayProperty) {
-                    return (List<BaseValueProperty<?>>) (List<?>) modifiableArrayProperty.getItems()
-                        .map(ArrayList::new)
-                        .orElseGet(ArrayList::new);
+                    return (List<BaseValueProperty<?>>) (List<?>) new ArrayList<>(modifiableArrayProperty.getItems());
                 } else {
-                    return (List<BaseValueProperty<?>>) (List<?>) ((ModifiableObjectProperty) property)
-                        .getProperties()
-                        .map(ArrayList::new)
-                        .orElseGet(ArrayList::new);
+                    return (List<BaseValueProperty<?>>) (List<?>) new ArrayList<>(
+                        ((ModifiableObjectProperty) property).getProperties());
                 }
             }
         };
@@ -376,8 +372,7 @@ class SchemaUtilsTest {
         BaseObjectProperty<? extends BaseProperty> objectProperty =
             (BaseObjectProperty<? extends BaseProperty>) result;
 
-        List<? extends BaseProperty> properties = objectProperty.getProperties()
-            .orElse(List.of());
+        List<? extends BaseProperty> properties = objectProperty.getProperties();
 
         assertThat(properties).hasSize(2);
         assertThat(properties.get(0)
@@ -404,8 +399,7 @@ class SchemaUtilsTest {
         BaseArrayProperty<? extends BaseProperty> arrayProperty =
             (BaseArrayProperty<? extends BaseProperty>) result;
 
-        List<? extends BaseProperty> items = arrayProperty.getItems()
-            .orElse(List.of());
+        List<? extends BaseProperty> items = arrayProperty.getItems();
 
         assertThat(items).hasSize(1);
         assertThat(items.getFirst()).isInstanceOf(BaseStringProperty.class);
@@ -435,8 +429,7 @@ class SchemaUtilsTest {
         BaseObjectProperty<? extends BaseProperty> objectProperty =
             (BaseObjectProperty<? extends BaseProperty>) result;
 
-        List<? extends BaseProperty> properties = objectProperty.getProperties()
-            .orElse(List.of());
+        List<? extends BaseProperty> properties = objectProperty.getProperties();
 
         assertThat(properties).hasSize(1);
 
@@ -450,8 +443,7 @@ class SchemaUtilsTest {
             (BaseObjectProperty<? extends BaseProperty>) addressProperty;
 
         List<? extends BaseProperty> addressProperties =
-            addressObjectProperty.getProperties()
-                .orElse(List.of());
+            addressObjectProperty.getProperties();
 
         assertThat(addressProperties).hasSize(2);
         assertThat(addressProperties.get(0)
@@ -482,8 +474,7 @@ class SchemaUtilsTest {
         BaseArrayProperty<? extends BaseProperty> arrayProperty =
             (BaseArrayProperty<? extends BaseProperty>) result;
 
-        List<? extends BaseProperty> items = arrayProperty.getItems()
-            .orElse(List.of());
+        List<? extends BaseProperty> items = arrayProperty.getItems();
 
         assertThat(items).hasSize(1);
         assertThat(items.getFirst()).isInstanceOf(BaseObjectProperty.class);
@@ -492,8 +483,7 @@ class SchemaUtilsTest {
         BaseObjectProperty<? extends BaseProperty> itemObject =
             (BaseObjectProperty<? extends BaseProperty>) items.getFirst();
 
-        List<? extends BaseProperty> objectProperties = itemObject.getProperties()
-            .orElse(List.of());
+        List<? extends BaseProperty> objectProperties = itemObject.getProperties();
 
         assertThat(objectProperties).hasSize(2);
         assertThat(objectProperties.get(0)).isInstanceOf(BaseIntegerProperty.class);
@@ -545,8 +535,7 @@ class SchemaUtilsTest {
         BaseObjectProperty<? extends BaseProperty> objectProperty =
             (BaseObjectProperty<? extends BaseProperty>) result;
 
-        assertThat(objectProperty.getProperties()
-            .orElse(List.of())).isEmpty();
+        assertThat(objectProperty.getProperties()).isEmpty();
     }
 
     @Test
@@ -562,8 +551,7 @@ class SchemaUtilsTest {
         BaseArrayProperty<? extends BaseProperty> arrayProperty =
             (BaseArrayProperty<? extends BaseProperty>) result;
 
-        assertThat(arrayProperty.getItems()
-            .orElse(List.of())).isEmpty();
+        assertThat(arrayProperty.getItems()).isEmpty();
     }
 
     // toOutput tests
