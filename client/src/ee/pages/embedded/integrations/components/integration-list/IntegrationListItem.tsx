@@ -176,7 +176,7 @@ const IntegrationListItem = ({integration, remainingTags}: IntegrationItemProps)
                                             <InlineSVG className="size-5 flex-none" src={integration.icon} />
                                         )}
 
-                                        <span className="text-base font-semibold text-gray-900">
+                                        <span className="text-base font-semibold text-content-neutral-primary">
                                             {integration?.name}
                                         </span>
                                     </Link>
@@ -187,7 +187,7 @@ const IntegrationListItem = ({integration, remainingTags}: IntegrationItemProps)
                                                 <InlineSVG className="size-5 flex-none" src={integration.icon} />
                                             )}
 
-                                            <span className="text-base font-semibold text-gray-900">
+                                            <span className="text-base font-semibold text-content-neutral-primary">
                                                 {integration?.name}
                                             </span>
                                         </div>
