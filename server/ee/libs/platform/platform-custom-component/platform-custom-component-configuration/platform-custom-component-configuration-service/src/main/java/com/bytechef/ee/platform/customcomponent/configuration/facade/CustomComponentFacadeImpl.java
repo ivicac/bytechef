@@ -31,7 +31,6 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -99,8 +98,7 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
             ComponentDefinition componentDefinition = loadComponentDefinition(language, bytes);
 
             FileEntry componentFileEntry = customComponentFileStorage.storeCustomComponentFile(
-                componentDefinition.getName() + "_" + componentDefinition.getVersion() + "."
-                    + language.getExtension(),
+                componentDefinition.getName() + "_" + componentDefinition.getVersion() + "." + language.getExtension(),
                 bytes);
 
             CustomComponent customComponent = new CustomComponent();
@@ -145,13 +143,11 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         ComponentDefinition componentDefinition = componentHandler.getDefinition();
 
         List<ActionDefinitionRecord> actions = componentDefinition.getActions()
-            .orElse(Collections.emptyList())
             .stream()
             .map(this::toActionDefinitionRecord)
             .toList();
 
         List<TriggerDefinitionRecord> triggers = componentDefinition.getTriggers()
-            .orElse(Collections.emptyList())
             .stream()
             .map(this::toTriggerDefinitionRecord)
             .toList();
@@ -196,10 +192,12 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
                 componentDefinition.getName() + "_" + componentDefinition.getVersion() + "." + language.getExtension(),
                 bytes);
 
-            customComponentService.fetchCustomComponent(componentDefinition.getName(), componentDefinition.getVersion())
+            int version = componentDefinition.getVersion();
+
+            customComponentService.fetchCustomComponent(componentDefinition.getName(), version)
                 .ifPresentOrElse(
                     customComponent -> update(customComponent, componentDefinition),
-                    () -> create(language, componentDefinition, componentDefinition.getVersion(), componentFileEntry));
+                    () -> create(language, componentDefinition, version, componentFileEntry));
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
