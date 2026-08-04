@@ -33,15 +33,17 @@ import java.util.ServiceLoader;
 public class JdbcComponentHandlerLoader implements ComponentHandlerLoader {
 
     @Override
-    public String getKind() {
-        return "jdbc";
+    public ComponentHandlerLoaderKind getKind() {
+        return ComponentHandlerLoaderKind.JDBC;
     }
 
     @Override
     public List<ComponentHandlerEntry> loadComponentHandlers() {
         List<ComponentHandlerEntry> componentHandlerEntries = new ArrayList<>();
 
-        for (JdbcComponentHandler jdbcComponentHandler : ServiceLoader.load(JdbcComponentHandler.class)) {
+        for (JdbcComponentHandler jdbcComponentHandler : ServiceLoader.load(
+            JdbcComponentHandler.class, JdbcComponentHandler.class.getClassLoader())) {
+
             componentHandlerEntries.add(wrap(jdbcComponentHandler));
         }
 
@@ -50,7 +52,9 @@ public class JdbcComponentHandlerLoader implements ComponentHandlerLoader {
 
     @Override
     public Optional<ComponentHandlerEntry> loadComponentHandler(String providerClassName) {
-        return ServiceLoader.load(JdbcComponentHandler.class)
+        // Anchored to the service interface's classloader; the thread-context classloader can differ on
+        // Reactor/virtual threads and resolve providers against another copy of the interface ("not a subtype").
+        return ServiceLoader.load(JdbcComponentHandler.class, JdbcComponentHandler.class.getClassLoader())
             .stream()
             .filter(provider -> {
                 Class<? extends JdbcComponentHandler> type = provider.type();
@@ -65,7 +69,8 @@ public class JdbcComponentHandlerLoader implements ComponentHandlerLoader {
     public List<ProviderEntry> loadProviderEntries() {
         List<ProviderEntry> providerEntries = new ArrayList<>();
 
-        for (ServiceLoader.Provider<JdbcComponentHandler> provider : ServiceLoader.load(JdbcComponentHandler.class)
+        for (ServiceLoader.Provider<JdbcComponentHandler> provider : ServiceLoader
+            .load(JdbcComponentHandler.class, JdbcComponentHandler.class.getClassLoader())
             .stream()
             .toList()) {
 
