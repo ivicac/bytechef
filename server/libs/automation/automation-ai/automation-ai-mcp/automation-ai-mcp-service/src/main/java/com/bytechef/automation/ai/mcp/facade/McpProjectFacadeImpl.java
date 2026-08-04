@@ -115,7 +115,8 @@ public class McpProjectFacadeImpl implements McpProjectFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_EDIT')")
+    @PreAuthorize("hasPermission(#mcpServerId, 'McpServer', 'MCP_EDIT') and " +
+        "hasPermission(#projectId, 'Project', 'DEPLOYMENT_PUSH')")
     public McpProject createMcpProject(
         long mcpServerId, long projectId, int projectVersion, List<String> selectedWorkflowIds) {
 
@@ -296,7 +297,8 @@ public class McpProjectFacadeImpl implements McpProjectFacade {
     }
 
     @Override
-    @PreAuthorize("hasPermission(#mcpProjectId, 'McpProject', 'MCP_EDIT')")
+    @PreAuthorize("hasPermission(#mcpProjectId, 'McpProject', 'MCP_EDIT') and " +
+        "hasPermission(#targetMcpServerId, 'McpServer', 'MCP_EDIT')")
     public McpProject cloneMcpProject(long mcpProjectId, long targetMcpServerId) {
         McpProject source = mcpProjectService.fetchMcpProject(mcpProjectId)
             .orElseThrow(() -> new IllegalArgumentException("McpProject not found: " + mcpProjectId));
