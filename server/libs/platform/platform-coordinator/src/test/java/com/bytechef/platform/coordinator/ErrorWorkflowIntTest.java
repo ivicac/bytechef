@@ -129,6 +129,7 @@ class ErrorWorkflowIntTest {
      * dispatches exactly one new job, and that job carries {@code errorHandlerFor} set to the failed job's id.
      */
     @Test
+    @SuppressWarnings("PMD.UnusedLocalVariable")
     void testFailedRunDispatchesTheHandler() {
         HandlerSetup handlerSetup = givenFailedJobWithConfiguredHandler();
 
@@ -310,7 +311,7 @@ class ErrorWorkflowIntTest {
         }
 
         @Override
-        public Job createJobWithoutDispatch(JobParametersDTO jobParametersDTO, long jobPrincipalId, PlatformType type) {
+        public Job createSyncJob(JobParametersDTO jobParametersDTO, long jobPrincipalId, PlatformType type) {
             throw new UnsupportedOperationException();
         }
     }
