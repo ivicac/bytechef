@@ -5,6 +5,7 @@ import {LeftSidebarNav, LeftSidebarNavItem} from '@/shared/layout/LeftSidebarNav
 import SettingsNavGroup, {SettingsNavGroupItemI} from '@/shared/layout/SettingsNavGroup';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
+import {ReactNode} from 'react';
 import {Outlet, useLocation} from 'react-router-dom';
 
 export interface SettingsNavItemI {
@@ -85,46 +86,45 @@ const Settings = ({sidebarNavItems, title = 'Settings'}: SettingsProps) => {
             !isHeading(navItem) || (visibleNavItems[index + 1] !== undefined && !isHeading(visibleNavItems[index + 1]))
     );
 
+    // A subgroup heading sits at the same level as a top-level one — same type scale, same
+    // indent — so a group reads consistently wherever it appears. `subgroup` only tightens the
+    // space above it, since a subgroup follows items it belongs with rather than opening a new
+    // section.
+    const navigationElements: ReactNode[] = sidebarNavItems.map((navItem) => {
+        if (navItem.items) {
+            return (
+                <SettingsNavGroup
+                    isCurrent={(href) => location.pathname.includes(href)}
+                    items={navItem.items as SettingsNavGroupItemI[]}
+                    key={navItem.title}
+                    title={navItem.title}
+                />
+            );
+        }
+
+        if (navItem.href) {
+            return (
+                <LeftSidebarNavItem
+                    item={{
+                        current: location.pathname.includes(navItem.href),
+                        name: navItem.title,
+                    }}
+                    key={navItem.href}
+                    toLink={navItem.href}
+                />
+            );
+        }
+
+        return (
+            <h3 className="px-2 pt-4 pb-1 text-sm font-semibold text-muted-foreground first:pt-0" key={navItem.title}>
+                {navItem.title}
+            </h3>
+        );
+    });
+
     return (
         <LayoutContainer
-            leftSidebarBody={
-                <LeftSidebarNav
-                    body={sidebarNavItems.map((navItem) => {
-                        if (navItem.items) {
-                            return (
-                                <SettingsNavGroup
-                                    isCurrent={(href) => location.pathname.includes(href)}
-                                    items={navItem.items as SettingsNavGroupItemI[]}
-                                    key={navItem.title}
-                                    title={navItem.title}
-                                />
-                            );
-                        }
-
-                        if (navItem.href) {
-                            return (
-                                <LeftSidebarNavItem
-                                    item={{
-                                        current: location.pathname.includes(navItem.href),
-                                        name: navItem.title,
-                                    }}
-                                    key={navItem.href}
-                                    toLink={navItem.href}
-                                />
-                            );
-                        }
-
-                        return (
-                            <h3
-                                className="px-2 pt-4 pb-1 text-sm font-semibold text-muted-foreground first:pt-0"
-                                key={navItem.title}
-                            >
-                                {navItem.title}
-                            </h3>
-                        );
-                    })}
-                />
-            }
+            leftSidebarBody={<LeftSidebarNav body={navigationElements} />}
             leftSidebarHeader={<Header position="sidebar" title={title} />}
         >
             <div className="size-full">
