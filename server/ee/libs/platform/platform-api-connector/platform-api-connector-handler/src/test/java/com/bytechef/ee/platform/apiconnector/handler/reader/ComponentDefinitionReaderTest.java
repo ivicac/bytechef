@@ -15,6 +15,7 @@ import static org.mockito.Mockito.when;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.Property;
 import com.bytechef.ee.platform.apiconnector.configuration.domain.ApiConnector;
+import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.platform.apiconnector.file.storage.ApiConnectorFileStorage;
 import com.bytechef.platform.component.definition.ComponentDefinitionWrapper;
 import java.util.List;
@@ -97,5 +98,53 @@ class ComponentDefinitionReaderTest {
 
         assertThat(listItemsActionDefinition.getBatch()).isFalse();
         assertThat(listItemsActionDefinition.getProperties()).isEmpty();
+    }
+
+    @Test
+    void testReadComponentDefinitionWithLegacyNullFields() {
+        ApiConnectorFileStorage apiConnectorFileStorage = mock(ApiConnectorFileStorage.class);
+
+        when(apiConnectorFileStorage.readApiConnectorDefinition(any())).thenReturn(
+            """
+                {
+                    "actions": [
+                        {
+                            "batch": null,
+                            "deprecated": null,
+                            "description": "Gets a pet.",
+                            "metadata": null,
+                            "name": "getPet",
+                            "properties": null,
+                            "title": "Get Pet"
+                        }
+                    ],
+                    "customAction": null,
+                    "name": "petstore",
+                    "version": 1
+                }
+                """);
+
+        ComponentDefinitionReader componentDefinitionReader = new ComponentDefinitionReader(
+            apiConnectorFileStorage, JsonMapper.builder()
+                .build());
+
+        ApiConnector apiConnector = new ApiConnector();
+
+        apiConnector.setDefinition(new FileEntry("definition.json", "base64:ZGVmaW5pdGlvbg=="));
+
+        ComponentDefinitionWrapper componentDefinitionWrapper = componentDefinitionReader.readComponentDefinition(
+            apiConnector);
+
+        assertThat(componentDefinitionWrapper.getName()).isEqualTo("petstore");
+
+        List<ActionDefinition> actionDefinitions = componentDefinitionWrapper.getActions();
+
+        assertThat(actionDefinitions).hasSize(1);
+
+        ActionDefinition actionDefinition = actionDefinitions.getFirst();
+
+        assertThat(actionDefinition.getBatch()).isFalse();
+        assertThat(actionDefinition.getDeprecated()).isFalse();
+        assertThat(actionDefinition.getProperties()).isEmpty();
     }
 }
