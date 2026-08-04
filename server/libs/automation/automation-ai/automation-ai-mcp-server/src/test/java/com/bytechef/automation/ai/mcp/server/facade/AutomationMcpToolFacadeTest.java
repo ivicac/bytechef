@@ -45,6 +45,8 @@ import com.bytechef.platform.mcp.domain.McpComponent;
 import com.bytechef.platform.mcp.domain.McpTool;
 import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
+import com.bytechef.platform.mcp.service.McpToolService;
+import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.plan.domain.PlanLimits;
 import com.bytechef.platform.plan.provider.PlanLimitsProvider;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
@@ -93,7 +95,8 @@ class AutomationMcpToolFacadeTest {
         approvalTokensObjectProvider, mock(ClusterElementDefinitionFacade.class),
         clusterElementDefinitionService, mock(Evaluator.class), jobCompletionAwaiter, jobResumeFacade,
         jobService, mcpComponentService, mock(McpProjectService.class),
-        mock(McpProjectWorkflowService.class), mock(McpServerService.class), planLimitsProviderObjectProvider,
+        mock(McpProjectWorkflowService.class), mock(McpServerService.class), mock(McpToolService.class),
+        planLimitsProviderObjectProvider,
         mock(PrincipalJobFacade.class), mock(ProjectDeploymentWorkflowService.class), "https://example.com",
         taskExecutionService, taskFileStorage, mock(ToolExecutionRecorder.class), mock(WorkflowService.class),
         mock(WorkspaceMcpServerService.class));
