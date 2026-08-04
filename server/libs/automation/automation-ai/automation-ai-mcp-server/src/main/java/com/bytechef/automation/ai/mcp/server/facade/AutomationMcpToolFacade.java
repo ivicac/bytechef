@@ -52,6 +52,7 @@ import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.domain.McpTool;
 import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
+import com.bytechef.platform.mcp.service.McpToolService;
 import com.bytechef.platform.tool.execution.ToolExecutionEvent;
 import com.bytechef.platform.tool.execution.ToolExecutionKind;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
@@ -99,6 +100,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
     private final McpProjectService mcpProjectService;
     private final McpProjectWorkflowService mcpProjectWorkflowService;
     private final McpServerService mcpServerService;
+    private final McpToolService mcpToolService;
     private final PrincipalJobFacade principalJobFacade;
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
     private final TaskExecutionService taskExecutionService;
@@ -115,7 +117,8 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         JobCompletionAwaiter jobCompletionAwaiter, JobResumeFacade jobResumeFacade, JobService jobService,
         McpComponentService mcpComponentService, McpProjectService mcpProjectService,
         McpProjectWorkflowService mcpProjectWorkflowService, McpServerService mcpServerService,
-        PrincipalJobFacade principalJobFacade, ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
+        McpToolService mcpToolService, PrincipalJobFacade principalJobFacade,
+        ProjectDeploymentWorkflowService projectDeploymentWorkflowService,
         @Nullable String publicUrl, TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage,
         ToolExecutionRecorder toolExecutionRecorder, WorkflowService workflowService,
         WorkspaceMcpServerService workspaceMcpServerService) {
@@ -133,6 +136,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
         this.mcpProjectService = mcpProjectService;
         this.mcpProjectWorkflowService = mcpProjectWorkflowService;
         this.mcpServerService = mcpServerService;
+        this.mcpToolService = mcpToolService;
         this.principalJobFacade = principalJobFacade;
         this.projectDeploymentWorkflowService = projectDeploymentWorkflowService;
         this.taskExecutionService = taskExecutionService;
@@ -160,7 +164,8 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
                 getClusterElementToolCallbackFunction(
                     toolName, clusterElementDefinition.getComponentName(),
                     clusterElementDefinition.getComponentVersion(), clusterElementDefinition.getName(),
-                    mcpTool.getParameters(), mcpComponent.getConnectionId(), mcpComponent.getMcpServerId()))
+                    mcpTool.getParameters(), mcpComponent.getConnectionId(), mcpComponent.getMcpServerId(),
+                    Objects.requireNonNull(mcpTool.getId())))
             .inputType(Map.class)
             .inputSchema(FromAiInputSchemaUtils.generateInputSchema(fromAiResults));
 
@@ -234,7 +239,7 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
 
     private Function<Map<String, Object>, Object> getClusterElementToolCallbackFunction(
         String toolName, String componentName, int componentVersion, String clusterElementName,
-        Map<String, ?> parameters, @Nullable Long connectionId, long mcpServerId) {
+        Map<String, ?> parameters, @Nullable Long connectionId, long mcpServerId, long mcpToolId) {
 
         Long workspaceId = workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(mcpServerId)
             .orElse(null);
@@ -244,6 +249,16 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
 
             if (!mcpServer.isEnabled()) {
                 throw new ConfigurationException("MCP server is disabled", McpServerErrorType.MCP_SERVER_DISABLED);
+            }
+
+            // Re-checked per call rather than trusting the listing: a client with a stale tools/list cache must not
+            // execute a tool that has been disabled or deleted since. A missing row fails closed.
+            boolean toolEnabled = mcpToolService.fetchMcpTool(mcpToolId)
+                .map(McpTool::isEnabled)
+                .orElse(false);
+
+            if (!toolEnabled) {
+                throw new ConfigurationException("MCP tool is disabled", McpServerErrorType.MCP_TOOL_DISABLED);
             }
 
             Map<String, Object> resolvedParameters = new HashMap<>();
@@ -273,12 +288,22 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
 
         Long workspaceId = workspaceMcpServerService.fetchWorkspaceIdByMcpServerId(mcpServerId)
             .orElse(null);
+        long projectDeploymentWorkflowId = Objects.requireNonNull(projectDeploymentWorkflow.getId());
 
         return inputParameters -> {
             McpServer mcpServer = mcpServerService.getMcpServer(mcpServerId);
 
             if (!mcpServer.isEnabled()) {
                 throw new ConfigurationException("MCP server is disabled", McpServerErrorType.MCP_SERVER_DISABLED);
+            }
+
+            // Re-checked per call rather than trusting the listing: a client with a stale tools/list cache must not
+            // run a workflow whose tool has been disabled since.
+            ProjectDeploymentWorkflow currentProjectDeploymentWorkflow =
+                projectDeploymentWorkflowService.getProjectDeploymentWorkflow(projectDeploymentWorkflowId);
+
+            if (!currentProjectDeploymentWorkflow.isEnabled()) {
+                throw new ConfigurationException("MCP tool is disabled", McpServerErrorType.MCP_TOOL_DISABLED);
             }
 
             Map<String, Object> inputs = new HashMap<>(projectDeploymentWorkflow.getInputs());
