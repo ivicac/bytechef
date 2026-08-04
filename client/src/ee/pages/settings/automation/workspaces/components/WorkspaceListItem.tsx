@@ -75,17 +75,23 @@ const WorkspaceListItem = ({isCurrentWorkspace, onOpen, workspace}: WorkspaceLis
     return (
         <li className="mb-2 rounded border border-border/50" key={workspace.id}>
             <div className="relative flex items-center justify-between rounded-md bg-surface-neutral-primary px-3 py-3 hover:bg-surface-neutral-primary-hover">
-                <div className="flex flex-1 items-center gap-2">
-                    <button
-                        aria-current={isCurrentWorkspace || undefined}
-                        className="cursor-pointer text-left text-base font-semibold after:absolute after:inset-0 after:rounded-md"
-                        onClick={handleWorkspaceClick}
-                        type="button"
-                    >
-                        {workspace.name}
-                    </button>
+                <div className="flex flex-1 flex-col items-start space-y-1">
+                    <div className="flex items-center gap-2">
+                        <button
+                            aria-current={isCurrentWorkspace || undefined}
+                            className="cursor-pointer text-left text-base font-semibold after:absolute after:inset-0 after:rounded-md"
+                            onClick={handleWorkspaceClick}
+                            type="button"
+                        >
+                            {workspace.name}
+                        </button>
 
-                    {isCurrentWorkspace && <Badge label="Current" styleType="primary-outline" weight="semibold" />}
+                        {isCurrentWorkspace && <Badge label="Current" styleType="primary-outline" weight="semibold" />}
+                    </div>
+
+                    {workspace.description && (
+                        <span className="text-sm text-content-neutral-secondary">{workspace.description}</span>
+                    )}
                 </div>
 
                 <div className="relative z-10 flex items-center justify-end gap-x-6">
