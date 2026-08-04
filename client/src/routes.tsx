@@ -108,7 +108,6 @@ const IdentityProvidersPage = lazy(
 const AutomationWorkflows = lazy(() => import('@/ee/pages/embedded/automation-workflows/AutomationWorkflows'));
 const AutomationWorkflow = lazy(() => import('@/ee/pages/embedded/automation-workflow/AutomationWorkflow'));
 const ConnectedUsers = lazy(() => import('@/ee/pages/embedded/connected-users/ConnectedUsers'));
-const ComponentPolicies = lazy(() => import('@/ee/pages/settings/platform/component-policies/ComponentPolicies'));
 const CustomComponentDetail = lazy(
     () => import('@/ee/pages/settings/platform/custom-components/CustomComponentDetail')
 );
@@ -358,18 +357,6 @@ const platformSettingsRoutes = {
             path: 'mcp-server',
         },
         {
-            element: (
-                <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
-                    <EEVersion>
-                        <LazyLoadWrapper>
-                            <ComponentPolicies />
-                        </LazyLoadWrapper>
-                    </EEVersion>
-                </PrivateRoute>
-            ),
-            path: 'component-policies',
-        },
-        {
             children: [
                 {
                     element: <Navigate replace to="custom" />,
@@ -410,6 +397,18 @@ const platformSettingsRoutes = {
                         </PrivateRoute>
                     ),
                     path: 'api-connectors',
+                },
+                {
+                    element: (
+                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                            <EEVersion>
+                                <LazyLoadWrapper>
+                                    <Components tab="policies" />
+                                </LazyLoadWrapper>
+                            </EEVersion>
+                        </PrivateRoute>
+                    ),
+                    path: 'policies',
                 },
                 {
                     element: (
@@ -572,10 +571,6 @@ const platformSettingsRoutes = {
         {
             href: 'mcp-server',
             title: 'MCP Server',
-        },
-        {
-            href: 'component-policies',
-            title: 'Component Policies',
         },
         {
             href: 'components',
