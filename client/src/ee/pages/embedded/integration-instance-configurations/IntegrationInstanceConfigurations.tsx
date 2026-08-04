@@ -241,14 +241,12 @@ const IntegrationInstanceConfigurations = () => {
                                     tags && (
                                         <IntegrationInstanceConfigurationList
                                             componentDefinitions={actionTriggerComponentDefinitions}
-                                            integration={
-                                                integrations.find(
-                                                    (currentIntegration) => currentIntegration.id === integrationId
-                                                )!
-                                            }
-                                            integrationInstanceConfigurations={
-                                                integrationInstanceConfigurationMap.get(integrationId)!
-                                            }
+                                            integration={integrations.find(
+                                                (currentIntegration) => currentIntegration.id === integrationId
+                                            )!}
+                                            integrationInstanceConfigurations={integrationInstanceConfigurationMap.get(
+                                                integrationId
+                                            )!}
                                             key={integrationId}
                                             tags={tags}
                                             taskDispatcherDefinitions={taskDispatcherDefinitions}
