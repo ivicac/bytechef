@@ -19,10 +19,9 @@ import {
     Suggestions,
     ThreadMessageLike,
     WebSpeechDictationAdapter,
-    useAui,
     useExternalStoreRuntime,
 } from '@assistant-ui/react';
-import {ReactNode, useCallback, useMemo, useRef, useState} from 'react';
+import {ReactNode, useCallback, useEffect, useMemo, useRef, useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
 const convertMessage = (message: ThreadMessageLike): ThreadMessageLike => {
@@ -57,6 +56,7 @@ export function WorkflowTestChatRuntimeProvider({
     const [isRunning, setIsRunning] = useState(false);
 
     const awaitingStreamEventRef = useRef(false);
+    const pendingResumeRef = useRef<{reject: (error: Error) => void; resolve: () => void} | null>(null);
 
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
     const {setWorkflowIsRunning} = useWorkflowEditorStore(
@@ -74,11 +74,14 @@ export function WorkflowTestChatRuntimeProvider({
         }))
     );
 
-    const pendingResumeRef = useRef<{reject: (error: Error) => void; resolve: () => void} | null>(null);
-
-    const {setStreamRequest} = useWorkflowTestStream({
+    const {error: streamError, setStreamRequest} = useWorkflowTestStream({
         onClosed: () => setIsRunning(false),
-        onError: () => setIsRunning(false),
+        onError: (errorMessage) => {
+            awaitingStreamEventRef.current = false;
+
+            showErrorMessage(errorMessage || 'An unexpected error occurred');
+            setIsRunning(false);
+        },
         onRequestError: (status) => {
             const pending = pendingResumeRef.current;
 
@@ -93,7 +96,24 @@ export function WorkflowTestChatRuntimeProvider({
 
             pending?.resolve();
         },
-        onResult: () => setIsRunning(false),
+        onResult: () => {
+            awaitingStreamEventRef.current = false;
+
+            setIsRunning(false);
+        },
+        onStreamEnd: () => {
+            if (
+                awaitingStreamEventRef.current &&
+                !hasLastAssistantMessageText(useWorkflowTestChatStore.getState().messages)
+            ) {
+                setLastAssistantMessageContent('The response ended unexpectedly.');
+            }
+
+            awaitingStreamEventRef.current = false;
+
+            setIsRunning(false);
+            setWorkflowIsRunning(false);
+        },
         workflowId: workflow.id!,
     });
 
@@ -190,7 +210,10 @@ export function WorkflowTestChatRuntimeProvider({
 
     return (
         <ApprovalResolutionContext.Provider value={approvalResolution}>
-            <AssistantRuntimeProvider aui={aui} runtime={runtime}>
+            <AssistantRuntimeProvider
+                config={AuiConfig({suggestions: Suggestions(WORKFLOW_TEST_CHAT_SUGGESTIONS)})}
+                runtime={runtime}
+            >
                 {children}
             </AssistantRuntimeProvider>
         </ApprovalResolutionContext.Provider>
