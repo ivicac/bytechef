@@ -276,13 +276,8 @@ const currentWorkspaceSettingsRoutes = {
             items: [
                 {
                     href: 'ai-hub/connectors',
-                    title: 'Connectors',
+                    title: 'Hub Connectors',
                 },
-            ],
-            title: 'AI Hub',
-        },
-        {
-            items: [
                 {
                     href: 'ai/guardrails',
                     title: 'Guardrails',
