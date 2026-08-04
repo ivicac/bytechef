@@ -31,6 +31,7 @@ import {
     ConditionChildTasksType,
     EachChildTasksType,
     ForkJoinChildTasksType,
+    GraphChildTasksType,
     LoopChildTasksType,
     MapChildTasksType,
     NodeDataType,
@@ -44,6 +45,7 @@ import InlineSVG from 'react-inlinesvg';
 import {calculateNodeWidth, getHandlePosition} from '../../cluster-element-editor/utils/clusterElementsUtils';
 import {getConditionBranchSide} from './createConditionEdges';
 import {getForkJoinBranchSide} from './createForkJoinEdges';
+import {getGraphNodeSide} from './createGraphEdges';
 import {getOnErrorBranchSide} from './createOnErrorEdges';
 import {getCrossAxis, getCrossAxisNodeSize} from './directionUtils';
 import {
@@ -371,6 +373,15 @@ export interface GetLayoutElementsProps {
     edges: Edge[];
     nodes: Node[];
     savedPositionCrossAxisShift?: number;
+}
+
+export interface LayoutElementsResultI {
+    edges: Edge[];
+    // The engine that actually produced this layout — ELK falls back to dagre on
+    // unsupported shapes and layout errors, so geometry-coupled renderers (the LR
+    // ring-bar handle flip) key on this instead of the selected engine.
+    engine: 'dagre' | 'elk';
+    nodes: Node[];
 }
 
 export const getClusterElementsLayoutElements = ({
@@ -754,13 +765,26 @@ export const getClusterElementsLayoutElements = ({
  * paths: prioritizes task edges over ghost/placeholder edges per source, keeps
  * a single edge per source unless the source legitimately fans out (ghosts,
  * cluster roots, branch, fork-join), dedupes by endpoint+handle key, and drops
- * edges referencing nodes that no longer exist.
+ * edges referencing nodes that no longer exist. `graphTransition` overlay edges
+ * (ELK-only, see createGraphTransitionEdges) bypass the single-edge-per-source
+ * fan-out rule entirely — they legitimately coexist with their source lane
+ * anchor's structural edge — but still go through the dedupe and dangling-
+ * reference passes.
  */
 export function filterAndDedupeLayoutEdges(allNodes: Node[], edges: Edge[]): Edge[] {
+    // `graphTransition` overlay edges (see createGraphTransitionEdges) deliberately
+    // share their source with that lane anchor's real structural edge — it is a
+    // paint-time decoration, not a competing structural fan-out. Routing it through
+    // the "one edge per source" collapse below would make the collapse treat it as a
+    // duplicate of the anchor's real successor edge and silently drop one of the two,
+    // so transition edges bypass that collapse entirely and are re-added untouched.
+    const transitionEdges = edges.filter((edge) => edge.type === 'graphTransition');
+    const structuralEdges = edges.filter((edge) => edge.type !== 'graphTransition');
+
     const sourceEdgeMap = new Map<string, Edge[]>();
 
     // Sort edges to prioritize task connections over ghost connections
-    const sortedEdges = [...edges].sort((firstEdge, secondEdge) => {
+    const sortedEdges = [...structuralEdges].sort((firstEdge, secondEdge) => {
         const isFirstEdgeToAuxiliaryNode =
             firstEdge.target.includes('ghost') || firstEdge.target.includes('placeholder');
 
@@ -787,7 +811,7 @@ export function filterAndDedupeLayoutEdges(allNodes: Node[], edges: Edge[]): Edg
         sourceEdgeMap.get(edge.source)?.push(edge);
     });
 
-    const filteredEdges: Edge[] = [];
+    const filteredEdges: Edge[] = [...transitionEdges];
 
     // Filter edges so that only one edge is kept for each source node
     sourceEdgeMap.forEach((sourceEdges, source) => {
@@ -856,6 +880,17 @@ export const getLayoutElements = async ({
     nodes,
     savedPositionCrossAxisShift = 0,
 }: GetLayoutElementsProps) => {
+    // `graphTransition` overlay edges (ELK-only, see createGraphTransitionEdges) must
+    // never reach dagre or this function's post-dagre chain-walker pipeline — dagre
+    // keeps the phase-2 badges as its sole transition visualization. The happy path
+    // never creates them for the dagre engine (see usesElkGraphTransitionOverlay in
+    // useLayout), but getElkLayoutElements's error-fallback branch re-invokes this
+    // function with the SAME edges array ELK was given, which may include them —
+    // filtering here closes that gap for every downstream consumer in one place,
+    // including dagre's own ranking (a cyclic pair would corrupt it exactly like the
+    // ELK case).
+    edges = edges.filter((edge) => edge.type !== 'graphTransition');
+
     const dagreModule = await loadDagre();
 
     const dagreGraph = new dagreModule.graphlib.Graph().setDefaultEdgeLabel(() => ({}));
@@ -994,7 +1029,10 @@ export const getLayoutElements = async ({
 
     edges = filterAndDedupeLayoutEdges(allNodes, edges);
 
-    return {edges, nodes: allNodes};
+    // `engine` reports which engine actually produced this layout — getElkLayoutElements
+    // returns this function's result verbatim from its error fallback, so consumers that
+    // couple rendering to engine geometry (the LR ring-bar handle flip) can trust it.
+    return {edges, engine: 'dagre' as const, nodes: allNodes};
 };
 
 interface CreateEdgeFromTaskDispatcherBottomGhostNodeProps {
@@ -1057,8 +1095,7 @@ export const createEdgeFromTaskDispatcherBottomGhostNode = ({
                     context: {
                         conditionCase:
                             ((taskDispatcherNode?.data as NodeDataType).conditionData?.conditionCase as
-                                | 'caseTrue'
-                                | 'caseFalse') || CONDITION_CASE_TRUE,
+                                'caseTrue' | 'caseFalse') || CONDITION_CASE_TRUE,
                         taskDispatcherId: parentTaskDispatcher.name,
                     },
                     task: parentTaskDispatcher,
@@ -1070,8 +1107,7 @@ export const createEdgeFromTaskDispatcherBottomGhostNode = ({
                     context: {
                         onErrorCase:
                             ((taskDispatcherNode?.data as NodeDataType).onErrorData?.onErrorCase as
-                                | typeof ON_ERROR_MAIN_BRANCH
-                                | typeof ON_ERROR_ERROR_BRANCH) || ON_ERROR_MAIN_BRANCH,
+                                typeof ON_ERROR_MAIN_BRANCH | typeof ON_ERROR_ERROR_BRANCH) || ON_ERROR_MAIN_BRANCH,
                         taskDispatcherId: parentTaskDispatcher.name,
                     },
                     task: parentTaskDispatcher,
@@ -1087,6 +1123,19 @@ export const createEdgeFromTaskDispatcherBottomGhostNode = ({
                 );
 
                 parentSubtasks = branchIndex !== -1 ? branches[branchIndex] || [] : [];
+
+                break;
+            }
+            case 'graph': {
+                const graphNodes = (parentTaskDispatcher.parameters?.nodes || []) as Array<{tasks?: WorkflowTask[]}>;
+
+                const graphNodeIndex = graphNodes.findIndex(
+                    (graphNode) =>
+                        Array.isArray(graphNode.tasks) &&
+                        graphNode.tasks.some((subtask) => subtask.name === taskDispatcherId)
+                );
+
+                parentSubtasks = graphNodeIndex !== -1 ? graphNodes[graphNodeIndex]?.tasks || [] : [];
 
                 break;
             }
@@ -1141,6 +1190,10 @@ export const createEdgeFromTaskDispatcherBottomGhostNode = ({
             const branchSide = getForkJoinBranchSide(taskDispatcherId, tasks, parentTaskDispatcher.name);
 
             targetHandle = `${parentTaskDispatcherBottomGhostId}-${branchSide}`;
+        } else if (componentName === 'graph') {
+            const branchSide = getGraphNodeSide(taskDispatcherId, tasks, parentTaskDispatcher.name);
+
+            targetHandle = `${parentTaskDispatcherBottomGhostId}-${branchSide}`;
         } else if (componentName === 'branch') {
             const branchSide = getBranchCaseSide(taskDispatcherId, tasks, parentTaskDispatcher.name);
 
@@ -1181,6 +1234,8 @@ export const createEdgeFromTaskDispatcherBottomGhostNode = ({
         } else if (subsequentNodeData.eachData && subsequentNodeData.eachData.eachId === taskDispatcherId) {
             return false;
         } else if (subsequentNodeData.forkJoinData && subsequentNodeData.forkJoinData.forkJoinId === taskDispatcherId) {
+            return false;
+        } else if (subsequentNodeData.graphData && subsequentNodeData.graphData.graphId === taskDispatcherId) {
             return false;
         } else if (
             subsequentNodeData.terminateData &&
@@ -1298,6 +1353,7 @@ export function collectTaskDispatcherData(
     conditionChildTasks: ConditionChildTasksType,
     eachChildTasks: EachChildTasksType,
     forkJoinChildTasks: ForkJoinChildTasksType,
+    graphChildTasks: GraphChildTasksType,
     loopChildTasks: LoopChildTasksType,
     mapChildTasks: MapChildTasksType,
     onErrorChildTasks: OnErrorChildTasksType,
@@ -1374,6 +1430,14 @@ export function collectTaskDispatcherData(
                   )
                 : [],
         };
+    } else if (componentName === 'graph') {
+        graphChildTasks[name] = {
+            nodes: Array.isArray(parameters?.nodes)
+                ? parameters.nodes.map((graphNode: {tasks?: WorkflowTask[]}) =>
+                      Array.isArray(graphNode.tasks) ? graphNode.tasks.map((task: WorkflowTask) => task.name) : []
+                  )
+                : [],
+        };
     }
 }
 
@@ -1385,6 +1449,7 @@ interface GetTaskAncestryProps {
     conditionChildTasks: ConditionChildTasksType;
     eachChildTasks: EachChildTasksType;
     forkJoinChildTasks: ForkJoinChildTasksType;
+    graphChildTasks: GraphChildTasksType;
     loopChildTasks: LoopChildTasksType;
     mapChildTasks: MapChildTasksType;
     onErrorChildTasks: OnErrorChildTasksType;
@@ -1397,6 +1462,7 @@ export function getTaskAncestry({
     conditionChildTasks,
     eachChildTasks,
     forkJoinChildTasks,
+    graphChildTasks,
     loopChildTasks,
     mapChildTasks,
     onErrorChildTasks,
@@ -1579,6 +1645,36 @@ export function getTaskAncestry({
                             branchIndex,
                             forkJoinId,
                             index: taskIndex,
+                        },
+                    };
+
+                    isNested = true;
+                }
+            });
+
+            if (isNested) {
+                break;
+            }
+        }
+    }
+
+    if (!isNested) {
+        for (const [graphId, graphData] of Object.entries(graphChildTasks)) {
+            const graphSubtaskNameNodes = graphData.nodes;
+
+            graphSubtaskNameNodes.forEach((graphNodeTaskNames, nodeIndex) => {
+                if (isNested) {
+                    return;
+                }
+
+                const taskIndex = graphNodeTaskNames.indexOf(taskName);
+
+                if (taskIndex !== -1) {
+                    nestingData = {
+                        graphData: {
+                            graphId,
+                            index: taskIndex,
+                            nodeIndex,
                         },
                     };
 
