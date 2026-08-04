@@ -1,6 +1,14 @@
 import Button from '@/components/Button/Button';
+import {
+    Dialog,
+    DialogBody,
+    DialogCancelButton,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogMain,
+} from '@/components/Dialog';
 import PageLoader from '@/components/PageLoader';
-import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {useAiPromptQuery, useSetActiveAiPromptVersionMutation} from '@/shared/middleware/graphql';
 import {useQueryClient} from '@tanstack/react-query';
 import {ArrowLeftIcon, GitCompareIcon, PlusIcon, RocketIcon} from 'lucide-react';
@@ -70,8 +78,7 @@ const AiPromptDetail = ({onBack, promptId}: AiPromptDetailProps) => {
 
         for (const env of ENVIRONMENTS) {
             result[env] = versions.find((version) => version && version.environment === env && version.active) as
-                | AiPromptVersionType
-                | undefined;
+                AiPromptVersionType | undefined;
         }
 
         return result;
@@ -108,8 +115,7 @@ const AiPromptDetail = ({onBack, promptId}: AiPromptDetailProps) => {
 
         const left = versions.find((version) => version?.id === compareSelection[0]) as AiPromptVersionType | undefined;
         const right = versions.find((version) => version?.id === compareSelection[1]) as
-            | AiPromptVersionType
-            | undefined;
+            AiPromptVersionType | undefined;
 
         if (!left || !right) {
             return null;
@@ -348,37 +354,43 @@ const AiPromptDetail = ({onBack, promptId}: AiPromptDetailProps) => {
                     }}
                     open
                 >
-                    <DialogContent aria-describedby={undefined} className="flex max-h-[85vh] flex-col sm:max-w-4xl">
-                        <DialogHeader>
-                            <DialogTitle>
-                                {`Compare v${compareVersions.left.versionNumber} \u2192 v${compareVersions.right.versionNumber}`}
-                            </DialogTitle>
-                        </DialogHeader>
+                    <DialogContent aria-describedby={undefined} className="max-h-[85vh]" size="lg">
+                        <DialogMain>
+                            <DialogHeader
+                                title={`Compare v${compareVersions.left.versionNumber} \u2192 v${compareVersions.right.versionNumber}`}
+                            />
 
-                        <div className="flex-1 overflow-auto rounded border bg-muted/20 font-mono text-xs">
-                            {compareVersions.diff.map((diffLine, diffIndex) => (
-                                <div
-                                    className={twMerge(
-                                        'px-3 py-0.5 whitespace-pre-wrap',
-                                        diffLine.type === 'added' &&
-                                            'bg-surface-success-secondary text-content-success-primary',
-                                        diffLine.type === 'removed' &&
-                                            'bg-surface-destructive-secondary text-content-destructive'
-                                    )}
-                                    key={diffIndex}
-                                >
-                                    <span className="mr-2 inline-block w-4 text-muted-foreground select-none">
-                                        {diffLine.type === 'added' ? '+' : diffLine.type === 'removed' ? '-' : ' '}
-                                    </span>
+                            <DialogBody>
+                                <div className="rounded border bg-muted/20 font-mono text-xs">
+                                    {compareVersions.diff.map((diffLine, diffIndex) => (
+                                        <div
+                                            className={twMerge(
+                                                'px-3 py-0.5 whitespace-pre-wrap',
+                                                diffLine.type === 'added' &&
+                                                    'bg-surface-success-secondary text-content-success-primary',
+                                                diffLine.type === 'removed' &&
+                                                    'bg-surface-destructive-secondary text-content-destructive'
+                                            )}
+                                            key={diffIndex}
+                                        >
+                                            <span className="mr-2 inline-block w-4 text-muted-foreground select-none">
+                                                {diffLine.type === 'added'
+                                                    ? '+'
+                                                    : diffLine.type === 'removed'
+                                                      ? '-'
+                                                      : ' '}
+                                            </span>
 
-                                    {diffLine.line || '\u00A0'}
+                                            {diffLine.line || '\u00A0'}
+                                        </div>
+                                    ))}
                                 </div>
-                            ))}
-                        </div>
+                            </DialogBody>
 
-                        <DialogFooter>
-                            <Button label="Close" onClick={() => setShowCompareDialog(false)} variant="outline" />
-                        </DialogFooter>
+                            <DialogFooter>
+                                <DialogCancelButton label="Close" />
+                            </DialogFooter>
+                        </DialogMain>
                     </DialogContent>
                 </Dialog>
             )}
