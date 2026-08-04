@@ -154,35 +154,27 @@ const McpServerDialog = ({
                                     )}
                                 />
 
-                                {mcpServer && (
-                                    <FormField
-                                        control={form.control}
-                                        name="authenticationRequired"
-                                        render={({field}) => (
-                                            <FormItem>
-                                                <div className="flex items-center space-x-2">
-                                                    <FormControl>
-                                                        <Checkbox
-                                                            checked={field.value}
-                                                            onCheckedChange={field.onChange}
-                                                        />
-                                                    </FormControl>
+                                <FormField
+                                    control={form.control}
+                                    name="authenticationRequired"
+                                    render={({field}) => (
+                                        <FormItem>
+                                            <FormLabel>Require authentication</FormLabel>
 
-                                                    <FormLabel className="font-normal">
-                                                        Require authentication
-                                                    </FormLabel>
-                                                </div>
+                                            <div className="flex items-center gap-2">
+                                                <FormControl>
+                                                    <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                                                </FormControl>
 
                                                 <FormDescription>
                                                     Require an API key or OAuth token in addition to the server URL.
-                                                    Existing servers default to off.
                                                 </FormDescription>
+                                            </div>
 
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                )}
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
                                 {mcpServer && (
                                     <FormField
