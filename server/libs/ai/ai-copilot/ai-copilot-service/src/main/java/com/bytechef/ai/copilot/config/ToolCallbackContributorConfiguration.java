@@ -19,6 +19,8 @@ package com.bytechef.ai.copilot.config;
 import com.bytechef.ai.copilot.tool.ClusterElementAgentToolCallback;
 import com.bytechef.ai.copilot.tool.CodeEditorAgentToolCallback;
 import com.bytechef.ai.copilot.tool.ConverterAgentToolCallback;
+import com.bytechef.ai.copilot.tool.DataTableAgentToolCallback;
+import com.bytechef.ai.copilot.tool.KnowledgeBaseAgentToolCallback;
 import com.bytechef.ai.copilot.tool.SkillsAgentToolCallback;
 import com.bytechef.ai.copilot.tool.WorkflowEditorAgentToolCallback;
 import com.bytechef.ai.copilot.tool.WorkflowExecutionAgentToolCallback;
@@ -67,7 +69,9 @@ public class ToolCallbackContributorConfiguration {
         @Qualifier("skillsBuildSubAgentChatClient") ObjectProvider<ChatClient> skillsProvider,
         @Qualifier("workflowExecutionBuildSubAgentChatClient") ObjectProvider<ChatClient> workflowExecutionProvider,
         @Qualifier("converterBuildSubAgentChatClientSupplier") //
-        ObjectProvider<Supplier<ChatClient>> converterSupplierProvider) {
+        ObjectProvider<Supplier<ChatClient>> converterSupplierProvider,
+        @Qualifier("knowledgeBaseBuildSubAgentChatClient") ObjectProvider<ChatClient> knowledgeBaseProvider,
+        @Qualifier("dataTableBuildSubAgentChatClient") ObjectProvider<ChatClient> dataTableProvider) {
 
         return () -> {
             List<ToolCallback> toolCallbacks = new ArrayList<>();
@@ -88,6 +92,10 @@ public class ToolCallbackContributorConfiguration {
             converterSupplierProvider.ifAvailable(
                 converterChatClientSupplier -> toolCallbacks.add(
                     new ConverterAgentToolCallback(converterChatClientSupplier)));
+            knowledgeBaseProvider.ifAvailable(
+                chatClient -> toolCallbacks.add(new KnowledgeBaseAgentToolCallback(chatClient)));
+            dataTableProvider.ifAvailable(
+                chatClient -> toolCallbacks.add(new DataTableAgentToolCallback(chatClient)));
 
             return toolCallbacks;
         };
