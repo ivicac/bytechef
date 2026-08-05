@@ -1,8 +1,17 @@
 /*
  * Copyright 2025 ByteChef
  *
- * Licensed under the ByteChef Enterprise license (the "Enterprise License");
- * you may not use this file except in compliance with the Enterprise License.
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *      https://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
  */
 
 package com.bytechef.ai.copilot.config;
@@ -33,9 +42,6 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.data.jdbc.repository.config.EnableJdbcRepositories;
 import org.springframework.jdbc.core.JdbcTemplate;
 
-/**
- * @version ee
- */
 @Configuration
 @EnableJdbcRepositories(
     basePackages = "com.bytechef.ai.copilot.repository",
@@ -94,20 +100,6 @@ public class CopilotPgVectorConfiguration {
             .build();
     }
 
-    /**
-     * The internal, fixed-key Copilot embedding model used to <b>write</b> into the Copilot pgvector store (docs
-     * indexing) and, shared across modules, to write the AI Hub tool-search catalog. Kept environment-independent (a
-     * single configured {@code bytechef.ai.copilot.embedding.*} key) so boot-time indexing never depends on a
-     * per-environment provider being activated. Query-time reads still resolve the {@code @Primary} embedding model (in
-     * EE the per-environment {@code CatalogEmbeddingModel}); the two must resolve to the same underlying model for
-     * vectors to be comparable.
-     *
-     * <p>
-     * {@code defaultCandidate = false} keeps it out of unqualified {@code EmbeddingModel} autowiring so it never
-     * collides with the primary/query embedding model — consumers must ask for it by the {@code copilotEmbeddingModel}
-     * qualifier.
-     * </p>
-     */
     @Bean(defaultCandidate = false)
     @ConditionalOnProperty(prefix = "bytechef.ai.copilot.embedding", name = "provider")
     public EmbeddingModel copilotEmbeddingModel(ApplicationProperties applicationProperties) {
