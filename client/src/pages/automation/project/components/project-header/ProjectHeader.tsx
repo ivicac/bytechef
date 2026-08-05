@@ -15,7 +15,9 @@ import PublishPopover from '@/pages/automation/project/components/project-header
 import SettingsMenu from '@/pages/automation/project/components/project-header/components/settings-menu/SettingsMenu';
 import {useProjectHeader} from '@/pages/automation/project/components/project-header/hooks/useProjectHeader';
 import useProjectsLeftSidebarStore from '@/pages/automation/project/stores/useProjectsLeftSidebarStore';
-import WorkflowActionsButton from '@/pages/platform/workflow-editor/components/WorkflowActionsButton';
+import CodeWorkflowHeaderActions, {
+    CodeWorkflowSaveButton,
+} from '@/pages/platform/code-workflow/components/CodeWorkflowHeaderActions';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import LoadingIndicator from '@/shared/components/LoadingIndicator';
@@ -35,6 +37,7 @@ const subscribeToOnlineStatus = (onOnlineStatusChange: () => void) => onlineMana
 interface ProjectHeaderProps {
     bottomResizablePanelRef: RefObject<PanelImperativeHandle | null>;
     chatTrigger?: boolean;
+    codeWorkflow?: boolean;
     embedded?: boolean;
     onWorkflowChange?: (projectWorkflowId: number) => void;
     projectId: number;
@@ -48,6 +51,7 @@ interface ProjectHeaderProps {
 const ProjectHeader = ({
     bottomResizablePanelRef,
     chatTrigger,
+    codeWorkflow,
     embedded,
     onWorkflowChange,
     projectId,
@@ -109,6 +113,8 @@ const ProjectHeader = ({
         <LoadingIndicator isFetching={isSaving} isOnline={isOnline} showLabel />
     );
 
+    const settingsMenuVisible = !embedded && !codeWorkflow;
+
     if (!project) {
         return <ProjectSkeleton />;
     }
@@ -163,8 +169,11 @@ const ProjectHeader = ({
             </div>
 
             <div className="flex items-center gap-1">
+                {codeWorkflow && <CodeWorkflowHeaderActions />}
+
                 <WorkflowActionsButton
                     chatTrigger={chatTrigger ?? false}
+                    leadingAction={codeWorkflow ? <CodeWorkflowSaveButton /> : undefined}
                     onRunClick={handleRunClick}
                     onStopClick={handleStopClick}
                     runDisabled={runDisabled}
@@ -185,15 +194,26 @@ const ProjectHeader = ({
                     </ButtonGroup>
                 )}
 
-                <OutputPanelButton onShowOutputClick={handleShowOutputClick} />
+                <div className="relative">
+                    <OutputPanelButton onShowOutputClick={handleShowOutputClick} />
 
-                {!embedded && (
-                    <SettingsMenu
-                        bottomResizablePanelRef={bottomResizablePanelRef}
-                        project={project}
-                        updateWorkflowMutation={updateWorkflowMutation}
-                        workflow={workflow}
-                    />
+                    {!settingsMenuVisible && loadingIndicator}
+                </div>
+
+                {/* The workflow settings menu acts on a visually built workflow (edit, duplicate, export,
+                 * error handling); a code workflow's workflows are defined by its source, so it is hidden. */}
+
+                {settingsMenuVisible && (
+                    <div className="relative">
+                        <SettingsMenu
+                            bottomResizablePanelRef={bottomResizablePanelRef}
+                            project={project}
+                            updateWorkflowMutation={updateWorkflowMutation}
+                            workflow={workflow}
+                        />
+
+                        {loadingIndicator}
+                    </div>
                 )}
             </div>
 

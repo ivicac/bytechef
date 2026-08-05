@@ -34,6 +34,9 @@ interface InputConfigurationListProps {
     control: Control<FieldValues>;
     controlPath: string;
     duplicateSubflowStubs?: SubflowDuplicateStubI[];
+    // Replaces the "Open Inputs" affordance when the caller knows that sheet cannot add an input — a code workflow's
+    // inputs come from its source, so sending the user there would only repeat this message.
+    emptyStateMessage?: string;
     formState: FormState<FieldValues>;
     inputs?: WorkflowInput[];
     onOpenInputs?: () => void;
@@ -53,6 +56,28 @@ const componentDefinitionKey = (componentName: string, componentVersion?: number
 
 const isComponentReferenceInput = (input: WorkflowInput): boolean => !!input.componentReference?.groupName;
 
+const getOrCreateSubflowInputTreeNode = (
+    subflowInputTree: Map<string, SubflowInputTreeNodeI>,
+    uuidPath: string[]
+): SubflowInputTreeNodeI => {
+    let currentLevel = subflowInputTree;
+    let node: SubflowInputTreeNodeI | undefined;
+
+    for (const uuid of uuidPath) {
+        node = currentLevel.get(uuid);
+
+        if (!node) {
+            node = {children: new Map(), duplicateStubs: [], inputs: [], subflowWorkflowUuid: uuid};
+
+            currentLevel.set(uuid, node);
+        }
+
+        currentLevel = node.children;
+    }
+
+    return node!;
+};
+
 const createDanglingPlaceholder = (input: WorkflowInput): PropertyAllType =>
     ({
         controlType: ControlType.Text,
@@ -69,6 +94,11 @@ export interface ResolvedComponentInputGroupI {
     name: string;
 }
 
+/**
+ * Resolves a component-referenced input group into its member properties (members keep their own names so they nest
+ * under the group input). Every component-defined input is a group; a lone property is a group with one property.
+ * Returns a single disabled TEXT placeholder member when the group is no longer available.
+ */
 export const resolveComponentInputGroup = (
     input: WorkflowInput,
     componentDefinition?: ComponentDefinition
@@ -92,6 +122,11 @@ export const resolveComponentInputGroup = (
     };
 };
 
+/**
+ * Finds the workflowNodeName of the first node (deterministically the first in document order) that uses the given
+ * component and has a configured deployment connection, so component-referenced dynamic options can reuse that node's
+ * connection context. Returns undefined when no such node exists; callers then degrade to free-text.
+ */
 export const resolveBackingWorkflowNodeName = (
     componentName: string | undefined,
     componentConnections?: ComponentConnection[],
@@ -253,6 +288,9 @@ interface ComponentReferenceMemberProps {
     controlPath: string;
     formState: FormState<FieldValues>;
     property: PropertyAllType;
+    // When set, the value binds to `${controlPath}.${valuePropertyName}` instead of the property's own
+    // name. A lone-property input passes the input name so its value is flat (`${input.<name>}`), while
+    // dynamic options still resolve against the original component property name.
     valuePropertyName?: string;
     workflowId?: string;
 }
@@ -414,6 +452,9 @@ const ComponentReferenceInput = ({
 
     const group = resolveComponentInputGroup(input, componentDefinition);
 
+    // A lone-property input (a group with a single property) binds its value flat under the input name
+    // (`${input.<name>}`) rather than nesting it under the group, so the value is the property's value
+    // directly — what an action's string parameter expects.
     if (group.members.length === 1) {
         return (
             <ComponentReferenceMember
@@ -450,6 +491,12 @@ interface ComponentReferenceInputListProps {
     workflowId?: string;
 }
 
+/**
+ * Fetches the (few) distinct component definitions referenced by the reference inputs and renders each reference.
+ * Definitions are fetched with a single useQueries call keyed on the distinct {componentName, componentVersion} set so
+ * React's hook rules are respected even though the number of distinct components is data-driven. While a definition is
+ * loading each reference degrades to its free-text placeholder rather than crashing.
+ */
 const ComponentReferenceInputList = ({
     componentConnections,
     configuredConnectionIds,
@@ -619,6 +666,7 @@ const InputConfigurationList = ({
     control,
     controlPath,
     duplicateSubflowStubs,
+    emptyStateMessage,
     formState,
     inputs,
     onOpenInputs,
@@ -668,6 +716,16 @@ const InputConfigurationList = ({
     }, [inputs, duplicateSubflowStubs]);
 
     if (!referenceInputs.length && !regularInputs.length && !subflowInputTree.size && !topLevelStubs.length) {
+        if (emptyStateMessage) {
+            return (
+                <div className="flex flex-col items-center gap-2">
+                    <h3 className="font-medium text-content-neutral-primary">No Inputs yet</h3>
+
+                    <p className="text-sm text-content-neutral-secondary">{emptyStateMessage}</p>
+                </div>
+            );
+        }
+
         if (!onOpenInputs) {
             return <p className="p-4 text-center text-sm text-content-neutral-secondary">No Inputs yet</p>;
         }

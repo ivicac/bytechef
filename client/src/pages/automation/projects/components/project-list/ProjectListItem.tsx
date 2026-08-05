@@ -1,3 +1,6 @@
+import getCodeWorkflowLanguageLabel, {isJavaCodeWorkflow} from '@/shared/util/codeWorkflowLanguage-utils';
+
+import '@/shared/styles/dropdownMenu.css';
 import AlertDialog from '@/components/AlertDialog';
 import Badge from '@/components/Badge/Badge';
 import Button from '@/components/Button/Button';
@@ -48,7 +51,6 @@ import {
     DownloadIcon,
     EditIcon,
     EllipsisVerticalIcon,
-    FolderIcon,
     GitBranchIcon,
     GitPullRequestArrowIcon,
     LayoutTemplateIcon,
@@ -89,6 +91,8 @@ const ProjectListItem = ({
     remainingTags,
     workflowsContent,
 }: ProjectItemProps) => {
+    const javaCodeWorkflow = isJavaCodeWorkflow(project.codeWorkflow, project.codeWorkflowLanguage);
+
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [showProjectGitConfigurationDialog, setShowProjectGitConfigurationDialog] = useState(false);
@@ -251,8 +255,8 @@ const ProjectListItem = ({
 
             const interactiveSelectors = [
                 '[data-interactive]',
-                '[role="menu"]',
-                '[data-radix-dropdown-menu-item]',
+                '[role="menuitem"]',
+                '.dropdown-menu-item',
                 '[data-radix-dropdown-menu-trigger]',
                 '[data-radix-collapsible-trigger]',
             ].join(', ');
@@ -280,9 +284,9 @@ const ProjectListItem = ({
                         data-testid="project-item"
                     >
                         <div className="flex items-center gap-2">
-                            <FolderIcon aria-hidden="true" className="size-6 shrink-0 text-content-neutral-secondary" />
-
-                            {project.projectWorkflowIds && project.projectWorkflowIds.length > 0 ? (
+                            {project.projectWorkflowIds &&
+                            project.projectWorkflowIds.length > 0 &&
+                            !javaCodeWorkflow ? (
                                 <Link
                                     onClick={(event) => event.stopPropagation()}
                                     to={`/automation/projects/${project?.id}/project-workflows/${project?.projectWorkflowIds![0]}?${searchParams}`}
@@ -309,6 +313,14 @@ const ProjectListItem = ({
                                 </Tooltip>
                             ) : (
                                 <span className="text-base font-semibold">{project.name}</span>
+                            )}
+
+                            {project.codeWorkflow && (
+                                <Badge
+                                    label={getCodeWorkflowLanguageLabel(project.codeWorkflowLanguage) ?? 'Code'}
+                                    styleType="secondary-filled"
+                                    weight="semibold"
+                                />
                             )}
                         </div>
 

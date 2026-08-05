@@ -2,7 +2,7 @@ import {ResizableHandle, ResizablePanel, ResizablePanelGroup} from '@/components
 import IntegrationHeader from '@/ee/pages/embedded/integration/components/integration-header/IntegrationHeader';
 import IntegrationsLeftSidebar from '@/ee/pages/embedded/integration/components/integrations-sidebar/IntegrationsLeftSidebar';
 import {useIntegration} from '@/ee/pages/embedded/integration/hooks/useIntegration';
-import {Integration as IntegrationType} from '@/ee/shared/middleware/embedded/configuration';
+import {Integration as IntegrationType, WebhookTriggerTestApi} from '@/ee/shared/middleware/embedded/configuration';
 import {useCreateConnectionMutation} from '@/ee/shared/mutations/embedded/connections.mutations';
 import {useGetComponentDefinitionsQuery} from '@/ee/shared/queries/embedded/componentDefinitions.queries';
 import {ConnectionKeys, useGetConnectionTagsQuery} from '@/ee/shared/queries/embedded/connections.queries';
@@ -60,6 +60,9 @@ const Integration = () => {
     return (
         <div className="flex w-full">
             <WorkflowTestRunLeaveDialog onCancel={cancelLeave} onConfirm={confirmLeave} open={showLeaveDialog} />
+
+            {/* A code workflow has no editable workflow tree, but the sidebar still lists its generated workflows
+             * and its sibling integrations, so it stays mounted — only workflow creation is hidden inside it. */}
 
             <div className="h-full shrink-0 overflow-hidden">
                 <div

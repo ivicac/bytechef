@@ -5,6 +5,7 @@ import JourneySteps from '@/components/JourneySteps/JourneySteps';
 import PageLoader from '@/components/PageLoader';
 import {ButtonGroup} from '@/components/ui/button-group';
 import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
+import {EMBEDDED_INTEGRATIONS_DOCUMENTATION_URL} from '@/ee/pages/embedded/embeddedDocumentationUrls';
 import IntegrationDialog from '@/ee/pages/embedded/integrations/components/IntegrationDialog';
 import IntegrationsFilterTitle from '@/ee/pages/embedded/integrations/components/IntegrationsFilterTitle';
 import NewIntegrationCodeWorkflowDialog from '@/ee/pages/embedded/integrations/components/NewIntegrationCodeWorkflowDialog';
@@ -85,42 +86,42 @@ const Integrations = () => {
     return (
         <LayoutContainer
             header={
-                integrations &&
-                integrations?.length > 0 && (
-                    <Header
-                        centerTitle={true}
-                        position="main"
-                        right={
-                            integrations &&
-                            integrations.length > 0 && (
-                                <ButtonGroup>
-                                    <Button
-                                        aria-label="Create Integration"
-                                        onClick={() => setShowIntegrationDialog(true)}
-                                    >
-                                        New Integration
-                                    </Button>
+                <Header
+                    centerTitle={true}
+                    position="main"
+                    right={
+                        integrations &&
+                        integrations.length > 0 && (
+                            <ButtonGroup>
+                                <Button
+                                    aria-label="Create Integration"
+                                    label="New Integration"
+                                    onClick={() => setShowIntegrationDialog(true)}
+                                />
 
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button>
-                                                <ChevronDownIcon />
-                                            </Button>
-                                        </DropdownMenuTrigger>
+                                <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                        <Button aria-label="More integration options" icon={<ChevronDownIcon />} />
+                                    </DropdownMenuTrigger>
 
-                                        <DropdownMenuContent align="end">
-                                            <DropdownMenuItem onClick={() => setShowNewCodeWorkflowDialog(true)}>
-                                                <CodeIcon className="mr-2 size-4" />
-                                                New Code Workflow
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </ButtonGroup>
-                            )
-                        }
-                        title={<IntegrationsFilterTitle categories={categories} filterData={filterData} tags={tags} />}
-                    />
-                )
+                                    <DropdownMenuContent align="end">
+                                        <DropdownMenuItem onClick={() => setShowNewCodeWorkflowDialog(true)}>
+                                            <CodeIcon className="mr-2 size-4" />
+                                            New Code Integration
+                                        </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                </DropdownMenu>
+                            </ButtonGroup>
+                        )
+                    }
+                    title={
+                        (integrations && integrations.length > 0) || hasActiveFilter ? (
+                            <IntegrationsFilterTitle categories={categories} filterData={filterData} tags={tags} />
+                        ) : (
+                            isFirstRun && 'Integrations'
+                        )
+                    }
+                />
             }
             leftSidebarBody={
                 <CategoryTagLeftSidebarNav
@@ -154,23 +155,29 @@ const Integrations = () => {
                     />
                 ) : hasActiveFilter ? (
                     <EmptyList
-                        button={
-                            <ButtonGroup className="mx-auto">
-                                <Button aria-label="Create Integration" onClick={() => setShowIntegrationDialog(true)}>
-                                    Create Integration
-                                </Button>
+                        icon={<SquareIcon className="size-24 text-stroke-neutral-tertiary" />}
+                        message="No integrations match the selected filter."
+                        title="No Matching Integrations"
+                    />
+                ) : (
+                    <EmptyState
+                        actions={
+                            <ButtonGroup>
+                                <Button
+                                    aria-label="Create Integration"
+                                    label="Create Integration"
+                                    onClick={() => setShowIntegrationDialog(true)}
+                                />
 
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button>
-                                            <ChevronDownIcon />
-                                        </Button>
+                                        <Button aria-label="More integration options" icon={<ChevronDownIcon />} />
                                     </DropdownMenuTrigger>
 
                                     <DropdownMenuContent align="end">
                                         <DropdownMenuItem onClick={() => setShowNewCodeWorkflowDialog(true)}>
                                             <CodeIcon className="mr-2 size-4" />
-                                            New Code Workflow
+                                            New Code Integration
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
