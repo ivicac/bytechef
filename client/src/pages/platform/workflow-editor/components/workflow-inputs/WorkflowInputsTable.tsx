@@ -4,7 +4,10 @@ import {WorkflowInput, WorkflowTestConfiguration} from '@/shared/middleware/plat
 import {EditIcon, Trash2Icon} from 'lucide-react';
 
 interface WorkflowInputsTableProps {
-    internalOnlyVisible: boolean;
+    // A code workflow's inputs come from its source, so a deletion here would reappear on the next save. Edit stays:
+    // it is how a test value is set.
+    codeWorkflow?: boolean;
+    internalOnlyVisible?: boolean;
     openDeleteDialog: (index: number) => void;
     openEditDialog: (index?: number) => void;
     workflowInputs: WorkflowInput[];
@@ -29,6 +32,7 @@ const formatTestValue = (value: unknown): string => {
 };
 
 const WorkflowInputsTable = ({
+    codeWorkflow,
     internalOnlyVisible,
     openDeleteDialog,
     openEditDialog,
@@ -46,9 +50,9 @@ const WorkflowInputsTable = ({
 
                 <TableHead className="w-[12%] truncate">Required</TableHead>
 
-                {internalOnlyVisible && <TableHead className="w-[11%] truncate">Internal only</TableHead>}
+                {internalOnlyVisible && <TableHead className="w-[12%] truncate">Internal only</TableHead>}
 
-                <TableHead className={internalOnlyVisible ? 'w-[19%] truncate' : 'w-[30%] truncate'}>
+                <TableHead className={internalOnlyVisible ? 'w-[18%] truncate' : 'w-[30%] truncate'}>
                     Test Value
                 </TableHead>
 
@@ -85,18 +89,22 @@ const WorkflowInputsTable = ({
 
                         <TableCell className="flex justify-end">
                             <Button
+                                aria-label="Edit input"
                                 icon={<EditIcon />}
                                 onClick={() => openEditDialog(index)}
                                 size="icon"
                                 variant="ghost"
                             />
 
-                            <Button
-                                icon={<Trash2Icon className="text-destructive" />}
-                                onClick={() => openDeleteDialog(index)}
-                                size="icon"
-                                variant="ghost"
-                            />
+                            {!codeWorkflow && (
+                                <Button
+                                    aria-label="Delete input"
+                                    icon={<Trash2Icon className="text-destructive" />}
+                                    onClick={() => openDeleteDialog(index)}
+                                    size="icon"
+                                    variant="ghost"
+                                />
+                            )}
                         </TableCell>
                     </TableRow>
                 );

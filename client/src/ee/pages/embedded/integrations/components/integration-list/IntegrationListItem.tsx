@@ -1,3 +1,5 @@
+import getCodeWorkflowLanguageLabel, {isJavaCodeWorkflow} from '@/shared/util/codeWorkflowLanguage-utils';
+
 import '@/shared/styles/dropdownMenu.css';
 import AlertDialog from '@/components/AlertDialog';
 import Badge from '@/components/Badge/Badge';
@@ -49,6 +51,8 @@ interface IntegrationItemProps {
 }
 
 const IntegrationListItem = ({integration, remainingTags}: IntegrationItemProps) => {
+    const javaCodeWorkflow = isJavaCodeWorkflow(integration.codeWorkflow, integration.codeWorkflowLanguage);
+
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showPublishIntegrationDialog, setShowPublishIntegrationDialog] = useState(false);
@@ -171,7 +175,8 @@ const IntegrationListItem = ({integration, remainingTags}: IntegrationItemProps)
                         <div className="flex min-h-8 items-center justify-between">
                             <div className="relative flex items-center gap-2">
                                 {integration?.integrationWorkflowIds &&
-                                integration?.integrationWorkflowIds.length > 0 ? (
+                                integration?.integrationWorkflowIds.length > 0 &&
+                                !javaCodeWorkflow ? (
                                     <Link
                                         className="flex items-center gap-1"
                                         to={`/embedded/integrations/${integration?.id}/integration-workflows/${integration?.integrationWorkflowIds![0]}?${searchParams}`}
@@ -196,6 +201,14 @@ const IntegrationListItem = ({integration, remainingTags}: IntegrationItemProps)
                                             </span>
                                         </div>
                                     </CollapsibleTrigger>
+                                )}
+
+                                {integration.codeWorkflow && (
+                                    <Badge
+                                        label={getCodeWorkflowLanguageLabel(integration.codeWorkflowLanguage) ?? 'Code'}
+                                        styleType="secondary-filled"
+                                        weight="semibold"
+                                    />
                                 )}
                             </div>
                         </div>

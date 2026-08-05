@@ -56,7 +56,11 @@ const WorkflowInputsEditDialog = ({
     saveWorkflowInput,
     workflow,
 }: WorkflowInputsEditDialogProps) => {
-    const {useGetComponentDefinitionsQuery} = useWorkflowEditor();
+    const {codeWorkflow, useGetComponentDefinitionsQuery} = useWorkflowEditor();
+
+    // A code workflow's inputs are generated from its source on every save, so editing a declaration here would
+    // only be undone by the next one. The test value is not source-owned and stays editable.
+    const declarationReadOnly = codeWorkflow === true;
 
     const selectedType = useWatch({control: form.control, name: 'type'});
     const selectedComponentName = useWatch({control: form.control, name: 'componentReference.componentName'});
@@ -166,7 +170,11 @@ const WorkflowInputsEditDialog = ({
             <DialogContent>
                 <DialogMain>
                     <DialogHeader
-                        description="Add a new workflow input definition."
+                        description={
+                            declarationReadOnly
+                                ? "Declared in the workflow's source — only the test value can be changed here."
+                                : 'Add a new workflow input definition.'
+                        }
                         title={`${currentInputIndex === -1 ? 'Create a new' : 'Edit'} Input`}
                     />
 
@@ -185,6 +193,7 @@ const WorkflowInputsEditDialog = ({
 
                                             <FormControl>
                                                 <Select
+                                                    disabled={declarationReadOnly}
                                                     onValueChange={(value) => {
                                                         if (value !== field.value && value !== 'component') {
                                                             form.setValue('testValue', '');
@@ -316,7 +325,7 @@ const WorkflowInputsEditDialog = ({
                                                 <Input
                                                     {...field}
                                                     placeholder="Input name (will be used as a dynamic value key)"
-                                                    readOnly={currentInputIndex !== -1}
+                                                    readOnly={currentInputIndex !== -1 || declarationReadOnly}
                                                     ref={nameInputRef}
                                                 />
                                             </FormControl>
@@ -341,7 +350,11 @@ const WorkflowInputsEditDialog = ({
                                             </FormLabel>
 
                                             <FormControl>
-                                                <Input {...field} placeholder="Input label" />
+                                                <Input
+                                                    {...field}
+                                                    placeholder="Input label"
+                                                    readOnly={declarationReadOnly}
+                                                />
                                             </FormControl>
 
                                             <FormMessage />
@@ -359,6 +372,7 @@ const WorkflowInputsEditDialog = ({
                                                 <FormControl>
                                                     <Checkbox
                                                         checked={!!field.value}
+                                                        disabled={declarationReadOnly}
                                                         id="required"
                                                         onCheckedChange={field.onChange}
                                                     />
@@ -382,6 +396,7 @@ const WorkflowInputsEditDialog = ({
                                                     <FormControl>
                                                         <Checkbox
                                                             checked={!!field.value}
+                                                            disabled={declarationReadOnly}
                                                             id="internalOnly"
                                                             onCheckedChange={field.onChange}
                                                         />

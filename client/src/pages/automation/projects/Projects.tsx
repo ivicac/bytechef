@@ -167,7 +167,7 @@ const Projects = () => {
 
                                         <DropdownMenuItem
                                             icon={<CodeIcon />}
-                                            label="New Code Workflow"
+                                            label="New Code Project"
                                             onClick={() => setShowNewCodeWorkflowDialog(true)}
                                         />
                                     </DropdownMenuContent>
@@ -241,7 +241,7 @@ const Projects = () => {
 
                                         <DropdownMenuItem
                                             icon={<CodeIcon />}
-                                            label="New Code Workflow"
+                                            label="New Code Project"
                                             onClick={() => setShowNewCodeWorkflowDialog(true)}
                                         />
                                     </DropdownMenuContent>

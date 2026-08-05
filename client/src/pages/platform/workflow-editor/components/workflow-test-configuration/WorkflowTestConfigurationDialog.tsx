@@ -65,6 +65,7 @@ const WorkflowTestConfigurationDialog = ({
 
     const {
         ConnectionKeys,
+        codeWorkflow,
         connectionTagsQueryKey,
         useCreateConnectionMutation,
         useGetComponentDefinitionsQuery,
@@ -92,6 +93,8 @@ const WorkflowTestConfigurationDialog = ({
         );
     });
 
+    // A workflow with no saved test configuration yet has no environmentId to spread, and the API rejects a null
+    // one — fall back to the environment the editor is currently showing.
     const form = useForm<WorkflowTestConfiguration>({
         defaultValues: {
             ...workflowTestConfiguration,
@@ -231,6 +234,14 @@ const WorkflowTestConfigurationDialog = ({
                                         <InputConfigurationList
                                             control={control as unknown as Control<FieldValues>}
                                             controlPath="inputs"
+                                            // A code workflow's inputs come from its source, so the Open Inputs round trip
+                                            // could only repeat this sentence — the header's Workflow Inputs button is there
+                                            // for reading them and setting test values.
+                                            emptyStateMessage={
+                                                codeWorkflow
+                                                    ? "Declare them in the workflow's source, then set their test values here."
+                                                    : undefined
+                                            }
                                             formState={formState}
                                             inputs={inputs}
                                             onOpenInputs={handleOpenInputs}
