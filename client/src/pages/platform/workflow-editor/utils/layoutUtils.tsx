@@ -657,6 +657,100 @@ export const getClusterElementsLayoutElements = ({
         }
     }
 
+    // Resolve overlaps ACROSS subtrees. The pass above only compares nodes sharing a parent, but two nested cluster
+    // roots sitting side by side each position their own children independently, so a child of one can land on top of
+    // a child of the other. Positions are parent-relative, so the comparison has to happen in absolute coordinates.
+    // Rows are processed top-down: by the time a row is swept, every ancestor row has already settled, so a parent's
+    // shift is included in its children's absolute positions and the whole subtree moves with it.
+    const getNodeWidth = (node: Node): number =>
+        node.data.clusterElementTypesCount
+            ? calculateNodeWidth(node.data.clusterElementTypesCount as number) || ROOT_CLUSTER_WIDTH
+            : CLUSTER_ELEMENT_NODE_WIDTH;
+
+    const getAbsolutePoint = (node: Node): {x: number; y: number} => {
+        let absoluteX = node.position.x;
+        let absoluteY = node.position.y;
+        let ancestorId = node.parentId;
+
+        while (ancestorId) {
+            const ancestor = positionedNodes.find((positioned) => positioned.id === ancestorId);
+
+            if (!ancestor) {
+                break;
+            }
+
+            absoluteX += ancestor.position.x;
+            absoluteY += ancestor.position.y;
+            ancestorId = ancestor.parentId;
+        }
+
+        return {x: absoluteX, y: absoluteY};
+    };
+
+    const getAbsoluteX = (node: Node): number => getAbsolutePoint(node).x;
+
+    // Rows are keyed by ABSOLUTE y. Every node's relative y is the same childBaseY regardless of depth, so keying by
+    // the relative value would collapse every depth into a single row and compare nodes that never share a line.
+    const nodesByRow = new Map<number, Node[]>();
+
+    for (const node of positionedNodes) {
+        if (!node.parentId) {
+            continue;
+        }
+
+        const row = Math.round(getAbsolutePoint(node).y);
+
+        if (!nodesByRow.has(row)) {
+            nodesByRow.set(row, []);
+        }
+
+        nodesByRow.get(row)!.push(node);
+    }
+
+    for (const row of [...nodesByRow.keys()].sort((rowA, rowB) => rowA - rowB)) {
+        const rowNodes = nodesByRow.get(row)!;
+
+        if (rowNodes.length < 2) {
+            continue;
+        }
+
+        const placements = rowNodes
+            .map((node) => ({absoluteX: getAbsoluteX(node), node, width: getNodeWidth(node)}))
+            .sort((placementA, placementB) => placementA.absoluteX - placementB.absoluteX);
+
+        for (let index = 1; index < placements.length; index++) {
+            const previous = placements[index - 1];
+            const current = placements[index];
+
+            if (current.node.parentId === previous.node.parentId) {
+                continue;
+            }
+
+            if (containsNodePosition(current.node.data.metadata)) {
+                continue;
+            }
+
+            const previousLabelPadding = previous.node.data.clusterElementTypesCount
+                ? 0
+                : CLUSTER_ELEMENT_LABEL_PADDING;
+            const currentLabelPadding = current.node.data.clusterElementTypesCount ? 0 : CLUSTER_ELEMENT_LABEL_PADDING;
+            const minGap =
+                previous.node.data.clusterElementTypesCount && current.node.data.clusterElementTypesCount
+                    ? CLUSTER_ROOT_GAP
+                    : overlapPadding;
+
+            const minAbsoluteX =
+                previous.absoluteX + previous.width + previousLabelPadding + currentLabelPadding + minGap;
+
+            if (current.absoluteX < minAbsoluteX) {
+                const shift = minAbsoluteX - current.absoluteX;
+
+                current.node.position = {...current.node.position, x: current.node.position.x + shift};
+                current.absoluteX = minAbsoluteX;
+            }
+        }
+    }
+
     // Center the graph on the canvas.
     if (positionedNodes.length === 1) {
         const viewportWidth = canvasWidth / DEFAULT_CLUSTER_ELEMENT_CANVAS_ZOOM;
