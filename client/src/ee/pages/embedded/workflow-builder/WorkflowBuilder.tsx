@@ -119,9 +119,12 @@ const WorkflowBuilder = () => {
                     <ResizableHandle className="bg-muted" />
 
                     <ResizablePanel className="flex" defaultSize={0} panelRef={bottomResizablePanelRef}>
-                        {(workflowIsRunning || workflowTestExecution || workflowTestChatPanelOpen) && (
+                        {(showBottomPanel ||
+                            workflowIsRunning ||
+                            workflowTestExecution ||
+                            workflowTestChatPanelOpen) && (
                             <div className="m-3 flex flex-1 overflow-hidden rounded-lg bg-background">
-                                {(workflowIsRunning || workflowTestExecution) && (
+                                {(showBottomPanel || workflowIsRunning || workflowTestExecution) && (
                                     <WorkflowExecutionsTestOutput
                                         onCloseClick={handleWorkflowExecutionsTestOutputCloseClick}
                                         workflowIsRunning={workflowIsRunning}
