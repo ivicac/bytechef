@@ -143,6 +143,10 @@ public class WorkflowValidatorFacadeImpl implements WorkflowValidatorFacade {
     }
 
     @Override
+    // Gated on the named workflow, not on the definition passed in: with a workflowId this reads that workflow's
+    // recorded node test outputs and its connection bindings, so it answers questions about a stored resource.
+    // Null-tolerant because the same body serves the unsaved-definition case, which reads neither.
+    @PreAuthorize("#workflowId == null or hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public WorkflowValidationResult validateWorkflow(
         String workflow, @Nullable String workflowId, long environmentId) {
 
@@ -184,6 +188,9 @@ public class WorkflowValidatorFacadeImpl implements WorkflowValidatorFacade {
     }
 
     @Override
+    // The same gate the single-argument sibling carries, re-pointed through the environment this overload is
+    // given: without it, naming an environment turned that gate off for every caller that supplies one.
+    @PreAuthorize("hasWorkflowScopeInEnvironment(#workflowId, 'WORKFLOW_VIEW', #environmentId)")
     public WorkflowValidationResult validateWorkflowById(String workflowId, long environmentId) {
         Workflow workflow = workflowService.getWorkflow(workflowId);
 
