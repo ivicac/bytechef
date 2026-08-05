@@ -101,7 +101,7 @@ export function CopilotRuntimeProvider({
         const stateToSend = {
             ...contextWithoutError,
             ...useCopilotStateContributorRegistry.getState().contribute(),
-            environmentId: String(environmentStore.getState().currentEnvironmentId ?? 0),
+            environmentId: String(context?.environmentId ?? environmentStore.getState().currentEnvironmentId ?? 0),
             ...(currentWorkspaceId != null ? {workspaceId: String(currentWorkspaceId)} : {}),
             ...(userSelectedLlmProvider != null && userSelectedLlmModel != null
                 ? {userSelectedLlmModel, userSelectedLlmProvider}
@@ -311,6 +311,8 @@ export function CopilotRuntimeProvider({
         onNew,
         onReload,
     });
+
+    const aui = useAui({suggestions: Suggestions(suggestions ?? [])});
 
     return (
         <AssistantRuntimeProvider config={AuiConfig({suggestions: Suggestions(suggestions ?? [])})} runtime={runtime}>

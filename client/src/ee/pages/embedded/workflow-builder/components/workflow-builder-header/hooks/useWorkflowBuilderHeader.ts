@@ -229,6 +229,8 @@ export const useWorkflowBuilderHeader = ({bottomResizablePanelRef, chatTrigger, 
 
     // Stop the workflow execution when:
     // - We are in chat mode (`chatTrigger` is true) and the chat panel is not open (`!workflowTestChatPanelOpen`)
+    // Only while a run is in progress — handleStopClick also closes the bottom panel, so firing it while idle
+    // makes the header Output button a no-op on chat-trigger workflows.
     useEffect(() => {
         if (chatTrigger && !workflowTestChatPanelOpen && workflowIsRunning) {
             handleStopClick();
