@@ -9,6 +9,7 @@ import {useRun} from '@/pages/platform/workflow-editor/hooks/useRun';
 import {RequestI, WorkflowEditorProvider} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
 import useDataPillPanelStore from '@/pages/platform/workflow-editor/stores/useDataPillPanelStore';
 import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
+import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
 import useWorkflowTestChatStore from '@/pages/platform/workflow-editor/stores/useWorkflowTestChatStore';
 import WorkflowTestRunLeaveDialog from '@/shared/components/WorkflowTestRunLeaveDialog';
@@ -56,6 +57,7 @@ const AutomationWorkflow = () => {
     const leftSidebarOpen = useAutomationWorkflowEditorSidebarStore((state) => state.leftSidebarOpen);
     const setDataPillPanelOpen = useDataPillPanelStore((state) => state.setDataPillPanelOpen);
     const setWorkflowTestChatPanelOpen = useWorkflowTestChatStore((state) => state.setWorkflowTestChatPanelOpen);
+    const showBottomPanel = useWorkflowEditorStore((state) => state.showBottomPanel);
 
     const bottomResizablePanelRef = useRef<PanelImperativeHandle>(null);
 
@@ -205,7 +207,7 @@ const AutomationWorkflow = () => {
                         <ResizableHandle className="bg-muted" />
 
                         <ResizablePanel className="flex" defaultSize={0} panelRef={bottomResizablePanelRef}>
-                            {(workflowIsRunning || workflowTestExecution) && (
+                            {(showBottomPanel || workflowIsRunning || workflowTestExecution) && (
                                 <div
                                     className={twMerge(
                                         'm-3 flex flex-1 overflow-hidden rounded-lg bg-background',
