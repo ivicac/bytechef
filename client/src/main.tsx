@@ -45,13 +45,15 @@ async function renderApp() {
     const root = createRoot(container);
     const queryClient = new QueryClient();
 
-    const isEmbeddedWorkflowBuilder = window.location.pathname.includes('/embedded/workflow-builder');
-
-    const router = isEmbeddedWorkflowBuilder
-        ? (await import('@/embeddedWorkflowBuilderRoutes')).getRouter()
-        : (await import('./routes')).getRouter(queryClient);
+    const router = (await import('./routes')).getRouter(queryClient);
 
     await applicationInfoStore.getState().getApplicationInfo();
+
+    if (applicationInfoStore.getState().application?.edition === 'EE') {
+        // Registers the EE implementations behind the CE edition seams (see shared/edition) before the first
+        // render, so the hook implementations CE surfaces resolve never change identity afterwards.
+        await import('@/ee/shared/edition/registerEditionModules');
+    }
 
     const {helpHub, userGuiding} = applicationInfoStore.getState();
 
