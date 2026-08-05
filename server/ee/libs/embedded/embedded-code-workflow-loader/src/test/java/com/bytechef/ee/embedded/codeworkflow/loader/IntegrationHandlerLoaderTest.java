@@ -27,6 +27,7 @@ import java.nio.file.Paths;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
 import java.util.List;
+import java.util.Map;
 import java.util.jar.JarEntry;
 import java.util.jar.JarOutputStream;
 import java.util.stream.Collectors;
@@ -88,8 +89,63 @@ class IntegrationHandlerLoaderTest {
         }
         """;
 
+    private static final String CONTEXT_JAVA_SOURCE = """
+        import com.bytechef.embedded.integration.IntegrationHandler;
+        import com.bytechef.embedded.integration.definition.IntegrationDefinition;
+        import com.bytechef.embedded.integration.definition.IntegrationDsl;
+        import com.bytechef.workflow.definition.WorkflowDsl;
+        import java.util.Map;
+
+        public class ContextTestIntegrationHandler implements IntegrationHandler {
+
+            @Override
+            public IntegrationDefinition getDefinition() {
+                return IntegrationDsl.integration("test-component", 1)
+                    .version("1.0.0")
+                    .workflows(
+                        WorkflowDsl.workflow("my-workflow")
+                            .tasks(
+                                WorkflowDsl.task("my-task")
+                                    .perform(context -> context.component(
+                                        "mock", "doIt", Map.of("x", 1), "conn"))));
+            }
+        }
+        """;
+
     @TempDir
     private Path tempDir;
+
+    @Test
+    void testLoadIntegrationHandlerFromJavaJarWithClassLoaderThreadsTaskContext() throws Exception {
+        Path jarPath = buildFixtureJar(tempDir, CONTEXT_JAVA_SOURCE, "ContextTestIntegrationHandler");
+
+        IntegrationHandler integrationHandler = IntegrationHandlerLoader.loadIntegrationHandler(
+            toUrl(jarPath), Language.JAVA, "context-cache-key",
+            new ConcurrentMapCacheManager());
+
+        IntegrationDefinition integrationDefinition = integrationHandler.getDefinition();
+
+        List<WorkflowDefinition> workflows = integrationDefinition.getWorkflows()
+            .orElseThrow();
+
+        WorkflowDefinition workflowDefinition = workflows.getFirst();
+
+        List<? extends TaskDefinition> tasks = workflowDefinition.getTasks()
+            .orElseThrow();
+
+        TaskDefinition taskDefinition = tasks.getFirst();
+
+        RecordingTaskContext taskContext = new RecordingTaskContext("context result");
+
+        Object result = taskDefinition.getPerform()
+            .apply(taskContext);
+
+        assertEquals("context result", result);
+        assertEquals("mock", taskContext.getComponentName());
+        assertEquals("doIt", taskContext.getActionName());
+        assertEquals(Map.of("x", 1), taskContext.getInput());
+        assertEquals("conn", taskContext.getConnectionName());
+    }
 
     @Test
     void testLoadIntegrationHandlerFromJavaScript() throws IOException {

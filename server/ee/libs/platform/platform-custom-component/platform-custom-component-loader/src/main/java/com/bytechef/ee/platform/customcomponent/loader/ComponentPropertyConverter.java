@@ -50,6 +50,10 @@ final class ComponentPropertyConverter {
     }
 
     @SuppressWarnings("unchecked")
+    static ModifiableValueProperty<?, ?> toValueProperty(Map<String, ?> propertyMap) {
+        return (ModifiableValueProperty<?, ?>) toProperty(propertyMap);
+    }
+
     private static Property toProperty(Map<String, ?> propertyMap) {
         String name = (String) propertyMap.get("name");
         String type = (String) propertyMap.get("type");
