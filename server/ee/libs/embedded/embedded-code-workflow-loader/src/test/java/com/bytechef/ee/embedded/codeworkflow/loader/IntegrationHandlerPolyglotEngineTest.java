@@ -5,35 +5,19 @@
  * you may not use this file except in compliance with the Enterprise License.
  */
 
-package com.bytechef.platform.codeworkflow.loader.automation;
+package com.bytechef.ee.embedded.codeworkflow.loader;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.bytechef.automation.project.ProjectHandler;
-import com.bytechef.automation.project.definition.ProjectDefinition;
+import com.bytechef.embedded.integration.IntegrationHandler;
+import com.bytechef.embedded.integration.definition.IntegrationDefinition;
 import com.bytechef.workflow.definition.ConnectionRequirement;
 import com.bytechef.workflow.definition.TaskDefinition;
 import com.bytechef.workflow.definition.WorkflowDefinition;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.security.CodeSource;
-import java.security.ProtectionDomain;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
-import java.util.jar.JarEntry;
-import java.util.jar.JarOutputStream;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
-import javax.tools.JavaCompiler;
-import javax.tools.ToolProvider;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -41,13 +25,12 @@ import org.junit.jupiter.api.Test;
  *
  * @author Ivica Cardic
  */
-@SuppressFBWarnings("PATH_TRAVERSAL_IN")
-class ProjectHandlerPolyglotEngineTest {
-
+class IntegrationHandlerPolyglotEngineTest {
 
     private static final String CONTEXT_JAVASCRIPT_SOURCE = """
         ({
-            name: 'test-project',
+            componentName: 'test-component',
+            componentVersion: 1,
             workflows: [
                 {
                     name: 'my-workflow',
@@ -70,7 +53,8 @@ class ProjectHandlerPolyglotEngineTest {
         import types
 
         types.SimpleNamespace(
-            name="test-project",
+            componentName="test-component",
+            componentVersion=1,
             workflows=[
                 {
                     "name": "my-workflow",
@@ -86,8 +70,9 @@ class ProjectHandlerPolyglotEngineTest {
         """;
 
     private static final String CONTEXT_RUBY_SOURCE = """
-        Struct.new(:name, :workflows).new(
-          "test-project",
+        Struct.new(:componentName, :componentVersion, :workflows).new(
+          "test-component",
+          1,
           [
             {
               "name" => "my-workflow",
@@ -104,7 +89,8 @@ class ProjectHandlerPolyglotEngineTest {
 
     private static final String LOG_JAVASCRIPT_SOURCE = """
         ({
-            name: 'test-project',
+            componentName: 'test-component',
+            componentVersion: 1,
             workflows: [
                 {
                     name: 'my-workflow',
@@ -125,7 +111,8 @@ class ProjectHandlerPolyglotEngineTest {
 
     private static final String ZERO_ARG_JAVASCRIPT_SOURCE = """
         ({
-            name: 'test-project',
+            componentName: 'test-component',
+            componentVersion: 1,
             workflows: [
                 {
                     name: 'my-workflow',
@@ -227,7 +214,8 @@ class ProjectHandlerPolyglotEngineTest {
     void testPerformReadsConnectionParametersFromContext() throws Exception {
         String source = """
             ({
-                name: 'test-project',
+                componentName: 'test-component',
+                componentVersion: 1,
                 workflows: [
                     {
                         name: 'my-workflow',
@@ -258,7 +246,8 @@ class ProjectHandlerPolyglotEngineTest {
     void testLoadParsesDeclaredTaskConnectionsForJavaScript() {
         String connectionsSource = """
             ({
-                name: 'test-project',
+                componentName: 'test-component',
+                componentVersion: 1,
                 workflows: [
                     {
                         name: 'my-workflow',
@@ -298,47 +287,11 @@ class ProjectHandlerPolyglotEngineTest {
     }
 
     @Test
-    void testLoadParsesDeclaredTaskConnectionsForPython() {
-        String connectionsSource = """
-            import types
-
-            types.SimpleNamespace(
-                name="test-project",
-                workflows=[
-                    {
-                        "name": "my-workflow",
-                        "tasks": [
-                            {
-                                "name": "my-task",
-                                "connections": [
-                                    {"componentName": "slack", "name": "slack-prod"}
-                                ],
-                                "perform": lambda context: "x"
-                            }
-                        ]
-                    }
-                ]
-            )
-            """;
-
-        TaskDefinition taskDefinition = loadSingleTask("python", connectionsSource);
-
-        List<? extends ConnectionRequirement> connections = taskDefinition.getConnections()
-            .orElseThrow();
-
-        assertEquals(1, connections.size());
-
-        ConnectionRequirement connectionRequirement = connections.getFirst();
-
-        assertEquals("slack", connectionRequirement.getComponentName());
-        assertEquals("slack-prod", connectionRequirement.getName());
-    }
-
-    @Test
     void testLoadParsesDeclaredTaskConnectionsDeclaredAsMap() {
         String connectionsSource = """
             ({
-                name: 'test-project',
+                componentName: 'test-component',
+                componentVersion: 1,
                 workflows: [
                     {
                         name: 'my-workflow',
@@ -390,11 +343,12 @@ class ProjectHandlerPolyglotEngineTest {
     }
 
     private static TaskDefinition loadSingleTask(String languageId, String source) {
-        ProjectHandler projectHandler = ProjectHandlerPolyglotEngine.load(languageId, source);
+        IntegrationHandler integrationHandler = IntegrationHandlerPolyglotEngine.load(languageId, source);
 
-        ProjectDefinition projectDefinition = projectHandler.getDefinition();
+        IntegrationDefinition integrationDefinition = integrationHandler.getDefinition();
 
-        List<WorkflowDefinition> workflows = projectDefinition.getWorkflows();
+        List<WorkflowDefinition> workflows = integrationDefinition.getWorkflows()
+            .orElseThrow();
 
         WorkflowDefinition workflowDefinition = workflows.getFirst();
 
@@ -402,59 +356,5 @@ class ProjectHandlerPolyglotEngineTest {
             .orElseThrow();
 
         return tasks.getFirst();
-    }
-
-    static Path buildFixtureJar(Path directory, String source, String className) throws IOException {
-        Path sourcePath = directory.resolve(className + ".java");
-
-        Files.writeString(sourcePath, source);
-
-        Path classesDirectory = Files.createDirectories(directory.resolve("classes"));
-
-        JavaCompiler javaCompiler = ToolProvider.getSystemJavaCompiler();
-
-        int compilationResult = javaCompiler.run(
-            null, null, null, "-classpath", sdkClasspath(), "-d", classesDirectory.toString(), sourcePath.toString());
-
-        assertEquals(0, compilationResult, "Fixture compilation failed");
-
-        Path jarPath = directory.resolve(className + ".jar");
-
-        try (JarOutputStream jarOutputStream = new JarOutputStream(Files.newOutputStream(jarPath))) {
-            jarOutputStream.putNextEntry(
-                new JarEntry("META-INF/services/com.bytechef.automation.project.ProjectHandler"));
-            jarOutputStream.write((className + "\n").getBytes(StandardCharsets.UTF_8));
-            jarOutputStream.closeEntry();
-
-            try (Stream<Path> classFiles = Files.walk(classesDirectory)) {
-                for (Path classFile : classFiles.filter(Files::isRegularFile)
-                    .toList()) {
-
-                    String entryName = classesDirectory.relativize(classFile)
-                        .toString()
-                        .replace(File.separatorChar, '/');
-
-                    jarOutputStream.putNextEntry(new JarEntry(entryName));
-                    jarOutputStream.write(Files.readAllBytes(classFile));
-                    jarOutputStream.closeEntry();
-                }
-            }
-        }
-
-        return jarPath;
-    }
-
-    private static String sdkClasspath() {
-        return Stream.of(ProjectHandler.class, WorkflowDefinition.class)
-            .map(clazz -> {
-                ProtectionDomain protectionDomain = clazz.getProtectionDomain();
-
-                CodeSource codeSource = protectionDomain.getCodeSource();
-
-                return Paths.get(URI.create(String.valueOf(codeSource.getLocation())))
-                    .toString();
-            })
-            .distinct()
-            .collect(Collectors.joining(File.pathSeparator));
     }
 }
