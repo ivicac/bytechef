@@ -429,7 +429,7 @@ public class TestWorkflowExecutorImpl implements TestWorkflowExecutor {
                 .map(WorkflowTestConfiguration::getInputs)
                 .orElse(Map.of());
 
-            Object sampleOutput = workflowNodeOutputDTO.getSampleOutput();
+            Object sampleOutput = workflowNodeOutputDTO == null ? null : workflowNodeOutputDTO.getSampleOutput();
 
             if (sampleOutput == null) {
                 sampleOutput = Map.of();
