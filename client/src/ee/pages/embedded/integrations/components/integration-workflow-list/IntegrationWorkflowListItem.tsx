@@ -23,10 +23,12 @@ import {
 } from '@/shared/middleware/graphql';
 import {ComponentDefinitionBasic} from '@/shared/middleware/platform/configuration';
 import {WorkflowTestConfigurationKeys} from '@/shared/queries/platform/workflowTestConfigurations.queries';
+import {isJavaCodeWorkflow} from '@/shared/util/codeWorkflowLanguage-utils';
 import {useQueryClient} from '@tanstack/react-query';
 import {DownloadIcon, EditIcon, EllipsisVerticalIcon, Trash2Icon} from 'lucide-react';
 import {useEffect, useRef, useState} from 'react';
 import {Link, useSearchParams} from 'react-router-dom';
+import {twMerge} from 'tailwind-merge';
 
 const IntegrationWorkflowListItem = ({
     filteredComponentNames,
@@ -45,6 +47,8 @@ const IntegrationWorkflowListItem = ({
         [key: string]: ComponentDefinitionBasic | undefined;
     };
 }) => {
+    const javaCodeWorkflow = isJavaCodeWorkflow(integration.codeWorkflow, integration.codeWorkflowLanguage);
+
     const [isPermissionExpressionSeeded, setIsPermissionExpressionSeeded] = useState(false);
     const [permissionExpression, setPermissionExpression] = useState<string | null>('');
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
@@ -139,7 +143,14 @@ const IntegrationWorkflowListItem = ({
             key={workflow.id}
         >
             <Link
-                className="flex flex-1 items-center"
+                aria-disabled={javaCodeWorkflow || undefined}
+                className={twMerge(
+                    'flex flex-1 items-center',
+                    // A polyglot code integration opens its source editor here, same as the automation side; a Java
+                    // one comes from a compiled JAR and has nothing to open.
+                    javaCodeWorkflow && 'pointer-events-none'
+                )}
+                tabIndex={javaCodeWorkflow ? -1 : undefined}
                 to={`/embedded/integrations/${integration.id}/integration-workflows/${workflow.integrationWorkflowId}?${searchParams}`}
             >
                 <div className="w-80 text-sm font-semibold">{workflow.label}</div>

@@ -81,22 +81,19 @@ const Integrations = () => {
                                 <ButtonGroup>
                                     <Button
                                         aria-label="Create Integration"
+                                        label="New Integration"
                                         onClick={() => setShowIntegrationDialog(true)}
-                                    >
-                                        New Integration
-                                    </Button>
+                                    />
 
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button>
-                                                <ChevronDownIcon />
-                                            </Button>
+                                            <Button aria-label="More integration options" icon={<ChevronDownIcon />} />
                                         </DropdownMenuTrigger>
 
                                         <DropdownMenuContent align="end">
                                             <DropdownMenuItem onClick={() => setShowNewCodeWorkflowDialog(true)}>
                                                 <CodeIcon className="mr-2 size-4" />
-                                                New Code Workflow
+                                                New Code Integration
                                             </DropdownMenuItem>
                                         </DropdownMenuContent>
                                     </DropdownMenu>
@@ -140,21 +137,21 @@ const Integrations = () => {
                     <EmptyList
                         button={
                             <ButtonGroup className="mx-auto">
-                                <Button aria-label="Create Integration" onClick={() => setShowIntegrationDialog(true)}>
-                                    Create Integration
-                                </Button>
+                                <Button
+                                    aria-label="Create Integration"
+                                    label="Create Integration"
+                                    onClick={() => setShowIntegrationDialog(true)}
+                                />
 
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button>
-                                            <ChevronDownIcon />
-                                        </Button>
+                                        <Button aria-label="More integration options" icon={<ChevronDownIcon />} />
                                     </DropdownMenuTrigger>
 
                                     <DropdownMenuContent align="end">
                                         <DropdownMenuItem onClick={() => setShowNewCodeWorkflowDialog(true)}>
                                             <CodeIcon className="mr-2 size-4" />
-                                            New Code Workflow
+                                            New Code Integration
                                         </DropdownMenuItem>
                                     </DropdownMenuContent>
                                 </DropdownMenu>
