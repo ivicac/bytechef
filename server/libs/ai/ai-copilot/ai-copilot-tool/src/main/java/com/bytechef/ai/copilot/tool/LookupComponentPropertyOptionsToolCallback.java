@@ -36,11 +36,6 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.core.JacksonException;
 
 /**
- * Unified variant of {@link LookupActionPropertyOptionsToolCallback} / {@link LookupTriggerPropertyOptionsToolCallback}
- * for agents that want ONE pinned tool for both operation kinds: a {@code kind} input (ACTION | TRIGGER) selects the
- * resolution path, halving the pinned schema count and removing the "which twin do I call" failure mode the prompts
- * previously had to teach around. The per-kind twins remain for surfaces that keep them registered.
- *
  * @author Ivica Cardic
  */
 public class LookupComponentPropertyOptionsToolCallback implements ToolCallback {
@@ -146,7 +141,9 @@ public class LookupComponentPropertyOptionsToolCallback implements ToolCallback 
                 return toolError("Invocation context unavailable.");
             }
 
-            int componentVersion = input.componentVersion() == null ? 1 : input.componentVersion();
+            Integer inputComponentVersion = input.componentVersion();
+
+            int componentVersion = inputComponentVersion == null ? 1 : inputComponentVersion;
 
             PropertyOptionsResolver.OptionsLookupResult result = kind.equals("ACTION")
                 ? resolver.resolveActionPropertyOptions(

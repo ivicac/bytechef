@@ -19,6 +19,7 @@ package com.bytechef.automation.ai.tool;
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.automation.configuration.dto.ProjectDeploymentDTO;
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
+import com.bytechef.commons.util.JsonUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.NoSuchElementException;
 import org.jspecify.annotations.Nullable;
@@ -26,7 +27,6 @@ import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * @author Ivica Cardic
@@ -55,7 +55,6 @@ public class UpdateProjectDeploymentToolCallback implements ToolCallback {
             }""";
 
     private final ProjectDeploymentFacade projectDeploymentFacade;
-    private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public UpdateProjectDeploymentToolCallback(ProjectDeploymentFacade projectDeploymentFacade) {
@@ -79,16 +78,18 @@ public class UpdateProjectDeploymentToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            UpdateProjectDeploymentInput input = jsonMapper.readValue(
+            UpdateProjectDeploymentInput input = JsonUtils.read(
                 toolInput, UpdateProjectDeploymentInput.class);
 
-            if (input.projectDeploymentId() == null || input.projectDeploymentId()
-                .isBlank()) {
+            String projectDeploymentIdString = input.projectDeploymentId();
+
+            if (projectDeploymentIdString == null || projectDeploymentIdString.isBlank()) {
                 return toolError("projectDeploymentId is required");
             }
 
-            boolean nameSupplied = input.name() != null && !input.name()
-                .isBlank();
+            String name = input.name();
+
+            boolean nameSupplied = name != null && !name.isBlank();
             boolean descriptionSupplied = input.description() != null;
 
             if (!nameSupplied && !descriptionSupplied) {
@@ -98,12 +99,25 @@ public class UpdateProjectDeploymentToolCallback implements ToolCallback {
             long projectDeploymentId;
 
             try {
-                projectDeploymentId = Long.parseLong(input.projectDeploymentId());
+                projectDeploymentId = Long.parseLong(projectDeploymentIdString);
             } catch (NumberFormatException exception) {
                 return toolError("Invalid projectDeploymentId — must be a numeric id");
             }
 
-            ProjectDeploymentDTO existing = projectDeploymentFacade.getProjectDeployment(projectDeploymentId);
+            String workspaceError = ProjectDeploymentWorkspaceGuard.findWorkspaceError(
+                projectDeploymentFacade, toolContext, projectDeploymentId);
+
+            if (workspaceError != null) {
+                return toolError(workspaceError);
+            }
+
+            ProjectDeploymentDTO existing;
+
+            try {
+                existing = projectDeploymentFacade.getProjectDeployment(projectDeploymentId);
+            } catch (NoSuchElementException exception) {
+                return toolError("Project deployment " + projectDeploymentId + " not found");
+            }
 
             ProjectDeploymentDTO updated = ProjectDeploymentDTO.builder()
                 .createdBy(existing.createdBy())
@@ -112,7 +126,7 @@ public class UpdateProjectDeploymentToolCallback implements ToolCallback {
                 .enabled(existing.enabled())
                 .environment(existing.environment())
                 .id(existing.id())
-                .name(nameSupplied ? input.name() : existing.name())
+                .name(nameSupplied ? name : existing.name())
                 .lastModifiedBy(existing.lastModifiedBy())
                 .lastModifiedDate(existing.lastModifiedDate())
                 .project(existing.project())
@@ -123,22 +137,27 @@ public class UpdateProjectDeploymentToolCallback implements ToolCallback {
                 .version(existing.version())
                 .build();
 
-            projectDeploymentFacade.updateProjectDeployment(updated);
+            try {
+                projectDeploymentFacade.updateProjectDeployment(updated);
+            } catch (NoSuchElementException exception) {
+                return toolError(
+                    "Project deployment " + projectDeploymentId
+                        + " could not be updated — one of its workflows no longer exists");
+            }
 
-            return jsonMapper.writeValueAsString(
+            return JsonUtils.write(
                 new UpdateProjectDeploymentOutput(projectDeploymentId, updated.name(), updated.description()));
         } catch (JacksonException exception) {
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (IllegalArgumentException | com.bytechef.exception.ConfigurationException exception) {
             return toolError(exception.getMessage());
         } catch (RuntimeException exception) {
-            return ToolErrors.runtimeFailure(
-                jsonMapper, UpdateProjectDeploymentToolCallback.class, TOOL_NAME, exception);
+            return ToolErrors.runtimeFailure(UpdateProjectDeploymentToolCallback.class, TOOL_NAME, exception);
         }
     }
 
     private String toolError(String message) {
-        return ToolErrors.toolError(jsonMapper, message);
+        return ToolErrors.toolError(message);
     }
 
     public record UpdateProjectDeploymentInput(

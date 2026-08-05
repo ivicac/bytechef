@@ -34,6 +34,7 @@ import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import org.junit.jupiter.api.Test;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -57,7 +58,8 @@ final class EmbeddedMcpServerOAuth2AuthenticationConverterTest {
     private final KeyPair otherKeyPair = generateRsaKeyPair();
 
     private final EmbeddedMcpServerOAuth2AuthenticationConverter converter =
-        new EmbeddedMcpServerOAuth2AuthenticationConverter(trustedIssuerResolver(), decoderFactory());
+        new EmbeddedMcpServerOAuth2AuthenticationConverter(
+            trustedIssuerResolver(), () -> List.of(Environment.values()), decoderFactory());
 
     @Test
     void testReturnsNullWhenNoAuthorizationHeader() {
@@ -104,12 +106,14 @@ final class EmbeddedMcpServerOAuth2AuthenticationConverterTest {
     void testMapsGroupClaimToAuthorities() {
         EmbeddedMcpServerOAuth2AuthenticationConverter mappingConverter =
             new EmbeddedMcpServerOAuth2AuthenticationConverter(
-                trustedIssuerResolver(Map.of("editors", "ROLE_EDITOR")), decoderFactory());
+                trustedIssuerResolver(Map.of("editors", "ROLE_EDITOR")), () -> List.of(Environment.values()),
+                decoderFactory());
 
         String token = signJwtWithGroups(ISSUER_URI, "ext-user-1", keyPair, List.of("editors", "unmapped"));
 
         EmbeddedMcpServerOAuth2AuthenticationToken oAuth2AuthenticationToken =
-            (EmbeddedMcpServerOAuth2AuthenticationToken) mappingConverter.convert(request(token));
+            (EmbeddedMcpServerOAuth2AuthenticationToken) Objects.requireNonNull(
+                mappingConverter.convert(request(token)), "converted authentication");
 
         assertThat(
             oAuth2AuthenticationToken.getMappedAuthorities()

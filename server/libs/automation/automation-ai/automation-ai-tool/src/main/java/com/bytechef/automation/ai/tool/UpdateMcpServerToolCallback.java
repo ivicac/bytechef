@@ -18,6 +18,7 @@ package com.bytechef.automation.ai.tool;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.automation.ai.mcp.facade.WorkspaceMcpServerFacade;
+import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.platform.mcp.domain.McpServer;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import org.jspecify.annotations.Nullable;
@@ -25,7 +26,6 @@ import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * @author Ivica Cardic
@@ -53,7 +53,6 @@ public class UpdateMcpServerToolCallback implements ToolCallback {
             }""";
 
     private final WorkspaceMcpServerFacade workspaceMcpServerFacade;
-    private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public UpdateMcpServerToolCallback(WorkspaceMcpServerFacade workspaceMcpServerFacade) {
@@ -77,15 +76,17 @@ public class UpdateMcpServerToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            UpdateMcpServerInput input = jsonMapper.readValue(toolInput, UpdateMcpServerInput.class);
+            UpdateMcpServerInput input = JsonUtils.read(toolInput, UpdateMcpServerInput.class);
 
-            if (input.mcpServerId() == null || input.mcpServerId()
-                .isBlank()) {
+            String mcpServerIdString = input.mcpServerId();
+
+            if (mcpServerIdString == null || mcpServerIdString.isBlank()) {
                 return toolError("mcpServerId is required");
             }
 
-            boolean nameSupplied = input.name() != null && !input.name()
-                .isBlank();
+            String name = input.name();
+
+            boolean nameSupplied = name != null && !name.isBlank();
             boolean enabledSupplied = input.enabled() != null;
 
             if (!nameSupplied && !enabledSupplied) {
@@ -95,27 +96,27 @@ public class UpdateMcpServerToolCallback implements ToolCallback {
             long mcpServerId;
 
             try {
-                mcpServerId = Long.parseLong(input.mcpServerId());
+                mcpServerId = Long.parseLong(mcpServerIdString);
             } catch (NumberFormatException exception) {
                 return toolError("Invalid mcpServerId — must be a numeric id");
             }
 
             McpServer updated = workspaceMcpServerFacade.updateWorkspaceMcpServer(
-                mcpServerId, nameSupplied ? input.name() : null, input.enabled());
+                mcpServerId, nameSupplied ? name : null, input.enabled());
 
-            return jsonMapper.writeValueAsString(
+            return JsonUtils.write(
                 new UpdateMcpServerOutput(updated.getId(), updated.getName(), updated.isEnabled()));
         } catch (JacksonException exception) {
             return toolError("Invalid tool input: " + exception.getMessage());
-        } catch (IllegalArgumentException exception) {
+        } catch (IllegalArgumentException | com.bytechef.exception.ConfigurationException exception) {
             return toolError(exception.getMessage());
         } catch (RuntimeException exception) {
-            return ToolErrors.runtimeFailure(jsonMapper, UpdateMcpServerToolCallback.class, TOOL_NAME, exception);
+            return ToolErrors.runtimeFailure(UpdateMcpServerToolCallback.class, TOOL_NAME, exception);
         }
     }
 
     private String toolError(String message) {
-        return ToolErrors.toolError(jsonMapper, message);
+        return ToolErrors.toolError(message);
     }
 
     public record UpdateMcpServerInput(String mcpServerId, @Nullable String name, @Nullable Boolean enabled) {

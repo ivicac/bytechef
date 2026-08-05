@@ -18,6 +18,7 @@ package com.bytechef.automation.ai.tool;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.automation.ai.mcp.facade.WorkspaceMcpServerFacade;
+import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.mcp.domain.McpServer;
@@ -29,7 +30,6 @@ import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
  * @author Ivica Cardic
@@ -64,7 +64,6 @@ public class CreateMcpServerToolCallback implements ToolCallback {
             }""";
 
     private final WorkspaceMcpServerFacade workspaceMcpServerFacade;
-    private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public CreateMcpServerToolCallback(WorkspaceMcpServerFacade workspaceMcpServerFacade) {
@@ -90,11 +89,13 @@ public class CreateMcpServerToolCallback implements ToolCallback {
         try {
             AutomationToolInvocationContext context = AutomationToolInvocationContext.fromToolContext(toolContext);
 
-            if (context == null || context.workspaceId() == null) {
+            Long workspaceId = context == null ? null : context.workspaceId();
+
+            if (workspaceId == null) {
                 return toolError("Workspace context unavailable — open this chat from the AI Hub of a workspace.");
             }
 
-            CreateMcpServerInput input = jsonMapper.readValue(toolInput, CreateMcpServerInput.class);
+            CreateMcpServerInput input = JsonUtils.read(toolInput, CreateMcpServerInput.class);
 
             if (input.name() == null || input.name()
                 .isBlank()) {
@@ -116,12 +117,14 @@ public class CreateMcpServerToolCallback implements ToolCallback {
                     "Unknown environment '" + input.environment() + "'. Supported: " + SUPPORTED_ENVIRONMENTS);
             }
 
-            boolean enabled = input.enabled() != null && input.enabled();
+            Boolean enabledInput = input.enabled();
+
+            boolean enabled = enabledInput != null && enabledInput;
 
             McpServer mcpServer = workspaceMcpServerFacade.createWorkspaceMcpServer(
-                input.name(), PlatformType.AUTOMATION, environment, enabled, context.workspaceId());
+                input.name(), PlatformType.AUTOMATION, environment, enabled, null, workspaceId);
 
-            return jsonMapper.writeValueAsString(
+            return JsonUtils.write(
                 new CreateMcpServerOutput(
                     mcpServer.getId(), mcpServer.getName(),
                     mcpServer.getType()
@@ -134,12 +137,12 @@ public class CreateMcpServerToolCallback implements ToolCallback {
         } catch (IllegalArgumentException exception) {
             return toolError(exception.getMessage());
         } catch (RuntimeException exception) {
-            return ToolErrors.runtimeFailure(jsonMapper, CreateMcpServerToolCallback.class, TOOL_NAME, exception);
+            return ToolErrors.runtimeFailure(CreateMcpServerToolCallback.class, TOOL_NAME, exception);
         }
     }
 
     private String toolError(String message) {
-        return ToolErrors.toolError(jsonMapper, message);
+        return ToolErrors.toolError(message);
     }
 
     public record CreateMcpServerInput(String name, String environment, @Nullable Boolean enabled) {
