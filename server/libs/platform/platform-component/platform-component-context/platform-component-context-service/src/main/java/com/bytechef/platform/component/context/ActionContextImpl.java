@@ -114,8 +114,7 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
         this.tracer = builder.tracer;
 
         if (builder.jobId != null && builder.publicUrl != null) {
-            this.approval = new ApprovalImpl(
-                tenantId, builder.jobId, builder.taskExecutionId, builder.publicUrl, builder.approvalTokens);
+            this.approval = new ApprovalImpl(builder.jobId, builder.publicUrl, builder.approvalTokens);
         }
 
         this.data = new DataImpl(
@@ -140,11 +139,11 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
         String componentName, int componentVersion, String actionName, boolean editorEnvironment,
         CacheManager cacheManager, DataStorage dataStorage, ApplicationEventPublisher eventPublisher,
         HttpClientExecutor httpClientExecutor, TempFileStorage tempFileStorage,
-        @Nullable JobService jobService) {
+        @Nullable JobService jobService, @Nullable ApprovalTokens approvalTokens) {
 
         return new Builder(
             componentName, componentVersion, actionName, editorEnvironment, cacheManager, dataStorage, eventPublisher,
-            httpClientExecutor, tempFileStorage, jobService);
+            httpClientExecutor, tempFileStorage, jobService, approvalTokens);
     }
 
     @Override
@@ -154,7 +153,7 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
 
         return builder(
             componentName, componentVersion, actionName, editorEnvironment, cacheManager, dataStorage,
-            eventPublisher, httpClientExecutor, tempFileStorage, jobService)
+            eventPublisher, httpClientExecutor, tempFileStorage, jobService, approvalTokens)
                 .componentConnection(componentConnection)
                 .environmentId(environmentId)
                 .jobId(jobId)
@@ -223,7 +222,7 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
             String componentName, int componentVersion, String actionName, boolean editorEnvironment,
             CacheManager cacheManager, DataStorage dataStorage, ApplicationEventPublisher eventPublisher,
             HttpClientExecutor httpClientExecutor, TempFileStorage tempFileStorage,
-            @Nullable JobService jobService) {
+            @Nullable JobService jobService, @Nullable ApprovalTokens approvalTokens) {
 
             this.componentName = componentName;
             this.componentVersion = componentVersion;
@@ -235,6 +234,7 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
             this.httpClientExecutor = httpClientExecutor;
             this.tempFileStorage = tempFileStorage;
             this.jobService = jobService;
+            this.approvalTokens = approvalTokens;
         }
 
         Builder componentConnection(@Nullable ComponentConnection componentConnection) {
@@ -412,7 +412,9 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
             this.jobResumeId = currentJobResumeId;
         }
 
-        return currentJobResumeId;
+        // The stored JOB_RESUME_ID metadata (getJobResumeId) stays the unsigned inner value for the stored-uuid match;
+        // only the URL carries the HMAC-signed wrapper.
+        return publicUrl + "/job/resume/" + toResumeToken(this.jobResumeId);
     }
 
     @Override
@@ -494,6 +496,7 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
     }
 
     @Override
+    @SuppressFBWarnings("EI_EXPOSE_REP")
     public Map<String, Object> getJobMetadata() {
         if (jobMetadata != null) {
             return jobMetadata;
@@ -607,9 +610,8 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
             .build();
     }
 
-    private record ApprovalImpl(
-        String tenantId, long jobId, long taskExecutionId, String publicUrl,
-        @Nullable ApprovalTokens approvalTokens) implements Approval {
+    private record ApprovalImpl(long jobId, String publicUrl, @Nullable ApprovalTokens approvalTokens)
+        implements Approval {
 
         @Override
         public Links generateLinks() {
@@ -619,10 +621,8 @@ class ActionContextImpl extends ContextImpl implements ActionContext, ActionCont
             String pairUuid = uuid.toString();
 
             return new Links(
-                url.formatted(
-                    publicUrl, toApprovalToken(ApprovalId.of(tenantId, jobId, pairUuid, true, taskExecutionId))),
-                url.formatted(
-                    publicUrl, toApprovalToken(ApprovalId.of(tenantId, jobId, pairUuid, false, taskExecutionId))));
+                url.formatted(publicUrl, toApprovalToken(ApprovalId.of(jobId, true))),
+                url.formatted(publicUrl, toApprovalToken(ApprovalId.of(jobId, false))));
         }
 
         private String toApprovalToken(ApprovalId approvalId) {

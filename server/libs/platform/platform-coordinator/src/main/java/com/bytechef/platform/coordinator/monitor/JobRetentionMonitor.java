@@ -19,6 +19,7 @@ package com.bytechef.platform.coordinator.monitor;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.storage.DataStorage;
 import com.bytechef.platform.data.storage.domain.DataStorageScope;
 import com.bytechef.tenant.TenantContext;
@@ -112,10 +113,16 @@ public class JobRetentionMonitor {
                 continue;
             }
 
-            try {
-                jobFacade.deleteJob(expiredJob.getId());
+            Long expiredJobId = expiredJob.getId();
 
-                deleteExecutionData(expiredJob.getId());
+            if (expiredJobId == null) {
+                continue;
+            }
+
+            try {
+                jobFacade.deleteJob(expiredJobId);
+
+                deleteExecutionData(expiredJobId);
 
                 purgedJobCount++;
             } catch (UnsupportedOperationException exception) {
@@ -123,7 +130,7 @@ public class JobRetentionMonitor {
 
                 return;
             } catch (RuntimeException exception) {
-                log.warn("Failed to purge expired job {}", expiredJob.getId(), exception);
+                log.warn("Failed to purge expired job {}", expiredJobId, exception);
             }
         }
 
@@ -145,7 +152,9 @@ public class JobRetentionMonitor {
         }
 
         try {
-            dataStorage.deleteScopeData(DataStorageScope.CURRENT_EXECUTION, String.valueOf(jobId));
+            for (PlatformType type : PlatformType.values()) {
+                dataStorage.deleteScopeData(DataStorageScope.CURRENT_EXECUTION, String.valueOf(jobId), type);
+            }
         } catch (UnsupportedOperationException exception) {
             log.debug("Scope-wide data-storage delete unsupported by this provider; skipping execution-data cleanup");
         } catch (RuntimeException exception) {

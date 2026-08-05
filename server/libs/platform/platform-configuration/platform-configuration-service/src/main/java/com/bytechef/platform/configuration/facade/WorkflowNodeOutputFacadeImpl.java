@@ -256,11 +256,12 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
             List<?> items = arrayProperty.getItems();
 
             if (!items.isEmpty()) {
-                List<?> sampleOutput = (List<?>) outputResponse.sampleOutput();
+                List<?> sampleOutputs = (List<?>) outputResponse.sampleOutput();
+                Object firstSampleOutput =
+                    sampleOutputs == null || sampleOutputs.isEmpty() ? null : sampleOutputs.getFirst();
 
                 outputResponse = new OutputResponse(
-                    (BaseProperty) items.getFirst(), sampleOutput == null ? null : sampleOutput.getFirst(),
-                    outputResponse.placeholder());
+                    (BaseProperty) items.getFirst(), firstSampleOutput, outputResponse.placeholder());
             }
         }
 
@@ -316,6 +317,13 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
                 .flatMap(List::stream)
                 .map(WorkflowTask::new)
                 .toList();
+        } else if (Objects.equals(workflowNodeType.name(), "graph")) {
+            List<Map<String, ?>> nodes = MapUtils.getList(
+                workflowTask.getParameters(), "nodes", new TypeReference<Map<String, ?>>() {}, List.of());
+
+            return nodes.stream()
+                .flatMap(node -> getWorkflowTaskList(node, "tasks").stream())
+                .toList();
         } else {
             return getWorkflowTaskList(workflowTask.getParameters(), "iteratee");
         }
@@ -365,7 +373,8 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
                 Objects.equals(workflowNodeType.name(), "map") ||
                 Objects.equals(workflowNodeType.name(), "condition") ||
                 Objects.equals(workflowNodeType.name(), "branch") ||
-                Objects.equals(workflowNodeType.name(), "fork-join")) {
+                Objects.equals(workflowNodeType.name(), "fork-join") ||
+                Objects.equals(workflowNodeType.name(), "graph")) {
 
                 List<WorkflowTask> childWorkflowTasks = getChildWorkflowTasks(workflowTask, workflowNodeType);
 

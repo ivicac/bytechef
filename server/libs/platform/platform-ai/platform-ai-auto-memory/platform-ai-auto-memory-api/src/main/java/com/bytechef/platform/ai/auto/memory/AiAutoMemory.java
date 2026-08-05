@@ -28,57 +28,24 @@ import org.springframework.data.relational.core.mapping.Column;
 import org.springframework.data.relational.core.mapping.Table;
 
 /**
- * Persistent long-term memory entry for the agent. Owned by a principal — either a user or a deployment, discriminated
- * by {@code principal_type}/{@code principal_id}. A memory belongs to at most one workspace: the association is the
- * nullable {@code workspace_id} column, which is null where no workspace applies. The DB does NOT enforce a (user, env,
- * name) unique constraint — the slug regex on {@link #name} is the only entity-level shape gate; a service-layer
- * duplicate-name check in create() is the policy gate.
- *
- * <p>
- * This is a Spring Data JDBC row-mapper entity. Setters mostly exist for the construct-then-save flow. The load-bearing
- * setter-side guards are {@link #setName(String)} (enforces the slug regex so a controller bug or LLM tool call that
- * hands in raw user input cannot bypass the slugifier), {@link #setMemoryType(AiAutoMemoryType)} (rejects null so the
- * underlying ordinal column never silently defaults to {@code 0} / {@code USER}), and the length caps on
- * {@link #setTitle(String)}, {@link #setDescription(String)}, and {@link #setContent(String)} (prevent the LLM from
- * constructing oversized values that would hit the DB constraint or push past UI render limits). Workspace/user
- * ownership is enforced in {@code AiAutoMemoryServiceImpl}.
- * </p>
- *
  * @author Ivica Cardic
  */
 @Table("ai_auto_memory")
-public class AiAutoMemory {
+public final class AiAutoMemory {
 
-    /**
-     * Slugified-name format. Lowercase letters, digits, hyphens, and underscores; non-empty; max 64 chars.
-     *
-     * <p>
-     * <b>Validation scope:</b> enforced at three layers — (1) {@link #setName(String)} so service-layer callers cannot
-     * install a malformed name; (2) the {@code ck_ai_memory_name_slug} CHECK constraint on the
-     * {@code ai_auto_memory.name} column so any non-service path (raw SQL, manual reflection, a future repository layer
-     * that forgets the setter) is rejected at the DB; (3) the same regex string ({@code ^[a-z0-9_- ]{1,64}$}) is
-     * duplicated in the Liquibase migration so the two layers stay synchronised — if you change this pattern, also
-     * update {@code 20260424000001_ai_memory_init.xml}.
-     * </p>
-     *
-     * <p>
-     * Spring Data JDBC hydration writes directly to the {@code name} field via reflection and therefore bypasses this
-     * setter — by design, so a corrupt or pre-existing legacy DB row still rehydrates and can be repaired via the same
-     * setter on the next update. Do not push validation into {@link #getName()}; Spring Data round-trips would then
-     * loop on hydration.
-     * </p>
-     */
     public static final Pattern NAME_PATTERN = Pattern.compile("^[a-z0-9_-]{1,64}$");
+
+    public static final int MAX_TITLE_LENGTH = 255;
+
+    public static final int MAX_DESCRIPTION_LENGTH = 1024;
+
+    public static final int MAX_CONTENT_LENGTH = 65_536;
 
     @Id
     private Long id;
 
-    /**
-     * The owning workspace, or {@code null} when no workspace applies. Boxed on purpose — a primitive would coerce the
-     * "no workspace" case into workspace {@code 0}, which is a real workspace id.
-     */
     @Column("workspace_id")
-    private @Nullable Long workspaceId;
+    private long workspaceId;
 
     @Column("principal_id")
     private long principalId;
@@ -96,7 +63,7 @@ public class AiAutoMemory {
     private String description;
 
     @Column("memory_type")
-    private int memoryType;
+    private Integer memoryType;
 
     @Column("environment")
     private int environment;
@@ -110,47 +77,61 @@ public class AiAutoMemory {
     @Column("updated_at")
     private LocalDateTime updatedAt;
 
-    public AiAutoMemory() {
+    @Version
+    @Column("version")
+    private Long version;
+
+    @PersistenceCreator
+    AiAutoMemory() {
     }
 
-    /**
-     * Bind-once constructor for new (unpersisted) rows. The per-field setters for {@code principalId} and
-     * {@code principalType} are package-private so a loaded row cannot be retargeted by mistake. The workspace is set
-     * separately through {@link #setWorkspaceId(Long)} because it is optional.
-     */
-    public AiAutoMemory(AiAutoMemoryPrincipalType principalType, long principalId) {
-        this.principalType = Objects.requireNonNull(principalType, "principalType")
+    public AiAutoMemory(AiAutoMemoryOwner owner) {
+        Objects.requireNonNull(owner, "owner");
+
+        AiAutoMemoryPrincipalType ownerPrincipalType = owner.principalType();
+        Environment ownerEnvironment = owner.environment();
+
+        this.workspaceId = owner.workspaceId();
+        this.principalType = ownerPrincipalType.ordinal();
+        this.principalId = owner.principalId();
+        this.environment = ownerEnvironment.ordinal();
+    }
+
+    public static AiAutoMemory restore(
+        AiAutoMemoryOwner owner, long id, String name, String title, @Nullable String description,
+        AiAutoMemoryType memoryType, String content, @Nullable LocalDateTime createdAt,
+        @Nullable LocalDateTime updatedAt, long version) {
+
+        AiAutoMemory aiAutoMemory = new AiAutoMemory(owner);
+
+        aiAutoMemory.id = id;
+        aiAutoMemory.name = Objects.requireNonNull(name, "name");
+        aiAutoMemory.title = Objects.requireNonNull(title, "title");
+        aiAutoMemory.description = description;
+        aiAutoMemory.memoryType = Objects.requireNonNull(memoryType, "memoryType")
             .ordinal();
-        this.principalId = principalId;
+        aiAutoMemory.content = Objects.requireNonNull(content, "content");
+        aiAutoMemory.createdAt = createdAt;
+        aiAutoMemory.updatedAt = updatedAt;
+        aiAutoMemory.version = version;
+
+        return aiAutoMemory;
     }
 
     public Long getId() {
         return id;
     }
 
-    public void setId(Long id) {
-        this.id = id;
+    public AiAutoMemoryOwner getOwner() {
+        return new AiAutoMemoryOwner(workspaceId, getPrincipalType(), principalId, getEnvironment());
     }
 
-    public @Nullable Long getWorkspaceId() {
+    public long getWorkspaceId() {
         return workspaceId;
-    }
-
-    public void setWorkspaceId(@Nullable Long workspaceId) {
-        this.workspaceId = workspaceId;
     }
 
     public long getPrincipalId() {
         return principalId;
-    }
-
-    /**
-     * Package-private so post-load retargeting cannot happen across module boundaries. New rows must use
-     * {@link #AiAutoMemory(AiAutoMemoryPrincipalType, long)}; Spring Data JDBC hydration writes the field directly via
-     * reflection.
-     */
-    void setPrincipalId(long principalId) {
-        this.principalId = principalId;
     }
 
     public AiAutoMemoryPrincipalType getPrincipalType() {
@@ -161,11 +142,6 @@ public class AiAutoMemory {
         }
 
         return values[principalType];
-    }
-
-    void setPrincipalType(AiAutoMemoryPrincipalType principalType) {
-        this.principalType = Objects.requireNonNull(principalType, "principalType")
-            .ordinal();
     }
 
     public String getName() {
@@ -186,31 +162,24 @@ public class AiAutoMemory {
         this.name = name;
     }
 
-    /**
-     * Hard upper bound on memory title length, matching the {@code VARCHAR(255)} column. Prevents the LLM from
-     * constructing oversized titles that would hit the DB constraint or push past UI render limits.
-     */
-    public static final int MAX_TITLE_LENGTH = 255;
-    /** Hard upper bound on memory description length. */
-    public static final int MAX_DESCRIPTION_LENGTH = 1024;
-    /**
-     * Hard upper bound on memory content length. The agent prompt instructs the LLM to keep memories short, but the
-     * user can still paste here.
-     */
-    public static final int MAX_CONTENT_LENGTH = 65_536;
-
     public String getTitle() {
         return title;
     }
 
     public void setTitle(String title) {
-        if (title != null && title.length() > MAX_TITLE_LENGTH) {
+        validateRequired(title, "title");
+
+        String strippedTitle = title.strip();
+
+        if (strippedTitle.length() > MAX_TITLE_LENGTH) {
             throw new IllegalArgumentException(
                 "AiAutoMemory.title must be at most " + MAX_TITLE_LENGTH + " characters (got "
-                    + title.length() + ")");
+                    + strippedTitle.length() + ")");
         }
 
-        this.title = title;
+        validateSingleLine(strippedTitle, "title");
+
+        this.title = strippedTitle;
     }
 
     public String getDescription() {
@@ -218,29 +187,39 @@ public class AiAutoMemory {
     }
 
     public void setDescription(String description) {
-        if (description != null && description.length() > MAX_DESCRIPTION_LENGTH) {
-            throw new IllegalArgumentException(
-                "AiAutoMemory.description must be at most " + MAX_DESCRIPTION_LENGTH + " characters (got "
-                    + description.length() + ")");
+        if (description == null || description.isBlank()) {
+            this.description = null;
+
+            return;
         }
 
-        this.description = description;
+        String strippedDescription = description.strip();
+
+        if (strippedDescription.length() > MAX_DESCRIPTION_LENGTH) {
+            throw new IllegalArgumentException(
+                "AiAutoMemory.description must be at most " + MAX_DESCRIPTION_LENGTH + " characters (got "
+                    + strippedDescription.length() + ")");
+        }
+
+        validateSingleLine(strippedDescription, "description");
+
+        this.description = strippedDescription;
     }
 
     public AiAutoMemoryType getMemoryType() {
-        // Inlined bounds check (was EnumOrdinals.fromOrdinal) so this entity has no CC-specific dep.
-        // The DB row stored an int whose value should fall inside the current enum range; a corrupt or
-        // future-version persisted value surfaces as a typed IllegalStateException with the offending
-        // ordinal in the message — easier to diagnose than the raw ArrayIndexOutOfBoundsException.
-        AiAutoMemoryType[] all = AiAutoMemoryType.values();
-
-        if (memoryType < 0 || memoryType >= all.length) {
-            throw new IllegalStateException(
-                "AiAutoMemory.memoryType ordinal " + memoryType + " is out of range for AiAutoMemoryType (0.."
-                    + (all.length - 1) + ")");
+        if (memoryType == null) {
+            throw new IllegalStateException("AiAutoMemory.memoryType has not been set");
         }
 
-        return all[memoryType];
+        AiAutoMemoryType[] memoryTypes = AiAutoMemoryType.values();
+
+        if (memoryType < 0 || memoryType >= memoryTypes.length) {
+            throw new IllegalStateException(
+                "AiAutoMemory.memoryType ordinal " + memoryType + " is out of range for AiAutoMemoryType (0.."
+                    + (memoryTypes.length - 1) + ")");
+        }
+
+        return memoryTypes[memoryType];
     }
 
     public void setMemoryType(AiAutoMemoryType memoryType) {
@@ -256,7 +235,9 @@ public class AiAutoMemory {
     }
 
     public void setContent(String content) {
-        if (content != null && content.length() > MAX_CONTENT_LENGTH) {
+        validateRequired(content, "content");
+
+        if (content.length() > MAX_CONTENT_LENGTH) {
             throw new IllegalArgumentException(
                 "AiAutoMemory.content must be at most " + MAX_CONTENT_LENGTH + " characters (got "
                     + content.length() + ")");
@@ -275,14 +256,14 @@ public class AiAutoMemory {
         return environments[environment];
     }
 
-    public long getEnvironmentId() {
+    public int getEnvironmentOrdinal() {
         return environment;
     }
 
-    public void setEnvironment(Environment environment) {
-        if (environment != null) {
-            this.environment = environment.ordinal();
-        }
+    public boolean hasKnownOrdinals() {
+        return isKnownOrdinal(principalType, AiAutoMemoryPrincipalType.values().length)
+            && memoryType != null && isKnownOrdinal(memoryType, AiAutoMemoryType.values().length)
+            && isKnownOrdinal(environment, Environment.values().length);
     }
 
     public LocalDateTime getCreatedAt() {
@@ -299,6 +280,26 @@ public class AiAutoMemory {
 
     public void setUpdatedAt(LocalDateTime updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public Long getVersion() {
+        return version;
+    }
+
+    private static boolean isKnownOrdinal(int ordinal, int constantCount) {
+        return ordinal >= 0 && ordinal < constantCount;
+    }
+
+    private static void validateRequired(String value, String fieldName) {
+        if (value == null || value.isBlank()) {
+            throw new IllegalArgumentException("AiAutoMemory." + fieldName + " must not be blank");
+        }
+    }
+
+    private static void validateSingleLine(String value, String fieldName) {
+        if (value.indexOf('\n') >= 0 || value.indexOf('\r') >= 0) {
+            throw new IllegalArgumentException("AiAutoMemory." + fieldName + " must be a single line");
+        }
     }
 
     @Override
@@ -332,6 +333,7 @@ public class AiAutoMemory {
             ", environment=" + environment +
             ", createdAt=" + createdAt +
             ", updatedAt=" + updatedAt +
+            ", version=" + version +
             '}';
     }
 }
