@@ -588,6 +588,20 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
                             type="target"
                         />
                     )}
+                    isConnectable={false}
+                    position={mapHandlePosition(Position.Top, layoutDirection)}
+                    style={
+                        layoutDirection === 'TB'
+                            ? hasValidClusterElements
+                                ? {left: '120px'}
+                                : {left: '36px'}
+                            : // LR: ReactFlow's default centres these on the box, and
+                              // centerClusterRootsOnChain puts that centre on the chain's line —
+                              // so an edge meets the box at its middle and still runs straight.
+                              undefined
+                    }
+                    type="target"
+                />
 
                     {!data.clusterFrame && (
                         <Handle
@@ -607,9 +621,22 @@ const AiAgentNode = ({data, id}: {data: NodeDataType; id: string}) => {
                             type="source"
                         />
                     )}
-                </div>
-            </WorkflowNodeContextMenu>
-        </ClusterFrameShell>
+                    isConnectable={false}
+                    position={mapHandlePosition(Position.Bottom, layoutDirection)}
+                    style={
+                        layoutDirection === 'TB'
+                            ? hasValidClusterElements
+                                ? {left: '120px'}
+                                : {left: '36px'}
+                            : // LR: ReactFlow's default centres these on the box, and
+                              // centerClusterRootsOnChain puts that centre on the chain's line —
+                              // so an edge meets the box at its middle and still runs straight.
+                              undefined
+                    }
+                    type="source"
+                />
+            </div>
+        </WorkflowNodeContextMenu>
     );
 };
 export default memo(AiAgentNode);
