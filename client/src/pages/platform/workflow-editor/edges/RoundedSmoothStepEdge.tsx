@@ -1,4 +1,5 @@
 import {BaseEdge, EdgeProps, getSmoothStepPath} from '@xyflow/react';
+import {twMerge} from 'tailwind-merge';
 
 import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import AddBranchChip from './AddBranchChip';
@@ -6,6 +7,7 @@ import BinaryCaseLabel from './BinaryCaseLabel';
 import computeBinaryCaseLabel from './computeBinaryCaseLabel';
 import computeExitEdgeJogCenter from './computeExitEdgeJogCenter';
 import {getTriggerFanInBusCenter} from './computeTriggerFanIn';
+import useExecutedEdgeStatus from './useExecutedEdgeStatus';
 
 export default function RoundedSmoothStepEdge({
     data,
@@ -22,6 +24,8 @@ export default function RoundedSmoothStepEdge({
     targetY,
 }: EdgeProps) {
     const layoutDirection = useLayoutDirectionStore((state) => state.layoutDirection);
+
+    const executedEdgeStatus = useExecutedEdgeStatus(id);
 
     const isTriggerFanIn = !!(data as Record<string, unknown>)?.triggerFanIn;
 
@@ -72,7 +76,11 @@ export default function RoundedSmoothStepEdge({
     return (
         <>
             <BaseEdge
-                className="fill-none stroke-stroke-neutral-tertiary stroke-2"
+                className={twMerge(
+                    'fill-none stroke-stroke-neutral-tertiary stroke-2',
+                    executedEdgeStatus === 'COMPLETED' && 'stroke-green-500',
+                    executedEdgeStatus === 'FAILED' && 'stroke-red-500'
+                )}
                 id={id}
                 path={edgePath}
                 style={style}
