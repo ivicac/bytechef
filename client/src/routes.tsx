@@ -1,6 +1,4 @@
 import ImportApp from '@/ImportApp';
-import {IntegrationApi} from '@/ee/shared/middleware/embedded/configuration';
-import {IntegrationKeys} from '@/ee/shared/queries/embedded/integrations.queries';
 import AccountErrorPage from '@/pages/account/public/AccountErrorPage';
 import Login from '@/pages/account/public/Login';
 import OAuth2Consent from '@/pages/account/public/OAuth2Consent';
@@ -76,16 +74,16 @@ const Chats = lazy(() => import('@/pages/automation/chats/Chats'));
 const WorkflowTemplate = lazy(() => import('@/pages/automation/template/workflow-template/WorkflowTemplate'));
 const WorkflowTemplates = lazy(() => import('@/pages/automation/templates/workflow-templates/WorkflowTemplates'));
 const AssetFiles = lazy(() => import('@/pages/automation/asset-files/AssetFiles'));
-const AiHub = lazy(() => import('@/pages/automation/ai-hub/AiHub'));
+const AiHub = lazy(() => import('@/ee/pages/automation/ai-hub/AiHub'));
 const ContextStoreSources = lazy(() => import('@/pages/automation/context-store/ContextStoreSources'));
 const ContextStores = lazy(() => import('@/pages/automation/context-store/ContextStores'));
 const AiAutoMemoriesPage = lazy(() => import('@/pages/automation/ai/memories/Memories'));
-const AiHubPersonalAgentsPage = lazy(() => import('@/pages/automation/ai-hub/personal-agents/AiHubPersonalAgents'));
+const AiHubPersonalAgentsPage = lazy(() => import('@/ee/pages/automation/ai-hub/personal-agents/AiHubPersonalAgents'));
 const AiHubPersonalAgentFormPage = lazy(
-    () => import('@/pages/automation/ai-hub/personal-agents/AiHubPersonalAgentForm')
+    () => import('@/ee/pages/automation/ai-hub/personal-agents/AiHubPersonalAgentForm')
 );
-const AiHubWorkflowChatsPage = lazy(() => import('@/pages/automation/ai-hub/tasks/WorkflowChats'));
-const AiHubConnectorsPage = lazy(() => import('@/pages/automation/ai-hub/context/AiHubConnectors'));
+const AiHubWorkflowChatsPage = lazy(() => import('@/ee/pages/automation/ai-hub/tasks/WorkflowChats'));
+const AiHubConnectorsPage = lazy(() => import('@/ee/pages/automation/ai-hub/context/AiHubConnectors'));
 
 const AiProviders = lazy(() => import('@/pages/settings/platform/ai-providers/AiProviders'));
 const ApiClients = lazy(() => import('@/ee/pages/automation/api-platform/api-clients/ApiClients'));
@@ -1291,14 +1289,22 @@ export const getRouter = (queryClient: QueryClient) =>
                                             </LazyLoadWrapper>
                                         </PrivateRoute>
                                     ),
-                                    loader: async ({params}) =>
-                                        queryClient.ensureQueryData({
+                                    loader: async ({params}) => {
+                                        // Loaded lazily like every other EE surface this router mounts - the
+                                        // embedded middleware chunk stays out of the CE bundle graph.
+                                        const [{IntegrationApi}, {IntegrationKeys}] = await Promise.all([
+                                            import('@/ee/shared/middleware/embedded/configuration'),
+                                            import('@/ee/shared/queries/embedded/integrations.queries'),
+                                        ]);
+
+                                        return queryClient.ensureQueryData({
                                             queryFn: () =>
                                                 new IntegrationApi().getIntegration({
                                                     id: parseInt(params.integrationId!),
                                                 }),
                                             queryKey: IntegrationKeys.integration(parseInt(params.integrationId!)),
-                                        }),
+                                        });
+                                    },
                                     path: 'integrations/:integrationId/integration-workflows/:integrationWorkflowId',
                                 },
                                 {
