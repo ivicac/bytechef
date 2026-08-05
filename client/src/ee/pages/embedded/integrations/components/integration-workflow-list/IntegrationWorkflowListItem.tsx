@@ -23,10 +23,12 @@ import {
 } from '@/shared/middleware/graphql';
 import {ComponentDefinitionBasic} from '@/shared/middleware/platform/configuration';
 import {WorkflowTestConfigurationKeys} from '@/shared/queries/platform/workflowTestConfigurations.queries';
+import {isJavaCodeWorkflow} from '@/shared/util/codeWorkflowLanguage-utils';
 import {useQueryClient} from '@tanstack/react-query';
 import {DownloadIcon, EditIcon, EllipsisVerticalIcon, Trash2Icon} from 'lucide-react';
 import {useEffect, useState} from 'react';
 import {Link, useSearchParams} from 'react-router-dom';
+import {twMerge} from 'tailwind-merge';
 
 const IntegrationWorkflowListItem = ({
     filteredComponentNames,
@@ -45,6 +47,8 @@ const IntegrationWorkflowListItem = ({
         [key: string]: ComponentDefinitionBasic | undefined;
     };
 }) => {
+    const javaCodeWorkflow = isJavaCodeWorkflow(integration.codeWorkflow, integration.codeWorkflowLanguage);
+
     const [permissionExpression, setPermissionExpression] = useState<string | null>('');
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showEditDialog, setShowEditDialog] = useState(false);
@@ -103,7 +107,14 @@ const IntegrationWorkflowListItem = ({
             key={workflow.id}
         >
             <Link
-                className="flex flex-1 items-center"
+                aria-disabled={javaCodeWorkflow || undefined}
+                className={twMerge(
+                    'flex flex-1 items-center',
+                    // A polyglot code integration opens its source editor here, same as the automation side; a Java
+                    // one comes from a compiled JAR and has nothing to open.
+                    javaCodeWorkflow && 'pointer-events-none'
+                )}
+                tabIndex={javaCodeWorkflow ? -1 : undefined}
                 to={`/embedded/integrations/${integration.id}/integration-workflows/${workflow.integrationWorkflowId}?${searchParams}`}
             >
                 <div className="w-80 text-sm font-semibold">{workflow.label}</div>
@@ -128,43 +139,45 @@ const IntegrationWorkflowListItem = ({
                     <TooltipContent>Last Modified Date</TooltipContent>
                 </Tooltip>
 
-                <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                        <Button icon={<EllipsisVerticalIcon />} size="icon" variant="ghost" />
-                    </DropdownMenuTrigger>
+                {!integration.codeWorkflow && (
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button icon={<EllipsisVerticalIcon />} size="icon" variant="ghost" />
+                        </DropdownMenuTrigger>
 
-                    <DropdownMenuContent align="end" className="p-0">
-                        <DropdownMenuItem
-                            className="dropdown-menu-item"
-                            onClick={() => {
-                                setShowEditDialog(true);
-                            }}
-                        >
-                            <EditIcon /> Edit
-                        </DropdownMenuItem>
+                        <DropdownMenuContent align="end" className="p-0">
+                            <DropdownMenuItem
+                                className="dropdown-menu-item"
+                                onClick={() => {
+                                    setShowEditDialog(true);
+                                }}
+                            >
+                                <EditIcon /> Edit
+                            </DropdownMenuItem>
 
-                        <DropdownMenuItem
-                            className="dropdown-menu-item"
-                            onClick={() =>
-                                (window.location.href = `/api/embedded/internal/workflows/${workflow.id}/export`)
-                            }
-                        >
-                            <DownloadIcon /> Export
-                        </DropdownMenuItem>
+                            <DropdownMenuItem
+                                className="dropdown-menu-item"
+                                onClick={() =>
+                                    (window.location.href = `/api/embedded/internal/workflows/${workflow.id}/export`)
+                                }
+                            >
+                                <DownloadIcon /> Export
+                            </DropdownMenuItem>
 
-                        <DropdownMenuSeparator className="m-0" />
+                            <DropdownMenuSeparator className="m-0" />
 
-                        <DropdownMenuItem
-                            className="dropdown-menu-item-destructive"
-                            onClick={() => {
-                                setShowDeleteDialog(true);
-                            }}
-                            variant="destructive"
-                        >
-                            <Trash2Icon /> Delete
-                        </DropdownMenuItem>
-                    </DropdownMenuContent>
-                </DropdownMenu>
+                            <DropdownMenuItem
+                                className="dropdown-menu-item-destructive"
+                                onClick={() => {
+                                    setShowDeleteDialog(true);
+                                }}
+                                variant="destructive"
+                            >
+                                <Trash2Icon /> Delete
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                )}
             </div>
 
             {showDeleteDialog && (
