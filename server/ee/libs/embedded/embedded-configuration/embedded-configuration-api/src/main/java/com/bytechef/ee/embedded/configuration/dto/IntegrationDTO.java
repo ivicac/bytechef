@@ -52,6 +52,11 @@ public record IntegrationDTO(
         this(category, componentDefinition, integration, integrationWorkflowIds, tags, null, false, null);
     }
 
+    /**
+     * A {@code componentDefinition} of {@code null} means the integration names a component this instance does not have
+     * — an artifact of a deleted or never-installed component. The row still maps, showing its own name and no icon, so
+     * one such integration does not fail the whole list.
+     */
     public IntegrationDTO(
         Category category, @Nullable ComponentDefinition componentDefinition, Integration integration,
         List<Long> integrationWorkflowIds, List<Tag> tags, Integer developmentConfigurationCount) {
@@ -112,6 +117,7 @@ public record IntegrationDTO(
 
     @SuppressFBWarnings("EI")
     public static final class Builder {
+
         private boolean multipleInstances;
         private Category category;
         private boolean codeWorkflow;
@@ -274,6 +280,7 @@ public record IntegrationDTO(
 
     private static String getDescription(
         @Nullable ComponentDefinition componentDefinition, Integration integration) {
+
         if (!StringUtils.isEmpty(integration.getDescription())) {
             return integration.getDescription();
         }

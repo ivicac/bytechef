@@ -44,7 +44,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
-import java.util.function.Function;
+import java.util.Set;
 import java.util.stream.Collectors;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
@@ -240,6 +240,25 @@ public class IntegrationFacadeImpl implements IntegrationFacade {
                 .collect(
                     Collectors.groupingBy(IntegrationInstanceConfiguration::getIntegrationId, Collectors.counting()));
 
+            Set<Long> codeWorkflowIntegrationIds =
+                Set.copyOf(integrationCodeWorkflowService.getCodeWorkflowIntegrationIds());
+
+            Map<Long, String> codeWorkflowLanguages = new HashMap<>();
+
+            for (Integration integration : integrations) {
+                Long integrationId = integration.getId();
+
+                if (!codeWorkflowIntegrationIds.contains(integrationId)) {
+                    continue;
+                }
+
+                integrationCodeWorkflowService.fetchIntegrationCodeWorkflow(integrationId)
+                    .flatMap(this::fetchCodeWorkflowContainer)
+                    .ifPresent(codeWorkflowContainer -> codeWorkflowLanguages.put(
+                        integrationId, codeWorkflowContainer.getLanguage()
+                            .name()));
+            }
+
             return CollectionUtils.map(
                 integrations,
                 integration -> new IntegrationDTO(
@@ -250,7 +269,9 @@ public class IntegrationFacadeImpl implements IntegrationFacade {
                     getIntegrationWorkflowIds(integration),
                     CollectionUtils.filter(
                         tags, tag -> CollectionUtils.contains(integration.getTagIds(), tag.getId())),
-                    Math.toIntExact(developmentConfigurationCounts.getOrDefault(integration.getId(), 0L))));
+                    Math.toIntExact(developmentConfigurationCounts.getOrDefault(integration.getId(), 0L)),
+                    codeWorkflowIntegrationIds.contains(integration.getId()),
+                    codeWorkflowLanguages.get(integration.getId())));
         } else {
             return CollectionUtils.map(integrations, IntegrationDTO::new);
         }
