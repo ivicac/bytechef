@@ -260,20 +260,20 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                             {testNodeState && (
                                 <span
                                     className={twMerge(
-                                        'absolute -top-2.5 -right-2.5 z-10 flex size-5 items-center justify-center rounded-full text-white',
-                                        testNodeState.status === 'RUNNING' && 'bg-blue-500',
-                                        testNodeState.status === 'COMPLETED' && 'bg-green-500',
-                                        testNodeState.status === 'FAILED' && 'bg-red-500'
+                                        'absolute -top-3 -right-3 z-10 flex size-6 items-center justify-center rounded-full border-2 bg-surface-neutral-primary [&_svg.lucide]:size-3.5',
+                                        testNodeState.status === 'RUNNING' && 'border-blue-500 text-blue-500',
+                                        testNodeState.status === 'COMPLETED' && 'border-green-500 text-green-500',
+                                        testNodeState.status === 'FAILED' && 'border-red-500 text-red-500'
                                     )}
                                     title={testNodeState.error}
                                 >
                                     {testNodeState.status === 'RUNNING' && (
-                                        <Loader2Icon className="!size-3.5 animate-spin" />
+                                        <Loader2Icon className="size-3.5 animate-spin" />
                                     )}
 
-                                    {testNodeState.status === 'COMPLETED' && <CheckIcon className="!size-3.5" />}
+                                    {testNodeState.status === 'COMPLETED' && <CheckIcon className="size-3.5" />}
 
-                                    {testNodeState.status === 'FAILED' && <XIcon className="!size-3.5" />}
+                                    {testNodeState.status === 'FAILED' && <XIcon className="size-3.5" />}
                                 </span>
                             )}
 
@@ -512,20 +512,36 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                         />
                     )}
 
-                    {!data.clusterFrame && (
-                        <Handle
-                            className={twMerge(
-                                styles.handleVisible,
-                                effectiveDirection === 'LR'
-                                    ? 'rounded-l-none rounded-r-xs'
-                                    : 'rounded-t-none rounded-b-xs'
-                            )}
-                            isConnectable={false}
-                            position={mapHandlePosition(Position.Bottom, effectiveDirection)}
-                            style={effectiveDirection === 'TB' ? {left: '36px'} : undefined}
-                            type="source"
-                        />
-                    )}
+                    <Handle
+                        className={twMerge(
+                            styles.handleVisible,
+                            effectiveDirection === 'LR' ? 'rounded-l-none rounded-r-xs' : 'rounded-t-none rounded-b-xs'
+                        )}
+                        isConnectable={false}
+                        position={mapHandlePosition(Position.Bottom, effectiveDirection)}
+                        style={effectiveDirection === 'TB' ? {left: '36px'} : undefined}
+                        type="source"
+                    />
+
+                    {/* Hidden anchors for `graphTransition` overlay edges — used when this node
+                        is a graph lane's first task (the lane's entry point). Kept separate from
+                        the default (id-less) handles above so the overlay edge never binds to the
+                        same connection point as the structural lane-chain edge. */}
+                    <Handle
+                        className={styles.handle}
+                        id={`${id}-graph-transition-target`}
+                        isConnectable={false}
+                        position={Position.Top}
+                        type="target"
+                    />
+
+                    <Handle
+                        className={styles.handle}
+                        id={`${id}-graph-transition-source`}
+                        isConnectable={false}
+                        position={Position.Bottom}
+                        type="source"
+                    />
                 </>
             )}
 
