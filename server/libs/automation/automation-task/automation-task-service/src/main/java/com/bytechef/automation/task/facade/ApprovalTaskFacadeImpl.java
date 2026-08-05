@@ -104,7 +104,9 @@ public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
         for (Job job : jobService.getStaleJobs(Job.Status.STOPPED, Instant.now())) {
             Object jobResumeId = job.getMetadata(MetadataConstants.JOB_RESUME_ID);
 
-            if (jobResumeId == null || job.getId() == null) {
+            Long jobId = job.getId();
+
+            if (jobResumeId == null || jobId == null) {
                 continue;
             }
 
@@ -124,7 +126,7 @@ public class ApprovalTaskFacadeImpl implements ApprovalTaskFacade {
 
             pendingApprovals.add(
                 new PendingApproval(
-                    job.getId(), resolveWorkflowLabel(job), formUrl, job.getCreatedDate(), resolveExpiresAt(job)));
+                    jobId, resolveWorkflowLabel(job), formUrl, job.getCreatedDate(), resolveExpiresAt(job)));
         }
 
         pendingApprovals.sort(

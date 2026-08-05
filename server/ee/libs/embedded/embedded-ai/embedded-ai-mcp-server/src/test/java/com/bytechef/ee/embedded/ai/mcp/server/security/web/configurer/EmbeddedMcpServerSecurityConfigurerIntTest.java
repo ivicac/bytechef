@@ -18,6 +18,7 @@ import static org.springframework.test.context.NestedTestConfiguration.Enclosing
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
 import com.bytechef.ee.embedded.security.service.SigningKeyService;
+import com.bytechef.ee.platform.security.web.mcp.oauth2.McpTenantIssuerResolver;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.mcp.domain.McpServer;
@@ -25,6 +26,7 @@ import com.bytechef.platform.mcp.service.McpServerService;
 import com.bytechef.platform.security.web.authentication.CredentialAuthenticationSuccessEvent;
 import com.bytechef.platform.security.web.authentication.UnresolvedCredentialAuthenticationToken;
 import com.bytechef.platform.security.web.mcp.McpServerDisabledException;
+import com.bytechef.platform.security.web.mcp.oauth2.McpJwtDecoderFactory;
 import com.bytechef.tenant.domain.TenantKey;
 import io.jsonwebtoken.Jwts;
 import java.security.KeyPair;
@@ -417,7 +419,8 @@ class EmbeddedMcpServerSecurityConfigurerIntTest {
                     .with(
                         new EmbeddedMcpServerSecurityConfigurer(
                             connectedUserService, () -> List.of(Environment.values()), mcpServerService,
-                            signingKeyService),
+                            signingKeyService, mock(McpTenantIssuerResolver.class), mock(McpJwtDecoderFactory.class),
+                            null),
                         Customizer.withDefaults())
                     .build();
             }
