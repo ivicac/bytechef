@@ -80,7 +80,7 @@ class TenantBucketS3SessionRepositoryTest {
 
     @Test
     void testDistinctTenantIdsNeverShareABucket() {
-        assertThat(createBucketNameForTenant("tenant_one")).isNotEqualTo(createBucketNameForTenant("tenant-one"));
+        assertThat(createBucketNameForTenant("tenant_one")).isNotEqualTo(createBucketNameForTenant("Tenant_One"));
     }
 
     @Test
