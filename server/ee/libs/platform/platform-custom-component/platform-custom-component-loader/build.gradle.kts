@@ -12,4 +12,7 @@ dependencies {
     implementation(project(":server:libs:core:class-loader:class-loader-api"))
     implementation(project(":server:libs:core:commons:commons-util"))
     implementation(project(":server:libs:platform:platform-component:platform-component-api"))
+    implementation(project(":server:libs:platform:platform-component:platform-component-polyglot"))
+
+    testImplementation("org.mockito:mockito-core")
 }
