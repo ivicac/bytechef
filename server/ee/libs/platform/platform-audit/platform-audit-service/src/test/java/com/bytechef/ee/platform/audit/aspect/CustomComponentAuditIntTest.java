@@ -17,6 +17,7 @@ import static org.mockito.Mockito.when;
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.component.definition.ComponentDsl;
+import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.platform.audit.config.AuditIntTestConfiguration;
 import com.bytechef.ee.platform.audit.domain.AuditEventFilter;
 import com.bytechef.ee.platform.audit.domain.PersistentAuditEvent;
@@ -189,7 +190,8 @@ class CustomComponentAuditIntTest {
             CustomComponentFileStorage customComponentFileStorage, CustomComponentService customComponentService) {
 
             return new CustomComponentFacadeImpl(
-                new ConcurrentMapCacheManager(), customComponentService, customComponentFileStorage);
+                new ApplicationProperties(), new ConcurrentMapCacheManager(), customComponentService,
+                customComponentFileStorage);
         }
     }
 }

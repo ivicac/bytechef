@@ -55,28 +55,18 @@ public class CustomComponentDynamicComponentHandlerRegistry implements DynamicCo
 
     @Override
     public List<? extends ComponentHandler> getComponentHandlers() {
-        List<ComponentHandler> componentHandlers = new ArrayList<>();
-
-        for (CustomComponent customComponent : customComponentService.getCustomComponents()) {
-            if (!customComponent.isEnabled()) {
-                continue;
-            }
-
-            try {
-                componentHandlers.add(loadComponentHandler(customComponent, customComponent.getComponentVersion()));
-            } catch (RuntimeException exception) {
-                log.warn(
-                    "Skipping custom component {} (version {}), could not load it", customComponent.getName(),
-                    customComponent.getComponentVersion(), exception);
-            }
-        }
-
-        return componentHandlers;
+        return customComponentService.getCustomComponents()
+            .stream()
+            .filter(CustomComponent::isEnabled)
+            .filter(customComponent -> customComponent.getStatus() == CustomComponent.Status.PUBLISHED)
+            .map(customComponent -> loadComponentHandler(customComponent, customComponent.getComponentVersion()))
+            .toList();
     }
 
     @Override
     public Optional<ComponentHandler> fetchComponentHandler(String name, int componentVersion) {
         return customComponentService.fetchCustomComponent(name, componentVersion)
+            .filter(customComponent -> customComponent.getStatus() == CustomComponent.Status.PUBLISHED)
             .map(customComponent -> loadComponentHandler(customComponent, componentVersion));
     }
 

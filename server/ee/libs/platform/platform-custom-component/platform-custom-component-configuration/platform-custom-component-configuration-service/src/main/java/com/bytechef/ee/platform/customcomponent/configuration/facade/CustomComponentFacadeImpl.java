@@ -13,6 +13,7 @@ import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.component.definition.TriggerDefinition;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.ee.platform.customcomponent.configuration.audit.CustomComponentAuditEvents;
 import com.bytechef.ee.platform.customcomponent.configuration.domain.CustomComponent;
 import com.bytechef.ee.platform.customcomponent.configuration.domain.CustomComponent.Language;
 import com.bytechef.ee.platform.customcomponent.configuration.exception.CustomComponentErrorType;
@@ -33,8 +34,10 @@ import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.cache.CacheManager;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -103,18 +106,9 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
                 componentDefinition.getName() + "_" + componentDefinition.getVersion() + "." + language.getExtension(),
                 bytes);
 
-            CustomComponent customComponent = new CustomComponent();
-
-            customComponent.setComponentVersion(componentDefinition.getVersion());
-            customComponent.setComponent(componentFileEntry);
-            customComponent.setDescription(OptionalUtils.orElse(componentDefinition.getDescription(), null));
-            customComponent.setEnabled(true);
-            customComponent.setIcon(OptionalUtils.orElse(componentDefinition.getIcon(), null));
-            customComponent.setName(componentDefinition.getName());
-            customComponent.setTitle(OptionalUtils.orElse(componentDefinition.getTitle(), null));
-            customComponent.setLanguage(language);
-
-            return customComponentService.create(customComponent);
+            return create(
+                language, componentDefinition, componentDefinition.getVersion(), componentFileEntry,
+                CustomComponent.Status.DRAFT, null);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -186,7 +180,13 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         @AuditData(key = "language", value = "#language")
     })
     @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
-    public void save(byte[] bytes, Language language) {
+    public CustomComponent save(byte[] bytes, Language language) {
+        if (language == Language.RUBY) {
+            throw new ConfigurationException(
+                "Uploading of Ruby custom components is temporarily disabled",
+                CustomComponentErrorType.LANGUAGE_NOT_SUPPORTED);
+        }
+
         if (!javaEnabled && language == Language.JAVA) {
             throw new ConfigurationException(
                 "Uploading of Java custom components is disabled",
@@ -196,16 +196,30 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         try {
             ComponentDefinition componentDefinition = loadComponentDefinition(language, bytes);
 
-            FileEntry componentFileEntry = customComponentFileStorage.storeCustomComponentFile(
-                componentDefinition.getName() + "_" + componentDefinition.getVersion() + "." + language.getExtension(),
-                bytes);
-
             int version = componentDefinition.getVersion();
 
-            customComponentService.fetchCustomComponent(componentDefinition.getName(), version)
-                .ifPresentOrElse(
-                    customComponent -> update(customComponent, componentDefinition),
-                    () -> create(language, componentDefinition, version, componentFileEntry));
+            Optional<CustomComponent> existingCustomComponent = customComponentService.fetchCustomComponent(
+                componentDefinition.getName(), version);
+
+            existingCustomComponent
+                .filter(customComponent -> customComponent.getStatus() == CustomComponent.Status.DRAFT)
+                .ifPresent(customComponent -> {
+                    throw new ConfigurationException(
+                        "Version " + version + " of '" + componentDefinition.getName() +
+                            "' is owned by a draft; publish or delete the draft first",
+                        CustomComponentErrorType.VERSION_ALREADY_EXISTS);
+                });
+
+            FileEntry componentFileEntry = customComponentFileStorage.storeCustomComponentFile(
+                componentDefinition.getName() + "_" + version + "." + language.getExtension(), bytes);
+
+            if (existingCustomComponent.isPresent()) {
+                return updateUploaded(existingCustomComponent.get(), componentDefinition, componentFileEntry);
+            }
+
+            return create(
+                language, componentDefinition, version, componentFileEntry, CustomComponent.Status.PUBLISHED,
+                Instant.now());
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
@@ -213,7 +227,13 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
 
     @Override
     @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
-    public void updateCustomComponentSource(long id, String content) {
+    public CustomComponent publishCustomComponent(long id) {
+        return customComponentService.publishCustomComponent(id);
+    }
+
+    @Override
+    @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
+    public CustomComponent updateCustomComponentSource(long id, String content) {
         CustomComponent customComponent = customComponentService.getCustomComponent(id);
 
         Language language = customComponent.getLanguage();
@@ -235,22 +255,91 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
                     CustomComponentErrorType.SOURCE_RENAME_UNSUPPORTED);
             }
 
-            FileEntry componentFileEntry = customComponentFileStorage.storeCustomComponentFile(
-                componentDefinition.getName() + "_" + componentDefinition.getVersion() + "."
-                    + language.getExtension(),
-                bytes);
+            if (customComponent.getStatus() == CustomComponent.Status.DRAFT) {
+                return updateDraft(customComponent, componentDefinition, language, bytes);
+            }
 
-            customComponent.setComponent(componentFileEntry);
-
-            update(customComponent, componentDefinition);
+            return createDraftFromPublished(customComponent, componentDefinition, language, bytes);
         } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }
 
+    private CustomComponent updateDraft(
+        CustomComponent customComponent, ComponentDefinition componentDefinition, Language language, byte[] bytes) {
+
+        int newComponentVersion = componentDefinition.getVersion();
+
+        if (newComponentVersion != customComponent.getComponentVersion()) {
+            customComponentService.fetchCustomComponent(customComponent.getName(), newComponentVersion)
+                .filter(existing -> !Objects.equals(existing.getId(), customComponent.getId()))
+                .ifPresent(existing -> {
+                    throw new ConfigurationException(
+                        "Version " + newComponentVersion + " of component '" + customComponent.getName() +
+                            "' already exists",
+                        CustomComponentErrorType.VERSION_ALREADY_EXISTS);
+                });
+        }
+
+        FileEntry oldComponentFileEntry = customComponent.getComponent();
+
+        FileEntry componentFileEntry = customComponentFileStorage.storeCustomComponentFile(
+            componentDefinition.getName() + "_" + newComponentVersion + "." + language.getExtension(), bytes);
+
+        customComponent.setComponent(componentFileEntry);
+        customComponent.setComponentVersion(newComponentVersion);
+        customComponent.setDescription(OptionalUtils.orElse(componentDefinition.getDescription(), null));
+        customComponent.setIcon(OptionalUtils.orElse(componentDefinition.getIcon(), null));
+        customComponent.setTitle(OptionalUtils.orElse(componentDefinition.getTitle(), null));
+
+        CustomComponent savedCustomComponent = customComponentService.update(customComponent);
+
+        if (oldComponentFileEntry != null &&
+            !Objects.equals(oldComponentFileEntry.getUrl(), componentFileEntry.getUrl())) {
+
+            customComponentFileStorage.deleteCustomComponentFile(oldComponentFileEntry);
+        }
+
+        return savedCustomComponent;
+    }
+
+    private CustomComponent createDraftFromPublished(
+        CustomComponent publishedCustomComponent, ComponentDefinition componentDefinition, Language language,
+        byte[] bytes) {
+
+        String name = publishedCustomComponent.getName();
+
+        customComponentService.fetchDraftCustomComponent(name)
+            .ifPresent(draft -> {
+                throw new ConfigurationException(
+                    "A draft (version " + draft.getComponentVersion() + ") of component '" + name +
+                        "' already exists; edit that draft instead",
+                    CustomComponentErrorType.DRAFT_ALREADY_EXISTS);
+            });
+
+        int latestComponentVersion = customComponentService.fetchLatestCustomComponent(name)
+            .map(CustomComponent::getComponentVersion)
+            .orElse(0);
+
+        if (componentDefinition.getVersion() <= latestComponentVersion) {
+            throw new ConfigurationException(
+                "Editing published version " + publishedCustomComponent.getComponentVersion() +
+                    " requires raising the version declared in the source above " + latestComponentVersion +
+                    " to start a new draft",
+                CustomComponentErrorType.VERSION_NOT_BUMPED);
+        }
+
+        FileEntry componentFileEntry = customComponentFileStorage.storeCustomComponentFile(
+            componentDefinition.getName() + "_" + componentDefinition.getVersion() + "." + language.getExtension(),
+            bytes);
+
+        return create(language, componentDefinition, componentDefinition.getVersion(), componentFileEntry,
+            CustomComponent.Status.DRAFT, null);
+    }
+
     private CustomComponent create(
         Language language, ComponentDefinition componentDefinition, int componentVersion,
-        FileEntry componentFileEntry) {
+        FileEntry componentFileEntry, CustomComponent.Status status, Instant publishedDate) {
 
         CustomComponent customComponent = new CustomComponent();
 
@@ -260,6 +349,8 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         customComponent.setEnabled(true);
         customComponent.setIcon(OptionalUtils.orElse(componentDefinition.getIcon(), null));
         customComponent.setName(componentDefinition.getName());
+        customComponent.setPublishedDate(publishedDate);
+        customComponent.setStatus(status);
         customComponent.setTitle(OptionalUtils.orElse(componentDefinition.getTitle(), null));
         customComponent.setLanguage(language);
 
@@ -325,5 +416,13 @@ public class CustomComponentFacadeImpl implements CustomComponentFacade {
         customComponent.setTitle(OptionalUtils.orElse(componentDefinition.getTitle(), null));
 
         return customComponentService.update(customComponent);
+    }
+
+    private CustomComponent updateUploaded(
+        CustomComponent customComponent, ComponentDefinition componentDefinition, FileEntry componentFileEntry) {
+
+        customComponent.setComponent(componentFileEntry);
+
+        return update(customComponent, componentDefinition);
     }
 }

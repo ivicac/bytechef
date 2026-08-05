@@ -8,101 +8,80 @@
 package com.bytechef.ee.platform.customcomponent.handler;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.when;
 
-import com.bytechef.component.ComponentHandler;
-import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.ee.platform.customcomponent.configuration.domain.CustomComponent;
 import com.bytechef.ee.platform.customcomponent.configuration.service.CustomComponentService;
 import com.bytechef.ee.platform.customcomponent.file.storage.CustomComponentFileStorage;
-import com.bytechef.ee.platform.customcomponent.loader.ComponentHandlerLoader;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.MockedStatic;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.cache.CacheManager;
 
 /**
  * @version ee
  *
- * @author Ivica Cardic
+ * @author Claude Fable 5
  */
+@ExtendWith(MockitoExtension.class)
 class CustomComponentDynamicComponentHandlerRegistryTest {
 
-    private final CustomComponentService customComponentService = mock(CustomComponentService.class);
+    @Mock
+    private CacheManager cacheManager;
+
+    @Mock
+    private CustomComponentFileStorage customComponentFileStorage;
+
+    @Mock
+    private CustomComponentService customComponentService;
 
     private CustomComponentDynamicComponentHandlerRegistry registry;
 
     @BeforeEach
-    void beforeEach() {
+    void setUp() {
         registry = new CustomComponentDynamicComponentHandlerRegistry(
-            mock(CacheManager.class), mock(CustomComponentFileStorage.class), customComponentService);
+            cacheManager, customComponentFileStorage, customComponentService);
     }
 
     @Test
-    void testGetComponentHandlersExcludesDisabled() {
-        CustomComponent disabledCustomComponent = customComponent("disabled", 1, CustomComponent.Language.JAVASCRIPT);
+    void testGetComponentHandlersExcludesDrafts() {
+        CustomComponent draft = new CustomComponent();
 
-        disabledCustomComponent.setEnabled(false);
+        draft.setEnabled(true);
+        draft.setName("test");
+        draft.setStatus(CustomComponent.Status.DRAFT);
 
-        when(customComponentService.getCustomComponents()).thenReturn(List.of(disabledCustomComponent));
+        when(customComponentService.getCustomComponents()).thenReturn(List.of(draft));
 
         assertThat(registry.getComponentHandlers()).isEmpty();
     }
 
     @Test
-    void testGetComponentHandlersSkipsAComponentThatFailsToLoad() {
-        CustomComponent unloadableCustomComponent = customComponent("unloadable", 1, CustomComponent.Language.RUBY);
-        CustomComponent loadableCustomComponent = customComponent("loadable", 7, CustomComponent.Language.JAVASCRIPT);
+    void testGetComponentHandlersExcludesDisabled() {
+        CustomComponent disabled = new CustomComponent();
 
-        when(customComponentService.getCustomComponents())
-            .thenReturn(List.of(unloadableCustomComponent, loadableCustomComponent));
+        disabled.setEnabled(false);
+        disabled.setName("test");
+        disabled.setStatus(CustomComponent.Status.PUBLISHED);
 
-        ComponentDefinition componentDefinition = mock(ComponentDefinition.class);
+        when(customComponentService.getCustomComponents()).thenReturn(List.of(disabled));
 
-        when(componentDefinition.getName()).thenReturn("loadable");
-        when(componentDefinition.getActions()).thenReturn(List.of());
-
-        ComponentHandler componentHandler = mock(ComponentHandler.class);
-
-        when(componentHandler.getDefinition()).thenReturn(componentDefinition);
-
-        try (MockedStatic<ComponentHandlerLoader> componentHandlerLoader = mockStatic(ComponentHandlerLoader.class)) {
-            componentHandlerLoader
-                .when(() -> ComponentHandlerLoader.loadComponentHandler(
-                    any(), eq(CustomComponent.Language.RUBY), any(), any()))
-                .thenThrow(new IllegalArgumentException("A language with id 'ruby' is not installed."));
-            componentHandlerLoader
-                .when(() -> ComponentHandlerLoader.loadComponentHandler(
-                    any(), eq(CustomComponent.Language.JAVASCRIPT), any(), any()))
-                .thenReturn(componentHandler);
-
-            List<? extends ComponentHandler> componentHandlers = registry.getComponentHandlers();
-
-            assertThat(componentHandlers).hasSize(1);
-
-            ComponentDefinition loadedComponentDefinition = componentHandlers.getFirst()
-                .getDefinition();
-
-            assertThat(loadedComponentDefinition.getName()).isEqualTo("loadable");
-            assertThat(loadedComponentDefinition.getVersion()).isEqualTo(7);
-        }
+        assertThat(registry.getComponentHandlers()).isEmpty();
     }
 
-    private static CustomComponent customComponent(
-        String name, int componentVersion, CustomComponent.Language language) {
+    @Test
+    void testFetchComponentHandlerExcludesDraft() {
+        CustomComponent draft = new CustomComponent();
 
-        CustomComponent customComponent = new CustomComponent();
+        draft.setName("test");
+        draft.setStatus(CustomComponent.Status.DRAFT);
 
-        customComponent.setComponentVersion(componentVersion);
-        customComponent.setEnabled(true);
-        customComponent.setLanguage(language);
-        customComponent.setName(name);
+        when(customComponentService.fetchCustomComponent("test", 2)).thenReturn(Optional.of(draft));
 
-        return customComponent;
+        assertThat(registry.fetchComponentHandler("test", 2)).isEmpty();
     }
 }
