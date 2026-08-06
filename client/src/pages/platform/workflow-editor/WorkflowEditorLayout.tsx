@@ -49,6 +49,10 @@ const IntegrationCodeWorkflowDetail = lazy(
     () => import('@/pages/platform/code-workflow/IntegrationCodeWorkflowDetail')
 );
 const ProjectCodeWorkflowDetail = lazy(() => import('@/pages/platform/code-workflow/ProjectCodeWorkflowDetail'));
+const WorkflowTestConfigurationDialog = lazy(
+    () =>
+        import('@/pages/platform/workflow-editor/components/workflow-test-configuration/WorkflowTestConfigurationDialog')
+);
 const DataPillPanel = lazy(() => import('./components/datapills/DataPillPanel'));
 const WorkflowEditor = lazy(() => import('./components/WorkflowEditor'));
 const WorkflowTestChatPanel = lazy(
@@ -121,6 +125,8 @@ const WorkflowEditorLayout = ({
     );
     const dataPillPanelOpen = useDataPillPanelStore((state) => state.dataPillPanelOpen);
     const workflowTestChatPanelOpen = useWorkflowTestChatStore((state) => state.workflowTestChatPanelOpen);
+
+    const [showCodeWorkflowTestConfigurationDialog, setShowCodeWorkflowTestConfigurationDialog] = useState(false);
 
     const {
         componentDefinitions,
@@ -243,11 +249,23 @@ const WorkflowEditorLayout = ({
 
                 {isCodeWorkflow && codeWorkflowLanguage && integrationId ? (
                     <Suspense>
-                        <IntegrationCodeWorkflowDetail integrationId={integrationId} language={codeWorkflowLanguage} />
+                        <IntegrationCodeWorkflowDetail
+                            integrationId={integrationId}
+                            invalidateWorkflowQueries={invalidateWorkflowQueries}
+                            language={codeWorkflowLanguage}
+                            onTestConfigurationClick={() => setShowCodeWorkflowTestConfigurationDialog(true)}
+                            testConfigurationDisabled={testConfigurationDisabled}
+                        />
                     </Suspense>
                 ) : isCodeWorkflow && codeWorkflowLanguage && projectId ? (
                     <Suspense>
-                        <ProjectCodeWorkflowDetail language={codeWorkflowLanguage} projectId={projectId} />
+                        <ProjectCodeWorkflowDetail
+                            invalidateWorkflowQueries={invalidateWorkflowQueries}
+                            language={codeWorkflowLanguage}
+                            onTestConfigurationClick={() => setShowCodeWorkflowTestConfigurationDialog(true)}
+                            projectId={projectId}
+                            testConfigurationDisabled={testConfigurationDisabled}
+                        />
                     </Suspense>
                 ) : (
                     componentDefinitions &&
@@ -265,7 +283,7 @@ const WorkflowEditorLayout = ({
                     )
                 )}
 
-                {rightSidebarMounted && componentDefinitions && taskDispatcherDefinitions && (
+                {!isCodeWorkflow && rightSidebarMounted && componentDefinitions && taskDispatcherDefinitions && (
                     <Suspense fallback={<WorkflowNodesSidebarSkeleton />}>
                         <WorkflowNodesSidebar
                             data={{
@@ -290,6 +308,7 @@ const WorkflowEditorLayout = ({
                         }
                     >
                         <WorkflowRightSidebar
+                            copilotOnly={isCodeWorkflow}
                             copilotPanelOpen={copilotPanelOpen}
                             issueCount={issues.length}
                             issueSeverity={issues[0]?.severity}
@@ -361,6 +380,16 @@ const WorkflowEditorLayout = ({
                     sheetOpen={showWorkflowOutputsSheet}
                     workflow={workflow}
                 />
+            )}
+
+            {showCodeWorkflowTestConfigurationDialog && (
+                <Suspense>
+                    <WorkflowTestConfigurationDialog
+                        onClose={() => setShowCodeWorkflowTestConfigurationDialog(false)}
+                        workflow={workflow}
+                        workflowTestConfiguration={workflowTestConfiguration}
+                    />
+                </Suspense>
             )}
 
             {showWorkflowCodeEditorSheet && (
