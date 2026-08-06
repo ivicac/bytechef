@@ -105,7 +105,7 @@ vi.mock('@/shared/components/DeleteWorkflowAlertDialog', () => ({
     default: () => <div data-testid="delete-workflow-dialog" />,
 }));
 
-const integration = {id: 1, name: 'Mailchimp'} as Integration;
+const integration = {codeWorkflow: false, id: 1, name: 'Mailchimp'} as Integration;
 
 const componentDefinitions = {
     gmail: {icon: '<svg />', name: 'gmail', title: 'Gmail', version: 1},
@@ -164,6 +164,8 @@ describe('IntegrationWorkflowListItem', () => {
             workflowTriggerComponentNames: ['manual'],
         });
 
+        // Exact text, not toHaveTextContent: that matches substrings, so an unsliced "manual,slack,gmail" would
+        // pass while the trigger got drawn twice — once as its chip, once as a task icon.
         expect(screen.getByTestId('workflow-components-list').textContent).toBe('slack,gmail');
     });
 
