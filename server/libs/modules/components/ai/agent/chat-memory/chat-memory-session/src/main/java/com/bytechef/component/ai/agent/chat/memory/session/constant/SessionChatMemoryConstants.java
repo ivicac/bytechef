@@ -33,7 +33,6 @@ public class SessionChatMemoryConstants {
     public static final String OVERLAP_SIZE = "overlapSize";
     public static final String ENABLE_CONVERSATION_SEARCH = "enableConversationSearch";
     public static final String SEARCH_PAGE_SIZE = "searchPageSize";
-    public static final String AGENT_BRANCH = "agentBranch";
 
     // compactionStrategy option values
     public static final String NONE = "NONE";

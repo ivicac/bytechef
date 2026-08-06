@@ -26,6 +26,7 @@ import org.springframework.ai.session.EventFilter;
 import org.springframework.ai.session.Session;
 import org.springframework.ai.session.SessionEvent;
 import org.springframework.ai.session.SessionRepository;
+import org.springframework.ai.session.compaction.CompactionPlan;
 import org.springframework.ai.session.redis.StoredSession.StoredEvent;
 import org.springframework.util.Assert;
 import redis.clients.jedis.UnifiedJedis;
@@ -37,7 +38,7 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>
  * Each session is stored as a single JSON string at {@code {keyPrefix}{sessionId}}. The document contains the session
  * metadata, a monotonically increasing version counter, and the full ordered event log — the same document shape as the
- * S3 variant. Compare-and-swap semantics for {@link #compactEvents(String, List, List, long)} (and the internal
+ * S3 variant. Compare-and-swap semantics for {@link #applyCompaction(String, CompactionPlan, long)} (and the internal
  * read-modify-write loops) are enforced atomically on the Redis server via a Lua script that compares the stored
  * document's version field before overwriting.
  *
@@ -66,6 +67,22 @@ public final class RedisSessionRepository implements SessionRepository {
           return 0
         end
         redis.call('SET', KEYS[1], ARGV[1])
+        return 1
+        """;
+    private static final String DELETE_IF_EXPIRED_SCRIPT = """
+        local current = redis.call('GET', KEYS[1])
+        if current == false then
+          return 0
+        end
+        local ok, doc = pcall(cjson.decode, current)
+        if not ok then
+          return 0
+        end
+        local expiresAt = doc['expiresAtEpochMilli']
+        if expiresAt == nil or expiresAt == cjson.null or tonumber(expiresAt) >= tonumber(ARGV[1]) then
+          return 0
+        end
+        redis.call('DEL', KEYS[1])
         return 1
         """;
 
@@ -102,6 +119,13 @@ public final class RedisSessionRepository implements SessionRepository {
     }
 
     @Override
+    public boolean saveIfAbsent(Session session) {
+        Assert.notNull(session, "session must not be null");
+
+        return tryPut(StoredSession.fromSession(session, 0L, List.of()), EXPECT_ABSENT);
+    }
+
+    @Override
     @Nullable
     public Session findById(String sessionId) {
         Assert.hasText(sessionId, "sessionId must not be null or empty");
@@ -127,20 +151,28 @@ public final class RedisSessionRepository implements SessionRepository {
     }
 
     @Override
-    public List<String> findExpiredSessionIds(Instant before) {
+    public int deleteExpiredSessions(Instant before) {
         Assert.notNull(before, "before must not be null");
 
-        List<String> ids = new ArrayList<>();
+        int deleted = 0;
 
         for (StoredSession document : loadAll()) {
             Long expiresAt = document.expiresAtEpochMilli();
 
-            if (expiresAt != null && expiresAt < before.toEpochMilli()) {
-                ids.add(document.id());
+            if (expiresAt == null || expiresAt >= before.toEpochMilli()) {
+                continue;
+            }
+
+            // Re-checked inside the script, so a session whose TTL a concurrent save() extended is kept.
+            Object result = jedis.eval(
+                DELETE_IF_EXPIRED_SCRIPT, List.of(key(document.id())), List.of(Long.toString(before.toEpochMilli())));
+
+            if (result instanceof Long resultValue && resultValue == 1L) {
+                deleted++;
             }
         }
 
-        return ids;
+        return deleted;
     }
 
     @Override
@@ -175,13 +207,9 @@ public final class RedisSessionRepository implements SessionRepository {
     }
 
     @Override
-    public boolean compactEvents(
-        String sessionId, List<SessionEvent> archivedEvents, List<SessionEvent> retainedEvents,
-        long expectedVersion) {
-
+    public boolean applyCompaction(String sessionId, CompactionPlan plan, long expectedVersion) {
         Assert.hasText(sessionId, "sessionId must not be null or empty");
-        Assert.notNull(archivedEvents, "archivedEvents must not be null");
-        Assert.notNull(retainedEvents, "retainedEvents must not be null");
+        Assert.notNull(plan, "plan must not be null");
 
         StoredSession document = requireSession(sessionId);
 
@@ -189,27 +217,17 @@ public final class RedisSessionRepository implements SessionRepository {
             return false;
         }
 
-        // Mirror the reference repositories: previously-archived events keep their position as the oldest
-        // prefix, the newly-compacted events follow marked archived, and the retained list becomes the new
-        // active window. Any other previously-active event (e.g. a superseded synthetic summary) is dropped.
-        List<SessionEvent> newEvents = new ArrayList<>();
+        List<SessionEvent> events = new ArrayList<>();
 
         for (StoredEvent storedEvent : document.events()) {
-            SessionEvent event = storedEvent.toEvent(jsonMapper);
-
-            if (event.isArchived()) {
-                newEvents.add(event);
-            }
+            events.add(storedEvent.toEvent(jsonMapper));
         }
 
-        for (SessionEvent archivedEvent : archivedEvents) {
-            newEvents.add(archivedEvent.asArchived());
-        }
-
-        newEvents.addAll(retainedEvents);
+        // applyTo validates the plan against the log and throws before anything is written
+        List<SessionEvent> compactedEvents = plan.applyTo(events);
 
         StoredSession next = withEvents(
-            document, StoredSession.toStoredEvents(newEvents, jsonMapper), document.version() + 1);
+            document, StoredSession.toStoredEvents(compactedEvents, jsonMapper), document.version() + 1);
 
         return tryPut(next, document.version());
     }
@@ -324,10 +342,6 @@ public final class RedisSessionRepository implements SessionRepository {
         }
 
         return documents;
-    }
-
-    private void put(StoredSession document) {
-        jedis.set(key(document.id()), jsonMapper.writeValueAsString(document));
     }
 
     private boolean tryPut(StoredSession document, long expectedVersion) {

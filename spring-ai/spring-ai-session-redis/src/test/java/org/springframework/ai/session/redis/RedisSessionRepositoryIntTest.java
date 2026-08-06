@@ -26,6 +26,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Instant;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -33,6 +34,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.session.EventFilter;
 import org.springframework.ai.session.Session;
 import org.springframework.ai.session.SessionEvent;
+import org.springframework.ai.session.compaction.CompactionPlan;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.utility.DockerImageName;
 import redis.clients.jedis.JedisPooled;
@@ -150,15 +152,19 @@ class RedisSessionRepositoryIntTest {
     }
 
     @Test
-    void testCompactEventsCasSucceedsThenFailsOnStaleVersion() {
+    void testApplyCompactionCasSucceedsThenFailsOnStaleVersion() {
         newSession("s-cas");
 
         repository.appendEvent(event("s-cas", "v1"));
 
         long version = repository.getEventVersion("s-cas");
 
-        assertTrue(repository.compactEvents("s-cas", List.of(), List.of(event("s-cas", "compacted")), version));
-        assertFalse(repository.compactEvents("s-cas", List.of(), List.of(event("s-cas", "again")), version));
+        assertTrue(repository.applyCompaction("s-cas",
+            new CompactionPlan(Set.of(), List.of(CompactionPlan.Insert.atEnd(List.of(event("s-cas", "compacted"))))),
+            version));
+        assertFalse(repository.applyCompaction("s-cas",
+            new CompactionPlan(Set.of(), List.of(CompactionPlan.Insert.atEnd(List.of(event("s-cas", "again"))))),
+            version));
     }
 
     @Test
@@ -174,7 +180,7 @@ class RedisSessionRepositoryIntTest {
     }
 
     @Test
-    void testFindExpiredSessionIds() {
+    void testDeleteExpiredSessions() {
         repository.save(Session.builder()
             .id("s-expired")
             .userId("user-1")
@@ -184,7 +190,8 @@ class RedisSessionRepositoryIntTest {
                 .minusSeconds(60))
             .build());
 
-        assertTrue(repository.findExpiredSessionIds(Instant.now())
-            .contains("s-expired"));
+        assertEquals(1, repository.deleteExpiredSessions(Instant.now()));
+
+        assertNull(repository.findById("s-expired"));
     }
 }

@@ -16,7 +16,6 @@
 
 package com.bytechef.component.ai.agent.chat.memory.session.cluster;
 
-import static com.bytechef.component.ai.agent.chat.memory.session.constant.SessionChatMemoryConstants.AGENT_BRANCH;
 import static com.bytechef.component.ai.agent.chat.memory.session.constant.SessionChatMemoryConstants.COMPACTION_STRATEGY;
 import static com.bytechef.component.ai.agent.chat.memory.session.constant.SessionChatMemoryConstants.CONVERSATION_ID;
 import static com.bytechef.component.ai.agent.chat.memory.session.constant.SessionChatMemoryConstants.DEFAULT_USER_ID;
@@ -57,7 +56,6 @@ import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.client.advisor.api.BaseAdvisor;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.session.DefaultSessionService;
-import org.springframework.ai.session.EventFilter;
 import org.springframework.ai.session.SessionRepository;
 import org.springframework.ai.session.SessionService;
 import org.springframework.ai.session.advisor.SessionMemoryAdvisor;
@@ -156,10 +154,6 @@ public class SessionChatMemory {
                     .label("Search page size")
                     .defaultValue(DEFAULT_SEARCH_PAGE_SIZE)
                     .displayCondition("%s == true".formatted(ENABLE_CONVERSATION_SEARCH))
-                    .required(false),
-                string(AGENT_BRANCH)
-                    .label("Agent branch")
-                    .description("Restrict recalled events to this dot-path branch (multi-agent isolation).")
                     .required(false))
             .type(CHAT_MEMORY)
             .object(() -> this::apply);
@@ -178,12 +172,6 @@ public class SessionChatMemory {
         SessionMemoryAdvisor.Builder builder = SessionMemoryAdvisor.builder(sessionService)
             .defaultUserId(inputParameters.getString(DEFAULT_USER_ID, DEFAULT_USER_ID_VALUE))
             .order(ChatMemoryFunction.TOOL_MESSAGE_PERSISTENCE_ADVISOR_ORDER);
-
-        String agentBranch = inputParameters.getString(AGENT_BRANCH);
-
-        if (agentBranch != null && !agentBranch.isBlank()) {
-            builder.eventFilter(EventFilter.forBranch(agentBranch));
-        }
 
         CompactionStrategy compactionStrategy = resolveCompactionStrategy(
             inputParameters, extensions, componentConnections);

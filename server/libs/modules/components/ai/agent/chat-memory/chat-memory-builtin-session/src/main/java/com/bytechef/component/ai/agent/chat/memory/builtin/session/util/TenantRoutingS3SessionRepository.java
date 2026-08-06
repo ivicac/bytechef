@@ -28,6 +28,7 @@ import org.springframework.ai.session.EventFilter;
 import org.springframework.ai.session.Session;
 import org.springframework.ai.session.SessionEvent;
 import org.springframework.ai.session.SessionRepository;
+import org.springframework.ai.session.compaction.CompactionPlan;
 import org.springframework.ai.session.s3.S3SessionRepository;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.BucketAlreadyExistsException;
@@ -70,6 +71,11 @@ public final class TenantRoutingS3SessionRepository implements SessionRepository
     }
 
     @Override
+    public boolean saveIfAbsent(Session session) {
+        return resolve().saveIfAbsent(session);
+    }
+
+    @Override
     @Nullable
     public Session findById(String sessionId) {
         return resolve().findById(sessionId);
@@ -81,8 +87,8 @@ public final class TenantRoutingS3SessionRepository implements SessionRepository
     }
 
     @Override
-    public List<String> findExpiredSessionIds(Instant before) {
-        return resolve().findExpiredSessionIds(before);
+    public int deleteExpiredSessions(Instant before) {
+        return resolve().deleteExpiredSessions(before);
     }
 
     @Override
@@ -96,11 +102,8 @@ public final class TenantRoutingS3SessionRepository implements SessionRepository
     }
 
     @Override
-    public boolean compactEvents(
-        String sessionId, List<SessionEvent> archivedEvents, List<SessionEvent> retainedEvents,
-        long expectedVersion) {
-
-        return resolve().compactEvents(sessionId, archivedEvents, retainedEvents, expectedVersion);
+    public boolean applyCompaction(String sessionId, CompactionPlan plan, long expectedVersion) {
+        return resolve().applyCompaction(sessionId, plan, expectedVersion);
     }
 
     @Override

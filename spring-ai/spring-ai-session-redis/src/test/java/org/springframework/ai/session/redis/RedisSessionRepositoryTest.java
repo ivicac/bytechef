@@ -33,6 +33,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.AssistantMessage;
@@ -43,6 +44,7 @@ import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.session.EventFilter;
 import org.springframework.ai.session.Session;
 import org.springframework.ai.session.SessionEvent;
+import org.springframework.ai.session.compaction.CompactionPlan;
 import redis.clients.jedis.UnifiedJedis;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -50,8 +52,8 @@ import tools.jackson.databind.json.JsonMapper;
 /**
  * Unit tests for {@link RedisSessionRepository} against a map-backed {@link UnifiedJedis} fake whose {@code eval}
  * answer reproduces the CAS script's observable semantics (absent-key create when the expected version is {@code -1},
- * version-field comparison otherwise). The real Lua script is exercised by {@code RedisSessionRepositoryIntTest}
- * against a Redis container.
+ * version-field comparison otherwise) and the delete-if-expired script's expiry re-check. The real Lua script is
+ * exercised by {@code RedisSessionRepositoryIntTest} against a Redis container.
  *
  * @author Ivica Cardic
  */
@@ -92,6 +94,10 @@ class RedisSessionRepositoryTest {
             List<String> keys = invocation.getArgument(1);
             List<String> args = invocation.getArgument(2);
 
+            if (args.size() == 1) {
+                return deleteIfExpiredEval(keys.get(0), Long.parseLong(args.get(0)));
+            }
+
             return casEval(keys.get(0), args.get(0), args.get(1));
         });
 
@@ -123,6 +129,25 @@ class RedisSessionRepositoryTest {
         }
 
         store.put(key, newDocument);
+
+        return 1L;
+    }
+
+    private Long deleteIfExpiredEval(String key, long beforeEpochMilli) {
+        String current = store.get(key);
+
+        if (current == null) {
+            return 0L;
+        }
+
+        JsonNode expiresAtNode = jsonMapper.readTree(current)
+            .get("expiresAtEpochMilli");
+
+        if (expiresAtNode == null || expiresAtNode.isNull() || expiresAtNode.asLong() >= beforeEpochMilli) {
+            return 0L;
+        }
+
+        store.remove(key);
 
         return 1L;
     }
@@ -267,34 +292,48 @@ class RedisSessionRepositoryTest {
     }
 
     @Test
-    void testCompactEventsCasSucceedsThenFailsOnStaleVersion() {
+    void testApplyCompactionCasSucceedsThenFailsOnStaleVersion() {
         newSession("s-cas");
 
         repository.appendEvent(event("s-cas", "v1"));
 
         long version = repository.getEventVersion("s-cas");
 
-        assertTrue(repository.compactEvents("s-cas", List.of(), List.of(event("s-cas", "compacted")), version));
-        assertFalse(repository.compactEvents("s-cas", List.of(), List.of(event("s-cas", "again")), version));
+        assertTrue(repository.applyCompaction("s-cas",
+            new CompactionPlan(Set.of(), List.of(CompactionPlan.Insert.atEnd(List.of(event("s-cas", "compacted"))))),
+            version));
+        assertFalse(repository.applyCompaction("s-cas",
+            new CompactionPlan(Set.of(), List.of(CompactionPlan.Insert.atEnd(List.of(event("s-cas", "again"))))),
+            version));
     }
 
     @Test
-    void testCompactEventsAtCurrentVersionReplacesEvents() {
+    void testApplyCompactionArchivesInPlaceAndAppends() {
         newSession("s-replace");
 
         repository.appendEvent(event("s-replace", "old"));
 
+        String oldEventId = repository.findEvents("s-replace", EventFilter.all())
+            .get(0)
+            .getId();
+
         long currentVersion = repository.getEventVersion("s-replace");
 
         assertTrue(
-            repository.compactEvents("s-replace", List.of(), List.of(event("s-replace", "new")), currentVersion));
+            repository.applyCompaction(
+                "s-replace",
+                new CompactionPlan(
+                    Set.of(oldEventId), List.of(CompactionPlan.Insert.atEnd(List.of(event("s-replace", "new"))))),
+                currentVersion));
 
-        List<SessionEvent> events = repository.findEvents("s-replace", EventFilter.all());
+        List<SessionEvent> activeEvents = repository.findEvents("s-replace", EventFilter.active());
 
-        assertEquals(1, events.size());
-        assertEquals("new", events.get(0)
+        assertEquals(1, activeEvents.size());
+        assertEquals("new", activeEvents.get(0)
             .getMessage()
             .getText());
+        assertEquals(2, repository.findEvents("s-replace", EventFilter.all())
+            .size());
     }
 
     @Test
@@ -310,7 +349,7 @@ class RedisSessionRepositoryTest {
     }
 
     @Test
-    void testFindExpiredSessionIds() {
+    void testDeleteExpiredSessions() {
         repository.save(Session.builder()
             .id("s-expired")
             .userId("user-1")
@@ -320,7 +359,8 @@ class RedisSessionRepositoryTest {
                 .minusSeconds(60))
             .build());
 
-        assertTrue(repository.findExpiredSessionIds(Instant.now())
-            .contains("s-expired"));
+        assertEquals(1, repository.deleteExpiredSessions(Instant.now()));
+
+        assertNull(repository.findById("s-expired"));
     }
 }

@@ -26,6 +26,7 @@ import org.springframework.ai.session.EventFilter;
 import org.springframework.ai.session.Session;
 import org.springframework.ai.session.SessionEvent;
 import org.springframework.ai.session.SessionRepository;
+import org.springframework.ai.session.compaction.CompactionPlan;
 import org.springframework.ai.session.s3.StoredSession.StoredEvent;
 import org.springframework.util.Assert;
 import software.amazon.awssdk.core.ResponseBytes;
@@ -47,7 +48,7 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>
  * Each session is stored as a single JSON object at {@code {keyPrefix}{sessionId}.json}. The object contains the
  * session metadata, a monotonically increasing version counter, and the full ordered event log. Compare-and-swap
- * semantics for {@link #compactEvents(String, List, List, long)} are enforced via the stored version field; S3
+ * semantics for {@link #applyCompaction(String, CompactionPlan, long)} are enforced via the stored version field; S3
  * conditional writes (If-Match ETag) are attempted first for stronger isolation, but the in-document version check is
  * the authoritative guard.
  *
@@ -91,6 +92,33 @@ public final class S3SessionRepository implements SessionRepository {
     }
 
     @Override
+    public boolean saveIfAbsent(Session session) {
+        Assert.notNull(session, "session must not be null");
+
+        PutObjectRequest request = PutObjectRequest.builder()
+            .bucket(bucketName)
+            .key(key(session.id()))
+            .contentType("application/json")
+            .ifNoneMatch("*")
+            .build();
+
+        try {
+            s3Client.putObject(
+                request,
+                RequestBody.fromBytes(
+                    jsonMapper.writeValueAsBytes(StoredSession.fromSession(session, 0L, List.of()))));
+
+            return true;
+        } catch (S3Exception s3Exception) {
+            if (s3Exception.statusCode() == 412) {
+                return false;
+            }
+
+            throw s3Exception;
+        }
+    }
+
+    @Override
     @Nullable
     public Session findById(String sessionId) {
         Assert.hasText(sessionId, "sessionId must not be null or empty");
@@ -116,20 +144,40 @@ public final class S3SessionRepository implements SessionRepository {
     }
 
     @Override
-    public List<String> findExpiredSessionIds(Instant before) {
+    public int deleteExpiredSessions(Instant before) {
         Assert.notNull(before, "before must not be null");
 
-        List<String> ids = new ArrayList<>();
+        int deleted = 0;
 
         for (StoredSession document : loadAll()) {
-            Long expiresAt = document.expiresAtEpochMilli();
+            if (!isExpired(document, before)) {
+                continue;
+            }
 
-            if (expiresAt != null && expiresAt < before.toEpochMilli()) {
-                ids.add(document.id());
+            // Re-read for the current ETag and delete only that version, so a session whose TTL a concurrent
+            // save() extended in between is kept.
+            Loaded loaded = load(document.id());
+
+            if (loaded == null || !isExpired(loaded.document, before)) {
+                continue;
+            }
+
+            try {
+                s3Client.deleteObject(DeleteObjectRequest.builder()
+                    .bucket(bucketName)
+                    .key(key(document.id()))
+                    .ifMatch(loaded.etag)
+                    .build());
+
+                deleted++;
+            } catch (S3Exception s3Exception) {
+                if (s3Exception.statusCode() != 412) {
+                    throw s3Exception;
+                }
             }
         }
 
-        return ids;
+        return deleted;
     }
 
     @Override
@@ -167,13 +215,9 @@ public final class S3SessionRepository implements SessionRepository {
     }
 
     @Override
-    public boolean compactEvents(
-        String sessionId, List<SessionEvent> archivedEvents, List<SessionEvent> retainedEvents,
-        long expectedVersion) {
-
+    public boolean applyCompaction(String sessionId, CompactionPlan plan, long expectedVersion) {
         Assert.hasText(sessionId, "sessionId must not be null or empty");
-        Assert.notNull(archivedEvents, "archivedEvents must not be null");
-        Assert.notNull(retainedEvents, "retainedEvents must not be null");
+        Assert.notNull(plan, "plan must not be null");
 
         Loaded loaded = requireSession(sessionId);
 
@@ -181,27 +225,18 @@ public final class S3SessionRepository implements SessionRepository {
             return false;
         }
 
-        // Mirror the reference repositories: previously-archived events keep their position as the oldest
-        // prefix, the newly-compacted events follow marked archived, and the retained list becomes the new
-        // active window. Any other previously-active event (e.g. a superseded synthetic summary) is dropped.
-        List<SessionEvent> newEvents = new ArrayList<>();
+        List<SessionEvent> events = new ArrayList<>();
 
         for (StoredEvent storedEvent : loaded.document.events()) {
-            SessionEvent event = storedEvent.toEvent(jsonMapper);
-
-            if (event.isArchived()) {
-                newEvents.add(event);
-            }
+            events.add(storedEvent.toEvent(jsonMapper));
         }
 
-        for (SessionEvent archivedEvent : archivedEvents) {
-            newEvents.add(archivedEvent.asArchived());
-        }
-
-        newEvents.addAll(retainedEvents);
+        // applyTo validates the plan against the log and throws before anything is written
+        List<SessionEvent> compactedEvents = plan.applyTo(events);
 
         StoredSession next = withEvents(
-            loaded.document, StoredSession.toStoredEvents(newEvents, jsonMapper), loaded.document.version() + 1);
+            loaded.document, StoredSession.toStoredEvents(compactedEvents, jsonMapper),
+            loaded.document.version() + 1);
 
         return tryPut(next, loaded.etag);
     }
@@ -268,6 +303,12 @@ public final class S3SessionRepository implements SessionRepository {
         }
 
         return Collections.unmodifiableList(matched);
+    }
+
+    private static boolean isExpired(StoredSession document, Instant before) {
+        Long expiresAt = document.expiresAtEpochMilli();
+
+        return expiresAt != null && expiresAt < before.toEpochMilli();
     }
 
     private StoredSession withEvents(StoredSession document, List<StoredEvent> events, long version) {

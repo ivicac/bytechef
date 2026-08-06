@@ -26,10 +26,12 @@ import static org.mockito.Mockito.when;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.ai.chat.messages.UserMessage;
 import org.springframework.ai.session.SessionEvent;
+import org.springframework.ai.session.compaction.CompactionPlan;
 import software.amazon.awssdk.core.ResponseBytes;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
@@ -42,7 +44,7 @@ import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Mocked unit tests for the CAS (compare-and-swap) paths of
- * {@link S3SessionRepository#compactEvents(String, List, List, long)}.
+ * {@link S3SessionRepository#applyCompaction(String, CompactionPlan, long)}.
  *
  * <p>
  * LocalStack 3.5 does not enforce S3 {@code If-Match} conditional writes, so the 412-PreconditionFailed branch cannot
@@ -79,7 +81,7 @@ class S3SessionRepositoryCasTest {
     }
 
     @Test
-    void testCompactEventsReturnsFalseWhenPutThrows412() {
+    void testApplyCompactionReturnsFalseWhenPutThrows412() {
         when(s3Client.getObjectAsBytes(any(GetObjectRequest.class)))
             .thenReturn(ResponseBytes.fromByteArray(
                 GetObjectResponse.builder()
@@ -98,13 +100,14 @@ class S3SessionRepositoryCasTest {
             .message(new UserMessage("x"))
             .build());
 
-        boolean result = repository.compactEvents(SESSION_ID, List.of(), events, VERSION);
+        boolean result = repository.applyCompaction(
+            SESSION_ID, new CompactionPlan(Set.of(), List.of(CompactionPlan.Insert.atEnd(events))), VERSION);
 
         assertFalse(result);
     }
 
     @Test
-    void testCompactEventsReturnsTrueWhenPutSucceeds() {
+    void testApplyCompactionReturnsTrueWhenPutSucceeds() {
         when(s3Client.getObjectAsBytes(any(GetObjectRequest.class)))
             .thenReturn(ResponseBytes.fromByteArray(
                 GetObjectResponse.builder()
@@ -121,13 +124,14 @@ class S3SessionRepositoryCasTest {
             .message(new UserMessage("x"))
             .build());
 
-        boolean result = repository.compactEvents(SESSION_ID, List.of(), events, VERSION);
+        boolean result = repository.applyCompaction(
+            SESSION_ID, new CompactionPlan(Set.of(), List.of(CompactionPlan.Insert.atEnd(events))), VERSION);
 
         assertTrue(result);
     }
 
     @Test
-    void testCompactEventsReturnsFalseOnStaleVersionWithoutInvokingPut() {
+    void testApplyCompactionReturnsFalseOnStaleVersionWithoutInvokingPut() {
         when(s3Client.getObjectAsBytes(any(GetObjectRequest.class)))
             .thenReturn(ResponseBytes.fromByteArray(
                 GetObjectResponse.builder()
@@ -142,7 +146,8 @@ class S3SessionRepositoryCasTest {
 
         long staleVersion = VERSION - 1L;
 
-        boolean result = repository.compactEvents(SESSION_ID, List.of(), events, staleVersion);
+        boolean result = repository.applyCompaction(SESSION_ID,
+            new CompactionPlan(Set.of(), List.of(CompactionPlan.Insert.atEnd(events))), staleVersion);
 
         assertFalse(result);
 

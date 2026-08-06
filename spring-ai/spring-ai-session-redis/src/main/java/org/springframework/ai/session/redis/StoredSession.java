@@ -95,7 +95,7 @@ record StoredSession(
                 message.getMessageType()
                     .name(),
                 message.getText(), messageData, event.isSynthetic(), event.isArchived(),
-                event.getBranch(), new HashMap<>(event.getMetadata()));
+                null, new HashMap<>(event.getMetadata()));
         }
 
         SessionEvent toEvent(JsonMapper jsonMapper) {
@@ -110,7 +110,6 @@ record StoredSession(
                 .sessionId(sessionId)
                 .timestamp(Instant.ofEpochMilli(timestampEpochMilli))
                 .message(toMessage(jsonMapper))
-                .branch(branch)
                 .archived(archived)
                 .metadata(mergedMetadata)
                 .build();
