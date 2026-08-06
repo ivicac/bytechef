@@ -1189,13 +1189,11 @@ class SpelEvaluatorTest {
     }
 
     @Test
-    void testRemoveFromMapLeavesTheSourceMapUnchanged() {
-        Map<String, Object> sourceMap = new HashMap<>(Map.of("amount", 10, "currency", "EUR"));
+    void testRootFormulaYieldsTheWholeContext() {
+        Map<String, ?> context = Map.of("my-task1", Map.of("value", 3), "input", Map.of("a", 1));
 
-        Map<String, Object> map = EVALUATOR.evaluate(
-            Map.of("result", "=remove(${action_1}, 'amount')"), Map.of("action_1", sourceMap));
+        Map<String, ?> result = EVALUATOR.evaluate(Map.of("input", "=#root"), context);
 
-        assertEquals(Map.of("currency", "EUR"), map.get("result"));
-        assertEquals(Map.of("amount", 10, "currency", "EUR"), sourceMap);
+        assertEquals(context, result.get("input"));
     }
 }
