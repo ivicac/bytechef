@@ -787,6 +787,13 @@ public class ProjectFacadeImpl implements ProjectFacade {
                     .stream()
                     .collect(Collectors.groupingBy(ProjectDeployment::getProjectId, Collectors.counting()));
 
+            ProjectCodeWorkflowInfoSupplier projectCodeWorkflowInfoSupplier =
+                projectCodeWorkflowInfoSupplierProvider.getIfAvailable();
+
+            Set<Long> codeWorkflowProjectIds = projectCodeWorkflowInfoSupplier == null
+                ? Set.of()
+                : Set.copyOf(projectCodeWorkflowInfoSupplier.getCodeWorkflowProjectIds());
+
             return CollectionUtils.map(
                 projects,
                 project -> new ProjectDTO(
@@ -805,7 +812,8 @@ public class ProjectFacadeImpl implements ProjectFacade {
                         tag -> CollectionUtils.contains(project.getTagIds(), tag.getId())),
                     developmentDeploymentCounts == null
                         ? null
-                        : Math.toIntExact(developmentDeploymentCounts.getOrDefault(project.getId(), 0L))));
+                        : Math.toIntExact(developmentDeploymentCounts.getOrDefault(project.getId(), 0L)),
+                    codeWorkflowProjectIds.contains(project.getId()), null));
         } else {
             return CollectionUtils.map(projects, ProjectDTO::new);
         }
