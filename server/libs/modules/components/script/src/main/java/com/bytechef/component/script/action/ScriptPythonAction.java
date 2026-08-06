@@ -60,12 +60,8 @@ public class ScriptPythonAction {
                         .languageId("python")
                         .defaultValue(
                             """
-                                def perform(input, connection, context):
-                                    # input holds the values defined in the Input panel (top right of this editor).
-                                    #
-                                    # connection holds the parameters of each connection defined in the
-                                    # Connections panel (bottom right of this editor), keyed by its name:
-                                    # token = connection["my-connection"]["token"]
+                                def perform(input, context):
+                                    # input holds the values declared above under Input.
                                     #
                                     # Reach another component's action through the context:
                                     # response = context.component.httpClient.get(

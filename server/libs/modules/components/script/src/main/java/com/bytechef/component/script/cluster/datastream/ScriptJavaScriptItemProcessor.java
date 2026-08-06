@@ -46,11 +46,11 @@ public class ScriptJavaScriptItemProcessor {
                         .defaultValue(
                             """
                                 function perform(input, context) {
-                                    // input.item holds the item being processed.
+                                    // input holds the values declared above under Input.
                                     //
                                     // Reach another component's action through the context:
                                     // const response = context.component.httpClient.get(
-                                    //     {uri: "https://api.example.com/items"});
+                                    //     {uri: "https://api.example.com/items"}, "my-connection");
 
                                     return null;
                                 }""")
