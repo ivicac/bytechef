@@ -1,263 +1,159 @@
-import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWorkflowDataStore';
-import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
-import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
-import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
-import {act, renderHook, waitFor} from '@testing-library/react';
-import {ReactNode, createElement} from 'react';
-import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
+import {act, renderHook} from '@testing-library/react';
+import {Node} from '@xyflow/react';
+import {beforeEach, describe, expect, it, vi} from 'vitest';
 
+import useWorkflowDataStore from '../../workflow-editor/stores/useWorkflowDataStore';
+import useWorkflowEditorStore from '../../workflow-editor/stores/useWorkflowEditorStore';
 import useClusterElementsDataStore from '../stores/useClusterElementsDataStore';
-
-const {componentDefinitionsByName} = vi.hoisted(() => {
-    const aiAgentDefinition = {
-        actionClusterElementTypes: {},
-        clusterElementClusterElementTypes: {},
-        clusterElementTypes: [
-            {key: 'model', label: 'Model', multipleElements: false, name: 'MODEL'},
-            {key: 'chatMemory', label: 'Memory', multipleElements: false, name: 'CHAT_MEMORY'},
-        ],
-        name: 'aiAgent',
-        version: 1,
-    };
-
-    return {
-        componentDefinitionsByName: {
-            aiAgent: aiAgentDefinition,
-            awsChatMemory: {
-                clusterElementTypes: [{key: 'model', label: 'Model', multipleElements: false, name: 'MODEL'}],
-                name: 'awsChatMemory',
-                version: 2,
-            },
-            jdbcChatMemory: {
-                clusterElementTypes: [
-                    {key: 'dataSource', label: 'Data Source', multipleElements: false, name: 'DATA_SOURCE'},
-                    {key: 'model', label: 'Model', multipleElements: false, name: 'MODEL'},
-                ],
-                name: 'jdbcChatMemory',
-                version: 2,
-            },
-        } as Record<string, object>,
-    };
-});
-
-vi.mock('@/shared/queries/platform/componentDefinitions.queries', () => ({
-    ComponentDefinitionKeys: {
-        componentDefinition: (request: {componentName: string; componentVersion: number}) => [
-            'componentDefinition',
-            request.componentName,
-            request.componentVersion,
-        ],
-    },
-    useGetComponentDefinitionQuery: () => ({data: componentDefinitionsByName.aiAgent}),
-}));
-
-vi.mock('@/shared/middleware/platform/configuration', () => ({
-    ComponentDefinitionApi: class {
-        getComponentDefinition({componentName}: {componentName: string}) {
-            return Promise.resolve(componentDefinitionsByName[componentName]);
-        }
-    },
-}));
-
 import useClusterElementsLayout from './useClusterElementsLayout';
 
-const getWorkflowDefinition = (chatMemoryType: string, chatMemoryName: string) =>
+const {getClusterElementsLayoutElementsMock} = vi.hoisted(() => ({
+    getClusterElementsLayoutElementsMock: vi.fn(),
+}));
+
+// The real layout is exercised by its own tests; here it only needs to be observable and to hand back
+// positions that differ from the ones a user would have dragged a node to.
+vi.mock('@/pages/platform/workflow-editor/utils/layoutUtils', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@/pages/platform/workflow-editor/utils/layoutUtils')>()),
+    getClusterElementsLayoutElements: getClusterElementsLayoutElementsMock,
+}));
+
+const {createClusterElementsNodesMock} = vi.hoisted(() => ({
+    createClusterElementsNodesMock: vi.fn(),
+}));
+
+vi.mock('@/pages/platform/cluster-element-editor/utils/createClusterElementsNodes', () => ({
+    default: createClusterElementsNodesMock,
+}));
+
+vi.mock('@/pages/platform/cluster-element-editor/utils/createClusterElementsEdges', () => ({
+    default: () => [],
+}));
+
+vi.mock('@/shared/queries/platform/componentDefinitions.queries', () => ({
+    ComponentDefinitionKeys: {componentDefinition: () => ['componentDefinition']},
+    useGetComponentDefinitionQuery: () => ({data: undefined}),
+}));
+
+vi.mock('@tanstack/react-query', () => ({
+    useQueryClient: () => ({fetchQuery: vi.fn()}),
+}));
+
+const ROOT_NODE_NAME = 'aiAgent_1';
+
+const clusterElementNode = (name: string, label: string): Node => ({
+    data: {label},
+    id: name,
+    parentId: ROOT_NODE_NAME,
+    position: {x: 0, y: 0},
+    type: 'workflow',
+});
+
+const buildWorkflowDefinition = (revision: number) =>
     JSON.stringify({
-        tasks: [
-            {
-                clusterElements: {
-                    chatMemory: {clusterElements: {}, label: 'Memory', name: chatMemoryName, type: chatMemoryType},
-                },
-                label: 'AI Agent',
-                name: 'aiAgent_1',
-                type: 'aiAgent/v1/chat',
-            },
-        ],
+        tasks: [{clusterElements: {}, name: ROOT_NODE_NAME, revision}],
     });
 
-const getNodeIds = () => useClusterElementsDataStore.getState().nodes.map((node) => node.id);
+const setWorkflowDefinition = (revision: number) => {
+    useWorkflowDataStore.setState({
+        workflow: {definition: buildWorkflowDefinition(revision), id: 'workflow-1'},
+    } as Parameters<typeof useWorkflowDataStore.setState>[0]);
+};
 
-const getRootX = () =>
-    useClusterElementsDataStore.getState().nodes.find((node) => node.id === 'aiAgent_1')?.position.x ?? Number.NaN;
+// Positions a user would have dragged the nodes to, which a re-layout would discard.
+const handPlacedNodes = (): Array<Node> => [
+    {data: {label: 'root'}, id: ROOT_NODE_NAME, position: {x: 900, y: 900}, type: 'workflow'},
+    {...clusterElementNode('anthropic_1', 'stale'), position: {x: 700, y: 700}},
+];
 
 describe('useClusterElementsLayout', () => {
-    let pendingAnimationFrameCallbacks: Array<FrameRequestCallback> = [];
-
-    const flushAnimationFrames = (time: number) => {
-        const callbacks = pendingAnimationFrameCallbacks;
-
-        pendingAnimationFrameCallbacks = [];
-
-        callbacks.forEach((callback) => callback(time));
-    };
-
     beforeEach(() => {
-        pendingAnimationFrameCallbacks = [];
-
-        vi.spyOn(window, 'requestAnimationFrame').mockImplementation((callback) => {
-            pendingAnimationFrameCallbacks.push(callback);
-
-            return pendingAnimationFrameCallbacks.length;
-        });
-        vi.spyOn(window, 'cancelAnimationFrame').mockImplementation(() => {
-            pendingAnimationFrameCallbacks = [];
-        });
-
-        useClusterElementsDataStore.setState({
+        getClusterElementsLayoutElementsMock.mockReset();
+        getClusterElementsLayoutElementsMock.mockImplementation(({nodes}: {nodes: Array<Node>}) => ({
             edges: [],
-            isNodeDragging: false,
-            isPositionSaving: false,
-            nodes: [],
-        });
+            nodes: nodes.map((node) => ({...node, position: {x: 0, y: 0}})),
+        }));
 
-        useWorkflowDataStore.setState({
-            workflow: {definition: getWorkflowDefinition('awsChatMemory/v2/chatMemory', 'awsChatMemory_1'), id: 'w1'},
-        } as never);
+        createClusterElementsNodesMock.mockReset();
+        createClusterElementsNodesMock.mockReturnValue([clusterElementNode('anthropic_1', 'fresh')]);
+
+        useClusterElementsDataStore.getState().reset();
+        useClusterElementsDataStore.setState({nodes: handPlacedNodes()});
 
         useWorkflowEditorStore.setState({
-            mainClusterRootComponentDefinition: undefined,
+            mainClusterRootComponentDefinition: {name: 'aiAgent'},
             nestedClusterRootsComponentDefinitions: {},
             rootClusterElementNodeData: {
-                clusterRoot: true,
                 componentName: 'aiAgent',
-                label: 'AI Agent',
-                name: 'aiAgent_1',
                 operationName: 'chat',
-                type: 'aiAgent/v1/chat',
-                workflowNodeName: 'aiAgent_1',
+                type: 'aiAgent/v1',
+                workflowNodeName: ROOT_NODE_NAME,
             },
-        } as never);
+        } as Parameters<typeof useWorkflowEditorStore.setState>[0]);
 
-        useWorkflowNodeDetailsPanelStore.setState({workflowNodeDetailsPanelOpen: true} as never);
+        setWorkflowDefinition(1);
     });
 
-    afterEach(() => {
-        vi.restoreAllMocks();
+    it('lays out the canvas when nodes are locked', () => {
+        renderHook(() => useClusterElementsLayout());
+
+        expect(getClusterElementsLayoutElementsMock).toHaveBeenCalled();
+        expect(useClusterElementsDataStore.getState().nodes.map((node) => node.position)).toEqual([
+            {x: 0, y: 0},
+            {x: 0, y: 0},
+        ]);
     });
 
-    const renderLayout = async () => {
-        const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+    it('keeps hand-placed positions when nodes are unlocked and the node set is unchanged', () => {
+        useClusterElementsDataStore.setState({nodesLocked: false});
 
-        const wrapper = ({children}: {children: ReactNode}) =>
-            createElement(QueryClientProvider, {client: queryClient}, children);
+        const {rerender} = renderHook(() => useClusterElementsLayout());
 
-        const renderedHook = renderHook(() => useClusterElementsLayout(), {wrapper});
+        act(() => setWorkflowDefinition(2));
+        rerender();
 
-        await waitFor(() => expect(getNodeIds()).toContain('awsChatMemory_1-model-placeholder-0'));
+        expect(getClusterElementsLayoutElementsMock).not.toHaveBeenCalled();
 
-        return renderedHook;
-    };
+        const {nodes} = useClusterElementsDataStore.getState();
 
-    const setDetailsPanelOpen = (workflowNodeDetailsPanelOpen: boolean) =>
-        act(() => {
-            useWorkflowNodeDetailsPanelStore.setState({workflowNodeDetailsPanelOpen} as never);
-        });
-
-    const replaceAwsMemoryWithJdbcMemory = async () => {
-        act(() => {
-            useWorkflowDataStore.setState({
-                workflow: {
-                    definition: getWorkflowDefinition('jdbcChatMemory/v2/chatMemory', 'jdbcChatMemory_1'),
-                    id: 'w1',
-                },
-            } as never);
-        });
-
-        await waitFor(() =>
-            expect(useWorkflowEditorStore.getState().nestedClusterRootsComponentDefinitions).toHaveProperty(
-                'jdbcChatMemory'
-            )
-        );
-
-        await waitFor(() => expect(getNodeIds()).toContain('jdbcChatMemory_1-dataSource-placeholder-0'));
-    };
-
-    it('keeps the nested root placeholders laid out while the panel-close animation is running', async () => {
-        await renderLayout();
-
-        // Replacing the selected memory closes the details panel, which starts the canvas-width animation...
-        setDetailsPanelOpen(false);
-
-        expect(pendingAnimationFrameCallbacks.length).toBeGreaterThan(0);
-
-        // ...and the saved workflow then swaps the memory component while the animation is still in flight.
-        await replaceAwsMemoryWithJdbcMemory();
-
-        act(() => {
-            flushAnimationFrames(0);
-            flushAnimationFrames(10_000);
-        });
-
-        expect(getNodeIds()).toEqual(
-            expect.arrayContaining([
-                'jdbcChatMemory_1',
-                'jdbcChatMemory_1-dataSource-placeholder-0',
-                'jdbcChatMemory_1-model-placeholder-0',
-            ])
-        );
-        expect(getNodeIds()).not.toContain('awsChatMemory_1');
+        expect(nodes.map((node) => node.position)).toEqual([
+            {x: 900, y: 900},
+            {x: 700, y: 700},
+        ]);
+        // Positions are pinned, but the rebuilt data still reaches the canvas: the element node picks up its new
+        // label, and the root node picks up the freshly rebuilt data it is given by the layout pass.
+        expect(nodes[1].data.label).toBe('fresh');
+        expect(nodes[0].data.workflowNodeName).toBe(ROOT_NODE_NAME);
     });
 
-    it('slides the canvas to its new width when the panel closes', async () => {
-        await renderLayout();
+    it('lays out the canvas when unlocked and an element is added', () => {
+        useClusterElementsDataStore.setState({nodesLocked: false});
 
-        const initialRootX = getRootX();
+        const {rerender} = renderHook(() => useClusterElementsLayout());
 
-        setDetailsPanelOpen(false);
+        createClusterElementsNodesMock.mockReturnValue([
+            clusterElementNode('anthropic_1', 'fresh'),
+            clusterElementNode('activeCampaign_2', 'added'),
+        ]);
 
-        act(() => {
-            flushAnimationFrames(0);
-            flushAnimationFrames(100);
-        });
+        act(() => setWorkflowDefinition(2));
+        rerender();
 
-        const midSlideRootX = getRootX();
-
-        act(() => {
-            flushAnimationFrames(10_000);
-        });
-
-        const slidRootX = getRootX();
-
-        expect(midSlideRootX).toBeGreaterThan(initialRootX);
-        expect(slidRootX).toBeGreaterThan(midSlideRootX);
-        expect(pendingAnimationFrameCallbacks).toHaveLength(0);
+        expect(getClusterElementsLayoutElementsMock).toHaveBeenCalled();
     });
 
-    it('replaces the running slide when the panel reopens mid-animation', async () => {
-        await renderLayout();
+    it('lays out the canvas when unlocked and a layout reset is requested', () => {
+        useClusterElementsDataStore.setState({nodesLocked: false});
 
-        setDetailsPanelOpen(false);
+        const {rerender} = renderHook(() => useClusterElementsLayout());
 
-        act(() => {
-            flushAnimationFrames(0);
-            flushAnimationFrames(100);
-        });
+        act(() => useClusterElementsDataStore.getState().incrementLayoutResetCounter());
+        rerender();
 
-        const midSlideRootX = getRootX();
-
-        setDetailsPanelOpen(true);
-
-        expect(window.cancelAnimationFrame).toHaveBeenCalled();
-
-        act(() => {
-            flushAnimationFrames(0);
-            flushAnimationFrames(10_000);
-        });
-
-        expect(getRootX()).toBeLessThan(midSlideRootX);
-    });
-
-    it('stops the slide when the canvas unmounts', async () => {
-        const {unmount} = await renderLayout();
-
-        setDetailsPanelOpen(false);
-
-        const nodesBeforeUnmount = useClusterElementsDataStore.getState().nodes;
-
-        unmount();
-
-        expect(window.cancelAnimationFrame).toHaveBeenCalled();
-        expect(pendingAnimationFrameCallbacks).toHaveLength(0);
-        expect(useClusterElementsDataStore.getState().nodes).toBe(nodesBeforeUnmount);
+        expect(getClusterElementsLayoutElementsMock).toHaveBeenCalled();
+        expect(useClusterElementsDataStore.getState().nodes.map((node) => node.position)).toEqual([
+            {x: 0, y: 0},
+            {x: 0, y: 0},
+        ]);
     });
 });
