@@ -23,9 +23,9 @@ import com.bytechef.platform.ai.tool.ComponentTools.TriggerDetailedInfo;
 import com.bytechef.platform.ai.tool.ComponentTools.TriggerMinimalInfo;
 import com.bytechef.platform.ai.tool.TaskDispatcherTools.TaskDispatcherInfo;
 import com.bytechef.platform.ai.tool.TaskDispatcherTools.TaskDispatcherMinimalInfo;
-import com.bytechef.platform.ai.tool.exception.TaskToolErrorType;
 import com.bytechef.platform.ai.tool.util.AllowedComponentNamesUtils;
 import com.bytechef.platform.ai.tool.util.ToolUtils;
+import com.bytechef.platform.component.exception.ComponentErrorType;
 import com.bytechef.platform.workflow.validator.WorkflowValidator;
 import com.bytechef.platform.workflow.validator.model.PropertyInfo;
 import com.fasterxml.jackson.annotation.JsonProperty;
@@ -81,7 +81,7 @@ public class TaskTools {
         @ToolParam(required = false, description = "The version of the component") Integer version,
         @Nullable ToolContext toolContext) {
 
-        checkAllowedComponent(type, componentName, toolContext, TaskToolErrorType.GET_TASK);
+        checkAllowedComponent(type, componentName, toolContext, ComponentErrorType.GET_ACTION);
 
         try {
             return switch (StringUtils.trim(type.toLowerCase(Locale.ROOT))) {
@@ -136,11 +136,11 @@ public class TaskTools {
                 }
                 default -> throw new IllegalArgumentException(INVALID_TASK_TYPE);
             };
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("getTask({}, {}, {}, {}): Failed to get task '{}' of type '{}'", type, name, componentName,
                 version, name, type, e);
 
-            throw new ExecutionException(FAILED_TO_GET_TASK, e, TaskToolErrorType.GET_TASK);
+            throw e;
         }
     }
 
@@ -155,7 +155,7 @@ public class TaskTools {
         @ToolParam(required = false, description = "The version of the component") Integer version,
         @Nullable ToolContext toolContext) {
 
-        checkAllowedComponent(type, componentName, toolContext, TaskToolErrorType.GET_TASK_PROPERTIES);
+        checkAllowedComponent(type, componentName, toolContext, ComponentErrorType.GET_PROPERTIES);
 
         try {
             return switch (StringUtils.trim(type.toLowerCase(Locale.ROOT))) {
@@ -168,12 +168,12 @@ public class TaskTools {
                 case "taskdispatcher" -> taskDispatcherTools.getTaskDispatcherProperties(name, version);
                 default -> throw new IllegalArgumentException(INVALID_TASK_TYPE);
             };
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error(
                 "getTaskProperties({}, {}, {}, {}): Failed to get properties for task '{}' of type '{}'", type, name,
                 componentName, version, name, type, e);
 
-            throw new ExecutionException("Failed to get properties", e, TaskToolErrorType.GET_TASK_PROPERTIES);
+            throw e;
         }
     }
 
@@ -200,7 +200,7 @@ public class TaskTools {
                 case "taskdispatcher" -> taskDispatcherTools.getTaskDispatcherOutput(name, version);
                 default -> throw new IllegalArgumentException(INVALID_TASK_TYPE);
             };
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error(
                 "getTaskOutputProperty({}, {}, {}, {}): Failed to get output property for task '{}' of type '{}'",
                 type, name, componentName, version, name, type, e);
@@ -218,7 +218,7 @@ public class TaskTools {
         @ToolParam(required = false, description = "The version of the component") Integer version,
         @Nullable ToolContext toolContext) {
 
-        checkAllowedComponent(type, componentName, toolContext, TaskToolErrorType.GET_TASK_DEFINITION);
+        checkAllowedComponent(type, componentName, toolContext, ComponentErrorType.GENERATE_ACTION_DEFINITION);
 
         try {
             return switch (StringUtils.trim(type.toLowerCase(Locale.ROOT))) {
@@ -237,12 +237,12 @@ public class TaskTools {
                 case "taskdispatcher" -> taskDispatcherTools.getTaskDispatcherDefinition(name, version);
                 default -> throw new IllegalArgumentException(INVALID_TASK_TYPE);
             };
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error(
                 "getTaskDefinition({}, {}, {}, {}): Failed to get definition for task '{}' of type '{}'", type, name,
                 componentName, version, name, type, e);
 
-            throw new ExecutionException("Failed to get task definition", e, TaskToolErrorType.GET_TASK_DEFINITION);
+            throw e;
         }
     }
 
@@ -338,10 +338,10 @@ public class TaskTools {
             }
 
             return allTasks;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error("listTasks({}, {}): " + FAILED_TO_LIST_TASKS, type, limit, e);
 
-            throw new ExecutionException(FAILED_TO_LIST_TASKS, e, TaskToolErrorType.LIST_TASKS);
+            throw e;
         }
     }
 
@@ -427,11 +427,11 @@ public class TaskTools {
             }
 
             return matchingTasks;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error(
                 "searchTasks({}, {}, {}): Failed to search tasks with query '{}'", query, type, limit, query, e);
 
-            throw new ExecutionException(FAILED_TO_SEARCH_TASKS, e, TaskToolErrorType.SEARCH_TASKS);
+            throw e;
         }
     }
 
@@ -447,7 +447,7 @@ public class TaskTools {
         @ToolParam(required = false, description = "The version of the component") Integer version,
         @Nullable ToolContext toolContext) {
 
-        checkAllowedComponent(type, componentName, toolContext, TaskToolErrorType.VALIDATE_TASK);
+        checkAllowedComponent(type, componentName, toolContext, ComponentErrorType.GET_PROPERTIES);
 
         try {
             StringBuilder errors = new StringBuilder("[");
@@ -476,12 +476,12 @@ public class TaskTools {
 
             return new TaskValidationResult(isValid, errorMessages, warningMessages);
 
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
             log.error(
                 "validateTask({}, {}, {}, {}): Failed to validate task '{}' of type '{}'", type, name, componentName,
                 version, name, type, e);
 
-            throw new ExecutionException("Failed to validate task", e, TaskToolErrorType.VALIDATE_TASK);
+            throw e;
         }
     }
 
@@ -502,7 +502,7 @@ public class TaskTools {
 
     private static void checkAllowedComponent(
         String type, @Nullable String componentName, @Nullable ToolContext toolContext,
-        TaskToolErrorType taskToolErrorType) {
+        ComponentErrorType componentErrorType) {
 
         if (StringUtils.equalsIgnoreCase(StringUtils.trim(type), "taskDispatcher")) {
             return;
@@ -510,7 +510,7 @@ public class TaskTools {
 
         if (componentName != null && !AllowedComponentNamesUtils.isAllowed(componentName, toolContext)) {
             throw new ExecutionException(
-                AllowedComponentNamesUtils.getNotAllowedMessage(List.of(componentName)), taskToolErrorType);
+                AllowedComponentNamesUtils.getNotAllowedMessage(List.of(componentName)), componentErrorType);
         }
     }
 
