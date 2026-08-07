@@ -19,17 +19,17 @@ package com.bytechef.platform.ai.tool;
 import com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType;
 import com.bytechef.component.definition.ComponentCategory;
 import com.bytechef.exception.ExecutionException;
-import com.bytechef.platform.ai.tool.exception.ComponentToolErrorType;
 import com.bytechef.platform.ai.tool.util.ToolUtils;
 import com.bytechef.platform.component.definition.PropertyFactory;
 import com.bytechef.platform.component.domain.ActionDefinition;
 import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.component.domain.TriggerDefinition;
+import com.bytechef.platform.component.exception.ComponentErrorType;
 import com.bytechef.platform.component.facade.ActionDefinitionFacade;
+import com.bytechef.platform.component.facade.ComponentDefinitionFacade;
 import com.bytechef.platform.component.facade.TriggerDefinitionFacade;
-import com.bytechef.platform.component.service.ComponentDefinitionService;
-import com.bytechef.platform.connection.domain.Connection;
-import com.bytechef.platform.connection.service.ConnectionService;
+import com.bytechef.platform.connection.dto.ConnectionDTO;
+import com.bytechef.platform.connection.facade.ConnectionFacade;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.domain.BaseProperty;
 import com.bytechef.platform.domain.OutputResponse;
@@ -80,10 +80,10 @@ public class ComponentTools {
     private static final String FAILED_TO_GET_OUTPUT_PROPERTIES = "Failed to get output properties";
     private static final String FAILED_TO_GET_PROPERTIES = "Failed to get properties";
 
-    private final ComponentDefinitionService componentDefinitionService;
     private final ActionDefinitionFacade actionDefinitionFacade;
+    private final ComponentDefinitionFacade componentDefinitionFacade;
+    private final ConnectionFacade connectionFacade;
     private final TriggerDefinitionFacade triggerDefinitionFacade;
-    private final ConnectionService connectionService;
     private final VectorStore vectorStore;
 
     private static final String DEFAULT_TRIGGER_DEFINITION = """
@@ -105,14 +105,15 @@ public class ComponentTools {
         """;
 
     @SuppressFBWarnings("EI")
-    public ComponentTools(ComponentDefinitionService componentDefinitionService,
-        ActionDefinitionFacade actionDefinitionFacade, TriggerDefinitionFacade triggerDefinitionFacade,
-        ConnectionService connectionService,
+    public ComponentTools(
+        ActionDefinitionFacade actionDefinitionFacade, ComponentDefinitionFacade componentDefinitionFacade,
+        ConnectionFacade connectionFacade, TriggerDefinitionFacade triggerDefinitionFacade,
         @Autowired(required = false) @Qualifier("copilotPgVectorStore") VectorStore vectorStore) {
-        this.componentDefinitionService = componentDefinitionService;
+
         this.actionDefinitionFacade = actionDefinitionFacade;
+        this.componentDefinitionFacade = componentDefinitionFacade;
+        this.connectionFacade = connectionFacade;
         this.triggerDefinitionFacade = triggerDefinitionFacade;
-        this.connectionService = connectionService;
         this.vectorStore = vectorStore;
     }
 
@@ -173,7 +174,7 @@ public class ComponentTools {
         } catch (Exception e) {
             log.error("getComponent({}, {}): Failed to get component {}", componentName, version, componentName, e);
 
-            throw new ExecutionException(FAILED_TO_GET_COMPONENT, e, ComponentToolErrorType.GET_COMPONENT);
+            throw new ExecutionException(FAILED_TO_GET_COMPONENT, e, ComponentErrorType.GET_COMPONENT);
         }
     }
 
@@ -208,7 +209,7 @@ public class ComponentTools {
                         type.name(), ToolUtils.generateParametersJson(trigger.getProperties()), outputPropertiesJson);
                 })
                 .orElseThrow(() -> new ExecutionException(
-                    String.format(TRIGGER_NOT_FOUND, triggerName, componentName), ComponentToolErrorType.GET_TRIGGER));
+                    String.format(TRIGGER_NOT_FOUND, triggerName, componentName), ComponentErrorType.GET_TRIGGER));
 
         } catch (ExecutionException e) {
             throw e;
@@ -217,7 +218,7 @@ public class ComponentTools {
                 "getTrigger({}, {}, {}): Failed to get trigger '{}' from component '{}'", componentName, triggerName,
                 version, triggerName, componentName, e);
 
-            throw new ExecutionException(FAILED_TO_GET_TRIGGER, e, ComponentToolErrorType.GET_TRIGGER);
+            throw new ExecutionException(FAILED_TO_GET_TRIGGER, e, ComponentErrorType.GET_TRIGGER);
         }
     }
 
@@ -243,7 +244,7 @@ public class ComponentTools {
                 .findFirst()
                 .orElseThrow(() -> new ExecutionException(
                     String.format(TRIGGER_NOT_FOUND, triggerName, componentName),
-                    ComponentToolErrorType.GENERATE_TRIGGER_DEFINITION));
+                    ComponentErrorType.GENERATE_TRIGGER_DEFINITION));
             String parametersJson = ToolUtils.generateParametersJson(trigger.getProperties());
 
             // Generate the trigger definition using the template with actual parameters
@@ -268,7 +269,7 @@ public class ComponentTools {
                 componentName, triggerName, version, componentName, triggerName, e);
 
             throw new ExecutionException(
-                FAILED_TO_GENERATE_TRIGGER_DEFINITION, e, ComponentToolErrorType.GENERATE_TRIGGER_DEFINITION);
+                FAILED_TO_GENERATE_TRIGGER_DEFINITION, e, ComponentErrorType.GENERATE_TRIGGER_DEFINITION);
         }
     }
 
@@ -276,7 +277,7 @@ public class ComponentTools {
         description = "List all actions from all components. Returns a list of actions with their basic information including name, description and component")
     public List<ActionMinimalInfo> listActions() {
         try {
-            List<ComponentDefinition> componentDefinitions = componentDefinitionService.getComponentDefinitions();
+            List<ComponentDefinition> componentDefinitions = componentDefinitionFacade.getComponentDefinitions();
 
             List<ActionMinimalInfo> actions = componentDefinitions.stream()
                 .flatMap(component -> component.getActions()
@@ -293,7 +294,7 @@ public class ComponentTools {
         } catch (Exception e) {
             log.error("listActions(): " + FAILED_TO_LIST_ACTIONS, e);
 
-            throw new ExecutionException(FAILED_TO_LIST_ACTIONS, e, ComponentToolErrorType.LIST_ACTIONS);
+            throw new ExecutionException(FAILED_TO_LIST_ACTIONS, e, ComponentErrorType.LIST_ACTIONS);
         }
     }
 
@@ -301,7 +302,7 @@ public class ComponentTools {
         description = "List all components in a project. Returns a list of components with their basic information including name and description")
     public List<ComponentMinimalInfo> listComponents() {
         try {
-            List<ComponentDefinition> componentDefinitions = componentDefinitionService.getComponentDefinitions();
+            List<ComponentDefinition> componentDefinitions = componentDefinitionFacade.getComponentDefinitions();
 
             if (log.isDebugEnabled()) {
                 log.debug("listComponents(): Found {} components", componentDefinitions.size());
@@ -314,7 +315,7 @@ public class ComponentTools {
         } catch (Exception e) {
             log.error("listComponents(): " + FAILED_TO_LIST_COMPONENTS, e);
 
-            throw new ExecutionException(FAILED_TO_LIST_COMPONENTS, e, ComponentToolErrorType.LIST_COMPONENTS);
+            throw new ExecutionException(FAILED_TO_LIST_COMPONENTS, e, ComponentErrorType.LIST_COMPONENTS);
         }
     }
 
@@ -322,7 +323,7 @@ public class ComponentTools {
         description = "List all triggers from all components. Returns a list of triggers with their basic information including name, description, component, and type")
     public List<TriggerMinimalInfo> listTriggers() {
         try {
-            List<ComponentDefinition> componentDefinitions = componentDefinitionService.getComponentDefinitions();
+            List<ComponentDefinition> componentDefinitions = componentDefinitionFacade.getComponentDefinitions();
 
             List<TriggerMinimalInfo> triggers = componentDefinitions.stream()
                 .flatMap(component -> component.getTriggers()
@@ -339,7 +340,7 @@ public class ComponentTools {
         } catch (Exception e) {
             log.error("listTriggers(): " + FAILED_TO_LIST_TRIGGERS, e);
 
-            throw new ExecutionException(FAILED_TO_LIST_TRIGGERS, e, ComponentToolErrorType.LIST_TRIGGERS);
+            throw new ExecutionException(FAILED_TO_LIST_TRIGGERS, e, ComponentErrorType.LIST_TRIGGERS);
         }
     }
 
@@ -349,7 +350,7 @@ public class ComponentTools {
         @ToolParam(description = "The search query to match against component names and descriptions") String query) {
 
         try {
-            List<ComponentDefinition> componentDefinitions = componentDefinitionService.getComponentDefinitions();
+            List<ComponentDefinition> componentDefinitions = componentDefinitionFacade.getComponentDefinitions();
             String lowerQuery = query.toLowerCase()
                 .trim();
 
@@ -373,7 +374,7 @@ public class ComponentTools {
         } catch (Exception e) {
             log.error("searchComponents({}): Failed to search components with query '{}'", query, query, e);
 
-            throw new ExecutionException(FAILED_TO_SEARCH_COMPONENTS, e, ComponentToolErrorType.SEARCH_COMPONENTS);
+            throw new ExecutionException(FAILED_TO_SEARCH_COMPONENTS, e, ComponentErrorType.SEARCH_COMPONENTS);
         }
     }
 
@@ -383,7 +384,7 @@ public class ComponentTools {
         @ToolParam(description = "The search query to match against trigger names and descriptions") String query) {
 
         try {
-            List<ComponentDefinition> componentDefinitions = componentDefinitionService.getComponentDefinitions();
+            List<ComponentDefinition> componentDefinitions = componentDefinitionFacade.getComponentDefinitions();
 
             String lowerQuery = query.toLowerCase()
                 .trim();
@@ -410,7 +411,7 @@ public class ComponentTools {
         } catch (Exception e) {
             log.error("searchTriggers({}): Failed to search triggers with query '{}'", query, query, e);
 
-            throw new ExecutionException(FAILED_TO_SEARCH_TRIGGERS, e, ComponentToolErrorType.SEARCH_TRIGGERS);
+            throw new ExecutionException(FAILED_TO_SEARCH_TRIGGERS, e, ComponentErrorType.SEARCH_TRIGGERS);
         }
     }
 
@@ -452,7 +453,7 @@ public class ComponentTools {
                         outputPropertiesJson);
                 })
                 .orElseThrow(() -> new ExecutionException(
-                    String.format(ACTION_NOT_FOUND, actionName, componentName), ComponentToolErrorType.GET_ACTION));
+                    String.format(ACTION_NOT_FOUND, actionName, componentName), ComponentErrorType.GET_ACTION));
 
             if (log.isDebugEnabled()) {
                 log.debug(
@@ -468,7 +469,7 @@ public class ComponentTools {
                 "getAction({}, {}, {}): Failed to get action '{}' from component '{}'", componentName, actionName,
                 version, actionName, componentName, e);
 
-            throw new ExecutionException(FAILED_TO_GET_ACTION, e, ComponentToolErrorType.GET_ACTION);
+            throw new ExecutionException(FAILED_TO_GET_ACTION, e, ComponentErrorType.GET_ACTION);
         }
     }
 
@@ -482,7 +483,7 @@ public class ComponentTools {
             description = "Filter results by the name of the component. Default is null") String componentName) {
 
         try {
-            List<ComponentDefinition> componentDefinitions = componentDefinitionService.getComponentDefinitions();
+            List<ComponentDefinition> componentDefinitions = componentDefinitionFacade.getComponentDefinitions();
 
             List<ComponentInfo> matchingComponents = componentDefinitions.stream()
                 .filter(component -> !component.getClusterElements()
@@ -529,7 +530,7 @@ public class ComponentTools {
             log.error("searchClusterElements({}, {}): Failed to search cluster elements with type '{}'",
                 clusterElementType, componentName, clusterElementType, e);
 
-            throw new ExecutionException(FAILED_TO_SEARCH_ACTIONS, e, ComponentToolErrorType.SEARCH_ACTIONS);
+            throw new ExecutionException(FAILED_TO_SEARCH_ACTIONS, e, ComponentErrorType.SEARCH_ACTIONS);
         }
     }
 
@@ -573,7 +574,7 @@ public class ComponentTools {
                 })
                 .orElseThrow(() -> new ExecutionException(
                     String.format(ACTION_NOT_FOUND, clusterElementName, componentName),
-                    ComponentToolErrorType.GET_ACTION));
+                    ComponentErrorType.GET_ACTION));
 
             if (log.isDebugEnabled()) {
                 log.debug("getClusterElement({}, {}, {}): Found cluster element '{}' from component '{}'",
@@ -589,7 +590,7 @@ public class ComponentTools {
                 "getClusterElement({}, {}, {}): Failed to get cluster element '{}' from component '{}'", componentName,
                 clusterElementName, version, clusterElementName, componentName, e);
 
-            throw new ExecutionException(FAILED_TO_GET_ACTION, e, ComponentToolErrorType.GET_ACTION);
+            throw new ExecutionException(FAILED_TO_GET_ACTION, e, ComponentErrorType.GET_ACTION);
         }
     }
 
@@ -599,7 +600,7 @@ public class ComponentTools {
         @ToolParam(description = "The search query to match against action names and descriptions") String query) {
 
         try {
-            List<ComponentDefinition> componentDefinitions = componentDefinitionService.getComponentDefinitions();
+            List<ComponentDefinition> componentDefinitions = componentDefinitionFacade.getComponentDefinitions();
 
             String lowerQuery = StringUtils.trim(query.toLowerCase());
 
@@ -625,7 +626,7 @@ public class ComponentTools {
         } catch (Exception e) {
             log.error("searchActions({}): Failed to search actions with query '{}'", query, query, e);
 
-            throw new ExecutionException(FAILED_TO_SEARCH_ACTIONS, e, ComponentToolErrorType.SEARCH_ACTIONS);
+            throw new ExecutionException(FAILED_TO_SEARCH_ACTIONS, e, ComponentErrorType.SEARCH_ACTIONS);
         }
     }
 
@@ -647,7 +648,7 @@ public class ComponentTools {
                 .findFirst()
                 .orElseThrow(() -> new ExecutionException(
                     String.format(ACTION_NOT_FOUND, actionName, componentName),
-                    ComponentToolErrorType.GENERATE_ACTION_DEFINITION));
+                    ComponentErrorType.GENERATE_ACTION_DEFINITION));
             String parametersJson = ToolUtils.generateParametersJson(action.getProperties());
 
             // Generate the action definition using the template with actual parameters
@@ -672,7 +673,7 @@ public class ComponentTools {
                 actionName, version, componentName, actionName, e);
 
             throw new ExecutionException(
-                FAILED_TO_GENERATE_ACTION_DEFINITION, e, ComponentToolErrorType.GENERATE_ACTION_DEFINITION);
+                FAILED_TO_GENERATE_ACTION_DEFINITION, e, ComponentErrorType.GENERATE_ACTION_DEFINITION);
         }
     }
 
@@ -732,13 +733,12 @@ public class ComponentTools {
                                     actionDefinition.getName(), Map.of(), Map.of());
                             } catch (Exception e) {
                                 try {
-                                    List<Connection> connections =
-                                        connectionService.getConnections(componentName, version,
-                                            PlatformType.AUTOMATION);
+                                    List<ConnectionDTO> connectionDTOs = connectionFacade.getConnections(
+                                        componentName, version, List.of(), null, null, PlatformType.AUTOMATION);
 
-                                    Connection connection = connections.getFirst();
+                                    ConnectionDTO connectionDTO = connectionDTOs.getFirst();
 
-                                    Map<String, Long> connectionIds = Map.of(operationName, connection.getId());
+                                    Map<String, Long> connectionIds = Map.of(operationName, connectionDTO.id());
 
                                     var output = actionDefinitionFacade.executePerform(componentDefinition.getName(),
                                         componentDefinition.getVersion(), actionDefinition.getName(), null, null, null,
@@ -772,7 +772,7 @@ public class ComponentTools {
                     } else {
                         throw new ExecutionException(
                             String.format(OPERATION_NOT_FOUND, operationName, componentName),
-                            ComponentToolErrorType.OPERATION_NOT_FOUND);
+                            ComponentErrorType.OPERATION_NOT_FOUND);
                     }
                 }
             }
@@ -799,7 +799,7 @@ public class ComponentTools {
 
             throw new ExecutionException(
                 FAILED_TO_GET_OUTPUT_PROPERTIES + ": " + e.getMessage(), e,
-                ComponentToolErrorType.GET_OUTPUT_PROPERTIES);
+                ComponentErrorType.GET_OUTPUT_PROPERTIES);
         }
     }
 
@@ -859,7 +859,7 @@ public class ComponentTools {
                     } else {
                         throw new ExecutionException(
                             String.format(OPERATION_NOT_FOUND, operationName, componentName),
-                            ComponentToolErrorType.OPERATION_NOT_FOUND);
+                            ComponentErrorType.OPERATION_NOT_FOUND);
                     }
                 }
             }
@@ -877,7 +877,7 @@ public class ComponentTools {
                 "getProperties({}, {}, {}): Failed to get properties for '{}:{}'", componentName, operationName,
                 version, componentName, operationName, e);
 
-            throw new ExecutionException(FAILED_TO_GET_PROPERTIES, e, ComponentToolErrorType.GET_PROPERTIES);
+            throw new ExecutionException(FAILED_TO_GET_PROPERTIES, e, ComponentErrorType.GET_PROPERTIES);
         }
     }
 
@@ -886,8 +886,8 @@ public class ComponentTools {
      */
     private ComponentDefinition getComponentDefinition(String componentName, Integer version) {
         return version != null
-            ? componentDefinitionService.getComponentDefinition(componentName, version)
-            : componentDefinitionService.getComponentDefinition(componentName, null);
+            ? componentDefinitionFacade.getComponentDefinition(componentName, version)
+            : componentDefinitionFacade.getComponentDefinition(componentName, null);
     }
 
     /**

@@ -19,13 +19,13 @@ package com.bytechef.platform.ai.tool.exception;
 import com.bytechef.exception.AbstractErrorType;
 
 /**
- * @author Marko Kriskovic
+ * @author Ivica Cardic
  */
-public class WorkflowValidatorToolErrorType extends AbstractErrorType {
+public class BraveToolErrorType extends AbstractErrorType {
 
-    public static final WorkflowValidatorToolErrorType VALIDATE_WORKFLOW = new WorkflowValidatorToolErrorType(100);
+    public static final BraveToolErrorType WEB_SEARCH = new BraveToolErrorType(100);
 
-    private WorkflowValidatorToolErrorType(int errorKey) {
-        super(WorkflowValidatorToolErrorType.class, errorKey);
+    private BraveToolErrorType(int errorKey) {
+        super(BraveToolErrorType.class, errorKey);
     }
 }
