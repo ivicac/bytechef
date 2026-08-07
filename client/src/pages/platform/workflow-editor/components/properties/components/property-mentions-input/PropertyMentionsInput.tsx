@@ -128,7 +128,7 @@ const PropertyMentionsInput = forwardRef<Editor, PropertyMentionsInputProps>(
         const onFocus = (editor: Editor) => {
             setFocusedInput(editor);
 
-            if (workflowNodeDetailsPanelOpen) {
+            if (workflowNodeDetailsPanelOpen && expressionEnabled !== false) {
                 setDataPillPanelOpen(true);
             }
         };
