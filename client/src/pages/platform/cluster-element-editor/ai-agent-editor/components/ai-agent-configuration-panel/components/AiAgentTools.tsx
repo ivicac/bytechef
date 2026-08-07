@@ -57,11 +57,7 @@ export default function AiAgentTools() {
             ))}
 
             {toolGroups.map((toolGroup) => (
-                <fieldset
-                    aria-label={`${toolGroup.label} requires approval`}
-                    className="space-y-2 rounded border border-stroke-neutral-secondary p-2"
-                    key={toolGroup.name}
-                >
+                <fieldset className="space-y-2 rounded border border-stroke-neutral-secondary p-2" key={toolGroup.name}>
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-1">
                             <ShieldCheckIcon className="size-3.5 text-amber-600" />
@@ -71,20 +67,16 @@ export default function AiAgentTools() {
                             <span className="text-xs text-muted-foreground">requires approval</span>
                         </div>
 
-                        <div className="flex items-center">
-                            <WorkflowNodesPopoverMenu
-                                clusterElementType="tools"
-                                hideActionComponents
-                                hideTaskDispatchers
-                                hideTriggerComponents
-                                multipleClusterElementsNode
-                                sourceNodeId={toolGroup.name}
-                            >
-                                <Button icon={<PlusIcon />} label="Add Tool" size="sm" variant="ghost" />
-                            </WorkflowNodesPopoverMenu>
-
-                            <AiAgentToolDropdownMenu tool={toolGroup.tool} />
-                        </div>
+                        <WorkflowNodesPopoverMenu
+                            clusterElementType="tools"
+                            hideActionComponents
+                            hideTaskDispatchers
+                            hideTriggerComponents
+                            multipleClusterElementsNode
+                            sourceNodeId={toolGroup.name}
+                        >
+                            <Button icon={<PlusIcon />} label="Add Tool" size="sm" variant="ghost" />
+                        </WorkflowNodesPopoverMenu>
                     </div>
 
                     {toolGroup.tools.length === 0 && (
@@ -101,7 +93,9 @@ export default function AiAgentTools() {
 
                     <div className="flex items-center justify-between">
                         <span className="text-xs text-muted-foreground">
-                            {toolGroup.channels.length ? 'Channels:' : 'Channels: chat (default)'}
+                            {toolGroup.channelLabels.length
+                                ? `Channels: ${toolGroup.channelLabels.join(', ')}`
+                                : 'Channels: chat (default)'}
                         </span>
 
                         <WorkflowNodesPopoverMenu
@@ -115,14 +109,6 @@ export default function AiAgentTools() {
                             <Button icon={<PlusIcon />} label="Add Channel" size="sm" variant="ghost" />
                         </WorkflowNodesPopoverMenu>
                     </div>
-
-                    {toolGroup.channels.map((channel, channelIndex) => (
-                        <AiAgentTool
-                            configuredConnectionKeys={configuredConnectionKeys}
-                            key={`${channel.name}-${channelIndex}`}
-                            tool={channel}
-                        />
-                    ))}
                 </fieldset>
             ))}
         </div>

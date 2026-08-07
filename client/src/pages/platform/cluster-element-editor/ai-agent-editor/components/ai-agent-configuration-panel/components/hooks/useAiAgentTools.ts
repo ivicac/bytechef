@@ -9,24 +9,21 @@ import {useMemo} from 'react';
 const APPROVAL_GATE = 'approvalGate';
 
 export interface ToolItemI {
-    approvalExpiresIn?: number;
-    approvalExpiresInUnit?: string;
+    clusterElementType: string;
     componentName: string;
     componentVersion: number;
     icon?: string;
     label: string;
     name: string;
     operationName: string;
-    requiresApproval: boolean;
     title: string;
     type: string;
 }
 
 export interface ToolGroupI {
-    channels: ToolItemI[];
+    channelLabels: string[];
     label: string;
     name: string;
-    tool: ToolItemI;
     tools: ToolItemI[];
 }
 
@@ -44,11 +41,11 @@ type ToolElementType = NodeDataType & {
 
 type ComponentDefinitionMapType = Map<string, {icon?: string; title?: string}>;
 
-function mapToolElement(
-    toolElement: ToolElementType,
-    definitionsMap: ComponentDefinitionMapType,
-    clusterElementType = 'tools'
-): ToolItemI {
+function mapToolElement(toolElement: ToolElementType, definitionsMap: ComponentDefinitionMapType): ToolItemI {
+    // Tool elements can appear in either shape: NodeDataType (workflowNodeName)
+    // when synced in-memory, or ClusterElementItemType (name) when loaded from
+    // the workflow definition. Fall through both so the first load after an
+    // Add also produces a non-empty identifier.
     const typeSegments = toolElement.type?.split('/') || [];
     const componentName = toolElement.componentName || typeSegments[0] || '';
     const componentVersion = parseInt(typeSegments[1]?.replace(/^v/, '')) || 1;
@@ -57,7 +54,6 @@ function mapToolElement(
     const toolName = toolElement.workflowNodeName || toolElement.name || '';
 
     return {
-        clusterElementType,
         componentName,
         componentVersion,
         icon: componentDefinition?.icon,
@@ -88,41 +84,44 @@ export default function useAiAgentTools(): UseAiAgentToolsI {
             return {toolGroups: [], tools: []};
         }
 
-        const definitionsMap = new Map(componentDefinitions.map((definition) => [definition.name, definition]));
+        const definitionsMap: ComponentDefinitionMapType = new Map(
+            componentDefinitions.map((definition) => [definition.name, definition])
+        );
 
-        return toolElements.map((toolElement) => {
-            // Tool elements can appear in either shape: NodeDataType (workflowNodeName)
-            // when synced in-memory, or ClusterElementItemType (name) when loaded from
-            // the workflow definition. Fall through both so the first load after an
-            // Add also produces a non-empty identifier.
-            const tool = toolElement as unknown as NodeDataType & {name?: string};
-            const typeSegments = tool.type?.split('/') || [];
-            const componentName = tool.componentName || typeSegments[0] || '';
-            const componentVersion = parseInt(typeSegments[1]?.replace(/^v/, '')) || 1;
-            const operationName = tool.operationName || typeSegments[2] || '';
-            const componentDefinition = definitionsMap.get(componentName);
-            const toolName = tool.workflowNodeName || tool.name || '';
+        const groupedTools: ToolGroupI[] = [];
+        const ungatedTools: ToolItemI[] = [];
 
-            const toolParameters = tool.parameters as
-                | {approvalExpiresIn?: number; approvalExpiresInUnit?: string; requiresApproval?: boolean}
-                | undefined;
+        toolElements.forEach((toolElement) => {
+            const element = toolElement as unknown as ToolElementType;
 
-            return {
-                approvalExpiresIn:
-                    typeof toolParameters?.approvalExpiresIn === 'number'
-                        ? toolParameters.approvalExpiresIn
-                        : undefined,
-                approvalExpiresInUnit: toolParameters?.approvalExpiresInUnit,
-                componentName,
-                componentVersion,
-                icon: componentDefinition?.icon,
-                label: tool.label || toolName,
-                name: toolName,
-                operationName,
-                requiresApproval: toolParameters?.requiresApproval === true,
-                title: componentDefinition?.title || componentName,
-                type: tool.type || '',
-            };
+            const operationName = element.operationName || element.type?.split('/')[2] || '';
+
+            if (operationName !== APPROVAL_GATE) {
+                ungatedTools.push(mapToolElement(element, definitionsMap));
+
+                return;
+            }
+
+            const gateClusterElements = element.clusterElements || {};
+            const gatedToolElements = gateClusterElements['tools'];
+            const channelElements = gateClusterElements['approvalChannels'];
+            const gateParameters = element.parameters as {name?: string} | undefined;
+            const gateName = element.workflowNodeName || element.name || '';
+
+            groupedTools.push({
+                channelLabels: Array.isArray(channelElements)
+                    ? channelElements.map(
+                          (channelElement) => (channelElement as {type?: string}).type?.split('/')[0] || ''
+                      )
+                    : [],
+                label: gateParameters?.name || gateName,
+                name: gateName,
+                tools: Array.isArray(gatedToolElements)
+                    ? gatedToolElements.map((gatedToolElement) =>
+                          mapToolElement(gatedToolElement as ToolElementType, definitionsMap)
+                      )
+                    : [],
+            });
         });
 
         return {toolGroups: groupedTools, tools: ungatedTools};
