@@ -80,6 +80,15 @@ public final class ToolSuspension {
         return isSuspendedToolResult(toolResult, getSuspendedToolResult(suspend));
     }
 
+    public static boolean hasSuspendedToolResultFormat(@Nullable String toolResult) {
+        if (toolResult == null) {
+            return false;
+        }
+
+        return toolResult.startsWith(SUSPENDED_TOOL_RESULT_PREFIX) ||
+            toolResult.startsWith("\"" + SUSPENDED_TOOL_RESULT_PREFIX);
+    }
+
     public static boolean isSuspendedToolResult(@Nullable String toolResult, @Nullable String suspendedToolResult) {
         if (toolResult == null || suspendedToolResult == null) {
             return false;
