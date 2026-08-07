@@ -701,6 +701,7 @@ public class ApplicationProperties {
     public static class Ai {
 
         private AutoMemory autoMemory = new AutoMemory();
+        private Brave brave = new Brave();
         private Copilot copilot = new Copilot();
         private Firecrawl firecrawl = new Firecrawl();
         private Gateway gateway = new Gateway();
@@ -714,6 +715,10 @@ public class ApplicationProperties {
 
         public AutoMemory getAutoMemory() {
             return autoMemory;
+        }
+
+        public Brave getBrave() {
+            return brave;
         }
 
         public Copilot getCopilot() {
@@ -758,6 +763,10 @@ public class ApplicationProperties {
 
         public void setAutoMemory(AutoMemory autoMemory) {
             this.autoMemory = autoMemory;
+        }
+
+        public void setBrave(Brave brave) {
+            this.brave = brave;
         }
 
         public void setCopilot(Copilot copilot) {
@@ -1216,6 +1225,51 @@ public class ApplicationProperties {
                 public void setBaseUrl(String baseUrl) {
                     this.baseUrl = baseUrl;
                 }
+            }
+        }
+
+        /**
+         * Brave Search API configuration.
+         */
+        public static class Brave {
+
+            /**
+             * Brave Search API key
+             */
+            private String apiKey;
+
+            /**
+             * Brave Search API base URL
+             */
+            private String baseUrl = "https://api.search.brave.com/res/v1";
+
+            /**
+             * Whether Brave Search is enabled
+             */
+            private boolean enabled;
+
+            public String getApiKey() {
+                return apiKey;
+            }
+
+            public void setApiKey(String apiKey) {
+                this.apiKey = apiKey;
+            }
+
+            public String getBaseUrl() {
+                return baseUrl;
+            }
+
+            public void setBaseUrl(String baseUrl) {
+                this.baseUrl = baseUrl;
+            }
+
+            public boolean isEnabled() {
+                return enabled;
+            }
+
+            public void setEnabled(boolean enabled) {
+                this.enabled = enabled;
             }
         }
 
