@@ -45,7 +45,14 @@ public final class ApprovalRequestEvents {
         Map<String, Object> eventData = new LinkedHashMap<>();
 
         eventData.put(EVENT_TYPE, APPROVAL_REQUEST);
-        eventData.put(RESUME_ID, inputParameters.getRequiredString(RESUME_ID));
+
+        String resumeId = inputParameters.getString(RESUME_ID);
+
+        if (resumeId == null) {
+            resumeId = formUrl.substring(formUrl.lastIndexOf('/') + 1);
+        }
+
+        eventData.put(RESUME_ID, resumeId);
         eventData.put(FORM_URL, formUrl);
 
         String resumeUrl = inputParameters.getString(RESUME_URL);

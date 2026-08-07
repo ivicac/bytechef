@@ -1,9 +1,10 @@
 dependencies {
     implementation(libs.io.github.a2asdk.a2a.java.sdk.client)
     implementation(libs.org.springaicommunity.spring.ai.agent.utils)
-    implementation(libs.org.springaicommunity.spring.ai.agent.utils.docker.cli)
-    implementation(project(":server:libs:config:app-config"))
+    implementation(libs.org.springaicommunity.spring.ai.agent.utils.common)
     implementation(project(":server:libs:core:commons:commons-util"))
+    implementation(project(":server:libs:core:tenant:tenant-api"))
+    implementation(project(":spring-ai:spring-ai-agent-utils:auto-memory"))
     implementation(project(":server:libs:automation:automation-configuration:automation-configuration-api"))
     implementation(project(":server:libs:core:tenant:tenant-api"))
     implementation(project(":spring-ai:spring-ai-agent-utils:auto-memory"))

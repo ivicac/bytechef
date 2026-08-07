@@ -24,11 +24,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.bytechef.atlas.execution.domain.Job;
-import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.message.broker.MessageBroker;
-import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.ClusterElementContextAware;
 import com.bytechef.platform.component.definition.ParametersFactory;
 import com.bytechef.platform.webhook.event.SseStreamEvent;
@@ -48,19 +45,8 @@ import org.mockito.ArgumentCaptor;
 class ChatApprovalChannelTest {
 
     private static final String FORM_URL = "https://example.com/resume/abc123";
-    private static final String RESUME_URL = "https://example.com/job/resume/abc123";
-    private static final Map<String, String> RESUME_PARAMETERS = Map.of("resumeId", "abc123", "resumeUrl", RESUME_URL);
 
-    private final JobService jobService = mock(JobService.class);
     private final MessageBroker messageBroker = mock(MessageBroker.class);
-
-    private void givenJob(long jobId, Map<String, ?> metadata) {
-        Job job = new Job();
-
-        job.setMetadata(metadata);
-
-        when(jobService.getJob(jobId)).thenReturn(job);
-    }
 
     @Test
     void testPerformPublishesApprovalRequestEventOnJobStream() {
@@ -68,17 +54,13 @@ class ChatApprovalChannelTest {
 
         when(context.getJobId()).thenReturn(17L);
 
-        givenJob(17L, Map.of(MetadataConstants.STREAMED_EXECUTION, true));
-
         Parameters inputParameters = ParametersFactory.create(
             Map.of(
                 "formTitle", "Expense approval",
                 "formDescription", "Approve the expense report.",
-                "inputs", List.of(Map.of("fieldName", "amount", "fieldType", 8)),
-                "resumeId", "abc123",
-                "resumeUrl", RESUME_URL));
+                "inputs", List.of(Map.of("fieldName", "amount", "fieldType", 8))));
 
-        ChatApprovalChannel.perform(inputParameters, FORM_URL, context, messageBroker, jobService);
+        ChatApprovalChannel.perform(inputParameters, FORM_URL, context, messageBroker);
 
         ArgumentCaptor<SseStreamEvent> eventCaptor = ArgumentCaptor.forClass(SseStreamEvent.class);
 
@@ -96,7 +78,6 @@ class ChatApprovalChannelTest {
         assertThat(eventData)
             .containsEntry("__eventType", "approval_request")
             .containsEntry("resumeId", "abc123")
-            .containsEntry("resumeUrl", RESUME_URL)
             .containsEntry("formUrl", FORM_URL)
             .containsEntry("formTitle", "Expense approval")
             .containsEntry("formDescription", "Approve the expense report.")
@@ -109,10 +90,7 @@ class ChatApprovalChannelTest {
 
         when(context.getJobId()).thenReturn(17L);
 
-        givenJob(17L, Map.of(MetadataConstants.STREAMED_EXECUTION, true));
-
-        ChatApprovalChannel.perform(ParametersFactory.create(RESUME_PARAMETERS), FORM_URL, context, messageBroker,
-            jobService);
+        ChatApprovalChannel.perform(ParametersFactory.create(Map.of()), FORM_URL, context, messageBroker);
 
         ArgumentCaptor<SseStreamEvent> eventCaptor = ArgumentCaptor.forClass(SseStreamEvent.class);
 
@@ -135,27 +113,9 @@ class ChatApprovalChannelTest {
         when(context.getJobId()).thenReturn(null);
 
         assertThatThrownBy(
-            () -> ChatApprovalChannel.perform(ParametersFactory.create(Map.of()), FORM_URL, context, messageBroker,
-                jobService))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("chat origin");
-
-        verifyNoInteractions(messageBroker);
-    }
-
-    @Test
-    void testPerformFailsForRunNotStartedFromChat() {
-        ClusterElementContextAware context = mock(ClusterElementContextAware.class);
-
-        when(context.getJobId()).thenReturn(17L);
-
-        givenJob(17L, Map.of());
-
-        assertThatThrownBy(
-            () -> ChatApprovalChannel.perform(
-                ParametersFactory.create(RESUME_PARAMETERS), FORM_URL, context, messageBroker, jobService))
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("chat origin");
+            () -> ChatApprovalChannel.perform(ParametersFactory.create(Map.of()), FORM_URL, context, messageBroker))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("chat origin");
 
         verifyNoInteractions(messageBroker);
     }

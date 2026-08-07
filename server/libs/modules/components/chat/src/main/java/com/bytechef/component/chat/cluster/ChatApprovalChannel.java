@@ -18,9 +18,6 @@ package com.bytechef.component.chat.cluster;
 
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.APPROVAL_CHANNELS;
 
-import com.bytechef.atlas.execution.domain.Job;
-import com.bytechef.atlas.execution.service.JobService;
-import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.definition.ClusterElementContext;
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ComponentDsl;
@@ -28,7 +25,6 @@ import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.approval.ApprovalChannelFunction;
 import com.bytechef.message.broker.MessageBroker;
 import com.bytechef.platform.ai.approval.ApprovalRequestEvents;
-import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.ClusterElementContextAware;
 import com.bytechef.platform.webhook.event.SseStreamEvent;
 import com.bytechef.platform.webhook.message.route.SseStreamMessageRoute;
@@ -36,6 +32,16 @@ import com.bytechef.tenant.TenantContext;
 import java.util.Map;
 
 /**
+ * Delivers an approval request into the chat conversation that started the workflow run, as an {@code approval_request}
+ * SSE data event on the run's job stream. Connected chat clients (workflow chat, embedded chat) render the event as an
+ * inline approval card; the card resolves through the standard tokenized approval-resolution endpoint, so typing in the
+ * chat never resolves the approval.
+ *
+ * <p>
+ * The channel is only meaningful for runs that have a live chat origin — a run started by webhook or schedule has no
+ * chat stream listening, so pair this channel with a fallback channel (Slack, email, approval task) for such runs.
+ * </p>
+ *
  * @author Ivica Cardic
  */
 public class ChatApprovalChannel {
@@ -43,9 +49,7 @@ public class ChatApprovalChannel {
     private ChatApprovalChannel() {
     }
 
-    public static ClusterElementDefinition<ApprovalChannelFunction> of(
-        MessageBroker messageBroker, JobService jobService) {
-
+    public static ClusterElementDefinition<ApprovalChannelFunction> of(MessageBroker messageBroker) {
         return ComponentDsl.<ApprovalChannelFunction>clusterElement("chat")
             .title("Chat")
             .description(
@@ -54,20 +58,18 @@ public class ChatApprovalChannel {
             .type(APPROVAL_CHANNELS)
             .object(
                 () -> (inputParameters, connectionParameters, formUrl, context) -> perform(
-                    inputParameters, formUrl, context, messageBroker, jobService));
+                    inputParameters, formUrl, context, messageBroker));
     }
 
     static Object perform(
-        Parameters inputParameters, String formUrl, ClusterElementContext context, MessageBroker messageBroker,
-        JobService jobService) {
+        Parameters inputParameters, String formUrl, ClusterElementContext context, MessageBroker messageBroker) {
 
         Long jobId = ((ClusterElementContextAware) context).getJobId();
 
-        if (jobId == null || !isStreamedExecution(jobService, jobId)) {
+        if (jobId == null) {
             throw new IllegalStateException(
-                "The chat approval channel requires a run with a chat origin, but this run was not started from a " +
-                    "chat conversation. Configure a fallback approval channel for runs that are not started from " +
-                    "chat.");
+                "The chat approval channel requires a running job with a chat origin. Configure a fallback approval " +
+                    "channel for runs that are not started from a chat conversation.");
         }
 
         Map<String, Object> eventData = ApprovalRequestEvents.buildApprovalRequestEventData(inputParameters, formUrl);
@@ -79,11 +81,5 @@ public class ChatApprovalChannel {
         messageBroker.send(SseStreamMessageRoute.SSE_STREAM_EVENTS, sseStreamEvent);
 
         return null;
-    }
-
-    private static boolean isStreamedExecution(JobService jobService, long jobId) {
-        Job job = jobService.getJob(jobId);
-
-        return MapUtils.getBoolean(job.getMetadata(), MetadataConstants.STREAMED_EXECUTION, false);
     }
 }

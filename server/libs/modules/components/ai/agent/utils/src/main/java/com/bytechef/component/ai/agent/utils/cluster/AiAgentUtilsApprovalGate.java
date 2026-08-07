@@ -23,13 +23,13 @@ import static com.bytechef.component.definition.ai.agent.BaseToolFunction.TOOLS;
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.APPROVAL_CHANNELS;
 
 import com.bytechef.component.ai.llm.tool.ClusterElementToolCallbacks;
+import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.ai.tool.constant.ToolConstants;
 import com.bytechef.platform.component.ComponentConnection;
-import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.definition.ai.agent.MultipleConnectionsToolCallbackProviderFunction;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.configuration.domain.ClusterElement;
@@ -44,17 +44,24 @@ import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.ToolCallbackProvider;
 
 /**
+ * Gates the tools attached beneath it: every call raises an approval request through this gate's own channels and
+ * suspends the run instead of executing. Enforcement is structural rather than a flag on a tool, so gating is visible
+ * on the canvas and the LLM cannot route around it — it never sees the gate at all, only the tools, which arrive
+ * already wrapped.
+ *
+ * <p>
+ * Channels and expiry belong to the gate rather than the agent, so one agent can escalate destructive tools to Slack
+ * with a short expiry while routine ones go to chat.
+ *
  * @author Ivica Cardic
  */
 public class AiAgentUtilsApprovalGate {
 
-    static final String APPROVAL = "approval";
-    static final String APPROVAL_GATE = "approvalGate";
-    static final String ASK_USER_QUESTION_TOOL = "askUserQuestionTool";
-    static final String REQUEST_APPROVAL = "requestApproval";
-
+    private static final String APPROVAL = "approval";
+    private static final String APPROVAL_GATE = "approvalGate";
     private static final String DAYS = "DAYS";
     private static final String NAME = "name";
+    private static final String REQUEST_APPROVAL = "requestApproval";
 
     private final ClusterElementDefinitionService clusterElementDefinitionService;
     private final ClusterElementToolCallbacks clusterElementToolCallbacks;
@@ -71,14 +78,13 @@ public class AiAgentUtilsApprovalGate {
 
         this.clusterElementDefinition =
             ComponentDsl.<MultipleConnectionsToolCallbackProviderFunction>clusterElement(APPROVAL_GATE)
-                .title("Approval Gate Tool")
+                .title("Approval Gate")
                 .description("Require human approval before the agent may call any tool attached to this gate.")
                 .type(TOOLS)
                 .properties(
                     string(NAME)
                         .label("Name")
-                        .description(
-                            "Identifies this gate in the title of its approval requests and in the tools list.")
+                        .description("Identifies this gate in the approval request and in the tools list.")
                         .required(true),
                     integer(ToolConstants.APPROVAL_EXPIRES_IN)
                         .label("Expires In")
@@ -95,18 +101,16 @@ public class AiAgentUtilsApprovalGate {
                 .object(() -> this::apply);
     }
 
+    /**
+     * Rejects children that cannot be gated. {@code requestApproval} already suspends, so gating it would deliver two
+     * approval requests and set a suspend whose continueParameters cannot be resumed; a nested gate would do the same.
+     * Package-private so a test can pin both rejections without building a whole cluster element map.
+     */
     static void checkGatableChild(String componentName, String clusterElementName) {
         if (APPROVAL.equals(componentName) && REQUEST_APPROVAL.equals(clusterElementName)) {
             throw new IllegalStateException(
                 "'requestApproval' cannot be attached to an approval gate — it already raises an approval of its " +
                     "own. Attach it directly to the agent instead.");
-        }
-
-        if (ASK_USER_QUESTION_TOOL.equals(clusterElementName)) {
-            throw new IllegalStateException(
-                "'askUserQuestionTool' cannot be attached to an approval gate: an approved call runs when the " +
-                    "approval resolves, outside the streamed turn its questions are shown in. Attach it directly to " +
-                    "the agent instead.");
         }
 
         if (APPROVAL_GATE.equals(clusterElementName)) {
@@ -122,14 +126,17 @@ public class AiAgentUtilsApprovalGate {
 
         return ToolCallbackProvider.from(
             buildGatedToolCallbacks(
-                inputParameters.getString(NAME), ClusterElementMap.of(extensions), componentConnections,
-                (ActionContextAware) context, getApprovalExpiry(inputParameters)));
+                ClusterElementMap.of(extensions), componentConnections, (ActionContext) context,
+                getApprovalExpiry(inputParameters)));
     }
 
+    /**
+     * Wraps every callback of every gated element exactly once. Package-private so a test can pin that directly: a tool
+     * element contributing two callbacks must produce two gated callbacks, not one gate around a collection.
+     */
     List<ToolCallback> buildGatedToolCallbacks(
-        @Nullable String gateName, ClusterElementMap clusterElementMap,
-        Map<String, ComponentConnection> componentConnections,
-        ActionContextAware context, @Nullable Duration approvalExpiry) {
+        ClusterElementMap clusterElementMap, Map<String, ComponentConnection> componentConnections,
+        ActionContext context, @Nullable Duration approvalExpiry) {
 
         List<ClusterElement> approvalChannelClusterElements = clusterElementMap.getClusterElements(APPROVAL_CHANNELS);
 
@@ -144,15 +151,18 @@ public class AiAgentUtilsApprovalGate {
             for (ToolCallback toolCallback : elementToolCallbacks) {
                 toolCallbacks.add(
                     new ApprovalGateToolCallback(
-                        toolCallback, toolClusterElement, gateName, approvalChannelClusterElements,
-                        componentConnections,
-                        clusterElementDefinitionService, context, approvalExpiry));
+                        toolCallback, approvalChannelClusterElements, componentConnections,
+                        clusterElementDefinitionService, context, toolExecutionRecorder, approvalExpiry));
             }
         }
 
         return toolCallbacks;
     }
 
+    /**
+     * Resolves the gate's expiry, or null to let {@link ApprovalGateToolCallback} apply its 60-day default. Moved off
+     * per-tool parameters; the stored key names are unchanged.
+     */
     @Nullable
     private static Duration getApprovalExpiry(Parameters inputParameters) {
         Object approvalExpiresIn = inputParameters.get(ToolConstants.APPROVAL_EXPIRES_IN);

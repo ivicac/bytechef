@@ -69,6 +69,8 @@ import org.springframework.ai.tool.ToolCallbackProvider;
  */
 public class AiAgentUtilsTaskTool {
 
+    private static final String APPROVAL_GATE = "approvalGate";
+
     private final ClusterElementDefinitionService clusterElementDefinitionService;
 
     public final ClusterElementDefinition<MultipleConnectionsToolCallbackProviderFunction> clusterElementDefinition;
@@ -170,6 +172,12 @@ public class AiAgentUtilsTaskTool {
         List<ToolCallback> toolCallbacks = new ArrayList<>();
 
         for (ClusterElement toolClusterElement : subagentClusterElementMap.getClusterElements(TOOLS)) {
+            if (APPROVAL_GATE.equals(toolClusterElement.getClusterElementName())) {
+                throw new IllegalStateException(
+                    "Approval gates cannot be attached to a subagent — a suspended subagent run cannot be resumed. " +
+                        "Attach the gate to the agent instead.");
+            }
+
             toolCallbacks.addAll(
                 ClusterElementCallObservingToolCallback.wrap(
                     ToolCallLoggingToolCallback.wrap(

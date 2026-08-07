@@ -35,8 +35,10 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import org.jspecify.annotations.Nullable;
+import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.function.FunctionToolCallback;
 import org.springframework.stereotype.Component;
@@ -76,6 +78,41 @@ public class AiAgentToolFacade extends AbstractToolFacade {
             getFromAiToolCallbackFunction(
                 clusterElement.getComponentName(), clusterElement.getComponentVersion(),
                 clusterElementDefinition.getName(), toolParameters, componentConnection, context))
+            .inputType(Map.class)
+            .inputSchema(FromAiInputSchemaUtils.generateInputSchema(fromAiResults));
+
+        String toolDescription = getToolDescription(toolParameters, clusterElement.getExtensions());
+
+        if (toolDescription == null) {
+            toolDescription = clusterElementDefinition.getDescription();
+        }
+
+        if (toolDescription != null) {
+            builder.description(toolDescription);
+        }
+
+        return builder.build();
+    }
+
+    public ToolCallback getFunctionToolCallback(
+        ClusterElement clusterElement, Map<String, ComponentConnection> componentConnections, ActionContext context) {
+
+        ClusterElementDefinition clusterElementDefinition =
+            clusterElementDefinitionService.getClusterElementDefinition(
+                clusterElement.getComponentName(), clusterElement.getComponentVersion(),
+                clusterElement.getClusterElementName());
+
+        Map<String, ?> toolParameters = clusterElement.getParameters();
+
+        List<FromAiResult> fromAiResults = extractFromAiResults(toolParameters);
+
+        FunctionToolCallback.Builder<Map<String, Object>, Object> builder = FunctionToolCallback.builder(
+            getToolName(clusterElementDefinition.getComponentName(), clusterElementDefinition.getName(),
+                toolParameters),
+            getMultipleConnectionsToolCallbackFunction(
+                clusterElement.getComponentName(), clusterElement.getComponentVersion(),
+                clusterElementDefinition.getName(), toolParameters, clusterElement.getExtensions(),
+                componentConnections, context))
             .inputType(Map.class)
             .inputSchema(FromAiInputSchemaUtils.generateInputSchema(fromAiResults));
 
@@ -155,25 +192,23 @@ public class AiAgentToolFacade extends AbstractToolFacade {
         };
     }
 
-    private Function<Map<String, Object>, Object> getMultipleConnectionsToolCallbackFunction(
+    private BiFunction<Map<String, Object>, ToolContext, Object> getMultipleConnectionsToolCallbackFunction(
         String componentName, int componentVersion, String clusterElementName, Map<String, ?> parameters,
-        Map<String, ?> extensions, Map<String, ComponentConnection> componentConnections,
-        @Nullable String subagentConversationId, ActionContext context) {
+        Map<String, ?> extensions, Map<String, ComponentConnection> componentConnections, ActionContext context) {
 
-        return request -> {
-            Map<String, Object> modelRequest = removeSubagentConversationId(request);
-
+        return (request, toolContext) -> {
             Map<String, Object> resolvedParameters = new HashMap<>();
 
             for (Map.Entry<String, ?> entry : parameters.entrySet()) {
-                resolvedParameters.put(entry.getKey(), resolveParameterValue(entry.getValue(), modelRequest));
+                resolvedParameters.put(entry.getKey(), resolveParameterValue(entry.getValue(), request));
             }
 
-            Map<String, Object> toolParameters = new HashMap<>(MapUtils.concat(modelRequest, resolvedParameters));
+            Map<String, Object> toolParameters = MapUtils.concat(request, resolvedParameters);
 
-            if (subagentConversationId != null) {
-                toolParameters.put(SUBAGENT_CONVERSATION_ID, subagentConversationId);
-            }
+            ActionContext agentActionContext = toolContext == null
+                ? null
+                : (ActionContext) toolContext.getContext()
+                    .get(AiAgentToolContextKey.ACTION_CONTEXT);
 
             // Bind the agent's streaming SSE surface for the current thread so a tool invoked with a component context
             // (e.g. requestApproval) can forward an interactive card onto the live agent stream instead of dropping it.
@@ -198,6 +233,38 @@ public class AiAgentToolFacade extends AbstractToolFacade {
             } finally {
                 AiAgentToolSseContext.clear();
             }
+        };
+    }
+
+    private Function<Map<String, Object>, Object> getMultipleConnectionsToolCallbackFunction(
+        String componentName, int componentVersion, String clusterElementName, Map<String, ?> parameters,
+        Map<String, ?> extensions, Map<String, ComponentConnection> componentConnections,
+        @Nullable String subagentConversationId, ActionContext context) {
+
+        return request -> {
+            Map<String, Object> modelRequest = removeSubagentConversationId(request);
+
+            Map<String, Object> resolvedParameters = new HashMap<>();
+
+            for (Map.Entry<String, ?> entry : parameters.entrySet()) {
+                resolvedParameters.put(entry.getKey(), resolveParameterValue(entry.getValue(), modelRequest));
+            }
+
+            Map<String, Object> toolParameters = new HashMap<>(MapUtils.concat(modelRequest, resolvedParameters));
+
+            if (subagentConversationId != null) {
+                toolParameters.put(SUBAGENT_CONVERSATION_ID, subagentConversationId);
+            }
+
+            if (context instanceof ActionContextAware actionContextAware) {
+                return clusterElementDefinitionService.executeTool(
+                    componentName, componentVersion, clusterElementName, toolParameters, extensions,
+                    componentConnections, actionContextAware);
+            }
+
+            return clusterElementDefinitionService.executeTool(
+                componentName, componentVersion, clusterElementName, toolParameters, extensions, componentConnections,
+                context.isEditorEnvironment());
         };
     }
 

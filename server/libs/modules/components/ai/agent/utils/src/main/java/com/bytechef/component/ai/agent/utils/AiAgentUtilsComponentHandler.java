@@ -32,6 +32,7 @@ import com.bytechef.component.ai.agent.utils.action.AiAgentUtilsDeleteAiSkillAct
 import com.bytechef.component.ai.agent.utils.action.AiAgentUtilsRemoveFileFromAiSkillAction;
 import com.bytechef.component.ai.agent.utils.action.AiAgentUtilsUpdateAiSkillAction;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsAgentClientTool;
+import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsApprovalGate;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsAskUserQuestionTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsAutoMemoryTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsBraveWebSearchTool;
@@ -41,6 +42,7 @@ import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsGrepTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsListDirectoryTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsShellTools;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsSmartWebFetchTool;
+import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsSubagent;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsSubagentTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsTaskTool;
 import com.bytechef.component.ai.agent.utils.cluster.AiAgentUtilsTodoWriteTool;
@@ -59,8 +61,7 @@ import com.bytechef.platform.ai.skill.facade.AiSkillFacade;
 import com.bytechef.platform.component.definition.AbstractComponentDefinitionWrapper;
 import com.bytechef.platform.component.definition.ClusterRootComponentDefinition;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
-import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
-import java.nio.file.Path;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -77,23 +78,38 @@ public class AiAgentUtilsComponentHandler implements ComponentHandler {
 
     private static final String APPROVAL_GATE = "approvalGate";
     private static final String SMART_WEB_FETCH_TOOL = "smartWebFetchTool";
-    private static final String SUBAGENT_TOOL = "subagentTool";
+    private static final String SUBAGENT_ELEMENT = "subagent";
     private static final String TASK_TOOL = "taskTool";
 
     private final ComponentDefinition componentDefinition;
 
     @SuppressFBWarnings("CT_CONSTRUCTOR_THROW")
     public AiAgentUtilsComponentHandler(
-        AiSkillFacade aiSkillFacade, List<AiAgentUtilsClusterElementContributor> clusterElementContributors,
-        ClusterElementDefinitionService clusterElementDefinitionService) {
+        AiAgentToolFacade aiAgentToolFacade, AiSkillFacade aiSkillFacade, ApplicationProperties applicationProperties,
+        List<AiAgentUtilsClusterElementContributor> clusterElementContributors,
+        ClusterElementDefinitionService clusterElementDefinitionService, AiAutoMemoryService aiAutoMemoryService,
+        ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider) {
 
         AiAgentUtilsSmartWebFetchTool agentUtilsSmartWebFetchTool = new AiAgentUtilsSmartWebFetchTool(
             clusterElementDefinitionService);
 
-        AiAgentUtilsTaskTool agentUtilsTaskTool = new AiAgentUtilsTaskTool(clusterElementDefinitionService);
+        AiAgentUtilsTaskTool agentUtilsTaskTool = new AiAgentUtilsTaskTool(
+            aiAgentToolFacade, clusterElementDefinitionService);
+        AiAgentUtilsApprovalGate agentUtilsApprovalGate = new AiAgentUtilsApprovalGate(
+            new ClusterElementToolCallbacks(aiAgentToolFacade, clusterElementDefinitionService),
+            clusterElementDefinitionService);
+
+        AiAgentUtilsAutoMemoryTool agentUtilsAutoMemoryTool = new AiAgentUtilsAutoMemoryTool(aiAutoMemoryService);
+
+        AiAgentUtilsApprovalGate agentUtilsApprovalGate = new AiAgentUtilsApprovalGate(
+            new ClusterElementToolCallbacks(aiAgentToolFacade, clusterElementDefinitionService),
+            clusterElementDefinitionService, toolExecutionRecorderObjectProvider.getIfAvailable());
 
         List<ClusterElementDefinition<?>> clusterElements = new ArrayList<>(List.of(
+            // Delegates a task to a remote A2A agent. The io.a2a client transport is passed explicitly (no
+            // ServiceLoader discovery), so class loading is safe; a transport failure surfaces only at execution time.
             AiAgentUtilsAgentClientTool.CLUSTER_ELEMENT_DEFINITION,
+            agentUtilsApprovalGate.clusterElementDefinition,
             AiAgentUtilsAskUserQuestionTool.CLUSTER_ELEMENT_DEFINITION,
             new AiAgentUtilsFileSystemTools(agentWorkspaceResolver).clusterElementDefinition,
             new AiAgentUtilsGrepTool(agentWorkspaceResolver).clusterElementDefinition,
@@ -103,6 +119,7 @@ public class AiAgentUtilsComponentHandler implements ComponentHandler {
             agentUtilsAutoMemoryTool.clusterElementDefinition,
             AiAgentUtilsTodoWriteTool.CLUSTER_ELEMENT_DEFINITION,
             agentUtilsTaskTool.clusterElementDefinition,
+            AiAgentUtilsSubagent.CLUSTER_ELEMENT_DEFINITION,
             tool(AiAgentUtilsAppendFilesToAiSkillAction.of(aiSkillFacade)),
             tool(AiAgentUtilsCreateAiSkillAction.of(aiSkillFacade)),
             tool(AiAgentUtilsDeleteAiSkillAction.of(aiSkillFacade)),
@@ -129,22 +146,20 @@ public class AiAgentUtilsComponentHandler implements ComponentHandler {
             clusterElements.add(clusterElementContributor.getClusterElementDefinition());
         }
 
-        List<ActionDefinition> actions = List.of(
-            AiAgentUtilsAppendFilesToAiSkillAction.of(aiSkillFacade),
-            AiAgentUtilsCreateAiSkillAction.of(aiSkillFacade),
-            AiAgentUtilsDeleteAiSkillAction.of(aiSkillFacade),
-            AiAgentUtilsRemoveFileFromAiSkillAction.of(aiSkillFacade),
-            AiAgentUtilsUpdateAiSkillAction.of(aiSkillFacade));
-
         this.componentDefinition = new AiAgentUtilsComponentDefinitionImpl(
             component("aiAgentUtils")
                 .title("AI Agent Utils")
                 .description("AI Agent Utils brings Claude Code-inspired tools and agent skills.")
                 .icon("path:assets/agent-utils.svg")
                 .categories(ComponentCategory.ARTIFICIAL_INTELLIGENCE)
-                .actions(actions)
+                .actions(
+                    AiAgentUtilsAppendFilesToAiSkillAction.of(aiSkillFacade),
+                    AiAgentUtilsCreateAiSkillAction.of(aiSkillFacade),
+                    AiAgentUtilsDeleteAiSkillAction.of(aiSkillFacade),
+                    AiAgentUtilsRemoveFileFromAiSkillAction.of(aiSkillFacade),
+                    AiAgentUtilsUpdateAiSkillAction.of(aiSkillFacade))
                 .clusterElements(clusterElements),
-            buildActionClusterElementTypes(actions), buildClusterElementClusterElementTypes(clusterElements));
+            buildClusterElementClusterElementTypes(clusterElements));
     }
 
     @Override
@@ -152,44 +167,13 @@ public class AiAgentUtilsComponentHandler implements ComponentHandler {
         return componentDefinition;
     }
 
-    private static AgentWorkspaceResolver createAgentWorkspaceResolver(ApplicationProperties.Ai.AgentUtils agentUtils) {
-        ApplicationProperties.Ai.AgentUtils.Workspace workspace = agentUtils.getWorkspace();
-
-        String basedir = workspace.getBasedir();
-
-        if (basedir == null || basedir.isBlank()) {
-            return new AgentWorkspaceResolver(null);
-        }
-
-        return new AgentWorkspaceResolver(Path.of(basedir));
-    }
-
-    private static DockerExecBackendRegistry createDockerExecBackendRegistry(
-        ApplicationProperties.Ai.AgentUtils.Shell.Docker docker) {
-
-        return new DockerExecBackendRegistry(docker.getCommand(), docker.getImage(), docker.getIdleTimeout());
-    }
-
-    private static Set<String> getAllowedPrivateHosts(ApplicationProperties.Ai.AgentUtils agentUtils) {
-        List<String> allowedPrivateHosts = agentUtils.getAllowedPrivateHosts();
-
-        if (allowedPrivateHosts == null) {
-            return Set.of();
-        }
-
-        return Set.copyOf(allowedPrivateHosts);
-    }
-
-    private static Map<String, List<String>> buildActionClusterElementTypes(List<ActionDefinition> actions) {
-        Map<String, List<String>> actionClusterElementTypes = new HashMap<>();
-
-        for (ActionDefinition action : actions) {
-            actionClusterElementTypes.put(action.getName(), List.of());
-        }
-
-        return actionClusterElementTypes;
-    }
-
+    /**
+     * Maps each cluster element to the child types it may carry. Built from the actual element list rather than a
+     * literal, because {@code getClusterElementTypes} is component-wide and an element missing from this map inherits
+     * every type the component declares — which would give a leaf like Grep Tool a Model, a Subagent and a Tools
+     * handle. Contributed elements are unknown at compile time, so enumerating names by hand would leave exactly those
+     * to fail open.
+     */
     private static Map<String, List<String>> buildClusterElementClusterElementTypes(
         List<ClusterElementDefinition<?>> clusterElements) {
 
@@ -199,8 +183,10 @@ public class AiAgentUtilsComponentHandler implements ComponentHandler {
             clusterElementClusterElementTypes.put(clusterElement.getName(), List.of());
         }
 
+        // A subagent owns its persona, its tools and — so a cheap model can triage while an expensive one reasons —
+        // its own model. The Task Tool's own Model covers only subagents that declare none.
         clusterElementClusterElementTypes.put(TASK_TOOL, List.of(MODEL.name(), SUBAGENT.name()));
-        clusterElementClusterElementTypes.put(SUBAGENT_TOOL, List.of(MODEL.name(), TOOLS.name()));
+        clusterElementClusterElementTypes.put(SUBAGENT_ELEMENT, List.of(MODEL.name(), TOOLS.name()));
         clusterElementClusterElementTypes.put(SMART_WEB_FETCH_TOOL, List.of(MODEL.name()));
         clusterElementClusterElementTypes.put(APPROVAL_GATE, List.of(TOOLS.name(), APPROVAL_CHANNELS.name()));
 
@@ -210,22 +196,14 @@ public class AiAgentUtilsComponentHandler implements ComponentHandler {
     private static class AiAgentUtilsComponentDefinitionImpl extends AbstractComponentDefinitionWrapper
         implements ClusterRootComponentDefinition {
 
-        private final Map<String, List<String>> actionClusterElementTypes;
         private final Map<String, List<String>> clusterElementClusterElementTypes;
 
         AiAgentUtilsComponentDefinitionImpl(
-            ComponentDefinition componentDefinition, Map<String, List<String>> actionClusterElementTypes,
-            Map<String, List<String>> clusterElementClusterElementTypes) {
+            ComponentDefinition componentDefinition, Map<String, List<String>> clusterElementClusterElementTypes) {
 
             super(componentDefinition);
 
-            this.actionClusterElementTypes = Map.copyOf(actionClusterElementTypes);
             this.clusterElementClusterElementTypes = Map.copyOf(clusterElementClusterElementTypes);
-        }
-
-        @Override
-        public Map<String, List<String>> getActionClusterElementTypes() {
-            return actionClusterElementTypes;
         }
 
         @Override

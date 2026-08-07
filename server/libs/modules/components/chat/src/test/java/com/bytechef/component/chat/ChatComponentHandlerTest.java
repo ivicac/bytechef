@@ -18,7 +18,6 @@ package com.bytechef.component.chat;
 
 import static org.mockito.Mockito.mock;
 
-import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.message.broker.MessageBroker;
 import com.bytechef.test.jsonasssert.JsonFileAssert;
 import org.junit.jupiter.api.Test;
@@ -28,7 +27,6 @@ public class ChatComponentHandlerTest {
     @Test
     public void testGetComponentDefinition() {
         JsonFileAssert.assertEquals(
-            "definition/chat_v1.json",
-            new ChatComponentHandler(mock(MessageBroker.class), mock(JobService.class)).getDefinition());
+            "definition/chat_v1.json", new ChatComponentHandler(mock(MessageBroker.class)).getDefinition());
     }
 }

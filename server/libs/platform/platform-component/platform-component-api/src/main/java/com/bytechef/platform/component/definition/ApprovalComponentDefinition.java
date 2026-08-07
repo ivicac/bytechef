@@ -34,6 +34,11 @@ public interface ApprovalComponentDefinition extends ClusterRootComponentDefinit
         return List.of(APPROVAL_CHANNELS);
     }
 
+    /**
+     * Child types are declared per cluster element, not just for the component as a whole: the type list above applies
+     * to the component, so an element left out of this map inherits every type the component declares. Only the tool
+     * that raises a request may carry channels.
+     */
     @Override
     default Map<String, List<String>> getClusterElementClusterElementTypes() {
         return Map.of(REQUEST_APPROVAL, List.of(APPROVAL_CHANNELS.name()));
