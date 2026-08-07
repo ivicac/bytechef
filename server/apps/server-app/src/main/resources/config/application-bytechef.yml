@@ -21,6 +21,7 @@ bytechef:
       # Auto-memory storage provider (AWS(EE) | FILESYSTEM | JDBC) default: JDBC
       provider: JDBC
     brave:
+      base-url: https://api.search.brave.com/res/v1
       enabled: false
     copilot:
       enabled: false
@@ -34,7 +35,6 @@ bytechef:
       enabled: false
     knowledge-base:
       enabled: false
-      maxSizeBytes: 1073741824
       ocr:
         # OCR provider used when extracting text from knowledge base documents (AZURE | MISTRAL | NONE)
         provider: NONE
@@ -344,7 +344,7 @@ bytechef:
     # Hosts that notification webhook and Slack URLs may use even when they resolve to a private or loopback address
     # (comma-separated, matched exactly). Empty blocks every private address.
     allowed-hosts:
-    # Outbound webhook POSTs (job status and task started webhooks, notification webhooks, Slack)
+    # Outbound webhook POSTs (job status and task started webhooks, notification webhooks, Slack, approval reminders)
     # in flight at once across all endpoints; each endpoint receives one delivery at a time.
     concurrency-limit: 10
     # Deliveries to one endpoint that may wait or run at the same time; further ones are dropped and logged.
@@ -373,8 +373,16 @@ bytechef:
       agent:
         # Maximum nesting depth of sub-workflows called by AI agent tools default: 10
         max-subflow-depth: 10
+      approval-escalation:
+        # Escalate a pending approval after this duration; the sweep is a no-op while unset
+        # after:
+        enabled: true
       approval-expiry:
         enabled: true
+      approval-reminder:
+        enabled: true
+        # Send one reminder this long before an approval expires default: PT24H
+        lead-time: PT24H
     output-storage:
       # Output storage provider for workflow output data (AWS(EE) | FILESYSTEM | JDBC) default: JDBC
       provider: JDBC
