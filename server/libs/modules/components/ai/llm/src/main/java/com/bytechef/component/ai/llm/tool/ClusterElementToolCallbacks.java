@@ -30,10 +30,18 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
-import org.jspecify.annotations.Nullable;
 import org.springframework.ai.tool.ToolCallback;
 
 /**
+ * Builds the {@link ToolCallback}s a TOOLS cluster element contributes. A TOOLS element comes in four shapes and every
+ * caller must handle all four; keeping the dispatch here means "what shapes are there?" has one answer instead of one
+ * per call site.
+ *
+ * <p>
+ * It previously had two, and they had drifted: the copy in the task tool's subagent path omitted the
+ * {@link ToolCallbackProviderFunction} branch, so ten of the thirteen aiAgentUtils tool elements fell through to the
+ * facade and produced a tool built from the element's parameters rather than from the provider.
+ *
  * @author Ivica Cardic
  */
 public class ClusterElementToolCallbacks {
@@ -51,13 +59,6 @@ public class ClusterElementToolCallbacks {
 
     public List<ToolCallback> build(
         ClusterElement clusterElement, Map<String, ComponentConnection> componentConnections, ActionContext context) {
-
-        return build(clusterElement, componentConnections, null, context);
-    }
-
-    public List<ToolCallback> build(
-        ClusterElement clusterElement, Map<String, ComponentConnection> componentConnections,
-        @Nullable String subagentConversationId, ActionContext context) {
 
         Object clusterElementFunction = clusterElementDefinitionService.getClusterElement(
             clusterElement.getComponentName(), clusterElement.getComponentVersion(),
@@ -94,8 +95,7 @@ public class ClusterElementToolCallbacks {
             }
         } else if (clusterElementFunction instanceof MultipleConnectionsToolFunction) {
             return List.of(
-                aiAgentToolFacade.getFunctionToolCallback(
-                    clusterElement, componentConnections, subagentConversationId, context));
+                aiAgentToolFacade.getFunctionToolCallback(clusterElement, componentConnections, context));
         } else {
             ComponentConnection componentConnection = componentConnections.get(clusterElement.getWorkflowNodeName());
 

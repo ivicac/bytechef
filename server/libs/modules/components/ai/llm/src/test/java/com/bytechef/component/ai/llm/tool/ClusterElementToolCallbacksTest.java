@@ -19,6 +19,7 @@ package com.bytechef.component.ai.llm.tool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -95,7 +96,7 @@ class ClusterElementToolCallbacksTest {
             .thenReturn(new Object());
         when(
             aiAgentToolFacade.getFunctionToolCallback(
-                any(ClusterElement.class), any(ComponentConnection.class), any(ActionContext.class)))
+                any(ClusterElement.class), any(ComponentConnection.class), anyBoolean()))
                     .thenReturn(facadeToolCallback);
 
         List<ToolCallback> toolCallbacks = clusterElementToolCallbacks.build(
@@ -118,10 +119,16 @@ class ClusterElementToolCallbacksTest {
 
         ActionContext actionContext = mock(ActionContext.class);
 
-        assertThatThrownBy(() -> clusterElementToolCallbacks.build(
-            clusterElement("aiAgentUtils/v1/grepTool", "grepTool_1"), Map.of(), actionContext))
-                .isInstanceOf(IllegalStateException.class)
-                .hasMessageContainingAll("grepTool", "aiAgentUtils", "boom");
+        try {
+            clusterElementToolCallbacks.build(
+                clusterElement("aiAgentUtils/v1/grepTool", "grepTool_1"), Map.of(), actionContext);
+
+            assertThat(false)
+                .as("expected an IllegalStateException")
+                .isTrue();
+        } catch (IllegalStateException illegalStateException) {
+            assertThat(illegalStateException.getMessage()).contains("grepTool", "aiAgentUtils", "boom");
+        }
     }
 
     private static ClusterElement clusterElement(String type, String workflowNodeName) {

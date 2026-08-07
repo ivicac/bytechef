@@ -64,7 +64,6 @@ import static com.bytechef.component.definition.approval.ApprovalChannelFunction
 import static com.bytechef.component.definition.approval.ApprovalChannelFunction.INPUTS;
 
 import com.bytechef.commons.util.MapUtils;
-import com.bytechef.component.approval.cluster.ChatApprovalChannel;
 import com.bytechef.component.approval.util.FieldType;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionContext.Suspend;
@@ -74,6 +73,7 @@ import com.bytechef.component.definition.ComponentDsl.ModifiableValueProperty;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.TypeReference;
 import com.bytechef.definition.BaseOutputDefinition.OutputResponse;
+import com.bytechef.platform.ai.approval.ApprovalRequestEvents;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.definition.ActionContextAware;
@@ -391,7 +391,7 @@ public class ApprovalRequestApprovalAction {
     }
 
     private static void suspend(ActionContext context, String formUrl, Instant expiresAt) {
-        context.suspend(new Suspend(Map.of(FORM_URL, formUrl), expiresAt));
+        context.suspend(new Suspend(Map.of(FORM_URL, formUrl, MetadataConstants.APPROVAL_RESUME, true), expiresAt));
     }
 
     /**
@@ -423,7 +423,7 @@ public class ApprovalRequestApprovalAction {
     private static SuspendAwareSseEmitterHandler createEditorApprovalRequestEmitterHandler(
         Parameters inputParameters, String formUrl, Instant expiresAt, ActionContextAware actionContextAware) {
 
-        Map<String, Object> eventData = ChatApprovalChannel.buildApprovalRequestEventData(inputParameters, formUrl);
+        Map<String, Object> eventData = ApprovalRequestEvents.buildApprovalRequestEventData(inputParameters, formUrl);
 
         // The builder reads the expiry from the channel input parameters, which only the production fan-out
         // populates — the editor event gets it from the action's own computed value instead.
