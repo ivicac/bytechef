@@ -138,7 +138,7 @@ export const WorkflowExecutions = () => {
                     className="3xl:w-full"
                     position="main"
                     right={
-                        <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-1">
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button
@@ -151,7 +151,7 @@ export const WorkflowExecutions = () => {
                                         }
                                         onClick={() => refetchWorkflowExecutions()}
                                         size="icon"
-                                        variant="outline"
+                                        variant="ghost"
                                     />
                                 </TooltipTrigger>
 
