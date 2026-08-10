@@ -89,6 +89,15 @@ class AskUserQuestionToolCallbackTest {
             .asString()).isEqualTo("slack");
     }
 
+    /**
+     * The EE subagent ask tool decorates this callback and tells an envelope from a tool error by this constant, so it
+     * is the shared wire contract rather than an internal detail.
+     */
+    @Test
+    void testKindIsThePublishedWireContract() {
+        assertThat(AskUserQuestionToolCallback.KIND).isEqualTo("ask-user-question");
+    }
+
     @Test
     void testRejectsAQuestionForAnUnresolvedLookupProperty() throws Exception {
         AskUserQuestionToolCallback callback =
