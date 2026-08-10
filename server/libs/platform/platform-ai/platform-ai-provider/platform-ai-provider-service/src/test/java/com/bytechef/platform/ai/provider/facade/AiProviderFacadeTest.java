@@ -24,11 +24,13 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.llm.Provider;
+import com.bytechef.platform.ai.model.catalog.ModelCatalog;
 import com.bytechef.platform.ai.provider.dto.AiProviderDTO;
 import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Property.Scope;
 import com.bytechef.platform.configuration.service.PropertyService;
+import com.bytechef.platform.connection.aiprovider.AiProviderConnectionSource;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +39,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * @author Ivica Cardic
@@ -58,7 +61,20 @@ class AiProviderFacadeTest {
     void setUp() {
         ApplicationProperties applicationProperties = mock(ApplicationProperties.class, RETURNS_DEEP_STUBS);
 
-        facade = new AiProviderFacadeImpl(componentDefinitionService, propertyService, applicationProperties);
+        AiProviderConnectionSource aiProviderConnectionSource = mock(AiProviderConnectionSource.class);
+
+        lenient().when(aiProviderConnectionSource.getSupportedProviders())
+            .thenReturn(List.of());
+
+        @SuppressWarnings("unchecked")
+        ObjectProvider<ModelCatalog> modelCatalogProvider = mock(ObjectProvider.class);
+
+        lenient().when(modelCatalogProvider.getIfAvailable())
+            .thenReturn(null);
+
+        facade = new AiProviderFacadeImpl(
+            aiProviderConnectionSource, componentDefinitionService, modelCatalogProvider, propertyService,
+            applicationProperties);
     }
 
     @Test
