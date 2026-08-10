@@ -24,6 +24,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.llm.Provider;
+import com.bytechef.platform.ai.model.catalog.ModelCatalog;
 import com.bytechef.platform.ai.provider.dto.AiProviderDTO;
 import com.bytechef.platform.ai.provider.ollama.OllamaModelClient;
 import com.bytechef.platform.component.domain.ComponentDefinition;
@@ -40,6 +41,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * @author Ivica Cardic
@@ -63,8 +65,21 @@ class AiProviderFacadeProvidersTest {
     void setUp() {
         applicationProperties = mock(ApplicationProperties.class, RETURNS_DEEP_STUBS);
 
+        AiProviderConnectionSource aiProviderConnectionSource = mock(AiProviderConnectionSource.class);
+
+        lenient().when(aiProviderConnectionSource.getSupportedProviders())
+            .thenReturn(List.of());
+
+        @SuppressWarnings("unchecked")
+        ObjectProvider<ModelCatalog> modelCatalogProvider = mock(ObjectProvider.class);
+
+        lenient().when(modelCatalogProvider.getIfAvailable())
+            .thenReturn(null);
+
         facade = new AiProviderFacadeImpl(
-            componentDefinitionService, mock(OllamaModelClient.class), propertyService, applicationProperties);
+            aiProviderConnectionSource, componentDefinitionService, modelCatalogProvider, mock(OllamaModelClient.class),
+            propertyService,
+            applicationProperties);
     }
 
     @Test

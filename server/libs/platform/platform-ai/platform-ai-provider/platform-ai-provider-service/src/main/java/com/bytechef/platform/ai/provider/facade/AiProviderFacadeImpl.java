@@ -18,6 +18,8 @@ package com.bytechef.platform.ai.provider.facade;
 
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.llm.Provider;
+import com.bytechef.platform.ai.model.catalog.CatalogModel;
+import com.bytechef.platform.ai.model.catalog.ModelCatalog;
 import com.bytechef.platform.ai.provider.audit.AiProviderAuditEvents;
 import com.bytechef.platform.ai.provider.audit.AiProviderAuditMapper;
 import com.bytechef.platform.ai.provider.dto.AiDefaultModelDTO;
@@ -46,6 +48,7 @@ import java.util.Objects;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -61,6 +64,7 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
 
     private final AiProviderConnectionSource aiProviderConnectionSource;
     private final ComponentDefinitionService componentDefinitionService;
+    private final ObjectProvider<ModelCatalog> modelCatalogProvider;
     private final OllamaModelClient ollamaModelClient;
     private final PropertyService propertyService;
     private final ApplicationProperties applicationProperties;
@@ -68,11 +72,13 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
     @SuppressFBWarnings("EI")
     public AiProviderFacadeImpl(
         AiProviderConnectionSource aiProviderConnectionSource,
-        ComponentDefinitionService componentDefinitionService, OllamaModelClient ollamaModelClient,
+        ComponentDefinitionService componentDefinitionService, ObjectProvider<ModelCatalog> modelCatalogProvider,
+        OllamaModelClient ollamaModelClient,
         PropertyService propertyService, ApplicationProperties applicationProperties) {
 
         this.aiProviderConnectionSource = aiProviderConnectionSource;
         this.componentDefinitionService = componentDefinitionService;
+        this.modelCatalogProvider = modelCatalogProvider;
         this.ollamaModelClient = ollamaModelClient;
         this.propertyService = propertyService;
         this.applicationProperties = applicationProperties;
@@ -133,7 +139,9 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
 
                 List<AiProviderCatalogItemDTO.Model> models = enabled && provider == Provider.OLLAMA
                     ? readOllamaChatModels(componentDefinition, environment)
-                    : readChatModels(resolveFullComponentDefinition(componentDefinition));
+                    : labelModels(
+                        modelCatalogProvider.getIfAvailable(), provider,
+                        readChatModels(resolveFullComponentDefinition(componentDefinition)));
 
                 return new AiProviderCatalogItemDTO(
                     provider.getKey(), provider.getLabel(), componentDefinition.getIcon(), enabled,
@@ -360,12 +368,6 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
             .equalsIgnoreCase(docsProvider.name());
     }
 
-    /**
-     * Resolves the full definition backing a list-view entry. Since the lazy component-index work,
-     * {@code getComponentDefinitions()} serves list-view stubs that carry no action property trees, so the chat model
-     * options must be read from the per-component detail path, which loads the full definition on demand. Returns
-     * {@code null} (empty models) instead of failing the whole catalog when one component cannot be loaded.
-     */
     private ComponentDefinition resolveFullComponentDefinition(ComponentDefinition componentDefinition) {
         try {
             return componentDefinitionService.getComponentDefinition(
@@ -392,6 +394,64 @@ public class AiProviderFacadeImpl implements AiProviderFacade {
             .findFirst()
             .map(AiProviderFacadeImpl::extractModelOptions)
             .orElse(List.of());
+    }
+
+    private static List<AiProviderCatalogItemDTO.Model> labelModels(
+        @Nullable ModelCatalog modelCatalog, Provider provider, List<AiProviderCatalogItemDTO.Model> models) {
+
+        String modelsDevProviderId = resolveModelsDevProviderId(provider);
+
+        return models.stream()
+            .map(model -> new AiProviderCatalogItemDTO.Model(
+                model.name(), resolveLabel(modelCatalog, modelsDevProviderId, model)))
+            .toList();
+    }
+
+    /**
+     * The models.dev display name wins when the catalog knows the model; otherwise the component option's own label;
+     * otherwise the model id. Never null or blank — the GraphQL schema declares {@code AiProviderModel.label} non-null,
+     * and an uncataloged model must still render in the picker.
+     */
+    private static String resolveLabel(
+        @Nullable ModelCatalog modelCatalog, @Nullable String modelsDevProviderId,
+        AiProviderCatalogItemDTO.Model model) {
+
+        if (modelCatalog != null && modelsDevProviderId != null) {
+            String displayName = modelCatalog.fetchModel(modelsDevProviderId, model.name())
+                .map(CatalogModel::name)
+                .orElse(null);
+
+            if (displayName != null && !displayName.isBlank()) {
+                return displayName;
+            }
+        }
+
+        String label = model.label();
+
+        return label != null && !label.isBlank() ? label : model.name();
+    }
+
+    /**
+     * Maps ByteChef AI providers onto models.dev provider ids. Exhaustive with no default arm, deliberately — appending
+     * a {@link Provider} value breaks compilation here instead of silently shipping unlabeled models. Null means
+     * models.dev does not catalog the provider (local Ollama; image- or embedding-only providers); labels then fall
+     * back to the option label or the model id.
+     */
+    private static @Nullable String resolveModelsDevProviderId(Provider provider) {
+        return switch (provider) {
+            case ANTHROPIC -> "anthropic";
+            case AZURE_OPEN_AI -> "azure";
+            case DEEPSEEK -> "deepseek";
+            case GROQ -> "groq";
+            case HUGGING_FACE -> null;
+            case MISTRAL -> "mistral";
+            case NVIDIA -> "nvidia";
+            case OLLAMA -> null;
+            case OPEN_AI -> "openai";
+            case PERPLEXITY -> "perplexity";
+            case STABILITY -> null;
+            case VERTEX_GEMINI -> "google-vertex";
+        };
     }
 
     private List<AiProviderCatalogItemDTO.Model> readOllamaChatModels(

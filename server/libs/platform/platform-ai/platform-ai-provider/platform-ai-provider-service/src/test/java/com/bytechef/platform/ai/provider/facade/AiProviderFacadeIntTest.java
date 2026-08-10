@@ -40,6 +40,8 @@ import com.bytechef.platform.configuration.domain.Property.Scope;
 import com.bytechef.platform.configuration.repository.PropertyRepository;
 import com.bytechef.platform.configuration.service.PropertyService;
 import com.bytechef.platform.configuration.service.PropertyServiceImpl;
+import com.bytechef.platform.connection.aiprovider.AiProviderConnectionSource;
+import com.bytechef.platform.credential.store.service.DatabaseCredentialStore;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import com.sun.net.httpserver.HttpServer;
@@ -82,6 +84,9 @@ class AiProviderFacadeIntTest {
           {"name":"qwen3:8b","capabilities":["completion","tools","thinking"]}
         ]}
         """;
+
+    @MockitoBean
+    private AiProviderConnectionSource aiProviderConnectionSource;
 
     @Autowired
     private AiProviderFacade aiProviderFacade;
@@ -376,8 +381,9 @@ class AiProviderFacadeIntTest {
     @Configuration
     @EnableAutoConfiguration
     @Import({
-        AiProviderFacadeImpl.class, JacksonConfiguration.class, LiquibaseConfiguration.class, OllamaModelClient.class,
-        PostgreSQLContainerConfiguration.class, PropertyServiceImpl.class
+        AiProviderFacadeImpl.class, DatabaseCredentialStore.class, JacksonConfiguration.class,
+        LiquibaseConfiguration.class, OllamaModelClient.class, PostgreSQLContainerConfiguration.class,
+        PropertyServiceImpl.class
     })
     static class AiProviderFacadeIntTestConfiguration {
 

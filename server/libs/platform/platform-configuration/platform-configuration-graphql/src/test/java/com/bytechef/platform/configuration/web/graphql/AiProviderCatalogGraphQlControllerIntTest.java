@@ -20,7 +20,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.platform.ai.provider.dto.AiDefaultModelDTO;
 import com.bytechef.platform.ai.provider.dto.AiProviderCatalogItemDTO;
-import com.bytechef.platform.ai.provider.facade.AiProviderCatalogFacade;
+import com.bytechef.platform.ai.provider.facade.AiProviderFacade;
 import com.bytechef.platform.configuration.web.graphql.config.PlatformConfigurationGraphQlConfigurationSharedMocks;
 import com.bytechef.platform.configuration.web.graphql.config.PlatformConfigurationGraphQlTestConfiguration;
 import java.util.List;
@@ -47,7 +47,7 @@ import org.springframework.test.context.ContextConfiguration;
 class AiProviderCatalogGraphQlControllerIntTest {
 
     @Autowired
-    private AiProviderCatalogFacade aiProviderCatalogFacade;
+    private AiProviderFacade aiProviderFacade;
 
     @Autowired
     private GraphQlTester graphQlTester;
@@ -56,9 +56,11 @@ class AiProviderCatalogGraphQlControllerIntTest {
     void testAiProviderCatalogDelegatesToFacade() {
         AiProviderCatalogItemDTO aiProviderCatalogItemDTO = new AiProviderCatalogItemDTO(
             "ai.provider.openAi", "Open AI", "<svg/>", true, false,
-            List.of(new AiProviderCatalogItemDTO.Model("gpt-5", "GPT-5")));
+            List.of(
+                new AiProviderCatalogItemDTO.Model("gpt-5", "GPT-5"),
+                new AiProviderCatalogItemDTO.Model("my-fine-tune", "my-fine-tune")));
 
-        when(aiProviderCatalogFacade.getAiProviderCatalog(2)).thenReturn(List.of(aiProviderCatalogItemDTO));
+        when(aiProviderFacade.getAiChatProviderCatalog(2)).thenReturn(List.of(aiProviderCatalogItemDTO));
 
         graphQlTester
             .document("""
@@ -95,14 +97,14 @@ class AiProviderCatalogGraphQlControllerIntTest {
             .path("aiProviderCatalog[0].models[0].name")
             .entity(String.class)
             .isEqualTo("gpt-5")
-            .path("aiProviderCatalog[0].models[0].label")
-            .entity(String.class)
-            .isEqualTo("GPT-5");
+            .path("aiProviderCatalog[0].models[*].label")
+            .entityList(String.class)
+            .containsExactly("GPT-5", "my-fine-tune");
     }
 
     @Test
     void testAiDefaultModelDelegatesToFacade() {
-        when(aiProviderCatalogFacade.getAiDefaultModel(2))
+        when(aiProviderFacade.getAiDefaultChatModel(2))
             .thenReturn(new AiDefaultModelDTO("ai.provider.anthropic", "claude-sonnet-4-6"));
 
         graphQlTester
