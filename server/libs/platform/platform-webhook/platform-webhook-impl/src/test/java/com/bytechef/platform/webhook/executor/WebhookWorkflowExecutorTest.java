@@ -55,6 +55,7 @@ import com.bytechef.platform.job.sync.executor.JobSyncExecutor;
 import com.bytechef.platform.job.sync.executor.JobSyncExecutor.JobFactoryFunction;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
 import com.bytechef.platform.workflow.coordinator.event.TriggerWebhookEvent;
+import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessor;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessorRegistry;
 import com.bytechef.platform.workflow.execution.exception.TaskExecutionErrorType;
@@ -196,12 +197,13 @@ public class WebhookWorkflowExecutorTest {
 
     @Test
     public void testExecuteSyncUsesDefaultTimeoutWhenTriggerTimeoutIsNotSet() {
-        assertThat(executeSyncAndCaptureTimeout(Map.of())).isNull();
+        assertThat(executeSyncAndCaptureTimeout(Map.of())).isEqualTo(JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT);
     }
 
     @Test
     public void testExecuteSyncUsesDefaultTimeoutWhenTriggerTimeoutIsNotNumber() {
-        assertThat(executeSyncAndCaptureTimeout(Map.of("timeout", "${input.timeout}"))).isNull();
+        assertThat(executeSyncAndCaptureTimeout(Map.of("timeout", "${input.timeout}")))
+            .isEqualTo(JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT);
     }
 
     @Test
