@@ -1,6 +1,14 @@
 import Button from '@/components/Button/Button';
+import {
+    Dialog,
+    DialogBody,
+    DialogCancelButton,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogMain,
+} from '@/components/Dialog';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/Select/Select';
-import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {
@@ -16,6 +24,7 @@ import {toast} from 'sonner';
 import {AiGatewayProviderType} from '../../types';
 
 interface AiGatewayProviderDialogProps {
+    isAdmin: boolean;
     onClose: () => void;
     provider?: AiGatewayProviderType;
     workspaceId: string;
@@ -32,7 +41,7 @@ const PROVIDER_TYPES: AiGatewayProviderTypeEnum[] = [
     AiGatewayProviderTypeEnum.Openai,
 ];
 
-const AiGatewayProviderDialog = ({onClose, provider, workspaceId}: AiGatewayProviderDialogProps) => {
+const AiGatewayProviderDialog = ({isAdmin, onClose, provider, workspaceId}: AiGatewayProviderDialogProps) => {
     const [apiKey, setApiKey] = useState('');
     const [baseUrl, setBaseUrl] = useState(provider?.baseUrl ?? '');
     const [name, setName] = useState(provider?.name ?? '');
@@ -117,93 +126,99 @@ const AiGatewayProviderDialog = ({onClose, provider, workspaceId}: AiGatewayProv
             }}
             open
         >
-            <DialogContent aria-describedby={undefined} className="max-w-md">
-                <DialogHeader>
-                    <DialogTitle>{isEditMode ? 'Edit Provider' : 'Add Provider'}</DialogTitle>
-                </DialogHeader>
+            <DialogContent aria-describedby={undefined}>
+                <DialogMain>
+                    <DialogHeader title={isEditMode ? 'Edit Provider' : 'Add Provider'} />
 
-                <div className="space-y-4">
-                    <fieldset className="border-0">
-                        <Label className="mb-1 block" htmlFor="ai-gateway-provider-name">
-                            Name
-                        </Label>
+                    <DialogBody>
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="ai-gateway-provider-name">
+                                Name
+                            </Label>
 
-                        <Input
-                            id="ai-gateway-provider-name"
-                            onChange={(event) => setName(event.target.value)}
-                            placeholder="My OpenAI Provider"
-                            value={name}
-                        />
-                    </fieldset>
+                            <Input
+                                id="ai-gateway-provider-name"
+                                onChange={(event) => setName(event.target.value)}
+                                placeholder="My OpenAI Provider"
+                                value={name}
+                            />
+                        </fieldset>
 
-                    <fieldset className="border-0">
-                        <Label className="mb-1 block" htmlFor="ai-gateway-provider-type">
-                            Type
-                        </Label>
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="ai-gateway-provider-type">
+                                Type
+                            </Label>
 
-                        <Select onValueChange={(value) => setType(value as AiGatewayProviderTypeEnum)} value={type}>
-                            <SelectTrigger id="ai-gateway-provider-type">
-                                <SelectValue />
-                            </SelectTrigger>
+                            <Select onValueChange={(value) => setType(value as AiGatewayProviderTypeEnum)} value={type}>
+                                <SelectTrigger id="ai-gateway-provider-type">
+                                    <SelectValue />
+                                </SelectTrigger>
 
-                            <SelectContent>
-                                {PROVIDER_TYPES.map((providerType) => (
-                                    <SelectItem key={providerType} value={providerType}>
-                                        {providerType}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </fieldset>
+                                <SelectContent>
+                                    {PROVIDER_TYPES.map((providerType) => (
+                                        <SelectItem key={providerType} value={providerType}>
+                                            {providerType}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </fieldset>
 
-                    <fieldset className="border-0">
-                        <Label className="mb-1 block" htmlFor="ai-gateway-provider-api-key">
-                            API Key
-                        </Label>
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="ai-gateway-provider-api-key">
+                                API Key
+                            </Label>
 
-                        <Input
-                            id="ai-gateway-provider-api-key"
-                            onChange={(event) => setApiKey(event.target.value)}
-                            placeholder={isEditMode ? 'Leave empty to keep current' : 'sk-...'}
-                            type="password"
-                            value={apiKey}
-                        />
-                    </fieldset>
+                            <Input
+                                id="ai-gateway-provider-api-key"
+                                onChange={(event) => setApiKey(event.target.value)}
+                                placeholder={isEditMode ? 'Leave empty to keep current' : 'sk-...'}
+                                type="password"
+                                value={apiKey}
+                            />
+                        </fieldset>
 
-                    <fieldset className="border-0">
-                        <Label className="mb-1 block" htmlFor="ai-gateway-provider-base-url">
-                            Base URL (optional)
-                        </Label>
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="ai-gateway-provider-base-url">
+                                Base URL (optional)
+                            </Label>
 
-                        <Input
-                            id="ai-gateway-provider-base-url"
-                            onChange={(event) => setBaseUrl(event.target.value)}
-                            placeholder="https://api.openai.com"
-                            value={baseUrl}
-                        />
-                    </fieldset>
-                </div>
+                            <Input
+                                id="ai-gateway-provider-base-url"
+                                onChange={(event) => setBaseUrl(event.target.value)}
+                                placeholder="https://api.openai.com"
+                                value={baseUrl}
+                            />
+                        </fieldset>
+                    </DialogBody>
 
-                <DialogFooter>
-                    {isEditMode && (
-                        <Button
-                            disabled={testConnectionMutation.isPending}
-                            label={testConnectionMutation.isPending ? 'Testing...' : 'Test Connection'}
-                            onClick={handleTestConnection}
-                            variant="outline"
-                        />
-                    )}
-
-                    <Button label="Cancel" onClick={onClose} variant="outline" />
-
-                    <Button
-                        disabled={
-                            !name || (!isEditMode && !apiKey) || createMutation.isPending || updateMutation.isPending
+                    <DialogFooter
+                        startContent={
+                            isEditMode &&
+                            isAdmin && (
+                                <Button
+                                    disabled={testConnectionMutation.isPending}
+                                    label={testConnectionMutation.isPending ? 'Testing...' : 'Test Connection'}
+                                    onClick={handleTestConnection}
+                                    variant="outline"
+                                />
+                            )
                         }
-                        label={isEditMode ? 'Save' : 'Create'}
-                        onClick={handleSubmit}
-                    />
-                </DialogFooter>
+                    >
+                        <DialogCancelButton />
+
+                        <Button
+                            disabled={
+                                !name ||
+                                (!isEditMode && !apiKey) ||
+                                createMutation.isPending ||
+                                updateMutation.isPending
+                            }
+                            label={isEditMode ? 'Save' : 'Create'}
+                            onClick={handleSubmit}
+                        />
+                    </DialogFooter>
+                </DialogMain>
             </DialogContent>
         </Dialog>
     );
