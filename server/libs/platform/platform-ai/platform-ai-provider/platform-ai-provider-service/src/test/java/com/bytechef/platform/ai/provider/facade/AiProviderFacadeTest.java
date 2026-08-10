@@ -24,11 +24,13 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.platform.ai.llm.Provider;
+import com.bytechef.platform.ai.model.catalog.ModelCatalog;
 import com.bytechef.platform.ai.provider.dto.AiProviderDTO;
 import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.component.service.ComponentDefinitionService;
 import com.bytechef.platform.configuration.domain.Property.Scope;
 import com.bytechef.platform.configuration.service.PropertyService;
+import com.bytechef.platform.connection.aiprovider.AiProviderConnectionSource;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,6 +39,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentMatchers;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * @author Ivica Cardic
@@ -57,8 +60,19 @@ class AiProviderFacadeTest {
     @BeforeEach
     void setUp() {
         ApplicationProperties applicationProperties = mock(ApplicationProperties.class, RETURNS_DEEP_STUBS);
+        AiProviderConnectionSource aiProviderConnectionSource = mock(AiProviderConnectionSource.class);
 
-        facade = new AiProviderFacadeImpl(componentDefinitionService, propertyService, applicationProperties);
+        @SuppressWarnings("unchecked")
+        ObjectProvider<ModelCatalog> modelCatalogProvider = mock(ObjectProvider.class);
+
+        // No catalog on the classpath: this test is about what the provider list says of every
+        // Provider's embedding support, which the facade derives without consulting one.
+        lenient().when(modelCatalogProvider.getIfAvailable())
+            .thenReturn(null);
+
+        facade = new AiProviderFacadeImpl(
+            aiProviderConnectionSource, componentDefinitionService, modelCatalogProvider, propertyService,
+            applicationProperties);
     }
 
     @Test
