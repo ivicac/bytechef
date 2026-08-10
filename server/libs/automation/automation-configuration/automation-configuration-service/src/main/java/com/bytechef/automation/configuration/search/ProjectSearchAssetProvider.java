@@ -44,12 +44,13 @@ class ProjectSearchAssetProvider implements SearchAssetProvider {
         return projectService.getProjects(false, null, null, null, null, null)
             .stream()
             .filter(project -> !SystemProjects.isSystemProject(project))
-            .filter(project -> workspaceIds.contains(project.getWorkspaceId()))
             .filter(
                 project -> containsIgnoreCase(project.getName(), queryLower) ||
                     containsIgnoreCase(project.getDescription(), queryLower))
             .limit(limit)
-            .map(project -> new ProjectSearchResult(project.getId(), project.getName(), project.getDescription()))
+            .map(
+                project -> new ProjectSearchResult(
+                    project.getId(), project.getName(), project.getDescription(), project.getWorkspaceId()))
             .toList();
     }
 

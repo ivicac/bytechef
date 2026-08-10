@@ -16,14 +16,44 @@
 
 package com.bytechef.automation.configuration.domain;
 
+import java.util.List;
+
 /**
+ * Naming convention for <em>system projects</em> — projects a feature auto-provisions to own workflows it generates on
+ * the user's behalf, rather than projects a user created.
+ *
+ * <p>
+ * Every system project name is {@code __<DOMAIN>__<discriminator>}: a double-underscore-delimited SCREAMING_SNAKE_CASE
+ * domain marker followed by whatever the owning feature scopes by (a workspace id for Knowledge Base and Context Store,
+ * the caller-supplied project name for the embedded automation bridge). Keeping one shape across all three lets list
+ * surfaces hide them with a single predicate instead of each learning every feature's private naming scheme.
+ *
+ * <p>
+ * The prefix is matched against an explicit {@link #NAME_PREFIXES} allow-list rather than a bare {@code "__"} test, so
+ * a user who legitimately names a project {@code __scratch} still sees it in their lists.
+ *
  * @author Ivica Cardic
  */
 public final class SystemProjects {
 
+    /**
+     * Owns the auto-generated Knowledge Base source sync workflows of one workspace.
+     */
+    public static final String KNOWLEDGE_BASE_NAME_PREFIX = "__KNOWLEDGE_BASE__";
+
+    /**
+     * Owns the auto-generated Context Store source sync workflows of one workspace.
+     */
+    public static final String CONTEXT_STORE_NAME_PREFIX = "__CONTEXT_STORE__";
+
+    /**
+     * Marks a catalog project deployed through the embedded automation bridge. Unlike the other two this one is not
+     * workspace-scoped — the suffix is the caller-supplied project name.
+     */
     public static final String EMBEDDED_AUTOMATION_NAME_PREFIX = "__EMBEDDED_AUTOMATION__";
 
-    public static final String A2A_SERVER_DEPLOYMENT_NAME_PREFIX = "__A2A_SERVER__";
+    private static final List<String> NAME_PREFIXES = List.of(
+        KNOWLEDGE_BASE_NAME_PREFIX, CONTEXT_STORE_NAME_PREFIX, EMBEDDED_AUTOMATION_NAME_PREFIX);
 
     private SystemProjects() {
     }
@@ -37,6 +67,12 @@ public final class SystemProjects {
             return false;
         }
 
-        return name.startsWith(EMBEDDED_AUTOMATION_NAME_PREFIX);
+        for (String namePrefix : NAME_PREFIXES) {
+            if (name.startsWith(namePrefix)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 }

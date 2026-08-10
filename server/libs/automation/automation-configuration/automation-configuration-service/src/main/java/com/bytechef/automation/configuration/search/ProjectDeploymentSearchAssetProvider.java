@@ -70,15 +70,15 @@ class ProjectDeploymentSearchAssetProvider implements SearchAssetProvider {
                 Project project = projectMap.get(deployment.getProjectId());
 
                 return project != null && !SystemProjects.isSystemProject(project) &&
-                    workspaceIds.contains(project.getWorkspaceId()) &&
                     containsIgnoreCase(project.getName(), queryLower);
             })
             .limit(limit)
             .map(deployment -> {
                 Project project = projectMap.get(deployment.getProjectId());
                 String projectName = project != null ? project.getName() : "Unknown";
+                Long workspaceId = project != null ? project.getWorkspaceId() : null;
 
-                return new ProjectDeploymentSearchResult(deployment.getId(), projectName);
+                return new ProjectDeploymentSearchResult(deployment.getId(), projectName, workspaceId);
             })
             .toList();
     }

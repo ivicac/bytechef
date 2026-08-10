@@ -451,7 +451,10 @@ public class ProjectFacadeImpl implements ProjectFacade {
     @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'WORKFLOW_VIEW')")
     @Transactional(readOnly = true)
     public List<WorkspaceProjectWorkflowDTO> getWorkspaceLatestProjectWorkflows(long workspaceId) {
-        List<Project> projects = projectService.getProjects(null, null, false, null, null, workspaceId);
+        List<Project> projects = projectService.getProjects(null, null, false, null, null, workspaceId)
+            .stream()
+            .filter(project -> !SystemProjects.isSystemProject(project))
+            .toList();
 
         if (projects.isEmpty()) {
             return List.of();
