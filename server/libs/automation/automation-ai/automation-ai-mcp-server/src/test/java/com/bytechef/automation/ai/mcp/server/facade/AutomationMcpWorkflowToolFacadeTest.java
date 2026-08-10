@@ -69,6 +69,10 @@ class AutomationMcpWorkflowToolFacadeTest {
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService =
         mock(ProjectDeploymentWorkflowService.class);
     private final WorkflowService workflowService = mock(WorkflowService.class);
+
+    @SuppressWarnings("unchecked")
+    private final ObjectProvider<ApprovalTokens> approvalTokensObjectProvider =
+        (ObjectProvider<ApprovalTokens>) mock(ObjectProvider.class);
     private final WorkspaceMcpServerService workspaceMcpServerService = mock(WorkspaceMcpServerService.class);
 
     private final AutomationMcpToolFacade automationMcpToolFacade = new AutomationMcpToolFacade(

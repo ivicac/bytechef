@@ -27,6 +27,7 @@ import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.execution.domain.Job;
 import com.bytechef.atlas.execution.domain.TaskExecution;
 import com.bytechef.atlas.execution.dto.JobParametersDTO;
+import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.atlas.execution.service.TaskExecutionService;
 import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.automation.configuration.security.AutomationAuthorizationContext;
@@ -36,6 +37,7 @@ import com.bytechef.ee.embedded.ai.mcp.server.config.EmbeddedMcpServerIntTestCon
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.ai.mcp.service.McpIntegrationInstanceToolService;
+import com.bytechef.ee.embedded.configuration.audit.IntegrationAuditPublisher;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationWorkflowService;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceService;
@@ -65,7 +67,10 @@ import com.bytechef.platform.mcp.repository.McpServerRepository;
 import com.bytechef.platform.mcp.repository.McpToolRepository;
 import com.bytechef.platform.mcp.service.McpComponentService;
 import com.bytechef.platform.mcp.service.McpServerService;
+import com.bytechef.platform.tool.execution.ToolExecutionEvent;
+import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
+import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
@@ -75,6 +80,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeoutException;
+import java.util.function.Supplier;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
@@ -83,6 +89,7 @@ import org.mockito.ArgumentCaptor;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import org.springframework.ai.tool.function.FunctionToolCallback;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
@@ -127,6 +134,9 @@ class EmbeddedMcpToolFacadeIntTest {
 
     @Autowired
     private Encryption encryption;
+
+    @MockitoBean
+    private IntegrationAuditPublisher integrationAuditPublisher;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;
@@ -395,7 +405,8 @@ class EmbeddedMcpToolFacadeIntTest {
 
         jobFactoryFunction.apply(jobParametersDTO);
 
-        verify(principalJobFacade).createSyncJob(jobParametersDTO, integrationInstanceId, PlatformType.EMBEDDED);
+        verify(principalJobFacade).createSyncJob(jobParametersDTO, integrationInstanceId,
+            PlatformType.EMBEDDED);
         verify(principalJobFacade, never()).createJob(any(), anyLong(), any());
         verify(jobCompletionAwaiter, never()).await(anyLong(), any());
     }
@@ -686,6 +697,7 @@ class EmbeddedMcpToolFacadeIntTest {
     static class FacadeIntTestConfiguration {
 
         @Bean
+        @SuppressWarnings("unchecked")
         EmbeddedMcpToolFacade embeddedMcpToolFacade(
             ClusterElementDefinitionFacade clusterElementDefinitionFacade,
             ClusterElementDefinitionService clusterElementDefinitionService,
@@ -702,13 +714,25 @@ class EmbeddedMcpToolFacadeIntTest {
             TaskFileStorage taskFileStorage, WorkflowService workflowService) {
 
             return new EmbeddedMcpToolFacade(
-                clusterElementDefinitionFacade, clusterElementDefinitionService, componentDefinitionService,
-                connectedUserService, evaluator, integrationInstanceConfigurationService,
+                mock(ObjectProvider.class), clusterElementDefinitionFacade, clusterElementDefinitionService,
+                componentDefinitionService, connectedUserService, evaluator, integrationInstanceConfigurationService,
                 integrationInstanceConfigurationWorkflowService, integrationInstanceService,
-                integrationInstanceWorkflowService, integrationService, jobCompletionAwaiter, jobSyncExecutor,
-                jwtTokenService, mcpComponentService, mcpIntegrationInstanceConfigurationWorkflowService,
+                integrationInstanceWorkflowService, integrationService, jobCompletionAwaiter,
+                mock(JobResumeFacade.class), mock(JobService.class), jobSyncExecutor, jwtTokenService,
+                mcpComponentService, mcpIntegrationInstanceConfigurationWorkflowService,
                 mcpIntegrationInstanceToolService, mcpServerService, principalJobFacade, "http://localhost:8080",
-                taskExecutionService, taskFileStorage, workflowService);
+                taskExecutionService, taskFileStorage, passThroughToolExecutionRecorder(), workflowService);
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ToolExecutionRecorder passThroughToolExecutionRecorder() {
+        ToolExecutionRecorder toolExecutionRecorder = mock(ToolExecutionRecorder.class);
+
+        when(toolExecutionRecorder.record(any(ToolExecutionEvent.Builder.class), any(Supplier.class)))
+            .thenAnswer(invocation -> invocation.<Supplier<?>>getArgument(1)
+                .get());
+
+        return toolExecutionRecorder;
     }
 }
