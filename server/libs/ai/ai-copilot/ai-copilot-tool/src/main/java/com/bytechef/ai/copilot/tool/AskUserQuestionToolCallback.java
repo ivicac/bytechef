@@ -36,17 +36,17 @@ import tools.jackson.core.JacksonException;
 import tools.jackson.databind.JsonNode;
 
 /**
- * Bridges spring-ai-agent-utils' {@link AskUserQuestionTool} into the shared streaming agent (AI Hub and the in-editor
- * Copilot). Used by the LLM to pose a multi-choice clarification ("Which Slack action did you mean?" / "Pick a
- * connection"), with the actual UI buttons rendered by the chat client via a {@code kind: "ask-user-question"} data
- * part.
+ * Bridges spring-ai-agent-utils' {@link AskUserQuestionTool} into the in-editor Copilot streaming agent. Used by the
+ * LLM to pose a multi-choice clarification ("Which Slack action did you mean?" / "Pick a connection"), with the actual
+ * UI buttons rendered by the chat client via a {@code kind: "ask-user-question"} data part.
  *
  * @author Ivica Cardic
  */
 public final class AskUserQuestionToolCallback implements ToolCallback {
 
     static final String TOOL_NAME = "askUserQuestion";
-    static final String KIND = "ask-user-question";
+
+    public static final String KIND = "ask-user-question";
 
     private static final String INPUT_CONSTRAINTS_GUIDANCE =
         " Input rules: provide 1-4 questions; each question must have 2-4 options. A free-text \"Other\" answer is" +
