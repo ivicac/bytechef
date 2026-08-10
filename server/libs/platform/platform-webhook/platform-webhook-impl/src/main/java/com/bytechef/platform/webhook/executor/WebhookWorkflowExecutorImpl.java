@@ -29,6 +29,7 @@ import com.bytechef.commons.util.NumberUtils;
 import com.bytechef.component.definition.HttpStatus;
 import com.bytechef.component.definition.TriggerDefinition.WebhookValidateResponse;
 import com.bytechef.evaluator.Evaluator;
+import com.bytechef.exception.ConfigurationException;
 import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.platform.component.constant.MetadataConstants;
 import com.bytechef.platform.component.domain.WebhookTriggerFlags;
@@ -36,13 +37,16 @@ import com.bytechef.platform.component.service.TriggerDefinitionService;
 import com.bytechef.platform.component.trigger.TriggerOutput;
 import com.bytechef.platform.component.trigger.WebhookRequest;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
+import com.bytechef.platform.constant.JobInputConstants;
 import com.bytechef.platform.definition.WorkflowNodeType;
 import com.bytechef.platform.job.sync.SseStreamBridge;
 import com.bytechef.platform.job.sync.executor.JobSyncExecutor;
+import com.bytechef.platform.webhook.exception.WebhookErrorType;
 import com.bytechef.platform.webhook.executor.SseStreamBridgeRegistry.Registration;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
 import com.bytechef.platform.workflow.coordinator.event.TriggerWebhookEvent;
 import com.bytechef.platform.workflow.coordinator.event.TriggerWebhookEvent.WebhookParameters;
+import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessor;
 import com.bytechef.platform.workflow.execution.accessor.JobPrincipalAccessorRegistry;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
@@ -54,6 +58,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionStage;
 import java.util.concurrent.atomic.AtomicReference;
@@ -67,6 +72,15 @@ import org.springframework.context.ApplicationEventPublisher;
 public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
 
     private static final String TIMEOUT = "timeout";
+
+    /**
+     * Default maximum wait for a streamed (SSE) webhook run to reach a terminal status. Matches the SSE emitter timeout
+     * and the {@link SseStreamBridgeRegistry} entry expiry, so a stream whose terminal event never arrives is failed
+     * instead of left pending after its registry entry has been evicted.
+     */
+    static final Duration DEFAULT_STREAM_TIMEOUT = Duration.ofMinutes(30);
+
+    private static final List<String> SUSPENDING_TASK_TYPE_PREFIXES = List.of("approval/", "wait/", "waitForApproval/");
 
     private final Evaluator evaluator;
     private final ApplicationEventPublisher eventPublisher;
@@ -84,9 +98,9 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
         Evaluator evaluator, ApplicationEventPublisher eventPublisher,
         JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry,
         JobSyncExecutor jobSyncExecutor, PrincipalJobFacade principalJobFacade,
-        SseStreamBridgeRegistry sseStreamBridgeRegistry, TaskFileStorage syncJobTaskFileStorage,
-        TriggerDefinitionService triggerDefinitionService, WebhookWorkflowSyncExecutor webhookWorkflowSyncExecutor,
-        WorkflowService workflowService) {
+        SseStreamBridgeRegistry sseStreamBridgeRegistry,
+        TaskFileStorage syncJobTaskFileStorage, TriggerDefinitionService triggerDefinitionService,
+        WebhookWorkflowSyncExecutor webhookWorkflowSyncExecutor, WorkflowService workflowService) {
 
         this.evaluator = evaluator;
         this.eventPublisher = eventPublisher;
@@ -122,6 +136,7 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
         Map<String, Object> inputs = new java.util.HashMap<>(inputMap);
 
         inputs.put(workflowExecutionId.getTriggerName(), triggerOutput.value());
+        inputs.put(JobInputConstants.TRIGGER_NAME_INPUT, workflowExecutionId.getTriggerName());
 
         long jobId = TenantContext.callWithTenantId(
             workflowExecutionId.getTenantId(),
@@ -147,12 +162,21 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
 
         Object outputs;
 
+        String workflowId = getWorkflowId(workflowExecutionId);
+
+        findSuspendingTask(workflowId).ifPresent(workflowTask -> {
+            throw new ConfigurationException(
+                SyncExecutionSuspendRejectingTaskCompletionHandler.getMessage(
+                    workflowTask.getName(), workflowTask.getType()),
+                WebhookErrorType.SUSPENDING_TASK_IN_SYNC_EXECUTION);
+        });
+
         TriggerOutput triggerOutput = webhookWorkflowSyncExecutor.execute(workflowExecutionId, webhookRequest);
 
         Map<String, ?> inputMap = getInputMap(workflowExecutionId);
-        String workflowId = getWorkflowId(workflowExecutionId);
+        Duration triggerTimeout = getTimeout(workflowExecutionId, workflowId, inputMap);
 
-        Duration timeout = getTimeout(workflowExecutionId, workflowId, inputMap);
+        Duration syncTimeout = triggerTimeout == null ? JobCompletionAwaiter.DEFAULT_SYNC_TIMEOUT : triggerTimeout;
 
         if (!triggerOutput.batch() && triggerOutput.value() instanceof Collection<?> triggerOutputValues) {
             List<Map<String, ?>> outputsList = new ArrayList<>();
@@ -161,7 +185,8 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
                 AtomicReference<@Nullable Object> collectedWebhookResponse = new AtomicReference<>();
 
                 Job job = runSyncJob(
-                    workflowExecutionId, workflowId, inputMap, triggerOutputValue, collectedWebhookResponse, timeout);
+                    workflowExecutionId, workflowId, inputMap, triggerOutputValue, collectedWebhookResponse,
+                    syncTimeout);
 
                 Object webhookResponse = collectedWebhookResponse.get();
 
@@ -181,7 +206,8 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
             AtomicReference<@Nullable Object> collectedWebhookResponse = new AtomicReference<>();
 
             Job job = runSyncJob(
-                workflowExecutionId, workflowId, inputMap, triggerOutput.value(), collectedWebhookResponse, timeout);
+                workflowExecutionId, workflowId, inputMap, triggerOutput.value(), collectedWebhookResponse,
+                syncTimeout);
 
             Object webhookResponse = collectedWebhookResponse.get();
 
@@ -245,14 +271,8 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
     }
 
     @Override
-    public boolean hasApprovalTask(WorkflowExecutionId workflowExecutionId) {
-        Workflow workflow = workflowService.getWorkflow(getWorkflowId(workflowExecutionId));
-
-        return workflow.getTasks(true)
-            .stream()
-            .map(WorkflowTask::getType)
-            .filter(Objects::nonNull)
-            .anyMatch(type -> type.startsWith("approval/"));
+    public boolean hasSuspendingTask(WorkflowExecutionId workflowExecutionId) {
+        return findSuspendingTask(getWorkflowId(workflowExecutionId)).isPresent();
     }
 
     @Override
@@ -291,22 +311,36 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
 
     /**
      * Runs a single job in-process through {@link JobSyncExecutor} and blocks until it completes. The job row is
-     * created without coordinator dispatch via {@code createJobWithoutDispatch}; {@code JobSyncExecutor} then drives it
-     * to completion over an in-memory message broker. The {@code WebhookResponse} is captured through the per-task
+     * created without coordinator dispatch via {@code createSyncJob}; {@code JobSyncExecutor} then drives it to
+     * completion over an in-memory message broker. The {@code WebhookResponse} is captured through the per-task
      * task-execution-complete callback rather than read back from the persisted task output.
      */
     private Job runSyncJob(
         WorkflowExecutionId workflowExecutionId, String workflowId, Map<String, ?> inputMap, Object triggerOutputValue,
-        AtomicReference<@Nullable Object> collectedWebhookResponse, @Nullable Duration timeout) {
+        AtomicReference<@Nullable Object> collectedWebhookResponse, Duration syncTimeout) {
 
         return jobSyncExecutor.execute(
             createJobParameters(workflowExecutionId, workflowId, inputMap, triggerOutputValue),
-            jobParameters -> principalJobFacade.createJobWithoutDispatch(
+            jobParameters -> principalJobFacade.createSyncJob(
                 jobParameters, workflowExecutionId.getJobPrincipalId(), workflowExecutionId.getType()),
             true,
             taskExecutionCompleteEvent -> collectWebhookResponse(
                 taskExecutionCompleteEvent, collectedWebhookResponse),
-            timeout);
+            syncTimeout);
+    }
+
+    private Optional<WorkflowTask> findSuspendingTask(String workflowId) {
+        Workflow workflow = workflowService.getWorkflow(workflowId);
+
+        return workflow.getTasks(true)
+            .stream()
+            .filter(workflowTask -> {
+                String type = workflowTask.getType();
+
+                return type != null && SUSPENDING_TASK_TYPE_PREFIXES.stream()
+                    .anyMatch(type::startsWith);
+            })
+            .findFirst();
     }
 
     private void collectWebhookResponse(
@@ -331,12 +365,15 @@ public class WebhookWorkflowExecutorImpl implements WebhookWorkflowExecutor {
     }
 
     @SuppressWarnings("unchecked")
-    private static JobParametersDTO createJobParameters(
+    static JobParametersDTO createJobParameters(
         WorkflowExecutionId workflowExecutionId, String workflowId, Map<String, ?> inputMap,
         Object triggerOutputValue) {
 
         Map<String, Object> concat = MapUtils.concat(
-            (Map<String, Object>) inputMap, Map.of(workflowExecutionId.getTriggerName(), triggerOutputValue));
+            (Map<String, Object>) inputMap,
+            Map.of(
+                workflowExecutionId.getTriggerName(), triggerOutputValue,
+                JobInputConstants.TRIGGER_NAME_INPUT, workflowExecutionId.getTriggerName()));
 
         return new JobParametersDTO(workflowId, concat);
     }
