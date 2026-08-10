@@ -157,8 +157,7 @@ public interface WorkflowValidatorFacade {
 
         if (!reservedInputNames.isEmpty()) {
             throw new ConfigurationException(
-                "Workflow input names must not start with the reserved '__' prefix or equal the reserved name '" +
-                    JobInputConstants.VARIABLES_INPUT + "'. Reserved input names: " +
+                "Workflow input names must not start with the reserved '__' prefix. Reserved input names: " +
                     String.join(", ", reservedInputNames),
                 WorkflowValidatorErrorType.RESERVED_INPUT_NAME);
         }
@@ -169,8 +168,7 @@ public interface WorkflowValidatorFacade {
 
         if (!reservedNodeNames.isEmpty()) {
             throw new ConfigurationException(
-                "Workflow node names must not start with the reserved '__' prefix or equal the reserved name '" +
-                    JobInputConstants.VARIABLES_INPUT + "'. Reserved node names: " +
+                "Workflow node names must not start with the reserved '__' prefix. Reserved node names: " +
                     String.join(", ", reservedNodeNames),
                 WorkflowValidatorErrorType.RESERVED_NODE_NAME);
         }
@@ -191,7 +189,9 @@ public interface WorkflowValidatorFacade {
 
                     JsonNode nameJsonNode = inputJsonNode.get("name");
 
-                    if (nameJsonNode != null && nameJsonNode.isString() && isReservedName(nameJsonNode.asString())) {
+                    if (nameJsonNode != null && nameJsonNode.isString() && nameJsonNode.asString()
+                        .startsWith("__")) {
+
                         reservedInputNames.add(nameJsonNode.asString());
                     }
                 }
@@ -203,8 +203,43 @@ public interface WorkflowValidatorFacade {
         return reservedInputNames;
     }
 
-    static boolean isReservedName(String name) {
-        return name.startsWith("__") || name.equals(JobInputConstants.VARIABLES_INPUT);
+    /**
+     * Returns the top-level trigger/task node names that begin with the reserved {@code __} prefix, or an empty list
+     * when none are found (or the workflow JSON cannot be parsed).
+     */
+    private List<String> getReservedNodeNames(String workflow) {
+        List<String> reservedNodeNames = new ArrayList<>();
+
+        try {
+            JsonNode workflowJsonNode = readWorkflowTree(workflow);
+
+            collectReservedNodeNames(workflowJsonNode.get("triggers"), reservedNodeNames);
+            collectReservedNodeNames(workflowJsonNode.get("tasks"), reservedNodeNames);
+        } catch (Exception e) {
+            return List.of();
+        }
+
+        return reservedNodeNames;
+    }
+
+    private static void collectReservedNodeNames(JsonNode nodesJsonNode, List<String> reservedNodeNames) {
+        if (nodesJsonNode == null || !nodesJsonNode.isArray()) {
+            return;
+        }
+
+        for (JsonNode nodeJsonNode : nodesJsonNode) {
+            if (!nodeJsonNode.isObject()) {
+                continue;
+            }
+
+            JsonNode nameJsonNode = nodeJsonNode.get("name");
+
+            if (nameJsonNode != null && nameJsonNode.isString() && nameJsonNode.asString()
+                .startsWith("__")) {
+
+                reservedNodeNames.add(nameJsonNode.asString());
+            }
+        }
     }
 
     private static JsonNode readWorkflowTree(String workflow) {
