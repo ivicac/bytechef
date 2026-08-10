@@ -87,6 +87,10 @@ class AutomationMcpWorkflowToolFacadeIntTest {
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService =
         mock(ProjectDeploymentWorkflowService.class);
     private final WorkflowService workflowService = mock(WorkflowService.class);
+
+    @SuppressWarnings("unchecked")
+    private final ObjectProvider<ApprovalTokens> approvalTokensObjectProvider =
+        (ObjectProvider<ApprovalTokens>) mock(ObjectProvider.class);
     private final WorkspaceMcpServerService workspaceMcpServerService = mock(WorkspaceMcpServerService.class);
 
     private AutomationMcpToolFacade automationMcpToolFacade;

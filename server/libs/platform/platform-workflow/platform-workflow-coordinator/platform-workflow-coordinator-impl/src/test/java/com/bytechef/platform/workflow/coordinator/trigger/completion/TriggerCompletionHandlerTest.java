@@ -30,6 +30,7 @@ import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.atlas.execution.dto.JobParametersDTO;
 import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.platform.configuration.domain.WorkflowTrigger;
+import com.bytechef.platform.constant.JobInputConstants;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.file.storage.TriggerFileStorage;
 import com.bytechef.platform.workflow.WorkflowExecutionId;
@@ -40,7 +41,6 @@ import com.bytechef.platform.workflow.execution.domain.TriggerExecution;
 import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.facade.TriggerStateFacade;
 import com.bytechef.platform.workflow.execution.service.TriggerExecutionService;
-import com.bytechef.platform.workflow.execution.service.TriggerStateService;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
 import java.util.Map;
@@ -110,7 +110,7 @@ class TriggerCompletionHandlerTest {
     void setUp() {
         triggerCompletionHandler = new TriggerCompletionHandler(
             jobPrincipalAccessorRegistry, principalJobFacade, List.of(), triggerExecutionService, triggerFileStorage,
-            triggerStateService, workflowService);
+            triggerStateFacade, workflowService);
     }
 
     @Test
@@ -161,6 +161,24 @@ class TriggerCompletionHandlerTest {
         assertEquals("existingValue", jobParametersDTOs.get(0)
             .getInputs()
             .get("existingKey"));
+    }
+
+    @Test
+    void testHandleNonBatchNonCollectionSeedsReservedTriggerNameInput() {
+        stubCommon();
+        stubName();
+        stubOutput("singleValue");
+        when(triggerExecution.isBatch()).thenReturn(false);
+        stubCreateJob();
+
+        triggerCompletionHandler.handle(triggerExecution);
+
+        List<JobParametersDTO> jobParametersDTOs = captureCreatedJobs(1);
+
+        assertThat(jobParametersDTOs.get(0)
+            .getInputs())
+                .containsEntry(JobInputConstants.TRIGGER_NAME_INPUT, TRIGGER_NAME)
+                .containsKey(TRIGGER_NAME);
     }
 
     @Test

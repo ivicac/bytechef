@@ -59,7 +59,7 @@ import com.bytechef.platform.tool.execution.ToolExecutionEvent;
 import com.bytechef.platform.tool.execution.ToolExecutionKind;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
 import com.bytechef.platform.tool.execution.ToolExecutionSurface;
-import com.bytechef.platform.tool.execution.WorkflowToolRunResult;
+import com.bytechef.platform.workflow.JobInputConstants;
 import com.bytechef.platform.workflow.execution.JobCompletionAwaiter;
 import com.bytechef.platform.workflow.execution.JobExecutionErrors;
 import com.bytechef.platform.workflow.execution.facade.JobResumeFacade;
@@ -267,7 +267,9 @@ public class AutomationMcpToolFacade extends AbstractToolFacade {
                 throw new ConfigurationException("MCP server is disabled", McpServerErrorType.MCP_SERVER_DISABLED);
             }
 
-            boolean toolEnabled = readMcpServerConfiguration(() -> mcpToolService.fetchMcpTool(mcpToolId))
+            // Re-checked per call rather than trusting the listing: a client with a stale tools/list cache must not
+            // execute a tool that has been disabled or deleted since. A missing row fails closed.
+            boolean toolEnabled = mcpToolService.fetchMcpTool(mcpToolId)
                 .map(McpTool::isEnabled)
                 .orElse(false);
 
