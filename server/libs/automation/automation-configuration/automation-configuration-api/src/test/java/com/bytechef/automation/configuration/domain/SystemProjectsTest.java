@@ -27,14 +27,21 @@ import org.junit.jupiter.api.Test;
 class SystemProjectsTest {
 
     @Test
-    void testPrefixFollowsTheSharedNameShape() {
-        String namePrefix = SystemProjects.EMBEDDED_AUTOMATION_NAME_PREFIX;
-
-        assertTrue(namePrefix.matches("__[A-Z][A-Z_]*[A-Z]__"), namePrefix + " must be __SCREAMING_SNAKE_CASE__");
+    void testEveryPrefixFollowsTheSharedNameShape() {
+        for (String namePrefix : new String[] {
+            SystemProjects.KNOWLEDGE_BASE_NAME_PREFIX, SystemProjects.CONTEXT_STORE_NAME_PREFIX,
+            SystemProjects.EMBEDDED_AUTOMATION_NAME_PREFIX
+        }) {
+            assertTrue(
+                namePrefix.matches("__[A-Z][A-Z_]*[A-Z]__"),
+                namePrefix + " must be __SCREAMING_SNAKE_CASE__");
+        }
     }
 
     @Test
-    void testPrefixedNamesAreRecognized() {
+    void testWorkspaceScopedNamesAreRecognized() {
+        assertTrue(SystemProjects.isSystemProjectName(SystemProjects.KNOWLEDGE_BASE_NAME_PREFIX + 1));
+        assertTrue(SystemProjects.isSystemProjectName(SystemProjects.CONTEXT_STORE_NAME_PREFIX + 42));
         assertTrue(SystemProjects.isSystemProjectName(SystemProjects.EMBEDDED_AUTOMATION_NAME_PREFIX + "catalog"));
     }
 
@@ -52,7 +59,7 @@ class SystemProjectsTest {
     void testIsSystemProjectReadsTheProjectName() {
         Project project = new Project();
 
-        project.setName(SystemProjects.EMBEDDED_AUTOMATION_NAME_PREFIX + "catalog");
+        project.setName(SystemProjects.KNOWLEDGE_BASE_NAME_PREFIX + 1);
 
         assertTrue(SystemProjects.isSystemProject(project));
 
