@@ -1,11 +1,19 @@
 import Button from '@/components/Button/Button';
+import {
+    Dialog,
+    DialogBody,
+    DialogCancelButton,
+    DialogContent,
+    DialogFooter,
+    DialogHeader,
+    DialogMain,
+} from '@/components/Dialog';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/Select/Select';
-import {Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Input} from '@/components/ui/input';
 import {Label} from '@/components/ui/label';
 import {
-    useCreateWorkspaceAiGatewayModelMutation,
-    useUpdateWorkspaceAiGatewayModelMutation,
+    useCreateWorkspaceAiModelMutation,
+    useUpdateWorkspaceAiModelMutation,
     useWorkspaceAiGatewayProvidersQuery,
     useWorkspaceAiGatewayRoutingPoliciesQuery,
 } from '@/shared/middleware/graphql';
@@ -47,17 +55,17 @@ const AiGatewayModelDialog = ({model, onClose, workspaceId}: AiGatewayModelDialo
 
     const isEditMode = !!model;
 
-    const createMutation = useCreateWorkspaceAiGatewayModelMutation({
+    const createMutation = useCreateWorkspaceAiModelMutation({
         onSuccess: () => {
-            queryClient.invalidateQueries({queryKey: ['workspaceAiGatewayModels']});
+            queryClient.invalidateQueries({queryKey: ['workspaceAiModels']});
 
             onClose();
         },
     });
 
-    const updateMutation = useUpdateWorkspaceAiGatewayModelMutation({
+    const updateMutation = useUpdateWorkspaceAiModelMutation({
         onSuccess: () => {
-            queryClient.invalidateQueries({queryKey: ['workspaceAiGatewayModels']});
+            queryClient.invalidateQueries({queryKey: ['workspaceAiModels']});
 
             onClose();
         },
@@ -126,157 +134,157 @@ const AiGatewayModelDialog = ({model, onClose, workspaceId}: AiGatewayModelDialo
             }}
             open
         >
-            <DialogContent aria-describedby={undefined} className="max-w-md">
-                <DialogHeader>
-                    <DialogTitle>{isEditMode ? 'Edit Model' : 'Add Model'}</DialogTitle>
-                </DialogHeader>
+            <DialogContent aria-describedby={undefined}>
+                <DialogMain>
+                    <DialogHeader title={isEditMode ? 'Edit Model' : 'Add Model'} />
 
-                <div className="space-y-4">
-                    <fieldset className="border-0">
-                        <Label className="mb-1 block" htmlFor="aiGatewayModelProvider">
-                            Provider
-                        </Label>
+                    <DialogBody>
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="aiGatewayModelProvider">
+                                Provider
+                            </Label>
 
-                        <Select disabled={isEditMode} onValueChange={setProviderId} value={providerId}>
-                            <SelectTrigger id="aiGatewayModelProvider">
-                                <SelectValue placeholder="Select a provider" />
-                            </SelectTrigger>
+                            <Select disabled={isEditMode} onValueChange={setProviderId} value={providerId}>
+                                <SelectTrigger id="aiGatewayModelProvider">
+                                    <SelectValue placeholder="Select a provider" />
+                                </SelectTrigger>
 
-                            <SelectContent>
-                                {providers.filter(Boolean).map((provider) => (
-                                    <SelectItem key={provider!.id} value={provider!.id}>
-                                        {provider!.name}
+                                <SelectContent>
+                                    {providers.filter(Boolean).map((provider) => (
+                                        <SelectItem key={provider!.id} value={provider!.id}>
+                                            {provider!.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </fieldset>
+
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="aiGatewayModelName">
+                                Name
+                            </Label>
+
+                            <Input
+                                id="aiGatewayModelName"
+                                onChange={(event) => setName(event.target.value)}
+                                placeholder="gpt-4o"
+                                value={name}
+                            />
+                        </fieldset>
+
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="aiGatewayModelAlias">
+                                Alias (optional)
+                            </Label>
+
+                            <Input
+                                id="aiGatewayModelAlias"
+                                onChange={(event) => setAlias(event.target.value)}
+                                placeholder="my-gpt4"
+                                value={alias}
+                            />
+                        </fieldset>
+
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="aiGatewayModelContextWindow">
+                                Context Window (optional)
+                            </Label>
+
+                            <Input
+                                id="aiGatewayModelContextWindow"
+                                onChange={(event) => setContextWindow(event.target.value)}
+                                placeholder="128000"
+                                type="number"
+                                value={contextWindow}
+                            />
+                        </fieldset>
+
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="aiGatewayModelInputCostPerMTokens">
+                                Input Cost per 1M Tokens (optional)
+                            </Label>
+
+                            <Input
+                                id="aiGatewayModelInputCostPerMTokens"
+                                onChange={(event) => setInputCostPerMTokens(event.target.value)}
+                                placeholder="2.50"
+                                step="0.01"
+                                type="number"
+                                value={inputCostPerMTokens}
+                            />
+                        </fieldset>
+
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="aiGatewayModelOutputCostPerMTokens">
+                                Output Cost per 1M Tokens (optional)
+                            </Label>
+
+                            <Input
+                                id="aiGatewayModelOutputCostPerMTokens"
+                                onChange={(event) => setOutputCostPerMTokens(event.target.value)}
+                                placeholder="10.00"
+                                step="0.01"
+                                type="number"
+                                value={outputCostPerMTokens}
+                            />
+                        </fieldset>
+
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="aiGatewayModelCapabilities">
+                                Capabilities (optional)
+                            </Label>
+
+                            <Input
+                                id="aiGatewayModelCapabilities"
+                                onChange={(event) => setCapabilities(event.target.value)}
+                                placeholder="CHAT,EMBEDDINGS"
+                                value={capabilities}
+                            />
+                        </fieldset>
+
+                        <fieldset className="border-0">
+                            <Label className="mb-1 block" htmlFor="aiGatewayModelDefaultRoutingPolicy">
+                                Default Routing Policy (optional)
+                            </Label>
+
+                            <Select
+                                onValueChange={handleDefaultRoutingPolicyChange}
+                                value={defaultRoutingPolicyId || INHERIT_ROUTING_POLICY_VALUE}
+                            >
+                                <SelectTrigger id="aiGatewayModelDefaultRoutingPolicy">
+                                    <SelectValue placeholder="Inherit from workspace/system default" />
+                                </SelectTrigger>
+
+                                <SelectContent>
+                                    <SelectItem value={INHERIT_ROUTING_POLICY_VALUE}>
+                                        Inherit from workspace/system default
                                     </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </fieldset>
 
-                    <fieldset className="border-0">
-                        <Label className="mb-1 block" htmlFor="aiGatewayModelName">
-                            Name
-                        </Label>
+                                    {policies.filter(Boolean).map((policy) => (
+                                        <SelectItem key={policy!.id} value={policy!.id}>
+                                            {policy!.name}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </fieldset>
+                    </DialogBody>
 
-                        <Input
-                            id="aiGatewayModelName"
-                            onChange={(event) => setName(event.target.value)}
-                            placeholder="gpt-4o"
-                            value={name}
+                    <DialogFooter>
+                        <DialogCancelButton />
+
+                        <Button
+                            disabled={
+                                !name ||
+                                (!isEditMode && !providerId) ||
+                                createMutation.isPending ||
+                                updateMutation.isPending
+                            }
+                            label={isEditMode ? 'Save' : 'Create'}
+                            onClick={handleSubmit}
                         />
-                    </fieldset>
-
-                    <fieldset className="border-0">
-                        <Label className="mb-1 block" htmlFor="aiGatewayModelAlias">
-                            Alias (optional)
-                        </Label>
-
-                        <Input
-                            id="aiGatewayModelAlias"
-                            onChange={(event) => setAlias(event.target.value)}
-                            placeholder="my-gpt4"
-                            value={alias}
-                        />
-                    </fieldset>
-
-                    <fieldset className="border-0">
-                        <Label className="mb-1 block" htmlFor="aiGatewayModelContextWindow">
-                            Context Window (optional)
-                        </Label>
-
-                        <Input
-                            id="aiGatewayModelContextWindow"
-                            onChange={(event) => setContextWindow(event.target.value)}
-                            placeholder="128000"
-                            type="number"
-                            value={contextWindow}
-                        />
-                    </fieldset>
-
-                    <fieldset className="border-0">
-                        <Label className="mb-1 block" htmlFor="aiGatewayModelInputCostPerMTokens">
-                            Input Cost per 1M Tokens (optional)
-                        </Label>
-
-                        <Input
-                            id="aiGatewayModelInputCostPerMTokens"
-                            onChange={(event) => setInputCostPerMTokens(event.target.value)}
-                            placeholder="2.50"
-                            step="0.01"
-                            type="number"
-                            value={inputCostPerMTokens}
-                        />
-                    </fieldset>
-
-                    <fieldset className="border-0">
-                        <Label className="mb-1 block" htmlFor="aiGatewayModelOutputCostPerMTokens">
-                            Output Cost per 1M Tokens (optional)
-                        </Label>
-
-                        <Input
-                            id="aiGatewayModelOutputCostPerMTokens"
-                            onChange={(event) => setOutputCostPerMTokens(event.target.value)}
-                            placeholder="10.00"
-                            step="0.01"
-                            type="number"
-                            value={outputCostPerMTokens}
-                        />
-                    </fieldset>
-
-                    <fieldset className="border-0">
-                        <Label className="mb-1 block" htmlFor="aiGatewayModelCapabilities">
-                            Capabilities (optional)
-                        </Label>
-
-                        <Input
-                            id="aiGatewayModelCapabilities"
-                            onChange={(event) => setCapabilities(event.target.value)}
-                            placeholder="CHAT,EMBEDDINGS"
-                            value={capabilities}
-                        />
-                    </fieldset>
-
-                    <fieldset className="border-0">
-                        <Label className="mb-1 block" htmlFor="aiGatewayModelDefaultRoutingPolicy">
-                            Default Routing Policy (optional)
-                        </Label>
-
-                        <Select
-                            onValueChange={handleDefaultRoutingPolicyChange}
-                            value={defaultRoutingPolicyId || INHERIT_ROUTING_POLICY_VALUE}
-                        >
-                            <SelectTrigger id="aiGatewayModelDefaultRoutingPolicy">
-                                <SelectValue placeholder="Inherit from workspace/system default" />
-                            </SelectTrigger>
-
-                            <SelectContent>
-                                <SelectItem value={INHERIT_ROUTING_POLICY_VALUE}>
-                                    Inherit from workspace/system default
-                                </SelectItem>
-
-                                {policies.filter(Boolean).map((policy) => (
-                                    <SelectItem key={policy!.id} value={policy!.id}>
-                                        {policy!.name}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                    </fieldset>
-                </div>
-
-                <DialogFooter>
-                    <Button label="Cancel" onClick={onClose} variant="outline" />
-
-                    <Button
-                        disabled={
-                            !name ||
-                            (!isEditMode && !providerId) ||
-                            createMutation.isPending ||
-                            updateMutation.isPending
-                        }
-                        label={isEditMode ? 'Save' : 'Create'}
-                        onClick={handleSubmit}
-                    />
-                </DialogFooter>
+                    </DialogFooter>
+                </DialogMain>
             </DialogContent>
         </Dialog>
     );
