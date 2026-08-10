@@ -21,7 +21,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.platform.ai.provider.dto.AiDefaultModelDTO;
 import com.bytechef.platform.ai.provider.dto.AiProviderCatalogItemDTO;
-import com.bytechef.platform.ai.provider.facade.AiProviderCatalogFacade;
+import com.bytechef.platform.ai.provider.facade.AiProviderFacade;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -35,31 +35,38 @@ import org.mockito.junit.jupiter.MockitoExtension;
 class AiProviderCatalogGraphQlControllerTest {
 
     @Mock
-    private AiProviderCatalogFacade aiProviderCatalogFacade;
+    private AiProviderFacade aiProviderFacade;
 
     @Test
     void testAiProviderCatalogDelegatesToFacade() {
         AiProviderCatalogItemDTO item = new AiProviderCatalogItemDTO(
             "ai.provider.openAi", "Open AI", "<svg/>", true, false,
-            List.of(new AiProviderCatalogItemDTO.Model("gpt-5", "GPT-5")));
+            List.of(
+                new AiProviderCatalogItemDTO.Model("gpt-5", "GPT-5"),
+                new AiProviderCatalogItemDTO.Model("my-fine-tune", "my-fine-tune")));
 
-        when(aiProviderCatalogFacade.getAiProviderCatalog(2)).thenReturn(List.of(item));
+        when(aiProviderFacade.getAiChatProviderCatalog(2)).thenReturn(List.of(item));
 
-        AiProviderCatalogGraphQlController controller = new AiProviderCatalogGraphQlController(aiProviderCatalogFacade);
+        AiProviderCatalogGraphQlController controller = new AiProviderCatalogGraphQlController(aiProviderFacade);
 
         List<AiProviderCatalogItemDTO> result = controller.aiProviderCatalog(2L);
 
         assertThat(result).singleElement()
             .extracting(AiProviderCatalogItemDTO::key)
             .isEqualTo("ai.provider.openAi");
+
+        assertThat(result.getFirst()
+            .models())
+                .extracting(AiProviderCatalogItemDTO.Model::label)
+                .containsExactly("GPT-5", "my-fine-tune");
     }
 
     @Test
     void testAiDefaultModelDelegatesToFacade() {
-        when(aiProviderCatalogFacade.getAiDefaultModel(2))
+        when(aiProviderFacade.getAiDefaultChatModel(2))
             .thenReturn(new AiDefaultModelDTO("ai.provider.anthropic", "claude-sonnet-4-6"));
 
-        AiProviderCatalogGraphQlController controller = new AiProviderCatalogGraphQlController(aiProviderCatalogFacade);
+        AiProviderCatalogGraphQlController controller = new AiProviderCatalogGraphQlController(aiProviderFacade);
 
         AiDefaultModelDTO result = controller.aiDefaultModel(2L);
 
