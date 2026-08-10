@@ -29,7 +29,7 @@ public final class CurrentAgentContext {
 
     /**
      * Immutable two-tuple of the agent and (optionally) the parent agent. {@code parentAgent} is {@code null} for
-     * top-level ai_hub calls.
+     * top-level calls.
      */
     public record AgentBinding(AgentType agentName, @Nullable AgentType parentAgent) {
     }
