@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.cache.config.CacheConfiguration;
@@ -35,6 +36,8 @@ import com.bytechef.platform.user.facade.UserManagementFacade.UserWithAuthoritie
 import com.bytechef.platform.user.facade.UserManagementFacade.UsersWithAuthorities;
 import com.bytechef.platform.user.repository.AuthorityRepository;
 import com.bytechef.platform.user.repository.UserRepository;
+import com.bytechef.platform.user.service.WorkspaceMembershipAssigner;
+import com.bytechef.platform.user.service.WorkspaceMembershipAssigner.WorkspaceAssignment;
 import com.bytechef.tenant.service.TenantService;
 import java.util.List;
 import java.util.Optional;
@@ -84,6 +87,9 @@ class UserManagementFacadeIntTest {
     @Autowired
     private UserRepository userRepository;
 
+    @MockitoBean
+    private WorkspaceMembershipAssigner workspaceMembershipAssigner;
+
     @BeforeEach
     void beforeEach() {
         when(mailService.isMailConfigured()).thenReturn(true);
@@ -98,7 +104,7 @@ class UserManagementFacadeIntTest {
 
     @Test
     void testInviteUserRegistersAnInvitedUser() {
-        userManagementFacade.inviteUser("newuser@example.com", AuthorityConstants.USER);
+        userManagementFacade.inviteUser("newuser@example.com", AuthorityConstants.USER, List.of());
 
         User user = userRepository.findByEmailIgnoreCase("newuser@example.com")
             .orElseThrow();
@@ -109,7 +115,7 @@ class UserManagementFacadeIntTest {
 
     @Test
     void testInviteUserUsesLowerCasedEmailAsLogin() {
-        userManagementFacade.inviteUser("Jane.Doe@Example.com", AuthorityConstants.USER);
+        userManagementFacade.inviteUser("Jane.Doe@Example.com", AuthorityConstants.USER, List.of());
 
         User user = userRepository.findByEmailIgnoreCase("jane.doe@example.com")
             .orElseThrow();
@@ -122,7 +128,7 @@ class UserManagementFacadeIntTest {
     void testInviteUserWithEmailLongerThanTheLoginLimitDoesNotRegister() {
         String email = "firstname.middlename.lastname.department@subdomain.example.com";
 
-        assertThatThrownBy(() -> userManagementFacade.inviteUser(email, AuthorityConstants.USER))
+        assertThatThrownBy(() -> userManagementFacade.inviteUser(email, AuthorityConstants.USER, List.of()))
             .isInstanceOf(InvalidEmailException.class);
 
         assertThat(userRepository.findByEmailIgnoreCase(email)).isEmpty();
@@ -131,11 +137,34 @@ class UserManagementFacadeIntTest {
     }
 
     @Test
+    void testInviteUserAssignsRequestedWorkspaces() {
+        List<WorkspaceAssignment> assignments = List.of(
+            new WorkspaceAssignment(1L, "EDITOR"), new WorkspaceAssignment(2L, "VIEWER"));
+
+        userManagementFacade.inviteUser("assigned@example.com", AuthorityConstants.USER, assignments);
+
+        User user = userRepository.findByEmailIgnoreCase("assigned@example.com")
+            .orElseThrow();
+
+        verify(workspaceMembershipAssigner).assign(user.getId(), assignments);
+    }
+
+    @Test
+    void testInviteUserWithoutWorkspacesAssignsNone() {
+        userManagementFacade.inviteUser("unassigned@example.com", AuthorityConstants.USER, List.of());
+
+        assertThat(userRepository.findByEmailIgnoreCase("unassigned@example.com")).isPresent();
+
+        verifyNoInteractions(workspaceMembershipAssigner);
+    }
+
+    @Test
     void testInviteUserWithExistingEmailThrows() {
         User existingUser = saveUser("existing", "existing@example.com");
 
-        assertThatThrownBy(() -> userManagementFacade.inviteUser("existing@example.com", AuthorityConstants.USER))
-            .isInstanceOf(EmailAlreadyUsedException.class);
+        assertThatThrownBy(
+            () -> userManagementFacade.inviteUser("existing@example.com", AuthorityConstants.USER, List.of()))
+                .isInstanceOf(EmailAlreadyUsedException.class);
 
         assertThat(userRepository.findByEmailIgnoreCase("existing@example.com"))
             .map(User::getId)
@@ -145,14 +174,17 @@ class UserManagementFacadeIntTest {
     }
 
     @Test
-    void testInviteUserWithEmailOfAnotherTenantThrows() {
+    void testInviteUserWithEmailUsedInAnotherTenantNeverProvisions() {
         when(tenantService.isMultiTenantEnabled()).thenReturn(true);
-        when(tenantService.tenantIdsByUserEmailExist("taken@example.com")).thenReturn(true);
+        when(tenantService.tenantIdsByUserEmailExist("tenanted@example.com")).thenReturn(true);
 
-        assertThatThrownBy(() -> userManagementFacade.inviteUser("taken@example.com", AuthorityConstants.USER))
-            .isInstanceOf(EmailAlreadyUsedException.class);
+        assertThatThrownBy(
+            () -> userManagementFacade.inviteUser("tenanted@example.com", AuthorityConstants.USER, List.of()))
+                .isInstanceOf(EmailAlreadyUsedException.class);
 
-        assertThat(userRepository.findByEmailIgnoreCase("taken@example.com")).isEmpty();
+        assertThat(userRepository.findByEmailIgnoreCase("tenanted@example.com")).isEmpty();
+
+        verify(mailService, never()).sendCreationEmail(any());
     }
 
     @Test
@@ -178,14 +210,14 @@ class UserManagementFacadeIntTest {
         authenticateAs(AuthorityConstants.USER);
 
         assertThatThrownBy(
-            () -> userManagementFacade.inviteUser("invited@example.com", AuthorityConstants.USER))
+            () -> userManagementFacade.inviteUser("invited@example.com", AuthorityConstants.USER, List.of()))
                 .isInstanceOf(AuthorizationDeniedException.class);
 
         assertThat(userRepository.findByEmailIgnoreCase("invited@example.com")).isEmpty();
 
         authenticateAs(AuthorityConstants.ADMIN);
 
-        userManagementFacade.inviteUser("invited@example.com", AuthorityConstants.USER);
+        userManagementFacade.inviteUser("invited@example.com", AuthorityConstants.USER, List.of());
 
         assertThat(userRepository.findByEmailIgnoreCase("invited@example.com")).isPresent();
     }

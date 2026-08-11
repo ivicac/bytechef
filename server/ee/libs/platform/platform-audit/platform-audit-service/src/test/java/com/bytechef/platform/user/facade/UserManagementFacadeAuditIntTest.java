@@ -26,6 +26,7 @@ import com.bytechef.platform.user.exception.UserNotFoundException;
 import com.bytechef.platform.user.service.AuthorityService;
 import com.bytechef.platform.user.service.UserInvitationService;
 import com.bytechef.platform.user.service.UserService;
+import com.bytechef.platform.user.service.WorkspaceMembershipAssigner;
 import com.bytechef.tenant.service.TenantService;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.List;
@@ -33,6 +34,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Bean;
@@ -94,8 +96,9 @@ class UserManagementFacadeAuditIntTest {
     @Test
     void testInviteUserRecordsTheEmailAndRole() {
         when(userService.fetchUserByEmail("carol@localhost.com")).thenReturn(Optional.empty());
+        when(userInvitationService.inviteUser("carol@localhost.com", "ROLE_USER")).thenReturn(new User());
 
-        userManagementFacade.inviteUser("carol@localhost.com", "ROLE_USER");
+        userManagementFacade.inviteUser("carol@localhost.com", "ROLE_USER", List.of());
 
         verify(userInvitationService).inviteUser("carol@localhost.com", "ROLE_USER");
 
@@ -191,9 +194,12 @@ class UserManagementFacadeAuditIntTest {
         @Bean
         UserManagementFacade userManagementFacade(
             AuthorityService authorityService, TenantService tenantService,
-            UserInvitationService userInvitationService, UserService userService) {
+            UserInvitationService userInvitationService, UserService userService,
+            ObjectProvider<WorkspaceMembershipAssigner> workspaceMembershipAssignerProvider) {
 
-            return new UserManagementFacadeImpl(authorityService, tenantService, userInvitationService, userService);
+            return new UserManagementFacadeImpl(
+                authorityService, tenantService, userInvitationService, userService,
+                workspaceMembershipAssignerProvider);
         }
     }
 }

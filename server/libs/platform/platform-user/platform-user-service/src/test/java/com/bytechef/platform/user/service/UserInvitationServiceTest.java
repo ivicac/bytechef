@@ -268,6 +268,18 @@ class UserInvitationServiceTest {
         }
     }
 
+    @Test
+    void testNotifyAddedToWorkspaceMailsTheMembershipNotice() {
+        User user = new User();
+
+        user.setEmail(EMAIL);
+
+        userInvitationService.notifyAddedToWorkspace(user, "Engineering");
+
+        verify(mailService).sendWorkspaceMembershipEmail(user, "Engineering");
+        verify(mailService, never()).sendCreationEmail(any());
+    }
+
     private void runAfterCommitCallbacks() {
         for (TransactionSynchronization synchronization : TransactionSynchronizationManager.getSynchronizations()) {
             synchronization.afterCommit();

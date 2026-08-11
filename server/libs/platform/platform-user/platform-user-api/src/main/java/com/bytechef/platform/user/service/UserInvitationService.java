@@ -19,6 +19,15 @@ package com.bytechef.platform.user.service;
 import com.bytechef.platform.user.domain.User;
 
 /**
+ * Provisions an account for someone an administrator invited, and mails the claim link on which they set their own
+ * password.
+ *
+ * <p>
+ * Shared by both invite paths — the tenant-level invite and the workspace-level one — so an invitation means the same
+ * thing whichever surface issues it. Duplicating the sequence would let the two drift, and the parts that must not
+ * drift are exactly the security-relevant ones: the password is generated here and disclosed to nobody, and the account
+ * stays inactive until the invitee sets their own password through the claim link.
+ *
  * @author Ivica Cardic
  */
 public interface UserInvitationService {
@@ -26,6 +35,28 @@ public interface UserInvitationService {
     /**
      * Creates an inactive account for {@code email} holding the tenant authority {@code role}, with a random password
      * nobody is told, and mails the link on which the invitee sets their own password.
+     *
+     * <p>
+     * Assumes the caller has already established that no account exists for this address — the two invite surfaces
+     * differ in what they do when one does (the tenant invite rejects it, the workspace invite reuses it), so that
+     * decision stays with them.
+     *
+     * @param email the invitee's email address
+     * @param role  the tenant authority to grant, e.g. {@code ROLE_USER}
+     * @return the provisioned user
      */
     User inviteUser(String email, String role);
+
+    /**
+     * Tells an existing account holder they were added to a workspace.
+     *
+     * <p>
+     * The counterpart to {@link #inviteUser} for the branch where the address already has an account: that recipient
+     * has a password already, so the claim link would be both useless and alarming. Without this they are added
+     * silently and discover the workspace only by chance.
+     *
+     * @param user          the existing account holder
+     * @param workspaceName the workspace they were added to, for the message body
+     */
+    void notifyAddedToWorkspace(User user, String workspaceName);
 }
