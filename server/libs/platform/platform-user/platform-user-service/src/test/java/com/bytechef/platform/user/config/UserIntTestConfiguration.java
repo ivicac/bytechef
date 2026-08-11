@@ -16,6 +16,8 @@
 
 package com.bytechef.platform.user.config;
 
+import static org.mockito.Mockito.mock;
+
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.encryption.EncryptionKey;
 import com.bytechef.jdbc.config.AuditingJdbcConfiguration;
@@ -52,6 +54,14 @@ public class UserIntTestConfiguration extends AbstractJdbcConfiguration {
     @Bean
     EncryptionKey encryptionKey() {
         return () -> "tTB1/UBIbYLuCXVi4PPfzA==";
+    }
+
+    // UserInvitationServiceImpl sends invitation mail; these tests exercise user lifecycle, not delivery, and the
+    // module's unit tests already mock MailService the same way — booting the real one would drag the mail and
+    // template infrastructure into a context that never asserts on it.
+    @Bean
+    MailService mailService() {
+        return mock(MailService.class);
     }
 
     @Bean
