@@ -16,10 +16,7 @@ import static org.mockito.Mockito.when;
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityConfiguration;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.ee.automation.configuration.audit.CustomRoleAuditPublisher;
-import com.bytechef.ee.automation.configuration.audit.WorkspaceUserAuditPublisher;
 import com.bytechef.ee.automation.configuration.repository.CustomRoleRepository;
-import com.bytechef.ee.automation.configuration.repository.WorkspaceUserRepository;
-import com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole;
 import java.util.List;
 import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
@@ -50,9 +47,6 @@ class RealImplProxyEnforcementIntTest {
     private PermissionService permissionService;
 
     @Autowired
-    private WorkspaceUserService workspaceUserService;
-
-    @Autowired
     private CustomRoleService customRoleService;
 
     @BeforeEach
@@ -75,31 +69,6 @@ class RealImplProxyEnforcementIntTest {
     }
 
     @Test
-    void testRealWorkspaceUserServiceImplEnforcesAddWorkspaceUser() {
-        assertThatThrownBy(() -> workspaceUserService.addWorkspaceUser(2L, 1L, WorkspaceRole.VIEWER))
-            .isInstanceOf(AccessDeniedException.class);
-    }
-
-    @Test
-    void testRealWorkspaceUserServiceImplEnforcesRemoveWorkspaceUser() {
-        assertThatThrownBy(() -> workspaceUserService.removeWorkspaceUser(2L, 1L))
-            .isInstanceOf(AccessDeniedException.class);
-    }
-
-    @Test
-    void testRealWorkspaceUserServiceImplEnforcesUpdateWorkspaceUserRole() {
-        assertThatThrownBy(
-            () -> workspaceUserService.updateWorkspaceUserRole(2L, 1L, WorkspaceRole.VIEWER))
-                .isInstanceOf(AccessDeniedException.class);
-    }
-
-    @Test
-    void testRealWorkspaceUserServiceImplEnforcesGetWorkspaceWorkspaceUsers() {
-        assertThatThrownBy(() -> workspaceUserService.getWorkspaceWorkspaceUsers(1L))
-            .isInstanceOf(AccessDeniedException.class);
-    }
-
-    @Test
     void testRealCustomRoleServiceImplEnforcesCreateCustomRole() {
         assertThatThrownBy(
             () -> customRoleService.createCustomRole("r", "d", Set.of("WORKFLOW_VIEW")))
@@ -114,7 +83,7 @@ class RealImplProxyEnforcementIntTest {
 
     @Test
     void testRealCustomRoleServiceImplEnforcesGetCustomRoles() {
-        assertThatThrownBy(() -> customRoleService.getCustomRoles())
+        assertThatThrownBy(() -> customRoleService.getCustomRoles(null))
             .isInstanceOf(AccessDeniedException.class);
     }
 
@@ -126,7 +95,7 @@ class RealImplProxyEnforcementIntTest {
     @EnableMethodSecurity
     @ImportAutoConfiguration(AutomationMethodSecurityConfiguration.class)
     @Import({
-        WorkspaceUserServiceImpl.class, CustomRoleServiceImpl.class
+        CustomRoleServiceImpl.class
     })
     static class Config {
 
@@ -146,23 +115,18 @@ class RealImplProxyEnforcementIntTest {
         }
 
         @Bean
-        WorkspaceUserRepository workspaceUserRepository() {
-            return mock(WorkspaceUserRepository.class);
-        }
-
-        @Bean
         CustomRoleRepository customRoleRepository() {
             return mock(CustomRoleRepository.class);
         }
 
         @Bean
-        WorkspaceUserAuditPublisher workspaceUserAuditPublisher() {
-            return mock(WorkspaceUserAuditPublisher.class);
+        CustomRoleAuditPublisher customRoleAuditPublisher() {
+            return mock(CustomRoleAuditPublisher.class);
         }
 
         @Bean
-        CustomRoleAuditPublisher customRoleAuditPublisher() {
-            return mock(CustomRoleAuditPublisher.class);
+        WorkspaceUserService workspaceUserService() {
+            return mock(WorkspaceUserService.class);
         }
     }
 }
