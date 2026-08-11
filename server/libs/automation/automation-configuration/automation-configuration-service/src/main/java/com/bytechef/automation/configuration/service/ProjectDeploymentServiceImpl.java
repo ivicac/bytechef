@@ -16,6 +16,8 @@
 
 package com.bytechef.automation.configuration.service;
 
+import com.bytechef.automation.configuration.audit.ProjectDeploymentAuditEvent;
+import com.bytechef.automation.configuration.audit.ProjectDeploymentAuditPublisher;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.repository.ProjectDeploymentRepository;
 import com.bytechef.commons.util.OptionalUtils;
@@ -34,10 +36,14 @@ import org.springframework.util.Assert;
 @Transactional
 public class ProjectDeploymentServiceImpl implements ProjectDeploymentService {
 
+    private final ProjectDeploymentAuditPublisher projectDeploymentAuditPublisher;
     private final ProjectDeploymentRepository projectDeploymentRepository;
 
-    public ProjectDeploymentServiceImpl(ProjectDeploymentRepository projectDeploymentRepository) {
+    public ProjectDeploymentServiceImpl(
+        ProjectDeploymentAuditPublisher projectDeploymentAuditPublisher,
+        ProjectDeploymentRepository projectDeploymentRepository) {
 
+        this.projectDeploymentAuditPublisher = projectDeploymentAuditPublisher;
         this.projectDeploymentRepository = projectDeploymentRepository;
     }
 
@@ -50,12 +56,19 @@ public class ProjectDeploymentServiceImpl implements ProjectDeploymentService {
 
         projectDeployment.setEnabled(false);
 
-        return projectDeploymentRepository.save(projectDeployment);
+        ProjectDeployment savedProjectDeployment = projectDeploymentRepository.save(projectDeployment);
+
+        projectDeploymentAuditPublisher.publish(
+            ProjectDeploymentAuditEvent.DEPLOYMENT_CREATED, savedProjectDeployment.getId());
+
+        return savedProjectDeployment;
     }
 
     @Override
     public void delete(long id) {
         projectDeploymentRepository.deleteById(id);
+
+        projectDeploymentAuditPublisher.publish(ProjectDeploymentAuditEvent.DEPLOYMENT_DELETED, id);
     }
 
     @Override
@@ -141,7 +154,12 @@ public class ProjectDeploymentServiceImpl implements ProjectDeploymentService {
 
         projectDeployment.setTagIds(tagIds);
 
-        return projectDeploymentRepository.save(projectDeployment);
+        ProjectDeployment savedProjectDeployment = projectDeploymentRepository.save(projectDeployment);
+
+        projectDeploymentAuditPublisher.publish(
+            ProjectDeploymentAuditEvent.DEPLOYMENT_UPDATED, savedProjectDeployment.getId());
+
+        return savedProjectDeployment;
     }
 
     @Override
@@ -160,7 +178,12 @@ public class ProjectDeploymentServiceImpl implements ProjectDeploymentService {
         curProjectDeployment.setTagIds(projectDeployment.getTagIds());
         curProjectDeployment.setVersion(projectDeployment.getVersion());
 
-        return projectDeploymentRepository.save(curProjectDeployment);
+        ProjectDeployment savedProjectDeployment = projectDeploymentRepository.save(curProjectDeployment);
+
+        projectDeploymentAuditPublisher.publish(
+            ProjectDeploymentAuditEvent.DEPLOYMENT_UPDATED, savedProjectDeployment.getId());
+
+        return savedProjectDeployment;
     }
 
     @Override
@@ -181,5 +204,10 @@ public class ProjectDeploymentServiceImpl implements ProjectDeploymentService {
         projectDeployment.setEnabled(enabled);
 
         projectDeploymentRepository.save(projectDeployment);
+
+        ProjectDeploymentAuditEvent auditEvent =
+            enabled ? ProjectDeploymentAuditEvent.DEPLOYMENT_ENABLED : ProjectDeploymentAuditEvent.DEPLOYMENT_DISABLED;
+
+        projectDeploymentAuditPublisher.publish(auditEvent, id);
     }
 }
