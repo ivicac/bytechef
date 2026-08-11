@@ -15,6 +15,7 @@ import com.bytechef.commons.data.jdbc.converter.EncryptedStringToMapWrapperConve
 import com.bytechef.commons.data.jdbc.converter.MapWrapperToStringConverter;
 import com.bytechef.commons.data.jdbc.converter.StringToMapWrapperConverter;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.ee.embedded.configuration.audit.IntegrationAuditPublisher;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationServiceImpl;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceServiceImpl;
 import com.bytechef.ee.embedded.configuration.service.IntegrationServiceImpl;
@@ -88,6 +89,11 @@ public class EmbeddedExecutionIntTestConfiguration {
     @Bean
     EncryptionKey encryptionKey() {
         return () -> "tTB1/UBIbYLuCXVi4PPfzA==";
+    }
+
+    @Bean
+    IntegrationAuditPublisher integrationAuditPublisher() {
+        return mock(IntegrationAuditPublisher.class);
     }
 
     @Bean

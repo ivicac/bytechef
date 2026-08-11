@@ -23,6 +23,7 @@ import com.bytechef.ee.platform.user.scim.web.filter.ScimBearerTokenAuthenticati
 import com.bytechef.ee.platform.user.service.IdentityProviderService;
 import com.bytechef.ee.platform.user.service.IdentityProviderServiceImpl;
 import com.bytechef.encryption.Encryption;
+import com.bytechef.platform.user.audit.UserAuditPublisher;
 import com.bytechef.platform.user.callback.UserCallback;
 import com.bytechef.platform.user.domain.Authority;
 import com.bytechef.platform.user.domain.User;
@@ -637,6 +638,11 @@ public class ScimAuditIntTest {
         @Bean
         PasswordEncoder passwordEncoder() {
             return new BCryptPasswordEncoder(4);
+        }
+
+        @Bean
+        UserAuditPublisher userAuditPublisher() {
+            return mock(UserAuditPublisher.class);
         }
 
         @Bean

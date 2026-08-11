@@ -8,17 +8,21 @@
 package com.bytechef.ee.automation.configuration.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.mock;
 
 import com.bytechef.ee.automation.configuration.config.EmbeddedOwnerContributorsTestConfiguration;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
+import com.bytechef.platform.user.audit.UserAuditPublisher;
 import com.bytechef.platform.user.callback.UserCallback;
 import com.bytechef.platform.user.repository.AuthorityRepository;
 import com.bytechef.platform.user.repository.PersistentTokenRepository;
 import com.bytechef.platform.user.repository.UserRepository;
 import com.bytechef.platform.user.service.UserService;
 import com.bytechef.platform.user.service.UserServiceImpl;
+import com.bytechef.tenant.service.TenantService;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
+import java.time.Duration;
 import java.util.List;
 import java.util.OptionalLong;
 import org.junit.jupiter.api.AfterEach;
@@ -130,7 +134,8 @@ class CurrentUserResolverIntTest {
             PersistentTokenRepository persistentTokenRepository, UserRepository userRepository) {
 
             return new UserServiceImpl(
-                authorityRepository, cacheManager, passwordEncoder, persistentTokenRepository, userRepository);
+                authorityRepository, cacheManager, passwordEncoder, persistentTokenRepository,
+                mock(TenantService.class), mock(UserAuditPublisher.class), userRepository, 5, Duration.ofMinutes(15));
         }
 
         @EnableJdbcAuditing(auditorAwareRef = "auditorProvider", dateTimeProviderRef = "auditingDateTimeProvider")

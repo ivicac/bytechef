@@ -20,6 +20,8 @@ import com.bytechef.commons.util.LocalDateTimeUtils;
 import com.bytechef.commons.util.RandomUtils;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.security.util.SecurityUtils;
+import com.bytechef.platform.user.audit.UserAuditEvent;
+import com.bytechef.platform.user.audit.UserAuditPublisher;
 import com.bytechef.platform.user.constant.UserConstants;
 import com.bytechef.platform.user.domain.Authority;
 import com.bytechef.platform.user.domain.PersistentToken;
@@ -43,7 +45,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
@@ -76,17 +80,20 @@ public class UserServiceImpl implements UserService {
     private final PersistentTokenRepository persistentTokenRepository;
     private final SecretGenerator totpSecretGenerator = new DefaultSecretGenerator();
     private final DefaultCodeVerifier totpCodeVerifier;
+    private final UserAuditPublisher userAuditPublisher;
     private final UserRepository userRepository;
 
-    @SuppressFBWarnings("EI")
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
     public UserServiceImpl(
         AuthorityRepository authorityRepository, CacheManager cacheManager, PasswordEncoder passwordEncoder,
-        PersistentTokenRepository persistentTokenRepository, UserRepository userRepository) {
+        PersistentTokenRepository persistentTokenRepository, UserAuditPublisher userAuditPublisher,
+        UserRepository userRepository) {
 
         this.authorityRepository = authorityRepository;
         this.cacheManager = cacheManager;
         this.passwordEncoder = passwordEncoder;
         this.persistentTokenRepository = persistentTokenRepository;
+        this.userAuditPublisher = userAuditPublisher;
         this.userRepository = userRepository;
 
         totpCodeVerifier = new DefaultCodeVerifier(new DefaultCodeGenerator(), new SystemTimeProvider());
@@ -140,6 +147,8 @@ public class UserServiceImpl implements UserService {
 
                 this.clearUserCaches(user);
 
+                userAuditPublisher.publish(UserAuditEvent.USER_ACTIVATED, user.getId());
+
                 log.debug("Activated user: {}", user);
 
                 return user;
@@ -165,6 +174,8 @@ public class UserServiceImpl implements UserService {
                 user = userRepository.save(user);
 
                 this.clearUserCaches(user);
+
+                userAuditPublisher.publish(UserAuditEvent.USER_PASSWORD_CHANGED, user.getId());
 
                 return user;
             });
@@ -194,6 +205,8 @@ public class UserServiceImpl implements UserService {
                 user = userRepository.save(user);
 
                 this.clearUserCaches(user);
+
+                userAuditPublisher.publish(UserAuditEvent.USER_PASSWORD_CHANGED, user.getId());
 
                 log.debug("Changed password for User: {}", user);
             });
@@ -249,6 +262,16 @@ public class UserServiceImpl implements UserService {
 
         this.clearUserCaches(user);
 
+        Map<String, Object> auditData = new HashMap<>();
+
+        auditData.put("login", user.getLogin());
+
+        if (user.getEmail() != null) {
+            auditData.put("email", user.getEmail());
+        }
+
+        userAuditPublisher.publish(UserAuditEvent.USER_CREATED, user.getId(), auditData);
+
         log.debug("Created User: {}", user);
 
         return user;
@@ -258,9 +281,18 @@ public class UserServiceImpl implements UserService {
     public void delete(String login) {
         userRepository.findByLogin(login)
             .ifPresent(user -> {
+                long userId = user.getId();
+                String userLogin = user.getLogin();
+
                 userRepository.delete(user);
 
                 this.clearUserCaches(user);
+
+                Map<String, Object> auditData = new HashMap<>();
+
+                auditData.put("login", userLogin);
+
+                userAuditPublisher.publish(UserAuditEvent.USER_DELETED, userId, auditData);
 
                 log.debug("Deleted User: {}", user);
             });
@@ -524,6 +556,16 @@ public class UserServiceImpl implements UserService {
         userRepository.save(newUser);
 
         this.clearUserCaches(newUser);
+
+        Map<String, Object> auditData = new HashMap<>();
+
+        auditData.put("login", newUser.getLogin());
+
+        if (newUser.getEmail() != null) {
+            auditData.put("email", newUser.getEmail());
+        }
+
+        userAuditPublisher.publish(UserAuditEvent.USER_CREATED, newUser.getId(), auditData);
 
         log.debug("Created User: {}", newUser);
 
