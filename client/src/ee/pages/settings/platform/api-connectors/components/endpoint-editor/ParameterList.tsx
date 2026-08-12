@@ -112,7 +112,17 @@ const ParameterList = ({onChange, parameters}: ParameterListProps) => {
             <Dialog onOpenChange={handleDialogOpen} open={isDialogOpen}>
                 <DialogContent>
                     <DialogMain>
-                        <form className="flex min-h-0 flex-1 flex-col" onSubmit={handleSubmit(handleSaveParameter)}>
+                        {/* stopPropagation: the dialog DOM is portaled, but React submit events still
+                            bubble through the React tree into the surrounding EndpointForm form */}
+
+                        <form
+                            className="flex min-h-0 flex-1 flex-col"
+                            onSubmit={(event) => {
+                                event.stopPropagation();
+
+                                handleSubmit(handleSaveParameter)(event);
+                            }}
+                        >
                             <DialogHeader title={`${editingParameter ? 'Edit' : 'Add'} Parameter`} />
 
                             <DialogBody>

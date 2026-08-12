@@ -6,7 +6,9 @@ import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 import RequestBodyEditor from '../RequestBodyEditor';
 
 vi.mock('@/shared/components/MonacoEditorWrapper', () => ({
-    default: () => <div data-testid="monaco-editor" />,
+    default: ({onChange, value}: {onChange: (value: string | undefined) => void; value: string}) => (
+        <textarea data-testid="monaco-editor-mock" onChange={(event) => onChange(event.target.value)} value={value} />
+    ),
 }));
 
 // RequestBodyEditor only ever renders inside EndpointForm's <Form>, and
