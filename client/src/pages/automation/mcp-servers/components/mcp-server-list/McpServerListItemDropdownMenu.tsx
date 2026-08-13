@@ -27,7 +27,7 @@ const McpServerListItemDropdownMenu = ({onDeleteClick, onEditClick}: McpServerLi
 
                 <DropdownMenuSeparator />
 
-                <DropdownMenuItem className="text-destructive" onClick={onDeleteClick}>
+                <DropdownMenuItem onClick={onDeleteClick} variant="destructive">
                     Delete
                 </DropdownMenuItem>
             </DropdownMenuContent>
