@@ -131,10 +131,7 @@ const WorkspaceListItem = ({isCurrentWorkspace, onOpen, workspace}: WorkspaceLis
                             {canManageMembers && <DropdownMenuSeparator />}
 
                             {canManageMembers && (
-                                <DropdownMenuItem
-                                    className="text-destructive"
-                                    onClick={() => setShowDeleteDialog(true)}
-                                >
+                                <DropdownMenuItem onClick={() => setShowDeleteDialog(true)} variant="destructive">
                                     Delete
                                 </DropdownMenuItem>
                             )}
