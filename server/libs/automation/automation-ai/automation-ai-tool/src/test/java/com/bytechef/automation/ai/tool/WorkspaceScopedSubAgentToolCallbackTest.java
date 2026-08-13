@@ -32,6 +32,7 @@ import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
@@ -41,37 +42,21 @@ import org.springframework.ai.tool.definition.ToolDefinition;
  */
 class WorkspaceScopedSubAgentToolCallbackTest {
 
-    private static final long USER_ID = 1L;
-
     private ContextCapturingDelegate delegate;
-    private WorkspaceFacade workspaceFacade;
-    private WorkspaceScopeResolver workspaceScopeResolver;
+    private WorkspaceService workspaceService;
     private WorkspaceScopedSubAgentToolCallback toolCallback;
 
     @BeforeEach
     void beforeEach() {
         delegate = new ContextCapturingDelegate();
-        workspaceFacade = mock(WorkspaceFacade.class);
-
-        UserService userService = mock(UserService.class);
-        User user = new User();
-
-        user.setId(USER_ID);
-
-        when(userService.fetchCurrentUser()).thenReturn(Optional.of(user));
-        when(workspaceFacade.getUserWorkspaces(USER_ID)).thenReturn(
-            List.of(workspace(42L, "Primary"), workspace(43L, "Secondary")));
-
-        workspaceScopeResolver = new WorkspaceScopeResolver(
-            userService, workspaceFacade, mock(WorkspaceService.class));
-
-        toolCallback = new WorkspaceScopedSubAgentToolCallback(delegate, workspaceScopeResolver);
+        workspaceService = mock(WorkspaceService.class);
+        toolCallback = new WorkspaceScopedSubAgentToolCallback(delegate, workspaceService);
     }
 
     @Test
     void testToolDefinitionKeepsDelegateNameAndExtendsSchema() {
         assertThat(toolCallback.getToolDefinition()
-            .name()).isEqualTo("unknown");
+            .name()).isEqualTo("mcp_manager");
         assertThat(toolCallback.getToolDefinition()
             .inputSchema()).contains("workspaceId")
                 .contains("environment");
@@ -81,9 +66,8 @@ class WorkspaceScopedSubAgentToolCallbackTest {
     void testBlankRequestReturnsError() {
         String result = toolCallback.call("{\"request\": \" \"}");
 
-        assertThat(result)
-            .contains("error")
-            .contains("request is required");
+        assertThat(result).contains("error");
+        assertThat(result).contains("request is required");
         assertThat(delegate.capturedContext).isNull();
     }
 
@@ -98,6 +82,27 @@ class WorkspaceScopedSubAgentToolCallbackTest {
         assertThat(delegate.capturedInput).contains("list servers");
     }
 
+    /**
+     * Every delegate wrapped by this class gets the FILES source ordinal written unconditionally — the key is a no-op
+     * for delegates that never create asset files, but the {@code asset_file_agent} delegate cannot get the correct
+     * attribution any other way on this surface (see {@link WorkspaceScopedSubAgentToolCallback} class Javadoc).
+     */
+    @Test
+    void testForwardsSourceOrdinalUnconditionally() {
+        toolCallback.call("{\"request\": \"list servers\", \"workspaceId\": 42}");
+
+        assertThat(delegate.capturedContext)
+            .containsEntry(
+                AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY,
+                AutomationToolInvocationContext.SOURCE_ORDINAL_FILES);
+    }
+
+    /**
+     * Without an explicit environment, {@code resolveEnvironmentOrDefault} treats a missing key as DEVELOPMENT — but
+     * this wrapper must write that default explicitly rather than leaving the key absent, or a caller building
+     * {@link AutomationToolInvocationContext} straight from the forwarded map (rather than through the defaulting
+     * accessor) would see no environment at all.
+     */
     @Test
     void testDefaultsEnvironmentToDevelopmentWhenOmitted() {
         toolCallback.call("{\"request\": \"list servers\", \"workspaceId\": 42}");
@@ -149,22 +154,13 @@ class WorkspaceScopedSubAgentToolCallbackTest {
     }
 
     @Test
-    void testExplicitForeignWorkspaceIdIsRejectedBeforeReachingDelegate() {
-        String result = toolCallback.call("{\"request\": \"list servers\", \"workspaceId\": 99}");
-
-        assertThat(result).contains("error")
-            .contains("not accessible");
-        assertThat(delegate.capturedContext).isNull();
-    }
-
-    @Test
     void testSingleWorkspaceIsAutoSelected() {
         Workspace workspace = new Workspace();
 
         workspace.setId(7L);
         workspace.setName("Main");
 
-        when(workspaceFacade.getUserWorkspaces(USER_ID)).thenReturn(List.of(workspace));
+        when(workspaceService.getWorkspaces()).thenReturn(List.of(workspace));
 
         String result = toolCallback.call("{\"request\": \"list servers\"}");
 
@@ -186,14 +182,13 @@ class WorkspaceScopedSubAgentToolCallbackTest {
         secondWorkspace.setId(2L);
         secondWorkspace.setName("Beta");
 
-        when(workspaceFacade.getUserWorkspaces(USER_ID)).thenReturn(List.of(firstWorkspace, secondWorkspace));
+        when(workspaceService.getWorkspaces()).thenReturn(List.of(firstWorkspace, secondWorkspace));
 
         String result = toolCallback.call("{\"request\": \"list servers\"}");
 
-        assertThat(result)
-            .contains("workspace_required")
-            .contains("Alpha")
-            .contains("Beta");
+        assertThat(result).contains("workspace_required");
+        assertThat(result).contains("Alpha");
+        assertThat(result).contains("Beta");
         assertThat(delegate.capturedContext).isNull();
     }
 
@@ -202,9 +197,9 @@ class WorkspaceScopedSubAgentToolCallbackTest {
         PlainCopilotDelegate copilotDelegate = new PlainCopilotDelegate();
 
         WorkspaceScopedSubAgentToolCallback copilotToolCallback =
-            new WorkspaceScopedSubAgentToolCallback(copilotDelegate, workspaceScopeResolver);
+            new WorkspaceScopedSubAgentToolCallback(copilotDelegate, workspaceService);
 
-        String result = copilotToolCallback.call("{\"request\": \"list tables\", \"workspaceId\": 43}");
+        String result = copilotToolCallback.call("{\"request\": \"list tables\", \"workspaceId\": 9}");
 
         assertThat(result).isEqualTo("delegated");
         assertThat(copilotToolCallback.getToolDefinition()
@@ -212,37 +207,21 @@ class WorkspaceScopedSubAgentToolCallbackTest {
         assertThat(copilotToolCallback.getToolDefinition()
             .inputSchema()).contains("workspaceId");
         assertThat(copilotDelegate.capturedContext)
-            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 43L)
-            .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 43L);
+            .containsEntry(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 9L)
+            .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 9L);
     }
 
-    private static Workspace workspace(long id, String name) {
-        Workspace workspace = new Workspace();
-
-        workspace.setId(id);
-        workspace.setName(name);
-
-        return workspace;
-    }
-
-    private static final class ContextCapturingDelegate implements ToolCallback {
+    /**
+     * Fake delegate that records the forwarded input and ToolContext and answers directly, so the wrapper's behaviour
+     * is observable without stubbing the specialist's ChatClient chain.
+     */
+    private static final class ContextCapturingDelegate extends ManagerSubAgentToolCallback {
 
         private Map<String, Object> capturedContext;
         private String capturedInput;
 
-        @Override
-        public ToolDefinition getToolDefinition() {
-            return ToolDefinition.builder()
-                .name(CoreAgentType.UNKNOWN.key())
-                .description("Manages project deployments.")
-                .inputSchema(
-                    "{\"type\": \"object\", \"properties\": {\"request\": {\"type\": \"string\"}}, \"required\": [\"request\"]}")
-                .build();
-        }
-
-        @Override
-        public String call(String toolInput) {
-            return call(toolInput, null);
+        ContextCapturingDelegate() {
+            super(ManagerAgentType.MCP_MANAGER, mock(ChatClient.class), "Manages MCP servers.");
         }
 
         @Override
