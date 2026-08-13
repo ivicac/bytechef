@@ -14,6 +14,7 @@ const hoisted = vi.hoisted(() => ({
 }));
 
 vi.mock('@/shared/middleware/graphql', () => ({
+    useAuthoritiesQuery: () => ({data: undefined, isLoading: false}),
     useCreateEmbeddedMcpComponentMutation: (options: {onSuccess: () => void}) => {
         hoisted.createMutationOptions = options;
 
@@ -56,7 +57,15 @@ describe('useMcpComponentDialog', () => {
         act(() => result.current.handleSave());
 
         expect(hoisted.createMutate).toHaveBeenCalledWith(
-            {input: {componentName: 'gmail', componentVersion: 1, mcpServerId: '1', tools: []}},
+            {
+                input: {
+                    componentName: 'gmail',
+                    componentVersion: 1,
+                    mcpServerId: '1',
+                    requiredAuthorities: [],
+                    tools: [],
+                },
+            },
             expect.objectContaining({onSuccess: expect.any(Function)})
         );
         expect(hoisted.updateMutate).not.toHaveBeenCalled();
@@ -70,7 +79,14 @@ describe('useMcpComponentDialog', () => {
         expect(hoisted.updateMutate).toHaveBeenCalledWith(
             {
                 id: '7',
-                input: {componentName: 'gmail', componentVersion: 1, mcpServerId: '1', tools: [], version: 2},
+                input: {
+                    componentName: 'gmail',
+                    componentVersion: 1,
+                    mcpServerId: '1',
+                    requiredAuthorities: [],
+                    tools: [],
+                    version: 2,
+                },
             },
             expect.objectContaining({onSuccess: expect.any(Function)})
         );
