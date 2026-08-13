@@ -2,6 +2,8 @@ import useCopilotPanelStore from '@/shared/components/copilot/stores/useCopilotP
 import {MODE, Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
 
 export interface UseOpenCopilotOptionsI {
+    composerPlaceholder?: string;
+    mode?: MODE;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     parameters?: Record<string, any>;
     source: Source;
@@ -9,10 +11,11 @@ export interface UseOpenCopilotOptionsI {
 
 const useOpenCopilot = () => {
     const setContext = useCopilotStore((state) => state.setContext);
+    const setComposerPlaceholder = useCopilotStore((state) => state.setComposerPlaceholder);
     const copilotPanelOpen = useCopilotPanelStore((state) => state.copilotPanelOpen);
     const setCopilotPanelOpen = useCopilotPanelStore((state) => state.setCopilotPanelOpen);
 
-    return ({parameters = {}, source}: UseOpenCopilotOptionsI) => {
+    return ({composerPlaceholder, mode = MODE.ASK, parameters = {}, source}: UseOpenCopilotOptionsI) => {
         const {generateConversationId, resetMessages, saveConversationState, setGlobalPanelConversationToken} =
             useCopilotStore.getState();
 
@@ -26,10 +29,12 @@ const useOpenCopilot = () => {
         generateConversationId();
 
         setContext({
-            mode: MODE.ASK,
+            mode,
             parameters,
             source,
         });
+
+        setComposerPlaceholder(composerPlaceholder);
 
         setCopilotPanelOpen(true);
     };

@@ -16,18 +16,12 @@ interface UseClusterElementsCanvasDialogProps {
     onOpenChange: (open: boolean) => void;
 }
 
-export default function useClusterElementsCanvasDialog({onOpenChange}: UseClusterElementsCanvasDialogProps) {
+export default function useClusterElementsCanvasDialog({
+    onOpenChange,
+    workflowReferenceId,
+}: UseClusterElementsCanvasDialogProps) {
     const conversationTokenRef = useRef<string | null>(null);
 
-    const aiAgentSimpleEditorPreferred = useClusterElementsCanvasDialogStore(
-        (state) => state.aiAgentSimpleEditorPreferred
-    );
-    const dataStreamSimpleEditorPreferred = useClusterElementsCanvasDialogStore(
-        (state) => state.dataStreamSimpleEditorPreferred
-    );
-    const setAiAgentSimpleEditorPreferred = useClusterElementsCanvasDialogStore(
-        (state) => state.setAiAgentSimpleEditorPreferred
-    );
     const setCopilotPanelOpen = useClusterElementsCanvasDialogStore((state) => state.setCopilotPanelOpen);
     const setShowAiAgentEditor = useClusterElementsCanvasDialogStore((state) => state.setShowAiAgentEditor);
     const setShowDataStreamEditor = useClusterElementsCanvasDialogStore((state) => state.setShowDataStreamEditor);
