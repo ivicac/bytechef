@@ -14,6 +14,7 @@ const hoisted = vi.hoisted(() => ({
 }));
 
 vi.mock('@/shared/middleware/graphql', () => ({
+    useAuthoritiesQuery: () => ({data: undefined, isLoading: false}),
     useCreateEmbeddedMcpComponentMutation: (options: {onSuccess: () => void}) => {
         hoisted.createMutationOptions = options;
 
@@ -62,7 +63,13 @@ describe('useMcpComponentDialog', () => {
 
         expect(hoisted.createMutate).toHaveBeenCalledWith(
             {
-                input: {componentName: 'gmail', componentVersion: 1, mcpServerId: '1', tools: []},
+                input: {
+                    componentName: 'gmail',
+                    componentVersion: 1,
+                    mcpServerId: '1',
+                    requiredAuthorities: [],
+                    tools: [],
+                },
                 integrationId: '5',
             },
             expect.objectContaining({onSuccess: expect.any(Function)})
@@ -78,7 +85,14 @@ describe('useMcpComponentDialog', () => {
         expect(hoisted.updateMutate).toHaveBeenCalledWith(
             {
                 id: '7',
-                input: {componentName: 'gmail', componentVersion: 1, mcpServerId: '1', tools: [], version: 2},
+                input: {
+                    componentName: 'gmail',
+                    componentVersion: 1,
+                    mcpServerId: '1',
+                    requiredAuthorities: [],
+                    tools: [],
+                    version: 2,
+                },
                 integrationId: undefined,
             },
             expect.objectContaining({onSuccess: expect.any(Function)})
@@ -121,7 +135,14 @@ describe('useMcpComponentDialog', () => {
         expect(hoisted.updateMutate).toHaveBeenCalledWith(
             {
                 id: '7',
-                input: {componentName: 'gmail', componentVersion: 1, mcpServerId: '1', tools: [], version: 2},
+                input: {
+                    componentName: 'gmail',
+                    componentVersion: 1,
+                    mcpServerId: '1',
+                    requiredAuthorities: [],
+                    tools: [],
+                    version: 2,
+                },
                 integrationId: '6',
             },
             expect.objectContaining({onSuccess: expect.any(Function)})
@@ -240,7 +261,14 @@ describe('useMcpComponentDialog', () => {
         expect(hoisted.updateMutate).toHaveBeenCalledWith(
             {
                 id: '7',
-                input: {componentName: 'gmail', componentVersion: 1, mcpServerId: '1', tools: [], version: 2},
+                input: {
+                    componentName: 'gmail',
+                    componentVersion: 1,
+                    mcpServerId: '1',
+                    requiredAuthorities: [],
+                    tools: [],
+                    version: 2,
+                },
                 integrationId: '6',
             },
             expect.objectContaining({onSuccess: expect.any(Function)})

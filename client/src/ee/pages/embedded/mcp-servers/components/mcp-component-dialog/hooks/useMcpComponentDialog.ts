@@ -1,12 +1,14 @@
 import {
     ComponentDefinition,
     McpComponent,
+    useAuthoritiesQuery,
     useCreateEmbeddedMcpComponentMutation,
     useEmbeddedMcpToolsByComponentIdQuery,
     useUpdateEmbeddedMcpComponentMutation,
 } from '@/shared/middleware/graphql';
+import {getRoleLabel} from '@/shared/util/role-utils';
 import {useQueryClient} from '@tanstack/react-query';
-import {useState} from 'react';
+import {useMemo, useState} from 'react';
 
 import {SelectedToolI} from './useMcpComponentDialogToolSelectionStep';
 
@@ -56,7 +58,19 @@ const useMcpComponentDialog = ({
     );
     const [selectedTools, setSelectedTools] = useState<SelectedToolI[]>([]);
     const [requiredAuthorities, setRequiredAuthorities] = useState<string[]>(mcpComponent?.requiredAuthorities ?? []);
-    const [requiredAuthorityInput, setRequiredAuthorityInput] = useState('');
+
+    // The authority list is the same one the user-management dialogs offer, so an MCP component can only require an
+    // authority that actually exists. The query is ADMIN-only server-side; for a non-admin it simply yields no options
+    // rather than failing the dialog, and any authority already saved on the component stays selected regardless.
+    const {data: authoritiesData, isLoading: authoritiesLoading} = useAuthoritiesQuery({});
+
+    const authorityOptions = useMemo(() => {
+        const authorities = new Set([...(authoritiesData?.authorities ?? []), ...requiredAuthorities]);
+
+        return Array.from(authorities)
+            .map((authority) => ({label: getRoleLabel(authority), value: authority}))
+            .sort((option, otherOption) => option.label.localeCompare(otherOption.label));
+    }, [authoritiesData, requiredAuthorities]);
 
     const {data: existingTools} = useEmbeddedMcpToolsByComponentIdQuery(
         {
@@ -88,38 +102,14 @@ const useMcpComponentDialog = ({
         setCurrentStep('tools');
     };
 
-    const handleAddRequiredAuthority = () => {
-        const trimmed = requiredAuthorityInput.trim();
-
-        if (trimmed && !requiredAuthorities.includes(trimmed)) {
-            setRequiredAuthorities([...requiredAuthorities, trimmed]);
-            setRequiredAuthorityInput('');
-        }
-    };
-
-    const handleRemoveRequiredAuthority = (requiredAuthority: string) => {
-        setRequiredAuthorities(
-            requiredAuthorities.filter((existingAuthority) => existingAuthority !== requiredAuthority)
-        );
-    };
-
     const handleClose = () => {
         if (onOpenChange) {
             onOpenChange(false);
         }
 
-        setCurrentStep(mcpComponent ? 'tools' : 'components');
-        setSelectedComponent(
-            mcpComponent
-                ? ({
-                      name: mcpComponent.componentName,
-                      title: mcpComponent.title || mcpComponent.componentName,
-                      version: mcpComponent.componentVersion,
-                  } as ComponentDefinition)
-                : null
-        );
+        setCurrentStep(getInitialStep(mcpComponent, integrationUnavailable));
+        setSelectedComponent(getInitialSelectedComponent(mcpComponent, integrationUnavailable));
         setRequiredAuthorities(mcpComponent?.requiredAuthorities ?? []);
-        setRequiredAuthorityInput('');
 
         if (!mcpComponent) {
             setSelectedTools([]);
@@ -139,7 +129,6 @@ const useMcpComponentDialog = ({
 
         setSelectedTools([]);
         setRequiredAuthorities(mcpComponent?.requiredAuthorities ?? []);
-        setRequiredAuthorityInput('');
     };
 
     const handleSave = () => {
@@ -204,18 +193,9 @@ const useMcpComponentDialog = ({
         }
 
         if (!newOpen) {
-            setCurrentStep(mcpComponent ? 'tools' : 'components');
-            setSelectedComponent(
-                mcpComponent
-                    ? ({
-                          name: mcpComponent.componentName,
-                          title: mcpComponent.title || mcpComponent.componentName,
-                          version: mcpComponent.componentVersion,
-                      } as ComponentDefinition)
-                    : null
-            );
+            setCurrentStep(getInitialStep(mcpComponent, integrationUnavailable));
+            setSelectedComponent(getInitialSelectedComponent(mcpComponent, integrationUnavailable));
             setRequiredAuthorities(mcpComponent?.requiredAuthorities ?? []);
-            setRequiredAuthorityInput('');
 
             if (!mcpComponent) {
                 setSelectedTools([]);
@@ -224,20 +204,19 @@ const useMcpComponentDialog = ({
     };
 
     return {
+        authoritiesLoading,
+        authorityOptions,
         currentStep,
         existingTools,
-        handleAddRequiredAuthority,
         handleBack,
         handleClose,
         handleComponentSelect,
         handleOpenChange,
-        handleRemoveRequiredAuthority,
         handleSave,
         requiredAuthorities,
-        requiredAuthorityInput,
         selectedComponent,
         selectedTools,
-        setRequiredAuthorityInput,
+        setRequiredAuthorities,
         setSelectedTools,
     };
 };
