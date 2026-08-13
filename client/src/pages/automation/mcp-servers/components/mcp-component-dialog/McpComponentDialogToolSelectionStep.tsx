@@ -152,6 +152,7 @@ const McpComponentDialogToolSelectionStep = ({
                 <div className="py-8 text-center text-muted-foreground">No tools available for this component.</div>
             ) : (
                 <>
+                    {/* A section heading, not a form label -- it names the checkbox group rather than one control. */}
                     <p className="mt-6 text-sm font-medium">Tools</p>
 
                     <div className="flex items-center space-x-3">
