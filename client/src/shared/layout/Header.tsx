@@ -22,20 +22,27 @@ const Header = ({
     right,
     title,
     titleClassName,
-}: HeaderProps) => {
-    const {hasLeftSidebar} = useLeftSidebarToggle();
-
-    return (
-        <header className={twMerge('p-4', centerTitle ? '3xl:mx-auto 3xl:w-4/5' : '3xl:w-4/5', className)}>
-            <div className="flex w-full items-center justify-between">
-                {/* The toggle sits beside the title-and-description block, top-aligned so it stays level with
-                    the title however tall the right slot is. Sidebar headers never carry it. */}
-
-                <div className="flex items-start gap-2 self-start">
-                    {position === 'main' && hasLeftSidebar && (
-                        <div className="flex h-header-height items-center">
-                            <LeftSidebarToggle />
-                        </div>
+}: HeaderProps) => (
+    // The 3xl width cap matches the main content's `3xl:mx-auto 3xl:w-4/5` containers, so it belongs to the
+    // main header only. Inside a fixed-width sidebar it shrinks the header to 80% of the rail and pulls any
+    // right-aligned action away from the edge the search box and rows below still reach.
+    <header
+        className={twMerge(
+            'py-3',
+            // px-3 in a sidebar so the title lines up with the rows beneath it; the main header keeps px-4,
+            // where there is nothing below to align to.
+            position === 'sidebar' ? 'px-3' : 'px-4',
+            position === 'main' && (centerTitle ? '3xl:mx-auto 3xl:w-4/5' : '3xl:w-4/5'),
+            className
+        )}
+    >
+        <div className="flex w-full items-center justify-between">
+            <div className="flex flex-col">
+                <div
+                    className={twMerge(
+                        'flex h-header-height flex-col justify-center text-lg tracking-tight text-foreground',
+                        position === 'sidebar' ? 'font-semibold' : '',
+                        titleClassName
                     )}
 
                     <div className="flex flex-col">
