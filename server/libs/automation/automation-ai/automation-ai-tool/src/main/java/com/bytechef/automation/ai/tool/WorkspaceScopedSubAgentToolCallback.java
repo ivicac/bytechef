@@ -17,7 +17,14 @@
 package com.bytechef.automation.ai.tool;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
+import com.bytechef.automation.configuration.domain.Workspace;
+import com.bytechef.automation.configuration.service.WorkspaceService;
+import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
@@ -53,13 +60,13 @@ public class WorkspaceScopedSubAgentToolCallback implements ToolCallback {
             }""";
 
     private final ToolCallback delegate;
-    private final WorkspaceScopeResolver workspaceScopeResolver;
+    private final WorkspaceService workspaceService;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public WorkspaceScopedSubAgentToolCallback(ToolCallback delegate, WorkspaceScopeResolver workspaceScopeResolver) {
+    public WorkspaceScopedSubAgentToolCallback(ToolCallback delegate, WorkspaceService workspaceService) {
         this.delegate = delegate;
-        this.workspaceScopeResolver = workspaceScopeResolver;
+        this.workspaceService = workspaceService;
     }
 
     @Override
@@ -92,16 +99,71 @@ public class WorkspaceScopedSubAgentToolCallback implements ToolCallback {
                 return ToolErrors.toolError(jsonMapper, "request is required and must not be blank");
             }
 
-            WorkspaceScopeResolver.WorkspaceScope workspaceScope =
-                workspaceScopeResolver.resolve(input.workspaceId(), input.environment());
+            Long workspaceId = input.workspaceId();
 
-            if (workspaceScope instanceof WorkspaceScopeResolver.Rejected rejected) {
-                return rejected.response();
+            if (workspaceId == null) {
+                List<Workspace> workspaces = workspaceService.getWorkspaces();
+
+                if (workspaces.size() == 1) {
+                    Workspace workspace = workspaces.getFirst();
+
+                    workspaceId = workspace.getId();
+                } else {
+                    return jsonMapper.writeValueAsString(
+                        Map.of(
+                            "error", "workspace_required",
+                            "message",
+                            "No single workspace could be auto-selected — retry with an explicit workspaceId " +
+                                "from the list.",
+                            "workspaces", workspaces.stream()
+                                .map(workspace -> Map.of("id", workspace.getId(), "name", workspace.getName()))
+                                .toList()));
+                }
             }
 
-            WorkspaceScopeResolver.Resolved resolved = (WorkspaceScopeResolver.Resolved) workspaceScope;
+            String requestedEnvironment = input.environment();
+            long environmentOrdinal = Environment.DEVELOPMENT.ordinal();
 
-            Map<String, Object> forwardedContext = resolved.toForwardedContext(toolContext);
+            if (requestedEnvironment != null && !requestedEnvironment.isBlank()) {
+                try {
+                    environmentOrdinal = Environment.valueOf(requestedEnvironment.toUpperCase(Locale.ROOT))
+                        .ordinal();
+                } catch (IllegalArgumentException exception) {
+                    return ToolErrors.toolError(
+                        jsonMapper,
+                        "Unknown environment '" + requestedEnvironment
+                            + "'. Supported: DEVELOPMENT, STAGING, PRODUCTION");
+                }
+            }
+
+            Map<String, Object> forwardedContext = new HashMap<>();
+
+            if (toolContext != null) {
+                forwardedContext.putAll(toolContext.getContext());
+            }
+
+            forwardedContext.put(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, workspaceId);
+            forwardedContext.put(AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, environmentOrdinal);
+
+            // A missing sourceOrdinal only matters to the asset-file create tools (createAssetFile,
+            // createBinaryAssetFile, createAssetFileFromUrl); every other delegate on this surface ignores the
+            // key, so writing it unconditionally is harmless and keeps this wrapper delegate-agnostic.
+            forwardedContext.put(
+                AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY,
+                AutomationToolInvocationContext.SOURCE_ORDINAL_FILES);
+
+            // Two workspace-id key families exist: automation/asset-file tools read
+            // AutomationToolInvocationContext's key, while the data-table, knowledge-base and
+            // context-store tools read AgentToolInvocationContext's. The AI Hub chat surface
+            // populates both (see AiHubSpringAIAgent#toolContext), and this surface must too or
+            // those delegates still fail with "Workspace context unavailable". The same applies to
+            // environmentId — without it, resolveEnvironmentOrDefault silently pins every read to DEVELOPMENT.
+            forwardedContext.putAll(
+                AgentToolInvocationContext.builder()
+                    .workspaceId(workspaceId)
+                    .environmentId(environmentOrdinal)
+                    .build()
+                    .toToolContext());
 
             String delegateInput = jsonMapper.writeValueAsString(Map.of("request", request));
 
