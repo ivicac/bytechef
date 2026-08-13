@@ -23,7 +23,8 @@ import ProjectPublishDialog from '@/pages/automation/projects/components/Project
 import ProjectListItemDeployButton from '@/pages/automation/projects/components/project-list/ProjectListItemDeployButton';
 import ProjectListItemPublishMenuItem from '@/pages/automation/projects/components/project-list/ProjectListItemPublishMenuItem';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
-import GenerateWorkflowDialog from '@/shared/components/workflow/GenerateWorkflowDialog';
+import useOpenCopilot from '@/shared/components/copilot/hooks/useOpenCopilot';
+import {MODE, Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import WorkflowDialog from '@/shared/components/workflow/WorkflowDialog';
 import EEVersion from '@/shared/edition/EEVersion';
 import {ProjectGitConfigurationI, getProjectGitApi} from '@/shared/edition/project-git/projectGitApi';
@@ -84,7 +85,6 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
     const [showProjectShareDialog, setShowProjectShareDialog] = useState(false);
     const [showPublishProjectDialog, setShowPublishProjectDialog] = useState(false);
     const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
-    const [showGenerateWorkflowDialog, setShowGenerateWorkflowDialog] = useState(false);
 
     const hiddenFileInputRef = useRef<HTMLInputElement>(null);
     const converterHiddenFileInputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +95,8 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
 
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const openCopilot = useOpenCopilot();
+    const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
 
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
@@ -359,17 +361,28 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
                                             </DropdownMenuTrigger>
 
                                             <DropdownMenuContent align="end" className="p-0">
-                                                <DropdownMenuItem
-                                                    aria-label="Generate Workflow with AI"
-                                                    className="dropdown-menu-item"
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
+                                                {copilotEnabled && (
+                                                    <DropdownMenuItem
+                                                        aria-label="Generate Workflow with AI"
+                                                        className="dropdown-menu-item"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
 
-                                                        setShowGenerateWorkflowDialog(true);
-                                                    }}
-                                                >
-                                                    <SparklesIcon /> Generate with AI
-                                                </DropdownMenuItem>
+                                                            openCopilot({
+                                                                composerPlaceholder:
+                                                                    'When a new Gmail email arrives, post a summary to a Slack channel.',
+                                                                mode: MODE.BUILD,
+                                                                parameters: {
+                                                                    intent: 'generate_workflow',
+                                                                    projectId: project.id,
+                                                                },
+                                                                source: Source.PROJECT,
+                                                            });
+                                                        }}
+                                                    >
+                                                        <SparklesIcon /> Generate with AI
+                                                    </DropdownMenuItem>
+                                                )}
 
                                                 <DropdownMenuItem
                                                     aria-label="Create Workflow from Template"
@@ -670,10 +683,6 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
                     parentId={project.id}
                     useGetWorkflowQuery={useGetWorkflowQuery}
                 />
-            )}
-
-            {showGenerateWorkflowDialog && project.id != null && (
-                <GenerateWorkflowDialog onClose={() => setShowGenerateWorkflowDialog(false)} projectId={project.id} />
             )}
 
             <input

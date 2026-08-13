@@ -8,7 +8,8 @@ import {useConvertN8nToWorkflow} from '@/pages/automation/project/hooks/useConve
 import handleImportN8nWorkflow from '@/pages/automation/project/utils/handleImportN8nWorkflow';
 import handleImportWorkflow from '@/pages/automation/project/utils/handleImportWorkflow';
 import ProjectWorkflowListItem from '@/pages/automation/projects/components/project-workflow-list/ProjectWorkflowListItem';
-import GenerateWorkflowDialog from '@/shared/components/workflow/GenerateWorkflowDialog';
+import useOpenCopilot from '@/shared/components/copilot/hooks/useOpenCopilot';
+import {MODE, Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import WorkflowDialog from '@/shared/components/workflow/WorkflowDialog';
 import {useAnalytics} from '@/shared/hooks/useAnalytics';
 import useButtonGroupDropdownAlign from '@/shared/hooks/useButtonGroupDropdownAlign';
@@ -19,6 +20,7 @@ import {useCreateProjectWorkflowMutation} from '@/shared/mutations/automation/wo
 import {useGetProjectWorkflowsQuery} from '@/shared/queries/automation/projectWorkflows.queries';
 import {ProjectKeys} from '@/shared/queries/automation/projects.queries';
 import {useGetWorkflowQuery} from '@/shared/queries/automation/workflows.queries';
+import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useQueryClient} from '@tanstack/react-query';
 import {
     ChevronDownIcon,
@@ -44,11 +46,12 @@ const ProjectWorkflowList = ({
     taskDispatcherDefinitions?: TaskDispatcherDefinition[];
 }) => {
     const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
-    const [showGenerateWorkflowDialog, setShowGenerateWorkflowDialog] = useState(false);
 
     const {captureProjectWorkflowCreated, captureProjectWorkflowImported} = useAnalytics();
     const {alignOffset, buttonGroupRef, dropdownMenuTriggerRef, handleOpenChange} = useButtonGroupDropdownAlign();
     const navigate = useNavigate();
+    const openCopilot = useOpenCopilot();
+    const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
 
     const hiddenFileInputRef = useRef<HTMLInputElement>(null);
     const converterHiddenFileInputRef = useRef<HTMLInputElement>(null);
@@ -205,16 +208,27 @@ const ProjectWorkflowList = ({
                                                 alignOffset={alignOffset}
                                                 className="p-0"
                                             >
-                                                <DropdownMenuItem
-                                                    className="dropdown-menu-item"
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
+                                                {copilotEnabled && (
+                                                    <DropdownMenuItem
+                                                        className="dropdown-menu-item"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
 
-                                                        setShowGenerateWorkflowDialog(true);
-                                                    }}
-                                                >
-                                                    <SparklesIcon /> Generate with AI
-                                                </DropdownMenuItem>
+                                                            openCopilot({
+                                                                composerPlaceholder:
+                                                                    'When a new Gmail email arrives, post a summary to a Slack channel.',
+                                                                mode: MODE.BUILD,
+                                                                parameters: {
+                                                                    intent: 'generate_workflow',
+                                                                    projectId: project.id,
+                                                                },
+                                                                source: Source.PROJECT,
+                                                            });
+                                                        }}
+                                                    >
+                                                        <SparklesIcon /> Generate with AI
+                                                    </DropdownMenuItem>
+                                                )}
 
                                                 <DropdownMenuItem
                                                     className="dropdown-menu-item"
@@ -285,10 +299,6 @@ const ProjectWorkflowList = ({
                     parentId={project.id}
                     useGetWorkflowQuery={useGetWorkflowQuery}
                 />
-            )}
-
-            {showGenerateWorkflowDialog && project.id != null && (
-                <GenerateWorkflowDialog onClose={() => setShowGenerateWorkflowDialog(false)} projectId={project.id} />
             )}
 
             <input
