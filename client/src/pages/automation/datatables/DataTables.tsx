@@ -7,10 +7,15 @@ import DataTablesFilterTitle from '@/pages/automation/datatables/components/Data
 import DataTablesLeftSidebarNav from '@/pages/automation/datatables/components/DataTablesLeftSidebarNav';
 import useDataTables from '@/pages/automation/datatables/components/hooks/useDataTables';
 import StorageUsageBanner from '@/shared/components/StorageUsageBanner';
+import CopilotButton from '@/shared/components/copilot/CopilotButton';
+import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
+import {Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {useDataTableStorageUsageQuery} from '@/shared/middleware/graphql';
+import {useQueryClient} from '@tanstack/react-query';
 import {Table2Icon} from 'lucide-react';
+import {useEffect} from 'react';
 
 const DataTables = () => {
     const {allTags, error, filteredTables, isLoading, tables, tagId, tagsByTableData} = useDataTables();
@@ -19,13 +24,36 @@ const DataTables = () => {
 
     const storageUsage = storageUsageData?.dataTableStorageUsage;
 
+    const registerPostTurn = useCopilotPostTurnRegistry((state) => state.register);
+
+    const queryClient = useQueryClient();
+
+    // Refresh the list and the tag sidebar after a BUILD-mode copilot turn creates or retags a table, so the page
+    // reflects the change without a manual reload.
+    useEffect(() => {
+        return registerPostTurn(Source.DATA_TABLE, () => {
+            queryClient.invalidateQueries({queryKey: ['dataTables']});
+            queryClient.invalidateQueries({queryKey: ['dataTableTags']});
+            queryClient.invalidateQueries({queryKey: ['dataTableTagsByTable']});
+            queryClient.invalidateQueries({queryKey: ['DataTableStorageUsage']});
+        });
+    }, [queryClient, registerPostTurn]);
+
     return (
         <LayoutContainer
             header={
                 <Header
                     centerTitle={true}
                     position="main"
-                    right={tables.length > 0 && <CreateDataTableDialog trigger={<Button>New Table</Button>} />}
+                    right={
+                        (tables.length > 0 || !isLoading) && (
+                            <div className="flex items-center gap-1">
+                                <CopilotButton source={Source.DATA_TABLE} />
+
+                                {tables.length > 0 && <CreateDataTableDialog trigger={<Button>New Table</Button>} />}
+                            </div>
+                        )
+                    }
                     title={
                         tables.length > 0 ? (
                             <DataTablesFilterTitle allTags={allTags} tagsByTableData={tagsByTableData} />
