@@ -103,6 +103,10 @@ public class WorkspaceScopedSubAgentToolCallback implements ToolCallback {
 
             Map<String, Object> forwardedContext = resolved.toForwardedContext(toolContext);
 
+            forwardedContext.put(
+                AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY,
+                AutomationToolInvocationContext.SOURCE_ORDINAL_FILES);
+
             String delegateInput = jsonMapper.writeValueAsString(Map.of("request", request));
 
             return delegate.call(delegateInput, new ToolContext(forwardedContext));

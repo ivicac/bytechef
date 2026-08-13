@@ -16,6 +16,8 @@
 
 package com.bytechef.ai.copilot.config;
 
+import com.bytechef.ai.copilot.tool.AiAgentAgentToolCallback;
+import com.bytechef.ai.copilot.tool.AssetFileAgentToolCallback;
 import com.bytechef.ai.copilot.tool.ClusterElementAgentToolCallback;
 import com.bytechef.ai.copilot.tool.CodeEditorAgentToolCallback;
 import com.bytechef.ai.copilot.tool.ConverterAgentToolCallback;
@@ -71,7 +73,10 @@ public class ToolCallbackContributorConfiguration {
         @Qualifier("converterBuildSubAgentChatClientSupplier") //
         ObjectProvider<Supplier<ChatClient>> converterSupplierProvider,
         @Qualifier("knowledgeBaseBuildSubAgentChatClient") ObjectProvider<ChatClient> knowledgeBaseProvider,
-        @Qualifier("dataTableBuildSubAgentChatClient") ObjectProvider<ChatClient> dataTableProvider) {
+        @Qualifier("dataTableBuildSubAgentChatClient") ObjectProvider<ChatClient> dataTableProvider,
+        @Qualifier("aiAgentBuildSubAgentChatClient") ObjectProvider<ChatClient> aiAgentProvider,
+        @Qualifier("assetFileBuildSubAgentChatClient") ObjectProvider<ChatClient> assetFileProvider,
+        WorkspaceScopeResolver workspaceScopeResolver) {
 
         return () -> {
             List<ToolCallback> toolCallbacks = new ArrayList<>();
@@ -80,22 +85,47 @@ public class ToolCallbackContributorConfiguration {
                 skillsTools -> toolCallbacks.addAll(List.of(ToolCallbacks.from(skillsTools))));
 
             workflowEditorProvider.ifAvailable(
-                chatClient -> toolCallbacks.add(new WorkflowEditorAgentToolCallback(chatClient)));
+                chatClient -> toolCallbacks.add(
+                    new WorkspaceScopedSubAgentToolCallback(
+                        new WorkflowEditorAgentToolCallback(chatClient), workspaceScopeResolver)));
             codeEditorProvider.ifAvailable(
-                chatClient -> toolCallbacks.add(new CodeEditorAgentToolCallback(chatClient)));
+                chatClient -> toolCallbacks.add(
+                    new WorkspaceScopedSubAgentToolCallback(
+                        new CodeEditorAgentToolCallback(chatClient), workspaceScopeResolver)));
             clusterElementProvider.ifAvailable(
-                chatClient -> toolCallbacks.add(new ClusterElementAgentToolCallback(chatClient)));
+                chatClient -> toolCallbacks.add(
+                    new WorkspaceScopedSubAgentToolCallback(
+                        new ClusterElementAgentToolCallback(chatClient), workspaceScopeResolver)));
             skillsProvider.ifAvailable(
-                chatClient -> toolCallbacks.add(new SkillsAgentToolCallback(chatClient)));
+                chatClient -> toolCallbacks.add(
+                    new WorkspaceScopedSubAgentToolCallback(
+                        new SkillsAgentToolCallback(chatClient), workspaceScopeResolver)));
             workflowExecutionProvider.ifAvailable(
-                chatClient -> toolCallbacks.add(new WorkflowExecutionAgentToolCallback(chatClient)));
+                chatClient -> toolCallbacks.add(
+                    new WorkspaceScopedSubAgentToolCallback(
+                        new WorkflowExecutionAgentToolCallback(chatClient), workspaceScopeResolver)));
             converterSupplierProvider.ifAvailable(
                 converterChatClientSupplier -> toolCallbacks.add(
-                    new ConverterAgentToolCallback(converterChatClientSupplier)));
+                    new WorkspaceScopedSubAgentToolCallback(
+                        new ConverterAgentToolCallback(converterChatClientSupplier), workspaceScopeResolver)));
             knowledgeBaseProvider.ifAvailable(
-                chatClient -> toolCallbacks.add(new KnowledgeBaseAgentToolCallback(chatClient)));
+                chatClient -> toolCallbacks.add(
+                    new WorkspaceScopedSubAgentToolCallback(
+                        new KnowledgeBaseAgentToolCallback(chatClient), workspaceScopeResolver)));
             dataTableProvider.ifAvailable(
-                chatClient -> toolCallbacks.add(new DataTableAgentToolCallback(chatClient)));
+                chatClient -> toolCallbacks.add(
+                    new WorkspaceScopedSubAgentToolCallback(
+                        new DataTableAgentToolCallback(chatClient), workspaceScopeResolver)));
+            aiAgentProvider.ifAvailable(
+                chatClient -> toolCallbacks.add(
+                    new WorkspaceScopedSubAgentToolCallback(
+                        new AiAgentAgentToolCallback(chatClient), workspaceScopeResolver)));
+            // MCP has no ASK/BUILD concept and always injects the write-capable chat client, so the tool
+            // description must always advertise the write tool set.
+            assetFileProvider.ifAvailable(
+                chatClient -> toolCallbacks.add(
+                    new WorkspaceScopedSubAgentToolCallback(
+                        new AssetFileAgentToolCallback(chatClient, true), workspaceScopeResolver)));
 
             return toolCallbacks;
         };

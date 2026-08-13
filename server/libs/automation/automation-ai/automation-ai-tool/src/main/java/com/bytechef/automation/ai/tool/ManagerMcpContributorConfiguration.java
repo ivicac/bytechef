@@ -17,7 +17,6 @@
 package com.bytechef.automation.ai.tool;
 
 import com.bytechef.ai.mcp.server.spi.McpServerToolCallbackContributor;
-import com.bytechef.automation.configuration.service.WorkspaceService;
 import java.util.ArrayList;
 import java.util.List;
 import org.springframework.ai.chat.client.ChatClient;
@@ -35,8 +34,8 @@ import org.springframework.context.annotation.Configuration;
  * than {@code ai-hub-service}; the AI-hub {@code personal_agent_manager} keeps its own contributor.
  *
  * <p>
- * Each delegate is wrapped in {@link WorkspaceScopedManagerToolCallback}: the management MCP surface has no AI Hub chat
- * state, so workspace scoping is made explicit at the tool boundary. A missing ChatClient bean skips silently. The
+ * Each delegate is wrapped in {@link WorkspaceScopedSubAgentToolCallback}: the management MCP surface has no AI Hub
+ * chat state, so workspace scoping is made explicit at the tool boundary. A missing ChatClient bean skips silently. The
  * {@code bytechef.ai.hub.enabled} gate is retained so the management-MCP exposure of these managers is unchanged from
  * when they lived in ai-hub-service.
  * </p>
@@ -51,21 +50,21 @@ public class ManagerMcpContributorConfiguration {
     McpServerToolCallbackContributor managerToolCallbackContributor(
         @Qualifier("mcpManagerChatClient") ObjectProvider<ChatClient> mcpManagerChatClientProvider,
         @Qualifier("deploymentManagerChatClient") ObjectProvider<ChatClient> deploymentManagerChatClientProvider,
-        WorkspaceService workspaceService) {
+        WorkspaceScopeResolver workspaceScopeResolver) {
 
         return () -> {
             List<ToolCallback> toolCallbacks = new ArrayList<>();
 
             mcpManagerChatClientProvider.ifAvailable(
                 chatClient -> toolCallbacks.add(
-                    new WorkspaceScopedManagerToolCallback(
-                        McpManagerConfiguration.createMcpManagerToolCallback(chatClient), workspaceService)));
+                    new WorkspaceScopedSubAgentToolCallback(
+                        McpManagerConfiguration.createMcpManagerToolCallback(chatClient), workspaceScopeResolver)));
 
             deploymentManagerChatClientProvider.ifAvailable(
                 chatClient -> toolCallbacks.add(
-                    new WorkspaceScopedManagerToolCallback(
+                    new WorkspaceScopedSubAgentToolCallback(
                         DeploymentManagerConfiguration.createDeploymentManagerToolCallback(chatClient),
-                        workspaceService)));
+                        workspaceScopeResolver)));
 
             return toolCallbacks;
         };
