@@ -60,7 +60,7 @@ const AiSkills = () => {
 
     if (showToolbar) {
         toolbarRight = (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
                 {showSearchAndCreate && (
                     <div className="relative">
                         <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-content-neutral-tertiary" />

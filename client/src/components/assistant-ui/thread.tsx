@@ -46,6 +46,7 @@ import {
   CopyIcon,
   DownloadIcon,
   MicIcon,
+  MicOffIcon,
   MoreHorizontalIcon,
   PencilIcon,
   RefreshCwIcon,
@@ -81,6 +82,18 @@ export type ThreadComponents = {
     | undefined;
 };
 
+/**
+ * Caller-owned voice session state. When supplied via {@link ThreadProps.voice}
+ * and `status` is "active" or "connecting", the composer is replaced by an
+ * inline voice status banner. The transport is owned by the caller — Thread
+ * does not start or wire any voice session itself.
+ */
+export interface ThreadVoiceStateI {
+  isAssistantSpeaking: boolean;
+  status: "idle" | "connecting" | "active" | "error";
+  stop: () => void;
+}
+
 export type ThreadProps = {
   components?: ThreadComponents | undefined;
   /**
@@ -89,6 +102,12 @@ export type ThreadProps = {
    * Ask/Build mode switch or the workflow-test mic button.
    */
   composerActions?: ReactNode | undefined;
+  /**
+   * Placeholder text shown in the empty composer input. Falls back to the
+   * generic "Send a message..." when omitted, so callers that open the panel
+   * for a specific task (e.g. "generate a workflow") can guide the user.
+   */
+  composerPlaceholder?: string | undefined;
   /**
    * Registry mapping data-part names (e.g. "select-connection") to the
    * component that renders them. When provided, assistant messages render their
@@ -109,6 +128,12 @@ export type ThreadProps = {
    * blends into the surrounding page rather than sitting on a gray card.
    */
   transparent?: boolean | undefined;
+  /**
+   * When provided and `status` is "active" or "connecting", the composer is replaced by an inline
+   * voice status banner with a Stop button. The transport is owned by the caller — Thread does not
+   * start or wire any voice session itself.
+   */
+  voice?: ThreadVoiceStateI | undefined;
 };
 
 const EMPTY_COMPONENTS: ThreadComponents = {};
@@ -131,9 +156,11 @@ const isNewChatView = (s: AssistantState) =>
 export const Thread: FC<ThreadProps> = ({
   components = EMPTY_COMPONENTS,
   composerActions,
+  composerPlaceholder,
   dataComponents,
   leadingComposerActions,
   transparent,
+  voice,
 }) => {
   const isEmpty = useAuiState(isNewChatView);
 
@@ -142,9 +169,11 @@ export const Thread: FC<ThreadProps> = ({
       <ThreadDataComponentsContext.Provider value={dataComponents}>
         <ThreadRoot
           composerActions={composerActions}
+          composerPlaceholder={composerPlaceholder}
           isEmpty={isEmpty}
           leadingComposerActions={leadingComposerActions}
           transparent={transparent}
+          voice={voice}
         />
       </ThreadDataComponentsContext.Provider>
     </ThreadComponentsContext.Provider>
@@ -153,10 +182,19 @@ export const Thread: FC<ThreadProps> = ({
 
 const ThreadRoot: FC<{
   composerActions?: ReactNode | undefined;
+  composerPlaceholder?: string | undefined;
   isEmpty: boolean;
   leadingComposerActions?: ReactNode | undefined;
   transparent?: boolean | undefined;
-}> = ({ composerActions, isEmpty, leadingComposerActions, transparent }) => {
+  voice?: ThreadVoiceStateI | undefined;
+}> = ({
+  composerActions,
+  composerPlaceholder,
+  isEmpty,
+  leadingComposerActions,
+  transparent,
+  voice,
+}) => {
   const { Welcome = ThreadWelcome } = useContext(ThreadComponentsContext);
 
   const surfaceClassName = transparent ? "bg-background" : "bg-surface-main";
@@ -210,7 +248,9 @@ const ThreadRoot: FC<{
             <ThreadScrollToBottom />
             <Composer
               composerActions={composerActions}
+              composerPlaceholder={composerPlaceholder}
               leadingComposerActions={leadingComposerActions}
+              voice={voice}
             />
             <AuiIf condition={(s) => isNewChatView(s) && s.composer.isEmpty}>
               <ThreadSuggestions />
@@ -285,13 +325,21 @@ const ThreadSuggestionItem: FC = () => {
 
 type ComposerActionProps = {
   composerActions?: ReactNode | undefined;
+  composerPlaceholder?: string | undefined;
   leadingComposerActions?: ReactNode | undefined;
+  voice?: ThreadVoiceStateI | undefined;
 };
 
 const Composer: FC<ComposerActionProps> = ({
   composerActions,
+  composerPlaceholder,
   leadingComposerActions,
+  voice,
 }) => {
+  if (voice && (voice.status === "active" || voice.status === "connecting")) {
+    return <VoiceComposer voice={voice} />;
+  }
+
   return (
     <ComposerPrimitive.Root className="aui-composer-root relative flex w-full flex-col">
       <ComposerPrimitive.AttachmentDropzone asChild>
@@ -301,7 +349,7 @@ const Composer: FC<ComposerActionProps> = ({
         >
           <ComposerAttachments />
           <ComposerPrimitive.Input
-            placeholder="Send a message..."
+            placeholder={composerPlaceholder ?? "Send a message..."}
             className="aui-composer-input placeholder:text-muted-foreground/80 max-h-32 min-h-10 w-full resize-none border-0 bg-transparent px-2.5 py-1 text-base shadow-none outline-none focus:border-0 focus:shadow-none focus:ring-0 focus-visible:ring-0"
             rows={1}
             autoFocus
@@ -317,6 +365,40 @@ const Composer: FC<ComposerActionProps> = ({
         </div>
       </ComposerPrimitive.AttachmentDropzone>
     </ComposerPrimitive.Root>
+  );
+};
+
+interface VoiceComposerPropsI {
+  voice: ThreadVoiceStateI;
+}
+
+const VoiceComposer: FC<VoiceComposerPropsI> = ({ voice }) => {
+  const status =
+    voice.status === "connecting"
+      ? "Connecting microphone…"
+      : voice.isAssistantSpeaking
+        ? "🔊 Assistant is speaking…"
+        : "🎙 Listening… click stop to end.";
+
+  return (
+    <div className="aui-voice-composer flex items-center justify-between gap-3 rounded-3xl border border-border bg-muted px-4 py-3 shadow-[0_9px_9px_0px_rgba(0,0,0,0.01),0_2px_5px_0px_rgba(0,0,0,0.06)] dark:border-muted-foreground/15">
+      <span className="aui-voice-composer-status text-sm text-muted-foreground">
+        {status}
+      </span>
+
+      <TooltipIconButton
+        tooltip="End voice session"
+        side="top"
+        type="button"
+        variant="default"
+        size="icon"
+        className="aui-voice-composer-stop size-8 rounded-full"
+        aria-label="End voice session"
+        onClick={voice.stop}
+      >
+        <MicOffIcon className="size-4" />
+      </TooltipIconButton>
+    </div>
   );
 };
 
