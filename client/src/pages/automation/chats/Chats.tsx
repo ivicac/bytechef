@@ -30,7 +30,7 @@ const Chats = () => {
                     centerTitle
                     position="main"
                     right={
-                        <div className="flex items-center gap-4">
+                        <div className="flex items-center gap-1">
                             {workflowExecutionId && (
                                 <Tooltip>
                                     <TooltipTrigger asChild>
