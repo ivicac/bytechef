@@ -39,7 +39,7 @@ import org.springframework.ai.tool.ToolCallback;
 /**
  * @author Ivica Cardic
  */
-public class SkillsSpringAIAgent extends CopilotSpringAIAgent {
+public class ProjectSpringAIAgent extends CopilotSpringAIAgent {
 
     private static final String ADDITIONAL_RULES =
         """
@@ -49,7 +49,7 @@ public class SkillsSpringAIAgent extends CopilotSpringAIAgent {
             - If state.workflowExecutionError is not empty, there is an error and you must instruct the user on how to fix it. The user can't modify the code, only the input parameters. If it's impossible to fix the error, instruct the user to raise an issue on our GitHub https://github.com/bytechefhq/bytechef/issues.
             """;
 
-    protected SkillsSpringAIAgent(final Builder builder) throws AGUIException {
+    protected ProjectSpringAIAgent(final Builder builder) throws AGUIException {
         super(builder, builder.overrideChatClientResolver);
     }
 
@@ -72,7 +72,7 @@ public class SkillsSpringAIAgent extends CopilotSpringAIAgent {
             ? this.systemMessageProvider.apply(this) : this.systemMessage;
 
         String message = "%s%n%s%n%s%n%nState:%n%s%n%nContext:%n%s%n".formatted(
-            resolvedMessage, createIntentMessage(state), ADDITIONAL_RULES, state,
+            resolvedMessage, createScopeAndIntentMessage(state), ADDITIONAL_RULES, state,
             String.join("\n", contextStrings));
 
         SystemMessage systemMessage = new SystemMessage();
@@ -84,26 +84,39 @@ public class SkillsSpringAIAgent extends CopilotSpringAIAgent {
     }
 
     /**
-     * Turns the caller-supplied {@code parameters} into an explicit instruction. Two callers exist: the AI Skills
-     * listing page and the skill detail view open the panel with no parameters, and the "Create With AI" menu item
-     * opens it with a create-skill intent. Read explicitly rather than relying on the {@code State:} dump appended
-     * below — that dump is a {@code Map.toString()} the model would have to interpret unaided.
+     * Turns the caller-supplied {@code parameters} into explicit instructions. Two callers exist: the Projects listing
+     * page opens the panel with no parameters, and the "Generate with AI" menu items open it with a project id and an
+     * intent. Read explicitly rather than relying on the {@code State:} dump appended below — that dump is a
+     * {@code Map.toString()} the model would have to interpret unaided.
      *
      * <p>
-     * The header toggle that switches BUILD to ASK preserves {@code parameters}, so the create-skill intent can still
-     * be set when this agent is {@code skills_ask}. The instruction is skipped in ASK mode — "then build it" would
-     * contradict the ASK prompt's read-only rule.
+     * The header toggle that switches BUILD to ASK preserves {@code parameters}, so the generate-workflow intent can
+     * still be set when this agent is {@code project_ask}. The scope sentence (which project is in view) stays useful
+     * there, but the "then build it" instruction is skipped in ASK mode — it would contradict the ASK prompt's "must
+     * NOT create, modify, publish, or delete anything" rule.
      */
-    private String createIntentMessage(State state) {
+    private String createScopeAndIntentMessage(State state) {
         if (!(state.get("parameters") instanceof Map<?, ?> parameters)) {
             return "";
         }
 
         StringBuilder message = new StringBuilder();
 
-        if ("create_skill".equals(parameters.get("intent")) && !getAgentId().endsWith("_ask")) {
+        Object projectId = parameters.get("projectId");
+
+        if (projectId != null) {
             message.append(
-                "The user opened this conversation to create a new skill. Do not wait for a detailed brief — open by asking what the skill should do, then build it.");
+                "The user is working in the project with id %s. Create and modify workflows in that project unless they name a different one."
+                    .formatted(projectId));
+        }
+
+        if ("generate_workflow".equals(parameters.get("intent")) && !getAgentId().endsWith("_ask")) {
+            if (!message.isEmpty()) {
+                message.append("\n");
+            }
+
+            message.append(
+                "The user opened this conversation to create a new workflow. Do not wait for a detailed brief — open by asking what the workflow should do, then build it.");
         }
 
         return message.toString();
@@ -197,9 +210,9 @@ public class SkillsSpringAIAgent extends CopilotSpringAIAgent {
             return this;
         }
 
-        public SkillsSpringAIAgent build() throws AGUIException {
+        public ProjectSpringAIAgent build() throws AGUIException {
 
-            return new SkillsSpringAIAgent(this);
+            return new ProjectSpringAIAgent(this);
         }
     }
 }
