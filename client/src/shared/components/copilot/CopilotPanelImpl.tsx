@@ -14,7 +14,7 @@ import {useAiDefaultModelQuery} from '@/shared/middleware/graphql';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {type SuggestionConfig} from '@assistant-ui/react';
 import {BotMessageSquareIcon, BrainCircuitIcon, MessageSquareXIcon, XIcon} from 'lucide-react';
-import {useEffect, useRef, useState} from 'react';
+import {useCallback, useEffect, useRef, useState} from 'react';
 import {useLocation, useNavigate} from 'react-router-dom';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
@@ -54,22 +54,26 @@ interface CopilotPanelProps {
     source?: Source;
 }
 
-const CopilotPanelContent = ({className, headerClassName, onClose, source}: Omit<CopilotPanelProps, 'open'>) => {
+export const CopilotPanelContent = ({className, headerClassName, onClose, source}: Omit<CopilotPanelProps, 'open'>) => {
     const {
+        composerPlaceholder,
         context,
         generateConversationId,
         resetMessages,
         selectedLlmModel,
         selectedLlmProvider,
+        setComposerPlaceholder,
         setContext,
         setSelectedLlm,
     } = useCopilotStore(
         useShallow((state) => ({
+            composerPlaceholder: state.composerPlaceholder,
             context: state.context,
             generateConversationId: state.generateConversationId,
             resetMessages: state.resetMessages,
             selectedLlmModel: state.selectedLlmModel,
             selectedLlmProvider: state.selectedLlmProvider,
+            setComposerPlaceholder: state.setComposerPlaceholder,
             setContext: state.setContext,
             setSelectedLlm: state.setSelectedLlm,
         }))
@@ -92,36 +96,56 @@ const CopilotPanelContent = ({className, headerClassName, onClose, source}: Omit
         generateConversationId();
     };
 
-    const handleCloseClick = () => {
-        if (onClose) {
-            onClose();
+    const closeGlobalPanel = useCallback(() => {
+        const {globalPanelConversationToken, restoreConversationState, setGlobalPanelConversationToken} =
+            useCopilotStore.getState();
+
+        if (globalPanelConversationToken) {
+            restoreConversationState(globalPanelConversationToken);
         } else {
             setContext({
                 mode: MODE.ASK,
                 parameters: {},
                 source: Source.WORKFLOW_EDITOR,
             });
-            setCopilotPanelOpen(false);
+            setComposerPlaceholder(undefined);
+        }
+
+        setGlobalPanelConversationToken(null);
+        setCopilotPanelOpen(false);
+    }, [setComposerPlaceholder, setContext, setCopilotPanelOpen]);
+
+    const handleCloseClick = () => {
+        if (onClose) {
+            onClose();
+        } else {
+            closeGlobalPanel();
         }
     };
 
     const previousPathnameRef = useRef(location.pathname);
 
     useEffect(() => {
-        if (previousPathnameRef.current !== location.pathname) {
-            previousPathnameRef.current = location.pathname;
-
-            generateConversationId();
-            resetMessages();
+        if (previousPathnameRef.current === location.pathname) {
+            return;
         }
-    }, [generateConversationId, location.pathname, resetMessages]);
+
+        previousPathnameRef.current = location.pathname;
+
+        generateConversationId();
+        resetMessages();
+
+        if (!onClose) {
+            closeGlobalPanel();
+        }
+    }, [closeGlobalPanel, generateConversationId, location.pathname, onClose, resetMessages]);
 
     return (
         <div className={twMerge('relative h-full min-h-[50vh] w-[450px] bg-surface-main', className)}>
             <div
                 className={twMerge(
                     'flex items-center justify-between',
-                    compactHeader ? 'px-4 py-2.5' : 'px-4 py-3',
+                    compactHeader ? 'px-4 py-2.5' : 'p-4',
                     headerClassName
                 )}
             >
@@ -143,7 +167,13 @@ const CopilotPanelContent = ({className, headerClassName, onClose, source}: Omit
                         <TooltipContent>Clean messages</TooltipContent>
                     </Tooltip>
 
-                    <Button icon={<XIcon />} onClick={handleCloseClick} size="icon" variant="ghost" />
+                    <Button
+                        aria-label="Close Copilot panel"
+                        icon={<XIcon />}
+                        onClick={handleCloseClick}
+                        size="icon"
+                        variant="ghost"
+                    />
                 </div>
             </div>
 
@@ -175,6 +205,7 @@ const CopilotPanelContent = ({className, headerClassName, onClose, source}: Omit
                                     />
                                 ) : null
                             }
+                            composerPlaceholder={composerPlaceholder}
                             dataComponents={aiChatDataComponents}
                             leadingComposerActions={
                                 currentWorkspaceId != null ? (

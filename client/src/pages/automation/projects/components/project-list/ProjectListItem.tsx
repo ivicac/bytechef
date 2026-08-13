@@ -1,6 +1,3 @@
-import getCodeWorkflowLanguageLabel, {isJavaCodeWorkflow} from '@/shared/util/codeWorkflowLanguage-utils';
-
-import '@/shared/styles/dropdownMenu.css';
 import AlertDialog from '@/components/AlertDialog';
 import Badge from '@/components/Badge/Badge';
 import Button from '@/components/Button/Button';
@@ -23,7 +20,8 @@ import ProjectPublishDialog from '@/pages/automation/projects/components/Project
 import ProjectListItemDeployButton from '@/pages/automation/projects/components/project-list/ProjectListItemDeployButton';
 import ProjectListItemPublishMenuItem from '@/pages/automation/projects/components/project-list/ProjectListItemPublishMenuItem';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
-import GenerateWorkflowDialog from '@/shared/components/workflow/GenerateWorkflowDialog';
+import useOpenCopilot from '@/shared/components/copilot/hooks/useOpenCopilot';
+import {MODE, Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import WorkflowDialog from '@/shared/components/workflow/WorkflowDialog';
 import EEVersion from '@/shared/edition/EEVersion';
 import {ProjectGitConfigurationI, getProjectGitApi} from '@/shared/edition/project-git/projectGitApi';
@@ -40,6 +38,7 @@ import {ProjectKeys} from '@/shared/queries/automation/projects.queries';
 import {useGetWorkflowQuery} from '@/shared/queries/automation/workflows.queries';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
+import getCodeWorkflowLanguageLabel, {isJavaCodeWorkflow} from '@/shared/util/codeWorkflowLanguage-utils';
 import {useQueryClient} from '@tanstack/react-query';
 import {
     ChevronDownIcon,
@@ -84,7 +83,6 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
     const [showProjectShareDialog, setShowProjectShareDialog] = useState(false);
     const [showPublishProjectDialog, setShowPublishProjectDialog] = useState(false);
     const [showWorkflowDialog, setShowWorkflowDialog] = useState(false);
-    const [showGenerateWorkflowDialog, setShowGenerateWorkflowDialog] = useState(false);
 
     const hiddenFileInputRef = useRef<HTMLInputElement>(null);
     const converterHiddenFileInputRef = useRef<HTMLInputElement>(null);
@@ -95,6 +93,8 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
 
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
+    const openCopilot = useOpenCopilot();
+    const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
 
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
@@ -235,8 +235,8 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
 
             const interactiveSelectors = [
                 '[data-interactive]',
-                '[role="menuitem"]',
-                '.dropdown-menu-item',
+                '[role="menu"]',
+                '[data-radix-dropdown-menu-item]',
                 '[data-radix-dropdown-menu-trigger]',
                 '[data-radix-collapsible-trigger]',
             ].join(', ');
@@ -358,34 +358,44 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
                                                 </Button>
                                             </DropdownMenuTrigger>
 
-                                            <DropdownMenuContent align="end" className="p-0">
-                                                <DropdownMenuItem
-                                                    aria-label="Generate Workflow with AI"
-                                                    className="dropdown-menu-item"
-                                                    onClick={(event) => {
-                                                        event.stopPropagation();
+                                            <DropdownMenuContent align="end">
+                                                {copilotEnabled && (
+                                                    <DropdownMenuItem
+                                                        aria-label="Generate Workflow with AI"
+                                                        icon={<SparklesIcon />}
+                                                        label="Generate with AI"
+                                                        onClick={(event) => {
+                                                            event.stopPropagation();
 
-                                                        setShowGenerateWorkflowDialog(true);
-                                                    }}
-                                                >
-                                                    <SparklesIcon /> Generate with AI
-                                                </DropdownMenuItem>
+                                                            openCopilot({
+                                                                composerPlaceholder:
+                                                                    'When a new Gmail email arrives, post a summary to a Slack channel.',
+                                                                mode: MODE.BUILD,
+                                                                parameters: {
+                                                                    intent: 'generate_workflow',
+                                                                    projectId: project.id,
+                                                                },
+                                                                source: Source.PROJECT,
+                                                            });
+                                                        }}
+                                                    />
+                                                )}
 
                                                 <DropdownMenuItem
                                                     aria-label="Create Workflow from Template"
-                                                    className="dropdown-menu-item"
+                                                    icon={<LayoutTemplateIcon />}
+                                                    label="From Template"
                                                     onClick={(event) => {
                                                         event.stopPropagation();
 
                                                         navigate(`./${project.id}/templates`);
                                                     }}
-                                                >
-                                                    <LayoutTemplateIcon /> From Template
-                                                </DropdownMenuItem>
+                                                />
 
                                                 <DropdownMenuItem
                                                     aria-label="Import Workflow"
-                                                    className="dropdown-menu-item"
+                                                    icon={<UploadIcon />}
+                                                    label="Import Workflow"
                                                     onClick={(event) => {
                                                         event.stopPropagation();
 
@@ -393,25 +403,22 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
                                                             hiddenFileInputRef.current.click();
                                                         }
                                                     }}
-                                                >
-                                                    <UploadIcon /> Import Workflow
-                                                </DropdownMenuItem>
+                                                />
 
                                                 <Tooltip>
                                                     <TooltipTrigger asChild>
                                                         <span className="block">
                                                             <DropdownMenuItem
                                                                 aria-label="Import n8n Workflow"
-                                                                className="dropdown-menu-item"
                                                                 disabled={importN8nWorkflowDisabled}
+                                                                icon={<UploadIcon />}
+                                                                label="Import n8n Workflow"
                                                                 onClick={() => {
                                                                     if (converterHiddenFileInputRef.current) {
                                                                         converterHiddenFileInputRef.current.click();
                                                                     }
                                                                 }}
-                                                            >
-                                                                <UploadIcon /> Import n8n Workflow
-                                                            </DropdownMenuItem>
+                                                            />
                                                         </span>
                                                     </TooltipTrigger>
 
@@ -661,10 +668,6 @@ const ProjectListItem = ({project, projectGitConfiguration, remainingTags}: Proj
                     parentId={project.id}
                     useGetWorkflowQuery={useGetWorkflowQuery}
                 />
-            )}
-
-            {showGenerateWorkflowDialog && project.id != null && (
-                <GenerateWorkflowDialog onClose={() => setShowGenerateWorkflowDialog(false)} projectId={project.id} />
             )}
 
             <input

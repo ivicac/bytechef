@@ -3,8 +3,10 @@ import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCo
 import useCopilotStateContributorRegistry from '@/shared/components/copilot/stores/useCopilotStateContributorRegistry';
 import {MODE, Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
 import useCopilotToolResultHandlerRegistry from '@/shared/components/copilot/stores/useCopilotToolResultHandlerRegistry';
+import {getUserTurnCount} from '@/shared/components/copilot/utils/getUserTurnCount';
 import {SPACE} from '@/shared/constants';
 import {useCallback, useEffect, useRef, useState} from 'react';
+import {toast} from 'sonner';
 
 const APPLIED_MESSAGE = '✓ Applied the sample output.';
 
@@ -29,13 +31,14 @@ export function useSampleOutputCopilot({
 }: UseSampleOutputCopilotParamsI): UseSampleOutputCopilotResultI {
     const [copilotPanelOpen, setCopilotPanelOpen] = useState(false);
 
-    const pendingAppliedRef = useRef<boolean>(false);
+    const appliedTurnRef = useRef<number | null>(null);
+    const conversationTokenRef = useRef<string | null>(null);
 
     const handleCopilotOpen = useCallback(() => {
         const {context, generateConversationId, resetMessages, saveConversationState, setContext} =
             useCopilotStore.getState();
 
-        saveConversationState();
+        conversationTokenRef.current = saveConversationState();
         resetMessages();
         generateConversationId();
 
@@ -50,7 +53,9 @@ export function useSampleOutputCopilot({
     }, [workflowId, workflowNodeName]);
 
     const handleCopilotClose = useCallback(() => {
-        useCopilotStore.getState().restoreConversationState();
+        useCopilotStore.getState().restoreConversationState(conversationTokenRef.current);
+
+        conversationTokenRef.current = null;
 
         setCopilotPanelOpen(false);
     }, []);
@@ -58,28 +63,39 @@ export function useSampleOutputCopilot({
     useEffect(() => {
         const unregisterContributor = useCopilotStateContributorRegistry.getState().register(() => ({
             currentSampleOutput: sampleOutputRef.current,
-            workflowId,
-            workflowNodeName,
+            ...(workflowId === undefined ? {} : {workflowId}),
+            ...(workflowNodeName === undefined ? {} : {workflowNodeName}),
         }));
 
         const unregisterToolResult = useCopilotToolResultHandlerRegistry
             .getState()
             .register('updateSampleOutput', (content) => {
-                const result = parseJson<{sampleOutput?: unknown}>(content, 'updateSampleOutput result');
+                const result = parseJson<{error?: unknown; sampleOutput?: unknown}>(
+                    content,
+                    'updateSampleOutput result'
+                );
 
                 if (result?.sampleOutput !== undefined) {
-                    pendingAppliedRef.current = true;
+                    appliedTurnRef.current = getUserTurnCount();
 
                     onApply(JSON.stringify(result.sampleOutput, null, SPACE));
+
+                    return;
                 }
+
+                const errorMessage = typeof result?.error === 'string' ? result.error : null;
+
+                toast.error(errorMessage ?? 'The assistant could not update the sample output.');
             });
 
         const unregisterPostTurn = useCopilotPostTurnRegistry.getState().register(Source.SAMPLE_OUTPUT, () => {
-            if (!pendingAppliedRef.current) {
+            const appliedTurn = appliedTurnRef.current;
+
+            appliedTurnRef.current = null;
+
+            if (appliedTurn === null || appliedTurn !== getUserTurnCount()) {
                 return;
             }
-
-            pendingAppliedRef.current = false;
 
             useCopilotStore.getState().appendToLastAssistantMessage(APPLIED_MESSAGE);
         });
@@ -90,6 +106,15 @@ export function useSampleOutputCopilot({
             unregisterPostTurn();
         };
     }, [onApply, sampleOutputRef, workflowId, workflowNodeName]);
+
+    useEffect(
+        () => () => {
+            useCopilotStore.getState().restoreConversationState(conversationTokenRef.current);
+
+            conversationTokenRef.current = null;
+        },
+        []
+    );
 
     return {copilotPanelOpen, handleCopilotClose, handleCopilotOpen};
 }
