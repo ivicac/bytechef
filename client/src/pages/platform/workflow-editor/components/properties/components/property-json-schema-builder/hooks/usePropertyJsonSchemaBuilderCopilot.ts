@@ -4,7 +4,9 @@ import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCo
 import useCopilotStateContributorRegistry from '@/shared/components/copilot/stores/useCopilotStateContributorRegistry';
 import {MODE, Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
 import useCopilotToolResultHandlerRegistry from '@/shared/components/copilot/stores/useCopilotToolResultHandlerRegistry';
+import {getUserTurnCount} from '@/shared/components/copilot/utils/getUserTurnCount';
 import {useCallback, useEffect, useRef, useState} from 'react';
+import {toast} from 'sonner';
 
 const APPLIED_MESSAGE = '✓ Applied the schema to the builder.';
 
@@ -33,13 +35,18 @@ export function usePropertyJsonSchemaBuilderCopilot({
 }: UsePropertyJsonSchemaBuilderCopilotParamsI): UsePropertyJsonSchemaBuilderCopilotResultI {
     const [copilotPanelOpen, setCopilotPanelOpen] = useState(false);
 
-    const pendingSchemaRef = useRef<SchemaRecordType | null>(null);
+    const appliedTurnRef = useRef<number | null>(null);
+    const conversationTokenRef = useRef<string | null>(null);
 
     const handleCopilotOpen = useCallback(() => {
+        if (conversationTokenRef.current !== null) {
+            return;
+        }
+
         const {context, generateConversationId, resetMessages, saveConversationState, setContext} =
             useCopilotStore.getState();
 
-        saveConversationState();
+        conversationTokenRef.current = saveConversationState();
         resetMessages();
         generateConversationId();
 
@@ -54,7 +61,9 @@ export function usePropertyJsonSchemaBuilderCopilot({
     }, [propertyPath, title, workflowId, workflowNodeName]);
 
     const handleCopilotClose = useCallback(() => {
-        useCopilotStore.getState().restoreConversationState();
+        useCopilotStore.getState().restoreConversationState(conversationTokenRef.current);
+
+        conversationTokenRef.current = null;
 
         setCopilotPanelOpen(false);
     }, []);
@@ -62,29 +71,38 @@ export function usePropertyJsonSchemaBuilderCopilot({
     useEffect(() => {
         const unregisterContributor = useCopilotStateContributorRegistry.getState().register(() => ({
             currentJsonSchema: schemaRef.current,
-            propertyPath,
-            workflowId,
-            workflowNodeName,
+            ...(propertyPath === undefined ? {} : {propertyPath}),
+            ...(workflowId === undefined ? {} : {workflowId}),
+            ...(workflowNodeName === undefined ? {} : {workflowNodeName}),
         }));
 
         const unregisterToolResult = useCopilotToolResultHandlerRegistry
             .getState()
             .register('updateJsonSchema', (content) => {
-                const result = parseJson<{schema?: SchemaRecordType}>(content, 'updateJsonSchema result');
+                const result = parseJson<{error?: unknown; schema?: SchemaRecordType}>(
+                    content,
+                    'updateJsonSchema result'
+                );
 
                 if (result?.schema) {
-                    pendingSchemaRef.current = result.schema;
+                    appliedTurnRef.current = getUserTurnCount();
 
                     onSchemaApply(result.schema);
+
+                    return;
                 }
+
+                const errorMessage = typeof result?.error === 'string' ? result.error : null;
+
+                toast.error(errorMessage ?? 'The assistant could not update the schema.');
             });
 
         const unregisterPostTurn = useCopilotPostTurnRegistry.getState().register(Source.JSON_SCHEMA_BUILDER, () => {
-            const schema = pendingSchemaRef.current;
+            const appliedTurn = appliedTurnRef.current;
 
-            pendingSchemaRef.current = null;
+            appliedTurnRef.current = null;
 
-            if (schema == null) {
+            if (appliedTurn === null || appliedTurn !== getUserTurnCount()) {
                 return;
             }
 
@@ -97,6 +115,15 @@ export function usePropertyJsonSchemaBuilderCopilot({
             unregisterPostTurn();
         };
     }, [onSchemaApply, propertyPath, schemaRef, workflowId, workflowNodeName]);
+
+    useEffect(
+        () => () => {
+            useCopilotStore.getState().restoreConversationState(conversationTokenRef.current);
+
+            conversationTokenRef.current = null;
+        },
+        []
+    );
 
     return {copilotPanelOpen, handleCopilotClose, handleCopilotOpen};
 }

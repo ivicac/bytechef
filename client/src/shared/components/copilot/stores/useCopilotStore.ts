@@ -23,8 +23,12 @@ export enum Source {
     JSON_SCHEMA_BUILDER = 'JSON_SCHEMA_BUILDER',
     SAMPLE_OUTPUT = 'SAMPLE_OUTPUT',
     // Coarse surfaces dispatched by CopilotApiController: workflow editor / code workflow, each with an
-    // embedded (integration) counterpart. Values are lowercase to match the server-side dispatch keys and
-    // the `/api/platform/internal/ai/chat/{source}` URL segment.
+    // embedded (integration) counterpart. These values happen to already be lowercase, matching the
+    // server-side dispatch key and the `/api/platform/internal/ai/chat/{source}` URL segment directly —
+    // but that's incidental, not required: CopilotRuntimeProvider lowercases every Source value
+    // (including the UPPER_CASE ones below, e.g. DATA_TABLE, AI_AGENT) before building the request URL.
+    // New domain sources should follow the UPPER_CASE = 'UPPER_CASE' convention used elsewhere in this
+    // enum, not this block's lowercase style.
     CODE_WORKFLOW = 'code_workflow',
     CODE_WORKFLOW_EMBEDDED = 'code_workflow_embedded',
     CUSTOM_COMPONENT = 'custom_component',
@@ -33,6 +37,13 @@ export enum Source {
     CONTEXT_STORE = 'CONTEXT_STORE',
     KNOWLEDGE_BASE = 'KNOWLEDGE_BASE',
     DATA_TABLE = 'DATA_TABLE',
+    AI_AGENT = 'AI_AGENT',
+    DEPLOYMENT = 'DEPLOYMENT',
+    PROJECT = 'PROJECT',
+    PROJECT_DEPLOYMENT = 'PROJECT_DEPLOYMENT',
+    MCP_SERVER = 'MCP_SERVER',
+    API_COLLECTION = 'API_COLLECTION',
+    ASSET_FILE = 'ASSET_FILE',
 }
 
 export type ContextType = {
@@ -49,7 +60,8 @@ export type ContextType = {
     };
 };
 
-interface ConversationSnapshotI {
+export interface ConversationSnapshotI {
+    composerPlaceholder: string | undefined;
     context: ContextType;
     conversationId: string | undefined;
     messages: ThreadMessageLike[];
@@ -64,6 +76,11 @@ interface CopilotStateI {
 
     context: ContextType;
     setContext: (context: ContextType | undefined) => void;
+
+    // Cosmetic composer guidance, kept out of ContextType so it is never spread into the AG-UI state sent
+    // to the backend (CopilotRuntimeProvider sends `context` verbatim as agent state).
+    composerPlaceholder: string | undefined;
+    setComposerPlaceholder: (composerPlaceholder: string | undefined) => void;
 
     setWorkflowExecutionError: (
         workflowExecutionError:
@@ -116,6 +133,9 @@ export const useCopilotStore = create<CopilotStateI>()(
                     context,
                 };
             }),
+
+        composerPlaceholder: undefined,
+        setComposerPlaceholder: (composerPlaceholder) => set({composerPlaceholder}),
 
         setWorkflowExecutionError: (error) =>
             set((state) => {
@@ -194,6 +214,7 @@ export const useCopilotStore = create<CopilotStateI>()(
 
             set((state) => {
                 const snapshot: ConversationSnapshotI = {
+                    composerPlaceholder: state.composerPlaceholder,
                     context: state.context,
                     conversationId: state.conversationId,
                     messages: state.messages,
@@ -223,8 +244,11 @@ export const useCopilotStore = create<CopilotStateI>()(
                     return state;
                 }
 
-                const top = state.conversationStack.at(-1);
+                const top = state.conversationStack[state.conversationStack.length - 1];
 
+                // A token identifies the entry its own save pushed. The pop is strictly conditional on that
+                // token matching the top of the stack — a `null` token (the surface never pushed) can never
+                // match a real token string, so it always no-ops here rather than taking an unconditional pop.
                 if (top?.token !== token) {
                     return state;
                 }
@@ -234,6 +258,7 @@ export const useCopilotStore = create<CopilotStateI>()(
 
                 return {
                     ...state,
+                    composerPlaceholder: snapshot.composerPlaceholder,
                     context: snapshot.context,
                     conversationId: snapshot.conversationId,
                     conversationStack: nextStack,

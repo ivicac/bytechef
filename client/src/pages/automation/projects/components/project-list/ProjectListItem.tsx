@@ -1,6 +1,3 @@
-import getCodeWorkflowLanguageLabel, {isJavaCodeWorkflow} from '@/shared/util/codeWorkflowLanguage-utils';
-
-import '@/shared/styles/dropdownMenu.css';
 import AlertDialog from '@/components/AlertDialog';
 import Badge from '@/components/Badge/Badge';
 import Button from '@/components/Button/Button';
@@ -27,6 +24,8 @@ import ProjectListItemTabs, {
     ProjectListItemTabType,
 } from '@/pages/automation/projects/components/project-list/ProjectListItemTabs';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
+import useOpenCopilot from '@/shared/components/copilot/hooks/useOpenCopilot';
+import {MODE, Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import WorkflowDialog from '@/shared/components/workflow/WorkflowDialog';
 import {DEVELOPMENT_ENVIRONMENT} from '@/shared/constants';
 import EEVersion from '@/shared/edition/EEVersion';
@@ -44,23 +43,9 @@ import {ProjectKeys} from '@/shared/queries/automation/projects.queries';
 import {useGetWorkflowQuery} from '@/shared/queries/automation/workflows.queries';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
+import getCodeWorkflowLanguageLabel, {isJavaCodeWorkflow} from '@/shared/util/codeWorkflowLanguage-utils';
 import {useQueryClient} from '@tanstack/react-query';
-import {
-    ChevronDownIcon,
-    CopyIcon,
-    DownloadIcon,
-    EditIcon,
-    EllipsisVerticalIcon,
-    GitBranchIcon,
-    GitPullRequestArrowIcon,
-    LayoutTemplateIcon,
-    LoaderCircleIcon,
-    PlusIcon,
-    Share2Icon,
-    Trash2Icon,
-    UploadIcon,
-    WorkflowIcon,
-} from 'lucide-react';
+import {ChevronDownIcon, CopyIcon, DownloadIcon, EditIcon, EllipsisVerticalIcon, GitBranchIcon, GitPullRequestArrowIcon, LayoutTemplateIcon, LoaderCircleIcon, PlusIcon, Share2Icon, SparklesIcon, Trash2Icon, UploadIcon, WorkflowIcon} from 'lucide-react';
 import {MouseEvent, ReactNode, Suspense, lazy, useCallback, useRef, useState} from 'react';
 import {Link, useNavigate, useSearchParams} from 'react-router-dom';
 import {toast} from 'sonner';
@@ -113,6 +98,8 @@ const ProjectListItem = ({
         projectId: project.id,
     });
     const [searchParams] = useSearchParams();
+    const openCopilot = useOpenCopilot();
+    const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
 
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
@@ -255,8 +242,8 @@ const ProjectListItem = ({
 
             const interactiveSelectors = [
                 '[data-interactive]',
-                '[role="menuitem"]',
-                '.dropdown-menu-item',
+                '[role="menu"]',
+                '[data-radix-dropdown-menu-item]',
                 '[data-radix-dropdown-menu-trigger]',
                 '[data-radix-collapsible-trigger]',
             ].join(', ');
@@ -576,6 +563,28 @@ const ProjectListItem = ({
                                     </DropdownMenuTrigger>
 
                                     <DropdownMenuContent align="end">
+                                        {copilotEnabled && (
+                                            <DropdownMenuItem
+                                                aria-label="Generate Workflow with AI"
+                                                icon={<SparklesIcon />}
+                                                label="Generate with AI"
+                                                onClick={(event) => {
+                                                    event.stopPropagation();
+
+                                                    openCopilot({
+                                                        composerPlaceholder:
+                                                            'When a new Gmail email arrives, post a summary to a Slack channel.',
+                                                        mode: MODE.BUILD,
+                                                        parameters: {
+                                                            intent: 'generate_workflow',
+                                                            projectId: project.id,
+                                                        },
+                                                        source: Source.PROJECT,
+                                                    });
+                                                }}
+                                            />
+                                        )}
+
                                         <DropdownMenuItem
                                             aria-label="Create Workflow from Template"
                                             icon={<LayoutTemplateIcon />}
