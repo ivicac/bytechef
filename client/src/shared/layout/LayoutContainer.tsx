@@ -1,13 +1,14 @@
-import {PropsWithChildren, ReactNode, useEffect, useState} from 'react';
+import {PropsWithChildren, ReactNode, useEffect, useMemo, useState} from 'react';
 import {twMerge} from 'tailwind-merge';
 
-import LeftSidebarToggleContext, {useLeftSidebarToggle} from './LeftSidebarToggleContext';
+import LeftSidebarToggleContext from './LeftSidebarToggleContext';
 
 interface SidebarContentLayoutProps {
     className?: string;
     footer?: ReactNode;
     header?: ReactNode;
     leftSidebarAnimate?: boolean;
+    rightSidebarAnimate?: boolean;
     leftSidebarBody?: ReactNode;
     leftSidebarClass?: string;
     leftSidebarHeader?: ReactNode;
@@ -24,7 +25,7 @@ interface SidebarContentLayoutProps {
     rightSidebarClass?: string;
     rightSidebarHeader?: ReactNode;
     rightSidebarOpen?: boolean;
-    rightSidebarWidth?: '96' | '460';
+    rightSidebarWidth?: '96' | '450' | '460';
     rightToolbarBody?: ReactNode;
     rightToolbarClass?: string;
     rightToolbarOpen?: boolean;
@@ -41,6 +42,7 @@ const leftSidebarWidths = {
 
 const rightSidebarWidths = {
     96: 'w-96',
+    450: 'w-[450px]',
     460: 'w-[460px]',
 };
 
@@ -55,9 +57,10 @@ const LayoutContainer = ({
     leftSidebarHeader,
     leftSidebarOnMouseEnter,
     leftSidebarOnMouseLeave,
-    leftSidebarOpen = true,
+    leftSidebarOpen,
     leftSidebarOverlay = false,
     leftSidebarWidth = '64',
+    rightSidebarAnimate = false,
     rightSidebarBody,
     rightSidebarClass,
     rightSidebarHeader,
@@ -68,6 +71,23 @@ const LayoutContainer = ({
     rightToolbarOpen = false,
     topHeader,
 }: PropsWithChildren<SidebarContentLayoutProps>) => {
+    // Uncontrolled by default so the header's toggle works on any page with a sidebar without that page
+    // owning the state. A page that passes leftSidebarOpen keeps full control — the ones that drive it from
+    // their own logic (the AI Hub peek, the agent detail page) must not have it toggled out from under them.
+    const [uncontrolledLeftSidebarOpen, setUncontrolledLeftSidebarOpen] = useState(true);
+
+    const isLeftSidebarControlled = leftSidebarOpen !== undefined;
+    const leftSidebarIsOpen = isLeftSidebarControlled ? leftSidebarOpen : uncontrolledLeftSidebarOpen;
+
+    const leftSidebarToggle = useMemo(
+        () => ({
+            hasLeftSidebar: !!leftSidebarBody && !isLeftSidebarControlled,
+            leftSidebarOpen: leftSidebarIsOpen,
+            toggleLeftSidebar: () => setUncontrolledLeftSidebarOpen((open) => !open),
+        }),
+        [isLeftSidebarControlled, leftSidebarBody, leftSidebarIsOpen]
+    );
+
     // Keep the left sidebar mounted for 300ms after it closes so it can slide out (translate) before
     // unmounting, mirroring the slide-in on open. Pages that never toggle leftSidebarOpen keep this
     // permanently true, so they see no behavior change — only the transform/padding transitions, which
@@ -75,9 +95,28 @@ const LayoutContainer = ({
     // The aside is shown either docked (reserves space via content padding) or as a floating overlay
     // (the AI Hub peek). Mount + slide track this combined flag; only the content padding below stays
     // keyed on `leftSidebarOpen` so an overlay never reflows the content.
-    const asideVisible = leftSidebarOpen || leftSidebarOverlay;
+    const asideVisible = leftSidebarIsOpen || leftSidebarOverlay;
 
+    const [rightAsideMounted, setRightAsideMounted] = useState(false);
     const [leftAsideMounted, setLeftAsideMounted] = useState(asideVisible);
+
+    // Kept mounted for the length of the close transition so the width has somewhere to animate to;
+    // mirrors the left sidebar's own delayed unmount.
+    useEffect(() => {
+        if (!rightSidebarAnimate) {
+            return;
+        }
+
+        if (rightSidebarOpen) {
+            setRightAsideMounted(true);
+
+            return;
+        }
+
+        const timerId = setTimeout(() => setRightAsideMounted(false), 300);
+
+        return () => clearTimeout(timerId);
+    }, [rightSidebarAnimate, rightSidebarOpen]);
 
     useEffect(() => {
         if (asideVisible) {
@@ -101,42 +140,43 @@ const LayoutContainer = ({
     }, [asideVisible, leftSidebarAnimate]);
 
     return (
-        <div className={twMerge('size-full overflow-auto', className)}>
-            {leftAsideMounted && (
-                <aside
-                    className={twMerge(
-                        'hidden border-r border-r-border/50 bg-muted/50 lg:flex lg:flex-col',
-                        'lg:fixed lg:inset-y-0',
-                        leftSidebarAnimate && 'transition-transform duration-300 ease-in-out',
-                        asideVisible ? 'lg:translate-x-0' : 'lg:-translate-x-full',
-                        // Floating peek: lift above the content and cast a shadow so it reads as an overlay
-                        // rather than part of the flow (it reserves no space). The docked sidebar's
-                        // `bg-muted/50` is semi-transparent — fine over the opaque page, but it would let
-                        // the content bleed through when floating, so force an OPAQUE background here.
-                        leftSidebarOverlay && 'z-40 bg-muted shadow-lg',
-                        leftSidebarClass,
-                        leftSidebarWidths[leftSidebarWidth][0]
-                    )}
-                    onMouseEnter={leftSidebarOnMouseEnter}
-                    onMouseLeave={leftSidebarOnMouseLeave}
-                >
-                    <nav className="flex h-full flex-col">
-                        {leftSidebarHeader}
+        <LeftSidebarToggleContext.Provider value={leftSidebarToggle}>
+            <div className={twMerge('size-full overflow-auto', className)}>
+                {leftAsideMounted && (
+                    <aside
+                        className={twMerge(
+                            'hidden border-r border-r-border/50 bg-muted/50 lg:flex lg:flex-col',
+                            'lg:fixed lg:inset-y-0',
+                            leftSidebarAnimate && 'transition-transform duration-300 ease-in-out',
+                            asideVisible ? 'lg:translate-x-0' : 'lg:-translate-x-full',
+                            // Floating peek: lift above the content and cast a shadow so it reads as an overlay
+                            // rather than part of the flow (it reserves no space). The docked sidebar's
+                            // `bg-muted/50` is semi-transparent — fine over the opaque page, but it would let
+                            // the content bleed through when floating, so force an OPAQUE background here.
+                            leftSidebarOverlay && 'z-40 bg-muted shadow-lg',
+                            leftSidebarClass,
+                            leftSidebarWidths[leftSidebarWidth][0]
+                        )}
+                        onMouseEnter={leftSidebarOnMouseEnter}
+                        onMouseLeave={leftSidebarOnMouseLeave}
+                    >
+                        <nav className="flex h-full flex-col">
+                            {leftSidebarHeader}
 
-                        <div className="size-full overflow-y-auto px-2 pb-4">{leftSidebarBody}</div>
-                    </nav>
-                </aside>
-            )}
-
-            <div
-                className={twMerge(
-                    'size-full',
-                    leftSidebarAnimate && 'transition-[padding] duration-300 ease-in-out',
-                    topHeader && 'flex flex-col',
-                    leftSidebarOpen && leftSidebarWidths[leftSidebarWidth][1]
+                            <div className="size-full overflow-y-auto">{leftSidebarBody}</div>
+                        </nav>
+                    </aside>
                 )}
-            >
-                {topHeader}
+
+                <div
+                    className={twMerge(
+                        'size-full',
+                        leftSidebarAnimate && 'transition-[padding] duration-300 ease-in-out',
+                        topHeader && 'flex flex-col',
+                        leftSidebarIsOpen && leftSidebarWidths[leftSidebarWidth][1]
+                    )}
+                >
+                    {topHeader}
 
                     <div className="flex size-full">
                         <main className="flex size-full flex-col">
@@ -147,8 +187,20 @@ const LayoutContainer = ({
                             {footer}
                         </main>
 
-                        {rightSidebarOpen && !!rightSidebarBody && (
-                            <aside className={twMerge('hidden lg:flex lg:shrink-0', rightSidebarClass)}>
+                        {(rightSidebarOpen || (rightSidebarAnimate && rightAsideMounted)) && !!rightSidebarBody && (
+                            // Animated: the aside stays mounted through the close so the width can transition to
+                            // zero — a conditional render has no prior width to animate from, which is why the
+                            // panel used to appear and vanish instantly while the copilot slid. The inner width is
+                            // fixed and the OUTER one collapses, so the content does not reflow as it slides.
+                            <aside
+                                className={twMerge(
+                                    'hidden overflow-hidden lg:flex lg:shrink-0',
+                                    rightSidebarAnimate && 'transition-[width] duration-300 ease-in-out',
+                                    rightSidebarAnimate &&
+                                        (rightSidebarOpen ? rightSidebarWidths[rightSidebarWidth] : 'w-0'),
+                                    rightSidebarClass
+                                )}
+                            >
                                 <div className={twMerge('flex', rightSidebarWidths[rightSidebarWidth])}>
                                     <div className="flex h-full flex-1 flex-col">
                                         {rightSidebarHeader}

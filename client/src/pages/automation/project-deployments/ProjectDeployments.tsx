@@ -210,7 +210,7 @@ const ProjectDeployments = () => {
                     />
                 </>
             }
-            leftSidebarHeader={<Header position="sidebar" title="Deployments" />}
+            leftSidebarHeader={<Header position="sidebar" title="Project Deployments" />}
             leftSidebarWidth="64"
         >
             <PageLoader
