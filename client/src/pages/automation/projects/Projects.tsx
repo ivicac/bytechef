@@ -148,7 +148,7 @@ const Projects = () => {
 
                                         <DropdownMenu>
                                             <DropdownMenuTrigger asChild>
-                                                <Button>
+                                                <Button aria-label="More create options">
                                                     <ChevronDownIcon />
                                                 </Button>
                                             </DropdownMenuTrigger>
@@ -227,7 +227,7 @@ const Projects = () => {
 
                                 <DropdownMenu>
                                     <DropdownMenuTrigger asChild>
-                                        <Button>
+                                        <Button aria-label="More create options">
                                             <ChevronDownIcon />
                                         </Button>
                                     </DropdownMenuTrigger>
