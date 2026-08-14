@@ -1,6 +1,5 @@
 import {ButtonGroup} from '@/components/ui/button-group';
 import DeployButton from '@/pages/automation/project/components/project-header/components/DeployButton';
-import LeftSidebarButton from '@/pages/automation/project/components/project-header/components/LeftSidebarButton';
 import OutputPanelButton from '@/pages/automation/project/components/project-header/components/OutputButton';
 import ProjectBreadcrumb from '@/pages/automation/project/components/project-header/components/ProjectBreadcrumb';
 import ProjectItemSelect from '@/pages/automation/project/components/project-header/components/ProjectItemSelect';
@@ -17,6 +16,7 @@ import useWorkflowDataStore from '@/pages/platform/workflow-editor/stores/useWor
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import LoadingIndicator from '@/shared/components/LoadingIndicator';
 import useCopilotLayoutShifted from '@/shared/components/copilot/hooks/useCopilotLayoutShifted';
+import LeftSidebarButton from '@/shared/layout/LeftSidebarButton';
 import {UpdateWorkflowMutationType} from '@/shared/types';
 import {onlineManager, useIsMutating} from '@tanstack/react-query';
 import {RefObject, useSyncExternalStore} from 'react';
