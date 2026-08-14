@@ -71,8 +71,8 @@ public class ProjectWorkflowAgentToolCallback implements ToolCallback {
     private final CopilotAgentType agentType;
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public WorkflowEditorAgentToolCallback(ChatClient workflowEditorChatClient) {
-        this(workflowEditorChatClient, "workflow_editor_agent", DESCRIPTION, CopilotAgentType.WORKFLOW_EDITOR_AGENT);
+    public ProjectWorkflowAgentToolCallback(ChatClient workflowEditorChatClient) {
+        this(workflowEditorChatClient, "project_workflow_agent", DESCRIPTION, CopilotAgentType.PROJECT_WORKFLOW_AGENT);
     }
 
     /**
@@ -80,7 +80,7 @@ public class ProjectWorkflowAgentToolCallback implements ToolCallback {
      * the parent agent expose a distinct tool name/description and bind the correct agent type for the subagent call.
      */
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public WorkflowEditorAgentToolCallback(
+    public ProjectWorkflowAgentToolCallback(
         ChatClient workflowEditorChatClient, String toolName, String description, CopilotAgentType agentType) {
 
         this.workflowEditorChatClient = workflowEditorChatClient;
@@ -139,14 +139,14 @@ public class ProjectWorkflowAgentToolCallback implements ToolCallback {
             return trailer == null ? result : result + trailer;
         } catch (JacksonException exception) {
             log.warn(
-                "buildWorkflow rejected malformed tool input: {} — first 200 chars of input: {}",
+                "project_workflow_agent rejected malformed tool input: {} — first 200 chars of input: {}",
                 exception.getMessage(),
                 toolInput == null ? "<null>" : toolInput.substring(0, Math.min(toolInput.length(), 200)));
 
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (RuntimeException exception) {
             return ToolErrors.runtimeFailure(
-                ProjectWorkflowAgentToolCallback.class, "buildWorkflow", exception);
+                ProjectWorkflowAgentToolCallback.class, "project_workflow_agent", exception);
         }
     }
 

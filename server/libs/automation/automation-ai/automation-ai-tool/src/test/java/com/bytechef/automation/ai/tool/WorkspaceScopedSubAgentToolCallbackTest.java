@@ -56,7 +56,7 @@ class WorkspaceScopedSubAgentToolCallbackTest {
     @Test
     void testToolDefinitionKeepsDelegateNameAndExtendsSchema() {
         assertThat(toolCallback.getToolDefinition()
-            .name()).isEqualTo("mcp_manager");
+            .name()).isEqualTo("mcp_agent");
         assertThat(toolCallback.getToolDefinition()
             .inputSchema()).contains("workspaceId")
                 .contains("environment");
@@ -215,13 +215,13 @@ class WorkspaceScopedSubAgentToolCallbackTest {
      * Fake delegate that records the forwarded input and ToolContext and answers directly, so the wrapper's behaviour
      * is observable without stubbing the specialist's ChatClient chain.
      */
-    private static final class ContextCapturingDelegate extends ManagerSubAgentToolCallback {
+    private static final class ContextCapturingDelegate extends SubAgentToolCallback {
 
         private Map<String, Object> capturedContext;
         private String capturedInput;
 
         ContextCapturingDelegate() {
-            super(ManagerAgentType.MCP_MANAGER, mock(ChatClient.class), "Manages MCP servers.");
+            super(AutomationSubAgentType.MCP_AGENT, mock(ChatClient.class), "Manages MCP servers.");
         }
 
         @Override
