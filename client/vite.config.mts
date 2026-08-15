@@ -18,25 +18,24 @@ export default ({mode}) => {
 
     return defineConfig({
         build: {
+            manifest: true,
             rollupOptions: {
                 input: {
-                    automationHub: resolve(__dirname, 'automation-hub.html'),
-                    connect: resolve(__dirname, 'connect.html'),
-                    integrationMarketplace: resolve(__dirname, 'integration-marketplace.html'),
-                    main: resolve(__dirname, 'index.html'),
-                    workflowBuilder: resolve(__dirname, 'workflow-builder.html'),
+                    connect: resolve(import.meta.dirname, 'connect.html'),
+                    main: resolve(import.meta.dirname, 'index.html'),
+                    workflowBuilder: resolve(import.meta.dirname, 'workflow-builder.html'),
                 },
                 output: {
                     manualChunks(id) {
-                        if (id.includes('posthog-js')) {
-                            return 'vendor-analytics';
-                        }
-
                         if (id.includes('@tanstack/react-query')) {
                             return 'vendor-query';
                         }
 
-                        if (id.includes('/react/') || id.includes('/react-dom/') || id.includes('/react-router-dom/')) {
+                        if (
+                            id.includes('/node_modules/react/') ||
+                            id.includes('/node_modules/react-dom/') ||
+                            id.includes('/node_modules/react-router-dom/')
+                        ) {
                             return 'vendor-react';
                         }
 
@@ -61,13 +60,9 @@ export default ({mode}) => {
             dedupe: ['react', 'react-dom'],
             tsconfigPaths: true,
             alias: {
-                '@': path.resolve(__dirname, './src'),
-                '@bytechef/embedded': path.resolve(__dirname, '../sdks/frontend/embedded/library/src/main.ts'),
-                '@dagrejs/dagre': path.resolve(__dirname, 'node_modules/@dagrejs/dagre/dist/dagre.cjs'),
-                'monaco-editor/esm/vs/editor/editor.worker.js': path.resolve(
-                    __dirname,
-                    'node_modules/monaco-editor/esm/vs/editor/editor.worker.js'
-                ),
+                '@': path.resolve(import.meta.dirname, './src'),
+                '@bytechef/embedded': path.resolve(import.meta.dirname, '../sdks/frontend/embedded/library/src/main.ts'),
+                '@dagrejs/dagre': path.resolve(import.meta.dirname, 'node_modules/@dagrejs/dagre/dist/dagre.cjs'),
             },
         },
         server: {
