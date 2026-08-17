@@ -41,17 +41,17 @@ import org.springframework.ai.tool.ToolCallback;
  * @author Ivica Cardic
  */
 @ExtendWith(ObjectMapperSetupExtension.class)
-class AiAgentUtilsApprovalGateTest {
+class AiAgentUtilsApprovalGateToolTest {
 
     private final ClusterElementToolCallbacks clusterElementToolCallbacks = mock(ClusterElementToolCallbacks.class);
-    private final AiAgentUtilsApprovalGate approvalGate = new AiAgentUtilsApprovalGate(
+    private final AiAgentUtilsApprovalGateTool approvalGateTool = new AiAgentUtilsApprovalGateTool(
         clusterElementToolCallbacks, mock(ClusterElementDefinitionService.class), null);
 
     @Test
     void testGateIsATypeOfTool() {
-        ClusterElementDefinition<?> clusterElementDefinition = approvalGate.clusterElementDefinition;
+        ClusterElementDefinition<?> clusterElementDefinition = approvalGateTool.clusterElementDefinition;
 
-        assertThat(clusterElementDefinition.getName()).isEqualTo("approvalGate");
+        assertThat(clusterElementDefinition.getName()).isEqualTo("approvalGateTool");
 
         ClusterElementDefinition.ClusterElementType clusterElementType = clusterElementDefinition.getType();
 
@@ -60,7 +60,7 @@ class AiAgentUtilsApprovalGateTest {
 
     @Test
     void testGateDeclaresNameAndExpiryProperties() {
-        ClusterElementDefinition<?> clusterElementDefinition = approvalGate.clusterElementDefinition;
+        ClusterElementDefinition<?> clusterElementDefinition = approvalGateTool.clusterElementDefinition;
 
         List<String> propertyNames = clusterElementDefinition.getProperties()
             .stream()
@@ -72,21 +72,21 @@ class AiAgentUtilsApprovalGateTest {
 
     @Test
     void testRejectsTheSuspendingApprovalToolAsAChild() {
-        assertThatThrownBy(() -> AiAgentUtilsApprovalGate.checkGatableChild("approval", "requestApproval"))
+        assertThatThrownBy(() -> AiAgentUtilsApprovalGateTool.checkGatableChild("approval", "requestApproval"))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("requestApproval");
     }
 
     @Test
     void testRejectsANestedGate() {
-        assertThatThrownBy(() -> AiAgentUtilsApprovalGate.checkGatableChild("aiAgentUtils", "approvalGate"))
+        assertThatThrownBy(() -> AiAgentUtilsApprovalGateTool.checkGatableChild("aiAgentUtils", "approvalGateTool"))
             .isInstanceOf(IllegalStateException.class)
             .hasMessageContaining("approval gate");
     }
 
     @Test
     void testAcceptsAnOrdinaryTool() {
-        AiAgentUtilsApprovalGate.checkGatableChild("aiAgentUtils", "grepTool");
+        AiAgentUtilsApprovalGateTool.checkGatableChild("aiAgentUtils", "grepTool");
     }
 
     /**
@@ -98,7 +98,7 @@ class AiAgentUtilsApprovalGateTest {
         when(clusterElementToolCallbacks.build(any(), any(), any()))
             .thenReturn(List.of(mock(ToolCallback.class), mock(ToolCallback.class)));
 
-        List<ToolCallback> toolCallbacks = approvalGate.buildGatedToolCallbacks(
+        List<ToolCallback> toolCallbacks = approvalGateTool.buildGatedToolCallbacks(
             gateClusterElementMap(), Map.of(), actionContext(), null);
 
         assertThat(toolCallbacks).hasSize(2);
@@ -107,7 +107,7 @@ class AiAgentUtilsApprovalGateTest {
 
     @Test
     void testAGateWithNoToolsContributesNothing() {
-        List<ToolCallback> toolCallbacks = approvalGate.buildGatedToolCallbacks(
+        List<ToolCallback> toolCallbacks = approvalGateTool.buildGatedToolCallbacks(
             ClusterElementMap.of(Map.of()), Map.of(), actionContext(), null);
 
         assertThat(toolCallbacks).isEmpty();
