@@ -205,6 +205,11 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
     }
 
     @Override
+    // isAuthenticated rather than a workflow permission: there is no workflow to scope this to. It evaluates a
+    // component definition's own conditions against parameters the caller already holds, reads nothing stored,
+    // and returns only which of that definition's conditions hold — the definitions themselves are readable by
+    // any authenticated user.
+    @PreAuthorize("isAuthenticated()")
     public Map<String, Boolean> getDisplayConditions(
         String componentName, int componentVersion, String operationName, OperationType operationType,
         Map<String, ?> parameters) {
@@ -237,8 +242,19 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
             case TRIGGER -> WorkflowNodeStructure.OperationType.TRIGGER;
         };
 
-        return checkDisplayConditionsAndParameters(
-            "", structureOperationType, parameters, Map.of(), Map.of(), properties, false, Map.of());
+        Map<String, Boolean> displayConditionMap = new HashMap<>();
+
+        // Empty input map and previous outputs: a standalone form has no data pills and no upstream nodes, so a
+        // condition can only be decided by the parameters the form itself holds. removeParameters stays false —
+        // this evaluates, it never rewrites the caller's values the way the workflow path's save does.
+        for (String parameterName : new HashSet<>(parameters.keySet())) {
+            displayConditionMap.putAll(
+                checkDisplayConditionsAndParameters(
+                    parameterName, structureOperationType, parameters, Map.of(), Map.of(), properties, false,
+                    Map.of()));
+        }
+
+        return displayConditionMap;
     }
 
     @Override

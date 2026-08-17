@@ -2263,7 +2263,8 @@ components:
           additionalProperties:
             type: "integer"
         clusterRoot:
-          description: "Is the component cluster root."
+          description: "Whether the component declares cluster element types of its own, meaning it is
+            configured through its child cluster elements rather than directly."
           type: "boolean"
         componentCategories:
           description: "The list of categories the component belongs to."
@@ -3020,6 +3021,7 @@ components:
       - "LISTENER"
       - "POLLING"
       - "DYNAMIC_WEBHOOK"
+      - "WEBSOCKET"
     UnifiedApiCategory:
       description: "A category of unified API."
       type: "string"
@@ -3476,6 +3478,13 @@ components:
         description:
           description: "The description of the task."
           type: "string"
+        extensions:
+          description: "Key-value map of trigger extensions — structural configuration\
+            \ that is not a component-declared trigger property, such as the websocketTasks\
+            \ realtime pipeline."
+          type: "object"
+          additionalProperties: true
+          readOnly: true
         label:
           description: "The human-readable description of the task."
           type: "string"
