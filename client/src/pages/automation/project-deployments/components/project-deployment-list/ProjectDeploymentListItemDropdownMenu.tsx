@@ -1,3 +1,4 @@
+import '@/shared/styles/dropdownMenu.css';
 import Button from '@/components/Button/Button';
 import {
     DropdownMenu,
@@ -5,10 +6,15 @@ import {
     DropdownMenuItem,
     DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@/components/DropdownMenu/DropdownMenu';
+} from '@/components/ui/dropdown-menu';
 import {EditIcon, EllipsisVerticalIcon, RefreshCcwIcon, SquareArrowOutUpRightIcon, Trash2Icon} from 'lucide-react';
 
 interface ProjectDeploymentListItemDropdownMenuProps {
+    /**
+     * Label for the change-version item. Overridden by the agent deployments list, where the thing being
+     * versioned is the agent — its backing project is an implementation detail the user never sees named.
+     */
+    changeVersionLabel?: string;
     onChangeProjectVersionClick: () => void;
     onDeleteClick: () => void;
     onEditClick: () => void;
@@ -16,6 +22,7 @@ interface ProjectDeploymentListItemDropdownMenuProps {
 }
 
 const ProjectDeploymentListItemDropdownMenu = ({
+    changeVersionLabel = 'Change Project Version',
     onChangeProjectVersionClick,
     onDeleteClick,
     onEditClick,
@@ -27,26 +34,30 @@ const ProjectDeploymentListItemDropdownMenu = ({
                 <Button icon={<EllipsisVerticalIcon />} size="icon" variant="ghost" />
             </DropdownMenuTrigger>
 
-            <DropdownMenuContent align="end">
-                <DropdownMenuItem icon={<EditIcon />} label="Edit" onClick={onEditClick} />
+            <DropdownMenuContent align="end" className="p-0">
+                <DropdownMenuItem className="dropdown-menu-item" onClick={onEditClick}>
+                    <EditIcon /> Edit
+                </DropdownMenuItem>
 
                 {onOpenProjectClick && (
-                    <DropdownMenuItem
-                        icon={<SquareArrowOutUpRightIcon />}
-                        label="Open Project"
-                        onClick={onOpenProjectClick}
-                    />
+                    <DropdownMenuItem className="dropdown-menu-item" onClick={onOpenProjectClick}>
+                        <SquareArrowOutUpRightIcon /> Open Project
+                    </DropdownMenuItem>
                 )}
 
+                <DropdownMenuItem className="dropdown-menu-item" onClick={onChangeProjectVersionClick}>
+                    <RefreshCcwIcon /> {changeVersionLabel}
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator className="m-0" />
+
                 <DropdownMenuItem
-                    icon={<RefreshCcwIcon />}
-                    label="Change Project Version"
-                    onClick={onChangeProjectVersionClick}
-                />
-
-                <DropdownMenuSeparator />
-
-                <DropdownMenuItem icon={<Trash2Icon />} label="Delete" onClick={onDeleteClick} variant="destructive" />
+                    className="dropdown-menu-item-destructive"
+                    onClick={onDeleteClick}
+                    variant="destructive"
+                >
+                    <Trash2Icon /> Delete
+                </DropdownMenuItem>
             </DropdownMenuContent>
         </DropdownMenu>
     );

@@ -2,7 +2,7 @@ query componentPropertyDisplayConditions(
     $componentName: String!
     $componentVersion: Int!
     $operationName: String!
-    $operationType: ComponentOperationType!
+    $operationType: String!
     $parameters: Map
 ) {
     componentPropertyDisplayConditions(

@@ -46,7 +46,7 @@ import {useForm} from 'react-hook-form';
 import {useNavigate} from 'react-router-dom';
 import {useShallow} from 'zustand/react/shallow';
 
-import ProjectDeploymentDialogBasicStep from './ProjectDeploymentDialogBasicStep';
+import ProjectDeploymentDialogBasicStep, {DeployableAgentI} from './ProjectDeploymentDialogBasicStep';
 import ProjectDeploymentDialogWorkflowsStep from './ProjectDeploymentDialogWorkflowsStep';
 import getWorkflowComponentConnections, {buildDeploymentWorkflows} from './projectDeploymentDialog-utils';
 
@@ -153,6 +153,7 @@ const ProjectDeploymentDialogFooter = ({
 ProjectDeploymentDialogFooter.displayName = 'ProjectDeploymentDialogFooter';
 
 interface ProjectDeploymentDialogProps {
+    agentOptions?: DeployableAgentI[];
     changeProjectVersion?: boolean;
     environmentEditable?: boolean;
     filterWorkflowUuids?: string[];
@@ -168,6 +169,7 @@ interface ProjectDeploymentDialogProps {
 }
 
 const ProjectDeploymentDialog = ({
+    agentOptions,
     changeProjectVersion = false,
     environmentEditable = false,
     filterWorkflowUuids,
@@ -235,7 +237,11 @@ const ProjectDeploymentDialog = ({
     );
 
     const watchedProjectDeploymentWorkflows = watch('projectDeploymentWorkflows');
-    const hasEnabledWorkflows = watchedProjectDeploymentWorkflows?.some((workflow) => workflow.enabled) ?? false;
+    // Always true for an agent: it deploys exactly one generated workflow, whose enabled toggle is hidden
+    // because there is nothing to choose. Reading it off the form would gate Save on a value the user has no
+    // way to set, and on a seeding effect that has not necessarily run yet.
+    const hasEnabledWorkflows =
+        !!agentOptions || (watchedProjectDeploymentWorkflows?.some((workflow) => workflow.enabled) ?? false);
 
     const {data: projectVersionWorkflows, isPending: isWorkflowsPending} = useGetProjectVersionWorkflowsQuery(
         getValues().projectId!,
@@ -384,6 +390,7 @@ const ProjectDeploymentDialog = ({
     const basicStepContent =
         showTabs && !tabInitialized ? null : (
             <ProjectDeploymentDialogBasicStep
+                agentOptions={agentOptions}
                 basicStepTab={basicStepTab}
                 changeProjectVersion={effectiveChangeProjectVersion}
                 control={control}
@@ -405,6 +412,8 @@ const ProjectDeploymentDialog = ({
             connectionsGrouped={connectionsGrouped}
             control={control}
             formState={formState}
+            hideEnabledToggle={!!agentOptions}
+            hideInputsTab={!!agentOptions}
             setValue={setValue}
             workflows={workflows}
         />
@@ -419,9 +428,11 @@ const ProjectDeploymentDialog = ({
     const steps = useMemo<DialogStepI[]>(
         () => [
             {canProceed: !isBasicStepBlocked, id: 'basic', label: 'Basic'},
-            {canProceed: !isSaveDisabled, id: 'workflows', label: 'Workflows'},
+            // An agent deployment always deploys the agent's single generated workflow and that workflow
+            // declares no inputs, so the step is only ever about wiring its connections.
+            {canProceed: !isSaveDisabled, id: 'workflows', label: agentOptions ? 'Connections' : 'Workflows'},
         ],
-        [isBasicStepBlocked, isSaveDisabled]
+        [agentOptions, isBasicStepBlocked, isSaveDisabled]
     );
 
     const closeDialog = () => {
@@ -542,7 +553,12 @@ const ProjectDeploymentDialog = ({
                 (projectDeploymentWorkflow) => projectDeploymentWorkflow.workflowUuid === workflow.workflowUuid
             );
 
-            setWorkflowEnabled(workflow.id!, !!(projectDeploymentWorkflow && projectDeploymentWorkflow.enabled));
+            // An agent deployment deploys the agent's single generated workflow, and its enabled toggle is
+            // hidden — there is nothing to choose. Seeding it false would deploy a workflow that never runs,
+            // and would leave Save permanently disabled, since Save requires at least one enabled workflow.
+            const enabled = !!agentOptions || !!(projectDeploymentWorkflow && projectDeploymentWorkflow.enabled);
+
+            setWorkflowEnabled(workflow.id!, enabled);
 
             const componentConnections = getWorkflowComponentConnections(workflow);
 
@@ -567,6 +583,7 @@ const ProjectDeploymentDialog = ({
             return {
                 ...(projectDeploymentWorkflow ?? {}),
                 connections: newProjectDeploymentWorkflowConnections,
+                enabled,
                 version: undefined,
                 workflowId: workflow.id!,
             };
