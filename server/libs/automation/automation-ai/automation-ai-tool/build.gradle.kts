@@ -13,6 +13,7 @@ dependencies {
     implementation(project(":server:libs:ai:ai-copilot:ai-copilot-tool"))
     implementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-api"))
     implementation(project(":server:libs:atlas:atlas-execution:atlas-execution-api"))
+    implementation(project(":server:libs:automation:automation-ai:automation-ai-agent:automation-ai-agent-api"))
     implementation(project(":server:libs:automation:automation-ai:automation-ai-mcp:automation-ai-mcp-api"))
     implementation(project(":server:libs:automation:automation-configuration:automation-configuration-api"))
     implementation(project(":server:libs:ai:ai-mcp:ai-mcp-server-api"))
