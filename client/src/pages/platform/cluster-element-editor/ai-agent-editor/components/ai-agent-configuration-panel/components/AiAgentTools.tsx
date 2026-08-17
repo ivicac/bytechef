@@ -4,8 +4,10 @@ import WorkflowNodesPopoverMenu from '@/pages/platform/workflow-editor/component
 import {InfoIcon, PlusIcon, ShieldCheckIcon} from 'lucide-react';
 
 import AiAgentTool from './AiAgentTool';
-import AiAgentToolDropdownMenu from './AiAgentToolDropdownMenu';
+import {SKILLS_TOOL_OPERATION_NAME} from './hooks/useAiAgentSkills';
 import useAiAgentTools from './hooks/useAiAgentTools';
+
+const HIDDEN_TOOL_NAMES = [SKILLS_TOOL_OPERATION_NAME];
 
 export default function AiAgentTools() {
     const {configuredConnectionKeys, rootWorkflowNodeName, toolGroups, tools} = useAiAgentTools();
@@ -14,7 +16,7 @@ export default function AiAgentTools() {
         <div className="space-y-2">
             <div className="mb-3 flex items-center justify-between">
                 <div className="flex items-center gap-1">
-                    <h2 className="flex-1">Tools this agent can use:</h2>
+                    <h2 className="flex-1">Tools</h2>
 
                     <Tooltip>
                         <TooltipTrigger>
@@ -31,7 +33,9 @@ export default function AiAgentTools() {
                 {rootWorkflowNodeName && (
                     <WorkflowNodesPopoverMenu
                         clusterElementType="tools"
+                        hiddenClusterElementNames={HIDDEN_TOOL_NAMES}
                         hideActionComponents
+                        hideClusterRootComponents
                         hideTaskDispatchers
                         hideTriggerComponents
                         multipleClusterElementsNode
@@ -70,6 +74,7 @@ export default function AiAgentTools() {
                         <WorkflowNodesPopoverMenu
                             clusterElementType="tools"
                             hideActionComponents
+                            hideClusterRootComponents
                             hideTaskDispatchers
                             hideTriggerComponents
                             multipleClusterElementsNode
