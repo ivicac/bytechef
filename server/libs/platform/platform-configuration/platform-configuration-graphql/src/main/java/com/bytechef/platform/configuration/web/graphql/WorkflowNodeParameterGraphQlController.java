@@ -43,11 +43,11 @@ public class WorkflowNodeParameterGraphQlController {
     @QueryMapping
     public Map<String, Boolean> componentPropertyDisplayConditions(
         @Argument String componentName, @Argument int componentVersion, @Argument String operationName,
-        @Argument WorkflowNodeParameterFacade.OperationType operationType,
-        @Argument @Nullable Map<String, ?> parameters) {
+        @Argument String operationType, @Argument @Nullable Map<String, ?> parameters) {
 
         return workflowNodeParameterFacade.getDisplayConditions(
-            componentName, componentVersion, operationName, operationType,
+            componentName, componentVersion, operationName,
+            WorkflowNodeParameterFacade.OperationType.valueOf(operationType),
             parameters == null ? Map.of() : parameters);
     }
 

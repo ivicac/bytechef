@@ -108,11 +108,14 @@ public class CustomProjectDeploymentRepositoryImpl implements CustomProjectDeplo
             query += "tag_id = ? ";
         }
 
-        // __MCP_SERVER__% matches McpServer.MCP_SERVER_NAME_PREFIX in platform-mcp-api
-        query += "AND (NOT " + startsWith("project_deployment.name", API_COLLECTION_NAME_PREFIX) + " AND NOT " +
-            startsWith("project_deployment.name", MCP_SERVER_NAME_PREFIX) + " AND NOT " +
-            startsWith("project_deployment.name", SystemProjects.A2A_SERVER_DEPLOYMENT_NAME_PREFIX) + " AND NOT " +
-            startsWith("project.name", CONTEXT_STORE_NAME_PREFIX) + ") ";
+        // project_deployment.name markers are a different namespace from project.name markers (see
+        // ApiCollectionFacadeImpl / McpProjectFacadeImpl), so they are excluded individually rather than through
+        // SystemProjects.projectNameNotLikePredicates.
+        query += SystemProjects.notLikePredicate(
+            "project_deployment.name", SystemProjects.API_COLLECTION_DEPLOYMENT_NAME_PREFIX);
+        query += SystemProjects.notLikePredicate(
+            "project_deployment.name", SystemProjects.MCP_SERVER_DEPLOYMENT_NAME_PREFIX);
+        query += SystemProjects.projectNameNotLikePredicates("project.name");
 
         query += "ORDER BY LOWER(project_deployment.name) ASC, project_deployment.project_version ASC, " +
             "project_deployment.environment ASC";
