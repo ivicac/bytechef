@@ -1,5 +1,6 @@
 import AiAgentModelSelectField from '@/pages/platform/cluster-element-editor/ai-agent-editor/components/ai-agent-configuration-panel/components/AiAgentModelSelectField';
 import AiAgentPromptField from '@/pages/platform/cluster-element-editor/ai-agent-editor/components/ai-agent-configuration-panel/components/AiAgentPromptField';
+import AiAgentSkills from '@/pages/platform/cluster-element-editor/ai-agent-editor/components/ai-agent-configuration-panel/components/AiAgentSkills';
 import AiAgentStreamResponseField from '@/pages/platform/cluster-element-editor/ai-agent-editor/components/ai-agent-configuration-panel/components/AiAgentStreamResponseField';
 import AiAgentTools from '@/pages/platform/cluster-element-editor/ai-agent-editor/components/ai-agent-configuration-panel/components/AiAgentTools';
 import useClusterRootDataPills from '@/pages/platform/cluster-element-editor/hooks/useClusterRootDataPills';
@@ -9,24 +10,26 @@ import {useShallow} from 'zustand/shallow';
 const PROMPT_FIELDS = [
     {
         containerClassName: 'min-h-0 overflow-hidden',
-        editorClassName: 'min-h-[200px]',
+        editorClassName: 'min-h-[120px]',
         path: 'systemPrompt',
         placeholder:
             "System instructions that define the agent's behavior, role, and constraints. Use '$' to insert data pills.",
-        title: 'Instructions to follow:',
+        title: 'Instructions to follow',
     },
     {
-        editorClassName: 'min-h-[100px]',
+        // A single row like Attachments below: the user input is usually one data pill or a short line, and
+        // the editor grows as content is added.
+        editorClassName: 'p-2',
         path: 'userPrompt',
         placeholder: "The message sent to the agent on each execution. Use '$' to insert data pills.",
         required: true,
-        title: 'User input:',
+        title: 'User input',
     },
     {
         editorClassName: 'p-2',
         path: 'attachments',
         placeholder: "File data pill references to attach to the message. Use '$' to insert data pills.",
-        title: 'Attachments:',
+        title: 'Attachments',
     },
 ];
 
@@ -67,6 +70,8 @@ export function AiAgentConfigurationPanel() {
             ))}
 
             <AiAgentTools />
+
+            <AiAgentSkills />
         </div>
     );
 }
