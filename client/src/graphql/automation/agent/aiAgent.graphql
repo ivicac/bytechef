@@ -1,0 +1,34 @@
+query aiAgent($id: ID!) {
+    aiAgent(id: $id) {
+        id
+        name
+        title
+        description
+        instructions
+        workspaceId
+        projectId
+        uuid
+        projectWorkflowUuid
+        unpublishedChanges
+        lastPublishedVersion
+        channels {
+            id
+            channelType
+            position
+            parameters
+            connectionId
+        }
+        elements {
+            id
+            kind
+            referenceId
+            position
+            parameters
+            connectionId
+        }
+        settings
+        lastModifiedDate
+        draftWorkflowId
+        visibility
+    }
+}
