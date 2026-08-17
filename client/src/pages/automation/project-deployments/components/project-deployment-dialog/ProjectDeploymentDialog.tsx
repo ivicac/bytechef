@@ -20,6 +20,7 @@ import {
 import LoadingDots from '@/components/LoadingDots';
 import LoadingIcon from '@/components/LoadingIcon';
 import Switch from '@/components/Switch/Switch';
+import TooltipTriggerIcon from '@/components/TooltipTriggerIcon/TooltipTriggerIcon';
 import {Form} from '@/components/ui/form';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import {useWorkflowsEnabledStore} from '@/pages/automation/project-deployments/stores/useWorkflowsEnabledStore';
@@ -115,9 +116,9 @@ const ProjectDeploymentDialogFooter = ({
                             />
 
                             <Tooltip>
-                                <TooltipTrigger asChild>
+                                <TooltipTriggerIcon label="Connection grouping">
                                     <InfoIcon className="size-4 cursor-default text-content-neutral-secondary" />
-                                </TooltipTrigger>
+                                </TooltipTriggerIcon>
 
                                 <TooltipContent>Connections grouped by their app.</TooltipContent>
                             </Tooltip>
