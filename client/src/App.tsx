@@ -18,8 +18,9 @@ import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {useQueryClient} from '@tanstack/react-query';
 import {
     ActivityIcon,
+    BotIcon,
+    BotMessageSquareIcon,
     BoxesIcon,
-    BrainIcon,
     CircleIcon,
     FileTextIcon,
     FolderIcon,
@@ -30,6 +31,7 @@ import {
     MessageSquareIcon,
     MessagesSquareIcon,
     NetworkIcon,
+    NotebookPenIcon,
     RouterIcon,
     ServerIcon,
     Settings2Icon,
@@ -69,12 +71,19 @@ const automationNavigation: NavigationType[] = [
         icon: FolderIcon,
         name: 'Projects',
     },
+    {group: 'Build', href: '/automation/agents', icon: BotIcon, name: 'Agents'},
     {group: 'Build', href: '/automation/connections', icon: Link2Icon, name: 'Connections'},
     {
         group: 'Deploy',
         href: '/automation/deployments',
         icon: Layers3Icon,
         name: 'Project Deployments',
+    },
+    {
+        group: 'Deploy',
+        href: '/automation/agent-deployments',
+        icon: BotMessageSquareIcon,
+        name: 'Agent Deployments',
     },
     {
         group: 'Deploy',
@@ -125,7 +134,7 @@ const automationNavigation: NavigationType[] = [
         icon: FileTextIcon,
         name: 'Files',
     },
-    {group: 'AI', href: '/automation/ai/memories', icon: BrainIcon, name: 'Memories'},
+    {group: 'AI', href: '/automation/ai/memories', icon: NotebookPenIcon, name: 'Memories'},
 ];
 
 const embeddedNavigation: NavigationType[] = [
@@ -364,11 +373,7 @@ function App() {
                 block scoped to this element, so they render below the banner instead of
                 anchoring to the viewport top and overlapping it. */}
 
-            <SidebarProvider
-                className="min-h-0 flex-1 transform-gpu"
-                onOpenChange={setSidebarOpen}
-                open={sidebarOpen}
-            >
+            <SidebarProvider className="min-h-0 flex-1 transform-gpu" onOpenChange={setSidebarOpen} open={sidebarOpen}>
                 <AppSidebar navigation={navigation} />
 
                 <SidebarInset className="flex h-full min-w-0 flex-col">
