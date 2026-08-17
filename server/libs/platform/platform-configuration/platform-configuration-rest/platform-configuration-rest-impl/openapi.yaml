@@ -2261,7 +2261,8 @@ components:
           additionalProperties:
             type: "integer"
         clusterRoot:
-          description: "Is the component cluster root."
+          description: "Whether the component declares cluster element types of its own, meaning it is
+            configured through its child cluster elements rather than directly."
           type: "boolean"
         componentCategories:
           description: "The list of categories the component belongs to."
