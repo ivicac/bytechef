@@ -18,6 +18,7 @@ export interface ProjectDeploymentDialogWorkflowListItemProps {
     control: Control<ProjectDeployment>;
     enabled?: boolean;
     formState: FormState<ProjectDeployment>;
+    hideInputsTab?: boolean;
     label?: string;
     onEnabledChange?: (enabled: boolean) => void;
     setValue: UseFormSetValue<ProjectDeployment>;
@@ -33,6 +34,7 @@ const ProjectDeploymentDialogWorkflowsStepItem = ({
     control,
     enabled,
     formState,
+    hideInputsTab = false,
     label,
     onEnabledChange,
     setValue,
@@ -103,6 +105,7 @@ const ProjectDeploymentDialogWorkflowsStepItem = ({
                 />
             }
             enabled={!!workflowEnabled}
+            hideInputsTab={hideInputsTab}
             inputCount={workflowInputs.length}
             inputsContent={
                 <InputConfigurationList
