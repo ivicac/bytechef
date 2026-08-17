@@ -137,6 +137,8 @@ dependencies {
     implementation(project(":server:libs:automation:automation-ai:automation-ai-a2a-server"))
     implementation(project(":server:libs:automation:automation-ai:automation-ai-a2a:automation-ai-a2a-graphql"))
     implementation(project(":server:libs:automation:automation-ai:automation-ai-a2a:automation-ai-a2a-service"))
+    implementation(project(":server:libs:automation:automation-ai:automation-ai-agent:automation-ai-agent-graphql"))
+    implementation(project(":server:libs:automation:automation-ai:automation-ai-agent:automation-ai-agent-service"))
     implementation(project(":server:libs:automation:automation-ai:automation-ai-mcp-server"))
     implementation(project(":server:libs:automation:automation-asset-file:automation-asset-file-graphql"))
     implementation(project(":server:libs:automation:automation-asset-file:automation-asset-file-rest"))

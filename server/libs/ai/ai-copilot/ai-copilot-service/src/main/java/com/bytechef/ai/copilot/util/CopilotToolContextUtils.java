@@ -73,7 +73,17 @@ public final class CopilotToolContextUtils {
                 .build()
                 .toToolContext());
 
+        // Two workspace-id key families exist, and this surface has to populate both. The automation tools
+        // (project deployments, asset files, …) read AutomationToolInvocationContext's keys, while the
+        // data-table/knowledge-base/context-store tools read AgentToolInvocationContext's. Writing only the
+        // latter is why deployment tools opened from a copilot panel failed with "Workspace context
+        // unavailable - open this chat from the AI Hub of a workspace" — the AI Hub surface populates both
+        // (AiHubSpringAIAgent#toolContext), as does the management MCP surface
+        // (WorkspaceScopedSubAgentToolCallback). environmentId matters as much as workspaceId here:
+        // AutomationToolInvocationContext.resolveEnvironmentOrDefault silently buckets a missing one to
+        // DEVELOPMENT, so an omitted key reads as a wrong answer rather than an error.
         putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, workspaceId);
+        putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_USER_ID_KEY, userId);
         putIfNotNull(toolContext, AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, environmentId);
         putIfNotNull(
             toolContext, ScopedProjectToolContext.TOOL_CONTEXT_SCOPED_PROJECT_ID_KEY,
