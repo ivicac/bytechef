@@ -20,8 +20,16 @@ interface WorkflowNodesPopoverMenuProps extends PropsWithChildren {
     edgeId?: string;
     hideActionComponents?: boolean;
     hideClusterElementComponents?: boolean;
+    /**
+     * Omits components that are cluster roots themselves (aiAgent, the approval components, …). They are
+     * configured through their own child cluster elements, which only the canvas cluster-element editor offers,
+     * so surfaces without it — the AI Agent simple editor — would list a component nothing can then configure.
+     */
+    hideClusterRootComponents?: boolean;
     hideTriggerComponents?: boolean;
     hideTaskDispatchers?: boolean;
+    /** Cluster element names to omit from the operation list — see the operation list's own prop doc. */
+    hiddenClusterElementNames?: string[];
     initialComponentDefinition?: ComponentDefinition;
     multipleClusterElementsNode?: boolean;
     nodeIndex?: number;
@@ -36,8 +44,10 @@ const WorkflowNodesPopoverMenu = ({
     children,
     clusterElementType,
     edgeId,
+    hiddenClusterElementNames,
     hideActionComponents = false,
     hideClusterElementComponents = false,
+    hideClusterRootComponents = false,
     hideTaskDispatchers = false,
     hideTriggerComponents = false,
     initialComponentDefinition,
@@ -228,6 +238,7 @@ const WorkflowNodesPopoverMenu = ({
                         handleComponentClick={handleComponentClick}
                         hideActionComponents={hideActionComponents}
                         hideClusterElementComponents={hideClusterElementComponents}
+                        hideClusterRootComponents={hideClusterRootComponents}
                         hideTaskDispatchers={hideTaskDispatchers}
                         hideTriggerComponents={hideTriggerComponents}
                         onPasteClose={handlePasteClose}
@@ -242,6 +253,7 @@ const WorkflowNodesPopoverMenu = ({
                             clusterElementType={clusterElementType}
                             componentDefinition={componentDefinitionToBeAdded}
                             edgeId={edgeId}
+                            hiddenClusterElementNames={hiddenClusterElementNames}
                             multipleClusterElementsNode={multipleClusterElementsNode}
                             setPopoverOpen={setPopoverOpen}
                             sourceNodeId={sourceNodeId}

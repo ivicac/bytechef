@@ -12,12 +12,12 @@ import {useShallow} from 'zustand/shallow';
 
 import {ToolItemI} from './useAiAgentTools';
 
-interface UseAiAgentToolDropdownMenuI {
+interface UseAiAgentToolActionsI {
     handleConfigureTool: (tool: ToolItemI) => Promise<void>;
     handleRemoveTool: (tool: ToolItemI) => void;
 }
 
-export default function useAiAgentToolDropdownMenu(): UseAiAgentToolDropdownMenuI {
+export default function useAiAgentToolActions(): UseAiAgentToolActionsI {
     const rootClusterElementNodeData = useWorkflowEditorStore((state) => state.rootClusterElementNodeData);
     const setRootClusterElementNodeData = useWorkflowEditorStore((state) => state.setRootClusterElementNodeData);
     const workflow = useWorkflowDataStore((state) => state.workflow);
@@ -99,7 +99,6 @@ export default function useAiAgentToolDropdownMenu(): UseAiAgentToolDropdownMenu
                 clusterElementType: 'tools',
                 componentName: tool.componentName,
                 name: tool.name,
-                parentClusterRootId: rootClusterElementNodeData.workflowNodeName,
                 workflowNodeName: tool.name,
             };
 
@@ -115,6 +114,7 @@ export default function useAiAgentToolDropdownMenu(): UseAiAgentToolDropdownMenu
 
             handleDeleteTask({
                 cancelWorkflowQueries: cancelWorkflowQueries!,
+                clusterElementsCanvasOpen: true,
                 data: toolNodeData,
                 invalidateWorkflowQueries: invalidateWorkflowQueries!,
                 queryClient,
