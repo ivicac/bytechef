@@ -4,10 +4,10 @@ spring:
   config:
     activate:
       on-profile: '!api-docs'
+scalar:
+  enabled: false
 springdoc:
   api-docs:
-    enabled: false
-  swagger-ui:
     enabled: false
 ---
 billing:
@@ -36,6 +36,9 @@ info:
       enabled: ${bytechef.ai.gateway.enabled:false}
     knowledgeBase:
       enabled: ${bytechef.ai.knowledge-base.enabled:false}
+    mcp:
+      server:
+        enabled: ${bytechef.ai.mcp.server.enabled:true}
   contextStore:
     enabled: ${bytechef.context-store.enabled:false}
   analytics:
@@ -313,6 +316,12 @@ spring:
     virtual:
       enabled: true
 
+scalar:
+  operation-sorter: method
+  tag-sorter: alpha
+  telemetry: false
+  with-default-fonts: false
+
 server:
   servlet:
     session:
@@ -325,9 +334,6 @@ server:
 
 springdoc:
   show-actuator: true
-  swagger-ui:
-    operationsSorter: method
-    tags-sorter: alpha
 
 templates:
   owner: bytechefhq
