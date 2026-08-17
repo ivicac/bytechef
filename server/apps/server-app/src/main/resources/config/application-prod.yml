@@ -9,6 +9,9 @@ logging:
     format:
       file: ecs
 
+scalar:
+  enabled: false
+
 server:
   port: 8080
   shutdown: graceful # see https://docs.spring.io/spring-boot/docs/current/reference/html/spring-boot-features.html#boot-features-graceful-shutdown
@@ -31,8 +34,6 @@ spring:
 
 springdoc:
   api-docs:
-    enabled: false
-  swagger-ui:
     enabled: false
 
 #####
