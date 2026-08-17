@@ -21,10 +21,8 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
-import static org.mockito.Mockito.withSettings;
 
 import com.bytechef.component.ai.llm.tool.ClusterElementToolCallbacks;
-import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.Property;
 import com.bytechef.platform.component.definition.ActionContextAware;
@@ -85,21 +83,24 @@ class AiAgentUtilsApprovalGateTest {
     }
 
     @Test
+    void testRejectsTheAskUserQuestionTool() {
+        assertThatThrownBy(() -> AiAgentUtilsApprovalGate.checkGatableChild("aiAgentUtils", "askUserQuestionTool"))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessageContaining("askUserQuestionTool");
+    }
+
+    @Test
     void testAcceptsAnOrdinaryTool() {
         AiAgentUtilsApprovalGate.checkGatableChild("aiAgentUtils", "grepTool");
     }
 
-    /**
-     * Every callback a gated element contributes is wrapped exactly once. A tool element that yields two callbacks must
-     * produce two gated callbacks, not one gate around a collection.
-     */
     @Test
     void testWrapsEveryCallbackOfEveryGatedElementExactlyOnce() {
         when(clusterElementToolCallbacks.build(any(), any(), any()))
             .thenReturn(List.of(mock(ToolCallback.class), mock(ToolCallback.class)));
 
         List<ToolCallback> toolCallbacks = approvalGate.buildGatedToolCallbacks(
-            gateClusterElementMap(), Map.of(), actionContext(), null);
+            "gate", gateClusterElementMap(), Map.of(), actionContext(), null);
 
         assertThat(toolCallbacks).hasSize(2);
         assertThat(toolCallbacks).allMatch(ApprovalGateToolCallback.class::isInstance);
@@ -108,23 +109,15 @@ class AiAgentUtilsApprovalGateTest {
     @Test
     void testAGateWithNoToolsContributesNothing() {
         List<ToolCallback> toolCallbacks = approvalGate.buildGatedToolCallbacks(
-            ClusterElementMap.of(Map.of()), Map.of(), actionContext(), null);
+            "gate", ClusterElementMap.of(Map.of()), Map.of(), actionContext(), null);
 
         assertThat(toolCallbacks).isEmpty();
     }
 
-    /**
-     * ApprovalGateToolCallback casts the context to ActionContextAware in its constructor, so a plain ActionContext
-     * mock is not enough.
-     */
-    private static ActionContext actionContext() {
-        return mock(ActionContext.class, withSettings().extraInterfaces(ActionContextAware.class));
+    private static ActionContextAware actionContext() {
+        return mock(ActionContextAware.class);
     }
 
-    /**
-     * ClusterElementMap parses raw workflow-definition maps nested under "clusterElements", not ClusterElement
-     * instances, so the fixture mirrors what a saved gate node actually looks like.
-     */
     private static ClusterElementMap gateClusterElementMap() {
         return ClusterElementMap.of(
             Map.of(

@@ -857,12 +857,11 @@ public abstract class AbstractAiAgentChatAction {
 
         advisors.add(toolCallingAdvisor);
 
-        Optional<ClusterElement> ragClusterElement = clusterElementMap.fetchClusterElement(RAG);
-
-        ragClusterElement
-            .map(clusterElement -> getRagAdvisor(connectionParameters, clusterElement, context))
-            .map(advisor -> attributeFailures(advisor, ragClusterElement, clusterElementCallTarget))
-            .ifPresent(advisors::add);
+        // One advisor per knowledge base: RAG is a multiple cluster element, and fetchClusterElement would return
+        // only the first, silently retrieving from one knowledge base while the agent is configured with several.
+        for (ClusterElement ragClusterElement : clusterElementMap.getClusterElements(RAG)) {
+            advisors.add(getRagAdvisor(connectionParameters, ragClusterElement, context));
+        }
 
         advisors.add(new ContextLoggerAdvisor(context));
 
