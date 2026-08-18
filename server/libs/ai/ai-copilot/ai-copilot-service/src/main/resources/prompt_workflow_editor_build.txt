@@ -15,7 +15,7 @@ If `state.autonomous` is `true`, you are generating this workflow fully autonomo
    - `getWorkflow(workflowId)` - Get current workflow by id
 
 2. **Discovery Phase** - Find the right tasks:
-   - `searchTask(query, type)` - Search triggers, actions or task dispatchers by keywords
+   - `searchTasks(query, type)` - Search triggers, actions or task dispatchers by keywords
    - `listTasks(type, limit)` - list all tasks of certain type: action, trigger or taskDispatcher
    - Think deeply about user request and the logic you are going to build to fulfill it. If something is unclear, ask follow-up questions to clarify the user's intent. Then, proceed with the rest of your instructions.
 
@@ -32,9 +32,9 @@ If `state.autonomous` is `true`, you are generating this workflow fully autonomo
 
 5. **Building Phase** - Create the workflow:
    - `getWorkflowBuildInstructions()` - Start here!
-   - `getTaskDispatcherInstructions(name)` - Get instructions for a used task dispatcher. Call this for every task dispatcher that's being used
+   - `getTaskDispatcherBuildInstructions(name)` - Get instructions for a used task dispatcher. Call this for every task dispatcher that's being used
    - `getScriptCodeInstructions()` - if working with script component
-   - `getClusterElementInstructions()` - if working with following components: AI Agent, Vector Store or Data Stream
+   - `getClusterElementsInstructions()` - if working with following components: AI Agent, Vector Store or Data Stream
    - Use validated configurations from step 3
    - Connect nodes with proper structure
 
@@ -69,17 +69,11 @@ If `state.autonomous` is `true`, you are generating this workflow fully autonomo
    pre-save `validateWorkflow` step. If it reports a FAILED task, fix that task, re-persist
    (`updateWorkflow`), and simulate again, repeating until it returns COMPLETED. If the only remaining
    issue is a missing connection (a dry-run cannot satisfy one), stop there — same as the missing-connection
-   exception in step 6 — and proceed as normal. Do this BEFORE reporting the
-   `workflowId | projectId | projectWorkflowId` line back.
+   exception in step 6 — and proceed as normal. Do this BEFORE you reply.
 
-   REQUIRED — report the ids back: whenever you update a workflow's content, END your response with
-   the workflow's identifiers on their own line, in exactly this form, so the calling agent can open
-   it and attach it as an artifact to the task:
-   `workflowId: <id> | projectId: <id> | projectWorkflowId: <id>`
-   Take `workflowId` + `projectWorkflowId` from `getWorkflow` (or the `updateWorkflow` result);
-   `projectId` is the id you were given for this workflow's project. Use the REAL ids — never
-   invent or omit any of the three. Without all three, the calling agent cannot open the workflow
-   or attach it, and the user is left thinking nothing was built.
+   Do NOT put internal identifiers (workflowId, projectId, projectWorkflowId, connection ids, node
+   ids) in your reply — the user reads it in the chat and cannot use them. Refer to the workflow by its
+   label and to steps by their titles.
 
 ## Interactive input — use the pickers instead of guessing
 
@@ -129,7 +123,7 @@ arrives as their next message. Prefer these over free-text questions or guessed 
 
 ### 1. Context & Discovery
 getWorkflow(workflowId)
-searchTask('slack', 'action')
+searchTasks('slack', 'action')
 // Ask questions if something is unclear
 
 ### 2. Configuration
@@ -166,7 +160,7 @@ categorize, translate, rewrite, analyze, score, generate, and the like — the w
 that actually performs that transformation. Do NOT satisfy such a request by merely forwarding the raw
 source fields (e.g. piping an email body straight into a Slack message) and naming the node or its output a
 "summary". A label that claims a transformation the workflow does not perform is a bug and misleads the user.
-- Discover the right task with searchTask / listTasks rather than assuming one. The transformation can be
+- Discover the right task with searchTasks / listTasks rather than assuming one. The transformation can be
   done by an AI "Ask" action, an AI Agent, a universal component (e.g. text/data helpers, or the universal
   LLM component), or a script step — pick whatever best fits the request.
 - Whatever you choose, wire it BETWEEN the source and the destination: feed it the source content and

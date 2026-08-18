@@ -19,6 +19,10 @@ package com.bytechef.ai.copilot.tool.catalog;
 import java.util.List;
 
 /**
+ * Contributes one or more {@link IntelligentToolDefinition}s to the {@link IntelligentToolCatalog}. Each activation
+ * profile (Copilot panel configuration, management-MCP contributor configuration) that owns an intelligent delegate
+ * registers a bean implementing this interface.
+ *
  * @author Ivica Cardic
  */
 public interface IntelligentToolContributor {
