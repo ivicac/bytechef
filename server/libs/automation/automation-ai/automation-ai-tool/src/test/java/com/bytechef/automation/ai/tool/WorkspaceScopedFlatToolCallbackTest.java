@@ -141,6 +141,36 @@ class WorkspaceScopedFlatToolCallbackTest {
         assertThat(delegate.capturedContext).isNull();
     }
 
+    /**
+     * Every tool wrapped by this class gets the FILES source ordinal written unconditionally — a no-op for the tools
+     * that never create asset files, but it is what lets the flat asset-file create tools ({@code createAssetFile},
+     * {@code createBinaryAssetFile}, {@code createAssetFileFromUrl}) attribute a file created through the management
+     * MCP server to the Files surface (see this class's Javadoc).
+     */
+    @Test
+    void testForwardsSourceOrdinalUnconditionally() {
+        toolCallback.call("{\"name\": \"my server\", \"workspaceId\": 42}");
+
+        assertThat(delegate.capturedContext)
+            .containsEntry(
+                AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY,
+                AutomationToolInvocationContext.SOURCE_ORDINAL_FILES);
+    }
+
+    /**
+     * Ticket 732, CRUD-delegate-unwind Task 5: the flat data-table tools this wrapper started covering read
+     * {@link AgentToolInvocationContext}'s key family, not {@link AutomationToolInvocationContext}'s — so both must be
+     * written unconditionally, mirroring {@code WorkspaceScopedSubAgentToolCallback}'s existing dual-write.
+     */
+    @Test
+    void testForwardsAgentToolInvocationContextFamilyUnconditionally() {
+        toolCallback.call("{\"name\": \"my server\", \"environment\": \"STAGING\", \"workspaceId\": 42}");
+
+        assertThat(delegate.capturedContext)
+            .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, 42L)
+            .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, 1L);
+    }
+
     @Test
     void testEmptyInputToolIsHandledWithoutError() {
         Workspace workspace = new Workspace();
