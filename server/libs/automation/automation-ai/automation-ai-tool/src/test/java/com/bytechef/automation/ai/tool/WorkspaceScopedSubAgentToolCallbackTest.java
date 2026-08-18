@@ -97,13 +97,11 @@ class WorkspaceScopedSubAgentToolCallbackTest {
     }
 
     @Test
-    void testForwardsSourceOrdinalUnconditionally() {
+    void testDoesNotForwardSourceOrdinal() {
         toolCallback.call("{\"request\": \"list servers\", \"workspaceId\": 42}");
 
         assertThat(delegate.capturedContext)
-            .containsEntry(
-                AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY,
-                AutomationToolInvocationContext.SOURCE_ORDINAL_FILES);
+            .doesNotContainKey(AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY);
     }
 
     @Test

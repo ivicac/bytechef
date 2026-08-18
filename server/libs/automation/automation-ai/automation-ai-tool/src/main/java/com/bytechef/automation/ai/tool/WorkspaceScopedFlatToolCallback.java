@@ -118,6 +118,10 @@ public class WorkspaceScopedFlatToolCallback implements ToolCallback {
 
             Map<String, Object> forwardedContext = resolved.toForwardedContext(toolContext);
 
+            forwardedContext.put(
+                AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY,
+                AutomationToolInvocationContext.SOURCE_ORDINAL_FILES);
+
             return delegate.call(jsonMapper.writeValueAsString(inputNode), new ToolContext(forwardedContext));
         } catch (JacksonException exception) {
             return ToolErrors.toolError(jsonMapper, "Invalid tool input: " + exception.getMessage());
