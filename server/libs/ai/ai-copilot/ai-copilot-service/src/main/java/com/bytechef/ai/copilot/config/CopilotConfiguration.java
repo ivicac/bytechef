@@ -130,6 +130,21 @@ public class CopilotConfiguration {
     private final Resource promptWorkflowExecutionBuildResource;
     private final State state = new State();
 
+    // Read once at configuration init rather than per delegation: the corresponding subagent ChatClient factory
+    // beans below rebuild their ChatClient on every delegation (to honour a caller-picked ChatModel), and
+    // getSystemPrompt(Resource) performs I/O.
+    private final String workflowEditorAskSystemPrompt;
+    private final String workflowEditorBuildSystemPrompt;
+    private final String codeEditorAskSystemPrompt;
+    private final String codeEditorBuildSystemPrompt;
+    private final String converterBuildSystemPrompt;
+    private final String clusterElementAskSystemPrompt;
+    private final String clusterElementBuildSystemPrompt;
+    private final String skillsAskSystemPrompt;
+    private final String skillsBuildSystemPrompt;
+    private final String workflowExecutionAskSystemPrompt;
+    private final String workflowExecutionBuildSystemPrompt;
+
     private final ConnectionDefinitionService connectionDefinitionService;
     private final WorkspaceConnectionFacade workspaceConnectionFacade;
     private final ComponentDefinitionService componentDefinitionService;
@@ -142,7 +157,12 @@ public class CopilotConfiguration {
     private final ScopedConnectionGuard scopedConnectionGuard;
     private final JsonMapper jsonMapper = new JsonMapper();
 
-    @SuppressFBWarnings("EI")
+    // CT_CONSTRUCTOR_THROW: the constructor reads and validates the prompt resources up front (see the hoisted
+    // *SystemPrompt fields above) so getSystemPrompt's IllegalStateException surfaces at startup, not on the first
+    // delegation; Spring never subclasses this @Configuration in a way that could observe partially-initialized state.
+    @SuppressFBWarnings({
+        "EI", "CT_CONSTRUCTOR_THROW"
+    })
     public CopilotConfiguration(
         @Value("classpath:prompt_workflow_editor_ask.txt") Resource promptWorkflowEditorAskResource,
         @Value("classpath:prompt_workflow_editor_build.txt") Resource promptWorkflowEditorBuildResource,
@@ -198,6 +218,18 @@ public class CopilotConfiguration {
         this.promptSampleOutputBuildResource = promptSampleOutputBuildResource;
         this.promptWorkflowExecutionAskResource = promptWorkflowExecutionAskResource;
         this.promptWorkflowExecutionBuildResource = promptWorkflowExecutionBuildResource;
+
+        this.workflowEditorAskSystemPrompt = getSystemPrompt(promptWorkflowEditorAskResource);
+        this.workflowEditorBuildSystemPrompt = getSystemPrompt(promptWorkflowEditorBuildResource);
+        this.codeEditorAskSystemPrompt = getSystemPrompt(promptCodeEditorAskResource);
+        this.codeEditorBuildSystemPrompt = getSystemPrompt(promptCodeEditorBuildResource);
+        this.converterBuildSystemPrompt = getSystemPrompt(promptConverterBuildResource);
+        this.clusterElementAskSystemPrompt = getSystemPrompt(promptClusterElementAskResource);
+        this.clusterElementBuildSystemPrompt = getSystemPrompt(promptClusterElementBuildResource);
+        this.skillsAskSystemPrompt = getSystemPrompt(promptSkillsAskResource);
+        this.skillsBuildSystemPrompt = getSystemPrompt(promptSkillsBuildResource);
+        this.workflowExecutionAskSystemPrompt = getSystemPrompt(promptWorkflowExecutionAskResource);
+        this.workflowExecutionBuildSystemPrompt = getSystemPrompt(promptWorkflowExecutionBuildResource);
     }
 
     @Bean
@@ -710,8 +742,29 @@ public class CopilotConfiguration {
         ComponentTools componentTools, Optional<FirecrawlTools> firecrawlTools,
         Optional<BraveWebSearchTools> braveWebSearchTools) {
 
+        return buildCodeEditorAskSubAgentChatClient(
+            chatModel, readProjectWorkflowTools, componentTools, firecrawlTools, braveWebSearchTools);
+    }
+
+    @Bean
+    IntelligentToolChatClientFactory codeEditorAskSubAgentChatClientFactory(
+        @Qualifier("codeEditorAskSubAgentChatClient") ChatClient codeEditorAskSubAgentChatClient,
+        ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools,
+        Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools) {
+
+        return candidateChatModel -> candidateChatModel == null
+            ? codeEditorAskSubAgentChatClient
+            : buildCodeEditorAskSubAgentChatClient(
+                candidateChatModel, readProjectWorkflowTools, componentTools, firecrawlTools, braveWebSearchTools);
+    }
+
+    private ChatClient buildCodeEditorAskSubAgentChatClient(
+        ChatModel chatModel, ReadProjectWorkflowTools readProjectWorkflowTools,
+        ComponentTools componentTools, Optional<FirecrawlTools> firecrawlTools,
+        Optional<BraveWebSearchTools> braveWebSearchTools) {
+
         ChatClient.Builder builder = ChatClient.builder(chatModel)
-            .defaultSystem(getSystemPrompt(promptCodeEditorAskResource));
+            .defaultSystem(codeEditorAskSystemPrompt);
 
         List<Object> tools = new ArrayList<>(
             List.of(readProjectWorkflowTools, componentTools, workflowValidatorTools, workflowInstructionTools));
@@ -729,8 +782,26 @@ public class CopilotConfiguration {
         ChatModel chatModel, ScriptTools scriptTools,
         ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools) {
 
+        return buildCodeEditorBuildSubAgentChatClient(chatModel, scriptTools, readProjectWorkflowTools, componentTools);
+    }
+
+    @Bean
+    IntelligentToolChatClientFactory codeEditorBuildSubAgentChatClientFactory(
+        @Qualifier("codeEditorBuildSubAgentChatClient") ChatClient codeEditorBuildSubAgentChatClient,
+        ScriptTools scriptTools, ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools) {
+
+        return candidateChatModel -> candidateChatModel == null
+            ? codeEditorBuildSubAgentChatClient
+            : buildCodeEditorBuildSubAgentChatClient(
+                candidateChatModel, scriptTools, readProjectWorkflowTools, componentTools);
+    }
+
+    private ChatClient buildCodeEditorBuildSubAgentChatClient(
+        ChatModel chatModel, ScriptTools scriptTools,
+        ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools) {
+
         return ChatClient.builder(chatModel)
-            .defaultSystem(getSystemPrompt(promptCodeEditorBuildResource))
+            .defaultSystem(codeEditorBuildSystemPrompt)
             .defaultTools(
                 readProjectWorkflowTools, scriptTools, componentTools, workflowValidatorTools,
                 workflowInstructionTools)
@@ -751,8 +822,33 @@ public class CopilotConfiguration {
         Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools,
         Advisor questionAnswerAdvisor) {
 
+        return buildWorkflowEditorAskSubAgentChatClient(
+            chatModel, readProjectTools, readProjectWorkflowTools, componentTools, taskTools, firecrawlTools,
+            braveWebSearchTools, questionAnswerAdvisor);
+    }
+
+    @Bean
+    IntelligentToolChatClientFactory workflowEditorAskSubAgentChatClientFactory(
+        @Qualifier("workflowEditorAskSubAgentChatClient") ChatClient workflowEditorAskSubAgentChatClient,
+        ReadProjectTools readProjectTools, ReadProjectWorkflowTools readProjectWorkflowTools,
+        ComponentTools componentTools, TaskTools taskTools, Optional<FirecrawlTools> firecrawlTools,
+        Optional<BraveWebSearchTools> braveWebSearchTools, Advisor questionAnswerAdvisor) {
+
+        return candidateChatModel -> candidateChatModel == null
+            ? workflowEditorAskSubAgentChatClient
+            : buildWorkflowEditorAskSubAgentChatClient(
+                candidateChatModel, readProjectTools, readProjectWorkflowTools, componentTools, taskTools,
+                firecrawlTools, braveWebSearchTools, questionAnswerAdvisor);
+    }
+
+    private ChatClient buildWorkflowEditorAskSubAgentChatClient(
+        ChatModel chatModel, ReadProjectTools readProjectTools,
+        ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools, TaskTools taskTools,
+        Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools,
+        Advisor questionAnswerAdvisor) {
+
         ChatClient.Builder builder = ChatClient.builder(chatModel)
-            .defaultSystem(getSystemPrompt(promptWorkflowEditorAskResource))
+            .defaultSystem(workflowEditorAskSystemPrompt)
             .defaultAdvisors(questionAnswerAdvisor);
 
         List<Object> tools = new ArrayList<>(
@@ -773,10 +869,29 @@ public class CopilotConfiguration {
         ChatModel chatModel, ProjectAuthoringTools projectAuthoringTools, ProjectWorkflowTools projectWorkflowTools,
         TaskTools taskTools, ScriptTools scriptTools, SimulationTools simulationTools) {
 
+        return buildWorkflowEditorBuildSubAgentChatClient(
+            chatModel, projectAuthoringTools, projectWorkflowTools, taskTools, scriptTools, simulationTools);
+    }
+
+    @Bean
+    IntelligentToolChatClientFactory workflowEditorBuildSubAgentChatClientFactory(
+        @Qualifier("workflowEditorBuildSubAgentChatClient") ChatClient workflowEditorBuildSubAgentChatClient,
+        ProjectAuthoringTools projectAuthoringTools, ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools,
+        ScriptTools scriptTools, SimulationTools simulationTools) {
+
+        return candidateChatModel -> candidateChatModel == null
+            ? workflowEditorBuildSubAgentChatClient
+            : buildWorkflowEditorBuildSubAgentChatClient(
+                candidateChatModel, projectAuthoringTools, projectWorkflowTools, taskTools, scriptTools,
+                simulationTools);
+    }
+
+    private ChatClient buildWorkflowEditorBuildSubAgentChatClient(
+        ChatModel chatModel, ProjectAuthoringTools projectAuthoringTools, ProjectWorkflowTools projectWorkflowTools,
+        TaskTools taskTools, ScriptTools scriptTools, SimulationTools simulationTools) {
+
         return ChatClient.builder(chatModel)
-            .defaultSystem(
-                getSystemPrompt(promptWorkflowEditorBuildResource) + "\n\n" +
-                    getSystemPrompt(promptWorkflowEditorBuildSubAgentResource))
+            .defaultSystem(workflowEditorBuildSystemPrompt)
             .defaultTools(
                 projectAuthoringTools, projectWorkflowTools, taskTools, scriptTools, simulationTools,
                 workflowValidatorTools, workflowInstructionTools)
@@ -802,47 +917,32 @@ public class CopilotConfiguration {
         ChatModel chatModel, ProjectAuthoringTools projectAuthoringTools, ProjectWorkflowTools projectWorkflowTools,
         TaskTools taskTools, ScriptTools scriptTools) {
 
+        return buildConverterBuildSubAgentChatClient(
+            chatModel, projectAuthoringTools, projectWorkflowTools, taskTools, scriptTools);
+    }
+
+    @Bean
+    IntelligentToolChatClientFactory converterBuildSubAgentChatClientFactory(
+        @Qualifier("converterBuildSubAgentChatClient") ChatClient converterBuildSubAgentChatClient,
+        ProjectAuthoringTools projectAuthoringTools, ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools,
+        ScriptTools scriptTools) {
+
+        return candidateChatModel -> candidateChatModel == null
+            ? converterBuildSubAgentChatClient
+            : buildConverterBuildSubAgentChatClient(
+                candidateChatModel, projectAuthoringTools, projectWorkflowTools, taskTools, scriptTools);
+    }
+
+    private ChatClient buildConverterBuildSubAgentChatClient(
+        ChatModel chatModel, ProjectAuthoringTools projectAuthoringTools, ProjectWorkflowTools projectWorkflowTools,
+        TaskTools taskTools, ScriptTools scriptTools) {
+
         return ChatClient.builder(chatModel)
-            .defaultSystem(getSystemPrompt(promptConverterBuildResource))
+            .defaultSystem(converterBuildSystemPrompt)
             .defaultTools(
                 projectAuthoringTools, projectWorkflowTools, taskTools, scriptTools, workflowValidatorTools,
                 workflowInstructionTools)
             .build();
-    }
-
-    @Bean
-    Supplier<ChatClient> converterBuildSubAgentChatClientSupplier(
-        @Qualifier("converterBuildSubAgentChatClient") ChatClient converterChatClient,
-        ProjectAuthoringTools projectAuthoringTools, ProjectWorkflowTools projectWorkflowTools, TaskTools taskTools,
-        ScriptTools scriptTools, ObjectProvider<OverrideChatClientResolver> overrideChatClientResolverProvider) {
-
-        return () -> {
-            OverrideChatClientResolver overrideChatClientResolver =
-                overrideChatClientResolverProvider.getIfAvailable();
-
-            if (overrideChatClientResolver == null) {
-                return converterChatClient;
-            }
-
-            Environment environment = EnvironmentContext.fetchCurrentEnvironment();
-
-            if (environment == null) {
-                return converterChatClient;
-            }
-
-            ChatModel resolvedChatModel = overrideChatClientResolver.resolveDefaultChatModel(environment.ordinal());
-
-            if (resolvedChatModel == null) {
-                return converterChatClient;
-            }
-
-            return ChatClient.builder(resolvedChatModel)
-                .defaultSystem(getSystemPrompt(promptConverterBuildResource))
-                .defaultTools(
-                    projectAuthoringTools, projectWorkflowTools, taskTools, scriptTools, workflowValidatorTools,
-                    workflowInstructionTools)
-                .build();
-        };
     }
 
     @Bean
@@ -851,8 +951,30 @@ public class CopilotConfiguration {
         ComponentTools componentTools, TaskTools taskTools, Optional<FirecrawlTools> firecrawlTools,
         Optional<BraveWebSearchTools> braveWebSearchTools) {
 
+        return buildClusterElementAskSubAgentChatClient(
+            chatModel, readProjectWorkflowTools, componentTools, taskTools, firecrawlTools, braveWebSearchTools);
+    }
+
+    @Bean
+    IntelligentToolChatClientFactory clusterElementAskSubAgentChatClientFactory(
+        @Qualifier("clusterElementAskSubAgentChatClient") ChatClient clusterElementAskSubAgentChatClient,
+        ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools, TaskTools taskTools,
+        Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools) {
+
+        return candidateChatModel -> candidateChatModel == null
+            ? clusterElementAskSubAgentChatClient
+            : buildClusterElementAskSubAgentChatClient(
+                candidateChatModel, readProjectWorkflowTools, componentTools, taskTools, firecrawlTools,
+                braveWebSearchTools);
+    }
+
+    private ChatClient buildClusterElementAskSubAgentChatClient(
+        ChatModel chatModel, ReadProjectWorkflowTools readProjectWorkflowTools,
+        ComponentTools componentTools, TaskTools taskTools, Optional<FirecrawlTools> firecrawlTools,
+        Optional<BraveWebSearchTools> braveWebSearchTools) {
+
         ChatClient.Builder builder = ChatClient.builder(chatModel)
-            .defaultSystem(getSystemPrompt(promptClusterElementAskResource));
+            .defaultSystem(clusterElementAskSystemPrompt);
 
         List<Object> tools = new ArrayList<>(
             List.of(
@@ -872,8 +994,28 @@ public class CopilotConfiguration {
         ChatModel chatModel, ClusterElementTools clusterElementTools,
         ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools, TaskTools taskTools) {
 
+        return buildClusterElementBuildSubAgentChatClient(
+            chatModel, clusterElementTools, readProjectWorkflowTools, componentTools, taskTools);
+    }
+
+    @Bean
+    IntelligentToolChatClientFactory clusterElementBuildSubAgentChatClientFactory(
+        @Qualifier("clusterElementBuildSubAgentChatClient") ChatClient clusterElementBuildSubAgentChatClient,
+        ClusterElementTools clusterElementTools, ReadProjectWorkflowTools readProjectWorkflowTools,
+        ComponentTools componentTools, TaskTools taskTools) {
+
+        return candidateChatModel -> candidateChatModel == null
+            ? clusterElementBuildSubAgentChatClient
+            : buildClusterElementBuildSubAgentChatClient(
+                candidateChatModel, clusterElementTools, readProjectWorkflowTools, componentTools, taskTools);
+    }
+
+    private ChatClient buildClusterElementBuildSubAgentChatClient(
+        ChatModel chatModel, ClusterElementTools clusterElementTools,
+        ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools, TaskTools taskTools) {
+
         return ChatClient.builder(chatModel)
-            .defaultSystem(getSystemPrompt(promptClusterElementBuildResource))
+            .defaultSystem(clusterElementBuildSystemPrompt)
             .defaultTools(
                 readProjectWorkflowTools, clusterElementTools, componentTools, taskTools, workflowValidatorTools,
                 workflowInstructionTools)
@@ -893,8 +1035,32 @@ public class CopilotConfiguration {
         ReadProjectWorkflowTools readProjectWorkflowTools, ReadSkillsTools readSkillsTools,
         Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools) {
 
+        return buildSkillsAskSubAgentChatClient(
+            chatModel, readProjectTools, readProjectWorkflowTools, readSkillsTools, firecrawlTools,
+            braveWebSearchTools);
+    }
+
+    @Bean
+    IntelligentToolChatClientFactory skillsAskSubAgentChatClientFactory(
+        @Qualifier("skillsAskSubAgentChatClient") ChatClient skillsAskSubAgentChatClient,
+        ReadProjectTools readProjectTools, ReadProjectWorkflowTools readProjectWorkflowTools,
+        ReadSkillsTools readSkillsTools, Optional<FirecrawlTools> firecrawlTools,
+        Optional<BraveWebSearchTools> braveWebSearchTools) {
+
+        return candidateChatModel -> candidateChatModel == null
+            ? skillsAskSubAgentChatClient
+            : buildSkillsAskSubAgentChatClient(
+                candidateChatModel, readProjectTools, readProjectWorkflowTools, readSkillsTools, firecrawlTools,
+                braveWebSearchTools);
+    }
+
+    private ChatClient buildSkillsAskSubAgentChatClient(
+        ChatModel chatModel, ReadProjectTools readProjectTools,
+        ReadProjectWorkflowTools readProjectWorkflowTools, ReadSkillsTools readSkillsTools,
+        Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools) {
+
         ChatClient.Builder builder = ChatClient.builder(chatModel)
-            .defaultSystem(getSystemPrompt(promptSkillsAskResource));
+            .defaultSystem(skillsAskSystemPrompt);
 
         List<Object> tools = new ArrayList<>(
             List.of(
@@ -914,8 +1080,27 @@ public class CopilotConfiguration {
         ChatModel chatModel, ReadProjectTools readProjectTools,
         ReadProjectWorkflowTools readProjectWorkflowTools, SkillsTools skillsTools) {
 
+        return buildSkillsBuildSubAgentChatClient(chatModel, readProjectTools, readProjectWorkflowTools, skillsTools);
+    }
+
+    @Bean
+    IntelligentToolChatClientFactory skillsBuildSubAgentChatClientFactory(
+        @Qualifier("skillsBuildSubAgentChatClient") ChatClient skillsBuildSubAgentChatClient,
+        ReadProjectTools readProjectTools, ReadProjectWorkflowTools readProjectWorkflowTools,
+        SkillsTools skillsTools) {
+
+        return candidateChatModel -> candidateChatModel == null
+            ? skillsBuildSubAgentChatClient
+            : buildSkillsBuildSubAgentChatClient(
+                candidateChatModel, readProjectTools, readProjectWorkflowTools, skillsTools);
+    }
+
+    private ChatClient buildSkillsBuildSubAgentChatClient(
+        ChatModel chatModel, ReadProjectTools readProjectTools,
+        ReadProjectWorkflowTools readProjectWorkflowTools, SkillsTools skillsTools) {
+
         return ChatClient.builder(chatModel)
-            .defaultSystem(getSystemPrompt(promptSkillsBuildResource))
+            .defaultSystem(skillsBuildSystemPrompt)
             .defaultTools(
                 skillsTools, readProjectTools, readProjectWorkflowTools, workflowValidatorTools,
                 workflowInstructionTools)
@@ -934,8 +1119,32 @@ public class CopilotConfiguration {
         ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools,
         Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools) {
 
+        return buildWorkflowExecutionAskSubAgentChatClient(
+            chatModel, workflowExecutionTools, readProjectWorkflowTools, componentTools, firecrawlTools,
+            braveWebSearchTools);
+    }
+
+    @Bean
+    IntelligentToolChatClientFactory workflowExecutionAskSubAgentChatClientFactory(
+        @Qualifier("workflowExecutionAskSubAgentChatClient") ChatClient workflowExecutionAskSubAgentChatClient,
+        WorkflowExecutionTools workflowExecutionTools, ReadProjectWorkflowTools readProjectWorkflowTools,
+        ComponentTools componentTools, Optional<FirecrawlTools> firecrawlTools,
+        Optional<BraveWebSearchTools> braveWebSearchTools) {
+
+        return candidateChatModel -> candidateChatModel == null
+            ? workflowExecutionAskSubAgentChatClient
+            : buildWorkflowExecutionAskSubAgentChatClient(
+                candidateChatModel, workflowExecutionTools, readProjectWorkflowTools, componentTools, firecrawlTools,
+                braveWebSearchTools);
+    }
+
+    private ChatClient buildWorkflowExecutionAskSubAgentChatClient(
+        ChatModel chatModel, WorkflowExecutionTools workflowExecutionTools,
+        ReadProjectWorkflowTools readProjectWorkflowTools, ComponentTools componentTools,
+        Optional<FirecrawlTools> firecrawlTools, Optional<BraveWebSearchTools> braveWebSearchTools) {
+
         ChatClient.Builder builder = ChatClient.builder(chatModel)
-            .defaultSystem(getSystemPrompt(promptWorkflowExecutionAskResource));
+            .defaultSystem(workflowExecutionAskSystemPrompt);
 
         List<Object> tools = new ArrayList<>(
             List.of(
@@ -961,8 +1170,28 @@ public class CopilotConfiguration {
         ChatModel chatModel, WorkflowExecutionTools workflowExecutionTools, ProjectWorkflowTools projectWorkflowTools,
         ScriptTools scriptTools, TaskTools taskTools) {
 
+        return buildWorkflowExecutionBuildSubAgentChatClient(
+            chatModel, workflowExecutionTools, projectWorkflowTools, scriptTools, taskTools);
+    }
+
+    @Bean
+    IntelligentToolChatClientFactory workflowExecutionBuildSubAgentChatClientFactory(
+        @Qualifier("workflowExecutionBuildSubAgentChatClient") ChatClient workflowExecutionBuildSubAgentChatClient,
+        WorkflowExecutionTools workflowExecutionTools, ProjectWorkflowTools projectWorkflowTools,
+        ScriptTools scriptTools, TaskTools taskTools) {
+
+        return candidateChatModel -> candidateChatModel == null
+            ? workflowExecutionBuildSubAgentChatClient
+            : buildWorkflowExecutionBuildSubAgentChatClient(
+                candidateChatModel, workflowExecutionTools, projectWorkflowTools, scriptTools, taskTools);
+    }
+
+    private ChatClient buildWorkflowExecutionBuildSubAgentChatClient(
+        ChatModel chatModel, WorkflowExecutionTools workflowExecutionTools, ProjectWorkflowTools projectWorkflowTools,
+        ScriptTools scriptTools, TaskTools taskTools) {
+
         return ChatClient.builder(chatModel)
-            .defaultSystem(getSystemPrompt(promptWorkflowExecutionBuildResource))
+            .defaultSystem(workflowExecutionBuildSystemPrompt)
             .defaultTools(
                 workflowExecutionTools, projectWorkflowTools, scriptTools, taskTools, workflowValidatorTools,
                 workflowInstructionTools)
