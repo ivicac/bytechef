@@ -3,6 +3,8 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import HubConnectionDialog from '../views/components/HubConnectionDialog';
 
+// vi.mock factories hoist above module-scope `const`s, so refs they close over must come from
+// vi.hoisted — see CLAUDE.md's Vitest mock factory hoisting note.
 const {useGetComponentDefinitionQueryMock, useGetComponentDefinitionsQueryMock} = vi.hoisted(() => ({
     useGetComponentDefinitionQueryMock: vi.fn(),
     useGetComponentDefinitionsQueryMock: vi.fn(),
@@ -16,6 +18,11 @@ vi.mock('@/shared/queries/automation/componentDefinitions.queries', () => ({
     useGetComponentDefinitionsQuery: useGetComponentDefinitionsQueryMock,
 }));
 
+// `HubConnectionDialog`'s own job is picking the right props for `ConnectionDialog` — the shared
+// component's own rendering/submission behaviour already has its own test suite
+// (`ConnectionDialog.test.tsx`). Mocking it here keeps this file a focused unit test of that
+// prop-selection logic, and sidesteps having to stand up ConnectionDialog's full internal query
+// graph (connection definitions, OAuth2, credential stores, environment/workspace stores, ...).
 vi.mock('@/shared/components/connection/ConnectionDialog', () => ({
     default: (props: Record<string, unknown>) => (
         <div data-testid="connection-dialog">
@@ -58,6 +65,8 @@ describe('HubConnectionDialog', () => {
         expect(screen.getByTestId('has-credentials-mutation')).toHaveTextContent('true');
         expect(screen.getByTestId('start-in-credentials-mode')).toHaveTextContent('true');
 
+        // The real id, not the id-less workaround this replaced: the credentials mutation reads it off the
+        // variables, and the dialog needs it to be in edit mode rather than reporting a creation.
         expect(JSON.parse(screen.getByTestId('connection').textContent || 'null')).toEqual({
             componentName: 'slack',
             connectionVersion: 1,

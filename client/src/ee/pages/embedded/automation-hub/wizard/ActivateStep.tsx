@@ -9,6 +9,18 @@ interface ActivateStepProps {
     template: AutomationWorkflowProjectWorkflowTemplate;
 }
 
+/**
+ * The final step: what is about to be switched on, and — once the reducer reaches `done` — the
+ * success screen. The Activate/Done/Open in builder buttons live in the wizard footer, not here.
+ *
+ * It also carries the template description and the note about fine-tuning in the builder, which
+ * belonged to the removed Configure step (see `ActivationWizard`) — that step showed the same
+ * review one click earlier and wrote nothing, so its content moved here rather than being lost.
+ *
+ * `busy` is worth a line of its own here because Activate is where every request this wizard makes
+ * now happens — copy, read back, one wiring PUT per connected node, publish, enable — so the wait
+ * is long enough that a merely disabled button reads as a click that did not land.
+ */
 const ActivateStep = ({busy, state, template}: ActivateStepProps) => {
     if (state.step === 'done') {
         return (

@@ -12,6 +12,11 @@ import {Dispatch, useMemo, useState} from 'react';
 import InlineSVG from 'react-inlinesvg';
 import {twMerge} from 'tailwind-merge';
 
+/**
+ * One component's account picker. A vendor that sets `connectionDialogAllowed: false` wants its
+ * users picking from the connections it shared rather than creating their own, so the Connect
+ * button is omitted entirely — leaving the select, which is where a shared connection appears.
+ */
 interface ConnectAccountRowProps {
     component: AutomationWorkflowProjectComponent;
     highlighted: boolean;
@@ -95,6 +100,11 @@ interface ConnectAccountsStepProps {
     template: AutomationWorkflowProjectWorkflowTemplate;
 }
 
+/**
+ * Step 1: one row per template component that needs an account. A row highlighted by a
+ * missing-connection failure blocks the wizard until that component is selected again — the
+ * reducer's `canProceed` owns that rule, this component only renders it.
+ */
 const ConnectAccountsStep = ({dispatch, state, template}: ConnectAccountsStepProps) => {
     const componentsByName = useMemo(() => {
         const byName = new Map<string, AutomationWorkflowProjectComponent>();

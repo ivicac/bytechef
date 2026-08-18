@@ -1,3 +1,4 @@
+import {useAutomationHubStore} from '@/ee/pages/embedded/automation-hub/stores/useAutomationHubStore';
 import {
     AutomationWorkflowProject,
     AutomationWorkflowProjectApi,
@@ -36,12 +37,36 @@ export const useGetConnectionsQuery = () =>
         queryKey: AutomationHubKeys.connections,
     });
 
-export const useGetComponentConnectionsQuery = (componentName: string, enabled = true) =>
-    useQuery<Connection[]>({
+/**
+ * The vendor's `sharedConnectionIds` are still sent here as a query parameter for backward
+ * compatibility, but the server ignores `connectionIds` entirely
+ * (`ConnectedUserConnectionFacadeImpl#getConnections`). A shared connection now reaches every
+ * connected user in the environment automatically, via the `shared` flag a tenant admin sets on
+ * the connection itself at '/embedded/connections' — not via this id list. The SDK's
+ * `sharedConnectionIds` prop is `@deprecated` and documents its own inertness, not this mechanism.
+ * They are read from the store here rather than threaded through every caller so the wizard's
+ * account select and its "Connected accounts" summary agree on what exists.
+ *
+ * Deliberately NOT part of the query key: the ids arrive once with the EMBED_INIT handshake, which
+ * `AutomationHubLayout` completes before any view renders, and never change afterwards. Keeping the
+ * key at three elements also keeps `connections` a plain prefix of it, which is what makes the
+ * connection dialog's `connectionsQueryKey` invalidation cascade to the per-component queries.
+ */
+export const useGetComponentConnectionsQuery = (componentName: string, enabled = true) => {
+    const sharedConnectionIds = useAutomationHubStore((state) => state.sharedConnectionIds);
+
+    return useQuery<Connection[]>({
         enabled,
-        queryFn: () => new ConnectionApi().getFrontendConnections({componentName}),
+        queryFn: () =>
+            new ConnectionApi().getFrontendConnections({
+                componentName,
+                // The generated client emits any non-null value as a query parameter, so an empty
+                // array would put a meaningless `connectionIds=` on every request.
+                connectionIds: sharedConnectionIds.length > 0 ? sharedConnectionIds : undefined,
+            }),
         queryKey: AutomationHubKeys.connectionsByComponent(componentName),
     });
+};
 
 export const useGetWorkflowQuery = (workflowUuid?: string) =>
     useQuery<ConnectedUserProjectWorkflow>({
@@ -50,12 +75,19 @@ export const useGetWorkflowQuery = (workflowUuid?: string) =>
         queryKey: AutomationHubKeys.workflow(workflowUuid!),
     });
 
+/**
+ * The imperative counterpart of {@link useGetWorkflowQuery}, for the one caller that needs a
+ * workflow in the middle of a sequence rather than as render state: activation copies a template
+ * and must read the copy back to learn which nodes to wire, all within one click. Going through
+ * the query client rather than the API directly keeps the result in the same cache entry the
+ * builder view reads.
+ */
 export const useFetchWorkflow = () => {
     const queryClient = useQueryClient();
 
     return useCallback(
         (workflowUuid: string) =>
-            queryClient.query<ConnectedUserProjectWorkflow>({
+            queryClient.fetchQuery<ConnectedUserProjectWorkflow>({
                 queryFn: () => new ConnectedUserProjectWorkflowApi().getFrontendProjectWorkflow({workflowUuid}),
                 queryKey: AutomationHubKeys.workflow(workflowUuid),
             }),

@@ -7,7 +7,7 @@ export interface AutomationHubTabsI {
     newWorkflow: boolean;
 }
 
-type AutomationHubLayoutType = 'grid' | 'list';
+export type AutomationHubLayoutType = 'grid' | 'list';
 
 export interface AutomationHubThemeI {
     activeBorderColor?: string;
@@ -32,6 +32,7 @@ interface AutomationHubStateI {
     initialize: (params: EmbedInitParamsI) => void;
     initialized: boolean;
     layoutSwitcherAllowed: boolean;
+    sharedConnectionIds: number[];
     tabs: AutomationHubTabsI;
     theme: AutomationHubThemeI;
 }
@@ -55,11 +56,13 @@ export const useAutomationHubStore = create<AutomationHubStateI>()((set) => ({
             includeComponents: params.includeComponents,
             initialized: true,
             layoutSwitcherAllowed: params.layoutSwitcherAllowed ?? true,
-            tabs: {...DEFAULT_TABS, ...params.tabs},
+            sharedConnectionIds: params.sharedConnectionIds ?? [],
+            tabs: {...DEFAULT_TABS, ...(params.tabs ?? {})},
             theme: params.theme ?? {},
         }),
     initialized: false,
     layoutSwitcherAllowed: true,
+    sharedConnectionIds: [],
     tabs: DEFAULT_TABS,
     theme: {},
 }));

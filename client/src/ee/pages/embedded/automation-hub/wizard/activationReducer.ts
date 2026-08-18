@@ -7,13 +7,14 @@ export interface ActivationStateI {
     highlightedComponent?: string;
     inputValues: Record<string, unknown>;
     inputs: ActivationInputI[];
+    kind: 'COPY' | 'REFERENCE';
     requiredComponents: string[];
     selections: Record<string, number | undefined>;
     step: ActivationStepType;
     workflowUuid?: string;
 }
 
-interface ActivationInputI {
+export interface ActivationInputI {
     label?: string;
     name: string;
     required?: boolean;
@@ -31,12 +32,14 @@ export type ActivationActionType =
     | {error: string; type: 'FAILED'};
 
 export function initialActivationState(
+    kind: 'COPY' | 'REFERENCE',
     requiredComponents: string[],
     inputs: ActivationInputI[] = []
 ): ActivationStateI {
     return {
         inputValues: {},
         inputs,
+        kind,
         requiredComponents,
         selections: {},
         step: getFirstStep(requiredComponents, inputs),

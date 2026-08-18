@@ -1,6 +1,7 @@
 import {
     WireNodeConnectionRequestI,
     useCopyTemplateMutation,
+    useDeleteAutomationMutation,
     useDeprovisionReferenceMutation,
     useProvisionReferenceMutation,
     usePublishAutomationMutation,
@@ -16,6 +17,7 @@ import {
     initialActivationState,
 } from '@/ee/pages/embedded/automation-hub/wizard/activationReducer';
 import {
+    AutomationWorkflowProjectKindEnum,
     AutomationWorkflowProjectWorkflowTemplate,
     MissingConnectionError,
     ResponseError,
@@ -44,7 +46,7 @@ interface WorkflowNodeConnectionI {
     workflowConnectionKey: string;
 }
 
-interface ActivationFlowI {
+export interface ActivationFlowI {
     activate: () => Promise<void>;
     busy: boolean;
     dispatch: Dispatch<ActivationActionType>;
@@ -53,6 +55,10 @@ interface ActivationFlowI {
     state: ActivationStateI;
 }
 
+/**
+ * A `ResponseError` message is the SDK's own boilerplate ("Response returned an error code"), never
+ * anything the connected user should read, so only a genuine `Error` message is surfaced as-is.
+ */
 const toErrorMessage = (error: unknown): string => {
     if (error instanceof ResponseError) {
         return GENERIC_ERROR_MESSAGE;
@@ -61,6 +67,14 @@ const toErrorMessage = (error: unknown): string => {
     return error instanceof Error && error.message ? error.message : GENERIC_ERROR_MESSAGE;
 };
 
+/**
+ * Both the provision and the enable endpoints report a connection they could not auto-wire as a
+ * `MissingConnectionError` body on a 409; anything else is a plain failure.
+ *
+ * Call this AT MOST ONCE per error: reading the body consumes the response stream, so a second
+ * call on the same error throws and silently degrades a missing-connection 409 into an opaque
+ * failure. `activate` reads it once and passes the answer to everything that needs it.
+ */
 const readMissingConnectionComponentName = async (error: unknown): Promise<string | undefined> => {
     if (!(error instanceof ResponseError) || error.response.status !== 409) {
         return undefined;
@@ -75,6 +89,19 @@ const readMissingConnectionComponentName = async (error: unknown): Promise<strin
     }
 };
 
+/**
+ * The connection keys a copied workflow node exposes, paired with the component each one belongs
+ * to. A plain component task declares nothing about connections in the definition — the platform
+ * derives a single connection whose key IS the component name
+ * (`DefaultComponentConnectionFactory` via `ComponentConnection.of`) — which is why the fallback,
+ * not the two branches above it, is what fires for every node of a visual template today.
+ *
+ * The list and map branches are defensive only: a task that DOES declare connections carries them
+ * under `extensions.connections`, which this reader does not descend into, so neither branch
+ * matches a definition the server writes. They are kept because they cost nothing and make a
+ * hand-authored or future definition shape degrade into correct keys rather than into the
+ * component-name fallback.
+ */
 const readWorkflowNodeConnections = (node: WorkflowNodeI, nodeComponentName: string): WorkflowNodeConnectionI[] => {
     const {connections} = node;
 
@@ -129,6 +156,27 @@ const buildWiringRequests = (
     return requests;
 };
 
+/**
+ * The template components the wizard has to ask for an account: the ones whose component
+ * definition actually declares a connection. `connectionDefinitions: true` makes the shared
+ * component-definition listing return exactly those, and the hub already loads it elsewhere, so
+ * this costs no extra request. Components without a connection are skipped; when none remain the
+ * reducer starts the wizard on the configure step.
+ *
+ * The query's failure is surfaced as `isError` rather than collapsing the list to empty on any
+ * error, because an empty list is indistinguishable from "this template needs no accounts": the
+ * wizard would skip the connect step, wire nothing, and activate a copy whose connections are
+ * missing — a failure the user only meets at run time. The caller must refuse to start the flow
+ * on it.
+ *
+ * `isError` is deliberately NOT just `!!error`: TanStack Query retains `data` from the last
+ * successful fetch across a failed background refetch (this query has a 5-minute `staleTime` and
+ * the default `refetchOnWindowFocus`, and `HubConnectionDialog` mounts a second observer of the
+ * same query key), so `error` alone can be true while `connectionComponentDefinitions` is still
+ * the last good list. Gating on plain `error` would unmount an already-open wizard mid-flight —
+ * `isError` is true only when the lookup has NEVER produced data, which is the only case the
+ * caller must actually refuse to start on.
+ */
 export const useRequiredComponents = (template: AutomationWorkflowProjectWorkflowTemplate) => {
     const {
         data: connectionComponentDefinitions,
@@ -164,14 +212,43 @@ export const useRequiredComponents = (template: AutomationWorkflowProjectWorkflo
     return {isError, isLoading, refetch, requiredComponents};
 };
 
+/**
+ * Owns the activation reducer plus every mutation the wizard drives.
+ *
+ * Walking the wizard writes NOTHING. The connect and configure steps only collect and show the
+ * user's choices; the entire server-side sequence runs behind the Activate button, so closing the
+ * dialog at any earlier point leaves the connected user's account exactly as it was. That is a
+ * deliberate reversal of the original flow, which copied the template the moment the user left the
+ * connect step and left a disabled automation behind on every abandoned wizard.
+ *
+ * The two catalog kinds branch inside that one click:
+ *
+ * - `COPY` copies the template into the connected user's own project, reads the copy back to learn
+ *   which nodes to wire, wires the selected connections onto them, and must PUBLISH the copy
+ *   before enabling it — `enableProjectWorkflow` refuses a copy that is not in the active
+ *   deployment. Publishing snapshots the workflow's connections into the deployment, which is why
+ *   the wiring PUTs are awaited in order rather than fired off in parallel: publishing while one
+ *   is still in flight produces an enabled deployment with a partial connection list that only
+ *   fails at run time.
+ * - `REFERENCE` provisions a reference against the shared catalog workflow, which auto-wires by
+ *   component match, and enables it directly.
+ *
+ * Because the chain can fail partway, every failure rolls back whatever that run created — a copy
+ * is deleted, a reference row is de-provisioned — so a failed activation is indistinguishable from
+ * one that never started. The single exception is a copy the user opened in the builder: they
+ * asked for that workflow to exist and may have edited it, so it outlives the wizard.
+ */
 export const useActivationFlow = (
     template: AutomationWorkflowProjectWorkflowTemplate,
+    kind: AutomationWorkflowProjectKindEnum,
     requiredComponents: string[]
 ): ActivationFlowI => {
     const [pending, setPending] = useState(false);
 
     const copiedWorkflowUuidRef = useRef<string>(undefined);
 
+    // The generated model makes every field optional; an input without a name has no key to store a
+    // value under, so it cannot be asked for and is dropped rather than rendered as a nameless box.
     const templateInputs = useMemo(
         () =>
             (template.inputs ?? [])
@@ -180,13 +257,17 @@ export const useActivationFlow = (
         [template.inputs]
     );
 
-    const [state, dispatch] = useReducer(activationReducer, initialActivationState(requiredComponents, templateInputs));
+    const [state, dispatch] = useReducer(
+        activationReducer,
+        initialActivationState(kind, requiredComponents, templateInputs)
+    );
 
     const navigate = useNavigate();
 
     const fetchWorkflow = useFetchWorkflow();
 
     const {mutateAsync: copyTemplate} = useCopyTemplateMutation();
+    const {mutateAsync: deleteAutomation} = useDeleteAutomationMutation();
     const {mutateAsync: deprovisionReference} = useDeprovisionReferenceMutation();
     const {mutateAsync: provisionReference} = useProvisionReferenceMutation();
     const {mutateAsync: publishAutomation} = usePublishAutomationMutation();
@@ -196,6 +277,13 @@ export const useActivationFlow = (
 
     const templateUuid = template.id!;
 
+    /**
+     * Reads the copy back and puts the chosen accounts onto its nodes. Reading and wiring are one
+     * unit as far as the user is concerned — both exist only to attach the accounts they picked,
+     * and neither can produce a missing-connection 409, which comes from provision and enable — so
+     * they collapse onto one message. An unreadable definition keeps its own, because "we could
+     * not connect your accounts" would be actively misleading about a copy that is malformed.
+     */
     const wireCopiedWorkflow = useCallback(
         async (workflowUuid: string) => {
             let definitionJson: string | undefined;
@@ -217,6 +305,8 @@ export const useActivationFlow = (
             }
 
             try {
+                // Sequential rather than parallel: these all PUT onto the same workflow, and a
+                // deterministic order makes a partial failure easy to reason about.
                 await buildWiringRequests(definition, state.selections, workflowUuid).reduce<Promise<void>>(
                     (previousWiring, request) => previousWiring.then(() => wireNodeConnection(request)),
                     Promise.resolve()
@@ -228,74 +318,90 @@ export const useActivationFlow = (
         [fetchWorkflow, state.selections, wireNodeConnection]
     );
 
-    const activateCopy = useCallback(
-        async (workflowUuid: string) => {
-            await wireCopiedWorkflow(workflowUuid);
+    const activate = useCallback(async () => {
+        setPending(true);
 
-            await publishAutomation(workflowUuid);
+        // What this run has created so far, and therefore what it owes the account back if the
+        // rest of the chain fails. A copy the user opened in the builder is already in
+        // `copiedWorkflowUuidRef` and never lands in `createdWorkflowUuid`, which is exactly what
+        // exempts it from the rollback.
+        let createdWorkflowUuid: string | undefined;
+        let provisionAttempted = false;
+        let provisionSucceeded = false;
 
+        const undoPartialActivation = async (missingConnection: boolean) => {
+            try {
+                if (kind === 'REFERENCE') {
+                    // `getOrCreateReference` is
+                    // `@Transactional(noRollbackFor = MissingConnectionException.class)`, so the
+                    // 409 is the one provision failure that keeps its disabled row. Every other
+                    // provision failure already rolled its row back, and de-provisioning then
+                    // answers WORKFLOW_NOT_FOUND.
+                    if (provisionSucceeded || (provisionAttempted && missingConnection)) {
+                        await deprovisionReference(templateUuid);
+                    }
+                } else if (createdWorkflowUuid) {
+                    await deleteAutomation(createdWorkflowUuid);
+
+                    copiedWorkflowUuidRef.current = undefined;
+                }
+            } catch {
+                return;
+            }
+        };
+
+        try {
+            let workflowUuid: string;
+
+            if (kind === 'COPY') {
+                if (copiedWorkflowUuidRef.current) {
+                    workflowUuid = copiedWorkflowUuidRef.current;
+                } else {
+                    workflowUuid = await copyTemplate(templateUuid);
+
+                    copiedWorkflowUuidRef.current = workflowUuid;
+                    createdWorkflowUuid = workflowUuid;
+                }
+
+                await wireCopiedWorkflow(workflowUuid);
+
+                await publishAutomation(workflowUuid);
+            } else {
+                provisionAttempted = true;
+
+                const connections = Object.fromEntries(
+                    Object.entries(state.selections).filter(
+                        (entry): entry is [string, number] => entry[1] !== undefined && entry[1] !== null
+                    )
+                );
+
+                await provisionReference({connections, workflowUuid: templateUuid});
+
+                provisionSucceeded = true;
+                workflowUuid = templateUuid;
+            }
+
+            // After publish, before enable: the inputs live on the project deployment publishing
+            // creates, and the workflow should not start running before it has the values it was
+            // asked for.
             if (state.inputs.length > 0) {
                 await updateAutomationInputs({inputs: state.inputValues, workflowUuid});
             }
 
             await setAutomationEnabled({enabled: true, workflowUuid});
-        },
-        [
-            publishAutomation,
-            setAutomationEnabled,
-            state.inputValues,
-            state.inputs.length,
-            updateAutomationInputs,
-            wireCopiedWorkflow,
-        ]
-    );
 
-    const activateReference = useCallback(async () => {
-        const connections = Object.fromEntries(
-            Object.entries(state.selections).filter((selection): selection is [string, number] => selection[1] != null)
-        );
-
-        try {
-            await provisionReference({
-                connections,
-                inputs: state.inputs.length > 0 ? state.inputValues : undefined,
-                workflowUuid: templateUuid,
-            });
-
-            await setAutomationEnabled({enabled: true, workflowUuid: templateUuid});
+            dispatch({type: 'ACTIVATED', workflowUuid});
         } catch (error) {
-            await deprovisionReference(templateUuid).catch(() => undefined);
-
-            throw error;
-        }
-    }, [
-        deprovisionReference,
-        provisionReference,
-        setAutomationEnabled,
-        state.inputValues,
-        state.inputs.length,
-        state.selections,
-        templateUuid,
-    ]);
-
-    const activate = useCallback(async () => {
-        setPending(true);
-
-        try {
-            const copiedWorkflowUuid = copiedWorkflowUuidRef.current;
-
-            if (copiedWorkflowUuid) {
-                await activateCopy(copiedWorkflowUuid);
-
-                dispatch({type: 'ACTIVATED', workflowUuid: copiedWorkflowUuid});
-            } else {
-                await activateReference();
-
-                dispatch({type: 'ACTIVATED'});
-            }
-        } catch (error) {
+            // Read once, before the rollback: consuming the response body twice would turn a
+            // missing-connection 409 into an opaque failure, and the rollback needs the answer to
+            // decide whether the server kept the reference row.
             const missingConnectionComponentName = await readMissingConnectionComponentName(error);
 
+            await undoPartialActivation(missingConnectionComponentName !== undefined);
+
+            // `doEnableProjectWorkflow` reports a connection it could not resolve with the same
+            // 409 body the provision path uses, so an enable-time miss drives the same highlight
+            // loop instead of an opaque failure message.
             if (missingConnectionComponentName) {
                 dispatch({componentName: missingConnectionComponentName, type: 'MISSING_CONNECTION'});
             } else {
@@ -304,13 +410,44 @@ export const useActivationFlow = (
         } finally {
             setPending(false);
         }
-    }, [activateCopy, activateReference]);
+    }, [
+        copyTemplate,
+        deleteAutomation,
+        deprovisionReference,
+        kind,
+        provisionReference,
+        publishAutomation,
+        setAutomationEnabled,
+        state.inputValues,
+        state.inputs.length,
+        state.selections,
+        updateAutomationInputs,
+        templateUuid,
+        wireCopiedWorkflow,
+    ]);
 
     const openInBuilder = useCallback(() => {
         void navigate(`/embedded/hub/builder/${state.workflowUuid}`);
     }, [navigate, state.workflowUuid]);
 
+    /**
+     * Opens the copy in the builder from any step, and so makes the copy first — the one place
+     * where the wizard writes before Activate, because there is no way to open a builder on a
+     * workflow that does not exist. It is an explicit request rather than a side effect of walking
+     * the wizard, which is why the copy it makes survives a later failed activation.
+     *
+     * It reuses `copiedWorkflowUuidRef` because the server rejects a second copy of one template
+     * for one connected user with a unique-constraint violation, so copying again would 500 rather
+     * than produce a second automation.
+     *
+     * Offered for a COPY only. A REFERENCE points at the shared catalog workflow itself, which the
+     * connected user must never edit.
+     */
     const editWorkflow = useCallback(async () => {
+        if (kind !== 'COPY') {
+            return;
+        }
+
         const existingWorkflowUuid = state.workflowUuid || copiedWorkflowUuidRef.current;
 
         if (existingWorkflowUuid) {
@@ -334,7 +471,7 @@ export const useActivationFlow = (
         } finally {
             setPending(false);
         }
-    }, [copyTemplate, navigate, state.workflowUuid, templateUuid]);
+    }, [copyTemplate, kind, navigate, state.workflowUuid, templateUuid]);
 
     return {
         activate,

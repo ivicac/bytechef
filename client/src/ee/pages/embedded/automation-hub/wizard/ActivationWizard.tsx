@@ -15,7 +15,10 @@ import ConfigureStep from '@/ee/pages/embedded/automation-hub/wizard/ConfigureSt
 import ConnectAccountsStep from '@/ee/pages/embedded/automation-hub/wizard/ConnectAccountsStep';
 import {ActivationStepType, canProceed} from '@/ee/pages/embedded/automation-hub/wizard/activationReducer';
 import {useActivationFlow, useRequiredComponents} from '@/ee/pages/embedded/automation-hub/wizard/useActivationFlow';
-import {AutomationWorkflowProjectWorkflowTemplate} from '@/ee/shared/middleware/embedded/public';
+import {
+    AutomationWorkflowProjectKindEnum,
+    AutomationWorkflowProjectWorkflowTemplate,
+} from '@/ee/shared/middleware/embedded/public';
 import {useMemo} from 'react';
 
 const REQUIRED_COMPONENTS_ERROR_MESSAGE = 'This automation could not be set up. Please try again.';
@@ -27,14 +30,16 @@ const STEPS: {label: string; step: ActivationStepType}[] = [
 ];
 
 interface ActivationWizardContentProps {
+    kind: AutomationWorkflowProjectKindEnum;
     onClose: () => void;
     requiredComponents: string[];
     template: AutomationWorkflowProjectWorkflowTemplate;
 }
 
-const ActivationWizardContent = ({onClose, requiredComponents, template}: ActivationWizardContentProps) => {
+const ActivationWizardContent = ({kind, onClose, requiredComponents, template}: ActivationWizardContentProps) => {
     const {activate, busy, dispatch, editWorkflow, openInBuilder, state} = useActivationFlow(
         template,
+        kind,
         requiredComponents
     );
 
@@ -73,7 +78,7 @@ const ActivationWizardContent = ({onClose, requiredComponents, template}: Activa
             <DialogFooter>
                 {state.step === 'done' ? (
                     <>
-                        {editWorkflowAllowed && state.workflowUuid && (
+                        {kind === 'COPY' && editWorkflowAllowed && (
                             <Button label="Open in builder" onClick={openInBuilder} variant="outline" />
                         )}
 
@@ -81,7 +86,7 @@ const ActivationWizardContent = ({onClose, requiredComponents, template}: Activa
                     </>
                 ) : (
                     <>
-                        {editWorkflowAllowed && (
+                        {kind === 'COPY' && editWorkflowAllowed && (
                             <Button disabled={busy} label="Edit workflow" onClick={editWorkflow} variant="outline" />
                         )}
 
@@ -111,11 +116,12 @@ const ActivationWizardContent = ({onClose, requiredComponents, template}: Activa
 };
 
 interface ActivationWizardProps {
+    kind: AutomationWorkflowProjectKindEnum;
     onClose: () => void;
     template: AutomationWorkflowProjectWorkflowTemplate;
 }
 
-const ActivationWizard = ({onClose, template}: ActivationWizardProps) => {
+const ActivationWizard = ({kind, onClose, template}: ActivationWizardProps) => {
     const {isError, isLoading, refetch, requiredComponents} = useRequiredComponents(template);
 
     return (
@@ -147,6 +153,7 @@ const ActivationWizard = ({onClose, template}: ActivationWizardProps) => {
 
                 {!isLoading && !isError && (
                     <ActivationWizardContent
+                        kind={kind}
                         onClose={onClose}
                         requiredComponents={requiredComponents}
                         template={template}

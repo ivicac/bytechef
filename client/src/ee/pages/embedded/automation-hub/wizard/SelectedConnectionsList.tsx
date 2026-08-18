@@ -35,6 +35,10 @@ interface SelectedConnectionsListProps {
     template: AutomationWorkflowProjectWorkflowTemplate;
 }
 
+/**
+ * The "Connected accounts" summary shared by the configure and activate steps: one line per
+ * required component naming the connection the user picked for it.
+ */
 const SelectedConnectionsList = ({state, template}: SelectedConnectionsListProps) => {
     const componentTitlesByName = useMemo(() => {
         const titlesByName = new Map<string, string>();

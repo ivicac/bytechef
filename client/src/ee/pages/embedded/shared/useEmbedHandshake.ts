@@ -12,6 +12,7 @@ export interface EmbedInitParamsI {
     includeComponents?: string[];
     jwtToken?: string;
     layoutSwitcherAllowed?: boolean;
+    sharedConnectionIds?: number[];
     tabs?: {automations?: boolean; connections?: boolean; newWorkflow?: boolean};
     theme?: AutomationHubThemeI;
 }

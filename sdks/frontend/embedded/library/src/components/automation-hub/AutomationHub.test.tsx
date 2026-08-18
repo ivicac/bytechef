@@ -39,6 +39,7 @@ describe('AutomationHub', () => {
                     includeComponents: undefined,
                     jwtToken: 'jwt-1',
                     layoutSwitcherAllowed: true,
+                    sharedConnectionIds: [],
                     tabs: {connections: false},
                     theme: {primaryColor: '#123456'},
                 },

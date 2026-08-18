@@ -24,6 +24,12 @@ interface DeleteErrorI {
     message: string;
 }
 
+/**
+ * The hub's second tab: list the connected user's own connections, reconnect (reauthorize) one in
+ * place, or delete it. Deliberately narrow scope (spec §3, decision D5) — there is no standalone
+ * "create connection" here; connections are created in context by the activation wizard and inside
+ * the builder.
+ */
 const ConnectionsView = () => {
     const [deleteError, setDeleteError] = useState<DeleteErrorI>();
     const [deletingConnection, setDeletingConnection] = useState<Connection>();
@@ -55,6 +61,10 @@ const ConnectionsView = () => {
         const connectionId = deletingConnection.id;
 
         deleteConnection(connectionId, {
+            // Any delete failure gets an inline message next to its row, not just the global
+            // toast — CONNECTION_IS_USED keeps its specific wording, everything else (a non-409
+            // response, a body that isn't a ConnectionInUseError, a network failure) falls back to
+            // a generic one rather than leaving the row with no feedback at all.
             onError: async (error: Error) => {
                 const body =
                     error instanceof ResponseError
@@ -164,6 +174,11 @@ const ConnectionsView = () => {
                                             </TableCell>
 
                                             <TableCell className="w-px text-right">
+                                                {/* Withheld on a connection this user does not own: the server
+                                                    refuses to reauthorize or delete one, so offering the actions
+                                                    would promise something it then rejects. Independent of `shared`
+                                                    -- an owned connection the admin also shared stays editable. */}
+
                                                 {connection.editable !== false && (
                                                     <DropdownMenu>
                                                         <DropdownMenuTrigger asChild>

@@ -11,6 +11,8 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import AutomationsView from '../views/AutomationsView';
 
+// vi.mock factories hoist above module-scope `const`s, so refs they close over must come from
+// vi.hoisted — see CLAUDE.md's Vitest mock factory hoisting note.
 const {
     createBlankMutateMock,
     deleteAutomationMutateMock,
@@ -63,6 +65,7 @@ vi.mock('react-inlinesvg', () => ({
 const salesProject: AutomationWorkflowProject = {
     description: 'Templates for the sales team',
     id: 1,
+    kind: 'COPY',
     name: 'Sales',
     workflowTemplates: [
         {
@@ -83,6 +86,7 @@ const salesProject: AutomationWorkflowProject = {
 const supportProject: AutomationWorkflowProject = {
     description: 'Templates for the support team',
     id: 2,
+    kind: 'REFERENCE',
     name: 'Support',
     workflowTemplates: [
         {
@@ -177,6 +181,8 @@ describe('AutomationsView', () => {
 
         localStorage.clear();
 
+        // Every field a test can flip is reset here: zustand merges `setState`, so a store field
+        // left set by one test would otherwise leak into the next.
         useAutomationHubStore.setState({
             connectionDialogAllowed: true,
             defaultLayout: 'grid',
@@ -184,6 +190,7 @@ describe('AutomationsView', () => {
             includeComponents: undefined,
             initialized: true,
             layoutSwitcherAllowed: true,
+            sharedConnectionIds: [],
             tabs: {automations: true, connections: true, newWorkflow: true},
             theme: {},
         });
@@ -230,6 +237,7 @@ describe('AutomationsView', () => {
 
             const heading = screen.getByRole('heading', {level: 2, name: 'My Automations'});
 
+            // The heading spans the grid, so the group it introduces always begins its own row.
             expect(heading.className).toContain('col-span-full');
 
             expect(heading.compareDocumentPosition(screen.getByText('Slack sync'))).toBe(
@@ -249,6 +257,7 @@ describe('AutomationsView', () => {
             expect(screen.queryByText('Weekly digest')).not.toBeInTheDocument();
             expect(screen.queryByText('Retired sync')).not.toBeInTheDocument();
 
+            // The catalog itself is untouched.
             expect(screen.getByText('Slack sync')).toBeInTheDocument();
         });
 
@@ -274,6 +283,8 @@ describe('AutomationsView', () => {
         it('shows no version on an automation that has never been published', () => {
             renderView();
 
+            // `referenceAutomation` and the dangling one carry no `workflowVersion`: nothing has
+            // been deployed for them, so there is no version to state.
             expect(within(templateCard('Triage ticket')).queryByText(/^V\d+$/)).not.toBeInTheDocument();
             expect(within(templateCard('Retired sync')).queryByText(/^V\d+$/)).not.toBeInTheDocument();
         });
@@ -306,6 +317,8 @@ describe('AutomationsView', () => {
 
             renderView();
 
+            // A reference points at the shared catalog workflow; it is provisioned rather than
+            // published, so an absent version says nothing about whether it can run.
             await user.click(within(templateCard('Triage ticket')).getByRole('button', {name: 'Enable Triage ticket'}));
 
             expect(setEnabledMutateMock).toHaveBeenCalledWith({enabled: true, workflowUuid: 'ref-uuid'});
@@ -314,10 +327,15 @@ describe('AutomationsView', () => {
         it('names the status control after the action it performs, in the colour of that action', () => {
             renderView();
 
+            // The button is the action, not a status readout: a running automation offers the red
+            // "Disable", a stopped one the green "Enable". The card's own tint is what says which
+            // state it is currently in.
             const disable = within(templateCard('Weekly digest')).getByRole('button', {name: 'Disable Weekly digest'});
 
             expect(disable).toHaveTextContent('Disable');
 
+            // Through a token, not a literal: this is one of the colours a vendor's `theme` prop
+            // can replace, so the class has to resolve at runtime rather than be baked in.
             expect(disable.className).toContain('bg-(--hub-disable)');
 
             const enable = within(templateCard('Triage ticket')).getByRole('button', {name: 'Enable Triage ticket'});
@@ -396,6 +414,9 @@ describe('AutomationsView', () => {
 
             renderView();
 
+            // The filter is a single-select group, like the layout switcher beside it, so its
+            // options are radios rather than independent buttons — a viewer can never end up with
+            // neither All nor Active chosen.
             expect(screen.getByRole('radio', {name: 'All'})).toBeChecked();
 
             await user.click(screen.getByRole('radio', {name: 'Active'}));
@@ -421,6 +442,9 @@ describe('AutomationsView', () => {
 
             await user.click(screen.getByRole('radio', {name: 'Enabled'}));
 
+            // Active means the user has taken it up; Enabled means it is actually switched on. An
+            // automation they own but stopped is the first and not the second, which is the whole
+            // reason the two chips are not one.
             expect(screen.getByText('Sync leads')).toBeInTheDocument();
             expect(screen.getByText('Retired sync')).toBeInTheDocument();
             expect(screen.getByText('Weekly digest')).toBeInTheDocument();
@@ -465,6 +489,8 @@ describe('AutomationsView', () => {
         });
 
         it("hides the switcher and pins the vendor's layout when the switcher is not allowed", () => {
+            // A choice stored while the switcher was on must not outlive it: the vendor has since
+            // said which layout their users get, and there is no control left to change it back.
             localStorage.setItem('automationHub.catalogLayout', 'grid');
 
             useAutomationHubStore.setState({defaultLayout: 'list', layoutSwitcherAllowed: false});
@@ -518,7 +544,7 @@ describe('AutomationsView', () => {
             expect(screen.getByText('Unable to load automations')).toBeInTheDocument();
         });
 
-        it('offers "Use" on an unused template and calls onActivate with the template', async () => {
+        it('offers "Use" on an unused template and calls onActivate with the template and project kind', async () => {
             const user = userEvent.setup();
 
             renderView();
@@ -528,7 +554,7 @@ describe('AutomationsView', () => {
             await user.click(within(card).getByRole('button', {name: 'Use'}));
 
             expect(onActivate).toHaveBeenCalledTimes(1);
-            expect(onActivate).toHaveBeenCalledWith(salesProject.workflowTemplates![1]);
+            expect(onActivate).toHaveBeenCalledWith(salesProject.workflowTemplates![1], 'COPY');
         });
 
         it('offers a toggle and a Customize menu item on an activated COPY template', async () => {
@@ -610,7 +636,7 @@ describe('AutomationsView', () => {
             expect(deprovisionMutateMock).not.toHaveBeenCalled();
         });
 
-        it('removes an activated REFERENCE template by its automation workflow uuid after confirming', async () => {
+        it('removes an activated REFERENCE template by its catalog workflow uuid after confirming', async () => {
             const user = userEvent.setup();
 
             renderView();
@@ -663,6 +689,8 @@ describe('AutomationsView', () => {
 
             expect(deleteAutomationMutateMock).toHaveBeenCalledWith('blank-uuid');
 
+            // Still on screen, and neither button can be pressed again, so a slow delete cannot be
+            // fired twice or dismissed as though it had finished.
             expect(removeButton).toBeInTheDocument();
             expect(removeButton).toBeDisabled();
             expect(screen.getByRole('button', {name: 'Cancel'})).toBeDisabled();
@@ -704,6 +732,9 @@ describe('AutomationsView', () => {
         });
     });
 
+    // The label and description come from the LATEST version of the workflow, so a rename or an
+    // edited description made in the builder shows on the card. Reading the published version
+    // instead would leave the card stating text the viewer had already changed.
     describe('card text', () => {
         it('shows the description the viewer last saved on their own automation', () => {
             useGetAutomationsQueryMock.mockReturnValue({
@@ -716,7 +747,7 @@ describe('AutomationsView', () => {
             expect(screen.getByText('Copies new leads into Airtable')).toBeInTheDocument();
         });
 
-        it('prefers the activated automation label over the automation workflow template it came from', () => {
+        it('prefers the activated automation label over the catalog template it came from', () => {
             useGetAutomationsQueryMock.mockReturnValue({
                 data: [{...copyAutomation, description: 'My own notes', label: 'My renamed automation'}],
                 isLoading: false,
@@ -724,6 +755,8 @@ describe('AutomationsView', () => {
 
             renderView();
 
+            // The catalog template this was copied from keeps its own name; the card shows the
+            // viewer's.
             expect(screen.getByText('My renamed automation')).toBeInTheDocument();
             expect(screen.getByText('My own notes')).toBeInTheDocument();
         });
@@ -736,6 +769,8 @@ describe('AutomationsView', () => {
             inputs: [{label: 'Spreadsheet name', name: 'sheetName', required: true, type: 'STRING'}],
         };
 
+        // An automation runs for months; the answer that was right on activation day stops being
+        // right, and the wizard is not reachable again once the automation exists.
         it('offers Settings and saves a changed value through the same endpoint the wizard uses', async () => {
             const user = userEvent.setup();
 

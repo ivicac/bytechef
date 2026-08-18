@@ -19,6 +19,14 @@ const INPUT_TYPE_ATTRIBUTES: Record<string, string> = {
     URL: 'url',
 };
 
+/**
+ * The values the template asks its user for, one field per declared workflow input.
+ *
+ * Only reached when the template declares inputs — `initialActivationState` skips straight past it
+ * otherwise, the same way the connect step is skipped when no component needs a connection. Nothing
+ * is written here: the answers ride on the reducer until Activate publishes the automation and then
+ * stores them on the project deployment that publishing created.
+ */
 const ConfigureStep = ({dispatch, state}: ConfigureStepProps) => (
     <div className="flex flex-col gap-4">
         <p className="text-sm text-muted-foreground">This automation needs a few details before it can run.</p>

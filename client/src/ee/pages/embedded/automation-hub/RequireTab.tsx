@@ -10,6 +10,15 @@ interface RequireTabPropsI {
     tab: keyof AutomationHubTabsI;
 }
 
+/**
+ * Guards a hub route whose tab a vendor may have disabled. Reads the store directly (rather than
+ * relying on the tab strip, which simply omits the link) so a disabled tab is unreachable by a
+ * deep link or a stale bookmark too, and redirects to the first tab that is still enabled.
+ *
+ * If every route-backed tab (automations/connections) is disabled — leaving only, say,
+ * `newWorkflow` — there is no visible tab left to redirect to; redirecting to this same route's
+ * own path would just bounce back here forever. Render an inline empty state instead.
+ */
 const RequireTab = ({children, tab}: RequireTabPropsI) => {
     const tabs = useAutomationHubStore((state) => state.tabs);
 

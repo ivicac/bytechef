@@ -30,6 +30,19 @@ interface TemplateCardProps {
     template: AutomationWorkflowProjectWorkflowTemplate;
 }
 
+/**
+ * One catalog template, carrying its own usage state: an unused template offers "Use", while one
+ * the connected user has already activated shows its Active/Disabled status button and an overflow
+ * menu in the card's top-right corner. An activated, running template is tinted green, so a glance
+ * across the grid says which automations are live.
+ *
+ * Customize is offered for a COPY only — a REFERENCE points at a shared catalog workflow that the
+ * user must never edit. Remove is offered for both, and branches through `removeAutomation`.
+ *
+ * `activationDisabled` blanks the activation affordance while the automations query is failing:
+ * without knowing what the user already has, an activated template would render as unused and a
+ * click would silently create a second copy.
+ */
 const TemplateCard = ({
     activationDisabled,
     automation,
@@ -47,10 +60,16 @@ const TemplateCard = ({
 
     const navigate = useNavigate();
 
+    // Once the viewer has activated this template, the card is about THEIR automation, so it shows
+    // the label and description they last saved -- renaming a copy in the builder and seeing the
+    // catalog's original text on the card reads as the rename not having taken.
     const label = automation?.label || template.label || 'Untitled automation';
     const description = automation?.description || template.description;
     const attentionDescription = describeAttentionReason(automation?.attentionReason);
 
+    // The dialog stays open, with both of its buttons busy, until the removal settles: closing on
+    // the click alone would report a delete that may still fail, and would let a second click fire
+    // the same request twice.
     const handleRemove = async () => {
         setRemoving(true);
 

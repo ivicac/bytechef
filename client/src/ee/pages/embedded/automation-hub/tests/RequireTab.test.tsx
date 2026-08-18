@@ -13,6 +13,7 @@ describe('RequireTab', () => {
             connectionDialogAllowed: true,
             includeComponents: undefined,
             initialized: true,
+            sharedConnectionIds: [],
             tabs: DEFAULT_TABS,
             theme: {},
         });
