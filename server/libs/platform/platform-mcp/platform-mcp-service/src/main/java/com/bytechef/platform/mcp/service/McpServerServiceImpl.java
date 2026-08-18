@@ -169,7 +169,9 @@ public class McpServerServiceImpl implements McpServerService {
         }
 
         if (Boolean.TRUE.equals(enabled)) {
-            checkEnablement(id);
+            for (McpServerEnablementValidator mcpServerEnablementValidator : mcpServerEnablementValidators) {
+                mcpServerEnablementValidator.validateEnablement(id);
+            }
         }
 
         if (enabled != null) {

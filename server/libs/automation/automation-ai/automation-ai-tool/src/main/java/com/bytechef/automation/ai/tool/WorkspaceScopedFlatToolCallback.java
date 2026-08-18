@@ -17,8 +17,14 @@
 package com.bytechef.automation.ai.tool;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.automation.configuration.domain.Workspace;
+import com.bytechef.automation.configuration.service.WorkspaceService;
+import com.bytechef.platform.configuration.domain.Environment;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
@@ -39,37 +45,26 @@ public class WorkspaceScopedFlatToolCallback implements ToolCallback {
     private static final String ENVIRONMENT_FIELD = "environment";
 
     private final ToolCallback delegate;
-    private final WorkspaceScopeResolver workspaceScopeResolver;
+    private final WorkspaceService workspaceService;
     private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public WorkspaceScopedFlatToolCallback(ToolCallback delegate, WorkspaceScopeResolver workspaceScopeResolver) {
+    public WorkspaceScopedFlatToolCallback(ToolCallback delegate, WorkspaceService workspaceService) {
         this.delegate = delegate;
-        this.workspaceScopeResolver = workspaceScopeResolver;
+        this.workspaceService = workspaceService;
     }
 
     @Override
     public ToolDefinition getToolDefinition() {
         ToolDefinition delegateToolDefinition = delegate.getToolDefinition();
 
-        Set<String> delegatePropertyNames = getPropertyNames(delegateToolDefinition.inputSchema());
-
-        StringBuilder description = new StringBuilder(delegateToolDefinition.description());
-
-        if (!delegatePropertyNames.contains(WORKSPACE_ID_FIELD)) {
-            description.append(" Supply workspaceId when the account has more than one workspace.");
-        }
-
-        if (!delegatePropertyNames.contains(ENVIRONMENT_FIELD)) {
-            description.append(
-                " Supply environment (DEVELOPMENT, STAGING, or PRODUCTION) to target something other than" +
-                    " DEVELOPMENT.");
-        }
-
         return ToolDefinition.builder()
             .name(delegateToolDefinition.name())
-            .description(description.toString())
-            .inputSchema(mergeSchema(delegateToolDefinition.inputSchema(), delegatePropertyNames))
+            .description(
+                delegateToolDefinition.description() +
+                    " Supply workspaceId when the account has more than one workspace. Supply environment" +
+                    " (DEVELOPMENT, STAGING, or PRODUCTION) to target something other than DEVELOPMENT.")
+            .inputSchema(mergeSchema(delegateToolDefinition.inputSchema()))
             .build();
     }
 
@@ -83,40 +78,50 @@ public class WorkspaceScopedFlatToolCallback implements ToolCallback {
         try {
             ObjectNode inputNode = readInputObject(toolInput);
 
-            if (inputNode == null) {
-                return ToolErrors.toolError(jsonMapper, "Invalid tool input: expected a JSON object");
-            }
+            Long workspaceId = extractAndRemoveLong(inputNode, WORKSPACE_ID_FIELD);
+            String requestedEnvironment = extractAndRemoveString(inputNode, ENVIRONMENT_FIELD);
 
-            ToolDefinition delegateToolDefinition = delegate.getToolDefinition();
+            if (workspaceId == null) {
+                List<Workspace> workspaces = workspaceService.getWorkspaces();
 
-            Set<String> delegatePropertyNames = getPropertyNames(delegateToolDefinition.inputSchema());
-
-            JsonNode workspaceIdNode = extractField(inputNode, WORKSPACE_ID_FIELD, delegatePropertyNames);
-            JsonNode environmentNode = extractField(inputNode, ENVIRONMENT_FIELD, delegatePropertyNames);
-
-            Long workspaceId = null;
-
-            if (isPresent(workspaceIdNode)) {
-                workspaceId = toLong(workspaceIdNode);
-
-                if (workspaceId == null) {
-                    return ToolErrors.toolError(
-                        jsonMapper, "workspaceId must be an integer workspace id, got: " + workspaceIdNode);
+                if (workspaces.size() == 1) {
+                    workspaceId = workspaces.getFirst()
+                        .getId();
+                } else {
+                    return jsonMapper.writeValueAsString(
+                        Map.of(
+                            "error", "workspace_required",
+                            "message",
+                            "No single workspace could be auto-selected — retry with an explicit workspaceId " +
+                                "from the list.",
+                            "workspaces", workspaces.stream()
+                                .map(workspace -> Map.of("id", workspace.getId(), "name", workspace.getName()))
+                                .toList()));
                 }
             }
 
-            String requestedEnvironment = isPresent(environmentNode) ? environmentNode.asString() : null;
+            long environmentOrdinal = Environment.DEVELOPMENT.ordinal();
 
-            WorkspaceScopeResolver.WorkspaceScope workspaceScope =
-                workspaceScopeResolver.resolve(workspaceId, requestedEnvironment);
-
-            if (workspaceScope instanceof WorkspaceScopeResolver.Rejected rejected) {
-                return rejected.response();
+            if (requestedEnvironment != null && !requestedEnvironment.isBlank()) {
+                try {
+                    environmentOrdinal = Environment.valueOf(requestedEnvironment.toUpperCase(Locale.ROOT))
+                        .ordinal();
+                } catch (IllegalArgumentException exception) {
+                    return ToolErrors.toolError(
+                        jsonMapper,
+                        "Unknown environment '" + requestedEnvironment
+                            + "'. Supported: DEVELOPMENT, STAGING, PRODUCTION");
+                }
             }
 
-            WorkspaceScopeResolver.Resolved resolved = (WorkspaceScopeResolver.Resolved) workspaceScope;
+            Map<String, Object> forwardedContext = new HashMap<>();
 
-            Map<String, Object> forwardedContext = resolved.toForwardedContext(toolContext);
+            if (toolContext != null) {
+                forwardedContext.putAll(toolContext.getContext());
+            }
+
+            forwardedContext.put(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, workspaceId);
+            forwardedContext.put(AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, environmentOrdinal);
 
             return delegate.call(jsonMapper.writeValueAsString(inputNode), new ToolContext(forwardedContext));
         } catch (JacksonException exception) {
@@ -129,47 +134,34 @@ public class WorkspaceScopedFlatToolCallback implements ToolCallback {
         }
     }
 
-    private @Nullable ObjectNode readInputObject(@Nullable String toolInput) {
+    private ObjectNode readInputObject(@Nullable String toolInput) {
         if (toolInput == null || toolInput.isBlank()) {
             return jsonMapper.createObjectNode();
         }
 
         JsonNode node = jsonMapper.readTree(toolInput);
 
-        return node.isObject() ? (ObjectNode) node : null;
+        return node.isObject() ? (ObjectNode) node : jsonMapper.createObjectNode();
     }
 
-    private static @Nullable JsonNode extractField(
-        ObjectNode inputNode, String fieldName, Set<String> delegatePropertyNames) {
-
+    private static @Nullable Long extractAndRemoveLong(ObjectNode inputNode, String fieldName) {
         JsonNode fieldNode = inputNode.get(fieldName);
 
-        if (!delegatePropertyNames.contains(fieldName)) {
-            inputNode.remove(fieldName);
-        }
+        inputNode.remove(fieldName);
 
-        return fieldNode;
-    }
-
-    private static boolean isPresent(@Nullable JsonNode fieldNode) {
         if (fieldNode == null || fieldNode.isNull() || fieldNode.isMissingNode()) {
-            return false;
+            return null;
         }
 
-        return !fieldNode.isString() || !fieldNode.asString()
-            .isBlank();
-    }
-
-    private static @Nullable Long toLong(JsonNode fieldNode) {
-        if (fieldNode.isIntegralNumber()) {
+        if (fieldNode.isNumber()) {
             return fieldNode.asLong();
         }
 
-        if (fieldNode.isString()) {
-            String value = fieldNode.asString();
+        if (fieldNode.isString() && !fieldNode.asString()
+            .isBlank()) {
 
             try {
-                return Long.parseLong(value.strip());
+                return Long.parseLong(fieldNode.asString());
             } catch (NumberFormatException exception) {
                 return null;
             }
@@ -178,14 +170,19 @@ public class WorkspaceScopedFlatToolCallback implements ToolCallback {
         return null;
     }
 
-    private Set<String> getPropertyNames(String inputSchema) {
-        JsonNode propertiesNode = jsonMapper.readTree(inputSchema)
-            .path("properties");
+    private static @Nullable String extractAndRemoveString(ObjectNode inputNode, String fieldName) {
+        JsonNode fieldNode = inputNode.get(fieldName);
 
-        return propertiesNode.isObject() ? new HashSet<>(propertiesNode.propertyNames()) : Set.of();
+        inputNode.remove(fieldName);
+
+        if (fieldNode == null || fieldNode.isNull() || fieldNode.isMissingNode()) {
+            return null;
+        }
+
+        return fieldNode.asString();
     }
 
-    private String mergeSchema(String delegateInputSchema, Set<String> delegatePropertyNames) {
+    private String mergeSchema(String delegateInputSchema) {
         JsonNode schemaNode = jsonMapper.readTree(delegateInputSchema);
 
         if (!schemaNode.isObject()) {
@@ -199,23 +196,18 @@ public class WorkspaceScopedFlatToolCallback implements ToolCallback {
             ? (ObjectNode) propertiesNode
             : schemaObjectNode.putObject("properties");
 
-        if (!delegatePropertyNames.contains(WORKSPACE_ID_FIELD)) {
-            propertiesObjectNode.putObject(WORKSPACE_ID_FIELD)
-                .put("type", "integer")
-                .put(
-                    "description",
-                    "Target workspace id. Optional when the account has exactly one workspace; otherwise required "
-                        + "— an error response lists the candidates.");
-        }
-
-        if (!delegatePropertyNames.contains(ENVIRONMENT_FIELD)) {
-            propertiesObjectNode.putObject(ENVIRONMENT_FIELD)
-                .put("type", "string")
-                .put(
-                    "description",
-                    "Target environment: DEVELOPMENT, STAGING, or PRODUCTION. Optional — defaults to DEVELOPMENT "
-                        + "when omitted.");
-        }
+        propertiesObjectNode.putObject(WORKSPACE_ID_FIELD)
+            .put("type", "integer")
+            .put(
+                "description",
+                "Target workspace id. Optional when the account has exactly one workspace; otherwise required "
+                    + "— an error response lists the candidates.");
+        propertiesObjectNode.putObject(ENVIRONMENT_FIELD)
+            .put("type", "string")
+            .put(
+                "description",
+                "Target environment: DEVELOPMENT, STAGING, or PRODUCTION. Optional — defaults to DEVELOPMENT "
+                    + "when omitted.");
 
         return jsonMapper.writeValueAsString(schemaObjectNode);
     }

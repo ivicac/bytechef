@@ -17,13 +17,9 @@
 package com.bytechef.ai.copilot.tool.catalog;
 
 /**
- * The Copilot panels an intelligent delegate tool may be surfaced on. The AI Hub and the management MCP surface always
- * get every definition regardless of this scope — it only governs which per-panel Copilot surfaces receive a given
- * delegate.
- *
  * @author Ivica Cardic
  */
 public enum IntelligentToolScope {
 
-    PROJECT
+    PROJECT, MCP_SERVER
 }

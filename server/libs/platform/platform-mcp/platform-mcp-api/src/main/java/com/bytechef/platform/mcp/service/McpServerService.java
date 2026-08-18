@@ -64,6 +64,15 @@ public interface McpServerService {
     String getMcpServerSecretKey(long mcpServerId);
 
     /**
+     * Returns the MCP server's secret key. The secret authenticates inbound MCP traffic, so this is restricted to
+     * tenant admins (a workspace member who can otherwise view the server must not read the secret).
+     *
+     * @param mcpServerId the unique identifier of the MCP server
+     * @return the secret key
+     */
+    String getMcpServerSecretKey(long mcpServerId);
+
+    /**
      * Retrieves an MCP server by its secret key.
      *
      * @param secretKey the secret key used to identify the MCP server
@@ -91,6 +100,12 @@ public interface McpServerService {
 
     /**
      * Updates an existing MCP server with the provided input parameters.
+     *
+     * <p>
+     * When {@code enabled} is {@code true}, every registered {@link McpServerEnablementValidator} is asked to validate
+     * the server first; a validator that throws prevents the server from being enabled. Disabling a server (or leaving
+     * {@code enabled} unset) never invokes the validators — taking a broken server offline must always succeed.
+     * </p>
      *
      * @param id      the ID of the MCP server to update
      * @param name    the name of the server (can be null if not updating)
