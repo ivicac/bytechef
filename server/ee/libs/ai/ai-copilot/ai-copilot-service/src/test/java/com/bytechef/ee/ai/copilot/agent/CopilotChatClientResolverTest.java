@@ -9,6 +9,8 @@ package com.bytechef.ee.ai.copilot.agent;
 
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertSame;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
@@ -17,6 +19,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.agui.core.state.State;
+import com.bytechef.ai.copilot.agent.SelectedChatModelUnavailableException;
 import com.bytechef.ai.copilot.constant.CopilotConstants;
 import com.bytechef.ee.platform.ai.agent.catalog.CatalogChatClientResolver;
 import org.junit.jupiter.api.BeforeEach;
@@ -57,6 +60,43 @@ class CopilotChatClientResolverTest {
         state.set(CopilotConstants.STATE_ENVIRONMENT_ID, "3");
 
         assertSame(catalogChatClient, resolver.resolve(state));
+    }
+
+    @Test
+    void testUnresolvableUserSelectionFailsInsteadOfFallingBack() {
+        when(catalogChatClientResolver.resolve(OPENAI_KEY, OPENAI_MODEL, 3)).thenReturn(null);
+
+        State state = new State();
+
+        state.set(CopilotConstants.STATE_USER_SELECTED_LLM_PROVIDER, OPENAI_KEY);
+        state.set(CopilotConstants.STATE_USER_SELECTED_LLM_MODEL, OPENAI_MODEL);
+        state.set(CopilotConstants.STATE_ENVIRONMENT_ID, "3");
+
+        SelectedChatModelUnavailableException exception = assertThrows(
+            SelectedChatModelUnavailableException.class, () -> resolver.resolve(state));
+
+        assertTrue(exception.getMessage()
+            .contains(OPENAI_MODEL));
+        verify(catalogChatClientResolver, never()).resolveDefault(anyInt());
+    }
+
+    @Test
+    void testFailingCatalogLookupOfTheUserSelectionFailsInsteadOfFallingBack() {
+        IllegalStateException cause = new IllegalStateException("cannot decrypt the API key");
+
+        when(catalogChatClientResolver.resolve(OPENAI_KEY, OPENAI_MODEL, 3)).thenThrow(cause);
+
+        State state = new State();
+
+        state.set(CopilotConstants.STATE_USER_SELECTED_LLM_PROVIDER, OPENAI_KEY);
+        state.set(CopilotConstants.STATE_USER_SELECTED_LLM_MODEL, OPENAI_MODEL);
+        state.set(CopilotConstants.STATE_ENVIRONMENT_ID, "3");
+
+        SelectedChatModelUnavailableException exception = assertThrows(
+            SelectedChatModelUnavailableException.class, () -> resolver.resolve(state));
+
+        assertSame(cause, exception.getCause());
+        verify(catalogChatClientResolver, never()).resolveDefault(anyInt());
     }
 
     @Test

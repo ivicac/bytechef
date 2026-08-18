@@ -18,9 +18,6 @@ package com.bytechef.ai.copilot.config;
 
 import com.bytechef.ai.copilot.tool.AiAgentAgentToolCallback;
 import com.bytechef.ai.copilot.tool.AssetFileAgentToolCallback;
-import com.bytechef.ai.copilot.tool.ClusterElementAgentToolCallback;
-import com.bytechef.ai.copilot.tool.CodeEditorAgentToolCallback;
-import com.bytechef.ai.copilot.tool.ConverterAgentToolCallback;
 import com.bytechef.ai.copilot.tool.DataTableAgentToolCallback;
 import com.bytechef.ai.copilot.tool.KnowledgeBaseAgentToolCallback;
 import com.bytechef.ai.copilot.tool.ProjectWorkflowAgentToolCallback;
@@ -39,6 +36,7 @@ import com.bytechef.automation.ai.tool.knowledgebase.KnowledgeBaseToolCallbacksF
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.support.ToolCallbacks;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.beans.factory.ObjectProvider;
@@ -51,32 +49,31 @@ import org.springframework.context.annotation.Configuration;
 @Configuration
 public class ToolCallbackContributorConfiguration {
 
+    /**
+     * Names of the {@link com.bytechef.ai.copilot.tool.catalog.IntelligentToolDefinition}s this contributor owns on the
+     * management MCP surface, contributed by {@link CopilotIntelligentToolContributor}. Filtered with
+     * {@link IntelligentToolCatalog#getByNames} over its own name partition, never the whole catalog, because later EE
+     * intelligent-tool contributors (custom_component, code_workflow, integration_workflow) register their own
+     * management-MCP contributor configs against the same catalog — {@code getAll} here would double-register their
+     * delegates.
+     *
+     * <p>
+     * Public so {@code IntelligentToolSurfaceParityTest} (ai-hub-service) can assert this set is disjoint from, and
+     * unions with, the other management-MCP surfaces' name sets to equal the full catalog.
+     * </p>
+     */
     public static final Set<String> INTELLIGENT_TOOL_NAMES = Set.of(
         "buildWorkflow", "importWorkflow", "configureClusterElement", "writeScript", "authorSkill",
-        "debugWorkflowExecution", "configureMcpServer");
-
-    private static final String MCP_PROJECT_WORKFLOW_PARAMETERS_TOOL_NAME = "updateMcpProjectWorkflowParameters";
-
-    private static final Set<String> WORKSPACE_SCOPED_MCP_TOOL_NAMES = Set.of(
-        "listMcpServers", "createMcpServer", "listMcpProjectWorkflows");
-
-    private static final Set<String> WORKSPACE_SCOPED_DEPLOYMENT_TOOL_NAMES = Set.of("listProjectDeployments");
+        "debugWorkflowExecution");
 
     @Bean
     McpServerToolCallbackContributor copilotAgentToolCallbackContributor(
         ObjectProvider<SkillsTools> skillsToolsProvider,
-        @Qualifier("workflowEditorBuildSubAgentChatClient") ObjectProvider<ChatClient> workflowEditorProvider,
-        @Qualifier("codeEditorBuildSubAgentChatClient") ObjectProvider<ChatClient> codeEditorProvider,
-        @Qualifier("clusterElementBuildSubAgentChatClient") ObjectProvider<ChatClient> clusterElementProvider,
-        @Qualifier("skillsBuildSubAgentChatClient") ObjectProvider<ChatClient> skillsProvider,
-        @Qualifier("workflowExecutionBuildSubAgentChatClient") ObjectProvider<ChatClient> workflowExecutionProvider,
-        @Qualifier("converterBuildSubAgentChatClientSupplier") //
-        ObjectProvider<Supplier<ChatClient>> converterSupplierProvider,
         @Qualifier("knowledgeBaseBuildSubAgentChatClient") ObjectProvider<ChatClient> knowledgeBaseProvider,
         @Qualifier("dataTableBuildSubAgentChatClient") ObjectProvider<ChatClient> dataTableProvider,
         @Qualifier("aiAgentBuildSubAgentChatClient") ObjectProvider<ChatClient> aiAgentProvider,
         @Qualifier("assetFileBuildSubAgentChatClient") ObjectProvider<ChatClient> assetFileProvider,
-        WorkspaceScopeResolver workspaceScopeResolver) {
+        IntelligentToolCatalog intelligentToolCatalog, WorkspaceScopeResolver workspaceScopeResolver) {
 
         return () -> {
             List<ToolCallback> toolCallbacks = new ArrayList<>();
@@ -84,30 +81,12 @@ public class ToolCallbackContributorConfiguration {
             skillsToolsProvider.ifAvailable(
                 skillsTools -> toolCallbacks.addAll(List.of(ToolCallbacks.from(skillsTools))));
 
-            workflowEditorProvider.ifAvailable(
-                chatClient -> toolCallbacks.add(
-                    new WorkspaceScopedSubAgentToolCallback(
-                        new ProjectWorkflowAgentToolCallback(chatClient), workspaceScopeResolver)));
-            codeEditorProvider.ifAvailable(
-                chatClient -> toolCallbacks.add(
-                    new WorkspaceScopedSubAgentToolCallback(
-                        new CodeEditorAgentToolCallback(chatClient), workspaceScopeResolver)));
-            clusterElementProvider.ifAvailable(
-                chatClient -> toolCallbacks.add(
-                    new WorkspaceScopedSubAgentToolCallback(
-                        new ClusterElementAgentToolCallback(chatClient), workspaceScopeResolver)));
-            skillsProvider.ifAvailable(
-                chatClient -> toolCallbacks.add(
-                    new WorkspaceScopedSubAgentToolCallback(
-                        new SkillsAgentToolCallback(chatClient), workspaceScopeResolver)));
-            workflowExecutionProvider.ifAvailable(
-                chatClient -> toolCallbacks.add(
-                    new WorkspaceScopedSubAgentToolCallback(
-                        new WorkflowExecutionAgentToolCallback(chatClient), workspaceScopeResolver)));
-            converterSupplierProvider.ifAvailable(
-                converterChatClientSupplier -> toolCallbacks.add(
-                    new WorkspaceScopedSubAgentToolCallback(
-                        new ConverterAgentToolCallback(converterChatClientSupplier), workspaceScopeResolver)));
+            toolCallbacks.addAll(
+                intelligentToolCatalog.getByNames(
+                    INTELLIGENT_TOOL_NAMES, IntelligentToolVariant.BUILD, (chatClient, definition) -> chatClient,
+                    (toolCallback, definition) -> new WorkspaceScopedSubAgentToolCallback(
+                        toolCallback, workspaceScopeResolver)));
+
             knowledgeBaseProvider.ifAvailable(
                 chatClient -> toolCallbacks.add(
                     new WorkspaceScopedSubAgentToolCallback(

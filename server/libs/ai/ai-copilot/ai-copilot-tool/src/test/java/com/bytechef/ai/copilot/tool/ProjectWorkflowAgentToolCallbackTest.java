@@ -63,7 +63,7 @@ class ProjectWorkflowAgentToolCallbackTest {
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn(synthesised);
 
-        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(chatClient);
+        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(chatModel -> chatClient, null);
 
         String result = callback.call("{\"request\":\"build a daily report workflow\"}");
 
@@ -72,7 +72,8 @@ class ProjectWorkflowAgentToolCallbackTest {
 
     @Test
     void testCallReturnsErrorWhenRequestIsBlank() {
-        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(mock(ChatClient.class));
+        ProjectWorkflowAgentToolCallback callback =
+            new ProjectWorkflowAgentToolCallback(chatModel -> mock(ChatClient.class), null);
 
         String result = callback.call("{\"request\":\"   \"}");
 
@@ -83,7 +84,8 @@ class ProjectWorkflowAgentToolCallbackTest {
 
     @Test
     void testCallReturnsErrorOnInvalidJson() {
-        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(mock(ChatClient.class));
+        ProjectWorkflowAgentToolCallback callback =
+            new ProjectWorkflowAgentToolCallback(chatModel -> mock(ChatClient.class), null);
 
         String result = callback.call("not-json");
 
@@ -103,7 +105,7 @@ class ProjectWorkflowAgentToolCallbackTest {
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn(null);
 
-        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(chatClient);
+        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(chatModel -> chatClient, null);
 
         String result = callback.call("{\"request\":\"any\"}");
 
@@ -125,7 +127,7 @@ class ProjectWorkflowAgentToolCallbackTest {
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenThrow(new RuntimeException("project facade unavailable"));
 
-        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(chatClient);
+        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(chatModel -> chatClient, null);
 
         String result = callback.call("{\"request\":\"any\"}");
 
@@ -134,7 +136,7 @@ class ProjectWorkflowAgentToolCallbackTest {
         assertThat(node.get("error")
             .asText())
                 .as("payload must surface tool name")
-                .contains("project_workflow_agent failed")
+                .contains("buildWorkflow failed")
                 .as("payload must NOT leak the exception getMessage()")
                 .doesNotContain("project facade unavailable");
     }
@@ -154,7 +156,7 @@ class ProjectWorkflowAgentToolCallbackTest {
 
         ToolContext parentToolContext = new ToolContext(parentContextMap);
 
-        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(chatClient);
+        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(chatModel -> chatClient, null);
 
         callback.call("{\"request\":\"any\"}", parentToolContext);
 
@@ -178,7 +180,7 @@ class ProjectWorkflowAgentToolCallbackTest {
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenReturn("ok");
 
-        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(chatClient);
+        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(chatModel -> chatClient, null);
 
         callback.call("{\"request\":\"any\"}", null);
 
@@ -192,10 +194,11 @@ class ProjectWorkflowAgentToolCallbackTest {
 
     @Test
     void testToolDefinitionExposesProjectWorkflowAgentNameAndRequestSchema() {
-        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(mock(ChatClient.class));
+        ProjectWorkflowAgentToolCallback callback =
+            new ProjectWorkflowAgentToolCallback(chatModel -> mock(ChatClient.class), null);
 
         assertThat(callback.getToolDefinition()
-            .name()).isEqualTo("project_workflow_agent");
+            .name()).isEqualTo("buildWorkflow");
         assertThat(callback.getToolDefinition()
             .inputSchema()).contains("\"request\"");
     }
@@ -221,7 +224,7 @@ class ProjectWorkflowAgentToolCallbackTest {
         when(requestSpec.call()).thenReturn(responseSpec);
         when(responseSpec.content()).thenThrow(upstreamException);
 
-        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(chatClient);
+        ProjectWorkflowAgentToolCallback callback = new ProjectWorkflowAgentToolCallback(chatModel -> chatClient, null);
 
         String result = callback.call("{\"request\":\"any\"}");
 
@@ -229,7 +232,7 @@ class ProjectWorkflowAgentToolCallbackTest {
 
         assertThat(node.has("error")).isTrue();
         assertThat(node.get("error")
-            .asText()).contains("project_workflow_agent failed");
+            .asText()).contains("buildWorkflow failed");
     }
 
     private static void stubToolContext(ChatClientRequestSpec requestSpec) {
