@@ -5,6 +5,8 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import AutomationHubLayout from '../AutomationHubLayout';
 
+// vi.mock factories hoist above module-scope `const`s, so refs they close over must come from
+// vi.hoisted — see CLAUDE.md's Vitest mock factory hoisting note.
 const {navigateMock} = vi.hoisted(() => ({navigateMock: vi.fn()}));
 
 vi.mock('react-router-dom', async () => {
@@ -35,6 +37,7 @@ describe('AutomationHubLayout', () => {
             connectionDialogAllowed: true,
             includeComponents: undefined,
             initialized: true,
+            sharedConnectionIds: [],
             tabs: DEFAULT_TABS,
             theme: {},
         });
@@ -79,6 +82,7 @@ describe('AutomationHubLayout', () => {
 
         expect(screen.queryByText('Automation Hub')).not.toBeInTheDocument();
 
+        // The tab strip is the hub's OWN navigation between its two sections, so it stays.
         expect(screen.getByRole('tablist')).toBeInTheDocument();
     });
 
@@ -89,12 +93,17 @@ describe('AutomationHubLayout', () => {
             </MemoryRouter>
         );
 
+        // A tab is a peer view; the builder is a workflow open for editing inside one. Keeping the
+        // strip up would make "Connections" an unlabelled exit from unsaved canvas state.
         expect(screen.queryByRole('tablist')).not.toBeInTheDocument();
     });
 
     it('gives the routed view a height box to fill, not just a top margin', () => {
         const {container} = wrap();
 
+        // The builder route renders through this Outlet and sizes its canvas with `size-full`,
+        // which resolves to nothing under a parent whose own height is only as tall as its
+        // content — the chain below is what stops it collapsing to an empty page.
         const main = container.querySelector('main');
 
         expect(main?.className).toContain('min-h-0');
@@ -125,6 +134,8 @@ describe('AutomationHubLayout', () => {
     });
 
     it('still restores the route when the hub renders before the handshake lands', async () => {
+        // The real sequence: the hub paints its loading state first and EMBED_INIT arrives after.
+        // An ungated write on that first pass clobbered the remembered route before it was read.
         useAutomationHubStore.setState({initialized: false});
         window.sessionStorage.setItem('automationHub.route', '/embedded/hub/builder/wf-1');
 

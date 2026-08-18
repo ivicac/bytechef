@@ -7,6 +7,11 @@ import {
 } from '@/ee/pages/embedded/automation-hub/views/components/TemplateGridSection';
 import {LayoutGridIcon, ListIcon, PlusIcon, SearchIcon} from 'lucide-react';
 
+// Both segmented controls run borderless: on the hub's grey ground a white group is already its own
+// edge, and shadcn's outline variant would draw a second one around it. That leaves the selected
+// segment to carry the whole state — `data-[state=on]:bg-accent`, the shadcn default, is all but
+// invisible against the group's white surface, so it is replaced here. Shared between the two so
+// the filter and the layout switcher stay indistinguishable in style.
 const SELECTED_SEGMENT_CLASS = 'bg-(--hub-card) data-[state=on]:bg-(--hub-segment-selected)';
 
 export const CATALOG_LAYOUT_STORAGE_KEY = 'automationHub.catalogLayout';
@@ -23,6 +28,16 @@ interface CatalogToolbarProps {
     search: string;
 }
 
+/**
+ * The catalog's controls, all on one row: the All/Active/Enabled filter on the left, then the search box,
+ * the grid/list toggle and "New Automation" together on the right. The view owns every piece of
+ * state, so this stays presentational.
+ *
+ * Both the filter and the layout switcher are single-select `ToggleGroup`s, whose items are radios:
+ * a viewer can never end up with neither option selected the way a pair of independent toggle
+ * buttons would allow. They also read as one segmented control each, which is what keeps the two
+ * ends of the row speaking the same visual language.
+ */
 const CatalogToolbar = ({
     filter,
     layout,

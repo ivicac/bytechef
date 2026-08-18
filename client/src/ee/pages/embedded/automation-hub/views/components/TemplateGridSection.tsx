@@ -3,6 +3,7 @@ import AutomationCard from '@/ee/pages/embedded/automation-hub/views/components/
 import TemplateCard from '@/ee/pages/embedded/automation-hub/views/components/TemplateCard';
 import {
     AutomationWorkflowProject,
+    AutomationWorkflowProjectKindEnum,
     AutomationWorkflowProjectWorkflowTemplate,
     ConnectedUserProjectWorkflow,
 } from '@/ee/shared/middleware/embedded/public';
@@ -21,13 +22,31 @@ interface TemplateGridSectionProps {
     onDeleteAutomation: (workflowUuid: string) => Promise<unknown>;
     onDeprovisionReference: (workflowUuid: string) => Promise<unknown>;
     onSetEnabled: (request: SetAutomationEnabledRequestI) => Promise<unknown>;
-    onUseTemplate: (template: AutomationWorkflowProjectWorkflowTemplate) => void;
+    onUseTemplate: (
+        template: AutomationWorkflowProjectWorkflowTemplate,
+        kind: AutomationWorkflowProjectKindEnum
+    ) => void;
     newWorkflowEnabled: boolean;
     projects: AutomationWorkflowProject[];
     search: string;
     unmatchedAutomations: ConnectedUserProjectWorkflow[];
 }
 
+/**
+ * The catalog: every published template in one flat grid, each card carrying the usage state of the
+ * connected user's matching automation, followed by the automations no template accounts for.
+ * Projects only contribute their `kind`, which decides whether activation copies the template or
+ * references it.
+ *
+ * The filter narrows in two steps. `active` keeps what the user has taken up — templates they have
+ * activated, plus every automation they built themselves, which is active by definition since they
+ * made it deliberately. `enabled` narrows again to what is actually RUNNING: an automation the user
+ * owns but has switched off is active, not enabled, and only the second filter tells them apart.
+ *
+ * The "My Automations" group is shown only when the vendor allows the user to create their own
+ * automations: with `newWorkflow` off, a section devoted to what the user built would be a section
+ * they can never add to.
+ */
 const TemplateGridSection = ({
     activationDisabled,
     automationsByTemplateId,
@@ -58,6 +77,7 @@ const TemplateGridSection = ({
 
                         return filter === 'all' || !!automation;
                     })
+                    .map((template) => ({kind: project.kind!, template}))
             ),
         [automationsByTemplateId, filter, normalizedSearch, projects]
     );
@@ -86,7 +106,7 @@ const TemplateGridSection = ({
             data-layout={layout}
             data-testid="automations-catalog"
         >
-            {templates.map((template) => (
+            {templates.map(({kind, template}) => (
                 <TemplateCard
                     activationDisabled={activationDisabled}
                     automation={automationsByTemplateId.get(template.id!)}
@@ -94,12 +114,18 @@ const TemplateGridSection = ({
                     onDeleteAutomation={onDeleteAutomation}
                     onDeprovisionReference={onDeprovisionReference}
                     onSetEnabled={onSetEnabled}
-                    onUseTemplate={() => onUseTemplate(template)}
+                    onUseTemplate={() => onUseTemplate(template, kind)}
                     template={template}
                 />
             ))}
 
-            {automations.length > 0 && <h2 className="col-span-full mt-4 text-lg font-semibold">My Automations</h2>}
+            {automations.length > 0 && (
+                // Spanning every column is also what puts the group on its own row rather than
+                // letting it fill the gap the template cards left. The extra top margin sits on
+                // TOP of the grid's own row gap, so the break between the catalog and the user's
+                // own automations reads as a section change rather than another row.
+                <h2 className="col-span-full mt-4 text-lg font-semibold">My Automations</h2>
+            )}
 
             {automations.map((automation) => (
                 <AutomationCard

@@ -21,6 +21,7 @@ import TemplateGridSection, {
 } from '@/ee/pages/embedded/automation-hub/views/components/TemplateGridSection';
 import {getEmbedCredentials} from '@/ee/pages/embedded/shared/embedCredentials';
 import {
+    AutomationWorkflowProjectKindEnum,
     AutomationWorkflowProjectWorkflowTemplate,
     ConnectedUserProjectWorkflow,
 } from '@/ee/shared/middleware/embedded/public';
@@ -30,6 +31,10 @@ import {useCallback, useMemo, useState} from 'react';
 import {useNavigate} from 'react-router-dom';
 import {useShallow} from 'zustand/react/shallow';
 
+/**
+ * Read outside the component so a browser that throws on storage access (a private window, site
+ * data blocked) still renders the default layout rather than failing the whole view.
+ */
 const readStoredLayout = (): string | undefined => {
     try {
         return localStorage.getItem(CATALOG_LAYOUT_STORAGE_KEY) ?? undefined;
@@ -39,9 +44,23 @@ const readStoredLayout = (): string | undefined => {
 };
 
 interface AutomationsViewProps {
-    onActivate?: (template: AutomationWorkflowProjectWorkflowTemplate) => void;
+    onActivate?: (template: AutomationWorkflowProjectWorkflowTemplate, kind: AutomationWorkflowProjectKindEnum) => void;
 }
 
+/**
+ * The hub's landing view: one flat catalog of every published template, each card carrying the
+ * usage state of the connected user's matching automation, followed by the automations no template
+ * accounts for — workflows built from scratch, copies of withdrawn templates, dangling references,
+ * and any second copy of a template whose card is already taken. Every automation the user owns is
+ * therefore reachable from this one grid.
+ *
+ * An automation is matched to its template by uuid: a REFERENCE through `automationWorkflowUuid`, a
+ * COPY through `copiedFromWorkflowUuid`. Exactly one automation can occupy a card, so nothing is
+ * hidden: everything else falls to its own card below.
+ *
+ * Activation is handled by the caller — `onActivate` is a testing seam; the real page instead
+ * opens the SDK `ActivationDialog` via the `activeTemplate` state below.
+ */
 const AutomationsView = ({onActivate}: AutomationsViewProps) => {
     const [activeTemplate, setActiveTemplate] = useState<AutomationWorkflowProjectWorkflowTemplate>();
     const [storedLayout, setStoredLayout] = useState<CatalogLayoutType | undefined>(
@@ -76,6 +95,8 @@ const AutomationsView = ({onActivate}: AutomationsViewProps) => {
     const {data: automations, error: automationsError, isLoading: automationsLoading} = useGetAutomationsQuery();
 
     const {mutate: createBlankAutomation} = useCreateBlankAutomationMutation();
+    // `mutateAsync`, not `mutate`: the cards keep their confirmation dialog open until the removal
+    // settles, which needs a promise to await.
     const {mutateAsync: deleteAutomation} = useDeleteAutomationMutation();
     const {mutateAsync: deprovisionReference} = useDeprovisionReferenceMutation();
     const {mutateAsync: setEnabled} = useSetAutomationEnabledMutation();
@@ -103,12 +124,18 @@ const AutomationsView = ({onActivate}: AutomationsViewProps) => {
             const templateId =
                 automation.kind === 'REFERENCE' ? automation.automationWorkflowUuid : automation.copiedFromWorkflowUuid;
 
+            // `dangling` is excluded explicitly rather than relied upon to fail the uuid check: a
+            // dangling reference absorbed into a card would lose its "Needs attention" badge and
+            // render as a healthy activation.
             if (!templateId || automation.dangling || !publishedTemplateIds.has(templateId)) {
                 unmatched.push(automation);
 
                 continue;
             }
 
+            // A template can legitimately have more than one automation — one created through the
+            // vendor's API or the sync bridge's implicit copy. The first takes the card; the extras
+            // get their own, so every one of them stays removable.
             if (matchedAutomations.has(templateId)) {
                 unmatched.push(automation);
             } else {
@@ -119,6 +146,9 @@ const AutomationsView = ({onActivate}: AutomationsViewProps) => {
         return {automationsByTemplateId: matchedAutomations, unmatchedAutomations: unmatched};
     }, [automations, projects]);
 
+    // The vendor's `defaultLayout` is where a viewer starts; their own choice takes over from
+    // there. With the switcher withdrawn there is no control left to change it back, so a choice
+    // stored while it was offered must not outlive it.
     const layout = layoutSwitcherAllowed ? (storedLayout ?? defaultLayout) : defaultLayout;
 
     const handleLayoutChange = (nextLayout: CatalogLayoutType) => {
@@ -127,6 +157,7 @@ const AutomationsView = ({onActivate}: AutomationsViewProps) => {
         try {
             localStorage.setItem(CATALOG_LAYOUT_STORAGE_KEY, nextLayout);
         } catch {
+            // A viewer with site data blocked still gets the layout for this session.
             return;
         }
     };
@@ -137,9 +168,12 @@ const AutomationsView = ({onActivate}: AutomationsViewProps) => {
         });
     };
 
-    const handleUseTemplate = (template: AutomationWorkflowProjectWorkflowTemplate) => {
+    const handleUseTemplate = (
+        template: AutomationWorkflowProjectWorkflowTemplate,
+        kind: AutomationWorkflowProjectKindEnum
+    ) => {
         if (onActivate) {
-            onActivate(template);
+            onActivate(template, kind);
 
             return;
         }

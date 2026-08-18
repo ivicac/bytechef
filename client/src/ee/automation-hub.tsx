@@ -43,6 +43,9 @@ const router = createHashRouter([
                         ),
                         path: 'connections',
                     },
+                    // Nested under the layout rather than a sibling of it: the hub's title and tab
+                    // strip stay on screen while a workflow is being edited, so the builder reads
+                    // as a section of the hub rather than a separate application it hands off to.
                     {element: <HubBuilderView />, path: 'builder/:workflowUuid'},
                 ],
                 element: <AutomationHubLayout />,

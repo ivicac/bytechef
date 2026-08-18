@@ -154,6 +154,9 @@ export const useWorkflowBuilder = () => {
         setInitialized(true);
     }, !hubContext);
 
+    // Rendering inside the Automation Hub (`HubBuilderView`): the hub already ran the
+    // EMBED_READY/EMBED_INIT handshake, so its three settings are taken from `HubBuilderContext`
+    // instead of running a second handshake (disabled above via the `!hubContext` `enabled` flag).
     useEffect(() => {
         if (!hubContext) {
             return;

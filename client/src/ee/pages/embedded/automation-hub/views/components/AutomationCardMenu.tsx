@@ -9,6 +9,12 @@ interface AutomationCardMenuProps {
     onRemove: () => void;
 }
 
+/**
+ * A card's overflow menu, in the card's top-right corner. Customize is offered only when the
+ * caller passes a handler: a REFERENCE points at a shared catalog workflow the connected user must
+ * never edit, and a dangling one has nothing left to open. Settings likewise appears only for an
+ * automation whose workflow actually declares inputs -- most declare none.
+ */
 const AutomationCardMenu = ({label, onCustomize, onEditInputs, onRemove}: AutomationCardMenuProps) => (
     <DropdownMenu>
         <DropdownMenuTrigger asChild>

@@ -5,6 +5,8 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import ConnectionsView from '../views/ConnectionsView';
 
+// vi.mock factories hoist above module-scope `const`s, so refs they close over must come from
+// vi.hoisted — see CLAUDE.md's Vitest mock factory hoisting note.
 const {
     deleteHubConnectionMutateMock,
     invalidateQueriesMock,
@@ -269,6 +271,8 @@ describe('ConnectionsView', () => {
         expect(within(screen.getByRole('row', {name: /My HubSpot/})).queryByText('Reconnect needed')).toBeNull();
     });
 
+    // `shared` is the tenant admin's flag and `editable` is ownership; the two are independent, and
+    // deriving one from the other made an owned-and-shared connection report itself as not shared.
     it('marks an owned connection the admin also shared, and still lets its owner act on it', () => {
         useGetConnectionsQueryMock.mockReturnValue({
             data: [
@@ -320,11 +324,16 @@ describe('ConnectionsView', () => {
 
         renderView();
 
+        // The server refuses to reauthorize or delete a shared connection — it belongs to the
+        // tenant admin who shared it, and changing it would act on every connected user at once.
+        // Offering the menu would be offering actions that can only fail.
         const sharedRow = screen.getByRole('row', {name: /Team Slack/});
 
         expect(within(sharedRow).queryByRole('button', {name: 'Connection actions'})).not.toBeInTheDocument();
         expect(within(sharedRow).getByText('Shared')).toBeInTheDocument();
 
+        // The user's OWN connection still has its menu — asserted last, because opening a Radix
+        // dropdown marks the rest of the page inert and the shared row would no longer be found.
         const ownedRow = screen.getByRole('row', {name: /My HubSpot/});
 
         await user.click(within(ownedRow).getByRole('button', {name: 'Connection actions'}));

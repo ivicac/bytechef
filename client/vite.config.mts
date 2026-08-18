@@ -21,9 +21,11 @@ export default ({mode}) => {
             manifest: true,
             rollupOptions: {
                 input: {
-                    connect: resolve(import.meta.dirname, 'connect.html'),
-                    main: resolve(import.meta.dirname, 'index.html'),
-                    workflowBuilder: resolve(import.meta.dirname, 'workflow-builder.html'),
+                    automationHub: resolve(__dirname, 'automation-hub.html'),
+                    connect: resolve(__dirname, 'connect.html'),
+                    integrationMarketplace: resolve(__dirname, 'integration-marketplace.html'),
+                    main: resolve(__dirname, 'index.html'),
+                    workflowBuilder: resolve(__dirname, 'workflow-builder.html'),
                 },
                 output: {
                     manualChunks(id) {
@@ -60,9 +62,13 @@ export default ({mode}) => {
             dedupe: ['react', 'react-dom'],
             tsconfigPaths: true,
             alias: {
-                '@': path.resolve(import.meta.dirname, './src'),
-                '@bytechef/embedded': path.resolve(import.meta.dirname, '../sdks/frontend/embedded/library/src/main.ts'),
-                '@dagrejs/dagre': path.resolve(import.meta.dirname, 'node_modules/@dagrejs/dagre/dist/dagre.cjs'),
+                '@': path.resolve(__dirname, './src'),
+                '@bytechef/embedded': path.resolve(__dirname, '../sdks/frontend/embedded/library/src/main.ts'),
+                '@dagrejs/dagre': path.resolve(__dirname, 'node_modules/@dagrejs/dagre/dist/dagre.cjs'),
+                'monaco-editor/esm/vs/editor/editor.worker.js': path.resolve(
+                    __dirname,
+                    'node_modules/monaco-editor/esm/vs/editor/editor.worker.js'
+                ),
             },
         },
         server: {

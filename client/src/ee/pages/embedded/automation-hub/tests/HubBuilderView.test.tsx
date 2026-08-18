@@ -10,6 +10,8 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import HubBuilderView from '../HubBuilderView';
 
+// vi.mock factories hoist above module-scope `const`s, so refs they close over must come from
+// vi.hoisted — see CLAUDE.md's Vitest mock factory hoisting note.
 const {navigateMock, useGetWorkflowQueryMock} = vi.hoisted(() => ({
     navigateMock: vi.fn(),
     useGetWorkflowQueryMock: vi.fn(),
@@ -26,12 +28,20 @@ vi.mock('@/ee/pages/embedded/automation-hub/queries/automationHub.queries', asyn
     useGetWorkflowQuery: useGetWorkflowQueryMock,
 }));
 
+// The builder itself is out of scope here — this test only verifies that HubBuilderView provides
+// the hub's settings to it via context, so the real (heavy) WorkflowBuilder is replaced with a
+// probe that renders one of the three context values back out. A `function` declaration (rather
+// than a `vi.hoisted` const) is used so it is fully hoisted before the `vi.mock` factory below
+// (which itself hoists above module-scope `const`s — see CLAUDE.md's Vitest mock factory hoisting
+// note) can reference it.
 function WorkflowBuilderProbe() {
     const hubContext = useContext(HubBuilderContext);
 
     return (
         <div data-testid="workflow-builder-probe">
             <span data-testid="include-components">{hubContext?.includeComponents?.join(',')}</span>
+
+            <span data-testid="shared-connection-ids">{hubContext?.sharedConnectionIds.join(',')}</span>
 
             <button onClick={hubContext?.onBack} type="button">
                 Back to automations
@@ -55,6 +65,7 @@ describe('HubBuilderView', () => {
             editWorkflowAllowed: true,
             includeComponents: ['slack', 'gmail'],
             initialized: true,
+            sharedConnectionIds: [3, 4],
             tabs: DEFAULT_TABS,
             theme: {},
         });
@@ -73,9 +84,12 @@ describe('HubBuilderView', () => {
             </QueryClientProvider>
         );
 
+        expect(screen.getByTestId('shared-connection-ids')).toHaveTextContent('3,4');
         expect(screen.getByTestId('include-components')).toHaveTextContent('slack,gmail');
     });
 
+    // The back control is rendered by the BUILDER's own header, from `onBack` on the context, so the
+    // hub contributes no header row of its own — the workflow's name is on screen once, not twice.
     it('navigates back to the hub and invalidates the automations query on back click', async () => {
         const user = userEvent.setup();
         const queryClient = new QueryClient();
@@ -98,6 +112,8 @@ describe('HubBuilderView', () => {
     });
 
     it('returns to the catalog when the workflow will not load, so a stale route is escapable', async () => {
+        // The hub restores the route it was on across a host refresh, and the automation may have
+        // been deleted since. There is no tab strip in the builder, so it has to leave by itself.
         useGetWorkflowQueryMock.mockReturnValue({data: undefined, error: new Error('not found')});
 
         render(

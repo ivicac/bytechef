@@ -234,6 +234,8 @@ describe('useFetchInterceptor (embedded)', () => {
         it('suppresses the toast for a designed 409 on the embedded public API', async () => {
             renderHook(() => useFetchInterceptor());
 
+            // Provisioning answers a missing connection with a 409 and the wizard renders it
+            // inline; a generic red toast on top of that contradicts the step-level treatment.
             const response = createMockResponse({
                 jsonData: {missingConnectionComponentName: 'slack'},
                 status: 409,

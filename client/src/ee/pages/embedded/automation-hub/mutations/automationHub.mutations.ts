@@ -11,7 +11,7 @@ export const useCopyTemplateMutation = () => {
         mutationFn: (workflowUuid) =>
             new ConnectedUserProjectWorkflowApi().copyFrontendWorkflowTemplate({workflowUuid}),
         onSuccess: () => {
-            void queryClient.invalidateQueries({queryKey: AutomationHubKeys.automations});
+            queryClient.invalidateQueries({queryKey: AutomationHubKeys.automations});
         },
     });
 };
@@ -95,6 +95,11 @@ export const usePublishAutomationMutation = () => {
     });
 };
 
+/**
+ * Stores the values the connected user typed on the wizard's Configure step. It runs AFTER publish,
+ * because the inputs live on the project deployment that publishing creates -- there is nothing to
+ * write them to before that.
+ */
 export const useUpdateAutomationInputsMutation = () =>
     useMutation<void, Error, {inputs: Record<string, unknown>; workflowUuid: string}>({
         mutationFn: ({inputs, workflowUuid}) =>

@@ -23,6 +23,21 @@ interface AutomationCardProps {
     onSetEnabled: (request: SetAutomationEnabledRequestI) => Promise<unknown>;
 }
 
+/**
+ * One automation no published template accounts for: a workflow the connected user built from
+ * scratch, a copy whose source template has been withdrawn, a dangling reference, or a second copy
+ * of a template whose card is already taken. It carries the same affordances as an activated
+ * template card — status button, top-right overflow menu — so every automation the user owns stays
+ * enableable and removable from one grid.
+ *
+ * `kind` drives the divergence between a COPY (the user's own editable workflow, which offers
+ * Customize) and a REFERENCE (a pointer at a shared catalog workflow, which never does). Remove
+ * branches through `removeAutomation`, the same helper the template card uses.
+ *
+ * A `dangling` card keeps its Remove but its status button is DISABLED: the reference points at a
+ * catalog workflow a redeploy withdrew, nothing ever clears the flag, and enabling it fails
+ * server-side with nothing on screen to explain the failure.
+ */
 const AutomationCard = ({
     automation,
     onDeleteAutomation,
@@ -44,6 +59,9 @@ const AutomationCard = ({
     const attentionDescription = describeAttentionReason(automation.attentionReason);
     const needsAttention = automation.dangling || !!attentionDescription;
 
+    // The dialog stays open, with both of its buttons busy, until the removal settles: closing on
+    // the click alone would report a delete that may still fail, and would let a second click fire
+    // the same request twice.
     const handleRemove = async () => {
         setRemoving(true);
 

@@ -14,7 +14,7 @@ import {Input} from '@/components/Input/Input';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/Select/Select';
 import Switch from '@/components/Switch/Switch';
 import {Alert, AlertDescription, AlertTitle} from '@/components/ui/alert';
-import {Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
+import {Form, FormControl, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
 import {Label} from '@/components/ui/label';
 import ConnectionScopeBadge from '@/pages/automation/connections/components/ConnectionScopeBadge';
 import {useIsVisibilityEditionEnabled} from '@/pages/automation/connections/hooks/useVisibilityFeatureEnabled';
@@ -46,12 +46,11 @@ import {
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {QueryKey, UseMutationResult, UseQueryResult, useQueryClient} from '@tanstack/react-query';
 import {useCopyToClipboard} from '@uidotdev/usehooks';
-import {ClipboardIcon, ExternalLinkIcon, KeyRoundIcon, RocketIcon} from 'lucide-react';
+import {ClipboardIcon, ExternalLinkIcon, RocketIcon} from 'lucide-react';
 import {ReactNode, useCallback, useEffect, useMemo, useState} from 'react';
 import {useForm} from 'react-hook-form';
 import {Link} from 'react-router-dom';
 import {toast} from 'sonner';
-import {twMerge} from 'tailwind-merge';
 
 import ComponentSelectionInput from './ComponentSelectionInput';
 import OAuth2Button from './OAuth2Button';
@@ -69,7 +68,6 @@ export interface ConnectionDialogFormProps {
     parameters: {[key: string]: object};
     registeringExisting?: boolean;
     selectedScopes?: {[key: string]: boolean};
-    shared: boolean;
     tags: Array<Tag | {label: string; value: string}>;
     visibility: 'PRIVATE' | 'WORKSPACE' | 'ORGANIZATION';
 }
@@ -80,6 +78,11 @@ interface ConnectionDialogProps {
     connection?: ConnectionI | undefined;
     connectionTagsQueryKey: QueryKey;
     connectionsQueryKey: QueryKey;
+    /**
+     * Overrides the dialog's default description ("Create your connection to connect to the chosen
+     * service"). Optional and additive -- every existing caller keeps today's description unchanged.
+     * Only rendered in the same place the default description is: while `connection?.id` is falsy.
+     */
     description?: string;
     onClose?: () => void;
     onConnectionCreate?: (connectionId: number) => void;
@@ -89,8 +92,13 @@ interface ConnectionDialogProps {
      * writes an organization connection may show it.
      */
     showOrganizationOption?: boolean;
-    showSharedOption?: boolean;
-    startInCredentialsMode?: boolean;
+    /**
+     * Overrides the dialog's default title (`Create Connection` / `Edit Connection`, derived from
+     * `connection?.id`). Optional and additive -- every existing caller keeps today's title
+     * unchanged. Exists for callers like the hub's reconnect flow, whose `connection` is deliberately
+     * `id`-less (see `HubConnectionDialog`) so the create/edit branching itself must stay untouched,
+     * yet the dialog still needs to read as something other than "Create Connection".
+     */
     title?: string;
     triggerNode?: ReactNode;
     useCreateConnectionMutation?: (mutationProps: {
@@ -98,10 +106,6 @@ interface ConnectionDialogProps {
         onError?: (error: Error, variables: ConnectionI) => void;
     }) => UseMutationResult<number, Error, ConnectionI, unknown>;
     useGetConnectionTagsQuery: () => UseQueryResult<Tag[], Error>;
-    useUpdateConnectionCredentialsMutation?: (mutationProps: {
-        onSuccess?: (result: void, variables: ConnectionI) => void;
-        onError?: (error: Error, variables: ConnectionI) => void;
-    }) => UseMutationResult<void, Error, ConnectionI, unknown>;
     useUpdateConnectionMutation?: (mutationProps: {
         onSuccess?: (result: void, variables: ConnectionI) => void;
         onError?: (error: Error, variables: ConnectionI) => void;
@@ -118,19 +122,15 @@ const ConnectionDialog = ({
     onClose,
     onConnectionCreate,
     showOrganizationOption,
-    showSharedOption,
-    startInCredentialsMode,
     title,
     triggerNode,
     useCreateConnectionMutation,
     useGetConnectionTagsQuery,
-    useUpdateConnectionCredentialsMutation,
     useUpdateConnectionMutation,
 }: ConnectionDialogProps) => {
     const [authorizationType, setAuthorizationType] = useState<string>();
     const [connectionVersion, setConnectionVersion] = useState(1);
     const [isOpen, setIsOpen] = useState(!triggerNode);
-    const [isUpdatingCredentials, setIsUpdatingCredentials] = useState(false);
     const [oAuth2Error, setOAuth2Error] = useState<string>();
     const [wizardStep, setWizardStep] = useState<'configuration_step' | 'oauth_step'>('configuration_step');
     const [selectedComponentDefinition, setSelectedComponentDefinition] = useState<
@@ -161,7 +161,6 @@ const ConnectionDialog = ({
             id: connection?.id,
             name: connection?.name || componentDefinition?.title || '',
             registeringExisting: false,
-            shared: connection?.shared ?? false,
             tags:
                 connection?.tags?.map((tag) => ({
                     ...tag,
@@ -213,8 +212,6 @@ const ConnectionDialog = ({
     const showPicker = stores.length > 1;
     const isEdit = !!connection?.id;
 
-    const canUpdateCredentials = isEdit && !!useUpdateConnectionCredentialsMutation && !connection?.managed;
-
     const handleConnectionSuccess = (connectionId: number | void) => {
         queryClient.invalidateQueries({
             queryKey: ComponentDefinitionKeys.componentDefinitions,
@@ -243,16 +240,6 @@ const ConnectionDialog = ({
         onSuccess: handleConnectionSuccess,
     });
 
-    const credentialsMutation = useUpdateConnectionCredentialsMutation?.({
-        onSuccess: () => {
-            toast('Credentials updated', {
-                description: 'The new credentials were saved. They are verified the next time the connection runs.',
-            });
-
-            handleConnectionSuccess();
-        },
-    });
-
     const registerExistingMutation = useRegisterExistingConnectionMutation({
         onSuccess: handleConnectionSuccess,
     });
@@ -261,7 +248,7 @@ const ConnectionDialog = ({
 
     const authorizationOptions = useMemo(
         () =>
-            connectionDefinition?.authorizations
+            connectionDefinition && connectionDefinition.authorizations
                 ? [
                       ...(connectionDefinition.authorizationRequired === false
                           ? [{label: 'None', value: undefined}]
@@ -301,8 +288,7 @@ const ConnectionDialog = ({
 
     const showConnectionProperties = !connectionDefinitionLoading && !!connectionDefinition?.properties?.length;
 
-    const showOAuth2Step =
-        (isOAuth2AuthorizationType || isOAuth2ImplicitCodeType) && (!connection?.id || isUpdatingCredentials);
+    const showOAuth2Step = (isOAuth2AuthorizationType || isOAuth2ImplicitCodeType) && !connection?.id;
 
     const showRedirectUriInput =
         (isOAuth2AuthorizationType || isOAuth2ImplicitCodeType) &&
@@ -319,7 +305,6 @@ const ConnectionDialog = ({
         setTimeout(() => {
             formReset();
 
-            setIsUpdatingCredentials(false);
             setOAuth2Error(undefined);
             setWizardStep('configuration_step');
 
@@ -366,7 +351,7 @@ const ConnectionDialog = ({
     }
 
     function getNewConnection(additionalParameters?: object) {
-        const {componentName, name, parameters, shared, tags, visibility} = getValues();
+        const {componentName, name, parameters, tags, visibility} = getValues();
 
         return {
             authorizationType,
@@ -379,7 +364,6 @@ const ConnectionDialog = ({
                 ...additionalParameters,
             },
             tags: tags,
-            ...(showSharedOption ? {shared} : {}),
             ...(visibilityFeatureEnabled ? {visibility} : {}),
         } as ConnectionI;
     }
@@ -428,28 +412,14 @@ const ConnectionDialog = ({
     }
 
     function saveConnection(additionalParameters?: object) {
-        if (isUpdatingCredentials && credentialsMutation) {
-            const {parameters} = getValues();
-
-            return credentialsMutation.mutateAsync({
-                id: connection!.id,
-                parameters: {
-                    ...parameters,
-                    ...additionalParameters,
-                },
-                version: connection!.version,
-            } as ConnectionI);
-        }
-
         if (connection?.id) {
-            const {name, shared, tags} = getValues();
+            const {name, tags} = getValues();
 
             connectionMutation.mutate({
                 id: connection?.id,
                 name,
                 tags,
                 version: connection.version,
-                ...(showSharedOption ? {shared} : {}),
             } as ConnectionI);
         } else {
             const {componentName, credentialRef, credentialStoreType, registeringExisting} = getValues();
@@ -517,28 +487,6 @@ const ConnectionDialog = ({
             setValue('authorizationType', initialAuthorizationType);
         }
     }, [authorizationsExists, authorizationOptions, selectedComponentDefinition, setValue]);
-
-    useEffect(() => {
-        if (!isEdit) {
-            return;
-        }
-
-        if (connection?.authorizationType) {
-            setAuthorizationType(connection.authorizationType);
-            setValue('authorizationType', connection.authorizationType);
-        }
-
-        if (canUpdateCredentials && (startInCredentialsMode || connection?.credentialStatus === 'INVALID')) {
-            setIsUpdatingCredentials(true);
-        }
-    }, [
-        canUpdateCredentials,
-        connection?.authorizationType,
-        connection?.credentialStatus,
-        isEdit,
-        setValue,
-        startInCredentialsMode,
-    ]);
 
     return (
         <Dialog
@@ -608,17 +556,6 @@ const ConnectionDialog = ({
 
                             {(wizardStep === 'configuration_step' || oAuth2AuthorizationParametersLoading) && (
                                 <>
-                                    {isUpdatingCredentials && connection?.credentialStatus === 'INVALID' && (
-                                        <Alert variant="destructive">
-                                            <AlertTitle>These credentials were rejected</AlertTitle>
-
-                                            <AlertDescription>
-                                                Workflows using this connection are blocked until new credentials are
-                                                saved.
-                                            </AlertDescription>
-                                        </Alert>
-                                    )}
-
                                     {!connection?.id && (
                                         <FormField
                                             control={control}
@@ -664,7 +601,7 @@ const ConnectionDialog = ({
                                         control={form.control}
                                         name="name"
                                         render={({field}) => (
-                                            <FormItem className={twMerge(isUpdatingCredentials && 'hidden')}>
+                                            <FormItem>
                                                 <FormLabel>Name</FormLabel>
 
                                                 <FormControl>
@@ -805,32 +742,6 @@ const ConnectionDialog = ({
                                         )}
                                     />
 
-                                    {showSharedOption && !isUpdatingCredentials && (
-                                        <FormField
-                                            control={control}
-                                            name="shared"
-                                            render={({field}) => (
-                                                <FormItem>
-                                                    <FormLabel>Shared Connection</FormLabel>
-
-                                                    <div className="flex items-center gap-2">
-                                                        <FormControl>
-                                                            <Switch
-                                                                checked={field.value}
-                                                                onCheckedChange={field.onChange}
-                                                            />
-                                                        </FormControl>
-
-                                                        <FormDescription>
-                                                            Every connected user in this environment will be able to use
-                                                            this connection.
-                                                        </FormDescription>
-                                                    </div>
-                                                </FormItem>
-                                            )}
-                                        />
-                                    )}
-
                                     {form.watch('registeringExisting') ? (
                                         <FormField
                                             control={form.control}
@@ -866,8 +777,8 @@ const ConnectionDialog = ({
 
                                                             <FormControl>
                                                                 {/* Grants cannot be written before the connection has
-                                                                    an id, so creation offers reach only; the list-page
-                                                                    picker adds people afterwards. */}
+                                                            an id, so creation offers reach only; the list-page
+                                                            picker adds people afterwards. */}
 
                                                                 <ConnectionVisibilityPicker
                                                                     grantedUserIds={[]}
@@ -959,7 +870,7 @@ const ConnectionDialog = ({
                                                 </div>
                                             )}
 
-                                            {(!connection?.id || isUpdatingCredentials) &&
+                                            {!connection?.id &&
                                                 showAuthorizationProperties &&
                                                 !!authorizations?.length &&
                                                 authorizations[0]?.properties && (
@@ -990,7 +901,7 @@ const ConnectionDialog = ({
                                         </div>
                                     )}
 
-                                    {!tagsLoading && !isUpdatingCredentials && (
+                                    {!tagsLoading && (
                                         <FormField
                                             control={control}
                                             name="tags"
@@ -1039,15 +950,13 @@ const ConnectionDialog = ({
 
                                         <AlertTitle>Heads up!</AlertTitle>
 
-                                        <AlertDescription className="block wrap-anywhere">
-                                            <>
-                                                Excellent! You can connect and create the{' '}
-                                                <span className="font-semibold">
-                                                    {selectedComponentDefinition?.title}
-                                                </span>{' '}
-                                                connection under name{' '}
-                                                <span className="font-semibold">{`'${getValues()?.name}'`}</span>.
-                                            </>
+                                        <AlertDescription>
+                                            Excellent! You can connect and create the
+                                            <span className="mx-0.5 font-semibold">
+                                                {selectedComponentDefinition?.title}
+                                            </span>
+                                            connection under name
+                                            <span className="mx-0.5 font-semibold">{`'${getValues()?.name}'`}</span>.
                                         </AlertDescription>
                                     </Alert>
 
@@ -1151,7 +1060,6 @@ const ConnectionDialog = ({
                                                 <OAuth2Button
                                                     authorizationUrl={oAuth2AuthorizationParameters.authorizationUrl}
                                                     clientId={oAuth2AuthorizationParameters.clientId}
-                                                    componentName={selectedComponentDefinition?.name}
                                                     extraQueryParameters={
                                                         oAuth2AuthorizationParameters?.extraQueryParameters
                                                     }
@@ -1171,29 +1079,10 @@ const ConnectionDialog = ({
                                     </>
                                 )}
 
-                                {canUpdateCredentials && !isUpdatingCredentials && (
-                                    <Button
-                                        onClick={() => setIsUpdatingCredentials(true)}
-                                        type="button"
-                                        variant="outline"
-                                    >
-                                        <KeyRoundIcon /> Update credentials
-                                    </Button>
-                                )}
-
-                                {isUpdatingCredentials && !startInCredentialsMode && (
-                                    <Button
-                                        label="Back"
-                                        onClick={() => setIsUpdatingCredentials(false)}
-                                        type="button"
-                                        variant="outline"
-                                    />
-                                )}
-
                                 {!showOAuth2Step && (
                                     <Button
                                         disabled={!formState.isValid}
-                                        label={isUpdatingCredentials ? 'Update credentials' : 'Save'}
+                                        label="Save"
                                         onClick={handleSubmit(() => saveConnection())}
                                         type="submit"
                                     />

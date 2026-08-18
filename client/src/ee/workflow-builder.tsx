@@ -1,6 +1,6 @@
 import {createRoot} from 'react-dom/client';
 
-import './styles/index.css';
+import '../styles/index.css';
 
 import {TooltipProvider} from '@/components/ui/tooltip';
 import EmbeddedWorkflowBuilderApp from '@/ee/EmbeddedWorkflowBuilderApp';
@@ -10,18 +10,15 @@ import {ThemeProvider} from '@/shared/providers/theme-provider';
 import {applicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {StrictMode} from 'react';
-import {RouterProvider, createBrowserRouter} from 'react-router-dom';
+import {RouterProvider, createHashRouter} from 'react-router-dom';
 
 const container = document.getElementById('root') as HTMLDivElement;
 const root = createRoot(container);
 const queryClient = new QueryClient();
 
-// Deliberately NOT awaited: the builder renders its skeleton immediately and
-// application info resolves in the background. This is the main first-paint win
-// over the legacy index.html boot.
-applicationInfoStore.getState().getApplicationInfo();
+void applicationInfoStore.getState().getApplicationInfo();
 
-const router = createBrowserRouter([
+const router = createHashRouter([
     {
         children: [
             {
@@ -37,7 +34,7 @@ const router = createBrowserRouter([
 root.render(
     <StrictMode>
         <I18n>
-            <ThemeProvider defaultTheme="light">
+            <ThemeProvider defaultTheme="light" persist={false}>
                 <QueryClientProvider client={queryClient}>
                     <TooltipProvider>
                         <RouterProvider router={router} />
