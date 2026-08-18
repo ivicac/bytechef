@@ -17,6 +17,7 @@
 package com.bytechef.automation.ai.tool;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.service.WorkspaceService;
 import com.bytechef.platform.configuration.domain.Environment;
@@ -122,6 +123,23 @@ public class WorkspaceScopedFlatToolCallback implements ToolCallback {
 
             forwardedContext.put(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, workspaceId);
             forwardedContext.put(AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, environmentOrdinal);
+
+            // See class Javadoc: a missing sourceOrdinal only matters to the asset-file create tools; every other
+            // tool wrapped by this class ignores the key, so writing it unconditionally is harmless.
+            forwardedContext.put(
+                AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY,
+                AutomationToolInvocationContext.SOURCE_ORDINAL_FILES);
+
+            // Two workspace-id key families exist (see class Javadoc): tools carried over from the delegate-unwind
+            // family before Task 5 read AutomationToolInvocationContext's key, while the flat data-table tools read
+            // AgentToolInvocationContext's. Writing both unconditionally, like WorkspaceScopedSubAgentToolCallback
+            // already does for the subagent delegates it wraps, keeps this wrapper tool-agnostic.
+            forwardedContext.putAll(
+                AgentToolInvocationContext.builder()
+                    .workspaceId(workspaceId)
+                    .environmentId(environmentOrdinal)
+                    .build()
+                    .toToolContext());
 
             return delegate.call(jsonMapper.writeValueAsString(inputNode), new ToolContext(forwardedContext));
         } catch (JacksonException exception) {

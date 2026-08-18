@@ -145,13 +145,6 @@ public class WorkspaceScopedSubAgentToolCallback implements ToolCallback {
             forwardedContext.put(AutomationToolInvocationContext.TOOL_CONTEXT_WORKSPACE_ID_KEY, workspaceId);
             forwardedContext.put(AutomationToolInvocationContext.TOOL_CONTEXT_ENVIRONMENT_ID_KEY, environmentOrdinal);
 
-            // A missing sourceOrdinal only matters to the asset-file create tools (createAssetFile,
-            // createBinaryAssetFile, createAssetFileFromUrl); every other delegate on this surface ignores the
-            // key, so writing it unconditionally is harmless and keeps this wrapper delegate-agnostic.
-            forwardedContext.put(
-                AutomationToolInvocationContext.TOOL_CONTEXT_SOURCE_ORDINAL_KEY,
-                AutomationToolInvocationContext.SOURCE_ORDINAL_FILES);
-
             // Two workspace-id key families exist: automation/asset-file tools read
             // AutomationToolInvocationContext's key, while the data-table, knowledge-base and
             // context-store tools read AgentToolInvocationContext's. The AI Hub chat surface
