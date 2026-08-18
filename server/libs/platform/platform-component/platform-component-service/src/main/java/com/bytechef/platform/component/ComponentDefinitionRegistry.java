@@ -18,6 +18,7 @@ package com.bytechef.platform.component;
 
 import static com.bytechef.component.definition.ComponentDsl.component;
 import static com.bytechef.component.definition.ComponentDsl.trigger;
+import static com.bytechef.component.definition.approval.ApprovalChannelFunction.APPROVAL_CHANNELS;
 import static com.bytechef.platform.component.util.ClusterElementTypeUtils.isSameClusterElementType;
 
 import com.bytechef.commons.util.CollectionUtils;
@@ -25,6 +26,7 @@ import com.bytechef.commons.util.MemoizationUtils;
 import com.bytechef.component.ComponentHandler;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionDefinition;
+import com.bytechef.component.definition.AgentChannelDefinition;
 import com.bytechef.component.definition.Authorization;
 import com.bytechef.component.definition.Authorization.AuthorizationType;
 import com.bytechef.component.definition.ClusterElementContext;
@@ -52,6 +54,7 @@ import com.bytechef.platform.component.handler.DynamicComponentHandlerRegistry;
 import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader;
 import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader.ComponentHandlerEntry;
 import com.bytechef.platform.component.handler.loader.ComponentHandlerLoader.ProviderEntry;
+import com.bytechef.platform.component.handler.loader.ComponentHandlerLoaderKind;
 import com.bytechef.platform.component.handler.loader.DefaultComponentHandlerLoader;
 import com.bytechef.platform.component.index.ComponentIndex;
 import com.bytechef.platform.component.jdbc.handler.loader.JdbcComponentHandlerLoader;
@@ -62,7 +65,9 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -77,13 +82,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
- * Registry of all component definitions, loaded <b>lazily</b>: constructing the registry is cheap (it only captures its
- * collaborators), and the expensive work — asking every {@code ComponentHandler} for its definition, validating every
- * action/trigger property tree, and indexing the definitions by name and version — is deferred to the first method call
- * that actually needs a definition. Application startup therefore never pays for building the component catalog; the
- * first caller (typically the first components-list or workflow request) pays it exactly once, and every call
- * afterwards hits the memoized index.
- *
  * @author Ivica Cardic
  * @author Igor Beslic
  */
@@ -110,6 +108,7 @@ public class ComponentDefinitionRegistry {
         new DefaultComponentHandlerLoader(), new JdbcComponentHandlerLoader(), new OpenApiComponentHandlerLoader());
 
     private final ApplicationProperties applicationProperties;
+    private final Supplier<List<com.bytechef.platform.component.domain.AgentChannelDefinition>> agentChannelDefinitionsSupplier;
     private final Supplier<List<ComponentDefinition>> allComponentDefinitionsSupplier;
     private final Supplier<Map<String, Map<Integer, ComponentDefinition>>> componentDefinitionsMapSupplier;
     private final List<ComponentHandler> componentHandlers;
@@ -136,6 +135,7 @@ public class ComponentDefinitionRegistry {
         Supplier<Optional<ComponentIndex>> componentIndexSupplier) {
 
         this.applicationProperties = applicationProperties;
+        this.agentChannelDefinitionsSupplier = MemoizationUtils.memoize(this::loadAgentChannelDefinitions);
         this.componentHandlers = componentHandlers;
         this.allComponentDefinitionsSupplier = MemoizationUtils.memoize(this::loadAllComponentDefinitions);
         this.componentDefinitionsMapSupplier = MemoizationUtils.memoize(
@@ -211,12 +211,6 @@ public class ComponentDefinitionRegistry {
         return CollectionUtils.contains(getExcludedComponentNames(), componentName);
     }
 
-    /**
-     * Resolves all definitions (all versions) of a single component by name, loading ONLY that component: constants
-     * (manual/missing), Spring-declared handler beans, and — via the build-time index — just the matching
-     * {@code ServiceLoader} providers, leaving every other component untouched. Loaded definitions are validated once
-     * and cached. Callers must only use this when the component index is present.
-     */
     private List<ComponentDefinition> getComponentDefinitionsFromIndex(String name, ComponentIndex componentIndex) {
         return getComponentDefinitionsFromIndex(
             name, componentIndex,
@@ -283,7 +277,7 @@ public class ComponentDefinitionRegistry {
             componentDefinitions.add(componentDefinition);
         }
 
-        componentDefinitions.sort(Comparator.comparingInt(ComponentDefinition::getVersion));
+        componentDefinitions.sort(Comparator.comparing(ComponentDefinition::getVersion));
 
         if (log.isDebugEnabled() && !componentDefinitions.isEmpty()) {
             log.debug("Loaded component '{}' on demand ({} version(s))", name, componentDefinitions.size());
@@ -292,25 +286,17 @@ public class ComponentDefinitionRegistry {
         return componentDefinitions;
     }
 
-    private static ComponentHandlerLoader getComponentHandlerLoader(String loaderKind) {
+    private static ComponentHandlerLoader getComponentHandlerLoader(ComponentHandlerLoaderKind loaderKind) {
         return COMPONENT_HANDLER_LOADERS.stream()
-            .filter(componentHandlerLoader -> Objects.equals(componentHandlerLoader.getKind(), loaderKind))
+            .filter(componentHandlerLoader -> componentHandlerLoader.getKind() == loaderKind)
             .findFirst()
             .orElseThrow(() -> new IllegalStateException("Unknown component loader kind: " + loaderKind));
     }
 
-    /**
-     * Full definitions of every component, resolved through the index with per-component caching. Only used when the
-     * index is present; consumers that deep-read definitions (connections list, cluster elements, unified API) get
-     * complete, executable definitions — never stubs.
-     */
     private List<ComponentDefinition> loadAllComponentDefinitions() {
         ComponentIndex componentIndex = getRequiredComponentIndex();
 
-        // Resolving the full catalog through per-component loadComponentHandler calls would re-scan every
-        // ServiceLoader provider-config file once per component (~O(N^2) scans), so prefetch all handlers with a
-        // single sweep per loader kind and resolve index entries from that map instead.
-        Set<String> loaderKinds = new LinkedHashSet<>();
+        Set<ComponentHandlerLoaderKind> loaderKinds = EnumSet.noneOf(ComponentHandlerLoaderKind.class);
 
         for (ComponentIndex.Entry entry : componentIndex.entries()) {
             loaderKinds.add(entry.loaderKind());
@@ -362,11 +348,6 @@ public class ComponentDefinitionRegistry {
         return componentDefinitions;
     }
 
-    /**
-     * List-view definitions: lightweight stubs built from the build-time index (plus the real definitions of
-     * Spring-declared handlers, which exist as beans anyway, and the synthetic manual/missing components). Served ONLY
-     * by {@link #getStaticComponentDefinitions()} for the components-list view; no properties, no executable functions.
-     */
     private List<ComponentDefinition> loadStubComponentDefinitions() {
         ComponentIndex componentIndex = getRequiredComponentIndex();
 
@@ -380,8 +361,6 @@ public class ComponentDefinitionRegistry {
             try {
                 componentDefinitions.add(ComponentIndex.toStubComponentDefinition(entry));
             } catch (RuntimeException exception) {
-                // A stale or hand-edited index (e.g. an enum name that no longer exists) must not break the
-                // components list — degrade to serving full definitions, the same shape the no-index fallback uses.
                 log.warn(
                     "Failed to build the list-view stub for component '{}' v{} from the index; falling back to full "
                         + "component loading for the components list",
@@ -442,7 +421,7 @@ public class ComponentDefinitionRegistry {
             if (componentIndexOptional.isPresent()) {
                 componentDefinition = getComponentDefinitionsFromIndex(name, componentIndexOptional.get())
                     .stream()
-                    .filter(curComponentDefinition -> version.equals(curComponentDefinition.getVersion()))
+                    .filter(curComponentDefinition -> curComponentDefinition.getVersion() == version)
                     .findFirst()
                     .orElse(null);
             } else {
@@ -502,6 +481,93 @@ public class ComponentDefinitionRegistry {
                     .map(ComponentHandler::getDefinition)
                     .toList()),
             this::compare);
+    }
+
+    /**
+     * Every agent channel declared by every loaded component (ServiceLoader-indexed, Spring-declared and dynamic alike
+     * — this goes through the full-load path, never the index stubs), validated fail-fast: unique names, and
+     * trigger/reply action/approval element must be registered on the declaring component.
+     */
+    public List<com.bytechef.platform.component.domain.AgentChannelDefinition> getAgentChannelDefinitions() {
+        return agentChannelDefinitionsSupplier.get();
+    }
+
+    public Optional<com.bytechef.platform.component.domain.AgentChannelDefinition> fetchAgentChannelDefinition(
+        String name) {
+
+        return getAgentChannelDefinitions()
+            .stream()
+            .filter(agentChannelDefinition -> Objects.equals(agentChannelDefinition.getName(), name))
+            .findFirst();
+    }
+
+    private List<com.bytechef.platform.component.domain.AgentChannelDefinition> loadAgentChannelDefinitions() {
+        Map<String, com.bytechef.platform.component.domain.AgentChannelDefinition> definitionsByName =
+            new LinkedHashMap<>();
+
+        for (ComponentDefinition componentDefinition : getComponentDefinitions()) {
+            for (AgentChannelDefinition agentChannelDefinition : componentDefinition.getAgentChannels()) {
+                validateAgentChannel(componentDefinition, agentChannelDefinition);
+
+                com.bytechef.platform.component.domain.AgentChannelDefinition previous = definitionsByName.putIfAbsent(
+                    agentChannelDefinition.getName(),
+                    new com.bytechef.platform.component.domain.AgentChannelDefinition(
+                        agentChannelDefinition, componentDefinition.getName(), componentDefinition.getVersion()));
+
+                if (previous != null) {
+                    throw new IllegalStateException(
+                        "Agent channel name '%s' is declared by both component '%s' and component '%s'".formatted(
+                            agentChannelDefinition.getName(), previous.getComponentName(),
+                            componentDefinition.getName()));
+                }
+            }
+        }
+
+        return List.copyOf(definitionsByName.values());
+    }
+
+    private static void validateAgentChannel(
+        ComponentDefinition componentDefinition, AgentChannelDefinition agentChannelDefinition) {
+
+        String componentName = componentDefinition.getName();
+        String triggerName = agentChannelDefinition.getTrigger()
+            .getName();
+
+        if (componentDefinition.getTriggers()
+            .stream()
+            .noneMatch(triggerDefinition -> Objects.equals(triggerDefinition.getName(), triggerName))) {
+
+            throw new IllegalStateException(
+                "Agent channel '%s' references trigger '%s' which component '%s' does not register".formatted(
+                    agentChannelDefinition.getName(), triggerName, componentName));
+        }
+
+        agentChannelDefinition.getReplyAction()
+            .ifPresent(replyAction -> {
+                if (componentDefinition.getActions()
+                    .stream()
+                    .noneMatch(actionDefinition -> Objects.equals(actionDefinition.getName(), replyAction.getName()))) {
+
+                    throw new IllegalStateException(
+                        "Agent channel '%s' references action '%s' which component '%s' does not register".formatted(
+                            agentChannelDefinition.getName(), replyAction.getName(), componentName));
+                }
+            });
+
+        agentChannelDefinition.getApprovalChannelName()
+            .ifPresent(approvalChannelName -> {
+                if (componentDefinition.getClusterElements()
+                    .stream()
+                    .noneMatch(
+                        clusterElementDefinition -> Objects.equals(clusterElementDefinition.getName(),
+                            approvalChannelName)
+                            && Objects.equals(clusterElementDefinition.getType(), APPROVAL_CHANNELS))) {
+
+                    throw new IllegalStateException(
+                        "Agent channel '%s' references approval channel '%s' which component '%s' does not declare"
+                            .formatted(agentChannelDefinition.getName(), approvalChannelName, componentName));
+                }
+            });
     }
 
     public ActionDefinition getActionDefinition(String componentName, int componentVersion, String actionName) {
