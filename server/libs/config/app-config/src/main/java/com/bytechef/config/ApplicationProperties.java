@@ -6828,6 +6828,11 @@ public class ApplicationProperties {
         private CodeWorkflow codeWorkflow = new CodeWorkflow();
 
         /**
+         * Workflow expression configuration
+         */
+        private Config config = new Config();
+
+        /**
          * Output storage configuration for workflow results
          */
         private OutputStorage outputStorage = new OutputStorage();
@@ -6846,6 +6851,10 @@ public class ApplicationProperties {
             return codeWorkflow;
         }
 
+        public Config getConfig() {
+            return config;
+        }
+
         public OutputStorage getOutputStorage() {
             return outputStorage;
         }
@@ -6860,6 +6869,10 @@ public class ApplicationProperties {
 
         public void setCodeWorkflow(CodeWorkflow codeWorkflow) {
             this.codeWorkflow = codeWorkflow;
+        }
+
+        public void setConfig(Config config) {
+            this.config = config;
         }
 
         public void setOutputStorage(OutputStorage outputStorage) {
@@ -6894,9 +6907,42 @@ public class ApplicationProperties {
         }
 
         /**
+         * Settings for the {@code config()} workflow expression function.
+         */
+        public static class Config {
+
+            /**
+             * Property-name prefixes a workflow may read through {@code config()}. Empty by default, which denies every
+             * lookup. Read from the {@link org.springframework.core.env.Environment} by the evaluator rather than from
+             * this class; the field exists so the key binds, because this type rejects unknown fields.
+             */
+            private List<String> allowedPrefixes = new ArrayList<>();
+
+            public List<String> getAllowedPrefixes() {
+                return allowedPrefixes;
+            }
+
+            public void setAllowedPrefixes(List<String> allowedPrefixes) {
+                this.allowedPrefixes = allowedPrefixes;
+            }
+        }
+
+        /**
          * Code workflow settings.
          */
         public static class CodeWorkflow {
+
+            public void setApprovalEscalation(ApprovalEscalation approvalEscalation) {
+                this.approvalEscalation = approvalEscalation;
+            }
+
+            public void setApprovalExpiry(ApprovalExpiry approvalExpiry) {
+                this.approvalExpiry = approvalExpiry;
+            }
+
+            public void setApprovalReminder(ApprovalReminder approvalReminder) {
+                this.approvalReminder = approvalReminder;
+            }
 
             /**
              * Whether uploading of Java (jar) code workflows is enabled. When disabled, Java code workflow upload
