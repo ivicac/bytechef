@@ -253,7 +253,7 @@ paths:
         - jwtBearerAuth: [ ]
   /automation/workflow-templates/{workflowUuid}/provision:
     post:
-      description: "Provision a reference to an automation workflow template for the authenticated connected user."
+      description: "Provision a reference to a catalog code workflow for the authenticated connected user."
       summary: "Provision a workflow reference"
       tags:
         - "connected-user-project-workflow"
@@ -271,17 +271,9 @@ paths:
           required: true
           schema:
             type: "string"
-      requestBody:
-        required: false
-        content:
-          application/json:
-            schema:
-              $ref: "#/components/schemas/ProvisionWorkflowReferenceRequest"
       responses:
         "204":
           description: "Successful operation."
-        "400":
-          description: "A requested connection is not one of the connected user's connections."
         "409":
           description: "A required connection could not be auto-wired."
           content:
@@ -291,7 +283,7 @@ paths:
       security:
         - jwtBearerAuth: [ ]
     delete:
-      description: "De-provision a reference to an automation workflow template for the authenticated connected user."
+      description: "De-provision a reference to a catalog code workflow for the authenticated connected user."
       summary: "De-provision a workflow reference"
       tags:
         - "connected-user-project-workflow"
@@ -375,10 +367,7 @@ paths:
         - jwtBearerAuth: [ ]
   /connections/{id}/reauthorize:
     post:
-      description: "Replace the credentials of a connection owned by the authenticated connected user, keeping its id.\
-        \ The supplied parameters replace the connection's authorization parameters wholesale: a parameter that is not\
-        \ supplied is cleared, not preserved, so submit the complete authorization parameter set. Connection-level\
-        \ properties are untouched. A successful call also marks the connection's credentials valid again."
+      description: "Replace the credentials of a connection owned by the authenticated connected user, keeping its id."
       summary: "Reauthorize a connection"
       tags:
         - "connection"
@@ -1964,38 +1953,25 @@ components:
           type: "integer"
           description: "The workflow version, if null a workflow is not yet published"
         kind:
-          description: "COPY when the workflow is the user's own editable copy; REFERENCE when it points at a shared automation workflow."
+          description: "COPY when the workflow is the user's own editable copy; REFERENCE when it points at a shared catalog workflow."
           type: "string"
           enum:
             - "COPY"
             - "REFERENCE"
-        automationWorkflowUuid:
-          description: "For REFERENCE rows, the uuid of the automation workflow being referenced."
+        catalogWorkflowUuid:
+          description: "For REFERENCE rows, the uuid of the catalog workflow being referenced."
           type: "string"
         copiedFromWorkflowUuid:
-          description: "For COPY rows, the uuid of the automation workflow template the copy was created from. Null otherwise."
+          description: "For COPY rows, the uuid of the catalog template the copy was created from. Null otherwise."
           type: "string"
         dangling:
-          description: "True when a REFERENCE points at an automation workflow that is no longer served."
+          description: "True when a REFERENCE points at a catalog workflow that is no longer served."
           type: "boolean"
         components:
           description: "The components used by the workflow."
           type: "array"
           items:
             $ref: "#/components/schemas/AutomationWorkflowProjectComponent"
-        inputs:
-          description: "The values the connected user is asked for before this workflow runs."
-          type: "array"
-          items:
-            $ref: "#/components/schemas/AutomationWorkflowProjectWorkflowInput"
-        inputValues:
-          description: "The values the connected user has already supplied, keyed by input name."
-          type: "object"
-          additionalProperties: true
-        attentionReason:
-          description: "Why a REFERENCE needs attention: MISSING_CONNECTION:<component>, INPUT_REQUIRED:<input> or\
-            \ UPDATE_PENDING. Null when healthy or for COPY rows."
-          type: "string"
     Connection:
       description: "Contains all required information to open a connection to a service defined by componentName parameter"
       type: "object"
@@ -2025,18 +2001,6 @@ components:
           description: "The created date."
           type: "string"
           format: "date-time"
-        credentialStatus:
-          $ref: "../../../../../libs/platform/platform-connection/platform-connection-rest/openapi/components/schemas/objects/credential_status.yaml"
-        shared:
-          description: "Whether a tenant admin marked this connection shared with every connected user in the\
-            \ environment. Shared and owned are independent: a connected user may own a connection the admin also\
-            \ shared, and can still modify that one -- see `editable`."
-          type: "boolean"
-        editable:
-          description: "Whether THIS connected user may reconnect or delete the connection, which is true only of the\
-            \ ones they own. A shared connection they do not own is listed and selectable but never modifiable: it\
-            \ belongs to the tenant admin who shared it, and changing it would act on every connected user at once."
-          type: "boolean"
     CreateConnectionRequest:
       type: "object"
       required:

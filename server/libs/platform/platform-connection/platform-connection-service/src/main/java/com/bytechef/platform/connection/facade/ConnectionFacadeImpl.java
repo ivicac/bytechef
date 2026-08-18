@@ -175,21 +175,23 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
     public void delete(Long id) {
         Connection connection = connectionService.getConnection(id);
 
-        validateOwnerOrAdmin(connection);
-
         if (isConnectionUsed(id, connection.getType())) {
             throw new ConfigurationException(
                 "Connection id=%s is used".formatted(id), ConnectionErrorType.CONNECTION_IS_USED);
         }
 
         connectionService.delete(id);
+
+// TODO find a way to delete ll tags not referenced anymore
+//        connection.getTagIds()
+//            .forEach(tagService::delete);
     }
 
     @Override
-    public void replaceAuthorizationParameters(long id, Map<String, ?> parameters) {
-        validateOwnerOrAdmin(connectionService.getConnection(id));
+    public void updateAuthorization(long id, Map<String, ?> parameters) {
+        Connection connection = connectionService.getConnection(id);
 
-        Connection connection = getConnectionWithReplacedAuthorizationParameters(id, parameters);
+        connection.putAllParameters(parameters);
 
         resolveOAuth2AuthorizationCode(connection);
 
@@ -197,34 +199,15 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
 
         updatedParameters.remove("state");
 
-        connectionService.replaceConnectionParameters(id, updatedParameters);
-
-        connectionService.updateConnectionCredentialStatus(id, Connection.CredentialStatus.VALID);
+        connectionService.updateConnectionParameters(id, updatedParameters);
     }
 
-    private Connection getConnectionWithReplacedAuthorizationParameters(long id, Map<String, ?> parameters) {
-        Connection connection = connectionService.getConnection(id);
-
-        ConnectionDefinition connectionDefinition = connectionDefinitionService.getConnectionConnectionDefinition(
-            connection.getComponentName(), connection.getConnectionVersion());
-
-        List<String> authorizationPropertyNames = connectionDefinition.getAuthorizations()
-            .stream()
-            .flatMap(authorization -> CollectionUtils.stream(authorization.getProperties()))
-            .map(BaseProperty::getName)
-            .toList();
-
-        Map<String, Object> replacedParameters = new HashMap<>(connection.getParameters());
-
-        authorizationPropertyNames.forEach(replacedParameters::remove);
-
-        replacedParameters.putAll(parameters);
-
-        connection.setParameters(replacedParameters);
-
-        return connection;
-    }
-
+    /**
+     * Re-runs the OAuth2 authorization-code exchange when {@code connection} carries an authorization {@code code}
+     * parameter, merging the callback result (and, when neither client id nor client secret survived the exchange, the
+     * predefined client id/secret) back into {@code connection}'s parameters. Shared by {@link #create} and
+     * {@link #updateAuthorization} so a reconnect re-runs exactly the same exchange as the original connect.
+     */
     private void resolveOAuth2AuthorizationCode(Connection connection) {
         if (connection.getAuthorizationType() != null && connection.containsParameter(Authorization.CODE)) {
 

@@ -59,6 +59,8 @@ import org.springframework.web.server.ResponseStatusException;
 public class ConnectedUserProjectWorkflowApiController implements ConnectedUserProjectWorkflowApi {
     private static final Logger log = LoggerFactory.getLogger(ConnectedUserProjectWorkflowApiController.class);
 
+    private static final Logger log = LoggerFactory.getLogger(ConnectedUserProjectWorkflowApiController.class);
+
     private final ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
     private final ConnectedUserProjectFacade connectedUserProjectFacade;
     private final ConversionService conversionService;
@@ -439,6 +441,37 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
                 externalUserId, workflowUuid, requestModel.getPrompt(), getEnvironment(xEnvironment), true));
     }
 
+    /**
+     * A rejected {@code workflowUuid} -- one the permission-filtered catalog does not show this connected user, and one
+     * that does not exist at all -- reaches this method as the same {@link IllegalArgumentException} from
+     * {@code getOrCreateReference} and is mapped to the same bodyless 404 the copy endpoints use, so the response never
+     * reveals whether the template exists. {@link MissingConnectionException} is a different type and still reaches
+     * {@link #handleMissingConnectionException}.
+     *
+     * <p>
+     * Unlike {@link #provisionWorkflowReference}, the generated {@code provisionFrontendWorkflowReference} signature
+     * returns {@code ResponseEntity<Void>} (its OpenAPI 204 response declares no content, so the generator infers
+     * {@code Void} instead of {@code Object}), which leaves no room to return a JSON body inline for the 409 case.
+     * {@link #handleMissingConnectionException} covers that case at the controller level instead, the same way
+     * {@code IntegrationInstanceWorkflowApiController} maps its own domain exception via a class-level
+     * {@code @ExceptionHandler}.
+     */
+    @Override
+    @CrossOrigin
+    public ResponseEntity<Void> provisionFrontendWorkflowReference(String workflowUuid, EnvironmentModel xEnvironment) {
+        String externalUserId = OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found");
+
+        try {
+            connectedUserCodeWorkflowReferenceFacade.getOrCreateReference(
+                externalUserId, workflowUuid, getEnvironment(xEnvironment));
+        } catch (IllegalArgumentException illegalArgumentException) {
+            return notFoundForRejectedProvisioning(workflowUuid, illegalArgumentException);
+        }
+
+        return ResponseEntity.noContent()
+            .build();
+    }
+
     @Override
     public ResponseEntity<Object> provisionWorkflowReference(
         String externalUserId, String workflowUuid, EnvironmentModel xEnvironment) {
@@ -451,7 +484,23 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
         } catch (MissingConnectionException missingConnectionException) {
             return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(Map.of("missingConnectionComponentName", missingConnectionException.getComponentName()));
+        } catch (IllegalArgumentException illegalArgumentException) {
+            return notFoundForRejectedProvisioning(workflowUuid, illegalArgumentException);
         }
+
+        return ResponseEntity.noContent()
+            .build();
+    }
+
+    @Override
+    @CrossOrigin
+    public ResponseEntity<Void> deprovisionFrontendWorkflowReference(
+        String workflowUuid, EnvironmentModel xEnvironment) {
+
+        String externalUserId = OptionalUtils.get(SecurityUtils.fetchCurrentUserLogin(), "User not found");
+
+        connectedUserCodeWorkflowReferenceFacade.deleteReference(
+            externalUserId, workflowUuid, getEnvironment(xEnvironment));
 
         return ResponseEntity.noContent()
             .build();
@@ -468,6 +517,32 @@ public class ConnectedUserProjectWorkflowApiController implements ConnectedUserP
 
         return ResponseEntity.noContent()
             .build();
+    }
+
+    /**
+     * Maps a rejected provisioning request onto a bodyless 404, the same response an unknown {@code workflowUuid}
+     * produces, so neither reveals whether the template exists. The response deliberately carries nothing, so the
+     * reason is logged at debug for an operator debugging a genuinely misconfigured deployment.
+     */
+    private <T> ResponseEntity<T> notFoundForRejectedProvisioning(
+        String workflowUuid, IllegalArgumentException illegalArgumentException) {
+
+        if (log.isDebugEnabled()) {
+            log.debug(
+                "Provisioning of catalog workflow {} was rejected for the connected user; returning 404: {}",
+                workflowUuid, illegalArgumentException.getMessage());
+        }
+
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+            .build();
+    }
+
+    @ExceptionHandler(MissingConnectionException.class)
+    public ResponseEntity<Object> handleMissingConnectionException(
+        MissingConnectionException missingConnectionException) {
+
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+            .body(Map.of("missingConnectionComponentName", missingConnectionException.getComponentName()));
     }
 
     @InitBinder

@@ -24,22 +24,25 @@ import org.jspecify.annotations.Nullable;
 @SuppressFBWarnings("EI")
 public record ConnectedUserProjectWorkflowDTO(
     long id, long connectedUserId, boolean enabled, Instant lastExecutionDate, long projectId, WorkflowDTO workflow,
-    String workflowUuid, Integer workflowVersion, Kind kind, String automationWorkflowUuid,
+    String workflowUuid, Integer workflowVersion, Kind kind, String catalogWorkflowUuid,
     String copiedFromWorkflowUuid, boolean dangling, List<ConnectedUserWorkflowTemplateDTO.Component> components,
-    List<ConnectedUserWorkflowTemplateDTO.Input> inputs, Map<String, ?> inputValues,
-    @Nullable String attentionReason, @Nullable String staticWebhookUrl) {
+    @Nullable String staticWebhookUrl) {
+
+    /**
+     * {@code COPY} when the workflow is the connected user's own editable copy; {@code REFERENCE} when it points at a
+     * shared catalog workflow instead (see the embedded automation code workflow bridge in the repository docs).
+     */
     public enum Kind {
         COPY, REFERENCE
     }
 
+    /**
+     * Copy-mode row (the user's own project workflow).
+     */
     public ConnectedUserProjectWorkflowDTO(
         long connectedUserId, ConnectedUserProjectWorkflow connectedUserProjectWorkflow, boolean enabled,
         Instant lastExecutionDate, ProjectWorkflow projectWorkflow, WorkflowDTO workflow,
         List<ConnectedUserWorkflowTemplateDTO.Component> components) {
-        this(
-            connectedUserId, connectedUserProjectWorkflow, enabled, lastExecutionDate, projectWorkflow, workflow,
-            components, List.of(), Map.of());
-    }
 
     public ConnectedUserProjectWorkflowDTO(
         long connectedUserId, ConnectedUserProjectWorkflow connectedUserProjectWorkflow, boolean enabled,
@@ -50,26 +53,20 @@ public record ConnectedUserProjectWorkflowDTO(
             connectedUserProjectWorkflow.getId(), connectedUserId, enabled, lastExecutionDate,
             projectWorkflow.getProjectId(), workflow, projectWorkflow.getUuidAsString(),
             connectedUserProjectWorkflow.getWorkflowVersion(), Kind.COPY, null,
-            connectedUserProjectWorkflow.getCopiedFromWorkflowUuid(), false, components, inputs, inputValues, null,
-            null);
+            connectedUserProjectWorkflow.getCopiedFromWorkflowUuid(), false, components, null);
     }
 
+    /**
+     * Reference-mode row (points at a shared catalog workflow).
+     */
     public static ConnectedUserProjectWorkflowDTO ofReference(
-        long connectedUserId, ConnectedUserProjectWorkflow reference, WorkflowDTO automationWorkflow,
+        long connectedUserId, ConnectedUserProjectWorkflow reference, WorkflowDTO catalogWorkflow,
         List<ConnectedUserWorkflowTemplateDTO.Component> components) {
-        return ofReference(connectedUserId, reference, automationWorkflow, components, List.of(), Map.of(), null);
-    }
 
-    public static ConnectedUserProjectWorkflowDTO ofReference(
-        long connectedUserId, ConnectedUserProjectWorkflow reference, WorkflowDTO automationWorkflow,
-        List<ConnectedUserWorkflowTemplateDTO.Component> components,
-        List<ConnectedUserWorkflowTemplateDTO.Input> inputs, Map<String, ?> inputValues,
-        @Nullable String attentionReason) {
         return new ConnectedUserProjectWorkflowDTO(
-            reference.getId(), connectedUserId, reference.isEnabled(), null, 0L, automationWorkflow,
-            reference.getAutomationWorkflowUuid(), reference.getWorkflowVersion(), Kind.REFERENCE,
-            reference.getAutomationWorkflowUuid(), null, reference.isDangling(), components, inputs, inputValues,
-            attentionReason, null);
+            reference.getId(), connectedUserId, reference.isEnabled(), null, 0L, catalogWorkflow,
+            reference.getCatalogWorkflowUuid(), reference.getWorkflowVersion(), Kind.REFERENCE,
+            reference.getCatalogWorkflowUuid(), null, reference.isDangling(), components, null);
     }
 
     /**
@@ -80,7 +77,6 @@ public record ConnectedUserProjectWorkflowDTO(
     public ConnectedUserProjectWorkflowDTO withStaticWebhookUrl(@Nullable String staticWebhookUrl) {
         return new ConnectedUserProjectWorkflowDTO(
             id, connectedUserId, enabled, lastExecutionDate, projectId, workflow, workflowUuid, workflowVersion, kind,
-            automationWorkflowUuid, copiedFromWorkflowUuid, dangling, components, inputs, inputValues,
-            attentionReason, staticWebhookUrl);
+            catalogWorkflowUuid, copiedFromWorkflowUuid, dangling, components, staticWebhookUrl);
     }
 }

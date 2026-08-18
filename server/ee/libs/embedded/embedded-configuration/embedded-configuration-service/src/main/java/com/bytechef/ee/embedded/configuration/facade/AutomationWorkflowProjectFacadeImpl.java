@@ -82,7 +82,6 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
     private final ApplicationEventPublisher applicationEventPublisher;
     private final AutomationWorkflowProjectService automationWorkflowProjectService;
     private final CategoryService categoryService;
-    private final ConnectedUserReferenceRolloutManager connectedUserReferenceRolloutManager;
     private final ConnectedUserService connectedUserService;
     private final EmbeddedPermissionEvaluator embeddedPermissionEvaluator;
     private final ProjectCodeWorkflowService projectCodeWorkflowService;
@@ -98,20 +97,17 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
 
     @SuppressFBWarnings("EI")
     public AutomationWorkflowProjectFacadeImpl(
-        ApplicationEventPublisher applicationEventPublisher,
-        AutomationWorkflowProjectService automationWorkflowProjectService, CategoryService categoryService,
-        ConnectedUserReferenceRolloutManager connectedUserReferenceRolloutManager,
-        ConnectedUserService connectedUserService, EmbeddedPermissionEvaluator embeddedPermissionEvaluator,
+        CategoryService categoryService, ConnectedUserService connectedUserService,
+        EmbeddedPermissionEvaluator embeddedPermissionEvaluator,
         ProjectCodeWorkflowService projectCodeWorkflowService, ProjectService projectService,
         ProjectWorkflowFacade projectWorkflowFacade, ProjectWorkflowService projectWorkflowService,
-        TagService tagService, TaskDispatcherDefinitionService taskDispatcherDefinitionService,
+        TagService tagService, WorkflowComponentResolver workflowComponentResolver,
         WorkflowNodeTestOutputService workflowNodeTestOutputService, WorkflowService workflowService,
         WorkflowTestConfigurationService workflowTestConfigurationService,
         List<WorkflowPreDeleteListener> workflowPreDeleteListeners) {
         this.applicationEventPublisher = applicationEventPublisher;
         this.automationWorkflowProjectService = automationWorkflowProjectService;
         this.categoryService = categoryService;
-        this.connectedUserReferenceRolloutManager = connectedUserReferenceRolloutManager;
         this.connectedUserService = connectedUserService;
         this.embeddedPermissionEvaluator = embeddedPermissionEvaluator;
         this.projectCodeWorkflowService = projectCodeWorkflowService;
@@ -475,24 +471,6 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         return StringUtils.isBlank(permissionExpression) ? null : permissionExpression.trim();
     }
 
-    private List<Project> getAutomationWorkflowProjectProjects(Set<Long> projectIds) {
-        if (projectIds.isEmpty()) {
-            return List.of();
-        }
-
-        return projectService.getProjects(List.copyOf(projectIds))
-            .stream()
-            .filter(project -> Objects.equals(project.getWorkspaceId(), Workspace.DEFAULT_WORKSPACE_ID))
-            .sorted(Comparator.comparing(Project::getName))
-            .toList();
-    }
-
-    private Map<Long, AutomationWorkflowProject> getAutomationWorkflowProjects() {
-        return automationWorkflowProjectService.getAutomationWorkflowProjects()
-            .stream()
-            .collect(Collectors.toMap(AutomationWorkflowProject::getProjectId, Function.identity()));
-    }
-
     private Project getMarkedProject(long projectId) {
         Project project = projectService.getProject(projectId);
 
@@ -544,11 +522,10 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
                 Workflow workflow = workflowService.getWorkflow(projectWorkflow.getWorkflowId());
 
                 return new ConnectedUserWorkflowTemplateDTO(
-                    projectWorkflow.getUuidAsString(), workflow.getLabel(), workflow.getDescription(),
+                    projectWorkflow.getWorkflowId(), workflow.getLabel(), workflow.getDescription(),
                     Objects.toString(workflow.getLastModifiedDate(), null),
                     workflowComponentResolver.getTriggerComponents(workflow),
-                    workflowComponentResolver.getTaskComponents(workflow), toInputs(workflow),
-                    workflowPermissionExpressions.get(projectWorkflow.getUuid()), projectWorkflow.getWorkflowId());
+                    workflowComponentResolver.getTaskComponents(workflow), projectWorkflow.getPermissionExpression());
             })
             .filter(Objects::nonNull)
             .toList();
@@ -589,8 +566,8 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
                         projectWorkflow.getUuidAsString(), workflow.getLabel(), workflow.getDescription(),
                         Objects.toString(workflow.getLastModifiedDate(), null),
                         workflowComponentResolver.getTriggerComponents(workflow),
-                        workflowComponentResolver.getTaskComponents(workflow), toInputs(workflow),
-                        workflowPermissionExpressions.get(projectWorkflow.getUuid()));
+                        workflowComponentResolver.getTaskComponents(workflow),
+                        projectWorkflow.getPermissionExpression());
                 })
                 .filter(Objects::nonNull)
                 .toList();
