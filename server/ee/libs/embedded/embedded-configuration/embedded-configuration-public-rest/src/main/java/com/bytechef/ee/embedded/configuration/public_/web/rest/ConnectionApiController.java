@@ -98,9 +98,7 @@ public class ConnectionApiController implements ConnectionApi {
         String componentName, EnvironmentModel xEnvironment, List<Long> connectionIds) {
         ConnectedUser connectedUser = getCurrentConnectedUser(xEnvironment);
 
-        Set<Long> ownedConnectionIds = connectedUserConnectionFacade.getOwnedConnectionIds(connectedUser.getId());
-
-        Set<Long> sharedConnectionIds = connectedUserConnectionFacade.getSharedConnectionIds();
+        ConnectedUser connectedUser = getCurrentConnectedUser(xEnvironment);
 
         return ResponseEntity.ok(
             connectedUserConnectionFacade
@@ -114,27 +112,11 @@ public class ConnectionApiController implements ConnectionApi {
     public ResponseEntity<List<ConnectionModel>> getAllFrontendConnections(EnvironmentModel xEnvironment) {
         ConnectedUser connectedUser = getCurrentConnectedUser(xEnvironment);
 
-        Set<Long> ownedConnectionIds = connectedUserConnectionFacade.getOwnedConnectionIds(connectedUser.getId());
-
-        Set<Long> sharedConnectionIds = connectedUserConnectionFacade.getSharedConnectionIds();
-
         return ResponseEntity.ok(
             connectedUserConnectionFacade.getConnections(connectedUser.getId(), null, List.of())
                 .stream()
-                .map(connectionDTO -> toConnectionModel(connectionDTO, ownedConnectionIds, sharedConnectionIds))
+                .map(connectionDTO -> conversionService.convert(connectionDTO, ConnectionModel.class))
                 .toList());
-    }
-
-    private ConnectionModel toConnectionModel(
-        ConnectionDTO connectionDTO, Set<Long> ownedConnectionIds, Set<Long> sharedConnectionIds) {
-        ConnectionModel connectionModel = conversionService.convert(connectionDTO, ConnectionModel.class);
-
-        if (connectionModel != null) {
-            connectionModel.setEditable(ownedConnectionIds.contains(connectionDTO.id()));
-            connectionModel.setShared(sharedConnectionIds.contains(connectionDTO.id()));
-        }
-
-        return connectionModel;
     }
 
     @Override

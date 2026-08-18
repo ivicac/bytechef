@@ -88,31 +88,10 @@ public class ConnectedUserConnectionFacadeImpl implements ConnectedUserConnectio
     }
 
     @Override
-    @PreAuthorize("isTenantAdmin() or isCurrentConnectedUser(#connectedUserId)")
     public void deleteConnectedUserConnection(long connectedUserId, long connectionId) {
         requireOwned(connectedUserId, connectionId);
 
-        connectedUserConnectionService.deleteByConnectionId(connectionId);
-
         connectionFacade.delete(connectionId);
-    }
-
-    @Override
-    @PreAuthorize("isTenantAdmin() or isCurrentConnectedUser(#connectedUserId)")
-    public List<ConnectionDTO> getConnectedUserConnections(
-        long connectedUserId, @Nullable String componentName, List<Long> connectionIds) {
-
-        return getConnections(connectedUserId, componentName, connectionIds);
-    }
-
-    @Override
-    @PreAuthorize("#externalUserId == authentication.name")
-    public List<ConnectionDTO> getConnectedUserConnections(
-        String externalUserId, Environment environment, @Nullable String componentName, List<Long> connectionIds) {
-
-        ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserId, environment);
-
-        return getConnections(connectedUser.getId(), componentName, connectionIds);
     }
 
     @Override
@@ -124,9 +103,16 @@ public class ConnectedUserConnectionFacadeImpl implements ConnectedUserConnectio
         Set<Long> entitledConnectionIds = connectedUserConnectionMembership.getConnectionIds(
             connectedUser.getId(), connectedUser.getEnvironment());
 
-        List<Long> allowedConnectionIds = entitledConnectionIds.stream()
-            .filter(connectionId -> connectionIds.isEmpty() || connectionIds.contains(connectionId))
-            .toList();
+        List<IntegrationInstance> integrationInstances = componentName == null
+            ? integrationInstanceService.getConnectedUserIntegrationInstances(
+                connectedUser.getId(), connectedUser.getEnvironment())
+            : integrationInstanceService.getIntegrationInstances(
+                connectedUser.getId(), componentName, connectedUser.getEnvironment());
+
+        allConnectionIds.addAll(
+            integrationInstances.stream()
+                .map(IntegrationInstance::getConnectionId)
+                .toList());
 
         return connectionFacade.getConnections(new ArrayList<>(allowedConnectionIds), PlatformType.EMBEDDED)
             .stream()
@@ -135,43 +121,20 @@ public class ConnectedUserConnectionFacadeImpl implements ConnectedUserConnectio
     }
 
     @Override
-    @PreAuthorize("isTenantAdmin() or isCurrentConnectedUser(#connectedUserId)")
     public void reauthorizeConnectedUserConnection(long connectedUserId, long connectionId, Map<String, ?> parameters) {
         ConnectionDTO connectionDTO = requireOwned(connectedUserId, connectionId);
 
-        connectionFacade.replaceAuthorizationParameters(
-            connectionId, withIntegrationCredentials(connectedUserId, connectionDTO, parameters));
+        connectionFacade.updateAuthorization(connectionId, parameters);
     }
 
-    @Override
-    public Set<Long> getOwnedConnectionIds(long connectedUserId) {
-        ConnectedUser connectedUser = connectedUserService.getConnectedUser(connectedUserId);
-
-        return connectedUserConnectionMembership.getOwnedConnectionIds(
-            connectedUser.getId(), connectedUser.getEnvironment());
-    }
-
-    @Override
-    @PreAuthorize("#externalUserId == authentication.name")
-    public Set<Long> getOwnedConnectionIds(String externalUserId, Environment environment) {
-        ConnectedUser connectedUser = connectedUserService.getConnectedUser(externalUserId, environment);
-
-        return getOwnedConnectionIds(connectedUser.getId());
-    }
-
-    @Override
-    public Set<Long> getSharedConnectionIds() {
-        return connectedUserConnectionService.getSharedConnectionIds();
-    }
-
-    private ConnectionDTO requireOwned(long connectedUserId, long connectionId) {
-        ConnectedUser connectedUser = connectedUserService.getConnectedUser(connectedUserId);
-
-        Set<Long> ownedConnectionIds = connectedUserConnectionMembership.getOwnedConnectionIds(
-            connectedUser.getId(), connectedUser.getEnvironment());
-
-        List<ConnectionDTO> ownedConnectionDTOs = connectionFacade.getConnections(
-            new ArrayList<>(ownedConnectionIds), PlatformType.EMBEDDED);
+    /**
+     * A vendor-shared connection is never owned via this path: it never appears in
+     * {@code connectedUserConnectionService.getConnectionIds} or the caller's integration instances, and this check
+     * deliberately passes an empty {@code connectionIds} list rather than any shared-connection id set, so a shared
+     * connection can never satisfy ownership here and is therefore never deletable or reauthorizable by an end user.
+     */
+    private void requireOwned(long connectedUserId, long connectionId) {
+        List<ConnectionDTO> ownedConnectionDTOs = getConnections(connectedUserId, null, List.of());
 
         return ownedConnectionDTOs.stream()
             .filter(connectionDTO -> Objects.equals(connectionDTO.id(), connectionId))

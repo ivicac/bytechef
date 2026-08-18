@@ -10,6 +10,7 @@ package com.bytechef.ee.embedded.configuration.facade;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -50,6 +51,21 @@ class WorkflowComponentResolverTest {
 
         workflowComponentResolver = new WorkflowComponentResolver(
             componentDefinitionService, taskDispatcherDefinitionService);
+    }
+
+    @Test
+    void testComponentTaskResolvesToItsComponentDefinition() {
+        ComponentDefinition componentDefinition = mock(ComponentDefinition.class);
+
+        when(componentDefinition.getName()).thenReturn("gmail");
+        when(componentDefinition.getTitle()).thenReturn("Gmail");
+        when(componentDefinition.getIcon()).thenReturn("path:assets/gmail.svg");
+
+        when(componentDefinitionService.fetchComponentDefinition(eq("gmail"), anyInt()))
+            .thenReturn(Optional.of(componentDefinition));
+
+        assertThat(workflowComponentResolver.getTaskComponents(workflowWithTask("gmail/v1/sendEmail")))
+            .containsExactly(new ConnectedUserWorkflowTemplateDTO.Component("gmail", "Gmail", "path:assets/gmail.svg"));
     }
 
     @Test
@@ -105,6 +121,37 @@ class WorkflowComponentResolverTest {
                 assertThat(component.name()).isEqualTo("condition");
                 assertThat(component.connectionRequired()).isFalse();
             });
+    }
+
+    /**
+     * A task dispatcher is not a component, so the component lookup misses it. Without the second tier a workflow
+     * containing one -- a condition, a loop, Call AI Agent -- listed a row titled with its bare type name instead of
+     * the dispatcher's own title and icon.
+     */
+    @Test
+    void testTaskDispatcherTaskResolvesToItsTaskDispatcherDefinition() {
+        TaskDispatcherDefinition taskDispatcherDefinition = mock(TaskDispatcherDefinition.class);
+
+        when(taskDispatcherDefinition.getName()).thenReturn("condition");
+        when(taskDispatcherDefinition.getTitle()).thenReturn("Condition");
+        when(taskDispatcherDefinition.getIcon()).thenReturn("path:assets/condition.svg");
+
+        when(taskDispatcherDefinitionService.fetchTaskDispatcherDefinition(eq("condition"), anyInt()))
+            .thenReturn(Optional.of(taskDispatcherDefinition));
+
+        assertThat(workflowComponentResolver.getTaskComponents(workflowWithTask("condition/v1/condition")))
+            .containsExactly(
+                new ConnectedUserWorkflowTemplateDTO.Component("condition", "Condition", "path:assets/condition.svg"));
+    }
+
+    /**
+     * Neither tier knows the type -- an unregistered component on this deployment -- so the row falls back to the bare
+     * name rather than dropping out of the listing.
+     */
+    @Test
+    void testUnknownTaskFallsBackToItsBareName() {
+        assertThat(workflowComponentResolver.getTaskComponents(workflowWithTask("mystery/v1/doSomething")))
+            .containsExactly(new ConnectedUserWorkflowTemplateDTO.Component("mystery", "mystery", null));
     }
 
     private static Workflow workflowWithTask(String type) {
