@@ -9,6 +9,7 @@ package com.bytechef.ee.embedded.configuration;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.when;
@@ -77,6 +78,7 @@ import com.bytechef.platform.workflow.execution.facade.PrincipalJobFacade;
 import com.bytechef.platform.workflow.execution.facade.TriggerLifecycleFacade;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import com.bytechef.platform.workflow.execution.service.TriggerExecutionService;
+import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.nio.charset.StandardCharsets;
@@ -133,7 +135,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     JobFacade.class, JobService.class, McpComponentService.class, McpIntegrationInstanceConfigurationService.class,
     McpIntegrationInstanceConfigurationWorkflowService.class, McpIntegrationInstanceToolService.class,
     McpServerService.class, McpToolService.class, OAuth2ParametersFacade.class, OAuth2Service.class,
-    PrincipalJobFacade.class, PrincipalJobService.class, ProjectFacade.class, TaskExecutionService.class,
+    PrincipalJobFacade.class, PrincipalJobService.class, ProjectFacade.class,
+    TaskDispatcherDefinitionService.class, TaskExecutionService.class,
     TriggerDefinitionFacade.class, TriggerDefinitionService.class, TriggerExecutionService.class,
     TriggerLifecycleFacade.class, UserService.class, WorkflowCacheManager.class, WorkflowNodeParameterFacade.class,
     WorkflowNodeTestOutputService.class, WorkflowTestConfigurationFacade.class, WorkflowTestConfigurationService.class,
@@ -171,6 +174,9 @@ class AutomationCodeWorkflowBridgeIntTest {
     private ConnectionService connectionService;
 
     @Autowired
+    private EmbeddedPermissionEvaluator embeddedPermissionEvaluator;
+
+    @Autowired
     private ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
 
     @Autowired
@@ -193,6 +199,11 @@ class AutomationCodeWorkflowBridgeIntTest {
             .thenReturn(new ComponentDefinition(CODE_WORKFLOW_COMPONENT_NAME));
         when(connectionService.getConnections(PlatformType.EMBEDDED))
             .thenReturn(List.of());
+
+        // getOrCreateReference validates the catalog uuid against the permission-FILTERED catalog, which consults this
+        // (mocked) evaluator; the default mock answer of false would hide every template from every connected user.
+        when(embeddedPermissionEvaluator.evaluate(any(), any()))
+            .thenReturn(true);
     }
 
     /**

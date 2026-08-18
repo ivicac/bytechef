@@ -7,13 +7,17 @@
 
 package com.bytechef.ee.embedded.configuration.facade;
 
+import static org.mockito.Mockito.mock;
+
 import com.bytechef.automation.configuration.facade.ProjectDeploymentFacade;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProject;
 import com.bytechef.ee.embedded.configuration.domain.ConnectedUserProjectWorkflow;
+import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceAttentionResolver.ReferenceState;
 import com.bytechef.ee.embedded.configuration.repository.ConnectedUserProjectWorkflowRepository;
 import com.bytechef.platform.configuration.domain.Environment;
+import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -39,13 +43,16 @@ class ConnectedUserProjectFacadeEnableByUuidTest {
     private static final String EXTERNAL_USER_ID = "ext-1";
 
     @Mock
-    private ConnectedUserCodeWorkflowReferenceFacade connectedUserCodeWorkflowReferenceFacade;
+    private ConnectedUserWorkflowReferenceFacade connectedUserWorkflowReferenceFacade;
 
     @Mock
     private ConnectedUserProjectWorkflowManager connectedUserProjectWorkflowManager;
 
     @Mock
     private ConnectedUserProjectWorkflowRepository connectedUserProjectWorkflowRepository;
+
+    @Mock
+    private ConnectedUserReferenceAttentionResolver connectedUserReferenceAttentionResolver;
 
     @Mock
     private ProjectDeploymentFacade projectDeploymentFacade;
@@ -67,14 +74,16 @@ class ConnectedUserProjectFacadeEnableByUuidTest {
                 EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(connectedUserProject);
         Mockito.when(
-            connectedUserProjectWorkflowRepository.findByConnectedUserProjectIdAndCatalogWorkflowUuid(
-                10L, "catalog-uuid-1"))
+            connectedUserProjectWorkflowRepository.findByConnectedUserProjectIdAndAutomationWorkflowUuid(
+                10L, "automation workflow-uuid-1"))
             .thenReturn(Optional.of(referenceRow()));
+        Mockito.when(connectedUserReferenceAttentionResolver.resolve(Mockito.any()))
+            .thenReturn(new ReferenceState(Map.of(), null));
 
-        facade.enableProjectWorkflow(EXTERNAL_USER_ID, "catalog-uuid-1", true, null);
+        facade.enableProjectWorkflow(EXTERNAL_USER_ID, "automation workflow-uuid-1", true, null);
 
-        Mockito.verify(connectedUserCodeWorkflowReferenceFacade)
-            .enableReference(EXTERNAL_USER_ID, "catalog-uuid-1", true, Environment.PRODUCTION);
+        Mockito.verify(connectedUserWorkflowReferenceFacade)
+            .enableReference(EXTERNAL_USER_ID, "automation workflow-uuid-1", true, Environment.PRODUCTION);
         Mockito.verifyNoInteractions(projectDeploymentService);
         Mockito.verifyNoInteractions(projectDeploymentFacade);
         Mockito.verifyNoInteractions(projectWorkflowService);
@@ -91,14 +100,14 @@ class ConnectedUserProjectFacadeEnableByUuidTest {
                 EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(connectedUserProject);
         Mockito.when(
-            connectedUserProjectWorkflowRepository.findByConnectedUserProjectIdAndCatalogWorkflowUuid(
-                10L, "catalog-uuid-1"))
+            connectedUserProjectWorkflowRepository.findByConnectedUserProjectIdAndAutomationWorkflowUuid(
+                10L, "automation workflow-uuid-1"))
             .thenReturn(Optional.of(referenceRow()));
 
-        facade.enableProjectWorkflow(EXTERNAL_USER_ID, "catalog-uuid-1", false, null);
+        facade.enableProjectWorkflow(EXTERNAL_USER_ID, "automation workflow-uuid-1", false, null);
 
-        Mockito.verify(connectedUserCodeWorkflowReferenceFacade)
-            .enableReference(EXTERNAL_USER_ID, "catalog-uuid-1", false, Environment.PRODUCTION);
+        Mockito.verify(connectedUserWorkflowReferenceFacade)
+            .enableReference(EXTERNAL_USER_ID, "automation workflow-uuid-1", false, Environment.PRODUCTION);
     }
 
     /**
@@ -116,7 +125,7 @@ class ConnectedUserProjectFacadeEnableByUuidTest {
                 EXTERNAL_USER_ID, Environment.PRODUCTION))
             .thenReturn(connectedUserProject);
         Mockito.when(
-            connectedUserProjectWorkflowRepository.findByConnectedUserProjectIdAndCatalogWorkflowUuid(
+            connectedUserProjectWorkflowRepository.findByConnectedUserProjectIdAndAutomationWorkflowUuid(
                 10L, "copy-uuid-1"))
             .thenReturn(Optional.empty());
         Mockito.when(projectDeploymentService.getProjectDeploymentId(1L, Environment.PRODUCTION))
@@ -128,7 +137,7 @@ class ConnectedUserProjectFacadeEnableByUuidTest {
 
         Mockito.verify(projectDeploymentFacade)
             .enableProjectDeploymentWorkflow(1L, "copy-wf-1", true, Environment.PRODUCTION);
-        Mockito.verifyNoInteractions(connectedUserCodeWorkflowReferenceFacade);
+        Mockito.verifyNoInteractions(connectedUserWorkflowReferenceFacade);
     }
 
     private static ConnectedUserProjectWorkflow referenceRow() {
@@ -136,16 +145,18 @@ class ConnectedUserProjectFacadeEnableByUuidTest {
 
         connectedUserProjectWorkflow.setId(1L);
         connectedUserProjectWorkflow.setConnectedUserProjectId(10L);
-        connectedUserProjectWorkflow.setCatalogWorkflowUuid("catalog-uuid-1");
+        connectedUserProjectWorkflow.setAutomationWorkflowUuid("automation workflow-uuid-1");
 
         return connectedUserProjectWorkflow;
     }
 
     private ConnectedUserProjectFacadeImpl facade() {
         return new ConnectedUserProjectFacadeImpl(
-            null, null, null, connectedUserCodeWorkflowReferenceFacade, connectedUserProjectWorkflowManager,
-            connectedUserProjectWorkflowRepository, null, null, null, null, null, null, null, null, null,
+            null, null, null, null, null, connectedUserWorkflowReferenceFacade, connectedUserProjectWorkflowManager,
+            connectedUserProjectWorkflowRepository, null, connectedUserReferenceAttentionResolver, null, null,
+            mock(ConnectedUserWorkflowValidator.class), mock(ConnectedUserWorkflowWebhookUrlResolver.class), null, null,
+            null, null, null, null, null,
             projectDeploymentFacade, projectDeploymentService, null, null, null, null, projectWorkflowService, null,
-            null, null, null);
+            null, null, null, null);
     }
 }
