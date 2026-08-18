@@ -6112,6 +6112,11 @@ public class ApplicationProperties {
         private CodeWorkflow codeWorkflow = new CodeWorkflow();
 
         /**
+         * Workflow expression configuration
+         */
+        private Config config = new Config();
+
+        /**
          * Output storage configuration for workflow results
          */
         private OutputStorage outputStorage = new OutputStorage();
@@ -6123,6 +6128,10 @@ public class ApplicationProperties {
 
         public CodeWorkflow getCodeWorkflow() {
             return codeWorkflow;
+        }
+
+        public Config getConfig() {
+            return config;
         }
 
         public OutputStorage getOutputStorage() {
@@ -6137,12 +6146,37 @@ public class ApplicationProperties {
             this.codeWorkflow = codeWorkflow;
         }
 
+        public void setConfig(Config config) {
+            this.config = config;
+        }
+
         public void setOutputStorage(OutputStorage outputStorage) {
             this.outputStorage = outputStorage;
         }
 
         public void setRepository(Repository repository) {
             this.repository = repository;
+        }
+
+        /**
+         * Settings for the {@code config()} workflow expression function.
+         */
+        public static class Config {
+
+            /**
+             * Property-name prefixes a workflow may read through {@code config()}. Empty by default, which denies every
+             * lookup. Read from the {@link org.springframework.core.env.Environment} by the evaluator rather than from
+             * this class; the field exists so the key binds, because this type rejects unknown fields.
+             */
+            private List<String> allowedPrefixes = new ArrayList<>();
+
+            public List<String> getAllowedPrefixes() {
+                return allowedPrefixes;
+            }
+
+            public void setAllowedPrefixes(List<String> allowedPrefixes) {
+                this.allowedPrefixes = allowedPrefixes;
+            }
         }
 
         /**
