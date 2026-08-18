@@ -26,49 +26,23 @@ import org.springframework.ai.tool.ToolCallback;
 public interface IntelligentToolDefinition {
 
     /**
-     * The tool name, e.g. {@code "buildWorkflow"}.
+     * The tool name, e.g.
      */
     String name();
 
-    /**
-     * The key this delegate is registered under in {@code AgentTypeRegistry}, used to key its per-conversation session
-     * memory.
-     *
-     * <p>
-     * MUST be a key registered with {@code com.bytechef.ai.agent.tool.AgentTypeRegistry} — an unregistered key would
-     * leave a per-conversation session memory row that a task delete's registry-driven purge could never reconstruct
-     * and clean up. This is a raw {@link String} rather than a typed {@code AgentType}/{@code CopilotAgentType}
-     * deliberately: {@code ai-api} is an {@code implementation}-only dependency of {@code ai-copilot-tool}, so this
-     * interface cannot expose it on its public surface. {@code IntelligentToolSurfaceParityTest} (ai-hub-service)
-     * enforces the registration invariant for every contributed definition.
-     * </p>
-     */
     String agentTypeKey();
 
     /**
-     * Which Copilot panels get this delegate. The AI Hub and the management MCP surface always get every definition
-     * regardless of this scope.
+     * Which Copilot panels get this delegate.
      */
     Set<IntelligentToolScope> panelScopes();
 
-    /**
-     * The raw {@link IntelligentToolChatClientFactory} for the given variant, or {@code null} when this delegate is not
-     * offered in that variant (e.g. the converter delegate has no ASK variant). The catalog skips this definition for a
-     * variant with a {@code null} factory.
-     *
-     * <p>
-     * Unlike a plain {@link java.util.function.Supplier}, the returned factory is invoked per delegation, not once per
-     * registration: every delegate call resolves its {@code ChatClient} afresh, so a definition MUST honour a non-null
-     * {@code chatModel} argument by rebuilding its client over that model with the same system prompt and tools it
-     * would otherwise use.
-     * </p>
-     */
     @Nullable
     IntelligentToolChatClientFactory chatClientFactory(IntelligentToolVariant variant);
 
-    /**
-     * Builds the {@link ToolCallback} over the given (already surface-decorated)
-     * {@link IntelligentToolChatClientFactory}.
-     */
+    default boolean askCapable() {
+        return true;
+    }
+
     ToolCallback create(IntelligentToolChatClientFactory chatClientFactory);
 }

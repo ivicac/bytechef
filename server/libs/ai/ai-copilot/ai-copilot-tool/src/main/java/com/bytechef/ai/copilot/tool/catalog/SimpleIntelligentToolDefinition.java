@@ -32,18 +32,28 @@ public final class SimpleIntelligentToolDefinition implements IntelligentToolDef
     private final Set<IntelligentToolScope> panelScopes;
     private final Function<IntelligentToolVariant, IntelligentToolChatClientFactory> chatClientFactoryFunction;
     private final Function<IntelligentToolChatClientFactory, ToolCallback> toolCallbackFactory;
+    private final boolean askCapable;
+
+    public SimpleIntelligentToolDefinition(
+        String name, String agentTypeKey, Set<IntelligentToolScope> panelScopes,
+        Function<IntelligentToolVariant, IntelligentToolChatClientFactory> chatClientFactoryFunction,
+        Function<IntelligentToolChatClientFactory, ToolCallback> toolCallbackFactory) {
+
+        this(name, agentTypeKey, panelScopes, chatClientFactoryFunction, toolCallbackFactory, true);
+    }
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public SimpleIntelligentToolDefinition(
         String name, String agentTypeKey, Set<IntelligentToolScope> panelScopes,
         Function<IntelligentToolVariant, IntelligentToolChatClientFactory> chatClientFactoryFunction,
-        Function<IntelligentToolChatClientFactory, ToolCallback> toolCallbackFactory) {
+        Function<IntelligentToolChatClientFactory, ToolCallback> toolCallbackFactory, boolean askCapable) {
 
         this.name = name;
         this.agentTypeKey = agentTypeKey;
         this.panelScopes = panelScopes;
         this.chatClientFactoryFunction = chatClientFactoryFunction;
         this.toolCallbackFactory = toolCallbackFactory;
+        this.askCapable = askCapable;
     }
 
     @Override
@@ -66,6 +76,11 @@ public final class SimpleIntelligentToolDefinition implements IntelligentToolDef
     @Nullable
     public IntelligentToolChatClientFactory chatClientFactory(IntelligentToolVariant variant) {
         return chatClientFactoryFunction.apply(variant);
+    }
+
+    @Override
+    public boolean askCapable() {
+        return askCapable;
     }
 
     @Override
