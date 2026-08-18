@@ -69,4 +69,10 @@ public interface CatalogChatClientResolver {
      */
     @Nullable
     ChatModel resolveDefaultChatModel(@Nullable String preferredProviderKey, int environment);
+
+    /**
+     * Resolves a {@link ChatModel} for the given environment ordinal, catalog provider key and model name.
+     */
+    @Nullable
+    ChatModel resolveChatModel(String providerKey, String model, int environment);
 }

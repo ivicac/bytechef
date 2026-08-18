@@ -47,8 +47,50 @@ public class IntelligentToolCatalog {
         BiFunction<ChatClient, IntelligentToolDefinition, ChatClient> chatClientDecorator,
         BiFunction<ToolCallback, IntelligentToolDefinition, ToolCallback> callbackDecorator) {
 
-        return definitions.stream()
+        List<IntelligentToolDefinition> matchingDefinitions = definitions.stream()
             .filter(definition -> names.contains(definition.name()))
+            .toList();
+
+        return buildToolCallbacks(matchingDefinitions, variant, chatClientDecorator, callbackDecorator);
+    }
+
+    /**
+     * Definitions whose {@link IntelligentToolDefinition#panelScopes()} contains the given scope — for Copilot panels.
+     */
+    public List<ToolCallback> getForPanel(
+        IntelligentToolScope scope,
+        IntelligentToolVariant variant,
+        BiFunction<ChatClient, IntelligentToolDefinition, ChatClient> chatClientDecorator,
+        BiFunction<ToolCallback, IntelligentToolDefinition, ToolCallback> callbackDecorator) {
+
+        List<IntelligentToolDefinition> matchingDefinitions = definitions.stream()
+            .filter(definition -> definition.panelScopes()
+                .contains(scope))
+            .toList();
+
+        return buildToolCallbacks(matchingDefinitions, variant, chatClientDecorator, callbackDecorator);
+    }
+
+    /**
+     * Every <em>contributed</em> definition name, in contribution order — for the parity test and registration audits.
+     * This reports names regardless of whether their {@link ChatClient} bean is actually available: a definition whose
+     * {@link IntelligentToolDefinition#chatClientFactory(IntelligentToolVariant)} resolves to {@code null} for every
+     * variant (e.g. copilot disabled) still appears here. Callers that need only the callbacks that will actually build
+     * must go through {@link #getByNames} or {@link #getForPanel} instead.
+     */
+    public List<String> getNames() {
+        return definitions.stream()
+            .map(IntelligentToolDefinition::name)
+            .toList();
+    }
+
+    private List<ToolCallback> buildToolCallbacks(
+        List<IntelligentToolDefinition> candidateDefinitions,
+        IntelligentToolVariant variant,
+        BiFunction<ChatClient, IntelligentToolDefinition, ChatClient> chatClientDecorator,
+        BiFunction<ToolCallback, IntelligentToolDefinition, ToolCallback> callbackDecorator) {
+
+        return candidateDefinitions.stream()
             .map(definition -> buildToolCallback(definition, variant, chatClientDecorator, callbackDecorator))
             .filter(Objects::nonNull)
             .toList();
@@ -68,7 +110,7 @@ public class IntelligentToolCatalog {
         }
 
         IntelligentToolChatClientFactory decoratedChatClientFactory =
-            () -> chatClientDecorator.apply(rawChatClientFactory.get(), definition);
+            chatModel -> chatClientDecorator.apply(rawChatClientFactory.get(chatModel), definition);
 
         ToolCallback toolCallback = definition.create(decoratedChatClientFactory);
 

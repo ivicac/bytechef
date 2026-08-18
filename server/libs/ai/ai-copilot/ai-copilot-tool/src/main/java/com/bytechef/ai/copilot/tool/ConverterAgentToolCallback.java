@@ -21,6 +21,8 @@ import com.bytechef.ai.agent.tool.CurrentAgentContext;
 import com.bytechef.ai.agent.tool.CurrentAgentContext.AgentBinding;
 import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolChatClientFactory;
+import com.bytechef.ai.copilot.tool.catalog.SubAgentChatModelResolution;
+import com.bytechef.ai.copilot.tool.catalog.SubAgentChatModelResolver;
 import com.bytechef.ai.copilot.tool.util.WorkflowPersistCaptureUtils;
 import com.bytechef.commons.util.JsonUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -49,9 +51,9 @@ public class ConverterAgentToolCallback implements ToolCallback {
             Delegate a request to convert an external workflow definition (n8n, Make, Zapier, Workato,
             etc.) into a ByteChef workflow. The Converter subagent owns the canonical behaviour for this
             domain — translating constructs, mapping integrations, and producing valid ByteChef workflow
-            JSON plus a rationale. Include the source workflow definition to convert in the request. The
-            workflow must already exist — create it with createProjectWorkflow first, then include its
-            workflowId in the request.""";
+            JSON plus a rationale. Include the source workflow definition to convert in the request; if
+            no existing project or workflowId is named, the subagent creates new ones to hold the
+            result.""";
 
     private static final String INPUT_SCHEMA =
         """
@@ -67,10 +69,14 @@ public class ConverterAgentToolCallback implements ToolCallback {
             }""";
 
     private final IntelligentToolChatClientFactory chatClientFactory;
+    private final @Nullable SubAgentChatModelResolver chatModelResolver;
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
-    public ConverterAgentToolCallback(IntelligentToolChatClientFactory chatClientFactory) {
+    public ConverterAgentToolCallback(
+        IntelligentToolChatClientFactory chatClientFactory, @Nullable SubAgentChatModelResolver chatModelResolver) {
+
         this.chatClientFactory = chatClientFactory;
+        this.chatModelResolver = chatModelResolver;
     }
 
     @Override
@@ -105,9 +111,8 @@ public class ConverterAgentToolCallback implements ToolCallback {
 
             Map<String, Object> forwardedContext = WorkflowPersistCaptureUtils.withCaptureHolder(parentContext);
 
-            Map<String, Object> forwardedContext = WorkflowPersistCaptureUtils.withCaptureHolder(parentContext);
-
-            ChatClient converterChatClient = chatClientFactory.get();
+            ChatClient converterChatClient =
+                chatClientFactory.get(SubAgentChatModelResolution.resolve(chatModelResolver, parentContext));
 
             String result = CurrentAgentContext.callWith(
                 CopilotAgentType.IMPORT_WORKFLOW, parentAgent,
