@@ -193,7 +193,7 @@ class ManagementMcpServerSecurityConfigurerIntTest {
         }
 
         @Test
-        void testUiSessionWithNonTenantBearerTokenIsRejectedWhenAuthenticationIsRequired() throws Exception {
+        void testUiSessionWithNonTenantBearerTokenIsRejected() throws Exception {
             mockMvc
                 .perform(
                     MockMvcRequestBuilders.post("/api/management/%s/mcp".formatted(MCP_SERVER_SECRET_KEY))
@@ -205,7 +205,7 @@ class ManagementMcpServerSecurityConfigurerIntTest {
         }
 
         @Test
-        void testUiSessionWithoutBearerTokenIsRejectedWhenAuthenticationIsRequired() throws Exception {
+        void testUiSessionWithoutBearerTokenIsRejected() throws Exception {
             mockMvc
                 .perform(
                     MockMvcRequestBuilders.post("/api/management/%s/mcp".formatted(MCP_SERVER_SECRET_KEY))
@@ -230,7 +230,7 @@ class ManagementMcpServerSecurityConfigurerIntTest {
         }
 
         @Test
-        void testUiSessionWithoutBearerTokenSucceedsWhenAuthenticationIsNotRequired() throws Exception {
+        void testUiSessionWithoutBearerTokenIsRejectedForALegacyAuthenticationNotRequiredProperty() throws Exception {
             mockMcpServerProperty(false);
 
             mockMvc
@@ -238,20 +238,6 @@ class ManagementMcpServerSecurityConfigurerIntTest {
                     MockMvcRequestBuilders.post("/api/management/%s/mcp".formatted(MCP_SERVER_SECRET_KEY))
                         .servletPath("/api/management/%s/mcp".formatted(MCP_SERVER_SECRET_KEY))
                         .session(createUiSession()))
-                .andExpect(MockMvcResultMatchers.status()
-                    .isOk());
-        }
-
-        @Test
-        void testNonTenantBearerTokenIsRejectedWhenAuthenticationIsNotRequired() throws Exception {
-            mockMcpServerProperty(false);
-
-            mockMvc
-                .perform(
-                    MockMvcRequestBuilders.post("/api/management/%s/mcp".formatted(MCP_SERVER_SECRET_KEY))
-                        .servletPath("/api/management/%s/mcp".formatted(MCP_SERVER_SECRET_KEY))
-                        .session(createUiSession())
-                        .header("Authorization", "Bearer " + NON_TENANT_BEARER_TOKEN))
                 .andExpect(MockMvcResultMatchers.status()
                     .isUnauthorized());
         }
@@ -466,33 +452,25 @@ class ManagementMcpServerSecurityConfigurerIntTest {
         }
 
         @Test
-        void testInitializeWithoutBearerTokenWhenAuthenticationNotRequiredSucceeds() {
+        void testInitializeWithoutBearerTokenIsRejectedForALegacyAuthenticationNotRequiredProperty()
+            throws Exception {
+
             mockProperty(false);
 
-            try (McpSyncClient mcpSyncClient = createMcpSyncClient(MCP_SERVER_SECRET_KEY, null, null)) {
-                McpSchema.InitializeResult initializeResult = mcpSyncClient.initialize();
+            HttpResponse<String> httpResponse = postInitialize(MCP_SERVER_SECRET_KEY, null, null);
 
-                assertThat(initializeResult).isNotNull();
-                assertThat(initializeResult.serverInfo()
-                    .name()).isEqualTo("mcp-server");
-
-                McpSchema.ListToolsResult listToolsResult = mcpSyncClient.listTools();
-
-                assertThat(listToolsResult.tools())
-                    .extracting(McpSchema.Tool::name)
-                    .containsExactly(ManagementMcpServerSecurityIntTestConfiguration.SEEDED_TOOL_NAME);
-            }
+            assertThat(httpResponse.statusCode()).isEqualTo(401);
         }
 
         @Test
-        void testTokenIgnoredWhenAuthenticationNotRequired() throws Exception {
+        void testTypedApiKeyIsRejectedForALegacyAuthenticationNotRequiredProperty() throws Exception {
             String secretKey = seedApiKey(PlatformType.AUTOMATION, ENVIRONMENT);
 
             mockProperty(false);
 
             HttpResponse<String> httpResponse = postInitialize(MCP_SERVER_SECRET_KEY, secretKey, null);
 
-            assertThat(httpResponse.statusCode()).isEqualTo(200);
+            assertThat(httpResponse.statusCode()).isEqualTo(401);
         }
 
         @Test

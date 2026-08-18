@@ -17,6 +17,7 @@ import com.bytechef.ee.platform.security.web.mcp.oauth2.TenantIdpFederatedIssuer
 import com.bytechef.ee.platform.user.domain.IdentityProvider;
 import com.bytechef.ee.platform.user.service.IdentityProviderService;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
+import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.PropertyService;
 import com.bytechef.platform.security.service.ApiKeyService;
 import com.bytechef.platform.security.web.config.McpDiscoverySecurityConfigurerContributor;
@@ -24,6 +25,8 @@ import com.bytechef.platform.security.web.config.McpJwtSecurityConfigurerContrib
 import com.bytechef.platform.security.web.config.McpOAuth2ResourceServerSecurityConfigurerContributor;
 import com.bytechef.platform.security.web.config.McpResourceServerProperties;
 import com.bytechef.platform.security.web.config.McpResourceServerProperties.Issuer;
+import com.bytechef.platform.security.web.mcp.McpAuthenticationRequiredResolver;
+import com.bytechef.platform.security.web.mcp.McpServerSecretVerifier;
 import com.bytechef.platform.security.web.mcp.oauth2.McpAudienceValidator;
 import com.bytechef.platform.security.web.mcp.oauth2.McpFederatedIssuerAuthenticator;
 import com.bytechef.platform.security.web.mcp.oauth2.McpJwtDecoderFactory;
@@ -39,6 +42,7 @@ import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.interfaces.RSAPublicKey;
 import java.util.List;
+import java.util.Optional;
 import org.mockito.Mockito;
 import org.springframework.ai.mcp.server.webmvc.transport.WebMvcStreamableServerTransportProvider;
 import org.springframework.beans.factory.ObjectProvider;
@@ -76,7 +80,6 @@ public class McpOAuth2ResourceServerSecurityIntTestConfiguration {
     public static final String ISSUER_URI = "https://as.bytechef.test";
     public static final String TENANT_CLAIM = "tenant_id";
     public static final String EXTERNAL_ISSUER_URI = "https://idp.customer.test";
-    public static final String EXTERNAL_TENANT_CLAIM = "org";
     public static final String EXTERNAL_AUTHORITIES_CLAIM = "groups";
     // A per-tenant external IdP, trusted only for the "public" tenant via its IdentityProvider record (T1.3).
     public static final String PER_TENANT_IDP_ISSUER_URI = "https://idp.per-tenant.test";
@@ -147,7 +150,6 @@ public class McpOAuth2ResourceServerSecurityIntTestConfiguration {
         Issuer externalIssuer = new Issuer();
 
         externalIssuer.setUri(EXTERNAL_ISSUER_URI);
-        externalIssuer.setTenantClaim(EXTERNAL_TENANT_CLAIM);
         externalIssuer.setAuthoritiesClaim(EXTERNAL_AUTHORITIES_CLAIM);
         externalIssuer.setAuthorities(List.of("ROLE_USER"));
 
@@ -205,10 +207,17 @@ public class McpOAuth2ResourceServerSecurityIntTestConfiguration {
     @Bean
     McpJwtSecurityConfigurerContributor mcpJwtSecurityConfigurerContributor(
         McpResourceServerProperties mcpResourceServerProperties, UserService userService,
+        ObjectProvider<McpServerSecretVerifier> mcpServerSecretVerifierProvider,
         ObjectProvider<McpFederatedIssuerAuthenticator> mcpFederatedIssuerAuthenticatorProvider) {
 
         return new McpJwtSecurityConfigurerContributor(
-            mcpResourceServerProperties, userService, mcpFederatedIssuerAuthenticatorProvider);
+            mcpResourceServerProperties, userService, mcpServerSecretVerifierProvider,
+            mcpFederatedIssuerAuthenticatorProvider);
+    }
+
+    @Bean
+    McpServerSecretVerifier mcpServerSecretVerifier() {
+        return request -> Optional.of(true);
     }
 
     @Bean
@@ -221,9 +230,11 @@ public class McpOAuth2ResourceServerSecurityIntTestConfiguration {
 
     @Bean
     McpDiscoverySecurityConfigurerContributor mcpDiscoverySecurityConfigurerContributor(
-        McpResourceServerProperties mcpResourceServerProperties) {
+        McpResourceServerProperties mcpResourceServerProperties,
+        ObjectProvider<McpAuthenticationRequiredResolver> mcpAuthenticationRequiredResolverProvider) {
 
-        return new McpDiscoverySecurityConfigurerContributor(mcpResourceServerProperties);
+        return new McpDiscoverySecurityConfigurerContributor(
+            mcpResourceServerProperties, mcpAuthenticationRequiredResolverProvider);
     }
 
     @Bean
@@ -263,7 +274,7 @@ public class McpOAuth2ResourceServerSecurityIntTestConfiguration {
                 .permitAll())
             .with(
                 new ManagementMcpServerSecurityConfigurer(
-                    apiKeyService, authorityService, propertyService, userService),
+                    apiKeyService, authorityService, () -> List.of(Environment.values()), propertyService, userService),
                 withDefaults())
             .with(resourceServerContributor.getSecurityConfigurerAdapter(), withDefaults())
             .with(tenantTrustContributor.getSecurityConfigurerAdapter(), withDefaults())

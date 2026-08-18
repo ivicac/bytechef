@@ -114,7 +114,8 @@ class McpOAuth2ResourceServerSecurityIntTest {
         Property property = mock(Property.class);
 
         when(property.get("secretKey")).thenReturn(MCP_SERVER_SECRET_KEY);
-        when(propertyService.getProperty("mcp.server", Property.Scope.PLATFORM, null)).thenReturn(property);
+        when(propertyService.fetchProperty("mcp.server", Property.Scope.PLATFORM, null))
+            .thenReturn(Optional.of(property));
 
         User user = mock(User.class);
 
