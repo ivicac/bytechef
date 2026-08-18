@@ -114,7 +114,8 @@ class McpOAuth2ResourceServerSecurityIntTest {
         Property property = mock(Property.class);
 
         when(property.get("secretKey")).thenReturn(MCP_SERVER_SECRET_KEY);
-        when(propertyService.getProperty("mcp.server", Property.Scope.PLATFORM, null)).thenReturn(property);
+        when(propertyService.fetchProperty("mcp.server", Property.Scope.PLATFORM, null))
+            .thenReturn(Optional.of(property));
 
         User user = mock(User.class);
 
@@ -203,7 +204,10 @@ class McpOAuth2ResourceServerSecurityIntTest {
 
         HttpResponse<String> httpResponse = postInitialize(MCP_SERVER_SECRET_KEY, token);
 
-        assertThat(httpResponse.statusCode()).isEqualTo(401);
+        assertThat(httpResponse.statusCode()).isEqualTo(403);
+        assertThat(httpResponse.headers()
+            .firstValue("WWW-Authenticate")
+            .orElse("")).startsWith("Bearer error=\"insufficient_scope\"");
     }
 
     @Test
