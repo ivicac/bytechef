@@ -1,5 +1,5 @@
+import {Dialog, DialogBody, DialogContent, DialogHeader, DialogMain} from '@/components/Dialog';
 import {Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList} from '@/components/ui/command';
-import {Dialog, DialogContent, DialogHeader, DialogTitle} from '@/components/ui/dialog';
 import {Popover, PopoverContent, PopoverTrigger} from '@/components/ui/popover';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/ui/select';
 import {Table, TableBody, TableCell, TableHead, TableHeader, TableRow} from '@/components/ui/table';
@@ -89,198 +89,218 @@ const WorkspaceUsersDialog = ({onClose, open, workspaceId}: WorkspaceUsersDialog
 
     return (
         <Dialog onOpenChange={onClose} open={open}>
-            <DialogContent className="sm:max-w-2xl">
-                <DialogHeader>
-                    <DialogTitle>Workspace Members</DialogTitle>
-                </DialogHeader>
+            <DialogContent size="md">
+                <DialogMain>
+                    <DialogHeader title="Workspace Members" />
 
-                <Table>
-                    <TableHeader>
-                        <TableRow>
-                            <TableHead>User</TableHead>
+                    <DialogBody>
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>User</TableHead>
 
-                            <TableHead>Role</TableHead>
+                                    <TableHead>Role</TableHead>
 
-                            <TableHead>Added</TableHead>
+                                    <TableHead>Added</TableHead>
 
-                            {canManageMembers && <TableHead className="w-12" />}
-                        </TableRow>
-                    </TableHeader>
+                                    {canManageMembers && <TableHead className="w-12" />}
+                                </TableRow>
+                            </TableHeader>
 
-                    <TableBody>
-                        {workspaceUsers.map((workspaceUser) => (
-                            <TableRow key={workspaceUser.id}>
-                                <TableCell>
-                                    <div>
-                                        <div className="text-sm font-medium">
-                                            {workspaceUser.user?.email || `User ${workspaceUser.userId}`}
-                                        </div>
+                            <TableBody>
+                                {workspaceUsers.map((workspaceUser) => (
+                                    <TableRow key={workspaceUser.id}>
+                                        <TableCell>
+                                            <div>
+                                                <div className="text-sm font-medium">
+                                                    {workspaceUser.user?.email || `User ${workspaceUser.userId}`}
+                                                </div>
 
-                                        {workspaceUser.user?.firstName && (
-                                            <div className="text-xs text-muted-foreground">
-                                                {workspaceUser.user.firstName} {workspaceUser.user.lastName}
+                                                {workspaceUser.user?.firstName && (
+                                                    <div className="text-xs text-muted-foreground">
+                                                        {workspaceUser.user.firstName} {workspaceUser.user.lastName}
+                                                    </div>
+                                                )}
                                             </div>
-                                        )}
-                                    </div>
-                                </TableCell>
+                                        </TableCell>
 
-                                <TableCell>
-                                    {canManageMembers ? (
-                                        <Select
-                                            onValueChange={(role) =>
-                                                updateRoleMutation.mutate({
-                                                    role: role as WorkspaceRole,
-                                                    userId: workspaceUser.userId,
-                                                    workspaceId: String(workspaceId),
-                                                })
-                                            }
-                                            value={workspaceUser.workspaceRole ?? undefined}
-                                        >
-                                            <SelectTrigger aria-label="Workspace role" className="w-32">
-                                                <SelectValue />
-                                            </SelectTrigger>
+                                        <TableCell>
+                                            {/*
+                                              A row scoped to one environment is shown read-only here. The controls in this
+                                              dialog act on the member's workspace-wide row, which an explicit-mode member
+                                              does not have -- the role select would resolve an arbitrary environment's row
+                                              and edit that one silently. Per-environment roles are managed on the Users page.
+                                            */}
 
-                                            <SelectContent>
-                                                {WORKSPACE_ROLES.map((role) => (
-                                                    <SelectItem key={role} value={role}>
-                                                        {role}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
-                                    ) : (
-                                        workspaceUser.workspaceRole
-                                    )}
-                                </TableCell>
+                                            {workspaceUser.environment ? (
+                                                <span className="text-sm text-muted-foreground">
+                                                    {workspaceUser.workspaceRole} in {workspaceUser.environment}
+                                                </span>
+                                            ) : canManageMembers ? (
+                                                <Select
+                                                    onValueChange={(role) =>
+                                                        updateRoleMutation.mutate({
+                                                            role: role as WorkspaceRole,
+                                                            userId: workspaceUser.userId,
+                                                            workspaceId: String(workspaceId),
+                                                        })
+                                                    }
+                                                    value={workspaceUser.workspaceRole ?? undefined}
+                                                >
+                                                    <SelectTrigger aria-label="Workspace role" className="w-32">
+                                                        <SelectValue />
+                                                    </SelectTrigger>
 
-                                <TableCell>
-                                    {workspaceUser.createdDate
-                                        ? new Date(workspaceUser.createdDate).toLocaleDateString()
-                                        : '-'}
-                                </TableCell>
-
-                                {canManageMembers && (
-                                    <TableCell>
-                                        <button
-                                            aria-label="Remove user from workspace"
-                                            className="text-destructive hover:text-destructive/80"
-                                            onClick={() =>
-                                                removeUserMutation.mutate({
-                                                    userId: workspaceUser.userId,
-                                                    workspaceId: String(workspaceId),
-                                                })
-                                            }
-                                        >
-                                            <Trash2Icon className="size-4" />
-                                        </button>
-                                    </TableCell>
-                                )}
-                            </TableRow>
-                        ))}
-
-                        {addingUser && (
-                            <TableRow>
-                                <TableCell>
-                                    <Popover onOpenChange={setUserSearchOpen} open={userSearchOpen}>
-                                        <PopoverTrigger asChild>
-                                            <button
-                                                aria-label="Select user to add"
-                                                className="w-full rounded-md border px-3 py-2 text-left text-sm"
-                                            >
-                                                {selectedUserId ? selectedUserLabel : 'Search users...'}
-                                            </button>
-                                        </PopoverTrigger>
-
-                                        <PopoverContent align="start" className="w-64 p-0">
-                                            <Command>
-                                                <CommandInput placeholder="Search by email..." />
-
-                                                <CommandList>
-                                                    <CommandEmpty>No users found.</CommandEmpty>
-
-                                                    <CommandGroup>
-                                                        {availableUsers.map((user) => (
-                                                            <CommandItem
-                                                                key={user.id}
-                                                                onSelect={() => {
-                                                                    setSelectedUserId(user.id!);
-                                                                    setUserSearchOpen(false);
-                                                                }}
-                                                                value={user.email || ''}
-                                                            >
-                                                                <div>
-                                                                    <div className="text-sm">{user.email ?? ''}</div>
-
-                                                                    {user.firstName != null && (
-                                                                        <div className="text-xs text-muted-foreground">
-                                                                            {user.firstName} {user.lastName ?? ''}
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </CommandItem>
+                                                    <SelectContent>
+                                                        {WORKSPACE_ROLES.map((role) => (
+                                                            <SelectItem key={role} value={role}>
+                                                                {role}
+                                                            </SelectItem>
                                                         ))}
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
-                                        </PopoverContent>
-                                    </Popover>
-                                </TableCell>
+                                                    </SelectContent>
+                                                </Select>
+                                            ) : (
+                                                workspaceUser.workspaceRole
+                                            )}
+                                        </TableCell>
 
-                                <TableCell>
-                                    <Select
-                                        onValueChange={(role) => setSelectedRole(role as WorkspaceRole)}
-                                        value={selectedRole}
-                                    >
-                                        <SelectTrigger aria-label="Workspace role for new user" className="w-32">
-                                            <SelectValue />
-                                        </SelectTrigger>
+                                        <TableCell>
+                                            {workspaceUser.createdDate
+                                                ? new Date(workspaceUser.createdDate).toLocaleDateString()
+                                                : '-'}
+                                        </TableCell>
 
-                                        <SelectContent>
-                                            {WORKSPACE_ROLES.map((role) => (
-                                                <SelectItem key={role} value={role}>
-                                                    {role}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </TableCell>
+                                        {canManageMembers && (
+                                            <TableCell>
+                                                {!workspaceUser.environment && (
+                                                    <button
+                                                        aria-label="Remove user from workspace"
+                                                        className="text-destructive hover:text-destructive/80"
+                                                        onClick={() =>
+                                                            removeUserMutation.mutate({
+                                                                userId: workspaceUser.userId,
+                                                                workspaceId: String(workspaceId),
+                                                            })
+                                                        }
+                                                    >
+                                                        <Trash2Icon className="size-4" />
+                                                    </button>
+                                                )}
+                                            </TableCell>
+                                        )}
+                                    </TableRow>
+                                ))}
 
-                                <TableCell>
-                                    <div className="flex gap-1">
-                                        <button
-                                            aria-label="Confirm add user"
-                                            className="rounded p-1 hover:bg-accent disabled:opacity-50"
-                                            disabled={!selectedUserId}
-                                            onClick={handleAddConfirm}
-                                        >
-                                            <CheckIcon className="size-4" />
-                                        </button>
+                                {addingUser && (
+                                    <TableRow>
+                                        <TableCell>
+                                            <Popover onOpenChange={setUserSearchOpen} open={userSearchOpen}>
+                                                <PopoverTrigger asChild>
+                                                    <button
+                                                        aria-label="Select user to add"
+                                                        className="w-full rounded-md border px-3 py-2 text-left text-sm"
+                                                    >
+                                                        {selectedUserId ? selectedUserLabel : 'Search users...'}
+                                                    </button>
+                                                </PopoverTrigger>
 
-                                        <button
-                                            aria-label="Cancel adding user"
-                                            className="rounded p-1 hover:bg-accent"
-                                            onClick={handleAddCancel}
-                                        >
-                                            <XIcon className="size-4" />
-                                        </button>
-                                    </div>
-                                </TableCell>
+                                                <PopoverContent align="start" className="w-64 p-0">
+                                                    <Command>
+                                                        <CommandInput placeholder="Search by email..." />
 
-                                {canManageMembers && <TableCell />}
-                            </TableRow>
+                                                        <CommandList>
+                                                            <CommandEmpty>No users found.</CommandEmpty>
+
+                                                            <CommandGroup>
+                                                                {availableUsers.map((user) => (
+                                                                    <CommandItem
+                                                                        key={user.id}
+                                                                        onSelect={() => {
+                                                                            setSelectedUserId(user.id!);
+                                                                            setUserSearchOpen(false);
+                                                                        }}
+                                                                        value={user.email || ''}
+                                                                    >
+                                                                        <div>
+                                                                            <div className="text-sm">
+                                                                                {user.email ?? ''}
+                                                                            </div>
+
+                                                                            {user.firstName != null && (
+                                                                                <div className="text-xs text-muted-foreground">
+                                                                                    {`${user.firstName} ${user.lastName ?? ''}`}
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    </CommandItem>
+                                                                ))}
+                                                            </CommandGroup>
+                                                        </CommandList>
+                                                    </Command>
+                                                </PopoverContent>
+                                            </Popover>
+                                        </TableCell>
+
+                                        <TableCell>
+                                            <Select
+                                                onValueChange={(role) => setSelectedRole(role as WorkspaceRole)}
+                                                value={selectedRole}
+                                            >
+                                                <SelectTrigger
+                                                    aria-label="Workspace role for new user"
+                                                    className="w-32"
+                                                >
+                                                    <SelectValue />
+                                                </SelectTrigger>
+
+                                                <SelectContent>
+                                                    {WORKSPACE_ROLES.map((role) => (
+                                                        <SelectItem key={role} value={role}>
+                                                            {role}
+                                                        </SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                        </TableCell>
+
+                                        <TableCell>
+                                            <div className="flex gap-1">
+                                                <button
+                                                    aria-label="Confirm add user"
+                                                    className="rounded p-1 hover:bg-accent disabled:opacity-50"
+                                                    disabled={!selectedUserId}
+                                                    onClick={handleAddConfirm}
+                                                >
+                                                    <CheckIcon className="size-4" />
+                                                </button>
+
+                                                <button
+                                                    aria-label="Cancel adding user"
+                                                    className="rounded p-1 hover:bg-accent"
+                                                    onClick={handleAddCancel}
+                                                >
+                                                    <XIcon className="size-4" />
+                                                </button>
+                                            </div>
+                                        </TableCell>
+
+                                        {canManageMembers && <TableCell />}
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+
+                        {canManageMembers && !addingUser && (
+                            <button
+                                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
+                                onClick={() => setAddingUser(true)}
+                            >
+                                <PlusIcon className="size-4" />
+                                Add user
+                            </button>
                         )}
-                    </TableBody>
-                </Table>
-
-                {canManageMembers && !addingUser && (
-                    <button
-                        className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
-                        onClick={() => setAddingUser(true)}
-                    >
-                        <PlusIcon className="size-4" />
-                        Add user
-                    </button>
-                )}
+                    </DialogBody>
+                </DialogMain>
             </DialogContent>
         </Dialog>
     );
