@@ -29,6 +29,7 @@ import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.ai.constant.AiAgentToolContextKey;
+import com.bytechef.platform.ai.conversation.AgentConversationRecorder;
 import com.bytechef.platform.ai.guardrails.AiGuardrailsAdvisorProvider;
 import com.bytechef.platform.ai.tool.AiAgentToolContext;
 import com.bytechef.platform.ai.workspaceprompt.WorkspaceSystemPromptAdvisorProvider;
@@ -63,12 +64,13 @@ public class AiAgentChatAction extends AbstractAiAgentChatAction {
         ToolCallingManager toolCallingManager,
         @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
         @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
-        @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider) {
+        @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider) {
 
         return new AiAgentChatAction(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
             toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
-            workspaceSystemPromptAdvisorProviderObjectProvider).build();
+            workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider).build();
     }
 
     private AiAgentChatAction(
@@ -76,12 +78,13 @@ public class AiAgentChatAction extends AbstractAiAgentChatAction {
         ToolCallingManager toolCallingManager,
         @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
         @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
-        @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider) {
+        @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
+        @Nullable ObjectProvider<AgentConversationRecorder> agentConversationRecorderObjectProvider) {
 
         super(
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
             toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
-            workspaceSystemPromptAdvisorProviderObjectProvider);
+            workspaceSystemPromptAdvisorProviderObjectProvider, agentConversationRecorderObjectProvider);
     }
 
     private ChatActionDefinitionWrapper build() {
@@ -124,6 +127,8 @@ public class AiAgentChatAction extends AbstractAiAgentChatAction {
 
         clearConversationCheckpoint(context);
 
+        recordAgentConversationTurn(extensions, context);
+
         return toOutput(chatActionResult, toolExecutionEvents, context);
     }
 
@@ -155,6 +160,8 @@ public class AiAgentChatAction extends AbstractAiAgentChatAction {
             call, inputParameters, context);
 
         clearConversationCheckpoint(context);
+
+        recordAgentConversationTurn(extensions, context);
 
         return toOutput(chatActionResult, toolExecutionEvents, context);
     }
