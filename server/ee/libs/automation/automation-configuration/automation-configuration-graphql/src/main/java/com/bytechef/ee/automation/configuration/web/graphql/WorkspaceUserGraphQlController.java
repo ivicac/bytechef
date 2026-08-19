@@ -10,9 +10,10 @@ package com.bytechef.ee.automation.configuration.web.graphql;
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.ee.automation.configuration.domain.WorkspaceUser;
+import com.bytechef.ee.automation.configuration.facade.WorkspaceUserFacade;
 import com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole;
-import com.bytechef.ee.automation.configuration.service.WorkspaceUserService;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
@@ -29,10 +30,9 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Controller;
 
 /**
- * GraphQL controller for workspace-user management. Authorization is enforced at the service layer
- * ({@code WorkspaceUserService} methods are {@code @PreAuthorize}-annotated) and pinned by
- * {@code PreAuthorizeAnnotationTest}. Do NOT add caching or transform logic to controller methods that could precede
- * the service call without also adding a matching {@code @PreAuthorize} here.
+ * GraphQL controller for workspace-user management. Authorization is enforced at the facade layer
+ * ({@code WorkspaceUserFacade} methods are {@code @PreAuthorize}-annotated). Do NOT add caching or transform logic to
+ * controller methods that could precede the facade call without also adding a matching {@code @PreAuthorize} here.
  *
  * @version ee
  *
@@ -46,14 +46,14 @@ public class WorkspaceUserGraphQlController {
 
     private final PermissionService permissionService;
     private final UserService userService;
-    private final WorkspaceUserService workspaceUserService;
+    private final WorkspaceUserFacade workspaceUserFacade;
 
     public WorkspaceUserGraphQlController(
-        PermissionService permissionService, UserService userService, WorkspaceUserService workspaceUserService) {
+        PermissionService permissionService, UserService userService, WorkspaceUserFacade workspaceUserFacade) {
 
         this.permissionService = permissionService;
         this.userService = userService;
-        this.workspaceUserService = workspaceUserService;
+        this.workspaceUserFacade = workspaceUserFacade;
     }
 
     /**
@@ -68,7 +68,7 @@ public class WorkspaceUserGraphQlController {
      */
     @QueryMapping
     public List<WorkspaceUserView> workspaceUsers(@Argument long workspaceId) {
-        List<WorkspaceUser> workspaceUsers = workspaceUserService.getWorkspaceWorkspaceUsers(workspaceId);
+        List<WorkspaceUser> workspaceUsers = workspaceUserFacade.getWorkspaceWorkspaceUsers(workspaceId);
 
         Set<Long> memberUserIds = workspaceUsers.stream()
             .map(WorkspaceUser::getUserId)
@@ -118,7 +118,7 @@ public class WorkspaceUserGraphQlController {
         @Argument Long customRoleId) {
 
         return WorkspaceUserView.stored(
-            workspaceUserService.addWorkspaceUser(userId, workspaceId, role, customRoleId));
+            workspaceUserFacade.addWorkspaceUser(userId, workspaceId, role, customRoleId));
     }
 
     @MutationMapping
@@ -127,7 +127,7 @@ public class WorkspaceUserGraphQlController {
         @Argument Long customRoleId) {
 
         return WorkspaceUserView.stored(
-            workspaceUserService.inviteWorkspaceUser(workspaceId, email, role, customRoleId));
+            workspaceUserFacade.inviteWorkspaceUser(workspaceId, email, role, customRoleId));
     }
 
     @MutationMapping
@@ -136,19 +136,37 @@ public class WorkspaceUserGraphQlController {
 
         // Every WorkspaceUser-returning operation must go through the view: the schema's `inherited` field has no
         // counterpart on the domain object, so returning that directly fails the moment a query selects it.
-        return WorkspaceUserView.stored(workspaceUserService.updateWorkspaceUserRole(userId, workspaceId, role));
+        return WorkspaceUserView.stored(workspaceUserFacade.updateWorkspaceUserRole(userId, workspaceId, role));
     }
 
     @MutationMapping
     public WorkspaceUserView assignWorkspaceUserCustomRole(
         @Argument long workspaceId, @Argument long userId, @Argument long customRoleId) {
 
-        return WorkspaceUserView.stored(workspaceUserService.assignCustomRole(userId, workspaceId, customRoleId));
+        return WorkspaceUserView.stored(workspaceUserFacade.assignCustomRole(userId, workspaceId, customRoleId));
     }
 
     @MutationMapping
     public boolean removeWorkspaceUser(@Argument long workspaceId, @Argument long userId) {
-        return workspaceUserService.removeWorkspaceUser(userId, workspaceId);
+        return workspaceUserFacade.removeWorkspaceUser(userId, workspaceId);
+    }
+
+    @MutationMapping
+    public WorkspaceUserView setWorkspaceUserEnvironmentRole(
+        @Argument long workspaceId, @Argument long userId, @Argument Environment environment,
+        @Argument WorkspaceRole role, @Argument Long customRoleId) {
+
+        return WorkspaceUserView.stored(
+            workspaceUserFacade.setEnvironmentRole(userId, workspaceId, environment, role, customRoleId));
+    }
+
+    @MutationMapping
+    public boolean removeWorkspaceUserEnvironmentRole(
+        @Argument long workspaceId, @Argument long userId, @Argument Environment environment) {
+
+        workspaceUserFacade.removeEnvironmentRole(userId, workspaceId, environment);
+
+        return true;
     }
 
     @SchemaMapping(typeName = "WorkspaceUser", field = "user")
@@ -167,21 +185,28 @@ public class WorkspaceUserGraphQlController {
      */
     public record WorkspaceUserView(
         Long id, long workspaceId, long userId, String workspaceRole, Long customRoleId, boolean inherited,
-        String createdDate) {
+        String createdDate, String environment) {
 
         static WorkspaceUserView stored(WorkspaceUser workspaceUser) {
             Integer roleOrdinal = workspaceUser.getWorkspaceRole();
+            Environment environment = workspaceUser.getEnvironment();
 
             return new WorkspaceUserView(
                 workspaceUser.getId(), workspaceUser.getWorkspaceId(), workspaceUser.getUserId(),
                 roleOrdinal == null ? null : WorkspaceRole.values()[roleOrdinal].name(),
                 workspaceUser.getCustomRoleId(), false,
-                workspaceUser.getCreatedDate() == null ? null : String.valueOf(workspaceUser.getCreatedDate()));
+                workspaceUser.getCreatedDate() == null ? null : String.valueOf(workspaceUser.getCreatedDate()),
+                environment == null ? null : environment.name());
         }
 
+        /**
+         * Synthesizes an entry for a tenant admin, who administers every workspace and has no row. Their environment is
+         * always null: a tenant admin is not subject to per-environment roles at all, because every scope check
+         * short-circuits on isTenantAdmin() before any row is read.
+         */
         static WorkspaceUserView inherited(long workspaceId, long userId) {
             return new WorkspaceUserView(
-                null, workspaceId, userId, WorkspaceRole.ADMIN.name(), null, true, null);
+                null, workspaceId, userId, WorkspaceRole.ADMIN.name(), null, true, null, null);
         }
     }
 }
