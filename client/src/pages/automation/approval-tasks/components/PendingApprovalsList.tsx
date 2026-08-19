@@ -22,9 +22,6 @@ export default function PendingApprovalsList() {
     const isAdmin = useAuthenticationStore((state) => state.account?.authorities?.includes('ROLE_ADMIN') ?? false);
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
 
-    // The tenant-wide pending-approvals listing embeds each run's resume capability token, so the server restricts it
-    // to tenant admins; skip the query for everyone else to avoid a guaranteed authorization error. Scoped to the
-    // page's selected environment so its counts stay consistent with the adjacent approval-task inbox.
     const {data: pendingApprovalsData} = usePendingApprovalsQuery(
         {environmentId: currentEnvironmentId},
         {
