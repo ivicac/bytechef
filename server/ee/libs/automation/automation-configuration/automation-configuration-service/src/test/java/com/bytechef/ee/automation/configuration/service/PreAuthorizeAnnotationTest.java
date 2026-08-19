@@ -21,24 +21,37 @@ import org.springframework.security.access.prepost.PreAuthorize;
 class PreAuthorizeAnnotationTest {
 
     @Test
-    void testServiceImplementationsCarryNoAuthorizationChecks() throws Exception {
-        for (String className : new String[] {
-            "com.bytechef.automation.configuration.service.ProjectDeploymentServiceImpl",
-            "com.bytechef.automation.configuration.service.ProjectServiceImpl",
-            "com.bytechef.automation.configuration.service.ProjectWorkflowServiceImpl",
-            "com.bytechef.ee.automation.configuration.service.WorkspaceUserServiceImpl"
-        }) {
-            Class<?> clazz = Class.forName(className);
+    void testWorkspaceUserServiceMutationsAreProtected() throws NoSuchMethodException {
+        assertPreAuthorize(
+            WorkspaceUserService.class.getMethod(
+                "addWorkspaceUser", long.class, long.class,
+                com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole.class),
+            "hasWorkspaceScopeInEveryEnvironment(#workspaceId, 'WORKSPACE_MEMBER_MANAGE')");
 
         assertPreAuthorize(
             WorkspaceUserService.class.getMethod(
                 "updateWorkspaceUserRole", long.class, long.class,
                 com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole.class),
-            "hasPermission(#workspaceId, 'Workspace', 'WORKSPACE_MEMBER_MANAGE')");
+            "hasWorkspaceScopeInEveryEnvironment(#workspaceId, 'WORKSPACE_MEMBER_MANAGE')");
 
         assertPreAuthorize(
             WorkspaceUserService.class.getMethod("removeWorkspaceUser", long.class, long.class),
-            "hasPermission(#workspaceId, 'Workspace', 'WORKSPACE_MEMBER_MANAGE')");
+            "hasWorkspaceScopeInEveryEnvironment(#workspaceId, 'WORKSPACE_MEMBER_MANAGE')");
+
+        // The per-environment writes grant and revoke a role just as the workspace-wide ones do, so they carry the
+        // same scope. Left unguarded, any member could grant themselves ADMIN in an environment.
+        assertPreAuthorize(
+            WorkspaceUserService.class.getMethod(
+                "setEnvironmentRole", long.class, long.class,
+                com.bytechef.platform.configuration.domain.Environment.class,
+                com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole.class, Long.class),
+            "hasWorkspaceScopeInEnvironment(#workspaceId, 'WORKSPACE_MEMBER_MANAGE', #environment)");
+
+        assertPreAuthorize(
+            WorkspaceUserService.class.getMethod(
+                "removeEnvironmentRole", long.class, long.class,
+                com.bytechef.platform.configuration.domain.Environment.class),
+            "hasWorkspaceScopeInEnvironment(#workspaceId, 'WORKSPACE_MEMBER_MANAGE', #environment)");
 
         assertPreAuthorize(
             WorkspaceUserService.class.getMethod("getWorkspaceWorkspaceUsers", long.class),
@@ -51,7 +64,7 @@ class PreAuthorizeAnnotationTest {
             WorkspaceUserService.class.getMethod(
                 "inviteWorkspaceUser", long.class, String.class,
                 com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole.class),
-            "hasPermission(#workspaceId, 'Workspace', 'WORKSPACE_MEMBER_MANAGE')");
+            "hasWorkspaceScopeInEveryEnvironment(#workspaceId, 'WORKSPACE_MEMBER_MANAGE')");
 
         // The custom-role overloads are a second way into the same writes, so they need the same guard. Declaring
         // either of the shorter forms as a `default` method delegating here removes its annotation and runs the
@@ -60,13 +73,13 @@ class PreAuthorizeAnnotationTest {
             WorkspaceUserService.class.getMethod(
                 "addWorkspaceUser", long.class, long.class,
                 com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole.class, Long.class),
-            "hasPermission(#workspaceId, 'Workspace', 'WORKSPACE_MEMBER_MANAGE')");
+            "hasWorkspaceScopeInEveryEnvironment(#workspaceId, 'WORKSPACE_MEMBER_MANAGE')");
 
         assertPreAuthorize(
             WorkspaceUserService.class.getMethod(
                 "inviteWorkspaceUser", long.class, String.class,
                 com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole.class, Long.class),
-            "hasPermission(#workspaceId, 'Workspace', 'WORKSPACE_MEMBER_MANAGE')");
+            "hasWorkspaceScopeInEveryEnvironment(#workspaceId, 'WORKSPACE_MEMBER_MANAGE')");
     }
 
     @Test

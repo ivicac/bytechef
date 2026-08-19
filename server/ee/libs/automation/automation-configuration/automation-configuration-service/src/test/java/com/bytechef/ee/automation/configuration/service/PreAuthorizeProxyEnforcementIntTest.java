@@ -20,6 +20,7 @@ import com.bytechef.ee.automation.configuration.audit.WorkspaceUserAuditPublishe
 import com.bytechef.ee.automation.configuration.repository.CustomRoleRepository;
 import com.bytechef.ee.automation.configuration.repository.WorkspaceUserRepository;
 import com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole;
+import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.user.service.UserInvitationService;
 import com.bytechef.platform.user.service.UserService;
 import java.util.List;
@@ -118,6 +119,46 @@ class PreAuthorizeProxyEnforcementIntTest {
         when(permissionService.hasResourceScope(1L, "Project", "WORKFLOW_VIEW")).thenReturn(true);
 
         guardedProjectMutations.getProject(1L);
+    }
+
+    @Test
+    void testRealWorkspaceUserServiceImplEnforcesAddWorkspaceUser() {
+        assertThatThrownBy(() -> workspaceUserService.addWorkspaceUser(2L, 1L, WorkspaceRole.VIEWER))
+            .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void testRealWorkspaceUserServiceImplEnforcesRemoveWorkspaceUser() {
+        assertThatThrownBy(() -> workspaceUserService.removeWorkspaceUser(2L, 1L))
+            .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void testRealWorkspaceUserServiceImplEnforcesUpdateWorkspaceUserRole() {
+        assertThatThrownBy(
+            () -> workspaceUserService.updateWorkspaceUserRole(2L, 1L, WorkspaceRole.VIEWER))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void testRealWorkspaceUserServiceImplEnforcesSetEnvironmentRole() {
+        assertThatThrownBy(
+            () -> workspaceUserService.setEnvironmentRole(
+                2L, 1L, Environment.PRODUCTION, WorkspaceRole.VIEWER, null))
+                    .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void testRealWorkspaceUserServiceImplEnforcesRemoveEnvironmentRole() {
+        assertThatThrownBy(
+            () -> workspaceUserService.removeEnvironmentRole(2L, 1L, Environment.PRODUCTION))
+                .isInstanceOf(AccessDeniedException.class);
+    }
+
+    @Test
+    void testRealWorkspaceUserServiceImplEnforcesGetWorkspaceWorkspaceUsers() {
+        assertThatThrownBy(() -> workspaceUserService.getWorkspaceWorkspaceUsers(1L))
+            .isInstanceOf(AccessDeniedException.class);
     }
 
     // @SpringBootConfiguration (not @TestConfiguration) because @SpringBootTest(classes = Config.class) requires a
