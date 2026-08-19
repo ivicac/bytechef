@@ -21,8 +21,10 @@ import com.bytechef.automation.configuration.security.AutomationMethodSecurityCo
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.config.ApplicationProperties;
 import com.bytechef.ee.automation.configuration.domain.WorkspaceUser;
+import com.bytechef.ee.automation.configuration.repository.CustomRoleRepository;
 import com.bytechef.ee.automation.configuration.repository.WorkspaceUserRepository;
 import com.bytechef.ee.automation.configuration.security.constant.WorkspaceRole;
+import com.bytechef.ee.automation.configuration.service.WorkspaceService;
 import com.bytechef.ee.automation.configuration.service.WorkspaceUserService;
 import com.bytechef.ee.automation.configuration.service.WorkspaceUserServiceImpl;
 import com.bytechef.ee.platform.audit.aspect.AuditAspect;
@@ -31,6 +33,8 @@ import com.bytechef.ee.platform.audit.aspect.AuditMapperResolver;
 import com.bytechef.ee.platform.audit.domain.PersistentAuditEvent;
 import com.bytechef.ee.platform.audit.service.AuditEventService;
 import com.bytechef.exception.ConfigurationException;
+import com.bytechef.platform.user.service.UserInvitationService;
+import com.bytechef.platform.user.service.UserService;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.AfterEach;
@@ -234,9 +238,34 @@ class WorkspaceUserAuditIntTest {
             return mock(AuditEventService.class);
         }
 
+        @Bean
+        CustomRoleRepository customRoleRepository() {
+            return mock(CustomRoleRepository.class);
+        }
+
         @Bean("permissionService")
         PermissionService permissionService() {
             return mock(PermissionService.class);
+        }
+
+        @Bean
+        UserInvitationService userInvitationService() {
+            return mock(UserInvitationService.class);
+        }
+
+        @Bean
+        UserService userService() {
+            return mock(UserService.class);
+        }
+
+        @Bean
+        WorkspaceService workspaceService() {
+            return mock(WorkspaceService.class);
+        }
+
+        @Bean
+        WorkspaceUserAuditPublisher workspaceUserAuditPublisher() {
+            return mock(WorkspaceUserAuditPublisher.class);
         }
 
         @Bean

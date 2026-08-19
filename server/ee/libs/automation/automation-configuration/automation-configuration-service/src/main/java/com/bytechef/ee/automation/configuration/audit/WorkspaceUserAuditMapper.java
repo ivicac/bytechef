@@ -62,6 +62,8 @@ public class WorkspaceUserAuditMapper implements AuditMapper {
 
         if (auditInvocation.argument("workspaceRole") instanceof WorkspaceRole workspaceRole) {
             data.put("role", workspaceRole.name());
+        } else if (auditInvocation.argument("customRoleId") instanceof Long customRoleId) {
+            data.put("role", CUSTOM_ROLE_PREFIX + customRoleId);
         }
 
         Object captured = auditInvocation.captured();
