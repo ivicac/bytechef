@@ -57,8 +57,6 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     public Optional<Connection> fetchConnection(long id) {
-        // Connection parameters are injected into the job's context before it runs, so inside a runtime job every
-        // addressed connection exists by construction.
         return Optional.of(getConnection(id));
     }
 
@@ -133,6 +131,11 @@ public class ConnectionServiceImpl implements ConnectionService {
     }
 
     @Override
+    public Connection replaceConnectionParameters(long connectionId, Map<String, ?> parameters) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Connection updateVisibility(long id, ResourceVisibility visibility) {
         throw new UnsupportedOperationException();
     }
@@ -144,11 +147,6 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     public void validateConnectionsActive(List<Long> connectionIds) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Connection replaceConnectionParameters(long connectionId, Map<String, ?> parameters) {
         throw new UnsupportedOperationException();
     }
 }

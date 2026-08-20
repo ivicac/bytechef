@@ -32,9 +32,7 @@ import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.credential.store.CredentialStore;
 import com.bytechef.platform.credential.store.CredentialStoreType;
 import com.bytechef.platform.credential.store.exception.ReadOnlyCredentialStoreException;
-import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.security.domain.ResourceVisibility;
-import com.bytechef.platform.security.util.SecurityUtils;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -49,7 +47,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.data.domain.Sort;
-import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.Assert;
@@ -63,6 +60,7 @@ public class ConnectionServiceImpl implements ConnectionService {
     private static final Logger log = LoggerFactory.getLogger(ConnectionServiceImpl.class);
 
     private final List<CredentialStore> credentialStores;
+
     private final ConnectionRepository connectionRepository;
     private final ObjectProvider<AiProviderConnectionRepository> aiProviderConnectionRepositoryProvider;
 
@@ -131,8 +129,6 @@ public class ConnectionServiceImpl implements ConnectionService {
         Connection connection = connectionRepository.findById(id)
             .orElseThrow(() -> new NoSuchElementException("Connection not found: " + id));
 
-        validateOwnerOrAdmin(connection);
-
         CredentialStore store = getStore(connection.getCredentialStoreType());
 
         if (!store.isReadOnly()) {
@@ -163,14 +159,7 @@ public class ConnectionServiceImpl implements ConnectionService {
     @Override
     @Transactional(readOnly = true)
     public Optional<Connection> fetchConnection(long id) {
-        if (AiProviderConnectionId.isAiProviderConnectionId(id)) {
-            AiProviderConnectionRepository repository = aiProviderConnectionRepository();
-
-            return repository == null ? Optional.empty() : repository.findById(id);
-        }
-
-        return connectionRepository.findById(id)
-            .map(this::populateParameters);
+        return connectionRepository.findById(id);
     }
 
     @Override
@@ -203,6 +192,7 @@ public class ConnectionServiceImpl implements ConnectionService {
     @Transactional(readOnly = true)
     public List<Connection> getConnections(
         String componentName, Integer connectionVersion, Long tagId, Long environmentId, PlatformType type) {
+
         List<Connection> connections;
 
         if (StringUtils.isBlank(componentName) && tagId == null) {
@@ -304,8 +294,6 @@ public class ConnectionServiceImpl implements ConnectionService {
 
         Connection connection = getConnection(id);
 
-        validateOwnerOrAdmin(connection);
-
         connection.setTagIds(tagIds);
 
         // Clear the in-memory populated parameters before saving so that external-store rows
@@ -322,8 +310,6 @@ public class ConnectionServiceImpl implements ConnectionService {
         rejectIfAiProviderConnection(id);
 
         Connection curConnection = getConnection(id);
-
-        validateOwnerOrAdmin(curConnection);
 
         if (name != null) {
             curConnection.setName(name);
@@ -352,8 +338,6 @@ public class ConnectionServiceImpl implements ConnectionService {
 
         Connection connection = getConnection(connectionId);
 
-        validateOwnerOrAdmin(connection);
-
         connection.setCredentialStatus(status);
 
         // Clear the in-memory populated parameters before saving so that external-store rows
@@ -371,12 +355,6 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     public Connection updateConnectionStatus(long connectionId, ConnectionStatus status) {
-        // No @PreAuthorize here by design. Authorization lives at the public entry points:
-        // ConnectionReassignmentGraphQlController marks every reassignment mutation admin-only, and
-        // WorkspaceUserRemovalListener is a trusted system listener that runs after-commit with a
-        // cleared SecurityContext — a service-level ADMIN guard would throw AccessDeniedException
-        // for the listener path and leave orphaned connections stuck in ACTIVE. Mirrors the
-        // convention already applied to updateVisibility.
         rejectIfAiProviderConnection(connectionId);
 
         Assert.notNull(status, "'status' must not be null");
@@ -435,8 +413,6 @@ public class ConnectionServiceImpl implements ConnectionService {
             throw new ReadOnlyCredentialStoreException(store.getType());
         }
 
-        validateOwnerOrAdmin(connection);
-
         if (log.isTraceEnabled()) {
             log.trace("New....: {}", FormatUtils.toString(parameters));
         }
@@ -460,13 +436,20 @@ public class ConnectionServiceImpl implements ConnectionService {
 
     @Override
     public Connection replaceConnectionParameters(long connectionId, Map<String, ?> parameters) {
+        rejectIfAiProviderConnection(connectionId);
+
         Assert.notNull(parameters, "'parameters' must not be null");
 
         Connection connection = getConnection(connectionId);
+        CredentialStore store = getStore(connection.getCredentialStoreType());
 
-        connection.setParameters(new HashMap<>(parameters));
+        if (store.isReadOnly()) {
+            throw new ReadOnlyCredentialStoreException(store.getType());
+        }
 
-        return connectionRepository.save(connection);
+        store.storeSecret(connection, new HashMap<>(parameters));
+
+        return populateParameters(connectionRepository.save(connection));
     }
 
     @Override
@@ -569,19 +552,4 @@ public class ConnectionServiceImpl implements ConnectionService {
         return connections;
     }
 
-    private void validateOwnerOrAdmin(Connection connection) {
-        if (!SecurityUtils.isAuthenticated()) {
-            throw new AccessDeniedException(
-                "Authentication required to modify connection " + connection.getId());
-        }
-
-        String currentUserLogin = SecurityUtils.getCurrentUserLogin();
-
-        if (!currentUserLogin.equals(connection.getCreatedBy()) &&
-            !SecurityUtils.hasCurrentUserThisAuthority(AuthorityConstants.ADMIN)) {
-
-            throw new AccessDeniedException(
-                "Only the connection creator or an admin can modify connection " + connection.getId());
-        }
-    }
 }
