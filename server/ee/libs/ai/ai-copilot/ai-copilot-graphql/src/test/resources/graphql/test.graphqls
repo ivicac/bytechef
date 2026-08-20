@@ -1,0 +1,9 @@
+# Test-only GraphQL base operations for GraphQL slice tests.
+
+type Query {
+    _placeholder: Boolean
+}
+
+type Mutation {
+    _placeholder: Boolean
+}
