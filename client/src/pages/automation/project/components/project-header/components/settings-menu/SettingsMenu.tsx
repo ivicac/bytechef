@@ -5,6 +5,7 @@ import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import ErrorWorkflowDialog from '@/pages/automation/project/components/ErrorWorkflowDialog';
 import {ProjectShareDialog} from '@/pages/automation/project/components/ProjectShareDialog';
 import ProjectVersionHistorySheet from '@/pages/automation/project/components/ProjectVersionHistorySheet';
+import ProjectVisibilityDialog from '@/pages/automation/project/components/ProjectVisibilityDialog';
 import {WorkflowShareDialog} from '@/pages/automation/project/components/WorkflowShareDialog';
 import DeleteProjectAlertDialog from '@/pages/automation/project/components/project-header/components/settings-menu/components/DeleteProjectAlertDialog';
 import ProjectTabButtons from '@/pages/automation/project/components/project-header/components/settings-menu/components/ProjectTabButtons/ProjectTabButtons';
@@ -55,6 +56,7 @@ const SettingsMenu = ({
     const [showProjectGitConfigurationDialog, setShowProjectGitConfigurationDialog] = useState(false);
     const [showProjectShareDialog, setShowProjectShareDialog] = useState(false);
     const [showProjectVersionHistorySheet, setShowProjectVersionHistorySheet] = useState(false);
+    const [showProjectVisibilityDialog, setShowProjectVisibilityDialog] = useState(false);
     const [showWorkflowErrorHandlingDialog, setShowWorkflowErrorHandlingDialog] = useState(false);
     const [showWorkflowShareDialog, setShowWorkflowShareDialog] = useState(false);
 
@@ -167,6 +169,7 @@ const SettingsMenu = ({
                                 onShowErrorWorkflowDialog={() => setShowErrorWorkflowDialog(true)}
                                 onShowProjectGitConfigurationDialog={() => setShowProjectGitConfigurationDialog(true)}
                                 onShowProjectVersionHistorySheet={() => setShowProjectVersionHistorySheet(true)}
+                                onShowVisibilityDialog={() => setShowProjectVisibilityDialog(true)}
                                 projectGitConfigurationEnabled={projectGitConfiguration?.enabled ?? false}
                                 projectId={project.id!}
                             />
@@ -272,6 +275,14 @@ const SettingsMenu = ({
                     onSheetOpenChange={setShowProjectVersionHistorySheet}
                     projectVersions={projectVersions}
                     sheetOpen={showProjectVersionHistorySheet}
+                />
+            )}
+
+            {showProjectVisibilityDialog && (
+                <ProjectVisibilityDialog
+                    onClose={() => setShowProjectVisibilityDialog(false)}
+                    projectId={project.id!}
+                    visibility={project.visibility}
                 />
             )}
 
