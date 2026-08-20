@@ -86,7 +86,6 @@ public interface ConnectionDefinitionApi {
 
     }
 
-
     String PATH_GET_COMPONENT_CONNECTION_DEFINITIONS = "/component-definitions/{componentName}/connection-definitions";
     /**
      * GET /component-definitions/{componentName}/connection-definitions : Get all compatible connection definitions for a component

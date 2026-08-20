@@ -111,6 +111,8 @@ public class ConnectionModel {
 
   private Map<String, Object> parameters = new HashMap<>();
 
+  private Boolean shared = false;
+
   private List<@Valid TagModel> tags = new ArrayList<>();
 
   /**
@@ -153,7 +155,7 @@ public class ConnectionModel {
   private @Nullable StatusEnum status;
 
   /**
-   * The visibility scope of the connection. Accepted on create: PRIVATE (default) or WORKSPACE — setting WORKSPACE requires ROLE_ADMIN. ORGANIZATION is not user-settable.
+   * The visibility scope of the connection. Accepted on create; defaults to WORKSPACE (shared with the workspace). PRIVATE withholds it; ORGANIZATION is not user-settable here.
    */
   public enum VisibilityEnum {
     PRIVATE("PRIVATE"),
@@ -611,6 +613,27 @@ public class ConnectionModel {
     this.parameters = parameters;
   }
 
+  public ConnectionModel shared(Boolean shared) {
+    this.shared = shared;
+    return this;
+  }
+
+  /**
+   * Embedded only. When true, every connected user in the same environment may use this connection. Stored but never read on the automation surface, and always forced to false when a connected user creates a connection for themselves.
+   * @return shared
+   */
+  
+  @Schema(name = "shared", description = "Embedded only. When true, every connected user in the same environment may use this connection. Stored but never read on the automation surface, and always forced to false when a connected user creates a connection for themselves.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("shared")
+  public Boolean getShared() {
+    return shared;
+  }
+
+  @JsonProperty("shared")
+  public void setShared(Boolean shared) {
+    this.shared = shared;
+  }
+
   public ConnectionModel tags(List<@Valid TagModel> tags) {
     this.tags = tags;
     return this;
@@ -667,11 +690,11 @@ public class ConnectionModel {
   }
 
   /**
-   * The visibility scope of the connection. Accepted on create: PRIVATE (default) or WORKSPACE — setting WORKSPACE requires ROLE_ADMIN. ORGANIZATION is not user-settable.
+   * The visibility scope of the connection. Accepted on create; defaults to WORKSPACE (shared with the workspace). PRIVATE withholds it; ORGANIZATION is not user-settable here.
    * @return visibility
    */
   
-  @Schema(name = "visibility", description = "The visibility scope of the connection. Accepted on create: PRIVATE (default) or WORKSPACE — setting WORKSPACE requires ROLE_ADMIN. ORGANIZATION is not user-settable.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "visibility", description = "The visibility scope of the connection. Accepted on create; defaults to WORKSPACE (shared with the workspace). PRIVATE withholds it; ORGANIZATION is not user-settable here.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("visibility")
   public @Nullable VisibilityEnum getVisibility() {
     return visibility;
@@ -751,6 +774,7 @@ public class ConnectionModel {
         Objects.equals(this.lastModifiedDate, connection.lastModifiedDate) &&
         Objects.equals(this.name, connection.name) &&
         Objects.equals(this.parameters, connection.parameters) &&
+        Objects.equals(this.shared, connection.shared) &&
         Objects.equals(this.tags, connection.tags) &&
         Objects.equals(this.status, connection.status) &&
         Objects.equals(this.visibility, connection.visibility) &&
@@ -760,7 +784,7 @@ public class ConnectionModel {
 
   @Override
   public int hashCode() {
-    return Objects.hash(active, managed, authorizationType, authorizationParameters, baseUri, componentName, connectionParameters, connectionVersion, createdBy, createdDate, credentialStatus, credentialStoreType, environmentId, id, lastModifiedBy, lastModifiedDate, name, parameters, tags, status, visibility, version, workspaceId);
+    return Objects.hash(active, managed, authorizationType, authorizationParameters, baseUri, componentName, connectionParameters, connectionVersion, createdBy, createdDate, credentialStatus, credentialStoreType, environmentId, id, lastModifiedBy, lastModifiedDate, name, parameters, shared, tags, status, visibility, version, workspaceId);
   }
 
   @Override
@@ -785,6 +809,7 @@ public class ConnectionModel {
     sb.append("    lastModifiedDate: ").append(toIndentedString(lastModifiedDate)).append("\n");
     sb.append("    name: ").append(toIndentedString(name)).append("\n");
     sb.append("    parameters: ").append(toIndentedString(parameters)).append("\n");
+    sb.append("    shared: ").append(toIndentedString(shared)).append("\n");
     sb.append("    tags: ").append(toIndentedString(tags)).append("\n");
     sb.append("    status: ").append(toIndentedString(status)).append("\n");
     sb.append("    visibility: ").append(toIndentedString(visibility)).append("\n");

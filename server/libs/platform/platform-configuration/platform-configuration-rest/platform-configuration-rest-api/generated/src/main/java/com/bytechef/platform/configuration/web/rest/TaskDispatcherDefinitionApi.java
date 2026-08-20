@@ -85,7 +85,6 @@ public interface TaskDispatcherDefinitionApi {
 
     }
 
-
     String PATH_GET_TASK_DISPATCHER_DEFINITION_VERSIONS = "/task-dispatcher-definitions/{taskDispatcherName}/versions";
     /**
      * GET /task-dispatcher-definitions/{taskDispatcherName}/versions : Get all task dispatcher definition versions of a task dispatcher
@@ -125,7 +124,6 @@ public interface TaskDispatcherDefinitionApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_TASK_DISPATCHER_DEFINITIONS = "/task-dispatcher-definitions";
     /**

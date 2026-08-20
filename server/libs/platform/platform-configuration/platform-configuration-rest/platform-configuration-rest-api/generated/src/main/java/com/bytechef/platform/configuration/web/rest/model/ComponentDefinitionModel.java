@@ -1,8 +1,7 @@
 package com.bytechef.platform.configuration.web.rest.model;
 
-import java.net.URI;
-import java.util.Objects;
 import com.bytechef.platform.configuration.web.rest.model.ActionDefinitionBasicModel;
+import com.bytechef.platform.configuration.web.rest.model.AgentChannelDefinitionModel;
 import com.bytechef.platform.configuration.web.rest.model.ClusterElementDefinitionBasicModel;
 import com.bytechef.platform.configuration.web.rest.model.ClusterElementTypeModel;
 import com.bytechef.platform.configuration.web.rest.model.ComponentCategoryModel;
@@ -11,25 +10,26 @@ import com.bytechef.platform.configuration.web.rest.model.PropertyGroupModel;
 import com.bytechef.platform.configuration.web.rest.model.ResourcesModel;
 import com.bytechef.platform.configuration.web.rest.model.TriggerDefinitionBasicModel;
 import com.bytechef.platform.configuration.web.rest.model.UnifiedApiCategoryModel;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.annotation.Generated;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import java.net.URI;
+import java.time.OffsetDateTime;
+import java.util.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.lang.Nullable;
+import java.util.Objects;
 import org.openapitools.jackson.nullable.JsonNullable;
-import java.time.OffsetDateTime;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import io.swagger.v3.oas.annotations.media.Schema;
-
-
-import java.util.*;
-import jakarta.annotation.Generated;
+import org.springframework.lang.Nullable;
 
 /**
  * A component contains a set of reusable code(actions) that accomplish specific tasks, triggers and connections if there is a need for a connection to an outside service.
@@ -43,6 +43,8 @@ public class ComponentDefinitionModel {
   private Map<String, List<String>> actionClusterElementTypes = new HashMap<>();
 
   private List<@Valid ActionDefinitionBasicModel> actions = new ArrayList<>();
+
+  private List<@Valid AgentChannelDefinitionModel> agentChannels = new ArrayList<>();
 
   private Boolean clusterElement;
 
@@ -151,6 +153,35 @@ public class ComponentDefinitionModel {
   @JsonProperty("actions")
   public void setActions(List<@Valid ActionDefinitionBasicModel> actions) {
     this.actions = actions;
+  }
+
+  public ComponentDefinitionModel agentChannels(List<@Valid AgentChannelDefinitionModel> agentChannels) {
+    this.agentChannels = agentChannels;
+    return this;
+  }
+
+  public ComponentDefinitionModel addAgentChannelsItem(AgentChannelDefinitionModel agentChannelsItem) {
+    if (this.agentChannels == null) {
+      this.agentChannels = new ArrayList<>();
+    }
+    this.agentChannels.add(agentChannelsItem);
+    return this;
+  }
+
+  /**
+   * The AI Agent channels this component declares.
+   * @return agentChannels
+   */
+  @Valid 
+  @Schema(name = "agentChannels", description = "The AI Agent channels this component declares.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("agentChannels")
+  public List<@Valid AgentChannelDefinitionModel> getAgentChannels() {
+    return agentChannels;
+  }
+
+  @JsonProperty("agentChannels")
+  public void setAgentChannels(List<@Valid AgentChannelDefinitionModel> agentChannels) {
+    this.agentChannels = agentChannels;
   }
 
   public ComponentDefinitionModel clusterElement(Boolean clusterElement) {
@@ -598,6 +629,7 @@ public class ComponentDefinitionModel {
     ComponentDefinitionModel componentDefinition = (ComponentDefinitionModel) o;
     return Objects.equals(this.actionClusterElementTypes, componentDefinition.actionClusterElementTypes) &&
         Objects.equals(this.actions, componentDefinition.actions) &&
+        Objects.equals(this.agentChannels, componentDefinition.agentChannels) &&
         Objects.equals(this.clusterElement, componentDefinition.clusterElement) &&
         Objects.equals(this.clusterElementClusterElementTypes, componentDefinition.clusterElementClusterElementTypes) &&
         Objects.equals(this.clusterElements, componentDefinition.clusterElements) &&
@@ -620,7 +652,7 @@ public class ComponentDefinitionModel {
 
   @Override
   public int hashCode() {
-    return Objects.hash(actionClusterElementTypes, actions, clusterElement, clusterElementClusterElementTypes, clusterElements, clusterElementTypes, clusterRoot, componentCategories, connection, connectionRequired, description, icon, name, resources, tags, title, triggers, unifiedApiCategory, version, inputs);
+    return Objects.hash(actionClusterElementTypes, actions, agentChannels, clusterElement, clusterElementClusterElementTypes, clusterElements, clusterElementTypes, clusterRoot, componentCategories, connection, connectionRequired, description, icon, name, resources, tags, title, triggers, unifiedApiCategory, version, inputs);
   }
 
   @Override
@@ -629,6 +661,7 @@ public class ComponentDefinitionModel {
     sb.append("class ComponentDefinitionModel {\n");
     sb.append("    actionClusterElementTypes: ").append(toIndentedString(actionClusterElementTypes)).append("\n");
     sb.append("    actions: ").append(toIndentedString(actions)).append("\n");
+    sb.append("    agentChannels: ").append(toIndentedString(agentChannels)).append("\n");
     sb.append("    clusterElement: ").append(toIndentedString(clusterElement)).append("\n");
     sb.append("    clusterElementClusterElementTypes: ").append(toIndentedString(clusterElementClusterElementTypes)).append("\n");
     sb.append("    clusterElements: ").append(toIndentedString(clusterElements)).append("\n");

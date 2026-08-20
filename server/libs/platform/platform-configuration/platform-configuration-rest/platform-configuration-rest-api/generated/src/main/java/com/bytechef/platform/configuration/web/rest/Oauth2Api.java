@@ -85,7 +85,6 @@ public interface Oauth2Api {
 
     }
 
-
     String PATH_GET_O_AUTH2_PROPERTIES = "/oauth2/properties";
     /**
      * GET /oauth2/properties : Get OAuth2 properties

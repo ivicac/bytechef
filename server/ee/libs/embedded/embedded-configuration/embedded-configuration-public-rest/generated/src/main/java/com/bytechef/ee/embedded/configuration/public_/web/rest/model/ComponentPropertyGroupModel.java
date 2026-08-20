@@ -3,6 +3,7 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest.model;
 import java.net.URI;
 import java.util.Objects;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.ComponentPropertyModel;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -31,8 +32,10 @@ public class ComponentPropertyGroupModel {
 
   private String name;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String label;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid ComponentPropertyModel> properties = new ArrayList<>();
 
   public ComponentPropertyGroupModel() {

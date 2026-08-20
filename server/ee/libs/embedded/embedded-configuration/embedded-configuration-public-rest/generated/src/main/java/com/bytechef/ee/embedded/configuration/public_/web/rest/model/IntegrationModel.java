@@ -6,6 +6,7 @@ import com.bytechef.ee.embedded.configuration.public_.web.rest.model.ConnectionC
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.IntegrationInstanceModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.IntegrationWorkflowModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.McpToolModel;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -34,26 +35,35 @@ public class IntegrationModel {
 
   private String componentName;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String description;
 
   private String icon;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Long id;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid IntegrationInstanceModel> integrationInstances = new ArrayList<>();
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Integer integrationVersion;
 
   private Boolean multipleInstances = false;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String name;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable ConnectionConfigModel connectionConfig;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid IntegrationWorkflowModel> mcpWorkflows = new ArrayList<>();
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid McpToolModel> mcpTools = new ArrayList<>();
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid IntegrationWorkflowModel> workflows = new ArrayList<>();
 
   public IntegrationModel() {

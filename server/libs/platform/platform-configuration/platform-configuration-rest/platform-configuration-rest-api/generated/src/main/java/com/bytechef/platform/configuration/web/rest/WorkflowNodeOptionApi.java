@@ -97,7 +97,6 @@ public interface WorkflowNodeOptionApi {
 
     }
 
-
     String PATH_GET_WORKFLOW_NODE_OPTIONS = "/workflows/{id}/workflow-nodes/{workflowNodeName}/options/{propertyName}";
     /**
      * GET /workflows/{id}/workflow-nodes/{workflowNodeName}/options/{propertyName} : Get an action or trigger property options shown in the editor

@@ -1,34 +1,33 @@
 package com.bytechef.platform.configuration.web.rest.model;
 
-import java.net.URI;
-import java.util.Objects;
 import com.bytechef.platform.configuration.web.rest.model.ControlTypeModel;
 import com.bytechef.platform.configuration.web.rest.model.OptionModel;
 import com.bytechef.platform.configuration.web.rest.model.OptionsDataSourceModel;
 import com.bytechef.platform.configuration.web.rest.model.PropertyTypeModel;
 import com.bytechef.platform.configuration.web.rest.model.ValuePropertyModel;
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonSubTypes;
 import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import com.fasterxml.jackson.annotation.JsonValue;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.annotation.Generated;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import java.net.URI;
+import java.time.OffsetDateTime;
+import java.util.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.lang.Nullable;
+import java.util.Objects;
 import org.openapitools.jackson.nullable.JsonNullable;
-import java.time.OffsetDateTime;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import io.swagger.v3.oas.annotations.media.Schema;
-
-
-import java.util.*;
-import jakarta.annotation.Generated;
+import org.springframework.lang.Nullable;
 
 /**
  * A string property.
@@ -264,7 +263,6 @@ public class StringPropertyModel extends ValuePropertyModel {
   public void setOptionsLoadedDynamically(@Nullable Boolean optionsLoadedDynamically) {
     this.optionsLoadedDynamically = optionsLoadedDynamically;
   }
-
 
   public StringPropertyModel controlType(ControlTypeModel controlType) {
     super.controlType(controlType);

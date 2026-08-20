@@ -67,6 +67,21 @@ export type ActionDefinition = {
   workflowNodeDescriptionDefined?: Maybe<Scalars['Boolean']['output']>;
 };
 
+export type AddAiAgentChannelInput = {
+  agentId: Scalars['ID']['input'];
+  channelType: Scalars['String']['input'];
+  connectionId?: InputMaybe<Scalars['ID']['input']>;
+  parameters?: InputMaybe<Scalars['Map']['input']>;
+};
+
+export type AddAiAgentElementInput = {
+  agentId: Scalars['ID']['input'];
+  connectionId?: InputMaybe<Scalars['ID']['input']>;
+  kind: Scalars['String']['input'];
+  parameters?: InputMaybe<Scalars['Map']['input']>;
+  referenceId?: InputMaybe<Scalars['ID']['input']>;
+};
+
 export type AddColumnInput = {
   column: ColumnInput;
   environmentId: Scalars['ID']['input'];
@@ -112,6 +127,94 @@ export type AggregateScoreDelta = {
   __typename?: 'AggregateScoreDelta';
   deltas: Array<ExperimentScoreAverage>;
   scoreName: Scalars['String']['output'];
+};
+
+export type AiAgent = {
+  __typename?: 'AiAgent';
+  channels: Array<AiAgentChannel>;
+  description?: Maybe<Scalars['String']['output']>;
+  draftWorkflowId: Scalars['String']['output'];
+  elements: Array<AiAgentElement>;
+  id: Scalars['ID']['output'];
+  instructions?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  lastPublishedVersion: Scalars['Int']['output'];
+  name: Scalars['String']['output'];
+  projectId: Scalars['ID']['output'];
+  projectWorkflowUuid: Scalars['String']['output'];
+  publishedDate?: Maybe<Scalars['String']['output']>;
+  settings?: Maybe<Scalars['Map']['output']>;
+  title: Scalars['String']['output'];
+  unpublishedChanges: Scalars['Boolean']['output'];
+  uuid: Scalars['String']['output'];
+  /** Who may see this agent, inherited from its backing project. Governs management surfaces only — a PRIVATE agent keeps serving every one of its channels. */
+  visibility: ResourceVisibility;
+  workspaceId?: Maybe<Scalars['ID']['output']>;
+};
+
+export type AiAgentChannel = {
+  __typename?: 'AiAgentChannel';
+  channelType: Scalars['String']['output'];
+  connectionId?: Maybe<Scalars['ID']['output']>;
+  id: Scalars['ID']['output'];
+  parameters?: Maybe<Scalars['Map']['output']>;
+  position: Scalars['Int']['output'];
+};
+
+export type AiAgentChannelDefinition = {
+  __typename?: 'AiAgentChannelDefinition';
+  approvalCapable: Scalars['Boolean']['output'];
+  channelType: Scalars['String']['output'];
+  componentName: Scalars['String']['output'];
+  componentVersion: Scalars['Int']['output'];
+  connectionRequired: Scalars['Boolean']['output'];
+  description?: Maybe<Scalars['String']['output']>;
+  icon?: Maybe<Scalars['String']['output']>;
+  pinned: Scalars['Boolean']['output'];
+  propertiesConfigurable: Scalars['Boolean']['output'];
+  replyActionName?: Maybe<Scalars['String']['output']>;
+  schedule: Scalars['Boolean']['output'];
+  title: Scalars['String']['output'];
+  triggerName: Scalars['String']['output'];
+};
+
+export type AiAgentDeployment = {
+  __typename?: 'AiAgentDeployment';
+  agentId: Scalars['ID']['output'];
+  agentTitle: Scalars['String']['output'];
+  enabled: Scalars['Boolean']['output'];
+  environmentId: Scalars['Int']['output'];
+  id: Scalars['ID']['output'];
+  lastExecutionDate?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  projectId: Scalars['ID']['output'];
+  projectVersion: Scalars['Int']['output'];
+  workflows: Array<AiAgentDeploymentWorkflow>;
+};
+
+export type AiAgentDeploymentTrigger = {
+  __typename?: 'AiAgentDeploymentTrigger';
+  name: Scalars['String']['output'];
+  parameters?: Maybe<Scalars['Map']['output']>;
+  staticWebhookUrl?: Maybe<Scalars['String']['output']>;
+  type: Scalars['String']['output'];
+};
+
+export type AiAgentDeploymentWorkflow = {
+  __typename?: 'AiAgentDeploymentWorkflow';
+  enabled: Scalars['Boolean']['output'];
+  triggers: Array<AiAgentDeploymentTrigger>;
+  workflowId: Scalars['String']['output'];
+};
+
+export type AiAgentElement = {
+  __typename?: 'AiAgentElement';
+  connectionId?: Maybe<Scalars['ID']['output']>;
+  id: Scalars['ID']['output'];
+  kind: Scalars['String']['output'];
+  parameters?: Maybe<Scalars['Map']['output']>;
+  position: Scalars['Int']['output'];
+  referenceId?: Maybe<Scalars['ID']['output']>;
 };
 
 export type AiAgentEvalResult = {
@@ -247,6 +350,14 @@ export enum AiAgentScenarioType {
   MultiTurn = 'MULTI_TURN',
   SingleTurn = 'SINGLE_TURN'
 }
+
+export type AiAgentVersion = {
+  __typename?: 'AiAgentVersion';
+  description?: Maybe<Scalars['String']['output']>;
+  publishedDate?: Maybe<Scalars['String']['output']>;
+  status: Scalars['String']['output'];
+  version: Scalars['Int']['output'];
+};
 
 export type AiAutoMemory = {
   __typename?: 'AiAutoMemory';
@@ -510,23 +621,6 @@ export enum AiGatewayBudgetPeriod {
   Weekly = 'WEEKLY',
   Yearly = 'YEARLY'
 }
-
-export type AiGatewayModel = {
-  __typename?: 'AiGatewayModel';
-  alias?: Maybe<Scalars['String']['output']>;
-  capabilities?: Maybe<Scalars['String']['output']>;
-  contextWindow?: Maybe<Scalars['Int']['output']>;
-  createdDate?: Maybe<Scalars['Long']['output']>;
-  defaultRoutingPolicyId?: Maybe<Scalars['ID']['output']>;
-  enabled: Scalars['Boolean']['output'];
-  id: Scalars['ID']['output'];
-  inputCostPerMTokens?: Maybe<Scalars['Float']['output']>;
-  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
-  name: Scalars['String']['output'];
-  outputCostPerMTokens?: Maybe<Scalars['Float']['output']>;
-  providerId: Scalars['ID']['output'];
-  version?: Maybe<Scalars['Int']['output']>;
-};
 
 export type AiGatewayModelDeployment = {
   __typename?: 'AiGatewayModelDeployment';
@@ -1059,6 +1153,25 @@ export type AiHubWorkspaceSettings = {
   __typename?: 'AiHubWorkspaceSettings';
   voiceWebhookUrl?: Maybe<Scalars['String']['output']>;
   workspaceId: Scalars['ID']['output'];
+};
+
+export type AiModel = {
+  __typename?: 'AiModel';
+  alias?: Maybe<Scalars['String']['output']>;
+  capabilities?: Maybe<Scalars['String']['output']>;
+  catalogManaged: Scalars['Boolean']['output'];
+  catalogPinned: Scalars['Boolean']['output'];
+  contextWindow?: Maybe<Scalars['Int']['output']>;
+  createdDate?: Maybe<Scalars['Long']['output']>;
+  defaultRoutingPolicyId?: Maybe<Scalars['ID']['output']>;
+  enabled: Scalars['Boolean']['output'];
+  id: Scalars['ID']['output'];
+  inputCostPerMTokens?: Maybe<Scalars['Float']['output']>;
+  lastModifiedDate?: Maybe<Scalars['Long']['output']>;
+  name: Scalars['String']['output'];
+  outputCostPerMTokens?: Maybe<Scalars['Float']['output']>;
+  providerId: Scalars['ID']['output'];
+  version?: Maybe<Scalars['Int']['output']>;
 };
 
 export enum AiObservabilityAlertCondition {
@@ -1706,6 +1819,16 @@ export type Category = {
   name?: Maybe<Scalars['String']['output']>;
 };
 
+export type ChatAgent = {
+  __typename?: 'ChatAgent';
+  agentName: Scalars['String']['output'];
+  agentTitle: Scalars['String']['output'];
+  aiAgentId: Scalars['ID']['output'];
+  projectDeploymentId: Scalars['ID']['output'];
+  workflowExecutionId: Scalars['String']['output'];
+  workflowLabel: Scalars['String']['output'];
+};
+
 export type ChatWorkflow = {
   __typename?: 'ChatWorkflow';
   projectDeploymentId: Scalars['ID']['output'];
@@ -1818,7 +1941,6 @@ export type ComponentOperationPolicy = {
 
 export enum ComponentOperationType {
   Action = 'ACTION',
-  ClusterElement = 'CLUSTER_ELEMENT',
   Trigger = 'TRIGGER'
 }
 
@@ -2097,23 +2219,19 @@ export type CreateA2aServerInput = {
   name: Scalars['String']['input'];
 };
 
+export type CreateAiAgentInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  projectId?: InputMaybe<Scalars['ID']['input']>;
+  title: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
 export type CreateAiGatewayBudgetInput = {
   alertThreshold?: InputMaybe<Scalars['Int']['input']>;
   amount: Scalars['String']['input'];
   enforcementMode: AiGatewayBudgetEnforcementMode;
   period: AiGatewayBudgetPeriod;
   workspaceId: Scalars['ID']['input'];
-};
-
-export type CreateAiGatewayModelInput = {
-  alias?: InputMaybe<Scalars['String']['input']>;
-  capabilities?: InputMaybe<Scalars['String']['input']>;
-  contextWindow?: InputMaybe<Scalars['Int']['input']>;
-  defaultRoutingPolicyId?: InputMaybe<Scalars['ID']['input']>;
-  inputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
-  name: Scalars['String']['input'];
-  outputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
-  providerId: Scalars['ID']['input'];
 };
 
 export type CreateAiGatewayProjectInput = {
@@ -2158,6 +2276,17 @@ export type CreateAiGatewayRoutingPolicyInput = {
   tagIds?: InputMaybe<Array<Scalars['ID']['input']>>;
 };
 
+export type CreateAiModelInput = {
+  alias?: InputMaybe<Scalars['String']['input']>;
+  capabilities?: InputMaybe<Scalars['String']['input']>;
+  contextWindow?: InputMaybe<Scalars['Int']['input']>;
+  defaultRoutingPolicyId?: InputMaybe<Scalars['ID']['input']>;
+  inputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
+  name: Scalars['String']['input'];
+  outputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
+  providerId: Scalars['ID']['input'];
+};
+
 export type CreateAiPromptInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
@@ -2173,14 +2302,6 @@ export type CreateAiPromptVersionInput = {
   promptId: Scalars['ID']['input'];
   type: AiPromptVersionType;
   variables?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type CreateApiConnectorInput = {
-  connectorVersion: Scalars['Int']['input'];
-  description?: InputMaybe<Scalars['String']['input']>;
-  icon?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
-  title?: InputMaybe<Scalars['String']['input']>;
 };
 
 export type CreateContextStoreInput = {
@@ -2308,18 +2429,6 @@ export type CreateOrganizationConnectionInput = {
   parameters: Scalars['Map']['input'];
 };
 
-export type CreateWorkspaceAiGatewayModelInput = {
-  alias?: InputMaybe<Scalars['String']['input']>;
-  capabilities?: InputMaybe<Scalars['String']['input']>;
-  contextWindow?: InputMaybe<Scalars['Int']['input']>;
-  defaultRoutingPolicyId?: InputMaybe<Scalars['ID']['input']>;
-  inputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
-  name: Scalars['String']['input'];
-  outputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
-  providerId: Scalars['ID']['input'];
-  workspaceId: Scalars['ID']['input'];
-};
-
 export type CreateWorkspaceAiGatewayProviderInput = {
   apiKey: Scalars['String']['input'];
   baseUrl?: InputMaybe<Scalars['String']['input']>;
@@ -2334,6 +2443,18 @@ export type CreateWorkspaceAiGatewayRoutingPolicyInput = {
   fallbackModel?: InputMaybe<Scalars['String']['input']>;
   name: Scalars['String']['input'];
   strategy: AiGatewayRoutingStrategyType;
+  workspaceId: Scalars['ID']['input'];
+};
+
+export type CreateWorkspaceAiModelInput = {
+  alias?: InputMaybe<Scalars['String']['input']>;
+  capabilities?: InputMaybe<Scalars['String']['input']>;
+  contextWindow?: InputMaybe<Scalars['Int']['input']>;
+  defaultRoutingPolicyId?: InputMaybe<Scalars['ID']['input']>;
+  inputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
+  name: Scalars['String']['input'];
+  outputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
+  providerId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -2535,21 +2656,6 @@ export type DeleteRowInput = {
   tableId: Scalars['ID']['input'];
 };
 
-export type DiscoverEndpointsInput = {
-  documentationUrl: Scalars['String']['input'];
-  name: Scalars['String']['input'];
-  userPrompt?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type DiscoveredEndpoint = {
-  __typename?: 'DiscoveredEndpoint';
-  id: Scalars['ID']['output'];
-  method: Scalars['String']['output'];
-  path: Scalars['String']['output'];
-  resource?: Maybe<Scalars['String']['output']>;
-  summary?: Maybe<Scalars['String']['output']>;
-};
-
 export type DocumentStatusUpdate = {
   __typename?: 'DocumentStatusUpdate';
   documentId: Scalars['ID']['output'];
@@ -2587,14 +2693,6 @@ export type EndpointDefinitionInput = {
   requestBody?: InputMaybe<RequestBodyDefinitionInput>;
   responses?: InputMaybe<Array<ResponseDefinitionInput>>;
   summary?: InputMaybe<Scalars['String']['input']>;
-};
-
-export type EndpointDiscoveryResult = {
-  __typename?: 'EndpointDiscoveryResult';
-  endpoints?: Maybe<Array<DiscoveredEndpoint>>;
-  errorMessage?: Maybe<Scalars['String']['output']>;
-  jobId: Scalars['String']['output'];
-  status: GenerationJobStatusEnum;
 };
 
 export type Environment = {
@@ -2738,13 +2836,6 @@ export type FileEntryProperty = Property & {
   type: PropertyType;
 };
 
-export type GenerateForEndpointsInput = {
-  documentationUrl: Scalars['String']['input'];
-  icon?: InputMaybe<Scalars['String']['input']>;
-  name: Scalars['String']['input'];
-  selectedEndpoints: Array<SelectedEndpointInput>;
-};
-
 export type GenerateFromDocumentationInput = {
   documentationUrl: Scalars['String']['input'];
   icon?: InputMaybe<Scalars['String']['input']>;
@@ -2818,6 +2909,7 @@ export type Help = {
 export enum HttpMethod {
   Delete = 'DELETE',
   Get = 'GET',
+  Head = 'HEAD',
   Patch = 'PATCH',
   Post = 'POST',
   Put = 'PUT'
@@ -3325,6 +3417,8 @@ export type Mutation = {
   __typename?: 'Mutation';
   _placeholder?: Maybe<Scalars['Boolean']['output']>;
   acknowledgeAiObservabilityAlertEvent?: Maybe<AiObservabilityAlertEvent>;
+  addAiAgentChannel: AiAgentChannel;
+  addAiAgentElement: AiAgentElement;
   /**
    * Register a new MCP server for the current user. authToken is optional (sent as a bearer token); it is
    * encrypted at rest. Returns the new server id.
@@ -3336,12 +3430,20 @@ export type Mutation = {
    */
   addAiHubUserConnector: Scalars['ID']['output'];
   addDataTableColumn: Scalars['Boolean']['output'];
-  /** Add a user to a workspace. Requires ADMIN workspace role. */
+  /**
+   * Add a user to a workspace. Requires ADMIN workspace role. Supply exactly one of `role` or
+   * `customRoleId`; a custom role must be tenant-global or owned by this workspace.
+   */
   addWorkspaceUser: WorkspaceUser;
   /** Appends an assistant message to the chat's chat memory — persists an approval-resolution continuation streamed outside the bridge turn model. */
   appendAiHubChatAssistantMessage: Scalars['Boolean']['output'];
   /** Scope a notification to a workspace (moves it if it was scoped to another one). */
   assignNotificationToWorkspace: Scalars['Boolean']['output'];
+  /**
+   * Replace a member's built-in role with a custom one. The role must be tenant-global or owned by
+   * this workspace. Requires the WORKSPACE_MEMBER_MANAGE scope.
+   */
+  assignWorkspaceUserCustomRole: WorkspaceUser;
   /**
    * Attach a tool to a chat. Idempotent — re-attaching the same (component, action, connection)
    * upserts the tool's parameters in place. Returns the persisted ids so the client can immediately
@@ -3401,6 +3503,7 @@ export type Mutation = {
    * LLM-driven title generation.
    */
   createAgentChatAiHubChat: AiHubChat;
+  createAiAgent: AiAgent;
   createAiAgentEvalScenario: AiAgentEvalScenario;
   createAiAgentEvalTest: AiAgentEvalTest;
   createAiAgentJudge: AiAgentJudge;
@@ -3410,7 +3513,6 @@ export type Mutation = {
   createAiEvalScore?: Maybe<AiEvalScore>;
   createAiEvalScoreConfig?: Maybe<AiEvalScoreConfig>;
   createAiGatewayBudget?: Maybe<AiGatewayBudget>;
-  createAiGatewayModel?: Maybe<AiGatewayModel>;
   createAiGatewayProject?: Maybe<AiGatewayProject>;
   createAiGatewayProvider?: Maybe<AiGatewayProvider>;
   createAiGatewayRateLimit?: Maybe<AiGatewayRateLimit>;
@@ -3421,6 +3523,7 @@ export type Mutation = {
    */
   createAiHubChat: AiHubChat;
   createAiHubToolApprovalRule: AiHubToolApprovalRule;
+  createAiModel?: Maybe<AiModel>;
   createAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
   createAiObservabilityExportJob?: Maybe<AiObservabilityExportJob>;
   createAiObservabilityWebhookSubscription?: Maybe<AiObservabilityWebhookSubscription>;
@@ -3428,7 +3531,6 @@ export type Mutation = {
   createAiPromptVersion?: Maybe<AiPromptVersion>;
   createAiSkill: AiSkill;
   createAiSkillFromInstructions: AiSkill;
-  createApiConnector: ApiConnector;
   createApiKey: Scalars['String']['output'];
   createApprovalTask?: Maybe<ApprovalTask>;
   createAutomationWorkflowProject: Scalars['ID']['output'];
@@ -3437,7 +3539,7 @@ export type Mutation = {
   createContextStore: ContextStore;
   createContextStoreSource: ContextStoreSource;
   createCustomComponent: CustomComponent;
-  /** Create a new custom role with the given scopes. Requires tenant admin. */
+  /** Create a tenant-global custom role, assignable in every workspace. Requires tenant admin. */
   createCustomRole: CustomRole;
   createDataTable: Scalars['Boolean']['output'];
   createEmbeddedMcpComponent?: Maybe<McpComponent>;
@@ -3468,13 +3570,16 @@ export type Mutation = {
    * the idempotency path — once a row has been named, that name sticks.
    */
   createWorkflowChatAiHubChat: AiHubChat;
-  createWorkspaceAiGatewayModel?: Maybe<AiGatewayModel>;
   createWorkspaceAiGatewayProvider?: Maybe<AiGatewayProvider>;
   createWorkspaceAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
+  createWorkspaceAiModel?: Maybe<AiModel>;
   createWorkspaceApiKey: Scalars['String']['output'];
   createWorkspaceMcpServer?: Maybe<McpServer>;
   deleteA2aProject?: Maybe<Scalars['Boolean']['output']>;
   deleteA2aServer?: Maybe<Scalars['Boolean']['output']>;
+  deleteAiAgent: Scalars['Boolean']['output'];
+  deleteAiAgentChannel: Scalars['Boolean']['output'];
+  deleteAiAgentElement: Scalars['Boolean']['output'];
   deleteAiAgentEvalScenario: Scalars['Boolean']['output'];
   deleteAiAgentEvalTest: Scalars['Boolean']['output'];
   deleteAiAgentJudge: Scalars['Boolean']['output'];
@@ -3491,7 +3596,6 @@ export type Mutation = {
   deleteAiEvalScore?: Maybe<Scalars['Boolean']['output']>;
   deleteAiEvalScoreConfig?: Maybe<Scalars['Boolean']['output']>;
   deleteAiGatewayBudget?: Maybe<Scalars['Boolean']['output']>;
-  deleteAiGatewayModel?: Maybe<Scalars['Boolean']['output']>;
   deleteAiGatewayProject?: Maybe<Scalars['Boolean']['output']>;
   deleteAiGatewayProvider?: Maybe<Scalars['Boolean']['output']>;
   deleteAiGatewayRateLimit?: Maybe<Scalars['Boolean']['output']>;
@@ -3510,6 +3614,7 @@ export type Mutation = {
    */
   deleteAiHubChatArtifact: Scalars['Boolean']['output'];
   deleteAiHubToolApprovalRule: Scalars['Boolean']['output'];
+  deleteAiModel?: Maybe<Scalars['Boolean']['output']>;
   deleteAiObservabilityAlertRule?: Maybe<Scalars['Boolean']['output']>;
   deleteAiObservabilityWebhookSubscription?: Maybe<Scalars['Boolean']['output']>;
   deleteAiPrompt?: Maybe<Scalars['Boolean']['output']>;
@@ -3525,7 +3630,7 @@ export type Mutation = {
   deleteContextStore: Scalars['Boolean']['output'];
   deleteContextStoreSource: Scalars['Boolean']['output'];
   deleteCustomComponent: Scalars['Boolean']['output'];
-  /** Delete a custom role. Fails if the role is in use by any project member. Requires tenant admin. */
+  /** Delete a custom role. Fails if it is still assigned to any member. Requires tenant admin. */
   deleteCustomRole: Scalars['Boolean']['output'];
   deleteDataTableRow: Scalars['Boolean']['output'];
   deleteEmbeddedMcpComponent?: Maybe<Scalars['Boolean']['output']>;
@@ -3547,14 +3652,15 @@ export type Mutation = {
   deleteMcpTool?: Maybe<Scalars['Boolean']['output']>;
   /** Delete an organization connection. Fails if the connection is not ORGANIZATION-scoped. (admin only, EE only) */
   deleteOrganizationConnection: Scalars['Boolean']['output'];
+  deleteOrphanedApiConnectorFiles: Scalars['Int']['output'];
   deleteRegisteredClient: Scalars['Boolean']['output'];
   deleteSharedProject: Scalars['Boolean']['output'];
   deleteSharedWorkflow: Scalars['Boolean']['output'];
   deleteUser: Scalars['Boolean']['output'];
   deleteWorkflowAlertRule: Scalars['Boolean']['output'];
-  deleteWorkspaceAiGatewayModel?: Maybe<Scalars['Boolean']['output']>;
   deleteWorkspaceAiGatewayProvider?: Maybe<Scalars['Boolean']['output']>;
   deleteWorkspaceAiGatewayRoutingPolicy?: Maybe<Scalars['Boolean']['output']>;
+  deleteWorkspaceAiModel?: Maybe<Scalars['Boolean']['output']>;
   deleteWorkspaceApiKey: Scalars['Boolean']['output'];
   deleteWorkspaceMcpServer?: Maybe<Scalars['Boolean']['output']>;
   /**
@@ -3584,8 +3690,6 @@ export type Mutation = {
    * Throws when the upstream model is unavailable so the client can surface a retryable error.
    */
   generateAiHubChatTitle: AiHubChat;
-  /** Generate a complete skill from a single natural-language prompt using the autonomous skills agent. */
-  generateAiSkill: AiSkill;
   generateFromDocumentation: ApiConnector;
   generatePropertyValue: GeneratePropertyValuePayload;
   generateSpecification: GenerateSpecificationResponse;
@@ -3597,13 +3701,27 @@ export type Mutation = {
   grantAiHubChatAccess: AiHubChat;
   /** Grant a named workspace member access to a connection its owner has withheld. Idempotent. (owner or admin, EE only) */
   grantConnectionAccess: Scalars['Boolean']['output'];
+  /** Grant a named workspace member access to a project its owner has withheld. Idempotent. (owner or admin, EE only) */
+  grantProjectAccess: Scalars['Boolean']['output'];
+  importAiAgent: AiAgent;
   importDataTableCsv: Scalars['Boolean']['output'];
   importOpenApiSpecification: ApiConnector;
   importProjectTemplate: Scalars['ID']['output'];
   importWorkflowTemplate: Scalars['ID']['output'];
   insertDataTableRow: DataTableRow;
   instantiateAiEvalTemplate?: Maybe<AiEvalRule>;
+  /**
+   * Provision a tenant account and mail a claim link on which the recipient sets their own password.
+   * Optionally place the invitee into workspaces; an empty or omitted list provisions an account
+   * belonging to no workspace, which is how a second tenant admin is created.
+   */
   inviteUser: Scalars['Boolean']['output'];
+  /**
+   * Invite someone into a workspace by email, provisioning a tenant account and mailing a claim link
+   * when no account exists yet. An address that already has an account is reused, not rejected.
+   * Requires the WORKSPACE_MEMBER_MANAGE scope.
+   */
+  inviteWorkspaceUser: WorkspaceUser;
   /** Mark all of a user's connections as pending reassignment. Returns per-row outcome so partial failures surface; a silent no-op batch does not look like an error. (admin only) */
   markConnectionsPendingReassignment: BulkReassignResult;
   playgroundChatCompletion?: Maybe<PlaygroundChatCompletionResponse>;
@@ -3613,6 +3731,7 @@ export type Mutation = {
   reassignAllConnections: Scalars['Boolean']['output'];
   /** Reassign a single connection to a new owner. Resets status to ACTIVE if pending. (admin only) */
   reassignConnection: Scalars['Boolean']['output'];
+  reconcileAiModelCatalog?: Maybe<Scalars['Boolean']['output']>;
   /**
    * Records a user-attached reference (file / workflow / data table / knowledge base) as a chat
    * artifact so it appears in the sidebar artifact list. Idempotent — re-attaching the same resource hits
@@ -3634,6 +3753,12 @@ export type Mutation = {
   removeFileInSkill: AiSkill;
   /** Remove a user from a workspace. Requires ADMIN workspace role. */
   removeWorkspaceUser: Scalars['Boolean']['output'];
+  /**
+   * Remove a member's role in one environment, denying them there. Removing their last
+   * environment role removes them from the workspace entirely - it does not restore a
+   * workspace-wide role. Requires the WORKSPACE_MEMBER_MANAGE scope.
+   */
+  removeWorkspaceUserEnvironmentRole: Scalars['Boolean']['output'];
   renameDataTable: Scalars['Boolean']['output'];
   renameDataTableColumn: Scalars['Boolean']['output'];
   resolveAiHubToolApproval: AiHubToolApprovalResolution;
@@ -3645,6 +3770,8 @@ export type Mutation = {
   revokeAiHubChatAccess: AiHubChat;
   /** Revoke a grant. Silent when no grant exists. (owner or admin, EE only) */
   revokeConnectionAccess: Scalars['Boolean']['output'];
+  /** Revoke a grant. Silent when no grant exists. (owner or admin, EE only) */
+  revokeProjectAccess: Scalars['Boolean']['output'];
   runAiEvalRuleOnHistoricalTraces?: Maybe<Scalars['Int']['output']>;
   saveClusterElementTestConfigurationConnection?: Maybe<Scalars['Boolean']['output']>;
   saveClusterElementTestOutput?: Maybe<WorkflowNodeTestOutputResult>;
@@ -3694,10 +3821,17 @@ export type Mutation = {
   setConnectionVisibility: Scalars['Boolean']['output'];
   setContextStoreSourceEnabled: ContextStoreSource;
   setKnowledgeBaseSourceEnabled: KnowledgeBaseSource;
+  /** Set a project's reach. PRIVATE withholds it (and its workflows, deployments and executions) from the workspace; WORKSPACE shares it. ORGANIZATION is not supported for projects. (owner or admin, EE only) */
+  setProjectVisibility: Scalars['Boolean']['output'];
+  /**
+   * Give a member a role in one environment. The first such call switches the member from a
+   * single workspace-wide role to per-environment roles, deleting their workspace-wide row.
+   * Environments the member has no row for are then denied. Supply exactly one of `role` or
+   * `customRoleId`. Requires the WORKSPACE_MEMBER_MANAGE scope.
+   */
+  setWorkspaceUserEnvironmentRole: WorkspaceUser;
   snoozeAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
   startAiAgentEvalRun: AiAgentEvalRun;
-  startDiscoverEndpoints: EndpointDiscoveryResult;
-  startGenerateForEndpoints: GenerationJobStatus;
   startGenerateFromDocumentationPreview: GenerationJobStatus;
   testAiObservabilityAlertRule?: Maybe<Scalars['Float']['output']>;
   testAiObservabilityWebhookSubscription?: Maybe<Scalars['Boolean']['output']>;
@@ -3715,17 +3849,23 @@ export type Mutation = {
   truncateAiHubChatMessages: Scalars['Int']['output'];
   /** Make a notification global again (visible to every workspace). */
   unassignNotificationFromWorkspace: Scalars['Boolean']['output'];
+  unpinAiModel?: Maybe<AiModel>;
+  unpinWorkspaceAiModel?: Maybe<AiModel>;
   unsnoozeAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
   updateA2aProject?: Maybe<A2aProject>;
   updateA2aProjectWorkflowEnabled?: Maybe<A2aProjectWorkflow>;
   updateA2aProjectWorkflowParameters?: Maybe<A2aProjectWorkflow>;
   updateA2aServer?: Maybe<A2aServer>;
   updateA2aServerTags?: Maybe<Array<Maybe<Tag>>>;
+  updateAiAgent: AiAgent;
+  updateAiAgentChannel: Scalars['Boolean']['output'];
+  updateAiAgentElement: Scalars['Boolean']['output'];
   updateAiAgentEvalScenario: AiAgentEvalScenario;
   updateAiAgentEvalTest: AiAgentEvalTest;
   updateAiAgentJudge: AiAgentJudge;
   updateAiAgentScenarioJudge: AiAgentScenarioJudge;
   updateAiAgentScenarioToolSimulation: AiAgentScenarioToolSimulation;
+  updateAiAgentSettings: Scalars['Boolean']['output'];
   /**
    * Partial update of a memory by primary key, resolved within the supplied environment and scoped to the
    * resolved principal. The environment identifies which row the key addresses, not a value to write — a memory's
@@ -3738,7 +3878,6 @@ export type Mutation = {
   updateAiEvalRule?: Maybe<AiEvalRule>;
   updateAiEvalScoreConfig?: Maybe<AiEvalScoreConfig>;
   updateAiGatewayBudget?: Maybe<AiGatewayBudget>;
-  updateAiGatewayModel?: Maybe<AiGatewayModel>;
   updateAiGatewayProject?: Maybe<AiGatewayProject>;
   updateAiGatewayProjectSettings?: Maybe<AiGatewayProjectSettings>;
   updateAiGatewayProvider?: Maybe<AiGatewayProvider>;
@@ -3758,6 +3897,7 @@ export type Mutation = {
    */
   updateAiHubChatToolParameters: AiHubChatToolBinding;
   updateAiHubVoiceWebhookUrl?: Maybe<AiHubWorkspaceSettings>;
+  updateAiModel?: Maybe<AiModel>;
   updateAiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
   updateAiObservabilityWebhookSubscription?: Maybe<AiObservabilityWebhookSubscription>;
   updateAiPrompt?: Maybe<AiPrompt>;
@@ -3787,7 +3927,7 @@ export type Mutation = {
    */
   updateContextStoreTags: Array<Tag>;
   updateCustomComponentSource: CustomComponent;
-  /** Update an existing custom role. Requires tenant admin. */
+  /** Update a custom role. Requires tenant admin. */
   updateCustomRole: CustomRole;
   updateDataTableRow: DataTableRow;
   updateDataTableTags: Scalars['Boolean']['output'];
@@ -3823,9 +3963,9 @@ export type Mutation = {
   updateProjectWorkflowErrorWorkflow?: Maybe<Scalars['Boolean']['output']>;
   updateUser: AdminUser;
   updateWorkflowAlertRule: WorkflowAlertRule;
-  updateWorkspaceAiGatewayModel?: Maybe<AiGatewayModel>;
   updateWorkspaceAiGatewayProvider?: Maybe<AiGatewayProvider>;
   updateWorkspaceAiGatewayRoutingPolicy?: Maybe<AiGatewayRoutingPolicy>;
+  updateWorkspaceAiModel?: Maybe<AiModel>;
   updateWorkspaceApiKey: Scalars['Boolean']['output'];
   updateWorkspaceMcpToolEnabled?: Maybe<McpTool>;
   updateWorkspaceSystemPrompt?: Maybe<WorkspaceSystemPrompt>;
@@ -3837,6 +3977,16 @@ export type Mutation = {
 
 export type MutationAcknowledgeAiObservabilityAlertEventArgs = {
   id: Scalars['ID']['input'];
+};
+
+
+export type MutationAddAiAgentChannelArgs = {
+  input: AddAiAgentChannelInput;
+};
+
+
+export type MutationAddAiAgentElementArgs = {
+  input: AddAiAgentElementInput;
 };
 
 
@@ -3864,7 +4014,8 @@ export type MutationAddDataTableColumnArgs = {
 
 
 export type MutationAddWorkspaceUserArgs = {
-  role: WorkspaceRole;
+  customRoleId?: InputMaybe<Scalars['ID']['input']>;
+  role?: InputMaybe<WorkspaceRole>;
   userId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
 };
@@ -3879,6 +4030,13 @@ export type MutationAppendAiHubChatAssistantMessageArgs = {
 
 export type MutationAssignNotificationToWorkspaceArgs = {
   notificationId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationAssignWorkspaceUserCustomRoleArgs = {
+  customRoleId: Scalars['ID']['input'];
+  userId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -3944,6 +4102,11 @@ export type MutationCreateAgentChatAiHubChatArgs = {
   title?: InputMaybe<Scalars['String']['input']>;
   workflowExecutionId: Scalars['String']['input'];
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateAiAgentArgs = {
+  input: CreateAiAgentInput;
 };
 
 
@@ -4035,11 +4198,6 @@ export type MutationCreateAiGatewayBudgetArgs = {
 };
 
 
-export type MutationCreateAiGatewayModelArgs = {
-  input: CreateAiGatewayModelInput;
-};
-
-
 export type MutationCreateAiGatewayProjectArgs = {
   input: CreateAiGatewayProjectInput;
 };
@@ -4073,6 +4231,11 @@ export type MutationCreateAiHubToolApprovalRuleArgs = {
   toolKind: AiHubToolKind;
   toolName: Scalars['String']['input'];
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationCreateAiModelArgs = {
+  input: CreateAiModelInput;
 };
 
 
@@ -4125,11 +4288,6 @@ export type MutationCreateAiSkillFromInstructionsArgs = {
   description?: InputMaybe<Scalars['String']['input']>;
   instructions: Scalars['String']['input'];
   name: Scalars['String']['input'];
-};
-
-
-export type MutationCreateApiConnectorArgs = {
-  input: CreateApiConnectorInput;
 };
 
 
@@ -4293,11 +4451,6 @@ export type MutationCreateWorkflowChatAiHubChatArgs = {
 };
 
 
-export type MutationCreateWorkspaceAiGatewayModelArgs = {
-  input: CreateWorkspaceAiGatewayModelInput;
-};
-
-
 export type MutationCreateWorkspaceAiGatewayProviderArgs = {
   input: CreateWorkspaceAiGatewayProviderInput;
 };
@@ -4305,6 +4458,11 @@ export type MutationCreateWorkspaceAiGatewayProviderArgs = {
 
 export type MutationCreateWorkspaceAiGatewayRoutingPolicyArgs = {
   input: CreateWorkspaceAiGatewayRoutingPolicyInput;
+};
+
+
+export type MutationCreateWorkspaceAiModelArgs = {
+  input: CreateWorkspaceAiModelInput;
 };
 
 
@@ -4326,6 +4484,21 @@ export type MutationDeleteA2aProjectArgs = {
 
 
 export type MutationDeleteA2aServerArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiAgentArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiAgentChannelArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiAgentElementArgs = {
   id: Scalars['ID']['input'];
 };
 
@@ -4383,11 +4556,6 @@ export type MutationDeleteAiGatewayBudgetArgs = {
 };
 
 
-export type MutationDeleteAiGatewayModelArgs = {
-  id: Scalars['ID']['input'];
-};
-
-
 export type MutationDeleteAiGatewayProjectArgs = {
   id: Scalars['ID']['input'];
 };
@@ -4422,6 +4590,11 @@ export type MutationDeleteAiHubChatArtifactArgs = {
 export type MutationDeleteAiHubToolApprovalRuleArgs = {
   ruleId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteAiModelArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -4622,12 +4795,6 @@ export type MutationDeleteWorkflowAlertRuleArgs = {
 };
 
 
-export type MutationDeleteWorkspaceAiGatewayModelArgs = {
-  modelId: Scalars['ID']['input'];
-  workspaceId: Scalars['ID']['input'];
-};
-
-
 export type MutationDeleteWorkspaceAiGatewayProviderArgs = {
   providerId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
@@ -4636,6 +4803,12 @@ export type MutationDeleteWorkspaceAiGatewayProviderArgs = {
 
 export type MutationDeleteWorkspaceAiGatewayRoutingPolicyArgs = {
   routingPolicyId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteWorkspaceAiModelArgs = {
+  modelId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -4746,12 +4919,6 @@ export type MutationGenerateAiHubChatTitleArgs = {
 };
 
 
-export type MutationGenerateAiSkillArgs = {
-  environmentId: Scalars['Int']['input'];
-  prompt: Scalars['String']['input'];
-};
-
-
 export type MutationGenerateFromDocumentationArgs = {
   input: GenerateFromDocumentationInput;
 };
@@ -4782,6 +4949,20 @@ export type MutationGrantAiHubChatAccessArgs = {
 export type MutationGrantConnectionAccessArgs = {
   connectionId: Scalars['ID']['input'];
   userId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationGrantProjectAccessArgs = {
+  projectId: Scalars['ID']['input'];
+  userId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationImportAiAgentArgs = {
+  json: Scalars['String']['input'];
+  projectId?: InputMaybe<Scalars['ID']['input']>;
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -4826,8 +5007,16 @@ export type MutationInstantiateAiEvalTemplateArgs = {
 
 export type MutationInviteUserArgs = {
   email: Scalars['String']['input'];
-  password: Scalars['String']['input'];
   role: Scalars['String']['input'];
+  workspaces?: InputMaybe<Array<WorkspaceAssignmentInput>>;
+};
+
+
+export type MutationInviteWorkspaceUserArgs = {
+  customRoleId?: InputMaybe<Scalars['ID']['input']>;
+  email: Scalars['String']['input'];
+  role?: InputMaybe<WorkspaceRole>;
+  workspaceId: Scalars['ID']['input'];
 };
 
 
@@ -4921,6 +5110,13 @@ export type MutationRemoveWorkspaceUserArgs = {
 };
 
 
+export type MutationRemoveWorkspaceUserEnvironmentRoleArgs = {
+  environment: EnvironmentEnum;
+  userId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type MutationRenameDataTableArgs = {
   input: RenameDataTableInput;
 };
@@ -4954,6 +5150,13 @@ export type MutationRevokeAiHubChatAccessArgs = {
 
 export type MutationRevokeConnectionAccessArgs = {
   connectionId: Scalars['ID']['input'];
+  userId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationRevokeProjectAccessArgs = {
+  projectId: Scalars['ID']['input'];
   userId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
 };
@@ -5101,6 +5304,22 @@ export type MutationSetKnowledgeBaseSourceEnabledArgs = {
 };
 
 
+export type MutationSetProjectVisibilityArgs = {
+  projectId: Scalars['ID']['input'];
+  visibility: ResourceVisibility;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationSetWorkspaceUserEnvironmentRoleArgs = {
+  customRoleId?: InputMaybe<Scalars['ID']['input']>;
+  environment: EnvironmentEnum;
+  role?: InputMaybe<WorkspaceRole>;
+  userId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type MutationSnoozeAiObservabilityAlertRuleArgs = {
   id: Scalars['ID']['input'];
   until: Scalars['Long']['input'];
@@ -5113,16 +5332,6 @@ export type MutationStartAiAgentEvalRunArgs = {
   environmentId: Scalars['ID']['input'];
   name: Scalars['String']['input'];
   scenarioIds?: InputMaybe<Array<Scalars['ID']['input']>>;
-};
-
-
-export type MutationStartDiscoverEndpointsArgs = {
-  input: DiscoverEndpointsInput;
-};
-
-
-export type MutationStartGenerateForEndpointsArgs = {
-  input: GenerateForEndpointsInput;
 };
 
 
@@ -5177,6 +5386,17 @@ export type MutationUnassignNotificationFromWorkspaceArgs = {
 };
 
 
+export type MutationUnpinAiModelArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type MutationUnpinWorkspaceAiModelArgs = {
+  modelId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type MutationUnsnoozeAiObservabilityAlertRuleArgs = {
   id: Scalars['ID']['input'];
 };
@@ -5209,6 +5429,21 @@ export type MutationUpdateA2aServerArgs = {
 export type MutationUpdateA2aServerTagsArgs = {
   id: Scalars['ID']['input'];
   tags: Array<TagInput>;
+};
+
+
+export type MutationUpdateAiAgentArgs = {
+  input: UpdateAiAgentInput;
+};
+
+
+export type MutationUpdateAiAgentChannelArgs = {
+  input: UpdateAiAgentChannelInput;
+};
+
+
+export type MutationUpdateAiAgentElementArgs = {
+  input: UpdateAiAgentElementInput;
 };
 
 
@@ -5252,6 +5487,12 @@ export type MutationUpdateAiAgentScenarioToolSimulationArgs = {
 };
 
 
+export type MutationUpdateAiAgentSettingsArgs = {
+  id: Scalars['ID']['input'];
+  settings: Scalars['Map']['input'];
+};
+
+
 export type MutationUpdateAiAutoMemoryArgs = {
   input: UpdateAiAutoMemoryInput;
 };
@@ -5284,12 +5525,6 @@ export type MutationUpdateAiEvalScoreConfigArgs = {
 export type MutationUpdateAiGatewayBudgetArgs = {
   id: Scalars['ID']['input'];
   input: UpdateAiGatewayBudgetInput;
-};
-
-
-export type MutationUpdateAiGatewayModelArgs = {
-  id: Scalars['ID']['input'];
-  input: UpdateAiGatewayModelInput;
 };
 
 
@@ -5346,6 +5581,12 @@ export type MutationUpdateAiHubChatToolParametersArgs = {
 
 export type MutationUpdateAiHubVoiceWebhookUrlArgs = {
   input: UpdateAiHubVoiceWebhookUrlInput;
+};
+
+
+export type MutationUpdateAiModelArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateAiModelInput;
 };
 
 
@@ -5689,12 +5930,6 @@ export type MutationUpdateWorkflowAlertRuleArgs = {
 };
 
 
-export type MutationUpdateWorkspaceAiGatewayModelArgs = {
-  id: Scalars['ID']['input'];
-  input: UpdateAiGatewayModelInput;
-};
-
-
 export type MutationUpdateWorkspaceAiGatewayProviderArgs = {
   id: Scalars['ID']['input'];
   input: UpdateAiGatewayProviderInput;
@@ -5705,6 +5940,13 @@ export type MutationUpdateWorkspaceAiGatewayProviderArgs = {
 export type MutationUpdateWorkspaceAiGatewayRoutingPolicyArgs = {
   id: Scalars['ID']['input'];
   input: UpdateAiGatewayRoutingPolicyInput;
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateWorkspaceAiModelArgs = {
+  id: Scalars['ID']['input'];
+  input: UpdateAiModelInput;
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -5908,6 +6150,7 @@ export type Project = {
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
   tags?: Maybe<Array<Maybe<Tag>>>;
+  visibility: ResourceVisibility;
 };
 
 export type ProjectDeployment = {
@@ -6070,6 +6313,9 @@ export type Query = {
   adminApiKeys?: Maybe<Array<Maybe<ApiKey>>>;
   /** Get workflows that would be affected by reassigning a user's connections. (admin only) */
   affectedWorkflows: Array<AffectedWorkflow>;
+  aiAgent?: Maybe<AiAgent>;
+  aiAgentChannelDefinitions: Array<AiAgentChannelDefinition>;
+  aiAgentDeployments: Array<AiAgentDeployment>;
   aiAgentEvalResult?: Maybe<AiAgentEvalResult>;
   aiAgentEvalResultTranscript?: Maybe<Scalars['String']['output']>;
   aiAgentEvalRun?: Maybe<AiAgentEvalRun>;
@@ -6077,6 +6323,8 @@ export type Query = {
   aiAgentEvalTest?: Maybe<AiAgentEvalTest>;
   aiAgentEvalTests: Array<AiAgentEvalTest>;
   aiAgentJudges: Array<AiAgentJudge>;
+  aiAgentVersions: Array<AiAgentVersion>;
+  aiAgents: Array<AiAgent>;
   /**
    * Lists memories in the workspace, scoped to the supplied environment so DEVELOPMENT preferences do not bleed
    * into PRODUCTION sessions and vice versa. The optional memoryType filter narrows results to a single category.
@@ -6124,9 +6372,6 @@ export type Query = {
   aiEvalScoresByTrace?: Maybe<Array<Maybe<AiEvalScore>>>;
   aiEvalTemplates?: Maybe<Array<Maybe<AiEvalTemplate>>>;
   aiGatewayBudget?: Maybe<AiGatewayBudget>;
-  aiGatewayModel?: Maybe<AiGatewayModel>;
-  aiGatewayModels?: Maybe<Array<Maybe<AiGatewayModel>>>;
-  aiGatewayModelsByProvider?: Maybe<Array<Maybe<AiGatewayModel>>>;
   aiGatewayProject?: Maybe<AiGatewayProject>;
   aiGatewayProjectSettings?: Maybe<AiGatewayProjectSettings>;
   aiGatewayProjects: Array<AiGatewayProject>;
@@ -6204,6 +6449,9 @@ export type Query = {
    */
   aiHubUserConnectors: Array<AiHubUserConnector>;
   aiHubWorkspaceSettings?: Maybe<AiHubWorkspaceSettings>;
+  aiModel?: Maybe<AiModel>;
+  aiModels?: Maybe<Array<Maybe<AiModel>>>;
+  aiModelsByProvider?: Maybe<Array<Maybe<AiModel>>>;
   aiObservabilityAlertEvents?: Maybe<Array<Maybe<AiObservabilityAlertEvent>>>;
   aiObservabilityAlertRule?: Maybe<AiObservabilityAlertRule>;
   aiObservabilityAlertRules?: Maybe<Array<Maybe<AiObservabilityAlertRule>>>;
@@ -6271,6 +6519,11 @@ export type Query = {
    * enabled. Admin-only.
    */
   componentPolicies: Array<ComponentPolicy>;
+  /**
+   * Display conditions for an operation's properties evaluated against a standalone parameter map, for property
+   * forms that have no workflow — a tool config dialog, an MCP tool popover, a connection dialog. Returns the
+   * conditions that hold; a condition absent from the map is false.
+   */
   componentPropertyDisplayConditions: Scalars['Map']['output'];
   connectedUser?: Maybe<ConnectedUser>;
   connectedUserCodeWorkflowReferences: Array<ConnectedUserCodeWorkflowReference>;
@@ -6307,9 +6560,12 @@ export type Query = {
   customComponentDefinition?: Maybe<CustomComponentDefinition>;
   customComponentSource: Scalars['String']['output'];
   customComponents: Array<CustomComponent>;
-  /** Get a custom role by ID. Requires tenant admin. */
-  customRole: CustomRole;
-  /** List all custom roles. Requires tenant admin. */
+  /**
+   * List every custom role in the tenant. Roles are tenant-global: defined once, assignable in any
+   * workspace. Pass a workspaceId to read as that workspace's member manager (requires the
+   * WORKSPACE_MEMBER_MANAGE scope there — the id is authorization context, not a filter), or omit it
+   * for the tenant-admin management view.
+   */
   customRoles: Array<CustomRole>;
   /**
    * Workspace connections whose component exposes at least one ItemReader cluster element.
@@ -6332,11 +6588,11 @@ export type Query = {
   embeddedMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   embeddedMcpServers?: Maybe<Array<Maybe<McpServer>>>;
   embeddedMcpToolsByComponentId?: Maybe<Array<Maybe<McpTool>>>;
-  endpointDiscoveryStatus?: Maybe<EndpointDiscoveryResult>;
   environments?: Maybe<Array<Maybe<Environment>>>;
   evaluatorFunctionDefinition: EvaluatorFunctionDefinition;
   evaluatorFunctionDefinitions: Array<EvaluatorFunctionDefinition>;
   experimentComparison?: Maybe<ExperimentComparisonView>;
+  exportAiAgent: Scalars['String']['output'];
   exportDataTableCsv: Scalars['String']['output'];
   generationJobStatus?: Maybe<GenerationJobStatus>;
   identityProvider?: Maybe<IdentityProviderType>;
@@ -6390,10 +6646,17 @@ export type Query = {
   /** Get all organization-level connections, optionally filtered by environment. (admin only, EE only) */
   organizationConnections: Array<OrganizationConnection>;
   pendingApprovals?: Maybe<Array<Maybe<PendingApproval>>>;
+  /**
+   * Every permission scope name the server recognises, for composing a role. Requires authentication:
+   * this is static metadata about what the server was built with, identical for every tenant.
+   */
+  permissionScopes: Array<Scalars['String']['output']>;
   preBuiltProjectTemplates: Array<ProjectTemplate>;
   preBuiltWorkflowTemplates: Array<WorkflowTemplate>;
   project?: Maybe<Project>;
   projectDeploymentWorkflow?: Maybe<ProjectDeploymentWorkflow>;
+  /** The users a private project has been granted to. Owner or admin only — an ordinary viewer of a shared project must not learn who else it was handed to. (EE only) */
+  projectGrants: Array<Scalars['Long']['output']>;
   projectTemplate?: Maybe<ProjectTemplate>;
   projectWorkflow?: Maybe<ProjectWorkflow>;
   projects?: Maybe<Array<Maybe<Project>>>;
@@ -6433,11 +6696,12 @@ export type Query = {
   workflowNodeMissingRequiredProperties: Array<Scalars['String']['output']>;
   workflowNodeScriptInput?: Maybe<Scalars['Map']['output']>;
   workflowTemplate?: Maybe<WorkflowTemplate>;
-  workspaceAiGatewayModels?: Maybe<Array<Maybe<AiGatewayModel>>>;
   workspaceAiGatewayProviders?: Maybe<Array<Maybe<AiGatewayProvider>>>;
   workspaceAiGatewayRequestLogs?: Maybe<Array<Maybe<AiGatewayRequestLog>>>;
   workspaceAiGatewayRoutingPolicies?: Maybe<Array<Maybe<AiGatewayRoutingPolicy>>>;
+  workspaceAiModels?: Maybe<Array<Maybe<AiModel>>>;
   workspaceApiKeys: Array<ApiKey>;
+  workspaceChatAgents: Array<ChatAgent>;
   workspaceChatWorkflows: Array<ChatWorkflow>;
   workspaceMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   workspaceMcpServers?: Maybe<Array<Maybe<McpServer>>>;
@@ -6494,6 +6758,16 @@ export type QueryAffectedWorkflowsArgs = {
 };
 
 
+export type QueryAiAgentArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiAgentDeploymentsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type QueryAiAgentEvalResultArgs = {
   id: Scalars['ID']['input'];
 };
@@ -6530,6 +6804,16 @@ export type QueryAiAgentEvalTestsArgs = {
 export type QueryAiAgentJudgesArgs = {
   workflowId: Scalars['String']['input'];
   workflowNodeName: Scalars['String']['input'];
+};
+
+
+export type QueryAiAgentVersionsArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiAgentsArgs = {
+  workspaceId: Scalars['ID']['input'];
 };
 
 
@@ -6647,16 +6931,6 @@ export type QueryAiEvalScoresByTraceArgs = {
 
 export type QueryAiGatewayBudgetArgs = {
   workspaceId: Scalars['ID']['input'];
-};
-
-
-export type QueryAiGatewayModelArgs = {
-  id: Scalars['ID']['input'];
-};
-
-
-export type QueryAiGatewayModelsByProviderArgs = {
-  providerId: Scalars['ID']['input'];
 };
 
 
@@ -6796,6 +7070,16 @@ export type QueryAiHubUserConnectorsArgs = {
 
 export type QueryAiHubWorkspaceSettingsArgs = {
   workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryAiModelArgs = {
+  id: Scalars['ID']['input'];
+};
+
+
+export type QueryAiModelsByProviderArgs = {
+  providerId: Scalars['ID']['input'];
 };
 
 
@@ -7100,7 +7384,7 @@ export type QueryComponentPropertyDisplayConditionsArgs = {
   componentName: Scalars['String']['input'];
   componentVersion: Scalars['Int']['input'];
   operationName: Scalars['String']['input'];
-  operationType: ComponentOperationType;
+  operationType: Scalars['String']['input'];
   parameters?: InputMaybe<Scalars['Map']['input']>;
 };
 
@@ -7210,8 +7494,8 @@ export type QueryCustomComponentSourceArgs = {
 };
 
 
-export type QueryCustomRoleArgs = {
-  id: Scalars['ID']['input'];
+export type QueryCustomRolesArgs = {
+  workspaceId?: InputMaybe<Scalars['ID']['input']>;
 };
 
 
@@ -7287,11 +7571,6 @@ export type QueryEmbeddedMcpToolsByComponentIdArgs = {
 };
 
 
-export type QueryEndpointDiscoveryStatusArgs = {
-  jobId: Scalars['String']['input'];
-};
-
-
 export type QueryEvaluatorFunctionDefinitionArgs = {
   name: Scalars['String']['input'];
 };
@@ -7304,6 +7583,11 @@ export type QueryEvaluatorFunctionDefinitionsArgs = {
 
 export type QueryExperimentComparisonArgs = {
   experimentIds: Array<Scalars['ID']['input']>;
+};
+
+
+export type QueryExportAiAgentArgs = {
+  id: Scalars['ID']['input'];
 };
 
 
@@ -7526,6 +7810,12 @@ export type QueryProjectDeploymentWorkflowArgs = {
 };
 
 
+export type QueryProjectGrantsArgs = {
+  projectId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type QueryProjectTemplateArgs = {
   id: Scalars['String']['input'];
   sharedProject: Scalars['Boolean']['input'];
@@ -7702,11 +7992,6 @@ export type QueryWorkflowTemplateArgs = {
 };
 
 
-export type QueryWorkspaceAiGatewayModelsArgs = {
-  workspaceId: Scalars['ID']['input'];
-};
-
-
 export type QueryWorkspaceAiGatewayProvidersArgs = {
   workspaceId: Scalars['ID']['input'];
 };
@@ -7724,7 +8009,18 @@ export type QueryWorkspaceAiGatewayRoutingPoliciesArgs = {
 };
 
 
+export type QueryWorkspaceAiModelsArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
 export type QueryWorkspaceApiKeysArgs = {
+  environmentId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkspaceChatAgentsArgs = {
   environmentId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
 };
@@ -7890,11 +8186,6 @@ export type SearchResult = {
   id: Scalars['ID']['output'];
   name: Scalars['String']['output'];
   type: SearchAssetType;
-};
-
-export type SelectedEndpointInput = {
-  method: Scalars['String']['input'];
-  path: Scalars['String']['input'];
 };
 
 export type SharedProject = {
@@ -8087,6 +8378,25 @@ export type UpdateA2aServerInput = {
   name?: InputMaybe<Scalars['String']['input']>;
 };
 
+export type UpdateAiAgentChannelInput = {
+  connectionId?: InputMaybe<Scalars['ID']['input']>;
+  id: Scalars['ID']['input'];
+  parameters?: InputMaybe<Scalars['Map']['input']>;
+};
+
+export type UpdateAiAgentElementInput = {
+  connectionId?: InputMaybe<Scalars['ID']['input']>;
+  id: Scalars['ID']['input'];
+  parameters?: InputMaybe<Scalars['Map']['input']>;
+};
+
+export type UpdateAiAgentInput = {
+  description?: InputMaybe<Scalars['String']['input']>;
+  id: Scalars['ID']['input'];
+  instructions?: InputMaybe<Scalars['String']['input']>;
+  title?: InputMaybe<Scalars['String']['input']>;
+};
+
 /**
  * A partial update. An omitted field keeps the stored value; a blank description clears it, while a blank title or
  * content is rejected. Title and description must be a single line. At least one of title, description, memoryType and
@@ -8111,17 +8421,6 @@ export type UpdateAiGatewayBudgetInput = {
   enabled?: InputMaybe<Scalars['Boolean']['input']>;
   enforcementMode?: InputMaybe<AiGatewayBudgetEnforcementMode>;
   period?: InputMaybe<AiGatewayBudgetPeriod>;
-};
-
-export type UpdateAiGatewayModelInput = {
-  alias?: InputMaybe<Scalars['String']['input']>;
-  capabilities?: InputMaybe<Scalars['String']['input']>;
-  contextWindow?: InputMaybe<Scalars['Int']['input']>;
-  defaultRoutingPolicyId?: InputMaybe<Scalars['ID']['input']>;
-  enabled?: InputMaybe<Scalars['Boolean']['input']>;
-  inputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
-  name?: InputMaybe<Scalars['String']['input']>;
-  outputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
 };
 
 export type UpdateAiGatewayProjectInput = {
@@ -8171,6 +8470,17 @@ export type UpdateAiHubVoiceWebhookUrlInput = {
   workspaceId: Scalars['ID']['input'];
 };
 
+export type UpdateAiModelInput = {
+  alias?: InputMaybe<Scalars['String']['input']>;
+  capabilities?: InputMaybe<Scalars['String']['input']>;
+  contextWindow?: InputMaybe<Scalars['Int']['input']>;
+  defaultRoutingPolicyId?: InputMaybe<Scalars['ID']['input']>;
+  enabled?: InputMaybe<Scalars['Boolean']['input']>;
+  inputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
+  name?: InputMaybe<Scalars['String']['input']>;
+  outputCostPerMTokens?: InputMaybe<Scalars['Float']['input']>;
+};
+
 export type UpdateAiPromptInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
@@ -8181,7 +8491,9 @@ export type UpdateApiConnectorInput = {
   description?: InputMaybe<Scalars['String']['input']>;
   icon?: InputMaybe<Scalars['String']['input']>;
   name?: InputMaybe<Scalars['String']['input']>;
+  specification?: InputMaybe<Scalars['String']['input']>;
   title?: InputMaybe<Scalars['String']['input']>;
+  version?: InputMaybe<Scalars['Int']['input']>;
 };
 
 export type UpdateAssetFileInput = {
@@ -8458,6 +8770,12 @@ export type WorkflowValidationResult = {
   warnings: Array<Scalars['String']['output']>;
 };
 
+export type WorkspaceAssignmentInput = {
+  /** WorkspaceRole name, e.g. ADMIN, EDITOR or VIEWER */
+  roleName: Scalars['String']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
 /**
  * A flat, workspace-wide listing entry: one latest-version project workflow reduced to its label and ids.
  * Deliberately excludes the workflow definition — this powers pickers that list every workflow in a workspace,
@@ -8502,7 +8820,16 @@ export type WorkspaceUser = {
   createdDate?: Maybe<Scalars['String']['output']>;
   /** Custom role ID (EE only), null if using a built-in role */
   customRoleId?: Maybe<Scalars['ID']['output']>;
-  id: Scalars['ID']['output'];
+  /** The environment this role applies to, or null when it applies to every environment */
+  environment?: Maybe<EnvironmentEnum>;
+  /** Membership row id, or null for an inherited entry which has no row */
+  id?: Maybe<Scalars['ID']['output']>;
+  /**
+   * True when the entry is not a stored membership but a tenant admin, who administers every workspace.
+   * Such entries are locked: their role cannot be changed and they cannot be removed, because there is
+   * no row to change. Revoke tenant admin instead.
+   */
+  inherited: Scalars['Boolean']['output'];
   user?: Maybe<WorkspaceUserInfo>;
   userId: Scalars['ID']['output'];
   workspaceId: Scalars['ID']['output'];

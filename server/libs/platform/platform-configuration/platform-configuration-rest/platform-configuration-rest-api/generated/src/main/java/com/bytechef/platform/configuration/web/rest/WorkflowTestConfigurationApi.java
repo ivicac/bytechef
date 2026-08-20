@@ -82,7 +82,6 @@ public interface WorkflowTestConfigurationApi {
 
     }
 
-
     String PATH_GET_WORKFLOW_TEST_CONFIGURATION = "/workflow-test-configurations/{workflowId}";
     /**
      * GET /workflow-test-configurations/{workflowId} : Get a workflow test configuration
@@ -124,7 +123,6 @@ public interface WorkflowTestConfigurationApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_WORKFLOW_TEST_CONFIGURATION_CONNECTIONS = "/workflow-test-configurations/{workflowId}/workflow-nodes/{workflowNodeName}/connections";
     /**
@@ -170,7 +168,6 @@ public interface WorkflowTestConfigurationApi {
 
     }
 
-
     String PATH_SAVE_WORKFLOW_TEST_CONFIGURATION = "/workflow-test-configurations/{workflowId}";
     /**
      * PUT /workflow-test-configurations/{workflowId} : Create new or update an existing workflow test configuration
@@ -213,7 +210,6 @@ public interface WorkflowTestConfigurationApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_SAVE_WORKFLOW_TEST_CONFIGURATION_INPUTS = "/workflow-test-configurations/{workflowId}/inputs";
     /**

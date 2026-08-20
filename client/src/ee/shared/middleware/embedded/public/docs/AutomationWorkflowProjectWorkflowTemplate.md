@@ -1,7 +1,7 @@
 
 # AutomationWorkflowProjectWorkflowTemplate
 
-An automation workflow template within an automation workflow project.
+A catalog workflow template within an automation workflow project.
 
 ## Properties
 
@@ -11,7 +11,6 @@ Name | Type
 `label` | string
 `description` | string
 `components` | [Array&lt;AutomationWorkflowProjectComponent&gt;](AutomationWorkflowProjectComponent.md)
-`inputs` | [Array&lt;AutomationWorkflowProjectWorkflowInput&gt;](AutomationWorkflowProjectWorkflowInput.md)
 
 ## Example
 
@@ -24,7 +23,6 @@ const example = {
   "label": null,
   "description": null,
   "components": null,
-  "inputs": null,
 } satisfies AutomationWorkflowProjectWorkflowTemplate
 
 console.log(example)

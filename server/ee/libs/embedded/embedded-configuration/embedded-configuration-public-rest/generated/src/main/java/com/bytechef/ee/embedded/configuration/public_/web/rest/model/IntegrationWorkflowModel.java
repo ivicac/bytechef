@@ -3,6 +3,7 @@ package com.bytechef.ee.embedded.configuration.public_.web.rest.model;
 import java.net.URI;
 import java.util.Objects;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.InputModel;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -29,12 +30,16 @@ import jakarta.annotation.Generated;
 @Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T17:05:21.941318+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 public class IntegrationWorkflowModel {
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String description;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid InputModel> inputs = new ArrayList<>();
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String label;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String workflowUuid;
 
   public IntegrationWorkflowModel description(@Nullable String description) {

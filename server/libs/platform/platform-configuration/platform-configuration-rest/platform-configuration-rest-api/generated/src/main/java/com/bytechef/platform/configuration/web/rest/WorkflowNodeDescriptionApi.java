@@ -88,7 +88,6 @@ public interface WorkflowNodeDescriptionApi {
 
     }
 
-
     String PATH_GET_WORKFLOW_NODE_DESCRIPTION = "/workflows/{id}/workflow-nodes/{workflowNodeName}/descriptions";
     /**
      * GET /workflows/{id}/workflow-nodes/{workflowNodeName}/descriptions : Get an action description shown in the editor

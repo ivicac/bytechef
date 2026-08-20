@@ -12,14 +12,7 @@
  * Do not edit the class manually.
  */
 
-import { mapValues, parseDate, parseDateTime, serializeDate, serializeDateTime } from '../runtime';
-import type { AutomationWorkflowProjectWorkflowInput } from './AutomationWorkflowProjectWorkflowInput';
-import {
-    AutomationWorkflowProjectWorkflowInputFromJSON,
-    AutomationWorkflowProjectWorkflowInputFromJSONTyped,
-    AutomationWorkflowProjectWorkflowInputToJSON,
-    AutomationWorkflowProjectWorkflowInputToJSONTyped,
-} from './AutomationWorkflowProjectWorkflowInput';
+import { mapValues } from '../runtime';
 import type { AutomationWorkflowProjectComponent } from './AutomationWorkflowProjectComponent';
 import {
     AutomationWorkflowProjectComponentFromJSON,
@@ -71,11 +64,15 @@ export interface ConnectedUserProjectWorkflow {
      */
     kind?: ConnectedUserProjectWorkflowKindEnum;
     /**
-     * For REFERENCE rows, the uuid of the automation workflow being referenced.
+     * For REFERENCE rows, the uuid of the catalog workflow being referenced.
+     * @type {string}
+     * @memberof ConnectedUserProjectWorkflow
      */
-    automationWorkflowUuid?: string;
+    catalogWorkflowUuid?: string;
     /**
-     * For COPY rows, the uuid of the automation workflow template the copy was created from. Null otherwise.
+     * For COPY rows, the uuid of the catalog template the copy was created from. Null otherwise.
+     * @type {string}
+     * @memberof ConnectedUserProjectWorkflow
      */
     copiedFromWorkflowUuid?: string;
     /**
@@ -86,18 +83,6 @@ export interface ConnectedUserProjectWorkflow {
      * The components used by the workflow.
      */
     components?: Array<AutomationWorkflowProjectComponent>;
-    /**
-     * The values the connected user is asked for before this workflow runs.
-     */
-    inputs?: Array<AutomationWorkflowProjectWorkflowInput>;
-    /**
-     * The values the connected user has already supplied, keyed by input name.
-     */
-    inputValues?: { [key: string]: any; };
-    /**
-     * Why a REFERENCE needs attention: MISSING_CONNECTION:<component>, INPUT_REQUIRED:<input> or UPDATE_PENDING. Null when healthy or for COPY rows.
-     */
-    attentionReason?: string;
 }
 
 
@@ -137,13 +122,10 @@ export function ConnectedUserProjectWorkflowFromJSONTyped(json: any, ignoreDiscr
         'workflowUuid': json['workflowUuid'] == null ? undefined : json['workflowUuid'],
         'workflowVersion': json['workflowVersion'] == null ? undefined : json['workflowVersion'],
         'kind': json['kind'] == null ? undefined : json['kind'],
-        'automationWorkflowUuid': json['automationWorkflowUuid'] == null ? undefined : json['automationWorkflowUuid'],
+        'catalogWorkflowUuid': json['catalogWorkflowUuid'] == null ? undefined : json['catalogWorkflowUuid'],
         'copiedFromWorkflowUuid': json['copiedFromWorkflowUuid'] == null ? undefined : json['copiedFromWorkflowUuid'],
         'dangling': json['dangling'] == null ? undefined : json['dangling'],
         'components': json['components'] == null ? undefined : ((json['components'] as Array<any>).map(AutomationWorkflowProjectComponentFromJSON)),
-        'inputs': json['inputs'] == null ? undefined : ((json['inputs'] as Array<any>).map(AutomationWorkflowProjectWorkflowInputFromJSON)),
-        'inputValues': json['inputValues'] == null ? undefined : json['inputValues'],
-        'attentionReason': json['attentionReason'] == null ? undefined : json['attentionReason'],
     };
 }
 
@@ -167,13 +149,10 @@ export function ConnectedUserProjectWorkflowToJSONTyped(value?: ConnectedUserPro
         'workflowUuid': value['workflowUuid'],
         'workflowVersion': value['workflowVersion'],
         'kind': value['kind'],
-        'automationWorkflowUuid': value['automationWorkflowUuid'],
+        'catalogWorkflowUuid': value['catalogWorkflowUuid'],
         'copiedFromWorkflowUuid': value['copiedFromWorkflowUuid'],
         'dangling': value['dangling'],
         'components': value['components'] == null ? undefined : ((value['components'] as Array<any>).map(AutomationWorkflowProjectComponentToJSON)),
-        'inputs': value['inputs'] == null ? undefined : ((value['inputs'] as Array<any>).map(AutomationWorkflowProjectWorkflowInputToJSON)),
-        'inputValues': value['inputValues'],
-        'attentionReason': value['attentionReason'],
     };
 }
 

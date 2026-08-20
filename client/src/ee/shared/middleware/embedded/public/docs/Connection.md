@@ -14,9 +14,6 @@ Name | Type
 `connectionVersion` | number
 `authorizationType` | string
 `createdDate` | Date
-`credentialStatus` | [CredentialStatus](CredentialStatus.md)
-`shared` | boolean
-`editable` | boolean
 
 ## Example
 
@@ -32,9 +29,6 @@ const example = {
   "connectionVersion": null,
   "authorizationType": null,
   "createdDate": null,
-  "credentialStatus": null,
-  "shared": null,
-  "editable": null,
 } satisfies Connection
 
 console.log(example)

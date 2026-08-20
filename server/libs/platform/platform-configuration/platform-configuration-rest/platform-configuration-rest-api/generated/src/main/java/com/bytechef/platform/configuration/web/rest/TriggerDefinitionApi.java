@@ -87,7 +87,6 @@ public interface TriggerDefinitionApi {
 
     }
 
-
     String PATH_GET_COMPONENT_TRIGGER_DEFINITIONS = "/component-definitions/{componentName}/versions/{componentVersion}/trigger-definitions";
     /**
      * GET /component-definitions/{componentName}/versions/{componentVersion}/trigger-definitions : Get a list of trigger definitions for a component

@@ -5,6 +5,7 @@ import java.util.Objects;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AuthorizationTypeModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.InputModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.OAuth2Model;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -32,10 +33,13 @@ import jakarta.annotation.Generated;
 @Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T17:05:21.941318+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 public class ConnectionConfigModel {
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable AuthorizationTypeModel authorizationType;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid InputModel> inputs = new ArrayList<>();
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable OAuth2Model oauth2;
 
   public ConnectionConfigModel authorizationType(@Nullable AuthorizationTypeModel authorizationType) {

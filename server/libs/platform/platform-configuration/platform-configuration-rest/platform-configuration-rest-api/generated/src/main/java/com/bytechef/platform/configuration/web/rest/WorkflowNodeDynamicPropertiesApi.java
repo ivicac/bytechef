@@ -95,7 +95,6 @@ public interface WorkflowNodeDynamicPropertiesApi {
 
     }
 
-
     String PATH_GET_WORKFLOW_NODE_DYNAMIC_PROPERTIES = "/workflows/{id}/workflow-nodes/{workflowNodeName}/dynamic-properties/{propertyName}";
     /**
      * GET /workflows/{id}/workflow-nodes/{workflowNodeName}/dynamic-properties/{propertyName} : Get dynamic properties for an action or trigger property shown in the editor

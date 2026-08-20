@@ -87,7 +87,6 @@ public interface ActionDefinitionApi {
 
     }
 
-
     String PATH_GET_COMPONENT_ACTION_DEFINITIONS = "/component-definitions/{componentName}/versions/{componentVersion}/action-definitions";
     /**
      * GET /component-definitions/{componentName}/versions/{componentVersion}/action-definitions : Get a list of action definitions for a component

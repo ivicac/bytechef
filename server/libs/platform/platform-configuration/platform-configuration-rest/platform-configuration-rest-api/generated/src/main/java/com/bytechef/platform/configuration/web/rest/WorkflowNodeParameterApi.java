@@ -97,7 +97,6 @@ public interface WorkflowNodeParameterApi {
 
     }
 
-
     String PATH_DELETE_WORKFLOW_NODE_PARAMETER = "/workflows/{id}/workflow-nodes/{workflowNodeName}/parameters";
     /**
      * DELETE /workflows/{id}/workflow-nodes/{workflowNodeName}/parameters : Deletes a workflow node parameter
@@ -144,7 +143,6 @@ public interface WorkflowNodeParameterApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_CLUSTER_ELEMENT_PARAMETER_DISPLAY_CONDITIONS = "/workflows/{id}/workflow-nodes/{workflowNodeName}/cluster-elements/{clusterElementType}/{clusterElementWorkflowNodeName}/display-conditions";
     /**
@@ -194,7 +192,6 @@ public interface WorkflowNodeParameterApi {
 
     }
 
-
     String PATH_GET_WORKFLOW_NODE_PARAMETER_DISPLAY_CONDITIONS = "/workflows/{id}/workflow-nodes/{workflowNodeName}/display-conditions";
     /**
      * GET /workflows/{id}/workflow-nodes/{workflowNodeName}/display-conditions : Get action or trigger display conditions shown in the editor
@@ -238,7 +235,6 @@ public interface WorkflowNodeParameterApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_UPDATE_CLUSTER_ELEMENT_PARAMETER = "/workflows/{id}/workflow-nodes/{workflowNodeName}/cluster-elements/{clusterElementType}/{clusterElementWorkflowNodeName}/parameters";
     /**
@@ -290,7 +286,6 @@ public interface WorkflowNodeParameterApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_UPDATE_WORKFLOW_NODE_PARAMETER = "/workflows/{id}/workflow-nodes/{workflowNodeName}/parameters";
     /**
