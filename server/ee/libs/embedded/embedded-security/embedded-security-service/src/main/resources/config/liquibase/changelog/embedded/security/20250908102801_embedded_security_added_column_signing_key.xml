@@ -13,6 +13,7 @@
         <addColumn tableName="signing_key">
             <column name="environment" type="INT"/>
         </addColumn>
+        <rollback/>
     </changeSet>
 
     <changeSet id="20250908102801-2" author="Ivica Cardic" context="mono">

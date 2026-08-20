@@ -43,6 +43,7 @@
                 <constraints nullable="false"/>
             </column>
         </createTable>
+        <rollback/>
     </changeSet>
 
     <changeSet id="00000000000001-1" author="Ivica Cardic" context="mono">
@@ -58,5 +59,6 @@
             constraintName="fk_signing_key_user"
             referencedColumnNames="id"
             referencedTableName="user"/>
+        <rollback/>
     </changeSet>
 </databaseChangeLog>

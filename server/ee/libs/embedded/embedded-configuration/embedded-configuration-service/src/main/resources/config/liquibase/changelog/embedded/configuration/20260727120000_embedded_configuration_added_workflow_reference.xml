@@ -63,5 +63,6 @@
             <column name="connected_user_project_id"/>
             <column name="automation_workflow_uuid"/>
         </createIndex>
+        <rollback/>
     </changeSet>
 </databaseChangeLog>

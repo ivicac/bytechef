@@ -32,5 +32,6 @@
             <column name="connected_user_project_id"/>
             <column name="copied_from_workflow_uuid"/>
         </createIndex>
+        <rollback/>
     </changeSet>
 </databaseChangeLog>

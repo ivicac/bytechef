@@ -3,6 +3,15 @@
                    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
                    xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
                    http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+    <!--
+        The empty <rollback/> blocks in this file are deliberate, not omissions.
+
+        A changeset guarded by a MARK_RAN precondition can be recorded as ran without having applied its change, so
+        its inverse must never run. With no rollback declared Liquibase auto-generates that inverse (dropColumn,
+        dropTable, and so on) and a rollback would then destroy an object this changeset never created. An empty
+        rollback leaves the object in place instead: inert, and re-applying the changeset is a no-op through the same
+        precondition.
+    -->
 
     <changeSet id="00000000000001" author="Ivica Cardic">
         <preConditions onFail="MARK_RAN">
@@ -19,6 +28,9 @@
                 <constraints nullable="false"/>
             </column>
             <column name="description" type="TEXT"/>
+            <column name="type" type="INT">
+                <constraints nullable="false"/>
+            </column>
             <column name="environment" type="INT">
                 <constraints nullable="false"/>
             </column>
@@ -29,9 +41,6 @@
                 <constraints nullable="false"/>
             </column>
             <column name="secret_key" type="VARCHAR(256)">
-                <constraints nullable="false"/>
-            </column>
-            <column name="uuid" type="${uuid_type}">
                 <constraints nullable="false"/>
             </column>
             <column name="created_date" type="TIMESTAMP">
@@ -52,7 +61,6 @@
         </createTable>
 
         <addUniqueConstraint constraintName="uk_a2a_server_secret_key" tableName="a2a_server" columnNames="secret_key" />
-        <addUniqueConstraint constraintName="uk_a2a_server_uuid_environment" tableName="a2a_server" columnNames="uuid,environment" />
 
         <createTable tableName="a2a_project">
             <column name="id" type="BIGINT" autoIncrement="true" startWith="1050">
@@ -63,9 +71,6 @@
             </column>
             <column name="project_deployment_id" type="BIGINT">
                 <constraints nullable="false" foreignKeyName="fk_a2a_project_project_deployment" references="project_deployment(id)"/>
-            </column>
-            <column name="project_id" type="BIGINT">
-                <constraints nullable="false"/>
             </column>
             <column name="created_date" type="TIMESTAMP">
                 <constraints nullable="false"/>
@@ -85,7 +90,6 @@
         </createTable>
 
         <addUniqueConstraint constraintName="uk_a2a_project_a2a_server_project_deployment" tableName="a2a_project" columnNames="a2a_server_id,project_deployment_id" />
-        <addUniqueConstraint constraintName="uk_a2a_project_a2a_server_id_project_id" tableName="a2a_project" columnNames="a2a_server_id,project_id" />
 
         <createTable tableName="a2a_project_workflow">
             <column name="id" type="BIGINT" autoIncrement="true" startWith="1050">
