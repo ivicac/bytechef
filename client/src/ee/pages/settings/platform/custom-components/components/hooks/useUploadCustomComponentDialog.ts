@@ -18,7 +18,7 @@ export default function useUploadCustomComponentDialog() {
 
     const queryClient = useQueryClient();
 
-    const acceptedExtensions = javaEnabled ? '.jar,.js,.py,.rb' : '.js,.py,.rb';
+    const acceptedExtensions = javaEnabled ? '.jar,.js,.py' : '.js,.py';
 
     const resetForm = useCallback(() => {
         setSelectedFiles([]);
