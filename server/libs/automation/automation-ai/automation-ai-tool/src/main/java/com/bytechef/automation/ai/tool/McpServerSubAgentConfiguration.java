@@ -17,10 +17,7 @@
 package com.bytechef.automation.ai.tool;
 
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolChatClientFactory;
-import com.bytechef.atlas.configuration.service.WorkflowService;
-import com.bytechef.automation.ai.mcp.service.McpProjectService;
-import com.bytechef.automation.ai.mcp.service.McpProjectWorkflowService;
-import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
+import com.bytechef.automation.ai.mcp.facade.McpProjectWorkflowFacade;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
@@ -30,30 +27,11 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnBean;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 
 /**
- * Registers the {@code mcpServerBuildSubAgentChatClient} / {@code mcpServerBuildSubAgentChatClientFactory} Spring beans
- * that back the {@code configureMcpServer} intelligent tool — the MCP-server tool-mapping subagent consumed by the
- * ai_hub BUILD agent, the management MCP server, and the MCP Servers Copilot panel (see
- * {@link McpServerIntelligentToolContributor}, which registers the {@code configureMcpServer}
- * {@code IntelligentToolDefinition} against this factory).
- *
- * <p>
- * The subagent carries exactly two CRUD tools — {@link ListMcpProjectWorkflowsToolCallback} and
- * {@link UpdateMcpProjectWorkflowParametersToolCallback} — plus the {@code prompt_mcp_agent.txt} system prompt, which
- * carries the fromAi authoring playbook narrowed to tool-mapping synthesis. It does not create, attach to, or enable
- * servers; those remain flat CRUD tools on whichever surface calls this subagent.
- * </p>
- *
- * <p>
- * Gated so the beans exist when either the Copilot panel or the AI Hub surface is enabled, since both consume this
- * subagent — mirrors {@code DataTableAgentConfiguration}.
- * </p>
- *
  * @author Ivica Cardic
  */
 @Configuration
@@ -65,46 +43,27 @@ public class McpServerSubAgentConfiguration {
 
     @Bean
     @ConditionalOnBean({
-        McpProjectService.class, McpProjectWorkflowService.class
+        McpProjectWorkflowFacade.class
     })
     ChatClient mcpServerBuildSubAgentChatClient(
-        ChatModel chatModel, McpProjectService mcpProjectService,
-        McpProjectWorkflowService mcpProjectWorkflowService,
-        ProjectDeploymentWorkflowService projectDeploymentWorkflowService, WorkflowService workflowService) {
-
-        return buildMcpServerBuildSubAgentChatClient(
-            chatModel, mcpProjectService, mcpProjectWorkflowService, projectDeploymentWorkflowService,
-            workflowService);
-    }
-
-    @Bean
-    @ConditionalOnBean({
-        McpProjectService.class, McpProjectWorkflowService.class
-    })
-    IntelligentToolChatClientFactory mcpServerBuildSubAgentChatClientFactory(
-        @Qualifier("mcpServerBuildSubAgentChatClient") ChatClient mcpServerBuildSubAgentChatClient,
-        McpProjectService mcpProjectService, McpProjectWorkflowService mcpProjectWorkflowService,
-        ProjectDeploymentWorkflowService projectDeploymentWorkflowService, WorkflowService workflowService) {
-
-        return candidateChatModel -> candidateChatModel == null
-            ? mcpServerBuildSubAgentChatClient
-            : buildMcpServerBuildSubAgentChatClient(
-                candidateChatModel, mcpProjectService, mcpProjectWorkflowService, projectDeploymentWorkflowService,
-                workflowService);
-    }
-
-    private ChatClient buildMcpServerBuildSubAgentChatClient(
-        ChatModel chatModel, McpProjectService mcpProjectService,
-        McpProjectWorkflowService mcpProjectWorkflowService,
-        ProjectDeploymentWorkflowService projectDeploymentWorkflowService, WorkflowService workflowService) {
+        ChatModel chatModel, McpProjectWorkflowFacade mcpProjectWorkflowFacade) {
 
         return ChatClient.builder(chatModel)
             .defaultSystem(readPrompt(promptResource))
             .defaultTools(
-                new ListMcpProjectWorkflowsToolCallback(
-                    mcpProjectService, mcpProjectWorkflowService, projectDeploymentWorkflowService, workflowService),
-                new UpdateMcpProjectWorkflowParametersToolCallback(mcpProjectWorkflowService))
+                new ListMcpProjectWorkflowsToolCallback(mcpProjectWorkflowFacade),
+                new UpdateMcpProjectWorkflowParametersToolCallback(mcpProjectWorkflowFacade))
             .build();
+    }
+
+    @Bean
+    @ConditionalOnBean({
+        McpProjectWorkflowFacade.class
+    })
+    IntelligentToolChatClientFactory mcpServerBuildSubAgentChatClientFactory(
+        @Qualifier("mcpServerBuildSubAgentChatClient") ChatClient mcpServerBuildSubAgentChatClient) {
+
+        return chatModel -> mcpServerBuildSubAgentChatClient;
     }
 
     private String readPrompt(Resource resource) {
