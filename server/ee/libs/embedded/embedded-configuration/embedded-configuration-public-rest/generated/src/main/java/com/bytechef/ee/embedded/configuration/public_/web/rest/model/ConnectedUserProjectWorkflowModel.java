@@ -4,6 +4,7 @@ import java.net.URI;
 import java.util.Objects;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectComponentModel;
 import com.bytechef.ee.embedded.configuration.public_.web.rest.model.AutomationWorkflowProjectWorkflowInputModel;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
@@ -32,25 +33,33 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "ConnectedUserProjectWorkflow", description = "A group of tasks that make one logical workflow.")
 @JsonTypeName("ConnectedUserProjectWorkflow")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-27T21:42:20.429973+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-08-18T00:19:21.376010+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
 public class ConnectedUserProjectWorkflowModel {
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   private @Nullable OffsetDateTime createdDate;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String description;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String definition;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   private @Nullable OffsetDateTime lastModifiedDate;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Boolean enabled;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String label;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String workflowUuid;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Integer workflowVersion;
 
   /**
@@ -88,24 +97,20 @@ public class ConnectedUserProjectWorkflowModel {
     }
   }
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable KindEnum kind;
 
-  private @Nullable String automationWorkflowUuid;
+  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private @Nullable String catalogWorkflowUuid;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String copiedFromWorkflowUuid;
 
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Boolean dangling;
 
-  @Valid
+  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid AutomationWorkflowProjectComponentModel> components = new ArrayList<>();
-
-  @Valid
-  private List<@Valid AutomationWorkflowProjectWorkflowInputModel> inputs = new ArrayList<>();
-
-  @Valid
-  private Map<String, Object> inputValues = new HashMap<>();
-
-  private @Nullable String attentionReason;
 
   public ConnectedUserProjectWorkflowModel createdDate(@Nullable OffsetDateTime createdDate) {
     this.createdDate = createdDate;
@@ -281,11 +286,11 @@ public class ConnectedUserProjectWorkflowModel {
   }
 
   /**
-   * COPY when the workflow is the user's own editable copy; REFERENCE when it points at a shared automation workflow.
+   * COPY when the workflow is the user's own editable copy; REFERENCE when it points at a shared catalog workflow.
    * @return kind
    */
   
-  @Schema(name = "kind", description = "COPY when the workflow is the user's own editable copy; REFERENCE when it points at a shared automation workflow.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "kind", description = "COPY when the workflow is the user's own editable copy; REFERENCE when it points at a shared catalog workflow.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("kind")
   public @Nullable KindEnum getKind() {
     return kind;
@@ -296,25 +301,25 @@ public class ConnectedUserProjectWorkflowModel {
     this.kind = kind;
   }
 
-  public ConnectedUserProjectWorkflowModel automationWorkflowUuid(@Nullable String automationWorkflowUuid) {
-    this.automationWorkflowUuid = automationWorkflowUuid;
+  public ConnectedUserProjectWorkflowModel catalogWorkflowUuid(@Nullable String catalogWorkflowUuid) {
+    this.catalogWorkflowUuid = catalogWorkflowUuid;
     return this;
   }
 
   /**
-   * For REFERENCE rows, the uuid of the automation workflow being referenced.
-   * @return automationWorkflowUuid
+   * For REFERENCE rows, the uuid of the catalog workflow being referenced.
+   * @return catalogWorkflowUuid
    */
   
-  @Schema(name = "automationWorkflowUuid", description = "For REFERENCE rows, the uuid of the automation workflow being referenced.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-  @JsonProperty("automationWorkflowUuid")
-  public @Nullable String getAutomationWorkflowUuid() {
-    return automationWorkflowUuid;
+  @Schema(name = "catalogWorkflowUuid", description = "For REFERENCE rows, the uuid of the catalog workflow being referenced.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("catalogWorkflowUuid")
+  public @Nullable String getCatalogWorkflowUuid() {
+    return catalogWorkflowUuid;
   }
 
-  @JsonProperty("automationWorkflowUuid")
-  public void setAutomationWorkflowUuid(@Nullable String automationWorkflowUuid) {
-    this.automationWorkflowUuid = automationWorkflowUuid;
+  @JsonProperty("catalogWorkflowUuid")
+  public void setCatalogWorkflowUuid(@Nullable String catalogWorkflowUuid) {
+    this.catalogWorkflowUuid = catalogWorkflowUuid;
   }
 
   public ConnectedUserProjectWorkflowModel copiedFromWorkflowUuid(@Nullable String copiedFromWorkflowUuid) {
@@ -323,11 +328,11 @@ public class ConnectedUserProjectWorkflowModel {
   }
 
   /**
-   * For COPY rows, the uuid of the automation workflow template the copy was created from. Null otherwise.
+   * For COPY rows, the uuid of the catalog template the copy was created from. Null otherwise.
    * @return copiedFromWorkflowUuid
    */
   
-  @Schema(name = "copiedFromWorkflowUuid", description = "For COPY rows, the uuid of the automation workflow template the copy was created from. Null otherwise.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "copiedFromWorkflowUuid", description = "For COPY rows, the uuid of the catalog template the copy was created from. Null otherwise.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("copiedFromWorkflowUuid")
   public @Nullable String getCopiedFromWorkflowUuid() {
     return copiedFromWorkflowUuid;
@@ -344,11 +349,11 @@ public class ConnectedUserProjectWorkflowModel {
   }
 
   /**
-   * True when a REFERENCE points at an automation workflow that is no longer served.
+   * True when a REFERENCE points at a catalog workflow that is no longer served.
    * @return dangling
    */
   
-  @Schema(name = "dangling", description = "True when a REFERENCE points at an automation workflow that is no longer served.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "dangling", description = "True when a REFERENCE points at a catalog workflow that is no longer served.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("dangling")
   public @Nullable Boolean getDangling() {
     return dangling;
@@ -388,85 +393,6 @@ public class ConnectedUserProjectWorkflowModel {
     this.components = components;
   }
 
-  public ConnectedUserProjectWorkflowModel inputs(List<@Valid AutomationWorkflowProjectWorkflowInputModel> inputs) {
-    this.inputs = inputs;
-    return this;
-  }
-
-  public ConnectedUserProjectWorkflowModel addInputsItem(AutomationWorkflowProjectWorkflowInputModel inputsItem) {
-    if (this.inputs == null) {
-      this.inputs = new ArrayList<>();
-    }
-    this.inputs.add(inputsItem);
-    return this;
-  }
-
-  /**
-   * The values the connected user is asked for before this workflow runs.
-   * @return inputs
-   */
-  @Valid 
-  @Schema(name = "inputs", description = "The values the connected user is asked for before this workflow runs.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-  @JsonProperty("inputs")
-  public List<@Valid AutomationWorkflowProjectWorkflowInputModel> getInputs() {
-    return inputs;
-  }
-
-  @JsonProperty("inputs")
-  public void setInputs(List<@Valid AutomationWorkflowProjectWorkflowInputModel> inputs) {
-    this.inputs = inputs;
-  }
-
-  public ConnectedUserProjectWorkflowModel inputValues(Map<String, Object> inputValues) {
-    this.inputValues = inputValues;
-    return this;
-  }
-
-  public ConnectedUserProjectWorkflowModel putInputValuesItem(String key, Object inputValuesItem) {
-    if (this.inputValues == null) {
-      this.inputValues = new HashMap<>();
-    }
-    this.inputValues.put(key, inputValuesItem);
-    return this;
-  }
-
-  /**
-   * The values the connected user has already supplied, keyed by input name.
-   * @return inputValues
-   */
-  
-  @Schema(name = "inputValues", description = "The values the connected user has already supplied, keyed by input name.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-  @JsonProperty("inputValues")
-  public Map<String, Object> getInputValues() {
-    return inputValues;
-  }
-
-  @JsonProperty("inputValues")
-  public void setInputValues(Map<String, Object> inputValues) {
-    this.inputValues = inputValues;
-  }
-
-  public ConnectedUserProjectWorkflowModel attentionReason(@Nullable String attentionReason) {
-    this.attentionReason = attentionReason;
-    return this;
-  }
-
-  /**
-   * Why a REFERENCE needs attention: MISSING_CONNECTION:<component>, INPUT_REQUIRED:<input> or UPDATE_PENDING. Null when healthy or for COPY rows.
-   * @return attentionReason
-   */
-  
-  @Schema(name = "attentionReason", description = "Why a REFERENCE needs attention: MISSING_CONNECTION:<component>, INPUT_REQUIRED:<input> or UPDATE_PENDING. Null when healthy or for COPY rows.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-  @JsonProperty("attentionReason")
-  public @Nullable String getAttentionReason() {
-    return attentionReason;
-  }
-
-  @JsonProperty("attentionReason")
-  public void setAttentionReason(@Nullable String attentionReason) {
-    this.attentionReason = attentionReason;
-  }
-
   @Override
   public boolean equals(Object o) {
     if (this == o) {
@@ -485,18 +411,15 @@ public class ConnectedUserProjectWorkflowModel {
         Objects.equals(this.workflowUuid, connectedUserProjectWorkflow.workflowUuid) &&
         Objects.equals(this.workflowVersion, connectedUserProjectWorkflow.workflowVersion) &&
         Objects.equals(this.kind, connectedUserProjectWorkflow.kind) &&
-        Objects.equals(this.automationWorkflowUuid, connectedUserProjectWorkflow.automationWorkflowUuid) &&
+        Objects.equals(this.catalogWorkflowUuid, connectedUserProjectWorkflow.catalogWorkflowUuid) &&
         Objects.equals(this.copiedFromWorkflowUuid, connectedUserProjectWorkflow.copiedFromWorkflowUuid) &&
         Objects.equals(this.dangling, connectedUserProjectWorkflow.dangling) &&
-        Objects.equals(this.components, connectedUserProjectWorkflow.components) &&
-        Objects.equals(this.inputs, connectedUserProjectWorkflow.inputs) &&
-        Objects.equals(this.inputValues, connectedUserProjectWorkflow.inputValues) &&
-        Objects.equals(this.attentionReason, connectedUserProjectWorkflow.attentionReason);
+        Objects.equals(this.components, connectedUserProjectWorkflow.components);
   }
 
   @Override
   public int hashCode() {
-    return Objects.hash(createdDate, description, definition, lastModifiedDate, enabled, label, workflowUuid, workflowVersion, kind, automationWorkflowUuid, copiedFromWorkflowUuid, dangling, components, inputs, inputValues, attentionReason);
+    return Objects.hash(createdDate, description, definition, lastModifiedDate, enabled, label, workflowUuid, workflowVersion, kind, catalogWorkflowUuid, copiedFromWorkflowUuid, dangling, components);
   }
 
   @Override
@@ -512,13 +435,10 @@ public class ConnectedUserProjectWorkflowModel {
     sb.append("    workflowUuid: ").append(toIndentedString(workflowUuid)).append("\n");
     sb.append("    workflowVersion: ").append(toIndentedString(workflowVersion)).append("\n");
     sb.append("    kind: ").append(toIndentedString(kind)).append("\n");
-    sb.append("    automationWorkflowUuid: ").append(toIndentedString(automationWorkflowUuid)).append("\n");
+    sb.append("    catalogWorkflowUuid: ").append(toIndentedString(catalogWorkflowUuid)).append("\n");
     sb.append("    copiedFromWorkflowUuid: ").append(toIndentedString(copiedFromWorkflowUuid)).append("\n");
     sb.append("    dangling: ").append(toIndentedString(dangling)).append("\n");
     sb.append("    components: ").append(toIndentedString(components)).append("\n");
-    sb.append("    inputs: ").append(toIndentedString(inputs)).append("\n");
-    sb.append("    inputValues: ").append(toIndentedString(inputValues)).append("\n");
-    sb.append("    attentionReason: ").append(toIndentedString(attentionReason)).append("\n");
     sb.append("}");
     return sb.toString();
   }

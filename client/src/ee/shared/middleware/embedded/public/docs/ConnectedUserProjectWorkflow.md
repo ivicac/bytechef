@@ -16,13 +16,10 @@ Name | Type
 `workflowUuid` | string
 `workflowVersion` | number
 `kind` | string
-`automationWorkflowUuid` | string
+`catalogWorkflowUuid` | string
 `copiedFromWorkflowUuid` | string
 `dangling` | boolean
 `components` | [Array&lt;AutomationWorkflowProjectComponent&gt;](AutomationWorkflowProjectComponent.md)
-`inputs` | [Array&lt;AutomationWorkflowProjectWorkflowInput&gt;](AutomationWorkflowProjectWorkflowInput.md)
-`inputValues` | { [key: string]: any; }
-`attentionReason` | string
 
 ## Example
 
@@ -40,13 +37,10 @@ const example = {
   "workflowUuid": null,
   "workflowVersion": null,
   "kind": null,
-  "automationWorkflowUuid": null,
+  "catalogWorkflowUuid": null,
   "copiedFromWorkflowUuid": null,
   "dangling": null,
   "components": null,
-  "inputs": null,
-  "inputValues": null,
-  "attentionReason": null,
 } satisfies ConnectedUserProjectWorkflow
 
 console.log(example)

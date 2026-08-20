@@ -1,4 +1,3 @@
-.openapi-generator-ignore
 apis/AutomationWorkflowProjectApi.ts
 apis/ConnectedUserApi.ts
 apis/ConnectedUserProjectWorkflowApi.ts
@@ -11,7 +10,6 @@ docs/AuthorizationType.md
 docs/AutomationWorkflowProject.md
 docs/AutomationWorkflowProjectApi.md
 docs/AutomationWorkflowProjectComponent.md
-docs/AutomationWorkflowProjectWorkflowInput.md
 docs/AutomationWorkflowProjectWorkflowTemplate.md
 docs/ComponentInputOptionsRequest.md
 docs/ComponentInputReference.md
@@ -30,7 +28,6 @@ docs/CreateFrontendIntegrationInstanceRequestConnection.md
 docs/CreateFrontendProjectWorkflowFromPromptRequest.md
 docs/CreateFrontendProjectWorkflowRequest.md
 docs/CredentialStatus.md
-docs/EnableFrontendProjectWorkflow409Response.md
 docs/Environment.md
 docs/Input.md
 docs/InputType.md
@@ -46,21 +43,17 @@ docs/IntegrationWorkflow.md
 docs/McpIntegrationInstanceTool.md
 docs/McpTool.md
 docs/MissingConnectionError.md
-docs/MissingInputError.md
 docs/OAuth2.md
 docs/Option.md
-docs/ProvisionWorkflowReferenceRequest.md
 docs/PublishFrontendProjectWorkflowRequest.md
 docs/ReauthorizeConnectionRequest.md
 docs/UpdateFrontendIntegrationInstanceWorkflowRequest.md
 docs/UpdateFrontendWorkflowConfigurationConnectionRequest.md
-docs/UpdateWorkflowInputsRequest.md
 docs/Workflow.md
 index.ts
 models/AuthorizationType.ts
 models/AutomationWorkflowProject.ts
 models/AutomationWorkflowProjectComponent.ts
-models/AutomationWorkflowProjectWorkflowInput.ts
 models/AutomationWorkflowProjectWorkflowTemplate.ts
 models/ComponentInputOptionsRequest.ts
 models/ComponentInputReference.ts
@@ -76,7 +69,6 @@ models/CreateFrontendIntegrationInstanceRequestConnection.ts
 models/CreateFrontendProjectWorkflowFromPromptRequest.ts
 models/CreateFrontendProjectWorkflowRequest.ts
 models/CredentialStatus.ts
-models/EnableFrontendProjectWorkflow409Response.ts
 models/Environment.ts
 models/Input.ts
 models/InputType.ts
@@ -89,15 +81,12 @@ models/IntegrationWorkflow.ts
 models/McpIntegrationInstanceTool.ts
 models/McpTool.ts
 models/MissingConnectionError.ts
-models/MissingInputError.ts
 models/OAuth2.ts
 models/Option.ts
-models/ProvisionWorkflowReferenceRequest.ts
 models/PublishFrontendProjectWorkflowRequest.ts
 models/ReauthorizeConnectionRequest.ts
 models/UpdateFrontendIntegrationInstanceWorkflowRequest.ts
 models/UpdateFrontendWorkflowConfigurationConnectionRequest.ts
-models/UpdateWorkflowInputsRequest.ts
 models/Workflow.ts
 models/index.ts
 runtime.ts

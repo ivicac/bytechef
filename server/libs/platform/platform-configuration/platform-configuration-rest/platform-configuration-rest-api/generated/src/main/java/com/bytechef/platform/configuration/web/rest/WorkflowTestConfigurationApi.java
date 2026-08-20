@@ -36,7 +36,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-07-01T09:51:24.669688+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-23T21:34:31.774564+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 @Validated
 @Tag(name = "workflow-test-configuration", description = "The Platform Workflow Test Configuration Internal API")
 public interface WorkflowTestConfigurationApi {
@@ -82,7 +82,6 @@ public interface WorkflowTestConfigurationApi {
 
     }
 
-
     String PATH_GET_WORKFLOW_TEST_CONFIGURATION = "/workflow-test-configurations/{workflowId}";
     /**
      * GET /workflow-test-configurations/{workflowId} : Get a workflow test configuration
@@ -124,7 +123,6 @@ public interface WorkflowTestConfigurationApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_GET_WORKFLOW_TEST_CONFIGURATION_CONNECTIONS = "/workflow-test-configurations/{workflowId}/workflow-nodes/{workflowNodeName}/connections";
     /**
@@ -170,7 +168,6 @@ public interface WorkflowTestConfigurationApi {
 
     }
 
-
     String PATH_SAVE_WORKFLOW_TEST_CONFIGURATION = "/workflow-test-configurations/{workflowId}";
     /**
      * PUT /workflow-test-configurations/{workflowId} : Create new or update an existing workflow test configuration
@@ -213,7 +210,6 @@ public interface WorkflowTestConfigurationApi {
         return new ResponseEntity<>(HttpStatus.NOT_IMPLEMENTED);
 
     }
-
 
     String PATH_SAVE_WORKFLOW_TEST_CONFIGURATION_INPUTS = "/workflow-test-configurations/{workflowId}/inputs";
     /**

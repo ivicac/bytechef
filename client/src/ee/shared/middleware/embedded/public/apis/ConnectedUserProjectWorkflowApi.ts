@@ -29,11 +29,6 @@ import {
     CreateFrontendProjectWorkflowRequestToJSON,
 } from '../models/CreateFrontendProjectWorkflowRequest';
 import {
-    type EnableFrontendProjectWorkflow409Response,
-    EnableFrontendProjectWorkflow409ResponseFromJSON,
-    EnableFrontendProjectWorkflow409ResponseToJSON,
-} from '../models/EnableFrontendProjectWorkflow409Response';
-import {
     type Environment,
     EnvironmentFromJSON,
     EnvironmentToJSON,
@@ -44,16 +39,6 @@ import {
     MissingConnectionErrorToJSON,
 } from '../models/MissingConnectionError';
 import {
-    type MissingInputError,
-    MissingInputErrorFromJSON,
-    MissingInputErrorToJSON,
-} from '../models/MissingInputError';
-import {
-    type ProvisionWorkflowReferenceRequest,
-    ProvisionWorkflowReferenceRequestFromJSON,
-    ProvisionWorkflowReferenceRequestToJSON,
-} from '../models/ProvisionWorkflowReferenceRequest';
-import {
     type PublishFrontendProjectWorkflowRequest,
     PublishFrontendProjectWorkflowRequestFromJSON,
     PublishFrontendProjectWorkflowRequestToJSON,
@@ -63,11 +48,6 @@ import {
     UpdateFrontendWorkflowConfigurationConnectionRequestFromJSON,
     UpdateFrontendWorkflowConfigurationConnectionRequestToJSON,
 } from '../models/UpdateFrontendWorkflowConfigurationConnectionRequest';
-import {
-    type UpdateWorkflowInputsRequest,
-    UpdateWorkflowInputsRequestFromJSON,
-    UpdateWorkflowInputsRequestToJSON,
-} from '../models/UpdateWorkflowInputsRequest';
 
 export interface CopyFrontendWorkflowTemplateRequest {
     workflowUuid: string;
@@ -169,14 +149,12 @@ export interface GetProjectWorkflowsRequest {
 export interface ProvisionFrontendWorkflowReferenceRequest {
     workflowUuid: string;
     xEnvironment?: Environment;
-    provisionWorkflowReferenceRequest?: ProvisionWorkflowReferenceRequest;
 }
 
-export interface ProvisionWorkflowReferenceOperationRequest {
+export interface ProvisionWorkflowReferenceRequest {
     externalUserId: string;
     workflowUuid: string;
     xEnvironment?: Environment;
-    provisionWorkflowReferenceRequest?: ProvisionWorkflowReferenceRequest;
 }
 
 export interface PublishFrontendProjectWorkflowOperationRequest {
@@ -204,12 +182,6 @@ export interface UpdateFrontendProjectWorkflowFromPromptRequest {
     xEnvironment?: Environment;
 }
 
-export interface UpdateFrontendProjectWorkflowInputsRequest {
-    workflowUuid: string;
-    updateWorkflowInputsRequest: UpdateWorkflowInputsRequest;
-    xEnvironment?: Environment;
-}
-
 export interface UpdateFrontendWorkflowConfigurationConnectionOperationRequest {
     workflowUuid: string;
     workflowNodeName: string;
@@ -229,13 +201,6 @@ export interface UpdateProjectWorkflowFromPromptRequest {
     externalUserId: string;
     workflowUuid: string;
     createFrontendProjectWorkflowFromPromptRequest: CreateFrontendProjectWorkflowFromPromptRequest;
-    xEnvironment?: Environment;
-}
-
-export interface UpdateProjectWorkflowInputsRequest {
-    externalUserId: string;
-    workflowUuid: string;
-    updateWorkflowInputsRequest: UpdateWorkflowInputsRequest;
     xEnvironment?: Environment;
 }
 
@@ -682,14 +647,6 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
             headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
         }
 
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("jwtBearerAuth", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
 
         let urlPath = `/automation/workflows/{workflowUuid}`;
         urlPath = urlPath.replace('{workflowUuid}', encodeURIComponent(String(requestParameters['workflowUuid'])));
@@ -747,14 +704,6 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
             headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
         }
 
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("bearerAuth", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
 
         let urlPath = `/{externalUserId}/automation/workflows/{workflowUuid}`;
         urlPath = urlPath.replace('{externalUserId}', encodeURIComponent(String(requestParameters['externalUserId'])));
@@ -954,19 +903,20 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
      * Disable a workflow.
      * Disable a workflow
      */
-    async disableFrontendProjectWorkflowRaw(requestParameters: DisableFrontendProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async disableFrontendProjectWorkflowRaw(requestParameters: DisableFrontendProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>> {
         const requestOptions = await this.disableFrontendProjectWorkflowRequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
-        return new runtime.VoidApiResponse(response);
+        return new runtime.JSONApiResponse<any>(response);
     }
 
     /**
      * Disable a workflow.
      * Disable a workflow
      */
-    async disableFrontendProjectWorkflow(requestParameters: DisableFrontendProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.disableFrontendProjectWorkflowRaw(requestParameters, initOverrides);
+    async disableFrontendProjectWorkflow(requestParameters: DisableFrontendProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<object> {
+        const response = await this.disableFrontendProjectWorkflowRaw(requestParameters, initOverrides);
+        return await response.value();
     }
 
     /**
@@ -1020,19 +970,20 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
      * Disable a workflow.
      * Disable a workflow
      */
-    async disableProjectWorkflowRaw(requestParameters: DisableProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async disableProjectWorkflowRaw(requestParameters: DisableProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>> {
         const requestOptions = await this.disableProjectWorkflowRequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
-        return new runtime.VoidApiResponse(response);
+        return new runtime.JSONApiResponse<any>(response);
     }
 
     /**
      * Disable a workflow.
      * Disable a workflow
      */
-    async disableProjectWorkflow(requestParameters: DisableProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.disableProjectWorkflowRaw(requestParameters, initOverrides);
+    async disableProjectWorkflow(requestParameters: DisableProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<object> {
+        const response = await this.disableProjectWorkflowRaw(requestParameters, initOverrides);
+        return await response.value();
     }
 
     /**
@@ -1078,19 +1029,20 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
      * Enable a workflow.
      * Enable a workflow
      */
-    async enableFrontendProjectWorkflowRaw(requestParameters: EnableFrontendProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async enableFrontendProjectWorkflowRaw(requestParameters: EnableFrontendProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>> {
         const requestOptions = await this.enableFrontendProjectWorkflowRequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
-        return new runtime.VoidApiResponse(response);
+        return new runtime.JSONApiResponse<any>(response);
     }
 
     /**
      * Enable a workflow.
      * Enable a workflow
      */
-    async enableFrontendProjectWorkflow(requestParameters: EnableFrontendProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.enableFrontendProjectWorkflowRaw(requestParameters, initOverrides);
+    async enableFrontendProjectWorkflow(requestParameters: EnableFrontendProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<object> {
+        const response = await this.enableFrontendProjectWorkflowRaw(requestParameters, initOverrides);
+        return await response.value();
     }
 
     /**
@@ -1144,19 +1096,20 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
      * Enable a workflow.
      * Enable a workflow
      */
-    async enableProjectWorkflowRaw(requestParameters: EnableProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async enableProjectWorkflowRaw(requestParameters: EnableProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>> {
         const requestOptions = await this.enableProjectWorkflowRequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
-        return new runtime.VoidApiResponse(response);
+        return new runtime.JSONApiResponse<any>(response);
     }
 
     /**
      * Enable a workflow.
      * Enable a workflow
      */
-    async enableProjectWorkflow(requestParameters: EnableProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.enableProjectWorkflowRaw(requestParameters, initOverrides);
+    async enableProjectWorkflow(requestParameters: EnableProjectWorkflowRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<object> {
+        const response = await this.enableProjectWorkflowRaw(requestParameters, initOverrides);
+        return await response.value();
     }
 
     /**
@@ -1178,14 +1131,6 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
             headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
         }
 
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("jwtBearerAuth", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
 
         let urlPath = `/automation/workflows/{workflowUuid}`;
         urlPath = urlPath.replace('{workflowUuid}', encodeURIComponent(String(requestParameters['workflowUuid'])));
@@ -1230,14 +1175,6 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
             headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
         }
 
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("jwtBearerAuth", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
 
         let urlPath = `/automation/workflows`;
 
@@ -1295,14 +1232,6 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
             headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
         }
 
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("bearerAuth", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
 
         let urlPath = `/{externalUserId}/automation/workflows/{workflowUuid}`;
         urlPath = urlPath.replace('{externalUserId}', encodeURIComponent(String(requestParameters['externalUserId'])));
@@ -1355,14 +1284,6 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
             headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
         }
 
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("bearerAuth", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
 
         let urlPath = `/{externalUserId}/automation/workflows`;
         urlPath = urlPath.replace('{externalUserId}', encodeURIComponent(String(requestParameters['externalUserId'])));
@@ -1410,8 +1331,6 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
 
         const headerParameters: runtime.HTTPHeaders = {};
 
-        headerParameters['Content-Type'] = 'application/json';
-
         if (requestParameters['xEnvironment'] != null) {
             headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
         }
@@ -1433,7 +1352,6 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
-            body: ProvisionWorkflowReferenceRequestToJSON(requestParameters['provisionWorkflowReferenceRequest']),
         };
     }
 
@@ -1459,7 +1377,7 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
     /**
      * Creates request options for provisionWorkflowReference without sending the request
      */
-    async provisionWorkflowReferenceRequestOpts(requestParameters: ProvisionWorkflowReferenceOperationRequest): Promise<runtime.RequestOpts> {
+    async provisionWorkflowReferenceRequestOpts(requestParameters: ProvisionWorkflowReferenceRequest): Promise<runtime.RequestOpts> {
         if (requestParameters['externalUserId'] == null) {
             throw new runtime.RequiredError(
                 'externalUserId',
@@ -1477,8 +1395,6 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
         const queryParameters: any = {};
 
         const headerParameters: runtime.HTTPHeaders = {};
-
-        headerParameters['Content-Type'] = 'application/json';
 
         if (requestParameters['xEnvironment'] != null) {
             headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
@@ -1502,27 +1418,27 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
             method: 'POST',
             headers: headerParameters,
             query: queryParameters,
-            body: ProvisionWorkflowReferenceRequestToJSON(requestParameters['provisionWorkflowReferenceRequest']),
         };
     }
 
     /**
-     * Explicitly provision a reference to an automation workflow template ahead of first invocation.
-     * Provision a reference to an automation workflow template
+     * Explicitly provision a reference to a catalog code workflow ahead of first invocation.
+     * Provision a reference to a catalog code workflow
      */
-    async provisionWorkflowReferenceRaw(requestParameters: ProvisionWorkflowReferenceOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
+    async provisionWorkflowReferenceRaw(requestParameters: ProvisionWorkflowReferenceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<object>> {
         const requestOptions = await this.provisionWorkflowReferenceRequestOpts(requestParameters);
         const response = await this.request(requestOptions, initOverrides);
 
-        return new runtime.VoidApiResponse(response);
+        return new runtime.JSONApiResponse<any>(response);
     }
 
     /**
-     * Explicitly provision a reference to an automation workflow template ahead of first invocation.
-     * Provision a reference to an automation workflow template
+     * Explicitly provision a reference to a catalog code workflow ahead of first invocation.
+     * Provision a reference to a catalog code workflow
      */
-    async provisionWorkflowReference(requestParameters: ProvisionWorkflowReferenceOperationRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.provisionWorkflowReferenceRaw(requestParameters, initOverrides);
+    async provisionWorkflowReference(requestParameters: ProvisionWorkflowReferenceRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<object> {
+        const response = await this.provisionWorkflowReferenceRaw(requestParameters, initOverrides);
+        return await response.value();
     }
 
     /**
@@ -1811,74 +1727,6 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
     }
 
     /**
-     * Creates request options for updateFrontendProjectWorkflowInputs without sending the request
-     */
-    async updateFrontendProjectWorkflowInputsRequestOpts(requestParameters: UpdateFrontendProjectWorkflowInputsRequest): Promise<runtime.RequestOpts> {
-        if (requestParameters['workflowUuid'] == null) {
-            throw new runtime.RequiredError(
-                'workflowUuid',
-                'Required parameter "workflowUuid" was null or undefined when calling updateFrontendProjectWorkflowInputs().'
-            );
-        }
-
-        if (requestParameters['updateWorkflowInputsRequest'] == null) {
-            throw new runtime.RequiredError(
-                'updateWorkflowInputsRequest',
-                'Required parameter "updateWorkflowInputsRequest" was null or undefined when calling updateFrontendProjectWorkflowInputs().'
-            );
-        }
-
-        const queryParameters: any = {};
-
-        const headerParameters: runtime.HTTPHeaders = {};
-
-        headerParameters['Content-Type'] = 'application/json';
-
-        if (requestParameters['xEnvironment'] != null) {
-            headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
-        }
-
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("jwtBearerAuth", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
-
-        let urlPath = `/automation/workflows/{workflowUuid}/inputs`;
-        urlPath = urlPath.replace('{workflowUuid}', encodeURIComponent(String(requestParameters['workflowUuid'])));
-
-        return {
-            path: urlPath,
-            method: 'PUT',
-            headers: headerParameters,
-            query: queryParameters,
-            body: UpdateWorkflowInputsRequestToJSON(requestParameters['updateWorkflowInputsRequest']),
-        };
-    }
-
-    /**
-     * Store the input values the connected user supplied for a workflow.
-     * Store workflow input values
-     */
-    async updateFrontendProjectWorkflowInputsRaw(requestParameters: UpdateFrontendProjectWorkflowInputsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
-        const requestOptions = await this.updateFrontendProjectWorkflowInputsRequestOpts(requestParameters);
-        const response = await this.request(requestOptions, initOverrides);
-
-        return new runtime.VoidApiResponse(response);
-    }
-
-    /**
-     * Store the input values the connected user supplied for a workflow.
-     * Store workflow input values
-     */
-    async updateFrontendProjectWorkflowInputs(requestParameters: UpdateFrontendProjectWorkflowInputsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.updateFrontendProjectWorkflowInputsRaw(requestParameters, initOverrides);
-    }
-
-    /**
      * Creates request options for updateFrontendWorkflowConfigurationConnection without sending the request
      */
     async updateFrontendWorkflowConfigurationConnectionRequestOpts(requestParameters: UpdateFrontendWorkflowConfigurationConnectionOperationRequest): Promise<runtime.RequestOpts> {
@@ -2117,82 +1965,6 @@ export class ConnectedUserProjectWorkflowApi extends runtime.BaseAPI {
     async updateProjectWorkflowFromPrompt(requestParameters: UpdateProjectWorkflowFromPromptRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<string> {
         const response = await this.updateProjectWorkflowFromPromptRaw(requestParameters, initOverrides);
         return await response.value();
-    }
-
-    /**
-     * Creates request options for updateProjectWorkflowInputs without sending the request
-     */
-    async updateProjectWorkflowInputsRequestOpts(requestParameters: UpdateProjectWorkflowInputsRequest): Promise<runtime.RequestOpts> {
-        if (requestParameters['externalUserId'] == null) {
-            throw new runtime.RequiredError(
-                'externalUserId',
-                'Required parameter "externalUserId" was null or undefined when calling updateProjectWorkflowInputs().'
-            );
-        }
-
-        if (requestParameters['workflowUuid'] == null) {
-            throw new runtime.RequiredError(
-                'workflowUuid',
-                'Required parameter "workflowUuid" was null or undefined when calling updateProjectWorkflowInputs().'
-            );
-        }
-
-        if (requestParameters['updateWorkflowInputsRequest'] == null) {
-            throw new runtime.RequiredError(
-                'updateWorkflowInputsRequest',
-                'Required parameter "updateWorkflowInputsRequest" was null or undefined when calling updateProjectWorkflowInputs().'
-            );
-        }
-
-        const queryParameters: any = {};
-
-        const headerParameters: runtime.HTTPHeaders = {};
-
-        headerParameters['Content-Type'] = 'application/json';
-
-        if (requestParameters['xEnvironment'] != null) {
-            headerParameters['X-Environment'] = String(requestParameters['xEnvironment']);
-        }
-
-        if (this.configuration && this.configuration.accessToken) {
-            const token = this.configuration.accessToken;
-            const tokenString = await token("bearerAuth", []);
-
-            if (tokenString) {
-                headerParameters["Authorization"] = `Bearer ${tokenString}`;
-            }
-        }
-
-        let urlPath = `/{externalUserId}/automation/workflows/{workflowUuid}/inputs`;
-        urlPath = urlPath.replace('{externalUserId}', encodeURIComponent(String(requestParameters['externalUserId'])));
-        urlPath = urlPath.replace('{workflowUuid}', encodeURIComponent(String(requestParameters['workflowUuid'])));
-
-        return {
-            path: urlPath,
-            method: 'PUT',
-            headers: headerParameters,
-            query: queryParameters,
-            body: UpdateWorkflowInputsRequestToJSON(requestParameters['updateWorkflowInputsRequest']),
-        };
-    }
-
-    /**
-     * Store the input values a connected user supplied for a workflow.
-     * Store workflow input values
-     */
-    async updateProjectWorkflowInputsRaw(requestParameters: UpdateProjectWorkflowInputsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<runtime.ApiResponse<void>> {
-        const requestOptions = await this.updateProjectWorkflowInputsRequestOpts(requestParameters);
-        const response = await this.request(requestOptions, initOverrides);
-
-        return new runtime.VoidApiResponse(response);
-    }
-
-    /**
-     * Store the input values a connected user supplied for a workflow.
-     * Store workflow input values
-     */
-    async updateProjectWorkflowInputs(requestParameters: UpdateProjectWorkflowInputsRequest, initOverrides?: RequestInit | runtime.InitOverrideFunction): Promise<void> {
-        await this.updateProjectWorkflowInputsRaw(requestParameters, initOverrides);
     }
 
     /**
