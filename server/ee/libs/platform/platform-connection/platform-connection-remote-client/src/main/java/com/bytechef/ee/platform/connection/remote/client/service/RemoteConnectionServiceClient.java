@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.jspecify.annotations.Nullable;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.stereotype.Component;
 
@@ -30,7 +29,6 @@ import org.springframework.stereotype.Component;
  * @author Ivica Cardic
  */
 @Component
-@ConditionalOnProperty(name = "bytechef.remote.transport", havingValue = "rest", matchIfMissing = true)
 public class RemoteConnectionServiceClient implements ConnectionService {
     private final LoadBalancedRestClient loadBalancedRestClient;
 
@@ -68,8 +66,6 @@ public class RemoteConnectionServiceClient implements ConnectionService {
 
     @Override
     public Optional<Connection> fetchConnection(long id) {
-        // The remote endpoint has no not-found variant, so absence cannot be distinguished here. Callers on this
-        // path address ids the coordinator already resolved.
         return Optional.ofNullable(getConnection(id));
     }
 
@@ -149,6 +145,11 @@ public class RemoteConnectionServiceClient implements ConnectionService {
     }
 
     @Override
+    public Connection replaceConnectionParameters(long connectionId, Map<String, ?> parameters) {
+        throw new UnsupportedOperationException();
+    }
+
+    @Override
     public Connection updateVisibility(long id, ResourceVisibility visibility) {
         throw new UnsupportedOperationException();
     }
@@ -160,11 +161,6 @@ public class RemoteConnectionServiceClient implements ConnectionService {
 
     @Override
     public void validateConnectionsActive(List<Long> connectionIds) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public Connection replaceConnectionParameters(long connectionId, Map<String, ?> parameters) {
         throw new UnsupportedOperationException();
     }
 }
