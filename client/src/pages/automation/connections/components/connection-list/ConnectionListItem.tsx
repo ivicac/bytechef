@@ -1,18 +1,21 @@
+import '@/shared/styles/dropdownMenu.css';
 import AlertDialog from '@/components/AlertDialog';
 import Badge from '@/components/Badge/Badge';
+import Button from '@/components/Button/Button';
+import LazyLoadSVG from '@/components/LazyLoadSVG/LazyLoadSVG';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
+    DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@/components/DropdownMenu/DropdownMenu';
-import LazyLoadSVG from '@/components/LazyLoadSVG/LazyLoadSVG';
+} from '@/components/ui/dropdown-menu';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
-import {useVisibilityFeatureEnabled} from '@/pages/automation/connections/hooks/useVisibilityFeatureEnabled';
 import ConnectionDialog from '@/shared/components/connection/ConnectionDialog';
-import ConnectionListItemDropdownMenu from '@/shared/components/connection/ConnectionListItemDropdownMenu';
-import ConnectionVisibilityPicker from '@/shared/components/connection/ConnectionVisibilityPicker';
 import {connectionCredentialStoreLabels} from '@/shared/components/connection/connectionCredentialStoreLabels';
+import ResourceVisibilityBadge from '@/shared/components/visibility/ResourceVisibilityBadge';
+import ResourceVisibilityPicker from '@/shared/components/visibility/ResourceVisibilityPicker';
+import {useVisibilityFeatureEnabled} from '@/shared/hooks/useVisibilityFeatureEnabled';
 import {Connection, Tag} from '@/shared/middleware/automation/configuration';
 import {
     ConnectionCredentialStoreType,
@@ -33,12 +36,11 @@ import {
 import {ConnectionKeys, useGetConnectionTagsQuery} from '@/shared/queries/automation/connections.queries';
 import {ComponentDefinitionKeys} from '@/shared/queries/platform/componentDefinitions.queries';
 import {useQueryClient} from '@tanstack/react-query';
-import {ComponentIcon, Link2OffIcon, Trash2Icon} from 'lucide-react';
+import {ComponentIcon, EditIcon, EllipsisVerticalIcon, Link2OffIcon, Trash2Icon} from 'lucide-react';
 import {memo, useMemo, useState} from 'react';
 import {toast} from 'sonner';
 
 import TagList from '../../../../../shared/components/TagList';
-import ConnectionScopeBadge from '../ConnectionScopeBadge';
 
 interface ConnectionListItemProps {
     componentDefinitions: ComponentDefinitionBasic[];
@@ -183,7 +185,7 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
 
         return (
             <div className="min-w-64 p-3">
-                <ConnectionVisibilityPicker
+                <ResourceVisibilityPicker
                     grantedUserIds={grantedUserIds}
                     onGrantedUserIdsChange={(nextUserIds) => {
                         // Diff rather than replace: the server has no set-grants operation, and expressing it as
@@ -253,7 +255,7 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                                                     className="cursor-pointer rounded-sm hover:bg-gray-100"
                                                     type="button"
                                                 >
-                                                    <ConnectionScopeBadge
+                                                    <ResourceVisibilityBadge
                                                         grantedUserCount={grantedUserIds.length}
                                                         visibility={connection.visibility || 'WORKSPACE'}
                                                     />
@@ -266,7 +268,9 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                                         </DropdownMenu>
                                     ) : (
                                         visibilityFeatureEnabled && (
-                                            <ConnectionScopeBadge visibility={connection.visibility || 'WORKSPACE'} />
+                                            <ResourceVisibilityBadge
+                                                visibility={connection.visibility || 'WORKSPACE'}
+                                            />
                                         )
                                     )}
                                 </div>
@@ -344,35 +348,56 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                                 )}
                             </div>
 
-                            <ConnectionListItemDropdownMenu
-                                onEditClick={connection.managed ? undefined : () => setShowEditDialog(true)}
-                            >
-                                {connection.active === true && (
-                                    <DropdownMenuItem
-                                        icon={<Link2OffIcon />}
-                                        label="Disconnect from all"
-                                        onClick={() => setShowDisconnectDialog(true)}
-                                    />
-                                )}
+                            <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                    <Button icon={<EllipsisVerticalIcon />} size="icon" variant="ghost" />
+                                </DropdownMenuTrigger>
 
-                                {!connection.managed && (
-                                    <div
-                                        title={
-                                            connection.active === true
-                                                ? 'Disconnect from all workflows first to enable deletion'
-                                                : 'Delete the connection'
-                                        }
-                                    >
+                                <DropdownMenuContent align="end" className="p-0">
+                                    {!connection.managed && (
                                         <DropdownMenuItem
-                                            disabled={connection.active}
-                                            icon={<Trash2Icon />}
-                                            label="Delete"
-                                            onClick={() => setShowDeleteDialog(true)}
-                                            variant="destructive"
-                                        />
-                                    </div>
-                                )}
-                            </ConnectionListItemDropdownMenu>
+                                            className="dropdown-menu-item"
+                                            onClick={() => setShowEditDialog(true)}
+                                        >
+                                            <EditIcon /> Edit
+                                        </DropdownMenuItem>
+                                    )}
+
+                                    <DropdownMenuSeparator className="m-0" />
+
+                                    {connection.active === true && (
+                                        <DropdownMenuItem
+                                            className="dropdown-menu-item"
+                                            onClick={() => setShowDisconnectDialog(true)}
+                                        >
+                                            <Link2OffIcon /> Disconnect from all
+                                        </DropdownMenuItem>
+                                    )}
+
+                                    {!connection.managed && (
+                                        <div
+                                            title={
+                                                connection.active === true
+                                                    ? 'Disconnect from all workflows first to enable deletion'
+                                                    : 'Delete the connection'
+                                            }
+                                        >
+                                            <DropdownMenuItem
+                                                className={
+                                                    connection.active === true
+                                                        ? 'dropdown-menu-item-destructive-disabled'
+                                                        : 'dropdown-menu-item-destructive'
+                                                }
+                                                disabled={connection.active}
+                                                onClick={() => setShowDeleteDialog(true)}
+                                                variant="destructive"
+                                            >
+                                                <Trash2Icon /> Delete
+                                            </DropdownMenuItem>
+                                        </div>
+                                    )}
+                                </DropdownMenuContent>
+                            </DropdownMenu>
                         </div>
                     </div>
                 </div>

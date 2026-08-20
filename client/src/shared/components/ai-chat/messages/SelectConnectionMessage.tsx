@@ -7,9 +7,9 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/Select/Select';
-import ConnectionScopeBadge from '@/pages/automation/connections/components/ConnectionScopeBadge';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import EnvironmentBadge from '@/shared/components/EnvironmentBadge';
+import ResourceVisibilityBadge from '@/shared/components/visibility/ResourceVisibilityBadge';
 import {useGetWorkspaceConnectionsQuery} from '@/shared/queries/automation/connections.queries';
 import {useGetConnectionDefinitionQuery} from '@/shared/queries/platform/connectionDefinitions.queries';
 import {DataMessagePartProps, useAui} from '@assistant-ui/react';
@@ -109,6 +109,8 @@ const SelectConnectionMessage = ({data}: DataMessagePartProps<SelectConnectionDa
 
         setPickedConnection({id: connection.id, name: connection.name});
 
+        // Append as a system message so the transcript reads "User picked: <name>" rather than as if the
+        // user typed the connection name literally — same convention AskUserQuestion uses for its answers.
         aui.thread.append({
             content: [{text: `User picked: ${connection.name} (ID: ${connection.id})`, type: 'text'}],
             role: 'system',
@@ -173,7 +175,7 @@ const SelectConnectionMessage = ({data}: DataMessagePartProps<SelectConnectionDa
                                         )}
 
                                         {connection.visibility && (
-                                            <ConnectionScopeBadge visibility={connection.visibility} />
+                                            <ResourceVisibilityBadge visibility={connection.visibility} />
                                         )}
                                     </div>
                                 </SelectItem>

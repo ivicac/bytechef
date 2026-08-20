@@ -3,6 +3,7 @@ import Button from '@/components/Button/Button';
 import {Separator} from '@/components/ui/separator';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import EEVersion from '@/shared/edition/EEVersion';
+import {useVisibilityFeatureEnabled} from '@/shared/hooks/useVisibilityFeatureEnabled';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {
@@ -14,6 +15,7 @@ import {
     GitPullRequestArrowIcon,
     HistoryIcon,
     LayoutTemplateIcon,
+    LockIcon,
     PlusIcon,
     Share2Icon,
     Trash2Icon,
@@ -36,6 +38,7 @@ const ProjectTabButtons = ({
     onShowErrorWorkflowDialog,
     onShowProjectGitConfigurationDialog,
     onShowProjectVersionHistorySheet,
+    onShowVisibilityDialog,
     projectGitConfigurationEnabled,
     projectId,
 }: {
@@ -53,12 +56,18 @@ const ProjectTabButtons = ({
     onShowErrorWorkflowDialog: () => void;
     onShowProjectGitConfigurationDialog: () => void;
     onShowProjectVersionHistorySheet: () => void;
+    onShowVisibilityDialog: () => void;
     projectGitConfigurationEnabled: boolean;
     projectId: number;
 }) => {
     const templatesSubmissionForm = useApplicationInfoStore((state) => state.templatesSubmissionForm.projects);
 
     const gitIntegrationEnabled = useFeatureFlagsStore()('ff-1039');
+
+    // The workspace-scoped gate, not the bare edition one: the dialog this opens can only render its picker
+    // once a workspace is in context, so an edition-only check here would offer an item that opens an empty
+    // dialog.
+    const {enabled: visibilityFeatureEnabled} = useVisibilityFeatureEnabled();
 
     const handleButtonClick = (event: MouseEvent<HTMLDivElement>) => {
         if ((event.target as HTMLElement).tagName === 'BUTTON') {
@@ -94,6 +103,17 @@ const ProjectTabButtons = ({
                 onClick={onShareProject}
                 variant="ghost"
             />
+
+            {visibilityFeatureEnabled && (
+                <Button
+                    aria-label="Project Visibility Button"
+                    className="dropdown-menu-item"
+                    icon={<LockIcon />}
+                    label="Visibility"
+                    onClick={onShowVisibilityDialog}
+                    variant="ghost"
+                />
+            )}
 
             {templatesSubmissionForm && (
                 <Button
