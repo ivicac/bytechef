@@ -14,5 +14,6 @@
         <createIndex indexName="idx_api_collection_project_deployment_id" tableName="api_collection">
             <column name="project_deployment_id"/>
         </createIndex>
+        <rollback/>
     </changeSet>
 </databaseChangeLog>

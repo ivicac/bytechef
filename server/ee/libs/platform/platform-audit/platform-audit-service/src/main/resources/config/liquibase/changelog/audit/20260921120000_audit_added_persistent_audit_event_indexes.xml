@@ -14,6 +14,7 @@
             <column name="event_date" descending="true"/>
             <column name="id" descending="true"/>
         </createIndex>
+        <rollback/>
     </changeSet>
 
     <changeSet id="20260921120001" author="Ivica Cardic">
@@ -27,6 +28,7 @@
             <column name="principal"/>
             <column name="event_date" descending="true"/>
         </createIndex>
+        <rollback/>
     </changeSet>
 
     <changeSet id="20260921120002" author="Ivica Cardic">
@@ -40,5 +42,6 @@
             <column name="event_type"/>
             <column name="event_date" descending="true"/>
         </createIndex>
+        <rollback/>
     </changeSet>
 </databaseChangeLog>

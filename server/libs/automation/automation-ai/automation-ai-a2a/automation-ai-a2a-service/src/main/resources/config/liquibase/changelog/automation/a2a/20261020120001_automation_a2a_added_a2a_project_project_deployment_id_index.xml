@@ -14,5 +14,6 @@
         <createIndex indexName="idx_a2a_project_project_deployment_id" tableName="a2a_project">
             <column name="project_deployment_id"/>
         </createIndex>
+        <rollback/>
     </changeSet>
 </databaseChangeLog>

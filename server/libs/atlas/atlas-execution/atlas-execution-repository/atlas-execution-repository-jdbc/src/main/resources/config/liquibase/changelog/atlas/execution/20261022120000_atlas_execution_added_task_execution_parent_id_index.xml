@@ -32,5 +32,6 @@
             <column name="created_date"/>
             <column name="id"/>
         </createIndex>
+        <rollback/>
     </changeSet>
 </databaseChangeLog>

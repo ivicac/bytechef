@@ -29,5 +29,6 @@
         <createIndex indexName="idx_job_parent_task_execution_id" tableName="job">
             <column name="parent_task_execution_id"/>
         </createIndex>
+        <rollback/>
     </changeSet>
 </databaseChangeLog>

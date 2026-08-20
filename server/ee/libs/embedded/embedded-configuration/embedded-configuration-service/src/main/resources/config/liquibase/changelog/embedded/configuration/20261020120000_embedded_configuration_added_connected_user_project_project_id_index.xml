@@ -14,5 +14,6 @@
         <createIndex indexName="idx_connected_user_project_project_id" tableName="connected_user_project">
             <column name="project_id"/>
         </createIndex>
+        <rollback/>
     </changeSet>
 </databaseChangeLog>

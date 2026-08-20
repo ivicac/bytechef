@@ -62,6 +62,7 @@
                                  baseColumnNames="connected_user_id"
                                  constraintName="fk_connected_user_reference_deployment_connected_user"
                                  referencedTableName="connected_user" referencedColumnNames="id" onDelete="CASCADE"/>
+        <rollback/>
     </changeSet>
 
 </databaseChangeLog>
