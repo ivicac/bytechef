@@ -10,6 +10,7 @@
 
         <renameColumn tableName="connected_user_project_workflow" oldColumnName="catalog_workflow_uuid"
                       newColumnName="automation_workflow_uuid" columnDataType="VARCHAR(36)"/>
+        <rollback/>
     </changeSet>
 
     <changeSet id="20261009120000-2" author="Ivica Cardic">
