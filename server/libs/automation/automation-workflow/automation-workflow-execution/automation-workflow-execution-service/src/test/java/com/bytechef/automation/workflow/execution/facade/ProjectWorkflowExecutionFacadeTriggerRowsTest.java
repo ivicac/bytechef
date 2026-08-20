@@ -44,6 +44,7 @@ import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
+import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
@@ -89,6 +90,7 @@ class ProjectWorkflowExecutionFacadeTriggerRowsTest {
     private static final String WORKFLOW_ID = "workflow-1";
 
     private final JobService jobService = mock(JobService.class);
+    private final PermissionService permissionService = mock(PermissionService.class);
     private final ProjectDeploymentService projectDeploymentService = mock(ProjectDeploymentService.class);
     private final ProjectService projectService = mock(ProjectService.class);
     private final ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
@@ -113,10 +115,12 @@ class ProjectWorkflowExecutionFacadeTriggerRowsTest {
             .thenReturn(true);
         lenient().when(componentDefinitionService.getComponentDefinition(anyString(), any()))
             .thenReturn(componentDefinition);
+        lenient().when(permissionService.hasResourceScope(any(), anyString(), anyString()))
+            .thenReturn(true);
 
         facade = new ProjectWorkflowExecutionFacadeImpl(
             componentDefinitionService, mock(ContextService.class), mock(Evaluator.class),
-            mock(EnvironmentService.class), workflowExecutionRowService, jobService,
+            mock(EnvironmentService.class), workflowExecutionRowService, jobService, permissionService,
             mock(PrincipalJobService.class), mock(ProjectFacade.class), projectDeploymentService, projectService,
             projectWorkflowService, mock(TaskDispatcherDefinitionService.class), mock(TaskExecutionService.class),
             mock(TaskFileStorage.class), triggerExecutionService, mock(TriggerFileStorage.class), workflowService);
