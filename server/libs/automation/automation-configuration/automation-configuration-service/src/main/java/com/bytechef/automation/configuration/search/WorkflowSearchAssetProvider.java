@@ -18,7 +18,9 @@ package com.bytechef.automation.configuration.search;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
 import com.bytechef.automation.search.SearchAssetProvider;
@@ -38,14 +40,16 @@ import org.springframework.stereotype.Component;
 class WorkflowSearchAssetProvider implements SearchAssetProvider {
 
     private final ProjectService projectService;
+    private final ProjectVisibilityFilter projectVisibilityFilter;
     private final ProjectWorkflowService projectWorkflowService;
     private final WorkflowService workflowService;
 
     WorkflowSearchAssetProvider(
-        ProjectService projectService, ProjectWorkflowService projectWorkflowService,
-        WorkflowService workflowService) {
+        ProjectService projectService, ProjectVisibilityFilter projectVisibilityFilter,
+        ProjectWorkflowService projectWorkflowService, WorkflowService workflowService) {
 
         this.projectService = projectService;
+        this.projectVisibilityFilter = projectVisibilityFilter;
         this.projectWorkflowService = projectWorkflowService;
         this.workflowService = workflowService;
     }
@@ -81,7 +85,20 @@ class WorkflowSearchAssetProvider implements SearchAssetProvider {
         Map<String, Workflow> workflowIdToWorkflow = workflows.stream()
             .collect(Collectors.toMap(Workflow::getId, Function.identity()));
 
+        List<Long> projectIds = projectWorkflows.stream()
+            .map(ProjectWorkflow::getProjectId)
+            .distinct()
+            .toList();
+
+        // A workflow is exactly as visible as its project, so the workspace lookup is built from the visible subset
+        // only and doubles as the membership test below.
+        List<Project> visibleProjects = projectVisibilityFilter.filterVisible(projectService.getProjects(projectIds));
+
+        Map<Long, Long> projectIdToWorkspaceId = visibleProjects.stream()
+            .collect(Collectors.toMap(Project::getId, Project::getWorkspaceId));
+
         return projectWorkflows.stream()
+            .filter(projectWorkflow -> projectIdToWorkspaceId.containsKey(projectWorkflow.getProjectId()))
             .filter(projectWorkflow -> {
                 Workflow workflow = workflowIdToWorkflow.get(projectWorkflow.getWorkflowId());
 
@@ -95,7 +112,8 @@ class WorkflowSearchAssetProvider implements SearchAssetProvider {
 
                 return new WorkflowSearchResult(
                     projectWorkflow.getId(), projectWorkflow.getProjectId(),
-                    workflow.getLabel() != null ? workflow.getLabel() : workflow.getId(), workflow.getDescription());
+                    workflow.getLabel() != null ? workflow.getLabel() : workflow.getId(), workflow.getDescription(),
+                    projectIdToWorkspaceId.get(projectWorkflow.getProjectId()));
             })
             .toList();
     }

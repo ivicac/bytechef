@@ -28,6 +28,7 @@ import com.bytechef.automation.configuration.audit.ProjectAuditEvents;
 import com.bytechef.automation.configuration.config.ProjectAuditIntTestConfiguration;
 import com.bytechef.automation.configuration.config.ProjectIntTestConfiguration;
 import com.bytechef.automation.configuration.config.ProjectIntTestConfigurationSharedMocks;
+import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.dto.ProjectDTO;
 import com.bytechef.automation.configuration.repository.ProjectRepository;
@@ -42,6 +43,7 @@ import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.githubproxy.client.GitHubProxyClient;
 import com.bytechef.platform.security.constant.AuthorityConstants;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -211,6 +213,8 @@ class ProjectFacadeAuditIntTest {
     @Test
     void testDeniedProjectDeleteIsRecorded() {
         long projectId = projectFacade.createProject(newProjectDTO("Billing sync"));
+
+        makeProjectPrivate(projectId);
 
         persistenceAuditEventRepository.deleteAll();
 
@@ -503,6 +507,19 @@ class ProjectFacadeAuditIntTest {
         assertThat(persistentAuditEvents).hasSize(1);
 
         return persistentAuditEvents.getFirst();
+    }
+
+    /**
+     * Community Edition grants every authenticated member scope on a WORKSPACE-visible project, so a denial needs a
+     * project the caller cannot see: PRIVATE, and created by the auditor ("system") rather than by the caller.
+     */
+    private void makeProjectPrivate(long projectId) {
+        Project project = projectRepository.findById(projectId)
+            .orElseThrow();
+
+        project.setVisibility(ResourceVisibility.PRIVATE);
+
+        projectRepository.save(project);
     }
 
     private ProjectDTO newProjectDTO(String name) {

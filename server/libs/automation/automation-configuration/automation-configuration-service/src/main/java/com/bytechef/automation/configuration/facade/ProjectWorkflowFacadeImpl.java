@@ -29,7 +29,7 @@ import com.bytechef.automation.configuration.domain.SharedTemplate;
 import com.bytechef.automation.configuration.dto.ProjectWorkflowDTO;
 import com.bytechef.automation.configuration.dto.SharedWorkflowDTO;
 import com.bytechef.automation.configuration.dto.WorkflowTemplateDTO;
-import com.bytechef.automation.configuration.exception.ProjectErrorType;
+import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.PreBuiltTemplateService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
@@ -42,7 +42,6 @@ import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.config.ApplicationProperties;
-import com.bytechef.exception.ConfigurationException;
 import com.bytechef.file.storage.domain.FileEntry;
 import com.bytechef.platform.audit.AuditData;
 import com.bytechef.platform.audit.Audited;
@@ -79,7 +78,6 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
 import java.util.zip.ZipOutputStream;
@@ -110,7 +108,7 @@ public class ProjectWorkflowFacadeImpl implements ProjectWorkflowFacade {
     private final ProjectDeploymentService projectDeploymentService;
     private final ProjectDeploymentWorkflowService projectDeploymentWorkflowService;
     private final ProjectService projectService;
-    private final ProjectVersionWorkflowChangeService projectVersionWorkflowChangeService;
+    private final ProjectVisibilityFilter projectVisibilityFilter;
     private final ProjectWorkflowService projectWorkflowService;
     private final String publicUrl;
     private final SharedTemplateFileStorage sharedTemplateFileStorage;
@@ -129,8 +127,8 @@ public class ProjectWorkflowFacadeImpl implements ProjectWorkflowFacade {
         ErrorWorkflowConfigurationValidator errorWorkflowConfigurationValidator,
         ProjectDeploymentService projectDeploymentService,
         ProjectDeploymentWorkflowService projectDeploymentWorkflowService, ProjectService projectService,
-        ProjectVersionWorkflowChangeService projectVersionWorkflowChangeService,
-        ProjectWorkflowService projectWorkflowService, SharedTemplateFileStorage sharedTemplateFileStorage,
+        ProjectVisibilityFilter projectVisibilityFilter, ProjectWorkflowService projectWorkflowService,
+        SharedTemplateFileStorage sharedTemplateFileStorage,
         SharedTemplateService sharedTemplateService, WorkflowCacheManager workflowCacheManager,
         WorkflowFacade workflowFacade, List<WorkflowPreDeleteListener> workflowPreDeleteListeners,
         WorkflowService workflowService, WorkflowTestConfigurationService workflowTestConfigurationService,
@@ -143,7 +141,7 @@ public class ProjectWorkflowFacadeImpl implements ProjectWorkflowFacade {
         this.projectDeploymentService = projectDeploymentService;
         this.projectDeploymentWorkflowService = projectDeploymentWorkflowService;
         this.projectService = projectService;
-        this.projectVersionWorkflowChangeService = projectVersionWorkflowChangeService;
+        this.projectVisibilityFilter = projectVisibilityFilter;
         this.projectWorkflowService = projectWorkflowService;
         this.publicUrl = applicationProperties.getPublicUrl();
         this.sharedTemplateFileStorage = sharedTemplateFileStorage;
@@ -342,8 +340,15 @@ public class ProjectWorkflowFacadeImpl implements ProjectWorkflowFacade {
         return false;
     }
 
+    /**
+     * The workflow editor's primary read path, so it returns the whole definition — nodes, configuration, connection
+     * references. {@code 'ProjectWorkflow'} rather than {@code 'Workflow'} because the argument is the project-workflow
+     * row id; {@code ProjectWorkflowVisibilityProvider} redirects the lookup to the owning project, so a project
+     * withheld from the caller denies here exactly as it does in the listings.
+     */
     @Override
     @Transactional(readOnly = true)
+    @PreAuthorize("hasPermission(#projectWorkflowId, 'ProjectWorkflow', 'WORKFLOW_VIEW')")
     public ProjectWorkflowDTO getProjectWorkflow(long projectWorkflowId) {
         ProjectWorkflow projectWorkflow = projectWorkflowService.getProjectWorkflow(projectWorkflowId);
 
@@ -363,11 +368,38 @@ public class ProjectWorkflowFacadeImpl implements ProjectWorkflowFacade {
         return new ProjectWorkflowDTO(workflowDTO, projectWorkflow, workflowFacade.hasSseStreamResponse(workflowDTO));
     }
 
+    /**
+     * Every project workflow row the caller may see, tenant-wide — this listing takes no workspace, so it is not
+     * narrowed to one and never was (the "All projects" sidebar option spans them all).
+     *
+     * <p>
+     * There is no id to gate on, so the guard is a filter rather than a {@code @PreAuthorize}: the same
+     * {@link ProjectVisibilityFilter} every other list surface uses, in ONE batched
+     * {@link ProjectVisibilityFilter#visibleProjectIds(java.util.Collection) visibleProjectIds} call over the whole
+     * collection rather than a per-row check. That filter answers reach alone — admin, the project's reach is at least
+     * {@code WORKSPACE}, the caller owns it, or (EE) holds a grant on it. That is NOT the same question the by-id gates
+     * answer: in EE, {@code hasResourceScope} additionally requires a workspace scope in the project's owning
+     * workspace, so a WORKSPACE-reach project in a workspace the caller does not belong to is listed here but denied by
+     * id. (The two agree in CE, whose {@code hasResourceScope} is permissive once the resource is visible.)
+     * Consequently this listing still returns the full {@link ProjectWorkflowDTO} — the whole workflow definition, not
+     * just its name — for every WORKSPACE-reach project tenant-wide, including ones owned by workspaces the caller does
+     * not belong to. That residual predates this change and is strictly narrower than before it (a {@code PRIVATE}
+     * project's workflows are now excluded); it is deliberately left open rather than closed here. Adding
+     * workspace-membership scoping is a separate change with its own client consequences.
+     */
     @Override
     @Transactional(readOnly = true)
     public List<ProjectWorkflowDTO> getProjectWorkflows() {
-        return projectWorkflowService.getProjectWorkflows()
-            .stream()
+        List<ProjectWorkflow> projectWorkflows = projectWorkflowService.getProjectWorkflows();
+
+        if (projectWorkflows.isEmpty()) {
+            return List.of();
+        }
+
+        Set<Long> visibleProjectIds = getVisibleProjectIds(projectWorkflows);
+
+        return projectWorkflows.stream()
+            .filter(projectWorkflow -> visibleProjectIds.contains(projectWorkflow.getProjectId()))
             .map(projectWorkflow -> workflowFacade.fetchWorkflow(projectWorkflow.getWorkflowId())
                 .map(workflowDTO -> new ProjectWorkflowDTO(
                     workflowDTO, projectWorkflow, workflowFacade.hasSseStreamResponse(workflowDTO)))
@@ -424,38 +456,6 @@ public class ProjectWorkflowFacadeImpl implements ProjectWorkflowFacade {
                     workflowService.getWorkflow(projectWorkflow.getWorkflowId()), projectWorkflow, false))
                 .toList();
         }
-    }
-
-    @Override
-    @PreAuthorize("hasPermission(#projectId, 'Project', 'WORKFLOW_VIEW')")
-    @Transactional(readOnly = true)
-    public VersionWorkflowChange getProjectVersionWorkflowChange(
-        long projectId, int projectVersion, String workflowUuid) {
-
-        return projectVersionWorkflowChangeService.getVersionWorkflowChange(projectId, projectVersion, workflowUuid);
-    }
-
-    @Override
-    @PreAuthorize("hasPermission(#projectId, 'Project', 'WORKFLOW_VIEW')")
-    @Transactional(readOnly = true)
-    public VersionWorkflowChanges getProjectVersionWorkflowChanges(long projectId, int projectVersion) {
-        return projectVersionWorkflowChangeService.getVersionWorkflowChanges(projectId, projectVersion);
-    }
-
-    @Override
-    @PreAuthorize("hasPermission(#projectId, 'Project', 'WORKFLOW_VIEW')")
-    @Transactional(readOnly = true)
-    public List<ProjectVersion> getProjectWorkflowVersions(long projectId, String workflowUuid) {
-        Set<Integer> workflowProjectVersions = projectWorkflowService.getProjectWorkflows(projectId, workflowUuid)
-            .stream()
-            .map(ProjectWorkflow::getProjectVersion)
-            .collect(Collectors.toSet());
-
-        return projectService.getProjectVersions(projectId)
-            .stream()
-            .filter(projectVersion -> projectVersion.getStatus() == ProjectVersion.Status.PUBLISHED)
-            .filter(projectVersion -> workflowProjectVersions.contains(projectVersion.getVersion()))
-            .toList();
     }
 
     @Override
@@ -558,46 +558,6 @@ public class ProjectWorkflowFacadeImpl implements ProjectWorkflowFacade {
     }
 
     @Override
-    @Audited(event = ProjectWorkflowAuditEvents.WORKFLOW_VERSION_RESTORED, data = {
-        @AuditData(key = "projectId", value = "#projectId"),
-        @AuditData(key = "projectVersion", value = "#projectVersion"),
-        @AuditData(key = "workflowUuid", value = "#workflowUuid")
-    })
-    @PreAuthorize("hasPermission(#projectId, 'Project', 'WORKFLOW_EDIT')")
-    public void restoreProjectVersionWorkflow(long projectId, int projectVersion, String workflowUuid) {
-        projectService.getPublishedProjectVersion(projectId, projectVersion);
-
-        ProjectWorkflow publishedProjectWorkflow = projectWorkflowService
-            .fetchProjectWorkflow(projectId, projectVersion, workflowUuid)
-            .orElseThrow(() -> new ConfigurationException(
-                "Workflow uuid=%s not found in project version v=%s".formatted(workflowUuid, projectVersion),
-                ProjectErrorType.PROJECT_VERSION_WORKFLOW_NOT_FOUND));
-
-        Project project = projectService.getProject(projectId);
-
-        int draftProjectVersion = project.getLastProjectVersion();
-
-        Optional<ProjectWorkflow> draftProjectWorkflowOptional = projectWorkflowService.fetchProjectWorkflow(
-            projectId, draftProjectVersion, workflowUuid);
-
-        if (draftProjectWorkflowOptional.isEmpty()) {
-            Workflow duplicatedWorkflow = workflowService.duplicateWorkflow(publishedProjectWorkflow.getWorkflowId());
-
-            projectWorkflowService.addWorkflow(
-                projectId, draftProjectVersion, duplicatedWorkflow.getId(), publishedProjectWorkflow.getUuid());
-
-            return;
-        }
-
-        ProjectWorkflow draftProjectWorkflow = draftProjectWorkflowOptional.get();
-
-        Workflow publishedWorkflow = workflowService.getWorkflow(publishedProjectWorkflow.getWorkflowId());
-        Workflow draftWorkflow = workflowService.getWorkflow(draftProjectWorkflow.getWorkflowId());
-
-        updateWorkflow(draftWorkflow.getId(), publishedWorkflow.getDefinition(), draftWorkflow.getVersion());
-    }
-
-    @Override
     @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_EDIT')")
     public ProjectWorkflowDTO updateWorkflow(String workflowId, String definition, int version) {
         // These three guards validate the INCOMING definition only, never the definition already stored for
@@ -642,6 +602,19 @@ public class ProjectWorkflowFacadeImpl implements ProjectWorkflowFacade {
         }
 
         projectWorkflowService.updateErrorWorkflow(projectWorkflowId, errorProjectWorkflowId, errorWorkflowDisabled);
+    }
+
+    /**
+     * Resolves the owning projects of the given rows and asks the filter which of them the caller may see, in ONE
+     * batched call — a per-row check would be an authorization query per project workflow in the tenant.
+     */
+    private Set<Long> getVisibleProjectIds(List<ProjectWorkflow> projectWorkflows) {
+        List<Long> projectIds = projectWorkflows.stream()
+            .map(ProjectWorkflow::getProjectId)
+            .distinct()
+            .toList();
+
+        return projectVisibilityFilter.visibleProjectIds(projectService.getProjects(projectIds));
     }
 
     private WorkflowTemplateDTO toWorkflowTemplateDTO(WorkflowTemplate workflowTemplate) {

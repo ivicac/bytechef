@@ -22,17 +22,24 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.configuration.config.ProjectIntTestConfiguration;
 import com.bytechef.automation.configuration.config.WorkspaceApiKeyIntTestConfigurationSharedMocks;
+import com.bytechef.automation.configuration.domain.Project;
+import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.domain.Workspace;
+import com.bytechef.automation.configuration.repository.ProjectRepository;
+import com.bytechef.automation.configuration.repository.ProjectWorkflowRepository;
 import com.bytechef.automation.configuration.repository.WorkspaceRepository;
+import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.security.domain.ApiKey;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.platform.security.repository.ApiKeyRepository;
 import com.bytechef.platform.security.service.ApiKeyService;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -47,7 +54,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
  * Pins the CE behavior of {@link PermissionServiceImpl} against the real {@code ResourceOwnershipResolver} beans and
  * persisted rows: workspace checks are permissive for any authenticated caller, {@code hasResourceScope} enforces owner
  * isolation for owner-carrying resources, is permissive for workspace-mapped resources, and fails closed when nothing
- * is resolvable.
+ * is resolvable. Project-keyed checks route through {@code hasResourceScope}, so they need a persisted project and
+ * honour its visibility: a PRIVATE project owned by another login is denied even though it maps to a workspace.
  *
  * @author Ivica Cardic
  */
@@ -67,12 +75,20 @@ class PermissionServiceIntTest {
     private PermissionService permissionService;
 
     @Autowired
+    private ProjectRepository projectRepository;
+
+    @Autowired
+    private ProjectWorkflowRepository projectWorkflowRepository;
+
+    @Autowired
     private UserService userService;
 
     @Autowired
     private WorkspaceRepository workspaceRepository;
 
     private long apiKeyId;
+    private long privateProjectId;
+    private long projectId;
     private long workspaceId;
 
     @BeforeEach
@@ -93,6 +109,9 @@ class PermissionServiceIntTest {
         Workspace workspace = workspaceRepository.save(new Workspace("permission-service"));
 
         workspaceId = workspace.getId();
+
+        projectId = saveProject("permission-service-project", ResourceVisibility.WORKSPACE);
+        privateProjectId = saveProject("permission-service-private-project", ResourceVisibility.PRIVATE);
     }
 
     @AfterEach
@@ -100,6 +119,8 @@ class PermissionServiceIntTest {
         SecurityContextHolder.clearContext();
 
         apiKeyRepository.deleteById(apiKeyId);
+        projectRepository.deleteById(projectId);
+        projectRepository.deleteById(privateProjectId);
         workspaceRepository.deleteById(workspaceId);
     }
 
@@ -126,9 +147,39 @@ class PermissionServiceIntTest {
 
     @Test
     void testHasWorkspaceScopeForProjectTrueForAuthenticatedUser() {
-        assertThat(permissionService.hasWorkspaceScopeForProject(1L, "WORKFLOW_VIEW")).isTrue();
-        assertThat(permissionService.hasWorkspaceScopeForProject(1L, "PROJECT_DELETE")).isTrue();
-        assertThat(permissionService.hasWorkspaceScopeForProject(1L, "ANY_UNRECOGNIZED_SCOPE")).isTrue();
+        assertThat(permissionService.hasWorkspaceScopeForProject(projectId, "WORKFLOW_VIEW")).isTrue();
+        assertThat(permissionService.hasWorkspaceScopeForProject(projectId, "PROJECT_DELETE")).isTrue();
+        assertThat(permissionService.hasWorkspaceScopeForProject(projectId, "ANY_UNRECOGNIZED_SCOPE")).isTrue();
+    }
+
+    /**
+     * Routing the project-keyed check through {@code hasResourceScope} tightened an unresolvable project from
+     * permissive to denied.
+     */
+    @Test
+    void testHasWorkspaceScopeForProjectFailsClosedForUnresolvableProject() {
+        assertThat(permissionService.hasWorkspaceScopeForProject(Long.MAX_VALUE, "WORKFLOW_VIEW")).isFalse();
+    }
+
+    /**
+     * The project resolves to a workspace, so the ownership branch of {@code hasResourceScope} would permit on its own;
+     * the visibility precondition is the only thing that can deny here.
+     */
+    @Test
+    void testHasWorkspaceScopeForProjectHonoursVisibilityInCe() {
+        assertThat(permissionService.hasWorkspaceScopeForProject(privateProjectId, "WORKFLOW_VIEW")).isFalse();
+    }
+
+    /**
+     * CE's environment-aware overload delegates to the same chokepoint, so the two cannot disagree about one project.
+     */
+    @Test
+    void testHasWorkspaceScopeForProjectWithEnvironmentHonoursVisibilityInCe() {
+        assertThat(
+            permissionService.hasWorkspaceScopeForProject(privateProjectId, "WORKFLOW_VIEW", Environment.PRODUCTION))
+                .isFalse();
+        assertThat(permissionService.hasWorkspaceScopeForProject(projectId, "WORKFLOW_VIEW", Environment.PRODUCTION))
+            .isTrue();
     }
 
     @Test
@@ -218,7 +269,18 @@ class PermissionServiceIntTest {
 
     @Test
     void testHasWorkflowScopePermissiveInCe() {
-        assertThat(permissionService.hasWorkflowScope("wf-uuid", "WORKFLOW_EDIT")).isTrue();
+        // CE is permissive only for a workflow that resolves to a visible project: hasWorkflowScope routes through
+        // hasResourceScope, so a workflow no project owns fails closed.
+        assertThat(permissionService.hasWorkflowScope("wf-uuid", "WORKFLOW_EDIT")).isFalse();
+
+        ProjectWorkflow projectWorkflow = projectWorkflowRepository.save(
+            new ProjectWorkflow(projectId, 1, "wf-uuid", UUID.randomUUID()));
+
+        try {
+            assertThat(permissionService.hasWorkflowScope("wf-uuid", "WORKFLOW_EDIT")).isTrue();
+        } finally {
+            projectWorkflowRepository.delete(projectWorkflow);
+        }
     }
 
     @Test
@@ -228,6 +290,17 @@ class PermissionServiceIntTest {
         SecurityContextHolder.clearContext();
 
         assertThat(permissionService.hasResourceScope(apiKeyId, "ApiKey", "API_KEY_DELETE")).isFalse();
+    }
+
+    private long saveProject(String name, ResourceVisibility visibility) {
+        Project project = projectRepository.save(
+            Project.builder()
+                .name(name)
+                .visibility(visibility)
+                .workspaceId(workspaceId)
+                .build());
+
+        return project.getId();
     }
 
     private void setCurrentUser(long userId) {

@@ -23,60 +23,93 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.atlas.configuration.domain.Workflow;
 import com.bytechef.atlas.configuration.service.WorkflowService;
+import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
+import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
+import com.bytechef.automation.configuration.service.ResourceVisibilityResolver.VisibilityRecord;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import java.util.List;
-import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
+ * A workflow is exactly as visible as the project that owns it, in search as everywhere else.
+ *
  * @author Ivica Cardic
  */
 class WorkflowSearchAssetProviderTest {
 
+    private static final long HIDDEN_PROJECT_ID = 2L;
+    private static final long VISIBLE_PROJECT_ID = 1L;
+
     @Test
-    void testReturnsOnlyWorkflowsOfCallerWorkspaceProjectsUpToLimit() {
+    void testSearchDropsWorkflowsOfProjectsTheFilterHides() {
         ProjectService projectService = mock(ProjectService.class);
         ProjectWorkflowService projectWorkflowService = mock(ProjectWorkflowService.class);
         WorkflowService workflowService = mock(WorkflowService.class);
 
-        when(projectService.getWorkspaceProjectIds(10L)).thenReturn(List.of(200L));
+        // Built ahead of the stubbings below: the helper stubs its own mock, and Mockito rejects that inside an
+        // unfinished when(...).
+        List<Workflow> workflows = List.of(workflow("workflow-1"), workflow("workflow-2"));
 
-        List<ProjectWorkflow> projectWorkflows = List.of(
-            createProjectWorkflow(1L, 100L, "w1"), createProjectWorkflow(2L, 100L, "w2"),
-            createProjectWorkflow(3L, 200L, "w3"), createProjectWorkflow(4L, 200L, "w4"));
-        List<Workflow> workflows = List.of(
-            createWorkflow("w1", "Order foreign"), createWorkflow("w2", "Order foreign 2"),
-            createWorkflow("w3", "Order own"), createWorkflow("w4", "Order own 2"));
-
-        when(projectWorkflowService.getLatestProjectWorkflows()).thenReturn(projectWorkflows);
-        when(workflowService.getWorkflows(anyList())).thenReturn(workflows);
+        // Both workflows match the query and both projects are returned by the project service, so the only thing
+        // that can exclude the second one is the visibility filter.
+        when(projectWorkflowService.getLatestProjectWorkflows()).thenReturn(
+            List.of(
+                new ProjectWorkflow(VISIBLE_PROJECT_ID, 1, "workflow-1"),
+                new ProjectWorkflow(HIDDEN_PROJECT_ID, 1, "workflow-2")));
+        when(workflowService.getWorkflows(List.of("workflow-1", "workflow-2"))).thenReturn(workflows);
+        when(projectService.getProjects(List.of(VISIBLE_PROJECT_ID, HIDDEN_PROJECT_ID)))
+            .thenReturn(List.of(project(VISIBLE_PROJECT_ID), project(HIDDEN_PROJECT_ID)));
 
         WorkflowSearchAssetProvider workflowSearchAssetProvider = new WorkflowSearchAssetProvider(
-            projectService, projectWorkflowService, workflowService);
+            projectService, new ProjectVisibilityFilter(objectProvider(visibleOnly(VISIBLE_PROJECT_ID))),
+            projectWorkflowService, workflowService);
 
-        List<WorkflowSearchResult> results = workflowSearchAssetProvider.search("order", 1, Set.of(10L));
+        List<WorkflowSearchResult> workflowSearchResults = workflowSearchAssetProvider.search("order", 10);
 
-        assertThat(results).extracting(WorkflowSearchResult::id)
-            .containsExactly(3L);
+        assertThat(workflowSearchResults).extracting(WorkflowSearchResult::projectId)
+            .containsExactly(VISIBLE_PROJECT_ID);
     }
 
-    private static ProjectWorkflow createProjectWorkflow(long id, long projectId, String workflowId) {
-        ProjectWorkflow projectWorkflow = mock(ProjectWorkflow.class);
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<ResourceVisibilityResolver> objectProvider(
+        ResourceVisibilityResolver resourceVisibilityResolver) {
 
-        when(projectWorkflow.getId()).thenReturn(id);
-        when(projectWorkflow.getProjectId()).thenReturn(projectId);
-        when(projectWorkflow.getWorkflowId()).thenReturn(workflowId);
+        ObjectProvider<ResourceVisibilityResolver> objectProvider = mock(ObjectProvider.class);
 
-        return projectWorkflow;
+        when(objectProvider.getIfAvailable()).thenReturn(resourceVisibilityResolver);
+
+        return objectProvider;
     }
 
-    private static Workflow createWorkflow(String id, String label) {
+    private static Project project(long id) {
+        Project project = new Project();
+
+        project.setId(id);
+        project.setName("project-" + id);
+        project.setWorkspaceId(9L);
+        project.setVisibility(ResourceVisibility.WORKSPACE);
+
+        return project;
+    }
+
+    private static ResourceVisibilityResolver visibleOnly(long visibleId) {
+        return (resourceType, workspaceId, candidates) -> candidates.stream()
+            .map(VisibilityRecord::id)
+            .filter(id -> id == visibleId)
+            .collect(Collectors.toSet());
+    }
+
+    private static Workflow workflow(String id) {
         Workflow workflow = mock(Workflow.class);
 
         when(workflow.getId()).thenReturn(id);
-        when(workflow.getLabel()).thenReturn(label);
+        when(workflow.getLabel()).thenReturn("Order sync " + id);
 
         return workflow;
     }
