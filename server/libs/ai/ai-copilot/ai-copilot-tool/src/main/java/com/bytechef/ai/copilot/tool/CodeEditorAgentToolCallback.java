@@ -20,6 +20,7 @@ import com.bytechef.ai.agent.tool.AgentType;
 import com.bytechef.ai.agent.tool.CurrentAgentContext;
 import com.bytechef.ai.agent.tool.CurrentAgentContext.AgentBinding;
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ai.copilot.agent.SelectedChatModelUnavailableException;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolChatClientFactory;
 import com.bytechef.ai.copilot.tool.catalog.SubAgentChatModelResolution;
 import com.bytechef.ai.copilot.tool.catalog.SubAgentChatModelResolver;
@@ -36,7 +37,7 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.core.JacksonException;
 
 /**
- * Hand-rolled Spring AI {@link ToolCallback} that exposes the Code Editor Copilot subagent to the parent ai_hub agent.
+ * Hand-rolled Spring AI {@link ToolCallback} that exposes the Code Editor Copilot subagent to a parent agent.
  *
  * @author Ivica Cardic
  */
@@ -47,7 +48,7 @@ public class CodeEditorAgentToolCallback implements ToolCallback {
     private static final String DESCRIPTION =
         """
             Delegate a user request about embedded script code to a specialised Code Editor subagent.
-            Use this for requests that write, edit, debug, or explain JavaScript / Python / Ruby script
+            Use this for requests that write, edit, debug, or explain JavaScript / Python script
             embedded inside a workflow task. The subagent owns the canonical behaviour for this domain;
             prefer calling it over generating script code directly. Returns the updated script (BUILD)
             or an explanation (ASK). Include the workflow's ID and the Script task's name in the request —
@@ -131,6 +132,8 @@ public class CodeEditorAgentToolCallback implements ToolCallback {
                 toolInput == null ? "<null>" : toolInput.substring(0, Math.min(toolInput.length(), 200)));
 
             return toolError("Invalid tool input: " + exception.getMessage());
+        } catch (SelectedChatModelUnavailableException exception) {
+            return ToolErrors.toolError(exception.getMessage());
         } catch (RuntimeException exception) {
             return ToolErrors.runtimeFailure(
                 CodeEditorAgentToolCallback.class, "writeScript", exception);
