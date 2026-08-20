@@ -62,5 +62,11 @@
             <column name="connected_user_id"/>
             <column name="created_date" descending="true"/>
         </createIndex>
+
+        <createIndex tableName="tool_invocation_log" indexName="idx_tool_invocation_log_workspace_environment_created">
+            <column name="workspace_id"/>
+            <column name="environment"/>
+            <column name="created_date" descending="true"/>
+        </createIndex>
     </changeSet>
 </databaseChangeLog>
