@@ -31,7 +31,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "Project", description = "A group of workflows that make one logical project.")
 @JsonTypeName("Project")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-03T14:37:43.821704+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-11-04T23:11:11.834950+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 public class ProjectModel {
 
   private @Nullable String createdBy;
@@ -59,7 +59,48 @@ public class ProjectModel {
 
   private @Nullable String uuid;
 
+  /**
+   * The visibility scope of the project: WORKSPACE (default, shared with every member of the owning workspace) or PRIVATE (owner plus named grantees, EE). Accepted on create; changed afterwards via the setProjectVisibility GraphQL mutation. CE always persists WORKSPACE.
+   */
+  public enum VisibilityEnum {
+    PRIVATE("PRIVATE"),
+    
+    WORKSPACE("WORKSPACE");
+
+    private final String value;
+
+    VisibilityEnum(String value) {
+      this.value = value;
+    }
+
+    @JsonValue
+    public String getValue() {
+      return value;
+    }
+
+    @Override
+    public String toString() {
+      return String.valueOf(value);
+    }
+
+    @JsonCreator
+    public static VisibilityEnum fromValue(String value) {
+      for (VisibilityEnum b : VisibilityEnum.values()) {
+        if (b.value.equals(value)) {
+          return b;
+        }
+      }
+      throw new IllegalArgumentException("Unexpected value '" + value + "'");
+    }
+  }
+
+  private @Nullable VisibilityEnum visibility;
+
   private @Nullable CategoryModel category;
+
+  private @Nullable Boolean codeWorkflow;
+
+  private @Nullable String codeWorkflowLanguage;
 
   private @Nullable Integer developmentDeploymentCount;
 
@@ -314,6 +355,27 @@ public class ProjectModel {
     this.uuid = uuid;
   }
 
+  public ProjectModel visibility(@Nullable VisibilityEnum visibility) {
+    this.visibility = visibility;
+    return this;
+  }
+
+  /**
+   * The visibility scope of the project: WORKSPACE (default, shared with every member of the owning workspace) or PRIVATE (owner plus named grantees, EE). Accepted on create; changed afterwards via the setProjectVisibility GraphQL mutation. CE always persists WORKSPACE.
+   * @return visibility
+   */
+  
+  @Schema(name = "visibility", description = "The visibility scope of the project: WORKSPACE (default, shared with every member of the owning workspace) or PRIVATE (owner plus named grantees, EE). Accepted on create; changed afterwards via the setProjectVisibility GraphQL mutation. CE always persists WORKSPACE.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("visibility")
+  public @Nullable VisibilityEnum getVisibility() {
+    return visibility;
+  }
+
+  @JsonProperty("visibility")
+  public void setVisibility(@Nullable VisibilityEnum visibility) {
+    this.visibility = visibility;
+  }
+
   public ProjectModel category(@Nullable CategoryModel category) {
     this.category = category;
     return this;
@@ -333,6 +395,48 @@ public class ProjectModel {
   @JsonProperty("category")
   public void setCategory(@Nullable CategoryModel category) {
     this.category = category;
+  }
+
+  public ProjectModel codeWorkflow(@Nullable Boolean codeWorkflow) {
+    this.codeWorkflow = codeWorkflow;
+    return this;
+  }
+
+  /**
+   * Whether the project is backed by a code workflow.
+   * @return codeWorkflow
+   */
+  
+  @Schema(name = "codeWorkflow", accessMode = Schema.AccessMode.READ_ONLY, description = "Whether the project is backed by a code workflow.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("codeWorkflow")
+  public @Nullable Boolean getCodeWorkflow() {
+    return codeWorkflow;
+  }
+
+  @JsonProperty("codeWorkflow")
+  public void setCodeWorkflow(@Nullable Boolean codeWorkflow) {
+    this.codeWorkflow = codeWorkflow;
+  }
+
+  public ProjectModel codeWorkflowLanguage(@Nullable String codeWorkflowLanguage) {
+    this.codeWorkflowLanguage = codeWorkflowLanguage;
+    return this;
+  }
+
+  /**
+   * The programming language of the code workflow, if the project is code-backed.
+   * @return codeWorkflowLanguage
+   */
+  
+  @Schema(name = "codeWorkflowLanguage", description = "The programming language of the code workflow, if the project is code-backed.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("codeWorkflowLanguage")
+  public @Nullable String getCodeWorkflowLanguage() {
+    return codeWorkflowLanguage;
+  }
+
+  @JsonProperty("codeWorkflowLanguage")
+  public void setCodeWorkflowLanguage(@Nullable String codeWorkflowLanguage) {
+    this.codeWorkflowLanguage = codeWorkflowLanguage;
   }
 
   public ProjectModel developmentDeploymentCount(@Nullable Integer developmentDeploymentCount) {
@@ -476,7 +580,10 @@ public class ProjectModel {
         Objects.equals(this.lastStatus, project.lastStatus) &&
         Objects.equals(this.lastProjectVersion, project.lastProjectVersion) &&
         Objects.equals(this.uuid, project.uuid) &&
+        Objects.equals(this.visibility, project.visibility) &&
         Objects.equals(this.category, project.category) &&
+        Objects.equals(this.codeWorkflow, project.codeWorkflow) &&
+        Objects.equals(this.codeWorkflowLanguage, project.codeWorkflowLanguage) &&
         Objects.equals(this.developmentDeploymentCount, project.developmentDeploymentCount) &&
         Objects.equals(this.projectWorkflowIds, project.projectWorkflowIds) &&
         Objects.equals(this.tags, project.tags) &&
@@ -486,7 +593,7 @@ public class ProjectModel {
 
   @Override
   public int hashCode() {
-    return Objects.hash(createdBy, createdDate, description, id, lastModifiedBy, lastModifiedDate, name, lastPublishedDate, lastStatus, lastProjectVersion, uuid, category, developmentDeploymentCount, projectWorkflowIds, tags, workspaceId, version);
+    return Objects.hash(createdBy, createdDate, description, id, lastModifiedBy, lastModifiedDate, name, lastPublishedDate, lastStatus, lastProjectVersion, uuid, visibility, category, codeWorkflow, codeWorkflowLanguage, developmentDeploymentCount, projectWorkflowIds, tags, workspaceId, version);
   }
 
   @Override
@@ -504,7 +611,10 @@ public class ProjectModel {
     sb.append("    lastStatus: ").append(toIndentedString(lastStatus)).append("\n");
     sb.append("    lastProjectVersion: ").append(toIndentedString(lastProjectVersion)).append("\n");
     sb.append("    uuid: ").append(toIndentedString(uuid)).append("\n");
+    sb.append("    visibility: ").append(toIndentedString(visibility)).append("\n");
     sb.append("    category: ").append(toIndentedString(category)).append("\n");
+    sb.append("    codeWorkflow: ").append(toIndentedString(codeWorkflow)).append("\n");
+    sb.append("    codeWorkflowLanguage: ").append(toIndentedString(codeWorkflowLanguage)).append("\n");
     sb.append("    developmentDeploymentCount: ").append(toIndentedString(developmentDeploymentCount)).append("\n");
     sb.append("    projectWorkflowIds: ").append(toIndentedString(projectWorkflowIds)).append("\n");
     sb.append("    tags: ").append(toIndentedString(tags)).append("\n");

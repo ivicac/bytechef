@@ -12,6 +12,7 @@ Name | Type
 `description` | string
 `automationHubVisible` | boolean
 `workflowTemplates` | [Array&lt;AutomationWorkflowProjectWorkflowTemplate&gt;](AutomationWorkflowProjectWorkflowTemplate.md)
+`kind` | string
 
 ## Example
 
@@ -25,6 +26,7 @@ const example = {
   "description": null,
   "automationHubVisible": null,
   "workflowTemplates": null,
+  "kind": null,
 } satisfies AutomationWorkflowProject
 
 console.log(example)

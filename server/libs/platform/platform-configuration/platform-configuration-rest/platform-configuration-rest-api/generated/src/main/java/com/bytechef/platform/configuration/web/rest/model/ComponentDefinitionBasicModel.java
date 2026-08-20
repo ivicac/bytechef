@@ -28,7 +28,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "ComponentDefinitionBasic", description = "A component contains a set of reusable code(actions) that accomplish specific tasks, triggers and connections if there is a need for a connection to an outside service.")
 @JsonTypeName("ComponentDefinitionBasic")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T17:05:21.726625+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-31T21:39:18.888327+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 public class ComponentDefinitionBasicModel {
 
   private @Nullable Integer actionsCount;
@@ -121,11 +121,11 @@ public class ComponentDefinitionBasicModel {
   }
 
   /**
-   * Is the component cluster root.
+   * Whether the component declares cluster element types of its own, meaning it is configured through its child cluster elements rather than directly.
    * @return clusterRoot
    */
   
-  @Schema(name = "clusterRoot", description = "Is the component cluster root.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @Schema(name = "clusterRoot", description = "Whether the component declares cluster element types of its own, meaning it is configured through its child cluster elements rather than directly.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("clusterRoot")
   public @Nullable Boolean getClusterRoot() {
     return clusterRoot;

@@ -34,7 +34,7 @@ import java.util.Map;
 import java.util.Optional;
 import jakarta.annotation.Generated;
 
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-22T18:23:01.108240+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-31T21:39:18.888327+01:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 @Validated
 @Tag(name = "trigger-definition", description = "The Platform Trigger Definition Internal API")
 public interface TriggerDefinitionApi {
@@ -120,7 +120,7 @@ public interface TriggerDefinitionApi {
         getRequest().ifPresent(request -> {
             for (MediaType mediaType: MediaType.parseMediaTypes(request.getHeader("Accept"))) {
                 if (mediaType.isCompatibleWith(MediaType.valueOf("application/json"))) {
-                    String exampleString = "[ { \"componentName\" : \"componentName\", \"componentVersion\" : 1, \"description\" : \"description\", \"help\" : { \"body\" : \"body\", \"learnMoreUrl\" : \"learnMoreUrl\" }, \"name\" : \"name\", \"outputDefined\" : true, \"outputFunctionDefined\" : true, \"outputSchemaDefined\" : true, \"title\" : \"title\", \"type\" : \"CALLABLE\" }, { \"componentName\" : \"componentName\", \"componentVersion\" : 1, \"description\" : \"description\", \"help\" : { \"body\" : \"body\", \"learnMoreUrl\" : \"learnMoreUrl\" }, \"name\" : \"name\", \"outputDefined\" : true, \"outputFunctionDefined\" : true, \"outputSchemaDefined\" : true, \"title\" : \"title\", \"type\" : \"CALLABLE\" } ]";
+                    String exampleString = "[ { \"componentName\" : \"componentName\", \"componentVersion\" : 5, \"description\" : \"description\", \"help\" : { \"body\" : \"body\", \"learnMoreUrl\" : \"learnMoreUrl\" }, \"name\" : \"name\", \"outputDefined\" : true, \"outputFunctionDefined\" : true, \"outputSchemaDefined\" : true, \"title\" : \"title\", \"type\" : \"CALLABLE\" }, { \"componentName\" : \"componentName\", \"componentVersion\" : 5, \"description\" : \"description\", \"help\" : { \"body\" : \"body\", \"learnMoreUrl\" : \"learnMoreUrl\" }, \"name\" : \"name\", \"outputDefined\" : true, \"outputFunctionDefined\" : true, \"outputSchemaDefined\" : true, \"title\" : \"title\", \"type\" : \"CALLABLE\" } ]";
                     ApiUtil.setExampleResponse(request, "application/json", exampleString);
                     break;
                 }
