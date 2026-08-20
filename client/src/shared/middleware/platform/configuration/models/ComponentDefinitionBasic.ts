@@ -40,7 +40,7 @@ export interface ComponentDefinitionBasic {
      */
     clusterElementsCount?: { [key: string]: number; };
     /**
-     * Is the component cluster root.
+     * Whether the component declares cluster element types of its own, meaning it is configured through its child cluster elements rather than directly.
      * @type {boolean}
      * @memberof ComponentDefinitionBasic
      */
