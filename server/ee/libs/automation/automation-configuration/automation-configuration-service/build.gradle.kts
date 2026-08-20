@@ -49,6 +49,11 @@ dependencies {
     testImplementation(project(":server:ee:libs:platform:platform-code-workflow:platform-code-workflow-configuration:platform-code-workflow-configuration-api"))
     testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-repository:atlas-configuration-repository-jdbc"))
     testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-service"))
+    // PermissionServiceAgentVisibilityTest wires the REAL AiAgentVisibilityProvider/AiAgentOwnershipResolver
+    // into this module's PermissionServiceImpl; a stand-in provider would keep it green with the production
+    // one deleted. Test-only, and the edge points the legal way round (EE configuration tests -> CE agent).
+    testImplementation(project(":server:libs:automation:automation-ai:automation-ai-agent:automation-ai-agent-api"))
+    testImplementation(project(":server:libs:automation:automation-ai:automation-ai-agent:automation-ai-agent-service"))
     testImplementation(project(":server:libs:config:jackson-config"))
     testImplementation(project(":server:libs:platform:platform-category:platform-category-service"))
     testImplementation(project(":server:libs:platform:platform-component:platform-component-service"))
