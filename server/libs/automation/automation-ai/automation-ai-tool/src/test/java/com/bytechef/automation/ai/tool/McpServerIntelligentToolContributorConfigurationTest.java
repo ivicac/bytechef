@@ -20,9 +20,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.ai.copilot.tool.CopilotAgentType;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolChatClientFactory;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolContributor;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolDefinition;
+import com.bytechef.ai.copilot.tool.catalog.IntelligentToolScope;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolVariant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -39,7 +41,7 @@ final class McpServerIntelligentToolContributorConfigurationTest {
         new McpServerIntelligentToolContributorConfiguration();
 
     @Test
-    void testContributesOneDefinitionWithExpectedName() {
+    void testContributesOneDefinitionWithExpectedNameAndAgentTypeKey() {
         List<IntelligentToolDefinition> definitions = definitionsWithProviderPresent();
 
         assertThat(definitions).hasSize(1);
@@ -47,20 +49,24 @@ final class McpServerIntelligentToolContributorConfigurationTest {
         IntelligentToolDefinition definition = definitions.get(0);
 
         assertThat(definition.name()).isEqualTo("configureMcpServer");
+        assertThat(definition.agentTypeKey()).isEqualTo(CopilotAgentType.CONFIGURE_MCP_SERVER.key());
+        assertThat(definition.panelScopes()).containsExactly(IntelligentToolScope.MCP_SERVER);
     }
 
     @Test
-    void testChatClientFactoryIsPresentForBuild() {
+    void testChatClientFactoryIsNullForAskButPresentForBuild() {
         List<IntelligentToolDefinition> definitions = definitionsWithProviderPresent();
 
         IntelligentToolDefinition definition = definitions.get(0);
 
+        assertThat(definition.chatClientFactory(IntelligentToolVariant.ASK)).isNull();
         assertThat(definition.chatClientFactory(IntelligentToolVariant.BUILD)).isNotNull();
     }
 
     @Test
     void testChatClientFactoryIsNullForBuildWhenProviderHasNoBean() {
-        IntelligentToolContributor contributor = configuration.mcpServerIntelligentToolContributor(emptyProvider());
+        IntelligentToolContributor contributor = configuration.mcpServerIntelligentToolContributor(
+            emptyProvider(), emptyProvider());
 
         List<IntelligentToolDefinition> definitions = contributor.getIntelligentToolDefinitions();
 
@@ -75,7 +81,7 @@ final class McpServerIntelligentToolContributorConfigurationTest {
 
         IntelligentToolDefinition definition = definitions.get(0);
 
-        ToolCallback toolCallback = definition.create(() -> mock(ChatClient.class));
+        ToolCallback toolCallback = definition.create(chatModel -> mock(ChatClient.class));
 
         assertThat(toolCallback.getToolDefinition()
             .name()).isEqualTo("configureMcpServer");
@@ -83,7 +89,7 @@ final class McpServerIntelligentToolContributorConfigurationTest {
 
     private List<IntelligentToolDefinition> definitionsWithProviderPresent() {
         IntelligentToolContributor contributor = configuration.mcpServerIntelligentToolContributor(
-            present(mock(IntelligentToolChatClientFactory.class)));
+            present(mock(IntelligentToolChatClientFactory.class)), emptyProvider());
 
         return contributor.getIntelligentToolDefinitions();
     }
