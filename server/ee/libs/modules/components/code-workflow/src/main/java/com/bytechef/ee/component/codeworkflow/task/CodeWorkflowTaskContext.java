@@ -53,7 +53,7 @@ import org.jspecify.annotations.Nullable;
  * <p>
  * Also implements {@link ComponentActionInvoker} so the same resolution/dispatch logic can back a polyglot
  * {@code context.component} proxy chain once the loader engines learn to hand this context to guest (JavaScript,
- * Python, Ruby) code workflow tasks.
+ * Python) code workflow tasks.
  *
  * @version ee
  *

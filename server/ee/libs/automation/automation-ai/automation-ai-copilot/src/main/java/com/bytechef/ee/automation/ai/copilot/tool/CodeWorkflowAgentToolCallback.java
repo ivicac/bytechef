@@ -11,6 +11,7 @@ import com.bytechef.ai.agent.tool.AgentType;
 import com.bytechef.ai.agent.tool.CurrentAgentContext;
 import com.bytechef.ai.agent.tool.CurrentAgentContext.AgentBinding;
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ai.copilot.agent.SelectedChatModelUnavailableException;
 import com.bytechef.ai.copilot.tool.CopilotAgentType;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolChatClientFactory;
 import com.bytechef.ai.copilot.tool.catalog.SubAgentChatModelResolution;
@@ -39,10 +40,14 @@ public class CodeWorkflowAgentToolCallback implements ToolCallback {
 
     private static final Logger log = LoggerFactory.getLogger(CodeWorkflowAgentToolCallback.class);
 
+    // RUBY-DISABLED: "or Ruby" removed from the subagent description below — org.graalvm.polyglot:ruby is published
+    // only up to 25.0.0 and crashes on the Truffle 25.2.4 this repo pins, and the create-empty facade now rejects
+    // RUBY, so a copilot that offered Ruby would produce a workflow that cannot be created or run. Restore it once a
+    // polyglot ruby jar built on Truffle 25.2+ is published (or GraalVM is downgraded). Grep RUBY-DISABLED.
     private static final String DESCRIPTION =
         """
             Delegate a user request about code workflows to a specialised Code Workflow subagent. Code
-            workflows are whole automation projects authored as a single JavaScript, Python, or Ruby script.
+            workflows are whole automation projects authored as a single JavaScript or Python script.
             The subagent owns the canonical behaviour for listing, explaining, creating, and updating code
             workflows, including authoring and iterating the source until it compiles. Prefer calling it over
             reasoning about code workflows directly. The result is a synthesised markdown report or, in build
@@ -128,6 +133,8 @@ public class CodeWorkflowAgentToolCallback implements ToolCallback {
                 toolInput == null ? "<null>" : toolInput.substring(0, Math.min(toolInput.length(), 200)));
 
             return toolError("Invalid tool input: " + exception.getMessage());
+        } catch (SelectedChatModelUnavailableException exception) {
+            return ToolErrors.toolError(exception.getMessage());
         } catch (RuntimeException exception) {
             return ToolErrors.runtimeFailure(
                 CodeWorkflowAgentToolCallback.class, "buildCodeWorkflow", exception);
