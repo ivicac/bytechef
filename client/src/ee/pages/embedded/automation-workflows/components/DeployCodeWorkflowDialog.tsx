@@ -1,13 +1,5 @@
 import Button from '@/components/Button/Button';
-import {
-    Dialog,
-    DialogCloseButton,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
+import {Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogMain} from '@/components/Dialog';
 import {getCookie} from '@/shared/util/cookie-utils';
 import {useState} from 'react';
 
@@ -15,6 +7,12 @@ interface DeployCodeWorkflowDialogProps {
     onClose: () => void;
     onDeployed?: () => void;
 }
+
+// RUBY-DISABLED: '.rb' dropped from the file input's accept list below — org.graalvm.polyglot:ruby is published only
+// up to 25.0.0 and crashes on the Truffle 25.2.4 the server pins, so a deployed Ruby code workflow could not be
+// loaded. Restore '.rb' once a polyglot ruby jar built on Truffle 25.2+ ships (or GraalVM is downgraded). Grep
+// RUBY-DISABLED.
+const ACCEPTED_FILE_EXTENSIONS = '.jar,.js,.py';
 
 const DeployCodeWorkflowDialog = ({onClose, onDeployed}: DeployCodeWorkflowDialogProps) => {
     const [file, setFile] = useState<File | null>(null);
@@ -62,46 +60,42 @@ const DeployCodeWorkflowDialog = ({onClose, onDeployed}: DeployCodeWorkflowDialo
     return (
         <Dialog onOpenChange={onClose} open={true}>
             <DialogContent>
-                <DialogHeader className="flex flex-row items-center justify-between space-y-0">
-                    <div className="flex flex-col space-y-1">
-                        <DialogTitle>Deploy Code Workflow</DialogTitle>
-
-                        <DialogDescription>
-                            Upload a code-native automation project. Redeploying an existing project name updates it in
-                            place for every connected user referencing it.
-                        </DialogDescription>
-                    </div>
-
-                    <DialogCloseButton />
-                </DialogHeader>
-
-                <label className="flex flex-col gap-1 text-sm" htmlFor="deploy-code-workflow-file">
-                    Project file
-                    <input
-                        accept=".jar,.js,.py,.rb"
-                        id="deploy-code-workflow-file"
-                        onChange={(event) => setFile(event.target.files?.[0] || null)}
-                        type="file"
+                <DialogMain>
+                    <DialogHeader
+                        description="Upload a code-native automation project. Redeploying an existing project name updates it in place for every connected user referencing it."
+                        title="Deploy Code Workflow"
                     />
-                </label>
 
-                {warnings.length > 0 && (
-                    <ul className="space-y-1 text-sm text-content-warning">
-                        {warnings.map((warning) => (
-                            <li key={warning}>{warning}</li>
-                        ))}
-                    </ul>
-                )}
+                    <DialogBody>
+                        <label className="flex flex-col gap-1 text-sm" htmlFor="deploy-code-workflow-file">
+                            Project file
+                            <input
+                                accept={ACCEPTED_FILE_EXTENSIONS}
+                                id="deploy-code-workflow-file"
+                                onChange={(event) => setFile(event.target.files?.[0] || null)}
+                                type="file"
+                            />
+                        </label>
 
-                {error && <p className="text-sm text-destructive">{error}</p>}
+                        {warnings.length > 0 && (
+                            <ul className="space-y-1 text-sm text-content-warning">
+                                {warnings.map((warning) => (
+                                    <li key={warning}>{warning}</li>
+                                ))}
+                            </ul>
+                        )}
 
-                <DialogFooter>
-                    <Button
-                        disabled={!file || deploying}
-                        label={deploying ? 'Deploying...' : 'Deploy'}
-                        onClick={handleDeploy}
-                    />
-                </DialogFooter>
+                        {error && <p className="text-sm text-destructive">{error}</p>}
+                    </DialogBody>
+
+                    <DialogFooter>
+                        <Button
+                            disabled={!file || deploying}
+                            label={deploying ? 'Deploying...' : 'Deploy'}
+                            onClick={handleDeploy}
+                        />
+                    </DialogFooter>
+                </DialogMain>
             </DialogContent>
         </Dialog>
     );
