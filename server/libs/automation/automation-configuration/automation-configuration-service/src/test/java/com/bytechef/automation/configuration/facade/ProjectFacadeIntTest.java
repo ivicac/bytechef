@@ -84,6 +84,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -98,6 +99,10 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
     })
 @Import(PostgreSQLContainerConfiguration.class)
 @ProjectIntTestConfigurationSharedMocks
+// The project list surfaces resolve visibility against the current principal, so they need one — the same treatment
+// WorkspaceConnectionFacadeIntTest already gets. In production every one of them is @PreAuthorize-gated, and those
+// gates deny an unauthenticated caller long before the resolver is reached.
+@WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
 public class ProjectFacadeIntTest {
 
     @Autowired

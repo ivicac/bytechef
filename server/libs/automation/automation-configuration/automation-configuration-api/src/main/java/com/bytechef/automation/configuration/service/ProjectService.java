@@ -19,6 +19,7 @@ package com.bytechef.automation.configuration.service;
 import com.bytechef.automation.configuration.domain.Project;
 import com.bytechef.automation.configuration.domain.ProjectVersion;
 import com.bytechef.automation.configuration.domain.ProjectVersion.Status;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -84,5 +85,12 @@ public interface ProjectService {
 
     Project updateErrorWorkflow(long id, @Nullable Long errorProjectWorkflowId);
 
-    Project updatePermissionExpression(long id, @Nullable String permissionExpression);
+    /**
+     * Sets the project's reach, rejecting a rung the project model does not support with the same typed error the
+     * sharing facade raises. Authorization (owner-or-admin) remains the sharing facade's, and so does the
+     * {@code PROJECT_VISIBILITY_CHANGED} audit event — the implementation deliberately emits none, so that one change
+     * is not logged twice under two event types.
+     */
+    Project updateVisibility(long id, ResourceVisibility visibility);
+
 }

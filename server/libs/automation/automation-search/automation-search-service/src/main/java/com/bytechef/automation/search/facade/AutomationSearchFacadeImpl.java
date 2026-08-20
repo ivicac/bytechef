@@ -60,13 +60,14 @@ public class AutomationSearchFacadeImpl implements AutomationSearchFacade {
 
         String currentTenantId = TenantContext.getCurrentTenantId();
 
+        // Captured here and re-established inside every pooled task, exactly like the tenant id above: the fan-out
+        // runs on the common ForkJoinPool, which inherits neither. A provider that resolves resource visibility
+        // reads the current principal, and SecurityUtils.getCurrentUserLogin() throws when there is none — so
+        // without this the whole search fails rather than degrading.
         SecurityContext securityContext = SecurityContextHolder.getContext();
 
+        // Resolved once here rather than per provider — the answer is the same for every one of them.
         Set<Long> accessibleWorkspaceIds = getAccessibleWorkspaceIds();
-
-        if (accessibleWorkspaceIds.isEmpty()) {
-            return List.of();
-        }
 
         for (SearchAssetProvider provider : providers) {
             CompletableFuture<List<SearchResult<?>>> future = CompletableFuture.supplyAsync(() -> {
@@ -74,8 +75,9 @@ public class AutomationSearchFacadeImpl implements AutomationSearchFacade {
 
                 try {
                     return (List<SearchResult<?>>) TenantContext.callWithTenantId(
-                        currentTenantId, () -> provider.search(query, limit, accessibleWorkspaceIds));
+                        currentTenantId, () -> provider.search(query, limit));
                 } finally {
+                    // Pooled threads outlive the request, so the principal must not be left behind on one.
                     SecurityContextHolder.clearContext();
                 }
             });
@@ -89,6 +91,7 @@ public class AutomationSearchFacadeImpl implements AutomationSearchFacade {
         return futures.stream()
             .flatMap(future -> future.join()
                 .stream())
+            .filter(searchResult -> isAccessible(searchResult, accessibleWorkspaceIds))
             .toList();
     }
 
@@ -97,6 +100,14 @@ public class AutomationSearchFacadeImpl implements AutomationSearchFacade {
             .getId())
             .stream()
             .map(Workspace::getId)
-            .collect(Collectors.toUnmodifiableSet());
+            .collect(Collectors.toSet());
+    }
+
+    private static boolean isAccessible(SearchResult<?> searchResult, Set<Long> accessibleWorkspaceIds) {
+        Long workspaceId = searchResult.workspaceId();
+
+        // A null workspaceId means the provider has not been workspace-scoped yet (passed through unchanged during the
+        // incremental rollout) or the result is workspace-independent.
+        return workspaceId == null || accessibleWorkspaceIds.contains(workspaceId);
     }
 }

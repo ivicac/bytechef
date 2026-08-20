@@ -46,7 +46,7 @@ import com.bytechef.atlas.file.storage.TaskFileStorage;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
-import com.bytechef.automation.configuration.service.ConnectedUserProjectDeploymentResolver;
+import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
@@ -106,11 +106,10 @@ public class ProjectWorkflowExecutionFacadeTest {
         workflowExecutionRowService = mock(WorkflowExecutionRowService.class);
 
         facade = new ProjectWorkflowExecutionFacadeImpl(
-            componentDefinitionService,
-            new StaticListableBeanFactory().getBeanProvider(ConnectedUserProjectDeploymentResolver.class),
-            contextService, evaluator, mock(EnvironmentService.class),
-            workflowExecutionRowService, jobService, mock(PrincipalJobService.class), projectFacade,
-            projectDeploymentService, mock(ProjectService.class), projectWorkflowService,
+            componentDefinitionService, contextService, evaluator, mock(EnvironmentService.class),
+            mock(WorkflowExecutionRowService.class), jobService, mock(PermissionService.class),
+            mock(PrincipalJobService.class), mock(ProjectFacade.class),
+            mock(ProjectDeploymentService.class), mock(ProjectService.class), mock(ProjectWorkflowService.class),
             mock(TaskDispatcherDefinitionService.class), taskExecutionService, taskFileStorage,
             mock(TriggerExecutionService.class), mock(TriggerFileStorage.class), mock(WorkflowService.class));
 

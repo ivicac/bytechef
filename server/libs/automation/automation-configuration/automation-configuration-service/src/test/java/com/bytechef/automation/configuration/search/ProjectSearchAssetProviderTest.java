@@ -21,42 +21,91 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.configuration.domain.Project;
+import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.ProjectService;
+import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
+import com.bytechef.automation.configuration.service.ResourceVisibilityResolver.VisibilityRecord;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import java.util.List;
-import java.util.Set;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
+ * Search is a listing like any other, so a project the current principal may not see must not surface through it
+ * either.
+ *
  * @author Ivica Cardic
  */
 class ProjectSearchAssetProviderTest {
 
+    private static final long VISIBLE_PROJECT_ID = 1L;
+    private static final long HIDDEN_PROJECT_ID = 2L;
+
     @Test
-    void testReturnsOnlyCallerWorkspaceProjectsUpToLimit() {
+    void testSearchDropsProjectsTheFilterHides() {
         ProjectService projectService = mock(ProjectService.class);
 
-        List<Project> projects = List.of(
-            createProject(1L, "Sales foreign", 99L), createProject(2L, "Sales foreign 2", 99L),
-            createProject(3L, "Sales own", 10L), createProject(4L, "Sales own 2", 10L),
-            createProject(5L, "Sales own 3", 10L));
+        // Both projects match the query, so the only thing that can exclude the second one is the visibility filter.
+        when(projectService.getProjects(false, null, null, null, null, null))
+            .thenReturn(List.of(project(VISIBLE_PROJECT_ID), project(HIDDEN_PROJECT_ID)));
 
-        when(projectService.getProjects(false, null, null, null, null, null)).thenReturn(projects);
+        ProjectSearchAssetProvider projectSearchAssetProvider = new ProjectSearchAssetProvider(
+            projectService, new ProjectVisibilityFilter(objectProvider(visibleOnly(VISIBLE_PROJECT_ID))));
 
-        ProjectSearchAssetProvider projectSearchAssetProvider = new ProjectSearchAssetProvider(projectService);
+        List<ProjectSearchResult> projectSearchResults = projectSearchAssetProvider.search("project", 10);
 
-        List<ProjectSearchResult> results = projectSearchAssetProvider.search("sales", 2, Set.of(10L));
-
-        assertThat(results).extracting(ProjectSearchResult::id)
-            .containsExactly(3L, 4L);
+        assertThat(projectSearchResults).extracting(ProjectSearchResult::id)
+            .containsExactly(VISIBLE_PROJECT_ID);
     }
 
-    private static Project createProject(long id, String name, long workspaceId) {
-        Project project = mock(Project.class);
+    @Test
+    void testSearchReturnsEveryMatchTheFilterKeeps() {
+        ProjectService projectService = mock(ProjectService.class);
 
-        when(project.getId()).thenReturn(id);
-        when(project.getName()).thenReturn(name);
-        when(project.getWorkspaceId()).thenReturn(workspaceId);
+        when(projectService.getProjects(false, null, null, null, null, null))
+            .thenReturn(List.of(project(VISIBLE_PROJECT_ID), project(HIDDEN_PROJECT_ID)));
+
+        ProjectSearchAssetProvider projectSearchAssetProvider = new ProjectSearchAssetProvider(
+            projectService,
+            new ProjectVisibilityFilter(
+                objectProvider(
+                    (resourceType, workspaceId, candidates) -> candidates.stream()
+                        .map(VisibilityRecord::id)
+                        .collect(Collectors.toSet()))));
+
+        List<ProjectSearchResult> projectSearchResults = projectSearchAssetProvider.search("project", 10);
+
+        assertThat(projectSearchResults).extracting(ProjectSearchResult::id)
+            .containsExactly(VISIBLE_PROJECT_ID, HIDDEN_PROJECT_ID);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<ResourceVisibilityResolver> objectProvider(
+        ResourceVisibilityResolver resourceVisibilityResolver) {
+
+        ObjectProvider<ResourceVisibilityResolver> objectProvider = mock(ObjectProvider.class);
+
+        when(objectProvider.getIfAvailable()).thenReturn(resourceVisibilityResolver);
+
+        return objectProvider;
+    }
+
+    private static Project project(long id) {
+        Project project = new Project();
+
+        project.setId(id);
+        project.setName("project-" + id);
+        project.setWorkspaceId(9L);
+        project.setVisibility(ResourceVisibility.WORKSPACE);
 
         return project;
+    }
+
+    private static ResourceVisibilityResolver visibleOnly(long visibleId) {
+        return (resourceType, workspaceId, candidates) -> candidates.stream()
+            .map(VisibilityRecord::id)
+            .filter(id -> id == visibleId)
+            .collect(Collectors.toSet());
     }
 }
