@@ -123,11 +123,11 @@ public class ComponentDefinitionBasicModel {
   }
 
   /**
-   * Is the component cluster root.
+   * Whether the component declares cluster element types of its own, meaning it is configured through its child cluster elements rather than directly.
    * @return clusterRoot
    */
-  
-  @Schema(name = "clusterRoot", description = "Is the component cluster root.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+
+  @Schema(name = "clusterRoot", description = "Whether the component declares cluster element types of its own, meaning it is configured through its child cluster elements rather than directly.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
   @JsonProperty("clusterRoot")
   public @Nullable Boolean getClusterRoot() {
     return clusterRoot;
