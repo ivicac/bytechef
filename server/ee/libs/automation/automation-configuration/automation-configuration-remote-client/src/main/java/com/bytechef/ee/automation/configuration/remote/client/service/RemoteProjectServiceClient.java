@@ -13,6 +13,7 @@ import com.bytechef.automation.configuration.domain.ProjectVersion.Status;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.ee.remote.client.LoadBalancedRestClient;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Optional;
@@ -163,7 +164,8 @@ public class RemoteProjectServiceClient implements ProjectService {
     }
 
     @Override
-    public Project updatePermissionExpression(long id, String permissionExpression) {
+    public Project updateVisibility(long id, ResourceVisibility visibility) {
         throw new UnsupportedOperationException();
     }
+
 }
