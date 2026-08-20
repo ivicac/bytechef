@@ -34,6 +34,7 @@ import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
 import com.bytechef.automation.configuration.dto.ProjectWorkflowDTO;
 import com.bytechef.automation.configuration.facade.ProjectFacade;
+import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.automation.configuration.service.ProjectWorkflowService;
@@ -62,6 +63,7 @@ import com.bytechef.platform.workflow.execution.service.WorkflowExecutionRowServ
 import com.bytechef.platform.workflow.task.dispatcher.domain.TaskDispatcherDefinition;
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.io.Serializable;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -80,6 +82,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -98,6 +101,7 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
     private final EnvironmentService environmentService;
     private final WorkflowExecutionRowService workflowExecutionRowService;
     private final JobService jobService;
+    private final PermissionService permissionService;
     private final PrincipalJobService principalJobService;
     private final ProjectFacade projectFacade;
     private final ProjectDeploymentService projectDeploymentService;
@@ -114,8 +118,7 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
     public ProjectWorkflowExecutionFacadeImpl(
         ComponentDefinitionService componentDefinitionService, ContextService contextService, Evaluator evaluator,
         EnvironmentService environmentService, WorkflowExecutionRowService workflowExecutionRowService,
-        JobService jobService,
-        PrincipalJobService principalJobService,
+        JobService jobService, PermissionService permissionService, PrincipalJobService principalJobService,
         ProjectFacade projectFacade, ProjectDeploymentService projectDeploymentService,
         ProjectService projectService, ProjectWorkflowService projectWorkflowService,
         TaskDispatcherDefinitionService taskDispatcherDefinitionService, TaskExecutionService taskExecutionService,
@@ -128,6 +131,7 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
         this.environmentService = environmentService;
         this.workflowExecutionRowService = workflowExecutionRowService;
         this.jobService = jobService;
+        this.permissionService = permissionService;
         this.principalJobService = principalJobService;
         this.projectFacade = projectFacade;
         this.projectDeploymentService = projectDeploymentService;
@@ -225,13 +229,21 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
         List<String> workflowIds = new ArrayList<>();
 
         if (workflowId != null) {
+            requireResourceScope(workflowId, "Workflow", "EXECUTION_VIEW");
+
             workflowIds.add(workflowId);
         } else if (projectId != null) {
+            requireResourceScope(projectId, "Project", "EXECUTION_VIEW");
+
             workflowIds.addAll(projectWorkflowService.getProjectWorkflowIds(projectId));
         } else {
             workflowIds.addAll(
                 CollectionUtils.map(
                     projectFacade.getWorkspaceProjectWorkflows(workspaceId), ProjectWorkflowDTO::getId));
+        }
+
+        if (projectDeploymentId != null) {
+            requireResourceScope(projectDeploymentId, "ProjectDeployment", "EXECUTION_VIEW");
         }
 
         Page<WorkflowExecutionDTO> workflowExecutionPage;
@@ -351,6 +363,16 @@ public class ProjectWorkflowExecutionFacadeImpl implements ProjectWorkflowExecut
         }
 
         return workflowExecutionPage;
+    }
+
+    /**
+     * An explicit filter id names a resource by id, so it gets the by-id semantics: a hidden project/deployment/
+     * workflow is denied rather than silently emptied — the client never sends an id it cannot see.
+     */
+    private void requireResourceScope(Serializable id, String resourceType, String scope) {
+        if (!permissionService.hasResourceScope(id, resourceType, scope)) {
+            throw new AccessDeniedException("%s id=%s".formatted(resourceType, id));
+        }
     }
 
     private List<WorkflowExecutionDTO> buildWorkflowExecutionDTOs(
