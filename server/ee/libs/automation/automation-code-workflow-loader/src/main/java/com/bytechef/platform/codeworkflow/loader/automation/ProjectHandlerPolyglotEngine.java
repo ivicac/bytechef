@@ -33,9 +33,6 @@ import java.util.Optional;
 import java.util.OptionalInt;
 import java.util.Set;
 import java.util.function.Function;
-import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.Engine;
-import org.graalvm.polyglot.TypeLiteral;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
 import org.graalvm.polyglot.proxy.ProxyObject;
@@ -47,52 +44,42 @@ import org.graalvm.polyglot.proxy.ProxyObject;
  */
 class ProjectHandlerPolyglotEngine {
 
-    // A dedicated engine for the strict-sandbox perform contexts. GraalVM caches host-access interop info
-    // per engine, so building a strict `HostAccess.NONE` context and the permissive definition-loading
-    // context on the SAME engine corrupts that cache; keeping them on separate engines avoids the clash
-    // while leaving definition loading (`getContext()`/`engine`) untouched.
-    private static Engine performEngine;
-
+    /**
+     * Evaluates the code workflow's definition script. The script is user-supplied and its top level runs in full here,
+     * so it is loaded through the same strict sandbox its task performs use rather than a permissive context of its own
+     * - the ceilings apply to declaring a workflow, not only to running one.
+     */
     static ProjectHandler load(String languageId, String script) {
-        if (engine == null) {
-            engine = Engine.create();
-        }
-
-        try (Context polyglotContext = getContext()) {
+        return PolyglotSandbox.call(languageId, polyglotContext -> {
             Value value = polyglotContext.eval(languageId, script);
 
             String name = Objects.requireNonNull(getMember(value, "name"));
             String description = getMember(value, "description");
             String version = getMember(value, "version");
 
-            List<WorkflowDefinition> workflows = getWorkflows(
-                value, new TypeLiteral<List<Map<String, Object>>>() {})
-                    .stream()
-                    .map(workflow -> (WorkflowDefinition) new PolyglotWorkflowDefinition(
-                        (String) workflow.get("name"), (String) workflow.get("label"),
-                        (String) workflow.get("description"),
-                        toTaskDefinitions(
-                            (String) workflow.get("name"), (List<?>) workflow.get("tasks"), languageId, script),
-                        toInputs(workflow.get("inputs")), toOutputs(workflow.get("outputs")),
-                        toTriggers(workflow.get("triggers"))))
-                    .toList();
+            List<WorkflowDefinition> workflows = getWorkflows(value)
+                .stream()
+                .map(workflow -> (WorkflowDefinition) new PolyglotWorkflowDefinition(
+                    (String) workflow.get("name"), (String) workflow.get("label"),
+                    (String) workflow.get("description"),
+                    toTaskDefinitions(
+                        (String) workflow.get("name"), (List<?>) workflow.get("tasks"), languageId, script),
+                    toInputs(workflow.get("inputs")), toOutputs(workflow.get("outputs")),
+                    toTriggers(workflow.get("triggers"))))
+                .toList();
 
             return () -> new PolyglotProjectDefinition(name, description, version, workflows);
-        }
+        });
     }
 
     @SuppressWarnings("unchecked")
     private static Object executePerform(
         String workflowName, String taskName, String languageId, String script, TaskContext taskContext) {
 
-        if (performEngine == null) {
-            performEngine = Engine.create();
-        }
-
-        try (Context polyglotContext = PolyglotSandbox.newContext(performEngine, languageId)) {
+        return PolyglotSandbox.call(languageId, polyglotContext -> {
             Value value = polyglotContext.eval(languageId, script);
 
-            List<Map<String, Object>> workflows = getWorkflows(value, new TypeLiteral<>() {});
+            List<Map<String, Object>> workflows = getWorkflows(value);
 
             List<Map<String, Object>> tasks = (List<Map<String, Object>>) workflows.stream()
                 .filter(workflow -> workflowName.equals(workflow.get("name")))
@@ -116,7 +103,7 @@ class ProjectHandlerPolyglotEngine {
             // mapped to a PolyglotMap), which becomes unusable once the context closes below. Copy it into plain
             // Java collections while the context is still open.
             return PolyglotValues.copyFromPolyglotContext(result);
-        }
+        });
     }
 
     /**
@@ -238,21 +225,23 @@ class ProjectHandlerPolyglotEngine {
                 }));
     }
 
-    private static Context getContext() {
-        return Context.newBuilder()
-            .engine(engine)
-            .build();
-    }
-
     private static String getMember(Value value, String name) {
         value = value.getMember(name);
 
         return value == null ? null : value.as(String.class);
     }
 
-    private static <T> T getWorkflows(Value value, TypeLiteral<T> typeLiteral) {
-        return value.getMember("workflows")
-            .as(typeLiteral);
+    /**
+     * Walks the guest definition's {@code workflows} member into host-native collections.
+     *
+     * <p>
+     * Walked rather than mapped with {@code Value.as(TypeLiteral)}: the perform contexts this runs in are built under a
+     * {@link org.graalvm.polyglot.SandboxPolicy} that forbids host object mappings of mutable target types. The walk
+     * keeps a task's {@code perform} member callable.
+     */
+    @SuppressWarnings("unchecked")
+    private static List<Map<String, Object>> getWorkflows(Value value) {
+        return (List<Map<String, Object>>) PolyglotValues.copyToJavaValue(value.getMember("workflows"));
     }
 
     private static List<WorkflowTaskDefinition> toTaskDefinitions(

@@ -14,6 +14,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.bytechef.automation.project.ProjectHandler;
 import com.bytechef.automation.project.definition.ProjectDefinition;
+import com.bytechef.platform.component.polyglot.PolyglotSandbox;
+import com.bytechef.platform.component.polyglot.PolyglotSandboxSettings;
 import com.bytechef.workflow.definition.CompositeTaskDefinition;
 import com.bytechef.workflow.definition.ConnectionRequirement;
 import com.bytechef.workflow.definition.Input;
@@ -31,6 +33,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.security.CodeSource;
 import java.security.ProtectionDomain;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
@@ -40,6 +43,8 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.tools.JavaCompiler;
 import javax.tools.ToolProvider;
+import org.graalvm.polyglot.PolyglotException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
@@ -51,6 +56,47 @@ import org.junit.jupiter.api.Test;
 @SuppressFBWarnings("PATH_TRAVERSAL_IN")
 class ProjectHandlerPolyglotEngineTest {
 
+    @AfterEach
+    void afterEach() {
+        PolyglotSandbox.setSettings(PolyglotSandboxSettings.defaults());
+    }
+
+    /**
+     * A code workflow's definition is user-supplied script, evaluated in full at load time - top-level work included.
+     * It gets the same sandbox and the same ceilings the workflow's task performs get, or an uploaded workflow can burn
+     * a thread before it ever declares a task.
+     */
+    @Test
+    void testLoadEnforcesCpuLimitOnDefinitionScript() {
+        PolyglotSandbox.setSettings(
+            new PolyglotSandboxSettings(
+                true, Duration.ofSeconds(1), PolyglotSandboxSettings.DEFAULT_MAX_HEAP_MEMORY,
+                PolyglotSandboxSettings.DEFAULT_MAX_CONCURRENT_EXECUTIONS));
+
+        String source = """
+            ({
+                name: 'test-project',
+                workflows: [],
+                filler: (function () {
+                    let total = 0;
+
+                    for (let i = 0; i < 200000000; i++) {
+                        total += i;
+                    }
+
+                    return total;
+                })()
+            })
+            """;
+
+        PolyglotException polyglotException = assertThrows(
+            PolyglotException.class, () -> ProjectHandlerPolyglotEngine.load("js", source));
+
+        assertTrue(
+            polyglotException.getMessage()
+                .contains("CPU time limit"),
+            polyglotException.getMessage());
+    }
 
     private static final String CONTEXT_JAVASCRIPT_SOURCE = """
         ({
