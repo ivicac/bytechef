@@ -1,3 +1,5 @@
+> **Superseded (2026-09-08)** by [2026-09-08-voice-cluster-element-redesign-design.md](../superpowers/specs/2026-09-08-voice-cluster-element-redesign-design.md): `websocketTasks`, the trigger-level subflow, and `WebSocketPerformFunction` are gone. The voice agent is now a `VoiceAgentFunction` cluster element (`VOICE_AGENT`) on the `browser/v1/voiceSession` trigger; only a Voice Agent element can return a `WebSocketHandler`, and only the voice session engine invokes one.
+
 # WebSocket Handler Implementation Plan
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
