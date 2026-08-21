@@ -13,7 +13,6 @@ import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.Authorization;
 import com.bytechef.component.definition.Authorization.ApplyResponse;
 import com.bytechef.component.definition.ClusterElementDefinition;
-import com.bytechef.component.definition.ComponentCategory;
 import com.bytechef.component.definition.ComponentDefinition;
 import com.bytechef.component.definition.ComponentDsl;
 import com.bytechef.component.definition.ComponentDsl.ModifiableAuthorization;
@@ -28,6 +27,7 @@ import com.bytechef.component.definition.Help;
 import com.bytechef.component.definition.Option;
 import com.bytechef.component.definition.OutputDefinition;
 import com.bytechef.component.definition.Parameters;
+import com.bytechef.component.definition.Property;
 import com.bytechef.component.definition.Resources;
 import com.bytechef.component.definition.TriggerDefinition;
 import com.bytechef.component.definition.TriggerDefinition.HttpHeaders;
@@ -52,9 +52,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Function;
-import org.graalvm.polyglot.Context;
-import org.graalvm.polyglot.Engine;
-import org.graalvm.polyglot.TypeLiteral;
 import org.graalvm.polyglot.Value;
 import org.graalvm.polyglot.proxy.ProxyExecutable;
 import org.graalvm.polyglot.proxy.ProxyObject;
@@ -70,20 +67,13 @@ class ComponentHandlerPolyglotEngine {
         .findAndAddModules()
         .build();
 
-    private static Engine engine;
-
-    // A dedicated engine for the strict-sandbox perform contexts. GraalVM caches host-access interop info
-    // per engine, so building a strict `HostAccess.NONE` context and the permissive definition-loading
-    // context on the SAME engine corrupts that cache; keeping them on separate engines avoids the clash
-    // while leaving definition loading (`getContext()`/`engine`) untouched.
-    private static Engine performEngine;
-
+    /**
+     * Evaluates the component's definition script. The script is user-supplied and its top level runs in full here, so
+     * it is loaded through the same strict sandbox its perform functions use rather than a permissive context of its
+     * own - the ceilings apply to declaring a component, not only to running one.
+     */
     static ComponentHandler load(String languageId, String script) {
-        if (engine == null) {
-            engine = Engine.create();
-        }
-
-        try (Context polyglotContext = getContext()) {
+        return PolyglotSandbox.call(languageId, polyglotContext -> {
             Value value = polyglotContext.eval(languageId, script);
 
             String name = Objects.requireNonNull(getMember(value, "name", String.class));
@@ -91,7 +81,7 @@ class ComponentHandlerPolyglotEngine {
             String description = getMember(value, "description", String.class);
             String icon = getMember(value, "icon", String.class);
             int version = Objects.requireNonNull(getMember(value, "version", Integer.class));
-            List<Map<String, Object>> actions = getMember(value, "actions", new TypeLiteral<>() {});
+            List<Map<String, Object>> actions = getMemberTree(value, "actions");
 
             List<ActionDefinition> actionDefinitions = toActionDefinitions(actions, languageId, script);
 
@@ -107,11 +97,11 @@ class ComponentHandlerPolyglotEngine {
                 }
             }
 
-            List<Map<String, Object>> triggers = getMember(value, "triggers", new TypeLiteral<>() {});
+            List<Map<String, Object>> triggers = getMemberTree(value, "triggers");
 
             List<TriggerDefinition> triggerDefinitions = toTriggerDefinitions(triggers, languageId, script);
 
-            Map<String, Object> connectionMap = getMember(value, "connection", new TypeLiteral<>() {});
+            Map<String, Object> connectionMap = getMemberTree(value, "connection");
 
             ConnectionDefinition connectionDefinition = connectionMap == null
                 ? null : toConnectionDefinition(connectionMap, languageId, script);
@@ -119,7 +109,7 @@ class ComponentHandlerPolyglotEngine {
             return () -> new PolyglotComponentDefinition(
                 name, title, description, icon, version, actionDefinitions, clusterElementDefinitions,
                 triggerDefinitions, connectionDefinition);
-        }
+        });
     }
 
     /**
@@ -313,14 +303,10 @@ class ComponentHandlerPolyglotEngine {
     private static Object executeConnectionSeamFunction(
         String languageId, String script, int authorizationIndex, String seamName, Parameters connectionParameters) {
 
-        if (performEngine == null) {
-            performEngine = Engine.create();
-        }
-
-        try (Context polyglotContext = PolyglotSandbox.newContext(performEngine, languageId)) {
+        return PolyglotSandbox.call(languageId, polyglotContext -> {
             Value value = polyglotContext.eval(languageId, script);
 
-            Map<String, Object> connectionMap = getMember(value, "connection", new TypeLiteral<>() {});
+            Map<String, Object> connectionMap = getMemberTree(value, "connection");
 
             List<Map<String, Object>> authorizationMaps =
                 (List<Map<String, Object>>) connectionMap.get("authorizations");
@@ -338,7 +324,7 @@ class ComponentHandlerPolyglotEngine {
             });
 
             return PolyglotValues.copyFromPolyglotContext(result);
-        }
+        });
     }
 
     @SuppressWarnings("unchecked")
@@ -346,14 +332,10 @@ class ComponentHandlerPolyglotEngine {
         String actionName, Parameters inputParameters, Parameters connectionParameters, ActionContext context,
         String languageId, String script) {
 
-        if (performEngine == null) {
-            performEngine = Engine.create();
-        }
-
-        try (Context polyglotContext = PolyglotSandbox.newContext(performEngine, languageId)) {
+        return PolyglotSandbox.call(languageId, polyglotContext -> {
             Value value = polyglotContext.eval(languageId, script);
 
-            List<Map<String, Object>> tasks = getMember(value, "actions", new TypeLiteral<>() {});
+            List<Map<String, Object>> tasks = getMemberTree(value, "actions");
 
             for (Map<String, Object> task : tasks) {
                 if (actionName.equals(task.get("name"))) {
@@ -377,7 +359,7 @@ class ComponentHandlerPolyglotEngine {
             }
 
             throw new IllegalArgumentException("Action name=%s not found".formatted(actionName));
-        }
+        });
     }
 
     /**
@@ -427,22 +409,25 @@ class ComponentHandlerPolyglotEngine {
         }
     }
 
-    private static Context getContext() {
-        return Context.newBuilder()
-            .engine(engine)
-            .build();
-    }
-
     private static <T> T getMember(Value value, String name, Class<T> valueClass) {
         value = value.getMember(name);
 
         return value == null ? null : value.as(valueClass);
     }
 
-    private static <T> T getMember(Value value, String name, TypeLiteral<T> typeLiteral) {
+    /**
+     * Walks a guest member into host-native collections.
+     *
+     * <p>
+     * Walked rather than mapped with {@code Value.as(TypeLiteral)}: the perform contexts this runs in are built under a
+     * {@link org.graalvm.polyglot.SandboxPolicy} that forbids host object mappings of mutable target types. The walk
+     * keeps executable members, such as an action's {@code perform}, callable.
+     */
+    @SuppressWarnings("unchecked")
+    private static <T> T getMemberTree(Value value, String name) {
         Value member = value.getMember(name);
 
-        return member == null ? null : member.as(typeLiteral);
+        return member == null ? null : (T) PolyglotValues.copyToJavaValue(member);
     }
 
     @SuppressWarnings("unchecked")
@@ -585,11 +570,7 @@ class ComponentHandlerPolyglotEngine {
         String languageId, String script, String triggerName, String functionName, Parameters inputParameters,
         Parameters connectionParameters, Map<String, ?> arguments) {
 
-        if (performEngine == null) {
-            performEngine = Engine.create();
-        }
-
-        try (Context polyglotContext = PolyglotSandbox.newContext(performEngine, languageId)) {
+        return PolyglotSandbox.call(languageId, polyglotContext -> {
             Value value = polyglotContext.eval(languageId, script);
 
             Map<String, Object> trigger = findTrigger(value, triggerName);
@@ -609,11 +590,11 @@ class ComponentHandlerPolyglotEngine {
             });
 
             return PolyglotValues.copyFromPolyglotContext(result);
-        }
+        });
     }
 
     private static Map<String, Object> findTrigger(Value value, String triggerName) {
-        List<Map<String, Object>> triggers = getMember(value, "triggers", new TypeLiteral<>() {});
+        List<Map<String, Object>> triggers = getMemberTree(value, "triggers");
 
         return triggers.stream()
             .filter(trigger -> Objects.equals(trigger.get("name"), triggerName))
@@ -632,11 +613,7 @@ class ComponentHandlerPolyglotEngine {
         Parameters connectionParameters, HttpHeaders headers, HttpParameters parameters, WebhookBody body,
         WebhookMethod method) {
 
-        if (performEngine == null) {
-            performEngine = Engine.create();
-        }
-
-        try (Context polyglotContext = PolyglotSandbox.newContext(performEngine, languageId)) {
+        return PolyglotSandbox.call(languageId, polyglotContext -> {
             Value value = polyglotContext.eval(languageId, script);
 
             Map<String, Object> triggerMap = findTrigger(value, triggerName);
@@ -664,18 +641,14 @@ class ComponentHandlerPolyglotEngine {
             });
 
             return PolyglotValues.copyFromPolyglotContext(result);
-        }
+        });
     }
 
     private static PollOutput executePoll(
         String languageId, String script, String triggerName, Parameters inputParameters,
         Parameters connectionParameters, Parameters closureParameters) {
 
-        if (performEngine == null) {
-            performEngine = Engine.create();
-        }
-
-        try (Context polyglotContext = PolyglotSandbox.newContext(performEngine, languageId)) {
+        return PolyglotSandbox.call(languageId, polyglotContext -> {
             Value value = polyglotContext.eval(languageId, script);
 
             Map<String, Object> trigger = findTrigger(value, triggerName);
@@ -703,7 +676,7 @@ class ComponentHandlerPolyglotEngine {
                 records instanceof List<?> recordList ? recordList : List.of(),
                 nextClosureParameters instanceof Map<?, ?> ? (Map<String, ?>) nextClosureParameters : Map.of(),
                 Boolean.TRUE.equals(pollOutputMap.get("pollImmediately")));
-        }
+        });
     }
 
     /**
@@ -817,14 +790,10 @@ class ComponentHandlerPolyglotEngine {
         String languageId, String script, String actionName, String propertyName, String functionName,
         Parameters inputParameters, Parameters connectionParameters) {
 
-        if (performEngine == null) {
-            performEngine = Engine.create();
-        }
-
-        try (Context polyglotContext = PolyglotSandbox.newContext(performEngine, languageId)) {
+        return PolyglotSandbox.call(languageId, polyglotContext -> {
             Value value = polyglotContext.eval(languageId, script);
 
-            List<Map<String, Object>> actions = getMember(value, "actions", new TypeLiteral<>() {});
+            List<Map<String, Object>> actions = getMemberTree(value, "actions");
 
             Map<String, Object> action = actions.stream()
                 .filter(curAction -> Objects.equals(curAction.get("name"), actionName))
@@ -851,21 +820,17 @@ class ComponentHandlerPolyglotEngine {
             });
 
             return PolyglotValues.copyFromPolyglotContext(result);
-        }
+        });
     }
 
     private static List<Option<String>> executeOptionsSeam(
         String languageId, String script, String actionName, String propertyName, Parameters inputParameters,
         Parameters connectionParameters, String searchText) {
 
-        if (performEngine == null) {
-            performEngine = Engine.create();
-        }
-
-        try (Context polyglotContext = PolyglotSandbox.newContext(performEngine, languageId)) {
+        return PolyglotSandbox.call(languageId, polyglotContext -> {
             Value value = polyglotContext.eval(languageId, script);
 
-            List<Map<String, Object>> actions = getMember(value, "actions", new TypeLiteral<>() {});
+            List<Map<String, Object>> actions = getMemberTree(value, "actions");
 
             Map<String, Object> action = actions.stream()
                 .filter(curAction -> Objects.equals(curAction.get("name"), actionName))
@@ -907,7 +872,7 @@ class ComponentHandlerPolyglotEngine {
             }
 
             return optionList;
-        }
+        });
     }
 
     /**
@@ -940,11 +905,6 @@ class ComponentHandlerPolyglotEngine {
         implements ActionDefinition {
 
         @Override
-        public boolean getBatch() {
-            return false;
-        }
-
-        @Override
         public Optional<BeforeResumeFunction> getBeforeResume() {
             return Optional.empty();
         }
@@ -957,11 +917,6 @@ class ComponentHandlerPolyglotEngine {
         @Override
         public Optional<BeforeTimeoutResumeFunction> getBeforeTimeoutResume() {
             return Optional.empty();
-        }
-
-        @Override
-        public boolean getDeprecated() {
-            return false;
         }
 
         @Override
@@ -984,11 +939,6 @@ class ComponentHandlerPolyglotEngine {
         @Override
         public Optional<Help> getHelp() {
             return Optional.empty();
-        }
-
-        @Override
-        public Map<String, Object> getMetadata() {
-            return Map.of();
         }
 
         @Override
@@ -1034,11 +984,6 @@ class ComponentHandlerPolyglotEngine {
         }
 
         @Override
-        public List<ComponentCategory> getComponentCategories() {
-            return List.of();
-        }
-
-        @Override
         public List<ClusterElementDefinition<?>> getClusterElements() {
             return clusterElements == null ? List.of() : clusterElements;
         }
@@ -1046,11 +991,6 @@ class ComponentHandlerPolyglotEngine {
         @Override
         public Optional<ConnectionDefinition> getConnection() {
             return Optional.ofNullable(connectionDefinition);
-        }
-
-        @Override
-        public boolean getCustomAction() {
-            return false;
         }
 
         @Override
@@ -1069,16 +1009,6 @@ class ComponentHandlerPolyglotEngine {
         }
 
         @Override
-        public List<? extends PropertyGroup> getInputs() {
-            return List.of();
-        }
-
-        @Override
-        public Map<String, Object> getMetadata() {
-            return Map.of();
-        }
-
-        @Override
         public String getName() {
             return name;
         }
@@ -1086,11 +1016,6 @@ class ComponentHandlerPolyglotEngine {
         @Override
         public Optional<Resources> getResources() {
             return Optional.empty();
-        }
-
-        @Override
-        public List<String> getTags() {
-            return List.of();
         }
 
         @Override

@@ -9,18 +9,23 @@ package com.bytechef.ee.embedded.codeworkflow.loader;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.bytechef.embedded.integration.IntegrationHandler;
 import com.bytechef.embedded.integration.definition.IntegrationDefinition;
+import com.bytechef.platform.component.polyglot.PolyglotSandbox;
+import com.bytechef.platform.component.polyglot.PolyglotSandboxSettings;
 import com.bytechef.workflow.definition.ConnectionRequirement;
 import com.bytechef.workflow.definition.TaskDefinition;
 import com.bytechef.workflow.definition.WorkflowDefinition;
 import com.bytechef.workflow.definition.WorkflowTaskDefinition;
+import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
-import org.junit.jupiter.api.Disabled;
+import org.graalvm.polyglot.PolyglotException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -29,6 +34,49 @@ import org.junit.jupiter.api.Test;
  * @author Ivica Cardic
  */
 class IntegrationHandlerPolyglotEngineTest {
+
+    @AfterEach
+    void afterEach() {
+        PolyglotSandbox.setSettings(PolyglotSandboxSettings.defaults());
+    }
+
+    /**
+     * A code workflow's definition is user-supplied script, evaluated in full at load time - top-level work included.
+     * It gets the same sandbox and the same ceilings the workflow's task performs get, or an uploaded workflow can burn
+     * a thread before it ever declares a task.
+     */
+    @Test
+    void testLoadEnforcesCpuLimitOnDefinitionScript() {
+        PolyglotSandbox.setSettings(
+            new PolyglotSandboxSettings(
+                true, Duration.ofSeconds(1), PolyglotSandboxSettings.DEFAULT_MAX_HEAP_MEMORY,
+                PolyglotSandboxSettings.DEFAULT_MAX_CONCURRENT_EXECUTIONS));
+
+        String source = """
+            ({
+                componentName: 'test-component',
+                componentVersion: 1,
+                workflows: [],
+                filler: (function () {
+                    let total = 0;
+
+                    for (let i = 0; i < 200000000; i++) {
+                        total += i;
+                    }
+
+                    return total;
+                })()
+            })
+            """;
+
+        PolyglotException polyglotException = assertThrows(
+            PolyglotException.class, () -> IntegrationHandlerPolyglotEngine.load("js", source));
+
+        assertTrue(
+            polyglotException.getMessage()
+                .contains("CPU time limit"),
+            polyglotException.getMessage());
+    }
 
     private static final String CONTEXT_JAVASCRIPT_SOURCE = """
         ({
@@ -69,24 +117,6 @@ class IntegrationHandlerPolyglotEngineTest {
                     ]
                 }
             ]
-        )
-        """;
-
-    private static final String CONTEXT_RUBY_SOURCE = """
-        Struct.new(:componentName, :componentVersion, :workflows).new(
-          "test-component",
-          1,
-          [
-            {
-              "name" => "my-workflow",
-              "tasks" => [
-                {
-                  "name" => "my-task",
-                  "perform" => lambda { |context| context.component.mock.doIt({ "x" => 1 }, "conn") }
-                }
-              ]
-            }
-          ]
         )
         """;
 
@@ -215,30 +245,6 @@ class IntegrationHandlerPolyglotEngineTest {
 
         assertEquals(1, ((Number) input.get("x")).intValue());
         assertEquals("python result", result);
-    }
-
-    // RUBY-DISABLED: org.graalvm.polyglot:ruby is published only up to 25.0.0 and crashes on the pinned
-    // Truffle 25.2.4; the ruby dependency is commented out so the language is not even installed. Remove
-    // this @Disabled once a polyglot ruby jar built on Truffle 25.2+ is published (or GraalVM is
-    // downgraded). Grep RUBY-DISABLED.
-    @Disabled("RUBY-DISABLED")
-    @Test
-    void testPerformReceivesComponentCapableContextForRuby() throws Exception {
-        TaskDefinition taskDefinition = loadSingleTask("ruby", CONTEXT_RUBY_SOURCE);
-
-        RecordingTaskContext taskContext = new RecordingTaskContext("ruby result");
-
-        Object result = taskDefinition.getPerform()
-            .apply(taskContext);
-
-        assertEquals("mock", taskContext.getComponentName());
-        assertEquals("doIt", taskContext.getActionName());
-        assertEquals("conn", taskContext.getConnectionName());
-
-        Map<String, ?> input = taskContext.getInput();
-
-        assertEquals(1, ((Number) input.get("x")).intValue());
-        assertEquals("ruby result", result);
     }
 
     @Test
