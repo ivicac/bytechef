@@ -21,6 +21,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.facade.WorkspaceFacadeImpl;
 import com.bytechef.automation.configuration.repository.WorkspaceRepository;
+import com.bytechef.automation.configuration.service.DefaultResourceVisibilityResolver;
 import com.bytechef.automation.configuration.service.PermissionServiceImpl;
 import com.bytechef.automation.configuration.service.WorkspaceServiceImpl;
 import com.bytechef.automation.search.SearchAssetProvider;
@@ -29,12 +30,14 @@ import com.bytechef.automation.search.SearchResult;
 import com.bytechef.cache.config.CacheConfiguration;
 import com.bytechef.liquibase.config.LiquibaseConfiguration;
 import com.bytechef.platform.security.constant.AuthorityConstants;
+import com.bytechef.platform.user.audit.UserAuditPublisher;
 import com.bytechef.platform.user.callback.UserCallback;
 import com.bytechef.platform.user.domain.Authority;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.repository.AuthorityRepository;
 import com.bytechef.platform.user.repository.UserRepository;
 import com.bytechef.platform.user.service.UserServiceImpl;
+import com.bytechef.tenant.service.TenantService;
 import com.bytechef.test.config.jdbc.AbstractIntTestJdbcConfiguration;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.List;
@@ -55,6 +58,7 @@ import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.transaction.annotation.Transactional;
 
 /**
@@ -66,6 +70,7 @@ import org.springframework.transaction.annotation.Transactional;
  * @author Ivica Cardic
  */
 @SpringBootTest(classes = AutomationSearchFacadeIntTest.AutomationSearchFacadeIntTestConfiguration.class)
+@MockitoBean(types = TenantService.class)
 @Transactional
 class AutomationSearchFacadeIntTest {
 
@@ -128,7 +133,7 @@ class AutomationSearchFacadeIntTest {
 
         workflowSearchAssetProvider.setResults(List.of(new TestSearchResult(1L, SearchAssetType.WORKFLOW)));
 
-        List<SearchResult<?>> results = automationSearchFacade.search("q", 10);
+        List<SearchResult<?>> results = automationSearchFacade.search("q", 10, null);
 
         assertThat(workflowSearchAssetProvider.getWorkspaceIds())
             .containsExactlyInAnyOrder(firstWorkspace.getId(), secondWorkspace.getId());
@@ -139,7 +144,7 @@ class AutomationSearchFacadeIntTest {
     void testCallerWithoutWorkspacesGetsNoResults() {
         workflowSearchAssetProvider.setResults(List.of(new TestSearchResult(1L, SearchAssetType.WORKFLOW)));
 
-        List<SearchResult<?>> results = automationSearchFacade.search("q", 10);
+        List<SearchResult<?>> results = automationSearchFacade.search("q", 10, null);
 
         assertThat(results).isEmpty();
         assertThat(connectionSearchAssetProvider.getWorkspaceIds()).isNull();
@@ -153,12 +158,22 @@ class AutomationSearchFacadeIntTest {
         connectionSearchAssetProvider.setResults(List.of(new TestSearchResult(2L, SearchAssetType.CONNECTION)));
         workflowSearchAssetProvider.setResults(List.of(new TestSearchResult(3L, SearchAssetType.WORKFLOW)));
 
-        List<SearchResult<?>> results = automationSearchFacade.search("q", 10);
+        List<SearchResult<?>> results = automationSearchFacade.search("q", 10, null);
 
         assertThat(connectionSearchAssetProvider.getWorkspaceIds()).containsExactly(workspace.getId());
         assertThat(workflowSearchAssetProvider.getWorkspaceIds()).containsExactly(workspace.getId());
         assertThat(results).containsExactlyInAnyOrder(
             new TestSearchResult(2L, SearchAssetType.CONNECTION), new TestSearchResult(3L, SearchAssetType.WORKFLOW));
+    }
+
+    @Test
+    void testOnlyRequestedTypeProvidersAreCalled() {
+        Workspace workspace = workspaceRepository.save(new Workspace("typed-search-workspace"));
+
+        automationSearchFacade.search("q", 10, Set.of(SearchAssetType.WORKFLOW));
+
+        assertThat(workflowSearchAssetProvider.getWorkspaceIds()).containsExactly(workspace.getId());
+        assertThat(connectionSearchAssetProvider.getWorkspaceIds()).isNull();
     }
 
     static class RecordingSearchAssetProvider implements SearchAssetProvider {
@@ -213,9 +228,10 @@ class AutomationSearchFacadeIntTest {
     @Configuration
     @EnableAutoConfiguration
     @Import({
-        AutomationSearchFacadeImpl.class, CacheConfiguration.class, LiquibaseConfiguration.class,
-        PermissionServiceImpl.class, PostgreSQLContainerConfiguration.class, UserCallback.class, UserServiceImpl.class,
-        WorkspaceFacadeImpl.class, WorkspaceServiceImpl.class
+        AutomationSearchFacadeImpl.class, CacheConfiguration.class, DefaultResourceVisibilityResolver.class,
+        LiquibaseConfiguration.class, PermissionServiceImpl.class, PostgreSQLContainerConfiguration.class,
+        UserAuditPublisher.class, UserCallback.class, UserServiceImpl.class, WorkspaceFacadeImpl.class,
+        WorkspaceServiceImpl.class
     })
     static class AutomationSearchFacadeIntTestConfiguration {
 

@@ -19,6 +19,7 @@ package com.bytechef.automation.search.facade;
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.automation.search.SearchAssetProvider;
+import com.bytechef.automation.search.SearchAssetType;
 import com.bytechef.automation.search.SearchResult;
 import com.bytechef.platform.user.service.UserService;
 import com.bytechef.tenant.TenantContext;
@@ -28,6 +29,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import org.jspecify.annotations.Nullable;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -55,29 +57,33 @@ public class AutomationSearchFacadeImpl implements AutomationSearchFacade {
 
     @Override
     @SuppressWarnings("unchecked")
-    public List<SearchResult<?>> search(String query, int limit) {
+    public List<SearchResult<?>> search(String query, int limit, @Nullable Set<SearchAssetType> types) {
         List<CompletableFuture<List<SearchResult<?>>>> futures = new ArrayList<>();
 
         String currentTenantId = TenantContext.getCurrentTenantId();
 
-        // Captured here and re-established inside every pooled task, exactly like the tenant id above: the fan-out
-        // runs on the common ForkJoinPool, which inherits neither. A provider that resolves resource visibility
-        // reads the current principal, and SecurityUtils.getCurrentUserLogin() throws when there is none — so
-        // without this the whole search fails rather than degrading.
         SecurityContext securityContext = SecurityContextHolder.getContext();
 
-        // Resolved once here rather than per provider — the answer is the same for every one of them.
         Set<Long> accessibleWorkspaceIds = getAccessibleWorkspaceIds();
 
-        for (SearchAssetProvider provider : providers) {
+        if (accessibleWorkspaceIds.isEmpty()) {
+            return List.of();
+        }
+
+        List<SearchAssetProvider> requestedProviders = types == null || types.isEmpty()
+            ? providers
+            : providers.stream()
+                .filter(provider -> types.contains(provider.getAssetType()))
+                .toList();
+
+        for (SearchAssetProvider provider : requestedProviders) {
             CompletableFuture<List<SearchResult<?>>> future = CompletableFuture.supplyAsync(() -> {
                 SecurityContextHolder.setContext(securityContext);
 
                 try {
                     return (List<SearchResult<?>>) TenantContext.callWithTenantId(
-                        currentTenantId, () -> provider.search(query, limit));
+                        currentTenantId, () -> provider.search(query, limit, accessibleWorkspaceIds));
                 } finally {
-                    // Pooled threads outlive the request, so the principal must not be left behind on one.
                     SecurityContextHolder.clearContext();
                 }
             });
@@ -91,7 +97,6 @@ public class AutomationSearchFacadeImpl implements AutomationSearchFacade {
         return futures.stream()
             .flatMap(future -> future.join()
                 .stream())
-            .filter(searchResult -> isAccessible(searchResult, accessibleWorkspaceIds))
             .toList();
     }
 
@@ -100,14 +105,6 @@ public class AutomationSearchFacadeImpl implements AutomationSearchFacade {
             .getId())
             .stream()
             .map(Workspace::getId)
-            .collect(Collectors.toSet());
-    }
-
-    private static boolean isAccessible(SearchResult<?> searchResult, Set<Long> accessibleWorkspaceIds) {
-        Long workspaceId = searchResult.workspaceId();
-
-        // A null workspaceId means the provider has not been workspace-scoped yet (passed through unchanged during the
-        // incremental rollout) or the result is workspace-independent.
-        return workspaceId == null || accessibleWorkspaceIds.contains(workspaceId);
+            .collect(Collectors.toUnmodifiableSet());
     }
 }
