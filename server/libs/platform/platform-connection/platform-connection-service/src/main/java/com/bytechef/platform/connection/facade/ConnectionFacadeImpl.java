@@ -199,9 +199,18 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
 
         connectionService.replaceConnectionParameters(id, updatedParameters);
 
+        // Nothing else in production sets this back to VALID. Without it ComponentDefinitionFacadeImpl keeps blocking
+        // execution on the connection, and ConnectionAfterSaveEventListener never re-arms its token refresh routine, so
+        // a reconnect would report success and leave the connection just as unusable as before.
         connectionService.updateConnectionCredentialStatus(id, Connection.CredentialStatus.VALID);
     }
 
+    /**
+     * Builds the connection's complete post-replacement parameter map: every key the connection definition declares as
+     * an authorization property is dropped, then {@code parameters} is applied on top. Subtracting by declared name is
+     * what lets an unsubmitted optional credential actually clear while a connection-level property survives, without
+     * the caller having to tell us which of its keys are credentials.
+     */
     private Connection getConnectionWithReplacedAuthorizationParameters(long id, Map<String, ?> parameters) {
         Connection connection = connectionService.getConnection(id);
 
@@ -225,6 +234,12 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
         return connection;
     }
 
+    /**
+     * Re-runs the OAuth2 authorization-code exchange when {@code connection} carries an authorization {@code code}
+     * parameter, merging the callback result (and, when neither client id nor client secret survived the exchange, the
+     * predefined client id/secret) back into {@code connection}'s parameters. Shared by {@link #create} and
+     * {@link #replaceAuthorizationParameters} so a reconnect re-runs exactly the same exchange as the original connect.
+     */
     private void resolveOAuth2AuthorizationCode(Connection connection) {
         if (connection.getAuthorizationType() != null && connection.containsParameter(Authorization.CODE)) {
 
