@@ -5,6 +5,7 @@ import ApiClientDialog from '@/ee/pages/automation/api-platform/api-clients/comp
 import {ApiClient} from '@/ee/shared/middleware/automation/api-platform';
 import {useDeleteApiClientMutation} from '@/ee/shared/mutations/platform/apiClients.mutations';
 import {ApiClientKeys} from '@/ee/shared/queries/platform/apiClients.queries';
+import {coreTableFeatures} from '@/shared/util/table-features';
 import {useQueryClient} from '@tanstack/react-query';
 import {createColumnHelper, flexRender, useTable} from '@tanstack/react-table';
 import {EditIcon, Trash2Icon} from 'lucide-react';
