@@ -35,10 +35,8 @@ public class ComponentInputOptionsRequestModel {
 
   private String propertyName;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private Map<String, Object> lookupDependsOnValues = new HashMap<>();
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String searchText;
 
   public ComponentInputOptionsRequestModel() {

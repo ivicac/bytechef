@@ -36,30 +36,22 @@ import jakarta.annotation.Generated;
 @Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T17:05:21.941318+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 public class ConnectedUserProjectWorkflowModel {
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   private @Nullable OffsetDateTime createdDate;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String description;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String definition;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   private @Nullable OffsetDateTime lastModifiedDate;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Boolean enabled;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String label;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String workflowUuid;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Integer workflowVersion;
 
   /**
@@ -97,19 +89,14 @@ public class ConnectedUserProjectWorkflowModel {
     }
   }
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable KindEnum kind;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String catalogWorkflowUuid;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String copiedFromWorkflowUuid;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Boolean dangling;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid AutomationWorkflowProjectComponentModel> components = new ArrayList<>();
 
   public ConnectedUserProjectWorkflowModel createdDate(@Nullable OffsetDateTime createdDate) {

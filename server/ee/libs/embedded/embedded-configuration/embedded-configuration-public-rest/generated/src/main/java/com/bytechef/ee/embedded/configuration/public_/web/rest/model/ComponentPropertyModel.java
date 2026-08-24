@@ -34,24 +34,18 @@ public class ComponentPropertyModel {
 
   private String name;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String label;
 
   private InputTypeModel type = InputTypeModel.STRING;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String controlType;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Boolean required;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid OptionModel> options = new ArrayList<>();
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Boolean dynamicOptions;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<String> optionsLookupDependsOn = new ArrayList<>();
 
   public ComponentPropertyModel() {

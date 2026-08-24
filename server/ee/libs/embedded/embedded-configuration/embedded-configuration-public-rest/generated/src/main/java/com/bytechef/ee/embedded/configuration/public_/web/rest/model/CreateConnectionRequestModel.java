@@ -29,7 +29,6 @@ public class CreateConnectionRequestModel {
 
   private String name;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String authorizationType;
 
   private Integer connectionVersion;

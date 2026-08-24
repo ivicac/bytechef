@@ -31,23 +31,22 @@ import jakarta.annotation.Generated;
 @Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T17:05:21.941318+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 public class InputModel {
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private @Nullable String defaultValue;
+
   private Boolean internalOnly = false;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String label;
 
   private String name;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String objectName;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
+  private List<@Valid OptionModel> options = new ArrayList<>();
+
   private Boolean required = false;
 
   private InputTypeModel type = InputTypeModel.STRING;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable ComponentInputReferenceModel componentReference;
 
   public InputModel() {

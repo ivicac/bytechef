@@ -33,7 +33,6 @@ public class ComponentInputReferenceModel {
 
   private String groupName;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable ComponentPropertyGroupModel group;
 
   public ComponentInputReferenceModel() {

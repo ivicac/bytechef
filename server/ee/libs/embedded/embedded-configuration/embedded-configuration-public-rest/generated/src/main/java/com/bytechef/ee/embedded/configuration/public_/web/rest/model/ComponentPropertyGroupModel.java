@@ -32,10 +32,8 @@ public class ComponentPropertyGroupModel {
 
   private String name;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String label;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid ComponentPropertyModel> properties = new ArrayList<>();
 
   public ComponentPropertyGroupModel() {

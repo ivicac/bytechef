@@ -60,7 +60,6 @@ public class ConnectionInUseErrorModel {
     }
   }
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable ReasonEnum reason;
 
   public ConnectionInUseErrorModel reason(@Nullable ReasonEnum reason) {

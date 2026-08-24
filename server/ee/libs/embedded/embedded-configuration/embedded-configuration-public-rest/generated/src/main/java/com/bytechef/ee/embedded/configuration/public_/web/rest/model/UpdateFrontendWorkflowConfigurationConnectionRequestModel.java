@@ -25,7 +25,6 @@ import jakarta.annotation.Generated;
 @Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-10-16T17:05:21.941318+02:00[Europe/Zagreb]", comments = "Generator version: 7.26.0")
 public class UpdateFrontendWorkflowConfigurationConnectionRequestModel {
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Long connectionId;
 
   public UpdateFrontendWorkflowConfigurationConnectionRequestModel connectionId(@Nullable Long connectionId) {

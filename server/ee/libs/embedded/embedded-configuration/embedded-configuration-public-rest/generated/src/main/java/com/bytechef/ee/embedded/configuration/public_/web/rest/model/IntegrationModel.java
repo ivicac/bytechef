@@ -35,35 +35,26 @@ public class IntegrationModel {
 
   private String componentName;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String description;
 
   private String icon;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Long id;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid IntegrationInstanceModel> integrationInstances = new ArrayList<>();
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Integer integrationVersion;
 
   private Boolean multipleInstances = false;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String name;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable ConnectionConfigModel connectionConfig;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid IntegrationWorkflowModel> mcpWorkflows = new ArrayList<>();
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid McpToolModel> mcpTools = new ArrayList<>();
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid IntegrationWorkflowModel> workflows = new ArrayList<>();
 
   public IntegrationModel() {

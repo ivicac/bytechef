@@ -27,7 +27,6 @@ public class CreateFrontendProjectWorkflowFromPromptRequestModel {
 
   private String prompt;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String systemPrompt;
 
   public CreateFrontendProjectWorkflowFromPromptRequestModel() {

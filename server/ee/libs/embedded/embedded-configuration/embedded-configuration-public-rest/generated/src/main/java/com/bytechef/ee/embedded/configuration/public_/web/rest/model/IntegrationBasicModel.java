@@ -32,23 +32,18 @@ public class IntegrationBasicModel {
 
   private String componentName;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String description;
 
   private String icon;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Long id;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private List<@Valid IntegrationInstanceModel> integrationInstances = new ArrayList<>();
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Integer integrationVersion;
 
   private Boolean multipleInstances = false;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String name;
 
   public IntegrationBasicModel() {

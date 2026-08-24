@@ -35,19 +35,14 @@ public class ConnectionModel {
 
   private String name;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable EnvironmentModel environment;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String componentName;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable Integer connectionVersion;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   private @Nullable String authorizationType;
 
-  @JsonInclude(JsonInclude.Include.NON_NULL)
   @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME)
   private @Nullable OffsetDateTime createdDate;
 
