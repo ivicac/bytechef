@@ -73,7 +73,7 @@ class AutomationSearchFacadeTest {
         AutomationSearchFacadeImpl facade = new AutomationSearchFacadeImpl(
             List.of(provider), userService, workspaceFacade);
 
-        List<SearchResult<?>> results = facade.search("q", 10);
+        List<SearchResult<?>> results = facade.search("q", 10, null);
 
         assertThat(passedWorkspaceIds.get()).containsExactly(10L);
         assertThat(results).hasSize(1);
@@ -95,7 +95,7 @@ class AutomationSearchFacadeTest {
         AutomationSearchFacadeImpl facade = new AutomationSearchFacadeImpl(
             List.of(new RecordingProvider(SearchAssetType.PROJECT, providerCalled)), userService, workspaceFacade);
 
-        List<SearchResult<?>> results = facade.search("q", 10);
+        List<SearchResult<?>> results = facade.search("q", 10, null);
 
         assertThat(results).isEmpty();
         assertThat(providerCalled).isFalse();
@@ -122,9 +122,39 @@ class AutomationSearchFacadeTest {
             List.of(new RecordingProvider(SearchAssetType.CONNECTION, connectionProviderCalled)), userService,
             workspaceFacade);
 
-        facade.search("q", 10);
+        facade.search("q", 10, null);
 
         assertThat(connectionProviderCalled).isTrue();
+    }
+
+    @Test
+    void testOnlyRequestedTypeProvidersAreCalled() {
+        UserService userService = mock(UserService.class);
+        WorkspaceFacade workspaceFacade = mock(WorkspaceFacade.class);
+
+        User user = mock(User.class);
+
+        when(user.getId()).thenReturn(1L);
+        when(userService.getCurrentUser()).thenReturn(user);
+
+        Workspace accessible = mock(Workspace.class);
+
+        when(accessible.getId()).thenReturn(10L);
+        when(workspaceFacade.getUserWorkspaces(1L)).thenReturn(List.of(accessible));
+
+        AtomicBoolean workflowProviderCalled = new AtomicBoolean();
+        AtomicBoolean connectionProviderCalled = new AtomicBoolean();
+
+        AutomationSearchFacadeImpl facade = new AutomationSearchFacadeImpl(
+            List.of(
+                new RecordingProvider(SearchAssetType.WORKFLOW, workflowProviderCalled),
+                new RecordingProvider(SearchAssetType.CONNECTION, connectionProviderCalled)),
+            userService, workspaceFacade);
+
+        facade.search("q", 10, Set.of(SearchAssetType.WORKFLOW));
+
+        assertThat(workflowProviderCalled).isTrue();
+        assertThat(connectionProviderCalled).isFalse();
     }
 
     private record TestResult(Long id) implements SearchResult<Long> {

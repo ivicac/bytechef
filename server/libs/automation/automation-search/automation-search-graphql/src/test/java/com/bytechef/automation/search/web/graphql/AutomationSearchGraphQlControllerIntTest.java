@@ -69,7 +69,7 @@ class AutomationSearchGraphQlControllerIntTest {
         List<SearchResult<?>> searchResults = List.of(
             new ConnectionSearchResult(1L, resultName, "description", searchAssetType));
 
-        when(automationSearchFacade.search("invoice", 5)).thenReturn(searchResults);
+        when(automationSearchFacade.search("invoice", 5, null)).thenReturn(searchResults);
 
         graphQlTester.document(SEARCH_QUERY)
             .execute()
@@ -85,12 +85,12 @@ class AutomationSearchGraphQlControllerIntTest {
             .entity(String.class)
             .isEqualTo(searchAssetType.name());
 
-        verify(automationSearchFacade).search("invoice", 5);
+        verify(automationSearchFacade).search("invoice", 5, null);
     }
 
     @Test
     void testAutomationSearchUsesDefaultLimit() {
-        when(automationSearchFacade.search("invoice", 100)).thenReturn(List.of());
+        when(automationSearchFacade.search("invoice", 100, null)).thenReturn(List.of());
 
         graphQlTester.document("""
             query {
@@ -104,7 +104,7 @@ class AutomationSearchGraphQlControllerIntTest {
             .entityList(Object.class)
             .hasSize(0);
 
-        verify(automationSearchFacade).search("invoice", 100);
+        verify(automationSearchFacade).search("invoice", 100, null);
     }
 
     private record ConnectionSearchResult(Long id, String name, String description, SearchAssetType type)

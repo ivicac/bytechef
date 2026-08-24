@@ -33,6 +33,7 @@ import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.UserService;
 import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.ObjectProvider;
@@ -78,7 +79,7 @@ class AutomationSearchFacadeSecurityContextTest {
         // and CompletableFuture.allOf(...).join() rethrows it out of search(). The other half is that the filtering
         // still happened — the colleague's PRIVATE project is decided by comparing its owner to the principal the
         // pooled thread was handed, so a context that arrived empty could not have excluded it either.
-        List<SearchResult<?>> searchResults = automationSearchFacade.search("project", 10);
+        List<SearchResult<?>> searchResults = automationSearchFacade.search("project", 10, null);
 
         List<Object> ids = searchResults.stream()
             .map(searchResult -> (Object) searchResult.id())
@@ -148,14 +149,14 @@ class AutomationSearchFacadeSecurityContextTest {
             objectProvider(new DefaultResourceVisibilityResolver()));
 
         @Override
-        public List<ProjectResult> search(String query, int limit) {
+        public List<ProjectResult> search(String query, int limit, Set<Long> workspaceIds) {
             List<Project> projects = List.of(
                 project(OWNED_PROJECT_ID, CURRENT_USER_LOGIN),
                 project(COLLEAGUES_PROJECT_ID, "colleague@localhost.com"));
 
             return projectVisibilityFilter.filterVisible(projects)
                 .stream()
-                .map(project -> new ProjectResult(project.getId(), project.getWorkspaceId()))
+                .map(project -> new ProjectResult(project.getId()))
                 .toList();
         }
 
@@ -165,7 +166,7 @@ class AutomationSearchFacadeSecurityContextTest {
         }
     }
 
-    private record ProjectResult(Long id, Long workspaceId) implements SearchResult<Long> {
+    private record ProjectResult(Long id) implements SearchResult<Long> {
 
         @Override
         public String name() {
