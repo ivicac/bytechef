@@ -21,6 +21,7 @@ import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import {PlatformType, usePlatformTypeStore} from '@/pages/home/stores/usePlatformTypeStore';
 import Properties from '@/pages/platform/workflow-editor/components/properties/Properties';
 import {ConnectionI, WorkflowMockProvider} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
+import {useCommandIntent} from '@/shared/command-bar/useCommandIntent';
 import EnvironmentBadge from '@/shared/components/EnvironmentBadge';
 import ConnectionParameters from '@/shared/components/connection/ConnectionParameters';
 import {CodePayloadI, TokenPayloadI} from '@/shared/components/connection/oauth2/useOAuth2';
@@ -77,6 +78,14 @@ export interface ConnectionDialogFormProps {
 }
 
 interface ConnectionDialogProps {
+    /**
+     * Opts this instance into claiming the `connection.create` command intent on mount. Only the header and
+     * empty-state instances on the connections list page (the page the "Create connection" command navigates to)
+     * should pass `true`. `ConnectionDialog` has many other call sites -- edit dialogs, embedded/EE surfaces,
+     * workflow-editor connection pickers -- and every one of them must leave this `false`, or it becomes an
+     * eligible claimant for a stale intent meant for the automation connections list.
+     */
+    claimsCreateIntent?: boolean;
     componentDefinition?: ComponentDefinition;
     componentDefinitions: ComponentDefinitionBasic[];
     connection?: ConnectionI | undefined;
@@ -92,6 +101,13 @@ interface ConnectionDialogProps {
      */
     showOrganizationOption?: boolean;
     showSharedOption?: boolean;
+    /**
+     * Offers the visibility picker at all. Defaults to true; the embedded builder passes false, because a connected
+     * user's connection belongs to that user and to no workspace -- `ConnectedUserConnectionFacadeImpl` forces it
+     * unshared on create -- so the picker there offers reach the server discards, and the connection comes back
+     * PRIVATE whatever was ticked.
+     */
+    showVisibility?: boolean;
     startInCredentialsMode?: boolean;
     title?: string;
     triggerNode?: ReactNode;
@@ -111,6 +127,7 @@ interface ConnectionDialogProps {
 }
 
 const ConnectionDialog = ({
+    claimsCreateIntent = false,
     componentDefinition,
     componentDefinitions,
     connection,
@@ -121,6 +138,7 @@ const ConnectionDialog = ({
     onConnectionCreate,
     showOrganizationOption,
     showSharedOption,
+    showVisibility = true,
     startInCredentialsMode,
     title,
     triggerNode,
@@ -149,6 +167,8 @@ const ConnectionDialog = ({
     // list-page gate (useVisibilityFeatureEnabled) and this dialog simultaneously.
     const isEE = useIsVisibilityEditionEnabled();
     const visibilityFeatureEnabled = isEE && currentType === PlatformType.AUTOMATION;
+
+    useCommandIntent('connection.create', () => setIsOpen(true), claimsCreateIntent);
 
     /* eslint-disable @typescript-eslint/no-unused-vars */
     const [_, copyToClipboard] = useCopyToClipboard();
@@ -215,7 +235,15 @@ const ConnectionDialog = ({
     const showPicker = stores.length > 1;
     const isEdit = !!connection?.id;
 
-    const canUpdateCredentials = isEdit && !!useUpdateConnectionCredentialsMutation && !connection?.managed;
+    // A connection whose secret lives in an external store, or that the platform manages on the user's behalf, is not
+    // ours to rewrite: ConnectionServiceImpl throws ReadOnlyCredentialStoreException for the former, and the user
+    // would have typed a secret before finding out. Hide the affordance rather than fail after the fact.
+    const credentialsAreExternallyStored =
+        (!!connection?.credentialStoreType &&
+            connection.credentialStoreType !== ConnectionCredentialStoreType.Database) ||
+        !!connection?.managed;
+
+    const canUpdateCredentials = isEdit && !!useUpdateConnectionCredentialsMutation && !credentialsAreExternallyStored;
 
     const handleConnectionSuccess = (connectionId: number | void) => {
         queryClient.invalidateQueries({
@@ -870,7 +898,7 @@ const ConnectionDialog = ({
                                         />
                                     ) : (
                                         <>
-                                            {!connection?.id && visibilityFeatureEnabled && (
+                                            {!connection?.id && visibilityFeatureEnabled && showVisibility && (
                                                 <FormField
                                                     control={control}
                                                     name="visibility"

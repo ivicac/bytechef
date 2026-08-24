@@ -165,6 +165,8 @@ const Projects = () => {
                                 {projects && projects.length > 0 && (
                                     <ButtonGroup>
                                         <ProjectDialog
+                                            // This is the "Create project" command's target.
+                                            claimsCreateIntent={true}
                                             onSuccess={(projectId) => projectId && setNewlyCreatedProjectId(projectId)}
                                             project={undefined}
                                             triggerNode={
@@ -257,6 +259,8 @@ const Projects = () => {
                         actions={
                             <ButtonGroup className="mx-auto" ref={buttonGroupRef}>
                                 <ProjectDialog
+                                    // This is the "Create project" command's target.
+                                    claimsCreateIntent={true}
                                     onSuccess={(projectId) => projectId && setNewlyCreatedProjectId(projectId)}
                                     project={undefined}
                                     triggerNode={
