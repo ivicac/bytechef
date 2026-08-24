@@ -135,7 +135,7 @@ public class JobSyncExecutor {
         this(
             contextService, evaluator, jobService, maxTaskExecutions, memoryMessageBroker, List.of(), List.of(),
             List.of(), taskDispatcherPreSendProcessors, List.of(), taskExecutionService, taskExecutor,
-            taskHandlerRegistry, taskFileStorage, timeout, new WebSocketEmitterRegistry(), workflowService);
+            taskHandlerRegistry, taskFileStorage, timeout, workflowService);
     }
 
     @SuppressFBWarnings("EI")
@@ -147,7 +147,7 @@ public class JobSyncExecutor {
         List<TaskDispatcherPreSendProcessor> taskDispatcherPreSendProcessors,
         List<TaskDispatcherResolverFactory> taskDispatcherResolverFactories, TaskExecutionService taskExecutionService,
         TaskExecutor taskExecutor, TaskHandlerRegistry taskHandlerRegistry, TaskFileStorage taskFileStorage,
-        long timeout, WebSocketEmitterRegistry webSocketEmitterRegistry, WorkflowService workflowService) {
+        long timeout, WorkflowService workflowService) {
 
         this.contextService = contextService;
 
@@ -179,7 +179,6 @@ public class JobSyncExecutor {
             List.of(
                 new CallableResponseTaskExecutionPostOutputProcessor(),
                 new SseStreamTaskExecutionPostOutputProcessor(sseStreamBridges),
-                new WebSocketStreamTaskExecutionPostOutputProcessor(sseStreamBridges, webSocketEmitterRegistry),
                 new SuspendTaskExecutionPostOutputProcessor(null),
                 new WebhookResponseTaskExecutionPostOutputProcessor()));
 
@@ -212,14 +211,14 @@ public class JobSyncExecutor {
             event -> handleCoordinatorErrorEvent((ErrorEvent) event, taskExecutionErrorEventListener));
 
         JobExecutor jobExecutor = new JobExecutor(
-            contextService, evaluator, taskDispatcherChain, taskExecutionService, taskFileStorage, workflowService);
+            contextService, evaluator, coordinatorEventPublisher, jobService, taskDispatcherChain, taskExecutionService,
+            taskFileStorage, workflowService);
 
         // The sync executor runs against in-memory services with its own event publisher, so completion
         // stays non-transactional here (null template = pre-transactional behavior, events publish
         // immediately).
         DefaultTaskCompletionHandler defaultTaskCompletionHandler = new DefaultTaskCompletionHandler(
-            contextService, evaluator, coordinatorEventPublisher, jobExecutor, jobService, taskExecutionService,
-            taskFileStorage, null, workflowService);
+            contextService, jobExecutor, jobService, taskExecutionService, taskFileStorage, null, workflowService);
 
         TaskCompletionHandlerChain taskCompletionHandlerChain = new TaskCompletionHandlerChain();
 
@@ -872,15 +871,21 @@ public class JobSyncExecutor {
     }
 
     private void waitForJobCompletion(long jobId) {
+        // The latch has to be registered before the status is read: a completion landing in between would count down
+        // a latch that does not exist yet, and the one created afterwards would then never be counted down. The
+        // task-execution check below is what normally rescues that window, but a job with no task executions at all -
+        // a workflow whose every task is disabled - falls straight through it into an unbounded await.
+        CountDownLatch latch = jobCompletionLatches.computeIfAbsent(getKey(jobId), id -> new CountDownLatch(1));
+
         Job job = jobService.getJob(jobId);
 
         if (job.getStatus() == Job.Status.COMPLETED || job.getStatus() == Job.Status.FAILED ||
             job.getStatus() == Job.Status.STOPPED) {
 
+            jobCompletionLatches.remove(getKey(jobId));
+
             return;
         }
-
-        CountDownLatch latch = jobCompletionLatches.computeIfAbsent(getKey(jobId), id -> new CountDownLatch(1));
 
         try {
             Optional<TaskExecution> lastTaskExecutionOptional = taskExecutionService.fetchLastJobTaskExecution(jobId);
