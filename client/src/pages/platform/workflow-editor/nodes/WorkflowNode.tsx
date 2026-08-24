@@ -13,7 +13,7 @@ import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {ClusterElementsType, NodeDataType} from '@/shared/types';
 import {useQueryClient} from '@tanstack/react-query';
 import {Handle, Position} from '@xyflow/react';
-import {CheckIcon, ComponentIcon, EllipsisVerticalIcon, Loader2Icon, XIcon} from 'lucide-react';
+import {CheckIcon, ComponentIcon, EllipsisVerticalIcon, Loader2Icon, TriangleAlertIcon, XIcon} from 'lucide-react';
 import {KeyboardEvent, ReactNode, forwardRef, memo, useCallback, useMemo, useState} from 'react';
 import sanitize from 'sanitize-html';
 import {twMerge} from 'tailwind-merge';
@@ -25,12 +25,14 @@ import {
     getFilteredClusterElementTypes,
     getHandlePosition,
 } from '../../cluster-element-editor/utils/clusterElementsUtils';
+import useDisabledTaskNames from '../hooks/useDisabledTaskNames';
 import useNodeClickHandler from '../hooks/useNodeClick';
 import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore, {type WorkflowTestNodeStateI} from '../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPanelStore';
 import {mapHandlePosition} from '../utils/directionUtils';
+import {getDisabledNodeReferences} from '../utils/getDisabledNodeReferences';
 import {getTask} from '../utils/getTask';
 import {getContextFromTaskNodeData} from '../utils/getTaskDispatcherContext';
 import handleDeleteTask from '../utils/handleDeleteTask';
@@ -40,6 +42,8 @@ import removeWorkflowNodePosition from '../utils/removeWorkflowNodePosition';
 import resolveTargetTriggerName from '../utils/resolveTargetTriggerName';
 import saveClusterElementNodesPosition from '../utils/saveClusterElementNodesPosition';
 import saveWorkflowDefinition from '../utils/saveWorkflowDefinition';
+import {toggleNodeDisabled} from '../utils/toggleNodeDisabled';
+import DisabledNodeBadge from './DisabledNodeBadge';
 import styles from './NodeTypes.module.css';
 
 type EffectiveDirectionType = Parameters<typeof mapHandlePosition>[1];
@@ -60,6 +64,21 @@ function formatTestNodeDuration(durationMillis: number): string {
     return `${minutes}m ${seconds}s`;
 }
 
+/**
+ * Advisory tooltip for a node whose parameters reference a disabled node. Deliberately names the
+ * cause rather than a runtime outcome: a bare `${disabledName}` resolves to null, while
+ * `${disabledName.field}` is left as the raw expression string (SpEL cannot read a property off
+ * null and the evaluator returns the value unchanged), so "will resolve to null" would be wrong
+ * for half the cases.
+ */
+function getDisabledReferenceWarning(referencedDisabledNames: Array<string>): string {
+    if (referencedDisabledNames.length > 1) {
+        return `References disabled nodes ${referencedDisabledNames.join(', ')} — they will not run, so this value will not resolve`;
+    }
+
+    return `References disabled node ${referencedDisabledNames[0]} — it will not run, so this value will not resolve`;
+}
+
 interface WorkflowNodeContentProps extends Omit<React.HTMLAttributes<HTMLDivElement>, 'id'> {
     clusterElementTypesCount: number;
     data: NodeDataType;
@@ -72,6 +91,7 @@ interface WorkflowNodeContentProps extends Omit<React.HTMLAttributes<HTMLDivElem
     id: string;
     infoCardOpen: boolean;
     isClusterElement: string | undefined;
+    isEffectivelyDisabled: boolean;
     isHorizontal: boolean;
     isMainRootClusterElement: boolean;
     isNestedClusterRoot: boolean | undefined;
@@ -85,6 +105,7 @@ interface WorkflowNodeContentProps extends Omit<React.HTMLAttributes<HTMLDivElem
     nodeWidth: number;
     onInfoClose: () => void;
     parentClusterRootId: string | undefined;
+    referencedDisabledNames: Array<string>;
     renameValue: string;
     setRenameValue: (value: string) => void;
     setSwitchPopoverOpen: (open: boolean) => void;
@@ -107,6 +128,7 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
             id,
             infoCardOpen,
             isClusterElement,
+            isEffectivelyDisabled,
             isHorizontal,
             isMainRootClusterElement,
             isNestedClusterRoot,
@@ -120,6 +142,7 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
             nodeWidth,
             onInfoClose,
             parentClusterRootId,
+            referencedDisabledNames,
             renameValue,
             setRenameValue,
             setSwitchPopoverOpen,
@@ -139,6 +162,7 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                 (data.trigger || isMainRootClusterElement) && 'nodrag',
                 isClusterElement && !isNestedClusterRoot && 'w-[72px] min-w-[72px] flex-col items-center gap-1',
                 isHorizontal && isRegularNode && 'min-w-0',
+                isEffectivelyDisabled && 'opacity-50 grayscale',
                 rest.className
             )}
             data-nodetype={data.trigger ? 'trigger' : 'task'}
@@ -396,15 +420,28 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                             </div>
                         </div>
                     ) : (
-                        <span
-                            className={twMerge(
-                                'max-w-48 truncate font-semibold',
-                                isClusterElement && 'w-full truncate text-sm',
-                                isHorizontal && isRegularNode && 'w-full truncate'
+                        <div className="flex w-full items-center gap-1">
+                            <span
+                                className={twMerge(
+                                    'max-w-48 truncate font-semibold',
+                                    isClusterElement && 'w-full truncate text-sm',
+                                    isHorizontal && isRegularNode && 'w-full truncate'
+                                )}
+                            >
+                                {nodeLabel}
+                            </span>
+
+                            {data.disabled && <DisabledNodeBadge />}
+
+                            {referencedDisabledNames.length > 0 && (
+                                <span title={getDisabledReferenceWarning(referencedDisabledNames)}>
+                                    <TriangleAlertIcon
+                                        aria-hidden
+                                        className="size-3.5 shrink-0 text-content-warning-primary"
+                                    />
+                                </span>
                             )}
-                        >
-                            {nodeLabel}
-                        </span>
+                        </div>
                     )}
 
                     {data.operationName && (
@@ -612,6 +649,8 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
         }))
     );
 
+    const disabledTaskNames = useDisabledTaskNames();
+
     const {cancelWorkflowQueries, invalidateWorkflowQueries, updateWorkflowMutation} = useWorkflowEditor();
 
     const handleNodeClick = useNodeClickHandler(data, id);
@@ -631,6 +670,8 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
     const parentClusterRootId = data.parentClusterRootId;
     const hasSavedClusterElementPosition = data.metadata?.ui?.nodePosition;
     const hasSavedNodePosition = isRegularNode && !data.trigger && data.metadata?.ui?.nodePosition;
+
+    const isEffectivelyDisabled = Boolean(data.disabled) || disabledTaskNames.has(data.workflowNodeName);
 
     const {tasks: workflowTasks, triggers: workflowTriggers} = workflow;
 
@@ -705,6 +746,11 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
         [clusterElementsCanvasOpen, isMainRootClusterElement, isNestedClusterRoot, clusterElementTypesCount]
     );
 
+    const referencedDisabledNames = useMemo(
+        () => (isEffectivelyDisabled ? [] : getDisabledNodeReferences(data.parameters, disabledTaskNames)),
+        [data.parameters, disabledTaskNames, isEffectivelyDisabled]
+    );
+
     const handleDeleteNodeClick = useCallback(
         (nodeData: NodeDataType) => {
             if (!nodeData) {
@@ -750,6 +796,14 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
             workflow,
         ]
     );
+
+    const handleToggleDisabledClick = useCallback(() => {
+        toggleNodeDisabled({
+            queryClient,
+            updateWorkflowMutation: updateWorkflowMutation!,
+            workflowNodeName: data.workflowNodeName,
+        });
+    }, [data.workflowNodeName, queryClient, updateWorkflowMutation]);
 
     const handleRemoveSavedClusterElementPosition = useCallback(
         (clickedNodeName: string) => {
@@ -936,9 +990,11 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
             onRename={handleStartRename}
             onResetPosition={handleResetPosition}
             onSwitch={handleSwitch}
+            onToggleDisabled={handleToggleDisabledClick}
             showCopyAction
             showCutAction
             showDeleteAction={!data.trigger || triggerCount > 1}
+            showDisableAction={!data.trigger}
             showInfoAction
             showRenameAction
             trigger={kebabButton}
@@ -975,6 +1031,7 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
         id,
         infoCardOpen,
         isClusterElement,
+        isEffectivelyDisabled,
         isHorizontal,
         isMainRootClusterElement,
         isNestedClusterRoot,
@@ -987,6 +1044,7 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
         nodeWidth,
         onInfoClose: () => setInfoCardOpen(false),
         parentClusterRootId,
+        referencedDisabledNames,
         renameValue,
         setRenameValue,
         setSwitchPopoverOpen,
@@ -1009,9 +1067,11 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
                 onRename={handleStartRename}
                 onResetPosition={handleResetPosition}
                 onSwitch={handleSwitch}
+                onToggleDisabled={handleToggleDisabledClick}
                 showCopyAction={!data.trigger}
                 showCutAction={!data.trigger}
                 showDeleteAction={!data.trigger || triggerCount > 1}
+                showDisableAction={!data.trigger}
                 showInfoAction
                 showRenameAction
             >
