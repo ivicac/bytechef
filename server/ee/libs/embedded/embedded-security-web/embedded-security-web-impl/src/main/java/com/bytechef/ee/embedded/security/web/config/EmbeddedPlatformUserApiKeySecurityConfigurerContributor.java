@@ -7,8 +7,9 @@
 
 package com.bytechef.ee.embedded.security.web.config;
 
-import com.bytechef.ee.embedded.security.web.configurer.EmbeddedAdminApiKeySecurityConfigurer;
+import com.bytechef.ee.embedded.security.web.configurer.EmbeddedPlatformUserApiKeySecurityConfigurer;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.security.service.ApiKeyService;
 import com.bytechef.platform.security.web.config.SecurityConfigurerContributor;
 import com.bytechef.platform.user.service.AuthorityService;
@@ -25,24 +26,28 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
  */
 @Configuration
 @ConditionalOnEEVersion
-public class EmbeddedAdminApiKeySecurityConfigurerContributor implements SecurityConfigurerContributor {
+public class EmbeddedPlatformUserApiKeySecurityConfigurerContributor implements SecurityConfigurerContributor {
 
     private final ApiKeyService apiKeyService;
     private final AuthorityService authorityService;
+    private final EnvironmentService environmentService;
     private final UserService userService;
 
     @SuppressFBWarnings("EI")
-    public EmbeddedAdminApiKeySecurityConfigurerContributor(
-        ApiKeyService apiKeyService, AuthorityService authorityService, UserService userService) {
+    public EmbeddedPlatformUserApiKeySecurityConfigurerContributor(
+        ApiKeyService apiKeyService, AuthorityService authorityService, EnvironmentService environmentService,
+        UserService userService) {
 
         this.apiKeyService = apiKeyService;
         this.authorityService = authorityService;
+        this.environmentService = environmentService;
         this.userService = userService;
     }
 
     @Override
     @SuppressWarnings("unchecked")
     public <T extends AbstractHttpConfigurer<T, B>, B extends HttpSecurityBuilder<B>> T getSecurityConfigurerAdapter() {
-        return (T) new EmbeddedAdminApiKeySecurityConfigurer(apiKeyService, authorityService, userService);
+        return (T) new EmbeddedPlatformUserApiKeySecurityConfigurer(
+            apiKeyService, authorityService, environmentService, userService);
     }
 }
