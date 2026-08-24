@@ -99,7 +99,9 @@ export const Connections = () => {
                         connections &&
                         connections.length > 0 &&
                         componentDefinitions && (
+                            // This is the "Create connection" command's target.
                             <ConnectionDialog
+                                claimsCreateIntent={true}
                                 componentDefinitions={componentDefinitions}
                                 connection={
                                     {
@@ -208,7 +210,9 @@ export const Connections = () => {
                     <EmptyList
                         button={
                             componentDefinitions && (
+                                // This is the "Create connection" command's target.
                                 <ConnectionDialog
+                                    claimsCreateIntent={true}
                                     componentDefinitions={componentDefinitions}
                                     connection={
                                         {
