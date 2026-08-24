@@ -1,21 +1,18 @@
-import {TooltipProvider} from '@/components/ui/tooltip';
 import {NodeDataType} from '@/shared/types';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {render, screen} from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
+import {ReactFlowProvider} from '@xyflow/react';
 import {ReactNode} from 'react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
-import useClusterElementsViewModeStore from '../stores/useClusterElementsViewModeStore';
-import useClusterFrameCollapsedStore from '../stores/useClusterFrameCollapsedStore';
-import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import AiAgentNode from './AiAgentNode';
 
-vi.mock('@xyflow/react', async (importOriginal) => ({
-    ...(await importOriginal<typeof import('@xyflow/react')>()),
-    Handle: ({type}: {type: string}) => <div data-testid={`handle-${type}`} />,
+// Mutable slice of the workflow data store so each test can supply its own definition.
+const {workflowDataStoreState} = vi.hoisted(() => ({
+    workflowDataStoreState: {definition: '{"tasks": []}'},
 }));
 
+// Render the context menu as a passthrough so the node content is asserted directly.
 vi.mock('@/pages/platform/workflow-editor/components/WorkflowNodeContextMenu', () => ({
     default: ({children}: {children: ReactNode}) => <div>{children}</div>,
 }));
@@ -24,7 +21,7 @@ vi.mock('@/pages/platform/workflow-editor/components/WorkflowNodeDropdownMenu', 
     default: () => null,
 }));
 
-vi.mock('../providers/workflowEditorProvider', () => ({
+vi.mock('@/pages/platform/workflow-editor/providers/workflowEditorProvider', () => ({
     useWorkflowEditor: () => ({
         cancelWorkflowQueries: vi.fn(),
         invalidateWorkflowQueries: vi.fn(),
@@ -32,89 +29,132 @@ vi.mock('../providers/workflowEditorProvider', () => ({
     }),
 }));
 
+vi.mock('@/pages/platform/workflow-editor/utils/getNodeLabel', () => ({
+    getNodeLabel: () => 'AI Agent',
+}));
+
 vi.mock('@/shared/queries/platform/workflowNodeDescriptions.queries', () => ({
     useGetWorkflowNodeDescriptionQuery: () => ({data: undefined}),
+}));
+
+vi.mock('@/shared/stores/useEnvironmentStore', () => ({
+    useEnvironmentStore: (selector: (state: {currentEnvironmentId: number}) => unknown) =>
+        selector({currentEnvironmentId: 1}),
 }));
 
 vi.mock('../hooks/useNodeClick', () => ({
     default: () => vi.fn(),
 }));
 
-vi.mock('./ClusterFrameShell', () => ({
-    default: ({children}: {children: ReactNode}) => <div>{children}</div>,
+vi.mock('../../cluster-element-editor/utils/clusterElementsUtils', () => ({
+    extractClusterElementIcons: () => [],
 }));
 
+vi.mock('../stores/useLayoutDirectionStore', () => ({
+    default: (selector: (state: {layoutDirection: string}) => unknown) => selector({layoutDirection: 'TB'}),
+}));
+
+vi.mock('../stores/useWorkflowNodeDetailsPanelStore', () => ({
+    default: (selector: (state: Record<string, unknown>) => unknown) =>
+        selector({currentNode: undefined, setCurrentNode: vi.fn()}),
+}));
+
+vi.mock('../stores/useWorkflowDataStore', () => ({
+    default: (selector: (state: Record<string, unknown>) => unknown) =>
+        selector({
+            incrementLayoutResetCounter: vi.fn(),
+            workflow: {
+                definition: workflowDataStoreState.definition,
+                id: 'workflow-1',
+                tasks: [],
+                triggers: [],
+            },
+        }),
+}));
+
+vi.mock('../stores/useWorkflowEditorStore', () => ({
+    default: (selector: (state: Record<string, unknown>) => unknown) =>
+        selector({
+            copiedNode: undefined,
+            copiedWorkflowId: undefined,
+            renamingNodeName: undefined,
+            setCopiedNode: vi.fn(),
+            setCopiedWorkflowId: vi.fn(),
+            setRenamingNodeName: vi.fn(),
+        }),
+}));
+
+const DISABLED_BADGE_TITLE = 'Disabled — skipped during execution';
+
 const AI_AGENT_DATA = {
-    clusterElements: {},
-    clusterRoot: true,
     componentName: 'aiAgent',
     label: 'AI Agent',
     name: 'aiAgent_1',
+    version: 1,
     workflowNodeName: 'aiAgent_1',
 } as unknown as NodeDataType;
 
-const FRAMED_AI_AGENT_DATA = {
-    ...AI_AGENT_DATA,
-    clusterFrame: {clusterRootId: 'aiAgent_1', contentOrigin: {x: 32, y: 40}, height: 320, width: 640},
-} as unknown as NodeDataType;
+function definitionWithDisabledLoop() {
+    return JSON.stringify({
+        tasks: [
+            {
+                disabled: true,
+                name: 'loop_1',
+                parameters: {iteratee: [{name: 'aiAgent_1', parameters: {}, type: 'aiAgent/v1'}]},
+                type: 'loop/v1',
+            },
+        ],
+    });
+}
 
-function renderNode(data: NodeDataType) {
+function renderNode(data: NodeDataType = AI_AGENT_DATA) {
     const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
 
     return render(
         <QueryClientProvider client={queryClient}>
-            <TooltipProvider>
+            <ReactFlowProvider>
                 <AiAgentNode data={data} id="aiAgent_1" />
-            </TooltipProvider>
+            </ReactFlowProvider>
         </QueryClientProvider>
     );
 }
 
+function nodeClassName(container: HTMLElement) {
+    return container.querySelector('[data-nodetype="clusterRoot"]')?.className ?? '';
+}
+
 describe('AiAgentNode', () => {
     beforeEach(() => {
-        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'box'});
-        useClusterFrameCollapsedStore.setState({collapsedByWorkflowId: {}});
-        useWorkflowDataStore.setState({
-            workflow: {definition: '{}', id: 'workflow-1', nodeNames: [], tasks: [], triggers: [], version: 1},
-        });
+        workflowDataStoreState.definition = '{"tasks": []}';
     });
 
-    it('expands a collapsed cluster root back into its frame', async () => {
-        useClusterFrameCollapsedStore.setState({collapsedByWorkflowId: {'workflow-1': {aiAgent_1: true}}});
+    it('renders muted when the agent task carries its own disabled flag', () => {
+        const {container} = renderNode({...AI_AGENT_DATA, disabled: true} as NodeDataType);
 
-        renderNode(AI_AGENT_DATA);
-
-        await userEvent.click(screen.getByRole('button', {name: 'Expand cluster elements'}));
-
-        expect(useClusterFrameCollapsedStore.getState().collapsedByWorkflowId['workflow-1']?.aiAgent_1).toBeUndefined();
+        expect(nodeClassName(container)).toContain('opacity-50');
+        expect(nodeClassName(container)).toContain('grayscale');
     });
 
-    it('offers no expand control in dialog mode, even for a collapsed root', () => {
-        useClusterElementsViewModeStore.setState({clusterElementsViewMode: 'dialog'});
-        useClusterFrameCollapsedStore.setState({collapsedByWorkflowId: {'workflow-1': {aiAgent_1: true}}});
+    it('does not render muted when the agent task is enabled', () => {
+        const {container} = renderNode();
 
-        renderNode(AI_AGENT_DATA);
-
-        expect(screen.queryByRole('button', {name: 'Expand cluster elements'})).not.toBeInTheDocument();
+        expect(nodeClassName(container)).not.toContain('opacity-50');
+        expect(nodeClassName(container)).not.toContain('grayscale');
     });
 
-    it('offers no expand control for a root that is not collapsed', () => {
-        renderNode(AI_AGENT_DATA);
+    it('shows the disabled badge for the agent task own disabled flag', () => {
+        renderNode({...AI_AGENT_DATA, disabled: true} as NodeDataType);
 
-        expect(screen.queryByRole('button', {name: 'Expand cluster elements'})).not.toBeInTheDocument();
+        expect(screen.getByTitle(DISABLED_BADGE_TITLE)).toBeInTheDocument();
     });
 
-    it('draws its own chain handles as a compact card', () => {
-        renderNode(AI_AGENT_DATA);
+    it('renders muted without a badge when only an ancestor dispatcher is disabled', () => {
+        workflowDataStoreState.definition = definitionWithDisabledLoop();
 
-        expect(screen.getByTestId('handle-target')).toBeInTheDocument();
-        expect(screen.getByTestId('handle-source')).toBeInTheDocument();
-    });
+        const {container} = renderNode();
 
-    it('leaves the chain handles to the frame when drawn as an inline frame', () => {
-        renderNode(FRAMED_AI_AGENT_DATA);
-
-        expect(screen.queryByTestId('handle-target')).not.toBeInTheDocument();
-        expect(screen.queryByTestId('handle-source')).not.toBeInTheDocument();
+        expect(nodeClassName(container)).toContain('opacity-50');
+        expect(nodeClassName(container)).toContain('grayscale');
+        expect(screen.queryByTitle(DISABLED_BADGE_TITLE)).not.toBeInTheDocument();
     });
 });
