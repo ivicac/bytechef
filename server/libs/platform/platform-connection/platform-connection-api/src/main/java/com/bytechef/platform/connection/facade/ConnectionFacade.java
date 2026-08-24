@@ -51,12 +51,6 @@ public interface ConnectionFacade {
         String componentName, Integer connectionVersion, List<Long> connectionIds, Long tagId, Long environmentId,
         PlatformType type);
 
-    /**
-     * Materialize already-fetched {@link Connection} entities into {@link ConnectionDTO}s with tag batching and
-     * {@code isUsed} resolution. Use this overload when a caller has already queried the entities by a specialized
-     * predicate (e.g. visibility + environment) to avoid a redundant second-round-trip through
-     * {@link #getConnections(List, PlatformType)}.
-     */
     List<ConnectionDTO> toConnectionDTOs(List<Connection> connections);
 
     List<Tag> getConnectionTags(PlatformType type);
@@ -65,14 +59,6 @@ public interface ConnectionFacade {
 
     void update(long id, String name, List<Tag> tags, int version);
 
-    /**
-     * Replaces a connection's credentials in place, keeping its id (and therefore every wiring that already references
-     * it) unchanged. When the merged parameters contain an OAuth2 authorization {@code code}, the authorization-code
-     * exchange is re-run exactly as it is during {@link #create(ConnectionDTO, PlatformType)} and its result is merged
-     * into the parameters before they are persisted. Ownership of {@code id} is enforced by
-     * {@link com.bytechef.platform.connection.service.ConnectionService#updateConnectionParameters(long, Map)}, not by
-     * this method.
-     */
-    void updateAuthorization(long id, Map<String, ?> parameters);
+    void replaceAuthorizationParameters(long id, Map<String, ?> parameters);
 
 }
