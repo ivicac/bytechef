@@ -23,6 +23,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrowsExactly;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -901,4 +902,33 @@ public class SpelEvaluatorTest {
         assertEquals(context, result.get("input"));
     }
 
+    @Test
+    public void testNameSeededWithNullResolvesToNull() {
+        Map<String, Object> context = new HashMap<>();
+
+        context.put("disabledTask", null);
+
+        Map<String, Object> map = EVALUATOR.evaluate(Map.of("value", "${disabledTask}"), context);
+
+        assertTrue(map.containsKey("value"));
+        assertNull(MapUtils.get(map, "value"));
+    }
+
+    @Test
+    public void testPropertyAccessOnNameSeededWithNullReturnsOriginalExpression() {
+        Map<String, Object> context = new HashMap<>();
+
+        context.put("disabledTask", null);
+
+        Map<String, Object> map = EVALUATOR.evaluate(Map.of("value", "${disabledTask.field}"), context);
+
+        assertEquals("${disabledTask.field}", MapUtils.get(map, "value"));
+    }
+
+    @Test
+    public void testPropertyAccessOnMissingNameStillReturnsOriginalExpression() {
+        Map<String, Object> map = EVALUATOR.evaluate(Map.of("value", "${unknownTask.field}"), Collections.emptyMap());
+
+        assertEquals("${unknownTask.field}", MapUtils.get(map, "value"));
+    }
 }
