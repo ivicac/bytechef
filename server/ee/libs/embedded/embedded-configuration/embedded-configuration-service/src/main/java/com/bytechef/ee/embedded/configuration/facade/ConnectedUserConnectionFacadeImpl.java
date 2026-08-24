@@ -147,6 +147,12 @@ public class ConnectedUserConnectionFacadeImpl implements ConnectedUserConnectio
             .toList();
     }
 
+    /**
+     * Replaces the connection's authorization parameters wholesale: a parameter the caller does not resubmit is
+     * cleared, not preserved. This deliberately differs from the merge this path used before — both the embedded hub
+     * and the workspace surface now carry one semantics — and it is why the reconnect also marks the connection's
+     * credentials valid again, which the merge-based path never did.
+     */
     @Override
     @Audited(event = ConnectionAuditEvents.CONNECTION_REAUTHORIZED, data = {
         @AuditData(key = "connectionId", value = "#connectionId"),
