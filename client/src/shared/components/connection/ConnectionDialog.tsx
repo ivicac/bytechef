@@ -659,6 +659,8 @@ const ConnectionDialog = ({
                                         />
                                     )}
 
+                                    {/* Name and tags belong to the rename-only body; hidden here so the credential
+                                        replacement reads as one job with one outcome. */}
                                     <FormField
                                         control={form.control}
                                         name="name"

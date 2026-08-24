@@ -26,11 +26,12 @@ vi.mock('@/shared/mutations/automation/connectionTags.mutations', () => ({
 vi.mock('@/shared/mutations/automation/connections.mutations', () => ({
     useDeleteConnectionMutation: () => ({isPending: false, mutate: hoisted.deleteConnectionMutate}),
     useDisconnectConnectionMutation: () => ({isPending: false, mutate: hoisted.disconnectConnectionMutate}),
+    useUpdateConnectionCredentialsMutation: vi.fn(),
     useUpdateConnectionMutation: vi.fn(),
 }));
 
 vi.mock('@/shared/queries/automation/connections.queries', () => ({
-    ConnectionKeys: {connectionTags: ['connectionTags'], connections: ['connections']},
+    ConnectionKeys: {connectionTags: (id: number) => ['connectionTags', id], connections: ['connections']},
     useGetConnectionTagsQuery: () => ({data: [], error: null, isLoading: false}),
 }));
 
