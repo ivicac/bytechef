@@ -1,5 +1,11 @@
 {
-  "actionClusterElementTypes": { },
+  "actionClusterElementTypes": {
+    "updateAiSkill": [ ],
+    "deleteAiSkill": [ ],
+    "createAiSkill": [ ],
+    "appendFilesToAiSkill": [ ],
+    "removeFileFromAiSkill": [ ]
+  },
   "actions": [ {
     "batch": false,
     "beforeResume": null,
@@ -300,6 +306,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Append Files to AI Skill",
     "workflowNodeDescription": null
   }, {
@@ -646,6 +653,7 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Create AI Skill",
     "workflowNodeDescription": null
   }, {
@@ -688,6 +696,7 @@
       "type": "INTEGER"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Delete AI Skill",
     "workflowNodeDescription": null
   }, {
@@ -927,6 +936,7 @@
       "type": "STRING"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Remove File from AI Skill",
     "workflowNodeDescription": null
   }, {
@@ -1276,29 +1286,30 @@
       "type": "ARRAY"
     } ],
     "resumePerform": null,
+    "riskLevel": null,
     "title": "Update AI Skill",
     "workflowNodeDescription": null
   } ],
   "clusterElementClusterElementTypes": {
-    "braveWebSearchTool": [ ],
-    "appendFilesToAiSkill": [ ],
-    "askUserQuestionTool": [ ],
-    "todoWriteTool": [ ],
-    "deleteAiSkill": [ ],
-    "subagent": [ "MODEL", "TOOLS" ],
-    "approvalGate": [ "TOOLS", "APPROVAL_CHANNELS" ],
-    "taskTool": [ "MODEL", "SUBAGENT" ],
-    "globTool": [ ],
-    "agentClientTool": [ ],
-    "removeFileFromAiSkill": [ ],
     "listDirectoryTool": [ ],
-    "shellTools": [ ],
-    "autoMemoryTool": [ ],
-    "createAiSkill": [ ],
-    "smartWebFetchTool": [ "MODEL" ],
-    "grepTool": [ ],
+    "removeFileFromAiSkill": [ ],
+    "agentClientTool": [ ],
+    "globTool": [ ],
+    "taskTool": [ "MODEL", "SUBAGENT" ],
+    "approvalGate": [ "TOOLS", "APPROVAL_CHANNELS" ],
+    "deleteAiSkill": [ ],
+    "todoWriteTool": [ ],
+    "askUserQuestionTool": [ ],
+    "subagentTool": [ "MODEL", "TOOLS" ],
+    "appendFilesToAiSkill": [ ],
+    "braveWebSearchTool": [ ],
+    "fileSystemTools": [ ],
     "updateAiSkill": [ ],
-    "fileSystemTools": [ ]
+    "grepTool": [ ],
+    "smartWebFetchTool": [ "MODEL" ],
+    "createAiSkill": [ ],
+    "autoMemoryTool": [ ],
+    "shellTools": [ ]
   },
   "clusterElementTypes": [ {
     "name": "MODEL",
@@ -1355,6 +1366,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Agent Client Tool",
     "type": {
       "name": "TOOLS",
@@ -1375,7 +1387,7 @@
       "advancedOption": false,
       "controlType": "TEXT",
       "defaultValue": null,
-      "description": "Identifies this gate in the approval request and in the tools list.",
+      "description": "Identifies this gate in the title of its approval requests and in the tools list.",
       "displayCondition": null,
       "exampleValue": null,
       "expressionEnabled": true,
@@ -1443,7 +1455,8 @@
       "required": false,
       "type": "STRING"
     } ],
-    "title": "Approval Gate",
+    "riskLevel": null,
+    "title": "Approval Gate Tool",
     "type": {
       "name": "TOOLS",
       "key": "tools",
@@ -1460,6 +1473,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Ask User Question Tool",
     "type": {
       "name": "TOOLS",
@@ -1523,6 +1537,7 @@
       "required": false,
       "type": "BOOLEAN"
     } ],
+    "riskLevel": null,
     "title": "File System Tools",
     "type": {
       "name": "TOOLS",
@@ -1600,6 +1615,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Grep Tool",
     "type": {
       "name": "TOOLS",
@@ -1677,6 +1693,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Glob Tool",
     "type": {
       "name": "TOOLS",
@@ -1716,6 +1733,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "List Directory Tool",
     "type": {
       "name": "TOOLS",
@@ -1776,6 +1794,7 @@
       "required": false,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Smart Web Fetch Tool",
     "type": {
       "name": "TOOLS",
@@ -1786,49 +1805,14 @@
     },
     "workflowNodeDescription": null
   }, {
-    "name": "braveWebSearchTool",
-    "description": "Web search with domain filtering using the Brave Search API.",
-    "element": { },
-    "help": null,
-    "outputDefinition": null,
-    "processErrorResponse": null,
-    "properties": [ {
-      "advancedOption": true,
-      "controlType": "INTEGER",
-      "defaultValue": null,
-      "description": "Number of search results returned per query. Leave empty for the default of 10.",
-      "displayCondition": null,
-      "exampleValue": null,
-      "expressionEnabled": true,
-      "hidden": false,
-      "label": "Result Count",
-      "maxValue": 20,
-      "metadata": { },
-      "minValue": 1,
-      "name": "resultCount",
-      "options": [ ],
-      "optionsDataSource": null,
-      "placeholder": null,
-      "required": false,
-      "type": "INTEGER"
-    } ],
-    "title": "Brave Web Search Tool",
-    "type": {
-      "name": "TOOLS",
-      "key": "tools",
-      "label": "Tools",
-      "multipleElements": true,
-      "required": false
-    },
-    "workflowNodeDescription": null
-  }, {
     "name": "autoMemoryTool",
-    "description": "Persistent long-term memory scoped to the running workflow deployment.",
+    "description": "Persistent long-term memory for the agent, shared by all workflows of a project deployment (or kept per integration instance for embedded integrations) and per environment. Not available in editor test runs.",
     "element": { },
     "help": null,
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Auto Memory Tool",
     "type": {
       "name": "TOOLS",
@@ -1846,6 +1830,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Todo Write Tool",
     "type": {
       "name": "TOOLS",
@@ -1863,6 +1848,7 @@
     "outputDefinition": null,
     "processErrorResponse": null,
     "properties": [ ],
+    "riskLevel": null,
     "title": "Task Tool",
     "type": {
       "name": "TOOLS",
@@ -1873,7 +1859,7 @@
     },
     "workflowNodeDescription": null
   }, {
-    "name": "subagent",
+    "name": "subagentTool",
     "description": "A specialized agent the Task Tool can delegate to.",
     "element": null,
     "help": null,
@@ -1946,6 +1932,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Subagent",
     "type": {
       "name": "SUBAGENT",
@@ -2245,6 +2232,7 @@
       "required": true,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Append Files to AI Skill",
     "type": {
       "name": "TOOLS",
@@ -2588,6 +2576,7 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Create AI Skill",
     "type": {
       "name": "TOOLS",
@@ -2627,6 +2616,7 @@
       "required": true,
       "type": "INTEGER"
     } ],
+    "riskLevel": null,
     "title": "Delete AI Skill",
     "type": {
       "name": "TOOLS",
@@ -2863,6 +2853,7 @@
       "required": true,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Remove File from AI Skill",
     "type": {
       "name": "TOOLS",
@@ -3209,7 +3200,45 @@
       "required": false,
       "type": "ARRAY"
     } ],
+    "riskLevel": null,
     "title": "Update AI Skill",
+    "type": {
+      "name": "TOOLS",
+      "key": "tools",
+      "label": "Tools",
+      "multipleElements": true,
+      "required": false
+    },
+    "workflowNodeDescription": null
+  }, {
+    "name": "braveWebSearchTool",
+    "description": "Web search with domain filtering using the Brave Search API.",
+    "element": { },
+    "help": null,
+    "outputDefinition": null,
+    "processErrorResponse": null,
+    "properties": [ {
+      "advancedOption": true,
+      "controlType": "INTEGER",
+      "defaultValue": null,
+      "description": "Number of search results returned per query. Leave empty for the default of 10.",
+      "displayCondition": null,
+      "exampleValue": null,
+      "expressionEnabled": true,
+      "hidden": false,
+      "label": "Result Count",
+      "maxValue": 20,
+      "metadata": { },
+      "minValue": 1,
+      "name": "resultCount",
+      "options": [ ],
+      "optionsDataSource": null,
+      "placeholder": null,
+      "required": false,
+      "type": "INTEGER"
+    } ],
+    "riskLevel": null,
+    "title": "Brave Web Search Tool",
     "type": {
       "name": "TOOLS",
       "key": "tools",
@@ -3274,6 +3303,7 @@
       "required": false,
       "type": "STRING"
     } ],
+    "riskLevel": null,
     "title": "Shell Tools",
     "type": {
       "name": "TOOLS",
