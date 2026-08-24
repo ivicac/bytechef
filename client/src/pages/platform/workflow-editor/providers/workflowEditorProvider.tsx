@@ -33,6 +33,7 @@ export interface ConnectionI {
     readonly createdBy?: string;
     readonly createdDate?: Date;
     credentialStatus?: CredentialStatus;
+    credentialStoreType?: 'AWS_SECRETS_MANAGER' | 'DATABASE' | 'HASHICORP_VAULT';
     environmentId?: number;
     readonly id?: number;
     readonly lastModifiedBy?: string;
