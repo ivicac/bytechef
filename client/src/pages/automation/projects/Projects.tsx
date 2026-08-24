@@ -142,6 +142,8 @@ const Projects = () => {
                                 {projects && projects.length > 0 && (
                                     <ButtonGroup>
                                         <ProjectDialog
+                                            // This is the "Create project" command's target.
+                                            claimsCreateIntent={true}
                                             onSuccess={(projectId) => projectId && setNewlyCreatedProjectId(projectId)}
                                             project={undefined}
                                             triggerNode={
@@ -228,6 +230,8 @@ const Projects = () => {
                         button={
                             <ButtonGroup className="mx-auto" ref={buttonGroupRef}>
                                 <ProjectDialog
+                                    // This is the "Create project" command's target.
+                                    claimsCreateIntent={true}
                                     onSuccess={(projectId) => projectId && setNewlyCreatedProjectId(projectId)}
                                     project={undefined}
                                     triggerNode={<Button aria-label="Create Project" label="Create Project" />}
