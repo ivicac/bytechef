@@ -1,27 +1,25 @@
 package com.bytechef.platform.configuration.web.rest.model;
 
-import java.net.URI;
-import java.util.Objects;
 import com.bytechef.platform.configuration.web.rest.model.ComponentConnectionModel;
+import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonTypeName;
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.annotation.Generated;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.*;
+import java.net.URI;
+import java.time.OffsetDateTime;
+import java.util.*;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import org.springframework.lang.Nullable;
+import java.util.Objects;
 import org.openapitools.jackson.nullable.JsonNullable;
-import java.time.OffsetDateTime;
-import jakarta.validation.Valid;
-import jakarta.validation.constraints.*;
-import io.swagger.v3.oas.annotations.media.Schema;
-
-
-import java.util.*;
-import jakarta.annotation.Generated;
+import org.springframework.lang.Nullable;
 
 /**
  * Represents a definition of a workflow task.
@@ -29,7 +27,7 @@ import jakarta.annotation.Generated;
 
 @Schema(name = "WorkflowTask", description = "Represents a definition of a workflow task.")
 @JsonTypeName("WorkflowTask")
-@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-08-18T08:42:35.953453+02:00[Europe/Zagreb]", comments = "Generator version: 7.24.0")
+@Generated(value = "org.openapitools.codegen.languages.SpringCodegen", date = "2026-09-23T21:34:31.774564+02:00[Europe/Zagreb]", comments = "Generator version: 7.22.0")
 public class WorkflowTaskModel {
 
   private Boolean clusterRoot = false;
@@ -39,6 +37,8 @@ public class WorkflowTaskModel {
   private List<@Valid ComponentConnectionModel> connections = new ArrayList<>();
 
   private @Nullable String description;
+
+  private @Nullable Boolean disabled;
 
   private List<@Valid WorkflowTaskModel> finalize = new ArrayList<>();
 
@@ -172,6 +172,27 @@ public class WorkflowTaskModel {
   @JsonProperty("description")
   public void setDescription(@Nullable String description) {
     this.description = description;
+  }
+
+  public WorkflowTaskModel disabled(@Nullable Boolean disabled) {
+    this.disabled = disabled;
+    return this;
+  }
+
+  /**
+   * When true, the task is skipped during workflow execution.
+   * @return disabled
+   */
+  
+  @Schema(name = "disabled", description = "When true, the task is skipped during workflow execution.", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
+  @JsonProperty("disabled")
+  public @Nullable Boolean getDisabled() {
+    return disabled;
+  }
+
+  @JsonProperty("disabled")
+  public void setDisabled(@Nullable Boolean disabled) {
+    this.disabled = disabled;
   }
 
   public WorkflowTaskModel finalize(List<@Valid WorkflowTaskModel> finalize) {
@@ -458,6 +479,7 @@ public class WorkflowTaskModel {
         Objects.equals(this.clusterElements, workflowTask.clusterElements) &&
         Objects.equals(this.connections, workflowTask.connections) &&
         Objects.equals(this.description, workflowTask.description) &&
+        Objects.equals(this.disabled, workflowTask.disabled) &&
         Objects.equals(this.finalize, workflowTask.finalize) &&
         Objects.equals(this.label, workflowTask.label) &&
         Objects.equals(this.maxRetries, workflowTask.maxRetries) &&
@@ -473,7 +495,7 @@ public class WorkflowTaskModel {
 
   @Override
   public int hashCode() {
-    return Objects.hash(clusterRoot, clusterElements, connections, description, finalize, label, maxRetries, metadata, name, node, parameters, post, pre, timeout, type);
+    return Objects.hash(clusterRoot, clusterElements, connections, description, disabled, finalize, label, maxRetries, metadata, name, node, parameters, post, pre, timeout, type);
   }
 
   @Override
@@ -484,6 +506,7 @@ public class WorkflowTaskModel {
     sb.append("    clusterElements: ").append(toIndentedString(clusterElements)).append("\n");
     sb.append("    connections: ").append(toIndentedString(connections)).append("\n");
     sb.append("    description: ").append(toIndentedString(description)).append("\n");
+    sb.append("    disabled: ").append(toIndentedString(disabled)).append("\n");
     sb.append("    finalize: ").append(toIndentedString(finalize)).append("\n");
     sb.append("    label: ").append(toIndentedString(label)).append("\n");
     sb.append("    maxRetries: ").append(toIndentedString(maxRetries)).append("\n");
