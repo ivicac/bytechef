@@ -66,6 +66,7 @@ public class WebhookTriggerTestFacadeImpl implements WebhookTriggerTestFacade {
     private final String webhookUrl;
     private final TriggerDefinitionFacade triggerDefinitionFacade;
     private final TriggerDefinitionService triggerDefinitionService;
+    private final WorkflowEvaluationInputsFacade workflowEvaluationInputsFacade;
     private final WorkflowService workflowService;
     private final WorkflowTestConfigurationService workflowTestConfigurationService;
 
@@ -73,7 +74,8 @@ public class WebhookTriggerTestFacadeImpl implements WebhookTriggerTestFacade {
     public WebhookTriggerTestFacadeImpl(
         CacheManager cacheManager, Evaluator evaluator, ApplicationProperties applicationProperties,
         JobPrincipalAccessorRegistry jobPrincipalAccessorRegistry, TriggerDefinitionFacade triggerDefinitionFacade,
-        TriggerDefinitionService triggerDefinitionService, WorkflowService workflowService,
+        TriggerDefinitionService triggerDefinitionService,
+        WorkflowEvaluationInputsFacade workflowEvaluationInputsFacade, WorkflowService workflowService,
         WorkflowTestConfigurationService workflowTestConfigurationService) {
 
         this.cacheManager = cacheManager;
@@ -82,6 +84,7 @@ public class WebhookTriggerTestFacadeImpl implements WebhookTriggerTestFacade {
         this.webhookUrl = applicationProperties.getWebhookUrl();
         this.triggerDefinitionFacade = triggerDefinitionFacade;
         this.triggerDefinitionService = triggerDefinitionService;
+        this.workflowEvaluationInputsFacade = workflowEvaluationInputsFacade;
         this.workflowService = workflowService;
         this.workflowTestConfigurationService = workflowTestConfigurationService;
     }
@@ -140,7 +143,7 @@ public class WebhookTriggerTestFacadeImpl implements WebhookTriggerTestFacade {
 
         WorkflowNodeType workflowNodeType = WorkflowNodeType.ofType(workflowTrigger.getType());
         Map<String, ?> triggerParameters = workflowTrigger.evaluateParameters(
-            workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, environmentId),
+            workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, environmentId),
             evaluator);
         Long connectionId = workflowTestConfigurationService
             .fetchWorkflowTestConfigurationConnectionId(workflowId, workflowTrigger.getName(), environmentId)
@@ -166,7 +169,7 @@ public class WebhookTriggerTestFacadeImpl implements WebhookTriggerTestFacade {
             type, -1, workflowUuid, workflowTrigger.getName());
         WorkflowNodeType triggerWorkflowNodeType = WorkflowNodeType.ofType(workflowTrigger.getType());
         Map<String, ?> triggerParameters = workflowTrigger.evaluateParameters(
-            workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, environmentId), evaluator);
+            workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, environmentId), evaluator);
         Long connectionId = workflowTestConfigurationService
             .fetchWorkflowTestConfigurationConnectionId(
                 workflowId, workflowTrigger.getName(), environmentId)

@@ -109,6 +109,9 @@ class WorkflowNodeOutputFacadeTest {
     private WorkflowCacheManager workflowCacheManager;
 
     @Mock
+    private WorkflowEvaluationInputsFacade workflowEvaluationInputsFacade;
+
+    @Mock
     private WorkflowService workflowService;
 
     @Mock
@@ -124,8 +127,8 @@ class WorkflowNodeOutputFacadeTest {
         workflowNodeOutputFacade = new WorkflowNodeOutputFacadeImpl(
             actionDefinitionFacade, actionDefinitionService, clusterElementDefinitionFacade,
             clusterElementDefinitionService, evaluator, taskDispatcherDefinitionService, triggerDefinitionFacade,
-            triggerDefinitionService, workflowCacheManager, workflowService, workflowNodeTestOutputService,
-            workflowTestConfigurationService);
+            triggerDefinitionService, workflowCacheManager, workflowEvaluationInputsFacade, workflowService,
+            workflowNodeTestOutputService, workflowTestConfigurationService);
     }
 
     @Test
@@ -264,7 +267,7 @@ class WorkflowNodeOutputFacadeTest {
             .thenReturn(action2Definition);
         when(action2Definition.getOutputResponse()).thenReturn(null);
         when(actionDefinitionService.isDynamicOutputDefined("component", 1, "action2")).thenReturn(true);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenReturn(Map.of());
         when(workflowTestConfigurationService.getWorkflowTestConfigurationConnections(
             WORKFLOW_ID, "action2", ENVIRONMENT_ID))
@@ -316,7 +319,7 @@ class WorkflowNodeOutputFacadeTest {
             .thenReturn(triggerDefinition);
         when(triggerDefinition.getOutputResponse())
             .thenReturn(new OutputResponse(null, Map.of("row", "value"), null));
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenReturn(Map.of());
         when(workflowTestConfigurationService.fetchWorkflowTestConfigurationConnectionId(
             WORKFLOW_ID, "trigger_1", ENVIRONMENT_ID))
@@ -365,7 +368,7 @@ class WorkflowNodeOutputFacadeTest {
         when(taskDispatcherDefinitionService.getTaskDispatcherDefinition("graph", 1))
             .thenReturn(taskDispatcherDefinition);
         when(taskDispatcherDefinitionService.isDynamicOutputDefined("graph", 1)).thenReturn(true);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenReturn(Map.of());
         when(evaluator.evaluate(any(), any(), anyBoolean()))
             .thenAnswer(invocation -> invocation.getArgument(0));
@@ -436,7 +439,7 @@ class WorkflowNodeOutputFacadeTest {
         when(action2Definition.getOutputResponse()).thenReturn(null);
         when(actionDefinitionService.isDynamicOutputDefined("component", 1, "action2")).thenReturn(true);
 
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenReturn(Map.of());
         when(workflowTestConfigurationService.getWorkflowTestConfigurationConnections(
             WORKFLOW_ID, "action2", ENVIRONMENT_ID))
@@ -514,7 +517,7 @@ class WorkflowNodeOutputFacadeTest {
         when(action2Definition.getOutputResponse()).thenReturn(null);
         when(actionDefinitionService.isDynamicOutputDefined("component", 1, "action2")).thenReturn(true);
 
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenReturn(Map.of());
         when(workflowTestConfigurationService.getWorkflowTestConfigurationConnections(
             eq(WORKFLOW_ID), anyString(), eq(ENVIRONMENT_ID)))
@@ -608,7 +611,7 @@ class WorkflowNodeOutputFacadeTest {
             .thenReturn(actionDefinition);
         when(actionDefinition.getOutputResponse()).thenReturn(null);
         when(actionDefinitionService.isDynamicOutputDefined("component", 1, "action1")).thenReturn(true);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenReturn(Map.of());
         when(evaluator.evaluate(any(), any(), anyBoolean())).thenThrow(new RuntimeException("evaluation error"));
 
@@ -711,7 +714,7 @@ class WorkflowNodeOutputFacadeTest {
         when(taskDispatcherDefinitionService.getTaskDispatcherDefinition("branch", 1))
             .thenReturn(taskDispatcherDefinition);
         when(taskDispatcherDefinitionService.isDynamicOutputDefined("branch", 1)).thenReturn(true);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenReturn(Map.of());
         when(evaluator.evaluate(any(), any(), anyBoolean()))
             .thenAnswer(invocation -> invocation.getArgument(0));
@@ -765,7 +768,7 @@ class WorkflowNodeOutputFacadeTest {
         when(taskDispatcherDefinitionService.getTaskDispatcherDefinition("condition", 1))
             .thenReturn(taskDispatcherDefinition);
         when(taskDispatcherDefinitionService.isDynamicOutputDefined("condition", 1)).thenReturn(true);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenReturn(Map.of());
         when(evaluator.evaluate(any(), any(), anyBoolean()))
             .thenAnswer(invocation -> invocation.getArgument(0));
@@ -819,7 +822,7 @@ class WorkflowNodeOutputFacadeTest {
         when(taskDispatcherDefinitionService.getTaskDispatcherDefinition("fork-join", 1))
             .thenReturn(taskDispatcherDefinition);
         when(taskDispatcherDefinitionService.isDynamicOutputDefined("fork-join", 1)).thenReturn(true);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenReturn(Map.of());
         when(evaluator.evaluate(any(), any(), anyBoolean()))
             .thenAnswer(invocation -> invocation.getArgument(0));

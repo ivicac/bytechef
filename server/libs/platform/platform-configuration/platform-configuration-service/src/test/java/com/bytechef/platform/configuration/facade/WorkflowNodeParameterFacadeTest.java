@@ -55,7 +55,6 @@ import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.component.service.TriggerDefinitionService;
 import com.bytechef.platform.configuration.dto.DisplayConditionResultDTO;
 import com.bytechef.platform.configuration.dto.ParameterResultDTO;
-import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.workflow.task.dispatcher.domain.TaskDispatcherDefinition;
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
 import java.util.ArrayList;
@@ -96,13 +95,13 @@ public class WorkflowNodeParameterFacadeTest {
     private TriggerDefinitionService triggerDefinitionService;
 
     @Mock
+    private WorkflowEvaluationInputsFacade workflowEvaluationInputsFacade;
+
+    @Mock
     private WorkflowNodeOutputFacade workflowNodeOutputFacade;
 
     @Mock
     private WorkflowService workflowService;
-
-    @Mock
-    private WorkflowTestConfigurationService workflowTestConfigurationService;
 
     private WorkflowNodeParameterFacadeImpl workflowNodeParameterFacade;
 
@@ -110,8 +109,8 @@ public class WorkflowNodeParameterFacadeTest {
     void setUp() {
         workflowNodeParameterFacade = new WorkflowNodeParameterFacadeImpl(
             actionDefinitionService, clusterElementDefinitionService, evaluator,
-            taskDispatcherDefinitionService, triggerDefinitionService, workflowNodeOutputFacade,
-            workflowService, workflowTestConfigurationService);
+            taskDispatcherDefinitionService, triggerDefinitionService, workflowEvaluationInputsFacade,
+            workflowNodeOutputFacade, workflowService);
 
         Workflow updatedWorkflow = mock(Workflow.class);
 
@@ -184,7 +183,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
             when(clusterElementDefinitionService.getClusterElementDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(clusterElementDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             ParameterResultDTO result = workflowNodeParameterFacade.deleteClusterElementParameter(
@@ -1132,7 +1131,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
             when(clusterElementDefinitionService.getClusterElementDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(clusterElementDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -1223,7 +1222,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(clusterElementDefinition.getProperties()).thenReturn(List.of());
             when(clusterElementDefinitionService.getClusterElementDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(clusterElementDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When: request display conditions for a child under one of the siblings
@@ -1331,7 +1330,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(actionDefinition.getProperties()).thenReturn(List.of());
             when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(actionDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(any(), anyLong()))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(any(), anyLong()))
                 .thenReturn(Map.of());
 
             // When
@@ -1448,7 +1447,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
             when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(actionDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -1484,7 +1483,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(actionDefinition.getProperties()).thenReturn((List) properties);
         when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(actionDefinition);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         try (MockedStatic<JsonUtils> mockedJsonUtils = mockStatic(JsonUtils.class)) {
@@ -1630,8 +1629,8 @@ public class WorkflowNodeParameterFacadeTest {
     private WorkflowNodeParameterFacadeImpl newFacadeWithSpelEvaluator() {
         return new WorkflowNodeParameterFacadeImpl(
             actionDefinitionService, clusterElementDefinitionService, SpelEvaluator.create(),
-            taskDispatcherDefinitionService, triggerDefinitionService, workflowNodeOutputFacade,
-            workflowService, workflowTestConfigurationService);
+            taskDispatcherDefinitionService, triggerDefinitionService, workflowEvaluationInputsFacade,
+            workflowNodeOutputFacade, workflowService);
     }
 
     @SuppressWarnings({
@@ -1647,7 +1646,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(actionDefinition.getProperties()).thenReturn((List) properties);
         when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(actionDefinition);
-        lenient().when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        lenient().when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         Map<String, Object> task = new HashMap<>();
@@ -1690,7 +1689,7 @@ public class WorkflowNodeParameterFacadeTest {
 
         when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(actionDefinition);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         try (MockedStatic<JsonUtils> mockedJsonUtils = mockStatic(JsonUtils.class)) {
@@ -1741,7 +1740,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(triggerDefinitionService.getTriggerDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(triggerDefinition);
 
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         try (MockedStatic<JsonUtils> mockedJsonUtils = mockStatic(JsonUtils.class)) {
@@ -1787,7 +1786,7 @@ public class WorkflowNodeParameterFacadeTest {
 
         when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(mock(ActionDefinition.class));
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         try (MockedStatic<JsonUtils> mockedJsonUtils = mockStatic(JsonUtils.class)) {
@@ -1848,7 +1847,7 @@ public class WorkflowNodeParameterFacadeTest {
 
         when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(actionDefinition);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         when(workflowNodeOutputFacade.getPreviousWorkflowNodeSampleOutputs(anyString(), anyString(), anyLong()))
@@ -1915,7 +1914,7 @@ public class WorkflowNodeParameterFacadeTest {
 
         when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(actionDefinition);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         try (MockedStatic<JsonUtils> mockedJsonUtils = mockStatic(JsonUtils.class)) {
@@ -2013,7 +2012,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
             when(clusterElementDefinitionService.getClusterElementDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(clusterElementDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -2081,7 +2080,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
             when(clusterElementDefinitionService.getClusterElementDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(clusterElementDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             ParameterResultDTO result = workflowNodeParameterFacade.updateClusterElementParameter(
@@ -2164,7 +2163,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
             when(clusterElementDefinitionService.getClusterElementDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(clusterElementDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -2243,7 +2242,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(clusterElementDefinition.getProperties()).thenReturn(List.of());
             when(clusterElementDefinitionService.getClusterElementDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(clusterElementDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(any(), anyLong()))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(any(), anyLong()))
                 .thenReturn(Map.of());
 
             // When
@@ -2317,7 +2316,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(triggerDefinition.getProperties()).thenReturn((List) properties);
         when(triggerDefinitionService.getTriggerDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(triggerDefinition);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         when(evaluator.evaluate(any(Map.class), any(Map.class), eq(true)))
@@ -2453,7 +2452,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(triggerDefinition.getProperties()).thenReturn((List) properties);
         when(triggerDefinitionService.getTriggerDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(triggerDefinition);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         when(evaluator.evaluate(any(Map.class), any(Map.class), eq(true)))
@@ -2597,7 +2596,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(triggerDefinition.getProperties()).thenReturn((List) properties);
         when(triggerDefinitionService.getTriggerDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(triggerDefinition);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         when(evaluator.evaluate(any(Map.class), any(Map.class), eq(true)))
@@ -2765,7 +2764,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(actionDefinition.getProperties()).thenReturn((List) properties);
         when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(actionDefinition);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
         when(workflowNodeOutputFacade.getPreviousWorkflowNodeSampleOutputs(anyString(), anyString(), anyLong()))
             .thenReturn(Map.of());
@@ -2941,7 +2940,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(triggerDefinition.getProperties()).thenReturn((List) properties);
         when(triggerDefinitionService.getTriggerDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(triggerDefinition);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         when(evaluator.evaluate(any(Map.class), any(Map.class), eq(true)))
@@ -3062,7 +3061,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
             when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(actionDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -3118,7 +3117,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
             when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(actionDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -3174,7 +3173,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
             when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(actionDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -3208,7 +3207,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(taskDispatcherDefinitionService.getTaskDispatcherDefinition("loop", 1))
             .thenReturn(taskDispatcherDefinition);
 
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         try (MockedStatic<JsonUtils> mockedJsonUtils = mockStatic(JsonUtils.class)) {
@@ -3268,7 +3267,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(taskDispatcherDefinitionService.getTaskDispatcherDefinition("branch", 1))
             .thenReturn(taskDispatcherDefinition);
 
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         try (MockedStatic<JsonUtils> mockedJsonUtils = mockStatic(JsonUtils.class)) {
@@ -3321,7 +3320,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(taskDispatcherDefinitionService.getTaskDispatcherDefinition("loop", 1))
             .thenReturn(taskDispatcherDefinition);
 
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         try (MockedStatic<JsonUtils> mockedJsonUtils = mockStatic(JsonUtils.class)) {
@@ -3403,7 +3402,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(triggerDefinition.getProperties()).thenReturn((List) properties);
         when(triggerDefinitionService.getTriggerDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(triggerDefinition);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         when(evaluator.evaluate(any(Map.class), any(Map.class), eq(true)))
@@ -3522,7 +3521,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
             when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(actionDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -3578,7 +3577,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
             when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(actionDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -3606,7 +3605,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(actionDefinition);
 
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         try (MockedStatic<JsonUtils> mockedJsonUtils = mockStatic(JsonUtils.class)) {
@@ -3663,7 +3662,7 @@ public class WorkflowNodeParameterFacadeTest {
         when(triggerDefinitionService.getTriggerDefinition(anyString(), anyInt(), anyString()))
             .thenReturn(triggerDefinition);
 
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
             .thenReturn(Map.of());
 
         try (MockedStatic<JsonUtils> mockedJsonUtils = mockStatic(JsonUtils.class)) {
@@ -3767,7 +3766,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
             when(actionDefinitionService.getActionDefinition(anyString(), anyInt(), anyString()))
                 .thenReturn(actionDefinition);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -3852,7 +3851,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflow.getVersion()).thenReturn(1);
             when(workflow.getDefinition()).thenReturn("{}");
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -3930,7 +3929,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflow.getVersion()).thenReturn(1);
             when(workflow.getDefinition()).thenReturn("{}");
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -3997,7 +3996,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflow.getVersion()).thenReturn(1);
             when(workflow.getDefinition()).thenReturn("{}");
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -4063,7 +4062,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflow.getVersion()).thenReturn(1);
             when(workflow.getDefinition()).thenReturn("{}");
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -4132,7 +4131,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflow.getVersion()).thenReturn(1);
             when(workflow.getDefinition()).thenReturn("{}");
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -4206,7 +4205,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflow.getVersion()).thenReturn(1);
             when(workflow.getDefinition()).thenReturn("{}");
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -4274,7 +4273,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflow.getId()).thenReturn(workflowId);
             when(workflow.getDefinition()).thenReturn("{}");
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -4360,7 +4359,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflow.getId()).thenReturn(workflowId);
             when(workflow.getDefinition()).thenReturn("{}");
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
@@ -4435,7 +4434,7 @@ public class WorkflowNodeParameterFacadeTest {
             when(workflow.getId()).thenReturn(workflowId);
             when(workflow.getDefinition()).thenReturn("{}");
             when(workflowService.getWorkflow(workflowId)).thenReturn(workflow);
-            when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(workflowId, 0))
+            when(workflowEvaluationInputsFacade.getEvaluationInputs(workflowId, 0))
                 .thenReturn(Map.of());
 
             // When
