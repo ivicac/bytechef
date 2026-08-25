@@ -55,8 +55,6 @@ dependencies {
     implementation(project(":server:libs:core:evaluator:evaluator-impl"))
     implementation(project(":server:libs:core:graphql:graphql-impl"))
     implementation(project(":server:libs:core:rest:rest-impl"))
-    // ApprovalTaskReconciliationMonitor sweeps per tenant, so this app needs a TenantService. Both impls are
-    // mutually exclusive by condition (single-tenant vs EE multi-tenant), matching server-app's wiring.
     implementation(project(":server:libs:core:tenant:tenant-single-service"))
     implementation(project(":server:libs:platform:platform-category:platform-category-service"))
     implementation(project(":server:libs:platform:platform-component:platform-component-log:platform-component-log-service"))
@@ -118,6 +116,8 @@ dependencies {
     implementation(project(":server:ee:libs:platform:platform-connection:platform-connection-remote-client"))
     implementation(project(":server:ee:libs:platform:platform-resource-grant:platform-resource-grant-service"))
     implementation(project(":server:ee:libs:platform:platform-user:platform-user-remote-client"))
+    implementation(project(":server:ee:libs:platform:platform-variable:platform-variable-graphql"))
+    implementation(project(":server:ee:libs:platform:platform-variable:platform-variable-service"))
     implementation(project(":server:ee:libs:platform:platform-workflow:platform-workflow-task-dispatcher:platform-workflow-task-dispatcher-registry:platform-workflow-task-dispatcher-registry-remote-client"))
     implementation(project(":server:ee:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-remote-client"))
     implementation(project(":server:ee:libs:platform:platform-workflow:platform-workflow-worker:platform-workflow-worker-remote-client"))
