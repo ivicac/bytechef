@@ -14,11 +14,14 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
+ * Declares the deployment-domain permission scopes. Read is granted from VIEWER; push/pull/edit from EDITOR.
+ *
  * @version ee
  *
  * @author Ivica Cardic
  */
 @Component
+@ConditionalOnEEVersion
 public class DeploymentPermissionScopeProvider implements PermissionScopeProvider {
 
     @Override
