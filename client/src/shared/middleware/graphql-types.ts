@@ -3545,6 +3545,7 @@ export type Mutation = {
   createDataTable: Scalars['Boolean']['output'];
   createEmbeddedMcpComponent?: Maybe<McpComponent>;
   createEmbeddedMcpServer?: Maybe<McpServer>;
+  createEmbeddedVariable: Variable;
   createIdentityProvider: IdentityProviderType;
   createIntegrationCodeWorkflow: Scalars['ID']['output'];
   createKnowledgeBase?: Maybe<KnowledgeBase>;
@@ -3576,6 +3577,7 @@ export type Mutation = {
   createWorkspaceAiModel?: Maybe<AiModel>;
   createWorkspaceApiKey: Scalars['String']['output'];
   createWorkspaceMcpServer?: Maybe<McpServer>;
+  createWorkspaceVariable: Variable;
   deleteA2aProject?: Maybe<Scalars['Boolean']['output']>;
   deleteA2aServer?: Maybe<Scalars['Boolean']['output']>;
   deleteAiAgent: Scalars['Boolean']['output'];
@@ -3637,6 +3639,7 @@ export type Mutation = {
   deleteEmbeddedMcpComponent?: Maybe<Scalars['Boolean']['output']>;
   deleteEmbeddedMcpServer?: Maybe<Scalars['Boolean']['output']>;
   deleteEmbeddedMcpTool?: Maybe<Scalars['Boolean']['output']>;
+  deleteEmbeddedVariable: Scalars['Boolean']['output'];
   deleteIdentityProvider: Scalars['Boolean']['output'];
   deleteJobFileLogs: Scalars['Boolean']['output'];
   deleteKnowledgeBase?: Maybe<Scalars['Boolean']['output']>;
@@ -3664,6 +3667,7 @@ export type Mutation = {
   deleteWorkspaceAiModel?: Maybe<Scalars['Boolean']['output']>;
   deleteWorkspaceApiKey: Scalars['Boolean']['output'];
   deleteWorkspaceMcpServer?: Maybe<Scalars['Boolean']['output']>;
+  deleteWorkspaceVariable: Scalars['Boolean']['output'];
   /**
    * Detach a whole component binding (cascades to all its tools via the FK). Use when the user wants to
    * remove all of e.g. Slack's tools at once instead of one at a time.
@@ -3948,6 +3952,7 @@ export type Mutation = {
   updateEmbeddedMcpServerUrl?: Maybe<McpServer>;
   updateEmbeddedMcpTool?: Maybe<McpTool>;
   updateEmbeddedMcpToolEnabled?: Maybe<McpTool>;
+  updateEmbeddedVariable: Variable;
   updateIdentityProvider: IdentityProviderType;
   updateIntegrationCodeWorkflowSource: Scalars['Boolean']['output'];
   updateIntegrationWorkflowPermissionExpression?: Maybe<IntegrationWorkflow>;
@@ -3982,6 +3987,7 @@ export type Mutation = {
   updateWorkspaceSystemPrompt?: Maybe<WorkspaceSystemPrompt>;
   /** Update a workspace user's role. Requires ADMIN workspace role. */
   updateWorkspaceUserRole: WorkspaceUser;
+  updateWorkspaceVariable: Variable;
   uploadLicence: LicenceType;
 };
 
@@ -4379,6 +4385,12 @@ export type MutationCreateEmbeddedMcpServerArgs = {
 };
 
 
+export type MutationCreateEmbeddedVariableArgs = {
+  environmentId: Scalars['ID']['input'];
+  input: VariableInput;
+};
+
+
 export type MutationCreateIdentityProviderArgs = {
   input: IdentityProviderInput;
 };
@@ -4486,6 +4498,13 @@ export type MutationCreateWorkspaceApiKeyArgs = {
 
 export type MutationCreateWorkspaceMcpServerArgs = {
   input: CreateWorkspaceMcpServerInput;
+};
+
+
+export type MutationCreateWorkspaceVariableArgs = {
+  environmentId: Scalars['ID']['input'];
+  input: VariableInput;
+  workspaceId: Scalars['ID']['input'];
 };
 
 
@@ -4711,6 +4730,12 @@ export type MutationDeleteEmbeddedMcpToolArgs = {
 };
 
 
+export type MutationDeleteEmbeddedVariableArgs = {
+  environmentId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+};
+
+
 export type MutationDeleteIdentityProviderArgs = {
   id: Scalars['ID']['input'];
 };
@@ -4831,6 +4856,13 @@ export type MutationDeleteWorkspaceApiKeyArgs = {
 
 export type MutationDeleteWorkspaceMcpServerArgs = {
   mcpServerId: Scalars['ID']['input'];
+};
+
+
+export type MutationDeleteWorkspaceVariableArgs = {
+  environmentId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
 };
 
 
@@ -5803,6 +5835,13 @@ export type MutationUpdateEmbeddedMcpToolEnabledArgs = {
 };
 
 
+export type MutationUpdateEmbeddedVariableArgs = {
+  environmentId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+  input: VariableInput;
+};
+
+
 export type MutationUpdateIdentityProviderArgs = {
   id: Scalars['ID']['input'];
   input: IdentityProviderInput;
@@ -5988,6 +6027,14 @@ export type MutationUpdateWorkspaceSystemPromptArgs = {
 export type MutationUpdateWorkspaceUserRoleArgs = {
   role: WorkspaceRole;
   userId: Scalars['ID']['input'];
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type MutationUpdateWorkspaceVariableArgs = {
+  environmentId: Scalars['ID']['input'];
+  id: Scalars['ID']['input'];
+  input: VariableInput;
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -6605,6 +6652,7 @@ export type Query = {
   embeddedMcpServerTags?: Maybe<Array<Maybe<Tag>>>;
   embeddedMcpServers?: Maybe<Array<Maybe<McpServer>>>;
   embeddedMcpToolsByComponentId?: Maybe<Array<Maybe<McpTool>>>;
+  embeddedVariables: Array<Variable>;
   environments?: Maybe<Array<Maybe<Environment>>>;
   evaluatorFunctionDefinition: EvaluatorFunctionDefinition;
   evaluatorFunctionDefinitions: Array<EvaluatorFunctionDefinition>;
@@ -6732,6 +6780,7 @@ export type Query = {
   workspaceSystemPrompt?: Maybe<WorkspaceSystemPrompt>;
   /** List all users of a workspace. Requires at least VIEWER workspace role. */
   workspaceUsers: Array<WorkspaceUser>;
+  workspaceVariables: Array<Variable>;
 };
 
 
@@ -7588,6 +7637,11 @@ export type QueryEmbeddedMcpToolsByComponentIdArgs = {
 };
 
 
+export type QueryEmbeddedVariablesArgs = {
+  environmentId: Scalars['ID']['input'];
+};
+
+
 export type QueryEvaluatorFunctionDefinitionArgs = {
   name: Scalars['String']['input'];
 };
@@ -8083,6 +8137,12 @@ export type QueryWorkspaceSystemPromptArgs = {
 
 
 export type QueryWorkspaceUsersArgs = {
+  workspaceId: Scalars['ID']['input'];
+};
+
+
+export type QueryWorkspaceVariablesArgs = {
+  environmentId: Scalars['ID']['input'];
   workspaceId: Scalars['ID']['input'];
 };
 
@@ -8610,6 +8670,23 @@ export type UpdateRowInput = {
   id: Scalars['ID']['input'];
   tableId: Scalars['ID']['input'];
   values: Scalars['Map']['input'];
+};
+
+export type Variable = {
+  __typename?: 'Variable';
+  createdBy?: Maybe<Scalars['String']['output']>;
+  createdDate?: Maybe<Scalars['String']['output']>;
+  environmentId: Scalars['ID']['output'];
+  id: Scalars['ID']['output'];
+  lastModifiedBy?: Maybe<Scalars['String']['output']>;
+  lastModifiedDate?: Maybe<Scalars['String']['output']>;
+  name: Scalars['String']['output'];
+  value: Scalars['String']['output'];
+};
+
+export type VariableInput = {
+  name: Scalars['String']['input'];
+  value: Scalars['String']['input'];
 };
 
 export type Workflow = {
