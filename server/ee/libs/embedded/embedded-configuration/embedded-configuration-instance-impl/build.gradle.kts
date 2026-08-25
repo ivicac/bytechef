@@ -2,6 +2,8 @@ dependencies {
     implementation("org.apache.commons:commons-lang3")
     implementation("org.springframework:spring-context")
 
+    implementation(project(":server:ee:libs:embedded:embedded-configuration:embedded-configuration-api"))
+    implementation(project(":server:ee:libs:platform:platform-variable:platform-variable-api"))
     implementation(project(":server:libs:core:commons:commons-util"))
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-execution:platform-workflow-execution-api"))
 
@@ -18,4 +20,5 @@ dependencies {
     testImplementation(project(":server:libs:test:test-int-support"))
 
     testImplementation(project(":server:ee:libs:embedded:embedded-configuration:embedded-configuration-service"))
+    testImplementation(project(":server:ee:libs:platform:platform-code-workflow:platform-code-workflow-configuration:platform-code-workflow-configuration-service"))
 }
