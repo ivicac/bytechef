@@ -17,9 +17,11 @@
 package com.bytechef.platform.workflow.execution.facade;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -29,14 +31,18 @@ import com.bytechef.atlas.execution.dto.JobParametersDTO;
 import com.bytechef.atlas.execution.facade.JobFacade;
 import com.bytechef.atlas.execution.service.JobService;
 import com.bytechef.platform.constant.PlatformType;
+import com.bytechef.platform.variable.WorkflowVariablesResolver;
+import com.bytechef.platform.workflow.JobInputConstants;
 import com.bytechef.platform.workflow.execution.service.LicenceJobUsageService;
 import com.bytechef.platform.workflow.execution.service.PrincipalJobService;
 import java.util.Map;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Tests {@link PrincipalJobFacadeImpl#createPrincipalLinkedJob} -- the new method added for the agent-tool sub-workflow
@@ -63,6 +69,9 @@ class PrincipalJobFacadeImplTest {
     @Mock
     private LicenceJobUsageService licenceJobUsageService;
 
+    @Mock
+    private WorkflowVariablesResolver workflowVariablesResolver;
+
     @Test
     void testCreatePrincipalLinkedJobCreatesJobAndLinksPrincipal() {
         long referenceJobId = 100L;
@@ -73,10 +82,11 @@ class PrincipalJobFacadeImplTest {
 
         when(principalJobService.fetchJobPrincipalId(referenceJobId, PlatformType.AUTOMATION))
             .thenReturn(Optional.of(principalId));
-        when(jobFacade.createJob(jobParametersDTO)).thenReturn(newJobId);
+        when(jobFacade.createJob(any(JobParametersDTO.class))).thenReturn(newJobId);
 
         PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
-            principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService);
+            principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
+            emptyObjectProvider());
 
         long result = facade.createPrincipalLinkedJob(referenceJobId, jobParametersDTO, PlatformType.AUTOMATION);
 
@@ -99,7 +109,8 @@ class PrincipalJobFacadeImplTest {
             .thenReturn(Optional.empty());
 
         PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
-            principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService);
+            principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
+            emptyObjectProvider());
 
         IllegalStateException exception = assertThrows(
             IllegalStateException.class,
@@ -114,5 +125,86 @@ class PrincipalJobFacadeImplTest {
 
         assertEquals(true, exception.getMessage()
             .contains(String.valueOf(referenceJobId)));
+    }
+
+    @Test
+    void testCreateJobSeedsVarsInputWhenResolverPresent() {
+        JobParametersDTO jobParametersDTO = new JobParametersDTO("wf-1", Map.of("name", "x"), Map.of());
+
+        when(workflowVariablesResolver.resolveForJobPrincipal(7L, PlatformType.AUTOMATION))
+            .thenReturn(Map.of("API_URL", "https://api"));
+        when(jobFacade.createJob(any(JobParametersDTO.class))).thenReturn(200L);
+
+        PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
+            principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
+            objectProviderOf(workflowVariablesResolver));
+
+        facade.createJob(jobParametersDTO, 7L, PlatformType.AUTOMATION);
+
+        ArgumentCaptor<JobParametersDTO> captor = ArgumentCaptor.forClass(JobParametersDTO.class);
+
+        verify(jobFacade).createJob(captor.capture());
+
+        Map<String, Object> inputs = captor.getValue()
+            .getInputs();
+
+        assertEquals("x", inputs.get("name"));
+        assertEquals(Map.of("API_URL", "https://api"), inputs.get(JobInputConstants.VARIABLES_INPUT));
+    }
+
+    @Test
+    void testCreateJobDoesNotAddVarsWithoutResolver() {
+        JobParametersDTO jobParametersDTO = new JobParametersDTO("wf-1", Map.of("name", "x"), Map.of());
+
+        when(jobFacade.createJob(any(JobParametersDTO.class))).thenReturn(200L);
+
+        PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
+            principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
+            emptyObjectProvider());
+
+        facade.createJob(jobParametersDTO, 7L, PlatformType.AUTOMATION);
+
+        ArgumentCaptor<JobParametersDTO> captor = ArgumentCaptor.forClass(JobParametersDTO.class);
+
+        verify(jobFacade).createJob(captor.capture());
+        assertFalse(captor.getValue()
+            .getInputs()
+            .containsKey(JobInputConstants.VARIABLES_INPUT));
+    }
+
+    @Test
+    void testCallerSuppliedVarsInputIsOverwritten() {
+        JobParametersDTO jobParametersDTO = new JobParametersDTO(
+            "wf-1", Map.of(JobInputConstants.VARIABLES_INPUT, Map.of("EVIL", "1")), Map.of());
+
+        when(workflowVariablesResolver.resolveForJobPrincipal(7L, PlatformType.AUTOMATION)).thenReturn(Map.of());
+        when(jobFacade.createJob(any(JobParametersDTO.class))).thenReturn(200L);
+
+        PrincipalJobFacadeImpl facade = new PrincipalJobFacadeImpl(
+            principalJobService, jobFacade, jobService, workflowService, licenceJobUsageService,
+            objectProviderOf(workflowVariablesResolver));
+
+        facade.createJob(jobParametersDTO, 7L, PlatformType.AUTOMATION);
+
+        ArgumentCaptor<JobParametersDTO> captor = ArgumentCaptor.forClass(JobParametersDTO.class);
+
+        verify(jobFacade).createJob(captor.capture());
+        assertEquals(Map.of(), captor.getValue()
+            .getInputs()
+            .get(JobInputConstants.VARIABLES_INPUT));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> ObjectProvider<T> emptyObjectProvider() {
+        return (ObjectProvider<T>) mock(ObjectProvider.class);
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <T> ObjectProvider<T> objectProviderOf(T instance) {
+        ObjectProvider<T> objectProvider = (ObjectProvider<T>) mock(ObjectProvider.class);
+
+        when(objectProvider.getIfAvailable()).thenReturn(instance);
+
+        return objectProvider;
     }
 }
