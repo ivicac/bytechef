@@ -18,6 +18,7 @@ package com.bytechef.platform.workflow.validator;
 
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.constant.JobInputConstants;
+import com.bytechef.platform.workflow.JobInputConstants;
 import com.bytechef.platform.workflow.validator.exception.WorkflowValidatorErrorType;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
@@ -157,7 +158,8 @@ public interface WorkflowValidatorFacade {
 
         if (!reservedInputNames.isEmpty()) {
             throw new ConfigurationException(
-                "Workflow input names must not start with the reserved '__' prefix. Reserved input names: " +
+                "Workflow input names must not start with the reserved '__' prefix or equal the reserved name '" +
+                    JobInputConstants.VARIABLES_INPUT + "'. Reserved input names: " +
                     String.join(", ", reservedInputNames),
                 WorkflowValidatorErrorType.RESERVED_INPUT_NAME);
         }
@@ -168,7 +170,8 @@ public interface WorkflowValidatorFacade {
 
         if (!reservedNodeNames.isEmpty()) {
             throw new ConfigurationException(
-                "Workflow node names must not start with the reserved '__' prefix. Reserved node names: " +
+                "Workflow node names must not start with the reserved '__' prefix or equal the reserved name '" +
+                    JobInputConstants.VARIABLES_INPUT + "'. Reserved node names: " +
                     String.join(", ", reservedNodeNames),
                 WorkflowValidatorErrorType.RESERVED_NODE_NAME);
         }
@@ -189,9 +192,7 @@ public interface WorkflowValidatorFacade {
 
                     JsonNode nameJsonNode = inputJsonNode.get("name");
 
-                    if (nameJsonNode != null && nameJsonNode.isString() && nameJsonNode.asString()
-                        .startsWith("__")) {
-
+                    if (nameJsonNode != null && nameJsonNode.isString() && isReservedName(nameJsonNode.asString())) {
                         reservedInputNames.add(nameJsonNode.asString());
                     }
                 }
@@ -204,8 +205,9 @@ public interface WorkflowValidatorFacade {
     }
 
     /**
-     * Returns the top-level trigger/task node names that begin with the reserved {@code __} prefix, or an empty list
-     * when none are found (or the workflow JSON cannot be parsed).
+     * Returns the top-level trigger/task node names that are reserved -- either begin with the {@code __} prefix or
+     * exactly equal {@link JobInputConstants#VARIABLES_INPUT} -- or an empty list when none are found (or the workflow
+     * JSON cannot be parsed).
      */
     private List<String> getReservedNodeNames(String workflow) {
         List<String> reservedNodeNames = new ArrayList<>();
@@ -234,12 +236,19 @@ public interface WorkflowValidatorFacade {
 
             JsonNode nameJsonNode = nodeJsonNode.get("name");
 
-            if (nameJsonNode != null && nameJsonNode.isString() && nameJsonNode.asString()
-                .startsWith("__")) {
-
+            if (nameJsonNode != null && nameJsonNode.isString() && isReservedName(nameJsonNode.asString())) {
                 reservedNodeNames.add(nameJsonNode.asString());
             }
         }
+    }
+
+    /**
+     * A reserved name either starts with the reserved {@code __} prefix, or exactly equals the reserved
+     * {@link JobInputConstants#VARIABLES_INPUT} name — a name that merely starts with {@code vars} (e.g.
+     * {@code varsCount}) is not reserved.
+     */
+    private static boolean isReservedName(String name) {
+        return name.startsWith("__") || name.equals(JobInputConstants.VARIABLES_INPUT);
     }
 
     private static JsonNode readWorkflowTree(String workflow) {
