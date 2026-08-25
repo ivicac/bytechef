@@ -110,6 +110,9 @@ class WebhookTriggerTestFacadeTest {
     private TriggerDefinitionService triggerDefinitionService;
 
     @Mock
+    private WorkflowEvaluationInputsFacade workflowEvaluationInputsFacade;
+
+    @Mock
     private WorkflowService workflowService;
 
     @Mock
@@ -146,7 +149,8 @@ class WebhookTriggerTestFacadeTest {
 
         webhookTriggerTestFacade = new WebhookTriggerTestFacadeImpl(
             new ConcurrentMapCacheManager(), evaluator, applicationProperties, jobPrincipalAccessorRegistry,
-            triggerDefinitionFacade, triggerDefinitionService, workflowService, workflowTestConfigurationService);
+            triggerDefinitionFacade, triggerDefinitionService, workflowEvaluationInputsFacade, workflowService,
+            workflowTestConfigurationService);
     }
 
     @Test
