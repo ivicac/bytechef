@@ -44,6 +44,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -178,6 +179,17 @@ class BillingSubscriptionFacadeIntTest {
         assertThatThrownBy(() -> billingSubscriptionFacade.updateSubscription("ENTERPRISE"))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessage("Unknown plan: ENTERPRISE");
+    }
+
+    @Test
+    void testCreateCheckoutSessionThrowsWhenNoUserIsAuthenticated() {
+        SecurityContextHolder.clearContext();
+
+        assertThatThrownBy(() -> billingSubscriptionFacade.createCheckoutSession("STARTER"))
+            .isInstanceOf(IllegalStateException.class)
+            .hasMessage("Current user is not set!");
+
+        verify(stripeClient, never()).createCustomer(any(), any());
     }
 
     private void seedDeployedJobs(int count, Instant endDate) {
