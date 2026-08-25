@@ -14,11 +14,15 @@ import java.util.Set;
 import org.springframework.stereotype.Component;
 
 /**
+ * Declares the project-lifecycle permission scopes. Create is granted from EDITOR; settings and delete are ADMIN-only
+ * (destructive project-level operations stay with workspace administrators).
+ *
  * @version ee
  *
  * @author Ivica Cardic
  */
 @Component
+@ConditionalOnEEVersion
 public class ProjectPermissionScopeProvider implements PermissionScopeProvider {
 
     @Override
