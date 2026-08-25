@@ -7,10 +7,13 @@
 
 package com.bytechef.ee.embedded.configuration.instance.config;
 
+import static org.mockito.Mockito.mock;
+
 import com.bytechef.commons.data.jdbc.converter.EncryptedMapWrapperToStringConverter;
 import com.bytechef.commons.data.jdbc.converter.EncryptedStringToMapWrapperConverter;
 import com.bytechef.commons.data.jdbc.converter.MapWrapperToStringConverter;
 import com.bytechef.commons.data.jdbc.converter.StringToMapWrapperConverter;
+import com.bytechef.ee.embedded.configuration.audit.IntegrationAuditPublisher;
 import com.bytechef.ee.embedded.configuration.callback.IntegrationWorkflowCallback;
 import com.bytechef.ee.embedded.configuration.instance.accessor.IntegrationJobPrincipalAccessor;
 import com.bytechef.ee.embedded.configuration.service.IntegrationInstanceConfigurationServiceImpl;
@@ -53,6 +56,11 @@ public class IntegrationJobPrincipalAccessorIntTestConfiguration {
     @Bean
     EncryptionKey encryptionKey() {
         return () -> "tTB1/UBIbYLuCXVi4PPfzA==";
+    }
+
+    @Bean
+    IntegrationAuditPublisher integrationAuditPublisher() {
+        return mock(IntegrationAuditPublisher.class);
     }
 
     @EnableJdbcAuditing(auditorAwareRef = "auditorProvider", dateTimeProviderRef = "auditingDateTimeProvider")
