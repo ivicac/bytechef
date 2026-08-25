@@ -90,6 +90,9 @@ class WorkflowNodeTestOutputFacadeTest {
     private WebhookTriggerTestFacade webhookTriggerTestFacade;
 
     @Mock
+    private WorkflowEvaluationInputsFacade workflowEvaluationInputsFacade;
+
+    @Mock
     private WorkflowService workflowService;
 
     @Mock
@@ -102,7 +105,8 @@ class WorkflowNodeTestOutputFacadeTest {
         workflowNodeTestOutputFacade = new WorkflowNodeTestOutputFacadeImpl(
             actionDefinitionFacade, clusterElementDefinitionService, List.of(), connectionService, evaluator,
             jobPrincipalAccessorRegistry, triggerDefinitionFacade, workflowNodeTestOutputService,
-            workflowNodeOutputFacade, webhookTriggerTestFacade, workflowService, workflowTestConfigurationService);
+            workflowNodeOutputFacade, webhookTriggerTestFacade, workflowEvaluationInputsFacade, workflowService,
+            workflowTestConfigurationService);
     }
 
     @Test
@@ -124,7 +128,7 @@ class WorkflowNodeTestOutputFacadeTest {
             .thenReturn(jobPrincipalAccessor);
         when(jobPrincipalAccessor.getLastWorkflowId(workflowUuid)).thenReturn(WORKFLOW_ID);
         when(workflowService.getWorkflow(WORKFLOW_ID)).thenReturn(workflow);
-        when(workflowTestConfigurationService.getWorkflowTestConfigurationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
+        when(workflowEvaluationInputsFacade.getEvaluationInputs(WORKFLOW_ID, ENVIRONMENT_ID))
             .thenAnswer(invocation -> Map.of());
         when(evaluator.evaluate(anyMap(), anyMap(), anyBoolean()))
             .thenAnswer(invocation -> invocation.getArgument(0));
