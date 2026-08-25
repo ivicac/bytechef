@@ -16,26 +16,13 @@ import {fromWorkflowDefinitionInput} from '../utils/fromWorkflowDefinitionInput'
 import {toWorkflowDefinitionInput} from '../utils/toWorkflowDefinitionInput';
 
 const EMPTY_WORKFLOW_INPUT: WorkflowInputType = {
+    internalOnly: false,
     label: '',
     name: '',
     required: false,
     testValue: '',
     type: undefined,
 };
-
-/**
- * The REST model groups an input's component reference under componentReference, while the workflow definition
- * stores componentName, componentVersion and groupName as flat fields and rejects componentReference.
- */
-function toDefinitionInput(input: WorkflowInput): WorkflowInput {
-    const {componentReference, ...inputFields} = input;
-
-    if (!componentReference) {
-        return inputFields;
-    }
-
-    return {...inputFields, ...componentReference} as WorkflowInput;
-}
 
 interface UseWorkflowInputsProps {
     invalidateWorkflowQueries: () => void;
@@ -98,14 +85,7 @@ export default function useWorkflowInputs({
         if (index === undefined) {
             setCurrentInputIndex(-1);
 
-            form.reset({
-                internalOnly: false,
-                label: '',
-                name: '',
-                required: false,
-                testValue: '',
-                type: undefined,
-            });
+            form.reset(EMPTY_WORKFLOW_INPUT);
 
             return;
         } else {
@@ -170,8 +150,14 @@ export default function useWorkflowInputs({
         return `${baseInputName}_${maxExistingNumber + 1}`;
     }
 
-    function saveWorkflowInput(formInput: WorkflowInputType) {
-        const {getValues} = form;
+    function saveWorkflowInput(input: WorkflowInputType) {
+        const {getValues, setError} = form;
+
+        if (input.name === 'vars') {
+            setError('name', {message: '"vars" is a reserved name.'});
+
+            return;
+        }
 
         // `type === 'component'` is a UI-only discriminator. componentReference.componentVersion and .groupName are
         // set via setValue (no registered FormField), so they can be missing from the submitted payload — pull the
@@ -231,14 +217,7 @@ export default function useWorkflowInputs({
                     workflowId: workflow.id!,
                 });
 
-                form.reset({
-                    internalOnly: false,
-                    label: '',
-                    name: '',
-                    required: false,
-                    testValue: '',
-                    type: undefined,
-                });
+                form.reset(EMPTY_WORKFLOW_INPUT);
 
                 setTimeout(() => {
                     const nameInput = document.querySelector('input[name="name"]') as HTMLInputElement;

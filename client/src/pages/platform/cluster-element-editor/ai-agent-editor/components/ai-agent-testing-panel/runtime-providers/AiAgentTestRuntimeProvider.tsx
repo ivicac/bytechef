@@ -7,6 +7,7 @@ import {
     ApprovalRequestEventI,
     AskUserQuestionEventI,
     formatAskUserQuestionMessage,
+    hasLastAssistantMessageText,
 } from '@/shared/util/assistant-message-utils';
 import {extractStreamChunk} from '@/shared/util/stream-utils';
 import {
@@ -22,7 +23,6 @@ import {ReactNode, useCallback, useEffect, useMemo, useRef, useState} from 'reac
 import {useShallow} from 'zustand/react/shallow';
 
 import {useAiAgentTestingChatStore, useTestingModeStore} from '../../../stores';
-import useAiAgentTestDataPills from '../hooks/useAiAgentTestDataPills';
 
 const convertMessage = (message: ThreadMessageLike): ThreadMessageLike => message;
 
@@ -36,6 +36,7 @@ export default function AiAgentTestRuntimeProvider({children}: Readonly<{childre
     const [streamRequest, setStreamRequest] = useState<SSERequestType>(null);
 
     const awaitingStreamEventRef = useRef(false);
+    const pendingResumeRef = useRef<{reject: (error: Error) => void; resolve: () => void} | null>(null);
     const questionShownRef = useRef(false);
 
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
@@ -63,10 +64,6 @@ export default function AiAgentTestRuntimeProvider({children}: Readonly<{childre
         }))
     );
     const {setJobKey} = useTestingModeStore();
-
-    useAiAgentTestDataPills();
-
-    const pendingResumeRef = useRef<{reject: (error: Error) => void; resolve: () => void} | null>(null);
 
     const {connectionState, error: sseError} = useSSE(streamRequest, {
         eventHandlers: {
@@ -188,6 +185,19 @@ export default function AiAgentTestRuntimeProvider({children}: Readonly<{childre
 
                 addToolExecution(toolEvent);
             },
+        },
+        onClose: () => {
+            if (
+                awaitingStreamEventRef.current &&
+                !hasLastAssistantMessageText(useAiAgentTestingChatStore.getState().messages)
+            ) {
+                setLastAssistantMessageError('The response ended unexpectedly.');
+            }
+
+            awaitingStreamEventRef.current = false;
+
+            setIsRunning(false);
+            setStreamRequest(null);
         },
         onRequestError: (status) => {
             const pending = pendingResumeRef.current;
