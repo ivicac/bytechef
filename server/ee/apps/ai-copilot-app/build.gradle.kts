@@ -18,7 +18,7 @@ dependencies {
     implementation(project(":server:libs:config:app-config"))
     implementation(project(":server:libs:config:cache-config"))
     implementation(project(":server:libs:config:jdbc-config"))
-    implementation(project(":server:libs:platform:platform-ai:platform-ai-auto-memory:platform-ai-auto-memory-graphql"))
+    implementation(project(":server:libs:automation:automation-ai:automation-ai-auto-memory:automation-ai-auto-memory-graphql"))
 
     implementation(project(":server:ee:libs:ai:ai-copilot:ai-copilot-rest"))
     implementation(project(":server:ee:libs:ai:ai-copilot:ai-copilot-service"))
@@ -27,6 +27,7 @@ dependencies {
     implementation(project(":server:ee:libs:ai:ai-hub:ai-hub-rest"))
     implementation(project(":server:ee:libs:ai:ai-hub:ai-hub-service"))
     implementation(project(":server:ee:libs:automation:automation-ai:automation-ai-copilot"))
+    implementation(project(":server:ee:libs:platform:platform-ai:platform-ai-guardrails:platform-ai-guardrails-opennlp"))
     implementation(project(":server:ee:libs:config:observability-config"))
 
     runtimeOnly("com.zaxxer:HikariCP")
