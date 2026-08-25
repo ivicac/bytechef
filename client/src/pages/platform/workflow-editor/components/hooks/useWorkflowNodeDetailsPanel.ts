@@ -73,6 +73,7 @@ import {
     extractClusterElementComponentOperations,
 } from '../../../cluster-element-editor/utils/clusterElementsUtils';
 import useWorkflowIssues from '../../hooks/useWorkflowIssues';
+import useWorkflowVariables from '../../hooks/useWorkflowVariables';
 import useWorkflowDataStore from '../../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../../stores/useWorkflowNodeDetailsPanelStore';
@@ -81,6 +82,7 @@ import getDataPillsFromProperties from '../../utils/getDataPillsFromProperties';
 import getNodeIssues from '../../utils/getNodeIssues';
 import getOutputSchemaFromWorkflowNodeOutput from '../../utils/getOutputSchemaFromWorkflowNodeOutput';
 import getParametersWithDefaultValues from '../../utils/getParametersWithDefaultValues';
+import getWorkflowInputAndVariableDataPills from '../../utils/getWorkflowInputAndVariableDataPills';
 import {getClusterElementRootNames} from '../../utils/getWorkflowIssueOwnerName';
 import invalidateOperationQueries from '../../utils/invalidateOperationQueries';
 import saveClusterElementFieldChange from '../../utils/saveClusterElementFieldChange';
@@ -186,6 +188,8 @@ export default function useWorkflowNodeDetailsPanel({
             rootClusterElementNodeData: state.rootClusterElementNodeData,
         }))
     );
+
+    const variables = useWorkflowVariables();
 
     const queryClient = useQueryClient();
 
@@ -729,13 +733,11 @@ export default function useWorkflowNodeDetailsPanel({
             : [];
 
         return [
-            ...missingRequiredProperties.map(
-                (propertyName): WorkflowNodeDetailsErrorI => ({
-                    kind: 'PROPERTY',
-                    name: propertyName,
-                    severity: 'ERROR',
-                })
-            ),
+            ...missingRequiredProperties.map((propertyName): WorkflowNodeDetailsErrorI => ({
+                kind: 'PROPERTY',
+                name: propertyName,
+                severity: 'ERROR',
+            })),
             ...getMissingRequiredConnectionErrors({
                 clusterRoot: !!currentNode?.clusterRoot && !currentNode?.isNestedClusterRoot,
                 componentTitle: currentComponentDefinition?.title,
@@ -980,14 +982,7 @@ export default function useWorkflowNodeDetailsPanel({
 
         const dataPills = getDataPillsFromProperties(componentProperties, filteredNodeNames);
 
-        const workflowInputDataPills: Array<DataPillType> =
-            workflow.inputs?.map((input) => ({
-                id: input.name,
-                nodeName: input.name,
-                value: input.name,
-            })) || [];
-
-        return [...dataPills.flat(Infinity), ...workflowInputDataPills];
+        return [...dataPills.flat(Infinity), ...getWorkflowInputAndVariableDataPills(workflow.inputs, variables ?? [])];
     }, [
         currentNode?.branchData,
         currentNode?.conditionData,
@@ -996,6 +991,7 @@ export default function useWorkflowNodeDetailsPanel({
         filterNodeNamesForCondition,
         filterNodeNamesForOnError,
         previousComponentDefinitions,
+        variables,
         workflow.inputs,
         workflowNodeOutputs,
     ]);
