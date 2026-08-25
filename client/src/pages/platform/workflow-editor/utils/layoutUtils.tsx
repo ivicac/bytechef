@@ -706,10 +706,6 @@ export const getClusterElementsLayoutElements = ({
             const previous = placements[index - 1];
             const current = placements[index];
 
-            if (current.node.parentId === previous.node.parentId) {
-                continue;
-            }
-
             if (containsNodePosition(current.node.data.metadata)) {
                 continue;
             }
