@@ -22,7 +22,6 @@ import {ReactNode, useCallback, useEffect, useMemo, useRef, useState} from 'reac
 import {useShallow} from 'zustand/react/shallow';
 
 import {useAiAgentTestingChatStore, useTestingModeStore} from '../../../stores';
-import useAiAgentTestDataPills from '../hooks/useAiAgentTestDataPills';
 
 const convertMessage = (message: ThreadMessageLike): ThreadMessageLike => message;
 
@@ -62,8 +61,6 @@ export default function AiAgentTestRuntimeProvider({children}: Readonly<{childre
         }))
     );
     const {setJobKey} = useTestingModeStore();
-
-    useAiAgentTestDataPills();
 
     const pendingResumeRef = useRef<{reject: (error: Error) => void; resolve: () => void} | null>(null);
 

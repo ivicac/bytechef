@@ -1,3 +1,4 @@
+import {VARIABLES_NODE_NAME} from '@/pages/platform/workflow-editor/utils/getWorkflowInputAndVariableDataPills';
 import {getWorkflowNodeComponentName} from '@/pages/platform/workflow-editor/utils/workflowNodeNameUtils';
 import {TASK_DISPATCHER_NAMES} from '@/shared/constants';
 import {
@@ -23,6 +24,20 @@ export function getDataPillIconSource({
 }: GetDataPillIconSourceProps): string {
     const definitions = componentDefinitions ?? [];
     const dispatchers = taskDispatcherDefinitions ?? [];
+
+    // Mention display for a variable pill is `vars.NAME` (optionally wrapped as `${vars.NAME}` in formula-mode
+    // text) — it has no underscore-delimited component/index/operation shape, so it must be special-cased before
+    // the generic parsing below, which would otherwise leave it unmatched and fall through to the default icon.
+    const unwrappedMentionDisplay = mentionDisplay?.replace('${', '').replace(/}$/, '') ?? '';
+
+    if (
+        unwrappedMentionDisplay === VARIABLES_NODE_NAME ||
+        unwrappedMentionDisplay.startsWith(`${VARIABLES_NODE_NAME}.`)
+    ) {
+        const svgString = renderToStaticMarkup(TYPE_ICONS.VARIABLE);
+
+        return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgString)}`;
+    }
 
     let componentName = getWorkflowNodeComponentName(mentionDisplay?.replace('${', '') ?? '');
 
