@@ -24,6 +24,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
 import com.bytechef.component.ai.llm.facade.AiAgentToolFacade;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.ActionDefinition.SseEmitterHandler;
@@ -40,6 +41,7 @@ import com.bytechef.platform.component.definition.ai.agent.ChatMemoryFunction;
 import com.bytechef.platform.component.definition.ai.agent.ModelFunction;
 import com.bytechef.platform.component.service.ClusterElementDefinitionService;
 import com.bytechef.platform.tool.execution.ToolExecutionRecorder;
+import com.bytechef.platform.tool.execution.ToolInvocationWorkspaceResolver;
 import com.bytechef.tenant.TenantContext;
 import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.HashMap;
@@ -88,8 +90,8 @@ import reactor.core.scheduler.Schedulers;
  *
  * <p>
  * Nothing else exercises {@code doOnComplete} inside a live {@code perform()}: {@link AiAgentStreamChatActionTest}
- * calls {@code createSseHandler} with a hand-built flux, and {@link AiAgentStreamChatActionResumeIntTest} rebuilds the
- * flux itself in a test subclass.
+ * calls {@code createSseHandler} with a hand-built flux, and {@link AiAgentStreamChatActionResumeGateIntTest} rebuilds
+ * the flux itself in a test subclass.
  * </p>
  *
  * @author Ivica Cardic
@@ -145,11 +147,13 @@ class AiAgentStreamChatActionTenantPropagationIntTest {
 
         ActionDefinition actionDefinition = AiAgentStreamChatAction.of(
             mock(AiAgentToolFacade.class), buildClusterElementDefinitionService(),
-            DefaultToolCallingManager.builder()
-                .toolCallbackResolver(new DelegatingToolCallbackResolver(List.of()))
-                .build(),
+            new AgentToolCallingManagers(
+                DefaultToolCallingManager.builder()
+                    .toolCallbackResolver(new DelegatingToolCallbackResolver(List.of()))
+                    .build()),
             (ObjectProvider<ToolExecutionRecorder>) null, (ObjectProvider<AiGuardrailsAdvisorProvider>) null,
-            (ObjectProvider<WorkspaceSystemPromptAdvisorProvider>) null, presentProvider(agentConversationRecorder));
+            (ObjectProvider<WorkspaceSystemPromptAdvisorProvider>) null, presentProvider(agentConversationRecorder),
+            (ObjectProvider<ToolInvocationWorkspaceResolver>) null, List.of());
 
         MultipleConnectionsStreamPerformFunction performFunction =
             (MultipleConnectionsStreamPerformFunction) actionDefinition.getPerform()
@@ -329,7 +333,7 @@ class AiAgentStreamChatActionTenantPropagationIntTest {
             .builder(messageWindowChatMemory)
             .build();
 
-        return new ChatMemoryFunction.Result(messageChatMemoryAdvisor, messageWindowChatMemory);
+        return ChatMemoryFunction.Result.of(messageChatMemoryAdvisor, messageWindowChatMemory);
     }
 
     /**

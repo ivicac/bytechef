@@ -17,6 +17,7 @@
 package com.bytechef.component.ai.agent.action;
 
 import static com.bytechef.component.ai.agent.constant.AiAgentConstants.AI_AGENT;
+import static com.bytechef.component.ai.agent.constant.AiAgentConstants.MAX_TOOL_CALLS;
 import static com.bytechef.component.ai.llm.constant.LLMConstants.RESPONSE;
 import static com.bytechef.component.ai.llm.constant.LLMConstants.RESPONSE_FORMAT;
 import static com.bytechef.component.ai.llm.constant.LLMConstants.RESPONSE_SCHEMA;
@@ -36,6 +37,7 @@ import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.commons.util.MapUtils;
 import com.bytechef.component.ai.agent.action.event.ToolExecutionEvent;
 import com.bytechef.component.ai.agent.action.event.listener.ToolExecutionListener;
+import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
 import com.bytechef.component.ai.agent.tool.AgentToolSuspension;
 import com.bytechef.component.ai.agent.tool.AiAgentConversationCheckpoint;
 import com.bytechef.component.ai.agent.tool.ConversationState;
@@ -136,7 +138,7 @@ public abstract class AbstractAiAgentChatAction {
 
     private final ClusterElementDefinitionService clusterElementDefinitionService;
     private final ClusterElementToolCallbacks clusterElementToolCallbacks;
-    private final ToolCallingManager toolCallingManager;
+    private final AgentToolCallingManagers agentToolCallingManagers;
 
     private final @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider;
     private final @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider;
@@ -158,45 +160,45 @@ public abstract class AbstractAiAgentChatAction {
 
     protected AbstractAiAgentChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
-        ToolCallingManager toolCallingManager) {
+        AgentToolCallingManagers agentToolCallingManagers) {
 
-        this(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager, null);
+        this(aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers, null);
     }
 
     protected AbstractAiAgentChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
-        ToolCallingManager toolCallingManager,
+        AgentToolCallingManagers agentToolCallingManagers,
         @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider) {
 
-        this(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
+        this(aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
             toolExecutionRecorderObjectProvider, null);
     }
 
     protected AbstractAiAgentChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
-        ToolCallingManager toolCallingManager,
+        AgentToolCallingManagers agentToolCallingManagers,
         @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
         @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider) {
 
-        this(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
+        this(aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
             toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider, null);
     }
 
     protected AbstractAiAgentChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
-        ToolCallingManager toolCallingManager,
+        AgentToolCallingManagers agentToolCallingManagers,
         @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
         @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
         @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider) {
 
-        this(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager,
+        this(aiAgentToolFacade, clusterElementDefinitionService, agentToolCallingManagers,
             toolExecutionRecorderObjectProvider, aiGuardrailsAdvisorProviderObjectProvider,
             workspaceSystemPromptAdvisorProviderObjectProvider, null);
     }
 
     protected AbstractAiAgentChatAction(
         AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
-        ToolCallingManager toolCallingManager,
+        AgentToolCallingManagers agentToolCallingManagers,
         @Nullable ObjectProvider<ToolExecutionRecorder> toolExecutionRecorderObjectProvider,
         @Nullable ObjectProvider<AiGuardrailsAdvisorProvider> aiGuardrailsAdvisorProviderObjectProvider,
         @Nullable ObjectProvider<WorkspaceSystemPromptAdvisorProvider> workspaceSystemPromptAdvisorProviderObjectProvider,
@@ -205,7 +207,7 @@ public abstract class AbstractAiAgentChatAction {
         this.clusterElementDefinitionService = clusterElementDefinitionService;
         this.clusterElementToolCallbacks =
             new ClusterElementToolCallbacks(aiAgentToolFacade, clusterElementDefinitionService);
-        this.toolCallingManager = toolCallingManager;
+        this.agentToolCallingManagers = agentToolCallingManagers;
         this.toolExecutionRecorderObjectProvider = toolExecutionRecorderObjectProvider;
         this.aiGuardrailsAdvisorProviderObjectProvider = aiGuardrailsAdvisorProviderObjectProvider;
         this.workspaceSystemPromptAdvisorProviderObjectProvider = workspaceSystemPromptAdvisorProviderObjectProvider;
@@ -296,7 +298,8 @@ public abstract class AbstractAiAgentChatAction {
                 .advisors(
                     getAdvisors(
                         clusterElementMap, connectionParameters, chatModel, context, chatMemoryResult, conversationId,
-                        resumedTurn, createConversationCheckpointer(inputParameters, context)))
+                        resumedTurn, createConversationCheckpointer(inputParameters, context),
+                        inputParameters.getInteger(MAX_TOOL_CALLS)))
                 .advisors(getConversationAdvisor(conversationId))
                 .advisors(new TextGenerationFirstAdvisor())
                 .messages(messages)
@@ -833,14 +836,14 @@ public abstract class AbstractAiAgentChatAction {
 
         return getAdvisors(
             clusterElementMap, connectionParameters, chatModel, context, chatMemoryResult, conversationId, false,
-            null);
+            null, null);
     }
 
     List<Advisor> getAdvisors(
         ClusterElementMap clusterElementMap, Map<String, ComponentConnection> connectionParameters,
         ChatModel chatModel, ActionContext context, Optional<ChatMemoryFunction.Result> chatMemoryResult,
         @Nullable String conversationId, boolean resumedTurn,
-        @Nullable Consumer<List<Message>> conversationCheckpointer) {
+        @Nullable Consumer<List<Message>> conversationCheckpointer, @Nullable Integer maxToolCalls) {
 
         List<Advisor> advisors = new ArrayList<>();
 
@@ -891,11 +894,11 @@ public abstract class AbstractAiAgentChatAction {
             .map(ChatMemoryFunction.Result::supportsToolMessagePersistence)
             .orElse(false);
 
-        ToolCallingManager agentToolCallingManager = toolCallingManager;
+        ToolCallingManager agentToolCallingManager = agentToolCallingManagers.getToolCallingManager(maxToolCalls);
 
         if (context instanceof ActionContextAware actionContextAware) {
             agentToolCallingManager = new SuspendableToolCallingManager(
-                toolCallingManager, actionContextAware, conversationCheckpointer);
+                agentToolCallingManager, actionContextAware, conversationCheckpointer);
         }
 
         ToolCallingAdvisor toolCallingAdvisor = persistToolMessagesInLoop
