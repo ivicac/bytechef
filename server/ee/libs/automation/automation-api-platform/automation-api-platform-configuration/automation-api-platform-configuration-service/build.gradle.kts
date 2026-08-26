@@ -4,7 +4,6 @@ dependencies {
     implementation("org.springframework.boot:spring-boot-actuator")
     implementation("org.springframework.boot:spring-boot-autoconfigure")
     implementation("org.springframework.security:spring-security-core")
-    implementation("org.springframework:spring-context")
     implementation("org.apache.commons:commons-lang3")
     implementation("org.springframework.data:spring-data-jdbc")
     implementation("org.springframework.security:spring-security-core")
@@ -13,6 +12,7 @@ dependencies {
     implementation(project(":server:libs:core:commons:commons-util"))
     implementation(project(":server:libs:core:tenant:tenant-api"))
     implementation(project(":server:libs:platform:platform-api"))
+    implementation(project(":server:libs:platform:platform-configuration:platform-configuration-api"))
     implementation(project(":server:libs:platform:platform-tag:platform-tag-api"))
     implementation(project(":server:libs:platform:platform-user:platform-user-api"))
 

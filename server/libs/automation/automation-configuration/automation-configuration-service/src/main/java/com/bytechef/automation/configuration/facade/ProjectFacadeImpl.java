@@ -54,6 +54,7 @@ import com.bytechef.platform.category.domain.Category;
 import com.bytechef.platform.category.service.CategoryService;
 import com.bytechef.platform.configuration.service.WorkflowNodeTestOutputService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
+import com.bytechef.platform.configuration.workflow.WorkflowPreDeleteListener;
 import com.bytechef.platform.file.storage.SharedTemplateFileStorage;
 import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.platform.security.domain.ResourceVisibilityPolicyRegistry;
@@ -126,6 +127,7 @@ public class ProjectFacadeImpl implements ProjectFacade {
     private final WorkflowService workflowService;
     private final WorkflowTestConfigurationService workflowTestConfigurationService;
     private final WorkflowNodeTestOutputService workflowNodeTestOutputService;
+    private final List<WorkflowPreDeleteListener> workflowPreDeleteListeners;
 
     @SuppressFBWarnings({
         "CT_CONSTRUCTOR_THROW", "EI2"
@@ -145,7 +147,8 @@ public class ProjectFacadeImpl implements ProjectFacade {
         SharedTemplateFileStorage sharedTemplateFileStorage, SharedTemplateService sharedTemplateService,
         TagService tagService, WorkflowService workflowService,
         WorkflowTestConfigurationService workflowTestConfigurationService,
-        WorkflowNodeTestOutputService workflowNodeTestOutputService) {
+        WorkflowNodeTestOutputService workflowNodeTestOutputService,
+        List<WorkflowPreDeleteListener> workflowPreDeleteListeners) {
 
         validateEdition(edition);
 
@@ -170,6 +173,7 @@ public class ProjectFacadeImpl implements ProjectFacade {
         this.workflowService = workflowService;
         this.workflowTestConfigurationService = workflowTestConfigurationService;
         this.workflowNodeTestOutputService = workflowNodeTestOutputService;
+        this.workflowPreDeleteListeners = workflowPreDeleteListeners;
     }
 
     @Override
@@ -208,6 +212,12 @@ public class ProjectFacadeImpl implements ProjectFacade {
         }
 
         List<ProjectWorkflow> projectWorkflows = projectWorkflowService.getProjectWorkflows(id);
+
+        for (ProjectWorkflow projectWorkflow : projectWorkflows) {
+            for (WorkflowPreDeleteListener workflowPreDeleteListener : workflowPreDeleteListeners) {
+                workflowPreDeleteListener.onWorkflowPreDelete(projectWorkflow.getWorkflowId());
+            }
+        }
 
         projectWorkflowService.delete(
             projectWorkflows.stream()
