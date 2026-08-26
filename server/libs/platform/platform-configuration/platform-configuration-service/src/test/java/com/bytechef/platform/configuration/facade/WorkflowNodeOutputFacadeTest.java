@@ -38,6 +38,7 @@ import com.bytechef.atlas.configuration.domain.WorkflowTask;
 import com.bytechef.atlas.configuration.service.WorkflowService;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.platform.component.domain.ActionDefinition;
+import com.bytechef.platform.component.domain.TriggerDefinition;
 import com.bytechef.platform.component.facade.ActionDefinitionFacade;
 import com.bytechef.platform.component.facade.ClusterElementDefinitionFacade;
 import com.bytechef.platform.component.facade.TriggerDefinitionFacade;
@@ -401,9 +402,7 @@ class WorkflowNodeOutputFacadeTest {
                 "name", "graph1", "type", "graph/v1", "parameters",
                 Map.of(
                     "nodes", List.of(
-                        Map.of(
-                            "name", "node1",
-                            "tasks", List.of(Map.of("name", "nested1", "type", "component/v1/action1")))))));
+                        Map.of("name", "nested1", "type", "component/v1/action1")))));
 
         Workflow workflow = mock(Workflow.class);
 

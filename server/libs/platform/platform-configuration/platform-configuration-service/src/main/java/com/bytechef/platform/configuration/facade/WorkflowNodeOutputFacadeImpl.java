@@ -45,6 +45,7 @@ import com.bytechef.platform.configuration.service.WorkflowTestConfigurationServ
 import com.bytechef.platform.definition.WorkflowNodeType;
 import com.bytechef.platform.domain.BaseProperty;
 import com.bytechef.platform.domain.OutputResponse;
+import com.bytechef.platform.security.web.authentication.PrincipalEnvironment;
 import com.bytechef.platform.workflow.task.dispatcher.domain.ObjectProperty;
 import com.bytechef.platform.workflow.task.dispatcher.domain.Property;
 import com.bytechef.platform.workflow.task.dispatcher.domain.TaskDispatcherDefinition;
@@ -125,6 +126,9 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
         String workflowId, String workflowNodeName, String clusterElementType, String clusterElementWorkflowNodeName,
         long environmentId) {
 
+        // See PrincipalEnvironment.
+        long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);
+
         ClusterElementOutputDTO clusterElementOutputDTO = null;
         Workflow workflow = workflowService.getWorkflow(workflowId);
 
@@ -133,7 +137,8 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
         for (WorkflowTask workflowTask : workflowTasks) {
             if (Objects.equals(workflowTask.getName(), workflowNodeName)) {
                 clusterElementOutputDTO = getClusterElementOutputDTO(
-                    workflowId, workflowTask, clusterElementType, clusterElementWorkflowNodeName, environmentId);
+                    workflowId, workflowTask, clusterElementType, clusterElementWorkflowNodeName,
+                    effectiveEnvironmentId);
 
                 break;
             }
@@ -146,6 +151,9 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
     @Nullable
     @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
     public WorkflowNodeOutputDTO getWorkflowNodeOutput(String workflowId, String workflowNodeName, long environmentId) {
+        // See PrincipalEnvironment.
+        long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);
+
         WorkflowNodeOutputDTO workflowNodeOutputDTO = null;
         Workflow workflow = workflowService.getWorkflow(workflowId);
 
@@ -153,7 +161,7 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
 
         for (WorkflowTrigger workflowTrigger : workflowTriggers) {
             if (Objects.equals(workflowTrigger.getName(), workflowNodeName)) {
-                workflowNodeOutputDTO = getWorkflowNodeOutputDTO(workflowId, workflowTrigger, environmentId);
+                workflowNodeOutputDTO = getWorkflowNodeOutputDTO(workflowId, workflowTrigger, effectiveEnvironmentId);
 
                 break;
             }
@@ -165,7 +173,7 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
             for (WorkflowTask workflowTask : workflowTasks) {
                 if (Objects.equals(workflowTask.getName(), workflowNodeName)) {
                     workflowNodeOutputDTO = getWorkflowNodeOutputDTO(
-                        workflowId, workflowTask, null, environmentId, new HashMap<>());
+                        workflowId, workflowTask, null, effectiveEnvironmentId, new HashMap<>());
 
                     break;
                 }
@@ -175,6 +183,18 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
         return workflowNodeOutputDTO;
     }
 
+    // These two methods are also environment-agnostic-gated with an unchecked environmentId (see
+    // PrincipalEnvironment), but deliberately do NOT resolve it themselves the way their sibling methods above do.
+    // @Cacheable's default key is built from the raw method arguments BEFORE the method body runs, so resolving
+    // in here would be too late: the cache would still be keyed on the caller-supplied environmentId, not the
+    // effective one, letting a confined principal's PRODUCTION read (requested as DEVELOPMENT) get cached under the
+    // DEVELOPMENT key and served back to a genuine DEVELOPMENT caller. Every caller of these two methods must
+    // instead resolve BEFORE calling in, so the key is already correct -- WorkflowNodeOutputApiController does this
+    // for getPreviousWorkflowNodeOutputs (matching checkWorkflowCache's eviction above), and every other in-module
+    // caller (WorkflowNodeScriptFacadeImpl, WorkflowNodeParameterFacadeImpl, WorkflowNodeDynamicPropertiesFacadeImpl,
+    // WorkflowNodeTestOutputFacadeImpl, WorkflowNodeOptionFacadeImpl) already resolves its own environmentId before
+    // reaching either method. This list is load-bearing, not decorative: a new caller of either method that skips
+    // this step reopens the leak silently, since nothing here would catch it.
     @Override
     @Cacheable(value = PREVIOUS_WORKFLOW_NODE_OUTPUTS_CACHE)
     @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
@@ -196,6 +216,14 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
     @Override
     @PreAuthorize("hasPermission(#workflowId, 'Workflow', 'WORKFLOW_VIEW')")
     public void checkWorkflowCache(String workflowId, String lastWorkflowNodeName, long environmentId) {
+        // hasPermission(#workflowId, 'Workflow', ...) above is environment-agnostic, so the caller-supplied
+        // environmentId is never checked. Resolved here so a confined principal evicts and later reads the same
+        // cache entry its own environment owns -- see the WorkflowNodeOutputApiController REST caller, which
+        // resolves once and passes the same effective value to this eviction call and to the @Cacheable read that
+        // follows it, and the comment on getPreviousWorkflowNodeOutputs below for why the @Cacheable methods
+        // themselves must not resolve internally. See PrincipalEnvironment.
+        long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);
+
         boolean dynamicOutputDefined = false;
         Workflow workflow = workflowService.getWorkflow(workflowId);
 
@@ -235,7 +263,7 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
 
         if (dynamicOutputDefined) {
             for (String cacheName : WORKFLOW_CACHE_NAMES) {
-                workflowCacheManager.clearCacheForWorkflow(workflowId, cacheName, environmentId);
+                workflowCacheManager.clearCacheForWorkflow(workflowId, cacheName, effectiveEnvironmentId);
             }
         }
     }
@@ -319,12 +347,7 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
                 .map(WorkflowTask::new)
                 .toList();
         } else if (Objects.equals(workflowNodeType.name(), "graph")) {
-            List<Map<String, ?>> nodes = MapUtils.getList(
-                workflowTask.getParameters(), "nodes", new TypeReference<Map<String, ?>>() {}, List.of());
-
-            return nodes.stream()
-                .flatMap(node -> getWorkflowTaskList(node, "tasks").stream())
-                .toList();
+            return getWorkflowTaskList(workflowTask.getParameters(), "nodes");
         } else {
             return getWorkflowTaskList(workflowTask.getParameters(), "iteratee");
         }
@@ -662,8 +685,12 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
         Map<String, ?> outputs = doGetPreviousWorkflowNodeSampleOutputs(
             workflowId, workflowTask.getName(), environmentId, sampleOutputsCache);
 
+        // Leniently: this is the EDITOR's preview of a dispatcher's output, and a property being typed
+        // into is a half-written expression most of the time. Evaluating strictly turned every
+        // keystroke that did not yet parse into a Bad Request toast over the canvas, for a value
+        // nothing was going to run. Execution evaluates strictly, where a broken expression matters.
         Map<String, ?> inputParameters = workflowTask.evaluateParameters(
-            MapUtils.concat((Map<String, Object>) inputs, (Map<String, Object>) outputs), evaluator);
+            MapUtils.concat((Map<String, Object>) inputs, (Map<String, Object>) outputs), evaluator, true);
 
         if (taskDispatcherOutput == null || taskDispatcherOutput) {
             Map<String, Object> outputInputParameters = new HashMap<>(inputParameters);
