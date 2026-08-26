@@ -32,6 +32,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.component.ai.agent.tool.AgentToolCallingManagers;
 import com.bytechef.component.ai.llm.advisor.CodeFenceStrippingAdvisor;
 import com.bytechef.component.ai.llm.facade.AiAgentToolFacade;
 import com.bytechef.component.ai.llm.util.ModelUtils;
@@ -659,7 +660,7 @@ class AbstractAiAgentChatActionTest {
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
 
         List<Advisor> advisors = action.getAdvisors(
-            clusterElementMap, Map.of(), chatModel, actionContext, Optional.empty(), null);
+            clusterElementMap, Map.of(), chatModel, actionContext, Optional.empty(), null, null);
 
         ToolCallingAdvisor toolCallAdvisor = findToolCallAdvisor(advisors);
 
@@ -700,7 +701,7 @@ class AbstractAiAgentChatActionTest {
             aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
 
         List<Advisor> advisors = action.getAdvisors(
-            clusterElementMap, connectionParameters, chatModel, actionContext, chatMemoryResult, null);
+            clusterElementMap, connectionParameters, chatModel, actionContext, chatMemoryResult, null, null);
 
         int chatMemoryIndex = advisors.indexOf(chatMemoryAdvisor);
         ToolCallingAdvisor toolCallAdvisor = findToolCallAdvisor(advisors);
@@ -823,7 +824,7 @@ class AbstractAiAgentChatActionTest {
             AiAgentToolFacade aiAgentToolFacade, ClusterElementDefinitionService clusterElementDefinitionService,
             ToolCallingManager toolCallingManager) {
 
-            super(aiAgentToolFacade, clusterElementDefinitionService, toolCallingManager);
+            super(aiAgentToolFacade, clusterElementDefinitionService, new AgentToolCallingManagers(toolCallingManager));
         }
     }
 
