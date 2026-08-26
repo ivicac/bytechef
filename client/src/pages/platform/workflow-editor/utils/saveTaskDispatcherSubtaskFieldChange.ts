@@ -178,7 +178,6 @@ export default function saveTaskDispatcherSubtaskFieldChange(props: SaveTaskDisp
 
             taskDispatcherContext = {
                 index: currentNodeIndex,
-                nodeIndex: currentNode.graphData.nodeIndex,
                 taskDispatcherId: currentNode.graphData.graphId,
             };
 
