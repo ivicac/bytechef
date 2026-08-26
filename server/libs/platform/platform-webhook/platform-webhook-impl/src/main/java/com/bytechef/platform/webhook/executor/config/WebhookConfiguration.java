@@ -63,6 +63,8 @@ import com.bytechef.task.dispatcher.each.EachTaskDispatcher;
 import com.bytechef.task.dispatcher.each.completion.EachTaskCompletionHandler;
 import com.bytechef.task.dispatcher.fork.join.ForkJoinTaskDispatcher;
 import com.bytechef.task.dispatcher.fork.join.completion.ForkJoinTaskCompletionHandler;
+import com.bytechef.task.dispatcher.graph.GraphTaskDispatcher;
+import com.bytechef.task.dispatcher.graph.completion.GraphTaskCompletionHandler;
 import com.bytechef.task.dispatcher.loop.LoopBreakTaskDispatcher;
 import com.bytechef.task.dispatcher.loop.LoopTaskDispatcher;
 import com.bytechef.task.dispatcher.loop.completion.LoopTaskCompletionHandler;
@@ -145,22 +147,7 @@ public class WebhookConfiguration {
         };
     }
 
-    List<TaskCompletionHandlerFactory> getSyncTaskCompletionHandlerFactories(
-        ContextService contextService, ApplicationEventPublisher eventPublisher, CounterService counterService,
-        Evaluator evaluator, JobService jobService, TaskExecutionService taskExecutionService,
-        TaskFileStorage taskFileStorage) {
-
-        TaskCompletionHandlerFactory suspendRejectingTaskCompletionHandlerFactory =
-            (taskCompletionHandler, taskDispatcher) -> new SyncExecutionSuspendRejectingTaskCompletionHandler(
-                eventPublisher, jobService, taskExecutionService, WebhookWorkflowExecutorImpl::suspendingTaskMessage);
-
-        return CollectionUtils.concat(
-            List.of(suspendRejectingTaskCompletionHandlerFactory),
-            getTaskCompletionHandlerFactories(
-                contextService, counterService, evaluator, taskExecutionService, taskFileStorage));
-    }
-
-    private List<TaskCompletionHandlerFactory> getTaskCompletionHandlerFactories(
+    List<TaskCompletionHandlerFactory> getTaskCompletionHandlerFactories(
         ContextService contextService, CounterService counterService, Evaluator evaluator,
         TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage) {
 
@@ -175,6 +162,9 @@ public class WebhookConfiguration {
                 counterService, taskCompletionHandler, taskExecutionService),
             (taskCompletionHandler, taskDispatcher) -> new ForkJoinTaskCompletionHandler(
                 contextService, counterService, evaluator, taskExecutionService, taskCompletionHandler, taskDispatcher,
+                taskFileStorage),
+            (taskCompletionHandler, taskDispatcher) -> new GraphTaskCompletionHandler(
+                contextService, counterService, evaluator, taskCompletionHandler, taskDispatcher, taskExecutionService,
                 taskFileStorage),
             (taskCompletionHandler, taskDispatcher) -> new LoopTaskCompletionHandler(
                 contextService, evaluator, taskCompletionHandler, taskDispatcher, taskExecutionService,
@@ -219,7 +209,7 @@ public class WebhookConfiguration {
         return applicationEventListeners;
     }
 
-    private List<TaskDispatcherResolverFactory> getTaskDispatcherResolverFactories(
+    List<TaskDispatcherResolverFactory> getTaskDispatcherResolverFactories(
         ChildJobPrincipalFactory childJobPrincipalFactory, ContextService contextService,
         CounterService counterService, ApplicationEventPublisher eventPublisher,
         Evaluator evaluator, JobService jobService, SubflowResolver subflowResolver,
@@ -236,6 +226,9 @@ public class WebhookConfiguration {
                 contextService, counterService, evaluator, eventPublisher, taskDispatcher, taskExecutionService,
                 taskFileStorage),
             (taskDispatcher) -> new ForkJoinTaskDispatcher(
+                contextService, counterService, evaluator, eventPublisher, taskDispatcher, taskExecutionService,
+                taskFileStorage),
+            (taskDispatcher) -> new GraphTaskDispatcher(
                 contextService, counterService, evaluator, eventPublisher, taskDispatcher, taskExecutionService,
                 taskFileStorage),
             (taskDispatcher) -> new LoopBreakTaskDispatcher(eventPublisher, taskExecutionService),
