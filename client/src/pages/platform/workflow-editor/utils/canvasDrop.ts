@@ -11,6 +11,8 @@ type CanvasDragEventType = Pick<DragEvent, 'preventDefault' | 'target'> & {dataT
 
 interface CanvasDropHandlersI {
     onDropOnClusterElementPlaceholder: (targetNode: Node, droppedNode: ClickedDefinitionType) => void;
+    /** Called first for a task drop; returns true when the drop landed on (and was taken by) a graph frame. */
+    onDropOnGraphFrame?: (droppedNode: ClickedDefinitionType) => boolean;
     onDropOnPlaceholderNode: (targetNode: Node, droppedNode: ClickedDefinitionType) => void;
     onDropOnTriggerNode: (droppedNode: ClickedDefinitionType, targetTriggerName: string) => void;
     onDropOnTriggerPlaceholder: (droppedNode: ClickedDefinitionType) => void;
@@ -26,7 +28,12 @@ interface HandleCanvasDropProps {
     taskDispatcherDefinitions: TaskDispatcherDefinitionBasic[];
 }
 
-export function handleCanvasDragOver(event: CanvasDragEventType, edges: Edge[], nodes: Node[]) {
+export function handleCanvasDragOver(
+    event: CanvasDragEventType,
+    edges: Edge[],
+    nodes: Node[],
+    isAdditionalDropTarget?: (target: EventTarget | null) => boolean
+) {
     if (event.target instanceof HTMLButtonElement && event.target.dataset.nodeType === 'workflow') {
         return;
     }
@@ -39,7 +46,11 @@ export function handleCanvasDragOver(event: CanvasDragEventType, edges: Edge[], 
         dropTarget?.type === 'clusterElementPlaceholder' &&
         !carriesClusterElementType(event.dataTransfer, (dropTarget.node.data as NodeDataType).clusterElementType!);
 
-    if (dragKind && (!dropTarget || isRefusedClusterElementDrop)) {
+    if (
+        dragKind &&
+        (!dropTarget || isRefusedClusterElementDrop) &&
+        !(dragKind === 'task' && isAdditionalDropTarget?.(event.target))
+    ) {
         event.dataTransfer.dropEffect = 'none';
 
         return;
@@ -87,6 +98,10 @@ export function handleCanvasDrop({
     }
 
     const isTriggerDrop = droppedNodeType === 'trigger';
+
+    if (!isTriggerDrop && handlers.onDropOnGraphFrame?.(droppedNode)) {
+        return;
+    }
 
     const dropTarget = resolveCanvasDropTarget({
         dragKind: isTriggerDrop ? 'trigger' : 'task',

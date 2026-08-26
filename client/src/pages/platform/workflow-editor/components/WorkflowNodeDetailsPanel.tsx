@@ -10,7 +10,7 @@ import DescriptionTab from '@/pages/platform/workflow-editor/components/node-det
 import ConnectionTab from '@/pages/platform/workflow-editor/components/node-details-tabs/connection-tab/ConnectionTab';
 import OutputTab from '@/pages/platform/workflow-editor/components/node-details-tabs/output-tab/OutputTab';
 import Properties from '@/pages/platform/workflow-editor/components/properties/Properties';
-import GraphStatesPanel from '@/pages/platform/workflow-editor/components/properties/graph/GraphStatesPanel';
+import GraphTransitionsPanel from '@/pages/platform/workflow-editor/components/properties/graph/GraphTransitionsPanel';
 import useWorkflowNodeDetailsPanelStore from '@/pages/platform/workflow-editor/stores/useWorkflowNodeDetailsPanelStore';
 import DeprecatedBadge from '@/shared/components/DeprecatedBadge';
 import useCopilotLayoutShifted from '@/shared/components/copilot/hooks/useCopilotLayoutShifted';
@@ -19,9 +19,9 @@ import {
     ComponentDefinitionBasic,
     WorkflowNodeOutput,
 } from '@/shared/middleware/platform/configuration';
-import {TabNameType, UpdateWorkflowMutationType} from '@/shared/types';
+import {UpdateWorkflowMutationType} from '@/shared/types';
 import {ExternalLinkIcon, InfoIcon, TriangleAlertIcon, XIcon} from 'lucide-react';
-import {ReactNode, useMemo, useState} from 'react';
+import {ReactNode, useMemo} from 'react';
 import InlineSVG from 'react-inlinesvg';
 import {Link} from 'react-router-dom';
 import {twMerge} from 'tailwind-merge';
@@ -36,25 +36,12 @@ import {
     WorkflowNodeDetailsErrorI,
     getWorkflowNodeDetailsErrorsSummary,
 } from './hooks/getMissingRequiredConnectionErrors';
-import getMissingRequiredPropertyLabels from './hooks/getMissingRequiredPropertyLabels';
 import useWorkflowNodeDetailsPanel from './hooks/useWorkflowNodeDetailsPanel';
 
 const ERROR_KIND_LABELS: Record<Exclude<WorkflowNodeDetailsErrorI['kind'], 'ISSUE'>, string> = {
     CONNECTION: 'Missing required connection:',
     PROPERTY: 'Missing required property:',
 };
-
-function getErrorTabName(error: WorkflowNodeDetailsErrorI): TabNameType | undefined {
-    if (error.kind === 'CONNECTION') {
-        return 'connection';
-    }
-
-    if (error.kind === 'PROPERTY' || error.propertyLabel) {
-        return 'properties';
-    }
-
-    return undefined;
-}
 
 interface WorkflowNodeDetailsPanelProps {
     className?: string;
@@ -75,8 +62,6 @@ const WorkflowNodeDetailsPanel = ({
     updateWorkflowMutation,
     workflowNodeOutputs,
 }: WorkflowNodeDetailsPanelProps) => {
-    const [errorsPopoverOpen, setErrorsPopoverOpen] = useState(false);
-
     const copilotLayoutShifted = useCopilotLayoutShifted();
     const {
         activeDisplayConditionsQuery,
@@ -105,7 +90,6 @@ const WorkflowNodeDetailsPanel = ({
         nodeTabs,
         operationDataMissing,
         outputDefined,
-        outputFileEntry,
         outputFunctionDefined,
         propertiesLoading,
         rootClusterElementNodeData,
@@ -146,19 +130,20 @@ const WorkflowNodeDetailsPanel = ({
         [errors]
     );
 
-    const errorsSections = useMemo(() => {
-        const errorIssues = errors.filter((error) => error.severity !== 'WARNING');
-        const warningIssues = errors.filter((error) => error.severity === 'WARNING');
+    const isGraphNode = !!currentNode?.taskDispatcher && currentNode.componentName === 'graph';
 
-        return [
-            {heading: `Errors (${errorIssues.length})`, issues: errorIssues, warning: false},
-            {heading: `Warnings (${warningIssues.length})`, issues: warningIssues, warning: true},
-        ].filter((section) => section.issues.length > 0);
-    }, [errors]);
-
-    const missingRequiredProperties = useMemo(
-        () => getMissingRequiredPropertyLabels(errors, currentOperationProperties),
-        [currentOperationProperties, errors]
+    // A graph's `transitions` are a routing table, not a list of objects: declared order within a
+    // source node is conditional priority, more than one unconditional edge from a node is a
+    // warning, and an entry naming a node the graph does not declare cannot be drawn at all.
+    // `GraphTransitionsPanel` renders exactly that, so the generic ARRAY_BUILDER is dropped rather
+    // than left beside it — two editors over one field, one of which can author rows the canvas
+    // cannot represent. `startNode` and `maxTransitions` are plain scalars and stay generic.
+    const displayedOperationProperties = useMemo(
+        () =>
+            isGraphNode
+                ? currentOperationProperties?.filter((property) => property.name !== 'transitions')
+                : currentOperationProperties,
+        [currentOperationProperties, isGraphNode]
     );
 
     if (!(panelOpen ?? workflowNodeDetailsPanelOpen)) {
@@ -287,7 +272,7 @@ const WorkflowNodeDetailsPanel = ({
                             </div>
 
                             {errors.length > 0 && (
-                                <Popover onOpenChange={setErrorsPopoverOpen} open={errorsPopoverOpen}>
+                                <Popover>
                                     <PopoverTrigger asChild>
                                         <Button
                                             aria-busy={errorsLoading}
@@ -317,91 +302,54 @@ const WorkflowNodeDetailsPanel = ({
                                         className={twMerge(
                                             'w-[28rem] max-w-[calc(100vw-2rem)] overflow-hidden p-0',
                                             errorsWarningOnly
-                                                ? 'border-stroke-warning-secondary'
-                                                : 'border-stroke-destructive-secondary'
+                                                ? 'border-stroke-warning-secondary bg-surface-warning-secondary'
+                                                : 'border-stroke-destructive-primary bg-surface-destructive-secondary'
                                         )}
                                     >
-                                        <ScrollArea className="max-h-80">
-                                            {errorsSections.map(({heading, issues, warning}) => (
-                                                <section aria-label={heading} key={heading}>
-                                                    <div className="flex items-center gap-2 px-3 py-2 text-sm font-semibold">
-                                                        {warning ? (
+                                        <div className="flex items-center gap-2 px-3 py-2 text-sm font-semibold">
+                                            {errorsWarningOnly ? (
+                                                <TriangleAlertIcon
+                                                    aria-hidden="true"
+                                                    className="size-4 text-content-warning-primary"
+                                                />
+                                            ) : (
+                                                <InfoIcon
+                                                    aria-hidden="true"
+                                                    className="size-4 text-content-destructive-primary"
+                                                />
+                                            )}
+
+                                            {errorsHeading}
+                                        </div>
+
+                                        <ScrollArea className="max-h-60">
+                                            <ul className="flex flex-col gap-2 px-3 pb-3">
+                                                {errors.map((error, index) => (
+                                                    <li
+                                                        className="space-x-1 rounded-md bg-surface-neutral-primary px-3 py-1.5 text-sm dark:bg-surface-neutral-secondary"
+                                                        key={`${error.kind}_${error.name}_${index}`}
+                                                    >
+                                                        {error.severity === 'WARNING' && (
                                                             <TriangleAlertIcon
-                                                                aria-hidden="true"
-                                                                className="size-4 text-content-warning-primary"
-                                                            />
-                                                        ) : (
-                                                            <InfoIcon
-                                                                aria-hidden="true"
-                                                                className="size-4 text-content-destructive-primary"
+                                                                aria-label="Warning"
+                                                                className="mb-0.5 inline size-3.5 text-content-warning-primary"
                                                             />
                                                         )}
 
-                                                        {heading}
-                                                    </div>
+                                                        {error.kind !== 'ISSUE' && (
+                                                            <span className="font-light">
+                                                                {ERROR_KIND_LABELS[error.kind]}
+                                                            </span>
+                                                        )}
 
-                                                    <ul className="flex flex-col gap-2 px-3 pb-3">
-                                                        {issues.map((error, index) => {
-                                                            const errorTabName = getErrorTabName(error);
-                                                            const errorTabAvailable =
-                                                                !!errorTabName &&
-                                                                nodeTabs.some((tab) => tab.name === errorTabName);
+                                                        {error.propertyLabel && (
+                                                            <span className="font-light">{error.propertyLabel}:</span>
+                                                        )}
 
-                                                            const errorRowClassName = twMerge(
-                                                                'space-x-1 rounded-md border px-3 py-1.5 text-sm',
-                                                                warning
-                                                                    ? 'border-stroke-warning-secondary bg-surface-warning-secondary'
-                                                                    : 'border-stroke-destructive-secondary bg-surface-destructive-secondary'
-                                                            );
-
-                                                            const errorContent = (
-                                                                <>
-                                                                    {error.kind !== 'ISSUE' && (
-                                                                        <span className="font-light">
-                                                                            {ERROR_KIND_LABELS[error.kind]}
-                                                                        </span>
-                                                                    )}
-
-                                                                    {error.propertyLabel && (
-                                                                        <span className="font-light">
-                                                                            {error.propertyLabel}:
-                                                                        </span>
-                                                                    )}
-
-                                                                    <span>{error.name}</span>
-                                                                </>
-                                                            );
-
-                                                            return (
-                                                                <li key={`${error.kind}_${error.name}_${index}`}>
-                                                                    {errorTabAvailable ? (
-                                                                        <button
-                                                                            className={twMerge(
-                                                                                errorRowClassName,
-                                                                                'w-full text-left',
-                                                                                warning
-                                                                                    ? 'hover:bg-surface-warning-secondary-hover'
-                                                                                    : 'hover:bg-surface-destructive-secondary-hover'
-                                                                            )}
-                                                                            onClick={() => {
-                                                                                setActiveTab(errorTabName);
-                                                                                setErrorsPopoverOpen(false);
-                                                                            }}
-                                                                            type="button"
-                                                                        >
-                                                                            {errorContent}
-                                                                        </button>
-                                                                    ) : (
-                                                                        <div className={errorRowClassName}>
-                                                                            {errorContent}
-                                                                        </div>
-                                                                    )}
-                                                                </li>
-                                                            );
-                                                        })}
-                                                    </ul>
-                                                </section>
-                                            ))}
+                                                        <span>{error.name}</span>
+                                                    </li>
+                                                ))}
+                                            </ul>
                                         </ScrollArea>
                                     </PopoverContent>
                                 </Popover>
@@ -515,17 +463,13 @@ const WorkflowNodeDetailsPanel = ({
                                             />
                                         )}
 
-                                    {activeTab === 'properties' &&
-                                        currentNode?.taskDispatcher &&
-                                        currentNode.componentName === 'graph' && (
-                                            <GraphStatesPanel
-                                                taskDispatcherDefinition={currentTaskDispatcherDefinition}
-                                            />
-                                        )}
+                                    {activeTab === 'properties' && isGraphNode && currentNode?.workflowNodeName && (
+                                        <GraphTransitionsPanel graphId={currentNode.workflowNodeName} />
+                                    )}
 
                                     {activeTab === 'properties' &&
                                         (!operationDataMissing &&
-                                        currentOperationProperties?.length &&
+                                        displayedOperationProperties?.length &&
                                         !awaitingFirstSave &&
                                         !propertiesLoading ? (
                                             <Properties
@@ -533,7 +477,7 @@ const WorkflowNodeDetailsPanel = ({
                                                 displayConditionsQuery={activeDisplayConditionsQuery}
                                                 key={`${currentNode?.componentName}-${currentNode?.type}_${currentOperationName}_properties`}
                                                 operationName={currentOperationName}
-                                                properties={currentOperationProperties}
+                                                properties={displayedOperationProperties}
                                             />
                                         ) : (
                                             <PropertiesTabSkeleton />
@@ -549,10 +493,7 @@ const WorkflowNodeDetailsPanel = ({
                                             currentNode={currentNode}
                                             currentOperationProperties={currentOperationProperties}
                                             key={`${currentNode?.componentName}-${currentNode?.type}_output`}
-                                            missingRequiredProperties={missingRequiredProperties}
-                                            onMissingRequiredPropertiesClick={() => setActiveTab('properties')}
                                             outputDefined={outputDefined}
-                                            outputFileEntry={outputFileEntry}
                                             outputFunctionDefined={outputFunctionDefined}
                                             parentWorkflowNodeName={resolveMainClusterRootName(
                                                 currentNode,
