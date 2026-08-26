@@ -1,9 +1,10 @@
-import {ProjectDeployment} from '@/shared/middleware/automation/configuration';
+import {ApiCollection} from '@/ee/shared/middleware/automation/api-platform';
+import {ApiCollectionKeys} from '@/ee/shared/mutations/automation/apiCollections.queries';
 import {render, screen} from '@/shared/util/test-utils';
 import userEvent from '@testing-library/user-event';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
-import ProjectDeploymentListItem from './ProjectDeploymentListItem';
+import ApiCollectionListItem from './ApiCollectionListItem';
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks (must not reference outer-scope constants - vi.hoisted runs
@@ -11,8 +12,6 @@ import ProjectDeploymentListItem from './ProjectDeploymentListItem';
 // ---------------------------------------------------------------------------
 
 const hoisted = vi.hoisted(() => ({
-    deleteProjectDeploymentMock: vi.fn(),
-    edition: 'EE',
     environmentsResult: {
         data: {
             environments: [
@@ -45,26 +44,24 @@ vi.mock('@/shared/middleware/graphql', async (importOriginal) => {
     };
 });
 
-vi.mock('@/shared/mutations/automation/projectDeployments.mutations', () => ({
-    useDeleteProjectDeploymentMutation: () => ({isPending: false, mutate: hoisted.deleteProjectDeploymentMock}),
-    useEnableProjectDeploymentMutation: () => ({isPending: false, mutate: vi.fn()}),
-}));
-
-vi.mock('@/shared/mutations/automation/projectDeploymentTags.mutations', () => ({
-    useUpdateProjectDeploymentTagsMutation: () => ({mutate: vi.fn()}),
-}));
-
-vi.mock('@/shared/hooks/useAnalytics', () => ({
-    useAnalytics: () => ({captureProjectDeploymentEnabled: vi.fn()}),
-}));
-
 vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
     useWorkspaceStore: (selector: (state: Record<string, unknown>) => unknown) => selector({currentWorkspaceId: 1}),
 }));
 
-vi.mock('@/shared/stores/useApplicationInfoStore', () => ({
-    useApplicationInfoStore: (selector: (state: Record<string, unknown>) => unknown) =>
-        selector({application: {edition: hoisted.edition}}),
+vi.mock('@/ee/shared/mutations/automation/apiCollectionTags.mutations', () => ({
+    useUpdateApiCollectionTagsMutation: () => ({mutate: vi.fn()}),
+}));
+
+vi.mock('@/ee/shared/mutations/automation/apiCollections.mutations', () => ({
+    useDeleteApiCollectionMutation: () => ({mutate: vi.fn()}),
+}));
+
+vi.mock('@/shared/mutations/automation/projectDeployments.mutations', () => ({
+    useEnableProjectDeploymentMutation: () => ({mutate: vi.fn()}),
+}));
+
+vi.mock('@/shared/queries/automation/projectDeployments.queries', () => ({
+    useGetProjectDeploymentQuery: () => ({data: undefined}),
 }));
 
 vi.mock('@/components/ui/collapsible', () => ({
@@ -107,20 +104,20 @@ vi.mock('@/ee/shared/components/environment-promotion/EnvironmentPromotionDialog
     },
 }));
 
-const projectDeployment: ProjectDeployment = {
+const apiCollection = {
+    contextPath: '/ctx',
     enabled: true,
-    environmentId: 1,
-    id: 42,
-    name: 'My Project Deployment',
-    projectDeploymentWorkflows: [],
+    environmentId: 0,
+    id: 1,
+    name: 'My Collection',
+    projectDeploymentId: 10,
+    projectId: 100,
     projectVersion: 1,
-    tags: [],
-};
+    workspaceId: 1,
+} as unknown as ApiCollection;
 
-describe('ProjectDeploymentListItem', () => {
+describe('ApiCollectionListItem', () => {
     beforeEach(() => {
-        hoisted.deleteProjectDeploymentMock.mockReset();
-        hoisted.edition = 'EE';
         hoisted.invalidateQueriesMock.mockReset();
         hoisted.promotionDialogProps.length = 0;
         hoisted.environmentsResult.data = {
@@ -131,64 +128,35 @@ describe('ProjectDeploymentListItem', () => {
         };
     });
 
-    it('closes the delete dialog without deleting when cancelled', async () => {
-        const user = userEvent.setup();
-
-        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
-
-        await user.click(screen.getByText('Delete'));
-
-        expect(screen.getByRole('alertdialog')).toBeInTheDocument();
-
-        await user.click(screen.getByRole('button', {name: 'Cancel'}));
-
-        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-        expect(hoisted.deleteProjectDeploymentMock).not.toHaveBeenCalled();
-    });
-
-    it('deletes the deployment when the delete dialog is confirmed', async () => {
-        const user = userEvent.setup();
-
-        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
-
-        await user.click(screen.getByText('Delete'));
-
-        await user.click(screen.getByRole('button', {name: 'Delete'}));
-
-        expect(hoisted.deleteProjectDeploymentMock).toHaveBeenCalledWith(42);
-    });
-
     it('hides the Promote to environment menu item when fewer than two environments exist', () => {
         hoisted.environmentsResult.data = {environments: [{id: '0', name: 'Development'}]};
 
-        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
+        render(<ApiCollectionListItem apiCollection={apiCollection} />);
 
         expect(screen.queryByText('Promote to environment…')).not.toBeInTheDocument();
     });
 
-    it('hides the Promote to environment menu item on CE even with multiple environments', () => {
-        hoisted.edition = 'CE';
+    it('shows the Promote to environment menu item when at least two environments exist', () => {
+        render(<ApiCollectionListItem apiCollection={apiCollection} />);
 
-        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
-
-        expect(screen.queryByText('Promote to environment…')).not.toBeInTheDocument();
+        expect(screen.getByText('Promote to environment…')).toBeInTheDocument();
     });
 
     it('mounts the dialog on click and unmounts it on close, passing the correct resourceType and ids', async () => {
         const user = userEvent.setup();
 
-        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
+        render(<ApiCollectionListItem apiCollection={apiCollection} />);
 
         expect(screen.queryByTestId('environment-promotion-dialog')).not.toBeInTheDocument();
 
         await user.click(screen.getByText('Promote to environment…'));
 
-        expect(await screen.findByTestId('environment-promotion-dialog')).toBeInTheDocument();
+        expect(screen.getByTestId('environment-promotion-dialog')).toBeInTheDocument();
         expect(hoisted.promotionDialogProps.at(-1)).toMatchObject({
-            resourceType: 'PROJECT_DEPLOYMENT',
-            sourceEnvironmentId: 1,
-            sourceId: '42',
-            sourceName: 'My Project Deployment',
+            resourceType: 'API_COLLECTION',
+            sourceEnvironmentId: 0,
+            sourceId: '1',
+            sourceName: 'My Collection',
             workspaceId: 1,
         });
 
@@ -197,15 +165,24 @@ describe('ProjectDeploymentListItem', () => {
         expect(screen.queryByTestId('environment-promotion-dialog')).not.toBeInTheDocument();
     });
 
-    it('invalidates the projectDeployments query when onPromoted fires', async () => {
+    it('invalidates the apiCollections query when onPromoted fires', async () => {
         const user = userEvent.setup();
 
-        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
+        render(<ApiCollectionListItem apiCollection={apiCollection} />);
+
+        await user.click(screen.getByText('Promote to environment…'));
+        await user.click(screen.getByText('promote'));
+
+        expect(hoisted.invalidateQueriesMock).toHaveBeenCalledWith({queryKey: ApiCollectionKeys.apiCollections});
+    });
+
+    it('does not render the dialog when the collection has no environmentId', async () => {
+        const user = userEvent.setup();
+
+        render(<ApiCollectionListItem apiCollection={{...apiCollection, environmentId: undefined}} />);
 
         await user.click(screen.getByText('Promote to environment…'));
 
-        await user.click(await screen.findByText('promote'));
-
-        expect(hoisted.invalidateQueriesMock).toHaveBeenCalledWith({queryKey: ['projectDeployments']});
+        expect(screen.queryByTestId('environment-promotion-dialog')).not.toBeInTheDocument();
     });
 });

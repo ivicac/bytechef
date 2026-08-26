@@ -1,9 +1,9 @@
-import {ProjectDeployment} from '@/shared/middleware/automation/configuration';
+import {McpServer} from '@/shared/middleware/graphql';
 import {render, screen} from '@/shared/util/test-utils';
 import userEvent from '@testing-library/user-event';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
-import ProjectDeploymentListItem from './ProjectDeploymentListItem';
+import McpServerListItem from './McpServerListItem';
 
 // ---------------------------------------------------------------------------
 // Hoisted mocks (must not reference outer-scope constants - vi.hoisted runs
@@ -11,7 +11,6 @@ import ProjectDeploymentListItem from './ProjectDeploymentListItem';
 // ---------------------------------------------------------------------------
 
 const hoisted = vi.hoisted(() => ({
-    deleteProjectDeploymentMock: vi.fn(),
     edition: 'EE',
     environmentsResult: {
         data: {
@@ -41,22 +40,12 @@ vi.mock('@/shared/middleware/graphql', async (importOriginal) => {
 
     return {
         ...actual,
+        useDeleteWorkspaceMcpServerMutation: () => ({mutate: vi.fn()}),
         useEnvironmentsQuery: () => hoisted.environmentsResult,
+        useUpdateMcpServerMutation: () => ({mutate: vi.fn()}),
+        useUpdateMcpServerTagsMutation: () => ({mutate: vi.fn()}),
     };
 });
-
-vi.mock('@/shared/mutations/automation/projectDeployments.mutations', () => ({
-    useDeleteProjectDeploymentMutation: () => ({isPending: false, mutate: hoisted.deleteProjectDeploymentMock}),
-    useEnableProjectDeploymentMutation: () => ({isPending: false, mutate: vi.fn()}),
-}));
-
-vi.mock('@/shared/mutations/automation/projectDeploymentTags.mutations', () => ({
-    useUpdateProjectDeploymentTagsMutation: () => ({mutate: vi.fn()}),
-}));
-
-vi.mock('@/shared/hooks/useAnalytics', () => ({
-    useAnalytics: () => ({captureProjectDeploymentEnabled: vi.fn()}),
-}));
 
 vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
     useWorkspaceStore: (selector: (state: Record<string, unknown>) => unknown) => selector({currentWorkspaceId: 1}),
@@ -107,19 +96,17 @@ vi.mock('@/ee/shared/components/environment-promotion/EnvironmentPromotionDialog
     },
 }));
 
-const projectDeployment: ProjectDeployment = {
+const mcpServer = {
     enabled: true,
-    environmentId: 1,
-    id: 42,
-    name: 'My Project Deployment',
-    projectDeploymentWorkflows: [],
-    projectVersion: 1,
+    environmentId: '1',
+    id: 's1',
+    mcpComponents: [],
+    name: 'My MCP Server',
     tags: [],
-};
+} as unknown as McpServer;
 
-describe('ProjectDeploymentListItem', () => {
+describe('McpServerListItem', () => {
     beforeEach(() => {
-        hoisted.deleteProjectDeploymentMock.mockReset();
         hoisted.edition = 'EE';
         hoisted.invalidateQueriesMock.mockReset();
         hoisted.promotionDialogProps.length = 0;
@@ -131,37 +118,10 @@ describe('ProjectDeploymentListItem', () => {
         };
     });
 
-    it('closes the delete dialog without deleting when cancelled', async () => {
-        const user = userEvent.setup();
-
-        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
-
-        await user.click(screen.getByText('Delete'));
-
-        expect(screen.getByRole('alertdialog')).toBeInTheDocument();
-
-        await user.click(screen.getByRole('button', {name: 'Cancel'}));
-
-        expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument();
-        expect(hoisted.deleteProjectDeploymentMock).not.toHaveBeenCalled();
-    });
-
-    it('deletes the deployment when the delete dialog is confirmed', async () => {
-        const user = userEvent.setup();
-
-        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
-
-        await user.click(screen.getByText('Delete'));
-
-        await user.click(screen.getByRole('button', {name: 'Delete'}));
-
-        expect(hoisted.deleteProjectDeploymentMock).toHaveBeenCalledWith(42);
-    });
-
     it('hides the Promote to environment menu item when fewer than two environments exist', () => {
         hoisted.environmentsResult.data = {environments: [{id: '0', name: 'Development'}]};
 
-        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
+        render(<McpServerListItem mcpServer={mcpServer} />);
 
         expect(screen.queryByText('Promote to environment…')).not.toBeInTheDocument();
     });
@@ -169,7 +129,7 @@ describe('ProjectDeploymentListItem', () => {
     it('hides the Promote to environment menu item on CE even with multiple environments', () => {
         hoisted.edition = 'CE';
 
-        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
+        render(<McpServerListItem mcpServer={mcpServer} />);
 
         expect(screen.queryByText('Promote to environment…')).not.toBeInTheDocument();
     });
@@ -177,7 +137,7 @@ describe('ProjectDeploymentListItem', () => {
     it('mounts the dialog on click and unmounts it on close, passing the correct resourceType and ids', async () => {
         const user = userEvent.setup();
 
-        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
+        render(<McpServerListItem mcpServer={mcpServer} />);
 
         expect(screen.queryByTestId('environment-promotion-dialog')).not.toBeInTheDocument();
 
@@ -185,10 +145,10 @@ describe('ProjectDeploymentListItem', () => {
 
         expect(await screen.findByTestId('environment-promotion-dialog')).toBeInTheDocument();
         expect(hoisted.promotionDialogProps.at(-1)).toMatchObject({
-            resourceType: 'PROJECT_DEPLOYMENT',
+            resourceType: 'MCP_SERVER',
             sourceEnvironmentId: 1,
-            sourceId: '42',
-            sourceName: 'My Project Deployment',
+            sourceId: 's1',
+            sourceName: 'My MCP Server',
             workspaceId: 1,
         });
 
@@ -197,15 +157,15 @@ describe('ProjectDeploymentListItem', () => {
         expect(screen.queryByTestId('environment-promotion-dialog')).not.toBeInTheDocument();
     });
 
-    it('invalidates the projectDeployments query when onPromoted fires', async () => {
+    it('invalidates the workspaceMcpServers query when onPromoted fires', async () => {
         const user = userEvent.setup();
 
-        render(<ProjectDeploymentListItem projectDeployment={projectDeployment} />);
+        render(<McpServerListItem mcpServer={mcpServer} />);
 
         await user.click(screen.getByText('Promote to environment…'));
 
         await user.click(await screen.findByText('promote'));
 
-        expect(hoisted.invalidateQueriesMock).toHaveBeenCalledWith({queryKey: ['projectDeployments']});
+        expect(hoisted.invalidateQueriesMock).toHaveBeenCalledWith({queryKey: ['workspaceMcpServers']});
     });
 });
