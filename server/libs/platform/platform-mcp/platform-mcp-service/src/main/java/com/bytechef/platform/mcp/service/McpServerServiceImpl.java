@@ -21,11 +21,16 @@ import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.repository.McpServerRepository;
 import com.bytechef.tenant.domain.TenantKey;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Optional;
+import java.util.UUID;
+import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.Assert;
 
 /**
  * Implementation of the {@link McpServerService} interface.
@@ -52,12 +57,28 @@ public class McpServerServiceImpl implements McpServerService {
     public McpServer create(McpServer mcpServer) {
         checkAuthenticationRequiredForEnforcement(mcpServer);
 
+        if (mcpServer.getUuid() == null) {
+            mcpServer.setUuid(UUID.randomUUID());
+        }
+
         return mcpServerRepository.save(mcpServer);
     }
 
     @Override
     public void delete(long mcpServerId) {
         mcpServerRepository.deleteById(mcpServerId);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public boolean existsByNameAndEnvironment(String name, Environment environment, @Nullable UUID excludeUuid) {
+        Assert.notNull(name, "'name' must not be null");
+
+        if (excludeUuid == null) {
+            return mcpServerRepository.existsByNameAndEnvironment(name, environment.ordinal());
+        }
+
+        return mcpServerRepository.existsByNameAndEnvironmentAndUuidNot(name, environment.ordinal(), excludeUuid);
     }
 
     @Override
@@ -83,6 +104,12 @@ public class McpServerServiceImpl implements McpServerService {
     }
 
     @Override
+    @Transactional(readOnly = true)
+    public Optional<McpServer> fetchMcpServer(UUID uuid, Environment environment) {
+        return mcpServerRepository.findByUuidAndEnvironment(uuid, environment.ordinal());
+    }
+
+    @Override
     public McpServer create(String name, PlatformType type, Environment environment, Boolean enabled) {
         McpServer mcpServer;
 
@@ -98,9 +125,39 @@ public class McpServerServiceImpl implements McpServerService {
     @Override
     @Transactional(readOnly = true)
     public List<McpServer> getMcpServers(PlatformType type) {
-        return mcpServerRepository.findAll()
+        return getMcpServers(type, null);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<McpServer> getMcpServers(PlatformType type, @Nullable McpServerOrderBy orderBy) {
+        List<McpServer> mcpServers = mcpServerRepository.findAll()
             .stream()
             .filter(mcpServer -> mcpServer.getType() == type)
+            .toList();
+
+        if (orderBy == null) {
+            return mcpServers;
+        }
+
+        Comparator<McpServer> comparator = switch (orderBy) {
+            case NAME_ASC -> Comparator.comparing(McpServer::getName, String.CASE_INSENSITIVE_ORDER);
+            case NAME_DESC -> Comparator.comparing(McpServer::getName, String.CASE_INSENSITIVE_ORDER)
+                .reversed();
+            case CREATED_DATE_ASC ->
+                Comparator.comparing(McpServer::getCreatedDate, Comparator.nullsLast(Comparator.naturalOrder()));
+            case CREATED_DATE_DESC ->
+                Comparator.comparing(McpServer::getCreatedDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                    .reversed();
+            case LAST_MODIFIED_DATE_ASC ->
+                Comparator.comparing(McpServer::getLastModifiedDate, Comparator.nullsLast(Comparator.naturalOrder()));
+            case LAST_MODIFIED_DATE_DESC ->
+                Comparator.comparing(McpServer::getLastModifiedDate, Comparator.nullsLast(Comparator.naturalOrder()))
+                    .reversed();
+        };
+
+        return mcpServers.stream()
+            .sorted(comparator)
             .toList();
     }
 
@@ -169,9 +226,7 @@ public class McpServerServiceImpl implements McpServerService {
         }
 
         if (Boolean.TRUE.equals(enabled)) {
-            for (McpServerEnablementValidator mcpServerEnablementValidator : mcpServerEnablementValidators) {
-                mcpServerEnablementValidator.validateEnablement(id);
-            }
+            checkEnablement(id);
         }
 
         if (enabled != null) {

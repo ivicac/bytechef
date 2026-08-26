@@ -24,6 +24,7 @@ import com.bytechef.commons.util.OptionalUtils;
 import com.bytechef.platform.configuration.domain.Environment;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import org.apache.commons.lang3.Validate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -37,6 +38,7 @@ import org.springframework.util.Assert;
 public class ProjectDeploymentServiceImpl implements ProjectDeploymentService {
 
     private final ProjectDeploymentAuditPublisher projectDeploymentAuditPublisher;
+
     private final ProjectDeploymentRepository projectDeploymentRepository;
 
     public ProjectDeploymentServiceImpl(
@@ -55,6 +57,10 @@ public class ProjectDeploymentServiceImpl implements ProjectDeploymentService {
         Assert.notNull(projectDeployment.getName(), "'name' must not be null");
 
         projectDeployment.setEnabled(false);
+
+        if (projectDeployment.getUuid() == null) {
+            projectDeployment.setUuid(UUID.randomUUID());
+        }
 
         ProjectDeployment savedProjectDeployment = projectDeploymentRepository.save(projectDeployment);
 
@@ -86,6 +92,12 @@ public class ProjectDeploymentServiceImpl implements ProjectDeploymentService {
     @Transactional(readOnly = true)
     public Optional<ProjectDeployment> fetchProjectDeploymentByName(long projectId, String name) {
         return projectDeploymentRepository.findByProjectIdAndName(projectId, name);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<ProjectDeployment> fetchProjectDeployment(UUID uuid, Environment environment) {
+        return projectDeploymentRepository.findByUuidAndEnvironment(uuid, environment.ordinal());
     }
 
     @Override
