@@ -38,6 +38,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.sql.Timestamp;
 import java.time.Instant;
 import java.util.List;
+import java.util.UUID;
 import javax.sql.DataSource;
 import org.apache.commons.lang3.Validate;
 import org.junit.jupiter.api.AfterEach;
@@ -61,9 +62,6 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @SpringBootTest(classes = PlatformMcpIntTestConfiguration.class)
 @SuppressFBWarnings("HARD_CODE_PASSWORD")
 class McpServerServiceIntTest {
-
-    @Autowired
-    private DataSource dataSource;
 
     @Autowired
     private DataSource dataSource;
@@ -186,10 +184,10 @@ class McpServerServiceIntTest {
         Timestamp now = Timestamp.from(Instant.now());
 
         new JdbcTemplate(dataSource).update(
-            "INSERT INTO mcp_server (name, type, environment, enabled, secret_key, created_date, created_by, " +
-                "last_modified_date, last_modified_by, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "INSERT INTO mcp_server (name, type, environment, enabled, secret_key, uuid, created_date, created_by, " +
+                "last_modified_date, last_modified_by, version) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             "auth-legacy", PlatformType.AUTOMATION.ordinal(), Environment.PRODUCTION.ordinal(), true,
-            "legacy-secret-key", now, "system", now, "system", 0);
+            "legacy-secret-key", UUID.randomUUID(), now, "system", now, "system", 0);
 
         McpServer loaded = mcpServerService.getMcpServer("legacy-secret-key");
 
@@ -235,6 +233,40 @@ class McpServerServiceIntTest {
 
         assertThatThrownBy(() -> mcpServerService.update(mcpServer))
             .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    /**
+     * Proves the derived queries behind {@code existsByNameAndEnvironment} actually derive, and that the constraint
+     * they mirror is per-environment: the same name in another environment is not a conflict.
+     */
+    @Test
+    void testExistsByNameAndEnvironment() {
+        mcpServerRepository.save(new McpServer("taken", PlatformType.AUTOMATION, Environment.STAGING));
+
+        assertThat(mcpServerService.existsByNameAndEnvironment("taken", Environment.STAGING, null)).isTrue();
+        assertThat(mcpServerService.existsByNameAndEnvironment("taken", Environment.PRODUCTION, null)).isFalse();
+        assertThat(mcpServerService.existsByNameAndEnvironment("free", Environment.STAGING, null)).isFalse();
+    }
+
+    @Test
+    void testExistsByNameAndEnvironmentExcludesTheGivenLineage() {
+        McpServer mcpServer = mcpServerRepository.save(
+            new McpServer("taken", PlatformType.AUTOMATION, Environment.STAGING));
+
+        assertThat(mcpServerService.existsByNameAndEnvironment("taken", Environment.STAGING, mcpServer.getUuid()))
+            .isFalse();
+        assertThat(mcpServerService.existsByNameAndEnvironment("taken", Environment.STAGING, UUID.randomUUID()))
+            .isTrue();
+    }
+
+    /**
+     * The constraint the check mirrors spans platform types, so an EMBEDDED server blocks an AUTOMATION name.
+     */
+    @Test
+    void testExistsByNameAndEnvironmentSpansPlatformTypes() {
+        mcpServerRepository.save(new McpServer("taken", PlatformType.EMBEDDED, Environment.STAGING));
+
+        assertThat(mcpServerService.existsByNameAndEnvironment("taken", Environment.STAGING, null)).isTrue();
     }
 
     @Test
@@ -336,70 +368,6 @@ class McpServerServiceIntTest {
             .isInstanceOf(IllegalArgumentException.class);
 
         assertThat(mcpServerRepository.count()).isZero();
-    }
-
-    @Test
-    void testNewMcpServerDefaultsAuthenticationRequiredTrue() {
-        McpServer mcpServer = mcpServerService.create(
-            "auth-default", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
-
-        McpServer loaded = mcpServerService.getMcpServer(mcpServer.getSecretKey());
-
-        assertThat(loaded.isAuthenticationRequired()).isTrue();
-    }
-
-    @Test
-    void testLegacyRowLoadsAuthenticationRequiredFalse() {
-        McpServer mcpServer = mcpServerService.create(
-            "auth-legacy", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
-
-        new JdbcTemplate(dataSource).update(
-            "UPDATE mcp_server SET authentication_required = false WHERE id = ?", mcpServer.getId());
-
-        McpServer loaded = mcpServerService.getMcpServer(mcpServer.getSecretKey());
-
-        assertThat(loaded.isAuthenticationRequired()).isFalse();
-    }
-
-    @Test
-    void testUpdatePersistsAuthenticationRequired() {
-        McpServer mcpServer = mcpServerService.create(
-            "auth-update", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
-
-        mcpServer.setAuthenticationRequired(false);
-
-        mcpServerService.update(mcpServer);
-
-        McpServer loaded = mcpServerService.getMcpServer(mcpServer.getSecretKey());
-
-        assertThat(loaded.isAuthenticationRequired()).isFalse();
-    }
-
-    @Test
-    void testUpdatePersistsEnforceToolAuthorization() {
-        McpServer mcpServer = mcpServerService.create(
-            "auth-enforce-persist", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
-
-        mcpServer.setAuthenticationRequired(true);
-        mcpServer.setEnforceToolAuthorization(true);
-
-        mcpServerService.update(mcpServer);
-
-        McpServer loaded = mcpServerService.getMcpServer(mcpServer.getSecretKey());
-
-        assertThat(loaded.isEnforceToolAuthorization()).isTrue();
-    }
-
-    @Test
-    void testUpdateRejectsNoAuthWithToolAuthorization() {
-        McpServer mcpServer = mcpServerService.create(
-            "auth-invariant", PlatformType.AUTOMATION, Environment.PRODUCTION, true);
-
-        mcpServer.setAuthenticationRequired(false);
-        mcpServer.setEnforceToolAuthorization(true);
-
-        assertThatThrownBy(() -> mcpServerService.update(mcpServer))
-            .isInstanceOf(IllegalArgumentException.class);
     }
 
     private McpServer getMcpServer() {
