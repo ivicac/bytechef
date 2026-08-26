@@ -48,14 +48,17 @@ public class AutomationMethodSecurityExpressionHandler extends DefaultMethodSecu
 
     private final SingletonSupplier<List<MethodResolver>> contributorMethodResolversSupplier;
     private final PermissionService permissionService;
+    private final ObjectProvider<ResourceMembershipResolver> resourceMembershipResolverProvider;
 
     public AutomationMethodSecurityExpressionHandler(
         PermissionService permissionService,
+        ObjectProvider<ResourceMembershipResolver> resourceMembershipResolverProvider,
         ObjectProvider<MethodSecurityExpressionContributor> methodSecurityExpressionContributorProvider) {
 
         this.contributorMethodResolversSupplier = SingletonSupplier.of(
             () -> createContributorMethodResolvers(methodSecurityExpressionContributorProvider));
         this.permissionService = permissionService;
+        this.resourceMembershipResolverProvider = resourceMembershipResolverProvider;
     }
 
     @Override
@@ -71,7 +74,8 @@ public class AutomationMethodSecurityExpressionHandler extends DefaultMethodSecu
             (StandardEvaluationContext) super.createEvaluationContext(authentication, methodInvocation);
 
         AutomationMethodSecurityExpressionRoot root =
-            new AutomationMethodSecurityExpressionRoot(authentication, methodInvocation, permissionService);
+            new AutomationMethodSecurityExpressionRoot(
+                authentication, methodInvocation, permissionService, resourceMembershipResolverProvider);
 
         root.setAuthorizationManagerFactory(getAuthorizationManagerFactory());
         root.setPermissionEvaluator(getPermissionEvaluator());

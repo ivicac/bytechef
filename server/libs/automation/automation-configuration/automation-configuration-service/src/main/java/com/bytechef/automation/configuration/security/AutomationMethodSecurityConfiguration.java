@@ -37,8 +37,11 @@ import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 public class AutomationMethodSecurityConfiguration {
 
     @Bean
-    AutomationPermissionEvaluator automationPermissionEvaluator(@Lazy PermissionService permissionService) {
-        return new AutomationPermissionEvaluator(permissionService);
+    AutomationPermissionEvaluator automationPermissionEvaluator(
+        @Lazy PermissionService permissionService,
+        ObjectProvider<ResourceMembershipResolver> resourceMembershipResolverProvider) {
+
+        return new AutomationPermissionEvaluator(permissionService, resourceMembershipResolverProvider);
     }
 
     @Bean
@@ -53,10 +56,11 @@ public class AutomationMethodSecurityConfiguration {
     static MethodSecurityExpressionHandler methodSecurityExpressionHandler(
         @Lazy PermissionService permissionService, PermissionEvaluator permissionEvaluator,
         RoleHierarchy roleHierarchy,
+        ObjectProvider<ResourceMembershipResolver> resourceMembershipResolverProvider,
         ObjectProvider<MethodSecurityExpressionContributor> methodSecurityExpressionContributorProvider) {
 
         AutomationMethodSecurityExpressionHandler handler = new AutomationMethodSecurityExpressionHandler(
-            permissionService, methodSecurityExpressionContributorProvider);
+            permissionService, resourceMembershipResolverProvider, methodSecurityExpressionContributorProvider);
 
         handler.setPermissionEvaluator(permissionEvaluator);
         handler.setRoleHierarchy(roleHierarchy);

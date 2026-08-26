@@ -351,9 +351,20 @@ public class IntegrationInstanceConfigurationFacadeImpl implements IntegrationIn
             integrationInstanceConfigurationWorkflow.getId(), enable);
     }
 
+    /**
+     * By-id read of an integration's instance configuration, reached only from
+     * {@code ConnectedUserIntegrationFacadeImpl#getConnectedUserIntegration(...)} on the embedded connected-user path.
+     *
+     * <p>
+     * Gated on the caller owning the requested integration rather than on {@code isTenantAdmin()}. The admin gate was
+     * vestigial: no admin surface calls this method (the admin REST controller uses
+     * {@code getIntegrationInstanceConfiguration(...)} and the create/update/delete/enable methods), and it passed only
+     * because the embedded skip-mode aspect widened authorization to full. The predicate applies the same check the
+     * list path applies per row, so the two reads cannot disagree about one integration.
+     */
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("isTenantAdmin()")
+    @PreAuthorize("@embeddedIntegrationAuthorization.canAccessIntegration(#integrationId, #environment)")
     public IntegrationInstanceConfigurationDTO getIntegrationInstanceConfigurationIntegration(
         long integrationId, boolean enabled, Environment environment, @Nullable ConnectedUser connectedUser) {
 
@@ -372,7 +383,7 @@ public class IntegrationInstanceConfigurationFacadeImpl implements IntegrationIn
 
     @Override
     @Transactional(readOnly = true)
-    @PreAuthorize("isTenantAdmin()")
+    @PreAuthorize("isAuthenticated()")
     public List<IntegrationInstanceConfigurationDTO> getIntegrationInstanceConfigurationIntegrations(
         boolean enabled, Environment environment, @Nullable ConnectedUser connectedUser) {
 

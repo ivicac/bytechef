@@ -112,7 +112,8 @@ class AutomationMethodSecurityExpressionHandlerTest {
             beanFactory.getBeanProvider(MethodSecurityExpressionContributor.class);
 
         AutomationMethodSecurityExpressionHandler handler = new AutomationMethodSecurityExpressionHandler(
-            permissionService, contributorProvider);
+            permissionService, new StaticListableBeanFactory().getBeanProvider(ResourceMembershipResolver.class),
+            contributorProvider);
 
         return handler.createEvaluationContext(
             () -> new UsernamePasswordAuthenticationToken(
