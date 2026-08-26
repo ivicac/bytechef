@@ -58,6 +58,8 @@ import com.bytechef.task.dispatcher.each.EachTaskDispatcher;
 import com.bytechef.task.dispatcher.each.completion.EachTaskCompletionHandler;
 import com.bytechef.task.dispatcher.fork.join.ForkJoinTaskDispatcher;
 import com.bytechef.task.dispatcher.fork.join.completion.ForkJoinTaskCompletionHandler;
+import com.bytechef.task.dispatcher.graph.GraphTaskDispatcher;
+import com.bytechef.task.dispatcher.graph.completion.GraphTaskCompletionHandler;
 import com.bytechef.task.dispatcher.loop.LoopBreakTaskDispatcher;
 import com.bytechef.task.dispatcher.loop.LoopTaskDispatcher;
 import com.bytechef.task.dispatcher.loop.completion.LoopTaskCompletionHandler;
@@ -69,6 +71,7 @@ import com.bytechef.task.dispatcher.subflow.SubflowTaskDispatcher;
 import com.bytechef.task.dispatcher.subflow.event.listener.SubflowJobStatusEventListener;
 import com.bytechef.tenant.TenantContext;
 import java.util.List;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Bean;
@@ -81,6 +84,16 @@ import org.springframework.core.task.TaskExecutor;
  */
 @Configuration
 public class WebhookConfiguration {
+
+    /**
+     * Unlimited task executions — the sync executors here run real workflows, not bounded test runs.
+     */
+    private static final int UNLIMITED_TASK_EXECUTIONS = -1;
+
+    /**
+     * Completion timeout, in seconds, for synchronous webhook execution.
+     */
+    private static final long SYNC_EXECUTION_TIMEOUT = 300;
 
     @Bean
     SseStreamBridgeRegistry sseStreamBridgeRegistry() {
@@ -97,28 +110,50 @@ public class WebhookConfiguration {
         SseStreamBridgeRegistry sseStreamBridgeRegistry, SubflowResolver subflowResolver,
         TaskExecutionService taskExecutionService, @Qualifier("syncWorkerExecutor") TaskExecutor syncWorkerExecutor,
         TaskHandlerRegistry taskHandlerRegistry, TriggerDefinitionService triggerDefinitionService,
-        WebhookWorkflowSyncExecutor triggerSyncExecutor, WorkflowService workflowService) {
+        WebhookWorkflowSyncExecutor triggerSyncExecutor,
+        WorkflowService workflowService) {
+
+        TaskFileStorage syncJobTaskFileStorage = new InMemoryTaskFileStorage(durableTaskFileStorage);
+
+        JobSyncExecutor jobSyncExecutor = createJobSyncExecutor(
+            childJobPrincipalFactory, contextService, counterService, environment, evaluator, jobService,
+            taskDispatcherPreSendProcessors, subflowResolver, taskExecutionService, syncWorkerExecutor,
+            taskHandlerRegistry, syncJobTaskFileStorage, SYNC_EXECUTION_TIMEOUT, workflowService);
+
+        return new WebhookWorkflowExecutorImpl(
+            eventPublisher, jobPrincipalAccessorRegistry, jobSyncExecutor, principalJobFacade,
+            sseStreamBridgeRegistry, syncJobTaskFileStorage, triggerDefinitionService, triggerSyncExecutor,
+            workflowService);
+    }
+
+    /**
+     * Builds a {@link JobSyncExecutor} over its own in-process {@link AsyncMessageBroker}, so each caller gets an
+     * isolated event bus. {@code workflowService} is a parameter rather than a fixed bean because the WebSocket
+     * sub-flow executor needs an {@link EphemeralWorkflowService} in its place.
+     */
+    private JobSyncExecutor createJobSyncExecutor(
+        ChildJobPrincipalFactory childJobPrincipalFactory, ContextService contextService,
+        CounterService counterService, Environment environment, Evaluator evaluator, JobService jobService,
+        List<TaskDispatcherPreSendProcessor> taskDispatcherPreSendProcessors, SubflowResolver subflowResolver,
+        TaskExecutionService taskExecutionService, TaskExecutor taskExecutor, TaskHandlerRegistry taskHandlerRegistry,
+        TaskFileStorage syncJobTaskFileStorage, long timeout, WorkflowService workflowService) {
 
         AsyncMessageBroker asyncMessageBroker = new AsyncMessageBroker(environment);
-        TaskFileStorage taskFileStorage = new InMemoryTaskFileStorage(durableTaskFileStorage);
 
         ApplicationEventPublisher coordinatorEventPublisher = createEventPublisher(asyncMessageBroker);
 
-        return new WebhookWorkflowExecutorImpl(
-            eventPublisher, jobPrincipalAccessorRegistry,
-            new JobSyncExecutor(
-                contextService, evaluator, jobService, -1, asyncMessageBroker,
-                getAdditionalApplicationEventListeners(
-                    evaluator, coordinatorEventPublisher, jobService, taskExecutionService, taskFileStorage),
-                getTaskCompletionHandlerFactories(
-                    contextService, counterService, evaluator, taskExecutionService, taskFileStorage),
-                getTaskDispatcherAdapterFactories(evaluator), taskDispatcherPreSendProcessors,
-                getTaskDispatcherResolverFactories(
-                    childJobPrincipalFactory, contextService, counterService, coordinatorEventPublisher, evaluator,
-                    jobService, subflowResolver, taskExecutionService, taskFileStorage),
-                taskExecutionService, syncWorkerExecutor, taskHandlerRegistry, taskFileStorage, 300, workflowService),
-            principalJobFacade, sseStreamBridgeRegistry, taskFileStorage, triggerDefinitionService,
-            triggerSyncExecutor, workflowService);
+        return new JobSyncExecutor(
+            contextService, evaluator, jobService, UNLIMITED_TASK_EXECUTIONS, asyncMessageBroker,
+            getAdditionalApplicationEventListeners(
+                evaluator, coordinatorEventPublisher, jobService, taskExecutionService, syncJobTaskFileStorage),
+            getTaskCompletionHandlerFactories(
+                contextService, counterService, evaluator, taskExecutionService, syncJobTaskFileStorage),
+            getTaskDispatcherAdapterFactories(evaluator), taskDispatcherPreSendProcessors,
+            getTaskDispatcherResolverFactories(
+                childJobPrincipalFactory, contextService, counterService, coordinatorEventPublisher, evaluator,
+                jobService, subflowResolver, taskExecutionService, syncJobTaskFileStorage),
+            taskExecutionService, taskExecutor, taskHandlerRegistry, syncJobTaskFileStorage, timeout,
+            workflowService);
     }
 
     private static ApplicationEventPublisher createEventPublisher(MessageBroker messageBroker) {
@@ -131,7 +166,7 @@ public class WebhookConfiguration {
         };
     }
 
-    private List<TaskCompletionHandlerFactory> getTaskCompletionHandlerFactories(
+    List<TaskCompletionHandlerFactory> getTaskCompletionHandlerFactories(
         ContextService contextService, CounterService counterService, Evaluator evaluator,
         TaskExecutionService taskExecutionService, TaskFileStorage taskFileStorage) {
 
@@ -146,6 +181,9 @@ public class WebhookConfiguration {
                 counterService, taskCompletionHandler, taskExecutionService),
             (taskCompletionHandler, taskDispatcher) -> new ForkJoinTaskCompletionHandler(
                 contextService, counterService, evaluator, taskExecutionService, taskCompletionHandler, taskDispatcher,
+                taskFileStorage),
+            (taskCompletionHandler, taskDispatcher) -> new GraphTaskCompletionHandler(
+                contextService, counterService, evaluator, taskCompletionHandler, taskDispatcher, taskExecutionService,
                 taskFileStorage),
             (taskCompletionHandler, taskDispatcher) -> new LoopTaskCompletionHandler(
                 contextService, evaluator, taskCompletionHandler, taskDispatcher, taskExecutionService,
@@ -182,7 +220,7 @@ public class WebhookConfiguration {
                 evaluator, coordinatorEventPublisher, jobService, taskExecutionService, taskFileStorage));
     }
 
-    private List<TaskDispatcherResolverFactory> getTaskDispatcherResolverFactories(
+    List<TaskDispatcherResolverFactory> getTaskDispatcherResolverFactories(
         ChildJobPrincipalFactory childJobPrincipalFactory, ContextService contextService,
         CounterService counterService, ApplicationEventPublisher eventPublisher,
         Evaluator evaluator, JobService jobService, SubflowResolver subflowResolver,
@@ -197,6 +235,9 @@ public class WebhookConfiguration {
                 contextService, counterService, evaluator, eventPublisher, taskDispatcher, taskExecutionService,
                 taskFileStorage),
             (taskDispatcher) -> new ForkJoinTaskDispatcher(
+                contextService, counterService, evaluator, eventPublisher, taskDispatcher, taskExecutionService,
+                taskFileStorage),
+            (taskDispatcher) -> new GraphTaskDispatcher(
                 contextService, counterService, evaluator, eventPublisher, taskDispatcher, taskExecutionService,
                 taskFileStorage),
             (taskDispatcher) -> new LoopBreakTaskDispatcher(eventPublisher, taskExecutionService),
