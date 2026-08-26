@@ -27,6 +27,7 @@ import com.bytechef.automation.configuration.facade.WorkspaceConnectionFacade;
 import com.bytechef.automation.configuration.facade.WorkspaceFacade;
 import com.bytechef.automation.configuration.security.AutomationMethodSecurityExpressionHandler;
 import com.bytechef.automation.configuration.security.AutomationPermissionEvaluator;
+import com.bytechef.automation.configuration.security.ResourceMembershipResolver;
 import com.bytechef.automation.configuration.service.PermissionService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentService;
 import com.bytechef.automation.configuration.service.ProjectDeploymentWorkflowService;
@@ -434,14 +435,15 @@ class AutomationWorkflowProjectFacadeAuditIntTest {
         @Bean
         static MethodSecurityExpressionHandler methodSecurityExpressionHandler(
             @Lazy PermissionService permissionService,
+            ObjectProvider<ResourceMembershipResolver> resourceMembershipResolverProvider,
             ObjectProvider<MethodSecurityExpressionContributor> methodSecurityExpressionContributorProvider) {
 
             AutomationMethodSecurityExpressionHandler automationMethodSecurityExpressionHandler =
                 new AutomationMethodSecurityExpressionHandler(
-                    permissionService, methodSecurityExpressionContributorProvider);
+                    permissionService, resourceMembershipResolverProvider, methodSecurityExpressionContributorProvider);
 
             automationMethodSecurityExpressionHandler.setPermissionEvaluator(
-                new AutomationPermissionEvaluator(permissionService));
+                new AutomationPermissionEvaluator(permissionService, resourceMembershipResolverProvider));
 
             return automationMethodSecurityExpressionHandler;
         }
