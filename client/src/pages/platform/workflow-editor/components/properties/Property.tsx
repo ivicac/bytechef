@@ -225,6 +225,10 @@ const Property = ({
         return <></>;
     }
 
+    // Form mode has no currentNode to read conditions off, so they are evaluated server-side against the form's
+    // own values and provided through FormDisplayConditionsContext by Properties. Gated ONLY once they have been: with none supplied — unevaluated, still loading,
+    // or a surface that does not evaluate at all — every conditional property stays visible, which is what these
+    // surfaces did before. Hiding them on an absent map would be strictly worse than showing them all.
     if (control && displayCondition && formDisplayConditions && !formDisplayConditions[displayCondition]) {
         return <></>;
     }
@@ -233,7 +237,10 @@ const Property = ({
         <li
             aria-label={`${name} property`}
             className={twMerge(
-                'w-full',
+                // A property is an `li` for structure, but it is laid out by the form around it and
+                // never wants a bullet. Most surfaces render it inside a container that suppresses
+                // the marker anyway; the graph transition popover does not, and one showed up there.
+                'w-full list-none',
                 hidden && 'hidden',
                 controlType === 'OBJECT_BUILDER' && 'flex-col',
                 controlType === 'ARRAY_BUILDER' && 'flex-col',

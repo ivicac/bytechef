@@ -9,11 +9,12 @@ import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import {mapHandlePosition} from '../utils/directionUtils';
 import {CONFIGURED_CLUSTER_ROOT_HANDLE_OFFSET, REGULAR_NODE_HANDLE_OFFSET} from '../utils/postDagreConstraints';
 import DisabledNodeBadge from './DisabledNodeBadge';
+import GraphTransitionHandles from './GraphTransitionHandles';
 import styles from './NodeTypes.module.css';
 
 const MAX_VISIBLE_CLUSTER_ELEMENT_ICONS = 5;
 
-const ReadOnlyNode = ({data}: {data: NodeDataType}) => {
+const ReadOnlyNode = ({data, id}: {data: NodeDataType; id: string}) => {
     const layoutDirection = useLayoutDirectionStore((state) => state.layoutDirection);
 
     const clusterElementIcons = useMemo(() => {
@@ -110,6 +111,13 @@ const ReadOnlyNode = ({data}: {data: NodeDataType}) => {
                 style={layoutDirection === 'TB' ? {left: `${handleOffset}px`} : undefined}
                 type="source"
             />
+
+            {/* This component IS the read-only rendering of a task, so a graph member drawn here
+                shows its transition endpoints but never accepts a new connection. */}
+
+            {data.graphData && (
+                <GraphTransitionHandles boxWidth={72} connectable={false} direction={layoutDirection} nodeId={id} />
+            )}
         </div>
     );
 };

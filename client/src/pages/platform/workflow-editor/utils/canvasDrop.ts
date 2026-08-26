@@ -9,6 +9,8 @@ import resolveTargetTriggerName from './resolveTargetTriggerName';
 type CanvasDragEventType = Pick<DragEvent, 'preventDefault' | 'target'> & {dataTransfer: DataTransfer};
 
 interface CanvasDropHandlersI {
+    /** Called first for a task drop; returns true when the drop landed on (and was taken by) a graph frame. */
+    onDropOnGraphFrame?: (droppedNode: ClickedDefinitionType) => boolean;
     onDropOnPlaceholderNode: (targetNode: Node, droppedNode: ClickedDefinitionType) => void;
     onDropOnTriggerNode: (droppedNode: ClickedDefinitionType, targetTriggerName: string) => void;
     onDropOnTriggerPlaceholder: (droppedNode: ClickedDefinitionType) => void;
@@ -24,14 +26,23 @@ interface HandleCanvasDropProps {
     taskDispatcherDefinitions: TaskDispatcherDefinitionBasic[];
 }
 
-export function handleCanvasDragOver(event: CanvasDragEventType, edges: Edge[], nodes: Node[]) {
+export function handleCanvasDragOver(
+    event: CanvasDragEventType,
+    edges: Edge[],
+    nodes: Node[],
+    isAdditionalDropTarget?: (target: EventTarget | null) => boolean
+) {
     if (event.target instanceof HTMLButtonElement && event.target.dataset.nodeType === 'workflow') {
         return;
     }
 
     const dragKind = getCanvasDragKind(event.dataTransfer);
 
-    if (dragKind && !resolveCanvasDropTarget({dragKind, edges, nodes, target: event.target})) {
+    if (
+        dragKind &&
+        !resolveCanvasDropTarget({dragKind, edges, nodes, target: event.target}) &&
+        !(dragKind === 'task' && isAdditionalDropTarget?.(event.target))
+    ) {
         event.dataTransfer.dropEffect = 'none';
 
         return;
@@ -79,6 +90,10 @@ export function handleCanvasDrop({
     }
 
     const isTriggerDrop = droppedNodeType === 'trigger';
+
+    if (!isTriggerDrop && handlers.onDropOnGraphFrame?.(droppedNode)) {
+        return;
+    }
 
     const dropTarget = resolveCanvasDropTarget({
         dragKind: isTriggerDrop ? 'trigger' : 'task',
