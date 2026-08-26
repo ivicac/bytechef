@@ -254,88 +254,51 @@ class CopilotToolContextUtilsTest {
         assertThat(toolContext)
             .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_AUTHENTICATION_KEY, authentication)
             .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_TENANT_ID_KEY, "acme")
-            .containsEntry(AgentToolInvocationContext.TOOL_CONTEXT_SKIP_AUTHORIZATION_KEY, Boolean.TRUE);
+            // The Authentication is carried so RehydrateContextToolCallback can restore the connected-user principal
+            // on the tool worker -- paired with the tenant id, that is what lets the membership resolver govern it
+            // there. Nothing is carried to skip a check: ticket 1051 Stage 4 removed the resource-scoped skip mode
+            // this context used to carry alongside it.
+            .doesNotContainKey("bytechef.agentTool.skipAutomationAuthorization");
     }
 
     @Test
-    void testDoesNotSkipAutomationAuthorizationForAPlatformUser() {
-        Map<String, Object> stateMap = new HashMap<>();
-
-        stateMap.put(CopilotConstants.STATE_AUTHENTICATED_USER_ID, 42L);
-        stateMap.put(CopilotConstants.STATE_AUTHENTICATION, new UsernamePasswordAuthenticationToken("user", ""));
-
-        Map<String, Object> toolContext = CopilotToolContextUtils.toToolContext(new State(stateMap));
-
-        assertThat(toolContext).doesNotContainKey(AgentToolInvocationContext.TOOL_CONTEXT_SKIP_AUTHORIZATION_KEY);
-    }
-
-    @Test
-    void testConnectedUserToolCallSkipsChecksOnAPooledWorker() throws Exception {
+    void testCarriesNoSkipModeForAConnectedUserRunOnAPooledWorker() throws Exception {
+        // Reproduces the real topology. In production the tool context is built on a ForkJoinPool worker
+        // (LocalAgent.runAgent dispatches through CompletableFuture.runAsync), NOT on the servlet thread. A connected
+        // user's run carries an Authentication and a tenant id and nothing else that touches authorization: the
+        // resource-scoped skip mode this used to carry is gone, so no thread can produce one by accident.
         Map<String, Object> stateMap = new HashMap<>();
 
         stateMap.put(CopilotConstants.STATE_AUTHENTICATION, new UsernamePasswordAuthenticationToken("cu", ""));
 
-        assertThat(callProbeOnPooledWorker(CopilotToolContextUtils.toToolContext(new State(stateMap)))).isTrue();
-    }
-
-    @Test
-    void testPlatformUserToolCallDoesNotSkipChecksOnAPooledWorker() throws Throwable {
-        Map<String, Object> stateMap = new HashMap<>();
-
-        stateMap.put(CopilotConstants.STATE_AUTHENTICATED_USER_ID, 42L);
-
-        Map<String, Object> toolContext = AutomationAuthorizationContext.callSkippingChecks(
-            () -> CopilotToolContextUtils.toToolContext(new State(stateMap)));
-
-        assertThat(toolContext).doesNotContainKey(AgentToolInvocationContext.TOOL_CONTEXT_SKIP_AUTHORIZATION_KEY);
-        assertThat(callProbeOnPooledWorker(toolContext)).isFalse();
-    }
-
-    private static boolean callProbeOnPooledWorker(Map<String, Object> toolContext) throws Exception {
-        AtomicBoolean skipChecksSeenInside = new AtomicBoolean();
-
-        ToolCallback probe = new ToolCallback() {
-
-            @Override
-            public ToolDefinition getToolDefinition() {
-                return ToolDefinition.builder()
-                    .name("probe")
-                    .description("probe")
-                    .inputSchema("{\"type\":\"object\"}")
-                    .build();
-            }
-
-            @Override
-            public String call(String toolInput) {
-                return call(toolInput, null);
-            }
-
-            @Override
-            public String call(String toolInput, @Nullable ToolContext toolContext) {
-                skipChecksSeenInside.set(AutomationAuthorizationContext.isSkipChecks());
-
-                return "ok";
-            }
-        };
-
-        SecurityContextRehydrator securityContextRehydrator = mock(SecurityContextRehydrator.class);
-
-        when(securityContextRehydrator.withUserSecurityContext(any(), any())).thenAnswer(
-            invocation -> invocation.<Supplier<?>>getArgument(1)
-                .get());
-
-        ToolCallback wrapped = RehydrateContextToolCallback.wrap(probe, securityContextRehydrator);
-
         ExecutorService executorService = Executors.newSingleThreadExecutor();
 
         try {
-            executorService.submit(() -> wrapped.call("{}", new ToolContext(toolContext)))
+            Map<String, Object> toolContext = executorService.submit(
+                () -> CopilotToolContextUtils.toToolContext(new State(stateMap)))
                 .get(10, TimeUnit.SECONDS);
+
+            assertThat(toolContext).doesNotContainKey("bytechef.agentTool.skipAutomationAuthorization");
         } finally {
             executorService.shutdownNow();
         }
+    }
 
-        return skipChecksSeenInside.get();
+    @Test
+    void testCarriesNoSkipModeEvenWhenTheThreadLocalIsArmed() throws Throwable {
+        // A caller that happens to be inside callSkippingChecks when the tool context is built must not leak that
+        // into the context and re-arm it on a worker. Nothing reads the thread-local here, and this says so.
+        Map<String, Object> stateMap = new HashMap<>();
+
+        stateMap.put(CopilotConstants.STATE_AUTHENTICATION, new UsernamePasswordAuthenticationToken("cu", ""));
+
+        Map<String, Object> unarmed = CopilotToolContextUtils.toToolContext(new State(stateMap));
+
+        Map<String, Object> armed = AutomationAuthorizationContext.callSkippingChecks(
+            () -> CopilotToolContextUtils.toToolContext(new State(stateMap)));
+
+        assertThat(armed).isEqualTo(unarmed);
+        assertThat(armed).doesNotContainKey("bytechef.agentTool.skipAutomationAuthorization");
     }
 
     @Test
