@@ -35,12 +35,12 @@ describe('useAiSkillsTagFilterGroups', () => {
         resetAll();
     });
 
-    it('offers only the all-tags option while the tags query has not resolved', () => {
+    it('offers no facet at all while the tags query has not resolved', () => {
         useAiSkillTagsQueryMock.mockReturnValue({data: undefined});
 
         const {result} = renderTagFilterGroups();
 
-        expect(result.current.group.options).toEqual([{label: 'All tags', value: ALL_TAGS}]);
+        expect(result.current.group).toBeUndefined();
     });
 
     it('lists every tag after the all-tags option', () => {
@@ -63,7 +63,7 @@ describe('useAiSkillsTagFilterGroups', () => {
     });
 
     it('sits on the all-tags value when the url carries no tagId', () => {
-        useAiSkillTagsQueryMock.mockReturnValue({data: {aiSkillTags: []}});
+        useAiSkillTagsQueryMock.mockReturnValue({data: {aiSkillTags: [{id: '1', name: 'Billing'}]}});
 
         const {result} = renderTagFilterGroups();
 
