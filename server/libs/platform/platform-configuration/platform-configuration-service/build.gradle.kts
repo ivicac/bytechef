@@ -21,10 +21,11 @@ dependencies {
     implementation(project(":server:libs:platform:platform-file-storage:platform-file-storage-impl"))
     implementation(project(":server:libs:platform:platform-mail"))
     implementation(project(":server:libs:platform:platform-oauth2:platform-oauth2-api"))
+    implementation(project(":server:libs:platform:platform-security-web:platform-security-web-api"))
     implementation(project(":server:libs:platform:platform-user:platform-user-api"))
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-validator:platform-workflow-validator-api"))
 
-    testImplementation("org.springframework.security:spring-security-core")
+    testImplementation("org.springframework.security:spring-security-config")
     testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-repository:atlas-configuration-repository-jdbc"))
     testImplementation(project(":server:libs:atlas:atlas-configuration:atlas-configuration-service"))
     testImplementation(project(":server:libs:config:eval-config"))
