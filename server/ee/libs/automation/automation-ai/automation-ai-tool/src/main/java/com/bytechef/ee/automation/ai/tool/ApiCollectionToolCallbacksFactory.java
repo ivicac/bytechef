@@ -14,19 +14,7 @@ import java.util.List;
 import org.springframework.ai.tool.ToolCallback;
 
 /**
- * Builds the API Collection tool-callback lists shared by the Copilot panel agents ({@code api_collection_ask} /
- * {@code api_collection_build}). Read list feeds ASK; write list feeds BUILD.
- *
- * <p>
- * This factory is now also the sole source for the AI Hub ASK/BUILD agents (via
- * {@code AiHubConfiguration#apiCollectionFlatCrudToolCallbacks}) and the management MCP server (via
- * {@code ApiCollectionAgentConfiguration#apiCollectionFlatCrudMcpContributor}). The former {@code api_collection_agent}
- * delegate (dissolved ticket 732, Task 2 of the CRUD-delegate unwind), which used to construct its own independent tool
- * list wrapping the same three {@link ToolCallback} classes, is gone — this factory is no longer merely additive to it.
- * </p>
- *
  * @version ee
- *
  * @author Ivica Cardic
  */
 public class ApiCollectionToolCallbacksFactory {
@@ -50,7 +38,6 @@ public class ApiCollectionToolCallbacksFactory {
         List<ToolCallback> toolCallbacks = new ArrayList<>(readToolCallbacks());
 
         toolCallbacks.add(new CreateApiCollectionToolCallback(apiCollectionFacade));
-        toolCallbacks.add(new CloneApiCollectionToolCallback(apiCollectionFacade));
 
         return toolCallbacks;
     }
