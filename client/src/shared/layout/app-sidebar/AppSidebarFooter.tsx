@@ -68,6 +68,9 @@ export function AppSidebarFooter() {
     const handleLogOutClick = async () => {
         analytics.reset();
 
+        // Cancel rather than reset: resetting refetches every active query, and those refetches race
+        // the log out request, so whichever ones land after the session is gone come back
+        // unauthenticated. Nothing is worth re-reading on the way out — drop the cache instead.
         await queryClient.cancelQueries();
 
         await logout();
@@ -108,9 +111,13 @@ export function AppSidebarFooter() {
     return (
         <DropdownMenu>
             <DropdownMenuTrigger asChild>
+                {/* mx-auto: collapsed, the button shrinks to size-8 inside a rail wider than 32px, so without
+                    it the avatar sits flush left and reads as off-centre against the nav icons above, which
+                    their own menu buttons centre. */}
+
                 <button
                     aria-label="User menu"
-                    className="flex h-12 w-full items-center gap-2 rounded-md px-[3px] py-2 text-left group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:p-0 hover:bg-sidebar-accent"
+                    className="flex h-12 w-full items-center gap-2 rounded-md px-[3px] py-2 text-left group-data-[collapsible=icon]:mx-auto group-data-[collapsible=icon]:size-8 group-data-[collapsible=icon]:justify-center group-data-[collapsible=icon]:rounded-full group-data-[collapsible=icon]:p-0 hover:bg-sidebar-accent"
                     type="button"
                 >
                     <Avatar className="shrink-0">
