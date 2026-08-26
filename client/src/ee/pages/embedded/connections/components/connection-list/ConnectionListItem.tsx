@@ -88,7 +88,7 @@ const ConnectionListItem = ({componentDefinitions, connection, remainingTags}: C
     return (
         <li className="mb-2 rounded border border-border/50" key={connection.id}>
             <>
-                <div className="group flex items-center rounded-md bg-surface-neutral-primary px-3 hover:bg-surface-neutral-primary-hover">
+                <div className="group flex items-center rounded-md bg-surface-neutral-primary px-3 hover:bg-destructive-foreground">
                     <div className="flex flex-1 items-center py-3">
                         <div className="flex-1">
                             <div className="flex min-h-8 items-center justify-between">
@@ -138,15 +138,6 @@ const ConnectionListItem = ({componentDefinitions, connection, remainingTags}: C
                                             className="uppercase"
                                             label={connection.credentialStatus ?? 'INVALID'}
                                             styleType="destructive-outline"
-                                            weight="semibold"
-                                        />
-                                    )}
-
-                                    {connection.shared && (
-                                        <Badge
-                                            className="uppercase"
-                                            label="Shared"
-                                            styleType="secondary-outline"
                                             weight="semibold"
                                         />
                                     )}
@@ -226,7 +217,6 @@ const ConnectionListItem = ({componentDefinitions, connection, remainingTags}: C
                         connectionTagsQueryKey={ConnectionKeys.connectionTags}
                         connectionsQueryKey={ConnectionKeys.connections}
                         onClose={() => setShowEditDialog(false)}
-                        showSharedOption
                         useGetConnectionTagsQuery={useGetConnectionTagsQuery}
                         useUpdateConnectionMutation={useUpdateConnectionMutation}
                     />
