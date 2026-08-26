@@ -13,7 +13,6 @@ import {
     MessageSquareIcon,
     MessagesSquareIcon,
     NetworkIcon,
-    NotebookPenIcon,
     RouterIcon,
     ServerIcon,
     Settings2Icon,
@@ -110,7 +109,6 @@ export const automationNavigation: NavigationItemI[] = [
         icon: FileTextIcon,
         name: 'Files',
     },
-    {group: 'AI', href: '/automation/ai/memories', icon: NotebookPenIcon, name: 'Memories'},
 ];
 
 export const embeddedNavigation: NavigationItemI[] = [
