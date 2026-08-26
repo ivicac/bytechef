@@ -303,6 +303,8 @@ public class WorkflowNodeOutputFacadeImpl implements WorkflowNodeOutputFacade {
                 .flatMap(List::stream)
                 .map(WorkflowTask::new)
                 .toList();
+        } else if (Objects.equals(workflowNodeType.name(), "graph")) {
+            return getWorkflowTaskList(workflowTask.getParameters(), "nodes");
         } else {
             return getWorkflowTaskList(workflowTask.getParameters(), "iteratee");
         }
