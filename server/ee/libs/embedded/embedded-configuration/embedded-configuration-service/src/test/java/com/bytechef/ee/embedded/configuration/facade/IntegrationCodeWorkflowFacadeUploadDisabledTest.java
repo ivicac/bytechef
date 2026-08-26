@@ -25,6 +25,7 @@ import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowC
 import com.bytechef.ee.platform.codeworkflow.file.storage.CodeWorkflowFileStorage;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.tag.service.TagService;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.CacheManager;
 
@@ -42,11 +43,6 @@ class IntegrationCodeWorkflowFacadeUploadDisabledTest {
      * {@code javaEnabled} is deliberately TRUE. With it false, a rejection would be explained equally well by the
      * Java-disabled guard that sits immediately above, and this test would pass whether or not the Ruby guard exists.
      * Enabling Java removes that alternative, so the only thing that can reject a Ruby upload is the guard under test.
-     *
-     * <p>
-     * RUBY-DISABLED: delete this test when Ruby is restored. Until then it closes the last hole in the disable — the
-     * create-empty path refused Ruby and the client dropped {@code .rb} from its accept lists, but a direct API caller
-     * could still deploy a Ruby workflow the polyglot loader cannot run.
      */
     @Test
     void testSaveRejectsRubyUploadEvenWhenJavaIsEnabled() {
@@ -59,7 +55,7 @@ class IntegrationCodeWorkflowFacadeUploadDisabledTest {
             applicationProperties(true), mock(CacheManager.class), codeWorkflowContainerFacade,
             integrationCodeWorkflowService, integrationService, integrationWorkflowService,
             mock(CodeWorkflowContainerService.class), mock(CodeWorkflowFileStorage.class), mock(TagService.class),
-            mock(WorkflowService.class));
+            mock(WorkflowService.class), List.of());
 
         assertThatThrownBy(() -> integrationCodeWorkflowFacade.save(new byte[0], Language.RUBY))
             .isInstanceOf(ConfigurationException.class)
