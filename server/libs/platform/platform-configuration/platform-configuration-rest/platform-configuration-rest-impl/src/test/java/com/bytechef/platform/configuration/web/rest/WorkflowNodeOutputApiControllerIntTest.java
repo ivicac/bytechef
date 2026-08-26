@@ -16,6 +16,11 @@
 
 package com.bytechef.platform.configuration.web.rest;
 
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType;
@@ -25,12 +30,20 @@ import com.bytechef.platform.configuration.dto.ClusterElementOutputDTO;
 import com.bytechef.platform.configuration.facade.WorkflowNodeOutputFacade;
 import com.bytechef.platform.configuration.web.rest.config.PlatformConfigurationRestTestConfiguration;
 import com.bytechef.platform.configuration.web.rest.config.WorkflowConfigurationRestTestConfigurationSharedMocks;
+import com.bytechef.platform.security.web.authentication.AbstractApiKeyAuthenticationToken;
+import java.util.List;
 import java.util.Map;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.http.MediaType;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.User;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.web.reactive.server.WebTestClient;
 import org.springframework.test.web.servlet.MockMvc;
@@ -44,11 +57,16 @@ import org.springframework.test.web.servlet.client.MockMvcWebTestClient;
 @WorkflowConfigurationRestTestConfigurationSharedMocks
 class WorkflowNodeOutputApiControllerIntTest {
 
+    private static final long DEVELOPMENT_ORDINAL = 0L;
     private static final long ENVIRONMENT_ID = 1L;
+    private static final long PRODUCTION_ORDINAL = 2L;
     private static final String WORKFLOW_ID = "workflow1";
 
     @Autowired
     private MockMvc mockMvc;
+
+    @Autowired
+    private WorkflowNodeOutputApiController workflowNodeOutputApiController;
 
     @Autowired
     private WorkflowNodeOutputFacade workflowNodeOutputFacade;
@@ -59,6 +77,11 @@ class WorkflowNodeOutputApiControllerIntTest {
     void beforeEach() {
         webTestClient = MockMvcWebTestClient.bindTo(mockMvc)
             .build();
+    }
+
+    @AfterEach
+    void afterEach() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -101,6 +124,52 @@ class WorkflowNodeOutputApiControllerIntTest {
             .isNotFound();
     }
 
+    @Test
+    void testGetPreviousWorkflowNodeOutputsUsesConfinedPrincipalEnvironmentForBothEvictionAndRead() {
+        authenticate(new TestApiKeyAuthenticationToken(PRODUCTION_ORDINAL, user()));
+
+        when(workflowNodeOutputFacade.getPreviousWorkflowNodeOutputs(anyString(), anyString(), anyLong()))
+            .thenReturn(List.of());
+
+        workflowNodeOutputApiController.getPreviousWorkflowNodeOutputs("workflow-1", DEVELOPMENT_ORDINAL, "node-1");
+
+        assertEvictionAndReadEnvironmentId(PRODUCTION_ORDINAL);
+    }
+
+    @Test
+    void testGetPreviousWorkflowNodeOutputsHonoursSessionPrincipalRequestedEnvironmentForBoth() {
+        authenticate(new UsernamePasswordAuthenticationToken("admin@localhost.com", "n/a", List.of()));
+
+        when(workflowNodeOutputFacade.getPreviousWorkflowNodeOutputs(anyString(), anyString(), anyLong()))
+            .thenReturn(List.of());
+
+        workflowNodeOutputApiController.getPreviousWorkflowNodeOutputs("workflow-1", DEVELOPMENT_ORDINAL, "node-1");
+
+        assertEvictionAndReadEnvironmentId(DEVELOPMENT_ORDINAL);
+    }
+
+    private void assertEvictionAndReadEnvironmentId(long expectedEnvironmentId) {
+        ArgumentCaptor<Long> evictionEnvironmentIdCaptor = ArgumentCaptor.forClass(Long.class);
+        ArgumentCaptor<Long> readEnvironmentIdCaptor = ArgumentCaptor.forClass(Long.class);
+
+        verify(workflowNodeOutputFacade).checkWorkflowCache(
+            eq("workflow-1"), eq("node-1"), evictionEnvironmentIdCaptor.capture());
+        verify(workflowNodeOutputFacade).getPreviousWorkflowNodeOutputs(
+            eq("workflow-1"), eq("node-1"), readEnvironmentIdCaptor.capture());
+
+        assertThat(evictionEnvironmentIdCaptor.getValue()).isEqualTo(expectedEnvironmentId);
+        assertThat(readEnvironmentIdCaptor.getValue()).isEqualTo(expectedEnvironmentId);
+    }
+
+    private static void authenticate(Authentication authentication) {
+        SecurityContextHolder.getContext()
+            .setAuthentication(authentication);
+    }
+
+    private static User user() {
+        return new User("connected-user-1", "", List.of());
+    }
+
     private WebTestClient.BodyContentSpec getClusterElementOutput() {
         return webTestClient
             .get()
@@ -128,5 +197,12 @@ class WorkflowNodeOutputApiControllerIntTest {
 
         when(workflowNodeOutputFacade.getClusterElementOutput(
             WORKFLOW_ID, "aiAgent_1", "tools", "hubspot_1", ENVIRONMENT_ID)).thenReturn(clusterElementOutputDTO);
+    }
+
+    private static final class TestApiKeyAuthenticationToken extends AbstractApiKeyAuthenticationToken {
+
+        private TestApiKeyAuthenticationToken(long environmentId, User user) {
+            super(environmentId, user);
+        }
     }
 }

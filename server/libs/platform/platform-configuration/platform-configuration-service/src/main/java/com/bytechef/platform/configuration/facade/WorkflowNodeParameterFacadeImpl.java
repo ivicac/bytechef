@@ -42,6 +42,7 @@ import com.bytechef.platform.configuration.dto.DisplayConditionResultDTO;
 import com.bytechef.platform.configuration.dto.ParameterResultDTO;
 import com.bytechef.platform.definition.WorkflowNodeType;
 import com.bytechef.platform.domain.BaseProperty;
+import com.bytechef.platform.security.web.authentication.PrincipalEnvironment;
 import com.bytechef.platform.workflow.task.dispatcher.domain.TaskDispatcherDefinition;
 import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -760,28 +761,18 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
         }
     }
 
-    private @Nullable WorkflowNodeStructure fetchWorkflowNodeStructure(
-        String workflowNodeName, Map<String, ?> definitionMap) {
-
-        try {
-            return getWorkflowNodeStructure(workflowNodeName, null, null, definitionMap);
-        } catch (IllegalArgumentException illegalArgumentException) {
-            if (log.isDebugEnabled()) {
-                log.debug(
-                    "Definition of node {} is not available: {}", workflowNodeName,
-                    illegalArgumentException.getMessage());
-            }
-
-            return null;
-        }
-    }
-
+    // All six callers of this helper are gated with hasPermission(#workflowId, 'Workflow', ...), which is
+    // environment-agnostic, so the caller-supplied environmentId reaching them is never checked. Resolved once here,
+    // the single place it is consumed by all of them, rather than duplicated at each call site. See
+    // PrincipalEnvironment.
     private WorkflowTestContext fetchWorkflowTestContext(
         Workflow workflow, String workflowNodeName,
         WorkflowNodeStructure.OperationType operationType, long environmentId) {
 
+        long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);
+
         Map<String, ?> inputMap = workflowEvaluationInputsFacade.getEvaluationInputs(
-            workflow.getId(), environmentId);
+            workflow.getId(), effectiveEnvironmentId);
 
         Map<String, ?> previousOutputs = Map.of();
 
@@ -793,7 +784,7 @@ public class WorkflowNodeParameterFacadeImpl implements WorkflowNodeParameterFac
 
             if (workflowTask != null) {
                 previousOutputs = workflowNodeOutputFacade.getPreviousWorkflowNodeSampleOutputs(
-                    workflow.getId(), workflowTask.getName(), environmentId);
+                    workflow.getId(), workflowTask.getName(), effectiveEnvironmentId);
             }
         }
 
