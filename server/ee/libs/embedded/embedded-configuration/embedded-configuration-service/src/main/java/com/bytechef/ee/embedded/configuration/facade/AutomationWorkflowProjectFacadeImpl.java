@@ -110,8 +110,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         WorkflowNodeTestOutputService workflowNodeTestOutputService, WorkflowService workflowService,
         WorkflowTestConfigurationService workflowTestConfigurationService,
         List<WorkflowPreDeleteListener> workflowPreDeleteListeners) {
-        this.applicationEventPublisher = applicationEventPublisher;
-        this.automationWorkflowProjectService = automationWorkflowProjectService;
+
         this.categoryService = categoryService;
         this.connectedUserService = connectedUserService;
         this.embeddedPermissionEvaluator = embeddedPermissionEvaluator;
