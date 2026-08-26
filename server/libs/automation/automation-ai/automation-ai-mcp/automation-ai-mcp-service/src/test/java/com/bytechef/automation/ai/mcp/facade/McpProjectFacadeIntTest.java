@@ -212,6 +212,7 @@ class McpProjectFacadeIntTest {
         projectDeployment.setEnvironment(Environment.DEVELOPMENT);
         projectDeployment.setProjectId(project.getId());
         projectDeployment.setProjectVersion(1);
+        projectDeployment.setUuid(UUID.randomUUID());
 
         projectDeployment = projectDeploymentRepository.save(projectDeployment);
     }
@@ -247,12 +248,52 @@ class McpProjectFacadeIntTest {
     }
 
     @Test
-    public void testCreateMcpProjectUsesMcpServerEnvironment() {
-        McpServer productionMcpServer = mcpServerRepository.save(
-            new McpServer("production-server", PlatformType.AUTOMATION, Environment.PRODUCTION));
+    void testCreateMcpProjectRejectsWorkflowWithoutCallableTrigger() {
+        String webhookWorkflowId = createProjectVersionWebhookWorkflow();
+        long mcpServerId = mcpServer.getId();
+        long projectId = project.getId();
+        List<String> selectedWorkflowIds = List.of(workflowId1, webhookWorkflowId);
+
+        try {
+            assertThatThrownBy(() -> mcpProjectFacade.createMcpProject(mcpServerId, projectId, 1, selectedWorkflowIds))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(webhookWorkflowId)
+                .hasMessageContaining("New Workflow Call");
+
+            assertThat(mcpProjectRepository.count()).isZero();
+        } finally {
+            McpIntTestWorkflows.deleteWorkflows(workflowService, List.of(webhookWorkflowId));
+        }
+    }
+
+    @Test
+    void testUpdateMcpProjectRejectsAddedWorkflowWithoutCallableTrigger() {
+        McpProject mcpProject = mcpProjectFacade.createMcpProject(
+            mcpServer.getId(), project.getId(), 1, List.of(workflowId1));
+
+        String webhookWorkflowId = createProjectVersionWebhookWorkflow();
+        long mcpProjectId = mcpProject.getId();
+        List<String> selectedWorkflowIds = List.of(workflowId1, webhookWorkflowId);
+
+        try {
+            assertThatThrownBy(() -> mcpProjectFacade.updateMcpProject(mcpProjectId, selectedWorkflowIds))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining(webhookWorkflowId)
+                .hasMessageContaining("New Workflow Call");
+
+            assertThat(mcpProjectWorkflowRepository.findAllByMcpProjectId(mcpProjectId)).hasSize(1);
+        } finally {
+            McpIntTestWorkflows.deleteWorkflows(workflowService, List.of(webhookWorkflowId));
+        }
+    }
+
+    @Test
+    void testCreateMcpProjectUsesMcpServerEnvironment() {
+        McpServer productionMcpServer = saveMcpServer(
+            "production-server", Environment.PRODUCTION, project.getWorkspaceId());
 
         McpProject mcpProject = mcpProjectFacade.createMcpProject(
-            productionMcpServer.getId(), project.getId(), 1, List.of("workflow1"));
+            productionMcpServer.getId(), project.getId(), 1, List.of(workflowId1));
 
         ProjectDeployment mcpProjectDeployment = projectDeploymentRepository
             .findById(mcpProject.getProjectDeploymentId())
@@ -262,7 +303,19 @@ class McpProjectFacadeIntTest {
     }
 
     @Test
-    public void testCreateMcpProjectEmptyWorkflowList() {
+    void testCreateMcpProjectEnablesTheProjectDeployment() {
+        McpProject mcpProject = mcpProjectFacade.createMcpProject(
+            mcpServer.getId(), project.getId(), 1, List.of(workflowId1));
+
+        ProjectDeployment mcpProjectDeployment = projectDeploymentRepository
+            .findById(mcpProject.getProjectDeploymentId())
+            .orElseThrow();
+
+        assertThat(mcpProjectDeployment.isEnabled()).isTrue();
+    }
+
+    @Test
+    void testCreateMcpProjectEmptyWorkflowList() {
         List<String> selectedWorkflowIds = List.of();
 
         McpProject mcpProject = mcpProjectFacade.createMcpProject(
@@ -535,6 +588,7 @@ class McpProjectFacadeIntTest {
             unpublishedProjectDeployment.setName("unpublished-deployment");
             unpublishedProjectDeployment.setProjectId(unpublishedProject.getId());
             unpublishedProjectDeployment.setProjectVersion(1);
+            unpublishedProjectDeployment.setUuid(UUID.randomUUID());
 
             unpublishedProjectDeployment = projectDeploymentRepository.save(unpublishedProjectDeployment);
 

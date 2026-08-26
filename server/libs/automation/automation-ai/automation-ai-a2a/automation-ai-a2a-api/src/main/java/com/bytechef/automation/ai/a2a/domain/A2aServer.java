@@ -196,6 +196,10 @@ public final class A2aServer {
         this.name = Objects.requireNonNull(name, "name");
     }
 
+    public void setSecretKey(String secretKey) {
+        this.secretKey = secretKey;
+    }
+
     public void setUuid(UUID uuid) {
         this.uuid = uuid;
     }

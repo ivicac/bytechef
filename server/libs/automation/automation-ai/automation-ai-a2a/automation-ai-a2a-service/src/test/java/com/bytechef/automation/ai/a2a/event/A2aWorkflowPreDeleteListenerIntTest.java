@@ -202,6 +202,7 @@ class A2aWorkflowPreDeleteListenerIntTest {
         projectDeployment.setName("other-deployment");
         projectDeployment.setProjectId(project.getId());
         projectDeployment.setProjectVersion(1);
+        projectDeployment.setUuid(UUID.randomUUID());
 
         projectDeployment = projectDeploymentRepository.save(projectDeployment);
 
