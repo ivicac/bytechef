@@ -90,6 +90,7 @@ public class LLMConstants {
     public static final String VOICE = "voice";
     public static final String SPEED = "speed";
     public static final String STORE = "store";
+    public static final String WEB_SEARCH = "webSearch";
     public static final String WEIGHT = "weight";
 
     public static final ModifiableArrayProperty ATTACHMENTS_PROPERTY = array(ATTACHMENTS)
@@ -216,6 +217,19 @@ public class LLMConstants {
             option("medium", "medium"),
             option("high", "high"))
         .defaultValue("medium")
+        .advancedOption(true);
+
+    /**
+     * Provider-side web search, declared only by the model cluster elements whose provider actually implements it — an
+     * agent whose {@code settings.builtInTools.webSearchProvider} is {@code NATIVE} sets this key on its model element.
+     * Keep the providers that declare this property in step with
+     * {@code AiAgentSettings#NATIVE_WEB_SEARCH_MODEL_PROVIDERS}, which is what stops an agent from being published
+     * against a provider that would ignore it.
+     */
+    public static final ModifiableBooleanProperty WEB_SEARCH_PROPERTY = bool(WEB_SEARCH)
+        .label("Web Search")
+        .description("Let the model search the web itself, using the provider's own search tool.")
+        .defaultValue(false)
         .advancedOption(true);
 
     public static final ModifiableIntegerProperty TOP_K_PROPERTY = integer(TOP_K)
