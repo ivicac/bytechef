@@ -139,6 +139,9 @@ export const PATH_COLON_REPLACEMENT = '_COLON_';
 
 export const NODE_WIDTH = 240;
 export const NODE_HEIGHT = 100;
+
+// A task's three label lines stacked under its icon in LR, as TRIGGER_LABEL_BLOCK_HEIGHT in layoutUtils.
+export const LR_NODE_LABEL_BLOCK_HEIGHT = 64;
 export const PLACEHOLDER_NODE_HEIGHT = 28;
 export const PLACEHOLDER_NODE_WIDTH = 28;
 export const CLUSTER_ELEMENT_TYPE_TOOLS = 'tools';
