@@ -6,7 +6,6 @@ import getAiSkillsBasePath from '@/pages/automation/ai/skills/utils/getAiSkillsB
 import useOpenCopilot from '@/shared/components/copilot/hooks/useOpenCopilot';
 import {MODE, Source} from '@/shared/components/copilot/stores/useCopilotStore';
 import {useApplicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
-import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {ChevronDownIcon, PencilIcon, SparklesIcon, UploadIcon} from 'lucide-react';
 import {ReactNode, useState} from 'react';
 import {useLocation, useNavigate} from 'react-router-dom';
@@ -19,13 +18,10 @@ const AiSkillsCreateDropdown = ({trigger}: AiSkillsCreateDropdownProps = {}) => 
     const [showUploadDialog, setShowUploadDialog] = useState(false);
     const [showWriteDialog, setShowWriteDialog] = useState(false);
 
-    const ff_4554 = useFeatureFlagsStore()('ff-4554');
-
-    const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
-
     const location = useLocation();
     const navigate = useNavigate();
     const openCopilot = useOpenCopilot();
+    const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
 
     const handleCreated = (createdSkillId: string | null) => {
         if (createdSkillId) {
@@ -46,7 +42,7 @@ const AiSkillsCreateDropdown = ({trigger}: AiSkillsCreateDropdownProps = {}) => 
                 </DropdownMenuTrigger>
 
                 <DropdownMenuContent align="end" className="w-72">
-                    {ff_4554 && copilotEnabled && (
+                    {copilotEnabled && (
                         <DropdownMenuItem
                             className="flex flex-col items-start gap-0.5 p-3"
                             onClick={() =>
