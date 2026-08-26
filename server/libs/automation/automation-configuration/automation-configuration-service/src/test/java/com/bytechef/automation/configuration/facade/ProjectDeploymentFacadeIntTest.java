@@ -40,6 +40,7 @@ import com.bytechef.automation.configuration.config.ProjectIntTestConfiguration;
 import com.bytechef.automation.configuration.config.ProjectIntTestConfigurationSharedMocks;
 import com.bytechef.automation.configuration.domain.ProjectDeployment;
 import com.bytechef.automation.configuration.domain.ProjectWorkflow;
+import com.bytechef.automation.configuration.domain.SystemProjects;
 import com.bytechef.automation.configuration.domain.Workspace;
 import com.bytechef.automation.configuration.dto.ProjectDTO;
 import com.bytechef.automation.configuration.dto.ProjectDeploymentDTO;
@@ -67,6 +68,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import org.assertj.core.api.ThrowableAssert.ThrowingCallable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -85,6 +87,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
@@ -291,6 +294,51 @@ public class ProjectDeploymentFacadeIntTest {
             true);
 
         assertThat(workspaceProjectDeployments).hasSize(0);
+    }
+
+    /**
+     * Needs a principal because {@code filterOutSystemProjectDeployments} runs the project visibility filter as well as
+     * the system-name filter, and the resolver reads the current user's login. Scoped to this method rather than the
+     * class so the other tests here keep running without one.
+     */
+    @Test
+    @WithMockUser(username = "admin@localhost.com", authorities = AuthorityConstants.ADMIN)
+    public void testGetWorkspaceProjectDeploymentsExcludesSyntheticDeployments() {
+        ProjectDTO projectDTO = projectDeploymentFacadeHelper.createProject(workspace.getId());
+        ProjectDeploymentDTO visibleProjectDeploymentDTO =
+            projectDeploymentFacadeHelper.createProjectDeployment(workspace.getId(), projectDTO);
+
+        saveSyntheticProjectDeployment(
+            SystemProjects.API_COLLECTION_DEPLOYMENT_NAME_PREFIX, projectDTO.id(),
+            visibleProjectDeploymentDTO.projectVersion());
+        saveSyntheticProjectDeployment(
+            SystemProjects.MCP_SERVER_DEPLOYMENT_NAME_PREFIX, projectDTO.id(),
+            visibleProjectDeploymentDTO.projectVersion());
+        saveSyntheticProjectDeployment(
+            SystemProjects.A2A_SERVER_DEPLOYMENT_NAME_PREFIX, projectDTO.id(),
+            visibleProjectDeploymentDTO.projectVersion());
+
+        List<ProjectDeploymentDTO> workspaceProjectDeployments = projectDeploymentFacade.getWorkspaceProjectDeployments(
+            workspace.getId(), (long) Environment.DEVELOPMENT.ordinal(), projectDTO.id(), null, true);
+
+        assertThat(workspaceProjectDeployments)
+            .hasSize(1)
+            .first()
+            .satisfies(
+                projectDeployment -> assertThat(projectDeployment.id()).isEqualTo(visibleProjectDeploymentDTO.id()));
+    }
+
+    private void saveSyntheticProjectDeployment(String namePrefix, long projectId, int projectVersion) {
+        ProjectDeployment syntheticProjectDeployment = new ProjectDeployment();
+
+        syntheticProjectDeployment.setName(namePrefix + projectId + "_v" + projectVersion);
+        syntheticProjectDeployment.setProjectId(projectId);
+        syntheticProjectDeployment.setProjectVersion(projectVersion);
+        syntheticProjectDeployment.setEnvironment(Environment.DEVELOPMENT);
+        syntheticProjectDeployment.setEnabled(true);
+        syntheticProjectDeployment.setUuid(UUID.randomUUID());
+
+        projectDeploymentRepository.save(syntheticProjectDeployment);
     }
 
     @Test
