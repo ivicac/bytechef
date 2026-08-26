@@ -40,6 +40,7 @@ import com.bytechef.ee.embedded.configuration.dto.ConnectedUserProjectDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserProjectWorkflowDTO;
 import com.bytechef.ee.embedded.configuration.dto.ConnectedUserWorkflowTemplateDTO;
 import com.bytechef.ee.embedded.configuration.dto.CopilotChatContextDTO;
+import com.bytechef.ee.embedded.configuration.exception.CodeWorkflowNotCopyableException;
 import com.bytechef.ee.embedded.configuration.exception.ConnectedUserProjectWorkflowErrorType;
 import com.bytechef.ee.embedded.configuration.exception.InvalidWorkflowException;
 import com.bytechef.ee.embedded.configuration.facade.ConnectedUserReferenceAttentionResolver.ReferenceState;
@@ -216,6 +217,10 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
         }
 
         AutomationWorkflowProjectDTO releasedProject = releasedProjectOptional.get();
+
+        if (releasedProject.codeWorkflowProject()) {
+            throw new CodeWorkflowNotCopyableException(workflowUuid);
+        }
 
         ConnectedUserProject connectedUserProject = connectedUserProjectWorkflowManager.getOrCreateConnectedUserProject(
             externalUserId, environment);
@@ -524,10 +529,16 @@ public class ConnectedUserProjectFacadeImpl implements ConnectedUserProjectFacad
     @Override
     public CopilotChatContextDTO prepareCopilotChat(
         String externalUserId, String workflowUuid, Environment environment) {
+
+        // Take the workflow id from the row the ownership check just validated, rather than re-fetching it globally.
+        // The check is project-scoped (getLastProjectWorkflow(projectId, uuid)) while getLastWorkflowId(uuid) is not;
+        // the two agree today only because project_workflow.uuid is per-lineage, which is a property no caller here
+        // states or enforces. Reading the validated row removes the divergence instead of relying on it.
         ConnectedUserProjectWorkflowDTO connectedUserProjectWorkflowDTO = getConnectedUserProjectWorkflow(
             externalUserId, workflowUuid, (long) environment.ordinal());
 
-        String workflowId = projectWorkflowService.getLastWorkflowId(workflowUuid);
+        String workflowId = connectedUserProjectWorkflowDTO.workflow()
+            .getId();
 
         Set<String> allowedComponentNames = resolveAllowedComponentNames(environment);
 
