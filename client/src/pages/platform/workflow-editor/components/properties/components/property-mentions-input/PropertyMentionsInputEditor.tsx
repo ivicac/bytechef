@@ -321,7 +321,7 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
                 transformedValue = transformValueForObjectAccess(transformedValue);
 
                 // An empty formula field is NOT the expression `=`. Prefixing it anyway persisted a bare
-                // `=`, which reads downstream as a condition that is present but never true - a graph
+                // `=`, which reads downstream as a condition that is present but never true — a graph
                 // transition carrying one was skipped by the conditional pass for evaluating falsy and
                 // by the unconditional pass for having a condition at all, and its node quietly
                 // stranded. Nothing typed means nothing saved.
@@ -620,10 +620,11 @@ const PropertyMentionsInputEditor = forwardRef<Editor, PropertyMentionsInputEdit
         // document the user is working in.
         //
         // `setContent` rebuilds the doc from scratch, so it drops the match the `$` and `=` suggestion
-        // plugins track, taking the popup down mid-keystroke, and it repaints the field from
+        // plugins track — the data pill popup vanished mid-keystroke — and it repaints the field from
         // `editorValue`, which is empty whenever this reruns against a value the panel has not caught
-        // up with yet. `isLocalUpdate` alone did not cover it: it says the last change came from here,
-        // not that the user is still in the field.
+        // up with yet. That left a condition looking blank while the edge beside it showed the
+        // expression saved perfectly well. `isLocalUpdate` alone did not cover it: it says the last
+        // change came from here, not that the user is still in the field.
         useEffect(() => {
             if (!editor || isLocalUpdate || memoizedContent === undefined) {
                 return;
