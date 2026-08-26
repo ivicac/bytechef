@@ -42,6 +42,30 @@ import org.springframework.ai.chat.memory.ChatMemory;
 import org.springframework.ai.chat.messages.ToolResponseMessage;
 
 /**
+ * Base class for every Copilot AG-UI agent. It exists to re-bind, on the agent's own worker thread, the per-request
+ * context that thread cannot inherit: {@link TenantContext} and {@link EnvironmentContext}.
+ *
+ * <p>
+ * {@code LocalAgent.runAgent} dispatches the agent body through a bare {@code CompletableFuture.runAsync} with no
+ * executor argument, so {@link #run} executes on a {@code ForkJoinPool.commonPool()} worker. Both context holders are
+ * plain, non-inheritable {@code ThreadLocal}s, and {@code TenantContext}'s initial value is
+ * {@code TenantContext.DEFAULT_TENANT_ID} — so without this binding every query issued from the agent body silently
+ * reads the {@code public} schema instead of the caller's. Nothing throws and nothing logs; the run simply sees the
+ * wrong tenant's data. Reactor's automatic context propagation does not rescue it: it acts at Reactor scheduler
+ * boundaries, and the request-to-agent hop is a plain {@code CompletableFuture}, so the {@code .contextCapture()} in
+ * {@code SpringAIAgent.run} captures on a worker that has already lost the tenant.
+ *
+ * <p>
+ * This is the single point that covers the whole family, deliberately in preference to per-agent overrides that a new
+ * agent can forget: every Copilot agent extends this class, and {@code SpringAIAgent.run} — the body handed to
+ * {@code runAsync} — is only reachable through {@link #run} here.
+ *
+ * <p>
+ * Both bindings save the previous value and restore it in a {@code finally}. The common pool is shared with unrelated
+ * work, so a leaked binding would contaminate whatever runs next on that thread. Restoring rather than clearing also
+ * makes the binding safely re-entrant with {@code RehydrateContextToolCallback}, which performs the same save/set/
+ * restore around each tool call further down the stack.
+ *
  * @author Ivica Cardic
  */
 public abstract class CopilotSpringAIAgent extends SpringAIAgent {
@@ -62,8 +86,14 @@ public abstract class CopilotSpringAIAgent extends SpringAIAgent {
     }
 
     @Override
-    protected void run(RunAgentInput input, AgentSubscriber subscriber) {
-        runWithTenant(input, () -> runWithEnvironment(input, () -> super.run(input, subscriber)));
+    protected final void run(RunAgentInput input, AgentSubscriber subscriber) {
+        AgentSubscriber decoratedSubscriber = decorateSubscriber(subscriber);
+
+        runWithTenant(input, () -> runWithEnvironment(input, () -> super.run(input, decoratedSubscriber)));
+    }
+
+    protected AgentSubscriber decorateSubscriber(AgentSubscriber subscriber) {
+        return subscriber;
     }
 
     void runWithTenant(RunAgentInput input, Runnable action) {
@@ -114,7 +144,7 @@ public abstract class CopilotSpringAIAgent extends SpringAIAgent {
     }
 
     @Override
-    protected ChatClient resolveChatClient(RunAgentInput input) {
+    protected ChatClient resolveChatClient(RunAgentInput input) throws AGUIException {
         if (overrideChatClientResolver == null) {
             return super.resolveChatClient(input);
         }
@@ -125,6 +155,8 @@ public abstract class CopilotSpringAIAgent extends SpringAIAgent {
             if (override != null) {
                 return override;
             }
+        } catch (SelectedChatModelUnavailableException exception) {
+            throw new AGUIException(exception.getMessage(), exception);
         } catch (RuntimeException exception) {
             log.warn(
                 "{}: override ChatClient resolver threw; falling back to default.", getClass().getSimpleName(),
