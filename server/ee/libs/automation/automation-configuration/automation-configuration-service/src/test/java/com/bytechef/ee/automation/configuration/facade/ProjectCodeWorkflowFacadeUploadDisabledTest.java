@@ -25,6 +25,7 @@ import com.bytechef.ee.platform.codeworkflow.configuration.service.CodeWorkflowC
 import com.bytechef.ee.platform.codeworkflow.file.storage.CodeWorkflowFileStorage;
 import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.tag.service.TagService;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.springframework.cache.CacheManager;
 
@@ -49,7 +50,7 @@ class ProjectCodeWorkflowFacadeUploadDisabledTest {
         ProjectCodeWorkflowFacadeImpl projectCodeWorkflowFacade = new ProjectCodeWorkflowFacadeImpl(
             applicationProperties(false), mock(CacheManager.class), projectService, projectWorkflowService,
             codeWorkflowContainerFacade, projectCodeWorkflowService, mock(CodeWorkflowContainerService.class),
-            mock(CodeWorkflowFileStorage.class), mock(TagService.class), mock(WorkflowService.class));
+            mock(CodeWorkflowFileStorage.class), mock(TagService.class), mock(WorkflowService.class), List.of());
 
         assertThatThrownBy(() -> projectCodeWorkflowFacade.save(1L, new byte[0], Language.JAVA))
             .isInstanceOf(ConfigurationException.class)
@@ -74,7 +75,7 @@ class ProjectCodeWorkflowFacadeUploadDisabledTest {
         ProjectCodeWorkflowFacadeImpl projectCodeWorkflowFacade = new ProjectCodeWorkflowFacadeImpl(
             applicationProperties(false), mock(CacheManager.class), projectService, projectWorkflowService,
             codeWorkflowContainerFacade, projectCodeWorkflowService, mock(CodeWorkflowContainerService.class),
-            mock(CodeWorkflowFileStorage.class), mock(TagService.class), mock(WorkflowService.class));
+            mock(CodeWorkflowFileStorage.class), mock(TagService.class), mock(WorkflowService.class), List.of());
 
         // A JavaScript upload gets past the Java-only disable guard; it may still fail downstream on the empty payload,
         // but never with the disabled ConfigurationException.
@@ -86,11 +87,6 @@ class ProjectCodeWorkflowFacadeUploadDisabledTest {
      * {@code javaEnabled} is deliberately TRUE here. With it false, a rejection would be explained equally well by the
      * Java guard above, and this test would pass whether or not the Ruby guard exists. Enabling Java removes that
      * alternative, so the only thing that can reject a Ruby upload is the guard under test.
-     *
-     * <p>
-     * RUBY-DISABLED: delete this test when Ruby is restored. Until then it closes the last hole in the disable —
-     * create-empty refused Ruby and the client dropped {@code .rb} from its accept lists, but a direct API caller could
-     * still deploy a Ruby workflow the polyglot loader cannot run.
      */
     @Test
     void testSaveRejectsRubyUploadEvenWhenJavaIsEnabled() {
@@ -102,7 +98,7 @@ class ProjectCodeWorkflowFacadeUploadDisabledTest {
         ProjectCodeWorkflowFacadeImpl projectCodeWorkflowFacade = new ProjectCodeWorkflowFacadeImpl(
             applicationProperties(true), mock(CacheManager.class), projectService, projectWorkflowService,
             codeWorkflowContainerFacade, projectCodeWorkflowService, mock(CodeWorkflowContainerService.class),
-            mock(CodeWorkflowFileStorage.class), mock(TagService.class), mock(WorkflowService.class));
+            mock(CodeWorkflowFileStorage.class), mock(TagService.class), mock(WorkflowService.class), List.of());
 
         assertThatThrownBy(() -> projectCodeWorkflowFacade.save(1L, new byte[0], Language.RUBY))
             .isInstanceOf(ConfigurationException.class)

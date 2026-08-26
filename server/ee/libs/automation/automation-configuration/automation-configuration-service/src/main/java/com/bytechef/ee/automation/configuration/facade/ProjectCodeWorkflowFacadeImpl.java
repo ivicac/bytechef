@@ -27,6 +27,7 @@ import com.bytechef.exception.ConfigurationException;
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
 import com.bytechef.platform.category.domain.Category;
 import com.bytechef.platform.codeworkflow.loader.automation.ProjectHandlerLoader;
+import com.bytechef.platform.configuration.workflow.WorkflowPreDeleteListener;
 import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.tag.domain.Tag;
@@ -77,6 +78,7 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
     private final CodeWorkflowContainerService codeWorkflowContainerService;
     private final CodeWorkflowFileStorage codeWorkflowFileStorage;
     private final TagService tagService;
+    private final List<WorkflowPreDeleteListener> workflowPreDeleteListeners;
     private final WorkflowService workflowService;
     private final boolean javaEnabled;
 
@@ -86,7 +88,8 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
         ProjectWorkflowService projectWorkflowService, CodeWorkflowContainerFacade codeWorkflowContainerFacade,
         ProjectCodeWorkflowService projectCodeWorkflowService,
         CodeWorkflowContainerService codeWorkflowContainerService,
-        CodeWorkflowFileStorage codeWorkflowFileStorage, TagService tagService, WorkflowService workflowService) {
+        CodeWorkflowFileStorage codeWorkflowFileStorage, TagService tagService, WorkflowService workflowService,
+        List<WorkflowPreDeleteListener> workflowPreDeleteListeners) {
 
         this.cacheManager = cacheManager;
         this.projectService = projectService;
@@ -97,6 +100,7 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
         this.codeWorkflowFileStorage = codeWorkflowFileStorage;
         this.tagService = tagService;
         this.workflowService = workflowService;
+        this.workflowPreDeleteListeners = workflowPreDeleteListeners;
         this.javaEnabled = applicationProperties.getWorkflow()
             .getCodeWorkflow()
             .isJavaEnabled();
@@ -125,21 +129,13 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
         @Nullable List<String> tags) {
         validateName(name);
 
-        // RUBY-DISABLED: RUBY is dropped from the create-empty allowlist because org.graalvm.polyglot:ruby is
-        // published only up to 25.0.0 and crashes on the Truffle 25.2.4 this repo pins, so the rendered Ruby starter
-        // template could not be loaded by the polyglot loader below. A RUBY request is rejected with
-        // LANGUAGE_NOT_SUPPORTED — the same contract JAVA already gets — rather than silently downgraded to another
-        // language. The Language.RUBY constant and the Ruby starter template are untouched (ordinals are persisted as
-        // INTs). Restore RUBY here, and in the message, once a polyglot ruby jar built on Truffle 25.2+ is published
-        // (or GraalVM is downgraded). Grep RUBY-DISABLED.
         if (language != Language.JAVASCRIPT && language != Language.PYTHON) {
-//        if (language != Language.JAVASCRIPT && language != Language.PYTHON && language != Language.RUBY) {
             throw new ConfigurationException(
                 "Create-empty supports JavaScript and Python only",
                 CodeWorkflowErrorType.LANGUAGE_NOT_SUPPORTED);
         }
 
-        if (projectService.fetchProject(name)
+        if (projectService.fetchProject(name, workspaceId)
             .isPresent()) {
 
             throw new ConfigurationException(
@@ -212,12 +208,6 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
     @Override
     @PreAuthorize("hasAuthority(\"" + AuthorityConstants.ADMIN + "\")")
     public void save(long workspaceId, byte[] bytes, Language language) {
-        // RUBY-DISABLED: a Ruby upload is rejected here as well as at create-empty, because deploying one would
-        // store a workflow the polyglot loader cannot run — org.graalvm.polyglot:ruby is published only up to 25.0.0,
-        // which crashes on the Truffle 25.2.4 this repo pins. Without this the REST/API caller kept a path the client
-        // no longer offers: the accept lists dropped .rb, but nothing server-side refused it. Restore by deleting this
-        // block once a polyglot ruby jar built on Truffle 25.2+ is published (or GraalVM is downgraded). Grep
-        // RUBY-DISABLED.
         if (language == Language.RUBY) {
             throw new ConfigurationException(
                 "Uploading of Ruby code workflows is temporarily disabled",
@@ -411,6 +401,11 @@ public class ProjectCodeWorkflowFacadeImpl implements ProjectCodeWorkflowFacade 
             .values()) {
 
             projectWorkflowService.delete(projectId, draftProjectVersion, workflowId);
+
+            for (WorkflowPreDeleteListener workflowPreDeleteListener : workflowPreDeleteListeners) {
+                workflowPreDeleteListener.onWorkflowPreDelete(workflowId);
+            }
+
             workflowService.delete(workflowId);
         }
     }

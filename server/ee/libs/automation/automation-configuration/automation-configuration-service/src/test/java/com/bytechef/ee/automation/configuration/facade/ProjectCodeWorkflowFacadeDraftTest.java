@@ -247,7 +247,7 @@ class ProjectCodeWorkflowFacadeDraftTest {
     void testUploadSaveStillPublishes() {
         ProjectService projectService = mock(ProjectService.class);
 
-        when(projectService.fetchProject("my-code-project")).thenReturn(Optional.empty());
+        when(projectService.fetchProject(eq("my-code-project"), anyLong())).thenReturn(Optional.empty());
 
         Project createdProject = new Project();
 
@@ -288,7 +288,7 @@ class ProjectCodeWorkflowFacadeDraftTest {
     void testCreateEmptyCodeWorkflowCreatesDraftWithoutPublishing() {
         ProjectService projectService = mock(ProjectService.class);
 
-        when(projectService.fetchProject("my-empty-project")).thenReturn(Optional.empty());
+        when(projectService.fetchProject(eq("my-empty-project"), anyLong())).thenReturn(Optional.empty());
 
         Project createdProject = new Project();
 
@@ -343,7 +343,7 @@ class ProjectCodeWorkflowFacadeDraftTest {
         return new ProjectCodeWorkflowFacadeImpl(
             applicationProperties(true), mock(CacheManager.class), projectService, projectWorkflowService,
             codeWorkflowContainerFacade, projectCodeWorkflowService, codeWorkflowContainerService,
-            codeWorkflowFileStorage, mock(TagService.class), workflowService);
+            codeWorkflowFileStorage, mock(TagService.class), workflowService, List.of());
     }
 
     private static ApplicationProperties applicationProperties(boolean javaEnabled) {
