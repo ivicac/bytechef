@@ -308,7 +308,7 @@ export function useWorkflowTestStream({
 
                     const jobId = String(startData.jobId);
 
-                    resetWorkflowTestNodeStates();
+                    resetWorkflowTestNodeStates(workflowId);
 
                     persistJobId(jobId);
 
