@@ -18,6 +18,7 @@ package com.bytechef.automation.ai.a2a.service;
 
 import com.bytechef.automation.ai.a2a.domain.A2aProjectWorkflow;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -32,6 +33,8 @@ public interface A2aProjectWorkflowService {
     List<A2aProjectWorkflow> getA2aProjectA2aProjectWorkflows(Long a2aProjectId);
 
     List<A2aProjectWorkflow> getProjectDeploymentWorkflowA2aProjectWorkflows(Long projectDeploymentWorkflowId);
+
+    A2aProjectWorkflow updateParameters(long id, Map<String, ?> parameters);
 
     A2aProjectWorkflow updateEnabled(long id, boolean enabled);
 

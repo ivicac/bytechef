@@ -27,11 +27,6 @@ import org.springframework.jdbc.core.simple.JdbcClient;
  */
 public class CustomProjectDeploymentRepositoryImpl implements CustomProjectDeploymentRepository {
 
-    private static final String API_COLLECTION_NAME_PREFIX = "__API_COLLECTION__";
-    private static final String CONTEXT_STORE_NAME_PREFIX = "__CONTEXT_STORE__";
-    private static final String EMBEDDED_NAME_PREFIX = "__EMBEDDED__";
-    private static final String MCP_SERVER_NAME_PREFIX = "__MCP_SERVER__";
-
     private final JdbcClient jdbcClient;
 
     public CustomProjectDeploymentRepositoryImpl(JdbcClient jdbcClient) {
@@ -122,6 +117,8 @@ public class CustomProjectDeploymentRepositoryImpl implements CustomProjectDeplo
             "project_deployment.name", SystemProjects.API_COLLECTION_DEPLOYMENT_NAME_PREFIX);
         query += SystemProjects.notLikePredicate(
             "project_deployment.name", SystemProjects.MCP_SERVER_DEPLOYMENT_NAME_PREFIX);
+        query += SystemProjects.notLikePredicate(
+            "project_deployment.name", SystemProjects.A2A_SERVER_DEPLOYMENT_NAME_PREFIX);
         query += SystemProjects.projectNameNotLikePredicates("project.name");
 
         query += "ORDER BY LOWER(project_deployment.name) ASC, project_deployment.project_version ASC, " +
@@ -143,13 +140,5 @@ public class CustomProjectDeploymentRepositoryImpl implements CustomProjectDeplo
         }
 
         return projectDeployments;
-    }
-
-    private static String startsWith(String column, String prefix) {
-        String escapedPrefix = prefix.replace("\\", "\\\\")
-            .replace("%", "\\%")
-            .replace("_", "\\_");
-
-        return column + " LIKE '" + escapedPrefix + "%' ESCAPE '\\'";
     }
 }
