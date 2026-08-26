@@ -1,17 +1,15 @@
-import '@/shared/styles/dropdownMenu.css';
 import AlertDialog from '@/components/AlertDialog';
 import Badge from '@/components/Badge/Badge';
-import Button from '@/components/Button/Button';
-import LazyLoadSVG from '@/components/LazyLoadSVG/LazyLoadSVG';
 import {
     DropdownMenu,
     DropdownMenuContent,
     DropdownMenuItem,
-    DropdownMenuSeparator,
     DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
+} from '@/components/DropdownMenu/DropdownMenu';
+import LazyLoadSVG from '@/components/LazyLoadSVG/LazyLoadSVG';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import ConnectionDialog from '@/shared/components/connection/ConnectionDialog';
+import ConnectionListItemDropdownMenu from '@/shared/components/connection/ConnectionListItemDropdownMenu';
 import {connectionCredentialStoreLabels} from '@/shared/components/connection/connectionCredentialStoreLabels';
 import ResourceVisibilityBadge from '@/shared/components/visibility/ResourceVisibilityBadge';
 import ResourceVisibilityPicker from '@/shared/components/visibility/ResourceVisibilityPicker';
@@ -37,7 +35,7 @@ import {
 import {ConnectionKeys, useGetConnectionTagsQuery} from '@/shared/queries/automation/connections.queries';
 import {ComponentDefinitionKeys} from '@/shared/queries/platform/componentDefinitions.queries';
 import {useQueryClient} from '@tanstack/react-query';
-import {ComponentIcon, EditIcon, EllipsisVerticalIcon, Link2OffIcon, Trash2Icon} from 'lucide-react';
+import {ComponentIcon, Link2OffIcon, Trash2Icon} from 'lucide-react';
 import {memo, useMemo, useState} from 'react';
 import {toast} from 'sonner';
 
@@ -234,7 +232,7 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                 <div className="group flex items-center rounded-md bg-surface-neutral-primary px-3 hover:bg-surface-neutral-primary-hover">
                     <div className="flex flex-1 items-center py-3">
                         <div className="flex-1">
-                            <div className="flex items-center justify-between">
+                            <div className="flex min-h-8 items-center justify-between">
                                 <div className="relative flex items-center gap-2">
                                     {componentDefinition?.icon ? (
                                         <LazyLoadSVG
@@ -253,7 +251,7 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                                             <DropdownMenuTrigger asChild>
                                                 <button
                                                     aria-label="Change visibility"
-                                                    className="cursor-pointer rounded-sm hover:bg-gray-100"
+                                                    className="cursor-pointer rounded-sm hover:bg-surface-neutral-primary-hover"
                                                     type="button"
                                                 >
                                                     <ResourceVisibilityBadge
@@ -277,7 +275,7 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                                 </div>
                             </div>
 
-                            <div className="mt-2 sm:flex sm:items-center sm:justify-between">
+                            <div className="mt-2 min-h-7 sm:flex sm:items-center sm:justify-between">
                                 <div className="flex items-center" onClick={(event) => event.preventDefault()}>
                                     {connection.tags && (
                                         <TagList
@@ -298,18 +296,18 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                         </div>
 
                         <div className="flex items-center justify-end gap-x-6">
-                            <div className="flex min-w-52 flex-col items-end gap-y-4">
-                                <div className="flex flex-wrap items-center justify-end gap-2">
+                            <div className="flex min-w-52 flex-col items-end gap-y-2">
+                                <div className="flex min-h-8 flex-wrap items-center justify-end gap-2">
                                     {connection.credentialStatus === 'VALID' ? (
                                         <Badge
-                                            className="border-transparent uppercase"
+                                            className="uppercase"
                                             label={connection.active ? 'Active' : 'Not Active'}
                                             styleType={connection.active ? 'success-outline' : 'secondary-outline'}
                                             weight="semibold"
                                         />
                                     ) : (
                                         <Badge
-                                            className="border-transparent uppercase"
+                                            className="uppercase"
                                             label={connection.credentialStatus ?? 'INVALID'}
                                             styleType="destructive-outline"
                                             weight="semibold"
@@ -338,7 +336,7 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
 
                                 {connection.createdDate && (
                                     <Tooltip>
-                                        <TooltipTrigger className="flex items-center text-sm text-content-neutral-secondary sm:mt-0">
+                                        <TooltipTrigger className="flex min-h-7 items-center text-sm text-content-neutral-secondary sm:mt-0">
                                             <span className="text-xs">
                                                 {`Created at ${connection.createdDate?.toLocaleDateString()} ${connection.createdDate?.toLocaleTimeString()}`}
                                             </span>
@@ -349,56 +347,35 @@ const ConnectionListItem = memo(({componentDefinitions, connection, remainingTag
                                 )}
                             </div>
 
-                            <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                    <Button icon={<EllipsisVerticalIcon />} size="icon" variant="ghost" />
-                                </DropdownMenuTrigger>
+                            <ConnectionListItemDropdownMenu
+                                onEditClick={connection.managed ? undefined : () => setShowEditDialog(true)}
+                            >
+                                {connection.active === true && (
+                                    <DropdownMenuItem
+                                        icon={<Link2OffIcon />}
+                                        label="Disconnect from all"
+                                        onClick={() => setShowDisconnectDialog(true)}
+                                    />
+                                )}
 
-                                <DropdownMenuContent align="end" className="p-0">
-                                    {!connection.managed && (
+                                {!connection.managed && (
+                                    <div
+                                        title={
+                                            connection.active === true
+                                                ? 'Disconnect from all workflows first to enable deletion'
+                                                : 'Delete the connection'
+                                        }
+                                    >
                                         <DropdownMenuItem
-                                            className="dropdown-menu-item"
-                                            onClick={() => setShowEditDialog(true)}
-                                        >
-                                            <EditIcon /> Edit
-                                        </DropdownMenuItem>
-                                    )}
-
-                                    <DropdownMenuSeparator className="m-0" />
-
-                                    {connection.active === true && (
-                                        <DropdownMenuItem
-                                            className="dropdown-menu-item"
-                                            onClick={() => setShowDisconnectDialog(true)}
-                                        >
-                                            <Link2OffIcon /> Disconnect from all
-                                        </DropdownMenuItem>
-                                    )}
-
-                                    {!connection.managed && (
-                                        <div
-                                            title={
-                                                connection.active === true
-                                                    ? 'Disconnect from all workflows first to enable deletion'
-                                                    : 'Delete the connection'
-                                            }
-                                        >
-                                            <DropdownMenuItem
-                                                className={
-                                                    connection.active === true
-                                                        ? 'dropdown-menu-item-destructive-disabled'
-                                                        : 'dropdown-menu-item-destructive'
-                                                }
-                                                disabled={connection.active}
-                                                onClick={() => setShowDeleteDialog(true)}
-                                                variant="destructive"
-                                            >
-                                                <Trash2Icon /> Delete
-                                            </DropdownMenuItem>
-                                        </div>
-                                    )}
-                                </DropdownMenuContent>
-                            </DropdownMenu>
+                                            disabled={connection.active}
+                                            icon={<Trash2Icon />}
+                                            label="Delete"
+                                            onClick={() => setShowDeleteDialog(true)}
+                                            variant="destructive"
+                                        />
+                                    </div>
+                                )}
+                            </ConnectionListItemDropdownMenu>
                         </div>
                     </div>
                 </div>

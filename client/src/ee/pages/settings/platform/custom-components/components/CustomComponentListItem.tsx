@@ -145,7 +145,7 @@ const CustomComponentListItem = ({customComponent}: CustomComponentItemProps) =>
                         )}
 
                         <div className="flex-1">
-                            <div className="flex items-center justify-between">
+                            <div className="flex min-h-8 items-center justify-between">
                                 <div className="flex w-full items-center justify-between">
                                     {customComponent.description ? (
                                         <Tooltip>
@@ -194,14 +194,16 @@ const CustomComponentListItem = ({customComponent}: CustomComponentItemProps) =>
                             )}
                         </div>
 
-                        <div className="flex flex-col items-end gap-y-4">
-                            <Switch
-                                checked={customComponent.enabled ?? false}
-                                onCheckedChange={handleOnCheckedChange}
-                            />
+                        <div className="flex flex-col items-end gap-y-2">
+                            <div className="flex min-h-8 items-center">
+                                <Switch
+                                    checked={customComponent.enabled ?? false}
+                                    onCheckedChange={handleOnCheckedChange}
+                                />
+                            </div>
 
                             <Tooltip>
-                                <TooltipTrigger className="flex items-center text-sm text-content-neutral-secondary">
+                                <TooltipTrigger className="flex min-h-7 items-center text-sm text-content-neutral-secondary">
                                     {customComponent.lastModifiedDate ? (
                                         <span className="text-xs">
                                             {`Modified at ${new Date(customComponent.lastModifiedDate).toLocaleDateString()} ${new Date(customComponent.lastModifiedDate).toLocaleTimeString()}`}
@@ -244,7 +246,7 @@ const CustomComponentListItem = ({customComponent}: CustomComponentItemProps) =>
                             ) : (
                                 <div className="grid grid-cols-2 gap-6">
                                     <div>
-                                        <h4 className="mb-2 flex items-center gap-1 text-sm font-semibold text-content-neutral-primary">
+                                        <h4 className="mb-2 flex items-center gap-1 text-sm font-semibold text-content-neutral-secondary">
                                             <ZapIcon className="size-4" />
 
                                             <span>Actions ({actions.length})</span>
@@ -253,7 +255,10 @@ const CustomComponentListItem = ({customComponent}: CustomComponentItemProps) =>
                                         {actions.length > 0 ? (
                                             <ul className="space-y-2">
                                                 {actions.map((action) => (
-                                                    <li className="rounded bg-surface-neutral-primary p-2" key={action.name}>
+                                                    <li
+                                                        className="rounded bg-surface-neutral-secondary p-2"
+                                                        key={action.name}
+                                                    >
                                                         <div className="text-sm font-medium">
                                                             {action.title || action.name}
                                                         </div>
@@ -276,7 +281,7 @@ const CustomComponentListItem = ({customComponent}: CustomComponentItemProps) =>
                                     </div>
 
                                     <div>
-                                        <h4 className="mb-2 flex items-center gap-1 text-sm font-semibold text-content-neutral-primary">
+                                        <h4 className="mb-2 flex items-center gap-1 text-sm font-semibold text-content-neutral-secondary">
                                             <ZapIcon className="size-4" />
 
                                             <span>Triggers ({triggers.length})</span>
@@ -285,7 +290,10 @@ const CustomComponentListItem = ({customComponent}: CustomComponentItemProps) =>
                                         {triggers.length > 0 ? (
                                             <ul className="space-y-2">
                                                 {triggers.map((trigger) => (
-                                                    <li className="rounded bg-surface-neutral-primary p-2" key={trigger.name}>
+                                                    <li
+                                                        className="rounded bg-surface-neutral-secondary p-2"
+                                                        key={trigger.name}
+                                                    >
                                                         <div className="text-sm font-medium">
                                                             {trigger.title || trigger.name}
                                                         </div>
