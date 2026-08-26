@@ -21,11 +21,10 @@ const AiSkillsCreateDropdown = ({trigger}: AiSkillsCreateDropdownProps = {}) => 
 
     const ff_4554 = useFeatureFlagsStore()('ff-4554');
 
-    const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
-
     const location = useLocation();
     const navigate = useNavigate();
     const openCopilot = useOpenCopilot();
+    const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
 
     const handleCreated = (createdSkillId: string | null) => {
         if (createdSkillId) {

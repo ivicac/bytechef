@@ -11,6 +11,9 @@ export const ALL_TAGS = 'ALL_TAGS';
  *
  * The selection lives in the `?tagId=` search param rather than component state, so a filtered list stays
  * linkable and survives a reload — as it did when this was a sidebar nav.
+ *
+ * Returns an empty group list while no tags exist, so the filter control disappears rather than offering a
+ * facet with nothing but "All tags" in it.
  */
 export default function useAiSkillsTagFilterGroups(): FilterGroupI[] {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -24,6 +27,10 @@ export default function useAiSkillsTagFilterGroups(): FilterGroupI[] {
     const tagId = searchParams.get('tagId') ?? ALL_TAGS;
 
     return useMemo(() => {
+        if (tags.length === 0) {
+            return [];
+        }
+
         return [
             {
                 allValue: ALL_TAGS,
