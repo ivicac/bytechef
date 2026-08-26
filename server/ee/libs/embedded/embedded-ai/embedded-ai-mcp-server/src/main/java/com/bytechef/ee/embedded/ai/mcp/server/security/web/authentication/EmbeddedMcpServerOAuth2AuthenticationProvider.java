@@ -9,6 +9,7 @@ package com.bytechef.ee.embedded.ai.mcp.server.security.web.authentication;
 
 import com.bytechef.ee.embedded.connected.user.domain.ConnectedUser;
 import com.bytechef.ee.embedded.connected.user.service.ConnectedUserService;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.mcp.domain.McpServer;
 import com.bytechef.platform.mcp.service.McpServerService;
 import com.bytechef.platform.security.exception.UserNotActivatedException;
@@ -55,8 +56,12 @@ public class EmbeddedMcpServerOAuth2AuthenticationProvider implements Authentica
 
         McpServer mcpServer = getMcpServer(mcpServerSecretKey);
 
+        if (!mcpServer.isEnabled()) {
+            throw new BadCredentialsException("MCP server is disabled");
+        }
+
         if (!mcpServer.isAuthenticationRequired()) {
-            return new McpAnonymousAuthenticationToken(mcpServerSecretKey);
+            return McpAnonymousAuthenticationToken.ofEmbeddedMcpServer(mcpServer.getId());
         }
 
         long environmentId = embeddedMcpServerOAuth2AuthenticationToken.getEnvironmentId();
@@ -66,16 +71,25 @@ public class EmbeddedMcpServerOAuth2AuthenticationProvider implements Authentica
             .orElseGet(() -> connectedUserService.createConnectedUser(externalUserId, environmentId));
 
         return new EmbeddedMcpServerOAuth2AuthenticationToken(
+            environmentId,
             createSpringSecurityUser(
                 externalUserId, connectedUser, embeddedMcpServerOAuth2AuthenticationToken.getMappedAuthorities()));
     }
 
     private McpServer getMcpServer(String mcpServerSecretKey) {
+        McpServer mcpServer;
+
         try {
-            return mcpServerService.getMcpServer(mcpServerSecretKey);
-        } catch (Exception exception) {
-            throw new BadCredentialsException("Invalid MCP server secret key", exception);
+            mcpServer = mcpServerService.getMcpServer(mcpServerSecretKey);
+        } catch (IllegalArgumentException illegalArgumentException) {
+            throw new BadCredentialsException("Invalid MCP server secret key", illegalArgumentException);
         }
+
+        if (mcpServer.getType() != PlatformType.EMBEDDED) {
+            throw new BadCredentialsException("Invalid MCP server secret key");
+        }
+
+        return mcpServer;
     }
 
     @Override

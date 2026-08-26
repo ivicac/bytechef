@@ -84,6 +84,7 @@ class WebhookTriggerTestApiFacadeImpl implements WebhookTriggerTestApiFacade {
         // See enableTrigger above. See PrincipalEnvironment.
         long effectiveEnvironmentId = PrincipalEnvironment.resolveEffectiveEnvironmentId(environmentId);
 
-        webhookTriggerTestFacade.disableTrigger(workflowId, triggerName, effectiveEnvironmentId, PlatformType.AUTOMATION);
+        webhookTriggerTestFacade.disableTrigger(
+            workflowId, triggerName, effectiveEnvironmentId, PlatformType.AUTOMATION);
     }
 }
