@@ -50,6 +50,7 @@ import saveWorkflowDefinition from '../utils/saveWorkflowDefinition';
 import {toggleNodeDisabled} from '../utils/toggleNodeDisabled';
 import ClusterFrameShell from './ClusterFrameShell';
 import DisabledNodeBadge from './DisabledNodeBadge';
+import GraphTransitionHandles from './GraphTransitionHandles';
 import styles from './NodeTypes.module.css';
 import WorkflowTestNodeStatus from './WorkflowTestNodeStatus';
 
@@ -173,6 +174,12 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                 (data.trigger || isMainRootClusterElement) && 'nodrag',
                 isClusterElement && !isNestedClusterRoot && 'w-[72px] min-w-[72px] flex-col items-center',
                 isHorizontal && isRegularNode && 'min-w-0',
+                // A graph member is spaced from its neighbour by how far its label reaches, measured
+                // off this element — so the 240px floor above would report a label's worth of width
+                // for every member whatever its label actually says, and auto-arrange would hold them
+                // that far apart. Free-form members are positioned individually, so nothing here needs
+                // the uniform width the chain layout wants.
+                data.graphData && isRegularNode && 'min-w-0',
                 isEffectivelyDisabled && 'opacity-50 grayscale',
                 rest.className
             )}
@@ -236,9 +243,6 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                             className={twMerge(
                                 'h-auto min-h-18 rounded-md border-2 border-stroke-neutral-tertiary bg-surface-neutral-primary p-4 text-primary hover:border-stroke-brand-secondary-hover hover:bg-surface-neutral-primary focus-visible:ring-stroke-brand-focus active:bg-surface-neutral-primary [&_svg]:size-9',
                                 !isMainRootClusterElement && !isNestedClusterRoot && 'w-18',
-                                isSelected &&
-                                    workflowNodeDetailsPanelOpen &&
-                                    'border-stroke-brand-primary shadow-none hover:border-stroke-brand-primary',
                                 isMainRootClusterElement && 'nodrag',
                                 isNestedClusterRoot && 'overflow-hidden rounded-2xl px-6',
                                 isClusterElement && !isMainRootClusterElement && !isNestedClusterRoot && 'rounded-full',
@@ -250,6 +254,11 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                                     'border-surface-brand-secondary-hover bg-surface-brand-secondary-hover hover:bg-surface-brand-secondary-hover',
                                 testNodeState && 'relative',
                                 getTestNodeStateBorderClassName(testNodeState),
+                                // Last, so it wins the twMerge conflict against the test-run border above:
+                                // a node that has been run keeps a status colour for the rest of the
+                                // session, and while selected the selection is what the border has to
+                                // say. The status is still on the badge in the corner, which nothing here
+                                // touches.
                                 isSelected &&
                                     workflowNodeDetailsPanelOpen &&
                                     'border-stroke-brand-primary shadow-none hover:border-stroke-brand-primary'
@@ -530,28 +539,12 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                         />
                     )}
 
-                    <Handle
-                        className={styles.handle}
-                        id={`${id}-graph-transition-target`}
-                        isConnectable={false}
-                        position={Position.Top}
-                        style={effectiveDirection === 'TB' ? {left: '36px'} : undefined}
-                        type="target"
-                    />
-
-                    {/* In TB the source sits on TOP alongside the target, because arcs travel in a
-                        band ABOVE the lanes — leaving from the bottom would make every arc double
-                        back up past its own node before it could climb. LR has no such band (its
-                        lanes stack vertically, so arcs bow out past the frame's side instead), so
-                        it keeps the original bottom source. */}
-                    <Handle
-                        className={styles.handle}
-                        id={`${id}-graph-transition-source`}
-                        isConnectable={false}
-                        position={effectiveDirection === 'TB' ? Position.Top : Position.Bottom}
-                        style={effectiveDirection === 'TB' ? {left: '36px'} : undefined}
-                        type="source"
-                    />
+                    {/* `WorkflowNode` never renders in a read-only workflow — `useLayout` converts
+                        every task node to `readonly` there — so a member rendered by this
+                        component is always on an editable canvas and its handles are connectable. */}
+                    {data.graphData && (
+                        <GraphTransitionHandles boxWidth={72} connectable direction={effectiveDirection} nodeId={id} />
+                    )}
                 </>
             )}
 
@@ -653,8 +646,10 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
     const effectiveDirection: EffectiveDirectionType = isClusterCanvasNode ? 'TB' : layoutDirection;
     const parentClusterRootId = data.parentClusterRootId;
     const hasSavedClusterElementPosition = data.metadata?.ui?.nodePosition;
+    // A graph member is excluded: inside a frame a position is the model rather than a pin
+    // override, so there is nothing to reset it back to.
     const hasSavedNodePosition =
-        (isRegularNode || !!data.clusterFrame) && !data.trigger && data.metadata?.ui?.nodePosition;
+        (isRegularNode || !!data.clusterFrame) && !data.trigger && !data.graphData && data.metadata?.ui?.nodePosition;
     const isTriggerDropzone = isRegularNode && !!data.trigger;
 
     const isEffectivelyDisabled = Boolean(data.disabled) || disabledTaskNames.has(data.workflowNodeName);
