@@ -8,6 +8,8 @@
 package com.bytechef.ee.automation.ai.tool;
 
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.automation.ai.tool.ToolValidationErrors;
+import com.bytechef.commons.util.JsonUtils;
 import com.bytechef.ee.automation.apiplatform.configuration.dto.ApiCollectionDTO;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
 import com.bytechef.platform.configuration.domain.Environment;
@@ -20,23 +22,9 @@ import org.springframework.ai.chat.model.ToolContext;
 import org.springframework.ai.tool.ToolCallback;
 import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.core.JacksonException;
-import tools.jackson.databind.json.JsonMapper;
 
 /**
- * Spring AI {@link ToolCallback} that creates an
- * {@link com.bytechef.ee.automation.apiplatform.configuration.domain.ApiCollection} — the EE "Deploy as REST" surface.
- * An API collection bundles a {@link com.bytechef.automation.configuration.domain.ProjectDeployment} (auto-created by
- * the facade) under a {@code contextPath} with its own {@code collectionVersion} (the API contract version, independent
- * of {@code project_version}).
- *
- * <p>
- * Endpoints — the per-workflow REST routes — are added separately via
- * {@link ApiCollectionFacade#createApiCollectionEndpoint}. This callback only stands up the collection shell; the chat
- * agent is expected to follow up with one or more endpoint creations once the user confirms which workflows to expose.
- * </p>
- *
  * @version ee
- *
  * @author Ivica Cardic
  */
 @SuppressFBWarnings("VA_FORMAT_STRING_USES_NEWLINE")
@@ -73,7 +61,6 @@ public class CreateApiCollectionToolCallback implements ToolCallback {
         }""";
 
     private final ApiCollectionFacade apiCollectionFacade;
-    private final JsonMapper jsonMapper = new JsonMapper();
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public CreateApiCollectionToolCallback(ApiCollectionFacade apiCollectionFacade) {
@@ -97,7 +84,7 @@ public class CreateApiCollectionToolCallback implements ToolCallback {
     @Override
     public String call(String toolInput, @Nullable ToolContext toolContext) {
         try {
-            CreateApiCollectionInput input = jsonMapper.readValue(toolInput, CreateApiCollectionInput.class);
+            CreateApiCollectionInput input = JsonUtils.read(toolInput, CreateApiCollectionInput.class);
 
             if (input.projectId() == null || input.projectId()
                 .isBlank()) {
@@ -148,26 +135,25 @@ public class CreateApiCollectionToolCallback implements ToolCallback {
             ApiCollectionDTO dto = new ApiCollectionDTO(
                 collectionVersion, input.contextPath(), null, null, input.description(), false, List.of(),
                 environment, null, null, null, input.name(), null, projectId, null, 0, input.projectVersion(),
-                List.of(), 0);
+                List.of(), 0, null);
 
             ApiCollectionDTO created = apiCollectionFacade.createApiCollection(dto);
 
-            return jsonMapper.writeValueAsString(
+            return JsonUtils.write(
                 new CreateApiCollectionOutput(
                     created.id(), created.projectDeploymentId(), created.contextPath(),
                     created.collectionVersion()));
         } catch (JacksonException exception) {
             return toolError("Invalid tool input: " + exception.getMessage());
         } catch (IllegalArgumentException | com.bytechef.exception.ConfigurationException exception) {
-            return toolError(exception.getMessage());
+            return ToolValidationErrors.validationFailure(CreateApiCollectionToolCallback.class, TOOL_NAME, exception);
         } catch (RuntimeException exception) {
-            return ToolErrors.runtimeFailure(
-                jsonMapper, CreateApiCollectionToolCallback.class, TOOL_NAME, exception);
+            return ToolErrors.runtimeFailure(CreateApiCollectionToolCallback.class, TOOL_NAME, exception);
         }
     }
 
     private String toolError(String message) {
-        return ToolErrors.toolError(jsonMapper, message);
+        return ToolErrors.toolError(message);
     }
 
     public record CreateApiCollectionInput(

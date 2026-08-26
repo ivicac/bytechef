@@ -19,7 +19,9 @@ package com.bytechef.automation.ai.a2a.service;
 import com.bytechef.automation.ai.a2a.domain.A2aProjectWorkflow;
 import com.bytechef.automation.ai.a2a.repository.A2aProjectWorkflowRepository;
 import java.util.List;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -61,6 +63,17 @@ public class A2aProjectWorkflowServiceImpl implements A2aProjectWorkflowService 
     }
 
     @Override
+    public A2aProjectWorkflow updateParameters(long id, Map<String, ?> parameters) {
+        A2aProjectWorkflow a2aProjectWorkflow = a2aProjectWorkflowRepository.findById(id)
+            .orElseThrow(() -> new IllegalArgumentException("A2aProjectWorkflow not found with id: " + id));
+
+        a2aProjectWorkflow.setParameters(parameters);
+
+        return a2aProjectWorkflowRepository.save(a2aProjectWorkflow);
+    }
+
+    @Override
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public A2aProjectWorkflow updateEnabled(long id, boolean enabled) {
         A2aProjectWorkflow existingA2aProjectWorkflow = a2aProjectWorkflowRepository.findById(id)
             .orElseThrow(() -> new IllegalArgumentException("A2aProjectWorkflow not found with id: " + id));
@@ -71,6 +84,7 @@ public class A2aProjectWorkflowServiceImpl implements A2aProjectWorkflowService 
     }
 
     @Override
+    @PreAuthorize("hasAuthority('ROLE_ADMIN')")
     public A2aProjectWorkflow updateSkill(long id, @Nullable String skillName, @Nullable String skillDescription) {
 
         A2aProjectWorkflow existingA2aProjectWorkflow = a2aProjectWorkflowRepository.findById(id)

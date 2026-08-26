@@ -16,8 +16,10 @@ import static org.mockito.Mockito.when;
 import com.bytechef.ee.automation.apiplatform.configuration.dto.ApiCollectionDTO;
 import com.bytechef.ee.automation.apiplatform.configuration.facade.ApiCollectionFacade;
 import com.bytechef.platform.configuration.domain.Environment;
+import com.bytechef.test.extension.ObjectMapperSetupExtension;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
@@ -27,6 +29,7 @@ import tools.jackson.databind.json.JsonMapper;
  *
  * @author Ivica Cardic
  */
+@ExtendWith(ObjectMapperSetupExtension.class)
 class CreateApiCollectionToolCallbackTest {
 
     private final JsonMapper jsonMapper = new JsonMapper();
@@ -40,7 +43,7 @@ class CreateApiCollectionToolCallbackTest {
 
         ApiCollectionDTO created = new ApiCollectionDTO(
             1, "billing-v1", null, null, null, false, List.of(), Environment.STAGING, 100L, null, null, "Billing API",
-            null, 42L, null, 200L, 3, List.of(), 0);
+            null, 42L, null, 200L, 3, List.of(), 0, null);
 
         when(facade.createApiCollection(any(ApiCollectionDTO.class))).thenReturn(created);
 
@@ -95,7 +98,7 @@ class CreateApiCollectionToolCallbackTest {
 
         ApiCollectionDTO created = new ApiCollectionDTO(
             5, "billing-v5", null, null, null, false, List.of(), Environment.PRODUCTION, 100L, null, null, "Billing v5",
-            null, 42L, null, 200L, 7, List.of(), 0);
+            null, 42L, null, 200L, 7, List.of(), 0, null);
 
         when(facade.createApiCollection(any(ApiCollectionDTO.class))).thenReturn(created);
 
