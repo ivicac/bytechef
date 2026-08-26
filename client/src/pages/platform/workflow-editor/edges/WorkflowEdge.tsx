@@ -9,6 +9,7 @@ import {useShallow} from 'zustand/react/shallow';
 
 import WorkflowNodesPopoverMenu from '../components/WorkflowNodesPopoverMenu';
 import useCanvasDropzone from '../hooks/useCanvasDropzone';
+import useWorkflowTestNodeStates from '../hooks/useWorkflowTestNodeStates';
 import {useWorkflowEditor} from '../providers/workflowEditorProvider';
 import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
@@ -18,7 +19,6 @@ import pasteNode from '../utils/pasteNode';
 import AddBranchChip from './AddBranchChip';
 import BinaryCaseLabel from './BinaryCaseLabel';
 import BranchCaseLabel from './BranchCaseLabel';
-import GraphNodeLabel from './GraphNodeLabel';
 import styles from './WorkflowEdge.module.css';
 import computeBinaryCaseLabel from './computeBinaryCaseLabel';
 import computeEdgeButtonPosition from './computeEdgeButtonPosition';
@@ -122,7 +122,6 @@ export default function WorkflowEdge({
     });
 
     const caseKey = (targetNode?.data as NodeDataType)?.branchData?.caseKey;
-    const graphNodeIndex = (targetNode?.data as NodeDataType)?.graphData?.nodeIndex;
 
     const binaryCaseLabel = computeBinaryCaseLabel({
         layoutDirection,
@@ -177,7 +176,7 @@ export default function WorkflowEdge({
 
     const clusterElementsCanvasOpen = useWorkflowEditorStore((state) => state.clusterElementsCanvasOpen);
     const workflowIsRunning = useWorkflowEditorStore((state) => state.workflowIsRunning);
-    const workflowTestNodeStates = useWorkflowEditorStore((state) => state.workflowTestNodeStates);
+    const workflowTestNodeStates = useWorkflowTestNodeStates();
 
     const executedEdgeStatus = getExecutedEdgeStatus(sourceNode, targetNode, workflowTestNodeStates);
 
@@ -255,18 +254,6 @@ export default function WorkflowEdge({
             )}
 
             {binaryCaseLabel && <BinaryCaseLabel edgeId={id} label={binaryCaseLabel} />}
-
-            {typeof graphNodeIndex === 'number' && isSourceTaskDispatcherTopGhostNode && (
-                <GraphNodeLabel
-                    edgeId={id}
-                    layoutDirection={layoutDirection}
-                    nodeIndex={graphNodeIndex}
-                    sourceX={sourceX}
-                    sourceY={sourceY}
-                    targetX={targetX}
-                    targetY={targetY}
-                />
-            )}
 
             {addBranchPlaceholderId && (
                 <AddBranchChip
