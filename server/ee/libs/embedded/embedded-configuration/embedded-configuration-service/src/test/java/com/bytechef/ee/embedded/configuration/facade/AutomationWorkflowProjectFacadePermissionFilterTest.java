@@ -30,7 +30,6 @@ import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.WorkflowNodeTestOutputService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
 import com.bytechef.platform.tag.service.TagService;
-import com.bytechef.platform.workflow.task.dispatcher.service.TaskDispatcherDefinitionService;
 import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
@@ -68,7 +67,7 @@ class AutomationWorkflowProjectFacadePermissionFilterTest {
     private final AutomationWorkflowProjectFacadeImpl facade = new AutomationWorkflowProjectFacadeImpl(
         categoryService, connectedUserService, embeddedPermissionEvaluator, projectCodeWorkflowService,
         projectService, projectWorkflowFacade, projectWorkflowService, tagService, workflowComponentResolver,
-        workflowNodeTestOutputService, workflowService, workflowTestConfigurationService);
+        workflowNodeTestOutputService, workflowService, workflowTestConfigurationService, List.of());
 
     @Test
     void testGetPublishedProjectsHidesProjectWhenExpressionIsFalse() {

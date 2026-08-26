@@ -34,6 +34,7 @@ import com.bytechef.platform.category.service.CategoryService;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.WorkflowNodeTestOutputService;
 import com.bytechef.platform.configuration.service.WorkflowTestConfigurationService;
+import com.bytechef.platform.configuration.workflow.WorkflowPreDeleteListener;
 import com.bytechef.platform.tag.domain.Tag;
 import com.bytechef.platform.tag.service.TagService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
@@ -84,6 +85,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
     private final TagService tagService;
     private final WorkflowComponentResolver workflowComponentResolver;
     private final WorkflowNodeTestOutputService workflowNodeTestOutputService;
+    private final List<WorkflowPreDeleteListener> workflowPreDeleteListeners;
     private final WorkflowService workflowService;
     private final WorkflowTestConfigurationService workflowTestConfigurationService;
 
@@ -95,7 +97,8 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         ProjectWorkflowFacade projectWorkflowFacade, ProjectWorkflowService projectWorkflowService,
         TagService tagService, WorkflowComponentResolver workflowComponentResolver,
         WorkflowNodeTestOutputService workflowNodeTestOutputService, WorkflowService workflowService,
-        WorkflowTestConfigurationService workflowTestConfigurationService) {
+        WorkflowTestConfigurationService workflowTestConfigurationService,
+        List<WorkflowPreDeleteListener> workflowPreDeleteListeners) {
 
         this.categoryService = categoryService;
         this.connectedUserService = connectedUserService;
@@ -108,6 +111,7 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         this.workflowComponentResolver = workflowComponentResolver;
         this.workflowNodeTestOutputService = workflowNodeTestOutputService;
         this.workflowService = workflowService;
+        this.workflowPreDeleteListeners = workflowPreDeleteListeners;
         this.workflowTestConfigurationService = workflowTestConfigurationService;
     }
 
@@ -154,6 +158,12 @@ public class AutomationWorkflowProjectFacadeImpl implements AutomationWorkflowPr
         getMarkedProject(projectId);
 
         List<ProjectWorkflow> projectWorkflows = projectWorkflowService.getProjectWorkflows(projectId);
+
+        for (ProjectWorkflow projectWorkflow : projectWorkflows) {
+            for (WorkflowPreDeleteListener workflowPreDeleteListener : workflowPreDeleteListeners) {
+                workflowPreDeleteListener.onWorkflowPreDelete(projectWorkflow.getWorkflowId());
+            }
+        }
 
         projectWorkflowService.delete(
             projectWorkflows.stream()
