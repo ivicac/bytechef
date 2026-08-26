@@ -38,6 +38,7 @@ import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
 import com.bytechef.component.definition.Parameters;
 import com.openai.client.okhttp.OpenAIOkHttpClient;
+import com.openai.client.okhttp.OpenAIOkHttpClientAsync;
 import com.openai.models.audio.AudioResponseFormat;
 import java.net.MalformedURLException;
 import org.springframework.ai.openai.OpenAiAudioTranscriptionModel;
@@ -99,9 +100,18 @@ public class OpenAiCreateTranscriptionAction {
             Language language = inputParameters.get(LANGUAGE, Language.class);
             String token = connectionParameters.getString(TOKEN);
 
+            // Both clients are supplied, as OpenAiChatAction does. OpenAiAudioTranscriptionModel.Builder.build()
+            // falls back to OpenAiSetup.setupAsyncClient() when the async client is absent, and that resolves its
+            // credential from the ambient environment rather than from this connection - so leaving it unset made
+            // the action depend on an OPENAI_API_KEY environment variable and fail outright without one, ignoring
+            // the token the user actually configured.
             return OpenAiAudioTranscriptionModel.builder()
                 .openAiClient(
                     OpenAIOkHttpClient.builder()
+                        .apiKey(token)
+                        .build())
+                .openAiClientAsync(
+                    OpenAIOkHttpClientAsync.builder()
                         .apiKey(token)
                         .build())
                 .options(
