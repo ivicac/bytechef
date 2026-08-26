@@ -8,6 +8,7 @@ import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
 
 import WorkflowNodesPopoverMenu from '../components/WorkflowNodesPopoverMenu';
+import useWorkflowTestNodeStates from '../hooks/useWorkflowTestNodeStates';
 import {useWorkflowEditor} from '../providers/workflowEditorProvider';
 import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
@@ -15,7 +16,6 @@ import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import getTaskDispatcherContext from '../utils/getTaskDispatcherContext';
 import pasteNode from '../utils/pasteNode';
 import BranchCaseLabel from './BranchCaseLabel';
-import GraphNodeLabel from './GraphNodeLabel';
 import styles from './WorkflowEdge.module.css';
 import computeEdgeButtonPosition from './computeEdgeButtonPosition';
 import computeEdgeCorrectedCoordinates from './computeEdgeCorrectedCoordinates';
@@ -115,7 +115,6 @@ export default function WorkflowEdge({
     });
 
     const caseKey = (targetNode?.data as NodeDataType)?.branchData?.caseKey;
-    const graphNodeIndex = (targetNode?.data as NodeDataType)?.graphData?.nodeIndex;
 
     const sourceNodeComponentName = (sourceNode?.data as NodeDataType)?.componentName;
 
@@ -160,7 +159,7 @@ export default function WorkflowEdge({
 
     const clusterElementsCanvasOpen = useWorkflowEditorStore((state) => state.clusterElementsCanvasOpen);
     const workflowIsRunning = useWorkflowEditorStore((state) => state.workflowIsRunning);
-    const workflowTestNodeStates = useWorkflowEditorStore((state) => state.workflowTestNodeStates);
+    const workflowTestNodeStates = useWorkflowTestNodeStates();
 
     const executedEdgeStatus = getExecutedEdgeStatus(sourceNode, targetNode, workflowTestNodeStates);
 
@@ -266,18 +265,6 @@ export default function WorkflowEdge({
                     caseKey={caseKey}
                     edgeId={id}
                     layoutDirection={layoutDirection}
-                    sourceX={sourceX}
-                    sourceY={sourceY}
-                    targetX={targetX}
-                    targetY={targetY}
-                />
-            )}
-
-            {typeof graphNodeIndex === 'number' && isSourceTaskDispatcherTopGhostNode && (
-                <GraphNodeLabel
-                    edgeId={id}
-                    layoutDirection={layoutDirection}
-                    nodeIndex={graphNodeIndex}
                     sourceX={sourceX}
                     sourceY={sourceY}
                     targetX={targetX}
