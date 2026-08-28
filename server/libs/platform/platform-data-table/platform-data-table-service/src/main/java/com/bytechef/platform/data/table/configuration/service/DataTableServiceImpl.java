@@ -301,7 +301,7 @@ public class DataTableServiceImpl implements DataTableService {
             dataTableInfos.add(
                 new DataTableInfo(
                     dataTable.getId(), baseName, dataTable.getDescription(), columnSpecs,
-                    dataTable.getLastModifiedDate()));
+                    dataTable.getLastModifiedDate(), dataTable.getOwnerId()));
         }
 
         return dataTableInfos;
