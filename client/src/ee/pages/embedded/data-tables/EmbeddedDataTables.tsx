@@ -3,10 +3,11 @@ import PageLoader from '@/components/PageLoader';
 import EmbeddedDataTableList from '@/ee/pages/embedded/data-tables/components/EmbeddedDataTableList';
 import OwnerSelect from '@/ee/pages/embedded/shared/components/OwnerSelect';
 import useEmbeddedConnectedUsers from '@/ee/pages/embedded/shared/components/useEmbeddedConnectedUsers';
-import useDataTables from '@/shared/components/data-tables/components/hooks/useDataTables';
+import EnvironmentSelect from '@/shared/components/EnvironmentSelect';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
-import {useAssignEmbeddedDataTableOwnerMutation} from '@/shared/middleware/graphql';
+import {useAssignEmbeddedDataTableOwnerMutation, useEmbeddedDataTablesQuery} from '@/shared/middleware/graphql';
+import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {useQueryClient} from '@tanstack/react-query';
 import {Table2Icon} from 'lucide-react';
 import {useState} from 'react';
@@ -14,17 +15,24 @@ import {useState} from 'react';
 const EmbeddedDataTables = () => {
     const [ownerId, setOwnerId] = useState<number | undefined>(undefined);
 
+    const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
+
     const {connectedUsers} = useEmbeddedConnectedUsers();
 
     const queryClient = useQueryClient();
 
-    const {error, isLoading, tables} = useDataTables({ownerId, type: 'EMBEDDED'});
+    const {data, error, isLoading} = useEmbeddedDataTablesQuery({
+        environmentId: String(currentEnvironmentId),
+        ownerId: ownerId === undefined ? undefined : String(ownerId),
+    });
 
     const assignOwnerMutation = useAssignEmbeddedDataTableOwnerMutation({
         onSuccess: () => {
             queryClient.invalidateQueries({queryKey: ['EmbeddedDataTables']});
         },
     });
+
+    const dataTables = data?.embeddedDataTables ?? [];
 
     const handleAssign = (dataTableId: string, newOwnerId: number | undefined) => {
         assignOwnerMutation.mutate({
@@ -50,16 +58,18 @@ const EmbeddedDataTables = () => {
                                     onChange={setOwnerId}
                                     ownerId={ownerId}
                                 />
+
+                                <EnvironmentSelect />
                             </div>
                         }
                         title="Data Tables"
                     />
                 }
             >
-                {tables.length > 0 ? (
+                {dataTables.length > 0 ? (
                     <EmbeddedDataTableList
                         connectedUsers={connectedUsers}
-                        dataTables={tables}
+                        dataTables={dataTables}
                         onAssign={handleAssign}
                     />
                 ) : (
