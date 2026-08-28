@@ -41,6 +41,25 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 /**
+ * Pins the split of {@code 20260425120000} into {@code -1} (columns and indexes) and {@code -2} (the assignee foreign
+ * key).
+ *
+ * <p>
+ * The split exists because the two halves belong to different deployments. {@code approval_task} is created under
+ * {@code mono or configuration or multitenant} while {@code user} is created under {@code mono or user or multitenant},
+ * so under the configuration context the table exists and the table it points at does not. While both halves lived in
+ * one changeset the whole migration died there with {@code relation "public.user" does not exist}, taking
+ * configuration-app's context down with it. Guarding the changeset instead of splitting it would have skipped the
+ * columns and indexes that the configuration context does need.
+ * </p>
+ *
+ * <p>
+ * Each test covers a deployment the split has to keep working, and the middle two are the ones that would fail
+ * silently. {@code -2} re-added to a database that already has the foreign key would abort an upgrade on a duplicate
+ * constraint, and {@code -1} is a released changeset whose body moved, so every database that ran the unsplit version
+ * carries a checksum that no longer matches what is on disk.
+ * </p>
+ *
  * @author Ivica Cardic
  */
 @Testcontainers
@@ -78,6 +97,7 @@ class ApprovalTaskAssigneeForeignKeyIntTest {
     void testConfigurationMigratesWithoutTheForeignKey() throws Exception {
         givenApprovalTaskTable();
 
+        // No user table: this is the configuration context, and creating it here would defeat the test.
         assertThatCode(() -> update("configuration"))
             .as("the configuration context has no user table, so the migration must still complete")
             .doesNotThrowAnyException();
@@ -99,6 +119,8 @@ class ApprovalTaskAssigneeForeignKeyIntTest {
 
         update("mono");
 
+        // An existing mono database that ran the unsplit changeset already carries the foreign key while having no
+        // row for -2. Deleting the row reproduces that state without hand-writing databasechangelog columns.
         execute("DELETE FROM databasechangelog WHERE id = '20260425120000-2'");
 
         assertThatCode(() -> update("mono"))
@@ -118,6 +140,8 @@ class ApprovalTaskAssigneeForeignKeyIntTest {
 
         update("mono");
 
+        // Every database that ran the unsplit -1 recorded a checksum for a body that no longer exists on disk. Any
+        // foreign value reproduces that; the point is that validCheckSum accepts it instead of halting the upgrade.
         execute("UPDATE databasechangelog SET md5sum = '9:0123456789abcdef0123456789abcdef' "
             + "WHERE id = '20260425120000-1'");
 
@@ -187,9 +211,9 @@ class ApprovalTaskAssigneeForeignKeyIntTest {
         }
     }
 
-    @SuppressFBWarnings(
-        value = "SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE",
-        justification = "Only literal DDL declared in this test reaches execute")
+    // Every string reaching this helper is a literal declared in this test class; there is no external input to
+    // inject, and the DDL involved cannot be expressed as bind parameters.
+    @SuppressFBWarnings("SQL_NONCONSTANT_STRING_PASSED_TO_EXECUTE")
     private void execute(String... sqls) throws SQLException {
         try (Connection connection = connection(); Statement statement = connection.createStatement()) {
             for (String sql : sqls) {
