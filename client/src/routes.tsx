@@ -287,15 +287,14 @@ const currentWorkspaceSettingsRoutes = {
         },
         // Workspace-scoped, unlike Skills: every ai_auto_memory row is keyed by
         // (workspaceId, principalType, principalId, environment), so the page belongs to the workspace
-        // group rather than the organization one.
+        // group rather than the organization one — which is also mounted under /embedded/settings, where
+        // there is no workspace to scope it to.
         {
             element: (
                 <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
-                    <EEVersion>
-                        <LazyLoadWrapper>
-                            <AiAutoMemoriesPage />
-                        </LazyLoadWrapper>
-                    </EEVersion>
+                    <LazyLoadWrapper>
+                        <AiAutoMemoriesPage />
+                    </LazyLoadWrapper>
                 </PrivateRoute>
             ),
             path: 'ai/memories',
