@@ -3,6 +3,7 @@ import {ReactFlowProvider} from '@xyflow/react';
 import './WorkflowEditorLayout.css';
 
 import WorkflowNodeDetailsPanel from '@/pages/platform/workflow-editor/components/WorkflowNodeDetailsPanel';
+import {useClusterElementsCanvasDialogStore} from '@/pages/platform/workflow-editor/components/stores/useClusterElementsCanvasDialogStore';
 import useWorkflowEditorLayout from '@/pages/platform/workflow-editor/hooks/useWorkflowEditorLayout';
 import {useWorkflowLayout} from '@/pages/platform/workflow-editor/hooks/useWorkflowLayout';
 import {useWorkflowEditor} from '@/pages/platform/workflow-editor/providers/workflowEditorProvider';
@@ -17,7 +18,7 @@ import {Source, useCopilotStore} from '@/shared/components/copilot/stores/useCop
 import {ProjectWorkflowKeys} from '@/shared/queries/automation/projectWorkflows.queries';
 import {WorkflowKeys} from '@/shared/queries/automation/workflows.queries';
 import {useQueryClient} from '@tanstack/react-query';
-import {Suspense, lazy, useEffect, useMemo, useState} from 'react';
+import {Suspense, lazy, useCallback, useEffect, useMemo, useState} from 'react';
 import {useParams} from 'react-router-dom';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/shallow';
@@ -38,6 +39,10 @@ import useWorkflowNodeDetailsPanelStore from './stores/useWorkflowNodeDetailsPan
 import useWorkflowTestChatStore from './stores/useWorkflowTestChatStore';
 import {clearAllWorkflowMutations} from './utils/workflowMutationGuard';
 
+const AiAgentTestingPanel = lazy(
+    () =>
+        import('@/pages/platform/cluster-element-editor/ai-agent-editor/components/ai-agent-testing-panel/AiAgentTestingPanel')
+);
 const ClusterElementsCanvasDialog = lazy(
     () => import('@/pages/platform/workflow-editor/components/ClusterElementsCanvasDialog')
 );
@@ -119,6 +124,12 @@ const WorkflowEditorLayout = ({
     );
     const dataPillPanelOpen = useDataPillPanelStore((state) => state.dataPillPanelOpen);
     const workflowTestChatPanelOpen = useWorkflowTestChatStore((state) => state.workflowTestChatPanelOpen);
+    const {setTestingPanelOpen, testingPanelOpen} = useClusterElementsCanvasDialogStore(
+        useShallow((state) => ({
+            setTestingPanelOpen: state.setTestingPanelOpen,
+            testingPanelOpen: state.testingPanelOpen,
+        }))
+    );
 
     const [showCodeWorkflowTestConfigurationDialog, setShowCodeWorkflowTestConfigurationDialog] = useState(false);
 
@@ -155,6 +166,10 @@ const WorkflowEditorLayout = ({
         () => codeWorkflow === true && codeWorkflowLanguage === 'JAVA',
         [codeWorkflow, codeWorkflowLanguage]
     );
+
+    const handleClosePlayground = useCallback(() => {
+        setTestingPanelOpen(false);
+    }, [setTestingPanelOpen]);
 
     useEffect(() => {
         return useCopilotStateContributorRegistry.getState().register(() => {
@@ -377,6 +392,34 @@ const WorkflowEditorLayout = ({
             {workflow.id && workflowTestChatPanelOpen && (
                 <Suspense fallback={null}>
                     <WorkflowTestChatPanel />
+                </Suspense>
+            )}
+
+            {/*
+                The agent playground beside the main canvas, box mode's counterpart to the dialog's
+                own AiAgentTestingPanel instance. Gated on view mode so a workflow never shows two —
+                dialog mode keeps mounting its own copy from inside ClusterElementsCanvasDialog.
+                The view-mode check alone is not enough, though: a box-mode destination button (an
+                editor toggle, or Evals) can still open ClusterElementsCanvasDialog on top of an
+                already-open playground, and THAT instance also mounts its own AiAgentTestingPanel
+                sharing the same useAiAgentTestingChatStore. `!clusterElementsCanvasOpen` keeps this
+                one and the dialog's from ever being mounted at the same time.
+            */}
+
+            {clusterElementsViewMode === 'box' && testingPanelOpen && !clusterElementsCanvasOpen && (
+                <Suspense fallback={null}>
+                    <div
+                        className={twMerge(
+                            'absolute inset-y-4 top-2 bottom-6 z-10 w-screen max-w-workflow-node-details-panel-width overflow-hidden rounded-lg border border-stroke-neutral-secondary bg-background',
+                            copilotLayoutShifted ? 'right-[57px]' : 'right-[69px]'
+                        )}
+                    >
+                        <AiAgentTestingPanel
+                            contentClassName="mx-4 mb-4 rounded-lg"
+                            headerClassName="p-4"
+                            onClose={handleClosePlayground}
+                        />
+                    </div>
                 </Suspense>
             )}
 
