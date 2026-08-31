@@ -35,6 +35,8 @@ import com.bytechef.component.script.action.definition.ScriptActionDefinition;
 import com.bytechef.platform.component.runner.TaskRunnerCapability;
 import com.bytechef.platform.component.runner.TaskRunnerPropertyFactory;
 import com.bytechef.platform.component.runner.TaskRunnerRegistry;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 
 /**
@@ -44,37 +46,44 @@ import java.util.Set;
 public class ScriptJavaScriptAction {
 
     public static ScriptActionDefinition of(TaskRunnerRegistry taskRunnerRegistry) {
+        List<Property> properties = new ArrayList<>();
+
+        properties.add(
+            object(INPUT)
+                .label("Input")
+                .description("Initialize parameter values used in the custom code.")
+                .additionalProperties(
+                    array(), bool(), date(), dateTime(), integer(), nullable(), number(), object(), string(),
+                    time())
+                .expressionEnabled(false));
+        properties.add(
+            string(SCRIPT)
+                .label("JavaScript Code")
+                .description("Add your JavaScript custom logic here.")
+                .controlType(Property.ControlType.CODE_EDITOR)
+                .languageId("javascript")
+                .defaultValue(
+                    """
+                        function perform(input, context) {
+                            // input holds the values declared above under Input.
+                            //
+                            // Reach another component's action through the context:
+                            // const response = context.component.httpClient.get(
+                            //     {uri: "https://api.example.com/items"}, "my-connection");
+
+                            return null;
+                        }""")
+                .required(true));
+        properties.add(
+            TaskRunnerPropertyFactory.taskRunnerProperty(
+                taskRunnerRegistry, Set.of(TaskRunnerCapability.INLINE_SCRIPT)));
+        properties.addAll(TaskRunnerPropertyFactory.externalProperties(taskRunnerRegistry));
+
         return new ScriptActionDefinition(
             action("javascript")
                 .title("JavaScript")
                 .description("Executes custom JavaScript code.")
-                .properties(
-                    object(INPUT)
-                        .label("Input")
-                        .description("Initialize parameter values used in the custom code.")
-                        .additionalProperties(
-                            array(), bool(), date(), dateTime(), integer(), nullable(), number(), object(), string(),
-                            time())
-                        .expressionEnabled(false),
-                    string(SCRIPT)
-                        .label("JavaScript Code")
-                        .description("Add your JavaScript custom logic here.")
-                        .controlType(Property.ControlType.CODE_EDITOR)
-                        .languageId("javascript")
-                        .defaultValue(
-                            """
-                                function perform(input, context) {
-                                    // input holds the values declared above under Input.
-                                    //
-                                    // Reach another component's action through the context:
-                                    // const response = context.component.httpClient.get(
-                                    //     {uri: "https://api.example.com/items"}, "my-connection");
-
-                                    return null;
-                                }""")
-                        .required(true),
-                    TaskRunnerPropertyFactory.taskRunnerProperty(
-                        taskRunnerRegistry, Set.of(TaskRunnerCapability.INLINE_SCRIPT)))
+                .properties(properties)
                 .output(),
             "js", taskRunnerRegistry);
     }
