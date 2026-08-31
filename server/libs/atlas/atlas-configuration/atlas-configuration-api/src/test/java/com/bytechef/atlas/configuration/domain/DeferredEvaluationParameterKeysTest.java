@@ -17,6 +17,7 @@
 package com.bytechef.atlas.configuration.domain;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.Set;
@@ -70,4 +71,19 @@ class DeferredEvaluationParameterKeysTest {
             .isEmpty());
     }
 
+    /**
+     * The registry seeds the {@code commands} component's prefix itself. Nothing in this module registers it, and
+     * nothing here can: the commands component module is not on this module's classpath at all, which the first
+     * assertion pins - so this test cannot pass because something else happened to load the component. That is the
+     * whole point of seeding here, since the evaluator also runs in the coordinator, which carries no component module
+     * and would otherwise never see the registration.
+     */
+    @Test
+    void testCommandsAreSeededWithoutLoadingTheCommandsComponent() {
+        assertThrows(
+            ClassNotFoundException.class,
+            () -> Class.forName("com.bytechef.component.commands.CommandsComponentHandler"));
+
+        assertEquals(Set.of("commands"), DeferredEvaluationParameterKeys.forTaskType("commands/v1"));
+    }
 }
