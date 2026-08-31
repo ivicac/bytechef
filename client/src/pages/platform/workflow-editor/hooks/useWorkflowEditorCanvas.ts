@@ -48,12 +48,14 @@ import WorkflowNode from '../nodes/WorkflowNode';
 import {useWorkflowEditor} from '../providers/workflowEditorProvider';
 import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import clearAllNodePositions from '../utils/clearAllNodePositions';
+import {fromClusterFrameChildPosition} from '../utils/clusterFrame/clusterFrameGeometry';
 import {collectAllDescendantNodes, collectChainSuccessorNodes} from '../utils/collectDescendantNodes';
 import {
     DraggingPlaceholderStateType,
     buildDraggingPlaceholderState,
     computePlaceholderDragPosition,
 } from '../utils/dragTrailingPlaceholder';
+import {getTask} from '../utils/getTask';
 import {registerAutoPlacedGraphPositions, takeAutoPlacedGraphPositions} from '../utils/graph/autoPlacedGraphPositions';
 import {toGraphContentPosition} from '../utils/graph/graphConnections';
 import {GRAPH_FRAME_ID_ATTRIBUTE, getGraphFrameId, getGraphIdFromFrameNodeId} from '../utils/graph/graphFrameGeometry';
@@ -63,9 +65,12 @@ import {findSelectedGraphTransition, isCanvasDeleteKeyTarget} from '../utils/gra
 import {removeTransition} from '../utils/graph/graphTransitionMutations';
 import {saveGraphTransitions} from '../utils/graph/saveGraphParameters';
 import {containsNodePosition} from '../utils/postDagreConstraints';
+import {resolveClusterRootId} from '../utils/resolveClusterRootId';
 import resolveTargetTriggerName from '../utils/resolveTargetTriggerName';
+import saveWorkflowDefinition from '../utils/saveWorkflowDefinition';
 import saveWorkflowNodesPosition from '../utils/saveWorkflowNodesPosition';
 import {STICKY_NOTE_NODE_TYPE, compensateStickyNotePosition, updateStickyNote} from '../utils/stickyNoteUtils';
+import updateClusterElementsPositions from '../utils/updateClusterElementsPositions';
 import {isWorkflowMutating} from '../utils/workflowMutationGuard';
 
 interface UseWorkflowEditorCanvasParamsI {
@@ -672,6 +677,71 @@ const useWorkflowEditorCanvas = ({
                         }),
                         updateWorkflowMutation,
                     });
+                }
+
+                resetDragTracking();
+
+                return;
+            }
+
+            const parentClusterRootId = (draggedNode.data as NodeDataType).parentClusterRootId;
+
+            // A cluster element's position is content-origin (below the box's header band), while the
+            // live drag position React Flow hands back is parent-relative (which includes it) — the
+            // same header-band offset the graph-frame member branch above sidesteps by never crossing
+            // it. `fromClusterFrameChildPosition` is the only sanctioned crossing back; skipping it
+            // drifts every element down by the header height on each drag. This is relative to the
+            // element's own immediate box — `parentClusterRootId` — regardless of how deep that box is
+            // nested, so no resolution is needed for the conversion itself.
+            //
+            // Built directly from the workflow definition rather than through the dialog's
+            // `saveClusterElementNodesPosition` — that helper sources its positions from the cluster
+            // element dialog's own React Flow store, which box mode never populates, and it stamps the
+            // singular `rootClusterElementNodeData` slot that `useClusterElementNodes` also reads to
+            // decide whether to draw a root's own card as one of its elements. Box mode roots already
+            // have their card on the outer canvas, so stamping that slot here would make the root's
+            // card start rendering a second time, inside its own box.
+            if (parentClusterRootId) {
+                if (updateWorkflowMutation) {
+                    const {workflow: currentWorkflow} = useWorkflowDataStore.getState();
+
+                    const workflowDefinitionTasks = currentWorkflow.definition
+                        ? (JSON.parse(currentWorkflow.definition).tasks ?? [])
+                        : [];
+
+                    // `getTask`/`workflowTasks` only address the OUTERMOST cluster root — a nested one
+                    // lives inside its parent's `clusterElements`, not as its own entry. For a
+                    // first-level element `parentClusterRootId` already IS that outermost root, but
+                    // for an element nested two or more levels deep it names only the immediate
+                    // parent, which `getTask` cannot find. `resolveClusterRootId` prefers
+                    // `topLevelClusterRootId` for exactly this reason.
+                    const topLevelClusterRootId =
+                        resolveClusterRootId(draggedNode.data as NodeDataType) ?? parentClusterRootId;
+
+                    const clusterRootTask = getTask({
+                        tasks: workflowDefinitionTasks,
+                        workflowNodeName: topLevelClusterRootId,
+                    });
+
+                    if (clusterRootTask?.clusterElements) {
+                        const updatedClusterElements = updateClusterElementsPositions({
+                            clusterElements: clusterRootTask.clusterElements,
+                            movedClusterElementId: draggedNode.id,
+                            nodePositions: {
+                                [draggedNode.id]: fromClusterFrameChildPosition(draggedNode.position),
+                            },
+                        });
+
+                        saveWorkflowDefinition({
+                            nodeData: {
+                                ...clusterRootTask,
+                                clusterElements: updatedClusterElements,
+                                componentName: clusterRootTask.type.split('/')[0],
+                                workflowNodeName: topLevelClusterRootId,
+                            },
+                            updateWorkflowMutation,
+                        });
+                    }
                 }
 
                 resetDragTracking();
