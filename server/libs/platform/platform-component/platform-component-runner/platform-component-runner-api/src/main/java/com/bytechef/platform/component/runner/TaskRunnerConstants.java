@@ -39,6 +39,9 @@ public class TaskRunnerConstants {
     public static final String STRICT = "strict";
     public static final String TRUSTED = "trusted";
 
+    public static final String INHERIT_ENVIRONMENT = "inheritEnvironment";
+    public static final String INTERPRETER = "interpreter";
+
     private TaskRunnerConstants() {
     }
 }
