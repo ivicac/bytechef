@@ -1,12 +1,10 @@
 import Button from '@/components/Button/Button';
 import AiHubChatsSidebarToggle from '@/ee/pages/automation/ai-hub/AiHubChatsSidebarToggle';
-import {aiHubChatsStore, useAiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
+import {useAiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
 import AiHubChatComposer from '@/ee/pages/automation/ai-hub/composer/AiHubChatComposer';
 import useAiHubChatLaunchers from '@/ee/pages/automation/ai-hub/hooks/useAiHubChatLaunchers';
 import AiHubSuggestionChips from '@/ee/pages/automation/ai-hub/messages/AiHubSuggestionChips';
-import {aiHubStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
-import EnvironmentSelect from '@/shared/components/EnvironmentSelect';
 import ModelPicker from '@/shared/components/ai/model-picker/ModelPicker';
 import {readLastUsedModel, writeLastUsedModel} from '@/shared/components/ai/model-picker/lastUsedModel';
 import {useAiDefaultModelQuery} from '@/shared/middleware/graphql';
@@ -49,11 +47,9 @@ const AiHubHomePanel = () => {
     return (
         <div className="relative flex size-full flex-col bg-background">
             {/*
-             * Header strip: sidebar toggle at the left edge, EnvironmentSelect tucked to the right edge —
-             * the same positions they occupy on the chat panel header (AiHubPanel). Without this, navigating
-             * from a chat back to the home view loses the env selector entirely (it lived in the
-             * page-level top header before that header was removed). Putting it here keeps env switching
-             * one click away regardless of whether the user has an active chat.
+             * Header strip: sidebar toggle at the left edge, matching the chat panel header (AiHubPanel).
+             * The environment selector lives in the app sidebar rather than here; switching it is picked up
+             * by useResetAiHubChatOnEnvironmentChange, which resets the chat wherever the switch happens.
              */}
 
             {/* px-4 py-3 with the toggle in an h-header-height box: the shared `Header`'s exact geometry,
@@ -67,17 +63,6 @@ const AiHubHomePanel = () => {
                 <div className="flex h-header-height items-center self-start">
                     <AiHubChatsSidebarToggle />
                 </div>
-
-                <EnvironmentSelect
-                    onChange={() => {
-                        aiHubChatsStore.getState().setCurrentChatId(undefined);
-
-                        aiHubStore.getState().resetMessages();
-                        aiHubStore.getState().generateChatId();
-
-                        navigate('/automation/ai-hub');
-                    }}
-                />
             </div>
 
             <div className="flex flex-1 items-center justify-center px-4">

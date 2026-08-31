@@ -287,8 +287,8 @@ const AssetFileDetailSheet = () => {
                             // (e.g. from an audit log) into a file from another environment sees the detail sheet but
                             // an empty list behind it, with no obvious reason — the list is correctly filtering by the
                             // current env while the deep-link forced the sheet open. The hint explains the mismatch
-                            // and leaves env-switching to the existing EnvironmentSelect on the page header rather
-                            // than auto-mutating the user's selection.
+                            // and leaves env-switching to the selector in the app sidebar rather than
+                            // auto-mutating the user's selection.
                             <div
                                 className="shrink-0 border-b border-b-border/50 bg-surface-warning-secondary p-3 text-xs text-content-warning-primary"
                                 data-testid="asset-file-env-mismatch"
