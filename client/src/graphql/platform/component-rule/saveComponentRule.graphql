@@ -1,0 +1,32 @@
+mutation SaveComponentRule(
+    $id: ID
+    $componentName: String!
+    $actionName: String
+    $phase: ComponentRulePhase!
+    $ruleAction: ComponentRuleActionType!
+    $condition: String!
+    $description: String
+    $enabled: Boolean!
+) {
+    saveComponentRule(
+        id: $id
+        componentName: $componentName
+        actionName: $actionName
+        phase: $phase
+        ruleAction: $ruleAction
+        condition: $condition
+        description: $description
+        enabled: $enabled
+    ) {
+        id
+        componentName
+        componentTitle
+        componentIcon
+        actionName
+        phase
+        ruleAction
+        condition
+        description
+        enabled
+    }
+}

@@ -1,0 +1,14 @@
+query ComponentRules($componentName: String) {
+    componentRules(componentName: $componentName) {
+        id
+        componentName
+        componentTitle
+        componentIcon
+        actionName
+        phase
+        ruleAction
+        condition
+        description
+        enabled
+    }
+}
