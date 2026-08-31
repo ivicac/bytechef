@@ -1,0 +1,52 @@
+enum ComponentRulePhase {
+    BEFORE
+    AFTER
+}
+
+enum ComponentRuleActionType {
+    BLOCK
+    TAG
+}
+
+type ComponentRule {
+    id: ID!
+    componentName: String!
+    componentTitle: String
+    componentIcon: String
+    actionName: String
+    phase: ComponentRulePhase!
+    ruleAction: ComponentRuleActionType!
+    condition: String!
+    description: String
+    enabled: Boolean!
+}
+
+extend type Query {
+    """
+    Lists configured component rules. Omit componentName to list every rule in the tenant, which is what the flat
+    Rules list renders. Admin-only.
+    """
+    componentRules(componentName: String): [ComponentRule!]!
+}
+
+extend type Mutation {
+    """
+    Creates a rule when id is absent, updates that rule when it is present. Rejects a BLOCK rule in the AFTER phase,
+    and a condition that is not a valid ByteChef formula expression, as typed errors. Admin-only.
+    """
+    saveComponentRule(
+        id: ID
+        componentName: String!
+        actionName: String
+        phase: ComponentRulePhase!
+        ruleAction: ComponentRuleActionType!
+        condition: String!
+        description: String
+        enabled: Boolean!
+    ): ComponentRule!
+
+    """
+    Deletes a rule. Admin-only.
+    """
+    deleteComponentRule(id: ID!): Boolean!
+}
