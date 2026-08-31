@@ -42,6 +42,7 @@ import removeWorkflowNodePosition from '../utils/removeWorkflowNodePosition';
 import saveClusterElementNodesPosition from '../utils/saveClusterElementNodesPosition';
 import saveWorkflowDefinition from '../utils/saveWorkflowDefinition';
 import {toggleNodeDisabled} from '../utils/toggleNodeDisabled';
+import ClusterFrameShell from './ClusterFrameShell';
 import DisabledNodeBadge from './DisabledNodeBadge';
 import GraphTransitionHandles from './GraphTransitionHandles';
 import styles from './NodeTypes.module.css';
@@ -499,30 +500,38 @@ const WorkflowNodeContent = forwardRef<HTMLDivElement, WorkflowNodeContentProps>
                 </>
             ) : (
                 <>
-                    <Handle
-                        className={twMerge(
-                            styles.handleVisible,
-                            effectiveDirection === 'LR'
-                                ? '-left-px rounded-l-xs rounded-r-none'
-                                : 'rounded-t-xs rounded-b-none',
-                            data.trigger && 'hidden'
-                        )}
-                        isConnectable={false}
-                        position={mapHandlePosition(Position.Top, effectiveDirection)}
-                        style={effectiveDirection === 'TB' ? {left: '36px'} : undefined}
-                        type="target"
-                    />
+                    {/* In box mode the shell wraps this card and owns the chain handles instead, so
+                        the surrounding flow connects to the box rather than to the card inside it. */}
+                    {!data.clusterFrame && (
+                        <Handle
+                            className={twMerge(
+                                styles.handleVisible,
+                                effectiveDirection === 'LR'
+                                    ? '-left-px rounded-l-xs rounded-r-none'
+                                    : 'rounded-t-xs rounded-b-none',
+                                data.trigger && 'hidden'
+                            )}
+                            isConnectable={false}
+                            position={mapHandlePosition(Position.Top, effectiveDirection)}
+                            style={effectiveDirection === 'TB' ? {left: '36px'} : undefined}
+                            type="target"
+                        />
+                    )}
 
-                    <Handle
-                        className={twMerge(
-                            styles.handleVisible,
-                            effectiveDirection === 'LR' ? 'rounded-l-none rounded-r-xs' : 'rounded-t-none rounded-b-xs'
-                        )}
-                        isConnectable={false}
-                        position={mapHandlePosition(Position.Bottom, effectiveDirection)}
-                        style={effectiveDirection === 'TB' ? {left: '36px'} : undefined}
-                        type="source"
-                    />
+                    {!data.clusterFrame && (
+                        <Handle
+                            className={twMerge(
+                                styles.handleVisible,
+                                effectiveDirection === 'LR'
+                                    ? 'rounded-l-none rounded-r-xs'
+                                    : 'rounded-t-none rounded-b-xs'
+                            )}
+                            isConnectable={false}
+                            position={mapHandlePosition(Position.Bottom, effectiveDirection)}
+                            style={effectiveDirection === 'TB' ? {left: '36px'} : undefined}
+                            type="source"
+                        />
+                    )}
 
                     {/* `WorkflowNode` never renders in a read-only workflow — `useLayout` converts
                         every task node to `readonly` there — so a member rendered by this
@@ -1041,52 +1050,60 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
 
     if (isRegularNode) {
         return (
-            <WorkflowNodeContextMenu
-                canPaste={canPaste}
-                data={data}
-                hasSavedPosition={!!hasSavedNodePosition}
-                onCopy={handleCopyNode}
-                onCut={handleCutNode}
-                onDelete={handleDelete}
-                onInfo={() => setInfoCardOpen(true)}
-                onPaste={handlePasteNode}
-                onRename={handleStartRename}
-                onResetPosition={handleResetPosition}
-                onSwitch={handleSwitch}
-                onToggleDisabled={handleToggleDisabledClick}
-                showCopyAction={!data.trigger}
-                showCutAction={!data.trigger}
-                showDeleteAction={!data.trigger || triggerCount > 1}
-                showDisableAction={!data.trigger}
-                showInfoAction
-                showRenameAction
-            >
-                <WorkflowNodeContent {...sharedContentProps} nodeMenuTrigger={regularNodeMenuTrigger} />
-            </WorkflowNodeContextMenu>
+            <ClusterFrameShell data={data} nodeId={id}>
+                <WorkflowNodeContextMenu
+                    canPaste={canPaste}
+                    data={data}
+                    hasSavedPosition={!!hasSavedNodePosition}
+                    onCopy={handleCopyNode}
+                    onCut={handleCutNode}
+                    onDelete={handleDelete}
+                    onInfo={() => setInfoCardOpen(true)}
+                    onPaste={handlePasteNode}
+                    onRename={handleStartRename}
+                    onResetPosition={handleResetPosition}
+                    onSwitch={handleSwitch}
+                    onToggleDisabled={handleToggleDisabledClick}
+                    showCopyAction={!data.trigger}
+                    showCutAction={!data.trigger}
+                    showDeleteAction={!data.trigger || triggerCount > 1}
+                    showDisableAction={!data.trigger}
+                    showInfoAction
+                    showRenameAction
+                >
+                    <WorkflowNodeContent {...sharedContentProps} nodeMenuTrigger={regularNodeMenuTrigger} />
+                </WorkflowNodeContextMenu>
+            </ClusterFrameShell>
         );
     }
 
     if (isClusterElement && !isMainRootClusterElement) {
         return (
-            <WorkflowNodeContextMenu
-                data={data}
-                hasSavedPosition={!!hasSavedClusterElementPosition}
-                onDelete={handleDelete}
-                onInfo={() => setInfoCardOpen(true)}
-                onRename={handleStartRename}
-                onResetPosition={() => handleRemoveSavedClusterElementPosition(data.workflowNodeName)}
-                onSwitch={handleSwitch}
-                showDeleteAction
-                showInfoAction
-                showRenameAction
-                showReplaceAction={!data.multipleClusterElementsNode}
-            >
-                <WorkflowNodeContent {...sharedContentProps} nodeMenuTrigger={clusterElementMenuTrigger} />
-            </WorkflowNodeContextMenu>
+            <ClusterFrameShell data={data} nodeId={id}>
+                <WorkflowNodeContextMenu
+                    data={data}
+                    hasSavedPosition={!!hasSavedClusterElementPosition}
+                    onDelete={handleDelete}
+                    onInfo={() => setInfoCardOpen(true)}
+                    onRename={handleStartRename}
+                    onResetPosition={() => handleRemoveSavedClusterElementPosition(data.workflowNodeName)}
+                    onSwitch={handleSwitch}
+                    showDeleteAction
+                    showInfoAction
+                    showRenameAction
+                    showReplaceAction={!data.multipleClusterElementsNode}
+                >
+                    <WorkflowNodeContent {...sharedContentProps} nodeMenuTrigger={clusterElementMenuTrigger} />
+                </WorkflowNodeContextMenu>
+            </ClusterFrameShell>
         );
     }
 
-    return <WorkflowNodeContent {...sharedContentProps} />;
+    return (
+        <ClusterFrameShell data={data} nodeId={id}>
+            <WorkflowNodeContent {...sharedContentProps} />
+        </ClusterFrameShell>
+    );
 };
 
 function updateClusterElementLabel(
