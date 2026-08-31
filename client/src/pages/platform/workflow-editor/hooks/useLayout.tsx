@@ -28,6 +28,8 @@ import {useEffect, useMemo, useRef, useState} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 import {useStoreWithEqualityFn} from 'zustand/traditional';
 
+import useClusterElementNodes from '../../cluster-element-editor/hooks/useClusterElementNodes';
+import useClusterElementsViewModeStore from '../stores/useClusterElementsViewModeStore';
 import useDataPillPanelStore from '../stores/useDataPillPanelStore';
 import useLayoutDirectionStore from '../stores/useLayoutDirectionStore';
 import useLayoutEngineStore from '../stores/useLayoutEngineStore';
@@ -37,6 +39,7 @@ import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPanelStore';
 import useWorkflowTestChatStore from '../stores/useWorkflowTestChatStore';
 import animateNodePositions from '../utils/animateNodePositions';
+import {layoutClusterFrames} from '../utils/clusterFrame/layoutClusterFrames';
 import createBranchEdges from '../utils/createBranchEdges';
 import createBranchNode from '../utils/createBranchNode';
 import createConditionEdges, {hasTaskInConditionBranches} from '../utils/createConditionEdges';
@@ -169,10 +172,45 @@ function collectGraphLayoutSignature(value: unknown, sink: string[]): void {
 }
 
 /**
- * Builds a string key that changes only when the task graph structure changes
- * (task names, types, nested task counts) but NOT when parameter values change.
- * This prevents unnecessary dagre layout recalculations on every property save.
+ * Builds a structural signature for one cluster root's attached elements: each element's identity
+ * (`name`, `type`) and where it sits (`metadata.ui.nodePosition`), recursing into nested cluster
+ * roots. Sibling of `collectGraphLayoutSignature` above, for the same reason: a box is sized from
+ * where its elements sit, so an element's identity or position is what should trigger the outer
+ * canvas to relayout.
+ *
+ * Deliberately excludes `parameters` and `connections` (both present on `ClusterElementItemType`):
+ * those are exactly what changes on every keystroke in a cluster element's own property form, and
+ * folding them in here would fire the fingerprint on every debounced property save -- the opposite
+ * of what `getTasksStructuralFingerprint` exists for. See the two guarded fixtures in
+ * `getTasksStructuralFingerprint.test.ts` ("should produce the same fingerprint for tasks differing
+ * only in parameter values" and its cluster-element counterpart added alongside this comment).
  */
+function collectClusterElementsSignature(value: unknown): string {
+    if (Array.isArray(value)) {
+        return value.map((item) => collectClusterElementsSignature(item)).join(',');
+    }
+
+    if (!value || typeof value !== 'object') {
+        return '';
+    }
+
+    const record = value as Record<string, unknown>;
+
+    // A single element (carries its own name/type) vs. a slot map (slot key -> element/array/null).
+    if (typeof record.name === 'string' && typeof record.type === 'string') {
+        const nodePosition = (record.metadata as NodeDataType['metadata'])?.ui?.nodePosition;
+        const positionSignature = nodePosition ? `${nodePosition.x},${nodePosition.y}` : '';
+        const nestedSignature = collectClusterElementsSignature(record.clusterElements);
+
+        return `${record.name}:${record.type}@${positionSignature}${nestedSignature ? `[${nestedSignature}]` : ''}`;
+    }
+
+    return Object.keys(record)
+        .sort()
+        .map((key) => `${key}=${collectClusterElementsSignature(record[key])}`)
+        .join('|');
+}
+
 /**
  * Moves the canvas sideways by `shift` when a side panel opens or closes.
  *
@@ -185,6 +223,18 @@ export function shiftCanvasNodes(nodes: Node[], shift: number): Node[] {
     );
 }
 
+/**
+ * Builds a string key that changes only when the task graph structure changes -- task names, types,
+ * nested task counts, a graph dispatcher's transitions/entry point/member positions, and now a
+ * cluster root's attached elements and their positions -- but NOT when parameter values change. This
+ * is the equality function `storeTasks` below is subscribed with, and its whole job is to prevent a
+ * relayout (plus `animateNodePositions`) on every debounced property save while the user is typing.
+ *
+ * A cluster root's `clusterElements` contributes only the STRUCTURAL subset built by
+ * `collectClusterElementsSignature` above -- element identity and position, deliberately excluding
+ * `parameters`/`connections`. Pinned in `hooks/tests/getTasksStructuralFingerprint.test.ts` and
+ * `hooks/tests/useLayout.clusterFrame.test.ts`.
+ */
 export function getTasksStructuralFingerprint(tasks: WorkflowTask[]): string {
     return tasks
         .map((task) => {
@@ -194,7 +244,15 @@ export function getTasksStructuralFingerprint(tasks: WorkflowTask[]): string {
                     (value) => value !== null && value !== undefined && !(Array.isArray(value) && value.length === 0)
                 );
 
-            const parts = [task.name, task.type, task.clusterRoot ? 'cr' : '', hasFilledClusterElements ? 'ce' : ''];
+            // Guarded on hasFilledClusterElements so `{}` and all-null/empty-array shapes keep
+            // collapsing to the same '' as "no clusterElements" -- collectClusterElementsSignature
+            // alone cannot tell those apart from a genuinely filled-but-signature-empty root.
+            const parts = [
+                task.name,
+                task.type,
+                task.clusterRoot ? 'cr' : '',
+                hasFilledClusterElements ? `ce:${collectClusterElementsSignature(task.clusterElements)}` : '',
+            ];
 
             if (task.parameters) {
                 const keyCounts = new Map<string, number[]>();
@@ -354,6 +412,23 @@ export default function useLayout({
     const workflowTestChatPanelOpen = useWorkflowTestChatStore((state) => state.workflowTestChatPanelOpen);
     const rightSidebarOpen = useRightSidebarStore((state) => state.rightSidebarOpen);
     const layoutResetCounter = useWorkflowDataStore((state) => state.layoutResetCounter);
+
+    const clusterElementsViewMode = useClusterElementsViewModeStore((state) => state.clusterElementsViewMode);
+
+    // `layoutNodes` (the canvas node array) exists only inside the layout effect below, built fresh
+    // from `tasks` on every run -- so this reads `tasks` directly instead, rather than duplicating
+    // that construction here just to get ids the effect could derive on its own. A task counts as a
+    // box candidate once it carries a clusterElements object; layoutClusterFrames is what actually
+    // decides whether a candidate has any elements to box up.
+    const boxModeClusterRootIds = useMemo(
+        () =>
+            clusterElementsViewMode === 'box'
+                ? (tasks ?? []).filter((task) => task.clusterElements).map((task) => task.name)
+                : [],
+        [clusterElementsViewMode, tasks]
+    );
+
+    const {definitionsReady, edgesByRootId, nodesByRootId} = useClusterElementNodes(boxModeClusterRootIds);
 
     // Bumped to re-run the layout effect after a silent bail (node drag in
     // progress) or a failed layout computation — without it either path left
@@ -1025,6 +1100,13 @@ export default function useLayout({
             return;
         }
 
+        // Without this, a box would first lay out at whatever size its (not-yet-fetched) elements
+        // default to and then jump once the real ones resolve. There is nothing to wait for when box
+        // mode is off (the array is empty) or definitions are already in hand.
+        if (boxModeClusterRootIds.length > 0 && !definitionsReady) {
+            return;
+        }
+
         let isCancelled = false;
 
         let layoutNodes = allNodes;
@@ -1174,10 +1256,16 @@ export default function useLayout({
 
         const layoutFunction = isElkLayoutActive(layoutEngine, layoutNodes) ? getElkLayoutElements : getLayoutElements;
 
+        // Cluster boxes are sized and their elements partitioned out BEFORE graph frames, so the
+        // graph pre-pass never has to classify a cluster element (getOwningDispatcherId walks
+        // dispatcher-nesting fields and does not follow parentId) and sees each cluster root as an
+        // ordinary sized leaf.
+        const framedClusters = layoutClusterFrames(layoutNodes, edges, {edgesByRootId, nodesByRootId});
+
         // Graph frames are laid out first and handed to the engine as single sized leaf nodes;
         // their members carry frame-relative positions, so they are re-appended afterwards and
         // the outer result cannot disturb them.
-        layoutGraphFrames(layoutNodes, edges, layoutDirection, layoutFunction)
+        layoutGraphFrames(framedClusters.outerNodes, framedClusters.outerEdges, layoutDirection, layoutFunction)
             .then((framedGraphs) =>
                 layoutFunction({
                     canvasHeight: canvasHeightRef.current,
@@ -1198,7 +1286,14 @@ export default function useLayout({
                     // Assigned wholesale, so nothing an earlier pass reported can outlive this one.
                     autoPlacedGraphPositionsRef.current = framedGraphs.autoPlaced;
 
-                    const layoutElementNodes = [...elements.nodes, ...framedGraphs.memberNodes];
+                    // Cluster members are appended AFTER graph members: React Flow requires a node's
+                    // parent to appear before it in the array, and a cluster root can itself be a
+                    // graph member (`framedGraphs.memberNodes` is where such a root would land).
+                    const layoutElementNodes = [
+                        ...elements.nodes,
+                        ...framedGraphs.memberNodes,
+                        ...framedClusters.memberNodes,
+                    ];
 
                     // Applied here rather than alongside the read-only node type conversion above:
                     // the pre-pass runs in between and is what stamps `draggable` on graph members,
@@ -1206,7 +1301,7 @@ export default function useLayout({
                     // `engine` rides along in the spread: geometry-coupled renderers key on it.
                     return {
                         ...elements,
-                        edges: [...elements.edges, ...framedGraphs.memberEdges],
+                        edges: [...elements.edges, ...framedGraphs.memberEdges, ...framedClusters.memberEdges],
                         nodes: readOnlyWorkflow ? toReadOnlyLayoutNodes(layoutElementNodes) : layoutElementNodes,
                     };
                 })
@@ -1290,7 +1385,19 @@ export default function useLayout({
         };
 
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [layoutDirection, layoutEngine, layoutResetCounter, layoutRetryNonce, tasks, triggers, isWorkflowLoaded]);
+    }, [
+        layoutDirection,
+        layoutEngine,
+        layoutResetCounter,
+        layoutRetryNonce,
+        tasks,
+        triggers,
+        isWorkflowLoaded,
+        boxModeClusterRootIds,
+        definitionsReady,
+        edgesByRootId,
+        nodesByRootId,
+    ]);
 
     useEffect(() => {
         if (canvasWidth > 0 && !isWorkflowLoaded && !readOnlyWorkflow) {
