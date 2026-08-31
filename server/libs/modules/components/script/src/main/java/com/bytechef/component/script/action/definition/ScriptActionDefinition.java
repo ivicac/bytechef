@@ -19,11 +19,12 @@ package com.bytechef.component.script.action.definition;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.Parameters;
-import com.bytechef.component.script.engine.PolyglotEngine;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.AbstractActionDefinitionWrapper;
 import com.bytechef.platform.component.definition.JobContextAware;
 import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunction;
+import com.bytechef.platform.component.polyglot.ScriptSandboxMode;
+import com.bytechef.platform.component.runner.PolyglotEngine;
 import java.util.Map;
 import java.util.Optional;
 
@@ -48,6 +49,8 @@ public class ScriptActionDefinition extends AbstractActionDefinitionWrapper {
         Parameters inputParameters, Map<String, ComponentConnection> connectionParameters,
         Parameters extensions, ActionContext context) {
 
-        return polyglotEngine.execute(languageId, inputParameters, connectionParameters, (JobContextAware) context);
+        return polyglotEngine.execute(
+            ScriptSandboxMode.STRICT, null, languageId, inputParameters, connectionParameters,
+            (JobContextAware) context);
     }
 }
