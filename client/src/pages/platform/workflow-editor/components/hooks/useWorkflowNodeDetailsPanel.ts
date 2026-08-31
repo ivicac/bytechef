@@ -83,6 +83,7 @@ import getOutputSchemaFromWorkflowNodeOutput from '../../utils/getOutputSchemaFr
 import getParametersWithDefaultValues from '../../utils/getParametersWithDefaultValues';
 import getWorkflowInputAndVariableDataPills from '../../utils/getWorkflowInputAndVariableDataPills';
 import {findGraphMembersPrecedingMember} from '../../utils/graph/graphReachability';
+import {resolveClusterRootId} from '../../utils/resolveClusterRootId';
 import saveClusterElementFieldChange from '../../utils/saveClusterElementFieldChange';
 import saveTaskDispatcherSubtaskFieldChange from '../../utils/saveTaskDispatcherSubtaskFieldChange';
 import saveWorkflowDefinition from '../../utils/saveWorkflowDefinition';
@@ -172,9 +173,8 @@ export default function useWorkflowNodeDetailsPanel({
         }))
     );
 
-    const {clusterElementsCanvasOpen, rootClusterElementNodeData} = useWorkflowEditorStore(
+    const {rootClusterElementNodeData} = useWorkflowEditorStore(
         useShallow((state) => ({
-            clusterElementsCanvasOpen: state.clusterElementsCanvasOpen,
             rootClusterElementNodeData: state.rootClusterElementNodeData,
         }))
     );
@@ -1398,18 +1398,18 @@ export default function useWorkflowNodeDetailsPanel({
 
     // Find cluster element component operations
     useEffect(() => {
-        if (!clusterElementsCanvasOpen || !workflow.definition) {
+        const clusterRootId = currentNode ? resolveClusterRootId(currentNode) : undefined;
+
+        if (!clusterRootId || !workflow.definition) {
             return;
         }
 
         const workflowDefinitionTasks = JSON.parse(workflow.definition).tasks;
 
-        const mainClusterRootTask = rootClusterElementNodeData?.workflowNodeName
-            ? getTask({
-                  tasks: workflowDefinitionTasks,
-                  workflowNodeName: rootClusterElementNodeData.workflowNodeName,
-              })
-            : undefined;
+        const mainClusterRootTask = getTask({
+            tasks: workflowDefinitionTasks,
+            workflowNodeName: clusterRootId,
+        });
 
         if (!mainClusterRootTask) {
             return;
@@ -1426,7 +1426,17 @@ export default function useWorkflowNodeDetailsPanel({
                 setClusterElementComponentOperations(clusterElementsWorkflowNodeTypes);
             }
         }
-    }, [clusterElementsCanvasOpen, rootClusterElementNodeData, workflow]);
+        // Narrowed to the fields resolveClusterRootId actually reads, plus workflow.definition (the
+        // only part of `workflow` read above) -- the full `currentNode`/`workflow` objects churn on
+        // unrelated updates (e.g. `workflow.version`), which would re-run this JSON.parse for no reason.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [
+        currentNode?.clusterRoot,
+        currentNode?.parentClusterRootId,
+        currentNode?.topLevelClusterRootId,
+        currentNode?.workflowNodeName,
+        workflow.definition,
+    ]);
 
     // Set currentOperationName depending on the currentWorkflowNode.operationName
     useEffect(() => {

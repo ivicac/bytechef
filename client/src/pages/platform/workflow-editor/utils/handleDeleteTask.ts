@@ -18,6 +18,7 @@ import findAndRemoveClusterElement from './findAndRemoveClusterElement';
 import getRecursivelyUpdatedTasks from './getRecursivelyUpdatedTasks';
 import {getTask} from './getTask';
 import {removeTransitionsForNode} from './graph/graphTransitionMutations';
+import {resolveClusterRootId} from './resolveClusterRootId';
 import stringifyWorkflowDefinition from './stringifyWorkflowDefinition';
 import {TASK_DISPATCHER_CONFIG} from './taskDispatcherConfig';
 import {forEachNestedTaskGroup} from './taskTraversalUtils';
@@ -26,7 +27,6 @@ import {isWorkflowMutating, setWorkflowMutating} from './workflowMutationGuard';
 interface HandleDeleteTaskProps {
     cancelWorkflowQueries: () => void;
     rootClusterElementNodeData?: NodeDataType;
-    clusterElementsCanvasOpen?: boolean;
     currentNode?: NodeDataType;
     data: NodeDataType;
     invalidateWorkflowQueries: () => void;
@@ -39,7 +39,6 @@ interface HandleDeleteTaskProps {
 
 export default function handleDeleteTask({
     cancelWorkflowQueries,
-    clusterElementsCanvasOpen,
     currentNode,
     data,
     invalidateWorkflowQueries,
@@ -61,6 +60,16 @@ export default function handleDeleteTask({
     if (!workflowTasks) {
         return;
     }
+
+    // Only a cluster ELEMENT (a tool/model/memory removed from its root's `clusterElements` tree)
+    // takes the branch below -- never the root itself. `resolveClusterRootId` also resolves a root's
+    // OWN data to its own name (for the details-panel site, where selecting the root must resolve to
+    // itself), which would otherwise make deleting a cluster-root task (e.g. the AI Agent node) match
+    // this branch too: `getTask` would find the very task being deleted, `findAndRemoveClusterElement`
+    // would find nothing to remove inside its own `clusterElements`, and the task would silently
+    // survive instead of being deleted. Gating on `data.clusterElementType` -- set only on elements,
+    // never on a root's own node data -- keeps root deletion on the plain top-level/nested-task path.
+    const clusterRootId = data.clusterElementType ? resolveClusterRootId(data) : undefined;
 
     let updatedTasks: Array<WorkflowTaskType>;
 
@@ -275,10 +284,10 @@ export default function handleDeleteTask({
 
             return parentOnErrorTask;
         }) as Array<WorkflowTaskType>;
-    } else if (clusterElementsCanvasOpen && rootClusterElementNodeData) {
+    } else if (clusterRootId) {
         const mainRootClusterElementTask = getTask({
             tasks: workflowTasks,
-            workflowNodeName: rootClusterElementNodeData.name,
+            workflowNodeName: clusterRootId,
         });
 
         if (!mainRootClusterElementTask || !mainRootClusterElementTask.clusterElements) {
@@ -299,7 +308,14 @@ export default function handleDeleteTask({
         if (clusterElementRemovalResult.elementFound) {
             const updatedClusterElements = clusterElementRemovalResult.elements;
 
-            if (setRootClusterElementNodeData && setCurrentNode) {
+            // `rootClusterElementNodeData` is the dialog's single open root; box mode can delete a
+            // cluster element with no dialog open at all, in which case there is no dialog-root store
+            // state to refresh here (the box's own nodes are recomputed from the updated workflow
+            // definition instead). Requiring it explicitly -- rather than just the setters, which are
+            // stable store functions and stay truthy regardless -- also keeps TypeScript's narrowing:
+            // without it, the spreads below type as `Partial<NodeDataType>` and fail to satisfy the
+            // setters' `NodeDataType` parameter.
+            if (rootClusterElementNodeData && setRootClusterElementNodeData && setCurrentNode) {
                 if (currentNode?.clusterRoot && !currentNode.isNestedClusterRoot) {
                     setCurrentNode({
                         ...currentNode,

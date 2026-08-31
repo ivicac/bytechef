@@ -609,7 +609,6 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
     );
 
     const {
-        clusterElementsCanvasOpen,
         clusterRootComponentDefinitions,
         copiedNode,
         copiedWorkflowId,
@@ -622,7 +621,6 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
         setRootClusterElementNodeData,
     } = useWorkflowEditorStore(
         useShallow((state) => ({
-            clusterElementsCanvasOpen: state.clusterElementsCanvasOpen,
             clusterRootComponentDefinitions: state.clusterRootComponentDefinitions,
             copiedNode: state.copiedNode,
             copiedWorkflowId: state.copiedWorkflowId,
@@ -767,7 +765,6 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
 
             handleDeleteTask({
                 cancelWorkflowQueries: cancelWorkflowQueries!,
-                clusterElementsCanvasOpen,
                 currentNode,
                 data: nodeData,
                 invalidateWorkflowQueries: invalidateWorkflowQueries!,
@@ -781,7 +778,6 @@ const WorkflowNode = ({data, id}: {data: NodeDataType; id: string}) => {
         },
         [
             cancelWorkflowQueries,
-            clusterElementsCanvasOpen,
             currentNode,
             invalidateWorkflowQueries,
             queryClient,
