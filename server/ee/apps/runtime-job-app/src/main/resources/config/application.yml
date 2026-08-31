@@ -95,6 +95,12 @@ bytechef:
   message-broker:
     # Messaging provider between Coordinator and Workers (memory) default: memory
     provider: memory
+  script:
+    # Task runner allowlist. A runner absent from this map is disabled, which is the intended default for the
+    # out-of-process runners but not for GraalVM, the in-process runner every script action falls back to.
+    runners:
+      graalvm:
+        enabled: true
   # When the worker is enabled, subscribe to the default "default" queue with 10 concurrent consumers.
   # You may also route workflow tasks to other arbitrarily named task queues by specifying the "node"
   # property on any given task.
