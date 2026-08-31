@@ -11,7 +11,6 @@ import {
 } from '@/components/ui/dropdown-menu';
 import {Input} from '@/components/ui/input';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
-import EnvironmentSelect from '@/shared/components/EnvironmentSelect';
 import FilterBadges from '@/shared/components/filters/FilterBadges';
 import FilterMenu, {type FilterGroupI} from '@/shared/components/filters/FilterMenu';
 import Header from '@/shared/layout/Header';
@@ -255,13 +254,7 @@ const Memories = () => {
                 <Header
                     description="Facts the agent has stored while working in this workspace."
                     position="main"
-                    right={
-                        <div className="flex items-center gap-1">
-                            <FilterMenu groups={filterGroups} title="Filter Memories" />
-
-                            <EnvironmentSelect />
-                        </div>
-                    }
+                    right={<FilterMenu groups={filterGroups} title="Filter Memories" />}
                     title="AI Memories"
                 />
             }

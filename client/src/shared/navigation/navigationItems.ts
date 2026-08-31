@@ -76,7 +76,6 @@ export const automationNavigation: NavigationItemI[] = [
         icon: NetworkIcon,
         name: 'A2A Servers',
     },
-    {group: 'Deploy', href: '/automation/ai/gateway', icon: RouterIcon, name: 'AI Gateway'},
     {
         group: 'Monitor',
         href: '/automation/executions',
@@ -107,6 +106,7 @@ export const automationNavigation: NavigationItemI[] = [
         icon: FileTextIcon,
         name: 'Files',
     },
+    {group: 'AI', href: '/automation/ai/gateway', icon: RouterIcon, name: 'AI Gateway'},
 ];
 
 export const embeddedNavigation: NavigationItemI[] = [
@@ -131,6 +131,18 @@ export const embeddedNavigation: NavigationItemI[] = [
     },
     {group: 'Configure', href: '/embedded/app-events', icon: ZapIcon, name: 'App Events'},
     {group: 'Configure', href: '/embedded/mcp-servers', icon: ServerIcon, name: 'MCP Servers'},
+    {
+        group: 'Data',
+        href: '/embedded/data-tables',
+        icon: Table2Icon,
+        name: 'Data Tables',
+    },
+    {
+        group: 'Data',
+        href: '/embedded/knowledge-bases',
+        icon: VectorSquareIcon,
+        name: 'Knowledge Base',
+    },
     {
         group: 'Monitor',
         href: '/embedded/executions',
