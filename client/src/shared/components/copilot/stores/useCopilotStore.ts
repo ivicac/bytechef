@@ -47,6 +47,7 @@ export enum Source {
     MCP_SERVER = 'MCP_SERVER',
     API_COLLECTION = 'API_COLLECTION',
     ASSET_FILE = 'ASSET_FILE',
+    COMPONENT_RULE = 'COMPONENT_RULE',
 }
 
 export type ContextType = {
