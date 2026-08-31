@@ -12,7 +12,7 @@ import {
 import {Input} from '@/components/ui/input';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import FilterBadges from '@/shared/components/filters/FilterBadges';
-import FilterMenu, {type FilterGroupI} from '@/shared/components/filters/FilterMenu';
+import FilterMenu, {type FilterGroupI, hasActiveFilters} from '@/shared/components/filters/FilterMenu';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
 import {useAuthenticationStore} from '@/shared/stores/useAuthenticationStore';
@@ -254,7 +254,22 @@ const Memories = () => {
                 <Header
                     description="Facts the agent has stored while working in this workspace."
                     position="main"
-                    right={<FilterMenu groups={filterGroups} title="Filter Memories" />}
+                    right={
+                        <div className="flex items-center gap-2">
+                            <div className="relative w-64">
+                                <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
+
+                                <Input
+                                    className="pl-9"
+                                    onChange={(event) => setSearchTerm(event.target.value)}
+                                    placeholder="Search by title or description..."
+                                    value={searchTerm}
+                                />
+                            </div>
+
+                            <FilterMenu groups={filterGroups} title="Filter Memories" />
+                        </div>
+                    }
                     title="AI Memories"
                 />
             }
@@ -262,24 +277,17 @@ const Memories = () => {
         >
             <PageLoader className="min-h-full" loading={isLoading}>
                 <div className="flex w-full flex-1 flex-col">
-                    {/* Search and the active-filter chips sit above the results and OUTSIDE the empty-state
-                        branch: filtering down to nothing is exactly when the chip that emptied the page has to
-                        stay reachable. */}
+                    {/* Search and the facet menu live in the header; the active-filter chips stay here, above
+                        the results and OUTSIDE the empty-state branch, because filtering down to nothing is
+                        exactly when the chip that emptied the page has to stay reachable. The strip is gated
+                        on hasActiveFilters as well as on FilterBadges' own null: an empty flex container
+                        still renders its pt-4, which would float the results down the page for no reason. */}
 
-                    <div className="flex flex-wrap items-center gap-2 px-6 pt-4">
-                        <div className="relative w-64">
-                            <SearchIcon className="absolute top-1/2 left-3 size-4 -translate-y-1/2 text-muted-foreground" />
-
-                            <Input
-                                className="pl-9"
-                                onChange={(event) => setSearchTerm(event.target.value)}
-                                placeholder="Search by title or description..."
-                                value={searchTerm}
-                            />
+                    {hasActiveFilters(filterGroups) && (
+                        <div className="flex flex-wrap items-center gap-2 px-6 pt-4">
+                            <FilterBadges groups={filterGroups} />
                         </div>
-
-                        <FilterBadges groups={filterGroups} />
-                    </div>
+                    )}
 
                     {totalCount === 0 ? (
                         <div className="flex flex-1 items-center justify-center">
