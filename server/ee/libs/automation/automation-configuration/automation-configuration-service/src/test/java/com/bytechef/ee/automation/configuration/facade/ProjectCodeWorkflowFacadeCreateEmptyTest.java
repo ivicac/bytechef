@@ -49,6 +49,7 @@ import java.util.Optional;
 import java.util.UUID;
 import org.graalvm.polyglot.Context;
 import org.junit.jupiter.api.Assumptions;
+import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
@@ -272,6 +273,29 @@ class ProjectCodeWorkflowFacadeCreateEmptyTest {
                 .getName()).isEqualTo("my-workflow");
         } finally {
             Files.delete(path);
+        }
+    }
+
+    /**
+     * Boots each guest language once, before any test is timed.
+     *
+     * <p>
+     * GraalPy's first context in a JVM pays a one-time initialization that costs 12-30 seconds on a loaded machine, and
+     * it used to be paid inside {@code assumePolyglotAvailable} - so a test whose own work takes under a second spent
+     * all of its budget proving the language exists, and blew the 30-second per-test default. Paying it here puts it in
+     * the 60-second {@code beforeall} budget, once per class rather than once per language test, and leaves every test
+     * body sub-second. Failures are swallowed: whether a language is actually usable stays
+     * {@code assumePolyglotAvailable}'s decision, which is now cheap because the language is already warm.
+     */
+    @BeforeAll
+    static void warmUpPolyglotLanguages() {
+        for (String languageId : List.of("python", "ruby")) {
+            try (Context context = Context.create()) {
+                context.eval(languageId, "1");
+            } catch (RuntimeException e) {
+                // Unavailable languages are skipped per-test by assumePolyglotAvailable.
+                continue;
+            }
         }
     }
 
