@@ -1,0 +1,71 @@
+/*
+ * Copyright 2025 ByteChef
+ *
+ * Licensed under the ByteChef Enterprise license (the "Enterprise License");
+ * you may not use this file except in compliance with the Enterprise License.
+ */
+
+package com.bytechef.ee.automation.ai.tool.componentrule;
+
+import com.bytechef.ee.platform.component.rule.ComponentRuleService;
+import com.bytechef.evaluator.Evaluator;
+import com.bytechef.platform.component.service.ActionDefinitionService;
+import com.bytechef.platform.component.service.ComponentDefinitionService;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
+import java.util.ArrayList;
+import java.util.List;
+import org.springframework.ai.tool.ToolCallback;
+
+/**
+ * Builds the Component Rule tool-callback lists shared by the Copilot panel agents ({@code component_rule_ask} /
+ * {@code component_rule_build}), the AI Hub's flat and catalog registrations, and any future MCP contributor. Read list
+ * feeds ASK; write list feeds BUILD.
+ *
+ * <p>
+ * {@code proposeComponentRuleCondition} sits on the READ list even though authoring a condition sounds like a write: it
+ * persists nothing, and putting it on both agents is what lets the ASK agent answer "how would I express this as a
+ * rule" without a mode switch. Only {@code createComponentRule} touches the database.
+ * </p>
+ *
+ * @version ee
+ *
+ * @author Ivica Cardic
+ */
+public class ComponentRuleToolCallbacksFactory {
+
+    private final ActionDefinitionService actionDefinitionService;
+    private final ComponentDefinitionService componentDefinitionService;
+    private final ComponentRuleService componentRuleService;
+    private final Evaluator evaluator;
+
+    @SuppressFBWarnings("EI_EXPOSE_REP2")
+    public ComponentRuleToolCallbacksFactory(
+        ComponentRuleService componentRuleService, ComponentDefinitionService componentDefinitionService,
+        ActionDefinitionService actionDefinitionService, Evaluator evaluator) {
+
+        this.componentRuleService = componentRuleService;
+        this.componentDefinitionService = componentDefinitionService;
+        this.actionDefinitionService = actionDefinitionService;
+        this.evaluator = evaluator;
+    }
+
+    public List<ToolCallback> readToolCallbacks() {
+        List<ToolCallback> toolCallbacks = new ArrayList<>();
+
+        toolCallbacks.add(new ListComponentRulesToolCallback(componentRuleService));
+        toolCallbacks.add(
+            new DescribeComponentActionParametersToolCallback(
+                componentDefinitionService, actionDefinitionService));
+        toolCallbacks.add(new ProposeComponentRuleConditionToolCallback(evaluator));
+
+        return toolCallbacks;
+    }
+
+    public List<ToolCallback> writeToolCallbacks() {
+        List<ToolCallback> toolCallbacks = new ArrayList<>(readToolCallbacks());
+
+        toolCallbacks.add(new CreateComponentRuleToolCallback(componentRuleService));
+
+        return toolCallbacks;
+    }
+}
