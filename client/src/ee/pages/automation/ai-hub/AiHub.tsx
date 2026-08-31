@@ -10,6 +10,7 @@ import {useAiHubChatsQuery} from '@/ee/pages/automation/ai-hub/chats/hooks/useCh
 import useRecordReferencedArtifacts from '@/ee/pages/automation/ai-hub/chats/hooks/useRecordReferencedArtifacts';
 import {useSwitchChat} from '@/ee/pages/automation/ai-hub/chats/hooks/useSwitchChat';
 import {aiHubChatsStore, useAiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
+import {useResetAiHubChatOnEnvironmentChange} from '@/ee/pages/automation/ai-hub/hooks/useResetAiHubChatOnEnvironmentChange';
 import {useResetAiHubStoresOnWorkspaceChange} from '@/ee/pages/automation/ai-hub/hooks/useResetAiHubStoresOnWorkspaceChange';
 import {AiHubRuntimeProvider} from '@/ee/pages/automation/ai-hub/runtime-providers/AiHubRuntimeProvider';
 import {MODE, useAiHubStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubStore';
@@ -178,6 +179,11 @@ const AiHubContent = () => {
     // surface — children (HomePanel, Panel, ResourcePanel) used to register it independently, which fired
     // the reset multiple times on workspace change.
     useResetAiHubStoresOnWorkspaceChange();
+
+    // Environment is the scope a chat's tables and files resolve against, so switching it invalidates the
+    // active chat. Hoisted here for the same reason as the workspace reset above, and driven by the store
+    // rather than the selector widget so a switch from anywhere in the app is covered.
+    useResetAiHubChatOnEnvironmentChange();
 
     // Records each open right-panel tab as a `ai_hub_chat_artifact` so it shows up in the sidebar
     // artifact list. Bridges the gap between the UI-only tab state and the persistent artifact log —
@@ -373,11 +379,10 @@ const AiHubContent = () => {
     return (
         <LayoutContainer
             className="bg-surface-main"
-            // No top `header` slot any more — both the chat title (which lived on the left of the
-            // header) and the EnvironmentSelect (which lived on the right) have moved into their natural
-            // homes: the title sits inside AiHubPanel's own header alongside the Ask/Build toggle,
-            // and EnvironmentSelect lives in AiHubChatsSidebar's Chats row. This
-            // lets both sidebars stretch top-to-bottom without a strip across the top of the layout.
+            // No top `header` slot any more — the chat title, which lived on the left of the header, sits
+            // inside AiHubPanel's own header alongside the Ask/Build toggle, and the environment selector
+            // that lived on the right now lives once in the app sidebar. This lets both sidebars stretch
+            // top-to-bottom without a strip across the top of the layout.
             // Animation is off only while a peek is up: the preview must pop in instantly under the resting
             // pointer (an animated slide-in would leave a window where the pointer never "entered" the
             // aside, so its mouse-leave — which ends the peek — could never fire). Every other transition
