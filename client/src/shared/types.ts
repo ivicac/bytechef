@@ -235,7 +235,17 @@ export type NodeDataType = {
      * elements are drawn inside. Unlike `graphFrame` this does not mark a separate container node —
      * the root is its elements' React Flow parent already, so the root itself is the box.
      */
-    clusterFrame?: {clusterRootId: string; height: number; width: number};
+    clusterFrame?: {
+        clusterRootId: string;
+        /**
+         * Where the root card sits inside the box. Members left of, or above, the card push it in so
+         * they still land inside the border, and the drag-stop handler subtracts this again before
+         * persisting a member's position — the stored value stays measured from the card.
+         */
+        contentOrigin: {x: number; y: number};
+        height: number;
+        width: number;
+    };
     graphId?: string;
     /** Present only on the `graphStart` pill node. */
     graphStart?: {graphId: string};
