@@ -79,6 +79,7 @@ import com.bytechef.ee.ai.hub.util.Mode;
 import com.bytechef.ee.ai.hub.util.Source;
 import com.bytechef.ee.automation.ai.tool.ApiCollectionToolCallbacksFactory;
 import com.bytechef.ee.automation.ai.tool.PromoteToEnvironmentToolCallback;
+import com.bytechef.ee.automation.ai.tool.componentrule.ComponentRuleToolCallbacksFactory;
 import com.bytechef.ee.automation.ai.tool.contextstore.ContextStoreToolCallbacksFactory;
 import com.bytechef.ee.automation.promotion.PromotionResourceType;
 import com.bytechef.ee.automation.promotion.facade.EnvironmentPromotionFacade;
@@ -228,6 +229,7 @@ public class AiHubConfiguration {
         ObjectProvider<DataTableToolCallbacksFactory> dataTableToolCallbacksFactoryProvider,
         ObjectProvider<KnowledgeBaseToolCallbacksFactory> knowledgeBaseToolCallbacksFactoryProvider,
         ObjectProvider<ContextStoreToolCallbacksFactory> contextStoreToolCallbacksFactoryProvider,
+        ObjectProvider<ComponentRuleToolCallbacksFactory> componentRuleToolCallbacksFactoryProvider,
         ObjectProvider<AiAgentToolCallbacksFactory> aiAgentToolCallbacksFactoryProvider,
         AiHubChatService chatService,
         AiAutoMemoryService aiHubMemoryService,
@@ -301,6 +303,10 @@ public class AiHubConfiguration {
         toolCallbacks.addAll(dataTableFlatCrudToolCallbacks(dataTableToolCallbacksFactoryProvider));
         toolCallbacks.addAll(knowledgeBaseFlatCrudToolCallbacks(knowledgeBaseToolCallbacksFactoryProvider));
         toolCallbacks.addAll(contextStoreFlatCrudToolCallbacks(contextStoreToolCallbacksFactoryProvider));
+        // Component-rule reads (listComponentRules, describeComponentActionParameters,
+        // proposeComponentRuleCondition) are flat on both agents; createComponentRule is catalog-demoted
+        // — see componentRuleFlatCrudToolCallbacks' javadoc.
+        toolCallbacks.addAll(componentRuleFlatCrudToolCallbacks(componentRuleToolCallbacksFactoryProvider));
         toolCallbacks.addAll(aiAgentFlatCrudToolCallbacks(aiAgentToolCallbacksFactoryProvider));
         // attachChatTool/removeChatTool are deliberately NOT registered here: the ASK prompt declares tool
         // attachment a BUILD-only mutation ("suggest switching to BUILD mode"), so the registrations were
@@ -404,6 +410,7 @@ public class AiHubConfiguration {
         ObjectProvider<DataTableToolCallbacksFactory> dataTableToolCallbacksFactoryProvider,
         ObjectProvider<KnowledgeBaseToolCallbacksFactory> knowledgeBaseToolCallbacksFactoryProvider,
         ObjectProvider<ContextStoreToolCallbacksFactory> contextStoreToolCallbacksFactoryProvider,
+        ObjectProvider<ComponentRuleToolCallbacksFactory> componentRuleToolCallbacksFactoryProvider,
         ObjectProvider<AiAgentToolCallbacksFactory> aiAgentToolCallbacksFactoryProvider,
         AssetFileFacade assetFileFacade, AiHubChatArtifactService chatArtifactService,
         AiHubChatArtifactRecorder aiHubChatArtifactRecorder,
@@ -490,6 +497,10 @@ public class AiHubConfiguration {
         // Context-store reads are flat (ticket 732, Task 7); see contextStoreFlatCrudToolCallbacks' javadoc. The
         // six mutations are catalog-demoted instead of pinned here — see aiHubBuildGlobalToolCatalog's javadoc.
         toolCallbacks.addAll(contextStoreFlatCrudToolCallbacks(contextStoreToolCallbacksFactoryProvider));
+        // Component-rule reads (listComponentRules, describeComponentActionParameters,
+        // proposeComponentRuleCondition) are flat on both agents; createComponentRule is catalog-demoted
+        // — see componentRuleFlatCrudToolCallbacks' javadoc.
+        toolCallbacks.addAll(componentRuleFlatCrudToolCallbacks(componentRuleToolCallbacksFactoryProvider));
         // AI-Agent-builder reads are flat (ticket 732, Task 8 — the LAST CRUD-delegate-unwind task); see
         // aiAgentFlatCrudToolCallbacks' javadoc. The nine mutations are catalog-demoted instead of pinned here —
         // see aiHubBuildGlobalToolCatalog's javadoc.
@@ -688,6 +699,7 @@ public class AiHubConfiguration {
         ObjectProvider<DataTableToolCallbacksFactory> dataTableToolCallbacksFactoryProvider,
         ObjectProvider<KnowledgeBaseToolCallbacksFactory> knowledgeBaseToolCallbacksFactoryProvider,
         ObjectProvider<ContextStoreToolCallbacksFactory> contextStoreToolCallbacksFactoryProvider,
+        ObjectProvider<ComponentRuleToolCallbacksFactory> componentRuleToolCallbacksFactoryProvider,
         ObjectProvider<AiAgentToolCallbacksFactory> aiAgentToolCallbacksFactoryProvider,
         ObjectProvider<EnvironmentPromotionFacade> environmentPromotionFacadeProvider,
         EnvironmentService environmentService) {
@@ -716,6 +728,10 @@ public class AiHubConfiguration {
         // Context-store mutations are catalog-demoted rather than pinned (ticket 732, Task 7 of the CRUD-delegate
         // unwind) — see contextStoreCatalogToolCallbacks' javadoc.
         toolCallbacks.addAll(contextStoreCatalogToolCallbacks(contextStoreToolCallbacksFactoryProvider));
+
+        // createComponentRule is catalog-demoted rather than pinned — see
+        // componentRuleCatalogToolCallbacks' javadoc.
+        toolCallbacks.addAll(componentRuleCatalogToolCallbacks(componentRuleToolCallbacksFactoryProvider));
 
         // AI-Agent-builder mutations are catalog-demoted rather than pinned (ticket 732, Task 8 of the
         // CRUD-delegate unwind, the LAST delegate) — see aiAgentCatalogToolCallbacks' javadoc.
@@ -1388,6 +1404,84 @@ public class AiHubConfiguration {
             .collect(Collectors.toSet());
 
         return contextStoreToolCallbacksFactory.writeToolCallbacks()
+            .stream()
+            .filter(toolCallback -> !readNames.contains(
+                toolCallback.getToolDefinition()
+                    .name()))
+            .toList();
+    }
+
+    /**
+     * The three read-side Component Rule tools flattened onto both AI Hub agents: {@code listComponentRules},
+     * {@code describeComponentActionParameters} and {@code proposeComponentRuleCondition}. All three are pinned rather
+     * than catalog-demoted because they are grounding calls — "what rules do I have", "what parameters does this action
+     * take", "is this condition valid" — that an agent needs before it can say anything useful about a rule, and
+     * forcing a {@code searchTool} round trip in front of each would cost a turn per question.
+     *
+     * <p>
+     * {@code proposeComponentRuleCondition} is on the read list despite sounding like authoring: it persists nothing.
+     * The one mutation is catalog-demoted, see {@link #componentRuleCatalogToolCallbacks}.
+     * </p>
+     *
+     * <p>
+     * An absent factory bean (Copilot and AI Hub both disabled, or a non-{@code ee} edition — see
+     * {@code ComponentRuleAgentConfiguration}) resolves to an empty list, the same silent-skip degrade every other
+     * Copilot-domain registration in this class follows.
+     * </p>
+     *
+     * <p>
+     * Package-private, like its context-store counterparts, so a test can assert on the resolved tool names without
+     * building a whole agent.
+     * </p>
+     */
+    static List<ToolCallback> componentRuleFlatCrudToolCallbacks(
+        ObjectProvider<ComponentRuleToolCallbacksFactory> componentRuleToolCallbacksFactoryProvider) {
+
+        ComponentRuleToolCallbacksFactory componentRuleToolCallbacksFactory = componentRuleToolCallbacksFactoryProvider
+            .getIfAvailable();
+
+        if (componentRuleToolCallbacksFactory == null) {
+            return List.of();
+        }
+
+        return componentRuleToolCallbacksFactory.readToolCallbacks();
+    }
+
+    /**
+     * {@code createComponentRule}, catalog-demoted rather than pinned on BUILD — matching how every other domain's
+     * mutations are registered since the CRUD-delegate unwind. Creating a rule is rare next to asking about one, and a
+     * pinned tool costs schema on every request whether or not it is used.
+     *
+     * <p>
+     * Derives the mutation set as {@code writeToolCallbacks()} minus {@code readToolCallbacks()} BY NAME rather than by
+     * instance: {@link ComponentRuleToolCallbacksFactory#writeToolCallbacks()} calls
+     * {@link ComponentRuleToolCallbacksFactory#readToolCallbacks()} internally, which constructs FRESH callback
+     * objects, so an identity-based filter would match nothing and demote nothing — it would pin the mutation instead.
+     * Mirrors {@link #contextStoreCatalogToolCallbacks}.
+     * </p>
+     *
+     * <p>
+     * Package-private, like its context-store counterparts, so a test can assert on the resolved tool names without
+     * building a whole agent.
+     * </p>
+     */
+    static List<ToolCallback> componentRuleCatalogToolCallbacks(
+        ObjectProvider<ComponentRuleToolCallbacksFactory> componentRuleToolCallbacksFactoryProvider) {
+
+        ComponentRuleToolCallbacksFactory componentRuleToolCallbacksFactory = componentRuleToolCallbacksFactoryProvider
+            .getIfAvailable();
+
+        if (componentRuleToolCallbacksFactory == null) {
+            return List.of();
+        }
+
+        Set<String> readNames = componentRuleToolCallbacksFactory.readToolCallbacks()
+            .stream()
+            .map(toolCallback -> toolCallback.getToolDefinition()
+                .name())
+            .collect(Collectors.toSet());
+
+        return componentRuleToolCallbacksFactory.writeToolCallbacks()
             .stream()
             .filter(toolCallback -> !readNames.contains(
                 toolCallback.getToolDefinition()
