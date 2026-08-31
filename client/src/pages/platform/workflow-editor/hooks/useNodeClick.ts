@@ -7,11 +7,11 @@ import {useCallback} from 'react';
 import {useShallow} from 'zustand/react/shallow';
 
 import useClusterElementsDataStore from '../../cluster-element-editor/stores/useClusterElementsDataStore';
-import useClusterElementsViewModeStore from '../stores/useClusterElementsViewModeStore';
 import useWorkflowDataStore from '../stores/useWorkflowDataStore';
 import useWorkflowEditorStore from '../stores/useWorkflowEditorStore';
 import useWorkflowNodeDetailsPanelStore from '../stores/useWorkflowNodeDetailsPanelStore';
 import {getNodeLabel} from '../utils/getNodeLabel';
+import {getClusterElementsViewMode} from './useClusterElementsViewMode';
 
 export default function useNodeClick(data: NodeDataType, id: NodeProps['id'], activeTab?: TabNameType) {
     const {setActiveTab, setCurrentNode, setWorkflowNodeDetailsPanelOpen} = useWorkflowNodeDetailsPanelStore(
@@ -75,11 +75,7 @@ export default function useNodeClick(data: NodeDataType, id: NodeProps['id'], ac
 
             // In box mode the elements are already on the canvas, so a click means "show me this
             // node's details", not "take me to another editor".
-            if (
-                !!data.clusterRoot &&
-                !clusterElementsCanvasOpen &&
-                useClusterElementsViewModeStore.getState().clusterElementsViewMode === 'dialog'
-            ) {
+            if (!!data.clusterRoot && !clusterElementsCanvasOpen && getClusterElementsViewMode() === 'dialog') {
                 setClusterElementsCanvasOpen(true);
             }
         }
