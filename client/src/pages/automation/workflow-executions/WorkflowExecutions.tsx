@@ -11,7 +11,6 @@ import {
     getProjectDeploymentLabel,
     getWorkflowExecutionsFilters,
 } from '@/pages/automation/workflow-executions/utils/workflowExecutionsFilters';
-import ExecutionsTabs from '@/shared/components/ExecutionsTabs';
 import CopilotButton from '@/shared/components/copilot/CopilotButton';
 import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
 import {Source} from '@/shared/components/copilot/stores/useCopilotStore';
@@ -179,13 +178,11 @@ export const WorkflowExecutions = () => {
                         </div>
                     }
                     title={
-                        <div className="flex flex-wrap items-center gap-4">
-                            <ExecutionsTabs basePath="/automation/executions" />
-
-                            {workflowExecutionPage?.content && workflowExecutionPage.content.length > 0 && (
-                                <FilterTitle filters={activeFilters} />
-                            )}
-                        </div>
+                        workflowExecutionPage?.content && workflowExecutionPage.content.length > 0 ? (
+                            <FilterTitle filters={activeFilters} />
+                        ) : (
+                            ''
+                        )
                     }
                 />
             }
