@@ -1,3 +1,4 @@
+import {DataTableScopeType} from '@/shared/components/data-tables/types';
 import {ColumnType} from '@/shared/middleware/graphql';
 import {act, renderHook} from '@testing-library/react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
@@ -6,6 +7,7 @@ import useCreateDataTableDialog from '../useCreateDataTableDialog';
 
 const hoisted = vi.hoisted(() => {
     return {
+        createEmbeddedMutate: vi.fn(),
         createMutate: vi.fn(),
         invalidateQueries: vi.fn(),
     };
@@ -20,6 +22,13 @@ vi.mock('@/shared/middleware/graphql', async (importOriginal) => {
             isPending: false,
             mutate: (vars: unknown) => {
                 hoisted.createMutate(vars);
+                options.onSuccess();
+            },
+        })),
+        useCreateEmbeddedDataTableMutation: vi.fn((options: {onSuccess: () => void}) => ({
+            isPending: false,
+            mutate: (vars: unknown) => {
+                hoisted.createEmbeddedMutate(vars);
                 options.onSuccess();
             },
         })),
@@ -38,9 +47,8 @@ vi.mock('@/shared/stores/useEnvironmentStore', () => ({
     useEnvironmentStore: vi.fn(() => 2),
 }));
 
-vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
-    useWorkspaceStore: vi.fn(() => 1049),
-}));
+const WORKSPACE_SCOPE: DataTableScopeType = {type: 'WORKSPACE', workspaceId: 1049};
+const EMBEDDED_SCOPE: DataTableScopeType = {type: 'EMBEDDED'};
 
 describe('useCreateDataTableDialog', () => {
     beforeEach(() => {
@@ -49,7 +57,7 @@ describe('useCreateDataTableDialog', () => {
 
     describe('initial state', () => {
         it('returns initial state as closed', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             expect(result.current.open).toBe(false);
             expect(result.current.baseName).toBe('');
@@ -58,7 +66,7 @@ describe('useCreateDataTableDialog', () => {
         });
 
         it('returns canSubmit as false initially', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             expect(result.current.canSubmit).toBe(false);
         });
@@ -66,7 +74,7 @@ describe('useCreateDataTableDialog', () => {
 
     describe('open dialog', () => {
         it('opens dialog', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             act(() => {
                 result.current.handleOpen();
@@ -78,7 +86,7 @@ describe('useCreateDataTableDialog', () => {
 
     describe('close dialog', () => {
         it('closes dialog', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             act(() => {
                 result.current.handleOpen();
@@ -94,7 +102,7 @@ describe('useCreateDataTableDialog', () => {
 
     describe('form state', () => {
         it('updates baseName via handleBaseNameChange', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             act(() => {
                 result.current.handleBaseNameChange('orders');
@@ -104,7 +112,7 @@ describe('useCreateDataTableDialog', () => {
         });
 
         it('updates description via handleDescriptionChange', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             act(() => {
                 result.current.handleDescriptionChange('Order data');
@@ -114,7 +122,7 @@ describe('useCreateDataTableDialog', () => {
         });
 
         it('adds column', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             act(() => {
                 result.current.handleAddColumn();
@@ -124,7 +132,7 @@ describe('useCreateDataTableDialog', () => {
         });
 
         it('removes column', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             act(() => {
                 result.current.handleAddColumn();
@@ -138,7 +146,7 @@ describe('useCreateDataTableDialog', () => {
         });
 
         it('updates column name', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             act(() => {
                 result.current.handleColumnNameChange(0, 'product_id');
@@ -148,7 +156,7 @@ describe('useCreateDataTableDialog', () => {
         });
 
         it('updates column type', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             act(() => {
                 result.current.handleColumnTypeChange(0, ColumnType.Number);
@@ -160,7 +168,7 @@ describe('useCreateDataTableDialog', () => {
 
     describe('canSubmit', () => {
         it('returns true when baseName and column names are provided', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             act(() => {
                 result.current.handleBaseNameChange('orders');
@@ -171,7 +179,7 @@ describe('useCreateDataTableDialog', () => {
         });
 
         it('returns false when baseName is empty', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             act(() => {
                 result.current.handleColumnNameChange(0, 'order_id');
@@ -181,7 +189,7 @@ describe('useCreateDataTableDialog', () => {
         });
 
         it('returns false when column name is empty', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             act(() => {
                 result.current.handleBaseNameChange('orders');
@@ -192,8 +200,72 @@ describe('useCreateDataTableDialog', () => {
     });
 
     describe('handle create', () => {
+        it('calls the embedded mutation with the chosen owner, and not the workspace one', () => {
+            const {result} = renderHook(() => useCreateDataTableDialog(EMBEDDED_SCOPE));
+
+            act(() => {
+                result.current.handleBaseNameChange('orders');
+                result.current.handleColumnNameChange(0, 'order_id');
+                result.current.handleOwnerIdChange(42);
+            });
+
+            act(() => {
+                result.current.handleCreate();
+            });
+
+            expect(hoisted.createEmbeddedMutate).toHaveBeenCalledWith({
+                input: {
+                    columns: [{name: 'order_id', type: ColumnType.String}],
+                    description: undefined,
+                    environmentId: '2',
+                    name: 'orders',
+                    ownerId: '42',
+                },
+            });
+            expect(hoisted.createMutate).not.toHaveBeenCalled();
+        });
+
+        // `undefined` is what omits the field from the request. A `null` or the string 'undefined' -- which
+        // `String(ownerId)` would produce -- both reach the server as a value, and only one of them is rejected there.
+        it('sends no owner at all when none was picked', () => {
+            const {result} = renderHook(() => useCreateDataTableDialog(EMBEDDED_SCOPE));
+
+            act(() => {
+                result.current.handleBaseNameChange('orders');
+                result.current.handleColumnNameChange(0, 'order_id');
+            });
+
+            act(() => {
+                result.current.handleCreate();
+            });
+
+            expect(hoisted.createEmbeddedMutate).toHaveBeenCalledTimes(1);
+
+            const [variables] = hoisted.createEmbeddedMutate.mock.calls[0];
+
+            expect(variables.input.ownerId).toBeUndefined();
+        });
+
+        it('clears the owner once the create succeeds', () => {
+            const {result} = renderHook(() => useCreateDataTableDialog(EMBEDDED_SCOPE));
+
+            act(() => {
+                result.current.handleBaseNameChange('orders');
+                result.current.handleColumnNameChange(0, 'order_id');
+                result.current.handleOwnerIdChange(42);
+            });
+
+            expect(result.current.ownerId).toBe(42);
+
+            act(() => {
+                result.current.handleCreate();
+            });
+
+            expect(result.current.ownerId).toBeUndefined();
+        });
+
         it('calls create mutation with correct data', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             act(() => {
                 result.current.handleBaseNameChange('orders');
@@ -215,10 +287,11 @@ describe('useCreateDataTableDialog', () => {
                     workspaceId: '1049',
                 },
             });
+            expect(hoisted.createEmbeddedMutate).not.toHaveBeenCalled();
         });
 
         it('resets form after successful create', () => {
-            const {result} = renderHook(() => useCreateDataTableDialog());
+            const {result} = renderHook(() => useCreateDataTableDialog(WORKSPACE_SCOPE));
 
             act(() => {
                 result.current.handleOpen();

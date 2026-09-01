@@ -6,8 +6,9 @@ import useKnowledgeBaseListItemTagList from '../useKnowledgeBaseListItemTagList'
 const hoisted = vi.hoisted(() => {
     return {
         cancelQueries: vi.fn(),
-        getQueryData: vi.fn(),
+        getQueriesData: vi.fn(() => []),
         invalidateQueries: vi.fn(),
+        setQueriesData: vi.fn(),
         setQueryData: vi.fn(),
         updateTagsMutation: {mutate: vi.fn()},
     };
@@ -16,8 +17,9 @@ const hoisted = vi.hoisted(() => {
 vi.mock('@tanstack/react-query', () => ({
     useQueryClient: vi.fn(() => ({
         cancelQueries: hoisted.cancelQueries,
-        getQueryData: hoisted.getQueryData,
+        getQueriesData: hoisted.getQueriesData,
         invalidateQueries: hoisted.invalidateQueries,
+        setQueriesData: hoisted.setQueriesData,
         setQueryData: hoisted.setQueryData,
     })),
 }));

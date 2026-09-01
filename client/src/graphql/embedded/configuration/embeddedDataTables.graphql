@@ -16,3 +16,7 @@ query EmbeddedDataTables($environmentId: ID!, $ownerId: ID) {
 mutation AssignEmbeddedDataTableOwner($input: AssignDataTableOwnerInput!) {
     assignEmbeddedDataTableOwner(input: $input)
 }
+
+mutation CreateEmbeddedDataTable($input: CreateEmbeddedDataTableInput!) {
+    createEmbeddedDataTable(input: $input)
+}

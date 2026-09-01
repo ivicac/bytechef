@@ -67,9 +67,10 @@ export default function useKnowledgeBases(scope: KnowledgeBaseScopeType): UseKno
     const tagIdParam = searchParams.get('tagId');
     const tagId = tagIdParam ?? undefined;
 
-    const {data: tagsByKnowledgeBaseQueryData} = useKnowledgeBaseTagsByKnowledgeBaseQuery(undefined, {
-        enabled: isWorkspaceScope,
-    });
+    const {data: tagsByKnowledgeBaseQueryData} = useKnowledgeBaseTagsByKnowledgeBaseQuery(
+        {workspaceId: String(workspaceId)},
+        {enabled: isWorkspaceScope}
+    );
     const {data: allTagsData} = useKnowledgeBaseTagsQuery(
         {workspaceId: String(workspaceId)},
         {enabled: isWorkspaceScope}

@@ -12,8 +12,11 @@ import {
 } from '@/components/ui/dialog';
 import {Label} from '@/components/ui/label';
 import {Textarea} from '@/components/ui/textarea';
+import OwnerSelect from '@/ee/pages/embedded/shared/components/OwnerSelect';
+import {ConnectedUser} from '@/ee/shared/middleware/embedded/connected-user';
 import {useCommandIntent} from '@/shared/command-bar/useCommandIntent';
 import useCreateKnowledgeBaseDialog from '@/shared/components/knowledge-bases/components/hooks/useCreateKnowledgeBaseDialog';
+import {KnowledgeBaseScopeType} from '@/shared/components/knowledge-bases/types';
 import {cn} from '@/shared/util/cn-utils';
 import {Loader2, X} from 'lucide-react';
 import {ReactNode} from 'react';
@@ -25,28 +28,36 @@ interface CreateKnowledgeBaseDialogProps {
      * knowledge base's own page) must leave this `false`, or it becomes an eligible claimant for a stale intent too.
      */
     claimsCreateIntent?: boolean;
+    /**
+     * The accounts the owner row offers, in embedded scope. Passed in rather than read from
+     * `useEmbeddedConnectedUsers` here, so this shared component keeps no dependency on an EE data source.
+     */
+    connectedUsers?: ConnectedUser[];
+    scope: KnowledgeBaseScopeType;
     trigger?: ReactNode;
-    workspaceId: string;
 }
 
 const CreateKnowledgeBaseDialog = ({
     claimsCreateIntent = false,
+    connectedUsers = [],
+    scope,
     trigger,
-    workspaceId,
 }: CreateKnowledgeBaseDialogProps) => {
     const {
         canSubmit,
-        createMutation,
         description,
         formatFileSize,
         handleFileChange,
         handleOpenChange,
+        handleOwnerIdChange,
         handleSubmit,
+        isPending,
         maxChunkSize,
         minChunkSizeChars,
         name,
         open,
         overlapSize,
+        ownerId,
         removeFile,
         selectedFiles,
         setDescription,
@@ -56,7 +67,9 @@ const CreateKnowledgeBaseDialog = ({
         setOpen,
         setOverlapSize,
         uploading,
-    } = useCreateKnowledgeBaseDialog({workspaceId});
+    } = useCreateKnowledgeBaseDialog(scope);
+
+    const isEmbeddedScope = scope.type === 'EMBEDDED';
 
     useCommandIntent('knowledgeBase.create', () => setOpen(true), claimsCreateIntent);
 
@@ -70,7 +83,9 @@ const CreateKnowledgeBaseDialog = ({
                         <DialogTitle>Create Knowledge Base</DialogTitle>
 
                         <DialogDescription>
-                            Configure chunking settings and optionally upload initial documents.
+                            {isEmbeddedScope
+                                ? 'Configure chunking settings, and pick the account this knowledge base belongs to.'
+                                : 'Configure chunking settings and optionally upload initial documents.'}
                         </DialogDescription>
                     </div>
 
@@ -102,6 +117,20 @@ const CreateKnowledgeBaseDialog = ({
                         />
                     </div>
 
+                    {isEmbeddedScope && (
+                        <div className="space-y-2">
+                            <Label>Owner</Label>
+
+                            <OwnerSelect
+                                connectedUsers={connectedUsers}
+                                noOwnerLabel="Shared"
+                                onChange={handleOwnerIdChange}
+                                ownerId={ownerId}
+                                triggerClassName="w-full"
+                            />
+                        </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label htmlFor="minChunkSizeChars">Min Chunk Size (characters)</Label>
@@ -110,6 +139,7 @@ const CreateKnowledgeBaseDialog = ({
                                 disabled={uploading}
                                 id="minChunkSizeChars"
                                 onChange={(e) => setMinChunkSizeChars(e.target.value)}
+                                placeholder="Platform default"
                                 type="number"
                                 value={minChunkSizeChars}
                             />
@@ -122,6 +152,7 @@ const CreateKnowledgeBaseDialog = ({
                                 disabled={uploading}
                                 id="maxChunkSize"
                                 onChange={(e) => setMaxChunkSize(e.target.value)}
+                                placeholder="Platform default"
                                 type="number"
                                 value={maxChunkSize}
                             />
@@ -135,40 +166,45 @@ const CreateKnowledgeBaseDialog = ({
                             disabled={uploading}
                             id="overlapSize"
                             onChange={(e) => setOverlapSize(e.target.value)}
+                            placeholder="Platform default"
                             type="number"
                             value={overlapSize}
                         />
                     </div>
 
-                    <div className="space-y-2">
-                        <Label>Upload Documents</Label>
+                    {!isEmbeddedScope && (
+                        <div className="space-y-2">
+                            <Label>Upload Documents</Label>
 
-                        <div
-                            className={cn(
-                                'flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-stroke-neutral-tertiary p-6',
-                                uploading
-                                    ? 'cursor-not-allowed opacity-50'
-                                    : 'cursor-pointer hover:bg-surface-neutral-primary-hover'
-                            )}
-                            onClick={() => !uploading && document.getElementById('file-upload')?.click()}
-                        >
-                            <p className="text-sm text-content-neutral-secondary">Drop files here or click to browse</p>
+                            <div
+                                className={cn(
+                                    'flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-stroke-neutral-tertiary p-6',
+                                    uploading
+                                        ? 'cursor-not-allowed opacity-50'
+                                        : 'cursor-pointer hover:bg-surface-neutral-primary-hover'
+                                )}
+                                onClick={() => !uploading && document.getElementById('file-upload')?.click()}
+                            >
+                                <p className="text-sm text-content-neutral-secondary">
+                                    Drop files here or click to browse
+                                </p>
 
-                            <p className="mt-1 text-xs text-content-neutral-tertiary">
-                                Supported: PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML
-                            </p>
+                                <p className="mt-1 text-xs text-content-neutral-tertiary">
+                                    Supported: PDF, DOC, DOCX, TXT, CSV, XLS, XLSX, MD, PPT, PPTX, HTML
+                                </p>
 
-                            <input
-                                accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.md,.ppt,.pptx,.html,.htm"
-                                className="hidden"
-                                disabled={uploading}
-                                id="file-upload"
-                                multiple
-                                onChange={handleFileChange}
-                                type="file"
-                            />
+                                <input
+                                    accept=".pdf,.doc,.docx,.txt,.csv,.xls,.xlsx,.md,.ppt,.pptx,.html,.htm"
+                                    className="hidden"
+                                    disabled={uploading}
+                                    id="file-upload"
+                                    multiple
+                                    onChange={handleFileChange}
+                                    type="file"
+                                />
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     {selectedFiles.length > 0 && (
                         <div className="space-y-2">
@@ -246,10 +282,10 @@ const CreateKnowledgeBaseDialog = ({
                         Cancel
                     </Button>
 
-                    <Button disabled={!canSubmit || createMutation.isPending || uploading} onClick={handleSubmit}>
+                    <Button disabled={!canSubmit || isPending || uploading} onClick={handleSubmit}>
                         {uploading
                             ? `Uploading ${selectedFiles.filter((file) => file.status === 'completed').length}/${selectedFiles.length}...`
-                            : createMutation.isPending
+                            : isPending
                               ? 'Creating...'
                               : 'Create'}
                     </Button>

@@ -2,6 +2,7 @@ import Button from '@/components/Button/Button';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
+import EnvironmentSelect from '@/shared/components/EnvironmentSelect';
 import StorageUsageBanner from '@/shared/components/StorageUsageBanner';
 import CopilotButton from '@/shared/components/copilot/CopilotButton';
 import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
@@ -54,12 +55,15 @@ const DataTables = () => {
                     right={
                         (tables.length > 0 || !isLoading) && (
                             <div className="flex items-center gap-1">
+                                <EnvironmentSelect />
+
                                 <CopilotButton source={Source.DATA_TABLE} />
 
                                 {tables.length > 0 && (
                                     // This is the "Create data table" command's target.
                                     <CreateDataTableDialog
                                         claimsCreateIntent={true}
+                                        scope={{type: 'WORKSPACE', workspaceId: currentWorkspaceId}}
                                         trigger={<Button>New Table</Button>}
                                     />
                                 )}
@@ -96,7 +100,11 @@ const DataTables = () => {
                     <EmptyList
                         button={
                             // This is the "Create data table" command's target.
-                            <CreateDataTableDialog claimsCreateIntent={true} trigger={<Button>Create Table</Button>} />
+                            <CreateDataTableDialog
+                                claimsCreateIntent={true}
+                                scope={{type: 'WORKSPACE', workspaceId: currentWorkspaceId}}
+                                trigger={<Button>Create Table</Button>}
+                            />
                         }
                         icon={<Table2Icon className="size-24 text-stroke-neutral-tertiary" />}
                         message={

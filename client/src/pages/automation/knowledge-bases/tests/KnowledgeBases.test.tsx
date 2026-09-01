@@ -1,4 +1,5 @@
 import {TooltipProvider} from '@/components/ui/tooltip';
+import {KnowledgeBaseScopeType} from '@/shared/components/knowledge-bases/types';
 import {applicationInfoStore} from '@/shared/stores/useApplicationInfoStore';
 import {render, resetAll, screen, windowResizeObserver, within} from '@/shared/util/test-utils';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
@@ -83,8 +84,10 @@ vi.mock('@/components/Button/Button', () => ({
 }));
 
 vi.mock('@/shared/components/knowledge-bases/components/CreateKnowledgeBaseDialog', () => ({
-    default: ({trigger, workspaceId}: {trigger?: React.ReactNode; workspaceId: string}) => (
-        <div data-testid={`create-dialog-${workspaceId}`}>{trigger}</div>
+    default: ({scope, trigger}: {scope: KnowledgeBaseScopeType; trigger?: React.ReactNode}) => (
+        <div data-testid={`create-dialog-${scope.type === 'WORKSPACE' ? scope.workspaceId : scope.ownerId}`}>
+            {trigger}
+        </div>
     ),
 }));
 

@@ -1,10 +1,15 @@
+import EditEmbeddedKnowledgeBaseDialog from '@/ee/pages/embedded/knowledge-bases/components/EditEmbeddedKnowledgeBaseDialog';
+import RechunkEmbeddedKnowledgeBaseDialog from '@/ee/pages/embedded/knowledge-bases/components/RechunkEmbeddedKnowledgeBaseDialog';
 import OwnerSelect from '@/ee/pages/embedded/shared/components/OwnerSelect';
 import {ConnectedUser} from '@/ee/shared/middleware/embedded/connected-user';
 
 interface EmbeddedKnowledgeBaseI {
     description?: string | null;
     id: string;
+    maxChunkSize?: number | null;
+    minChunkSizeChars?: number | null;
     name: string;
+    overlap?: number | null;
     ownerId?: string | null;
 }
 
@@ -28,12 +33,18 @@ const EmbeddedKnowledgeBaseList = ({connectedUsers, knowledgeBases, onAssign}: E
                     )}
                 </div>
 
-                <OwnerSelect
-                    connectedUsers={connectedUsers}
-                    noOwnerLabel="Shared"
-                    onChange={(ownerId) => onAssign(knowledgeBase.id, ownerId)}
-                    ownerId={knowledgeBase.ownerId == null ? undefined : Number(knowledgeBase.ownerId)}
-                />
+                <div className="flex items-center gap-1">
+                    <OwnerSelect
+                        connectedUsers={connectedUsers}
+                        noOwnerLabel="Shared"
+                        onChange={(ownerId) => onAssign(knowledgeBase.id, ownerId)}
+                        ownerId={knowledgeBase.ownerId == null ? undefined : Number(knowledgeBase.ownerId)}
+                    />
+
+                    <EditEmbeddedKnowledgeBaseDialog knowledgeBase={knowledgeBase} />
+
+                    <RechunkEmbeddedKnowledgeBaseDialog knowledgeBaseId={knowledgeBase.id} />
+                </div>
             </li>
         ))}
     </ul>

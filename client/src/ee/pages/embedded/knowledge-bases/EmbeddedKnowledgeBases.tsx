@@ -1,9 +1,11 @@
+import Button from '@/components/Button/Button';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
 import EmbeddedKnowledgeBaseList from '@/ee/pages/embedded/knowledge-bases/components/EmbeddedKnowledgeBaseList';
 import OwnerSelect from '@/ee/pages/embedded/shared/components/OwnerSelect';
 import useEmbeddedConnectedUsers from '@/ee/pages/embedded/shared/components/useEmbeddedConnectedUsers';
 import EnvironmentSelect from '@/shared/components/EnvironmentSelect';
+import CreateKnowledgeBaseDialog from '@/shared/components/knowledge-bases/components/CreateKnowledgeBaseDialog';
 import useKnowledgeBases from '@/shared/components/knowledge-bases/components/hooks/useKnowledgeBases';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
@@ -53,6 +55,12 @@ const EmbeddedKnowledgeBases = () => {
                                 />
 
                                 <EnvironmentSelect />
+
+                                <CreateKnowledgeBaseDialog
+                                    connectedUsers={connectedUsers}
+                                    scope={{ownerId, type: 'EMBEDDED'}}
+                                    trigger={<Button>New Knowledge Base</Button>}
+                                />
                             </div>
                         }
                         title="Knowledge Bases"
@@ -67,6 +75,13 @@ const EmbeddedKnowledgeBases = () => {
                     />
                 ) : (
                     <EmptyList
+                        button={
+                            <CreateKnowledgeBaseDialog
+                                connectedUsers={connectedUsers}
+                                scope={{ownerId, type: 'EMBEDDED'}}
+                                trigger={<Button>Create Knowledge Base</Button>}
+                            />
+                        }
                         icon={<BookOpenIcon className="size-24 text-stroke-neutral-tertiary" />}
                         message="Knowledge bases you create appear here, where you can assign them to an account."
                         title="No Knowledge Bases"

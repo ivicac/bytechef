@@ -209,5 +209,16 @@ describe('useKnowledgeBases', () => {
                 expect.objectContaining({enabled: true})
             );
         });
+
+        // The server-side half of this is a @PreAuthorize on the workspace. Sending no workspace id -- which is what
+        // this query used to do -- is what made it answer with every knowledge base in the tenant.
+        it('names the workspace it reads tags for', () => {
+            renderHook(() => useKnowledgeBases({type: 'WORKSPACE', workspaceId: 1049}));
+
+            expect(graphql.useKnowledgeBaseTagsByKnowledgeBaseQuery).toHaveBeenCalledWith(
+                {workspaceId: '1049'},
+                expect.objectContaining({enabled: true})
+            );
+        });
     });
 });

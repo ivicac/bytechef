@@ -1,3 +1,5 @@
+import {ConnectedUser} from '@/ee/shared/middleware/embedded/connected-user';
+import {KnowledgeBaseScopeType} from '@/shared/components/knowledge-bases/types';
 import {render, resetAll, screen, userEvent, windowResizeObserver} from '@/shared/util/test-utils';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
@@ -7,6 +9,7 @@ const hoisted = vi.hoisted(() => {
     return {
         handleFileChange: vi.fn(),
         handleOpenChange: vi.fn(),
+        handleOwnerIdChange: vi.fn(),
         handleSubmit: vi.fn(),
         mockUseCreateKnowledgeBaseDialog: vi.fn(),
         removeFile: vi.fn(),
@@ -60,17 +63,19 @@ vi.mock('@/components/ui/dialog', () => ({
 
 const defaultMockReturn = {
     canSubmit: true,
-    createMutation: {isPending: false},
     description: '',
     formatFileSize: (bytes: number) => `${bytes} bytes`,
     handleFileChange: hoisted.handleFileChange,
     handleOpenChange: hoisted.handleOpenChange,
+    handleOwnerIdChange: hoisted.handleOwnerIdChange,
     handleSubmit: hoisted.handleSubmit,
-    maxChunkSize: '1024',
-    minChunkSizeChars: '1',
+    isPending: false,
+    maxChunkSize: '',
+    minChunkSizeChars: '',
     name: '',
     open: true,
-    overlapSize: '200',
+    overlapSize: '',
+    ownerId: undefined,
     removeFile: hoisted.removeFile,
     selectedFiles: [] as {file: File; status: 'completed' | 'error' | 'pending' | 'processing' | 'uploading'}[],
     setDescription: hoisted.setDescription,
@@ -81,6 +86,9 @@ const defaultMockReturn = {
     setOverlapSize: hoisted.setOverlapSize,
     uploading: false,
 };
+
+const WORKSPACE_SCOPE: KnowledgeBaseScopeType = {type: 'WORKSPACE', workspaceId: 1049};
+const EMBEDDED_SCOPE: KnowledgeBaseScopeType = {type: 'EMBEDDED'};
 
 beforeEach(() => {
     windowResizeObserver();
@@ -94,55 +102,69 @@ afterEach(() => {
 
 describe('CreateKnowledgeBaseDialog', () => {
     it('renders dialog when open', () => {
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         expect(screen.getByTestId('dialog')).toBeInTheDocument();
     });
 
     it('renders dialog title', () => {
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         expect(screen.getByTestId('dialog-title')).toHaveTextContent('Create Knowledge Base');
     });
 
     it('renders name input', () => {
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         expect(screen.getByPlaceholderText('New KB')).toBeInTheDocument();
     });
 
+    // An empty chunking box is not a blank the user has to fill in: it is the dialog declining to name a default the
+    // entity already carries, so the placeholder has to say so rather than leave three empty boxes looking broken.
+    it('renders the three chunking boxes empty, each offering the platform default', () => {
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
+
+        const chunkingInputs = screen.getAllByPlaceholderText('Platform default');
+
+        expect(chunkingInputs).toHaveLength(3);
+
+        chunkingInputs.forEach((chunkingInput) => {
+            expect(chunkingInput).toHaveValue(null);
+        });
+    });
+
     it('renders description textarea', () => {
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         expect(screen.getByPlaceholderText('Describe this knowledge base (optional)')).toBeInTheDocument();
     });
 
     it('renders min chunk size input', () => {
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         expect(screen.getByText('Min Chunk Size (characters)')).toBeInTheDocument();
     });
 
     it('renders max chunk size input', () => {
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         expect(screen.getByText('Max Chunk Size (tokens)')).toBeInTheDocument();
     });
 
     it('renders overlap size input', () => {
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         expect(screen.getByText('Overlap Size (tokens)')).toBeInTheDocument();
     });
 
     it('renders file upload area', () => {
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         expect(screen.getByText('Drop files here or click to browse')).toBeInTheDocument();
     });
 
     it('calls setName when name input changes', async () => {
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         const nameInput = screen.getByPlaceholderText('New KB');
         await userEvent.type(nameInput, 'Test');
@@ -151,7 +173,7 @@ describe('CreateKnowledgeBaseDialog', () => {
     });
 
     it('calls setDescription when description changes', async () => {
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         const descriptionInput = screen.getByPlaceholderText('Describe this knowledge base (optional)');
         await userEvent.type(descriptionInput, 'Test');
@@ -165,7 +187,7 @@ describe('CreateKnowledgeBaseDialog', () => {
             canSubmit: false,
         });
 
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         const createButton = screen.getByText('Create').closest('button');
 
@@ -175,10 +197,10 @@ describe('CreateKnowledgeBaseDialog', () => {
     it('shows Creating... when mutation is pending', () => {
         hoisted.mockUseCreateKnowledgeBaseDialog.mockReturnValue({
             ...defaultMockReturn,
-            createMutation: {isPending: true},
+            isPending: true,
         });
 
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         expect(screen.getByText('Creating...')).toBeInTheDocument();
     });
@@ -193,7 +215,7 @@ describe('CreateKnowledgeBaseDialog', () => {
             uploading: true,
         });
 
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         expect(screen.getByText('Uploading 1/2...')).toBeInTheDocument();
     });
@@ -204,13 +226,13 @@ describe('CreateKnowledgeBaseDialog', () => {
             selectedFiles: [{file: new File([''], 'test.pdf'), status: 'pending'}],
         });
 
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         expect(screen.getByText('test.pdf')).toBeInTheDocument();
     });
 
     it('calls handleSubmit when Create is clicked', async () => {
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-1" />);
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
         const createButton = screen.getByText('Create');
         await userEvent.click(createButton);
@@ -218,9 +240,51 @@ describe('CreateKnowledgeBaseDialog', () => {
         expect(hoisted.handleSubmit).toHaveBeenCalled();
     });
 
-    it('passes workspaceId to hook', () => {
-        render(<CreateKnowledgeBaseDialog workspaceId="ws-123" />);
+    it('passes the scope to the hook', () => {
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
 
-        expect(hoisted.mockUseCreateKnowledgeBaseDialog).toHaveBeenCalledWith({workspaceId: 'ws-123'});
+        expect(hoisted.mockUseCreateKnowledgeBaseDialog).toHaveBeenCalledWith(WORKSPACE_SCOPE);
+    });
+});
+
+describe('CreateKnowledgeBaseDialog owner row', () => {
+    const connectedUsers: ConnectedUser[] = [{externalId: 'account-a', id: 42}];
+
+    it('offers the owner picker in embedded scope', () => {
+        render(<CreateKnowledgeBaseDialog connectedUsers={connectedUsers} scope={EMBEDDED_SCOPE} />);
+
+        expect(screen.getByRole('combobox', {name: 'Owner'})).toBeInTheDocument();
+    });
+
+    // The automation surface has no accounts to own a knowledge base, so an owner row there would offer a choice that
+    // cannot be made -- and the workspace mutation has nowhere to put the answer.
+    it('does not render the owner picker in workspace scope', () => {
+        render(<CreateKnowledgeBaseDialog scope={WORKSPACE_SCOPE} />);
+
+        expect(screen.queryByRole('combobox', {name: 'Owner'})).not.toBeInTheDocument();
+    });
+
+    it('reads an absent owner as Shared', () => {
+        render(<CreateKnowledgeBaseDialog connectedUsers={connectedUsers} scope={EMBEDDED_SCOPE} />);
+
+        expect(screen.getByRole('combobox', {name: 'Owner'})).toHaveTextContent('Shared');
+    });
+
+    // Chunking decides how a document is split before embedding, and the embedded surface has no other place to set
+    // it: hidden here, a knowledge base created from the console was stuck at the default chunking for its whole life.
+    it('offers the chunking settings in embedded scope', () => {
+        render(<CreateKnowledgeBaseDialog connectedUsers={connectedUsers} scope={EMBEDDED_SCOPE} />);
+
+        expect(screen.getByText('Min Chunk Size (characters)')).toBeInTheDocument();
+        expect(screen.getByText('Max Chunk Size (tokens)')).toBeInTheDocument();
+        expect(screen.getByText('Overlap Size (tokens)')).toBeInTheDocument();
+    });
+
+    // The upload area stays workspace-only, for the reason the chunking controls no longer are: the embedded create
+    // mutation returns a boolean, so there is no knowledge base id to POST the documents against.
+    it('hides the upload area in embedded scope', () => {
+        render(<CreateKnowledgeBaseDialog connectedUsers={connectedUsers} scope={EMBEDDED_SCOPE} />);
+
+        expect(screen.queryByText('Drop files here or click to browse')).not.toBeInTheDocument();
     });
 });

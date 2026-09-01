@@ -12,24 +12,37 @@ import {
     DialogTrigger,
 } from '@/components/ui/dialog';
 import {Label} from '@/components/ui/label';
+import OwnerSelect from '@/ee/pages/embedded/shared/components/OwnerSelect';
+import {ConnectedUser} from '@/ee/shared/middleware/embedded/connected-user';
 import {useCommandIntent} from '@/shared/command-bar/useCommandIntent';
 import useCreateDataTableDialog from '@/shared/components/data-tables/components/hooks/useCreateDataTableDialog';
+import {DataTableScopeType} from '@/shared/components/data-tables/types';
 import {ColumnType} from '@/shared/middleware/graphql';
 import {Plus, Trash2} from 'lucide-react';
 import {ReactNode} from 'react';
 
-const CreateDataTableDialog = ({
-    claimsCreateIntent = false,
-    trigger,
-}: {
+interface CreateDataTableDialogProps {
     /**
      * Opts this instance into claiming the `dataTable.create` command intent on mount. Only the list page the
      * "Create data table" command navigates to should pass `true` -- every other call site (e.g. a single data
      * table's own page) must leave this `false`, or it becomes an eligible claimant for a stale intent too.
      */
     claimsCreateIntent?: boolean;
+    /**
+     * The accounts the owner row offers, in embedded scope. Passed in rather than read from
+     * `useEmbeddedConnectedUsers` here, so this shared component keeps no dependency on an EE data source.
+     */
+    connectedUsers?: ConnectedUser[];
+    scope: DataTableScopeType;
     trigger?: ReactNode;
-}) => {
+}
+
+const CreateDataTableDialog = ({
+    claimsCreateIntent = false,
+    connectedUsers = [],
+    scope,
+    trigger,
+}: CreateDataTableDialogProps) => {
     const {
         baseName,
         canSubmit,
@@ -43,10 +56,12 @@ const CreateDataTableDialog = ({
         handleDescriptionChange,
         handleOpen,
         handleOpenChange,
+        handleOwnerIdChange,
         handleRemoveColumn,
         isPending,
         open,
-    } = useCreateDataTableDialog();
+        ownerId,
+    } = useCreateDataTableDialog(scope);
 
     useCommandIntent('dataTable.create', handleOpen, claimsCreateIntent);
 
@@ -97,6 +112,20 @@ const CreateDataTableDialog = ({
                             value={description}
                         />
                     </div>
+
+                    {scope.type === 'EMBEDDED' && (
+                        <div className="space-y-2">
+                            <Label>Owner</Label>
+
+                            <OwnerSelect
+                                connectedUsers={connectedUsers}
+                                noOwnerLabel="Shared"
+                                onChange={handleOwnerIdChange}
+                                ownerId={ownerId}
+                                triggerClassName="w-full"
+                            />
+                        </div>
+                    )}
 
                     <div className="space-y-2">
                         <div className="flex items-center justify-between">

@@ -1,4 +1,6 @@
-import {useCreateKnowledgeBaseMutation} from '@/shared/middleware/graphql';
+import {toOptionalChunkingInt} from '@/shared/components/knowledge-bases/chunking-utils';
+import {KnowledgeBaseScopeType} from '@/shared/components/knowledge-bases/types';
+import {useCreateEmbeddedKnowledgeBaseMutation, useCreateKnowledgeBaseMutation} from '@/shared/middleware/graphql';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {getCookie} from '@/shared/util/cookie-utils';
 import {useQueryClient} from '@tanstack/react-query';
@@ -11,17 +13,25 @@ interface SelectedFileI {
     statusMessage?: string;
 }
 
-interface UseCreateKnowledgeBaseDialogProps {
-    workspaceId: string;
-}
-
-export default function useCreateKnowledgeBaseDialog({workspaceId}: UseCreateKnowledgeBaseDialogProps) {
+/**
+ * The create behind both surfaces, taking the same scope `useKnowledgeBases` takes and for the same reason: reading
+ * the workspace store here would couple the dialog to a surface that has no workspaces. Both mutations are called on
+ * every render because hooks cannot be conditional; the scope picks which one `handleSubmit` fires.
+ *
+ * The owner is dialog state rather than part of the scope -- the scope's `ownerId` is the console's list filter, this
+ * one is the account the vendor picks while creating.
+ *
+ * The three chunking boxes start empty and an empty one is omitted from the mutation, so an untouched field takes
+ * whatever `KnowledgeBase` defaults to rather than a number restated here. See `toOptionalChunkingInt`.
+ */
+export default function useCreateKnowledgeBaseDialog(scope: KnowledgeBaseScopeType) {
     const [open, setOpen] = useState(false);
     const [name, setName] = useState('');
     const [description, setDescription] = useState('');
-    const [minChunkSizeChars, setMinChunkSizeChars] = useState('1');
-    const [maxChunkSize, setMaxChunkSize] = useState('1024');
-    const [overlapSize, setOverlapSize] = useState('200');
+    const [minChunkSizeChars, setMinChunkSizeChars] = useState('');
+    const [maxChunkSize, setMaxChunkSize] = useState('');
+    const [overlapSize, setOverlapSize] = useState('');
+    const [ownerId, setOwnerId] = useState<number | undefined>(undefined);
     const [selectedFiles, setSelectedFiles] = useState<SelectedFileI[]>([]);
     const [uploading, setUploading] = useState(false);
 
@@ -29,12 +39,15 @@ export default function useCreateKnowledgeBaseDialog({workspaceId}: UseCreateKno
 
     const queryClient = useQueryClient();
 
+    const isWorkspaceScope = scope.type === 'WORKSPACE';
+
     const resetForm = () => {
         setName('');
         setDescription('');
-        setMinChunkSizeChars('1');
-        setMaxChunkSize('1024');
-        setOverlapSize('200');
+        setMinChunkSizeChars('');
+        setMaxChunkSize('');
+        setOverlapSize('');
+        setOwnerId(undefined);
         setSelectedFiles([]);
         setUploading(false);
     };
@@ -115,6 +128,14 @@ export default function useCreateKnowledgeBaseDialog({workspaceId}: UseCreateKno
         },
     });
 
+    const createEmbeddedMutation = useCreateEmbeddedKnowledgeBaseMutation({
+        onSuccess: () => {
+            queryClient.invalidateQueries({queryKey: ['EmbeddedKnowledgeBases']});
+            setOpen(false);
+            resetForm();
+        },
+    });
+
     const handleFileChange = (event: ChangeEvent<HTMLInputElement>) => {
         if (event.target.files) {
             const newFiles = Array.from(event.target.files).map((file) => ({
@@ -132,17 +153,37 @@ export default function useCreateKnowledgeBaseDialog({workspaceId}: UseCreateKno
 
     const canSubmit = name.trim().length > 0;
 
+    const handleOwnerIdChange = (value: number | undefined) => {
+        setOwnerId(value);
+    };
+
     const handleSubmit = () => {
-        createMutation.mutate({
-            environmentId: String(environmentId),
-            knowledgeBase: {
+        if (scope.type === 'WORKSPACE') {
+            createMutation.mutate({
+                environmentId: String(environmentId),
+                knowledgeBase: {
+                    description: description.trim() || undefined,
+                    maxChunkSize: toOptionalChunkingInt(maxChunkSize),
+                    minChunkSizeChars: toOptionalChunkingInt(minChunkSizeChars),
+                    name: name.trim(),
+                    overlap: toOptionalChunkingInt(overlapSize),
+                },
+                workspaceId: String(scope.workspaceId),
+            });
+
+            return;
+        }
+
+        createEmbeddedMutation.mutate({
+            input: {
                 description: description.trim() || undefined,
-                maxChunkSize: parseInt(maxChunkSize),
-                minChunkSizeChars: parseInt(minChunkSizeChars),
+                environmentId: String(environmentId),
+                maxChunkSize: toOptionalChunkingInt(maxChunkSize),
+                minChunkSizeChars: toOptionalChunkingInt(minChunkSizeChars),
                 name: name.trim(),
-                overlap: parseInt(overlapSize),
+                overlap: toOptionalChunkingInt(overlapSize),
+                ownerId: ownerId === undefined ? undefined : String(ownerId),
             },
-            workspaceId,
         });
     };
 
@@ -168,17 +209,19 @@ export default function useCreateKnowledgeBaseDialog({workspaceId}: UseCreateKno
 
     return {
         canSubmit,
-        createMutation,
         description,
         formatFileSize,
         handleFileChange,
         handleOpenChange,
+        handleOwnerIdChange,
         handleSubmit,
+        isPending: isWorkspaceScope ? createMutation.isPending : createEmbeddedMutation.isPending,
         maxChunkSize,
         minChunkSizeChars,
         name,
         open,
         overlapSize,
+        ownerId,
         removeFile,
         selectedFiles,
         setDescription,

@@ -23,7 +23,6 @@ const KnowledgeBase = () => {
 
     const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
-    const workspaceId = currentWorkspaceId == null ? undefined : String(currentWorkspaceId);
 
     const setContext = useCopilotStore((state) => state.setContext);
     const setCopilotPanelOpen = useCopilotPanelStore((state) => state.setCopilotPanelOpen);
@@ -79,8 +78,9 @@ const KnowledgeBase = () => {
                 <Header
                     position="sidebar"
                     right={
-                        workspaceId ? (
+                        currentWorkspaceId == null ? undefined : (
                             <CreateKnowledgeBaseDialog
+                                scope={{type: 'WORKSPACE', workspaceId: currentWorkspaceId}}
                                 trigger={
                                     <Button
                                         aria-label="New knowledge base"
@@ -89,9 +89,8 @@ const KnowledgeBase = () => {
                                         variant="ghost"
                                     />
                                 }
-                                workspaceId={workspaceId}
                             />
-                        ) : undefined
+                        )
                     }
                     title="Knowledge Base"
                 />

@@ -9,10 +9,11 @@ import {
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import EditKnowledgeBaseDialog from '@/pages/automation/knowledge-base/components/EditKnowledgeBaseDialog';
 import KnowledgeBaseListItemDeleteDialog from '@/shared/components/knowledge-bases/components/knowledge-base-list/KnowledgeBaseListItemDeleteDialog';
+import KnowledgeBaseListItemRechunkDialog from '@/shared/components/knowledge-bases/components/knowledge-base-list/KnowledgeBaseListItemRechunkDialog';
 import KnowledgeBaseListItemTagList from '@/shared/components/knowledge-bases/components/knowledge-base-list/KnowledgeBaseListItemTagList';
 import useKnowledgeBaseListItem from '@/shared/components/knowledge-bases/components/knowledge-base-list/hooks/useKnowledgeBaseListItem';
 import {KnowledgeBase, Tag} from '@/shared/middleware/graphql';
-import {DatabaseIcon, EditIcon, EllipsisVerticalIcon, Trash2Icon} from 'lucide-react';
+import {DatabaseIcon, EditIcon, EllipsisVerticalIcon, RefreshCwIcon, Trash2Icon} from 'lucide-react';
 
 interface KnowledgeBaseListItemProps {
     knowledgeBase: KnowledgeBase;
@@ -23,13 +24,16 @@ interface KnowledgeBaseListItemProps {
 const KnowledgeBaseListItem = ({knowledgeBase, remainingTags, tags}: KnowledgeBaseListItemProps) => {
     const {
         handleCloseDeleteDialog,
+        handleCloseRechunkDialog,
         handleEditClick,
         handleEditDialogOpenChange,
         handleKnowledgeBaseClick,
         handleShowDeleteDialog,
+        handleShowRechunkDialog,
         handleTagListClick,
         showDeleteDialog,
         showEditDialog,
+        showRechunkDialog,
     } = useKnowledgeBaseListItem({knowledgeBase});
 
     return (
@@ -111,6 +115,17 @@ const KnowledgeBaseListItem = ({knowledgeBase, remainingTags, tags}: KnowledgeBa
                                     <EditIcon /> Edit
                                 </DropdownMenuItem>
 
+                                <DropdownMenuItem
+                                    className="dropdown-menu-item"
+                                    onClick={(event) => {
+                                        event.stopPropagation();
+
+                                        handleShowRechunkDialog();
+                                    }}
+                                >
+                                    <RefreshCwIcon /> Re-chunk documents
+                                </DropdownMenuItem>
+
                                 <DropdownMenuSeparator className="m-0" />
 
                                 <DropdownMenuItem
@@ -134,6 +149,12 @@ const KnowledgeBaseListItem = ({knowledgeBase, remainingTags, tags}: KnowledgeBa
                 knowledgeBaseId={knowledgeBase.id}
                 onClose={handleCloseDeleteDialog}
                 open={showDeleteDialog}
+            />
+
+            <KnowledgeBaseListItemRechunkDialog
+                knowledgeBaseId={knowledgeBase.id}
+                onClose={handleCloseRechunkDialog}
+                open={showRechunkDialog}
             />
 
             <EditKnowledgeBaseDialog

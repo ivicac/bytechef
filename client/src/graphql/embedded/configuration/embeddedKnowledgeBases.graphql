@@ -6,9 +6,20 @@ query EmbeddedKnowledgeBases($environmentId: ID!, $ownerId: ID) {
         createdDate
         lastModifiedDate
         ownerId
+        maxChunkSize
+        minChunkSizeChars
+        overlap
     }
 }
 
 mutation AssignEmbeddedKnowledgeBaseOwner($input: AssignKnowledgeBaseOwnerInput!) {
     assignEmbeddedKnowledgeBaseOwner(input: $input)
+}
+
+mutation CreateEmbeddedKnowledgeBase($input: CreateEmbeddedKnowledgeBaseInput!) {
+    createEmbeddedKnowledgeBase(input: $input)
+}
+
+mutation UpdateEmbeddedKnowledgeBase($input: UpdateEmbeddedKnowledgeBaseInput!) {
+    updateEmbeddedKnowledgeBase(input: $input)
 }

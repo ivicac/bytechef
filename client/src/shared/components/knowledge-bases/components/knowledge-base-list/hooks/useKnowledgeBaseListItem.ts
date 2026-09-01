@@ -9,6 +9,7 @@ interface UseKnowledgeBaseListItemProps {
 export default function useKnowledgeBaseListItem({knowledgeBase}: UseKnowledgeBaseListItemProps) {
     const [showDeleteDialog, setShowDeleteDialog] = useState(false);
     const [showEditDialog, setShowEditDialog] = useState(false);
+    const [showRechunkDialog, setShowRechunkDialog] = useState(false);
 
     const navigate = useNavigate();
 
@@ -30,6 +31,14 @@ export default function useKnowledgeBaseListItem({knowledgeBase}: UseKnowledgeBa
         setShowEditDialog(open);
     };
 
+    const handleShowRechunkDialog = () => {
+        setShowRechunkDialog(true);
+    };
+
+    const handleCloseRechunkDialog = () => {
+        setShowRechunkDialog(false);
+    };
+
     const handleKnowledgeBaseClick = () => {
         navigate(`/automation/knowledge-bases/${knowledgeBase.id}`);
     };
@@ -41,12 +50,15 @@ export default function useKnowledgeBaseListItem({knowledgeBase}: UseKnowledgeBa
 
     return {
         handleCloseDeleteDialog,
+        handleCloseRechunkDialog,
         handleEditClick,
         handleEditDialogOpenChange,
         handleKnowledgeBaseClick,
         handleShowDeleteDialog,
+        handleShowRechunkDialog,
         handleTagListClick,
         showDeleteDialog,
         showEditDialog,
+        showRechunkDialog,
     };
 }

@@ -1,9 +1,11 @@
+import Button from '@/components/Button/Button';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
 import EmbeddedDataTableList from '@/ee/pages/embedded/data-tables/components/EmbeddedDataTableList';
 import OwnerSelect from '@/ee/pages/embedded/shared/components/OwnerSelect';
 import useEmbeddedConnectedUsers from '@/ee/pages/embedded/shared/components/useEmbeddedConnectedUsers';
 import EnvironmentSelect from '@/shared/components/EnvironmentSelect';
+import CreateDataTableDialog from '@/shared/components/data-tables/components/CreateDataTableDialog';
 import useDataTables from '@/shared/components/data-tables/components/hooks/useDataTables';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
@@ -53,6 +55,12 @@ const EmbeddedDataTables = () => {
                                 />
 
                                 <EnvironmentSelect />
+
+                                <CreateDataTableDialog
+                                    connectedUsers={connectedUsers}
+                                    scope={{ownerId, type: 'EMBEDDED'}}
+                                    trigger={<Button>New Table</Button>}
+                                />
                             </div>
                         }
                         title="Data Tables"
@@ -67,6 +75,13 @@ const EmbeddedDataTables = () => {
                     />
                 ) : (
                     <EmptyList
+                        button={
+                            <CreateDataTableDialog
+                                connectedUsers={connectedUsers}
+                                scope={{ownerId, type: 'EMBEDDED'}}
+                                trigger={<Button>Create Table</Button>}
+                            />
+                        }
                         icon={<Table2Icon className="size-24 text-stroke-neutral-tertiary" />}
                         message="Data tables you create appear here, where you can assign them to an account."
                         title="No Data Tables"

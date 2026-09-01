@@ -5,12 +5,14 @@ import {
     UpdateKnowledgeBaseTagsInput,
     useUpdateKnowledgeBaseTagsMutation,
 } from '@/shared/middleware/graphql';
-import {useQueryClient} from '@tanstack/react-query';
+import {QueryKey, useQueryClient} from '@tanstack/react-query';
 import {useMemo} from 'react';
 
 interface UpdateKnowledgeBaseTagsVarsI {
     input: UpdateKnowledgeBaseTagsInput;
 }
+
+type TagsByKnowledgeBaseDataType = {knowledgeBaseTagsByKnowledgeBase: KnowledgeBaseTagsEntry[]} | undefined;
 
 interface UseKnowledgeBaseListItemTagListProps {
     knowledgeBaseId: string;
@@ -25,47 +27,51 @@ export default function useKnowledgeBaseListItemTagList({
 }: UseKnowledgeBaseListItemTagListProps) {
     const queryClient = useQueryClient();
 
+    // The tags-by-knowledge-base query is scoped to a workspace, so its cache key carries the workspace id as
+    // variables. These reads and writes therefore match by key PREFIX -- an exact-key read would silently miss every
+    // cached entry and turn the optimistic update into a no-op.
     const updateTagsMutation = useUpdateKnowledgeBaseTagsMutation({
         onError: (_err, _vars, ctx) => {
-            if (ctx?.previous) {
-                queryClient.setQueryData(['knowledgeBaseTagsByKnowledgeBase'], ctx.previous);
+            for (const [queryKey, data] of ctx?.previous ?? []) {
+                queryClient.setQueryData(queryKey, data);
             }
         },
         onMutate: async (variables: UpdateKnowledgeBaseTagsVarsI) => {
             await queryClient.cancelQueries({queryKey: ['knowledgeBaseTagsByKnowledgeBase']});
 
-            const previous = queryClient.getQueryData<{knowledgeBaseTagsByKnowledgeBase: KnowledgeBaseTagsEntry[]}>([
-                'knowledgeBaseTagsByKnowledgeBase',
-            ]);
+            const previous = queryClient.getQueriesData<TagsByKnowledgeBaseDataType>({
+                queryKey: ['knowledgeBaseTagsByKnowledgeBase'],
+            }) as [QueryKey, TagsByKnowledgeBaseDataType][];
 
-            const next = (() => {
-                if (!previous?.knowledgeBaseTagsByKnowledgeBase) return previous;
+            queryClient.setQueriesData<TagsByKnowledgeBaseDataType>(
+                {queryKey: ['knowledgeBaseTagsByKnowledgeBase']},
+                (data) => {
+                    if (!data?.knowledgeBaseTagsByKnowledgeBase) return data;
 
-                const withTempIds = (variables.input.tags ?? []).map((tag: TagInput) => ({
-                    ...tag,
-                    id: tag.id ?? -Math.floor(Date.now() + Math.random() * 1000),
-                }));
+                    const withTempIds = (variables.input.tags ?? []).map((tag: TagInput) => ({
+                        ...tag,
+                        id: String(tag.id ?? -Math.floor(Date.now() + Math.random() * 1000)),
+                    }));
 
-                const updated = previous.knowledgeBaseTagsByKnowledgeBase.map((entry) =>
-                    entry.knowledgeBaseId === knowledgeBaseId ? {...entry, tags: withTempIds} : entry
-                );
+                    const updated = data.knowledgeBaseTagsByKnowledgeBase.map((entry) =>
+                        entry.knowledgeBaseId === knowledgeBaseId ? {...entry, tags: withTempIds} : entry
+                    );
 
-                const hasEntry = previous.knowledgeBaseTagsByKnowledgeBase.some(
-                    (entry) => entry.knowledgeBaseId === knowledgeBaseId
-                );
+                    const hasEntry = data.knowledgeBaseTagsByKnowledgeBase.some(
+                        (entry) => entry.knowledgeBaseId === knowledgeBaseId
+                    );
 
-                return hasEntry
-                    ? {...previous, knowledgeBaseTagsByKnowledgeBase: updated}
-                    : {
-                          ...previous,
-                          knowledgeBaseTagsByKnowledgeBase: [
-                              ...previous.knowledgeBaseTagsByKnowledgeBase,
-                              {knowledgeBaseId, tags: withTempIds},
-                          ],
-                      };
-            })();
-
-            queryClient.setQueryData(['knowledgeBaseTagsByKnowledgeBase'], next);
+                    return hasEntry
+                        ? {...data, knowledgeBaseTagsByKnowledgeBase: updated}
+                        : {
+                              ...data,
+                              knowledgeBaseTagsByKnowledgeBase: [
+                                  ...data.knowledgeBaseTagsByKnowledgeBase,
+                                  {knowledgeBaseId, tags: withTempIds},
+                              ],
+                          };
+                }
+            );
 
             return {previous};
         },

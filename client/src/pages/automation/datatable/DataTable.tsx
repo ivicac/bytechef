@@ -1,5 +1,6 @@
 import Button from '@/components/Button/Button';
 import PageLoader from '@/components/PageLoader';
+import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import useCopilotPanelStore from '@/shared/components/copilot/stores/useCopilotPanelStore';
 import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
 import {MODE, Source, useCopilotStore} from '@/shared/components/copilot/stores/useCopilotStore';
@@ -33,6 +34,7 @@ const DataTable = () => {
     const {selectedRows} = useSelectedRowsStore();
 
     const copilotEnabled = useApplicationInfoStore((state) => state.ai.copilot.enabled);
+    const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
 
     const setContext = useCopilotStore((state) => state.setContext);
     const setCopilotPanelOpen = useCopilotPanelStore((state) => state.setCopilotPanelOpen);
@@ -80,6 +82,7 @@ const DataTable = () => {
                     position="sidebar"
                     right={
                         <CreateDataTableDialog
+                            scope={{type: 'WORKSPACE', workspaceId: currentWorkspaceId}}
                             trigger={
                                 <Button
                                     aria-label="Create table"
