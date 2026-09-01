@@ -7,7 +7,6 @@ import {bootstrapCommandBar} from '@/shared/command-bar/commandBarBootstrap';
 import {useCommandBarStore} from '@/shared/command-bar/useCommandBarStore';
 import {useRegisterNavigationCommands} from '@/shared/command-bar/useRegisterNavigationCommands';
 import useCopilotPanelStore from '@/shared/components/copilot/stores/useCopilotPanelStore';
-import {DEVELOPMENT_ENVIRONMENT} from '@/shared/constants';
 import {useAnalytics} from '@/shared/hooks/useAnalytics';
 import {useHelpHub} from '@/shared/hooks/useHelpHub';
 import {MobileTopNavigation} from '@/shared/layout/MobileTopNavigation';
@@ -84,14 +83,6 @@ function App() {
     const ff_4855 = useFeatureFlagsStore()('ff-4855');
 
     const filteredAutomationNavigation = automationNavigation.filter((navItem) => {
-        if (
-            currentEnvironmentId !== DEVELOPMENT_ENVIRONMENT &&
-            edition === EditionType.EE &&
-            navItem.href === '/automation/projects'
-        ) {
-            return false;
-        }
-
         if (navItem.href === '/automation/api-platform') {
             return ff_1023;
         }
@@ -109,6 +100,11 @@ function App() {
 
         if (navItem.href === '/automation/context-stores') {
             return ff_4855 && edition === EditionType.EE && contextStoreEnabled;
+        }
+
+        // The route is EEVersion-wrapped, so in CE the nav item would lead to a blank page.
+        if (navItem.href === '/automation/executions/tool-invocations') {
+            return edition === EditionType.EE;
         }
 
         if (navItem.href === '/automation/ai-hub') {

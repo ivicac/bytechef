@@ -447,13 +447,28 @@ created counterpart is always disabled. See `.agents/environment-promotion.md`.
 
 ### Sidebar navigation groups (Client)
 
-`AppSidebarNavItemI` has an optional `group` field; `AppSidebar` folds CONSECUTIVE items sharing
-a `group` into one labeled `SidebarGroup` at the position of their first item (non-adjacent items
-with the same group form separate sections — keep group members adjacent in the nav arrays in
-`App.tsx`). Current groups: automation "Deployments" (Project Deployments, API Collections, MCP
-Servers, Context Store) and "Data" (Data Tables, Knowledge Base, Files); embedded
-"Configurations" (Integration Configurations, MCP Servers). Feature-flag filtering runs before
-grouping, so a group renders with whatever members survive their flags.
+Nav arrays live in `client/src/shared/navigation/navigationItems.ts` (App.tsx only feature-flag
+filters them). `NavigationItemI` has an optional `group`; `AppSidebar` folds CONSECUTIVE items
+sharing a `group` into one section at the position of their first item — non-adjacent items with the
+same group form SEPARATE sections, so keep group members adjacent in the arrays. Flag filtering runs
+before grouping, so a group renders with whatever members survive their flags.
+
+Expanded, a labeled section renders as a `Collapsible` + `SidebarMenuSub` whose parent row carries an
+icon from `NAVIGATION_GROUP_ICONS` — including a group of one, whose label is the only thing saying
+where the item belongs. On the collapsed icon rail there is no label to show, so a one-item group
+flattens to its own link and only multi-item groups become hover flyouts
+(`AppSidebarCollapsedGroup`). Exactly one group is open at a time: the group holding the current
+route opens itself, and a manual toggle wins until the route changes — `manuallyOpenedGroup` is
+`string | null | undefined`, and collapsing that tri-state to `string | null` makes closing the group
+you are standing in indistinguishable from having no preference, so it springs straight back open.
+
+The active row is the LONGEST matching href, not merely a matching one: nav entries nest (Tool
+Invocations lives under `/automation/executions`), and a plain prefix test lights up parent and child
+at once.
+
+Current groups: automation Build / Deploy / Monitor / AI / Resources; embedded Build / Configure /
+Monitor / Resources. Ungrouped rows: automation AI Hub (Chats in CE — the two are edition-exclusive),
+Approval Tasks and Connect; embedded Connect alone.
 
 ### Graph dispatcher canvas (Client)
 
