@@ -1,16 +1,8 @@
 import Button from '@/components/Button/Button';
 import CreatableSelect from '@/components/CreatableSelect/CreatableSelect';
+import {Dialog, DialogBody, DialogContent, DialogFooter, DialogHeader, DialogMain} from '@/components/Dialog';
 import {Input} from '@/components/Input/Input';
 import {Select, SelectContent, SelectItem, SelectTrigger, SelectValue} from '@/components/Select/Select';
-import {
-    Dialog,
-    DialogCloseButton,
-    DialogContent,
-    DialogDescription,
-    DialogFooter,
-    DialogHeader,
-    DialogTitle,
-} from '@/components/ui/dialog';
 import {Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage} from '@/components/ui/form';
 import {Textarea} from '@/components/ui/textarea';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
@@ -53,7 +45,7 @@ const NewCodeWorkflowDialog = ({onClose}: NewCodeWorkflowDialogProps) => {
 
     const {control, getValues, handleSubmit, setValue} = form;
 
-    const {data: categories} = useGetProjectCategoriesQuery();
+    const {data: categories} = useGetProjectCategoriesQuery(currentWorkspaceId!);
     const {data: tags} = useGetProjectTagsQuery(currentWorkspaceId!);
 
     const navigate = useNavigate();
@@ -92,165 +84,171 @@ const NewCodeWorkflowDialog = ({onClose}: NewCodeWorkflowDialogProps) => {
             <DialogContent
                 onInteractOutside={(event) => createCodeWorkflowMutation.isPending && event.preventDefault()}
             >
-                <Form {...form}>
-                    <form className="flex flex-col gap-4" onSubmit={handleSubmit(handleCreateCodeWorkflow)}>
-                        <DialogHeader className="flex flex-row items-center justify-between space-y-0">
-                            <div className="flex flex-col space-y-1">
-                                <DialogTitle>New Code Project</DialogTitle>
+                <DialogMain>
+                    <Form {...form}>
+                        <form
+                            className="flex min-h-0 flex-1 flex-col"
+                            onSubmit={handleSubmit(handleCreateCodeWorkflow)}
+                        >
+                            <DialogHeader
+                                description="Create a code-backed project and start editing its source."
+                                title="New Code Project"
+                            />
 
-                                <DialogDescription>
-                                    Create a code-backed project and start editing its source.
-                                </DialogDescription>
-                            </div>
+                            <DialogBody>
+                                <FormField
+                                    control={control}
+                                    name="language"
+                                    render={({field}) => (
+                                        <FormItem>
+                                            <FormLabel>Language</FormLabel>
 
-                            <DialogCloseButton />
-                        </DialogHeader>
+                                            <Select onValueChange={field.onChange} value={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue />
+                                                    </SelectTrigger>
+                                                </FormControl>
 
-                        <FormField
-                            control={control}
-                            name="language"
-                            render={({field}) => (
-                                <FormItem>
-                                    <FormLabel>Language</FormLabel>
+                                                <SelectContent>
+                                                    <SelectItem value={CodeWorkflowLanguage.Javascript}>
+                                                        JavaScript
+                                                    </SelectItem>
 
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue />
-                                            </SelectTrigger>
-                                        </FormControl>
+                                                    <SelectItem value={CodeWorkflowLanguage.Python}>Python</SelectItem>
 
-                                        <SelectContent>
-                                            <SelectItem value={CodeWorkflowLanguage.Javascript}>JavaScript</SelectItem>
+                                                    {/* RUBY-DISABLED: org.graalvm.polyglot:ruby is published only up to
+                                                    25.0.0 and crashes on the Truffle 25.2.4 the server pins, so Ruby cannot
+                                                    be offered. Re-enable once a polyglot ruby jar built on Truffle 25.2+
+                                                    ships (or GraalVM is downgraded). Grep RUBY-DISABLED.
 
-                                            <SelectItem value={CodeWorkflowLanguage.Python}>Python</SelectItem>
+                                                    <SelectItem value={CodeWorkflowLanguage.Ruby}>Ruby</SelectItem> */}
+                                                </SelectContent>
+                                            </Select>
 
-                                            {/* RUBY-DISABLED: org.graalvm.polyglot:ruby is published only up to
-                                            25.0.0 and crashes on the Truffle 25.2.4 the server pins, so Ruby cannot
-                                            be offered. Re-enable once a polyglot ruby jar built on Truffle 25.2+
-                                            ships (or GraalVM is downgraded). Grep RUBY-DISABLED.
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
 
-                                            <SelectItem value={CodeWorkflowLanguage.Ruby}>Ruby</SelectItem> */}
-                                        </SelectContent>
-                                    </Select>
+                                <FormField
+                                    control={control}
+                                    name="name"
+                                    render={({field}) => (
+                                        <FormItem>
+                                            <FormLabel>Project Name</FormLabel>
 
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <FormField
-                            control={control}
-                            name="name"
-                            render={({field}) => (
-                                <FormItem>
-                                    <FormLabel>Project Name</FormLabel>
-
-                                    <FormControl>
-                                        <Input {...field} />
-                                    </FormControl>
-
-                                    <FormDescription>
-                                        A unique name identifying the project. The source declares it too, and renaming
-                                        by editing the source is not supported.
-                                    </FormDescription>
-
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        <FormField
-                            control={control}
-                            name="description"
-                            render={({field}) => (
-                                <FormItem>
-                                    <FormLabel>Description</FormLabel>
-
-                                    <FormControl>
-                                        <Textarea placeholder="Cute description of your project" rows={3} {...field} />
-                                    </FormControl>
-
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-
-                        {categories && categories.length > 0 && (
-                            <FormField
-                                control={control}
-                                name="categoryId"
-                                render={({field}) => (
-                                    <FormItem>
-                                        <FormLabel>Category</FormLabel>
-
-                                        <Select defaultValue={field.value} onValueChange={field.onChange}>
                                             <FormControl>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Marketing, Sales, Social Media..." />
-                                                </SelectTrigger>
+                                                <Input {...field} />
                                             </FormControl>
 
-                                            <SelectContent>
-                                                {categories.map((category) => (
-                                                    <SelectItem key={category.id} value={String(category.id)}>
-                                                        {category.name}
-                                                    </SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                            <FormDescription>
+                                                A unique name identifying the project. The source declares it too, and
+                                                renaming by editing the source is not supported.
+                                            </FormDescription>
 
-                                        <FormMessage />
-                                    </FormItem>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                <FormField
+                                    control={control}
+                                    name="description"
+                                    render={({field}) => (
+                                        <FormItem>
+                                            <FormLabel>Description</FormLabel>
+
+                                            <FormControl>
+                                                <Textarea
+                                                    placeholder="Cute description of your project"
+                                                    rows={3}
+                                                    {...field}
+                                                />
+                                            </FormControl>
+
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+
+                                {categories && categories.length > 0 && (
+                                    <FormField
+                                        control={control}
+                                        name="categoryId"
+                                        render={({field}) => (
+                                            <FormItem>
+                                                <FormLabel>Category</FormLabel>
+
+                                                <Select defaultValue={field.value} onValueChange={field.onChange}>
+                                                    <FormControl>
+                                                        <SelectTrigger>
+                                                            <SelectValue placeholder="Marketing, Sales, Social Media..." />
+                                                        </SelectTrigger>
+                                                    </FormControl>
+
+                                                    <SelectContent>
+                                                        {categories.map((category) => (
+                                                            <SelectItem key={category.id} value={String(category.id)}>
+                                                                {category.name}
+                                                            </SelectItem>
+                                                        ))}
+                                                    </SelectContent>
+                                                </Select>
+
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
                                 )}
-                            />
-                        )}
 
-                        <FormField
-                            control={control}
-                            name="tags"
-                            render={({field}) => (
-                                <FormItem>
-                                    <FormLabel>Tags</FormLabel>
+                                <FormField
+                                    control={control}
+                                    name="tags"
+                                    render={({field}) => (
+                                        <FormItem>
+                                            <FormLabel>Tags</FormLabel>
 
-                                    <FormControl>
-                                        <CreatableSelect
-                                            field={field}
-                                            isMulti
-                                            onCreateOption={(inputValue: string) =>
-                                                setValue('tags', [
-                                                    ...(getValues().tags ?? []),
-                                                    {label: inputValue, value: inputValue},
-                                                ])
-                                            }
-                                            options={(tags ?? []).map((tag) => ({
-                                                label: tag.name,
-                                                value: tag.name,
-                                            }))}
-                                        />
-                                    </FormControl>
+                                            <FormControl>
+                                                <CreatableSelect
+                                                    field={field}
+                                                    isMulti
+                                                    onCreateOption={(inputValue: string) =>
+                                                        setValue('tags', [
+                                                            ...(getValues().tags ?? []),
+                                                            {label: inputValue, value: inputValue},
+                                                        ])
+                                                    }
+                                                    options={(tags ?? []).map((tag) => ({
+                                                        label: tag.name,
+                                                        value: tag.name,
+                                                    }))}
+                                                />
+                                            </FormControl>
 
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </DialogBody>
 
-                        <DialogFooter>
-                            <Button
-                                disabled={createCodeWorkflowMutation.isPending}
-                                onClick={onClose}
-                                type="button"
-                                variant="ghost"
-                            >
-                                Cancel
-                            </Button>
+                            <DialogFooter>
+                                <Button
+                                    disabled={createCodeWorkflowMutation.isPending}
+                                    onClick={onClose}
+                                    type="button"
+                                    variant="ghost"
+                                >
+                                    Cancel
+                                </Button>
 
-                            <Button disabled={createCodeWorkflowMutation.isPending} type="submit">
-                                Create
-                            </Button>
-                        </DialogFooter>
-                    </form>
-                </Form>
+                                <Button disabled={createCodeWorkflowMutation.isPending} type="submit">
+                                    Create
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogMain>
             </DialogContent>
         </Dialog>
     );
