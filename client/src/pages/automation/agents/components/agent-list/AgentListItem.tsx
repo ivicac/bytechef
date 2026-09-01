@@ -235,24 +235,36 @@ const AgentListItem = ({agent}: AgentListItemProps) => {
                 </div>
             </div>
 
-            <div className="flex shrink-0 items-center gap-8">
+            <div className="flex shrink-0 items-center gap-12">
                 {/* Its own column, ahead of the version badge: the schedule belongs with the row's other
                     at-a-glance facts rather than beside the title, where it would move the title around by
-                    whatever the agent happens to be scheduled for. */}
+                    whatever the agent happens to be scheduled for.
 
-                {isScheduledAgent(agent) && (
-                    <span className="flex items-center gap-1 text-sm whitespace-nowrap text-muted-foreground">
-                        <CalendarClockIcon className="size-4 shrink-0" />
+                    The column keeps its width when the agent has no schedule. Rendering nothing collapsed it,
+                    and every unscheduled row then pulled the version badge and Deploy button left by the
+                    width of whatever its neighbours happened to be scheduled for — so no two rows in a mixed
+                    list agreed on where the right-hand columns start. */}
 
-                        {scheduleSummary || 'Scheduled'}
-                    </span>
-                )}
+                <span className="flex w-44 items-center justify-end gap-1 text-sm text-muted-foreground">
+                    {isScheduledAgent(agent) && (
+                        <>
+                            <CalendarClockIcon className="size-4 shrink-0" />
+
+                            <span className="truncate">{scheduleSummary || 'Scheduled'}</span>
+                        </>
+                    )}
+                </span>
 
                 {/* Both columns keep one rhythm — a 32px first row, an 8px gap, a 28px second row — so the
                     two columns come out the same height and the row's items-center lands the published date
-                    level with the tags opposite it. Every other *ListItem carries the same three numbers. */}
+                    level with the tags opposite it. Every other *ListItem carries the same three numbers.
 
-                <div className="flex flex-col items-end gap-y-2">
+                    Fixed width, because this column's content is not a fixed width: a PUBLISHED badge is
+                    wider than a DRAFT one and a published date is wider than "Not yet published", so a
+                    content-sized column shoves the schedule beside it left by a different amount on every
+                    row. Nothing in a list of rows should move because of what one row happens to say. */}
+
+                <div className="flex w-64 flex-col items-end gap-y-2">
                     <div className="flex min-h-8 items-center gap-2">
                         <Badge
                             className="flex space-x-1 bg-surface-neutral-primary"
