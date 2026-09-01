@@ -1,38 +1,22 @@
 import {
-    AlertDialog,
-    AlertDialogAction,
-    AlertDialogCancel,
-    AlertDialogContent,
-    AlertDialogDescription,
-    AlertDialogFooter,
-    AlertDialogHeader,
-    AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
-import {DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger} from '@/components/ui/dropdown-menu';
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {Input} from '@/components/ui/input';
 import {Skeleton} from '@/components/ui/skeleton';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
-import {
-    getChatDisplayTitle,
-    isChannelAgentChat,
-    isWebhookBridgedChat,
-} from '@/ee/pages/automation/ai-hub/chats/api/chats.api';
-import {
-    useAiHubChatsQuery,
-    useDeleteAiHubChatMutation,
-    usePatchAiHubChatMutation,
-} from '@/ee/pages/automation/ai-hub/chats/hooks/useChats';
+import {getChatDisplayTitle, isChannelAgentChat} from '@/ee/pages/automation/ai-hub/chats/api/chats.api';
+import {useAiHubChatActions} from '@/ee/pages/automation/ai-hub/chats/hooks/useAiHubChatActions';
+import {useAiHubChatsQuery} from '@/ee/pages/automation/ai-hub/chats/hooks/useChats';
 import {useLiveWorkflowLabel} from '@/ee/pages/automation/ai-hub/chats/hooks/useLiveWorkflowLabel';
 import {useSwitchChat} from '@/ee/pages/automation/ai-hub/chats/hooks/useSwitchChat';
 import {aiHubChatsStore, useAiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
 import {probeInFlightStatus} from '@/ee/pages/automation/ai-hub/runtime-providers/inFlightRunClient';
-import {
-    aiHubRunStateStore,
-    isChatRunning,
-} from '@/ee/pages/automation/ai-hub/runtime-providers/stores/useAiHubRunStateStore';
-import {aiHubStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubStore';
+import {aiHubRunStateStore} from '@/ee/pages/automation/ai-hub/runtime-providers/stores/useAiHubRunStateStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
-import {useCancelAiHubRunMutation, useCancelWorkflowChatTurnMutation} from '@/shared/middleware/graphql';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {useQueryClient} from '@tanstack/react-query';
 import {
@@ -57,11 +41,12 @@ import {
     Trash2Icon,
     WorkflowIcon,
 } from 'lucide-react';
-import {type MouseEvent, useEffect, useMemo, useRef, useState} from 'react';
-import {Link, useLocation, useNavigate} from 'react-router-dom';
+import {type MouseEvent, useEffect, useMemo, useState} from 'react';
+import {Link, useLocation} from 'react-router-dom';
 import {toast} from 'sonner';
 import {twMerge} from 'tailwind-merge';
 
+import AiHubChatActionDialogs from './AiHubChatActionDialogs';
 import {AiHubChatI, generateAiHubChatTitle} from './api/chats.api';
 
 export const CHATS_PAGE_SIZE = 25;
@@ -84,48 +69,6 @@ const ChatsSidebarSkeleton = () => (
         ))}
     </div>
 );
-
-/**
- * Cancel a chat's in-flight run when it is deleted mid-stream, so the server stops producing events
- * instead of leaving the run in InFlightAiHubRunRegistry until its TTL (where it keeps consuming model
- * tokens for a chat the user just removed). Mirrors {@link AiHubChatComposer}'s handleCancelTurn but is
- * keyed off the deleted chat's thread id, because a delete can target a background (non-focused) chat.
- *
- * "Streaming" spans two signals: the focused chat sets runningByChat via RUN_STARTED, while a background
- * chat's visible pulse comes from the probe-driven 'running' activity state. Both are covered. The server
- * cancel is idempotent, so a false positive is harmless. No-op when the chat isn't streaming.
- */
-export function cancelChatRunIfStreaming(
-    chat: Pick<AiHubChatI, 'id' | 'kind' | 'threadId'>,
-    workspaceId: number | undefined,
-    cancel: {
-        cancelAiHubRun: (variables: {id: string; runId: string | undefined; workspaceId: string}) => void;
-        cancelWorkflowChatTurn: (variables: {id: string; workspaceId: string}) => void;
-    }
-): void {
-    const runState = aiHubRunStateStore.getState();
-
-    const isStreaming =
-        isChatRunning(runState, chat.threadId) || aiHubChatsStore.getState().chatActivity[chat.threadId] === 'running';
-
-    if (!isStreaming || workspaceId == null) {
-        return;
-    }
-
-    if (isWebhookBridgedChat(chat.kind)) {
-        cancel.cancelWorkflowChatTurn({id: String(chat.id), workspaceId: String(workspaceId)});
-    } else {
-        cancel.cancelAiHubRun({
-            id: String(chat.id),
-            runId: runState.runIdByChat[chat.threadId],
-            workspaceId: String(workspaceId),
-        });
-    }
-
-    runState.setChatRunning(chat.threadId, false);
-
-    aiHubChatsStore.getState().clearActivityState(chat.threadId);
-}
 
 export interface ProbedChatActivityDecisionI {
     clearActivity?: boolean;
@@ -435,6 +378,8 @@ const ChatItem = ({
                                 </DropdownMenuItem>
                             )}
 
+                            <DropdownMenuSeparator />
+
                             <DropdownMenuItem onClick={onDelete} variant="destructive">
                                 <Trash2Icon />
                                 Delete
@@ -447,21 +392,8 @@ const ChatItem = ({
     );
 };
 
-interface RenameDialogStateI {
-    chatId: number;
-    currentTitle: string;
-}
-
-interface DeleteDialogStateI {
-    targetChat: AiHubChatI;
-}
-
 const AiHubChatsSidebar = () => {
-    const [renameState, setRenameState] = useState<RenameDialogStateI | null>(null);
-    const [renameInputValue, setRenameInputValue] = useState('');
-    const [deleteDialogState, setDeleteDialogState] = useState<DeleteDialogStateI | null>(null);
     const [visibleCount, setVisibleCount] = useState(CHATS_PAGE_SIZE);
-    const renameInputRef = useRef<HTMLInputElement>(null);
 
     const currentWorkspaceId = useWorkspaceStore((state) => state.currentWorkspaceId);
     const currentEnvironmentId = useEnvironmentStore((state) => state.currentEnvironmentId);
@@ -473,17 +405,13 @@ const AiHubChatsSidebar = () => {
     const setSearchTerm = useAiHubChatsStore((state) => state.setSearchTerm);
 
     const switchChat = useSwitchChat();
+    const chatActions = useAiHubChatActions();
 
     const {data: chats, isLoading} = useAiHubChatsQuery(
         currentWorkspaceId,
         currentEnvironmentId,
         activeFilter === 'ACTIVE' ? 'ACTIVE' : 'ARCHIVED'
     );
-
-    const patchChatMutation = usePatchAiHubChatMutation();
-    const deleteChatMutation = useDeleteAiHubChatMutation();
-    const cancelAiHubRunMutation = useCancelAiHubRunMutation();
-    const cancelWorkflowChatTurnMutation = useCancelWorkflowChatTurnMutation();
 
     // Hydrate the sidebar's per-chat running pulse from the server. Activity state is otherwise driven only
     // by the runtime provider's lifecycle hooks (RUN_STARTED → 'running' / RUN_FINISHED → cleared), which
@@ -597,96 +525,9 @@ const AiHubChatsSidebar = () => {
         switchChat(chat);
     };
 
-    const handleRename = (chat: AiHubChatI) => {
-        setRenameState({chatId: chat.id, currentTitle: chat.title ?? ''});
-        setRenameInputValue(chat.title ?? '');
-
-        setTimeout(() => {
-            renameInputRef.current?.focus();
-            renameInputRef.current?.select();
-        }, 0);
-    };
-
-    const handleRenameSubmit = () => {
-        if (!renameState) {
-            return;
-        }
-
-        const trimmedTitle = renameInputValue.trim();
-
-        if (trimmedTitle && trimmedTitle !== renameState.currentTitle) {
-            patchChatMutation.mutate({
-                chatId: renameState.chatId,
-                patch: {title: trimmedTitle},
-                workspaceId: currentWorkspaceId,
-            });
-        }
-
-        setRenameState(null);
-    };
-
-    const handleArchive = (chat: AiHubChatI) => {
-        patchChatMutation.mutate({
-            chatId: chat.id,
-            patch: {status: 'ARCHIVED'},
-            workspaceId: currentWorkspaceId,
-        });
-
-        if (currentChatId === chat.id) {
-            aiHubChatsStore.getState().setCurrentChatId(undefined);
-        }
-    };
-
-    const handleUnarchive = (chat: AiHubChatI) => {
-        patchChatMutation.mutate({
-            chatId: chat.id,
-            patch: {status: 'ACTIVE'},
-            workspaceId: currentWorkspaceId,
-        });
-    };
-
-    const handleDelete = (chat: AiHubChatI) => {
-        setDeleteDialogState({targetChat: chat});
-    };
-
-    const handleDeleteDialogConfirm = () => {
-        if (!deleteDialogState) {
-            return;
-        }
-
-        const chat = deleteDialogState.targetChat;
-
-        // Stop the stream before removing the chat: cancel its in-flight run (server-side) so it doesn't
-        // keep running for a chat the user just deleted. Clearing currentChatId below tears down the
-        // focused runtime's SSE for the active chat; this handles the background chats too.
-        cancelChatRunIfStreaming(chat, currentWorkspaceId, {
-            cancelAiHubRun: (variables) => cancelAiHubRunMutation.mutate(variables),
-            cancelWorkflowChatTurn: (variables) => cancelWorkflowChatTurnMutation.mutate(variables),
-        });
-
-        deleteChatMutation.mutate({
-            chatId: chat.id,
-            workspaceId: currentWorkspaceId,
-        });
-
-        if (currentChatId === chat.id) {
-            // Deleting the chat the user is currently viewing: reset to the home view and redirect so they
-            // don't sit on a stale /chats/<id> route for a chat that no longer exists. Mirrors AiHub.tsx's
-            // home-reset (clear messages + fresh thread id); the explicit navigate guarantees the redirect.
-            aiHubChatsStore.getState().setCurrentChatId(undefined);
-            aiHubStore.getState().resetMessages();
-            aiHubStore.getState().generateChatId();
-
-            navigate('/automation/ai-hub');
-        }
-
-        setDeleteDialogState(null);
-    };
-
     const isViewingArchived = activeFilter === 'ARCHIVED';
 
     const {pathname} = useLocation();
-    const navigate = useNavigate();
 
     // Active-state predicates for the top-level menu items.
     //
@@ -884,38 +725,19 @@ const AiHubChatsSidebar = () => {
                 </div>
             ) : (
                 <div className="flex flex-col gap-0.5">
-                    {visibleChats.map((chat) =>
-                        renameState?.chatId === chat.id ? (
-                            <div className="px-1" key={chat.id}>
-                                <Input
-                                    className="h-8 text-sm"
-                                    onBlur={handleRenameSubmit}
-                                    onChange={(event) => setRenameInputValue(event.target.value)}
-                                    onKeyDown={(event) => {
-                                        if (event.key === 'Enter') {
-                                            handleRenameSubmit();
-                                        } else if (event.key === 'Escape') {
-                                            setRenameState(null);
-                                        }
-                                    }}
-                                    ref={renameInputRef}
-                                    value={renameInputValue}
-                                />
-                            </div>
-                        ) : (
-                            <ChatItem
-                                chat={chat}
-                                isCurrent={currentChatId === chat.id}
-                                key={chat.id}
-                                onArchive={() => handleArchive(chat)}
-                                onDelete={() => handleDelete(chat)}
-                                onRename={() => handleRename(chat)}
-                                onSelect={() => handleSelectChat(chat)}
-                                onUnarchive={() => handleUnarchive(chat)}
-                                workspaceId={currentWorkspaceId}
-                            />
-                        )
-                    )}
+                    {visibleChats.map((chat) => (
+                        <ChatItem
+                            chat={chat}
+                            isCurrent={currentChatId === chat.id}
+                            key={chat.id}
+                            onArchive={() => chatActions.archiveChat(chat)}
+                            onDelete={() => chatActions.requestDelete(chat)}
+                            onRename={() => chatActions.requestRename(chat)}
+                            onSelect={() => handleSelectChat(chat)}
+                            onUnarchive={() => chatActions.unarchiveChat(chat)}
+                            workspaceId={currentWorkspaceId}
+                        />
+                    ))}
 
                     {hiddenCount > 0 && (
                         <button
@@ -929,31 +751,7 @@ const AiHubChatsSidebar = () => {
                 </div>
             )}
 
-            <AlertDialog
-                onOpenChange={(nextOpen) => {
-                    if (!nextOpen) {
-                        setDeleteDialogState(null);
-                    }
-                }}
-                open={deleteDialogState !== null}
-            >
-                <AlertDialogContent>
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Delete this chat?</AlertDialogTitle>
-
-                        <AlertDialogDescription>
-                            {deleteDialogState &&
-                                `"${getChatDisplayTitle(deleteDialogState.targetChat)}" will be permanently deleted. This cannot be undone.`}
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-
-                    <AlertDialogFooter>
-                        <AlertDialogCancel>Cancel</AlertDialogCancel>
-
-                        <AlertDialogAction onClick={handleDeleteDialogConfirm}>Delete</AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <AiHubChatActionDialogs {...chatActions} />
         </div>
     );
 };
