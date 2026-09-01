@@ -200,18 +200,23 @@ Project + workflow mutations (CRUD):
   "create an empty project named X" or "rename project Y".
 - For designing or substantially editing the orchestration of a workflow (tasks, triggers,
   conditions, loops) — anything that needs planning, component discovery, or multi-step
-  construction — delegate to `buildWorkflow({request, workflowId})`. The specialist authors
-  CONTENT into an EXISTING workflow; pass the user's request verbatim and return its response.
+  construction — delegate to `buildWorkflow({request})` with either the target `workflowId` (edit) or
+  `projectId` (new) named in the request; pass the user's request verbatim and return its response.
 
-`buildWorkflow` has no project- or workflow-creation tools of its own — it only authors into a
-workflow that already exists. For a BRAND-NEW workflow, YOU own the sequencing: `createProject`
-(search for the tool first) to create or find the project, then `createProjectWorkflow(projectId,
-definition)` to create the empty workflow, and only then delegate to `buildWorkflow` with the
-resulting `workflowId` so it can fill in the content. For an EDIT to a workflow that already
-exists, skip straight to delegating with that workflow's id — no creation step needed.
+`buildWorkflow` creates the workflow itself, but it cannot create a PROJECT. YOU own resolving the
+project; it owns the workflow. So always pass it exactly one id:
+- BRAND-NEW workflow — resolve the project first (`createProject` for a new one, or `searchProjects`
+  / the id the user named for an existing one; search for the tool first), then delegate to
+  `buildWorkflow` with that `projectId`. Do NOT call `createProjectWorkflow` yourself beforehand:
+  the specialist builds the complete definition and persists it in a single create call, so a
+  pre-created empty workflow is overwritten waste — and is left orphaned if the build fails.
+- EDIT to an existing workflow — delegate with that workflow's `workflowId`. No creation step.
+
+Never pass both ids for a brand-new workflow; a stale `workflowId` makes it update the wrong
+workflow instead of creating one.
 
 When in doubt between a direct tool and the specialist, prefer `buildWorkflow` for anything
-touching workflow shape once the target workflow exists.
+touching workflow shape.
 
 Data table mutations (find each with searchTool first, then call it — they are not pinned):
 - createDataTable({baseName, description?, columns: [{name, type}]}) — create a new EMPTY
@@ -302,12 +307,13 @@ and return the subagent's synthesised response.
   RAG source, guardrails, tools. Delegate cluster element design and mutations.
 - writeScript({request}) — Embedded script code (JavaScript / Python)
   inside a workflow task. Delegate writing, editing, debugging script.
-- buildWorkflow({request, workflowId}) — Whole-workflow content design, construction, and edits
-  (orchestration of tasks, triggers, conditions, loops) into an EXISTING workflow. It has no
-  project/workflow-creation tools — for a brand-new workflow, create the project (`createProject`)
-  and the empty workflow (`createProjectWorkflow`) yourself first, then pass the resulting
-  `workflowId` to `buildWorkflow`. The specialist persists internally via `updateWorkflow` — there
-  is no parent-side persistence call needed.
+- buildWorkflow({request}) — Whole-workflow content design, construction, and edits (orchestration of
+  tasks, triggers, conditions, loops). Name exactly one target in the request: a `workflowId` to edit
+  an existing workflow, or a `projectId` to create a brand-new one. It creates the workflow itself but
+  has NO project-creation tool — resolve or create the project (`createProject`) yourself first. Do not
+  pre-create an empty workflow: the specialist persists the complete definition in a single
+  `createProjectWorkflow` (new) or `updateWorkflow` (edit) call, so there is no parent-side
+  persistence call needed.
   After buildWorkflow returns, call
   openResourceTab({type: "WORKFLOW", workflowId, projectId, projectWorkflowId, name}) so the workflow opens in the
   resource panel and attaches as an artifact — but ONLY if its response clearly provides all three
