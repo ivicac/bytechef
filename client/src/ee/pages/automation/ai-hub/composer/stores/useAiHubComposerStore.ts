@@ -16,6 +16,23 @@ export interface ReferencedResourceI {
     id: string;
     kind: ReferencedResourceKindType;
     name: string;
+    /**
+     * Whether removing this reference should CLOSE {@link tabId}, as opposed to merely detaching it. True
+     * only when the attach itself opened the tab; a tab that was already open before the attach belongs to
+     * the user, so removing the chip detaches it but leaves it on screen.
+     */
+    ownsTab?: boolean;
+    /**
+     * Id of the right-panel tab this reference is attached to. Attaching is a two-store write — a chip here
+     * plus a viewer tab in {@link aiHubTabsStore} — so removal has to undo both, and this field is the link
+     * that lets it.
+     *
+     * Without this link the tab outlived the chip, and since the home -> chat hand-off carries attached
+     * home-view tabs into the chat the next prompt creates, useRecordReferencedArtifacts persisted it as a
+     * chat artifact and buildStateToSend shipped it to the agent as `currentTabs` — a resource the user had
+     * removed came back attached to the new chat.
+     */
+    tabId?: string;
 }
 
 /**

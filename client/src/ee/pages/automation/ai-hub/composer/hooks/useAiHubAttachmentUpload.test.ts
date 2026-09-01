@@ -150,7 +150,11 @@ describe('useAiHubAttachmentUpload', () => {
         await waitFor(() => {
             const {referencedResources} = aiHubComposerStore.getState();
 
-            expect(referencedResources).toContainEqual({id: '11', kind: 'file', name: 'pic.png'});
+            // objectContaining, not an exact shape: the reference also carries the id of the tab the
+            // upload opened, which is what lets removing the chip close that tab again.
+            expect(referencedResources).toContainEqual(
+                expect.objectContaining({id: '11', kind: 'file', name: 'pic.png'})
+            );
         });
 
         expect(failOnce).toHaveBeenCalledTimes(2);

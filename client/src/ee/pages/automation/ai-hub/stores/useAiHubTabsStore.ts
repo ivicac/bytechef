@@ -42,6 +42,15 @@ interface ChatTabsSnapshotI {
 }
 
 interface AiHubTabsStateI {
+    /** Ids of the tabs the user ATTACHED, as opposed to merely opened. Marked by every attach path (the
+     * composer picker, an upload, the resource panel's file picker) and pruned by {@link closeTab}.
+     *
+     * This is deliberately tab-side state rather than a read of the composer's chips. The chips are wiped
+     * synchronously by `aiHubComposerStore.clear()` the moment a message is sent, while the hand-off below
+     * runs from AiHub.tsx's mirror effect AFTER that commit — so a hand-off that consulted the chips saw an
+     * empty list and dropped every tab, attached ones included. Recording the fact at attach time is
+     * immune to that ordering. */
+    attachedTabIds: string[];
     /** The chat whose tabs are currently mirrored to {@link openTabs} / {@link activeTabId}.
      * `undefined` means home view. Updated via {@link setActiveChatId}, which is responsible for
      * snapshotting the previous chat's tabs and restoring the new chat's tabs. */
@@ -66,6 +75,8 @@ interface AiHubTabsStateI {
     chatsSidebarPeeking: boolean;
 
     closeTab: (tabId: string) => void;
+    markTabAttached: (tabId: string) => void;
+    unmarkTabAttached: (tabId: string) => void;
     openAiAgentTab: (aiAgentId: string, name: string) => string;
     openCodeWorkflowTab: (projectId: string, language: string, name: string) => string;
     openCustomComponentTab: (customComponentId: string, name: string) => string;
@@ -131,12 +142,60 @@ export function inferDefaultViewMode(name: string): AiHubViewModeType {
     return 'preview';
 }
 
+/**
+ * The id a tab carries for its underlying resource, independent of the tab's own (random) id. Each tab
+ * kind stores it under its own field name, so reading it generically needs this switch.
+ */
+export const getTabGenericId = (tab: AiHubTabType): string => {
+    if (tab.kind === 'file') {
+        return tab.fileId;
+    } else if (tab.kind === 'workflow') {
+        return tab.workflowId;
+    } else if (tab.kind === 'dataTable') {
+        return tab.dataTableId;
+    } else if (tab.kind === 'workflowExecution') {
+        return String(tab.workflowExecutionId);
+    } else if (tab.kind === 'knowledgeBase') {
+        return tab.knowledgeBaseId;
+    } else if (tab.kind === 'customComponent') {
+        return tab.customComponentId;
+    } else if (tab.kind === 'codeWorkflow') {
+        return tab.projectId;
+    } else if (tab.kind === 'aiAgent') {
+        return tab.aiAgentId;
+    } else {
+        return tab.skillId;
+    }
+};
+
+/**
+ * Opens a tab as an ATTACHMENT: marks it in {@link AiHubTabsStateI.attachedTabIds} so the home -> chat
+ * hand-off keeps it, and reports whether this call is what created it.
+ *
+ * The openers can't answer the ownership question themselves — they return the existing tab's id when one
+ * is already open, which is indistinguishable from a fresh one — so the tab list is counted either side of
+ * the call. Ownership keeps chip removal symmetric: a chip closes the tab it opened, but a tab the user
+ * already had open is theirs and is only detached, never closed.
+ */
+export const attachTab = (open: () => string): {ownsTab: boolean; tabId: string} => {
+    const openTabCountBefore = aiHubTabsStore.getState().openTabs.length;
+
+    const tabId = open();
+
+    const ownsTab = aiHubTabsStore.getState().openTabs.length > openTabCountBefore;
+
+    aiHubTabsStore.getState().markTabAttached(tabId);
+
+    return {ownsTab, tabId};
+};
+
 export const aiHubTabsStore = create<AiHubTabsStateI>()(
     devtools(
         persist(
             (set) => ({
                 activeChatId: undefined,
                 activeTabId: undefined,
+                attachedTabIds: [],
                 openTabs: [],
                 rightPanelOpen: false,
                 snapshotsByChatId: {},
@@ -165,8 +224,26 @@ export const aiHubTabsStore = create<AiHubTabsStateI>()(
                             }
                         }
 
-                        return {...state, activeTabId, openTabs};
+                        return {
+                            ...state,
+                            activeTabId,
+                            attachedTabIds: state.attachedTabIds.filter((id) => id !== tabId),
+                            openTabs,
+                        };
                     }),
+
+                markTabAttached: (tabId) =>
+                    set((state) =>
+                        state.attachedTabIds.includes(tabId)
+                            ? state
+                            : {...state, attachedTabIds: [...state.attachedTabIds, tabId]}
+                    ),
+
+                unmarkTabAttached: (tabId) =>
+                    set((state) => ({
+                        ...state,
+                        attachedTabIds: state.attachedTabIds.filter((id) => id !== tabId),
+                    })),
 
                 openCustomComponentTab: (customComponentId, name) => {
                     let tabIdToReturn = '';
@@ -509,6 +586,7 @@ export const aiHubTabsStore = create<AiHubTabsStateI>()(
                     set({
                         activeChatId: undefined,
                         activeTabId: undefined,
+                        attachedTabIds: [],
                         openTabs: [],
                         rightPanelOpen: false,
                         snapshotsByChatId: {},
@@ -566,19 +644,37 @@ export const aiHubTabsStore = create<AiHubTabsStateI>()(
                         // (`@`-mention a file, plus-button menu pick, etc.). Sending a message auto-creates
                         // a chat and triggers this transition. The user's mental model is "the
                         // artifact I attached is part of the chat I just started", so we INHERIT
-                        // the home-view tabs into the new chat instead of resetting to empty.
+                        // the attached home-view tabs into the new chat instead of resetting to empty.
                         // Subsequent chat→chat switches still snapshot/restore as normal —
                         // this carry-over only fires on the special undefined→<convoId> initial transition.
                         const isHomeToChat = state.activeChatId == null && chatId != null;
 
                         if (restored == null && isHomeToChat) {
+                            // ...but only the tabs the user actually ATTACHED. A home-view tab is not
+                            // automatically an attachment: AiHubFilePicker opens one for plain browsing,
+                            // and removing a chip leaves none behind. Carrying those over filed them as
+                            // artifacts of the new chat (useRecordReferencedArtifacts records every open
+                            // tab) and sent them to the agent as `currentTabs` — resources the user only
+                            // glanced at, or had explicitly removed, arrived attached to a chat that never
+                            // referenced them.
+                            const attachedTabIds = new Set(state.attachedTabIds);
+
+                            const openTabs = state.openTabs.filter((tab) => attachedTabIds.has(tab.id));
+
+                            // The dropped tab may have been the active one, which would leave the panel
+                            // pointing at nothing. Fall back to the last surviving tab, and close the panel
+                            // outright when the hand-off kept none.
+                            const activeTabId = openTabs.some((tab) => tab.id === state.activeTabId)
+                                ? state.activeTabId
+                                : openTabs[openTabs.length - 1]?.id;
+
                             return {
                                 ...state,
                                 activeChatId: chatId,
+                                activeTabId,
+                                openTabs,
+                                rightPanelOpen: openTabs.length > 0 && state.rightPanelOpen,
                                 snapshotsByChatId: nextSnapshots,
-                                // openTabs / activeTabId retained from current state (carry-over of the
-                                // home-view tabs). rightPanelOpen is likewise carried over via `...state`,
-                                // so a panel the user opened on the home view stays open in the new chat.
                             };
                         }
 
