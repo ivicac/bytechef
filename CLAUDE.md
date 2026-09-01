@@ -437,6 +437,40 @@ variables as their own **Variables** section in the Data Pill Panel (`DataPillPa
 
 Spec: `docs/superpowers/specs/2026-08-17-custom-variables-design.md`.
 
+### Component Rules (EE)
+
+`server/ee/libs/platform/platform-component-rule/` (`-api`/`-service`/`-graphql`), sibling to
+`platform-component-policy`. One `component_rule` row conditionally governs one component action: phase
+(`BEFORE`/`AFTER`), enforcement (`BLOCK`/`TAG`), and a SpEL condition. `action_name` null means every action.
+Enforcement hangs off the CE SPI `ComponentRuleEnforcer` (`platform-component-api`, no CE implementation), called
+from `ActionDefinitionServiceImpl.doExecutePerform` and `executePerformForPolyglot` beside the existing visibility
+guards.
+
+**The stored `condition` is a formula BODY, not free SpEL.** `SpelEvaluator` parses full SpEL only behind a `=`
+prefix, and `validateFormulaExpression` rejects `T(`, any `.method(` call, and `new`. So conditions use ByteChef's
+whitelisted evaluator functions (`contains`, `equalsIgnoreCase`, `size`, …) — `contains(inputParameters['c'], 'x')`,
+never `inputParameters['c'].startsWith('x')`. Every evaluation and every parse-check prepends the `=`.
+
+**A condition that cannot be resolved does not fire, so a BLOCK rule fails open.** `SpelEvaluator` returns the
+original string for an unresolved reference rather than null, and only `Boolean.TRUE` counts as a match. This is
+deliberate: a mis-authored rule must not take a tenant's whole workflow estate offline.
+
+The enforcement cache is keyed by **(tenantId, componentName)**, not componentName alone — component names are
+global, so a component-only key would serve one tenant's rules to another.
+
+Rules see `connectionId`. Beware: two records are named `ComponentConnection` — the chokepoint imports
+`com.bytechef.platform.component.ComponentConnection` (which has `connectionId`), NOT
+`com.bytechef.platform.configuration.domain.ComponentConnection` (which has `key`/`workflowNodeName`). Tag matches
+surface as `RULE_TAGGED` audit events on the existing Audit Events page — there is no dedicated review UI.
+
+AI authoring is a flat/catalog copilot slice, NOT a delegate: `ComponentRuleToolCallbacksFactory`'s three read tools
+(`listComponentRules`, `describeComponentActionParameters`, `proposeComponentRuleCondition`) are pinned on both AI
+Hub agents; `createComponentRule` is catalog-demoted on BUILD. `proposeComponentRuleCondition` persists nothing —
+it validates and returns, and the client drops the result into the dialog's editor.
+
+Spec: `docs/superpowers/specs/2026-08-12-component-rules-design.md`.
+Plan: `docs/superpowers/plans/2026-08-31-component-rules-plan.md`.
+
 ### Environment promotion (EE)
 
 `server/ee/libs/automation/automation-promotion` promotes an API collection, MCP server, A2A server or
