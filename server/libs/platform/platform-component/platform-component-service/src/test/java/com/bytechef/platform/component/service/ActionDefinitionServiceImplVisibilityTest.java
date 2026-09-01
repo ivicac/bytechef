@@ -40,7 +40,7 @@ class ActionDefinitionServiceImplVisibilityTest {
         ComponentVisibilityProvider disableSlack = componentName -> !componentName.equals("slack");
 
         ActionDefinitionServiceImpl service = new ActionDefinitionServiceImpl(
-            mock(ComponentDefinitionRegistry.class), mock(ContextFactory.class), List.of(disableSlack));
+            mock(ComponentDefinitionRegistry.class), mock(ContextFactory.class), List.of(disableSlack), List.of());
 
         assertThatThrownBy(
             () -> service.executePerform(
@@ -55,7 +55,7 @@ class ActionDefinitionServiceImplVisibilityTest {
         ComponentVisibilityProvider disableSlack = componentName -> !componentName.equals("slack");
 
         ActionDefinitionServiceImpl service = new ActionDefinitionServiceImpl(
-            mock(ComponentDefinitionRegistry.class), mock(ContextFactory.class), List.of(disableSlack));
+            mock(ComponentDefinitionRegistry.class), mock(ContextFactory.class), List.of(disableSlack), List.of());
 
         assertThatThrownBy(
             () -> service.executePerformForPolyglot(
@@ -81,7 +81,7 @@ class ActionDefinitionServiceImplVisibilityTest {
 
         ActionDefinitionServiceImpl service = new ActionDefinitionServiceImpl(
             mock(ComponentDefinitionRegistry.class), mock(ContextFactory.class),
-            List.of(componentVisibilityProvider));
+            List.of(componentVisibilityProvider), List.of());
 
         assertThatThrownBy(
             () -> service.executePerform(
@@ -124,7 +124,7 @@ class ActionDefinitionServiceImplVisibilityTest {
             .getActionDefinitions("slack", 1);
 
         ActionDefinitionServiceImpl service = new ActionDefinitionServiceImpl(
-            componentDefinitionRegistry, mock(ContextFactory.class), List.of(componentVisibilityProvider));
+            componentDefinitionRegistry, mock(ContextFactory.class), List.of(componentVisibilityProvider), List.of());
 
         List<com.bytechef.platform.component.domain.ActionDefinition> actionDefinitions =
             service.getActionDefinitions("slack", 1);

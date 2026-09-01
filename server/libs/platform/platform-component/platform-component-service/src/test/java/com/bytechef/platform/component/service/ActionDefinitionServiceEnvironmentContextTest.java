@@ -55,7 +55,7 @@ class ActionDefinitionServiceEnvironmentContextTest {
         ContextFactory contextFactory = mock(ContextFactory.class);
 
         ActionDefinitionServiceImpl service = new ActionDefinitionServiceImpl(
-            componentDefinitionRegistry, contextFactory, List.of());
+            componentDefinitionRegistry, contextFactory, List.of(), List.of());
 
         AtomicReference<Environment> capturedEnvironment = new AtomicReference<>();
 

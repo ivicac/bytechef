@@ -68,6 +68,7 @@ import com.bytechef.platform.component.domain.Option;
 import com.bytechef.platform.component.domain.OptionsDataSourceAware;
 import com.bytechef.platform.component.domain.Property;
 import com.bytechef.platform.component.exception.ActionDefinitionErrorType;
+import com.bytechef.platform.component.rule.ComponentRuleEnforcer;
 import com.bytechef.platform.component.visibility.ComponentVisibilityProvider;
 import com.bytechef.platform.configuration.context.EnvironmentContext;
 import com.bytechef.platform.configuration.domain.Environment;
@@ -96,15 +97,18 @@ public class ActionDefinitionServiceImpl implements ActionDefinitionService {
     private final ComponentDefinitionRegistry componentDefinitionRegistry;
     private final ContextFactory contextFactory;
     private final List<ComponentVisibilityProvider> componentVisibilityProviders;
+    private final List<ComponentRuleEnforcer> componentRuleEnforcers;
 
     @SuppressFBWarnings("EI2")
     public ActionDefinitionServiceImpl(
         @Lazy ComponentDefinitionRegistry componentDefinitionRegistry, ContextFactory contextFactory,
-        List<ComponentVisibilityProvider> componentVisibilityProviders) {
+        List<ComponentVisibilityProvider> componentVisibilityProviders,
+        List<ComponentRuleEnforcer> componentRuleEnforcers) {
 
         this.componentDefinitionRegistry = componentDefinitionRegistry;
         this.contextFactory = contextFactory;
         this.componentVisibilityProviders = componentVisibilityProviders;
+        this.componentRuleEnforcers = componentRuleEnforcers;
     }
 
     @Override
@@ -258,6 +262,34 @@ public class ActionDefinitionServiceImpl implements ActionDefinitionService {
         checkComponentVisible(componentName);
         checkActionVisible(componentName, actionName);
 
+        ComponentRuleEnforcer.ActionCall actionCall = toActionCall(
+            componentName, actionName, inputParameters, componentConnections, jobId, taskExecutionId);
+
+        checkRulesBeforePerform(actionCall);
+
+        Object result = doExecutePerformInternal(
+            componentName, componentVersion, actionName, jobPrincipalId, jobPrincipalWorkflowId, jobId,
+            taskExecutionId, workflowId, inputParameters, componentConnections, extensions, environmentId,
+            editorEnvironment, type, continueParameters, resumeData, suspendExpiresAt);
+
+        // A suspended action has not produced its output yet — checkSuspend returns an ActionContext.Suspend marker
+        // rather than throwing. The AFTER phase means "the action produced this output", so it waits for the resume,
+        // which re-enters this method and reaches this point with the real result.
+        if (!(result instanceof ActionContext.Suspend)) {
+            recordRulesAfterPerform(actionCall, result);
+        }
+
+        return result;
+    }
+
+    private Object doExecutePerformInternal(
+        String componentName, int componentVersion, String actionName, Long jobPrincipalId,
+        Long jobPrincipalWorkflowId, Long jobId, @Nullable Long taskExecutionId, String workflowId,
+        Map<String, ?> inputParameters, Map<String, ComponentConnection> componentConnections,
+        Map<String, ?> extensions, @Nullable Long environmentId, boolean editorEnvironment, PlatformType type,
+        @Nullable Map<String, ?> continueParameters, @Nullable Map<String, ?> resumeData,
+        @Nullable Instant suspendExpiresAt) {
+
         com.bytechef.component.definition.ActionDefinition actionDefinition = componentDefinitionRegistry
             .getActionDefinition(componentName, componentVersion, actionName);
 
@@ -336,13 +368,24 @@ public class ActionDefinitionServiceImpl implements ActionDefinitionService {
         checkComponentVisible(componentName);
         checkActionVisible(componentName, actionName);
 
+        ComponentRuleEnforcer.ActionCall actionCall = new ComponentRuleEnforcer.ActionCall(
+            componentName, actionName, inputParameters,
+            componentConnection == null ? null : componentConnection.connectionId(), null, null);
+
+        checkRulesBeforePerform(actionCall);
+
         BasePerformFunction basePerformFunction = componentDefinitionRegistry
             .getActionDefinition(componentName, componentVersion, actionName)
             .getPerform()
             .orElseThrow(() -> new IllegalArgumentException("Perform function is not defined."));
 
         if (basePerformFunction instanceof PerformFunction performFunction) {
-            return executeSingleConnectionPerform(performFunction, inputParameters, componentConnection, context);
+            Object result = executeSingleConnectionPerform(
+                performFunction, inputParameters, componentConnection, context);
+
+            recordRulesAfterPerform(actionCall, result);
+
+            return result;
         }
 
         if (basePerformFunction instanceof MultipleConnectionsPerformFunction performFunction) {
@@ -357,8 +400,12 @@ public class ActionDefinitionServiceImpl implements ActionDefinitionService {
 
             // Cluster elements ride along in the extensions the caller composed, so an AI agent resolves its model
             // through the same code path a visual node uses.
-            return executeMultipleConnectionsPerform(
+            Object result = executeMultipleConnectionsPerform(
                 performFunction, inputParameters, connections, extensions, context);
+
+            recordRulesAfterPerform(actionCall, result);
+
+            return result;
         }
 
         // What is left is the streaming shapes, which read a sink the caller has no way to describe. Say so, rather
@@ -952,6 +999,36 @@ public class ActionDefinitionServiceImpl implements ActionDefinitionService {
                 "Action '%s' of component '%s' is disabled by an administrator and cannot be executed."
                     .formatted(actionName, componentName),
                 ActionDefinitionErrorType.ACTION_DISABLED);
+        }
+    }
+
+    private ComponentRuleEnforcer.ActionCall toActionCall(
+        String componentName, String actionName, Map<String, ?> inputParameters,
+        Map<String, ComponentConnection> componentConnections, @Nullable Long jobId,
+        @Nullable Long taskExecutionId) {
+
+        ComponentConnection componentConnection = getFirstComponentConnection(componentConnections);
+
+        return new ComponentRuleEnforcer.ActionCall(
+            componentName, actionName, inputParameters,
+            componentConnection == null ? null : componentConnection.connectionId(), jobId, taskExecutionId);
+    }
+
+    private void checkRulesBeforePerform(ComponentRuleEnforcer.ActionCall actionCall) {
+        for (ComponentRuleEnforcer componentRuleEnforcer : componentRuleEnforcers) {
+            String blockedReason = componentRuleEnforcer.checkBeforePerform(actionCall);
+
+            if (blockedReason != null) {
+                throw new ConfigurationException(blockedReason, ActionDefinitionErrorType.RULE_BLOCKED);
+            }
+        }
+    }
+
+    private void recordRulesAfterPerform(
+        ComponentRuleEnforcer.ActionCall actionCall, @Nullable Object result) {
+
+        for (ComponentRuleEnforcer componentRuleEnforcer : componentRuleEnforcers) {
+            componentRuleEnforcer.recordAfterPerform(actionCall, result);
         }
     }
 

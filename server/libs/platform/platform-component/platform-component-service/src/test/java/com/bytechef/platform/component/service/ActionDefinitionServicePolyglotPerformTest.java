@@ -49,7 +49,7 @@ class ActionDefinitionServicePolyglotPerformTest {
     private final ComponentDefinitionRegistry componentDefinitionRegistry = mock(ComponentDefinitionRegistry.class);
     private final ContextFactory contextFactory = mock(ContextFactory.class);
     private final ActionDefinitionServiceImpl actionDefinitionService = new ActionDefinitionServiceImpl(
-        componentDefinitionRegistry, contextFactory, List.of());
+        componentDefinitionRegistry, contextFactory, List.of(), List.of());
 
     @Test
     void testExecutePerformForPolyglotForwardsExtensionsToMultipleConnectionsPerform() {
