@@ -5,7 +5,6 @@ import {
     SidebarFooter,
     SidebarGroup,
     SidebarGroupContent,
-    SidebarGroupLabel,
     SidebarHeader,
     SidebarMenu,
     SidebarMenuButton,
@@ -18,10 +17,11 @@ import {DEVELOPMENT_ENVIRONMENT} from '@/shared/constants';
 import {ENVIRONMENT_CONFIGS} from '@/shared/constants/environmentConfigs';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
 import {type LucideIcon} from 'lucide-react';
-import {useCallback, useEffect, useMemo, useState} from 'react';
+import {Fragment, useCallback, useEffect, useMemo, useState} from 'react';
 import {Link, useLocation, useNavigate} from 'react-router-dom';
 
 import AppSidebarCollapsedGroup from './AppSidebarCollapsedGroup';
+import AppSidebarCollapsibleGroup from './AppSidebarCollapsibleGroup';
 import {AppSidebarFooter} from './AppSidebarFooter';
 
 export interface AppSidebarNavItemI {
@@ -44,6 +44,10 @@ export function AppSidebar({navigation}: AppSidebarProps) {
     const {pathname} = useLocation();
 
     const [openGroupLabel, setOpenGroupLabel] = useState<string | null>(null);
+    // Three states, not two: `undefined` means the user has not touched a group, so the route decides.
+    // Collapsing to a plain `string | null` would make closing the group you are standing in indist-
+    // inguishable from having no preference, and the group would spring straight back open.
+    const [manuallyOpenedGroup, setManuallyOpenedGroup] = useState<string | null | undefined>(undefined);
 
     const navigate = useNavigate();
 
@@ -54,18 +58,31 @@ export function AppSidebar({navigation}: AppSidebarProps) {
     // The mobile sidebar renders as a full sheet, never as an icon rail, so it keeps the expanded nav.
     const collapsed = state === 'collapsed' && !isMobile;
 
-    const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+    // The longest matching href wins, not merely a matching one. Nav entries nest — Tool Invocations
+    // lives under /automation/executions — so a plain prefix test lights up the parent as well as the
+    // child and two rows claim to be where the user is. Deep routes that are not nav entries at all
+    // (/automation/projects/123) still match their one parent, which is the behaviour this replaces.
+    const activeHref = useMemo(() => {
+        const matches = navigation.filter((item) => pathname === item.href || pathname.startsWith(`${item.href}/`));
+
+        return matches.reduce((longest, item) => (item.href.length > longest.length ? item.href : longest), '');
+    }, [navigation, pathname]);
+
+    const isActive = (href: string) => href === activeHref;
+
+    const isOnPath = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
     // Projects and integrations (and their workflow editors) only exist in development, so leaving
     // development moves the user to the environment-scoped deployments/configurations page instead.
+    // A path test, not isActive: the editors are not nav entries, so they never become the active href.
     const handleEnvironmentChange = (environmentId: number) => {
         if (environmentId === DEVELOPMENT_ENVIRONMENT) {
             return;
         }
 
-        if (isActive('/automation/projects')) {
+        if (isOnPath('/automation/projects')) {
             navigate('/automation/deployments');
-        } else if (isActive('/embedded/integrations')) {
+        } else if (isOnPath('/embedded/integrations')) {
             navigate('/embedded/configurations');
         }
     };
@@ -83,8 +100,12 @@ export function AppSidebar({navigation}: AppSidebarProps) {
         });
     }, []);
 
+    const handleCollapsibleOpenChange = useCallback((label: string, open: boolean) => {
+        setManuallyOpenedGroup(open ? label : null);
+    }, []);
+
     // Fold the flat navigation into ordered sections: consecutive items sharing a `group` render inside
-    // one labeled SidebarGroup at the position of their first item; ungrouped runs render unlabeled.
+    // one section at the position of their first item; ungrouped runs render as bare rows.
     const sections = useMemo(() => {
         const foldedSections: AppSidebarNavSectionI[] = [];
 
@@ -100,6 +121,15 @@ export function AppSidebar({navigation}: AppSidebarProps) {
 
         return foldedSections;
     }, [navigation]);
+
+    const activeGroup =
+        sections.find((section) => section.label && section.items.some((item) => isActive(item.href)))?.label ?? null;
+
+    const openGroup = manuallyOpenedGroup === undefined ? activeGroup : manuallyOpenedGroup;
+
+    useEffect(() => {
+        setManuallyOpenedGroup(undefined);
+    }, [pathname]);
 
     useEffect(() => {
         const {documentElement} = document;
@@ -134,49 +164,68 @@ export function AppSidebar({navigation}: AppSidebarProps) {
 
             <SidebarContent>
                 <nav aria-label="Main navigation">
-                    {sections.map((section, sectionIndex) => (
-                        // py-1 (over the component's p-2) halves the vertical gap between stacked
-                        // groups, and the shorter h-6 label buys the rest — the grouped nav otherwise
-                        // outgrows shorter viewports.
-                        <SidebarGroup className="py-1" key={`${section.label || 'main'}-${sectionIndex}`}>
-                            {section.label && <SidebarGroupLabel className="h-6">{section.label}</SidebarGroupLabel>}
+                    {/* One group for the whole nav, not one per section. The sections used to carry a
+                        visible label each and needed the padding to separate them; now that a group's
+                        label is its own collapsible row, per-section padding only buys a 48px seam
+                        between rows that sit 44px apart everywhere else. */}
 
-                            <SidebarGroupContent>
-                                <SidebarMenu>
-                                    {/* Collapsed: a labeled group folds into ONE hover-flyout icon; ungrouped
-                                        items (AI Hub, Approval Tasks) and single-item groups (a flyout
-                                        holding one link is pure friction) keep their own rail icon. */}
+                    <SidebarGroup className="py-1">
+                        <SidebarGroupContent>
+                            <SidebarMenu>
+                                {sections.map((section, sectionIndex) => {
+                                    // Expanded, a group is a group even with one member — the label is
+                                    // what says where the item belongs. On the rail there is no label to
+                                    // show, so a one-item group still flattens to its own icon: a flyout
+                                    // holding a single link is pure friction.
+                                    const isMenuGroup = collapsed
+                                        ? !!section.label && section.items.length > 1
+                                        : !!section.label;
 
-                                    {collapsed && section.label && section.items.length > 1 ? (
-                                        <AppSidebarCollapsedGroup
-                                            isActive={isActive}
-                                            items={section.items}
-                                            label={section.label}
-                                            onOpenChange={handleGroupOpenChange}
-                                            open={openGroupLabel === section.label}
-                                        />
-                                    ) : (
-                                        section.items.map((item) => (
-                                            <SidebarMenuItem key={item.name}>
-                                                <SidebarMenuButton
-                                                    asChild
-                                                    className="h-10 gap-3 text-sm group-data-[collapsible=icon]:!size-10 data-[active=true]:font-medium data-[active=true]:text-content-brand-primary [&>svg]:size-6"
-                                                    isActive={isActive(item.href)}
-                                                    tooltip={item.name}
-                                                >
-                                                    <Link to={item.href}>
-                                                        <item.icon aria-hidden="true" />
+                                    return (
+                                        <Fragment key={`${section.label || 'main'}-${sectionIndex}`}>
+                                            {isMenuGroup && collapsed && (
+                                                <AppSidebarCollapsedGroup
+                                                    isActive={isActive}
+                                                    items={section.items}
+                                                    label={section.label!}
+                                                    onOpenChange={handleGroupOpenChange}
+                                                    open={openGroupLabel === section.label}
+                                                />
+                                            )}
 
-                                                        <span>{item.name}</span>
-                                                    </Link>
-                                                </SidebarMenuButton>
-                                            </SidebarMenuItem>
-                                        ))
-                                    )}
-                                </SidebarMenu>
-                            </SidebarGroupContent>
-                        </SidebarGroup>
-                    ))}
+                                            {isMenuGroup && !collapsed && (
+                                                <AppSidebarCollapsibleGroup
+                                                    isActive={isActive}
+                                                    items={section.items}
+                                                    label={section.label!}
+                                                    onOpenChange={handleCollapsibleOpenChange}
+                                                    open={openGroup === section.label}
+                                                />
+                                            )}
+
+                                            {!isMenuGroup &&
+                                                section.items.map((item) => (
+                                                    <SidebarMenuItem key={item.name}>
+                                                        <SidebarMenuButton
+                                                            asChild
+                                                            className="h-9 gap-3 text-sm group-data-[collapsible=icon]:!size-10 data-[active=true]:font-medium data-[active=true]:text-content-brand-primary [&>svg]:size-5"
+                                                            isActive={isActive(item.href)}
+                                                            tooltip={item.name}
+                                                        >
+                                                            <Link to={item.href}>
+                                                                <item.icon aria-hidden="true" />
+
+                                                                <span>{item.name}</span>
+                                                            </Link>
+                                                        </SidebarMenuButton>
+                                                    </SidebarMenuItem>
+                                                ))}
+                                        </Fragment>
+                                    );
+                                })}
+                            </SidebarMenu>
+                        </SidebarGroupContent>
+                    </SidebarGroup>
                 </nav>
             </SidebarContent>
 
