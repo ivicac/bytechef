@@ -7,4 +7,5 @@ dependencies {
     implementation(project(":server:libs:platform:platform-workflow:platform-workflow-worker:platform-workflow-worker-api"))
 
     testImplementation("org.springframework.batch:spring-batch-test")
+    testImplementation(project(":server:libs:test:test-support"))
 }
