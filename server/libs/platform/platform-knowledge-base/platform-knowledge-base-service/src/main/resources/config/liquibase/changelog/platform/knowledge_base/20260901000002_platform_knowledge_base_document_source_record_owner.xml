@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd"
+                   logicalFilePath="config/liquibase/changelog/platform/knowledge_base/20260901000002_platform_knowledge_base_document_source_record_owner.xml">
+
+    <!--
+        uk_kb_doc_source_record made (source_id, source_record_id) unique on the premise that a source record has one
+        document. Row-level ownership made that false: two accounts may sync one shared source into one shared
+        knowledge base, and each account's copy of a record is its own document, carrying its own owner and its own
+        chunks. The lookup that finds a document to rewrite is scoped by owner for that reason, so without this the
+        second account's run would find nothing and then fail to insert.
+
+        Two partial indexes rather than one on four columns. A single index over (source_id, source_record_id,
+        owner_id, owner_type) enforces nothing for the vendor's rows: Postgres treats every NULL as distinct, so two
+        unowned documents of the same source record would both insert.
+
+        The predicates are complementary and cover every row with a source_id, so no row escapes both. A document
+        carrying an owner_id beside a null owner_type belongs to nobody, and the unowned index is deliberately the one
+        that claims it, which is the same answer the read and write predicates give that shape.
+    -->
+    <changeSet id="20260901000002-1" author="Ivica Cardic">
+        <sql>DROP INDEX IF EXISTS uk_kb_doc_source_record;</sql>
+        <sql>CREATE UNIQUE INDEX uk_kb_doc_source_record_owned ON knowledge_base_document (source_id, source_record_id, owner_id, owner_type) WHERE source_id IS NOT NULL AND owner_id IS NOT NULL AND owner_type IS NOT NULL;</sql>
+        <sql>CREATE UNIQUE INDEX uk_kb_doc_source_record_unowned ON knowledge_base_document (source_id, source_record_id) WHERE source_id IS NOT NULL AND (owner_id IS NULL OR owner_type IS NULL);</sql>
+    </changeSet>
+</databaseChangeLog>

@@ -48,7 +48,7 @@ public final class KnowledgeBaseDeleteAction {
         org.springframework.ai.vectorstore.VectorStore vectorStore, KnowledgeBaseService knowledgeBaseService,
         ObjectProvider<OwnerResolver> ownerResolverProvider) {
 
-        VectorStore kbVectorStore = createVectorStore(vectorStore);
+        VectorStore kbVectorStore = createVectorStore(knowledgeBaseService, vectorStore, ownerResolverProvider);
 
         return action(DELETE)
             .title("Delete Documents")
@@ -71,11 +71,11 @@ public final class KnowledgeBaseDeleteAction {
         Parameters inputParameters, VectorStore vectorStore, KnowledgeBaseService knowledgeBaseService,
         ObjectProvider<OwnerResolver> ownerResolverProvider, ActionContextAware actionContextAware) {
 
-        knowledgeBaseService.getKnowledgeBase(
-            inputParameters.getRequiredLong(KNOWLEDGE_BASE_ID),
+        KnowledgeBaseOptionsUtils.resolveKnowledgeBase(
+            knowledgeBaseService, inputParameters.getRequiredLong(KNOWLEDGE_BASE_ID),
             OwnerResolution.resolve(actionContextAware, ownerResolverProvider));
 
-        vectorStore.delete(inputParameters, ParametersFactory.create(Map.of()), null);
+        vectorStore.delete(inputParameters, ParametersFactory.create(Map.of()), null, actionContextAware);
 
         return null;
     }

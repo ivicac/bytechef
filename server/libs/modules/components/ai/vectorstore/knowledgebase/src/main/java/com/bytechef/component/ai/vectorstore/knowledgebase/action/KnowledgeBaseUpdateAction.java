@@ -88,7 +88,7 @@ public final class KnowledgeBaseUpdateAction {
 
         VectorStore updateVectorStore = createVectorStore(
             knowledgeBaseDocumentChunkService, knowledgeBaseDocumentService, knowledgeBaseFileStorage,
-            knowledgeBaseService, vectorStore);
+            knowledgeBaseService, vectorStore, ownerResolverProvider);
 
         return action(UPDATE)
             .title("Update Documents")
@@ -110,7 +110,9 @@ public final class KnowledgeBaseUpdateAction {
                 integer(KNOWLEDGE_BASE_DOCUMENT_ID)
                     .label("Document")
                     .description("The document to update in the knowledge base.")
-                    .options(KnowledgeBaseOptionsUtils.documentActionOptions(knowledgeBaseDocumentService))
+                    .options(
+                        KnowledgeBaseOptionsUtils.documentActionOptions(
+                            knowledgeBaseDocumentService, knowledgeBaseService, ownerResolverProvider))
                     .optionsLookupDependsOn(KNOWLEDGE_BASE_ID)
                     .displayCondition(IS_MULTIPLE + "== false")
                     .required(false),
@@ -119,7 +121,10 @@ public final class KnowledgeBaseUpdateAction {
                     .description(
                         "The specific chunk to update. If not selected, all chunks of the selected document " +
                             "will be replaced.")
-                    .options(KnowledgeBaseOptionsUtils.documentChunkActionOptions(knowledgeBaseDocumentChunkFacade))
+                    .options(
+                        KnowledgeBaseOptionsUtils.documentChunkActionOptions(
+                            knowledgeBaseDocumentChunkFacade, knowledgeBaseDocumentService, knowledgeBaseService,
+                            ownerResolverProvider))
                     .optionsLookupDependsOn(KNOWLEDGE_BASE_DOCUMENT_ID)
                     .displayCondition(IS_MULTIPLE + "== false")
                     .required(false),
@@ -148,8 +153,8 @@ public final class KnowledgeBaseUpdateAction {
                     .required(false))
             .perform((MultipleConnectionsPerformFunction) (
                 inputParameters, componentConnections, extensions, context) -> {
-                knowledgeBaseService.getKnowledgeBase(
-                    inputParameters.getRequiredLong(KNOWLEDGE_BASE_ID),
+                KnowledgeBaseOptionsUtils.resolveKnowledgeBase(
+                    knowledgeBaseService, inputParameters.getRequiredLong(KNOWLEDGE_BASE_ID),
                     OwnerResolution.resolve((ActionContextAware) context, ownerResolverProvider));
 
                 return perform(
@@ -174,7 +179,7 @@ public final class KnowledgeBaseUpdateAction {
             : getDocumentTransformers(extensions, componentConnections, clusterElementDefinitionService);
 
         updateVectorStore.update(inputParameters, ParametersFactory.create(Map.of()), null,
-            documentReader, documentTransformers);
+            documentReader, documentTransformers, context);
 
         return null;
     }

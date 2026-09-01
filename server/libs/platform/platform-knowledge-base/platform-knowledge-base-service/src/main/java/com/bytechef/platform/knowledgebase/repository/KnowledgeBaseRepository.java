@@ -18,6 +18,7 @@ package com.bytechef.platform.knowledgebase.repository;
 
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import java.util.List;
+import java.util.Optional;
 import org.springframework.data.repository.ListCrudRepository;
 import org.springframework.data.repository.PagingAndSortingRepository;
 import org.springframework.stereotype.Repository;
@@ -26,5 +27,22 @@ import org.springframework.stereotype.Repository;
 public interface KnowledgeBaseRepository
     extends PagingAndSortingRepository<KnowledgeBase, Long>, ListCrudRepository<KnowledgeBase, Long> {
 
-    List<KnowledgeBase> findAllByEnvironment(int environment);
+    List<KnowledgeBase> findAllByPlatformType(int platformType);
+
+    List<KnowledgeBase> findAllByEnvironmentAndPlatformType(int environment, int platformType);
+
+    /**
+     * One account's copy of a name. Optional rather than a list because
+     * {@code uk_knowledge_base_name_platform_type_environment_owner} makes at most one row match -- and the owner is
+     * the (id, type) PAIR, so the type is part of the lookup exactly as it is part of that key.
+     */
+    Optional<KnowledgeBase> findByNameAndEnvironmentAndPlatformTypeAndOwnerIdAndOwnerType(
+        String name, int environment, int platformType, Long ownerId, Integer ownerType);
+
+    /**
+     * The vendor's own copy of a name. At most one row matches, per the partial unique index
+     * {@code uk_knowledge_base_name_platform_type_environment_shared}.
+     */
+    Optional<KnowledgeBase> findByNameAndEnvironmentAndPlatformTypeAndOwnerIdIsNull(
+        String name, int environment, int platformType);
 }

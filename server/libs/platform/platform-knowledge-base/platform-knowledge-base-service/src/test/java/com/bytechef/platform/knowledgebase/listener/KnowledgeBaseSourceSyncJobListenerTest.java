@@ -27,11 +27,13 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.bytechef.platform.constant.OwnerType;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseSource;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseSourceStatus;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseSourceService;
+import com.bytechef.platform.owner.Owner;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -40,6 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -64,6 +67,11 @@ class KnowledgeBaseSourceSyncJobListenerTest {
     private static final long JOB_EXECUTION_ID = 999L;
     private static final long JOB_EXECUTION_ID_BOXED = JOB_EXECUTION_ID;
     private static final String SEEN_RECORD_IDS_KEY = "knowledgeBaseSource.seenRecordIds";
+    private static final String OWNER_ID_KEY = "knowledgeBaseSource.ownerId";
+    private static final String OWNER_TYPE_KEY = "knowledgeBaseSource.ownerType";
+
+    private static final Owner OWNER = Owner.connectedUser(42L);
+    private static final Owner OTHER_OWNER = Owner.connectedUser(43L);
 
     private KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade;
     private KnowledgeBaseDocumentService knowledgeBaseDocumentService;
@@ -97,7 +105,7 @@ class KnowledgeBaseSourceSyncJobListenerTest {
         ArgumentCaptor<Instant> deletedAtCaptor = ArgumentCaptor.forClass(Instant.class);
 
         verify(knowledgeBaseDocumentService, times(1))
-            .tombstoneUnseen(eq(SOURCE_ID), seenIdsCaptor.capture(), deletedAtCaptor.capture());
+            .tombstoneUnseen(eq(SOURCE_ID), seenIdsCaptor.capture(), deletedAtCaptor.capture(), eq(Optional.empty()));
 
         assertThat(seenIdsCaptor.getValue()).containsExactlyInAnyOrder("rec1", "rec2", "rec3");
         assertThat(deletedAtCaptor.getValue()).isNotNull();
@@ -110,7 +118,7 @@ class KnowledgeBaseSourceSyncJobListenerTest {
 
         assertThat(statusInstantCaptor.getValue()).isEqualTo(deletedAtCaptor.getValue());
 
-        verify(knowledgeBaseDocumentFacade, times(1)).sweepTombstonedDocumentChunks(SOURCE_ID);
+        verify(knowledgeBaseDocumentFacade, times(1)).sweepTombstonedDocumentChunks(SOURCE_ID, Optional.empty());
         verify(knowledgeBaseSourceService, never()).updateLastSyncMetadata(anyLong(), any(), any());
     }
 
@@ -122,13 +130,14 @@ class KnowledgeBaseSourceSyncJobListenerTest {
 
         jobExecution.addStepExecution(newStepExecution(jobExecution, List.of("rec1")));
 
-        when(knowledgeBaseDocumentFacade.sweepTombstonedDocumentChunks(SOURCE_ID))
+        when(knowledgeBaseDocumentFacade.sweepTombstonedDocumentChunks(SOURCE_ID, Optional.empty()))
             .thenThrow(new RuntimeException("vector store unavailable"));
 
         listener.afterJob(jobExecution);
 
         // The chunk sweep is best-effort — its failure must not prevent the tombstone bookkeeping or the READY flip.
-        verify(knowledgeBaseDocumentService, times(1)).tombstoneUnseen(eq(SOURCE_ID), any(), any(Instant.class));
+        verify(knowledgeBaseDocumentService, times(1))
+            .tombstoneUnseen(eq(SOURCE_ID), any(), any(Instant.class), any());
         verify(knowledgeBaseSourceService, times(1))
             .updateStatus(eq(SOURCE_ID), eq(KnowledgeBaseSourceStatus.READY), any(Instant.class),
                 eq(JOB_EXECUTION_ID_BOXED));
@@ -146,8 +155,8 @@ class KnowledgeBaseSourceSyncJobListenerTest {
 
         listener.afterJob(jobExecution);
 
-        verify(knowledgeBaseDocumentService, never()).tombstoneUnseen(anyLong(), any(), any());
-        verify(knowledgeBaseDocumentFacade, never()).sweepTombstonedDocumentChunks(anyLong());
+        verify(knowledgeBaseDocumentService, never()).tombstoneUnseen(anyLong(), any(), any(), any());
+        verify(knowledgeBaseDocumentFacade, never()).sweepTombstonedDocumentChunks(anyLong(), any());
         verify(knowledgeBaseSourceService, never())
             .updateStatus(anyLong(), any(KnowledgeBaseSourceStatus.class), any(), any());
 
@@ -168,7 +177,7 @@ class KnowledgeBaseSourceSyncJobListenerTest {
         // status stays BUILDING_PREVIEW: no flip to READY; no flip to FAILED.
         verify(knowledgeBaseSourceService, never())
             .updateStatus(anyLong(), any(KnowledgeBaseSourceStatus.class), any(), any());
-        verify(knowledgeBaseDocumentService, never()).tombstoneUnseen(anyLong(), any(), any());
+        verify(knowledgeBaseDocumentService, never()).tombstoneUnseen(anyLong(), any(), any(), any());
     }
 
     @Test
@@ -185,7 +194,8 @@ class KnowledgeBaseSourceSyncJobListenerTest {
         listener.afterJob(jobExecution);
 
         // tombstoneUnseen + updateStatus(READY) fire — proves FULL_REPLACE branch was taken.
-        verify(knowledgeBaseDocumentService, times(1)).tombstoneUnseen(eq(SOURCE_ID), any(), any(Instant.class));
+        verify(knowledgeBaseDocumentService, times(1))
+            .tombstoneUnseen(eq(SOURCE_ID), any(), any(Instant.class), any());
         verify(knowledgeBaseSourceService, times(1))
             .updateStatus(eq(SOURCE_ID), eq(KnowledgeBaseSourceStatus.READY), any(Instant.class),
                 eq(JOB_EXECUTION_ID_BOXED));
@@ -211,8 +221,8 @@ class KnowledgeBaseSourceSyncJobListenerTest {
         // last-sync metadata is recorded for dashboards.
         verify(knowledgeBaseSourceService, times(1))
             .updateLastSyncMetadata(eq(SOURCE_ID), isNull(), eq(JOB_EXECUTION_ID_BOXED));
-        verify(knowledgeBaseDocumentService, never()).tombstoneUnseen(anyLong(), any(), any());
-        verify(knowledgeBaseDocumentFacade, never()).sweepTombstonedDocumentChunks(anyLong());
+        verify(knowledgeBaseDocumentService, never()).tombstoneUnseen(anyLong(), any(), any(), any());
+        verify(knowledgeBaseDocumentFacade, never()).sweepTombstonedDocumentChunks(anyLong(), any());
     }
 
     @Test
@@ -229,7 +239,7 @@ class KnowledgeBaseSourceSyncJobListenerTest {
 
         listener.afterJob(jobExecution);
 
-        verify(knowledgeBaseDocumentService, never()).tombstoneUnseen(anyLong(), any(), any());
+        verify(knowledgeBaseDocumentService, never()).tombstoneUnseen(anyLong(), any(), any(), any());
         verify(knowledgeBaseSourceService, times(1))
             .updateStatus(eq(SOURCE_ID), eq(KnowledgeBaseSourceStatus.FAILED), isNull(), eq(JOB_EXECUTION_ID_BOXED));
     }
@@ -251,7 +261,7 @@ class KnowledgeBaseSourceSyncJobListenerTest {
 
         listener.afterJob(jobExecution);
 
-        verify(knowledgeBaseDocumentService, never()).tombstoneUnseen(anyLong(), any(), any());
+        verify(knowledgeBaseDocumentService, never()).tombstoneUnseen(anyLong(), any(), any(), any());
         verify(knowledgeBaseSourceService, never())
             .updateStatus(anyLong(), any(KnowledgeBaseSourceStatus.class), any(), any());
         verify(knowledgeBaseSourceService, never()).updateLastSyncMetadata(anyLong(), any(), any());
@@ -272,7 +282,7 @@ class KnowledgeBaseSourceSyncJobListenerTest {
         ArgumentCaptor<Set<String>> seenIdsCaptor = ArgumentCaptor.forClass(Set.class);
 
         verify(knowledgeBaseDocumentService, times(1))
-            .tombstoneUnseen(eq(SOURCE_ID), seenIdsCaptor.capture(), any(Instant.class));
+            .tombstoneUnseen(eq(SOURCE_ID), seenIdsCaptor.capture(), any(Instant.class), any());
 
         assertThat(new HashSet<>(seenIdsCaptor.getValue())).containsExactlyInAnyOrder("rec1", "rec2", "rec3");
     }
@@ -291,6 +301,91 @@ class KnowledgeBaseSourceSyncJobListenerTest {
         verify(knowledgeBaseSourceService, never())
             .updateStatus(anyLong(), any(KnowledgeBaseSourceStatus.class), any(), any());
         verify(knowledgeBaseSourceService, never()).updateLastSyncMetadata(anyLong(), any(), any());
+    }
+
+    /**
+     * The owner the run acted for reaches BOTH destructive calls. A source no longer identifies one account's
+     * documents, so a sweep that reached them with no owner reaped every account's rows from that source.
+     */
+    @Test
+    void testAfterJobScopesTheTombstoneSweepToTheRunsOwner() {
+        Map<String, Object> destination = newKnowledgeBaseDestination("FULL_REPLACE");
+
+        JobExecution jobExecution = newJobExecution(BatchStatus.COMPLETED, jobParametersWithDestination(destination));
+
+        jobExecution.addStepExecution(newStepExecution(jobExecution, List.of("rec1"), OWNER));
+
+        listener.afterJob(jobExecution);
+
+        verify(knowledgeBaseDocumentService, times(1))
+            .tombstoneUnseen(eq(SOURCE_ID), any(), any(Instant.class), eq(Optional.of(OWNER)));
+        verify(knowledgeBaseDocumentFacade, times(1)).sweepTombstonedDocumentChunks(SOURCE_ID, Optional.of(OWNER));
+    }
+
+    /**
+     * A run whose steps flushed no owner is the vendor's, and reaches the unowned documents rather than everything. The
+     * pair with the test above: a guard that always passed {@code Optional.empty()} would satisfy this one alone.
+     */
+    @Test
+    void testAfterJobScopesAVendorRunToTheUnownedDocuments() {
+        Map<String, Object> destination = newKnowledgeBaseDestination("FULL_REPLACE");
+
+        JobExecution jobExecution = newJobExecution(BatchStatus.COMPLETED, jobParametersWithDestination(destination));
+
+        jobExecution.addStepExecution(newStepExecution(jobExecution, List.of("rec1")));
+
+        listener.afterJob(jobExecution);
+
+        verify(knowledgeBaseDocumentService, times(1))
+            .tombstoneUnseen(eq(SOURCE_ID), any(), any(Instant.class), eq(Optional.empty()));
+        verify(knowledgeBaseDocumentFacade, times(1)).sweepTombstonedDocumentChunks(SOURCE_ID, Optional.empty());
+    }
+
+    /**
+     * An owner id flushed without its type belongs to nobody. Reading it as the vendor's would point an account's sweep
+     * at the unowned documents, so the pair is read as a pair and a half of it is no owner at all.
+     */
+    @Test
+    void testAfterJobTreatsAnOwnerIdWithoutATypeAsNoOwner() {
+        Map<String, Object> destination = newKnowledgeBaseDestination("FULL_REPLACE");
+
+        JobExecution jobExecution = newJobExecution(BatchStatus.COMPLETED, jobParametersWithDestination(destination));
+
+        StepExecution stepExecution = newStepExecution(jobExecution, List.of("rec1"));
+
+        ExecutionContext executionContext = stepExecution.getExecutionContext();
+
+        executionContext.putLong(OWNER_ID_KEY, OWNER.id());
+
+        jobExecution.addStepExecution(stepExecution);
+
+        listener.afterJob(jobExecution);
+
+        verify(knowledgeBaseDocumentService, times(1))
+            .tombstoneUnseen(eq(SOURCE_ID), any(), any(Instant.class), eq(Optional.empty()));
+    }
+
+    /**
+     * Steps that disagree about the owner cannot happen for the partitions of one job, and if they somehow did there is
+     * no answer to reap under. Nothing is tombstoned and nothing is swept; the status still flips, because the sync
+     * itself succeeded and the next FULL_REPLACE run reaps what this one did not.
+     */
+    @Test
+    void testAfterJobReapsNothingWhenStepsDisagreeAboutTheOwner() {
+        Map<String, Object> destination = newKnowledgeBaseDestination("FULL_REPLACE");
+
+        JobExecution jobExecution = newJobExecution(BatchStatus.COMPLETED, jobParametersWithDestination(destination));
+
+        jobExecution.addStepExecution(newStepExecution(jobExecution, List.of("rec1"), OWNER));
+        jobExecution.addStepExecution(newStepExecution(jobExecution, List.of("rec2"), OTHER_OWNER));
+
+        listener.afterJob(jobExecution);
+
+        verify(knowledgeBaseDocumentService, never()).tombstoneUnseen(anyLong(), any(), any(), any());
+        verify(knowledgeBaseDocumentFacade, never()).sweepTombstonedDocumentChunks(anyLong(), any());
+        verify(knowledgeBaseSourceService, times(1))
+            .updateStatus(eq(SOURCE_ID), eq(KnowledgeBaseSourceStatus.READY), any(Instant.class),
+                eq(JOB_EXECUTION_ID_BOXED));
     }
 
     private static Map<String, Object> newKnowledgeBaseDestination(String mode) {
@@ -331,11 +426,27 @@ class KnowledgeBaseSourceSyncJobListenerTest {
     }
 
     private static StepExecution newStepExecution(JobExecution jobExecution, List<String> seenRecordIds) {
+        return newStepExecution(jobExecution, seenRecordIds, null);
+    }
+
+    /**
+     * A vendor's step writes neither owner key, exactly as the writer does -- absence is the vendor, not a default.
+     */
+    private static StepExecution newStepExecution(
+        JobExecution jobExecution, List<String> seenRecordIds, @Nullable Owner owner) {
+
         StepExecution stepExecution = new StepExecution("step1", jobExecution);
 
         ExecutionContext executionContext = new ExecutionContext();
 
         executionContext.put(SEEN_RECORD_IDS_KEY, new ArrayList<>(seenRecordIds));
+
+        if (owner != null) {
+            OwnerType ownerType = owner.type();
+
+            executionContext.putLong(OWNER_ID_KEY, owner.id());
+            executionContext.putInt(OWNER_TYPE_KEY, ownerType.ordinal());
+        }
 
         stepExecution.setExecutionContext(executionContext);
 

@@ -17,9 +17,9 @@
 package com.bytechef.automation.knowledgebase.web.graphql;
 
 import com.bytechef.automation.knowledgebase.facade.KnowledgeBaseDocumentApiFacade;
-import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentTagService;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
+import java.util.Map;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.graphql.data.method.annotation.Argument;
 import org.springframework.graphql.data.method.annotation.MutationMapping;
@@ -27,6 +27,17 @@ import org.springframework.graphql.data.method.annotation.QueryMapping;
 import org.springframework.stereotype.Controller;
 
 /**
+ * Document tags for one knowledge base.
+ *
+ * <p>
+ * Every operation here names a knowledge base and goes through {@link KnowledgeBaseDocumentApiFacade}, which resolves
+ * it to its workspace and checks the caller's role. Nothing on this controller is tenant-wide, and the reason is worth
+ * stating because the two listings used to be: {@code /graphql} is only {@code .authenticated()} in
+ * {@code SecurityConfiguration}, and the embedded API-key configurer routes a connected user's JWT to it as well, so an
+ * unguarded query mapping here answers a principal holding no authorities at all. Neither {@code @PreAuthorize} nor a
+ * workspace was involved; there was nothing between the query and {@code knowledge_base_document.findAll()}, which
+ * spans every workspace, both platform pools, and every embedded account's own knowledge base.
+ *
  * @author Ivica Cardic
  */
 @Controller
@@ -35,26 +46,23 @@ import org.springframework.stereotype.Controller;
 public class KnowledgeBaseDocumentTagGraphQlController {
 
     private final KnowledgeBaseDocumentApiFacade knowledgeBaseDocumentApiFacade;
-    private final KnowledgeBaseDocumentTagService knowledgeBaseDocumentTagService;
 
     @SuppressFBWarnings("EI")
-    public KnowledgeBaseDocumentTagGraphQlController(
-        KnowledgeBaseDocumentApiFacade knowledgeBaseDocumentApiFacade,
-        KnowledgeBaseDocumentTagService knowledgeBaseDocumentTagService) {
-
+    public KnowledgeBaseDocumentTagGraphQlController(KnowledgeBaseDocumentApiFacade knowledgeBaseDocumentApiFacade) {
         this.knowledgeBaseDocumentApiFacade = knowledgeBaseDocumentApiFacade;
-        this.knowledgeBaseDocumentTagService = knowledgeBaseDocumentTagService;
     }
 
     @QueryMapping
     public List<String> knowledgeBaseDocumentTags(@Argument Long knowledgeBaseId) {
-        return knowledgeBaseDocumentTagService.getTagNamesByKnowledgeBaseId(knowledgeBaseId);
+        return knowledgeBaseDocumentApiFacade.getKnowledgeBaseDocumentTagNames(knowledgeBaseId);
     }
 
     @QueryMapping
     public List<KnowledgeBaseDocumentTagsEntry> knowledgeBaseDocumentTagsByDocument(@Argument Long knowledgeBaseId) {
-        return knowledgeBaseDocumentTagService.getTagNamesByKnowledgeBaseDocumentId(knowledgeBaseId)
-            .entrySet()
+        Map<Long, List<String>> tagNamesByDocumentId =
+            knowledgeBaseDocumentApiFacade.getTagNamesByKnowledgeBaseDocumentId(knowledgeBaseId);
+
+        return tagNamesByDocumentId.entrySet()
             .stream()
             .map(entry -> new KnowledgeBaseDocumentTagsEntry(entry.getKey(), entry.getValue()))
             .toList();

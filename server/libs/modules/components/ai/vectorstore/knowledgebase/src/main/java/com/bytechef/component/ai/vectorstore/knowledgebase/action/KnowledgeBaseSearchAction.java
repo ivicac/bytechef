@@ -27,14 +27,12 @@ import static com.bytechef.component.definition.ComponentDsl.action;
 import static com.bytechef.component.definition.ComponentDsl.array;
 import static com.bytechef.component.definition.ComponentDsl.integer;
 import static com.bytechef.component.definition.ComponentDsl.number;
-import static com.bytechef.component.definition.ComponentDsl.option;
 import static com.bytechef.component.definition.ComponentDsl.string;
 import static com.bytechef.platform.component.definition.VectorStoreComponentDefinition.SEARCH;
 
 import com.bytechef.component.ai.vectorstore.knowledgebase.util.KnowledgeBaseOptionsUtils;
 import com.bytechef.component.ai.vectorstore.knowledgebase.util.KnowledgeBaseVectorStoreWrapper;
 import com.bytechef.component.definition.ActionDefinition;
-import com.bytechef.component.definition.Option;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.TypeReference;
 import com.bytechef.platform.component.definition.ActionContextAware;
@@ -42,11 +40,11 @@ import com.bytechef.platform.component.definition.MultipleConnectionsPerformFunc
 import com.bytechef.platform.component.owner.OwnerResolution;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentTagService;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseService;
+import com.bytechef.platform.owner.Owner;
 import com.bytechef.platform.owner.OwnerResolver;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
+import java.util.Optional;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
@@ -98,7 +96,9 @@ public final class KnowledgeBaseSearchAction {
                     .description(
                         "Filter results by tags. Documents with ANY of the selected tags will be returned (OR logic).")
                     .items(string())
-                    .options(getTagOptions(knowledgeBaseDocumentTagService))
+                    .options(
+                        KnowledgeBaseOptionsUtils.tagActionOptions(
+                            knowledgeBaseDocumentTagService, knowledgeBaseService, ownerResolverProvider))
                     .required(false),
                 METADATA_FILTER_PROPERTY,
                 integer(TOP_K)
@@ -126,9 +126,15 @@ public final class KnowledgeBaseSearchAction {
 
         Long knowledgeBaseId = inputParameters.getRequiredLong(KNOWLEDGE_BASE_ID);
 
-        // Throws before the vector store is ever wrapped, so an id the caller does not own never reaches it.
-        knowledgeBaseService.getKnowledgeBase(
-            knowledgeBaseId, OwnerResolution.resolve(actionContextAware, ownerResolverProvider));
+        // The same owner admits the knowledge base and then scopes the chunks inside it. Resolved once and reused
+        // rather than derived twice, so the chunks this search may read cannot drift from the knowledge base the
+        // admission gate approved.
+        Optional<Owner> owner = OwnerResolution.resolve(actionContextAware, ownerResolverProvider);
+
+        // Throws before the vector store is ever wrapped, so an id outside this run's pool -- or one the caller does
+        // not own -- never reaches it.
+        KnowledgeBaseOptionsUtils.resolveKnowledgeBase(knowledgeBaseService, knowledgeBaseId, owner);
+
         String query = inputParameters.getString(QUERY);
         List<String> tagNames = inputParameters.getList(TAG_NAMES, String.class);
         List<Map<String, Object>> metadataFilters = inputParameters.getList(METADATA_FILTER, new TypeReference<>() {});
@@ -136,7 +142,7 @@ public final class KnowledgeBaseSearchAction {
         double similarityThreshold = inputParameters.getDouble(SIMILARITY_THRESHOLD, 0.0);
 
         KnowledgeBaseVectorStoreWrapper wrappedVectorStore = new KnowledgeBaseVectorStoreWrapper(
-            vectorStore, knowledgeBaseId);
+            vectorStore, knowledgeBaseId, null, owner);
 
         boolean hasQuery = query != null && !query.isBlank();
 
@@ -209,7 +215,10 @@ public final class KnowledgeBaseSearchAction {
             return tagFilter;
         }
 
-        return new Filter.Expression(Filter.ExpressionType.AND, tagFilter, metadataFilter);
+        // Both sides parenthesised: the tag filter is an OR chain and the converter emits flat JSONPath, in which
+        // "&&" binds tighter than "||" -- so an ungrouped AND would silently become "tag_a || (tag_b && metadata)".
+        return new Filter.Expression(
+            Filter.ExpressionType.AND, new Filter.Group(tagFilter), new Filter.Group(metadataFilter));
     }
 
     private static Expression buildMetadataFilter(List<Map<String, Object>> metadataFilters) {
@@ -237,38 +246,4 @@ public final class KnowledgeBaseSearchAction {
         return result == null ? null : result.build();
     }
 
-    private static ActionDefinition.OptionsFunction<String> getTagOptions(
-        KnowledgeBaseDocumentTagService knowledgeBaseDocumentTagService) {
-
-        return (inputParameters, connectionParameters, lookupDependsOnPaths, searchText, context) -> {
-            Long knowledgeBaseId = inputParameters.getLong(KNOWLEDGE_BASE_ID);
-
-            List<String> tagNames;
-
-            if (knowledgeBaseId == null) {
-                tagNames = knowledgeBaseDocumentTagService.getAllTagNames();
-            } else {
-                tagNames = knowledgeBaseDocumentTagService.getTagNamesByKnowledgeBaseId(knowledgeBaseId);
-            }
-
-            List<Option<String>> options = new ArrayList<>();
-
-            for (String tagName : tagNames) {
-                if (matchesSearchText(tagName, searchText)) {
-                    options.add(option(tagName, tagName));
-                }
-            }
-
-            return options;
-        };
-    }
-
-    private static boolean matchesSearchText(String value, String searchText) {
-        if (searchText == null) {
-            return true;
-        }
-
-        return value.toLowerCase(Locale.ROOT)
-            .contains(searchText.toLowerCase(Locale.ROOT));
-    }
 }

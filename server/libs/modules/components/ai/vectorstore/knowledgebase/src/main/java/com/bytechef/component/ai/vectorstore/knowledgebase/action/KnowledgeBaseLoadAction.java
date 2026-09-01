@@ -79,7 +79,7 @@ public final class KnowledgeBaseLoadAction {
 
         VectorStore kbVectorStore = createVectorStore(
             knowledgeBaseDocumentChunkService, knowledgeBaseDocumentService, knowledgeBaseFileStorage,
-            knowledgeBaseService, vectorStore);
+            knowledgeBaseService, vectorStore, ownerResolverProvider);
 
         return action(LOAD)
             .title("Load Data")
@@ -96,8 +96,8 @@ public final class KnowledgeBaseLoadAction {
             .perform((MultipleConnectionsPerformFunction) (
                 inputParameters, componentConnections, extensions,
                 context) -> {
-                knowledgeBaseService.getKnowledgeBase(
-                    inputParameters.getRequiredLong(KNOWLEDGE_BASE_ID),
+                KnowledgeBaseOptionsUtils.resolveKnowledgeBase(
+                    knowledgeBaseService, inputParameters.getRequiredLong(KNOWLEDGE_BASE_ID),
                     OwnerResolution.resolve((ActionContextAware) context, ownerResolverProvider));
 
                 return perform(
@@ -119,7 +119,7 @@ public final class KnowledgeBaseLoadAction {
                 vectorStoreComponentConnection == null ? Map.of() : vectorStoreComponentConnection.getParameters()),
             null,
             getDocumentReader(extensions, componentConnections, context, clusterElementDefinitionService),
-            getDocumentTransformers(extensions, componentConnections, clusterElementDefinitionService));
+            getDocumentTransformers(extensions, componentConnections, clusterElementDefinitionService), context);
 
         return null;
     }

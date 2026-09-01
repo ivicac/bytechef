@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd">
+
+    <changeSet id="20260829000001-1" author="Ivica Cardic">
+        <addColumn tableName="knowledge_base">
+            <column name="platform_type" type="INT" defaultValueNumeric="0">
+                <constraints nullable="false"/>
+            </column>
+        </addColumn>
+    </changeSet>
+
+    <changeSet id="20260829000001-2" author="Ivica Cardic">
+        <dropUniqueConstraint tableName="knowledge_base" constraintName="uk_knowledge_base_name"/>
+
+        <addUniqueConstraint
+            tableName="knowledge_base"
+            columnNames="name, platform_type, environment"
+            constraintName="uk_knowledge_base_name_platform_type_environment"/>
+    </changeSet>
+</databaseChangeLog>

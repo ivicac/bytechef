@@ -26,4 +26,31 @@ public class KnowledgeBaseConstants {
     public static final String METADATA_KNOWLEDGE_BASE_DOCUMENT_ID = "knowledge_base_document_id";
     public static final String METADATA_KNOWLEDGE_BASE_DOCUMENT_CHUNK_ID = "knowledge_base_document_chunk_id";
     public static final String METADATA_TAG_NAMES = "tag_names";
+
+    /**
+     * The account a chunk belongs to, present only on an owned chunk.
+     */
+    public static final String METADATA_OWNER_ID = "owner_id";
+
+    /**
+     * The kind of principal {@link #METADATA_OWNER_ID} names, as an {@code OwnerType} ordinal, present only on an owned
+     * chunk and always beside it.
+     *
+     * <p>
+     * The id alone does not identify an owner. {@code OwnerType} has one constant today, so two principals of different
+     * kinds cannot yet share an id and the type is unexercisable -- which is exactly why it goes in now: a chunk is
+     * written once and read forever, and a second constant would make every chunk written without a type ambiguous with
+     * no way to tell afterwards which kind it meant. The data table columns already carry both for the same reason.
+     */
+    public static final String METADATA_OWNER_TYPE = "owner_type";
+
+    /**
+     * Marks a chunk as belonging to no account: every account may read it and none may write it.
+     *
+     * <p>
+     * A boolean flag rather than the absence of {@link #METADATA_OWNER_ID}, because "key is absent" is not expressible
+     * in a {@code Filter.Expression} portably across vector stores. The per-tag flags ({@code tag_names_NAME: true})
+     * already answer the same problem the same way; this mirrors them rather than inventing a second convention.
+     */
+    public static final String METADATA_SHARED = "shared";
 }

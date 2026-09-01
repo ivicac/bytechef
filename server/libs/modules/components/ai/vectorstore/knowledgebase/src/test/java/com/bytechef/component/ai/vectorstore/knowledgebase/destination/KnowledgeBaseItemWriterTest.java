@@ -38,10 +38,13 @@ import com.bytechef.commons.util.PayloadHashUtil;
 import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.datastream.ExecutionContext;
+import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocument;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseSource;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
+import com.bytechef.platform.knowledgebase.service.KnowledgeBaseService;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseSourceService;
+import com.bytechef.platform.owner.OwnerResolver;
 import java.time.Instant;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -51,6 +54,7 @@ import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.beans.factory.ObjectProvider;
 
 /**
  * Unit tests for {@link KnowledgeBaseItemWriter}. Mocks the source service + document service and exercises the
@@ -66,6 +70,7 @@ class KnowledgeBaseItemWriterTest {
 
     private KnowledgeBaseSourceService knowledgeBaseSourceService;
     private KnowledgeBaseDocumentService knowledgeBaseDocumentService;
+    private KnowledgeBaseService knowledgeBaseService;
 
     private KnowledgeBaseItemWriter writer;
     private Parameters inputParameters;
@@ -77,8 +82,10 @@ class KnowledgeBaseItemWriterTest {
     void setUp() {
         knowledgeBaseSourceService = mock(KnowledgeBaseSourceService.class);
         knowledgeBaseDocumentService = mock(KnowledgeBaseDocumentService.class);
+        knowledgeBaseService = mock(KnowledgeBaseService.class);
 
-        writer = new KnowledgeBaseItemWriter(knowledgeBaseSourceService, knowledgeBaseDocumentService);
+        writer = new KnowledgeBaseItemWriter(
+            knowledgeBaseSourceService, knowledgeBaseDocumentService, knowledgeBaseService, emptyProvider());
 
         inputParameters = mock(Parameters.class);
         connectionParameters = mock(Parameters.class);
@@ -91,11 +98,17 @@ class KnowledgeBaseItemWriterTest {
         KnowledgeBaseSource source = newSource(KB_ID_VALUE);
 
         when(knowledgeBaseSourceService.fetch(SOURCE_ID_VALUE)).thenReturn(Optional.of(source));
+
+        KnowledgeBase knowledgeBase = new KnowledgeBase();
+
+        knowledgeBase.setId(KB_ID_VALUE);
+
+        when(knowledgeBaseService.getKnowledgeBase(KB_ID_VALUE)).thenReturn(knowledgeBase);
     }
 
     @Test
     void testWriteCreatesNewDocumentForFirstSourceRecord() {
-        when(knowledgeBaseDocumentService.findSyncedDocument(eq(SOURCE_ID_VALUE), anyString()))
+        when(knowledgeBaseDocumentService.findSyncedDocument(eq(SOURCE_ID_VALUE), anyString(), any()))
             .thenReturn(Optional.empty());
 
         writer.open(inputParameters, connectionParameters, context, executionContext);
@@ -115,7 +128,8 @@ class KnowledgeBaseItemWriterTest {
         verify(knowledgeBaseDocumentService, times(1))
             .createSyncedDocument(
                 eq(KB_ID_VALUE), eq(SOURCE_ID_VALUE), eq("rec1"),
-                nameCaptor.capture(), textCaptor.capture(), any(), any(), hashCaptor.capture(), any(Instant.class));
+                nameCaptor.capture(), textCaptor.capture(), any(), any(), hashCaptor.capture(), any(Instant.class),
+                any());
 
         assertThat(nameCaptor.getValue()).isEqualTo("Document One");
         assertThat(textCaptor.getValue()).isEqualTo("Hello world");
@@ -138,7 +152,7 @@ class KnowledgeBaseItemWriterTest {
 
         KnowledgeBaseDocument existing = newDocument(42L, hash, /* deletedAt */ null);
 
-        when(knowledgeBaseDocumentService.findSyncedDocument(SOURCE_ID_VALUE, "rec1"))
+        when(knowledgeBaseDocumentService.findSyncedDocument(SOURCE_ID_VALUE, "rec1", Optional.empty()))
             .thenReturn(Optional.of(existing));
 
         writer.open(inputParameters, connectionParameters, context, executionContext);
@@ -148,7 +162,7 @@ class KnowledgeBaseItemWriterTest {
         verify(knowledgeBaseDocumentService, times(1)).bumpLastSeenAt(eq(existing), any(Instant.class));
         verify(knowledgeBaseDocumentService, never()).createSyncedDocument(
             anyLong(), anyLong(), anyString(), anyString(), anyString(), any(), any(), anyString(),
-            any(Instant.class));
+            any(Instant.class), any());
         verify(knowledgeBaseDocumentService, never()).replaceSyncedDocument(
             anyLong(), anyString(), anyString(), any(), any(), anyString(), any(Instant.class));
     }
@@ -163,7 +177,7 @@ class KnowledgeBaseItemWriterTest {
 
         KnowledgeBaseDocument existing = newDocument(42L, "stale-hash-0000", /* deletedAt */ null);
 
-        when(knowledgeBaseDocumentService.findSyncedDocument(SOURCE_ID_VALUE, "rec1"))
+        when(knowledgeBaseDocumentService.findSyncedDocument(SOURCE_ID_VALUE, "rec1", Optional.empty()))
             .thenReturn(Optional.of(existing));
 
         writer.open(inputParameters, connectionParameters, context, executionContext);
@@ -186,7 +200,7 @@ class KnowledgeBaseItemWriterTest {
         verify(knowledgeBaseDocumentService, never()).bumpLastSeenAt(any(), any(Instant.class));
         verify(knowledgeBaseDocumentService, never()).createSyncedDocument(
             anyLong(), anyLong(), anyString(), anyString(), anyString(), any(), any(), anyString(),
-            any(Instant.class));
+            any(Instant.class), any());
     }
 
     @Test
@@ -203,7 +217,7 @@ class KnowledgeBaseItemWriterTest {
 
         KnowledgeBaseDocument existing = newDocument(42L, hash, Instant.parse("2026-04-01T00:00:00Z"));
 
-        when(knowledgeBaseDocumentService.findSyncedDocument(SOURCE_ID_VALUE, "rec1"))
+        when(knowledgeBaseDocumentService.findSyncedDocument(SOURCE_ID_VALUE, "rec1", Optional.empty()))
             .thenReturn(Optional.of(existing));
 
         writer.open(inputParameters, connectionParameters, context, executionContext);
@@ -218,7 +232,7 @@ class KnowledgeBaseItemWriterTest {
 
     @Test
     void testWriteMissingIdFieldThrows() {
-        when(knowledgeBaseDocumentService.findSyncedDocument(eq(SOURCE_ID_VALUE), anyString()))
+        when(knowledgeBaseDocumentService.findSyncedDocument(eq(SOURCE_ID_VALUE), anyString(), any()))
             .thenReturn(Optional.empty());
 
         writer.open(inputParameters, connectionParameters, context, executionContext);
@@ -235,7 +249,7 @@ class KnowledgeBaseItemWriterTest {
 
     @Test
     void testUpdateFlushesSeenRecordIdsAndModeToExecutionContext() {
-        when(knowledgeBaseDocumentService.findSyncedDocument(eq(SOURCE_ID_VALUE), anyString()))
+        when(knowledgeBaseDocumentService.findSyncedDocument(eq(SOURCE_ID_VALUE), anyString(), any()))
             .thenReturn(Optional.empty());
 
         writer.open(inputParameters, connectionParameters, context, executionContext);
@@ -276,6 +290,15 @@ class KnowledgeBaseItemWriterTest {
         assertThatThrownBy(() -> writer.open(inputParameters, connectionParameters, context, executionContext))
             .isInstanceOf(IllegalArgumentException.class)
             .hasMessageContaining("Unknown sync mode 'BOGUS'");
+    }
+
+    @SuppressWarnings("unchecked")
+    private static ObjectProvider<OwnerResolver> emptyProvider() {
+        ObjectProvider<OwnerResolver> objectProvider = mock(ObjectProvider.class);
+
+        when(objectProvider.getIfAvailable()).thenReturn(null);
+
+        return objectProvider;
     }
 
     private static KnowledgeBaseSource newSource(Long kbId) {

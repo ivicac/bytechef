@@ -16,11 +16,13 @@
 
 package com.bytechef.platform.knowledgebase.listener;
 
+import com.bytechef.platform.constant.OwnerType;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseSource;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseSourceStatus;
 import com.bytechef.platform.knowledgebase.facade.KnowledgeBaseDocumentFacade;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseSourceService;
+import com.bytechef.platform.owner.Owner;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
 import java.util.HashSet;
@@ -36,6 +38,7 @@ import org.springframework.batch.core.job.JobExecution;
 import org.springframework.batch.core.job.parameters.JobParameter;
 import org.springframework.batch.core.listener.JobExecutionListener;
 import org.springframework.batch.core.step.StepExecution;
+import org.springframework.batch.infrastructure.item.ExecutionContext;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
@@ -47,8 +50,8 @@ import org.springframework.stereotype.Component;
  * On COMPLETED: the listener reads the {@code mode} parameter from the destination's {@code inputParameters} (defaults
  * to {@code FULL_REPLACE} when missing — backward compatible with workflows that pre-date the parameter):
  * <ul>
- * <li>{@code FULL_REPLACE}: aggregates {@code seenRecordIds} from each step's {@code ExecutionContext} (populated by
- * {@code KnowledgeBaseItemWriter} under the key {@code "knowledgeBaseSource.seenRecordIds"}), calls
+ * <li>{@code FULL_REPLACE}: aggregates {@code seenRecordIds} AND the run's owner from each step's
+ * {@code ExecutionContext} (both populated by {@code KnowledgeBaseItemWriter}), calls
  * {@link KnowledgeBaseDocumentService#tombstoneUnseen}, evicts the tombstoned documents' chunks, chunk content files,
  * and vector-store rows via {@link KnowledgeBaseDocumentFacade#sweepTombstonedDocumentChunks} (best-effort — a sweep
  * failure never fails the structured sync; the next FULL_REPLACE run retries because tombstoned rows keep their
@@ -67,6 +70,12 @@ import org.springframework.stereotype.Component;
  * Non-Knowledge-Base DataStream jobs are passed through unchanged: the listener inspects the {@code DESTINATION} job
  * parameter and short-circuits when the component/cluster-element name doesn't match. CS sync jobs (destination
  * {@code contextStore.writeToReplica}) flow through their own listener untouched.
+ *
+ * <p>
+ * The tombstone sweep is scoped to the account the run acted for, not to the source. A source used to identify one
+ * account's documents because the knowledge base behind it did; a SHARED knowledge base holds the documents of many
+ * accounts, and two of them may sync the same source into it, so a sweep keyed on {@code source_id} alone tombstoned
+ * the other account's rows and then deleted their chunks out of the vector store by raw id.
  *
  * @author Ivica Cardic
  */
@@ -95,6 +104,14 @@ public class KnowledgeBaseSourceSyncJobListener implements JobExecutionListener 
      * dependency on the component module that owns the writer.
      */
     private static final String SEEN_RECORD_IDS_KEY = "knowledgeBaseSource.seenRecordIds";
+
+    /**
+     * Must match {@code KnowledgeBaseItemWriter.OWNER_ID_KEY} / {@code OWNER_TYPE_KEY}, duplicated for the same reason.
+     * Read as a pair and never singly: an id without a type belongs to nobody, and taking it for the vendor would point
+     * an account's sweep at the unowned documents.
+     */
+    private static final String OWNER_ID_KEY = "knowledgeBaseSource.ownerId";
+    private static final String OWNER_TYPE_KEY = "knowledgeBaseSource.ownerType";
 
     private final KnowledgeBaseDocumentFacade knowledgeBaseDocumentFacade;
     private final KnowledgeBaseDocumentService knowledgeBaseDocumentService;
@@ -130,16 +147,30 @@ public class KnowledgeBaseSourceSyncJobListener implements JobExecutionListener 
 
                 knowledgeBaseSourceService.updateLastSyncMetadata(sourceId, now, jobExecution.getId());
             } else {
-                Set<String> seenRecordIds = aggregateSeenRecordIds(jobExecution);
+                SyncRunScope scope = aggregateSyncRunScope(jobExecution);
 
-                int tombstoned = knowledgeBaseDocumentService.tombstoneUnseen(sourceId, seenRecordIds, now);
+                if (scope == null) {
+                    // The steps disagree about the account this run acted for, which one job's partitions cannot do
+                    // by construction. Reaping under either answer would tombstone somebody's documents on a guess, so
+                    // nothing is reaped -- the rows keep their content and the next FULL_REPLACE run sweeps them,
+                    // exactly as the best-effort chunk sweep below already relies on.
+                    log.error(
+                        "Knowledge Base sync completed in FULL_REPLACE mode but its steps disagree about the owner: " +
+                            "source={} — nothing tombstoned",
+                        sourceId);
+                } else {
+                    Set<String> seenRecordIds = scope.seenRecordIds();
+                    Optional<Owner> owner = scope.owner();
 
-                int sweptChunks = sweepTombstonedDocumentChunks(sourceId);
+                    int tombstoned = knowledgeBaseDocumentService.tombstoneUnseen(sourceId, seenRecordIds, now, owner);
 
-                log.info(
-                    "Knowledge Base sync completed in FULL_REPLACE mode: source={} seen={} tombstoned={} " +
-                        "sweptChunks={}",
-                    sourceId, seenRecordIds.size(), tombstoned, sweptChunks);
+                    int sweptChunks = sweepTombstonedDocumentChunks(sourceId, owner);
+
+                    log.info(
+                        "Knowledge Base sync completed in FULL_REPLACE mode: source={} owner={} seen={} " +
+                            "tombstoned={} sweptChunks={}",
+                        sourceId, owner.orElse(null), seenRecordIds.size(), tombstoned, sweptChunks);
+                }
 
                 knowledgeBaseSourceService.updateStatus(
                     sourceId, KnowledgeBaseSourceStatus.READY, now, jobExecution.getId());
@@ -174,9 +205,9 @@ public class KnowledgeBaseSourceSyncJobListener implements JobExecutionListener 
      * structured sync or block the status flip to {@code READY} — the tombstoned document rows keep their
      * {@code deleted_at}, so the next FULL_REPLACE run retries the sweep.
      */
-    private int sweepTombstonedDocumentChunks(Long sourceId) {
+    private int sweepTombstonedDocumentChunks(Long sourceId, Optional<Owner> owner) {
         try {
-            return knowledgeBaseDocumentFacade.sweepTombstonedDocumentChunks(sourceId);
+            return knowledgeBaseDocumentFacade.sweepTombstonedDocumentChunks(sourceId, owner);
         } catch (RuntimeException exception) {
             log.warn(
                 "Knowledge Base tombstone chunk sweep failed: source={} — structured sync remains intact",
@@ -239,25 +270,75 @@ public class KnowledgeBaseSourceSyncJobListener implements JobExecutionListener 
         return null;
     }
 
-    private static Set<String> aggregateSeenRecordIds(JobExecution jobExecution) {
+    /**
+     * What the run saw and who it acted for, read back off the step contexts the writer flushed them to.
+     *
+     * <p>
+     * Both halves come from the same steps -- the ones carrying {@code seenRecordIds} -- because they answer the same
+     * question and the sweep needs both: the record ids say which documents survived, the owner says whose documents
+     * are in scope at all. A source names neither. The listener runs after the job, with no run context left to resolve
+     * an owner from, so the writer writing it down is the only thing that survives the crossing, exactly as the
+     * document row is for the chunker.
+     *
+     * <p>
+     * The owner is read as a PAIR: an id flushed without a type belongs to nobody and is treated as no owner at all,
+     * rather than as the vendor's, which would point an account's sweep at the unowned documents.
+     *
+     * @return the aggregated scope, or {@code null} if the steps disagree about the owner -- impossible for the
+     *         partitions of one job, and reaped under neither answer rather than under a guess
+     */
+    private static @Nullable SyncRunScope aggregateSyncRunScope(JobExecution jobExecution) {
         Set<String> seenRecordIds = new HashSet<>();
+        Set<Optional<Owner>> owners = new HashSet<>();
 
         for (StepExecution stepExecution : jobExecution.getStepExecutions()) {
-            Object value = stepExecution.getExecutionContext()
-                .get(SEEN_RECORD_IDS_KEY);
+            ExecutionContext executionContext = stepExecution.getExecutionContext();
 
-            if (value instanceof List<?> list) {
-                for (Object item : list) {
-                    if (item instanceof String string) {
-                        seenRecordIds.add(string);
-                    }
+            Object value = executionContext.get(SEEN_RECORD_IDS_KEY);
+
+            if (!(value instanceof List<?> list)) {
+                continue;
+            }
+
+            for (Object item : list) {
+                if (item instanceof String string) {
+                    seenRecordIds.add(string);
                 }
             }
+
+            owners.add(readOwner(executionContext));
         }
 
-        return seenRecordIds;
+        if (owners.size() > 1) {
+            return null;
+        }
+
+        Optional<Owner> owner = owners.isEmpty() ? Optional.empty() : owners.iterator()
+            .next();
+
+        return new SyncRunScope(seenRecordIds, owner);
+    }
+
+    private static Optional<Owner> readOwner(ExecutionContext executionContext) {
+        Long ownerId = coerceLong(executionContext.get(OWNER_ID_KEY));
+        Long ownerType = coerceLong(executionContext.get(OWNER_TYPE_KEY));
+
+        if (ownerId == null || ownerType == null) {
+            return Optional.empty();
+        }
+
+        OwnerType[] ownerTypes = OwnerType.values();
+
+        if (ownerType < 0 || ownerType >= ownerTypes.length) {
+            return Optional.empty();
+        }
+
+        return Optional.of(new Owner(ownerTypes[ownerType.intValue()], ownerId));
     }
 
     private record KnowledgeBaseSyncJobParameters(Long sourceId, String mode) {
+    }
+
+    private record SyncRunScope(Set<String> seenRecordIds, Optional<Owner> owner) {
     }
 }

@@ -147,12 +147,14 @@ public class KnowledgeBaseComponentHandler implements ComponentHandler {
                             knowledgeBaseFileStorage, knowledgeBaseService, knowledgeBaseDocumentTagService,
                             ownerResolverProvider),
                         writeAsDocumentClusterElement(
-                            knowledgeBaseSourceService, knowledgeBaseDocumentService)));
+                            knowledgeBaseSourceService, knowledgeBaseDocumentService, knowledgeBaseService,
+                            ownerResolverProvider)));
         }
 
         private static ModifiableClusterElementDefinition<KnowledgeBaseItemWriter> writeAsDocumentClusterElement(
             KnowledgeBaseSourceService knowledgeBaseSourceService,
-            KnowledgeBaseDocumentService knowledgeBaseDocumentService) {
+            KnowledgeBaseDocumentService knowledgeBaseDocumentService, KnowledgeBaseService knowledgeBaseService,
+            ObjectProvider<OwnerResolver> ownerResolverProvider) {
 
             return ComponentDsl.<KnowledgeBaseItemWriter>clusterElement("writeAsDocument")
                 .title("Write as Knowledge Base Document")
@@ -162,7 +164,8 @@ public class KnowledgeBaseComponentHandler implements ComponentHandler {
                         "PARTIAL mode skips the tombstone sweep for backfills and partial-update workflows.")
                 .type(DESTINATION)
                 .object(() -> new KnowledgeBaseItemWriter(
-                    knowledgeBaseSourceService, knowledgeBaseDocumentService))
+                    knowledgeBaseSourceService, knowledgeBaseDocumentService, knowledgeBaseService,
+                    ownerResolverProvider))
                 .properties(
                     integer(SOURCE_ID)
                         .label("Knowledge Base Source ID")

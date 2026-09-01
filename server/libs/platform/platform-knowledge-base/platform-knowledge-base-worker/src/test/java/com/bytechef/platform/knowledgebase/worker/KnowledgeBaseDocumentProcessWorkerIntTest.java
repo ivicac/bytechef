@@ -117,7 +117,7 @@ class KnowledgeBaseDocumentProcessWorkerIntTest {
             .thenReturn(savedChunk1, savedChunk1, savedChunk2, savedChunk2);
 
         when(knowledgeBaseEtlPipeline.writeChunkToVectorStore(
-            any(Document.class), eq(knowledgeBaseId), eq(documentId), anyLong(), anyLong(), any()))
+            any(Document.class), eq(knowledgeBaseId), eq(documentId), anyLong(), anyLong(), any(), any()))
                 .thenReturn("vector-store-id-1", "vector-store-id-2");
 
         FileEntry chunkFileEntry1 = new FileEntry("1.txt", "file://test/chunks/1.txt");
@@ -250,7 +250,7 @@ class KnowledgeBaseDocumentProcessWorkerIntTest {
         worker.onKnowledgeBaseDocumentChunkEvent(event);
 
         verify(knowledgeBaseEtlPipeline).processChunkUpdate(
-            eq(newContent), eq(knowledgeBaseId), eq(documentId), eq(chunkId), anyLong(), any());
+            eq(newContent), eq(knowledgeBaseId), eq(documentId), eq(chunkId), anyLong(), any(), any());
     }
 
     @Test
@@ -266,7 +266,7 @@ class KnowledgeBaseDocumentProcessWorkerIntTest {
         worker.onKnowledgeBaseDocumentChunkEvent(event);
 
         verify(knowledgeBaseEtlPipeline, never()).processChunkUpdate(anyString(), anyLong(), anyLong(), anyLong(),
-            anyLong(), any());
+            anyLong(), any(), any());
     }
 
     @Test
@@ -298,7 +298,7 @@ class KnowledgeBaseDocumentProcessWorkerIntTest {
         when(knowledgeBaseDocumentChunkService.saveKnowledgeBaseDocumentChunk(any(KnowledgeBaseDocumentChunk.class)))
             .thenReturn(savedChunk);
         when(knowledgeBaseEtlPipeline.writeChunkToVectorStore(
-            any(), anyLong(), anyLong(), anyLong(), anyLong(), eq(tagNames))).thenReturn("vector-store-id");
+            any(), anyLong(), anyLong(), anyLong(), anyLong(), eq(tagNames), any())).thenReturn("vector-store-id");
         when(knowledgeBaseFileStorage.storeChunkContent(anyLong(), anyString()))
             .thenReturn(new FileEntry("1.txt", "file://test/1.txt"));
 
@@ -307,7 +307,7 @@ class KnowledgeBaseDocumentProcessWorkerIntTest {
         worker.onKnowledgeBaseDocumentEvent(event);
 
         verify(knowledgeBaseEtlPipeline).writeChunkToVectorStore(
-            any(), eq(knowledgeBaseId), eq(documentId), eq(1L), anyLong(), eq(tagNames));
+            any(), eq(knowledgeBaseId), eq(documentId), eq(1L), anyLong(), eq(tagNames), any());
     }
 
     private KnowledgeBaseDocument createMockDocument(Long id, Long knowledgeBaseId) {

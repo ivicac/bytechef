@@ -19,6 +19,7 @@ package com.bytechef.platform.knowledgebase.domain;
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.constant.OwnerType;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.tag.domain.Tag;
 import java.time.Instant;
 import java.util.HashSet;
@@ -57,6 +58,9 @@ public class KnowledgeBase {
 
     @Column("owner_type")
     private @Nullable Integer ownerType;
+
+    @Column("platform_type")
+    private int platformType;
 
     private int maxChunkSize = 1024;
 
@@ -143,6 +147,14 @@ public class KnowledgeBase {
 
     public void setOwnerType(@Nullable OwnerType ownerType) {
         this.ownerType = ownerType == null ? null : ownerType.ordinal();
+    }
+
+    public PlatformType getPlatformType() {
+        return PlatformType.values()[platformType];
+    }
+
+    public void setPlatformType(PlatformType platformType) {
+        this.platformType = platformType.ordinal();
     }
 
     public int getMaxChunkSize() {

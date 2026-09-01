@@ -18,6 +18,7 @@ package com.bytechef.platform.knowledgebase.service;
 
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocument;
 import com.bytechef.platform.knowledgebase.dto.DocumentStatusUpdate;
+import com.bytechef.platform.owner.Owner;
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
@@ -82,10 +83,16 @@ public interface KnowledgeBaseDocumentService {
      * flattening to {@code key=value} tags. Mirrors {@code KnowledgeBaseSource.metadataFields}. Null preserves MVP
      * behavior: every metadata key becomes a tag.
      * </p>
+     *
+     * <p>
+     * {@code owner} — the account the sync run acts for, persisted on the row so the chunker can read it back. Null
+     * means the vendor's own sync, whose chunks are shared. Set once, at creation: {@link #replaceSyncedDocument}
+     * deliberately takes no owner, so re-syncing a document never moves it between accounts.
+     * </p>
      */
     KnowledgeBaseDocument createSyncedDocument(
         long kbId, long sourceId, String sourceRecordId, String name, String text, Map<String, ?> metadata,
-        @Nullable Map<String, ?> metadataFieldsWhitelist, String payloadHash, Instant now);
+        @Nullable Map<String, ?> metadataFieldsWhitelist, String payloadHash, Instant now, @Nullable Owner owner);
 
     /**
      * Replaces the content of an existing synced document. Idempotent fast path: if the new {@code payloadHash} matches
@@ -104,26 +111,93 @@ public interface KnowledgeBaseDocumentService {
         @Nullable Map<String, ?> metadataFieldsWhitelist, String payloadHash, Instant now);
 
     /**
-     * Soft-deletes synced documents whose {@code source_record_id} is not in {@code seenSourceRecordIds} for the given
-     * source by setting {@code deleted_at = now}. Manual uploads ({@code source_id IS NULL}) are unaffected. Returns
-     * the number of rows tombstoned. Called by the {@code KnowledgeBaseSourceSyncJobListener} after each FULL_REPLACE
-     * sync run completes.
+     * Soft-deletes the documents the given run may tombstone: those tied to {@code sourceId} whose
+     * {@code source_record_id} is not in {@code seenSourceRecordIds}, restricted to the run's OWN documents. Manual
+     * uploads ({@code source_id IS NULL}) are unaffected. Returns the number of rows tombstoned. Called by the
+     * {@code KnowledgeBaseSourceSyncJobListener} after each FULL_REPLACE sync run completes.
+     *
+     * <p>
+     * {@code owner} — the account the sync run acted for. A source does not identify one account's documents: two
+     * accounts may sync the same source into one shared knowledge base, and a sweep keyed on the source alone reaped
+     * the other account's rows. The WRITE rule applies, so an empty owner is the vendor and reaps the unowned documents
+     * alone rather than everything.
      */
-    int tombstoneUnseen(long sourceId, Set<String> seenSourceRecordIds, Instant now);
+    int tombstoneUnseen(long sourceId, Set<String> seenSourceRecordIds, Instant now, Optional<Owner> owner);
 
     /**
-     * Returns every tombstoned synced document ({@code deleted_at IS NOT NULL}) tied to the given source. Used by the
-     * post-tombstone chunk sweep to locate documents whose chunk rows, chunk content files, and vector-store entries
-     * must be evicted so semantic search stops serving content that no longer exists upstream.
+     * Returns the tombstoned synced documents ({@code deleted_at IS NOT NULL}) tied to the given source that belong to
+     * the given owner. Used by the post-tombstone chunk sweep to locate documents whose chunk rows, chunk content
+     * files, and vector-store entries must be evicted so semantic search stops serving content that no longer exists
+     * upstream.
+     *
+     * <p>
+     * Owner-scoped for the same reason {@link #tombstoneUnseen} is, and by the same WRITE rule: what the sweep returns
+     * is deleted, so a listing wider than the caller's own documents is a cross-account delete by another name.
      */
-    List<KnowledgeBaseDocument> getTombstonedDocuments(long sourceId);
+    List<KnowledgeBaseDocument> getTombstonedDocuments(long sourceId, Optional<Owner> owner);
 
     /**
-     * Looks up an existing synced document by its {@code (source_id, source_record_id)} sync key. Used by the
-     * DESTINATION cluster element writer (Phase 13 Task 31) to decide between create / unchanged-fast-path / replace
-     * paths per record.
+     * Looks up the run's OWN synced document for the given {@code (source_id, source_record_id)} sync key. Used by the
+     * DESTINATION cluster element writer to decide between create / unchanged-fast-path / replace paths per record.
+     *
+     * <p>
+     * Owner-scoped, and by the WRITE rule rather than the read one, because what the caller does with the answer is
+     * rewrite it. Unscoped, account 43's run found account 42's document for the same source record and
+     * {@code replaceSyncedDocument} rewrote its content: ownership did not move, the content did, which is the same
+     * content-crossing-accounts effect the rest of this axis exists to stop. A run with no owner is the vendor and
+     * reaches the unowned documents alone, never falling through to an account's.
+     *
+     * <p>
+     * <b>Two accounts syncing one shared source therefore produce two documents for the same source record, one each,
+     * and that is the intended answer -- not duplication to be collapsed later.</b> Under per-account ownership each
+     * account's copy IS its own record: it carries that account's owner, its chunks carry that account, and only that
+     * account's run may rewrite or tombstone it. The single-document alternative is one row whose content is whichever
+     * account synced last and whose owner is whichever account synced first, which is a document belonging to one
+     * account and describing another's run. The partial unique indexes on {@code (source_id, source_record_id)} are
+     * keyed on the owner for the same reason; re-narrowing this lookup to the sync key alone would start failing on
+     * them rather than quietly resuming the old behaviour.
+     *
+     * @param sourceId       the knowledge base source
+     * @param sourceRecordId the upstream record id
+     * @param owner          the account the sync run acts for, empty for the vendor's own run
      */
-    Optional<KnowledgeBaseDocument> findSyncedDocument(long sourceId, String sourceRecordId);
+    Optional<KnowledgeBaseDocument> findSyncedDocument(long sourceId, String sourceRecordId, Optional<Owner> owner);
+
+    /**
+     * How many documents in the given knowledge base belong to an account other than {@code owner}. Read by
+     * {@code KnowledgeBaseService#assignOwner} before it re-stamps them, so an assignment that would hand one account's
+     * documents to another is refused rather than performed.
+     *
+     * <p>
+     * A document carrying an {@code owner_id} beside a null {@code owner_type} belongs to nobody and is not counted:
+     * the re-stamp is entitled to move it, exactly as it is entitled to move a fully unowned one.
+     *
+     * @param knowledgeBaseId the knowledge base whose documents are counted
+     * @param owner           the account the knowledge base is being assigned to
+     * @return the number of documents belonging to some other account
+     */
+    long countDocumentsOwnedByAnotherAccount(long knowledgeBaseId, Owner owner);
+
+    /**
+     * Moves every document of the given knowledge base onto {@code owner}, or back to nobody when {@code owner} is
+     * null. Called by {@code KnowledgeBaseService#assignOwner} inside its transaction.
+     *
+     * <p>
+     * The two axes are independent, but an assignment is a statement about both: the knowledge base becomes this
+     * account's, and so does everything in it. Left alone, a document written before {@code owner_id} existed would
+     * stay unowned -- readable by the account that owns the knowledge base, because the read rule admits unowned
+     * documents, and writable by it in no circumstance, because the write rule matches on the owner alone. The account
+     * would own the whole knowledge base and be unable to edit what is in it. Unassignment is the same statement
+     * inverted, and has to be, or a knowledge base handed back to the vendor would come back empty.
+     *
+     * <p>
+     * The caller is responsible for the refusal above; this method moves whatever it is given.
+     *
+     * @param knowledgeBaseId the knowledge base whose documents move
+     * @param owner           the new owner, or null to return them to the vendor
+     * @return the number of documents re-stamped
+     */
+    int restampDocumentOwners(long knowledgeBaseId, @Nullable Owner owner);
 
     /**
      * Bumps {@code last_seen_at} on the given synced document and saves it. Used by the DESTINATION cluster element

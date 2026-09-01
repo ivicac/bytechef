@@ -20,12 +20,18 @@ import static com.bytechef.platform.knowledgebase.constant.KnowledgeBaseConstant
 import static com.bytechef.platform.knowledgebase.constant.KnowledgeBaseConstants.METADATA_KNOWLEDGE_BASE_DOCUMENT_CHUNK_ID;
 import static com.bytechef.platform.knowledgebase.constant.KnowledgeBaseConstants.METADATA_KNOWLEDGE_BASE_DOCUMENT_ID;
 import static com.bytechef.platform.knowledgebase.constant.KnowledgeBaseConstants.METADATA_KNOWLEDGE_BASE_ID;
+import static com.bytechef.platform.knowledgebase.constant.KnowledgeBaseConstants.METADATA_OWNER_ID;
+import static com.bytechef.platform.knowledgebase.constant.KnowledgeBaseConstants.METADATA_OWNER_TYPE;
+import static com.bytechef.platform.knowledgebase.constant.KnowledgeBaseConstants.METADATA_SHARED;
 import static com.bytechef.platform.knowledgebase.constant.KnowledgeBaseConstants.METADATA_TAG_NAMES;
 
 import com.bytechef.platform.configuration.context.EnvironmentContext;
+import com.bytechef.platform.constant.OwnerType;
+import com.bytechef.platform.owner.Owner;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
+import org.jspecify.annotations.Nullable;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -56,15 +62,16 @@ public class KnowledgeBaseVectorStoreWriter {
      * @param knowledgeBaseDocumentId the knowledge base document ID
      * @param environmentId           the environment ordinal of the knowledge base
      * @param tagNames                the tag names associated with the document
+     * @param owner                   the account the document row was created for, or null for the vendor's own
      */
     public void write(
         List<Document> documents, long knowledgeBaseId, long knowledgeBaseDocumentId, long environmentId,
-        List<String> tagNames) {
+        List<String> tagNames, @Nullable Owner owner) {
 
         List<Document> sanitizedDocuments = documents.stream()
             .map(
                 document -> sanitizeDocument(
-                    document, knowledgeBaseId, knowledgeBaseDocumentId, -1, environmentId, tagNames))
+                    document, knowledgeBaseId, knowledgeBaseDocumentId, -1, environmentId, tagNames, owner))
             .toList();
 
         EnvironmentContext.set((int) environmentId);
@@ -85,13 +92,14 @@ public class KnowledgeBaseVectorStoreWriter {
      * @param knowledgeBaseChunkId the knowledge base document chunk ID
      * @param environmentId        the environment ordinal of the knowledge base
      * @param tagNames             the tag names associated with the document
+     * @param owner                the account the document row was created for, or null for the vendor's own
      */
     public void writeChunk(
         Document document, Long knowledgeBaseId, Long documentId, Long knowledgeBaseChunkId, long environmentId,
-        List<String> tagNames) {
+        List<String> tagNames, @Nullable Owner owner) {
 
         Document sanitizedDocument = sanitizeDocument(
-            document, knowledgeBaseId, documentId, knowledgeBaseChunkId, environmentId, tagNames);
+            document, knowledgeBaseId, documentId, knowledgeBaseChunkId, environmentId, tagNames, owner);
 
         EnvironmentContext.set((int) environmentId);
 
@@ -127,7 +135,7 @@ public class KnowledgeBaseVectorStoreWriter {
      */
     private Document sanitizeDocument(
         Document document, long knowledgeBaseId, long knowledgeBaseDocumentId, long knowledgeBaseDocumentChunkId,
-        long environmentId, List<String> tagNames) {
+        long environmentId, List<String> tagNames, @Nullable Owner owner) {
 
         String content = document.getText();
 
@@ -140,6 +148,23 @@ public class KnowledgeBaseVectorStoreWriter {
         metadata.put(METADATA_ENVIRONMENT_ID, environmentId);
         metadata.put(METADATA_KNOWLEDGE_BASE_ID, knowledgeBaseId);
         metadata.put(METADATA_KNOWLEDGE_BASE_DOCUMENT_ID, knowledgeBaseDocumentId);
+
+        // This pipeline runs off a message, detached from the request that created the document row, so there is no
+        // principal left to ask -- which is why the owner is persisted on the document and handed in here instead. A
+        // document with no owner is the vendor's, and its chunks are marked shared: readable by every account in the
+        // knowledge base and writable by none of them, the same answer the backfill gives every chunk written before
+        // this axis existed. Either both owner keys are written or the shared flag is, never one key of the pair.
+        if (owner == null) {
+            metadata.remove(METADATA_OWNER_ID);
+            metadata.remove(METADATA_OWNER_TYPE);
+            metadata.put(METADATA_SHARED, true);
+        } else {
+            OwnerType ownerType = owner.type();
+
+            metadata.remove(METADATA_SHARED);
+            metadata.put(METADATA_OWNER_ID, owner.id());
+            metadata.put(METADATA_OWNER_TYPE, ownerType.ordinal());
+        }
 
         if (knowledgeBaseDocumentChunkId != -1) {
             metadata.put(METADATA_KNOWLEDGE_BASE_DOCUMENT_CHUNK_ID, knowledgeBaseDocumentChunkId);

@@ -16,8 +16,14 @@
 
 package com.bytechef.platform.knowledgebase.service;
 
+import static com.bytechef.platform.knowledgebase.constant.KnowledgeBaseConstants.METADATA_KNOWLEDGE_BASE_ID;
+import static com.bytechef.platform.knowledgebase.constant.KnowledgeBaseConstants.METADATA_OWNER_ID;
+import static com.bytechef.platform.knowledgebase.constant.KnowledgeBaseConstants.METADATA_OWNER_TYPE;
+import static com.bytechef.platform.knowledgebase.constant.KnowledgeBaseConstants.METADATA_SHARED;
 import static com.bytechef.platform.knowledgebase.constant.KnowledgeBaseConstants.METADATA_TAG_NAMES;
 
+import com.bytechef.platform.constant.OwnerType;
+import com.bytechef.platform.owner.Owner;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -25,6 +31,7 @@ import java.util.Map;
 import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -102,6 +109,57 @@ public final class KnowledgeBaseVectorStoreMetadataService {
         pgVectorJdbcTemplate.update(
             "UPDATE " + fullTableName + " SET metadata = ?::jsonb WHERE id = ?::uuid",
             objectMapper.writeValueAsString(updatedMetadata), vectorStoreId);
+    }
+
+    /**
+     * Moves every chunk of the given knowledge base onto {@code owner}, or back to nobody when {@code owner} is null,
+     * in the encoding {@code KnowledgeBaseVectorStoreWrapper#add} writes: an owned chunk carries {@code owner_id} and
+     * {@code owner_type} and no {@code shared}, an unowned one carries {@code shared: true} and neither of the other
+     * two.
+     *
+     * <p>
+     * A document's chunks carry the account independently of the document row -- the chunker runs off a message long
+     * after the request is gone, which is why the pair was written into the chunk metadata at all -- so re-stamping the
+     * documents on assignment without re-stamping their chunks would leave a document whose owner disagrees with its
+     * own chunks. That is the half-owner shape in a new costume: the account could edit the document and still not see
+     * a word of it in a search.
+     *
+     * <p>
+     * Scoped by {@code knowledge_base_id} rather than by the document ids just re-stamped, deliberately. The caller
+     * refuses the assignment unless every document in the knowledge base is unowned or already the target's, so every
+     * chunk under that id is one this owner is entitled to; going by knowledge base also reaches a chunk whose document
+     * row is gone, which going by document id could never do and which would otherwise stay stranded on an owner that
+     * no longer has anything there.
+     *
+     * @param knowledgeBaseId the knowledge base whose chunks move
+     * @param owner           the new owner, or null to return the chunks to the vendor
+     * @return the number of chunks re-stamped
+     */
+    @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
+    public int updateOwner(long knowledgeBaseId, @Nullable Owner owner) {
+        String fullTableName = resolveFullTableName();
+
+        String knowledgeBaseIdValue = String.valueOf(knowledgeBaseId);
+
+        if (owner == null) {
+            return pgVectorJdbcTemplate.update(
+                "UPDATE " + fullTableName + " SET metadata = (metadata::jsonb - '" + METADATA_OWNER_ID + "' - '" +
+                    METADATA_OWNER_TYPE + "') || '{\"" + METADATA_SHARED + "\": true}'::jsonb" +
+                    " WHERE metadata::jsonb ->> '" + METADATA_KNOWLEDGE_BASE_ID + "' = ?",
+                knowledgeBaseIdValue);
+        }
+
+        OwnerType ownerType = owner.type();
+
+        Map<String, Object> ownerMetadata = new LinkedHashMap<>();
+
+        ownerMetadata.put(METADATA_OWNER_ID, owner.id());
+        ownerMetadata.put(METADATA_OWNER_TYPE, ownerType.ordinal());
+
+        return pgVectorJdbcTemplate.update(
+            "UPDATE " + fullTableName + " SET metadata = (metadata::jsonb - '" + METADATA_SHARED + "') || ?::jsonb" +
+                " WHERE metadata::jsonb ->> '" + METADATA_KNOWLEDGE_BASE_ID + "' = ?",
+            objectMapper.writeValueAsString(ownerMetadata), knowledgeBaseIdValue);
     }
 
     private String resolveFullTableName() {

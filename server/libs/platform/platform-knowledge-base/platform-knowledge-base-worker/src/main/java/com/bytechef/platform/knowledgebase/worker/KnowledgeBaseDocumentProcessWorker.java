@@ -27,9 +27,11 @@ import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentChunkSer
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseDocumentService;
 import com.bytechef.platform.knowledgebase.service.KnowledgeBaseService;
 import com.bytechef.platform.knowledgebase.worker.etl.KnowledgeBaseEtlPipeline;
+import com.bytechef.platform.owner.Owner;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.ai.document.Document;
@@ -93,6 +95,13 @@ public class KnowledgeBaseDocumentProcessWorker {
                 knowledgeBase.getMinChunkSizeChars(), knowledgeBase.getMaxChunkSize(), knowledgeBase.getOverlap());
             List<String> tagNames = knowledgeBaseDocument.getTagNames();
 
+            // The whole reason the owner is a column on the document row. This method runs off a message with no
+            // security context and no job behind it, so by the time it chunks anything the principal that drove the
+            // upload is long gone; reading it back off the row is what carries the account across that gap. A document
+            // with no owner chunks as shared, which is what every document created before this axis existed does.
+            Owner owner = knowledgeBaseDocument.getOwner()
+                .orElse(null);
+
             for (Document document : documents) {
                 KnowledgeBaseDocumentChunk knowledgeBaseDocumentChunk = new KnowledgeBaseDocumentChunk();
 
@@ -103,7 +112,7 @@ public class KnowledgeBaseDocumentProcessWorker {
 
                 String vectorStoreId = knowledgeBaseEtlPipeline.writeChunkToVectorStore(
                     document, knowledgeBase.getId(), knowledgeBaseDocumentId, knowledgeBaseDocumentChunk.getId(),
-                    knowledgeBase.getEnvironmentId(), tagNames);
+                    knowledgeBase.getEnvironmentId(), tagNames, owner);
 
                 knowledgeBaseDocumentChunk.setVectorStoreId(vectorStoreId);
 
@@ -143,9 +152,13 @@ public class KnowledgeBaseDocumentProcessWorker {
 
             List<String> tagNames = knowledgeBaseDocument.getTagNames();
 
+            // Rewritten chunk, same document: it keeps the document's owner rather than acquiring the editor's, so an
+            // edit never moves a chunk between accounts.
+            Optional<Owner> owner = knowledgeBaseDocument.getOwner();
+
             knowledgeBaseEtlPipeline.processChunkUpdate(
                 event.getContent(), knowledgeBaseDocument.getKnowledgeBaseId(), knowledgeBaseDocument.getId(),
-                knowledgeBaseDocumentChunkId, knowledgeBase.getEnvironmentId(), tagNames);
+                knowledgeBaseDocumentChunkId, knowledgeBase.getEnvironmentId(), tagNames, owner.orElse(null));
         } catch (RuntimeException exception) {
             log.error(
                 "Error processing chunk update {}: {}", knowledgeBaseDocumentChunkId, exception.getMessage(),

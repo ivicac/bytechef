@@ -72,7 +72,7 @@ public class KnowledgeBaseUpdateTool {
 
         VectorStore kbVectorStore = createVectorStore(
             knowledgeBaseDocumentChunkService, knowledgeBaseDocumentService, knowledgeBaseFileStorage,
-            knowledgeBaseService, vectorStore);
+            knowledgeBaseService, vectorStore, ownerResolverProvider);
 
         return ComponentDsl.<MultipleConnectionsToolFunction>clusterElement(UPDATE)
             .title("Update Knowledge Base Documents")
@@ -95,7 +95,9 @@ public class KnowledgeBaseUpdateTool {
                 integer(KNOWLEDGE_BASE_DOCUMENT_ID)
                     .label("Document")
                     .description("The document to update in the knowledge base.")
-                    .options(KnowledgeBaseOptionsUtils.documentOptions(knowledgeBaseDocumentService))
+                    .options(
+                        KnowledgeBaseOptionsUtils.documentOptions(
+                            knowledgeBaseDocumentService, knowledgeBaseService, ownerResolverProvider))
                     .optionsLookupDependsOn(KNOWLEDGE_BASE_ID)
                     .required(false),
                 integer(KNOWLEDGE_BASE_DOCUMENT_CHUNK_ID)
@@ -103,7 +105,10 @@ public class KnowledgeBaseUpdateTool {
                     .description(
                         "The specific chunk to update. If not selected, all chunks of the selected document " +
                             "will be replaced.")
-                    .options(KnowledgeBaseOptionsUtils.documentChunkOptions(knowledgeBaseDocumentChunkFacade))
+                    .options(
+                        KnowledgeBaseOptionsUtils.documentChunkOptions(
+                            knowledgeBaseDocumentChunkFacade, knowledgeBaseDocumentService, knowledgeBaseService,
+                            ownerResolverProvider))
                     .optionsLookupDependsOn(KNOWLEDGE_BASE_DOCUMENT_ID)
                     .required(false),
                 object(ADDITIONAL_METADATA)
@@ -130,8 +135,8 @@ public class KnowledgeBaseUpdateTool {
             .object(() -> (MultipleConnectionsToolFunction) (
                 inputParameters, connectionParameters, extensions, componentConnections, context) -> {
 
-                knowledgeBaseService.getKnowledgeBase(
-                    inputParameters.getRequiredLong(KNOWLEDGE_BASE_ID),
+                KnowledgeBaseOptionsUtils.resolveKnowledgeBase(
+                    knowledgeBaseService, inputParameters.getRequiredLong(KNOWLEDGE_BASE_ID),
                     OwnerResolution.resolve(context, ownerResolverProvider));
 
                 String content = inputParameters.getRequiredString(CONTENT);
@@ -141,7 +146,8 @@ public class KnowledgeBaseUpdateTool {
                     ParametersFactory.create(Map.of()),
                     null,
                     () -> List.of(new Document(content)),
-                    List.of());
+                    List.of(),
+                    context);
 
                 return null;
             });

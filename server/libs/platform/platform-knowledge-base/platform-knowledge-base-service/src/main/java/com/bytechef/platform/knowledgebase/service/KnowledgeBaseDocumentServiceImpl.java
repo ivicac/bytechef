@@ -17,12 +17,14 @@
 package com.bytechef.platform.knowledgebase.service;
 
 import com.bytechef.file.storage.domain.FileEntry;
+import com.bytechef.platform.constant.OwnerType;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBaseDocument;
 import com.bytechef.platform.knowledgebase.dto.DocumentStatusUpdate;
 import com.bytechef.platform.knowledgebase.event.KnowledgeBaseDocumentEvent;
 import com.bytechef.platform.knowledgebase.exception.KnowledgeBaseDocumentNotFoundException;
 import com.bytechef.platform.knowledgebase.file.storage.KnowledgeBaseFileStorage;
 import com.bytechef.platform.knowledgebase.repository.KnowledgeBaseDocumentRepository;
+import com.bytechef.platform.owner.Owner;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
@@ -101,7 +103,7 @@ class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentService {
     @Override
     public KnowledgeBaseDocument createSyncedDocument(
         long kbId, long sourceId, String sourceRecordId, String name, String text, Map<String, ?> metadata,
-        @Nullable Map<String, ?> metadataFieldsWhitelist, String payloadHash, Instant now) {
+        @Nullable Map<String, ?> metadataFieldsWhitelist, String payloadHash, Instant now, @Nullable Owner owner) {
 
         String filename = sourceRecordId + ".md";
         FileEntry fileEntry = storeText(filename, text);
@@ -117,6 +119,7 @@ class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentService {
         document.setLastSeenAt(now);
         document.setStatus(KnowledgeBaseDocument.STATUS_UPLOADED);
         document.setTagNames(applyWhitelistAndFlatten(metadata, metadataFieldsWhitelist));
+        document.setOwner(owner);
 
         try {
             document = knowledgeBaseDocumentRepository.save(document);
@@ -199,21 +202,89 @@ class KnowledgeBaseDocumentServiceImpl implements KnowledgeBaseDocumentService {
         return saved;
     }
 
+    /**
+     * Two queries, picked by whether the run has an owner, rather than one taking a nullable one. The vendor's sweep
+     * and an account's sweep are different predicates, not the same predicate with a hole in it: an empty owner means
+     * the vendor and reaps the unowned documents, never every document in the source.
+     */
     @Override
-    public int tombstoneUnseen(long sourceId, Set<String> seenSourceRecordIds, Instant now) {
-        return knowledgeBaseDocumentRepository.tombstoneUnseen(sourceId, seenSourceRecordIds, now);
+    public int tombstoneUnseen(long sourceId, Set<String> seenSourceRecordIds, Instant now, Optional<Owner> owner) {
+        if (owner.isEmpty()) {
+            return knowledgeBaseDocumentRepository.tombstoneUnseenUnowned(sourceId, seenSourceRecordIds, now);
+        }
+
+        Owner curOwner = owner.get();
+
+        OwnerType ownerType = curOwner.type();
+
+        return knowledgeBaseDocumentRepository.tombstoneUnseenOwnedBy(
+            sourceId, seenSourceRecordIds, curOwner.id(), ownerType.ordinal(), now);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public List<KnowledgeBaseDocument> getTombstonedDocuments(long sourceId) {
-        return knowledgeBaseDocumentRepository.findAllBySourceIdAndDeletedAtIsNotNull(sourceId);
+    public List<KnowledgeBaseDocument> getTombstonedDocuments(long sourceId, Optional<Owner> owner) {
+        if (owner.isEmpty()) {
+            return knowledgeBaseDocumentRepository
+                .findAllBySourceIdAndOwnerIdIsNullAndOwnerTypeIsNullAndDeletedAtIsNotNull(sourceId);
+        }
+
+        Owner curOwner = owner.get();
+
+        OwnerType ownerType = curOwner.type();
+
+        return knowledgeBaseDocumentRepository.findAllBySourceIdAndOwnerIdAndOwnerTypeAndDeletedAtIsNotNull(
+            sourceId, curOwner.id(), ownerType.ordinal());
+    }
+
+    /**
+     * Two queries, picked by whether the run has an owner, for the same reason {@link #tombstoneUnseen} is a pair: the
+     * vendor's lookup and an account's are different predicates, not one predicate with a hole in it.
+     *
+     * <p>
+     * The consequence is that two accounts syncing one shared source each end up with their own document for the same
+     * source record. That is the design, not a duplicate to be collapsed -- see the interface javadoc.
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Optional<KnowledgeBaseDocument> findSyncedDocument(
+        long sourceId, String sourceRecordId, Optional<Owner> owner) {
+
+        if (owner.isEmpty()) {
+            return knowledgeBaseDocumentRepository
+                .findBySourceIdAndSourceRecordIdAndOwnerIdIsNullAndOwnerTypeIsNull(sourceId, sourceRecordId);
+        }
+
+        Owner curOwner = owner.get();
+
+        OwnerType ownerType = curOwner.type();
+
+        return knowledgeBaseDocumentRepository.findBySourceIdAndSourceRecordIdAndOwnerIdAndOwnerType(
+            sourceId, sourceRecordId, curOwner.id(), ownerType.ordinal());
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Optional<KnowledgeBaseDocument> findSyncedDocument(long sourceId, String sourceRecordId) {
-        return knowledgeBaseDocumentRepository.findBySourceIdAndSourceRecordId(sourceId, sourceRecordId);
+    public long countDocumentsOwnedByAnotherAccount(long knowledgeBaseId, Owner owner) {
+        OwnerType ownerType = owner.type();
+
+        return knowledgeBaseDocumentRepository.countByKnowledgeBaseIdAndOwnedByAnotherAccount(
+            knowledgeBaseId, owner.id(), ownerType.ordinal());
+    }
+
+    /**
+     * Both columns move together, in one statement each way, so no document is left with an {@code owner_id} beside a
+     * null {@code owner_type} -- a shape that belongs to nobody and satisfies neither predicate.
+     */
+    @Override
+    public int restampDocumentOwners(long knowledgeBaseId, @Nullable Owner owner) {
+        if (owner == null) {
+            return knowledgeBaseDocumentRepository.restampUnowned(knowledgeBaseId);
+        }
+
+        OwnerType ownerType = owner.type();
+
+        return knowledgeBaseDocumentRepository.restampOwnedBy(knowledgeBaseId, owner.id(), ownerType.ordinal());
     }
 
     @Override
