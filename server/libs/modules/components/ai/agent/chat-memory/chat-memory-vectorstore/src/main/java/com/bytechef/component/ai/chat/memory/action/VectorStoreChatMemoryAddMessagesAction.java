@@ -33,6 +33,7 @@ import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 import static com.bytechef.component.definition.ComponentDsl.string;
 
 import com.bytechef.component.ai.chat.memory.util.VectorStoreChatMemoryUtils;
+import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.ComponentConnection;
@@ -89,7 +90,7 @@ public class VectorStoreChatMemoryAddMessagesAction {
             .perform(
                 (MultipleConnectionsPerformFunction) (
                     inputParameters, componentConnections, extensions, context) -> perform(inputParameters,
-                        componentConnections, extensions, clusterElementDefinitionService));
+                        componentConnections, extensions, clusterElementDefinitionService, context));
     }
 
     private VectorStoreChatMemoryAddMessagesAction() {
@@ -97,12 +98,14 @@ public class VectorStoreChatMemoryAddMessagesAction {
 
     protected static Object perform(
         Parameters inputParameters, Map<String, ComponentConnection> componentConnections,
-        Parameters extensions, ClusterElementDefinitionService clusterElementDefinitionService) throws Exception {
+        Parameters extensions, ClusterElementDefinitionService clusterElementDefinitionService,
+        ActionContext context) throws Exception {
 
         String conversationId = inputParameters.getRequiredString(CONVERSATION_ID);
         Object[] messagesArray = inputParameters.getRequiredArray(MESSAGES);
 
-        VectorStore vectorStore = getVectorStore(extensions, componentConnections, clusterElementDefinitionService);
+        VectorStore vectorStore = getVectorStore(
+            extensions, componentConnections, clusterElementDefinitionService, context);
 
         List<Document> documents = new ArrayList<>();
 

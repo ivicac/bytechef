@@ -20,6 +20,7 @@ import com.bytechef.ai.agent.tool.ToolErrors;
 import com.bytechef.ai.copilot.tool.context.AgentToolInvocationContext;
 import com.bytechef.automation.ai.tool.ToolArtifactRecorder;
 import com.bytechef.automation.data.table.configuration.facade.WorkspaceDataTableFacade;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
@@ -29,6 +30,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import org.jspecify.annotations.Nullable;
 import org.springframework.ai.chat.model.ToolContext;
@@ -171,7 +173,9 @@ public class AddDataTableColumnToolCallback implements ToolCallback {
 
             String baseName = tableInfo.baseName();
 
-            dataTableService.addColumn(baseName, new ColumnSpec(input.columnName(), columnType), environmentId);
+            dataTableService.addColumn(
+                baseName, new ColumnSpec(input.columnName(), columnType), environmentId, PlatformType.AUTOMATION,
+                Optional.empty());
 
             recordArtifact(invocationContext, baseName, input.dataTableId(), input.columnName(), environmentId);
 

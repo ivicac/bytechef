@@ -10,8 +10,6 @@ package com.bytechef.ee.ai.hub.tool;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verify;
@@ -24,7 +22,9 @@ import com.bytechef.ee.ai.hub.artifact.GenerationRequest;
 import com.bytechef.ee.ai.hub.artifact.GenerationResult;
 import com.bytechef.ee.ai.hub.chat.AiHubChat;
 import com.bytechef.ee.ai.hub.chat.AiHubChatService;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
 import java.util.List;
@@ -70,10 +70,12 @@ class QueryDataTableToolCallbackTest {
         DataTableService dataTableService = mock(DataTableService.class);
 
         when(dataTableService.getBaseNameById(dataTableId)).thenReturn("contacts");
-        when(dataTableRowService.listRows(eq("contacts"), anyInt(), eq(0), eq(0L))).thenReturn(List.of(
-            new DataTableRow(1L, Map.of("name", "Alice", "status", "qualified")),
-            new DataTableRow(2L, Map.of("name", "Bob", "status", "prospect")),
-            new DataTableRow(3L, Map.of("name", "Carol", "status", "qualified"))));
+        when(dataTableRowService.listRows(
+            eq(DataTableRef.shared("contacts", 0L, PlatformType.AUTOMATION)), anyInt(), eq(0)))
+                .thenReturn(List.of(
+                    new DataTableRow(1L, Map.of("name", "Alice", "status", "qualified")),
+                    new DataTableRow(2L, Map.of("name", "Bob", "status", "prospect")),
+                    new DataTableRow(3L, Map.of("name", "Carol", "status", "qualified"))));
 
         QueryDataTableToolCallback callback = new QueryDataTableToolCallback(
             dataTableRowService, dataTableService);
@@ -104,9 +106,11 @@ class QueryDataTableToolCallbackTest {
         DataTableService dataTableService = mock(DataTableService.class);
 
         when(dataTableService.getBaseNameById(dataTableId)).thenReturn("contacts");
-        when(dataTableRowService.listRows(eq("contacts"), anyInt(), eq(0), eq(0L))).thenReturn(List.of(
-            new DataTableRow(1L, Map.of("name", "Alice")),
-            new DataTableRow(2L, Map.of("name", "Bob"))));
+        when(dataTableRowService.listRows(
+            eq(DataTableRef.shared("contacts", 0L, PlatformType.AUTOMATION)), anyInt(), eq(0)))
+                .thenReturn(List.of(
+                    new DataTableRow(1L, Map.of("name", "Alice")),
+                    new DataTableRow(2L, Map.of("name", "Bob"))));
 
         QueryDataTableToolCallback callback = new QueryDataTableToolCallback(
             dataTableRowService, dataTableService);
@@ -131,7 +135,7 @@ class QueryDataTableToolCallbackTest {
         DataTableService dataTableService = mock(DataTableService.class);
 
         when(dataTableService.getBaseNameById(dataTableId)).thenReturn("contacts");
-        when(dataTableRowService.listRows(anyString(), eq(DataTableQuerySupport.MAX_LIMIT), eq(0), eq(0L)))
+        when(dataTableRowService.listRows(any(DataTableRef.class), eq(DataTableQuerySupport.MAX_LIMIT), eq(0)))
             .thenReturn(List.of(new DataTableRow(1L, Map.of("name", "Alice"))));
 
         QueryDataTableToolCallback callback = new QueryDataTableToolCallback(
@@ -174,7 +178,7 @@ class QueryDataTableToolCallbackTest {
         AiHubChatService chatService = mock(AiHubChatService.class);
 
         when(dataTableService.getBaseNameById(42L)).thenReturn("contacts");
-        when(dataTableRowService.listRows(eq("contacts"), anyInt(), eq(0), anyLong()))
+        when(dataTableRowService.listRows(any(DataTableRef.class), anyInt(), eq(0)))
             .thenReturn(List.of(
                 new DataTableRow(1L, Map.of("name", "Alice", "city", "NA")),
                 new DataTableRow(2L, Map.of("name", "Bob", "city", "EU"))));
@@ -236,7 +240,8 @@ class QueryDataTableToolCallbackTest {
         DataTableService dataTableService = mock(DataTableService.class);
 
         when(dataTableService.getBaseNameById(42L)).thenReturn("contacts");
-        when(dataTableRowService.listRows(eq("contacts"), anyInt(), eq(0), anyLong())).thenReturn(List.of());
+        when(dataTableRowService.listRows(any(DataTableRef.class), anyInt(), eq(0)))
+            .thenReturn(List.of());
 
         QueryDataTableToolCallback callback = new QueryDataTableToolCallback(
             dataTableRowService, dataTableService);

@@ -29,6 +29,7 @@ import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 import static com.bytechef.component.definition.ComponentDsl.string;
 
 import com.bytechef.component.ai.chat.memory.util.VectorStoreChatMemoryUtils;
+import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.ActionDefinition;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.ComponentConnection;
@@ -79,7 +80,7 @@ public class VectorStoreChatMemoryGetMessagesAction {
             .perform(
                 (MultipleConnectionsPerformFunction) (
                     inputParameters, componentConnections, extensions, context) -> perform(inputParameters,
-                        componentConnections, extensions, clusterElementDefinitionService));
+                        componentConnections, extensions, clusterElementDefinitionService, context));
     }
 
     private VectorStoreChatMemoryGetMessagesAction() {
@@ -87,12 +88,14 @@ public class VectorStoreChatMemoryGetMessagesAction {
 
     protected static Object perform(
         Parameters inputParameters, Map<String, ComponentConnection> componentConnections,
-        Parameters extensions, ClusterElementDefinitionService clusterElementDefinitionService) throws Exception {
+        Parameters extensions, ClusterElementDefinitionService clusterElementDefinitionService,
+        ActionContext context) throws Exception {
 
         String conversationId = inputParameters.getRequiredString(CONVERSATION_ID);
         int topK = inputParameters.getInteger(TOP_K, 100);
 
-        VectorStore vectorStore = getVectorStore(extensions, componentConnections, clusterElementDefinitionService);
+        VectorStore vectorStore = getVectorStore(
+            extensions, componentConnections, clusterElementDefinitionService, context);
 
         FilterExpressionBuilder filterExpressionBuilder = new FilterExpressionBuilder();
 

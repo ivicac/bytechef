@@ -25,6 +25,7 @@ import static com.bytechef.platform.component.definition.ai.agent.rag.QueryTrans
 
 import com.bytechef.component.definition.ClusterElementDefinition;
 import com.bytechef.component.definition.ComponentDsl;
+import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.ComponentConnection;
 import com.bytechef.platform.component.definition.ParametersFactory;
@@ -67,12 +68,12 @@ public class ModularRag {
 
     protected RetrievalAugmentationAdvisor apply(
         Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
-        Map<String, ComponentConnection> componentConnections) throws Exception {
+        Map<String, ComponentConnection> componentConnections, Context context) throws Exception {
 
         return RetrievalAugmentationAdvisor.builder()
             .queryTransformers(getQueryTransformers(extensions, componentConnections))
             .queryExpander(getQueryExpander(extensions, componentConnections))
-            .documentRetriever(getDocumentRetriever(extensions, componentConnections))
+            .documentRetriever(getDocumentRetriever(extensions, componentConnections, context))
             .documentJoiner(getDocumentJoiner(extensions, componentConnections))
             .queryAugmenter(getQueryAugmenter(extensions, componentConnections))
             .build();
@@ -103,7 +104,7 @@ public class ModularRag {
     }
 
     private DocumentRetriever getDocumentRetriever(
-        Parameters extensions, Map<String, ComponentConnection> componentConnections) {
+        Parameters extensions, Map<String, ComponentConnection> componentConnections, Context context) {
 
         return ClusterElementMap.of(extensions)
             .fetchClusterElement(DOCUMENT_RETRIEVER)
@@ -121,7 +122,7 @@ public class ModularRag {
                         ParametersFactory.create(clusterElement.getParameters()),
                         ParametersFactory.create(
                             componentConnection == null ? Map.of() : componentConnection.getParameters()),
-                        ParametersFactory.create(clusterElement.getExtensions()), componentConnections);
+                        ParametersFactory.create(clusterElement.getExtensions()), componentConnections, context);
                 } catch (Exception e) {
                     throw new RuntimeException(e);
                 }
