@@ -42,7 +42,7 @@ const AppSidebarCollapsedGroup = ({isActive, items, label, onOpenChange, open}: 
                     <div className="flex w-full justify-center py-0.5">
                         <SidebarMenuButton
                             aria-label={label}
-                            className="h-10 gap-3 text-sm group-data-[collapsible=icon]:!size-10 data-[active=true]:font-medium data-[active=true]:text-content-brand-primary [&>svg]:size-6"
+                            className="h-10 gap-3 text-sm group-data-[collapsible=icon]:!size-10 data-[active=true]:font-medium data-[active=true]:text-content-brand-primary [&>svg]:size-5"
                             isActive={!!activeItem}
                         >
                             <TriggerIcon aria-hidden="true" />
