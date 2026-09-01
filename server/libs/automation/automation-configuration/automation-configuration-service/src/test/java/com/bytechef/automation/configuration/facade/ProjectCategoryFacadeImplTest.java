@@ -22,15 +22,24 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.configuration.domain.Project;
+import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.ProjectService;
+import com.bytechef.automation.configuration.service.ResourceVisibilityResolver;
 import com.bytechef.platform.category.domain.Category;
 import com.bytechef.platform.category.service.CategoryService;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.function.LongPredicate;
+import java.util.stream.Collectors;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.ObjectProvider;
 
 class ProjectCategoryFacadeImplTest {
 
+    private static final long HIDDEN_PROJECT_ID = 2L;
     private static final long OTHER_WORKSPACE_ID = 6L;
+    private static final long UNCATEGORIZED_PROJECT_ID = 3L;
+    private static final long VISIBLE_PROJECT_ID = 1L;
     private static final long WORKSPACE_ID = 5L;
 
     private final CategoryService categoryService = mock(CategoryService.class);
@@ -45,12 +54,32 @@ class ProjectCategoryFacadeImplTest {
         when(categoryService.getCategories(List.of(10L, 11L)))
             .thenReturn(List.of(new Category(10, "a"), new Category(11, "b")));
 
-        List<Category> categories = facade().getProjectCategories(WORKSPACE_ID);
+        List<Category> categories = facadeWith(id -> true).getProjectCategories(WORKSPACE_ID);
 
         assertThat(categories).hasSize(2);
 
         verify(projectService).getWorkspaceProjectIds(WORKSPACE_ID);
         verify(categoryService).getCategories(List.of(10L, 11L));
+    }
+
+    /**
+     * A category name aggregated off a project the caller cannot see is a name disclosed from a withheld project, and a
+     * filter option that selects nothing in the listing this feeds.
+     *
+     * <p>
+     * The load-bearing assertion is on the ids handed to {@code CategoryService}: the two projects here carry different
+     * category ids, so a facade that stopped filtering would ask for both and fail. The returned list is asserted as
+     * well, so that a facade returning null rather than what the collaborator handed back cannot pass.
+     */
+    @Test
+    void testGetProjectCategoriesDropsTheCategoryOfAProjectTheResolverHides() {
+        when(categoryService.getCategories(List.of(10L))).thenReturn(List.of(new Category(10, "a")));
+
+        List<Category> categories = facadeWith(id -> id != HIDDEN_PROJECT_ID).getProjectCategories(WORKSPACE_ID);
+
+        assertThat(categories).hasSize(1);
+
+        verify(categoryService).getCategories(List.of(10L));
     }
 
     /**
@@ -64,19 +93,22 @@ class ProjectCategoryFacadeImplTest {
         when(projectService.getProjects(List.of())).thenReturn(List.of());
         when(categoryService.getCategories(List.of())).thenReturn(List.of());
 
-        List<Category> categories = facade().getProjectCategories(OTHER_WORKSPACE_ID);
+        List<Category> categories = facadeWith(id -> true).getProjectCategories(OTHER_WORKSPACE_ID);
 
         assertThat(categories).isEmpty();
 
         verify(categoryService).getCategories(List.of());
     }
 
-    private ProjectCategoryFacadeImpl facade() {
+    private ProjectCategoryFacadeImpl facadeWith(LongPredicate visible) {
         when(projectService.getWorkspaceProjectIds(WORKSPACE_ID)).thenReturn(List.of(1L, 2L, 3L));
         when(projectService.getProjects(List.of(1L, 2L, 3L)))
-            .thenReturn(List.of(project(1L, 10L), project(2L, 11L), project(3L, null)));
+            .thenReturn(
+                List.of(
+                    project(VISIBLE_PROJECT_ID, 10L), project(HIDDEN_PROJECT_ID, 11L),
+                    project(UNCATEGORIZED_PROJECT_ID, null)));
 
-        return new ProjectCategoryFacadeImpl(categoryService, projectService);
+        return new ProjectCategoryFacadeImpl(categoryService, projectService, projectVisibilityFilter(visible));
     }
 
     private static Project project(long id, Long categoryId) {
@@ -86,5 +118,24 @@ class ProjectCategoryFacadeImplTest {
         project.setCategoryId(categoryId);
 
         return project;
+    }
+
+    /**
+     * The production {@link ProjectVisibilityFilter} over a stubbed resolver, not a mock of the filter — so the test
+     * fails if this facade stops routing through the one component every project list surface shares.
+     */
+    @SuppressWarnings("unchecked")
+    private static ProjectVisibilityFilter projectVisibilityFilter(LongPredicate visible) {
+        ResourceVisibilityResolver resourceVisibilityResolver =
+            (resourceType, workspaceId, candidates) -> candidates.stream()
+                .map(ResourceVisibilityResolver.VisibilityRecord::id)
+                .filter(visible::test)
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        ObjectProvider<ResourceVisibilityResolver> objectProvider = mock(ObjectProvider.class);
+
+        when(objectProvider.getIfAvailable()).thenReturn(resourceVisibilityResolver);
+
+        return new ProjectVisibilityFilter(objectProvider);
     }
 }
