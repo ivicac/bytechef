@@ -20,6 +20,7 @@ import com.bytechef.ai.agent.tool.AgentType;
 import com.bytechef.ai.agent.tool.CurrentAgentContext;
 import com.bytechef.ai.agent.tool.CurrentAgentContext.AgentBinding;
 import com.bytechef.ai.agent.tool.ToolErrors;
+import com.bytechef.ai.copilot.agent.SelectedChatModelUnavailableException;
 import com.bytechef.ai.copilot.tool.catalog.IntelligentToolChatClientFactory;
 import com.bytechef.ai.copilot.tool.catalog.SubAgentChatModelResolution;
 import com.bytechef.ai.copilot.tool.catalog.SubAgentChatModelResolver;
@@ -37,6 +38,8 @@ import org.springframework.ai.tool.definition.ToolDefinition;
 import tools.jackson.core.JacksonException;
 
 /**
+ * Hand-rolled Spring AI {@link ToolCallback} that exposes the Project Workflow Copilot subagent to a parent agent.
+ *
  * @author Ivica Cardic
  */
 public class ProjectWorkflowAgentToolCallback implements ToolCallback {
@@ -49,9 +52,10 @@ public class ProjectWorkflowAgentToolCallback implements ToolCallback {
             this for requests that design, edit, debug, or explain a workflow (orchestration of tasks,
             triggers, conditions, loops). The subagent owns the canonical behaviour for this domain;
             prefer calling it over reasoning about workflow shape directly. ASK mode returns analysis;
-            BUILD mode returns the updated workflow JSON plus a change rationale. The workflow must
-            already exist — create it with createProjectWorkflow first, then include its workflowId in
-            the request.""";
+            BUILD mode returns the updated workflow JSON plus a change rationale. For an EXISTING workflow
+            include its workflowId in the request. For a BRAND-NEW workflow include the target projectId
+            instead — the subagent creates the workflow itself, carrying the complete definition in one
+            call. It cannot create a project, so create or choose that first.""";
 
     private static final String INPUT_SCHEMA =
         """
@@ -155,6 +159,8 @@ public class ProjectWorkflowAgentToolCallback implements ToolCallback {
                 toolInput == null ? "<null>" : toolInput.substring(0, Math.min(toolInput.length(), 200)));
 
             return toolError("Invalid tool input: " + exception.getMessage());
+        } catch (SelectedChatModelUnavailableException exception) {
+            return ToolErrors.toolError(exception.getMessage());
         } catch (RuntimeException exception) {
             return ToolErrors.runtimeFailure(
                 ProjectWorkflowAgentToolCallback.class, "buildWorkflow", exception);
