@@ -435,7 +435,7 @@ public class ToolSearchCatalogFeeder {
 
     /**
      * Hash-input pair. Kept as a record so the canonical sort + serialisation is centralised here rather than scattered
-     * across populate(). Hash recipe: SHA-256 over the UTF-8 bytes of {@code toolName   summary  } for each entry, in
+     * across populate(). Hash recipe: SHA-256 over the UTF-8 bytes of {@code toolName \0 summary \0} for each entry, in
      * {@code toolName} order. The NUL separator is safe because tool names and summaries are plain text from component
      * metadata and never contain NUL.
      */
