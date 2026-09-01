@@ -5,12 +5,44 @@ extend type Query {
 
 extend type Mutation {
     assignEmbeddedKnowledgeBaseOwner(input: AssignKnowledgeBaseOwnerInput!): Boolean!
+    createEmbeddedKnowledgeBase(input: CreateEmbeddedKnowledgeBaseInput!): Boolean!
+    "Chunking decides how a document is split before embedding, so without this a knowledge base created here would keep its create-time chunking for life -- the only escape being to delete it and re-upload and re-embed every document."
+    updateEmbeddedKnowledgeBase(input: UpdateEmbeddedKnowledgeBaseInput!): Boolean!
+    "Re-splits and re-embeds the documents already in the knowledge base under its current chunking, which updateEmbeddedKnowledgeBase applies to new uploads only. Destructive and slow: every chunk is deleted and re-embedded, and a re-chunked document returns nothing from a search until its chunking finishes. Returns the number of documents queued; running it again after a partial failure repairs it."
+    rechunkEmbeddedKnowledgeBase(knowledgeBaseId: ID!): Int!
 }
 
 input AssignKnowledgeBaseOwnerInput {
     knowledgeBaseId: ID!
     "Omit to return the knowledge base to the vendor, making it shared with every account again."
     ownerId: ID
+}
+
+input CreateEmbeddedKnowledgeBaseInput {
+    environmentId: ID!
+    name: String!
+    description: String
+    "Omit to create the knowledge base shared with every account. Naming an account gives it a knowledge base of its own, which is what lets two accounts each hold one of the same name."
+    ownerId: ID
+    "Omit to take the platform's own default. Deliberately not defaulted in this schema: a default written here would be a second copy of the entity's, and the two would drift silently."
+    maxChunkSize: Int
+    "Omit to take the platform's own default."
+    minChunkSizeChars: Int
+    "Omit to take the platform's own default."
+    overlap: Int
+}
+
+"The owner is deliberately absent: reassigning one is assignEmbeddedKnowledgeBaseOwner, and folding it in here would give two mutations that can both move a knowledge base between accounts."
+input UpdateEmbeddedKnowledgeBaseInput {
+    knowledgeBaseId: ID!
+    name: String!
+    description: String
+    "Omit to leave the stored value alone."
+    maxChunkSize: Int
+    "Omit to leave the stored value alone."
+    minChunkSizeChars: Int
+    "Omit to leave the stored value alone."
+    overlap: Int
 }
 
 type EmbeddedKnowledgeBase {
@@ -21,4 +53,7 @@ type EmbeddedKnowledgeBase {
     lastModifiedDate: Long
     "Null means the vendor owns it and every account can see it."
     ownerId: ID
+    maxChunkSize: Int!
+    minChunkSizeChars: Int!
+    overlap: Int!
 }

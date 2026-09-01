@@ -9,6 +9,7 @@ package com.bytechef.ee.embedded.knowledgebase.web.graphql;
 
 import com.bytechef.atlas.coordinator.annotation.ConditionalOnCoordinator;
 import com.bytechef.ee.embedded.knowledgebase.facade.EmbeddedKnowledgeBaseApiFacade;
+import com.bytechef.ee.embedded.knowledgebase.facade.EmbeddedKnowledgeBaseApiFacade.ChunkingSettings;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.knowledgebase.domain.KnowledgeBase;
@@ -60,7 +61,8 @@ public class EmbeddedKnowledgeBaseGraphQlController {
                 knowledgeBase -> new EmbeddedKnowledgeBase(
                     knowledgeBase.getId(), knowledgeBase.getName(), knowledgeBase.getDescription(),
                     toEpochMilli(knowledgeBase.getCreatedDate()), toEpochMilli(knowledgeBase.getLastModifiedDate()),
-                    knowledgeBase.getOwnerId()))
+                    knowledgeBase.getOwnerId(), knowledgeBase.getMaxChunkSize(),
+                    knowledgeBase.getMinChunkSizeChars(), knowledgeBase.getOverlap()))
             .toList();
     }
 
@@ -71,7 +73,52 @@ public class EmbeddedKnowledgeBaseGraphQlController {
         return true;
     }
 
+    @MutationMapping
+    public boolean createEmbeddedKnowledgeBase(@Argument CreateEmbeddedKnowledgeBaseInput input) {
+        Environment environment = environmentService.getEnvironment(input.environmentId());
+
+        embeddedKnowledgeBaseApiFacade.createKnowledgeBase(
+            environment.ordinal(), input.name(), input.description(), input.ownerId(), input.chunkingSettings());
+
+        return true;
+    }
+
+    @MutationMapping
+    public boolean updateEmbeddedKnowledgeBase(@Argument UpdateEmbeddedKnowledgeBaseInput input) {
+        embeddedKnowledgeBaseApiFacade.updateKnowledgeBase(
+            input.knowledgeBaseId(), input.name(), input.description(), input.chunkingSettings());
+
+        return true;
+    }
+
+    @MutationMapping
+    public int rechunkEmbeddedKnowledgeBase(@Argument Long knowledgeBaseId) {
+        return embeddedKnowledgeBaseApiFacade.rechunkKnowledgeBase(knowledgeBaseId);
+    }
+
     public record AssignKnowledgeBaseOwnerInput(Long knowledgeBaseId, @Nullable Long ownerId) {
+    }
+
+    public record CreateEmbeddedKnowledgeBaseInput(Long environmentId, String name, @Nullable String description,
+        @Nullable Long ownerId, @Nullable Integer maxChunkSize, @Nullable Integer minChunkSizeChars,
+        @Nullable Integer overlap) {
+
+        public ChunkingSettings chunkingSettings() {
+            return new ChunkingSettings(maxChunkSize, minChunkSizeChars, overlap);
+        }
+    }
+
+    /**
+     * The owner is deliberately absent: reassigning one is {@code assignEmbeddedKnowledgeBaseOwner}, which the console
+     * offers on the row itself, and folding it in here would give two mutations that can both move a knowledge base
+     * between accounts.
+     */
+    public record UpdateEmbeddedKnowledgeBaseInput(Long knowledgeBaseId, String name, @Nullable String description,
+        @Nullable Integer maxChunkSize, @Nullable Integer minChunkSizeChars, @Nullable Integer overlap) {
+
+        public ChunkingSettings chunkingSettings() {
+            return new ChunkingSettings(maxChunkSize, minChunkSizeChars, overlap);
+        }
     }
 
     private static @Nullable Long toEpochMilli(@Nullable Instant instant) {
@@ -83,6 +130,7 @@ public class EmbeddedKnowledgeBaseGraphQlController {
      * set of client components can render both surfaces.
      */
     public record EmbeddedKnowledgeBase(Long id, String name, String description, @Nullable Long createdDate,
-        @Nullable Long lastModifiedDate, @Nullable Long ownerId) {
+        @Nullable Long lastModifiedDate, @Nullable Long ownerId, int maxChunkSize, int minChunkSizeChars,
+        int overlap) {
     }
 }

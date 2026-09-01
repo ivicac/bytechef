@@ -5,12 +5,27 @@ extend type Query {
 
 extend type Mutation {
     assignEmbeddedDataTableOwner(input: AssignDataTableOwnerInput!): Boolean!
+    createEmbeddedDataTable(input: CreateEmbeddedDataTableInput!): Boolean!
 }
 
 input AssignDataTableOwnerInput {
     dataTableId: ID!
     "Omit to return the table to the vendor, making it shared with every account again."
     ownerId: ID
+}
+
+input CreateEmbeddedDataTableInput {
+    environmentId: ID!
+    name: String!
+    description: String
+    columns: [EmbeddedDataTableColumnInput!]!
+    "Omit to create the table shared with every account. Naming an account gives it a physical table of its own, which is what lets two accounts each hold a table of the same name."
+    ownerId: ID
+}
+
+input EmbeddedDataTableColumnInput {
+    name: String!
+    type: ColumnType!
 }
 
 type EmbeddedDataTable {

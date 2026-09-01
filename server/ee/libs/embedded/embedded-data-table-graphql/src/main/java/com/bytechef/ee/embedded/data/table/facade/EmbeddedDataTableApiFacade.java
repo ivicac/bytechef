@@ -8,6 +8,7 @@
 package com.bytechef.ee.embedded.data.table.facade;
 
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
+import com.bytechef.platform.data.table.domain.ColumnSpec;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
@@ -33,4 +34,22 @@ public interface EmbeddedDataTableApiFacade {
      * @param ownerId     the connected user to assign it to, or null to return it to the vendor
      */
     void assignDataTableOwner(long dataTableId, @Nullable Long ownerId);
+
+    /**
+     * Creates a new data table in the embedded pool, either the vendor's own or one connected account's.
+     *
+     * <p>
+     * An account's table is a physical table of its own, which is what lets two accounts each have an {@code orders}
+     * and never see each other's rows. It is also how a per-account override is created: the vendor's workflow keeps
+     * naming {@code orders}, and a run belonging to that account resolves its copy instead of the shared one.
+     * {@link #assignDataTableOwner} cannot produce this -- it reassigns a table without giving it a table of its own.
+     *
+     * @param environmentId the environment to create the table in
+     * @param name          the table's base name, without any pool prefix
+     * @param description   the table's description
+     * @param columnSpecs   the table's columns
+     * @param ownerId       the connected user the table belongs to, or null to create it shared with every account
+     */
+    void createDataTable(
+        long environmentId, String name, String description, List<ColumnSpec> columnSpecs, @Nullable Long ownerId);
 }

@@ -12,4 +12,6 @@ dependencies {
     testImplementation("org.mockito:mockito-core")
     testImplementation("org.mockito:mockito-junit-jupiter")
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation("org.springframework.data:spring-data-commons")
+    testImplementation(project(":server:libs:platform:platform-knowledge-base:platform-knowledge-base-service"))
 }

@@ -12,9 +12,11 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.owner.Owner;
 import java.lang.reflect.Method;
+import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -45,20 +47,23 @@ class EmbeddedDataTableApiFacadeTest {
     void testEveryFacadeMethodIsGatedOnTenantAdmin() throws Exception {
         assertTenantAdminGated("getDataTables", long.class, Long.class);
         assertTenantAdminGated("assignDataTableOwner", long.class, Long.class);
+        assertTenantAdminGated(
+            "createDataTable", long.class, String.class, String.class, List.class, Long.class);
     }
 
     @Test
     void testNoOwnerListsEveryTableInTheTenant() {
         embeddedDataTableApiFacade.getDataTables(0, null);
 
-        verify(dataTableService).listTables(eq(0L), eq(Optional.empty()));
+        verify(dataTableService).listTables(eq(0L), eq(PlatformType.EMBEDDED), eq(Optional.empty()));
     }
 
     @Test
     void testAnOwnerListsWhatThatAccountWouldSee() {
         embeddedDataTableApiFacade.getDataTables(0, 42L);
 
-        verify(dataTableService).listTables(eq(0L), eq(Optional.of(Owner.connectedUser(42L))));
+        verify(dataTableService).listTables(eq(0L), eq(PlatformType.EMBEDDED),
+            eq(Optional.of(Owner.connectedUser(42L))));
     }
 
     @Test

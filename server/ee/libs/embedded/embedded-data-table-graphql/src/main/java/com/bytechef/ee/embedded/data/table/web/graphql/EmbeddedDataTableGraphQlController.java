@@ -13,6 +13,7 @@ import com.bytechef.ee.embedded.data.table.facade.EmbeddedDataTableApiFacade;
 import com.bytechef.platform.configuration.domain.Environment;
 import com.bytechef.platform.configuration.service.EnvironmentService;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
+import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
@@ -67,7 +68,33 @@ public class EmbeddedDataTableGraphQlController {
         return true;
     }
 
+    @MutationMapping
+    public boolean createEmbeddedDataTable(@Argument CreateEmbeddedDataTableInput input) {
+        Environment environment = environmentService.getEnvironment(input.environmentId());
+
+        List<ColumnSpec> columnSpecs = input.columns()
+            .stream()
+            .map(EmbeddedDataTableColumnInput::toSpec)
+            .toList();
+
+        embeddedDataTableApiFacade.createDataTable(
+            environment.ordinal(), input.name(), input.description(), columnSpecs, input.ownerId());
+
+        return true;
+    }
+
     public record AssignDataTableOwnerInput(Long dataTableId, @Nullable Long ownerId) {
+    }
+
+    @SuppressFBWarnings("EI")
+    public record CreateEmbeddedDataTableInput(Long environmentId, String name, @Nullable String description,
+        List<EmbeddedDataTableColumnInput> columns, @Nullable Long ownerId) {
+    }
+
+    public record EmbeddedDataTableColumnInput(String name, ColumnType type) {
+        public ColumnSpec toSpec() {
+            return new ColumnSpec(name, type);
+        }
     }
 
     /**

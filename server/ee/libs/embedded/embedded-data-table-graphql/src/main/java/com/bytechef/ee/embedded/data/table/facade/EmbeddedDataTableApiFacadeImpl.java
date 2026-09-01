@@ -8,8 +8,10 @@
 package com.bytechef.ee.embedded.data.table.facade;
 
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
+import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.owner.Owner;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
@@ -43,13 +45,23 @@ public class EmbeddedDataTableApiFacadeImpl implements EmbeddedDataTableApiFacad
     @Override
     @PreAuthorize("isTenantAdmin()")
     public List<DataTableInfo> getDataTables(long environmentId, @Nullable Long ownerId) {
-        return dataTableService.listTables(environmentId, toOwner(ownerId));
+        return dataTableService.listTables(environmentId, PlatformType.EMBEDDED, toOwner(ownerId));
     }
 
     @Override
     @PreAuthorize("isTenantAdmin()")
     public void assignDataTableOwner(long dataTableId, @Nullable Long ownerId) {
         dataTableService.assignOwner(dataTableId, ownerId == null ? null : Owner.connectedUser(ownerId));
+    }
+
+    @Override
+    @PreAuthorize("isTenantAdmin()")
+    public void createDataTable(
+        long environmentId, String name, String description, List<ColumnSpec> columnSpecs,
+        @Nullable Long ownerId) {
+
+        dataTableService.createTable(
+            name, description, columnSpecs, environmentId, PlatformType.EMBEDDED, toOwner(ownerId));
     }
 
     private static Optional<Owner> toOwner(@Nullable Long ownerId) {
