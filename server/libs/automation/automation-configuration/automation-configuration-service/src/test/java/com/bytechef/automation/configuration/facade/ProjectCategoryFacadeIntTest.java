@@ -26,6 +26,7 @@ import com.bytechef.automation.configuration.repository.ProjectRepository;
 import com.bytechef.automation.configuration.repository.WorkspaceRepository;
 import com.bytechef.platform.category.domain.Category;
 import com.bytechef.platform.category.repository.CategoryRepository;
+import com.bytechef.platform.security.domain.ResourceVisibility;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
@@ -34,13 +35,18 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.security.test.context.support.WithMockUser;
 
 /**
+ * Runs as a non-admin user: listing goes through {@code ProjectVisibilityFilter}, which resolves visibility against the
+ * current principal, so a project the caller cannot see must not contribute its category.
+ *
  * @author Ivica Cardic
  */
 @SpringBootTest(classes = ProjectIntTestConfiguration.class)
 @Import(PostgreSQLContainerConfiguration.class)
 @ProjectIntTestConfigurationSharedMocks
+@WithMockUser(username = "project-category-user")
 class ProjectCategoryFacadeIntTest {
 
     @Autowired
@@ -56,6 +62,7 @@ class ProjectCategoryFacadeIntTest {
     private WorkspaceRepository workspaceRepository;
 
     private Category firstCategory;
+    private Category hiddenProjectCategory;
     private Category otherWorkspaceCategory;
     private Category secondCategory;
     private Workspace emptyWorkspace;
@@ -71,10 +78,12 @@ class ProjectCategoryFacadeIntTest {
         firstCategory = categoryRepository.save(new Category("project-category-a"));
         secondCategory = categoryRepository.save(new Category("project-category-b"));
         otherWorkspaceCategory = categoryRepository.save(new Category("project-category-other"));
+        hiddenProjectCategory = categoryRepository.save(new Category("project-category-hidden"));
 
         saveProject("project-1", workspace, firstCategory);
         saveProject("project-2", workspace, secondCategory);
         saveProject("project-3", workspace, null);
+        saveProject("hidden-project", workspace, hiddenProjectCategory, ResourceVisibility.PRIVATE);
         saveProject("other-project", otherWorkspace, otherWorkspaceCategory);
     }
 
@@ -100,6 +109,20 @@ class ProjectCategoryFacadeIntTest {
     }
 
     /**
+     * A category name aggregated off a project the caller cannot see is a name disclosed from a withheld project, and a
+     * filter option that selects nothing in the listing this feeds. The hidden project is PRIVATE and owned by another
+     * login, so the visibility resolver withholds it from the current user.
+     */
+    @Test
+    void testGetProjectCategoriesDropsTheCategoryOfAProjectTheResolverHides() {
+        List<Category> categories = projectCategoryFacade.getProjectCategories(workspace.getId());
+
+        assertThat(categories)
+            .extracting(Category::getId)
+            .doesNotContain(hiddenProjectCategory.getId());
+    }
+
+    /**
      * The facade previously read every project in the instance, so a workspace holding no projects still offered
      * another workspace's categories.
      */
@@ -111,10 +134,17 @@ class ProjectCategoryFacadeIntTest {
     }
 
     private void saveProject(String name, Workspace projectWorkspace, Category category) {
+        saveProject(name, projectWorkspace, category, ResourceVisibility.WORKSPACE);
+    }
+
+    private void saveProject(
+        String name, Workspace projectWorkspace, Category category, ResourceVisibility visibility) {
+
         projectRepository.save(
             Project.builder()
                 .categoryId(category == null ? null : category.getId())
                 .name(name)
+                .visibility(visibility)
                 .workspaceId(projectWorkspace.getId())
                 .build());
     }

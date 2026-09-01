@@ -17,6 +17,7 @@
 package com.bytechef.automation.configuration.facade;
 
 import com.bytechef.automation.configuration.domain.Project;
+import com.bytechef.automation.configuration.security.ProjectVisibilityFilter;
 import com.bytechef.automation.configuration.service.ProjectService;
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.platform.category.domain.Category;
@@ -37,18 +38,32 @@ public class ProjectCategoryFacadeImpl implements ProjectCategoryFacade {
 
     private final CategoryService categoryService;
     private final ProjectService projectService;
+    private final ProjectVisibilityFilter projectVisibilityFilter;
 
     @SuppressFBWarnings("EI")
-    public ProjectCategoryFacadeImpl(CategoryService categoryService, ProjectService projectService) {
+    public ProjectCategoryFacadeImpl(
+        CategoryService categoryService, ProjectService projectService,
+        ProjectVisibilityFilter projectVisibilityFilter) {
+
         this.categoryService = categoryService;
         this.projectService = projectService;
+        this.projectVisibilityFilter = projectVisibilityFilter;
     }
 
+    /**
+     * Scoped and filtered exactly as {@link ProjectTagFacadeImpl#getProjectTags(long)} is, and for the same reasons:
+     * this feeds the category filter over the project list, so a category aggregated off a project in another workspace
+     * is both a name disclosed from outside the caller's workspace and a filter option that selects nothing. The same
+     * list also drives the category picker on the project dialog, where an unscoped list let a project be filed under
+     * another workspace's category.
+     */
     @Override
     @Transactional(readOnly = true)
     @PreAuthorize("hasPermission(#workspaceId, 'Workspace', 'WORKFLOW_VIEW')")
     public List<Category> getProjectCategories(long workspaceId) {
-        List<Project> projects = projectService.getProjects(projectService.getWorkspaceProjectIds(workspaceId));
+        List<Long> projectIds = projectService.getWorkspaceProjectIds(workspaceId);
+
+        List<Project> projects = projectVisibilityFilter.filterVisible(projectService.getProjects(projectIds));
 
         return categoryService.getCategories(
             CollectionUtils.filter(CollectionUtils.map(projects, Project::getCategoryId), Objects::nonNull));
