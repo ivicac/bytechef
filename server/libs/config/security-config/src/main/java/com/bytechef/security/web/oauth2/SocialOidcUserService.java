@@ -16,7 +16,6 @@
 
 package com.bytechef.security.web.oauth2;
 
-import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.user.domain.Authority;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.AuthorityService;
@@ -69,9 +68,9 @@ public class SocialOidcUserService extends OidcUserService {
         String registrationId = userRequest.getClientRegistration()
             .getRegistrationId();
 
-        User user = userService.findOrCreateSocialUser(
-            email, oidcUser.getGivenName(), oidcUser.getFamilyName(), oidcUser.getPicture(),
-            registrationId.toUpperCase(), oidcUser.getSubject(), true, AuthorityConstants.ADMIN);
+        User user = SocialUserResolver.resolveInvitedUser(
+            userService, email, oidcUser.getGivenName(), oidcUser.getFamilyName(), oidcUser.getPicture(),
+            registrationId.toUpperCase(), oidcUser.getSubject());
 
         List<SimpleGrantedAuthority> grantedAuthorities = user.getAuthorityIds()
             .stream()
