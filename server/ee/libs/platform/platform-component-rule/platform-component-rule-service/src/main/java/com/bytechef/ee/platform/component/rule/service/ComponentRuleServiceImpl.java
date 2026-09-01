@@ -10,6 +10,7 @@ package com.bytechef.ee.platform.component.rule.service;
 import com.bytechef.ee.platform.component.rule.ComponentRule;
 import com.bytechef.ee.platform.component.rule.ComponentRule.RuleAction;
 import com.bytechef.ee.platform.component.rule.ComponentRule.RulePhase;
+import com.bytechef.ee.platform.component.rule.ComponentRuleConditionStubContext;
 import com.bytechef.ee.platform.component.rule.ComponentRuleErrorType;
 import com.bytechef.ee.platform.component.rule.ComponentRuleService;
 import com.bytechef.ee.platform.component.rule.repository.ComponentRuleRepository;
@@ -81,7 +82,32 @@ public class ComponentRuleServiceImpl implements ComponentRuleService {
 
         validateCondition(componentRule.getCondition());
 
-        return componentRuleRepository.save(componentRule);
+        Long id = componentRule.getId();
+
+        if (id == null) {
+            return componentRuleRepository.save(componentRule);
+        }
+
+        // ComponentRule carries a primitive @Version field, which Spring Data JDBC's new-vs-existing check prefers
+        // over the id: a fresh instance with the id copied onto it still reads version 0, so a save() would be treated
+        // as an INSERT with a caller-supplied id rather than an UPDATE. Loading the persisted row and mutating it keeps
+        // its real version (and its createdBy/createdDate, which are NOT NULL) intact, so save() takes the UPDATE
+        // branch instead.
+        ComponentRule persistedComponentRule = componentRuleRepository.findById(id)
+            .orElseThrow(
+                () -> new ConfigurationException(
+                    "Component rule with id " + id + " does not exist.",
+                    ComponentRuleErrorType.COMPONENT_RULE_NOT_FOUND));
+
+        persistedComponentRule.setComponentName(componentRule.getComponentName());
+        persistedComponentRule.setActionName(componentRule.getActionName());
+        persistedComponentRule.setPhase(componentRule.getPhase());
+        persistedComponentRule.setRuleAction(componentRule.getRuleAction());
+        persistedComponentRule.setCondition(componentRule.getCondition());
+        persistedComponentRule.setDescription(componentRule.getDescription());
+        persistedComponentRule.setEnabled(componentRule.isEnabled());
+
+        return componentRuleRepository.save(persistedComponentRule);
     }
 
     @Override
@@ -92,9 +118,11 @@ public class ComponentRuleServiceImpl implements ComponentRuleService {
 
     /**
      * Parses the condition the same way the enforcer will evaluate it — as a formula expression, with the {@code =}
-     * prefix prepended and an empty context. A syntax error, a banned construct ({@code T(}, a {@code .method(} call,
-     * {@code new}) or an unknown function surfaces here, at save time, instead of at the next execution. An empty
-     * context is enough: unresolved references are not errors in the evaluator, only bad syntax is.
+     * prefix prepended and evaluated against {@link ComponentRuleConditionStubContext}. A syntax error, a banned
+     * construct ({@code T(}, a {@code .method(} call, {@code new}) or an unknown function surfaces here, at save time,
+     * instead of at the next execution. The stub context matters: an empty context lets an unresolved root reference
+     * (say, {@code inputParameters}) short-circuit the evaluation before an unknown function name is ever resolved, so
+     * a misspelled function would validate clean against one.
      */
     private void validateCondition(String condition) {
         if (condition == null || condition.isBlank()) {
@@ -103,7 +131,8 @@ public class ComponentRuleServiceImpl implements ComponentRuleService {
         }
 
         try {
-            evaluator.evaluate(Map.of(CONDITION_KEY, FORMULA_PREFIX + condition), Map.of(), false);
+            evaluator.evaluate(
+                Map.of(CONDITION_KEY, FORMULA_PREFIX + condition), ComponentRuleConditionStubContext.get(), false);
         } catch (RuntimeException exception) {
             throw new ConfigurationException(
                 "The rule condition is not a valid expression: " + exception.getMessage(), exception,

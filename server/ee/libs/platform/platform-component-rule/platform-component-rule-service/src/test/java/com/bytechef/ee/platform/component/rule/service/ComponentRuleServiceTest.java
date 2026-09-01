@@ -18,12 +18,15 @@ import static org.mockito.Mockito.when;
 import com.bytechef.ee.platform.component.rule.ComponentRule;
 import com.bytechef.ee.platform.component.rule.ComponentRule.RuleAction;
 import com.bytechef.ee.platform.component.rule.ComponentRule.RulePhase;
+import com.bytechef.ee.platform.component.rule.ComponentRuleErrorType;
 import com.bytechef.ee.platform.component.rule.repository.ComponentRuleRepository;
 import com.bytechef.evaluator.Evaluator;
 import com.bytechef.evaluator.SpelEvaluator;
 import com.bytechef.exception.ConfigurationException;
 import java.util.List;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 
 /**
  * @version ee
@@ -88,6 +91,68 @@ class ComponentRuleServiceTest {
         when(componentRuleRepository.save(componentRule)).thenReturn(componentRule);
 
         assertThat(componentRuleService.saveComponentRule(componentRule)).isSameAs(componentRule);
+    }
+
+    @Test
+    void testSaveWithAnIdLoadsAndMutatesThePersistedInstanceRatherThanTheDetachedOne() {
+        ComponentRule persistedComponentRule = newComponentRule(RulePhase.BEFORE, RuleAction.BLOCK, "true");
+
+        persistedComponentRule.setId(5L);
+
+        when(componentRuleRepository.findById(5L)).thenReturn(Optional.of(persistedComponentRule));
+        when(componentRuleRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ComponentRule detachedComponentRule = newComponentRule(
+            RulePhase.BEFORE, RuleAction.TAG, "contains(inputParameters['channel'], 'C05')");
+
+        detachedComponentRule.setId(5L);
+        detachedComponentRule.setDescription("updated");
+        detachedComponentRule.setEnabled(false);
+
+        ComponentRule result = componentRuleService.saveComponentRule(detachedComponentRule);
+
+        ArgumentCaptor<ComponentRule> savedComponentRuleCaptor = ArgumentCaptor.forClass(ComponentRule.class);
+
+        verify(componentRuleRepository).save(savedComponentRuleCaptor.capture());
+
+        // The instance handed to save() must be the one that came back from findById — never the fresh, detached one
+        // the caller built — because only the loaded instance carries the real @Version and createdBy/createdDate.
+        assertThat(savedComponentRuleCaptor.getValue()).isSameAs(persistedComponentRule);
+        assertThat(result).isSameAs(persistedComponentRule);
+        assertThat(persistedComponentRule.getRuleAction()).isEqualTo(RuleAction.TAG);
+        assertThat(persistedComponentRule.getCondition()).isEqualTo("contains(inputParameters['channel'], 'C05')");
+        assertThat(persistedComponentRule.getDescription()).isEqualTo("updated");
+        assertThat(persistedComponentRule.isEnabled()).isFalse();
+    }
+
+    @Test
+    void testSaveWithAnUnknownIdThrowsRatherThanInserting() {
+        ComponentRule componentRule = newComponentRule(RulePhase.BEFORE, RuleAction.TAG, "true");
+
+        componentRule.setId(999L);
+
+        when(componentRuleRepository.findById(999L)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> componentRuleService.saveComponentRule(componentRule))
+            .isInstanceOfSatisfying(ConfigurationException.class, configurationException -> {
+                assertThat(configurationException.getEntityClass()).isEqualTo(ComponentRule.class);
+                assertThat(configurationException.getErrorKey())
+                    .isEqualTo(ComponentRuleErrorType.COMPONENT_RULE_NOT_FOUND.getErrorKey());
+            });
+
+        verify(componentRuleRepository, never()).save(any());
+    }
+
+    @Test
+    void testSaveRejectsAConditionCallingAnUnknownFunction() {
+        ComponentRule componentRule = newComponentRule(
+            RulePhase.BEFORE, RuleAction.TAG, "frobnicate(inputParameters['channel'], 'C05')");
+
+        assertThatThrownBy(() -> componentRuleService.saveComponentRule(componentRule))
+            .isInstanceOf(ConfigurationException.class)
+            .hasMessageContaining("condition");
+
+        verify(componentRuleRepository, never()).save(any());
     }
 
     @Test

@@ -21,6 +21,7 @@ public class ComponentRuleErrorType extends AbstractErrorType {
 
     public static final ComponentRuleErrorType BLOCK_AFTER_UNSUPPORTED = new ComponentRuleErrorType(100);
     public static final ComponentRuleErrorType INVALID_CONDITION = new ComponentRuleErrorType(101);
+    public static final ComponentRuleErrorType COMPONENT_RULE_NOT_FOUND = new ComponentRuleErrorType(102);
 
     private ComponentRuleErrorType(int errorKey) {
         super(ComponentRule.class, errorKey);

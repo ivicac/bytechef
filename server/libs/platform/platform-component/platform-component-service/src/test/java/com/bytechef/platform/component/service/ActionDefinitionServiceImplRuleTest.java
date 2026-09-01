@@ -254,6 +254,41 @@ class ActionDefinitionServiceImplRuleTest {
     }
 
     @Test
+    void testExecutePerformFiresAfterHookForSingleConnectionPerform() {
+        // Pins the main workflow path: every OTHER positive afterCalls/afterOutputs assertion in this class is on
+        // executePerformForPolyglot. Deleting the recordRulesAfterPerform call in doExecutePerform left every other
+        // test in this class green, because none of them reached the main path with a real perform result — only this
+        // one does.
+        RecordingComponentRuleEnforcer componentRuleEnforcer = new RecordingComponentRuleEnforcer(false);
+        ComponentDefinitionRegistry componentDefinitionRegistry = mock(ComponentDefinitionRegistry.class);
+        ContextFactory contextFactory = mock(ContextFactory.class);
+        com.bytechef.component.definition.ActionDefinition actionDefinition =
+            mock(com.bytechef.component.definition.ActionDefinition.class);
+        PerformFunction performFunction = (inputParameters, connectionParameters, context) -> "single-result";
+        ActionContext actionContext = mock(ActionContext.class);
+
+        when(componentDefinitionRegistry.getActionDefinition("slack", 1, "sendMessage")).thenReturn(actionDefinition);
+        when(actionDefinition.getResumePerform()).thenReturn(Optional.empty());
+        doReturn(Optional.of(performFunction)).when(actionDefinition)
+            .getPerform();
+        when(
+            contextFactory.createActionContext(
+                any(), anyInt(), any(), any(), any(), any(), any(), any(), any(), any(), any(), anyBoolean()))
+                    .thenReturn(actionContext);
+
+        ActionDefinitionServiceImpl service = new ActionDefinitionServiceImpl(
+            componentDefinitionRegistry, contextFactory, List.of(), List.of(componentRuleEnforcer));
+
+        Object result = service.executePerform(
+            "slack", 1, "sendMessage", 1L, 1L, 1L, 1L, "workflow1", Map.of(), Map.of(), Map.of(), 1L, false,
+            PlatformType.AUTOMATION, null, null, null);
+
+        assertThat(result).isEqualTo("single-result");
+        assertThat(componentRuleEnforcer.afterCalls).hasSize(1);
+        assertThat(componentRuleEnforcer.afterOutputs).containsExactly("single-result");
+    }
+
+    @Test
     void testExecutePerformSkipsAfterHookOnSuspend() {
         RecordingComponentRuleEnforcer componentRuleEnforcer = new RecordingComponentRuleEnforcer(false);
         ComponentDefinitionRegistry componentDefinitionRegistry = mock(ComponentDefinitionRegistry.class);

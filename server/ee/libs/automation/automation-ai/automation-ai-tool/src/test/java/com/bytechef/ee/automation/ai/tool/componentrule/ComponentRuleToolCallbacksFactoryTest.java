@@ -88,6 +88,20 @@ class ComponentRuleToolCallbacksFactoryTest {
     }
 
     @Test
+    void testProposeReportsAnUnknownFunctionAsInvalid() {
+        // Against an empty context, `inputParameters` is an unresolved reference and SpelEvaluator returns the
+        // original string rather than throwing, so the misspelled function name is never even reached — the tool
+        // must evaluate against a stub context that supplies `inputParameters` (and friends) so resolution proceeds
+        // far enough to hit the unknown-function rejection.
+        String result = callTool(
+            factory.readToolCallbacks(), "proposeComponentRuleCondition",
+            """
+                {"condition": "frobnicate(inputParameters['channel'], 'C05')", "explanation": "bad"}""");
+
+        assertThat(result).contains("\"valid\":false");
+    }
+
+    @Test
     void testCreateComponentRulePersists() {
         when(componentRuleService.saveComponentRule(any())).thenAnswer(invocation -> {
             ComponentRule componentRule = invocation.getArgument(0);

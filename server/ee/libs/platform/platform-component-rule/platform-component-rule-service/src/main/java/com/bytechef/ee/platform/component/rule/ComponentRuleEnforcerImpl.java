@@ -27,6 +27,7 @@ import java.util.Map;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 /**
@@ -68,6 +69,11 @@ public class ComponentRuleEnforcerImpl implements ComponentRuleEnforcer {
     private final ComponentRuleService componentRuleService;
     private final Evaluator evaluator;
 
+    // Two constructors exist (this one, plus the package-private one below), so Spring cannot pick one implicitly —
+    // without @Autowired here, component-scanning this bean throws NoSuchMethodException looking for a no-arg
+    // constructor that does not exist. First surfaced by ComponentRuleRepositoryIntTest, the first test in this module
+    // to boot a real Spring context for this package.
+    @Autowired
     public ComponentRuleEnforcerImpl(
         ComponentRuleService componentRuleService, Evaluator evaluator,
         ComponentRuleAuditPublisher componentRuleAuditPublisher) {
@@ -94,6 +100,12 @@ public class ComponentRuleEnforcerImpl implements ComponentRuleEnforcer {
 
     @Override
     public @Nullable String checkBeforePerform(ActionCall actionCall) {
+        // The cache is consulted before the evaluation context is built, so a component with no rules at all costs
+        // one cache hit and nothing else — no evaluator call overhead beyond the cached lookup.
+        if (getCachedComponentRules(actionCall.componentName()).isEmpty()) {
+            return null;
+        }
+
         List<ComponentRule> matchingComponentRules = getMatchingComponentRules(
             actionCall, RulePhase.BEFORE, buildEvaluationContext(actionCall, null));
 

@@ -7,6 +7,7 @@
 
 package com.bytechef.ee.automation.ai.tool.componentrule;
 
+import com.bytechef.ee.platform.component.rule.ComponentRuleConditionStubContext;
 import com.bytechef.evaluator.Evaluator;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.LinkedHashMap;
@@ -109,7 +110,8 @@ public class ProposeComponentRuleConditionToolCallback implements ToolCallback {
         result.put(CONDITION_KEY, condition);
 
         try {
-            evaluator.evaluate(Map.of(CONDITION_KEY, FORMULA_PREFIX + condition), Map.of(), false);
+            evaluator.evaluate(
+                Map.of(CONDITION_KEY, FORMULA_PREFIX + condition), ComponentRuleConditionStubContext.get(), false);
 
             result.put("valid", true);
             result.put("explanation", input.explanation() == null ? "" : input.explanation());

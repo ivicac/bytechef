@@ -86,7 +86,7 @@ public class ComponentRuleGraphQlController {
         ComponentRule componentRule = new ComponentRule();
 
         if (id != null && !id.isBlank()) {
-            componentRule.setId(Long.valueOf(id));
+            componentRule.setId(Long.parseLong(id));
         }
 
         componentRule.setComponentName(componentName);

@@ -14,5 +14,9 @@ dependencies {
 
     testImplementation("org.assertj:assertj-core")
     testImplementation("org.mockito:mockito-core")
+    testImplementation("org.springframework.data:spring-data-jdbc")
+    testImplementation(project(":server:libs:config:liquibase-config"))
     testImplementation(project(":server:libs:core:evaluator:evaluator-impl"))
+    testImplementation(project(":server:libs:test:test-int-support"))
+    testImplementation(project(":server:libs:test:test-support"))
 }
