@@ -178,7 +178,7 @@ const Projects = () => {
                         )
                     }
                     title={
-                        projects && projects.length > 0 ? (
+                        (projects && projects.length > 0) || isFiltered ? (
                             <ProjectsFilterTitle categories={categories} filterData={filterData} tags={tags} />
                         ) : (
                             ''

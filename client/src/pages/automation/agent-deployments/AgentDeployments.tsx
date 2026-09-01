@@ -1,4 +1,5 @@
 import Button from '@/components/Button/Button';
+import EmptyFilterResult from '@/components/EmptyFilterResult';
 import EmptyList from '@/components/EmptyList';
 import PageLoader from '@/components/PageLoader';
 import AgentDeploymentListItem from '@/pages/automation/agent-deployments/components/AgentDeploymentListItem';
@@ -183,6 +184,8 @@ const AgentDeployments = () => {
                             />
                         ))}
                     </div>
+                ) : agentDeployments.length > 0 ? (
+                    <EmptyFilterResult entityName="agent deployments" entityTitle="Agent Deployments" />
                 ) : (
                     <EmptyList
                         button={
