@@ -6,8 +6,12 @@ import {handleArtifactQuickOpen, isArtifactClickable} from '@/ee/pages/automatio
 import {AiHubChatArtifactI} from '@/ee/pages/automation/ai-hub/chats/api/chats.api';
 import {useAiHubChatArtifactsQuery} from '@/ee/pages/automation/ai-hub/chats/hooks/useChats';
 import {useAiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
+import {
+    ReferencedResourceKindType,
+    aiHubComposerStore,
+} from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
 import {groupWorkflowsByProject} from '@/ee/pages/automation/ai-hub/resource-picker/groupWorkflowsByProject';
-import {useAiHubTabsStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubTabsStore';
+import {attachTab, useAiHubTabsStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {DEVELOPMENT_ENVIRONMENT} from '@/shared/constants';
 import {
@@ -225,29 +229,41 @@ const AiHubFilePicker = () => {
         }
     };
 
-    const handleSelectFile = (id: string, name: string) => {
-        openFileTab(id, name);
+    /*
+     * Picking here ATTACHES the resource, exactly as the composer's "+" menu does: a chip appears and the
+     * chip's ✕ detaches it again. Opening used to be a bare tab with no chip, which made the tab
+     * un-removable as an attachment — and, because the home -> chat hand-off treats attachments as the
+     * chat's own, filed anything merely browsed on the home view as an artifact of the chat the next
+     * prompt created.
+     */
+    const attachResource = (kind: ReferencedResourceKindType, id: string, name: string, open: () => string) => {
+        const {ownsTab, tabId} = attachTab(open);
+
+        aiHubComposerStore.getState().addReference({id, kind, name, ownsTab, tabId});
+
         closeAndReset();
+    };
+
+    const handleSelectFile = (id: string, name: string) => {
+        attachResource('file', id, name, () => openFileTab(id, name));
     };
 
     const handleSelectWorkflow = (workflow: WorkflowItemI) => {
-        openWorkflowTab(workflow.id, workflow.projectId, workflow.projectWorkflowId, workflow.name);
-        closeAndReset();
+        attachResource('workflow', workflow.id, workflow.name, () =>
+            openWorkflowTab(workflow.id, workflow.projectId, workflow.projectWorkflowId, workflow.name)
+        );
     };
 
     const handleSelectDataTable = (id: string, name: string) => {
-        openDataTableTab(id, name);
-        closeAndReset();
+        attachResource('dataTable', id, name, () => openDataTableTab(id, name));
     };
 
     const handleSelectKnowledgeBase = (id: string, name: string) => {
-        openKnowledgeBaseTab(id, name);
-        closeAndReset();
+        attachResource('knowledgeBase', id, name, () => openKnowledgeBaseTab(id, name));
     };
 
     const handleSelectWorkflowExecution = (id: number, name: string) => {
-        openWorkflowExecutionTab(id, name);
-        closeAndReset();
+        attachResource('workflowExecution', String(id), name, () => openWorkflowExecutionTab(id, name));
     };
 
     const handleSelectArtifact = (artifact: AiHubChatArtifactI) => {

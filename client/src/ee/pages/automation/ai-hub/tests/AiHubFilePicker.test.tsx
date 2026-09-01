@@ -1,13 +1,15 @@
 import AiHubFilePicker from '@/ee/pages/automation/ai-hub/AiHubFilePicker';
 import {aiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
+import {aiHubComposerStore} from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
 import {aiHubTabsStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {fireEvent, render, screen} from '@testing-library/react';
 import {ReactNode} from 'react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
-const {mockUseAiHubChatArtifactsQuery} = vi.hoisted(() => ({
+const {mockUseAiHubChatArtifactsQuery, mockUseGetAssetFilesQuery} = vi.hoisted(() => ({
     mockUseAiHubChatArtifactsQuery: vi.fn(),
+    mockUseGetAssetFilesQuery: vi.fn(),
 }));
 
 vi.mock('@/ee/pages/automation/ai-hub/chats/hooks/useChats', () => ({
@@ -18,7 +20,7 @@ vi.mock('@/ee/pages/automation/ai-hub/chats/hooks/useChats', () => ({
 // are irrelevant to the artifacts branch; stub them flat so the test exercises one branch only.
 vi.mock('@/shared/middleware/graphql', () => ({
     useDataTablesQuery: () => ({data: undefined}),
-    useGetAssetFilesQuery: () => ({data: undefined}),
+    useGetAssetFilesQuery: (...args: unknown[]) => mockUseGetAssetFilesQuery(...args),
     useKnowledgeBasesQuery: () => ({data: undefined}),
     useWorkspaceProjectWorkflowsQuery: () => ({data: undefined}),
 }));
@@ -55,11 +57,16 @@ describe('AiHubFilePicker artifacts branch', () => {
         aiHubTabsStore.setState({
             activeChatId: undefined,
             activeTabId: undefined,
+            attachedTabIds: [],
             chatsSidebarCollapsed: true,
             openTabs: [],
             rightPanelOpen: false,
             snapshotsByChatId: {},
         });
+
+        aiHubComposerStore.setState({referencedResources: []});
+
+        mockUseGetAssetFilesQuery.mockReturnValue({data: undefined});
 
         mockUseAiHubChatArtifactsQuery.mockReturnValue({
             data: [
@@ -99,5 +106,54 @@ describe('AiHubFilePicker artifacts branch', () => {
         fireEvent.click(screen.getByText('Artifacts'));
 
         expect(screen.getByText('No artifacts yet.')).toBeInTheDocument();
+    });
+});
+
+/*
+ * Picking here ATTACHES, exactly as the composer's "+" menu does. It used to only open a tab, which left
+ * the resource un-detachable (no chip to remove) and — because the home -> chat hand-off adopts attached
+ * tabs into the chat the first prompt creates — filed anything merely browsed on the home view as an
+ * artifact of a chat that never referenced it.
+ */
+describe('AiHubFilePicker attaching', () => {
+    beforeEach(() => {
+        aiHubChatsStore.setState({currentChatId: undefined});
+
+        aiHubTabsStore.setState({
+            activeChatId: undefined,
+            activeTabId: undefined,
+            attachedTabIds: [],
+            openTabs: [],
+            rightPanelOpen: false,
+            snapshotsByChatId: {},
+        });
+
+        aiHubComposerStore.setState({referencedResources: []});
+
+        mockUseAiHubChatArtifactsQuery.mockReturnValue({data: []});
+        mockUseGetAssetFilesQuery.mockReturnValue({
+            data: {assetFiles: [{id: 'file-9', name: 'notes.md'}]},
+        });
+    });
+
+    it('adds a composer chip for the picked file, not just a tab', async () => {
+        wrap(<AiHubFilePicker />);
+
+        fireEvent.click(screen.getByRole('button', {name: 'Add resource'}));
+
+        // The resource groups only render against a search term, and the term is debounced by 300ms.
+        fireEvent.change(screen.getByPlaceholderText('Search resources…'), {target: {value: 'notes'}});
+
+        const fileItem = await screen.findByText('notes.md');
+
+        fireEvent.click(fileItem);
+
+        const [reference] = aiHubComposerStore.getState().referencedResources;
+        const {attachedTabIds, openTabs} = aiHubTabsStore.getState();
+
+        expect(reference).toMatchObject({id: 'file-9', kind: 'file', name: 'notes.md', ownsTab: true});
+        expect(openTabs).toHaveLength(1);
+        // Marked as an attachment, so the home -> chat hand-off keeps it and the chip's X can close it.
+        expect(attachedTabIds).toEqual([reference!.tabId]);
     });
 });
