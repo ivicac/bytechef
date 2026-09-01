@@ -7,13 +7,9 @@ import userEvent from '@testing-library/user-event';
 import {MemoryRouter} from 'react-router-dom';
 import {afterEach, beforeEach, describe, expect, it, vi} from 'vitest';
 
-import AiHubChatsSidebar, {
-    CHATS_PAGE_SIZE,
-    cancelChatRunIfStreaming,
-    getChatsPage,
-    reconcileProbedChatActivity,
-} from '../AiHubChatsSidebar';
+import AiHubChatsSidebar, {CHATS_PAGE_SIZE, getChatsPage, reconcileProbedChatActivity} from '../AiHubChatsSidebar';
 import {AiHubChatI} from '../api/chats.api';
+import {cancelChatRunIfStreaming} from '../hooks/useAiHubChatActions';
 
 // vi.mock factories hoist above module-scope consts, so the mutable chats list the individual chat-row
 // tests below need to configure per-test has to be declared via vi.hoisted rather than a plain outer
