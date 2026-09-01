@@ -1,5 +1,5 @@
 import {aiHubComposerStore} from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
-import {aiHubTabsStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubTabsStore';
+import {aiHubTabsStore, attachTab} from '@/ee/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import {useCallback, useEffect, useRef, useState} from 'react';
 import {toast} from 'sonner';
 
@@ -205,13 +205,7 @@ export const useAiHubAttachmentUpload = (workspaceId: number | undefined) => {
                     return;
                 }
 
-                aiHubComposerStore.getState().addReference({
-                    id: String(response.id),
-                    kind: 'file',
-                    name: response.name,
-                });
-
-                // Also open the file as a tab in the right resource panel. Two reasons:
+                // Open the file as a tab in the right resource panel. Two reasons:
                 // 1) UX: the user just uploaded a file — they expect to see it. Without this, the upload
                 //    appears to succeed silently and the file is invisible until they manually open it.
                 // 2) Artifact recording: useRecordReferencedArtifacts watches `openTabs` and writes a
@@ -219,7 +213,20 @@ export const useAiHubAttachmentUpload = (workspaceId: number | undefined) => {
                 //    list is invisible to that hook. Without opening a tab, uploaded files never appear in
                 //    the chat's "Artifacts" sidebar list, even though the file is in workspace
                 //    storage and the LLM can see it via list/get tools.
-                aiHubTabsStore.getState().openFileTab(String(response.id), response.name);
+                //
+                // The tab id rides along on the reference so removing the upload's chip closes this tab
+                // again — the same symmetry the picker's attachments have.
+                const {ownsTab, tabId} = attachTab(() =>
+                    aiHubTabsStore.getState().openFileTab(String(response.id), response.name)
+                );
+
+                aiHubComposerStore.getState().addReference({
+                    id: String(response.id),
+                    kind: 'file',
+                    name: response.name,
+                    ownsTab,
+                    tabId,
+                });
 
                 updateUpload(key, {fileId: response.id, status: 'success'});
 

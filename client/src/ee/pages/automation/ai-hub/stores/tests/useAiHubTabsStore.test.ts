@@ -1,15 +1,22 @@
+import {aiHubComposerStore} from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
 import {act, renderHook} from '@testing-library/react';
 import {beforeEach, describe, expect, it} from 'vitest';
 
-import {aiHubTabsStore, inferDefaultViewMode, useAiHubTabsStore} from '../useAiHubTabsStore';
+import {aiHubTabsStore, attachTab, inferDefaultViewMode, useAiHubTabsStore} from '../useAiHubTabsStore';
 
 describe('useAiHubTabsStore', () => {
     beforeEach(() => {
         aiHubTabsStore.setState({
+            // activeChatId / snapshotsByChatId were previously left to leak between cases. The home -> chat
+            // hand-off only fires on the undefined -> chatId transition, so a case that starts with a chat
+            // id left over from its predecessor silently exercises the chat -> chat path instead.
+            activeChatId: undefined,
             activeTabId: undefined,
+            attachedTabIds: [],
             chatsSidebarCollapsed: true,
             openTabs: [],
             rightPanelOpen: false,
+            snapshotsByChatId: {},
         });
     });
 
@@ -520,9 +527,10 @@ describe('useAiHubTabsStore', () => {
         it('inherits tabs and rightPanelOpen from home view when first chat is created', () => {
             const {result} = renderHook(() => useAiHubTabsStore());
 
-            // Simulate user attaching a file in the home composer (no active chat yet).
+            // Simulate the user ATTACHING a file in the home composer (no active chat yet). attachTab is
+            // what marks the tab as an attachment, which is what the hand-off below keys on.
             act(() => {
-                result.current.openFileTab('42', 'spec.md');
+                attachTab(() => result.current.openFileTab('42', 'spec.md'));
             });
 
             expect(result.current.activeChatId).toBeUndefined();
@@ -539,6 +547,104 @@ describe('useAiHubTabsStore', () => {
             expect(result.current.activeChatId).toBe(1);
             expect(result.current.openTabs).toHaveLength(1);
             expect(result.current.rightPanelOpen).toBe(true);
+        });
+
+        /*
+         * The hand-off carries home-view tabs into the chat the first prompt creates, and
+         * useRecordReferencedArtifacts then persists every carried tab as an artifact of that chat. Not
+         * every home-view tab is an attachment though: AiHubFilePicker opens one for plain browsing, and a
+         * chip whose ✕ was clicked leaves none behind. Those tabs are the user looking around before they
+         * started the chat — inheriting them filed unrelated resources as attachments of a chat that never
+         * referenced them.
+         */
+        it('drops home-view tabs that were never attached in the composer', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            // Browsing a file through AiHubFilePicker opens a tab but adds no chip.
+            act(() => {
+                result.current.openFileTab('99', 'CleanShot 2026-06-01.png');
+            });
+
+            expect(result.current.openTabs).toHaveLength(1);
+
+            act(() => {
+                result.current.setActiveChatId(1);
+            });
+
+            expect(result.current.activeChatId).toBe(1);
+            expect(result.current.openTabs).toHaveLength(0);
+            expect(result.current.activeTabId).toBeUndefined();
+        });
+
+        it('keeps the attached tabs and drops the browsed ones in the same hand-off', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            act(() => {
+                attachTab(() => result.current.openDataTableTab('dt-1', 'invoices'));
+
+                result.current.openFileTab('99', 'CleanShot 2026-06-01.png');
+            });
+
+            expect(result.current.openTabs).toHaveLength(2);
+
+            act(() => {
+                result.current.setActiveChatId(1);
+            });
+
+            expect(result.current.openTabs).toHaveLength(1);
+            expect(result.current.openTabs[0]).toMatchObject({dataTableId: 'dt-1', kind: 'dataTable'});
+            // The browsed file was the active tab (opened last); the active id has to fall back to a tab
+            // that still exists, or the panel renders blank with no way back.
+            expect(result.current.activeTabId).toBe(result.current.openTabs[0]!.id);
+        });
+
+        /*
+         * The hand-off must not depend on the composer's chips still being present. onNew wipes them with
+         * aiHubComposerStore.clear() the instant a message is sent, and AiHub.tsx's mirror effect only
+         * calls setActiveChatId on the commit AFTER that — so a hand-off that read the chips saw an empty
+         * list and dropped every tab, the attached ones included. Marking at attach time is what makes the
+         * order irrelevant; this case pins that.
+         */
+        it('keeps attached tabs even though the chips are cleared before the hand-off runs', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            act(() => {
+                attachTab(() => result.current.openDataTableTab('dt-1', 'invoices'));
+            });
+
+            act(() => {
+                aiHubComposerStore.getState().clear();
+
+                result.current.setActiveChatId(1);
+            });
+
+            expect(result.current.openTabs).toHaveLength(1);
+        });
+
+        /*
+         * A chat -> chat switch restores from that chat's snapshot and never consults the composer, so the
+         * attachment filter must not reach beyond the one undefined -> chatId transition it exists for.
+         */
+        it('does not filter a restored snapshot on a chat to chat switch', () => {
+            const {result} = renderHook(() => useAiHubTabsStore());
+
+            act(() => {
+                result.current.setActiveChatId(1);
+
+                result.current.openFileTab('99', 'notes.md');
+            });
+
+            act(() => {
+                result.current.setActiveChatId(2);
+            });
+
+            expect(result.current.openTabs).toHaveLength(0);
+
+            act(() => {
+                result.current.setActiveChatId(1);
+            });
+
+            expect(result.current.openTabs).toHaveLength(1);
         });
 
         it('restores the right panel per chat on switch (closed for chats with no snapshot)', () => {

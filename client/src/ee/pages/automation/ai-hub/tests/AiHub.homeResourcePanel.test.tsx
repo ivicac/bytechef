@@ -37,6 +37,7 @@ describe('AiHub home view resource panel', () => {
         aiHubTabsStore.setState({
             activeChatId: undefined,
             activeTabId: undefined,
+            attachedTabIds: [],
             openTabs: [],
             rightPanelOpen: false,
             snapshotsByChatId: {},

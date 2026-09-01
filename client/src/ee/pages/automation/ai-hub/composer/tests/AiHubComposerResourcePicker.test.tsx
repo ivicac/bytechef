@@ -86,6 +86,7 @@ beforeEach(() => {
     aiHubTabsStore.setState({
         activeChatId: undefined,
         activeTabId: undefined,
+        attachedTabIds: [],
         openTabs: [],
         rightPanelOpen: false,
         snapshotsByChatId: {},
@@ -105,7 +106,9 @@ describe('AiHubComposer ResourcePickerMenu wiring', () => {
 
         const {referencedResources} = aiHubComposerStore.getState();
 
-        expect(referencedResources).toContainEqual({id: 'file-7', kind: 'file', name: 'notes.md'});
+        expect(referencedResources).toContainEqual(
+            expect.objectContaining({id: 'file-7', kind: 'file', name: 'notes.md'})
+        );
 
         // handleSelect opens a viewer tab for file-kind resources — confirms the plain (non-workflow) path ran.
         const {openTabs} = aiHubTabsStore.getState();
@@ -129,7 +132,9 @@ describe('AiHubComposer ResourcePickerMenu wiring', () => {
 
         const {referencedResources} = aiHubComposerStore.getState();
 
-        expect(referencedResources).toContainEqual({id: 'wf-3', kind: 'workflow', name: 'Lead Sync'});
+        expect(referencedResources).toContainEqual(
+            expect.objectContaining({id: 'wf-3', kind: 'workflow', name: 'Lead Sync'})
+        );
 
         // The workflow path differs from the plain path: it opens a workflow tab (carrying projectId /
         // projectWorkflowId), not a file/dataTable/knowledgeBase tab.
@@ -156,7 +161,9 @@ describe('AiHubComposer ResourcePickerMenu wiring', () => {
 
         const {referencedResources} = aiHubComposerStore.getState();
 
-        expect(referencedResources).toContainEqual({id: '101', kind: 'workflowExecution', name: 'agent2'});
+        expect(referencedResources).toContainEqual(
+            expect.objectContaining({id: '101', kind: 'workflowExecution', name: 'agent2'})
+        );
 
         const {openTabs} = aiHubTabsStore.getState();
 
@@ -173,7 +180,9 @@ describe('AiHubComposer ResourcePickerMenu wiring', () => {
 
         const {referencedResources} = aiHubComposerStore.getState();
 
-        expect(referencedResources).toContainEqual({id: 'agent-2', kind: 'aiAgent', name: 'Scheduled2'});
+        expect(referencedResources).toContainEqual(
+            expect.objectContaining({id: 'agent-2', kind: 'aiAgent', name: 'Scheduled2'})
+        );
 
         // Without the tab open the reference would register with the LLM but show the user nothing — the
         // whole point of referencing an agent is seeing how it is configured.
@@ -181,6 +190,45 @@ describe('AiHubComposer ResourcePickerMenu wiring', () => {
 
         expect(openTabs).toHaveLength(1);
         expect(openTabs[0]).toMatchObject({aiAgentId: 'agent-2', kind: 'aiAgent', name: 'Scheduled2'});
+    });
+
+    /*
+     * The reference records the id of the tab the attach opened, which is what lets removal close it again
+     * (AiHubChatComposer.handleRemoveReference). Without this link the tab outlived the chip and was
+     * inherited by the chat the next prompt created, where it was recorded as an artifact and sent to the
+     * agent — a resource the user had removed came back attached.
+     */
+    it('records the id of the tab it opened on the reference', async () => {
+        await renderComposer();
+
+        resourcePickerOnSelectRef.current!({id: 'dt-4', kind: 'dataTable', name: 'Invoices'});
+
+        const {openTabs} = aiHubTabsStore.getState();
+        const [reference] = aiHubComposerStore.getState().referencedResources;
+
+        expect(openTabs).toHaveLength(1);
+        expect(reference!.tabId).toBe(openTabs[0]!.id);
+        expect(reference!.ownsTab).toBe(true);
+        expect(aiHubTabsStore.getState().attachedTabIds).toEqual([openTabs[0]!.id]);
+    });
+
+    /*
+     * The converse: a tab already open before the attach is the user's, not the chip's. Leaving `tabId`
+     * undefined is what stops removal from closing a panel the user opened for themselves.
+     */
+    it('does not claim ownership of a tab that was already open before the attach', async () => {
+        aiHubTabsStore.getState().openDataTableTab('dt-4', 'Invoices');
+
+        await renderComposer();
+
+        resourcePickerOnSelectRef.current!({id: 'dt-4', kind: 'dataTable', name: 'Invoices'});
+
+        const [reference] = aiHubComposerStore.getState().referencedResources;
+
+        expect(aiHubTabsStore.getState().openTabs).toHaveLength(1);
+        // Attached (so the hand-off keeps it) but not owned, so removing the chip will not close it.
+        expect(reference!.ownsTab).toBe(false);
+        expect(aiHubTabsStore.getState().attachedTabIds).toEqual([reference!.tabId]);
     });
 
     // The '@' key sets this store flag from inside the textarea, a sibling component. The composer is the

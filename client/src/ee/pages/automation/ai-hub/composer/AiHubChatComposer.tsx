@@ -18,6 +18,7 @@ import {
 } from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
 import {aiHubRunStateStore} from '@/ee/pages/automation/ai-hub/runtime-providers/stores/useAiHubRunStateStore';
 import {MODE, useAiHubStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubStore';
+import {aiHubTabsStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import ChatToolChips from '@/ee/pages/automation/ai-hub/tools/ChatToolChips';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import ModeSwitch from '@/shared/components/ModeSwitch/ModeSwitch';
@@ -203,8 +204,37 @@ const AiHubChatComposer = ({modelPicker}: AiHubChatComposerPropsI) => {
         [upload]
     );
 
+    /*
+     * Removal is the exact inverse of AiHubComposer's handleSelect: that adds a chip AND opens a viewer
+     * tab, so this drops the chip AND closes the tab the attach opened. Dropping the chip alone left the
+     * tab behind, and the tab — not the chip — is what every downstream consumer reads: the home -> chat
+     * hand-off inherits it into the chat the next prompt creates, useRecordReferencedArtifacts persists it
+     * as a chat artifact, and buildStateToSend sends it to the agent as `currentTabs`. A removed resource
+     * came back attached to the new chat through all three.
+     *
+     * Only a tab this chip OPENED is closed (`ownsTab`); one the user already had open before attaching is
+     * merely detached, so it stops counting as an attachment but stays on screen.
+     */
     const handleRemoveReference = (id: string, kind: ReferencedResourceKindType) => {
-        aiHubComposerStore.getState().removeReference(id, kind);
+        const composerState = aiHubComposerStore.getState();
+
+        const removedResource = composerState.referencedResources.find(
+            (resource) => resource.id === id && resource.kind === kind
+        );
+
+        composerState.removeReference(id, kind);
+
+        if (removedResource?.tabId == null) {
+            return;
+        }
+
+        // Closing already prunes the attachment mark; a tab the chip does not own is only detached, so the
+        // hand-off stops treating it as an attachment while it stays on screen for the user to read.
+        if (removedResource.ownsTab) {
+            aiHubTabsStore.getState().closeTab(removedResource.tabId);
+        } else {
+            aiHubTabsStore.getState().unmarkTabAttached(removedResource.tabId);
+        }
     };
 
     const handleRemoveSkill = (id: string) => {

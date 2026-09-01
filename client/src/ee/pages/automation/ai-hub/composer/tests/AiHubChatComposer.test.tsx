@@ -3,6 +3,7 @@ import {
     type ReferencedResourceI,
     aiHubComposerStore,
 } from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
+import {aiHubTabsStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import {act, fireEvent, render, screen, waitFor} from '@testing-library/react';
 import {ReactNode} from 'react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
@@ -132,6 +133,15 @@ const renderComposer = async () => {
 beforeEach(() => {
     aiHubComposerStore.setState({referencedResources: [], resourcePickerOpen: false, selectedSkills: []});
 
+    aiHubTabsStore.setState({
+        activeChatId: undefined,
+        activeTabId: undefined,
+        attachedTabIds: [],
+        openTabs: [],
+        rightPanelOpen: false,
+        snapshotsByChatId: {},
+    });
+
     currentChatIdRef.current = undefined;
     chatsQueryRef.current = undefined;
 });
@@ -175,6 +185,49 @@ describe('AiHubChatComposer referenced-resource chips', () => {
         expect(referencedResources).toEqual([knowledgeBaseResource]);
         expect(screen.queryByText('Customers')).not.toBeInTheDocument();
         expect(screen.getByText('Product Docs')).toBeInTheDocument();
+    });
+
+    /*
+     * Attaching a resource writes to TWO stores: a chip in aiHubComposerStore and a viewer tab in
+     * aiHubTabsStore (see AiHubComposer.handleSelect). Removal has to undo both. It didn't: the chip
+     * went, the tab stayed, and because the home -> chat hand-off inherits every open home-view tab
+     * (useAiHubTabsStore.switchChat) while useRecordReferencedArtifacts records every open tab as a
+     * chat artifact, a resource the user had explicitly removed came back as an attachment on the
+     * chat their next prompt created.
+     */
+    it('closes the viewer tab the attach opened when the chip is removed', async () => {
+        const tabId = aiHubTabsStore.getState().openDataTableTab('dt-1', 'Customers');
+
+        aiHubComposerStore.setState({referencedResources: [{...dataTableResource, ownsTab: true, tabId}]});
+
+        await renderComposer();
+
+        fireEvent.click(screen.getByLabelText('Remove Customers'));
+
+        expect(aiHubComposerStore.getState().referencedResources).toEqual([]);
+        expect(aiHubTabsStore.getState().openTabs).toEqual([]);
+    });
+
+    /*
+     * The converse guard: a tab the user already had open before attaching is not owned by the chip, so
+     * removing the chip detaches it but must not close it. `ownsTab` is set only when the attach itself
+     * created the tab, which is what makes the two cases distinguishable here.
+     */
+    it('detaches but does not close a tab it did not open', async () => {
+        const tabId = aiHubTabsStore.getState().openDataTableTab('dt-1', 'Customers');
+
+        aiHubTabsStore.getState().markTabAttached(tabId);
+
+        aiHubComposerStore.setState({referencedResources: [{...dataTableResource, ownsTab: false, tabId}]});
+
+        await renderComposer();
+
+        fireEvent.click(screen.getByLabelText('Remove Customers'));
+
+        expect(aiHubComposerStore.getState().referencedResources).toEqual([]);
+        expect(aiHubTabsStore.getState().openTabs).toHaveLength(1);
+        // Still on screen, but no longer an attachment - so the hand-off will not adopt it into a new chat.
+        expect(aiHubTabsStore.getState().attachedTabIds).toEqual([]);
     });
 
     it('omits the chip row entirely when there are no referenced resources or uploads', async () => {
