@@ -19,5 +19,5 @@ export const AutomationToolInvocations = () => {
         [data]
     );
 
-    return <ToolInvocations basePath="/automation/executions" mcpServerOptions={mcpServerOptions} />;
+    return <ToolInvocations mcpServerOptions={mcpServerOptions} />;
 };

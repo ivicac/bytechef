@@ -1490,7 +1490,7 @@ export const getRouter = (queryClient: QueryClient) =>
                                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                                             <EEVersion>
                                                 <LazyLoadWrapper hasLeftSidebar>
-                                                    <ToolInvocationsPage basePath="/embedded/executions" />
+                                                    <ToolInvocationsPage />
                                                 </LazyLoadWrapper>
                                             </EEVersion>
                                         </PrivateRoute>
