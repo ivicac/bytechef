@@ -1,15 +1,22 @@
+import {
+    type ReferencedResourceI,
+    type ReferencedResourceKindType,
+} from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
 import {type AiHubTabType, useAiHubTabsStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubTabsStore';
-import {AiHubChatArtifactKind, useRecordReferencedAiHubChatArtifactMutation} from '@/shared/middleware/graphql';
+import {
+    AiHubChatArtifactKind,
+    RecordReferencedAiHubChatArtifactDocument,
+    type RecordReferencedAiHubChatArtifactMutation,
+    type RecordReferencedAiHubChatArtifactMutationVariables,
+    useRecordReferencedAiHubChatArtifactMutation,
+} from '@/shared/middleware/graphql';
+import {fetcher} from '@/shared/middleware/graphqlFetcher';
 import {useQueryClient} from '@tanstack/react-query';
 import {useEffect, useRef} from 'react';
 
-// Partial map: only the resource kinds that have a corresponding {@link AiHubChatArtifactKind} on the
-// server are recorded as artifacts. The newer attachment kinds (apiCollection, mcpServer, chat,
-// workflowExecution) are still tracked client-side in the composer's referencedResources but don't have
-// a server-side artifact row yet — they'd require a new GraphQL enum value and a {@code recordReference}
-// branch to support. They surface in the right panel via the tab store; the artifact list intentionally
-// stays scoped to the eight kinds the agent can mutate (files, workflows, data tables, knowledge bases,
-// skills, custom components, code workflows, AI agents).
+// Every tab kind maps to an {@link AiHubChatArtifactKind}; the server enum and the GraphQL schema already
+// carry all of them. `workflowExecution` was missing here long after its enum value existed, so a
+// referenced execution opened a tab and was silently never recorded.
 const KIND_TO_ARTIFACT_KIND: Partial<Record<AiHubTabType['kind'], AiHubChatArtifactKind>> = {
     aiAgent: AiHubChatArtifactKind.AiAgentReferenced,
     codeWorkflow: AiHubChatArtifactKind.CodeWorkflowReferenced,
@@ -19,7 +26,67 @@ const KIND_TO_ARTIFACT_KIND: Partial<Record<AiHubTabType['kind'], AiHubChatArtif
     knowledgeBase: AiHubChatArtifactKind.KbReferenced,
     skill: AiHubChatArtifactKind.SkillReferenced,
     workflow: AiHubChatArtifactKind.WorkflowReferenced,
+    workflowExecution: AiHubChatArtifactKind.WorkflowExecutionReferenced,
 };
+
+/**
+ * The three reference kinds that have NO viewer tab — attaching one adds a chip and nothing else. The
+ * tab-watching effect below can therefore never see them, however complete its kind map is, which is why
+ * they went unrecorded rather than for want of a server enum value (the server has had all three since
+ * the agent-template work).
+ *
+ * They are recorded at send time instead, from {@link recordTabLessReferences} — the last moment the chips
+ * still exist, since {@code AiHubRuntimeProvider.onNew} clears them the instant the message goes out.
+ */
+const TAB_LESS_KIND_TO_ARTIFACT_KIND: Partial<Record<ReferencedResourceKindType, AiHubChatArtifactKind>> = {
+    apiCollection: AiHubChatArtifactKind.ApiCollectionReferenced,
+    chat: AiHubChatArtifactKind.ChatReferenced,
+    mcpServer: AiHubChatArtifactKind.McpServerReferenced,
+};
+
+/**
+ * Records the tab-less attachments of a turn. Called from the send path rather than from an effect,
+ * because an effect only ever runs after the chips have been cleared.
+ *
+ * Failures are swallowed to a console warning on purpose: the artifact list is a record of what the turn
+ * referenced, not a precondition for sending it, and a user who has already hit Enter should not get a
+ * toast about bookkeeping.
+ */
+export async function recordTabLessReferences({
+    chatId,
+    references,
+    workspaceId,
+}: {
+    chatId: number;
+    references: ReferencedResourceI[];
+    workspaceId: number;
+}): Promise<void> {
+    const tabLessReferences = references.filter((reference) => TAB_LESS_KIND_TO_ARTIFACT_KIND[reference.kind] != null);
+
+    if (tabLessReferences.length === 0) {
+        return;
+    }
+
+    await Promise.all(
+        tabLessReferences.map((reference) =>
+            fetcher<RecordReferencedAiHubChatArtifactMutation, RecordReferencedAiHubChatArtifactMutationVariables>(
+                RecordReferencedAiHubChatArtifactDocument,
+                {
+                    input: {
+                        artifactId: reference.id,
+                        artifactName: reference.name,
+                        chatId: String(chatId),
+                        kind: TAB_LESS_KIND_TO_ARTIFACT_KIND[reference.kind]!,
+                        metadataJson: null,
+                        workspaceId: String(workspaceId),
+                    },
+                }
+            )().catch((error) => {
+                console.warn('Failed to record referenced artifact', reference.kind, reference.id, error);
+            })
+        )
+    );
+}
 
 /**
  * Watches the right-panel tabs store and records each open tab as a {@code ai_hub_chat_artifact} for the
@@ -168,6 +235,12 @@ function resolveArtifactKey(tab: ReturnType<typeof useAiHubTabsStore.getState>['
             };
         case 'dataTable':
             return {artifactId: tab.dataTableId, kind: KIND_TO_ARTIFACT_KIND.dataTable};
+        case 'workflowExecution':
+            // The tab keys on a number; the artifact row keys on a string id like every other kind.
+            return {
+                artifactId: String(tab.workflowExecutionId),
+                kind: KIND_TO_ARTIFACT_KIND.workflowExecution,
+            };
         case 'knowledgeBase':
             return {artifactId: tab.knowledgeBaseId, kind: KIND_TO_ARTIFACT_KIND.knowledgeBase};
         case 'skill':
