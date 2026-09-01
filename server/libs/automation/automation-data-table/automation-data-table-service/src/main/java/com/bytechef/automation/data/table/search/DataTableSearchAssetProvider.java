@@ -18,9 +18,11 @@ package com.bytechef.automation.data.table.search;
 
 import com.bytechef.automation.search.SearchAssetProvider;
 import com.bytechef.automation.search.SearchAssetType;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import java.util.List;
 import java.util.Locale;
+import java.util.Optional;
 import org.springframework.stereotype.Component;
 
 /**
@@ -42,7 +44,7 @@ class DataTableSearchAssetProvider implements SearchAssetProvider {
         // Mirrors the hardcoded workspaceId=1L of the underlying query; stamping it on the result lets the search
         // aggregator drop these for callers not in workspace 1 (closes the cross-workspace leak; the hardcoded
         // single-workspace query remains a separate functional limitation).
-        return dataTableService.listTables(1L)
+        return dataTableService.listTables(1L, PlatformType.AUTOMATION, Optional.empty())
             .stream()
             .filter(table -> containsIgnoreCase(table.baseName(), queryLower))
             .limit(limit)

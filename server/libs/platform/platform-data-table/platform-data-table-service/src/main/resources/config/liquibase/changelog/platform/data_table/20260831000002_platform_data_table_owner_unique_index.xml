@@ -1,0 +1,57 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<databaseChangeLog xmlns="http://www.liquibase.org/xml/ns/dbchangelog"
+                   xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+                   xsi:schemaLocation="http://www.liquibase.org/xml/ns/dbchangelog
+                   http://www.liquibase.org/xml/ns/dbchangelog/dbchangelog-4.20.xsd"
+                   logicalFilePath="config/liquibase/changelog/platform/data_table/20260831000002_platform_data_table_owner_unique_index.xml">
+
+    <!--
+        The owner now sits in data_table's registry key (name, platform_type, owner_id, owner_type), because two
+        connected users may each own an "orders" table. Postgres treats every NULL owner_id as distinct, so a
+        single non-partial unique index would never fire for shared (owner_id IS NULL) rows: two concurrent creates
+        of the same shared name would both succeed. That is why this is two indexes: one plain unique index
+        covering owned rows, and one partial unique index covering shared rows.
+
+        owner_type is in the owned index because an owner IS the pair, not the id: isReadableBy compares id AND
+        type, so on the day a second OwnerType is appended, two owners of different types sharing an id are two
+        different owners. A key that could not tell them apart would refuse the second one's table as a duplicate
+        of the first one's.
+
+        It is deliberately absent from the shared index below. That index constrains exactly the rows whose
+        owner_id IS NULL, and nothing else keys off owner_type for them; adding it as a column would weaken the
+        constraint, since a row with a stray owner_type but no owner_id must still collide with a plain shared row
+        of the same name.
+    -->
+    <!--
+        Liquibase cannot auto-rollback a dropUniqueConstraint, so without this block a rollback would fail at the
+        first changeset, having already dropped the two indexes below and leaving the database with neither the new
+        key nor the old one.
+    -->
+    <changeSet id="20260831000002-1" author="Ivica Cardic">
+        <dropUniqueConstraint tableName="data_table" constraintName="uk_data_table_name_platform_type"/>
+        <rollback>
+            <addUniqueConstraint
+                tableName="data_table" columnNames="name, platform_type"
+                constraintName="uk_data_table_name_platform_type"/>
+        </rollback>
+    </changeSet>
+
+    <changeSet id="20260831000002-2" author="Ivica Cardic">
+        <createIndex indexName="uk_data_table_name_platform_type_owner" tableName="data_table" unique="true">
+            <column name="name"/>
+            <column name="platform_type"/>
+            <column name="owner_id"/>
+            <column name="owner_type"/>
+        </createIndex>
+    </changeSet>
+
+    <changeSet id="20260831000002-3" author="Ivica Cardic">
+        <sql>
+            CREATE UNIQUE INDEX uk_data_table_name_platform_type_shared
+            ON data_table (name, platform_type) WHERE owner_id IS NULL
+        </sql>
+        <rollback>
+            DROP INDEX IF EXISTS uk_data_table_name_platform_type_shared
+        </rollback>
+    </changeSet>
+</databaseChangeLog>

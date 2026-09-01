@@ -57,6 +57,36 @@ class DataTableOwnerColumnMigratorIntTest {
         assertTrue(hasColumn("dt_0_legacy", "owner_type"));
     }
 
+    /**
+     * The embedded pool is the one where ownership means anything, and its tables are named {@code edt_} -- which the
+     * automation pool's {@code dt\_%} pattern does not match. A sweep that missed them would leave every embedded table
+     * created before this change unreadable, since the predicate names a column that is not there.
+     */
+    @Test
+    void testMigrateAddsOwnerColumnsToTheEmbeddedPoolToo() {
+        jdbcTemplate.execute("CREATE TABLE \"edt_0_legacyembedded\" (\"id\" BIGSERIAL PRIMARY KEY, \"title\" TEXT)");
+
+        dataTableOwnerColumnMigrator.migrate();
+
+        assertTrue(hasColumn("edt_0_legacyembedded", "owner_id"));
+        assertTrue(hasColumn("edt_0_legacyembedded", "owner_type"));
+    }
+
+    /**
+     * Owned tables are swept alongside shared ones. The columns are uniform by design: in a table an account already
+     * owns the predicate is satisfied by construction, so no row operation has to ask which kind it is holding.
+     */
+    @Test
+    void testMigrateAddsOwnerColumnsToAnOwnedPhysicalTable() {
+        jdbcTemplate.execute(
+            "CREATE TABLE \"edt_0_99_connecteduser_legacyowned\" (\"id\" BIGSERIAL PRIMARY KEY, \"title\" TEXT)");
+
+        dataTableOwnerColumnMigrator.migrate();
+
+        assertTrue(hasColumn("edt_0_99_connecteduser_legacyowned", "owner_id"));
+        assertTrue(hasColumn("edt_0_99_connecteduser_legacyowned", "owner_type"));
+    }
+
     @Test
     void testMigrateIsIdempotent() {
         jdbcTemplate.execute("CREATE TABLE \"dt_0_legacy_two\" (\"id\" BIGSERIAL PRIMARY KEY)");
@@ -99,7 +129,7 @@ class DataTableOwnerColumnMigratorIntTest {
     @Test
     void testLiquibaseRanTheBackfillChangeset() {
         Integer count = jdbcTemplate.queryForObject(
-            "SELECT COUNT(*) FROM databasechangelog WHERE id = ?", Integer.class, "20260828000001-1");
+            "SELECT COUNT(*) FROM databasechangelog WHERE id = ?", Integer.class, "20260901000001-1");
 
         assertEquals(1, count);
     }

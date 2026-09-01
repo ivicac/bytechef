@@ -16,20 +16,26 @@
 
 package com.bytechef.platform.data.table.execution.service;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNull;
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.bytechef.platform.constant.OwnerType;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.config.DataTableIntTestConfiguration;
-import com.bytechef.platform.data.table.domain.RowOwnerFilter;
+import com.bytechef.platform.data.table.configuration.service.DataTableService;
+import com.bytechef.platform.data.table.domain.ColumnSpec;
+import com.bytechef.platform.data.table.domain.ColumnType;
+import com.bytechef.platform.data.table.domain.DataTableRef;
+import com.bytechef.platform.data.table.domain.DataTableResolution;
+import com.bytechef.platform.data.table.domain.RowFilter;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.owner.Owner;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Map;
-import org.junit.jupiter.api.BeforeEach;
+import java.util.Optional;
+import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -37,116 +43,352 @@ import org.springframework.context.annotation.Import;
 import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
- * The table is built with raw DDL rather than through {@code DataTableService.createTable}, which additionally requires
- * a {@code data_table} registry row. What is under test here is the row service's owner predicate.
+ * The row axis, end to end and against a real schema: which rows of ONE shared physical table a run can see and change.
+ *
+ * <p>
+ * Every fixture here is a shared table, because that is the case row ownership exists for -- three accounts resolving
+ * one base name all land in {@code edt_0_<name>}, and the only thing separating them is the predicate. The owned table,
+ * where the predicate is satisfied by construction, is pinned in {@link DataTableEmbeddedOwnedTableIntTest}.
+ *
+ * <p>
+ * Every ref comes out of {@link DataTableService#fetchDataTableResolution}, not out of a constructor: that call is the
+ * single place an owner reaches the row layer, so a test that hand-built its refs would assert the predicate while
+ * leaving unasserted the wiring that decides what the predicate is given.
+ *
+ * <p>
+ * Against Postgres rather than a mocked template because what is claimed is what the database returns for a disjunction
+ * over a nullable column, which a mock can be made to agree with either way.
+ *
+ * <p>
+ * Fixture tables are named {@code ro_*} because the integration tests in this module share one Spring context and one
+ * schema, with no per-class isolation.
  *
  * @author Ivica Cardic
  */
 @SpringBootTest(classes = DataTableIntTestConfiguration.class)
 @Import(PostgreSQLContainerConfiguration.class)
+@SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
 class DataTableRowOwnerScopingIntTest {
 
+    private static final Owner ACCOUNT_A = Owner.connectedUser(7101L);
+    private static final Owner ACCOUNT_B = Owner.connectedUser(7102L);
     private static final long ENVIRONMENT_ID = 0;
-    private static final String BASE_NAME = "conversations";
-
-    private static final RowOwnerFilter ACCOUNT_A = RowOwnerFilter.ownedBy(Owner.connectedUser(1L));
-    private static final RowOwnerFilter ACCOUNT_B = RowOwnerFilter.ownedBy(Owner.connectedUser(2L));
 
     @Autowired
     private DataTableRowService dataTableRowService;
 
     @Autowired
+    private DataTableService dataTableService;
+
+    @Autowired
     private JdbcTemplate jdbcTemplate;
 
-    @BeforeEach
-    void setUp() {
-        jdbcTemplate.execute("DROP TABLE IF EXISTS \"dt_0_conversations\"");
-        jdbcTemplate.execute(
-            "CREATE TABLE \"dt_0_conversations\" (\"id\" BIGSERIAL PRIMARY KEY, \"owner_id\" BIGINT, " +
-                "\"owner_type\" INT, \"title\" TEXT)");
-    }
-
     @Test
-    void testAnAccountSeesOnlyItsOwnRows() {
-        dataTableRowService.insertRow(BASE_NAME, Map.of("title", "a"), ENVIRONMENT_ID, ACCOUNT_A);
-        dataTableRowService.insertRow(BASE_NAME, Map.of("title", "b"), ENVIRONMENT_ID, ACCOUNT_B);
+    void testAnAccountReadsItsOwnRowsAndTheUnownedOnesAndNotAnotherAccountsRows() {
+        String baseName = createSharedTable("ro_scopedreads");
 
-        List<DataTableRow> dataTableRows = dataTableRowService.listRows(BASE_NAME, 100, 0, ENVIRONMENT_ID, ACCOUNT_A);
+        dataTableRowService.insertRow(refFor(baseName, ACCOUNT_A), Map.of("title", "a"));
+        dataTableRowService.insertRow(refFor(baseName, ACCOUNT_B), Map.of("title", "b"));
+        dataTableRowService.insertRow(refFor(baseName, null), Map.of("title", "vendor"));
 
-        assertEquals(1, dataTableRows.size());
-
-        DataTableRow dataTableRow = dataTableRows.getFirst();
-
-        Map<String, Object> values = dataTableRow.values();
-
-        assertEquals("a", values.get("title"));
-    }
-
-    @Test
-    void testAnAccountAlsoSeesUnownedVendorRows() {
-        dataTableRowService.insertRow(
-            BASE_NAME, Map.of("title", "shared"), ENVIRONMENT_ID, RowOwnerFilter.unrestricted());
-
-        List<DataTableRow> dataTableRows = dataTableRowService.listRows(BASE_NAME, 100, 0, ENVIRONMENT_ID, ACCOUNT_A);
-
-        assertEquals(1, dataTableRows.size());
-    }
-
-    @Test
-    void testUnrestrictedSeesEveryRow() {
-        dataTableRowService.insertRow(BASE_NAME, Map.of("title", "a"), ENVIRONMENT_ID, ACCOUNT_A);
-        dataTableRowService.insertRow(BASE_NAME, Map.of("title", "b"), ENVIRONMENT_ID, ACCOUNT_B);
-
-        List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            BASE_NAME, 100, 0, ENVIRONMENT_ID, RowOwnerFilter.unrestricted());
-
-        assertEquals(2, dataTableRows.size());
-    }
-
-    @Test
-    void testInsertStampsTheOwner() {
-        DataTableRow inserted = dataTableRowService.insertRow(
-            BASE_NAME, Map.of("title", "a"), ENVIRONMENT_ID, ACCOUNT_A);
-
-        Long ownerId = jdbcTemplate.queryForObject(
-            "SELECT \"owner_id\" FROM \"dt_0_conversations\" WHERE \"id\" = ?", Long.class, inserted.id());
-
-        assertEquals(1L, ownerId);
+        assertThat(titlesRead(baseName, ACCOUNT_A))
+            .as("an account reads its own rows and the vendor's unowned ones, and no other account's")
+            .containsExactlyInAnyOrder("a", "vendor");
     }
 
     @Test
     void testAnAccountCannotReadAnotherAccountsRowById() {
-        DataTableRow inserted = dataTableRowService.insertRow(
-            BASE_NAME, Map.of("title", "b"), ENVIRONMENT_ID, ACCOUNT_B);
+        String baseName = createSharedTable("ro_scopedgetrow");
 
-        assertNull(dataTableRowService.getRow(BASE_NAME, inserted.id(), ENVIRONMENT_ID, ACCOUNT_A));
+        DataTableRow accountBRow = dataTableRowService.insertRow(refFor(baseName, ACCOUNT_B), Map.of("title", "b"));
+
+        assertThat(dataTableRowService.getRow(refFor(baseName, ACCOUNT_A), accountBRow.id()))
+            .as("another account's row must be indistinguishable from a row that does not exist")
+            .isNull();
     }
 
     @Test
     void testAnAccountCannotDeleteAnotherAccountsRow() {
-        DataTableRow inserted = dataTableRowService.insertRow(
-            BASE_NAME, Map.of("title", "b"), ENVIRONMENT_ID, ACCOUNT_B);
+        String baseName = createSharedTable("ro_scopeddelete");
 
-        assertFalse(dataTableRowService.deleteRow(BASE_NAME, inserted.id(), ENVIRONMENT_ID, ACCOUNT_A));
+        DataTableRow accountBRow = dataTableRowService.insertRow(refFor(baseName, ACCOUNT_B), Map.of("title", "b"));
 
-        assertTrue(dataTableRowService.deleteRow(BASE_NAME, inserted.id(), ENVIRONMENT_ID, ACCOUNT_B));
+        assertThat(dataTableRowService.deleteRow(refFor(baseName, ACCOUNT_A), accountBRow.id()))
+            .as("deleting another account's row must report no row deleted")
+            .isFalse();
+
+        assertThat(titleOf(baseName, accountBRow.id()))
+            .as("and must leave it in place")
+            .isEqualTo("b");
     }
 
     @Test
     void testAnAccountCannotUpdateAnotherAccountsRow() {
-        DataTableRow inserted = dataTableRowService.insertRow(
-            BASE_NAME, Map.of("title", "b"), ENVIRONMENT_ID, ACCOUNT_B);
+        String baseName = createSharedTable("ro_scopedupdate");
 
-        // The row matches no rows for this owner, and updateRow reports a missing row the same way it does for an id
-        // that never existed -- so a cross-account update cannot be told apart from a nonexistent one.
-        assertThrows(
-            IllegalArgumentException.class,
+        DataTableRow accountBRow = dataTableRowService.insertRow(refFor(baseName, ACCOUNT_B), Map.of("title", "b"));
+
+        assertThatThrownBy(
             () -> dataTableRowService.updateRow(
-                BASE_NAME, inserted.id(), Map.of("title", "hacked"), ENVIRONMENT_ID, ACCOUNT_A));
+                refFor(baseName, ACCOUNT_A), accountBRow.id(), Map.of("title", "hijacked")))
+                    .isInstanceOf(IllegalArgumentException.class);
 
-        String title = jdbcTemplate.queryForObject(
-            "SELECT \"title\" FROM \"dt_0_conversations\" WHERE \"id\" = ?", String.class, inserted.id());
+        assertThat(titleOf(baseName, accountBRow.id())).isEqualTo("b");
+    }
 
-        assertEquals("b", title);
+    /**
+     * The read predicate and the write predicate genuinely differ, and this is where. Account A can SEE the vendor's
+     * unowned row -- the first test in this class asserts that -- and still may not rewrite or destroy it, because it
+     * is the same row every other account is reading.
+     */
+    @Test
+    void testAnAccountsWriteDoesNotTouchAnUnownedRow() {
+        String baseName = createSharedTable("ro_scopedwriteunowned");
+
+        DataTableRow vendorRow = dataTableRowService.insertRow(refFor(baseName, null), Map.of("title", "vendor"));
+
+        assertThat(titlesRead(baseName, ACCOUNT_A))
+            .as("the unowned row is readable by the account, which is what makes the refusal below meaningful")
+            .containsExactly("vendor");
+
+        assertThatThrownBy(
+            () -> dataTableRowService.updateRow(
+                refFor(baseName, ACCOUNT_A), vendorRow.id(), Map.of("title", "hijacked")))
+                    .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(dataTableRowService.deleteRow(refFor(baseName, ACCOUNT_A), vendorRow.id()))
+            .as("an account must not delete the reference data every other account reads")
+            .isFalse();
+
+        assertThat(titleOf(baseName, vendorRow.id())).isEqualTo("vendor");
+    }
+
+    /**
+     * A vendor run reads the unowned rows and never falls through to an account's -- the resolution rule the resource
+     * axis already establishes, one level down.
+     */
+    @Test
+    void testAVendorRunReadsUnownedRowsOnly() {
+        String baseName = createSharedTable("ro_vendorreads");
+
+        dataTableRowService.insertRow(refFor(baseName, ACCOUNT_A), Map.of("title", "a"));
+        dataTableRowService.insertRow(refFor(baseName, null), Map.of("title", "vendor"));
+
+        assertThat(titlesRead(baseName, null))
+            .as("a run with no account must not see an account's rows")
+            .containsExactly("vendor");
+    }
+
+    @Test
+    void testAVendorRunWritesUnownedRowsOnly() {
+        String baseName = createSharedTable("ro_vendorwrites");
+
+        DataTableRow accountRow = dataTableRowService.insertRow(refFor(baseName, ACCOUNT_A), Map.of("title", "a"));
+
+        assertThatThrownBy(
+            () -> dataTableRowService.updateRow(
+                refFor(baseName, null), accountRow.id(), Map.of("title", "hijacked")))
+                    .isInstanceOf(IllegalArgumentException.class);
+
+        assertThat(dataTableRowService.deleteRow(refFor(baseName, null), accountRow.id()))
+            .as("the vendor must not delete an account's row either")
+            .isFalse();
+
+        assertThat(titleOf(baseName, accountRow.id())).isEqualTo("a");
+    }
+
+    /**
+     * Both columns or neither. An {@code owner_id} without an {@code owner_type} matches no predicate at all: not the
+     * vendor's, because the id is set, and not the account's, because an owner IS the pair. It would look written and
+     * behave as though it were not.
+     */
+    @Test
+    void testAnInsertWithAnOwnerStampsBothColumns() {
+        String baseName = createSharedTable("ro_stamped");
+
+        DataTableRow dataTableRow = dataTableRowService.insertRow(refFor(baseName, ACCOUNT_A), Map.of("title", "a"));
+
+        assertThat(ownerIdOf(baseName, dataTableRow.id())).isEqualTo(ACCOUNT_A.id());
+
+        OwnerType ownerType = ACCOUNT_A.type();
+
+        assertThat(ownerTypeOf(baseName, dataTableRow.id()))
+            .as("owner_type moves with owner_id; an id beside a null type belongs to nobody")
+            .isEqualTo(ownerType.ordinal());
+    }
+
+    @Test
+    void testAnInsertWithNoOwnerProducesAnUnownedRow() {
+        String baseName = createSharedTable("ro_unstamped");
+
+        DataTableRow dataTableRow = dataTableRowService.insertRow(refFor(baseName, null), Map.of("title", "vendor"));
+
+        assertThat(ownerIdOf(baseName, dataTableRow.id())).isNull();
+        assertThat(ownerTypeOf(baseName, dataTableRow.id())).isNull();
+    }
+
+    /**
+     * An insert naming no user column at all goes down the {@code DEFAULT VALUES} branch, which is the one place the
+     * stamp could be dropped without any other test noticing.
+     */
+    @Test
+    void testAnInsertWithNoValuesIsStillStamped() {
+        String baseName = createSharedTable("ro_stampednovalues");
+
+        DataTableRow dataTableRow = dataTableRowService.insertRow(refFor(baseName, ACCOUNT_A), Map.of());
+
+        assertThat(ownerIdOf(baseName, dataTableRow.id())).isEqualTo(ACCOUNT_A.id());
+    }
+
+    /**
+     * CSV import goes through the same insert, so the stamp reaches rows that never passed through a value map a caller
+     * wrote.
+     */
+    @Test
+    void testImportedRowsAreStampedToo() {
+        String baseName = createSharedTable("ro_importstamp");
+
+        dataTableRowService.importCsv(refFor(baseName, ACCOUNT_A), "title\nimported\n");
+
+        assertThat(titlesRead(baseName, ACCOUNT_A)).containsExactly("imported");
+        assertThat(titlesRead(baseName, ACCOUNT_B))
+            .as("an imported row belongs to the account that imported it")
+            .isEmpty();
+    }
+
+    @Test
+    void testCsvExportCarriesTheReadPredicate() {
+        String baseName = createSharedTable("ro_exportscoped");
+
+        dataTableRowService.insertRow(refFor(baseName, ACCOUNT_A), Map.of("title", "a"));
+        dataTableRowService.insertRow(refFor(baseName, ACCOUNT_B), Map.of("title", "b"));
+
+        assertThat(dataTableRowService.exportCsv(refFor(baseName, ACCOUNT_A)))
+            .contains("a")
+            .doesNotContain("b");
+    }
+
+    /**
+     * A workflow may still narrow within what it is allowed to see, and must not be able to widen it. The filter is
+     * ANDed onto the owner predicate rather than replacing it.
+     */
+    @Test
+    void testAFilteredReadIsStillScopedToTheAccount() {
+        String baseName = createSharedTable("ro_filtered");
+
+        dataTableRowService.insertRow(refFor(baseName, ACCOUNT_A), Map.of("title", "shared-value"));
+        dataTableRowService.insertRow(refFor(baseName, ACCOUNT_B), Map.of("title", "shared-value"));
+
+        assertThat(
+            dataTableRowService.listRows(
+                refFor(baseName, ACCOUNT_A), 100, 0,
+                List.of(new RowFilter("title", RowFilter.Operator.EQ, "shared-value")), List.of()))
+                    .as("a filter matching both accounts' rows must still return only the caller's")
+                    .hasSize(1);
+    }
+
+    /**
+     * The other half of the same claim, and the one that catches a mis-bracketed predicate. The read is a disjunction
+     * and the caller's filters are appended after it; {@code AND} binds tighter than {@code OR}, so an unbracketed
+     * predicate reads as "every row of mine, OR an unowned row matching the filter" -- the filter stops narrowing the
+     * caller's own rows at all.
+     */
+    @Test
+    void testAFilterStillNarrowsWithinTheAccountsOwnRows() {
+        String baseName = createSharedTable("ro_filternarrow");
+
+        dataTableRowService.insertRow(refFor(baseName, ACCOUNT_A), Map.of("title", "keep"));
+        dataTableRowService.insertRow(refFor(baseName, ACCOUNT_A), Map.of("title", "drop"));
+
+        assertThat(
+            dataTableRowService.listRows(
+                refFor(baseName, ACCOUNT_A), 100, 0,
+                List.of(new RowFilter("title", RowFilter.Operator.EQ, "keep")), List.of()))
+                    .as("a filter must narrow the caller's own rows, not be short-circuited past them")
+                    .hasSize(1);
+    }
+
+    /**
+     * The pool split still holds, and is a different mechanism from the row predicate: an EMBEDDED ref and an
+     * AUTOMATION ref for one base name are two physical tables, so no owner predicate is asked to carry that
+     * separation.
+     */
+    @Test
+    void testAnEmbeddedRefNeverReachesAnAutomationTable() {
+        dataTableService.createTable(
+            "ro_pooled", null, List.of(new ColumnSpec("title", ColumnType.STRING)), ENVIRONMENT_ID,
+            PlatformType.AUTOMATION, Optional.empty());
+        dataTableService.createTable(
+            "ro_pooled", null, List.of(new ColumnSpec("title", ColumnType.STRING)), ENVIRONMENT_ID,
+            PlatformType.EMBEDDED, Optional.empty());
+
+        DataTableRef automationDataTableRef = resolve("ro_pooled", PlatformType.AUTOMATION, null);
+
+        dataTableRowService.insertRow(automationDataTableRef, Map.of("title", "automation"));
+
+        DataTableRef embeddedDataTableRef = resolve("ro_pooled", PlatformType.EMBEDDED, null);
+
+        assertThat(dataTableRowService.listRows(embeddedDataTableRef, 100, 0))
+            .as("an embedded run must not read the automation pool's rows")
+            .isEmpty();
+    }
+
+    private String createSharedTable(String baseName) {
+        dataTableService.createTable(
+            baseName, null, List.of(new ColumnSpec("title", ColumnType.STRING)), ENVIRONMENT_ID,
+            PlatformType.EMBEDDED, Optional.empty());
+
+        return baseName;
+    }
+
+    private DataTableRef refFor(String baseName, @Nullable Owner owner) {
+        return resolve(baseName, PlatformType.EMBEDDED, owner);
+    }
+
+    /**
+     * Through resolution, always. Building a ref directly here would let a test pass while the one wiring that puts an
+     * owner on a ref was broken.
+     */
+    private DataTableRef resolve(String baseName, PlatformType platformType, @Nullable Owner owner) {
+        Optional<DataTableResolution> dataTableResolutionOptional = dataTableService.fetchDataTableResolution(
+            baseName, ENVIRONMENT_ID, platformType, Optional.ofNullable(owner));
+
+        assertThat(dataTableResolutionOptional).isPresent();
+
+        DataTableResolution dataTableResolution = dataTableResolutionOptional.get();
+
+        return dataTableResolution.dataTableRef();
+    }
+
+    private List<String> titlesRead(String baseName, @Nullable Owner owner) {
+        return dataTableRowService.listRows(resolve(baseName, PlatformType.EMBEDDED, owner), 100, 0)
+            .stream()
+            .map(dataTableRow -> {
+                Map<String, Object> values = dataTableRow.values();
+
+                return String.valueOf(values.get("title"));
+            })
+            .toList();
+    }
+
+    private String titleOf(String baseName, long id) {
+        return jdbcTemplate.queryForObject(
+            "SELECT \"title\" FROM " + physicalName(baseName) + " WHERE \"id\" = ?", String.class, id);
+    }
+
+    private Long ownerIdOf(String baseName, long id) {
+        return jdbcTemplate.queryForObject(
+            "SELECT \"owner_id\" FROM " + physicalName(baseName) + " WHERE \"id\" = ?", Long.class, id);
+    }
+
+    private Integer ownerTypeOf(String baseName, long id) {
+        return jdbcTemplate.queryForObject(
+            "SELECT \"owner_type\" FROM " + physicalName(baseName) + " WHERE \"id\" = ?", Integer.class, id);
+    }
+
+    private static String physicalName(String baseName) {
+        DataTableRef dataTableRef = DataTableRef.shared(baseName, ENVIRONMENT_ID, PlatformType.EMBEDDED);
+
+        return "\"" + dataTableRef.physicalName() + "\"";
     }
 }

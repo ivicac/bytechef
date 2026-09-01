@@ -16,6 +16,7 @@
 
 package com.bytechef.component.datatable.action;
 
+import static com.bytechef.component.datatable.constant.DataTableConstants.ACCOUNT_ID;
 import static com.bytechef.component.datatable.constant.DataTableConstants.DIRECTION;
 import static com.bytechef.component.datatable.constant.DataTableConstants.FIELD;
 import static com.bytechef.component.datatable.constant.DataTableConstants.FILTERS;
@@ -36,18 +37,20 @@ import static com.bytechef.definition.BaseOutputDefinition.OutputResponse;
 import static com.bytechef.platform.configuration.domain.Environment.DEVELOPMENT;
 
 import com.bytechef.component.datatable.util.DataTableUtils;
+import com.bytechef.component.datatable.util.DataTableUtils.ResolvedDataTable;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.component.definition.Property;
 import com.bytechef.component.definition.TypeReference;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.owner.OwnerResolution;
+import com.bytechef.platform.data.table.configuration.domain.DataTableInfo;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.domain.RowFilter;
-import com.bytechef.platform.data.table.domain.RowOwnerFilter;
 import com.bytechef.platform.data.table.domain.RowSort;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
+import com.bytechef.platform.owner.Owner;
 import com.bytechef.platform.owner.OwnerResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.ArrayList;
@@ -55,6 +58,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import org.jspecify.annotations.Nullable;
 import org.springframework.beans.factory.ObjectProvider;
 
@@ -94,7 +98,8 @@ public class DataTableFindRecordsAction {
                 string(TABLE)
                     .label("Table")
                     .required(true)
-                    .options(DataTableUtils.getActionTableOptions(dataTableService, ownerResolverProvider)),
+                    .options(DataTableUtils.getActionTableOptions(dataTableService, ownerResolverProvider))
+                    .optionsLookupDependsOn(ACCOUNT_ID),
                 array(FILTERS)
                     .label("Filters")
                     .description(
@@ -155,7 +160,8 @@ public class DataTableFindRecordsAction {
                 integer(OFFSET)
                     .label("Offset")
                     .description("Number of records to skip")
-                    .defaultValue(0))
+                    .defaultValue(0),
+                DataTableUtils.accountProperty())
             .output(this::output)
             .perform(this::perform);
     }
@@ -168,13 +174,17 @@ public class DataTableFindRecordsAction {
 
         String baseName = inputParameters.getRequiredString(TABLE);
 
-        var rowSchema = DataTableUtils.rowObjectSchema(dataTableService, DEVELOPMENT, baseName);
+        Optional<Owner> owner = DataTableUtils.effectiveOwner(
+            OwnerResolution.resolve(actionContextAware, ownerResolverProvider), inputParameters.getLong(ACCOUNT_ID));
 
-        RowOwnerFilter rowOwnerFilter = RowOwnerFilter.from(
-            OwnerResolution.resolve(actionContextAware, ownerResolverProvider));
+        ResolvedDataTable resolvedDataTable = DataTableUtils.resolveDataTable(
+            dataTableService, baseName, DEVELOPMENT.ordinal(), owner);
 
-        List<DataTableRow> rows = dataTableRowService.listRows(
-            baseName, 1, 0, DEVELOPMENT.ordinal(), rowOwnerFilter);
+        DataTableInfo dataTableInfo = resolvedDataTable.dataTableInfo();
+
+        var rowSchema = DataTableUtils.rowObjectSchema(dataTableInfo);
+
+        List<DataTableRow> rows = dataTableRowService.listRows(resolvedDataTable.dataTableRef(), 1, 0);
 
         if (rows.isEmpty()) {
             return OutputResponse.of(array().items((Property.ValueProperty<?>) rowSchema));
@@ -183,7 +193,7 @@ public class DataTableFindRecordsAction {
         DataTableRow firstRow = rows.getFirst();
 
         Map<String, Object> sampleOutput = DataTableUtils.createSampleOutput(
-            dataTableService, DEVELOPMENT, baseName, firstRow.id(), firstRow.values());
+            dataTableInfo, firstRow.id(), firstRow.values());
 
         return OutputResponse.of(array().items((Property.ValueProperty<?>) rowSchema), List.of(sampleOutput));
     }
@@ -198,17 +208,21 @@ public class DataTableFindRecordsAction {
         int limit = inputParameters.getInteger(LIMIT, 100);
         int offset = inputParameters.getInteger(OFFSET, 0);
 
-        RowOwnerFilter rowOwnerFilter = RowOwnerFilter.from(
-            OwnerResolution.resolve(actionContextAware, ownerResolverProvider));
+        Optional<Owner> owner = DataTableUtils.effectiveOwner(
+            OwnerResolution.resolve(actionContextAware, ownerResolverProvider), inputParameters.getLong(ACCOUNT_ID));
 
         List<RowFilter> rowFilters = toRowFilters(
             inputParameters.getList(FILTERS, new TypeReference<Map<String, Object>>() {}, List.of()));
         List<RowSort> rowSorts = toRowSorts(
             inputParameters.getList(SORTS, new TypeReference<Map<String, Object>>() {}, List.of()));
 
+        long environmentId = Objects.requireNonNull(actionContextAware.getEnvironmentId());
+
+        ResolvedDataTable resolvedDataTable = DataTableUtils.resolveDataTable(
+            dataTableService, baseName, environmentId, owner);
+
         return dataTableRowService.listRows(
-            baseName, limit, offset, Objects.requireNonNull(actionContextAware.getEnvironmentId()), rowOwnerFilter,
-            rowFilters, rowSorts);
+            resolvedDataTable.dataTableRef(), limit, offset, rowFilters, rowSorts);
     }
 
     static List<RowSort> toRowSorts(List<Map<String, Object>> sortEntries) {

@@ -17,12 +17,12 @@
 package com.bytechef.automation.data.table.configuration.facade;
 
 import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.automation.data.table.configuration.service.WorkspaceDataTableService;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.configuration.service.DataTableTagService;
 import com.bytechef.platform.data.table.configuration.service.DataTableWebhookService;
@@ -81,12 +81,13 @@ class WorkspaceDataTableFacadeDuplicateTest {
     @Test
     void testTheDuplicateJoinsTheSourceWorkspace() {
         when(dataTableService.getBaseNameById(DATA_TABLE_ID)).thenReturn("table1");
-        when(dataTableService.getIdByBaseName("table1_copy")).thenReturn(DUPLICATE_ID);
+        when(dataTableService.getIdByBaseName("table1_copy", PlatformType.AUTOMATION)).thenReturn(DUPLICATE_ID);
         when(workspaceDataTableService.fetchWorkspaceId(DATA_TABLE_ID)).thenReturn(Optional.of(WORKSPACE_ID));
 
         workspaceDataTableFacade.duplicateTable(DATA_TABLE_ID, "table1_copy", ENVIRONMENT_ID);
 
-        verify(dataTableService).duplicateTable("table1", "table1_copy", ENVIRONMENT_ID);
+        verify(dataTableService).duplicateTable(
+            "table1", "table1_copy", ENVIRONMENT_ID, PlatformType.AUTOMATION, Optional.empty());
         verify(workspaceDataTableService).assignDataTableToWorkspace(DUPLICATE_ID, WORKSPACE_ID);
     }
 
@@ -97,10 +98,15 @@ class WorkspaceDataTableFacadeDuplicateTest {
 
         workspaceDataTableFacade.duplicateTable(DATA_TABLE_ID, "table1_copy", ENVIRONMENT_ID);
 
-        verify(dataTableService).duplicateTable("table1", "table1_copy", ENVIRONMENT_ID);
+        verify(dataTableService).duplicateTable(
+            "table1", "table1_copy", ENVIRONMENT_ID, PlatformType.AUTOMATION, Optional.empty());
 
         // Inventing a workspace for a copy of a table that belongs to none would put the duplicate somewhere the
         // original never was; the copy inherits the source's state instead.
-        verify(workspaceDataTableService, never()).assignDataTableToWorkspace(anyLong(), eq(WORKSPACE_ID));
+        //
+        // anyLong() for the workspace, not eq(WORKSPACE_ID): no mock in this fixture can produce WORKSPACE_ID, so
+        // pinning that value would make the assertion unfailable and would tolerate the very bug it names -- an
+        // implementation defaulting to orElse(0L) assigns SOME workspace, just never this one.
+        verify(workspaceDataTableService, never()).assignDataTableToWorkspace(anyLong(), anyLong());
     }
 }

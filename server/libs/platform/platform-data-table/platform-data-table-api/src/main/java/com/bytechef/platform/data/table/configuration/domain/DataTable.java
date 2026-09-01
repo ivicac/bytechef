@@ -18,6 +18,7 @@ package com.bytechef.platform.data.table.configuration.domain;
 
 import com.bytechef.commons.util.CollectionUtils;
 import com.bytechef.platform.constant.OwnerType;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.tag.domain.Tag;
 import java.time.Instant;
 import java.util.HashSet;
@@ -53,6 +54,9 @@ public class DataTable {
 
     @Column("owner_type")
     private @Nullable Integer ownerType;
+
+    @Column("platform_type")
+    private int platformType;
 
     @MappedCollection(idColumn = "data_table_id")
     private Set<DataTableTag> dataTableTags = new HashSet<>();
@@ -136,6 +140,14 @@ public class DataTable {
 
     public void setOwnerType(@Nullable OwnerType ownerType) {
         this.ownerType = ownerType == null ? null : ownerType.ordinal();
+    }
+
+    public PlatformType getPlatformType() {
+        return PlatformType.values()[platformType];
+    }
+
+    public void setPlatformType(PlatformType platformType) {
+        this.platformType = platformType.ordinal();
     }
 
     public Instant getCreatedDate() {

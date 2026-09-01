@@ -21,9 +21,20 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Column names the platform owns on every {@code dt_*} physical table. A reserved name cannot be created, cannot be
+ * Column names the platform owns on a {@code dt_*} physical table. A reserved name cannot be created, cannot be
  * renamed, cannot be renamed to, and is filtered out of every column listing so it never reaches the grid, the
  * generated row schema, or a CSV round trip.
+ *
+ * <p>
+ * {@link #OWNER_ID} and {@link #OWNER_TYPE} are on every physical table, owned and shared alike, and they carry the
+ * second ownership axis: which account a row belongs to inside whichever table was resolved. The platform writes them
+ * and the platform reads them. A workflow must not be able to select, filter or sort on either -- naming them is how a
+ * step would read another account's rows out of a shared table, or hand its own rows away -- which is what
+ * {@link #isHidden} enforces.
+ *
+ * <p>
+ * The two always move together. An {@code owner_id} written beside a null {@code owner_type} belongs to nobody: it
+ * matches no predicate, so it reads as written and behaves as though it were not.
  *
  * @author Ivica Cardic
  */

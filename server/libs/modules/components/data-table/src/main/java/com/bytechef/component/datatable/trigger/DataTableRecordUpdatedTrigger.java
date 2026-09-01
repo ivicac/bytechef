@@ -37,12 +37,13 @@ import com.bytechef.platform.component.owner.OwnerResolution;
 import com.bytechef.platform.data.table.configuration.domain.DataTableWebhookType;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
 import com.bytechef.platform.data.table.configuration.service.DataTableWebhookService;
-import com.bytechef.platform.data.table.domain.RowOwnerFilter;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
+import com.bytechef.platform.owner.Owner;
 import com.bytechef.platform.owner.OwnerResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
 
 /**
@@ -103,11 +104,9 @@ public class DataTableRecordUpdatedTrigger {
 
         var baseName = inputParameters.getRequiredString(TABLE);
 
-        RowOwnerFilter rowOwnerFilter = RowOwnerFilter.from(
-            OwnerResolution.resolve(triggerContextAware, ownerResolverProvider));
+        Optional<Owner> owner = OwnerResolution.resolve(triggerContextAware, ownerResolverProvider);
 
-        return DataTableUtils.createTriggerOutputResponse(
-            dataTableRowService, dataTableService, baseName, rowOwnerFilter);
+        return DataTableUtils.createTriggerOutputResponse(dataTableRowService, dataTableService, baseName, owner);
     }
 
     @SuppressWarnings("PMD.UnusedFormalParameter")
@@ -119,9 +118,10 @@ public class DataTableRecordUpdatedTrigger {
 
         String baseName = inputParameters.getRequiredString(TABLE);
 
-        long webhookId = dataTableWebhookService.addWebhook(
-            baseName, webhookUrl, DataTableWebhookType.RECORD_UPDATED,
-            Objects.requireNonNull(triggerContextAware.getEnvironmentId()));
+        long webhookId = DataTableUtils.registerWebhook(
+            dataTableService, dataTableWebhookService, baseName, webhookUrl, DataTableWebhookType.RECORD_UPDATED,
+            Objects.requireNonNull(triggerContextAware.getEnvironmentId()),
+            OwnerResolution.resolve(triggerContextAware, ownerResolverProvider));
 
         return new WebhookEnableOutput(Map.of("webhookId", webhookId), null);
     }

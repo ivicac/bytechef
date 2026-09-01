@@ -25,7 +25,12 @@ import org.springframework.data.repository.CrudRepository;
  */
 public interface DataTableRepository extends CrudRepository<DataTable, Long> {
 
-    Optional<DataTable> findByName(String name);
+    /**
+     * The row one owner holds under a name in a pool. Keyed on the owner type as well as the id, because the unique
+     * index is: two owners of different types may share an id, and each holds its own row.
+     */
+    Optional<DataTable> findByNameAndPlatformTypeAndOwnerIdAndOwnerType(
+        String name, int platformType, Long ownerId, Integer ownerType);
 
-    long deleteByName(String name);
+    Optional<DataTable> findByNameAndPlatformTypeAndOwnerIdIsNull(String name, int platformType);
 }

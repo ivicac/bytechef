@@ -16,6 +16,7 @@
 
 package com.bytechef.component.datatable.action;
 
+import static com.bytechef.component.datatable.constant.DataTableConstants.ACCOUNT_ID;
 import static com.bytechef.component.datatable.constant.DataTableConstants.TABLE;
 import static com.bytechef.component.definition.ComponentDsl.ModifiableActionDefinition;
 import static com.bytechef.component.definition.ComponentDsl.action;
@@ -25,20 +26,22 @@ import static com.bytechef.component.definition.ComponentDsl.outputSchema;
 import static com.bytechef.component.definition.ComponentDsl.string;
 
 import com.bytechef.component.datatable.util.DataTableUtils;
+import com.bytechef.component.datatable.util.DataTableUtils.ResolvedDataTable;
 import com.bytechef.component.definition.ActionContext;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.definition.ActionContextAware;
 import com.bytechef.platform.component.owner.OwnerResolution;
 import com.bytechef.platform.data.table.configuration.service.DataTableService;
-import com.bytechef.platform.data.table.domain.RowOwnerFilter;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
+import com.bytechef.platform.owner.Owner;
 import com.bytechef.platform.owner.OwnerResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import org.springframework.beans.factory.ObjectProvider;
 
 /**
@@ -77,7 +80,9 @@ public class DataTableClearTableAction {
                 string(TABLE)
                     .label("Table")
                     .required(true)
-                    .options(DataTableUtils.getActionTableOptions(dataTableService, ownerResolverProvider)))
+                    .options(DataTableUtils.getActionTableOptions(dataTableService, ownerResolverProvider))
+                    .optionsLookupDependsOn(ACCOUNT_ID),
+                DataTableUtils.accountProperty())
             .output(
                 outputSchema(
                     object()
@@ -95,15 +100,18 @@ public class DataTableClearTableAction {
 
         Long environmentId = Objects.requireNonNull(actionContextAware.getEnvironmentId(), "environmentId is required");
 
-        RowOwnerFilter rowOwnerFilter = RowOwnerFilter.from(
-            OwnerResolution.resolve(actionContextAware, ownerResolverProvider));
+        Optional<Owner> owner = DataTableUtils.effectiveOwner(
+            OwnerResolution.resolve(actionContextAware, ownerResolverProvider), inputParameters.getLong(ACCOUNT_ID));
+
+        ResolvedDataTable resolvedDataTable = DataTableUtils.resolveDataTable(
+            dataTableService, baseName, environmentId, owner);
 
         List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            baseName, Integer.MAX_VALUE, 0, environmentId, rowOwnerFilter);
+            resolvedDataTable.dataTableRef(), Integer.MAX_VALUE, 0);
         int count = 0;
 
         for (DataTableRow dataTableRow : dataTableRows) {
-            if (dataTableRowService.deleteRow(baseName, dataTableRow.id(), environmentId, rowOwnerFilter)) {
+            if (dataTableRowService.deleteRow(resolvedDataTable.dataTableRef(), dataTableRow.id())) {
                 count++;
             }
         }

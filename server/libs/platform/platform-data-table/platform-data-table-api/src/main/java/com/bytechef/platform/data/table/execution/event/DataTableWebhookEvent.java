@@ -17,6 +17,7 @@
 package com.bytechef.platform.data.table.execution.event;
 
 import com.bytechef.platform.data.table.configuration.domain.DataTableWebhookType;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.Collections;
 import java.util.Map;
@@ -25,33 +26,42 @@ import org.springframework.context.ApplicationEvent;
 /**
  * Application event published when a data table change should trigger webhooks.
  *
+ * <p>
+ * Carries the table the row was written into, not the base name it is known by. After per-account tables a base name
+ * names as many tables as there are accounts holding one, so a name-keyed event cannot say which table changed -- which
+ * is how account 42's row values reached the vendor's registered URL.
+ *
  * @author Ivica Cardic
  */
 public class DataTableWebhookEvent extends ApplicationEvent {
 
-    private final String baseName;
-    private final long environmentId;
+    /**
+     * {@code SE_BAD_FIELD}: this is an in-process Spring event delivered to a local {@code @EventListener}, never
+     * serialized -- the same reason the mutable payload map is held directly.
+     */
+    @SuppressFBWarnings("SE_BAD_FIELD")
+    private final DataTableRef dataTableRef;
     private final Map<String, Object> payload;
     private final DataTableWebhookType type;
 
     @SuppressFBWarnings("EI")
     public DataTableWebhookEvent(
-        String baseName, DataTableWebhookType type, Map<String, Object> payload, long environmentId) {
+        DataTableRef dataTableRef, DataTableWebhookType type, Map<String, Object> payload) {
 
-        super(baseName);
+        super(dataTableRef);
 
-        this.baseName = baseName;
-        this.environmentId = environmentId;
+        this.dataTableRef = dataTableRef;
         this.type = type;
         this.payload = payload;
     }
 
-    public String getBaseName() {
-        return baseName;
-    }
-
-    public long getEnvironmentId() {
-        return environmentId;
+    /**
+     * The table the changed row lives in, as resolution settled it: pool, environment, base name and the owner whose
+     * copy it is. The listener looks registrations up by it, so an event reaches only the registrations of that very
+     * table.
+     */
+    public DataTableRef getDataTableRef() {
+        return dataTableRef;
     }
 
     public DataTableWebhookType getType() {
@@ -65,8 +75,7 @@ public class DataTableWebhookEvent extends ApplicationEvent {
     @Override
     public String toString() {
         return "DataTableWebhookEvent{" +
-            "baseName='" + baseName + '\'' +
-            ", environmentId=" + environmentId +
+            "dataTableRef=" + dataTableRef +
             ", payload=" + payload +
             ", type=" + type +
             "} " + super.toString();

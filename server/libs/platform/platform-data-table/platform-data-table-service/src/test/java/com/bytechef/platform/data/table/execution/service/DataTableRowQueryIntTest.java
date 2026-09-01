@@ -18,14 +18,13 @@ package com.bytechef.platform.data.table.execution.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.config.DataTableIntTestConfiguration;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.domain.RowFilter;
-import com.bytechef.platform.data.table.domain.RowOwnerFilter;
 import com.bytechef.platform.data.table.domain.RowSort;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
-import com.bytechef.platform.owner.Owner;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
 import java.util.ArrayList;
 import java.util.List;
@@ -40,12 +39,14 @@ import org.springframework.jdbc.core.JdbcTemplate;
 
 /**
  * Filters run against a real database because that is the only place a mis-ordered bind parameter shows up: the SQL
- * concatenates as owner, filters, pagination, and setting them in any other order returns the wrong page rather than
+ * concatenates as filters then pagination, and setting them in any other order returns the wrong page rather than
  * failing.
  *
  * <p>
- * The table is built with raw DDL rather than through {@code DataTableService.createTable}, which additionally requires
- * a {@code data_table} registry row, matching {@link DataTableRowOwnerScopingIntTest}.
+ * The fixture table is built with raw DDL rather than through {@code DataTableService.createTable}, which additionally
+ * requires a {@code data_table} registry row. It deliberately still declares the orphaned {@code owner_id} /
+ * {@code owner_type} columns, because that is what a table created by an older build looks like: reads must keep
+ * working over them, and a workflow must keep being refused when it names one.
  *
  * @author Ivica Cardic
  */
@@ -55,9 +56,6 @@ class DataTableRowQueryIntTest {
 
     private static final long ENVIRONMENT_ID = 0;
     private static final String BASE_NAME = "messages";
-
-    private static final RowOwnerFilter ACCOUNT_A = RowOwnerFilter.ownedBy(Owner.connectedUser(1L));
-    private static final RowOwnerFilter ACCOUNT_B = RowOwnerFilter.ownedBy(Owner.connectedUser(2L));
 
     @Autowired
     private DataTableRowService dataTableRowService;
@@ -78,9 +76,9 @@ class DataTableRowQueryIntTest {
         insert("alpha", 1);
         insert("beta", 2);
 
-        List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            BASE_NAME, 100, 0, ENVIRONMENT_ID, RowOwnerFilter.unrestricted(),
-            List.of(new RowFilter("title", RowFilter.Operator.EQ, "alpha")));
+        List<DataTableRow> dataTableRows =
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
+                List.of(new RowFilter("title", RowFilter.Operator.EQ, "alpha")), List.of());
 
         assertEquals(1, dataTableRows.size());
 
@@ -97,11 +95,12 @@ class DataTableRowQueryIntTest {
         insert("alpha", 9);
         insert("beta", 9);
 
-        List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            BASE_NAME, 100, 0, ENVIRONMENT_ID, RowOwnerFilter.unrestricted(),
-            List.of(
-                new RowFilter("title", RowFilter.Operator.EQ, "alpha"),
-                new RowFilter("score", RowFilter.Operator.GT, "5")));
+        List<DataTableRow> dataTableRows =
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
+                List.of(
+                    new RowFilter("title", RowFilter.Operator.EQ, "alpha"),
+                    new RowFilter("score", RowFilter.Operator.GT, "5")),
+                List.of());
 
         assertEquals(1, dataTableRows.size());
     }
@@ -110,9 +109,9 @@ class DataTableRowQueryIntTest {
     void testAStringValueIsCoercedToTheColumnType() {
         insert("alpha", 42);
 
-        List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            BASE_NAME, 100, 0, ENVIRONMENT_ID, RowOwnerFilter.unrestricted(),
-            List.of(new RowFilter("score", RowFilter.Operator.EQ, "42")));
+        List<DataTableRow> dataTableRows =
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
+                List.of(new RowFilter("score", RowFilter.Operator.EQ, "42")), List.of());
 
         assertEquals(1, dataTableRows.size());
     }
@@ -122,9 +121,9 @@ class DataTableRowQueryIntTest {
         insert("hello world", 1);
         insert("goodbye", 2);
 
-        List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            BASE_NAME, 100, 0, ENVIRONMENT_ID, RowOwnerFilter.unrestricted(),
-            List.of(new RowFilter("title", RowFilter.Operator.CONTAINS, "lo wo")));
+        List<DataTableRow> dataTableRows =
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
+                List.of(new RowFilter("title", RowFilter.Operator.CONTAINS, "lo wo")), List.of());
 
         assertEquals(1, dataTableRows.size());
     }
@@ -134,9 +133,9 @@ class DataTableRowQueryIntTest {
         insert("100% sure", 1);
         insert("100 sure", 2);
 
-        List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            BASE_NAME, 100, 0, ENVIRONMENT_ID, RowOwnerFilter.unrestricted(),
-            List.of(new RowFilter("title", RowFilter.Operator.CONTAINS, "100%")));
+        List<DataTableRow> dataTableRows =
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
+                List.of(new RowFilter("title", RowFilter.Operator.CONTAINS, "100%")), List.of());
 
         assertEquals(1, dataTableRows.size());
     }
@@ -148,8 +147,8 @@ class DataTableRowQueryIntTest {
         insert("gamma", 3);
 
         List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            BASE_NAME, 100, 0, ENVIRONMENT_ID, RowOwnerFilter.unrestricted(),
-            List.of(new RowFilter("title", RowFilter.Operator.IN, List.of("alpha", "gamma"))));
+            dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
+            List.of(new RowFilter("title", RowFilter.Operator.IN, List.of("alpha", "gamma"))), List.of());
 
         assertEquals(2, dataTableRows.size());
     }
@@ -161,33 +160,21 @@ class DataTableRowQueryIntTest {
         insert("c", 3);
 
         List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            BASE_NAME, 100, 0, ENVIRONMENT_ID, RowOwnerFilter.unrestricted(),
-            List.of(new RowFilter("score", RowFilter.Operator.BETWEEN, List.of("1", "2"))));
+            dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
+            List.of(new RowFilter("score", RowFilter.Operator.BETWEEN, List.of("1", "2"))), List.of());
 
         assertEquals(2, dataTableRows.size());
     }
 
     @Test
-    void testAFilterCannotReachAnotherAccountsRow() {
-        dataTableRowService.insertRow(BASE_NAME, Map.of("title", "secret", "score", 1), ENVIRONMENT_ID, ACCOUNT_B);
-
-        List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            BASE_NAME, 100, 0, ENVIRONMENT_ID, ACCOUNT_A,
-            List.of(new RowFilter("title", RowFilter.Operator.EQ, "secret")));
-
-        assertTrue(dataTableRows.isEmpty());
-    }
-
-    @Test
-    void testTheParameterOrderSurvivesAnOwnerFilterAndPagination() {
+    void testTheParameterOrderSurvivesFilteringAndPagination() {
         for (int index = 0; index < 5; index++) {
-            dataTableRowService.insertRow(
-                BASE_NAME, Map.of("title", "row", "score", index), ENVIRONMENT_ID, ACCOUNT_A);
+            insert("row", index);
         }
 
-        List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            BASE_NAME, 2, 1, ENVIRONMENT_ID, ACCOUNT_A,
-            List.of(new RowFilter("score", RowFilter.Operator.GTE, "1")));
+        List<DataTableRow> dataTableRows =
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 2, 1,
+                List.of(new RowFilter("score", RowFilter.Operator.GTE, "1")), List.of());
 
         assertEquals(2, dataTableRows.size());
 
@@ -204,9 +191,9 @@ class DataTableRowQueryIntTest {
         insert("b", 2);
         insert("c", 3);
 
-        List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            BASE_NAME, 2, 0, ENVIRONMENT_ID, RowOwnerFilter.unrestricted(), List.of(),
-            List.of(new RowSort("score", RowSort.Direction.DESC)));
+        List<DataTableRow> dataTableRows =
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 2, 0,
+                List.of(), List.of(new RowSort("score", RowSort.Direction.DESC)));
 
         assertEquals(2, dataTableRows.size());
 
@@ -223,9 +210,9 @@ class DataTableRowQueryIntTest {
         insert("second", 1);
         insert("third", 1);
 
-        List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            BASE_NAME, 1, 0, ENVIRONMENT_ID, RowOwnerFilter.unrestricted(), List.of(),
-            List.of(new RowSort("id", RowSort.Direction.DESC)));
+        List<DataTableRow> dataTableRows =
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 1, 0,
+                List.of(), List.of(new RowSort("id", RowSort.Direction.DESC)));
 
         DataTableRow dataTableRow = dataTableRows.getFirst();
 
@@ -245,8 +232,9 @@ class DataTableRowQueryIntTest {
         List<Object> seen = new ArrayList<>();
 
         for (int offset = 0; offset < 6; offset += 2) {
-            List<DataTableRow> page = dataTableRowService.listRows(
-                BASE_NAME, 2, offset, ENVIRONMENT_ID, RowOwnerFilter.unrestricted(), List.of(), rowSorts);
+            List<DataTableRow> page =
+                dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 2,
+                    offset, List.of(), rowSorts);
 
             for (DataTableRow dataTableRow : page) {
                 Map<String, Object> values = dataTableRow.values();
@@ -261,15 +249,15 @@ class DataTableRowQueryIntTest {
     }
 
     @Test
-    void testSortingComposesWithFilteringAndOwnership() {
-        dataTableRowService.insertRow(BASE_NAME, Map.of("title", "keep", "score", 1), ENVIRONMENT_ID, ACCOUNT_A);
-        dataTableRowService.insertRow(BASE_NAME, Map.of("title", "keep", "score", 3), ENVIRONMENT_ID, ACCOUNT_A);
-        dataTableRowService.insertRow(BASE_NAME, Map.of("title", "keep", "score", 9), ENVIRONMENT_ID, ACCOUNT_B);
+    void testSortingComposesWithFiltering() {
+        insert("keep", 1);
+        insert("keep", 3);
+        insert("drop", 9);
 
-        List<DataTableRow> dataTableRows = dataTableRowService.listRows(
-            BASE_NAME, 10, 0, ENVIRONMENT_ID, ACCOUNT_A,
-            List.of(new RowFilter("title", RowFilter.Operator.EQ, "keep")),
-            List.of(new RowSort("score", RowSort.Direction.DESC)));
+        List<DataTableRow> dataTableRows =
+            dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 10, 0,
+                List.of(new RowFilter("title", RowFilter.Operator.EQ, "keep")),
+                List.of(new RowSort("score", RowSort.Direction.DESC)));
 
         assertEquals(2, dataTableRows.size());
 
@@ -284,30 +272,36 @@ class DataTableRowQueryIntTest {
     void testSortingOnAnOwnerColumnIsRejected() {
         assertThrows(
             IllegalArgumentException.class,
-            () -> dataTableRowService.listRows(
-                BASE_NAME, 100, 0, ENVIRONMENT_ID, ACCOUNT_A, List.of(),
-                List.of(new RowSort("owner_id", RowSort.Direction.ASC))));
+            () -> dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
+                List.of(), List.of(new RowSort("owner_id", RowSort.Direction.ASC))));
     }
 
     @Test
     void testFilteringOnAnOwnerColumnIsRejected() {
         assertThrows(
             IllegalArgumentException.class,
-            () -> dataTableRowService.listRows(
-                BASE_NAME, 100, 0, ENVIRONMENT_ID, ACCOUNT_A,
-                List.of(new RowFilter("owner_id", RowFilter.Operator.EQ, "2"))));
+            () -> dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
+                List.of(new RowFilter("owner_id", RowFilter.Operator.EQ, "2")), List.of()));
     }
 
     @Test
     void testFilteringOnAnUnknownColumnIsRejected() {
         assertThrows(
             IllegalArgumentException.class,
-            () -> dataTableRowService.listRows(
-                BASE_NAME, 100, 0, ENVIRONMENT_ID, ACCOUNT_A,
-                List.of(new RowFilter("nope", RowFilter.Operator.EQ, "x"))));
+            () -> dataTableRowService.listRows(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION), 100, 0,
+                List.of(new RowFilter("nope", RowFilter.Operator.EQ, "x")), List.of()));
     }
 
     private void insert(String title, int score) {
-        dataTableRowService.insertRow(BASE_NAME, Map.of("title", title, "score", score), ENVIRONMENT_ID);
+        dataTableRowService.insertRow(dataTableRef(BASE_NAME, ENVIRONMENT_ID, PlatformType.AUTOMATION),
+            Map.of("title", title, "score", score));
+    }
+
+    /**
+     * These tables are all created shared, so naming the shared physical form here states a fact about the fixture
+     * rather than skipping resolution.
+     */
+    private static DataTableRef dataTableRef(String baseName, long environmentId, PlatformType platformType) {
+        return DataTableRef.shared(baseName, environmentId, platformType);
     }
 }

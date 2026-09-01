@@ -25,6 +25,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.bytechef.platform.constant.OwnerType;
+import com.bytechef.platform.constant.PlatformType;
 import com.bytechef.platform.data.table.configuration.audit.DataTableAuditPublisher;
 import com.bytechef.platform.data.table.configuration.domain.DataTable;
 import com.bytechef.platform.data.table.configuration.repository.DataTableRepository;
@@ -89,7 +90,7 @@ class DataTableOwnershipTest {
 
     @Test
     void testAssigningAnOwnerStampsBothColumns() {
-        DataTable dataTable = unowned();
+        DataTable dataTable = embedded(unowned());
 
         when(dataTableRepository.findById(7L)).thenReturn(Optional.of(dataTable));
 
@@ -99,9 +100,26 @@ class DataTableOwnershipTest {
         assertEquals(OwnerType.CONNECTED_USER, dataTable.getOwnerType());
     }
 
+    /**
+     * Only the EMBEDDED pool has accounts. An AUTOMATION table is unowned by definition, and an owner on one resolves
+     * for nobody: a run with an owner is narrowed to EMBEDDED, and a run without one only ever reaches unowned rows.
+     */
+    @Test
+    void testAssigningAnOwnerToAnAutomationTableIsRefused() {
+        DataTable dataTable = unowned();
+
+        when(dataTableRepository.findById(7L)).thenReturn(Optional.of(dataTable));
+
+        assertThrows(
+            IllegalArgumentException.class, () -> dataTableService().assignOwner(7L, Owner.connectedUser(1L)));
+
+        assertNull(dataTable.getOwnerId());
+        assertNull(dataTable.getOwnerType());
+    }
+
     @Test
     void testAssigningANullOwnerReturnsTheTableToTheVendor() {
-        DataTable dataTable = ownedBy(1L);
+        DataTable dataTable = embedded(ownedBy(1L));
 
         when(dataTableRepository.findById(7L)).thenReturn(Optional.of(dataTable));
 
@@ -110,6 +128,22 @@ class DataTableOwnershipTest {
         assertNull(dataTable.getOwnerId());
         assertNull(dataTable.getOwnerType());
         assertTrue(DataTableServiceImpl.isReadableBy(dataTable, ACCOUNT_B));
+    }
+
+    /**
+     * The repair path for a row that acquired an owner before the pool guard above existed. Refusing this too would
+     * leave such a row permanently unreachable, so unassigning stays allowed in every pool.
+     */
+    @Test
+    void testAnAutomationTableThatSomehowCarriesAnOwnerCanStillBeReturnedToTheVendor() {
+        DataTable dataTable = ownedBy(1L);
+
+        when(dataTableRepository.findById(7L)).thenReturn(Optional.of(dataTable));
+
+        dataTableService().assignOwner(7L, null);
+
+        assertNull(dataTable.getOwnerId());
+        assertNull(dataTable.getOwnerType());
     }
 
     @Test
@@ -125,15 +159,34 @@ class DataTableOwnershipTest {
             mock(DataTableAuditPublisher.class), dataTableRepository, mock(JdbcTemplate.class));
     }
 
+    /**
+     * Named, because {@code assignOwner} now moves the physical tables with the row and reads the name to find them.
+     * Against a mocked {@code JdbcTemplate} the scan returns nothing and no rename is attempted, which is the point --
+     * what these tests pin is the registry half.
+     */
     private static DataTable unowned() {
-        return new DataTable();
+        DataTable dataTable = new DataTable();
+
+        dataTable.setName("orders");
+
+        return dataTable;
     }
 
     private static DataTable ownedBy(long ownerId) {
-        DataTable dataTable = new DataTable();
+        DataTable dataTable = unowned();
 
         dataTable.setOwnerId(ownerId);
         dataTable.setOwnerType(OwnerType.CONNECTED_USER);
+
+        return dataTable;
+    }
+
+    /**
+     * {@code platformType} is a primitive ordinal, so an unstamped {@link DataTable} is AUTOMATION. Every table these
+     * tests assign an owner to has to say EMBEDDED out loud.
+     */
+    private static DataTable embedded(DataTable dataTable) {
+        dataTable.setPlatformType(PlatformType.EMBEDDED);
 
         return dataTable;
     }

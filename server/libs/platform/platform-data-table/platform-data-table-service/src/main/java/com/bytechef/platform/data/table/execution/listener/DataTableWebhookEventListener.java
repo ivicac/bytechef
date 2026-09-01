@@ -18,13 +18,16 @@ package com.bytechef.platform.data.table.execution.listener;
 
 import com.bytechef.platform.data.table.configuration.domain.DataTableWebhookType;
 import com.bytechef.platform.data.table.configuration.service.DataTableWebhookService;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.execution.event.DataTableWebhookEvent;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.event.EventListener;
 import org.springframework.core.retry.RetryException;
 import org.springframework.core.retry.RetryPolicy;
@@ -42,6 +45,17 @@ import org.springframework.web.client.RestTemplate;
  * table and webhook type, and then executes HTTP POST requests to the retrieved webhook URLs with the event payload and
  * metadata.
  *
+ * <p>
+ * Selection is by the event's ref and its event type, and the ref is the whole of the scoping: it names the table the
+ * row was written into AND the account the writing run acted for, and
+ * {@link DataTableWebhookService#listWebhooks(DataTableRef)} answers for both. Table identity alone was once thought
+ * sufficient -- a registration hangs off one table, a table has one owner -- but a shared table has no owner and holds
+ * many accounts' rows, so on one the event's ref is the only thing that says whose row this is.
+ *
+ * <p>
+ * This class therefore has no owner logic of its own and must never grow any. An owner read here rather than off the
+ * ref would be a second source of the answer, free to disagree with the one registration was stamped from.
+ *
  * @author Ivica Cardic
  */
 @Component
@@ -50,22 +64,34 @@ public class DataTableWebhookEventListener {
     private static final Logger log = LoggerFactory.getLogger(DataTableWebhookEventListener.class);
 
     private final DataTableWebhookService dataTableWebhookService;
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate;
 
+    @Autowired
     @SuppressFBWarnings("EI")
     public DataTableWebhookEventListener(DataTableWebhookService dataTableWebhookService) {
+        this(dataTableWebhookService, new RestTemplate());
+    }
+
+    /**
+     * Delivery is a data boundary, so a test has to be able to observe which URLs are actually posted to rather than
+     * only which webhooks were selected.
+     */
+    @SuppressFBWarnings("EI")
+    DataTableWebhookEventListener(DataTableWebhookService dataTableWebhookService, RestTemplate restTemplate) {
         this.dataTableWebhookService = dataTableWebhookService;
+        this.restTemplate = restTemplate;
     }
 
     @EventListener
     @Async
     public void onDataTableWebhookEvent(DataTableWebhookEvent event) {
-        String baseName = event.getBaseName();
-        long environmentId = event.getEnvironmentId();
+        DataTableRef dataTableRef = event.getDataTableRef();
+
+        String baseName = dataTableRef.baseName();
         DataTableWebhookType type = event.getType();
         Map<String, Object> payload = event.getPayload();
 
-        List<DataTableWebhookService.Webhook> hooks = dataTableWebhookService.listWebhooks(baseName, environmentId)
+        List<DataTableWebhookService.Webhook> hooks = dataTableWebhookService.listWebhooks(dataTableRef)
             .stream()
             .filter(webhook -> webhook.type() == type)
             .toList();
@@ -78,7 +104,7 @@ public class DataTableWebhookEventListener {
 
         for (DataTableWebhookService.Webhook hook : hooks) {
 
-            Map<String, Object> body = new java.util.HashMap<>();
+            Map<String, Object> body = new HashMap<>();
 
             body.put("type", type.name());
             body.put("table", baseName);

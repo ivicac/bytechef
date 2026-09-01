@@ -17,9 +17,12 @@
 package com.bytechef.platform.data.table.execution.service;
 
 import com.bytechef.platform.data.table.domain.ColumnType;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.domain.ReservedColumns;
 import com.bytechef.platform.data.table.domain.RowFilter;
 import com.bytechef.platform.data.table.domain.RowSort;
+import java.sql.PreparedStatement;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
@@ -34,12 +37,23 @@ import org.springframework.util.Assert;
  *
  * <p>
  * The fragment always opens with {@code " AND "} so it can be appended to the {@code WHERE TRUE} that
- * {@link DataTableRowServiceImpl#listRows} already emits, after the owner predicate and before {@code ORDER BY}. It
- * narrows and never widens: filters are conjunctions, so no filter can reach a row the owner predicate excluded.
+ * {@link DataTableRowServiceImpl#listRows} already emits, before {@code ORDER BY}.
+ *
+ * <p>
+ * The owner predicates live here too, and they are a different kind of thing from a caller's filters: a filter is what
+ * the workflow asked for, and the owner predicate is what the run is allowed to ask for. Both come out of this class so
+ * that the fragment a statement appends and the parameters it binds are written next to each other and cannot fall out
+ * of step, but only the owner predicate reads its owner from the {@link DataTableRef} -- which is the single source
+ * either owner ever comes from.
+ *
+ * <p>
+ * Reads and writes get genuinely different SQL, and deliberately so. A vendor-seeded reference row is every account's
+ * to read and nobody's to change, so the read admits unowned rows and the write does not.
  *
  * <p>
  * A field must name a real column of the table, or {@code id}. That check is what makes interpolating the column name
- * safe, and it is also what keeps {@code owner_id} and {@code owner_type} unaddressable from a workflow.
+ * safe, and it is also what keeps {@code owner_id} and {@code owner_type} unaddressable from a workflow: naming one is
+ * how a step would read another account's rows out of a shared table, or hand its own rows away.
  *
  * @author Ivica Cardic
  */
@@ -48,6 +62,54 @@ final class RowQuerySqlBuilder {
     private static final String LIKE_ESCAPE = " ESCAPE '\\'";
 
     private RowQuerySqlBuilder() {
+    }
+
+    /**
+     * What a run may read: its own rows and the ones belonging to nobody. A run with no owner sees the unowned rows
+     * alone and never falls through to an account's.
+     *
+     * <p>
+     * Nothing branches on whether the resolved table is owned or shared. In an owned table every row already carries
+     * that account's owner, so this predicate is satisfied by construction and costs an index lookup; asking which kind
+     * of table it is would be a question every statement here had to get right.
+     */
+    static String readableOwnerPredicate(DataTableRef dataTableRef) {
+        if (dataTableRef.runOwnerId() == null) {
+            return " AND " + quote(ReservedColumns.OWNER_ID) + " IS NULL";
+        }
+
+        return " AND (" + quote(ReservedColumns.OWNER_ID) + " = ? OR " + quote(ReservedColumns.OWNER_ID) +
+            " IS NULL)";
+    }
+
+    /**
+     * What a run may change: its own rows, and only those. Narrower than the read predicate on purpose -- the unowned
+     * row an account can see is the same row every other account is reading.
+     */
+    static String writableOwnerPredicate(DataTableRef dataTableRef) {
+        if (dataTableRef.runOwnerId() == null) {
+            return " AND " + quote(ReservedColumns.OWNER_ID) + " IS NULL";
+        }
+
+        return " AND " + quote(ReservedColumns.OWNER_ID) + " = ?";
+    }
+
+    /**
+     * Binds whatever the owner predicate placed, and returns the next free index. Both predicates place one parameter
+     * when the run has an owner and none when it does not, so this is the counterpart to either.
+     */
+    static int bindOwner(PreparedStatement preparedStatement, int index, DataTableRef dataTableRef)
+        throws SQLException {
+
+        Long runOwnerId = dataTableRef.runOwnerId();
+
+        if (runOwnerId == null) {
+            return index;
+        }
+
+        preparedStatement.setLong(index, runOwnerId);
+
+        return index + 1;
     }
 
     record Binding(ColumnType type, @Nullable Object value) {

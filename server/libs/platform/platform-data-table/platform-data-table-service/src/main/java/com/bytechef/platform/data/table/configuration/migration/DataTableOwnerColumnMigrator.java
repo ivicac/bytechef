@@ -27,10 +27,15 @@ import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.util.Assert;
 
 /**
- * Adds the reserved owner columns to {@code dt_*} tables created before those columns existed. The table set is
+ * Adds the reserved owner columns to physical data tables created before those columns existed. The table set is
  * discovered from {@code information_schema} rather than declared, which is why this is Java rather than plain
  * changeset XML -- {@link DataTableOwnerColumnChange} runs it as a Liquibase {@code customChange}, so it is still
  * recorded in {@code databasechangelog} and still runs once per tenant schema.
+ *
+ * <p>
+ * Both pool prefixes are swept, {@code dt_} for AUTOMATION and {@code edt_} for EMBEDDED, and owned and shared tables
+ * alike. The columns are uniform across every physical table by design: in a table an account already owns the row
+ * predicate is satisfied by construction, so no row operation ever has to ask which kind of table it holds.
  *
  * <p>
  * Idempotent, and scoped to one schema per call. Deliberately not a Spring bean: Liquibase instantiates the change
@@ -74,7 +79,8 @@ public class DataTableOwnerColumnMigrator {
 
         List<String> tableNames = jdbcTemplate.queryForList(
             "SELECT table_name FROM information_schema.tables "
-                + "WHERE table_schema = ? AND table_type = 'BASE TABLE' AND table_name LIKE 'dt\\_%'",
+                + "WHERE table_schema = ? AND table_type = 'BASE TABLE' "
+                + "AND (table_name LIKE 'dt\\_%' OR table_name LIKE 'edt\\_%')",
             String.class, schema);
 
         int altered = 0;
@@ -86,13 +92,17 @@ public class DataTableOwnerColumnMigrator {
 
             String qualifiedName = quote(schema) + "." + quote(tableName);
 
+            // Both columns in one statement, because both columns are one fact. A table left with an owner_id and no
+            // owner_type would hold rows matching no predicate at all: not the vendor's, because the id is set, and
+            // not the account's, because an owner is the pair.
             jdbcTemplate.execute(
                 "ALTER TABLE " + qualifiedName + " ADD COLUMN IF NOT EXISTS " + quote(ReservedColumns.OWNER_ID)
                     + " BIGINT, ADD COLUMN IF NOT EXISTS " + quote(ReservedColumns.OWNER_TYPE) + " INT");
 
+            // Unnamed, so Postgres derives the name: a physical table name may already be the 63 bytes Postgres keeps,
+            // and a name of ours plus a suffix would be truncated into a collision with the next long table's.
             jdbcTemplate.execute(
-                "CREATE INDEX IF NOT EXISTS " + quote("idx_" + tableName + "_owner") + " ON " + qualifiedName + " ("
-                    + quote(ReservedColumns.OWNER_TYPE) + ", " + quote(ReservedColumns.OWNER_ID) + ")");
+                "CREATE INDEX ON " + qualifiedName + " (" + quote(ReservedColumns.OWNER_ID) + ")");
 
             altered++;
         }

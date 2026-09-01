@@ -8,8 +8,8 @@
 package com.bytechef.ee.platform.data.table.remote.client.service;
 
 import com.bytechef.platform.annotation.ConditionalOnEEVersion;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.domain.RowFilter;
-import com.bytechef.platform.data.table.domain.RowOwnerFilter;
 import com.bytechef.platform.data.table.domain.RowSort;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.service.DataTableRowService;
@@ -25,95 +25,46 @@ import org.springframework.stereotype.Component;
 @Component
 @ConditionalOnEEVersion
 public class RemoteDataTableRowServiceClient implements DataTableRowService {
-    @Override
-    public List<DataTableRow> listRows(String baseName, int limit, int offset, long environmentId) {
-        throw new UnsupportedOperationException();
-    }
 
     @Override
-    public DataTableRow insertRow(String baseName, Map<String, Object> values, long environmentId) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public DataTableRow updateRow(String baseName, long id, Map<String, Object> values, long environmentId) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public boolean deleteRow(String baseName, long id, long environmentId) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public DataTableRow getRow(String baseName, long id, long environmentId) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public String exportCsv(String baseName, long environmentId) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void importCsv(String baseName, String csv, long environmentId) {
+    public List<DataTableRow> listRows(DataTableRef dataTableRef, int limit, int offset) {
         throw new UnsupportedOperationException();
     }
 
     @Override
     public List<DataTableRow> listRows(
-        String baseName, int limit, int offset, long environmentId, RowOwnerFilter rowOwnerFilter) {
+        DataTableRef dataTableRef, int limit, int offset, List<RowFilter> rowFilters, List<RowSort> rowSorts) {
 
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<DataTableRow> listRows(
-        String baseName, int limit, int offset, long environmentId, RowOwnerFilter rowOwnerFilter,
-        List<RowFilter> rowFilters) {
-
+    public DataTableRow insertRow(DataTableRef dataTableRef, Map<String, Object> values) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public List<DataTableRow> listRows(
-        String baseName, int limit, int offset, long environmentId, RowOwnerFilter rowOwnerFilter,
-        List<RowFilter> rowFilters, List<RowSort> rowSorts) {
-
+    public DataTableRow updateRow(DataTableRef dataTableRef, long id, Map<String, Object> values) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public DataTableRow insertRow(
-        String baseName, Map<String, Object> values, long environmentId, RowOwnerFilter rowOwnerFilter) {
-
+    public boolean deleteRow(DataTableRef dataTableRef, long id) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public DataTableRow updateRow(
-        String baseName, long id, Map<String, Object> values, long environmentId, RowOwnerFilter rowOwnerFilter) {
-
+    public DataTableRow getRow(DataTableRef dataTableRef, long id) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public boolean deleteRow(String baseName, long id, long environmentId, RowOwnerFilter rowOwnerFilter) {
+    public String exportCsv(DataTableRef dataTableRef) {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public DataTableRow getRow(String baseName, long id, long environmentId, RowOwnerFilter rowOwnerFilter) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public String exportCsv(String baseName, long environmentId, RowOwnerFilter rowOwnerFilter) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void importCsv(String baseName, String csv, long environmentId, RowOwnerFilter rowOwnerFilter) {
+    public void importCsv(DataTableRef dataTableRef, String csv) {
         throw new UnsupportedOperationException();
     }
 }

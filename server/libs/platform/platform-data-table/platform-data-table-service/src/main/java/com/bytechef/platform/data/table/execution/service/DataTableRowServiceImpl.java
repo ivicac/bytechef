@@ -22,9 +22,9 @@ import com.bytechef.platform.constant.OwnerType;
 import com.bytechef.platform.data.table.configuration.domain.DataTableWebhookType;
 import com.bytechef.platform.data.table.domain.ColumnSpec;
 import com.bytechef.platform.data.table.domain.ColumnType;
+import com.bytechef.platform.data.table.domain.DataTableRef;
 import com.bytechef.platform.data.table.domain.ReservedColumns;
 import com.bytechef.platform.data.table.domain.RowFilter;
-import com.bytechef.platform.data.table.domain.RowOwnerFilter;
 import com.bytechef.platform.data.table.domain.RowSort;
 import com.bytechef.platform.data.table.execution.domain.DataTableRow;
 import com.bytechef.platform.data.table.execution.event.DataTableWebhookEvent;
@@ -47,7 +47,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Optional;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import org.apache.commons.lang3.StringUtils;
@@ -59,6 +58,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.util.Assert;
 
 /**
+ * Reaches only the physical table its {@link DataTableRef} names. Nothing here builds a physical name, so nothing here
+ * chooses an owner -- see {@link DataTableRowService} for why that separation is what keeps one account's rows out of
+ * another's.
+ *
+ * <p>
+ * Two owners reach every statement here, and both ride on the ref. {@code resourceOwner} has already chosen the
+ * physical table by the time a name is spelled; {@code runOwner} chooses the rows inside it, through the predicates
+ * {@link RowQuerySqlBuilder} builds. Neither is a parameter of any operation, and that is the whole design: an owner
+ * that cannot be passed cannot be passed wrongly, and there is exactly one place -- resolution -- where either is
+ * decided.
+ *
+ * <p>
+ * Nothing branches on whether the resolved table is owned or shared. In a table an account already owns, every row is
+ * that account's anyway: the read predicate is satisfied by construction and an insert stamps the owner the physical
+ * name already carries.
+ *
  * @author Ivica Cardic
  */
 @Service
@@ -90,26 +105,18 @@ public class DataTableRowServiceImpl implements DataTableRowService {
      */
     @Override
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
-    public boolean deleteRow(String baseName, long id, long environmentId) {
-        return deleteRow(baseName, id, environmentId, RowOwnerFilter.unrestricted());
-    }
+    public boolean deleteRow(DataTableRef dataTableRef, long id) {
+        String physicalName = dataTableRef.physicalName();
 
-    @Override
-    @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
-    public boolean deleteRow(String baseName, long id, long environmentId, RowOwnerFilter rowOwnerFilter) {
-        validateBaseName(baseName);
-
-        String physicalName = buildPhysicalName(environmentId, baseName);
-
-        checkHasId(physicalName);
+        requireColumns(physicalName);
 
         String sql = "DELETE FROM " + escapeIdentifier(physicalName) + " WHERE \"id\" = ?" +
-            ownerPredicate(rowOwnerFilter);
+            RowQuerySqlBuilder.writableOwnerPredicate(dataTableRef);
 
         int count = jdbcTemplate.update(sql, ps -> {
             ps.setLong(1, id);
 
-            setOwnerParam(ps, 2, rowOwnerFilter);
+            RowQuerySqlBuilder.bindOwner(ps, 2, dataTableRef);
         });
 
         if (count > 0) {
@@ -118,7 +125,7 @@ public class DataTableRowServiceImpl implements DataTableRowService {
             payload.put("id", id);
 
             applicationEventPublisher.publishEvent(
-                new DataTableWebhookEvent(baseName, DataTableWebhookType.RECORD_DELETED, payload, environmentId));
+                new DataTableWebhookEvent(dataTableRef, DataTableWebhookType.RECORD_DELETED, payload));
 
             return true;
         }
@@ -136,20 +143,10 @@ public class DataTableRowServiceImpl implements DataTableRowService {
      */
     @Override
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
-    public DataTableRow getRow(String baseName, long id, long environmentId) {
-        return getRow(baseName, id, environmentId, RowOwnerFilter.unrestricted());
-    }
+    public DataTableRow getRow(DataTableRef dataTableRef, long id) {
+        String physicalName = dataTableRef.physicalName();
 
-    @Override
-    @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
-    public DataTableRow getRow(String baseName, long id, long environmentId, RowOwnerFilter rowOwnerFilter) {
-        validateBaseName(baseName);
-
-        String physicalName = buildPhysicalName(environmentId, baseName);
-
-        checkHasId(physicalName);
-
-        List<String> columnNames = listColumns(physicalName).stream()
+        List<String> columnNames = requireColumns(physicalName).stream()
             .map(ColumnSpec::name)
             .filter(name -> !ReservedColumns.isReserved(name))
             .toList();
@@ -159,12 +156,12 @@ public class DataTableRowServiceImpl implements DataTableRowService {
             .collect(Collectors.joining(", ")));
 
         String sql = "SELECT " + selectColumns + " FROM " + escapeIdentifier(physicalName) + " WHERE \"id\" = ?" +
-            ownerPredicate(rowOwnerFilter);
+            RowQuerySqlBuilder.readableOwnerPredicate(dataTableRef);
 
         List<DataTableRow> rows = jdbcTemplate.query(sql, ps -> {
             ps.setLong(1, id);
 
-            setOwnerParam(ps, 2, rowOwnerFilter);
+            RowQuerySqlBuilder.bindOwner(ps, 2, dataTableRef);
         }, (resultSet, rowNum) -> {
             long rowId = resultSet.getLong("id");
             Map<String, Object> values = new HashMap<>();
@@ -180,19 +177,10 @@ public class DataTableRowServiceImpl implements DataTableRowService {
     }
 
     @Override
-    public String exportCsv(String baseName, long environmentId) {
-        return exportCsv(baseName, environmentId, RowOwnerFilter.unrestricted());
-    }
+    public String exportCsv(DataTableRef dataTableRef) {
+        String physicalName = dataTableRef.physicalName();
 
-    @Override
-    public String exportCsv(String baseName, long environmentId, RowOwnerFilter rowOwnerFilter) {
-        validateBaseName(baseName);
-
-        String physicalName = buildPhysicalName(environmentId, baseName);
-
-        checkHasId(physicalName);
-
-        List<ColumnSpec> columnSpecs = listColumns(physicalName);
+        List<ColumnSpec> columnSpecs = requireColumns(physicalName);
         List<String> columnNames = columnSpecs.stream()
             .map(ColumnSpec::name)
             .filter(columnName -> !ReservedColumns.isReserved(columnName))
@@ -206,7 +194,7 @@ public class DataTableRowServiceImpl implements DataTableRowService {
         // Header
         csvWriter.writeRow(columnNames);
 
-        List<DataTableRow> dataTableRows = listRows(baseName, Integer.MAX_VALUE, 0, environmentId);
+        List<DataTableRow> dataTableRows = listRows(dataTableRef, Integer.MAX_VALUE, 0);
 
         for (DataTableRow dataTableRow : dataTableRows) {
             List<String> curValues = new ArrayList<>();
@@ -234,20 +222,13 @@ public class DataTableRowServiceImpl implements DataTableRowService {
     }
 
     @Override
-    public void importCsv(String baseName, String csv, long environmentId) {
-        importCsv(baseName, csv, environmentId, RowOwnerFilter.unrestricted());
-    }
-
-    @Override
-    public void importCsv(String baseName, String csv, long environmentId, RowOwnerFilter rowOwnerFilter) {
+    public void importCsv(DataTableRef dataTableRef, String csv) {
         dataTableStorageService.checkWithinLimit(
             csv == null ? 0 : csv.getBytes(java.nio.charset.StandardCharsets.UTF_8).length);
 
-        validateBaseName(baseName);
+        String physicalName = dataTableRef.physicalName();
 
-        String physicalName = buildPhysicalName(environmentId, baseName);
-
-        checkHasId(physicalName);
+        requireColumns(physicalName);
 
         if (csv == null) {
             return;
@@ -315,7 +296,7 @@ public class DataTableRowServiceImpl implements DataTableRowService {
                     values.put(curColumnName, (field == null || field.isEmpty()) ? null : field);
                 }
 
-                insertRow(baseName, values, environmentId);
+                insertRow(dataTableRef, values);
             }
         } catch (IOException exception) {
             throw new RuntimeException("Failed to import CSV", exception);
@@ -332,23 +313,13 @@ public class DataTableRowServiceImpl implements DataTableRowService {
      */
     @Override
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
-    public DataTableRow insertRow(String baseName, Map<String, Object> values, long environmentId) {
-        return insertRow(baseName, values, environmentId, RowOwnerFilter.unrestricted());
-    }
-
-    @Override
-    @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
-    public DataTableRow insertRow(
-        String baseName, Map<String, Object> values, long environmentId, RowOwnerFilter rowOwnerFilter) {
+    public DataTableRow insertRow(DataTableRef dataTableRef, Map<String, Object> values) {
         dataTableStorageService.checkWithinLimit(0);
 
-        validateBaseName(baseName);
+        String physicalName = dataTableRef.physicalName();
 
-        String physicalName = buildPhysicalName(environmentId, baseName);
-
-        checkHasId(physicalName);
-
-        List<String> allColumnNames = listColumns(physicalName).stream()
+        List<ColumnSpec> columnSpecs = requireColumns(physicalName);
+        List<String> allColumnNames = columnSpecs.stream()
             .map(ColumnSpec::name)
             .toList();
 
@@ -363,11 +334,15 @@ public class DataTableRowServiceImpl implements DataTableRowService {
                 .orElse(columnName))
             .toList();
 
-        Optional<Owner> ownerOptional = rowOwnerFilter.owner();
+        // The stamp is appended to the caller's columns rather than merged into them: ReservedColumns has already
+        // filtered the owner columns out of anything a caller supplied, so this is the only way either reaches an
+        // INSERT. Both columns go in together -- an owner_id beside a null owner_type would match no predicate and
+        // belong to nobody.
+        Owner runOwner = dataTableRef.runOwner();
 
         List<String> insertColumnNames = new ArrayList<>(insertableColumnNames);
 
-        if (ownerOptional.isPresent()) {
+        if (runOwner != null) {
             insertColumnNames.add(ReservedColumns.OWNER_ID);
             insertColumnNames.add(ReservedColumns.OWNER_TYPE);
         }
@@ -396,7 +371,7 @@ public class DataTableRowServiceImpl implements DataTableRowService {
         String sql =
             "INSERT INTO " + escapeIdentifier(physicalName) + valuesClause + " RETURNING " + returningClause;
 
-        Map<String, ColumnType> typeMap = columnTypeMap(physicalName);
+        Map<String, ColumnType> typeMap = columnTypeMap(columnSpecs);
 
         DataTableRow result = jdbcTemplate.query(sql, ps -> {
             int i = 1;
@@ -410,12 +385,10 @@ public class DataTableRowServiceImpl implements DataTableRowService {
                 setParam(ps, i++, columnType, coercedValue);
             }
 
-            if (ownerOptional.isPresent()) {
-                Owner owner = ownerOptional.get();
+            if (runOwner != null) {
+                ps.setLong(i++, runOwner.id());
 
-                ps.setLong(i++, owner.id());
-
-                OwnerType ownerType = owner.type();
+                OwnerType ownerType = runOwner.type();
 
                 ps.setInt(i, ownerType.ordinal());
             }
@@ -442,7 +415,7 @@ public class DataTableRowServiceImpl implements DataTableRowService {
         payload.put("values", result.values());
 
         applicationEventPublisher.publishEvent(
-            new DataTableWebhookEvent(baseName, DataTableWebhookType.RECORD_CREATED, payload, environmentId));
+            new DataTableWebhookEvent(dataTableRef, DataTableWebhookType.RECORD_CREATED, payload));
 
         return result;
     }
@@ -457,39 +430,19 @@ public class DataTableRowServiceImpl implements DataTableRowService {
      */
     @Override
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
-    public List<DataTableRow> listRows(String baseName, int limit, int offset, long environmentId) {
-        return listRows(baseName, limit, offset, environmentId, RowOwnerFilter.unrestricted());
+    public List<DataTableRow> listRows(DataTableRef dataTableRef, int limit, int offset) {
+        return listRows(dataTableRef, limit, offset, List.of(), List.of());
     }
 
     @Override
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
     public List<DataTableRow> listRows(
-        String baseName, int limit, int offset, long environmentId, RowOwnerFilter rowOwnerFilter) {
+        DataTableRef dataTableRef, int limit, int offset, List<RowFilter> rowFilters, List<RowSort> rowSorts) {
 
-        return listRows(baseName, limit, offset, environmentId, rowOwnerFilter, List.of());
-    }
+        String physicalName = dataTableRef.physicalName();
 
-    @Override
-    @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
-    public List<DataTableRow> listRows(
-        String baseName, int limit, int offset, long environmentId, RowOwnerFilter rowOwnerFilter,
-        List<RowFilter> rowFilters) {
-
-        return listRows(baseName, limit, offset, environmentId, rowOwnerFilter, rowFilters, List.of());
-    }
-
-    @Override
-    @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
-    public List<DataTableRow> listRows(
-        String baseName, int limit, int offset, long environmentId, RowOwnerFilter rowOwnerFilter,
-        List<RowFilter> rowFilters, List<RowSort> rowSorts) {
-        validateBaseName(baseName);
-
-        String buildPhysicalName = buildPhysicalName(environmentId, baseName);
-
-        checkHasId(buildPhysicalName);
-
-        List<String> columnNames = listColumns(buildPhysicalName).stream()
+        List<ColumnSpec> columnSpecs = requireColumns(physicalName);
+        List<String> columnNames = columnSpecs.stream()
             .map(ColumnSpec::name)
             .filter(columnName -> !ReservedColumns.isReserved(columnName))
             .toList();
@@ -498,17 +451,17 @@ public class DataTableRowServiceImpl implements DataTableRowService {
             .map(this::escapeIdentifier)
             .collect(Collectors.joining(", ")));
 
-        Map<String, ColumnType> columnTypes = columnTypeMap(buildPhysicalName);
+        Map<String, ColumnType> columnTypes = columnTypeMap(columnSpecs);
 
         RowQuerySqlBuilder.Fragment fragment = RowQuerySqlBuilder.filters(rowFilters, columnTypes);
 
         String sql =
-            "SELECT " + selectColumns + " FROM " + escapeIdentifier(buildPhysicalName) +
-                " WHERE TRUE" + ownerPredicate(rowOwnerFilter) + fragment.sql() +
+            "SELECT " + selectColumns + " FROM " + escapeIdentifier(physicalName) +
+                " WHERE TRUE" + RowQuerySqlBuilder.readableOwnerPredicate(dataTableRef) + fragment.sql() +
                 RowQuerySqlBuilder.orderBy(rowSorts, columnTypes) + " LIMIT ? OFFSET ?";
 
         return jdbcTemplate.query(sql, ps -> {
-            int index = setOwnerParam(ps, 1, rowOwnerFilter);
+            int index = RowQuerySqlBuilder.bindOwner(ps, 1, dataTableRef);
 
             for (RowQuerySqlBuilder.Binding binding : fragment.bindings()) {
                 setParam(ps, index++, binding.type(), binding.value());
@@ -538,24 +491,13 @@ public class DataTableRowServiceImpl implements DataTableRowService {
      */
     @Override
     @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
-    public DataTableRow updateRow(String baseName, long id, Map<String, Object> values, long environmentId) {
-        return updateRow(baseName, id, values, environmentId, RowOwnerFilter.unrestricted());
-    }
-
-    @Override
-    @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
-    public DataTableRow updateRow(
-        String baseName, long id, Map<String, Object> values, long environmentId,
-        RowOwnerFilter rowOwnerFilter) {
+    public DataTableRow updateRow(DataTableRef dataTableRef, long id, Map<String, Object> values) {
         dataTableStorageService.checkWithinLimit(0);
 
-        validateBaseName(baseName);
+        String physicalName = dataTableRef.physicalName();
 
-        String physicalName = buildPhysicalName(environmentId, baseName);
-
-        checkHasId(physicalName);
-
-        List<String> allColumnNames = listColumns(physicalName).stream()
+        List<ColumnSpec> columnSpecs = requireColumns(physicalName);
+        List<String> allColumnNames = columnSpecs.stream()
             .map(ColumnSpec::name)
             .toList();
 
@@ -571,8 +513,9 @@ public class DataTableRowServiceImpl implements DataTableRowService {
             .toList();
 
         if (updatableColumnNames.isEmpty()) {
-            // nothing to update, return current row
-            List<DataTableRow> dataTableRows = listRows(baseName, 1, 0, environmentId).stream()
+            // Nothing to update, so return the current row -- a read, and therefore one owing the run's owner the read
+            // predicate rather than the narrower write one.
+            List<DataTableRow> dataTableRows = listRows(dataTableRef, 1, 0).stream()
                 .filter(dataTableRow -> dataTableRow.id() == id)
                 .toList();
 
@@ -600,9 +543,9 @@ public class DataTableRowServiceImpl implements DataTableRowService {
 
         String sql =
             "UPDATE " + escapeIdentifier(physicalName) + " SET " + setClause + " WHERE \"id\" = ?" +
-                ownerPredicate(rowOwnerFilter) + " RETURNING " + returningClause;
+                RowQuerySqlBuilder.writableOwnerPredicate(dataTableRef) + " RETURNING " + returningClause;
 
-        Map<String, ColumnType> columnTypeMap = columnTypeMap(physicalName);
+        Map<String, ColumnType> columnTypeMap = columnTypeMap(columnSpecs);
 
         DataTableRow updatedDataTableRow = jdbcTemplate.query(sql, ps -> {
             int i = 1;
@@ -620,7 +563,7 @@ public class DataTableRowServiceImpl implements DataTableRowService {
 
             ps.setLong(i++, id);
 
-            setOwnerParam(ps, i, rowOwnerFilter);
+            RowQuerySqlBuilder.bindOwner(ps, i, dataTableRef);
         }, rs -> {
             if (rs.next()) {
                 long curId = rs.getLong("id");
@@ -644,65 +587,32 @@ public class DataTableRowServiceImpl implements DataTableRowService {
         payload.put("values", updatedDataTableRow.values());
 
         applicationEventPublisher.publishEvent(
-            new DataTableWebhookEvent(baseName, DataTableWebhookType.RECORD_UPDATED, payload, environmentId));
+            new DataTableWebhookEvent(dataTableRef, DataTableWebhookType.RECORD_UPDATED, payload));
 
         return updatedDataTableRow;
     }
 
-    private void validateBaseName(String baseName) {
-        Assert.hasText(baseName, "baseName must not be empty");
-
-        String normalizedName = baseName.toLowerCase(Locale.ROOT);
-
-        Assert.isTrue(!normalizedName.startsWith("dt_"), "baseName must not start with 'dt_'");
-        Assert.isTrue(normalizedName.matches("[a-z_][a-z0-9_]*"), "Invalid base name: " + baseName);
-    }
-
     /**
-     * Narrows a statement to rows the caller owns, plus the unowned rows the vendor shares with everyone. Empty when
-     * the caller is unrestricted. The owner id is always a bound parameter, never interpolated.
+     * The table's columns, having checked it has an {@code id}.
+     *
+     * <p>
+     * One {@code information_schema} scan per row operation, where there used to be up to three: a dedicated existence
+     * query for {@code id}, a listing, and a second listing inside {@code columnTypeMap}. Every one of them asked
+     * {@code information_schema.columns} about the same table, and the listing already contains the answer to all three
+     * -- {@code id} is a column like any other. The catalog is contended under load, so this is three round trips per
+     * step rather than three cheap ones.
      */
-    private String ownerPredicate(RowOwnerFilter rowOwnerFilter) {
-        if (rowOwnerFilter.isUnrestricted()) {
-            return "";
+    private List<ColumnSpec> requireColumns(String physicalName) {
+        List<ColumnSpec> columnSpecs = listColumns(physicalName);
+
+        boolean hasId = columnSpecs.stream()
+            .anyMatch(columnSpec -> ReservedColumns.ID.equalsIgnoreCase(columnSpec.name()));
+
+        if (!hasId) {
+            throw new IllegalStateException("Table does not have primary key column 'id': " + physicalName);
         }
 
-        return " AND (" + escapeIdentifier(ReservedColumns.OWNER_ID) + " = ? OR " +
-            escapeIdentifier(ReservedColumns.OWNER_ID) + " IS NULL)";
-    }
-
-    private int setOwnerParam(PreparedStatement preparedStatement, int index, RowOwnerFilter rowOwnerFilter)
-        throws SQLException {
-
-        Optional<Owner> ownerOptional = rowOwnerFilter.owner();
-
-        if (ownerOptional.isEmpty()) {
-            return index;
-        }
-
-        Owner owner = ownerOptional.get();
-
-        preparedStatement.setLong(index, owner.id());
-
-        return index + 1;
-    }
-
-    private String buildPhysicalName(long environmentId, String baseName) {
-        String normalizedName = baseName.toLowerCase(Locale.ROOT);
-
-        return "dt_" + environmentId + "_" + normalizedName;
-    }
-
-    private void checkHasId(String physical) {
-        String sql =
-            "SELECT 1 FROM information_schema.columns WHERE table_schema = current_schema() AND table_name = ? AND " +
-                "column_name = 'id'";
-
-        List<Integer> exists = jdbcTemplate.query(sql, ps -> ps.setString(1, physical), (rs, rowNum) -> 1);
-
-        if (exists.isEmpty()) {
-            throw new IllegalStateException("Table does not have primary key column 'id': " + physical);
-        }
+        return columnSpecs;
     }
 
     static Object coerceValue(ColumnType type, Object rawValue) {
@@ -748,10 +658,10 @@ public class DataTableRowServiceImpl implements DataTableRowService {
         };
     }
 
-    private Map<String, ColumnType> columnTypeMap(String physicalName) {
+    private static Map<String, ColumnType> columnTypeMap(List<ColumnSpec> columnSpecs) {
         Map<String, ColumnType> columnTypeMap = new HashMap<>();
 
-        for (ColumnSpec columnSpec : listColumns(physicalName)) {
+        for (ColumnSpec columnSpec : columnSpecs) {
             columnTypeMap.put(StringUtils.lowerCase(columnSpec.name()), columnSpec.type());
         }
 
