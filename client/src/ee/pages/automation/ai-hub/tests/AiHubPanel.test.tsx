@@ -4,6 +4,7 @@ import {AiHubChatI} from '@/ee/pages/automation/ai-hub/chats/api/chats.api';
 import {aiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
 import {QueryClient, QueryClientProvider} from '@tanstack/react-query';
 import {render, screen} from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import {ReactNode} from 'react';
 import {MemoryRouter} from 'react-router-dom';
 import {afterEach, describe, expect, it, vi} from 'vitest';
@@ -23,9 +24,13 @@ const {mockChatsDataRef} = vi.hoisted(() => ({
     mockChatsDataRef: {current: [] as AiHubChatI[]},
 }));
 
+// The header's chat-actions menu pulls these in through useAiHubChatActions; the panel never fires them,
+// but the hook calls them on render so the mock has to carry them.
 vi.mock('@/ee/pages/automation/ai-hub/chats/hooks/useChats', () => ({
     useAiHubChatArtifactsQuery: () => ({data: []}),
     useAiHubChatsQuery: () => ({data: mockChatsDataRef.current, isLoading: false}),
+    useDeleteAiHubChatMutation: () => ({mutate: vi.fn()}),
+    usePatchAiHubChatMutation: () => ({mutate: vi.fn()}),
 }));
 
 afterEach(() => {
@@ -155,5 +160,36 @@ describe('AiHubPanel channel-born agent chat badge', () => {
         expect(screen.getByText('Agent chat')).toBeInTheDocument();
         expect(screen.queryByText('Agent conversation')).not.toBeInTheDocument();
         expect(screen.queryByText('Agent Conversation')).not.toBeInTheDocument();
+    });
+});
+
+describe('AiHubPanel chat options menu', () => {
+    const openMenu = async () => {
+        const user = userEvent.setup();
+
+        wrap(<AiHubPanel />);
+
+        await user.click(screen.getByRole('button', {name: 'Chat options'}));
+    };
+
+    it('offers the current chat the same actions its sidebar row does', async () => {
+        mockChatsDataRef.current = [buildChat({id: 41, title: 'Some chat'})];
+        aiHubChatsStore.getState().setCurrentChatId(41);
+
+        await openMenu();
+
+        expect(await screen.findByRole('menuitem', {name: 'Rename'})).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', {name: 'Archive'})).toBeInTheDocument();
+        expect(screen.getByRole('menuitem', {name: 'Delete'})).toBeInTheDocument();
+    });
+
+    // Nothing to rename, archive or delete before the first message creates a chat, but the transcript
+    // toggle still applies.
+    it('offers only the tool-call toggle when no chat is current', async () => {
+        await openMenu();
+
+        expect(await screen.findByRole('menuitem', {name: 'Show tool calls'})).toBeInTheDocument();
+        expect(screen.queryByRole('menuitem', {name: 'Rename'})).not.toBeInTheDocument();
+        expect(screen.queryByRole('menuitem', {name: 'Delete'})).not.toBeInTheDocument();
     });
 });
