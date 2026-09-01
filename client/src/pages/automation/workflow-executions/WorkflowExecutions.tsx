@@ -125,8 +125,6 @@ export const WorkflowExecutions = () => {
                     position="main"
                     right={
                         <div className="flex items-center gap-1">
-                            <EnvironmentSelect />
-
                             <Tooltip>
                                 <TooltipTrigger asChild>
                                     <Button
