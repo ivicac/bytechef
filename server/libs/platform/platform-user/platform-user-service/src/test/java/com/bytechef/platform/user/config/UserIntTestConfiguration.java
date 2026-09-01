@@ -26,7 +26,6 @@ import com.bytechef.platform.mail.MailService;
 import com.bytechef.tenant.service.TenantService;
 import com.bytechef.tenant.single.SingleTenantService;
 import com.bytechef.test.config.testcontainers.PostgreSQLContainerConfiguration;
-import org.mockito.Mockito;
 import org.springframework.boot.autoconfigure.EnableAutoConfiguration;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.cache.annotation.EnableCaching;
@@ -62,11 +61,6 @@ public class UserIntTestConfiguration extends AbstractJdbcConfiguration {
     @Bean
     MailService mailService() {
         return mock(MailService.class);
-    }
-
-    @Bean
-    MailService mailService() {
-        return Mockito.mock(MailService.class);
     }
 
     @Bean
