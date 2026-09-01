@@ -515,6 +515,18 @@ const platformSettingsRoutes = {
                         <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
                             <EEVersion>
                                 <LazyLoadWrapper>
+                                    <Components tab="rules" />
+                                </LazyLoadWrapper>
+                            </EEVersion>
+                        </PrivateRoute>
+                    ),
+                    path: 'rules',
+                },
+                {
+                    element: (
+                        <PrivateRoute hasAnyAuthorities={[AUTHORITIES.ADMIN, AUTHORITIES.USER]}>
+                            <EEVersion>
+                                <LazyLoadWrapper>
                                     <ApiConnectorManualPage />
                                 </LazyLoadWrapper>
                             </EEVersion>

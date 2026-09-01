@@ -5,6 +5,7 @@ import ApiConnectorEndpointDetailPanel from '@/ee/pages/settings/platform/api-co
 import ApiConnectorList from '@/ee/pages/settings/platform/api-connectors/components/ApiConnectorList';
 import ComponentPoliciesTab from '@/ee/pages/settings/platform/component-policies/ComponentPoliciesTab';
 import ComponentVisibilityTab from '@/ee/pages/settings/platform/component-policies/components/ComponentVisibilityTab';
+import ComponentRulesTab from '@/ee/pages/settings/platform/component-rules/ComponentRulesTab';
 import NewComponentMenu from '@/ee/pages/settings/platform/components/components/NewComponentMenu';
 import CustomComponentList from '@/ee/pages/settings/platform/custom-components/components/CustomComponentList';
 import Header from '@/shared/layout/Header';
@@ -14,7 +15,7 @@ import {useFeatureFlagsStore} from '@/shared/stores/useFeatureFlagsStore';
 import {Link2Icon} from 'lucide-react';
 import {useNavigate} from 'react-router-dom';
 
-export type ComponentsTabType = 'api-connectors' | 'component-visibility' | 'custom' | 'policies';
+export type ComponentsTabType = 'api-connectors' | 'component-visibility' | 'custom' | 'policies' | 'rules';
 
 interface ComponentsProps {
     tab: ComponentsTabType;
@@ -66,6 +67,8 @@ const Components = ({tab}: ComponentsProps) => {
                     <TabsList className="mx-6 mt-2 mb-2">
                         <TabsTrigger value="component-visibility">Component Visibility</TabsTrigger>
 
+                        <TabsTrigger value="rules">Rules</TabsTrigger>
+
                         <TabsTrigger value="custom">Custom Components</TabsTrigger>
 
                         <TabsTrigger value="api-connectors">API Connectors</TabsTrigger>
@@ -79,6 +82,12 @@ const Components = ({tab}: ComponentsProps) => {
                 <TabsContent value="component-visibility">
                     <div className="w-full px-6 3xl:mx-auto 3xl:w-4/5">
                         <ComponentVisibilityTab />
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="rules">
+                    <div className="w-full px-6 3xl:mx-auto 3xl:w-4/5">
+                        <ComponentRulesTab />
                     </div>
                 </TabsContent>
 
