@@ -84,10 +84,10 @@ public class ProcessTaskRunner implements TaskRunner {
     private static final int DRAIN_BUFFER_SIZE = 8 * 1024;
     private static final String INHERIT_ENVIRONMENT_ENABLED = "inherit-environment-enabled";
 
-    private static final Map<String, String> DEFAULT_INTERPRETERS = Map.of(
-        "javascript", "node",
-        "python", "python3",
-        "shell", "/bin/sh");
+    private static final Map<ExternalLanguage, String> DEFAULT_INTERPRETERS = Map.of(
+        ExternalLanguage.JAVASCRIPT, "node",
+        ExternalLanguage.PYTHON, "python3",
+        ExternalLanguage.SHELL, "/bin/sh");
 
     private final ApplicationProperties applicationProperties;
 
@@ -369,7 +369,7 @@ public class ProcessTaskRunner implements TaskRunner {
 
         String languageId = request.languageId();
 
-        String defaultInterpreter = DEFAULT_INTERPRETERS.get(languageId);
+        String defaultInterpreter = DEFAULT_INTERPRETERS.get(ExternalLanguage.of(languageId));
 
         if (defaultInterpreter == null) {
             throw new IllegalArgumentException(
