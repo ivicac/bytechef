@@ -28,10 +28,13 @@ import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Stream;
 import org.apache.commons.compress.archivers.tar.TarArchiveEntry;
+import org.apache.commons.compress.archivers.tar.TarArchiveInputStream;
 import org.apache.commons.compress.archivers.tar.TarArchiveOutputStream;
 import org.apache.commons.compress.archivers.tar.TarConstants;
 import org.junit.jupiter.api.AfterEach;
@@ -109,6 +112,38 @@ class ContainerArchiveTest {
 
         assertThat(Files.readString(targetPath.resolve("kept.txt"))).isEqualTo("kept");
         assertThat(Files.exists(targetPath.resolve("leak.txt"), LinkOption.NOFOLLOW_LINKS)).isFalse();
+    }
+
+    /**
+     * The working directory is a host temporary directory, so it is created {@code 0700} and the daemon - which
+     * extracts as root - would hand a container running as anybody else an {@code output/} it cannot write. Asserted on
+     * the archive's own headers rather than on the host copy, because the host copy is deliberately left alone: the
+     * modes are set for the container's copy only.
+     */
+    @Test
+    void testToTarArchivesModesAContainerUserOtherThanRootCanWrite() throws IOException {
+        Path sourcePath = Files.createDirectories(tempDirPath.resolve("source"));
+
+        Files.createDirectory(sourcePath.resolve("output"));
+
+        Path scriptPath = sourcePath.resolve("script.py");
+
+        Files.writeString(scriptPath, "print(1)", StandardCharsets.UTF_8);
+
+        assumeTrue(restrictPermissions(sourcePath.resolve("output"), "rwx------"));
+        assumeTrue(restrictPermissions(scriptPath, "rw-------"));
+
+        List<TarArchiveEntry> entries = readEntries(sourcePath);
+
+        TarArchiveEntry directoryEntry = findEntry(entries, "output/");
+
+        assertThat(directoryEntry.isDirectory()).isTrue();
+        assertThat(directoryEntry.getMode() & 0b111_111_111).isEqualTo(0b111_111_111);
+
+        TarArchiveEntry fileEntry = findEntry(entries, "script.py");
+
+        assertThat(fileEntry.isFile()).isTrue();
+        assertThat(fileEntry.getMode() & 0b111_111_111).isEqualTo(0b110_110_110);
     }
 
     @Test
@@ -479,6 +514,39 @@ class ContainerArchiveTest {
     private static boolean createSymbolicLink(Path linkPath, Path targetPath) {
         try {
             Files.createSymbolicLink(linkPath, targetPath);
+
+            return true;
+        } catch (IOException | UnsupportedOperationException exception) {
+            return false;
+        }
+    }
+
+    private static TarArchiveEntry findEntry(List<TarArchiveEntry> entries, String entryName) {
+        return entries.stream()
+            .filter(entry -> entryName.equals(entry.getName()))
+            .findFirst()
+            .orElseThrow();
+    }
+
+    private static List<TarArchiveEntry> readEntries(Path directoryPath) throws IOException {
+        List<TarArchiveEntry> entries = new ArrayList<>();
+
+        try (InputStream inputStream = ContainerArchive.toTar(directoryPath);
+            TarArchiveInputStream tarArchiveInputStream = new TarArchiveInputStream(inputStream)) {
+
+            TarArchiveEntry tarArchiveEntry;
+
+            while ((tarArchiveEntry = tarArchiveInputStream.getNextEntry()) != null) {
+                entries.add(tarArchiveEntry);
+            }
+        }
+
+        return entries;
+    }
+
+    private static boolean restrictPermissions(Path path, String permissions) {
+        try {
+            Files.setPosixFilePermissions(path, PosixFilePermissions.fromString(permissions));
 
             return true;
         } catch (IOException | UnsupportedOperationException exception) {
