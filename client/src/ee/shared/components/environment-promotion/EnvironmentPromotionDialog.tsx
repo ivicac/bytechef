@@ -119,7 +119,7 @@ const EnvironmentPromotionDialog = ({
             open={open}
         >
             <DialogContent className="sm:max-w-xl">
-                <DialogHeader>
+                <DialogHeader className="flex flex-row items-center justify-between space-y-0">
                     <DialogTitle>{`Promote "${sourceName}"`}</DialogTitle>
 
                     <DialogCloseButton />
