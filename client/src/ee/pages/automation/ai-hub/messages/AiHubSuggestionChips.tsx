@@ -36,7 +36,15 @@ const AiHubSuggestionChips: FC<AiHubSuggestionChipsProps> = ({className}) => {
     return (
         <div className={twMerge('flex w-full flex-wrap items-center justify-center gap-2 px-4', className)}>
             {SUGGESTED_QUESTIONS.map((question) => (
-                <div className="animate-in duration-200 fill-mode-both fade-in slide-in-from-bottom-2" key={question}>
+                // `max-w-full min-w-0` belongs HERE, not only on the Button: this wrapper is the flex item,
+                // and a flex item defaults to `min-width: auto`, which refuses to shrink below its content.
+                // The Button's own `max-w-full` then resolves against a wrapper that is already wider than
+                // the row, so the pill overflowed the column instead of truncating — visible as chips
+                // running out past both edges of the chat area once the resource panel narrowed it.
+                <div
+                    className="max-w-full min-w-0 animate-in duration-200 fill-mode-both fade-in slide-in-from-bottom-2"
+                    key={question}
+                >
                     <Button
                         // max-w-full + ellipsis rather than wrapping: on a viewport narrower than the copy budget
                         // above, a chip degrades to a truncated single row (full text still on the title tooltip)
@@ -51,7 +59,13 @@ const AiHubSuggestionChips: FC<AiHubSuggestionChipsProps> = ({className}) => {
                         title={question}
                         variant="ghost"
                     >
-                        {question}
+                        {/* The text needs its own block to truncate in. Button is an inline-flex container
+                            with justify-center, and `text-overflow: ellipsis` does not apply to a flex
+                            container — the bare text node becomes an anonymous flex item, gets centred, and
+                            overflows equally at BOTH ends with no ellipsis. Which looked exactly like the
+                            box overflowing, and hid the fact that clamping the box had already worked. */}
+
+                        <span className="min-w-0 truncate">{question}</span>
                     </Button>
                 </div>
             ))}
