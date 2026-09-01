@@ -1,13 +1,22 @@
 import Button from '@/components/Button/Button';
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuSeparator,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import AiHubChatsSidebarToggle from '@/ee/pages/automation/ai-hub/AiHubChatsSidebarToggle';
 import AiHubArtifactsCard from '@/ee/pages/automation/ai-hub/artifacts/AiHubArtifactsCard';
 import useAiHubArtifactsCard from '@/ee/pages/automation/ai-hub/artifacts/useAiHubArtifactsCard';
+import AiHubChatActionDialogs from '@/ee/pages/automation/ai-hub/chats/AiHubChatActionDialogs';
 import {
     getChatDisplayTitle,
     isChannelAgentChat,
     isWebhookBridgedChat,
 } from '@/ee/pages/automation/ai-hub/chats/api/chats.api';
+import {useAiHubChatActions} from '@/ee/pages/automation/ai-hub/chats/hooks/useAiHubChatActions';
 import {useAiHubChatsQuery} from '@/ee/pages/automation/ai-hub/chats/hooks/useChats';
 import {useAiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
 import AiHubChatComposer from '@/ee/pages/automation/ai-hub/composer/AiHubChatComposer';
@@ -20,7 +29,7 @@ import ModelPicker from '@/shared/components/ai/model-picker/ModelPicker';
 import {readLastUsedModel, writeLastUsedModel} from '@/shared/components/ai/model-picker/lastUsedModel';
 import {useAiDefaultModelQuery} from '@/shared/middleware/graphql';
 import {useEnvironmentStore} from '@/shared/stores/useEnvironmentStore';
-import {PanelRightOpenIcon, WrenchIcon} from 'lucide-react';
+import {ArchiveIcon, MoreVerticalIcon, PanelRightOpenIcon, PencilIcon, Trash2Icon, WrenchIcon} from 'lucide-react';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
 
@@ -61,6 +70,8 @@ const AiHubPanel = () => {
     const {data: chats} = useAiHubChatsQuery(currentWorkspaceId, currentEnvironmentId, 'ACTIVE');
 
     const currentChat = chats?.find((chat) => chat.id === currentChatId);
+
+    const chatActions = useAiHubChatActions();
     // "New Chat" placeholder until the auto-title generator (kicked off by runPostTurnTelemetry
     // around message-count >= 6) writes a real title back. Using this label everywhere the title falls
     // back lets the user see "this is a fresh chat" instead of the more terminal-sounding "Untitled". A
@@ -102,6 +113,8 @@ const AiHubPanel = () => {
 
             <AiHubArtifactsCard />
 
+            <AiHubChatActionDialogs {...chatActions} />
+
             {/*
              * Panel header: sidebar toggle + chat title on the left, action row (tool-call toggle →
              * resource panel toggle) on the right. The page-level top header was removed in favor of
@@ -142,25 +155,6 @@ const AiHubPanel = () => {
                      */}
 
                     <div className="flex items-center gap-1">
-                        {/* Tool-call cards are hidden by default so the transcript reads as a conversation;
-                         * this flips them on for inspection. Persisted (useAiHubSettingsStore). */}
-
-                        <Tooltip>
-                            <TooltipTrigger asChild>
-                                <Button
-                                    aria-label={showToolCalls ? 'Hide tool calls' : 'Show tool calls'}
-                                    aria-pressed={showToolCalls}
-                                    className={showToolCalls ? 'text-content-brand-primary' : undefined}
-                                    icon={<WrenchIcon />}
-                                    onClick={() => setShowToolCalls(!showToolCalls)}
-                                    size="icon"
-                                    variant="ghost"
-                                />
-                            </TooltipTrigger>
-
-                            <TooltipContent>{showToolCalls ? 'Hide tool calls' : 'Show tool calls'}</TooltipContent>
-                        </Tooltip>
-
                         {/* Only the OPEN affordance lives in this header. When the panel is open the matching
                          * CLOSE button lives in the right panel itself (after its + button) — keeping the
                          * close affordance contextual to the panel that's being dismissed. */}
@@ -172,7 +166,7 @@ const AiHubPanel = () => {
                                         aria-label="Open resource panel"
                                         icon={<PanelRightOpenIcon />}
                                         onClick={() => setRightPanelOpen(true)}
-                                        size="icon"
+                                        size="iconSm"
                                         variant="ghost"
                                     />
                                 </TooltipTrigger>
@@ -180,6 +174,63 @@ const AiHubPanel = () => {
                                 <TooltipContent>Show resources</TooltipContent>
                             </Tooltip>
                         )}
+
+                        {/* Overflow menu for per-thread view options. It anchors the row's right edge, so it stays put
+                         * while the panel toggle to its left comes and goes with the panel's state. A checkbox item rather than a plain one: the
+                         * setting is persisted (useAiHubSettingsStore) and the menu has to show its state. */}
+
+                        <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                                <Button
+                                    aria-label="Chat options"
+                                    icon={<MoreVerticalIcon />}
+                                    size="iconSm"
+                                    variant="ghost"
+                                />
+                            </DropdownMenuTrigger>
+
+                            <DropdownMenuContent align="end">
+                                {/* The same actions the chat's sidebar row offers, for the chat on screen —
+                                 * through the shared hook, so the delete path stays one implementation. The
+                                 * panel only ever loads ACTIVE chats, so Unarchive has nothing to act on
+                                 * here and only Archive is offered. */}
+
+                                {currentChat && (
+                                    <>
+                                        <DropdownMenuItem onClick={() => chatActions.requestRename(currentChat)}>
+                                            <PencilIcon /> Rename
+                                        </DropdownMenuItem>
+
+                                        <DropdownMenuItem onClick={() => chatActions.archiveChat(currentChat)}>
+                                            <ArchiveIcon /> Archive
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
+
+                                {/* Tool-call cards are hidden by default so the transcript reads as a
+                                 * conversation; this flips them on for inspection. A plain item rather than
+                                 * a checkbox one: a checkbox reserves pl-8 for its tick, which would sit
+                                 * this row's icon 24px right of its neighbours. The label carries the
+                                 * state instead. */}
+
+                                <DropdownMenuItem onClick={() => setShowToolCalls(!showToolCalls)}>
+                                    <WrenchIcon /> {showToolCalls ? 'Hide tool calls' : 'Show tool calls'}
+                                </DropdownMenuItem>
+
+                                {currentChat && (
+                                    <>
+                                        <DropdownMenuSeparator />
+
+                                        <DropdownMenuItem
+                                            onClick={() => chatActions.requestDelete(currentChat)}
+                                            variant="destructive"
+                                        >
+                                            <Trash2Icon /> Delete
+                                        </DropdownMenuItem>
+                                    </>
+                                )}
+                            </DropdownMenuContent>
+                        </DropdownMenu>
                     </div>
                 </div>
             </div>
