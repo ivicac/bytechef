@@ -392,7 +392,6 @@
         --sidebar-active-foreground: 0 85% 72%;
     }
 
-
     * {
         @apply border-border;
     }
