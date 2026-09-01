@@ -72,6 +72,15 @@ public class AiHubPgVectorConfiguration {
     }
 
     /**
+     * The tool-search vector table, derived from the shared pgvector table name. Exposed so
+     * {@code ToolSearchCatalogFeeder} can issue its restart-safe metadata DELETE against exactly the table this
+     * configuration writes to, rather than re-deriving the prefix and drifting from it.
+     */
+    public static String vectorTableName(PgVectorStoreProperties properties) {
+        return "ai_hub_tool_search_" + properties.getTableName();
+    }
+
+    /**
      * Builds a pgvector store over the {@code ai_hub_tool_search_*} table for the given embedding model. Shared so the
      * <b>loader</b> path ({@code ToolSearchCatalogFeeder}, which indexes with the fixed-key
      * {@code copilotEmbeddingModel}) and the <b>reader</b> path (the search advisors, which query with the
@@ -88,7 +97,7 @@ public class AiHubPgVectorConfiguration {
         return PgVectorStore.builder(pgVectorJdbcTemplate, embeddingModel)
             .schemaName(properties.getSchemaName())
             .idType(PgVectorStore.PgIdType.TEXT)
-            .vectorTableName("ai_hub_tool_search_" + properties.getTableName())
+            .vectorTableName(vectorTableName(properties))
             .vectorTableValidationsEnabled(properties.isSchemaValidation())
             .dimensions(properties.getDimensions())
             .distanceType(properties.getDistanceType())

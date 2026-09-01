@@ -127,7 +127,7 @@ public class ToolSearchAdvisorConfiguration {
 
         return new ToolSearchCatalogFeeder(
             clusterElementDefinitionService, new VectorToolIndex(loaderVectorStore), pgVectorJdbcTemplate,
-            properties.getSchemaName());
+            properties.getSchemaName(), AiHubPgVectorConfiguration.vectorTableName(properties));
     }
 
     /**

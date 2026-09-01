@@ -56,16 +56,18 @@ import org.springframework.jdbc.core.JdbcTemplate;
  * </p>
  *
  * <p>
- * <b>Re-index semantics:</b> each populate call clears its target session's in-memory document-id map first via
- * {@link VectorToolIndex#clearIndex(String)}, then re-indexes the whole entry list in one batched {@code indexTools}
- * call. Two implications:
+ * <b>Re-index semantics:</b> each populate call clears its target session — both the index's in-memory document-id map
+ * via {@link VectorToolIndex#clearIndex(String)} and, durably, every stored row carrying that session id — then
+ * re-indexes the whole entry list in one batched {@code indexTools} call. Two implications:
  * </p>
  * <ul>
- * <li>After a JVM restart the in-memory id counter resets to {@code 0} but stale rows from the previous JVM still exist
- * in pgvector. The session-id metadata filter on subsequent searches keeps stale rows from being matched (they belong
- * to a session id we'd never re-issue), so they're benign. A future cleanup job can prune by metadata-filtered delete
- * on the underlying VectorStore — left as a v3 follow-up because the storage cost is negligible at the catalog sizes we
- * ship today.</li>
+ * <li>The durable half of that clear is load-bearing, not belt-and-braces. {@code clearIndex} deletes only the ids held
+ * in a map that starts empty on every boot, and {@code indexTools} assigns a fresh random UUID per row, so a re-index
+ * after a restart cannot collide with — and so never replaces — the previous run's rows. Session ids are NOT
+ * single-use: {@link #CATALOG_SESSION_ID} and the two global ids are constants re-issued on every boot, and a chat's id
+ * is stable for its lifetime. Survivors therefore keep matching searches, and each re-index used to append another full
+ * copy. Since search returns a fixed top-K, N copies of one tool displace N-1 distinct tools from the results — this
+ * was a retrieval-quality bug, not merely wasted storage.</li>
  * <li>Re-embedding the catalog on each boot costs cents at the {@code text-embedding-3-small} price point. The
  * {@link #populate()} path short-circuits when the current catalog's content hash matches the hash stored in
  * {@link #META_TABLE_NAME} from the previous successful populate — so cold-start cost drops to one tiny SQL query when
@@ -127,17 +129,19 @@ public class ToolSearchCatalogFeeder {
     private final VectorToolIndex vectorToolIndex;
     private final JdbcTemplate pgVectorJdbcTemplate;
     private final String qualifiedMetaTableName;
+    private final String qualifiedVectorTableName;
 
     private volatile boolean metaTableEnsured;
 
     @SuppressFBWarnings("EI_EXPOSE_REP2")
     public ToolSearchCatalogFeeder(
         ClusterElementDefinitionService clusterElementDefinitionService, VectorToolIndex vectorToolIndex,
-        JdbcTemplate pgVectorJdbcTemplate, String schemaName) {
+        JdbcTemplate pgVectorJdbcTemplate, String schemaName, String vectorTableName) {
 
         this.clusterElementDefinitionService = clusterElementDefinitionService;
         this.vectorToolIndex = vectorToolIndex;
         this.pgVectorJdbcTemplate = pgVectorJdbcTemplate;
+        this.qualifiedVectorTableName = schemaName + "." + vectorTableName;
 
         // Schema-qualify the bookkeeping table to the SAME fixed schema the tool-search PgVectorStore writes its vector
         // rows to (default "public"). PgVectorStore always emits schema.table SQL, so its rows are tenant-independent;
@@ -246,7 +250,7 @@ public class ToolSearchCatalogFeeder {
             // No subset to index — clear so a previously-populated session doesn't leak into search results after
             // the user has detached every tool. Equivalent to calling clearChatSession explicitly; provided
             // here so call sites don't have to special-case the empty-collection branch.
-            vectorToolIndex.clearIndex(sessionId);
+            clearSession(sessionId);
 
             if (log.isDebugEnabled()) {
                 log.debug(
@@ -341,7 +345,7 @@ public class ToolSearchCatalogFeeder {
     public void clearChatSession(long chatId) {
         String sessionId = chatSessionId(chatId);
 
-        vectorToolIndex.clearIndex(sessionId);
+        clearSession(sessionId);
 
         if (log.isDebugEnabled()) {
             log.debug("Cleared tool search session {} for chat {}", sessionId, chatId);
@@ -386,7 +390,7 @@ public class ToolSearchCatalogFeeder {
      * catalog, per-chat subset, and global tool paths.
      */
     private int indexEntries(String sessionId, List<CatalogEntry> entries) {
-        vectorToolIndex.clearIndex(sessionId);
+        clearSession(sessionId);
 
         if (entries.isEmpty()) {
             return 0;
@@ -402,6 +406,40 @@ public class ToolSearchCatalogFeeder {
         vectorToolIndex.indexTools(sessionId, references);
 
         return references.size();
+    }
+
+    /**
+     * Clears every row previously indexed under {@code sessionId}, including rows written by an earlier JVM run.
+     *
+     * <p>
+     * {@link VectorToolIndex#clearIndex(String)} alone is NOT restart-safe: it deletes only the ids held in its own
+     * in-memory {@code sessionToolIds} map, which starts empty on every boot. Since {@code indexTools} assigns a fresh
+     * {@code UUID.randomUUID()} to each row, a re-index after a restart cannot collide with — and so never replaces —
+     * the previous run's rows. Every re-index therefore appended a complete duplicate set, and because the hash check
+     * skips unchanged sessions, the copy count per session tracked how often that session's catalog had changed
+     * (observed in a dev database: 1 copy for an unchanged session, 4 and ~9 for two that had churned).
+     * </p>
+     *
+     * <p>
+     * Duplicates are not merely wasted rows: {@code searchTool} returns top-k, so N identical rows for one tool
+     * displace N-1 distinct tools that would otherwise have surfaced, degrading retrieval with every re-index.
+     * </p>
+     *
+     * <p>
+     * The metadata delete is the durable clear; the {@code clearIndex} call is kept so the index's in-memory
+     * bookkeeping for this session is dropped too, rather than retaining ids for rows that no longer exist.
+     * </p>
+     */
+    @SuppressFBWarnings("SQL_INJECTION_SPRING_JDBC")
+    private void clearSession(String sessionId) {
+        vectorToolIndex.clearIndex(sessionId);
+
+        int deleted = pgVectorJdbcTemplate.update(
+            "DELETE FROM " + qualifiedVectorTableName + " WHERE metadata->>'sessionId' = ?", sessionId);
+
+        if (deleted > 0 && log.isDebugEnabled()) {
+            log.debug("Cleared {} stale tool search rows for session {}", deleted, sessionId);
+        }
     }
 
     /**
