@@ -108,19 +108,104 @@ describe('AppSidebar', () => {
         });
     });
 
-    it('renders consecutive items sharing a group under one labeled section', () => {
-        render(
-            <MemoryRouter initialEntries={['/automation/projects']}>
-                <SidebarProvider defaultOpen>
-                    <AppSidebar navigation={groupedNavigation} />
-                </SidebarProvider>
-            </MemoryRouter>
-        );
+    describe('expanded groups', () => {
+        const renderGrouped = (initialEntry = '/automation/projects') =>
+            render(
+                <MemoryRouter initialEntries={[initialEntry]}>
+                    <SidebarProvider defaultOpen>
+                        <AppSidebar navigation={groupedNavigation} />
+                    </SidebarProvider>
+                </MemoryRouter>
+            );
 
-        expect(screen.getAllByText('Deployments')).toHaveLength(1);
-        expect(screen.getByRole('link', {name: 'Project Deployments'})).toBeInTheDocument();
-        expect(screen.getByRole('link', {name: 'API Collections'})).toBeInTheDocument();
-        expect(screen.getByRole('link', {name: 'Connections'})).toBeInTheDocument();
+        it('folds consecutive items sharing a group behind one collapsible trigger', () => {
+            renderGrouped();
+
+            expect(screen.getAllByText('Deployments')).toHaveLength(1);
+            expect(screen.getByRole('button', {name: 'Deployments'})).toBeInTheDocument();
+        });
+
+        // Radix unmounts closed content, so a closed group leaves no invisible tab stops behind.
+        it("keeps a closed group's items out of the document", () => {
+            renderGrouped();
+
+            expect(screen.queryByRole('link', {name: 'Project Deployments'})).not.toBeInTheDocument();
+            expect(screen.queryByRole('link', {name: 'API Collections'})).not.toBeInTheDocument();
+        });
+
+        it('opens the group holding the current route', () => {
+            renderGrouped('/automation/deployments');
+
+            expect(screen.getByRole('link', {name: 'Project Deployments'})).toBeInTheDocument();
+            expect(screen.getByRole('link', {name: 'API Collections'})).toBeInTheDocument();
+        });
+
+        it('leaves every group closed on a route belonging to none of them', () => {
+            renderGrouped();
+
+            expect(screen.queryByRole('link', {name: 'Project Deployments'})).not.toBeInTheDocument();
+            expect(screen.queryByRole('link', {name: 'Data Tables'})).not.toBeInTheDocument();
+        });
+
+        it("reveals a group's items when its trigger is clicked", async () => {
+            const user = userEvent.setup();
+
+            renderGrouped();
+
+            await user.click(screen.getByRole('button', {name: 'Deployments'}));
+
+            expect(await screen.findByRole('link', {name: 'Project Deployments'})).toBeInTheDocument();
+        });
+
+        // One open group at a time keeps the nav roughly a screen tall however many groups are added.
+        it('closes the open group when another is opened', async () => {
+            const user = userEvent.setup();
+
+            renderGrouped();
+
+            await user.click(screen.getByRole('button', {name: 'Deployments'}));
+
+            expect(await screen.findByRole('link', {name: 'Project Deployments'})).toBeInTheDocument();
+
+            await user.click(screen.getByRole('button', {name: 'Data'}));
+
+            expect(await screen.findByRole('link', {name: 'Data Tables'})).toBeInTheDocument();
+            expect(screen.queryByRole('link', {name: 'Project Deployments'})).not.toBeInTheDocument();
+        });
+
+        // Reopening on the next render would make the group uncloseable, which is what happens when
+        // "user closed this" and "user has no preference" share one value.
+        it('lets the user close the group holding the current route', async () => {
+            const user = userEvent.setup();
+
+            renderGrouped('/automation/deployments');
+
+            await user.click(screen.getByRole('button', {name: 'Deployments'}));
+
+            expect(screen.queryByRole('link', {name: 'Project Deployments'})).not.toBeInTheDocument();
+        });
+
+        // A one-member group still reads as a group here: the label is the only thing saying where
+        // the item belongs, and dropping it would leave the row indistinguishable from an ungrouped one.
+        it('renders a single-item group as a collapsible like any other', () => {
+            renderGrouped();
+
+            expect(screen.getByRole('button', {name: 'Monitor'})).toBeInTheDocument();
+            expect(screen.queryByRole('link', {name: 'Executions'})).not.toBeInTheDocument();
+        });
+
+        it('opens a single-item group on its own route', () => {
+            renderGrouped('/automation/executions');
+
+            expect(screen.getByRole('link', {name: 'Executions'})).toBeInTheDocument();
+        });
+
+        it('keeps ungrouped items as direct links', () => {
+            renderGrouped();
+
+            expect(screen.getByRole('link', {name: 'Projects'})).toBeInTheDocument();
+            expect(screen.getByRole('link', {name: 'Connections'})).toBeInTheDocument();
+        });
     });
 
     it('renders ungrouped items without a group label', () => {
@@ -181,16 +266,10 @@ describe('AppSidebar', () => {
             expect(screen.queryByRole('link', {name: 'Project Deployments'})).not.toBeInTheDocument();
         });
 
-        // Collapsing pulls each group label 32px up and fades it out, leaving an invisible band over the
-        // bottom of the icon row above it. Without pointer-events-none it eats that icon's hover, so the
-        // flyout only opens from the icon's top edge. jsdom does no layout, so the overlap itself cannot be
-        // asserted here — guard the class that makes the hidden label inert.
-        it('keeps the hidden group label from swallowing pointer events', () => {
+        it('renders no group label element for the flyout to sit under', () => {
             const {container} = renderCollapsed();
 
-            const label = container.querySelector('[data-sidebar="group-label"]');
-
-            expect(label).toHaveClass('group-data-[collapsible=icon]:pointer-events-none');
+            expect(container.querySelector('[data-sidebar="group-label"]')).not.toBeInTheDocument();
         });
     });
 });
