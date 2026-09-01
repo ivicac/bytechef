@@ -3675,6 +3675,34 @@ export type UpdateComponentPolicyMutationVariables = Exact<{
 
 export type UpdateComponentPolicyMutation = { updateComponentPolicy: { name: string, title: string | null, icon: string | null, version: number, enabled: boolean } };
 
+export type ComponentRulesQueryVariables = Exact<{
+  componentName?: string | null | undefined;
+}>;
+
+
+export type ComponentRulesQuery = { componentRules: Array<{ id: string, componentName: string, componentTitle: string | null, componentIcon: string | null, actionName: string | null, phase: Types.ComponentRulePhase, ruleAction: Types.ComponentRuleActionType, condition: string, description: string | null, enabled: boolean }> };
+
+export type DeleteComponentRuleMutationVariables = Exact<{
+  id: string | number;
+}>;
+
+
+export type DeleteComponentRuleMutation = { deleteComponentRule: boolean };
+
+export type SaveComponentRuleMutationVariables = Exact<{
+  id?: string | number | null | undefined;
+  componentName: string;
+  actionName?: string | null | undefined;
+  phase: Types.ComponentRulePhase;
+  ruleAction: Types.ComponentRuleActionType;
+  condition: string;
+  description?: string | null | undefined;
+  enabled: boolean;
+}>;
+
+
+export type SaveComponentRuleMutation = { saveComponentRule: { id: string, componentName: string, componentTitle: string | null, componentIcon: string | null, actionName: string | null, phase: Types.ComponentRulePhase, ruleAction: Types.ComponentRuleActionType, condition: string, description: string | null, enabled: boolean } };
+
 export type AdminApiKeysQueryVariables = Exact<{
   environmentId: string | number;
 }>;
@@ -17492,6 +17520,97 @@ export const useUpdateComponentPolicyMutation = <
       {
     mutationKey: ['UpdateComponentPolicy'],
     mutationFn: (variables?: UpdateComponentPolicyMutationVariables) => fetcher<UpdateComponentPolicyMutation, UpdateComponentPolicyMutationVariables>(UpdateComponentPolicyDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const ComponentRulesDocument = new TypedDocumentString(`
+    query ComponentRules($componentName: String) {
+  componentRules(componentName: $componentName) {
+    id
+    componentName
+    componentTitle
+    componentIcon
+    actionName
+    phase
+    ruleAction
+    condition
+    description
+    enabled
+  }
+}
+    `);
+
+export const useComponentRulesQuery = <
+      TData = ComponentRulesQuery,
+      TError = unknown
+    >(
+      variables?: ComponentRulesQueryVariables,
+      options?: Omit<UseQueryOptions<ComponentRulesQuery, TError, TData>, 'queryKey'> & { queryKey?: UseQueryOptions<ComponentRulesQuery, TError, TData>['queryKey'] }
+    ) => {
+    
+    return useQuery<ComponentRulesQuery, TError, TData>(
+      {
+    queryKey: variables === undefined ? ['ComponentRules'] : ['ComponentRules', variables],
+    queryFn: fetcher<ComponentRulesQuery, ComponentRulesQueryVariables>(ComponentRulesDocument, variables),
+    ...options
+  }
+    )};
+
+export const DeleteComponentRuleDocument = new TypedDocumentString(`
+    mutation DeleteComponentRule($id: ID!) {
+  deleteComponentRule(id: $id)
+}
+    `);
+
+export const useDeleteComponentRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<DeleteComponentRuleMutation, TError, DeleteComponentRuleMutationVariables, TContext>) => {
+    
+    return useMutation<DeleteComponentRuleMutation, TError, DeleteComponentRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['DeleteComponentRule'],
+    mutationFn: (variables?: DeleteComponentRuleMutationVariables) => fetcher<DeleteComponentRuleMutation, DeleteComponentRuleMutationVariables>(DeleteComponentRuleDocument, variables)(),
+    ...options
+  }
+    )};
+
+export const SaveComponentRuleDocument = new TypedDocumentString(`
+    mutation SaveComponentRule($id: ID, $componentName: String!, $actionName: String, $phase: ComponentRulePhase!, $ruleAction: ComponentRuleActionType!, $condition: String!, $description: String, $enabled: Boolean!) {
+  saveComponentRule(
+    id: $id
+    componentName: $componentName
+    actionName: $actionName
+    phase: $phase
+    ruleAction: $ruleAction
+    condition: $condition
+    description: $description
+    enabled: $enabled
+  ) {
+    id
+    componentName
+    componentTitle
+    componentIcon
+    actionName
+    phase
+    ruleAction
+    condition
+    description
+    enabled
+  }
+}
+    `);
+
+export const useSaveComponentRuleMutation = <
+      TError = unknown,
+      TContext = unknown
+    >(options?: UseMutationOptions<SaveComponentRuleMutation, TError, SaveComponentRuleMutationVariables, TContext>) => {
+    
+    return useMutation<SaveComponentRuleMutation, TError, SaveComponentRuleMutationVariables, TContext>(
+      {
+    mutationKey: ['SaveComponentRule'],
+    mutationFn: (variables?: SaveComponentRuleMutationVariables) => fetcher<SaveComponentRuleMutation, SaveComponentRuleMutationVariables>(SaveComponentRuleDocument, variables)(),
     ...options
   }
     )};
