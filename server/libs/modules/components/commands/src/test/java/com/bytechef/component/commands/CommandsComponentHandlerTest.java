@@ -16,6 +16,7 @@
 
 package com.bytechef.component.commands;
 
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.GRAALVM;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.PROCESS;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TASK_RUNNER;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TYPE;
@@ -28,6 +29,7 @@ import com.bytechef.component.definition.Property;
 import com.bytechef.component.definition.Property.ObjectProperty;
 import com.bytechef.component.definition.Property.StringProperty;
 import com.bytechef.config.ApplicationProperties;
+import com.bytechef.platform.component.runner.GraalVmTaskRunner;
 import com.bytechef.platform.component.runner.TaskRunnerRegistry;
 import com.bytechef.platform.component.runner.TaskRunnerRegistryImpl;
 import com.bytechef.platform.component.runner.external.ProcessTaskRunner;
@@ -39,9 +41,13 @@ import org.junit.jupiter.api.Test;
 /**
  * The definition is configuration dependent: the {@code taskRunner} property is assembled from whichever runners the
  * registry reports as enabled, filtered to those declaring {@code COMMANDS}. The registry is therefore built here
- * explicitly, with only the process runner enabled - an incidentally empty registry would let the snapshot record no
- * runners at all without anything failing, and GraalVM would never appear here regardless, since it declares no
- * {@code COMMANDS} capability.
+ * explicitly - an incidentally empty registry would let the snapshot record no runners at all without anything failing.
+ *
+ * <p>
+ * Both built-in runners are registered AND enabled, GraalVM included, even though GraalVM must not appear in the
+ * result. That is the point: with only the process runner in the registry, relaxing the required capability set to
+ * {@code Set.of()} would still leave {@code process} as the only option, so the filter would be proved by exclusion
+ * rather than by derivation. With GraalVM enabled alongside it, only the capability filter keeps it out.
  *
  * @author Ivica Cardic
  */
@@ -55,8 +61,13 @@ class CommandsComponentHandlerTest {
         JsonFileAssert.assertEquals("definition/commands_v1.json", componentDefinition);
     }
 
+    /**
+     * Every action's runner select must offer exactly the process runner - GraalVM is enabled in this registry, so it
+     * is absent only because it declares no {@code COMMANDS} capability. Relaxing any action's required capability set
+     * fails this test.
+     */
     @Test
-    void testEveryActionOffersTheProcessTaskRunner() {
+    void testEveryActionOffersTheProcessTaskRunnerOnly() {
         List<ActionDefinition> actionDefinitions = componentDefinition.getActions();
 
         assertThat(actionDefinitions).hasSize(3);
@@ -92,17 +103,22 @@ class CommandsComponentHandlerTest {
     }
 
     private static TaskRunnerRegistry createTaskRunnerRegistry() {
-        ApplicationProperties.Script.Runner runner = new ApplicationProperties.Script.Runner();
-
-        runner.setEnabled(true);
-
         ApplicationProperties applicationProperties = new ApplicationProperties();
 
         ApplicationProperties.Script script = applicationProperties.getScript();
 
-        script.setRunners(Map.of(PROCESS, runner));
+        script.setRunners(Map.of(GRAALVM, enabledRunner(), PROCESS, enabledRunner()));
 
         return new TaskRunnerRegistryImpl(
-            List.of(new ProcessTaskRunner(applicationProperties)), applicationProperties);
+            List.of(new GraalVmTaskRunner(null, applicationProperties), new ProcessTaskRunner(applicationProperties)),
+            applicationProperties);
+    }
+
+    private static ApplicationProperties.Script.Runner enabledRunner() {
+        ApplicationProperties.Script.Runner runner = new ApplicationProperties.Script.Runner();
+
+        runner.setEnabled(true);
+
+        return runner;
     }
 }
