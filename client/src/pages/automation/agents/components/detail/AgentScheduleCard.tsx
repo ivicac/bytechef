@@ -160,7 +160,7 @@ const AgentScheduleCard = ({agentId, channels}: AgentScheduleCardProps) => {
                                     </span>
                                 </div>
 
-                                <div className="flex flex-none items-center gap-2">
+                                <div className="flex flex-none items-center gap-1">
                                     <Button
                                         aria-label={`Edit ${schedule.name || 'schedule'}`}
                                         icon={<SettingsIcon />}
