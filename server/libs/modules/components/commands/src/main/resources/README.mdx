@@ -1,5 +1,3 @@
-# Commands component
-
 The Commands component runs a list of shell, Python or Node commands in an external task runner - a runner that
 executes outside this JVM, in its own process. It is the counterpart to the **Script** component's `graalvm` runner:
 where Script executes inline `perform(input, context)` source with access to `context.component.*`, Commands executes
@@ -8,18 +6,10 @@ file handling in exchange.
 
 ## Available actions
 
-### Shell
-Runs the given commands under `/bin/sh` by default.
-
-### Python
-Runs the given commands under `python3` by default.
-
-### Node
-Runs the given commands under `node` by default.
-
-Each action's `commands` are lines fed to that action's own interpreter - a `Shell` action's commands are shell
-lines, a `Python` action's commands are Python statements, a `Node` action's commands are JavaScript statements. They
-are never mixed: a `Python` action does not accept shell syntax, and vice versa.
+The three actions - Shell, Python and Node - differ only in the interpreter they hand the commands to; their
+properties are identical. Each action's `commands` are lines fed to that action's own interpreter - a `Shell`
+action's commands are shell lines, a `Python` action's commands are Python statements, a `Node` action's commands are
+JavaScript statements. They are never mixed: a `Python` action does not accept shell syntax, and vice versa.
 
 **Properties (for all three actions):**
 - `commands` (array of strings, required): the lines handed to the interpreter, in order.
@@ -46,7 +36,8 @@ built-in runner:
 The runners available in a given deployment depend on what the operator has enabled with
 `bytechef.script.runners.<type>.enabled`, so this list may be shorter, or include a runner contributed by another
 module, in your installation. If no runner declaring the Commands capability is enabled at all, running any of these
-actions fails with a message naming the configuration key an operator must set.
+actions fails with a message naming the configuration key to set - `bytechef.script.runners.process.enabled=true` for
+the built-in runner above.
 
 Each action's default interpreter, when the runner's own `interpreter` property is left blank:
 
