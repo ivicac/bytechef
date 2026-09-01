@@ -20,7 +20,7 @@ vi.mock('@/pages/automation/stores/useWorkspaceStore', () => ({
 }));
 
 vi.mock('@/shared/queries/automation/projectCategories.queries', () => ({
-    ProjectCategoryKeys: {projectCategories: ['projectCategories']},
+    ProjectCategoryKeys: {projectCategories: (id: number) => ['projectCategories', id]},
     useGetProjectCategoriesQuery: () => ({data: [], error: null, isLoading: false}),
 }));
 
