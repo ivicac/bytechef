@@ -44,7 +44,7 @@ const AgentToolRow = ({element, isBusy, onConfigure, onDelete, onRequiresApprova
                 componentName={componentName}
             />
 
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-1">
                 <Switch
                     checked={!!element.parameters?.requiresApproval}
                     disabled={isBusy}

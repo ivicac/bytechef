@@ -84,7 +84,7 @@ const AgentChannelRow = ({channel, definition, onDelete, onEdit, pinned}: AgentC
                 )}
             </div>
 
-            <div className="flex flex-none items-center gap-2">
+            <div className="flex flex-none items-center gap-1">
                 {configurable && onEdit && (
                     <Button
                         aria-label={`Edit ${label} channel`}
