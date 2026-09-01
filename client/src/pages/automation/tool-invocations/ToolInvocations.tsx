@@ -8,7 +8,6 @@ import {Label} from '@/components/ui/label';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import ToolInvocationsTable from '@/pages/automation/tool-invocations/components/ToolInvocationsTable';
 import {useToolInvocations} from '@/pages/automation/tool-invocations/hooks/useToolInvocations';
-import ExecutionsTabs from '@/shared/components/ExecutionsTabs';
 import Footer from '@/shared/layout/Footer';
 import Header from '@/shared/layout/Header';
 import LayoutContainer from '@/shared/layout/LayoutContainer';
@@ -40,11 +39,13 @@ const surfaceOptions = [
 ];
 
 interface ToolInvocationsProps {
-    basePath?: string;
+    environmentId?: number;
+    /* Shown instead of the filters and the table when nothing has been recorded yet and no filter is set. */
+    firstRunEmptyState: ReactNode;
     mcpServerOptions?: Array<ComboBoxItemType>;
 }
 
-export const ToolInvocations = ({basePath = '/automation/executions', mcpServerOptions}: ToolInvocationsProps) => {
+export const ToolInvocations = ({mcpServerOptions}: ToolInvocationsProps) => {
     const {
         filterEndDate,
         filterMcpServerId,
@@ -108,7 +109,7 @@ export const ToolInvocations = ({basePath = '/automation/executions', mcpServerO
                             </Tooltip>
                         </div>
                     }
-                    title={<ExecutionsTabs basePath={basePath} />}
+                    title="Tool Invocations"
                 />
             }
             leftSidebarBody={

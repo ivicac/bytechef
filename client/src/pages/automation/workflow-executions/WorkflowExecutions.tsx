@@ -12,7 +12,6 @@ import {
     getProjectDeploymentLabel,
     getWorkflowExecutionsFilters,
 } from '@/pages/automation/workflow-executions/utils/workflowExecutionsFilters';
-import ExecutionsTabs from '@/shared/components/ExecutionsTabs';
 import CopilotButton from '@/shared/components/copilot/CopilotButton';
 import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
 import {Source} from '@/shared/components/copilot/stores/useCopilotStore';
@@ -131,6 +130,18 @@ export const WorkflowExecutions = () => {
         ]
     );
 
+    const registerPostTurn = useCopilotPostTurnRegistry((state) => state.register);
+
+    const queryClient = useQueryClient();
+
+    // Refresh the executions list after a BUILD-mode copilot turn fixes and re-runs a workflow. The key factory is
+    // imported rather than hardcoded because this list uses a typed key, not a raw string.
+    useEffect(() => {
+        return registerPostTurn(Source.WORKFLOW_EXECUTION, () => {
+            queryClient.invalidateQueries({queryKey: WorkflowExecutionKeys.workflowExecutions});
+        });
+    }, [queryClient, registerPostTurn]);
+
     // An empty page of a non-empty result, e.g. a bookmarked page number after older executions were purged.
     const isPastLastPage = !!workflowExecutionPage?.totalElements;
 
@@ -152,17 +163,6 @@ export const WorkflowExecutions = () => {
             <EmptyFilterResult entityName="executions" entityTitle="Executions" onClear={handleClearFilters} />
         );
     }
-    const registerPostTurn = useCopilotPostTurnRegistry((state) => state.register);
-
-    const queryClient = useQueryClient();
-
-    // Refresh the executions list after a BUILD-mode copilot turn fixes and re-runs a workflow. The key factory is
-    // imported rather than hardcoded because this list uses a typed key, not a raw string.
-    useEffect(() => {
-        return registerPostTurn(Source.WORKFLOW_EXECUTION, () => {
-            queryClient.invalidateQueries({queryKey: WorkflowExecutionKeys.workflowExecutions});
-        });
-    }, [queryClient, registerPostTurn]);
 
     return (
         <LayoutContainer
@@ -209,13 +209,11 @@ export const WorkflowExecutions = () => {
                         </div>
                     }
                     title={
-                        <div className="flex flex-wrap items-center gap-4">
-                            <ExecutionsTabs basePath="/automation/executions" />
-
-                            {workflowExecutionPage?.content && workflowExecutionPage.content.length > 0 && (
-                                <FilterTitle filters={activeFilters} />
-                            )}
-                        </div>
+                        workflowExecutionPage?.content && workflowExecutionPage.content.length > 0 ? (
+                            <FilterTitle filters={activeFilters} />
+                        ) : (
+                            isFirstRun && 'Workflow Executions'
+                        )
                     }
                 />
             }
