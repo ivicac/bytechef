@@ -16,6 +16,7 @@ import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.AuthorityService;
 import com.bytechef.platform.user.service.UserService;
 import com.bytechef.security.web.oauth2.CustomOidcUser;
+import com.bytechef.security.web.oauth2.SocialUserResolver;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.util.List;
 import java.util.Optional;
@@ -60,6 +61,10 @@ public class CustomOidcUserService extends OidcUserService {
     public OidcUser loadUser(OidcUserRequest userRequest) throws OAuth2AuthenticationException {
         OidcUser oidcUser = super.loadUser(userRequest);
 
+        if (oidcUser == null) {
+            throw new OAuth2AuthenticationException("No user returned by OIDC provider");
+        }
+
         String email = oidcUser.getEmail();
 
         if (email == null) {
@@ -85,8 +90,8 @@ public class CustomOidcUserService extends OidcUserService {
             defaultAuthority = identityProvider.getDefaultAuthority();
         }
 
-        User user = userService.findOrCreateSocialUser(
-            email, oidcUser.getGivenName(), oidcUser.getFamilyName(), oidcUser.getPicture(), authProvider,
+        User user = SocialUserResolver.resolveUser(
+            userService, email, oidcUser.getGivenName(), oidcUser.getFamilyName(), oidcUser.getPicture(), authProvider,
             oidcUser.getSubject(), autoProvision, defaultAuthority);
 
         List<SimpleGrantedAuthority> grantedAuthorities = user.getAuthorityIds()

@@ -16,7 +16,6 @@
 
 package com.bytechef.security.web.oauth2;
 
-import com.bytechef.platform.security.constant.AuthorityConstants;
 import com.bytechef.platform.user.domain.Authority;
 import com.bytechef.platform.user.domain.User;
 import com.bytechef.platform.user.service.AuthorityService;
@@ -33,9 +32,10 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Service;
 
 /**
- * OIDC user service for social login (Google, GitHub, ...): maps an OIDC provider user to an internal ByteChef user
- * with default provisioning ({@code autoProvision=true}, {@code ROLE_ADMIN}). External-IdP (SSO) provisioning that
- * reads {@code IdentityProvider} records is an enterprise capability and lives in the EE {@code CustomOidcUserService}.
+ * OIDC user service for social login (Google, GitHub, ...): maps an OIDC provider user onto an existing ByteChef user.
+ * Auto-provisioning is off, so this is a sign-in path for invited users, not a sign-up path. External-IdP (SSO)
+ * provisioning that reads {@code IdentityProvider} records — including its per-provider auto-provisioning and default
+ * authority — is an enterprise capability and lives in the EE {@code CustomOidcUserService}.
  *
  * @author Ivica Cardic
  */
@@ -56,6 +56,10 @@ public class SocialOidcUserService extends OidcUserService {
     public OidcUser loadUser(OidcUserRequest userRequest) throws OAuth2AuthenticationException {
         OidcUser oidcUser = super.loadUser(userRequest);
 
+        if (oidcUser == null) {
+            throw new OAuth2AuthenticationException("No user returned by OIDC provider");
+        }
+
         String email = oidcUser.getEmail();
 
         if (email == null) {
@@ -65,9 +69,9 @@ public class SocialOidcUserService extends OidcUserService {
         String registrationId = userRequest.getClientRegistration()
             .getRegistrationId();
 
-        User user = userService.findOrCreateSocialUser(
-            email, oidcUser.getGivenName(), oidcUser.getFamilyName(), oidcUser.getPicture(),
-            registrationId.toUpperCase(), oidcUser.getSubject(), true, AuthorityConstants.ADMIN);
+        User user = SocialUserResolver.resolveInvitedUser(
+            userService, email, oidcUser.getGivenName(), oidcUser.getFamilyName(), oidcUser.getPicture(),
+            registrationId.toUpperCase(), oidcUser.getSubject());
 
         List<SimpleGrantedAuthority> grantedAuthorities = user.getAuthorityIds()
             .stream()
