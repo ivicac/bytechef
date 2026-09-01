@@ -67,7 +67,8 @@ class ToolSearchCatalogFeederGlobalToolsTest {
     @Test
     void testMetaTableIsSchemaQualifiedToTheConfiguredSchema() {
         ToolSearchCatalogFeeder feeder = new ToolSearchCatalogFeeder(
-            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate, "public");
+            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate, "public",
+            "ai_hub_tool_search_vector_store");
 
         when(pgVectorJdbcTemplate.queryForObject(any(), eq(String.class), any()))
             .thenThrow(new org.springframework.dao.EmptyResultDataAccessException(1));
@@ -84,10 +85,38 @@ class ToolSearchCatalogFeederGlobalToolsTest {
         assertThat(createSql.getValue()).contains("public.ai_hub_tool_search_catalog_meta");
     }
 
+    /**
+     * VectorToolIndex#clearIndex deletes only the ids in its own in-memory map, which is empty on every boot, while
+     * indexTools assigns a fresh random UUID per row — so before this delete a re-index after a restart appended a
+     * duplicate set instead of replacing one. Duplicates displace distinct tools from the top-k search result, so the
+     * clear has to be by metadata, in SQL, against the same schema-qualified table the vector store writes to.
+     */
+    @Test
+    void testReindexDeletesStaleRowsFromEarlierJvmRunsByMetadata() {
+        ToolSearchCatalogFeeder feeder = new ToolSearchCatalogFeeder(
+            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate, "public",
+            "ai_hub_tool_search_vector_store");
+
+        when(pgVectorJdbcTemplate.queryForObject(any(), eq(String.class), any()))
+            .thenThrow(new org.springframework.dao.EmptyResultDataAccessException(1));
+
+        feeder.populateGlobalTools(
+            "ai_hub_tool_catalog:global:build", List.of(toolCallback("createDataTable", "Create a data table")));
+
+        ArgumentCaptor<String> deleteSql = ArgumentCaptor.forClass(String.class);
+
+        verify(pgVectorJdbcTemplate).update(deleteSql.capture(), eq("ai_hub_tool_catalog:global:build"));
+
+        assertThat(deleteSql.getValue())
+            .startsWith("DELETE FROM public.ai_hub_tool_search_vector_store")
+            .contains("metadata->>'sessionId'");
+    }
+
     @Test
     void testPopulateGlobalToolsIndexesEachToolWithNonBlankSummary() {
         ToolSearchCatalogFeeder feeder = new ToolSearchCatalogFeeder(
-            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate, "public");
+            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate, "public",
+            "ai_hub_tool_search_vector_store");
 
         when(pgVectorJdbcTemplate.queryForObject(any(), eq(String.class), any()))
             .thenThrow(new org.springframework.dao.EmptyResultDataAccessException(1));
@@ -113,7 +142,8 @@ class ToolSearchCatalogFeederGlobalToolsTest {
     @Test
     void testPopulateGlobalToolsSkipsWhenHashUnchanged() {
         ToolSearchCatalogFeeder feeder = new ToolSearchCatalogFeeder(
-            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate, "public");
+            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate, "public",
+            "ai_hub_tool_search_vector_store");
 
         when(pgVectorJdbcTemplate.queryForObject(any(), eq(String.class), any()))
             .thenThrow(new org.springframework.dao.EmptyResultDataAccessException(1));
@@ -139,7 +169,8 @@ class ToolSearchCatalogFeederGlobalToolsTest {
     @Test
     void testPopulateSourcesToolsFromStubEnumeration() {
         ToolSearchCatalogFeeder feeder = new ToolSearchCatalogFeeder(
-            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate, "public");
+            clusterElementDefinitionService, vectorToolIndex, pgVectorJdbcTemplate, "public",
+            "ai_hub_tool_search_vector_store");
 
         when(pgVectorJdbcTemplate.queryForObject(any(), eq(String.class), any()))
             .thenThrow(new org.springframework.dao.EmptyResultDataAccessException(1));
