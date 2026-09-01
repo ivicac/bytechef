@@ -18,6 +18,7 @@ import CustomComponentDetail from '@/ee/pages/settings/platform/custom-component
 import AiSkillDetail from '@/pages/automation/ai/skills/components/AiSkillDetail';
 import ProjectCodeWorkflowDetail from '@/pages/platform/code-workflow/ProjectCodeWorkflowDetail';
 import {DownloadIcon, ExternalLinkIcon, PanelRightCloseIcon, PlusIcon, XIcon} from 'lucide-react';
+import {useEffect, useRef} from 'react';
 import {Link} from 'react-router-dom';
 import {twMerge} from 'tailwind-merge';
 import {useShallow} from 'zustand/react/shallow';
@@ -111,7 +112,22 @@ const AiHubResourcePanel = () => {
         }))
     );
 
+    const activeTabRef = useRef<HTMLDivElement | null>(null);
+
     const activeTab = openTabs.find((tab) => tab.id === activeTabId);
+
+    /*
+     * Keep the active tab inside the strip's scroll window. The strip is `overflow-x-auto`, so once the
+     * tabs outgrow the panel width the newest one — which is appended at the end AND made active — lands
+     * outside the visible range and is clipped mid-label, with its close button cut off entirely. Nothing
+     * scrolls it back into view, so the tab the user just opened looked truncated and had no ✕.
+     *
+     * `block: 'nearest'` matters: the default ('start') would also scroll the panel's vertical ancestors,
+     * yanking the whole page. Both axes stay at the minimum movement that reveals the tab.
+     */
+    useEffect(() => {
+        activeTabRef.current?.scrollIntoView({block: 'nearest', inline: 'nearest'});
+    }, [activeTabId]);
 
     return (
         // Island layout: a `surface-main` gutter (matching the page background) frames a rounded,
@@ -155,6 +171,7 @@ const AiHubResourcePanel = () => {
                                         isActive && 'border-stroke-brand-primary text-content-brand-primary'
                                     )}
                                     key={tab.id}
+                                    ref={isActive ? activeTabRef : undefined}
                                 >
                                     {tab.kind === 'workflow' ? (
                                         <WorkflowTabLabel
