@@ -42,6 +42,30 @@ public interface ContextFactory {
         String componentName, int componentVersion, String clusterElementName,
         @Nullable ComponentConnection componentConnection, boolean editorEnvironment);
 
+    /**
+     * Creates a {@link ClusterElementContext} that carries the job principal the run acts for, so a cluster element
+     * invoked outside an AI agent can still derive an owner. Without it such an element has no principal at all, and an
+     * owner derived from nothing is "sees everything" rather than "sees nothing".
+     *
+     * <p>
+     * Both values are nullable together: a run with no persisted job principal (an editor test run) passes null for
+     * each and the resulting context behaves exactly like the overload without them.
+     *
+     * @param componentName       the name of the cluster element's component
+     * @param componentVersion    the version of the component
+     * @param clusterElementName  the name of the cluster element
+     * @param jobPrincipalId      the job principal the run belongs to -- a project-deployment id under
+     *                            {@link PlatformType#AUTOMATION}, an integration-instance id under
+     *                            {@link PlatformType#EMBEDDED} -- or null when the run has none
+     * @param componentConnection the connection for the cluster element, or null if none
+     * @param type                the platform the job runs under, or null when unknown
+     * @param editorEnvironment   whether the run is an editor test run
+     * @return a {@link ClusterElementContext} bound to that job principal
+     */
+    ClusterElementContext createClusterElementContext(
+        String componentName, int componentVersion, String clusterElementName, @Nullable Long jobPrincipalId,
+        @Nullable ComponentConnection componentConnection, @Nullable PlatformType type, boolean editorEnvironment);
+
     ClusterElementContext createClusterElementContext(
         String componentName, int componentVersion, String clusterElementName,
         @Nullable ComponentConnection componentConnection, boolean editorEnvironment,

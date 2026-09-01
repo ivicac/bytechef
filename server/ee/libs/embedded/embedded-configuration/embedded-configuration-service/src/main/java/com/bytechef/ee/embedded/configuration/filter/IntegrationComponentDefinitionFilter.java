@@ -28,12 +28,18 @@ public class IntegrationComponentDefinitionFilter implements ComponentDefinition
      * selects a filter with {@code findFirst()}, so an added bean for the same platform type is either ignored or wins
      * by bean ordering.
      */
-    private static final List<String> COMPONENT_NAMES = List.of(
-        "apiPlatform", "dataTable", "knowledgeBase", "webhook");
+    private static final List<String> COMPONENT_NAMES = List.of("apiPlatform", "webhook");
 
+    /**
+     * The integration palette does not depend on who is browsing -- an integration workflow is the vendor's own
+     * connector surface, authored by the vendor alone. Its automation counterpart does, which is why that one resolves
+     * a caller and this one does not.
+     */
     @Override
-    public boolean filter(ComponentDefinition componentDefinition) {
-        return !COMPONENT_NAMES.contains(componentDefinition.getName());
+    public List<ComponentDefinition> filter(List<ComponentDefinition> componentDefinitions) {
+        return componentDefinitions.stream()
+            .filter(componentDefinition -> !COMPONENT_NAMES.contains(componentDefinition.getName()))
+            .toList();
     }
 
     @Override

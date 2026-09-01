@@ -287,8 +287,14 @@ public class TriggerDefinitionServiceImpl implements TriggerDefinitionService {
         Map<String, ?> inputParameters, String workflowExecutionId, Map<String, ?> outputParameters,
         @ConnectionParam @Nullable ComponentConnection componentConnection) {
 
+        // Same reason as executeWebhookEnable: disable resolves the same resource the registration bound to, and a
+        // context with no principal would resolve a different one.
+        WorkflowExecutionId parsedWorkflowExecutionId = WorkflowExecutionId.parse(workflowExecutionId);
+
         TriggerContext triggerContext = contextFactory.createTriggerContext(
-            componentName, componentVersion, triggerName, null, null, componentConnection, null, null, false);
+            componentName, componentVersion, triggerName, parsedWorkflowExecutionId.getJobPrincipalId(),
+            parsedWorkflowExecutionId.getWorkflowUuid(), componentConnection, null,
+            parsedWorkflowExecutionId.getType(), false);
 
         doExecuteWebhookDisable(
             componentName, componentVersion, triggerName, inputParameters, workflowExecutionId,
@@ -304,8 +310,16 @@ public class TriggerDefinitionServiceImpl implements TriggerDefinitionService {
         Map<String, ?> inputParameters, String workflowExecutionId, String webhookUrl,
         @ConnectionParam @Nullable ComponentConnection componentConnection, long environmentId) {
 
+        // The principal has to reach the trigger: a webhook registration binds to whichever resource the trigger
+        // resolves, and a context with no principal resolves the caller from the security context instead. Enabling
+        // integration instance configurations loops over every connected user under one admin's context, so without
+        // this every account's trigger would register against the vendor's shared resource.
+        WorkflowExecutionId parsedWorkflowExecutionId = WorkflowExecutionId.parse(workflowExecutionId);
+
         TriggerContext triggerContext = contextFactory.createTriggerContext(
-            componentName, componentVersion, triggerName, null, null, componentConnection, environmentId, null, false);
+            componentName, componentVersion, triggerName, parsedWorkflowExecutionId.getJobPrincipalId(),
+            parsedWorkflowExecutionId.getWorkflowUuid(), componentConnection, environmentId,
+            parsedWorkflowExecutionId.getType(), false);
 
         return doExecuteWebhookEnable(
             componentName, componentVersion, triggerName, inputParameters,

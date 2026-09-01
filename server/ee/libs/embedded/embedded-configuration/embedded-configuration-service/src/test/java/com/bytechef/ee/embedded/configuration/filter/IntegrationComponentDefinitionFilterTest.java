@@ -14,6 +14,7 @@ import static org.mockito.Mockito.when;
 
 import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.constant.PlatformType;
+import java.util.List;
 import org.junit.jupiter.api.Test;
 
 /**
@@ -26,18 +27,24 @@ class IntegrationComponentDefinitionFilterTest {
     private final IntegrationComponentDefinitionFilter filter = new IntegrationComponentDefinitionFilter();
 
     /**
-     * Per-account data work belongs in bridged automation projects, where the owner filter governs it. An integration
-     * workflow is the vendor's connector surface, so the two stores are not offered there.
+     * The embedded pool is unusable from the embedded editor if its components are hidden -- the pool split already
+     * keeps embedded authors off automation's resources, so the filter no longer needs to hide these.
      */
     @Test
-    void testDataTableAndKnowledgeBaseAreNotOfferedInIntegrationWorkflows() {
-        assertFalse(filter.filter(componentDefinition("dataTable")));
-        assertFalse(filter.filter(componentDefinition("knowledgeBase")));
+    void testDataTableAndKnowledgeBaseAreOfferedToIntegrationWorkflows() {
+        assertTrue(offers("dataTable"));
+        assertTrue(offers("knowledgeBase"));
+    }
+
+    @Test
+    void testApiPlatformAndWebhookStayHidden() {
+        assertFalse(offers("apiPlatform"));
+        assertFalse(offers("webhook"));
     }
 
     @Test
     void testAnOrdinaryConnectorIsStillOffered() {
-        assertTrue(filter.filter(componentDefinition("slack")));
+        assertTrue(offers("slack"));
     }
 
     /**
@@ -49,6 +56,16 @@ class IntegrationComponentDefinitionFilterTest {
     void testTheFilterSupportsEmbeddedOnly() {
         assertTrue(filter.supports(PlatformType.EMBEDDED));
         assertFalse(filter.supports(PlatformType.AUTOMATION));
+    }
+
+    /**
+     * Asks the filter about one component through the list form, so the assertion still reads as a question about that
+     * component while exercising the signature the service actually calls.
+     */
+    private boolean offers(String name) {
+        List<ComponentDefinition> componentDefinitions = filter.filter(List.of(componentDefinition(name)));
+
+        return !componentDefinitions.isEmpty();
     }
 
     private static ComponentDefinition componentDefinition(String name) {

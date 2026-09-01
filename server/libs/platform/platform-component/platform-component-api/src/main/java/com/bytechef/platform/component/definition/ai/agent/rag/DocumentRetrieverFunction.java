@@ -17,6 +17,7 @@
 package com.bytechef.platform.component.definition.ai.agent.rag;
 
 import com.bytechef.component.definition.ClusterElementDefinition.ClusterElementType;
+import com.bytechef.component.definition.Context;
 import com.bytechef.component.definition.Parameters;
 import com.bytechef.platform.component.ComponentConnection;
 import java.util.Map;
@@ -35,14 +36,17 @@ public interface DocumentRetrieverFunction {
         "DOCUMENT_RETRIEVER", "documentRetriever", "Document Retriever", true);
 
     /**
-     * @param inputParameters
-     * @param connectionParameters
-     * @param extensions
-     * @param componentConnections
-     * @return
+     * @param inputParameters      the input parameters of the document retriever cluster element
+     * @param connectionParameters the connection parameters
+     * @param extensions           the extensions containing nested cluster elements
+     * @param componentConnections the component connections map
+     * @param context              the component invocation context, passed on to the nested vector store cluster
+     *                             element, which resolves the owner from it: a knowledge base is reachable only for the
+     *                             owner the run belongs to.
+     * @return the document retriever
      * @throws Exception
      */
     DocumentRetriever apply(
         Parameters inputParameters, Parameters connectionParameters, Parameters extensions,
-        Map<String, ComponentConnection> componentConnections) throws Exception;
+        Map<String, ComponentConnection> componentConnections, Context context) throws Exception;
 }

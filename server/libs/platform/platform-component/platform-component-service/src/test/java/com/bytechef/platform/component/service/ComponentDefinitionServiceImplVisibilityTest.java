@@ -42,8 +42,8 @@ class ComponentDefinitionServiceImplVisibilityTest {
 
     private final ComponentDefinitionFilter allowAllAutomationFilter = new ComponentDefinitionFilter() {
         @Override
-        public boolean filter(ComponentDefinition componentDefinition) {
-            return true;
+        public List<ComponentDefinition> filter(List<ComponentDefinition> componentDefinitions) {
+            return componentDefinitions;
         }
 
         @Override

@@ -39,8 +39,14 @@ public final class OwnerResolution {
     }
 
     /**
-     * @return the owner this invocation belongs to, or empty when the caller owns nothing in particular and may see
-     *         everything -- Community Edition, or an automation caller that is not a connected user
+     * Empty carries one meaning only: the caller owns nothing in particular and may see everything -- Community
+     * Edition, where no principal below the tenant exists, or a principal the resolver looked up and found belongs to
+     * no connected user. It never means "could not tell": a context that cannot identify the run it belongs to fails
+     * instead, because every consumer reads empty as the vendor and would open both pools on it.
+     *
+     * @return the owner this invocation belongs to, or empty per above
+     * @throws IllegalStateException when the context is neither an editor run nor able to name its job principal, so
+     *                               there is nothing to ask the resolver about
      */
     public static Optional<Owner> resolve(
         ActionContextAware actionContextAware, ObjectProvider<OwnerResolver> ownerResolverProvider) {
@@ -61,17 +67,37 @@ public final class OwnerResolution {
         Long jobPrincipalId = actionContextAware.getJobPrincipalId();
         PlatformType platformType = actionContextAware.getPlatformType();
 
+        // Unresolvable, not the vendor: an empty owner here would say "sees everything" about a context that cannot
+        // say whose run it is.
         if (jobPrincipalId == null || platformType == null) {
-            return Optional.empty();
+            throw new IllegalStateException(
+                ("Cannot resolve the owner of this run: the action context is not an editor run and does not identify "
+                    + "its job principal (jobPrincipalId=%s, platformType=%s). Answering \"no owner\" here would "
+                    + "read as the vendor and open every account's data, so an owner-scoped resource must not be "
+                    + "reached from a context this incomplete.")
+                        .formatted(jobPrincipalId, platformType));
         }
 
         return ownerResolver.resolveJobPrincipal(jobPrincipalId, platformType);
     }
 
     /**
-     * Cluster-element form. A cluster element runs as a tool of an AI agent action, and
-     * {@link ClusterElementContextAware#getAgentActionContext()} is that action's context -- but it is nullable, so a
-     * cluster element invoked outside an agent falls back to the security context. Never wider than the action form.
+     * Cluster-element form. Three sources, tried in the order of how much they know about the run.
+     *
+     * <p>
+     * A cluster element run as a tool of an AI agent action gets its owner from that action's context
+     * ({@link ClusterElementContextAware#getAgentActionContext()}), which is the richest answer because it also knows
+     * whether the run is an editor test.
+     *
+     * <p>
+     * Outside an agent there is no such context, but the element may still have been created with the job principal the
+     * run belongs to -- the data stream delegate does exactly that, from the Spring Batch job parameters. Reading it
+     * here is what lets such an element separate the pools; without it the element resolves nothing and an empty owner
+     * opens both.
+     *
+     * <p>
+     * Only when neither is present does this fall back to the security context, which is the editor case. Never wider
+     * than the action form.
      */
     public static Optional<Owner> resolve(
         ClusterElementContext clusterElementContext, ObjectProvider<OwnerResolver> ownerResolverProvider) {
@@ -87,6 +113,13 @@ public final class OwnerResolution {
 
             if (agentActionContext instanceof ActionContextAware actionContextAware) {
                 return resolve(actionContextAware, ownerResolverProvider);
+            }
+
+            Long jobPrincipalId = clusterElementContextAware.getJobPrincipalId();
+            PlatformType platformType = clusterElementContextAware.getPlatformType();
+
+            if (jobPrincipalId != null && platformType != null) {
+                return ownerResolver.resolveJobPrincipal(jobPrincipalId, platformType);
             }
         }
 

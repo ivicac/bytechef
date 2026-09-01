@@ -19,12 +19,21 @@ package com.bytechef.platform.owner;
 import com.bytechef.platform.constant.OwnerType;
 
 /**
- * The principal a resource or a row belongs to.
+ * The principal a resource belongs to.
+ *
+ * <p>
+ * Two levels, for data tables and knowledge bases, and the same {@code Owner} says both. On the resource it means the
+ * table or knowledge base is that account's alone. On a row or a chunk it means that record is theirs inside a resource
+ * shared with everyone -- a read reaches their records plus the unowned ones, a write reaches theirs alone.
+ *
+ * <p>
+ * Which level is meant is never a property of this record; it is a property of what holds it. {@code DataTableRef}
+ * carries one of each and names them apart for that reason.
  *
  * <p>
  * Never the job principal: for {@code PlatformType.EMBEDDED} that is the integration-instance id and for the automation
  * bridge the project-deployment id, both of which differ per integration and per project for the same account. Storing
- * one of those would scatter a single account's rows across its own integrations.
+ * one of those would scatter a single account's resources across its own integrations.
  *
  * @author Ivica Cardic
  */
