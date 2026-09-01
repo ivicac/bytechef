@@ -383,7 +383,6 @@
         --sidebar-border: 217 38% 28%;
     }
 
-
     * {
         @apply border-border;
     }
