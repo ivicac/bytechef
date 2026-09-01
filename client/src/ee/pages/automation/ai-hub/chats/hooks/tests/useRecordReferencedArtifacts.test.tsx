@@ -19,8 +19,18 @@ import {beforeEach, describe, expect, it, vi} from 'vitest';
  * pins that gate against a recurrence.
  */
 
-const {useRecordReferencedAiHubChatArtifactMutation: useGeneratedRecordMutation} = vi.hoisted(() => ({
+const {fetcherSpy, useRecordReferencedAiHubChatArtifactMutation: useGeneratedRecordMutation} = vi.hoisted(() => ({
+    fetcherSpy: vi.fn(),
     useRecordReferencedAiHubChatArtifactMutation: vi.fn(),
+}));
+
+// recordTabLessReferences bypasses react-query on purpose (it runs from the send path, not a hook), so it
+// is exercised through the raw fetcher.
+vi.mock('@/shared/middleware/graphqlFetcher', () => ({
+    fetcher:
+        (...fetcherArgs: unknown[]) =>
+        () =>
+            fetcherSpy(...fetcherArgs),
 }));
 
 vi.mock('@/shared/middleware/graphql', async (importOriginal) => {
@@ -32,12 +42,16 @@ vi.mock('@/shared/middleware/graphql', async (importOriginal) => {
     };
 });
 
-const useRecordReferencedArtifacts = (await import('../useRecordReferencedArtifacts')).default;
+const recordedModule = await import('../useRecordReferencedArtifacts');
+const useRecordReferencedArtifacts = recordedModule.default;
+const {recordTabLessReferences} = recordedModule;
 
 const mutateSpy = vi.fn();
 
 beforeEach(() => {
     mutateSpy.mockReset();
+    fetcherSpy.mockReset();
+    fetcherSpy.mockResolvedValue({});
     useGeneratedRecordMutation.mockReset();
 
     // The mock returns the same surface for every test. Tests below assert on `mutate` invocations
@@ -113,6 +127,31 @@ describe('useRecordReferencedArtifacts', () => {
                 artifactName: 'notes.md',
                 chatId: '10',
                 workspaceId: '1',
+            }),
+        });
+    });
+
+    /*
+     * workflowExecution is a tab kind whose WORKFLOW_EXECUTION_REFERENCED enum value has existed on the
+     * server and in the schema for a long time, but it was never added to the client's kind map — so a
+     * referenced execution opened its tab and was silently never recorded.
+     */
+    it('records a workflowExecution tab, stringifying its numeric id', () => {
+        aiHubTabsStore.setState({
+            activeChatId: 10,
+            openTabs: [{id: 'tab-exec-1', kind: 'workflowExecution' as const, name: 'run 42', workflowExecutionId: 42}],
+        });
+
+        const queryClient = new QueryClient({defaultOptions: {queries: {retry: false}}});
+
+        renderHook(() => useRecordReferencedArtifacts(10, 1), {wrapper: wrap(queryClient)});
+
+        expect(mutateSpy).toHaveBeenCalledTimes(1);
+        expect(mutateSpy).toHaveBeenCalledWith({
+            input: expect.objectContaining({
+                artifactId: '42',
+                artifactName: 'run 42',
+                kind: 'WORKFLOW_EXECUTION_REFERENCED',
             }),
         });
     });
@@ -203,5 +242,62 @@ describe('useRecordReferencedArtifacts', () => {
                 chatId: '20',
             }),
         });
+    });
+});
+
+/*
+ * The three tab-less kinds could never be recorded by the tab-watching effect above — attaching one adds a
+ * chip and opens nothing — so they are recorded from the send path instead, while the chips still exist.
+ * The server enum and GraphQL schema have carried all three for a long time; only the client half was
+ * missing, which is why this looked like a server gap.
+ */
+describe('recordTabLessReferences', () => {
+    it('records the attachments that have no viewer tab', async () => {
+        await recordTabLessReferences({
+            chatId: 7,
+            references: [
+                {id: 'api-1', kind: 'apiCollection', name: 'Billing API'},
+                {id: 'mcp-2', kind: 'mcpServer', name: 'Local MCP'},
+                {id: 'chat-3', kind: 'chat', name: 'Earlier chat'},
+            ],
+            workspaceId: 1,
+        });
+
+        expect(fetcherSpy).toHaveBeenCalledTimes(3);
+
+        const recordedKinds = fetcherSpy.mock.calls.map(([, variables]) => variables.input.kind);
+
+        expect(recordedKinds).toEqual(['API_COLLECTION_REFERENCED', 'MCP_SERVER_REFERENCED', 'CHAT_REFERENCED']);
+    });
+
+    // Everything else already reaches the artifact log through its tab, so recording it here too would
+    // duplicate the write on every single turn.
+    it('leaves the kinds that open a tab to the tab-watching effect', async () => {
+        await recordTabLessReferences({
+            chatId: 7,
+            references: [
+                {id: 'file-1', kind: 'file', name: 'notes.md'},
+                {id: '42', kind: 'workflowExecution', name: 'run 42'},
+            ],
+            workspaceId: 1,
+        });
+
+        expect(fetcherSpy).not.toHaveBeenCalled();
+    });
+
+    /*
+     * Bookkeeping must never break sending. The user has already hit Enter by the time this runs, and the
+     * turn itself is unaffected by whether the artifact row lands.
+     */
+    it('swallows a failed record rather than rejecting into the send path', async () => {
+        fetcherSpy.mockRejectedValue(new Error('boom'));
+
+        await expect(
+            recordTabLessReferences({
+                chatId: 7,
+                references: [{id: 'api-1', kind: 'apiCollection', name: 'Billing API'}],
+                workspaceId: 1,
+            })
+        ).resolves.toBeUndefined();
     });
 });

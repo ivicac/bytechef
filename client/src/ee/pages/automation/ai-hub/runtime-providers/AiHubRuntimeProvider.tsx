@@ -1,5 +1,6 @@
 import {createAiHubChat, generateAiHubChatTitle, patchChat} from '@/ee/pages/automation/ai-hub/chats/api/chats.api';
 import {AiHubChatsKeys} from '@/ee/pages/automation/ai-hub/chats/hooks/useChats';
+import {recordTabLessReferences} from '@/ee/pages/automation/ai-hub/chats/hooks/useRecordReferencedArtifacts';
 import {useTruncateAiHubChatMessagesMutation} from '@/ee/pages/automation/ai-hub/chats/hooks/useTruncateChatMessages';
 import {aiHubChatsStore} from '@/ee/pages/automation/ai-hub/chats/stores/useAiHubChatsStore';
 import {aiHubComposerStore} from '@/ee/pages/automation/ai-hub/composer/stores/useAiHubComposerStore';
@@ -20,7 +21,7 @@ import {
     openWorkflowSseStream,
 } from '@/ee/pages/automation/ai-hub/runtime-providers/workflowStreamHandler';
 import {MODE, useAiHubStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubStore';
-import {aiHubTabsStore} from '@/ee/pages/automation/ai-hub/stores/useAiHubTabsStore';
+import {aiHubTabsStore, getTabGenericId} from '@/ee/pages/automation/ai-hub/stores/useAiHubTabsStore';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import {ApprovalResolutionContext, ResumeError} from '@/shared/components/ai-chat/approvalResolutionContext';
 import {humanizeAgentErrorMessage} from '@/shared/components/ai-chat/messages/humanizeAgentErrorMessage';
@@ -1150,28 +1151,6 @@ export interface AiHubStateToSendI {
     workspaceId: string;
 }
 
-const getTabGenericId = (tab: ReturnType<typeof aiHubTabsStore.getState>['openTabs'][number]): string => {
-    if (tab.kind === 'file') {
-        return tab.fileId;
-    } else if (tab.kind === 'workflow') {
-        return tab.workflowId;
-    } else if (tab.kind === 'dataTable') {
-        return tab.dataTableId;
-    } else if (tab.kind === 'workflowExecution') {
-        return String(tab.workflowExecutionId);
-    } else if (tab.kind === 'knowledgeBase') {
-        return tab.knowledgeBaseId;
-    } else if (tab.kind === 'customComponent') {
-        return tab.customComponentId;
-    } else if (tab.kind === 'codeWorkflow') {
-        return tab.projectId;
-    } else if (tab.kind === 'aiAgent') {
-        return tab.aiAgentId;
-    } else {
-        return tab.skillId;
-    }
-};
-
 interface PostTurnTelemetryArgsI {
     chatId: number;
     input: string;
@@ -2055,6 +2034,29 @@ export function AiHubRuntimeProvider({children}: Readonly<{children: ReactNode}>
         });
 
         agent.setState(buildStateToSend(withCurrentChatLlmSelection({mode, workspaceId: currentWorkspaceId})));
+
+        // Record the attachments that have no viewer tab (API collection, MCP server, chat) BEFORE the
+        // chips are cleared a line below. useRecordReferencedArtifacts cannot reach them: it walks
+        // `openTabs`, and these three never open one. Deliberately not awaited — the turn must not wait on
+        // artifact bookkeeping.
+        const chatIdForArtifacts = aiHubChatsStore.getState().currentChatId;
+
+        if (chatIdForArtifacts != null && currentWorkspaceId != null) {
+            void recordTabLessReferences({
+                chatId: chatIdForArtifacts,
+                references: aiHubComposerStore.getState().referencedResources,
+                workspaceId: currentWorkspaceId,
+            }).then(() =>
+                queryClient.invalidateQueries({
+                    predicate: (query) => {
+                        const key = query.queryKey;
+
+                        return Array.isArray(key) && key[0] === 'aiHubChats' && key[1] === 'artifacts';
+                    },
+                })
+            );
+        }
+
         aiHubComposerStore.getState().clear();
 
         addMessage({content: '', role: 'assistant'});
