@@ -23,7 +23,6 @@ import {useGetIntegrationVersionWorkflowsQuery} from '@/ee/shared/queries/embedd
 import {useGetIntegrationsQuery} from '@/ee/shared/queries/embedded/integrations.queries';
 import {useWorkspaceStore} from '@/pages/automation/stores/useWorkspaceStore';
 import AutomationWorkflowExecutionSheet from '@/pages/automation/workflow-executions/components/workflow-execution-sheet/WorkflowExecutionSheet';
-import ExecutionsTabs from '@/shared/components/ExecutionsTabs';
 import {useOnEnvironmentChange} from '@/shared/hooks/useOnEnvironmentChange';
 import Footer from '@/shared/layout/Footer';
 import Header from '@/shared/layout/Header';
@@ -450,7 +449,7 @@ export const WorkflowExecutions = () => {
                             <TooltipContent>Refresh</TooltipContent>
                         </Tooltip>
                     }
-                    title={<ExecutionsTabs basePath="/embedded/executions" />}
+                    title="Workflow Executions"
                 />
             }
             leftSidebarBody={

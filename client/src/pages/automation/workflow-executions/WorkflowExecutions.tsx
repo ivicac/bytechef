@@ -7,7 +7,6 @@ import TablePagination from '@/components/TablePagination';
 import {Label} from '@/components/ui/label';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
 import {useWorkflowExecutions} from '@/pages/automation/workflow-executions/hooks/useWorkflowExecutions';
-import ExecutionsTabs from '@/shared/components/ExecutionsTabs';
 import CopilotButton from '@/shared/components/copilot/CopilotButton';
 import useCopilotPostTurnRegistry from '@/shared/components/copilot/stores/useCopilotPostTurnRegistry';
 import {Source} from '@/shared/components/copilot/stores/useCopilotStore';
@@ -147,7 +146,7 @@ export const WorkflowExecutions = () => {
                             <CopilotButton source={Source.WORKFLOW_EXECUTION} />
                         </div>
                     }
-                    title={<ExecutionsTabs basePath="/automation/executions" />}
+                    title="Workflow Executions"
                 />
             }
             leftSidebarBody={
