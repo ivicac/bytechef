@@ -52,9 +52,10 @@ public class ProjectWorkflowAgentToolCallback implements ToolCallback {
             this for requests that design, edit, debug, or explain a workflow (orchestration of tasks,
             triggers, conditions, loops). The subagent owns the canonical behaviour for this domain;
             prefer calling it over reasoning about workflow shape directly. ASK mode returns analysis;
-            BUILD mode returns the updated workflow JSON plus a change rationale. The workflow must
-            already exist — create it with createProjectWorkflow first, then include its workflowId in
-            the request.""";
+            BUILD mode returns the updated workflow JSON plus a change rationale. For an EXISTING workflow
+            include its workflowId in the request. For a BRAND-NEW workflow include the target projectId
+            instead — the subagent creates the workflow itself, carrying the complete definition in one
+            call. It cannot create a project, so create or choose that first.""";
 
     private static final String INPUT_SCHEMA =
         """

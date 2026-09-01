@@ -106,6 +106,38 @@ import tools.jackson.databind.json.JsonMapper;
 @ConditionalOnProperty(prefix = "bytechef.ai.copilot", name = "enabled", havingValue = "true")
 public class CopilotConfiguration {
 
+    /**
+     * Appended to the shared {@code prompt_workflow_editor_build.txt} body for the one-shot {@code buildWorkflow}
+     * subagent ONLY. The same resource also backs the Copilot workflow-editor panel agent, which always has a workflow
+     * on screen (its {@code workflowId} comes from page state) — teaching that agent to create a workflow when it reads
+     * no id would let it silently produce a duplicate instead of updating the one the user is looking at. The panel
+     * reads the resource directly, so it never sees this text.
+     */
+    private static final String BUILD_WORKFLOW_SUBAGENT_ADDENDUM = """
+
+        ## Brand-new workflows (overrides step 7's "you always author into an EXISTING workflow" note)
+
+        You are a one-shot subagent. Your caller gives you EITHER a `workflowId` (the workflow already exists) OR a
+        `projectId` (the workflow does not exist yet). Build the COMPLETE definition first, exactly as step 7
+        requires, then persist it with ONE call:
+
+        - Given a `workflowId` — `updateWorkflow(workflowId, workflow)`.
+        - Given only a `projectId` — `createProjectWorkflow(projectId, workflow)` carrying the COMPLETE definition.
+          Never create an empty or default "Manual" placeholder workflow and fill it in afterwards; the single
+          create call must carry the whole workflow.
+
+        If you are given both, the `workflowId` wins — update it. Never create a second workflow for a project you
+        were already pointed at.
+
+        You still cannot create a PROJECT (`createProject` is not among your tools). Given neither a `workflowId`
+        nor a `projectId`, say so plainly and tell the caller to create or choose the project first, then re-invoke
+        you with its `projectId`.
+
+        After persisting, call `getWorkflow(workflowId)` to confirm, then continue with step 8 as written. The
+        `workflowId | projectId | projectWorkflowId` line is REQUIRED on both branches — `createProjectWorkflow`
+        returns all three ids.
+        """;
+
     private final Resource promptWorkflowEditorAskResource;
     private final Resource promptWorkflowEditorBuildResource;
     private final Resource promptCodeEditorAskResource;
@@ -885,7 +917,7 @@ public class CopilotConfiguration {
         SimulationTools simulationTools) {
 
         return ChatClient.builder(chatModel)
-            .defaultSystem(workflowEditorBuildSystemPrompt)
+            .defaultSystem(workflowEditorBuildSystemPrompt + BUILD_WORKFLOW_SUBAGENT_ADDENDUM)
             .defaultTools(
                 projectWorkflowTools, taskTools, scriptTools, simulationTools, workflowValidatorTools,
                 workflowInstructionTools)
