@@ -14,9 +14,10 @@ export interface AutomationHubTabsConfig {
     automations?: boolean;
 
     /**
-     * The Connections tab -- the connections the user owns, with reconnect/delete. Connections
-     * shared by the vendor through `sharedConnectionIds` are deliberately NOT listed here: the
-     * user may select them when activating an automation, but may not reconnect or delete them.
+     * The Connections tab -- the connections the user owns, with reconnect/delete, plus any
+     * connection a tenant admin marked as shared inside ByteChef's '/embedded/connections' page.
+     * Shared connections are listed but read-only: the user may select them when activating an
+     * automation, but may not reconnect or delete them.
      * @default true
      */
     connections?: boolean;
@@ -80,8 +81,9 @@ interface AutomationHubProps {
     /**
      * Whether to allow the connection dialog to be shown in the workflow builder view of the hub.
      * When true, users can create and manage connections directly. When false, users can only use
-     * existing connections -- either shared connections defined by `sharedConnectionIds` or
-     * integration connections created via `ConnectDialog`.
+     * existing connections -- either connections a tenant admin marked as shared inside
+     * ByteChef's '/embedded/connections' page or integration connections created via
+     * `ConnectDialog`.
      * @default true
      */
     connectionDialogAllowed?: boolean;
@@ -107,9 +109,9 @@ interface AutomationHubProps {
     jwtToken: string;
 
     /**
-     * Array of connection IDs that should be shared with this Automation Hub.
-     * These connections will be available for use in the automations the user activates.
-     * Shared connections can be created via the ByteChef's '/embedded/connections' page.
+     * @deprecated No longer has any effect. The server derives shared connections from the
+     * `shared` flag a tenant admin sets on the connection itself at '/embedded/connections';
+     * ids sent here are ignored. Will be removed in a future release.
      * @default []
      */
     sharedConnectionIds?: number[];

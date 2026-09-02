@@ -30,7 +30,6 @@ import {useParams} from 'react-router-dom';
 export const useWorkflowBuilder = () => {
     const [initialized, setInitialized] = useState(false);
     const [includeComponents, setIncludeComponents] = useState<string[] | undefined>(undefined);
-    const [sharedConnectionIds, setSharedConnectionIds] = useState<number[] | undefined>(undefined);
 
     const hubContext = useContext(HubBuilderContext);
 
@@ -135,7 +134,6 @@ export const useWorkflowBuilder = () => {
     useEmbedHandshake((params) => {
         setConnectionDialogAllowed(params.connectionDialogAllowed ?? false);
         setIncludeComponents(params.includeComponents);
-        setSharedConnectionIds(params.sharedConnectionIds);
         setInitialized(true);
     }, !hubContext);
 
@@ -149,7 +147,6 @@ export const useWorkflowBuilder = () => {
 
         setConnectionDialogAllowed(hubContext.connectionDialogAllowed);
         setIncludeComponents(hubContext.includeComponents);
-        setSharedConnectionIds(hubContext.sharedConnectionIds);
         setInitialized(true);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [hubContext]);
@@ -200,7 +197,6 @@ export const useWorkflowBuilder = () => {
         initialized,
         invalidateWorkflowQueries,
         projectId: connectedUserProjectWorkflow?.projectId,
-        sharedConnectionIds,
         updateClusterElementParameterMutation,
         updateWorkflowEditorMutation,
         updateWorkflowMutation,
