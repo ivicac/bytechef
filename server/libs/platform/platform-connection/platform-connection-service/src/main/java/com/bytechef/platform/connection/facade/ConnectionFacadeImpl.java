@@ -508,6 +508,7 @@ public class ConnectionFacadeImpl implements ConnectionFacade {
             .lastModifiedBy(connection.getLastModifiedBy())
             .lastModifiedDate(connection.getLastModifiedDate())
             .name(degradedName(connection, cause))
+            .shared(connection.isShared())
             .status(connection.getStatus())
             .tags(tags)
             .version(connection.getVersion())
