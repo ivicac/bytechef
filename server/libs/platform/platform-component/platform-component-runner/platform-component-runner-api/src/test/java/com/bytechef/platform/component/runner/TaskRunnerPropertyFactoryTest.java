@@ -156,7 +156,7 @@ public class TaskRunnerPropertyFactoryTest {
     }
 
     @Test
-    public void testDefaultsToTheFirstEnabledRunnerWhenGraalVmIsNotEnabled() {
+    public void testPrefersProcessOverDockerWhenGraalVmIsNotEnabled() {
         TaskRunner dockerTaskRunner = newTaskRunner("docker", "Docker", "image");
         TaskRunner processTaskRunner = newTaskRunner("process", "Process", "commands");
 
@@ -164,7 +164,38 @@ public class TaskRunnerPropertyFactoryTest {
 
         Property.StringProperty typeProperty = getTypeProperty(taskRunnerRegistry);
 
-        assertThat(typeProperty.getDefaultValue()).contains("docker");
+        assertThat(typeProperty.getDefaultValue()).contains("process");
+    }
+
+    /**
+     * The registry hands runners out sorted by type, so {@code docker} arrives before {@code process}. Defaulting to
+     * whichever came first therefore picked Docker for no reason anyone chose - and Docker's allowlist is fail-closed,
+     * so a newly added action would produce a rejection rather than a run. This asserts the order is the declared
+     * preference and not the iteration order.
+     */
+    @Test
+    public void testTheDefaultIsThePreferenceOrderNotTheRegistrationOrder() {
+        TaskRunner dockerTaskRunner = newTaskRunner("docker", "Docker", "image");
+        TaskRunner processTaskRunner = newTaskRunner("process", "Process", "commands");
+
+        Property.StringProperty firstOrder = getTypeProperty(newRegistry(dockerTaskRunner, processTaskRunner));
+        Property.StringProperty reversedOrder = getTypeProperty(newRegistry(processTaskRunner, dockerTaskRunner));
+
+        assertThat(firstOrder.getDefaultValue()).contains("process");
+        assertThat(reversedOrder.getDefaultValue()).contains("process");
+    }
+
+    /**
+     * A runner contributed by another module is not in the preference order, so it is used only when none of the
+     * built-in three is enabled. That keeps the order from becoming a registry every new runner has to edit.
+     */
+    @Test
+    public void testARunnerOutsideThePreferenceOrderIsUsedWhenItIsTheOnlyOne() {
+        TaskRunner customTaskRunner = newTaskRunner("custom", "Custom", "setting");
+
+        Property.StringProperty typeProperty = getTypeProperty(newRegistry(customTaskRunner));
+
+        assertThat(typeProperty.getDefaultValue()).contains("custom");
     }
 
     private static Property.StringProperty getTypeProperty(TaskRunnerRegistry taskRunnerRegistry) {
