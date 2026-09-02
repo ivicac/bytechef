@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.bytechef.component.script.engine;
+package com.bytechef.platform.component.runner;
 
 import com.bytechef.platform.component.domain.ComponentDefinition;
 import com.bytechef.platform.component.polyglot.ComponentCatalog;
@@ -25,18 +25,18 @@ import java.util.concurrent.ConcurrentHashMap;
 import org.springframework.context.ApplicationContext;
 
 /**
- * {@link ComponentCatalog} adapter backing the script component's {@code context.component} proxy chain.
- * {@link ComponentDefinitionService} is resolved lazily from the {@link ApplicationContext} on every call, matching the
- * pre-extraction {@code PolyglotEngine} behavior.
+ * {@link ComponentCatalog} adapter backing the {@code context.component} proxy chain a guest script reaches through
+ * {@link PolyglotEngine}. {@link ComponentDefinitionService} is resolved lazily from the {@link ApplicationContext} on
+ * every call, matching the pre-extraction {@code PolyglotEngine} behavior.
  *
  * @author Ivica Cardic
  */
-class ScriptComponentCatalog implements ComponentCatalog {
+class PolyglotComponentCatalog implements ComponentCatalog {
 
     private final ApplicationContext applicationContext;
     private final Map<String, ComponentDefinition> componentDefinitionMap = new ConcurrentHashMap<>();
 
-    ScriptComponentCatalog(ApplicationContext applicationContext) {
+    PolyglotComponentCatalog(ApplicationContext applicationContext) {
         this.applicationContext = applicationContext;
     }
 
