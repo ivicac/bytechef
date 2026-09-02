@@ -1,11 +1,11 @@
 import {useAiAgentEvalsStore} from '@/pages/platform/cluster-element-editor/ai-agent-evals/stores/useAiAgentEvalsStore';
-import useClusterElementsViewModeStore from '@/pages/platform/workflow-editor/stores/useClusterElementsViewModeStore';
+import useClusterElementsViewMode from '@/pages/platform/workflow-editor/hooks/useClusterElementsViewMode';
 import useWorkflowEditorStore from '@/pages/platform/workflow-editor/stores/useWorkflowEditorStore';
 import {useCallback} from 'react';
 
 export default function useAiAgentEvals() {
     const {evalsTab, setEvalsPanelOpen, setEvalsTab} = useAiAgentEvalsStore();
-    const clusterElementsViewMode = useClusterElementsViewModeStore((state) => state.clusterElementsViewMode);
+    const clusterElementsViewMode = useClusterElementsViewMode();
     const setClusterElementsCanvasOpen = useWorkflowEditorStore((state) => state.setClusterElementsCanvasOpen);
 
     // In box mode there is no dialog canvas view underneath the evals overlay to fall back to —
