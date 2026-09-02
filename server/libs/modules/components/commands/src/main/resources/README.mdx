@@ -51,9 +51,11 @@ Each action's default interpreter, when the runner's own `interpreter` property 
 
 Commands are **not** evaluated as workflow expressions. POSIX shell parameter expansion is written `${VAR}`, which
 is character-for-character the workflow evaluator's own accessor syntax - if commands were evaluated the ordinary
-way, a line as unremarkable as `echo ${HOME}` would fail the whole task with `Invalid expression`, naming neither
-this component nor the `commands` property. To avoid that, the `commands` property is held back from expression
-evaluation entirely.
+way, a line as unremarkable as `echo ${GREETING:-hi}` would fail the whole task with `Invalid expression`, naming
+neither this component nor the `commands` property, because a shell default is not a valid accessor. The same goes
+for `${#items[@]}` and every other expansion form that is not a bare name. A bare `${HOME}` fares worse rather than
+better: it *is* a valid accessor, so it would be resolved against the workflow context instead of the shell's
+environment. To avoid all of that, the `commands` property is held back from expression evaluation entirely.
 
 Workflow data reaches a command through the `env` property instead, whose values *are* evaluated normally:
 
@@ -84,3 +86,17 @@ Every action returns:
 `vars` carries whatever structured output the execution wrote, if any. Unlike the Script component's `graalvm`
 runner, Commands has no in-process runner to fall back to, so this five-key map is always the result shape - there
 is no bare-value variant.
+
+`stdout` and `stderr` are **truncated**: the first 32 KiB and the last 32 KiB of each stream are kept - 64 KiB in
+all - and anything between them is replaced by a `... N bytes elided ...` marker. Both ends are kept because the
+head carries what the run started doing and the tail carries how it ended. An execution that writes less than that
+is stored whole.
+
+## Log volume
+
+The child's standard output and standard error are also written to the **server log** in full, line by line, as
+they arrive - stdout at INFO, stderr at WARN. That is deliberate: it is the only place the elided middle of a long
+stream still exists. It also means log volume is proportional to how much your commands print, without a ceiling of
+its own. A command that emits megabytes per run emits megabytes into the server log on every run, so keep chatty
+output (progress bars, per-row tracing, `set -x`) out of production commands or redirect it to a file the run
+discards.
