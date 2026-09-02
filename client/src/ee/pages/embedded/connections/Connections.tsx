@@ -88,6 +88,7 @@ export const Connections = () => {
                                 }
                                 connectionTagsQueryKey={ConnectionKeys.connectionTags}
                                 connectionsQueryKey={ConnectionKeys.connections}
+                                showSharedOption
                                 triggerNode={<Button label="New Connection" />}
                                 useCreateConnectionMutation={useCreateConnectionMutation}
                                 useGetConnectionTagsQuery={useGetConnectionTagsQuery}
@@ -143,6 +144,7 @@ export const Connections = () => {
                                     }
                                     connectionTagsQueryKey={ConnectionKeys.connectionTags}
                                     connectionsQueryKey={ConnectionKeys.connections}
+                                    showSharedOption
                                     triggerNode={<Button label="Create Connection" />}
                                     useCreateConnectionMutation={useCreateConnectionMutation}
                                     useGetConnectionTagsQuery={useGetConnectionTagsQuery}
