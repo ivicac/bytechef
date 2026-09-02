@@ -16,11 +16,18 @@
 
 package com.bytechef.platform.component.runner;
 
+import static com.bytechef.component.definition.ComponentDsl.array;
+import static com.bytechef.component.definition.ComponentDsl.fileEntry;
+import static com.bytechef.component.definition.ComponentDsl.integer;
 import static com.bytechef.component.definition.ComponentDsl.object;
 import static com.bytechef.component.definition.ComponentDsl.option;
 import static com.bytechef.component.definition.ComponentDsl.string;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.ENV;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.GRAALVM;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.INPUT_FILES;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.OUTPUT_FILES;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TASK_RUNNER;
+import static com.bytechef.platform.component.runner.TaskRunnerConstants.TIMEOUT;
 import static com.bytechef.platform.component.runner.TaskRunnerConstants.TYPE;
 
 import com.bytechef.component.definition.ComponentDsl.ModifiableObjectProperty;
@@ -29,6 +36,7 @@ import com.bytechef.component.definition.ComponentDsl.ModifiableValueProperty;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 
 /**
  * Builds the {@code taskRunner} object property from the enabled runners.
@@ -94,6 +102,108 @@ public class TaskRunnerPropertyFactory {
             .properties(allProperties)
             .required(false)
             .expressionEnabled(false);
+    }
+
+    /**
+     * Builds the properties that only an out-of-process runner can honour, each shown for exactly the runners that
+     * declare its capability.
+     *
+     * <p>
+     * A property no enabled runner supports is omitted rather than shown disabled: an always-hidden field is
+     * indistinguishable from a broken one, and the runner's own {@code validate} rejects the value anyway if a
+     * hand-edited workflow supplies it.
+     */
+    public static List<ModifiableValueProperty<?, ?>> externalProperties(TaskRunnerRegistry taskRunnerRegistry) {
+        List<ModifiableValueProperty<?, ?>> properties = new ArrayList<>();
+
+        addIfSupported(
+            properties, taskRunnerRegistry, TaskRunnerCapability.ENVIRONMENT,
+            object(ENV)
+                .label("Environment")
+                .description("Environment variables the execution sees. The host's own environment is not inherited.")
+                .additionalProperties(string())
+                .required(false));
+
+        addIfSupported(
+            properties, taskRunnerRegistry, TaskRunnerCapability.INPUT_FILES,
+            object(INPUT_FILES)
+                .label("Input Files")
+                .description(
+                    "Files written into the working directory before the execution, keyed by file name. A value may " +
+                        "be inline text or a file entry.")
+                .additionalProperties(string(), fileEntry())
+                .required(false));
+
+        addIfSupported(
+            properties, taskRunnerRegistry, TaskRunnerCapability.OUTPUT_FILES,
+            array(OUTPUT_FILES)
+                .label("Output Files")
+                .description("Glob patterns matched against the output directory after the execution.")
+                .items(string())
+                .required(false));
+
+        addForExternalRunners(
+            properties, taskRunnerRegistry,
+            integer(TIMEOUT)
+                .label("Timeout (seconds)")
+                .description("How long the execution may run before it is killed.")
+                .required(false));
+
+        return properties;
+    }
+
+    private static void addIfSupported(
+        List<ModifiableValueProperty<?, ?>> properties, TaskRunnerRegistry taskRunnerRegistry,
+        TaskRunnerCapability capability, ModifiableValueProperty<?, ?> property) {
+
+        List<TaskRunner> taskRunners = taskRunnerRegistry.getTaskRunners(Set.of(capability));
+
+        if (taskRunners.isEmpty()) {
+            return;
+        }
+
+        String condition = taskRunners.stream()
+            .map(taskRunner -> "%s.%s == '%s'".formatted(TASK_RUNNER, TYPE, taskRunner.getType()))
+            .collect(Collectors.joining(" || "));
+
+        property.displayCondition(condition);
+
+        properties.add(property);
+    }
+
+    /**
+     * Adds a property shown for every runner that executes outside this JVM.
+     *
+     * <p>
+     * "External" is derived, not listed: a runner is in-process exactly when it can offer the component bridge, which
+     * is a live host object and therefore cannot cross a process boundary. So the filter is the absence of
+     * {@link TaskRunnerCapability#COMPONENT_BRIDGE}, and a runner contributed by another module lands on the correct
+     * side of it without an edit here.
+     */
+    private static void addForExternalRunners(
+        List<ModifiableValueProperty<?, ?>> properties, TaskRunnerRegistry taskRunnerRegistry,
+        ModifiableValueProperty<?, ?> property) {
+
+        List<TaskRunner> taskRunners = taskRunnerRegistry.getTaskRunners(Set.of())
+            .stream()
+            .filter(taskRunner -> {
+                Set<TaskRunnerCapability> capabilities = taskRunner.getCapabilities();
+
+                return !capabilities.contains(TaskRunnerCapability.COMPONENT_BRIDGE);
+            })
+            .toList();
+
+        if (taskRunners.isEmpty()) {
+            return;
+        }
+
+        String condition = taskRunners.stream()
+            .map(taskRunner -> "%s.%s == '%s'".formatted(TASK_RUNNER, TYPE, taskRunner.getType()))
+            .collect(Collectors.joining(" || "));
+
+        property.displayCondition(condition);
+
+        properties.add(property);
     }
 
     /**

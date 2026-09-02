@@ -111,11 +111,16 @@ public class GraalVmTaskRunnerTest {
         assertThat(modeProperty.getDefaultValue()).contains("strict");
     }
 
+    /**
+     * The default mode is strict, so this passes a null timeout rather than the 1-arg {@code newRequest} helper's
+     * default {@link #TIMEOUT} - {@code validate} now rejects a non-null timeout under strict mode, and this test is
+     * about the returned result, not about timeout handling.
+     */
     @Test
     public void testRunReturnsPerformResult() {
         when(polyglotEngine.execute(any(), any(), anyString(), any(), anyMap(), any())).thenReturn("done");
 
-        TaskRunnerResult taskRunnerResult = graalVmTaskRunner.run(newRequest(Map.of()));
+        TaskRunnerResult taskRunnerResult = graalVmTaskRunner.run(newRequest(Map.of(), null));
 
         assertThat(taskRunnerResult.output()).isEqualTo("done");
         assertThat(taskRunnerResult.exitCode()).isNull();
@@ -195,17 +200,23 @@ public class GraalVmTaskRunnerTest {
         assertThat(taskRunnerResult.output()).isEqualTo("done");
     }
 
+    /**
+     * A caller-supplied timeout is honoured under trusted mode
+     * ({@link #testRunBoundsTrustedExecutionsWithTheDefaultCeiling} covers the no-timeout case; trusted otherwise
+     * forwards whatever the caller gave it, unconstrained), but strict mode rejects one outright - see
+     * {@link #testValidateRejectsATimeoutInStrictMode}. This is the load-bearing assertion for that rejection actually
+     * reaching {@code run}: a workflow author who set a timeout under the process runner and then switches the workflow
+     * to graalvm must fail loudly here, not have the value silently apply as a wall clock that strict was never meant
+     * to have.
+     */
     @Test
-    public void testRunHonoursACallerSuppliedTimeoutInStrictMode() {
+    public void testRunRejectsATimeoutInStrictMode() {
         Duration callerTimeout = Duration.ofSeconds(30);
 
-        when(
-            polyglotEngine.execute(
-                eq(ScriptSandboxMode.STRICT), eq(callerTimeout), eq("js"), any(), anyMap(), any())).thenReturn("done");
-
-        TaskRunnerResult taskRunnerResult = graalVmTaskRunner.run(newRequest(Map.of("mode", "strict"), callerTimeout));
-
-        assertThat(taskRunnerResult.output()).isEqualTo("done");
+        assertThatThrownBy(() -> graalVmTaskRunner.run(newRequest(Map.of("mode", "strict"), callerTimeout)))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("timeout")
+            .hasMessageContaining("strict");
     }
 
     @Test
@@ -265,8 +276,40 @@ public class GraalVmTaskRunnerTest {
 
     @Test
     public void testValidateAcceptsStrictAndDefaultMode() {
-        graalVmTaskRunner.validate(newRequest(Map.of("mode", "strict")));
-        graalVmTaskRunner.validate(newRequest(Map.of()));
+        graalVmTaskRunner.validate(newRequest(Map.of("mode", "strict"), null));
+        graalVmTaskRunner.validate(newRequest(Map.of(), null));
+    }
+
+    /**
+     * The inverse of {@link #testValidateAcceptsStrictAndDefaultMode}: a stale, non-null timeout must fail loudly here
+     * rather than silently apply a wall clock strict was never meant to have. Both the explicit "strict" mode and the
+     * implicit default (no mode key at all) resolve to strict, so both must reject.
+     */
+    @Test
+    public void testValidateRejectsATimeoutInStrictMode() {
+        assertThatThrownBy(() -> graalVmTaskRunner.validate(newRequest(Map.of("mode", "strict"), TIMEOUT)))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("timeout")
+            .hasMessageContaining("strict");
+
+        assertThatThrownBy(() -> graalVmTaskRunner.validate(newRequest(Map.of(), TIMEOUT)))
+            .isInstanceOf(IllegalArgumentException.class)
+            .hasMessageContaining("timeout")
+            .hasMessageContaining("strict");
+    }
+
+    /**
+     * Trusted has no ceiling of its own, so unlike strict it must keep accepting a caller-supplied timeout -
+     * {@link #testRunBoundsTrustedExecutionsWithTheDefaultCeiling} and
+     * {@link #testRunForwardsModeTimeoutAndInputParameters} cover it actually being forwarded; this pins the
+     * validate-level half of that contract so a future change gating both modes the same way fails here first.
+     */
+    @Test
+    public void testValidateAcceptsATimeoutInTrustedMode() {
+        GraalVmTaskRunner trustingTaskRunner = newTaskRunner(Map.of("trusted-enabled", "true"));
+
+        assertThatCode(() -> trustingTaskRunner.validate(newRequest(Map.of("mode", "trusted"), TIMEOUT)))
+            .doesNotThrowAnyException();
     }
 
     @Test
@@ -319,7 +362,7 @@ public class GraalVmTaskRunnerTest {
 
             GraalVmTaskRunner taskRunner = newTaskRunner(properties);
 
-            assertThatCode(() -> taskRunner.validate(newRequest(Map.of("mode", "strict"))))
+            assertThatCode(() -> taskRunner.validate(newRequest(Map.of("mode", "strict"), null)))
                 .doesNotThrowAnyException();
         }
     }
