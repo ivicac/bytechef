@@ -29,16 +29,20 @@ import java.util.function.Consumer;
  * drop every {@code console.log} and {@code print} a script author writes. Lines longer than {@link #MAX_LINE_LENGTH}
  * are flushed early so a guest cannot grow this buffer without bound.
  *
+ * <p>
+ * An external runner tees its child process's streams here for the same reason: what it stores on the task is bounded,
+ * so the logs are the only place the whole stream survives.
+ *
  * @author Ivica Cardic
  */
-final class GuestLoggingOutputStream extends OutputStream {
+public final class GuestLoggingOutputStream extends OutputStream {
 
     private static final int MAX_LINE_LENGTH = 8192;
 
     private final ByteArrayOutputStream buffer = new ByteArrayOutputStream();
     private final Consumer<String> lineConsumer;
 
-    GuestLoggingOutputStream(Consumer<String> lineConsumer) {
+    public GuestLoggingOutputStream(Consumer<String> lineConsumer) {
         this.lineConsumer = lineConsumer;
     }
 
