@@ -79,7 +79,6 @@ public class ScriptComponentHandler implements ComponentHandler {
                         ScriptPythonTool.of(polyglotEngine),
 //                        ScriptRubyTool.of(polyglotEngine),
 //                        ScriptJavaItemProcessor.of(polyglotEngine),
-//                        ScriptRAction.of(polyglotEngine),
                         ScriptJavaScriptItemProcessor.of(polyglotEngine),
                         ScriptPythonItemProcessor.of(polyglotEngine)));
 //                        ScriptRubyItemProcessor.of(polyglotEngine)));
