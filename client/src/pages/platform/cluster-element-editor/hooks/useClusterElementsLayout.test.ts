@@ -3,7 +3,7 @@ import {Node} from '@xyflow/react';
 import {beforeEach, describe, expect, it, vi} from 'vitest';
 
 import useWorkflowDataStore from '../../workflow-editor/stores/useWorkflowDataStore';
-import useWorkflowEditorStore from '../../workflow-editor/stores/useWorkflowEditorStore';
+import useWorkflowEditorStore, {WorkflowEditorI} from '../../workflow-editor/stores/useWorkflowEditorStore';
 import useClusterElementsDataStore from '../stores/useClusterElementsDataStore';
 import useClusterElementsLayout from './useClusterElementsLayout';
 
@@ -81,15 +81,24 @@ describe('useClusterElementsLayout', () => {
         useClusterElementsDataStore.setState({nodes: handPlacedNodes()});
 
         useWorkflowEditorStore.setState({
-            mainClusterRootComponentDefinition: {name: 'aiAgent'},
+            clusterRootComponentDefinitions: {
+                [ROOT_NODE_NAME]: {
+                    clusterElement: false,
+                    clusterRoot: true,
+                    connectionRequired: false,
+                    name: 'aiAgent',
+                    version: 1,
+                },
+            },
             nestedClusterRootsComponentDefinitions: {},
             rootClusterElementNodeData: {
                 componentName: 'aiAgent',
+                name: ROOT_NODE_NAME,
                 operationName: 'chat',
                 type: 'aiAgent/v1',
                 workflowNodeName: ROOT_NODE_NAME,
             },
-        } as Parameters<typeof useWorkflowEditorStore.setState>[0]);
+        } as Partial<WorkflowEditorI>);
 
         setWorkflowDefinition(1);
     });

@@ -27,14 +27,14 @@ export default function useAiAgentEditor({
         (state) => state.currentNode?.clusterElementType
     );
 
-    const {rootClusterElementNodeData, setMainClusterRootComponentDefinition} = useWorkflowEditorStore(
+    const {rootClusterElementNodeData, setClusterRootComponentDefinition} = useWorkflowEditorStore(
         useShallow((state) => ({
             rootClusterElementNodeData: state.rootClusterElementNodeData,
-            setMainClusterRootComponentDefinition: state.setMainClusterRootComponentDefinition,
+            setClusterRootComponentDefinition: state.setClusterRootComponentDefinition,
         }))
     );
 
-    // Seed mainClusterRootComponentDefinition so saveClusterElementToWorkflow does
+    // Seed the root's entry in clusterRootComponentDefinitions so saveClusterElementToWorkflow does
     // not early-return when a tool or model is added from the simple AI Agent
     // editor, where useClusterElementsLayout (the canvas hook that otherwise sets
     // this) does not run.
@@ -53,13 +53,12 @@ export default function useAiAgentEditor({
 
     useEffect(() => {
         if (rootClusterElementDefinition && rootClusterElementNodeData?.workflowNodeName) {
-            setMainClusterRootComponentDefinition(rootClusterElementDefinition);
+            setClusterRootComponentDefinition(
+                rootClusterElementNodeData.workflowNodeName,
+                rootClusterElementDefinition
+            );
         }
-    }, [
-        rootClusterElementDefinition,
-        rootClusterElementNodeData?.workflowNodeName,
-        setMainClusterRootComponentDefinition,
-    ]);
+    }, [rootClusterElementDefinition, rootClusterElementNodeData?.workflowNodeName, setClusterRootComponentDefinition]);
 
     const {updateWorkflowMutation} = useWorkflowEditor();
 
